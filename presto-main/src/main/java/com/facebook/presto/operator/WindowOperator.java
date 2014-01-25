@@ -13,16 +13,15 @@
  */
 package com.facebook.presto.operator;
 
-import com.facebook.presto.operator.PagesIndex.RowComparator;
 import com.facebook.presto.operator.window.WindowFunction;
 import com.facebook.presto.type.Type;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ObjectArrays;
+import com.google.common.collect.Iterables;
 import com.google.common.primitives.Ints;
 import com.google.common.util.concurrent.ListenableFuture;
 import it.unimi.dsi.fastutil.ints.IntComparator;
 
-import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 
 import static com.facebook.presto.operator.SortOrder.ASC_NULLS_LAST;
@@ -37,11 +36,11 @@ public class WindowOperator
     {
         private final int operatorId;
         private final List<Type> sourceTypes;
-        private final int[] outputChannels;
+        private final List<Integer> outputChannels;
         private final List<WindowFunction> windowFunctions;
-        private final int[] partitionChannels;
-        private final int[] sortChannels;
-        private final SortOrder[] sortOrder;
+        private final List<Integer> partitionChannels;
+        private final List<Integer> sortChannels;
+        private final List<SortOrder> sortOrder;
         private final int expectedPositions;
         private final List<Type> types;
         private boolean closed;
@@ -49,20 +48,20 @@ public class WindowOperator
         public WindowOperatorFactory(
                 int operatorId,
                 List<? extends Type> sourceTypes,
-                int[] outputChannels,
+                List<Integer> outputChannels,
                 List<WindowFunction> windowFunctions,
-                int[] partitionChannels,
-                int[] sortChannels,
-                SortOrder[] sortOrder,
+                List<Integer> partitionChannels,
+                List<Integer> sortChannels,
+                List<SortOrder> sortOrder,
                 int expectedPositions)
         {
             this.operatorId = operatorId;
             this.sourceTypes = ImmutableList.copyOf(sourceTypes);
-            this.outputChannels = outputChannels;
+            this.outputChannels = ImmutableList.copyOf(checkNotNull(outputChannels, "outputChannels is null"));
             this.windowFunctions = windowFunctions;
-            this.partitionChannels = partitionChannels;
-            this.sortChannels = sortChannels;
-            this.sortOrder = sortOrder;
+            this.partitionChannels = ImmutableList.copyOf(checkNotNull(partitionChannels, "partitionChannels is null"));
+            this.sortChannels = ImmutableList.copyOf(checkNotNull(sortChannels, "sortChannels is null"));
+            this.sortOrder = ImmutableList.copyOf(checkNotNull(sortOrder, "sortOrder is null"));
             this.expectedPositions = expectedPositions;
 
             this.types = toTypes(sourceTypes, outputChannels, windowFunctions);
@@ -108,12 +107,12 @@ public class WindowOperator
     private final OperatorContext operatorContext;
     private final int[] outputChannels;
     private final List<WindowFunction> windowFunctions;
-    private final int[] partitionChannels;
-    private final int[] sortChannels;
-    private final SortOrder[] sortOrder;
+    private final List<Integer> partitionChannels;
+    private final List<Integer> sortChannels;
+    private final List<SortOrder> sortOrder;
     private final List<Type> types;
 
-    private final PagesIndex pageIndex;
+    private final PagesIndex pagesIndex;
 
     private final PageBuilder pageBuilder;
 
@@ -131,23 +130,23 @@ public class WindowOperator
     public WindowOperator(
             OperatorContext operatorContext,
             List<Type> sourceTypes,
-            int[] outputChannels,
+            List<Integer> outputChannels,
             List<WindowFunction> windowFunctions,
-            int[] partitionChannels,
-            int[] sortChannels,
-            SortOrder[] sortOrder,
+            List<Integer> partitionChannels,
+            List<Integer> sortChannels,
+            List<SortOrder> sortOrder,
             int expectedPositions)
     {
         this.operatorContext = checkNotNull(operatorContext, "operatorContext is null");
-        this.outputChannels = checkNotNull(outputChannels, "outputChannels is null").clone();
+        this.outputChannels = Ints.toArray(checkNotNull(outputChannels, "outputChannels is null"));
         this.windowFunctions = checkNotNull(windowFunctions, "windowFunctions is null");
-        this.partitionChannels = checkNotNull(partitionChannels, "partitionChannels is null").clone();
-        this.sortChannels = checkNotNull(sortChannels, "sortChannels is null");
-        this.sortOrder = checkNotNull(sortOrder, "sortOrder is null").clone();
+        this.partitionChannels = ImmutableList.copyOf(checkNotNull(partitionChannels, "partitionChannels is null"));
+        this.sortChannels = ImmutableList.copyOf(checkNotNull(sortChannels, "sortChannels is null"));
+        this.sortOrder = ImmutableList.copyOf(checkNotNull(sortOrder, "sortOrder is null"));
 
         this.types = toTypes(sourceTypes, outputChannels, windowFunctions);
 
-        this.pageIndex = new PagesIndex(sourceTypes, expectedPositions, operatorContext);
+        this.pagesIndex = new PagesIndex(sourceTypes, expectedPositions, operatorContext);
         this.pageBuilder = new PageBuilder(this.types);
     }
 
@@ -170,21 +169,20 @@ public class WindowOperator
             state = State.HAS_OUTPUT;
 
             // we partition by ordering the values so partitions are sequential values
-            SortOrder[] partitionOrder = new SortOrder[partitionChannels.length];
-            Arrays.fill(partitionOrder, ASC_NULLS_LAST);
+            List<SortOrder> partitionOrder = Collections.nCopies(partitionChannels.size(), ASC_NULLS_LAST);
 
             // sort everything by partition channels, then sort channels
-            int[] orderChannels = Ints.concat(partitionChannels, sortChannels);
-            SortOrder[] ordering = ObjectArrays.concat(partitionOrder, sortOrder, SortOrder.class);
+            List<Integer> orderChannels = ImmutableList.copyOf(Iterables.concat(partitionChannels, sortChannels));
+            List<SortOrder> ordering = ImmutableList.copyOf(Iterables.concat(partitionOrder, sortOrder));
 
             // sort the index
-            pageIndex.sort(orderChannels, ordering);
+            pagesIndex.sort(orderChannels, ordering);
 
             // create partition comparator
-            partitionComparator = new RowComparator(pageIndex, partitionChannels, partitionOrder);
+            partitionComparator = pagesIndex.createComparator(partitionChannels, partitionOrder);
 
             // create order comparator
-            orderComparator = new RowComparator(pageIndex, sortChannels, sortOrder);
+            orderComparator = pagesIndex.createComparator(sortChannels, sortOrder);
         }
     }
 
@@ -212,7 +210,7 @@ public class WindowOperator
         checkState(state == State.NEEDS_INPUT, "Operator is already finishing");
         checkNotNull(page, "page is null");
 
-        pageIndex.addPage(page);
+        pagesIndex.addPage(page);
     }
 
     @Override
@@ -222,20 +220,20 @@ public class WindowOperator
             return null;
         }
 
-        if (currentPosition >= pageIndex.getPositionCount()) {
+        if (currentPosition >= pagesIndex.getPositionCount()) {
             state = State.FINISHED;
             return null;
         }
 
         // iterate through the positions sequentially until we have one full page
         pageBuilder.reset();
-        while (!pageBuilder.isFull() && currentPosition < pageIndex.getPositionCount()) {
+        while (!pageBuilder.isFull() && currentPosition < pagesIndex.getPositionCount()) {
             // check for new partition
             boolean newPartition = (currentPosition == 0) || (currentPosition == partitionEnd);
             if (newPartition) {
                 // find end of partition
                 partitionEnd++;
-                while ((partitionEnd < pageIndex.getPositionCount()) &&
+                while ((partitionEnd < pagesIndex.getPositionCount()) &&
                         (partitionComparator.compare(partitionEnd - 1, partitionEnd) == 0)) {
                     partitionEnd++;
                 }
@@ -249,7 +247,7 @@ public class WindowOperator
             // copy output channels
             int channel = 0;
             while (channel < outputChannels.length) {
-                pageIndex.appendTo(outputChannels[channel], currentPosition, pageBuilder.getBlockBuilder(channel));
+                pagesIndex.appendTo(outputChannels[channel], currentPosition, pageBuilder.getBlockBuilder(channel));
                 channel++;
             }
 
@@ -284,7 +282,7 @@ public class WindowOperator
         return page;
     }
 
-    private static List<Type> toTypes(List<? extends Type> sourceTypes, int[] outputChannels, List<WindowFunction> windowFunctions)
+    private static List<Type> toTypes(List<? extends Type> sourceTypes, List<Integer> outputChannels, List<WindowFunction> windowFunctions)
     {
         ImmutableList.Builder<Type> types = ImmutableList.builder();
         for (int channel : outputChannels) {

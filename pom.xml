@@ -609,6 +609,7 @@
                             <consoleOutput>true</consoleOutput>
                             <includeTestSourceDirectory>true</includeTestSourceDirectory>
                             <configLocation>${air.main.basedir}/src/checkstyle/checks.xml</configLocation>
+                            <excludes>**/com/facebook/presto/operator/PagesIndexOrdering.java</excludes>
                         </configuration>
                     </execution>
                 </executions>

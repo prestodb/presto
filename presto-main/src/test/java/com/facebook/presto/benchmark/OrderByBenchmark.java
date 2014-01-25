@@ -24,6 +24,7 @@ import java.util.List;
 import java.util.concurrent.ExecutorService;
 
 import static com.facebook.presto.benchmark.BenchmarkQueryRunner.createLocalQueryRunner;
+import static com.facebook.presto.operator.SortOrder.ASC_NULLS_LAST;
 import static com.facebook.presto.util.Threads.daemonThreadsNamed;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 
@@ -47,9 +48,10 @@ public class OrderByBenchmark
         OrderByOperatorFactory orderByOperator = new OrderByOperatorFactory(
                 2,
                 limitOperator.getTypes(),
-                new int[] {0},
-                new int[] {1},
-                ROWS);
+                ImmutableList.of(1),
+                ROWS,
+                ImmutableList.of(0),
+                ImmutableList.of(ASC_NULLS_LAST));
 
         return ImmutableList.of(tableScanOperator, limitOperator, orderByOperator);
     }

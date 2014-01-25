@@ -16,13 +16,14 @@ package com.facebook.presto.operator;
 import com.facebook.presto.block.BlockBuilder;
 import com.facebook.presto.block.BlockCursor;
 import com.facebook.presto.block.RandomAccessBlock;
-import com.google.common.collect.ImmutableList;
+import com.facebook.presto.sql.gen.OrderingCompiler;
 import com.facebook.presto.type.Type;
+import com.google.common.collect.ImmutableList;
 import io.airlift.units.DataSize;
 import io.airlift.units.DataSize.Unit;
-import it.unimi.dsi.fastutil.Arrays;
 import it.unimi.dsi.fastutil.Swapper;
 import it.unimi.dsi.fastutil.ints.AbstractIntComparator;
+import it.unimi.dsi.fastutil.ints.IntComparator;
 import it.unimi.dsi.fastutil.longs.LongArrayList;
 import it.unimi.dsi.fastutil.objects.ObjectArrayList;
 
@@ -46,6 +47,9 @@ import static io.airlift.slice.SizeOf.sizeOf;
 public class PagesIndex
         implements Swapper
 {
+    // todo this should be a services assigned in the constructor
+    private static final OrderingCompiler orderingCompiler = new OrderingCompiler();
+
     private final List<Type> types;
     private final OperatorContext operatorContext;
     private final LongArrayList valueAddresses;
@@ -75,6 +79,16 @@ public class PagesIndex
     public int getPositionCount()
     {
         return positionCount;
+    }
+
+    public LongArrayList getValueAddresses()
+    {
+        return valueAddresses;
+    }
+
+    public ObjectArrayList<RandomAccessBlock> getChannel(int channel)
+    {
+        return channels[channel];
     }
 
     public void addPage(Page page)
@@ -210,55 +224,21 @@ public class PagesIndex
         return result;
     }
 
-    private int compareTo(int[] sortChannels, SortOrder[] sortOrders, int leftPosition, int rightPosition)
+    public void sort(List<Integer> sortChannels, List<SortOrder> sortOrders)
     {
-        long leftPageAddress = valueAddresses.getLong(leftPosition);
-        int leftBlockIndex = decodeSliceIndex(leftPageAddress);
-        int leftBlockPosition = decodePosition(leftPageAddress);
+        orderingCompiler.compilePagesIndexOrdering(sortChannels, sortOrders).sort(this);
+    }
 
-        long rightPageAddress = valueAddresses.getLong(rightPosition);
-        int rightBlockIndex = decodeSliceIndex(rightPageAddress);
-        int rightBlockPosition = decodePosition(rightPageAddress);
+    public IntComparator createComparator(final List<Integer> sortChannels, final List<SortOrder> sortOrders)
+    {
+        return new AbstractIntComparator()
+        {
+            private final PagesIndexComparator comparator = orderingCompiler.compilePagesIndexOrdering(sortChannels, sortOrders).getComparator();
 
-        for (int i = 0; i < sortChannels.length; i++) {
-            int sortChannel = sortChannels[i];
-            SortOrder sortOrder = sortOrders[i];
-
-            RandomAccessBlock leftBlock = this.channels[sortChannel].get(leftBlockIndex);
-            RandomAccessBlock rightBlock = this.channels[sortChannel].get(rightBlockIndex);
-
-            int compare = leftBlock.compareTo(sortOrder, leftBlockPosition, rightBlock, rightBlockPosition);
-            if (compare != 0) {
-                return compare;
+            public int compare(int leftPosition, int rightPosition)
+            {
+                return comparator.compareTo(PagesIndex.this, leftPosition, rightPosition);
             }
-        }
-        return 0;
-    }
-
-    public void sort(int[] sortChannels, SortOrder[] sortOrders)
-    {
-        RowComparator comparator = new RowComparator(this, sortChannels, sortOrders);
-        Arrays.quickSort(0, positionCount, comparator, this);
-    }
-
-    public static class RowComparator
-            extends AbstractIntComparator
-    {
-        private final PagesIndex pagesIndex;
-        private final int[] sortChannels;
-        private final SortOrder[] sortOrders;
-
-        public RowComparator(PagesIndex pagesIndex, int[] sortChannels, SortOrder[] sortOrders)
-        {
-            this.pagesIndex = pagesIndex;
-            this.sortChannels = sortChannels;
-            this.sortOrders = sortOrders;
-        }
-
-        @Override
-        public int compare(int leftPosition, int rightPosition)
-        {
-            return pagesIndex.compareTo(sortChannels, sortOrders, leftPosition, rightPosition);
-        }
+        };
     }
 }

@@ -103,7 +103,6 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Ordering;
-import com.google.common.primitives.Ints;
 import io.airlift.log.Logger;
 import io.airlift.node.NodeInfo;
 
@@ -315,23 +314,21 @@ public class LocalExecutionPlanner
             List<Symbol> orderBySymbols = node.getOrderBy();
 
             // sort by PARTITION BY, then by ORDER BY
-            int[] partitionChannels = new int[partitionBySymbols.size()];
-            for (int i = 0; i < partitionChannels.length; i++) {
-                Symbol symbol = partitionBySymbols.get(i);
-                partitionChannels[i] = source.getLayout().get(symbol).getChannel();
+            ImmutableList.Builder<Integer> partitionChannels = ImmutableList.builder();
+            for (Symbol symbol : partitionBySymbols) {
+                partitionChannels.add(source.getLayout().get(symbol).getChannel());
             }
 
-            int[] sortChannels = new int[orderBySymbols.size()];
-            SortOrder[] sortOrder = new SortOrder[orderBySymbols.size()];
-            for (int i = 0; i < sortChannels.length; i++) {
-                Symbol symbol = orderBySymbols.get(i);
-                sortChannels[i] = source.getLayout().get(symbol).getChannel();
-                sortOrder[i] = node.getOrderings().get(symbol);
+            ImmutableList.Builder<Integer> sortChannels = ImmutableList.builder();
+            ImmutableList.Builder<SortOrder> sortOrder = ImmutableList.builder();
+            for (Symbol symbol : orderBySymbols) {
+                sortChannels.add(source.getLayout().get(symbol).getChannel());
+                sortOrder.add(node.getOrderings().get(symbol));
             }
 
-            int[] outputChannels = new int[source.getTypes().size()];
-            for (int i = 0; i < outputChannels.length; i++) {
-                outputChannels[i] = i;
+            ImmutableList.Builder<Integer> outputChannels = ImmutableList.builder();
+            for (int i = 0; i < source.getTypes().size(); i++) {
+                outputChannels.add(i);
             }
 
             ImmutableList.Builder<WindowFunction> windowFunctions = ImmutableList.builder();
@@ -359,11 +356,11 @@ public class LocalExecutionPlanner
             OperatorFactory operatorFactory = new WindowOperatorFactory(
                     context.getNextOperatorId(),
                     source.getTypes(),
-                    outputChannels,
+                    outputChannels.build(),
                     windowFunctions.build(),
-                    partitionChannels,
-                    sortChannels,
-                    sortOrder,
+                    partitionChannels.build(),
+                    sortChannels.build(),
+                    sortOrder.build(),
                     1_000_000);
 
             return new PhysicalOperation(operatorFactory, outputMappings.build(), source);
@@ -404,26 +401,25 @@ public class LocalExecutionPlanner
 
             List<Symbol> orderBySymbols = node.getOrderBy();
 
-            int[] orderByChannels = Ints.toArray(getChannelsForSymbols(orderBySymbols, source.getLayout()));
+            List<Integer> orderByChannels = getChannelsForSymbols(orderBySymbols, source.getLayout());
 
-            SortOrder[] sortOrder = new SortOrder[orderBySymbols.size()];
-            for (int i = 0; i < orderBySymbols.size(); i++) {
-                Symbol symbol = orderBySymbols.get(i);
-                sortOrder[i] = node.getOrderings().get(symbol);
+            ImmutableList.Builder<SortOrder> sortOrder = ImmutableList.builder();
+            for (Symbol symbol : orderBySymbols) {
+                sortOrder.add(node.getOrderings().get(symbol));
             }
 
-            int[] outputChannels = new int[source.getTypes().size()];
-            for (int i = 0; i < outputChannels.length; i++) {
-                outputChannels[i] = i;
+            ImmutableList.Builder<Integer> outputChannels = ImmutableList.builder();
+            for (int i = 0; i < source.getTypes().size(); i++) {
+                outputChannels.add(i);
             }
 
             OperatorFactory operator = new OrderByOperatorFactory(
                     context.getNextOperatorId(),
                     source.getTypes(),
-                    outputChannels,
+                    outputChannels.build(),
                     10_000,
                     orderByChannels,
-                    sortOrder);
+                    sortOrder.build());
 
             return new PhysicalOperation(operator, source.getLayout(), source);
         }
