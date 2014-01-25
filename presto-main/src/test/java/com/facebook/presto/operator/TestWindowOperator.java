@@ -21,6 +21,7 @@ import com.facebook.presto.operator.window.WindowFunction;
 import com.facebook.presto.sql.analyzer.Session;
 import com.facebook.presto.util.MaterializedResult;
 import com.google.common.collect.ImmutableList;
+import com.google.common.primitives.Ints;
 import io.airlift.units.DataSize;
 import io.airlift.units.DataSize.Unit;
 import org.testng.annotations.AfterMethod;
@@ -81,11 +82,11 @@ public class TestWindowOperator
         WindowOperatorFactory operatorFactory = new WindowOperatorFactory(
                 0,
                 ImmutableList.of(BIGINT, DOUBLE),
-                ints(1, 0),
+                Ints.asList(1, 0),
                 ROW_NUMBER,
-                ints(),
-                ints(0),
-                sortOrder(SortOrder.ASC_NULLS_LAST),
+                Ints.asList(),
+                Ints.asList(0),
+                ImmutableList.copyOf(new SortOrder[] {SortOrder.ASC_NULLS_LAST}),
                 10);
 
         Operator operator = operatorFactory.createOperator(driverContext);
@@ -117,11 +118,11 @@ public class TestWindowOperator
         WindowOperatorFactory operatorFactory = new WindowOperatorFactory(
                 0,
                 ImmutableList.of(VARCHAR, BIGINT, DOUBLE, BOOLEAN),
-                ints(0, 1, 2, 3),
+                Ints.asList(0, 1, 2, 3),
                 ROW_NUMBER,
-                ints(0),
-                ints(1),
-                sortOrder(SortOrder.ASC_NULLS_LAST),
+                Ints.asList(0),
+                Ints.asList(1),
+                ImmutableList.copyOf(new SortOrder[] {SortOrder.ASC_NULLS_LAST}),
                 10);
 
         Operator operator = operatorFactory.createOperator(driverContext);
@@ -156,11 +157,11 @@ public class TestWindowOperator
         WindowOperatorFactory operatorFactory = new WindowOperatorFactory(
                 0,
                 ImmutableList.of(BIGINT),
-                ints(0),
+                Ints.asList(0),
                 ROW_NUMBER,
-                ints(),
-                ints(),
-                sortOrder(),
+                Ints.asList(),
+                Ints.asList(),
+                ImmutableList.copyOf(new SortOrder[] {}),
                 10);
         Operator operator = operatorFactory.createOperator(driverContext);
 
@@ -198,25 +199,15 @@ public class TestWindowOperator
         WindowOperatorFactory operatorFactory = new WindowOperatorFactory(
                 0,
                 ImmutableList.of(BIGINT, DOUBLE),
-                ints(1),
+                Ints.asList(1),
                 ROW_NUMBER,
-                ints(),
-                ints(0),
-                sortOrder(SortOrder.ASC_NULLS_LAST),
+                Ints.asList(),
+                Ints.asList(0),
+                ImmutableList.copyOf(new SortOrder[] {SortOrder.ASC_NULLS_LAST}),
                 10);
 
         Operator operator = operatorFactory.createOperator(driverContext);
 
         toPages(operator, input);
-    }
-
-    private static int[] ints(int... array)
-    {
-        return array;
-    }
-
-    private static SortOrder[] sortOrder(SortOrder... array)
-    {
-        return array;
     }
 }
