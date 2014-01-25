@@ -31,6 +31,8 @@ import java.util.concurrent.ExecutorService;
 import static com.facebook.presto.operator.OperatorAssertion.assertOperatorEquals;
 import static com.facebook.presto.operator.OperatorAssertion.toPages;
 import static com.facebook.presto.operator.RowPagesBuilder.rowPagesBuilder;
+import static com.facebook.presto.operator.SortOrder.ASC_NULLS_LAST;
+import static com.facebook.presto.operator.SortOrder.DESC_NULLS_LAST;
 import static com.facebook.presto.type.BigintType.BIGINT;
 import static com.facebook.presto.type.DoubleType.DOUBLE;
 import static com.facebook.presto.type.VarcharType.VARCHAR;
@@ -75,9 +77,10 @@ public class TestOrderByOperator
         OrderByOperatorFactory operatorFactory = new OrderByOperatorFactory(
                 0,
                 ImmutableList.of(BIGINT, DOUBLE),
-                new int[] {0},
-                new int[] {1},
-                10);
+                ImmutableList.of(1),
+                10,
+                ImmutableList.of(0),
+                ImmutableList.of(ASC_NULLS_LAST));
 
         Operator operator = operatorFactory.createOperator(driverContext);
 
@@ -106,10 +109,10 @@ public class TestOrderByOperator
         OrderByOperatorFactory operatorFactory = new OrderByOperatorFactory(
                 0,
                 ImmutableList.of(VARCHAR, BIGINT),
-                new int[] {0, 1},
+                ImmutableList.of(0, 1),
                 10,
-                new int[] {0, 1},
-                new SortOrder[] {SortOrder.ASC_NULLS_LAST, SortOrder.DESC_NULLS_LAST});
+                ImmutableList.of(0, 1),
+                ImmutableList.of(ASC_NULLS_LAST, DESC_NULLS_LAST));
 
         Operator operator = operatorFactory.createOperator(driverContext);
 
@@ -138,10 +141,10 @@ public class TestOrderByOperator
         OrderByOperatorFactory operatorFactory = new OrderByOperatorFactory(
                 0,
                 ImmutableList.of(BIGINT, DOUBLE),
-                new int[] {0},
+                ImmutableList.of(0),
                 10,
-                new int[] {0},
-                new SortOrder[] {SortOrder.DESC_NULLS_LAST});
+                ImmutableList.of(0),
+                ImmutableList.of(DESC_NULLS_LAST));
 
         Operator operator = operatorFactory.createOperator(driverContext);
 
@@ -175,9 +178,10 @@ public class TestOrderByOperator
         OrderByOperatorFactory operatorFactory = new OrderByOperatorFactory(
                 0,
                 ImmutableList.of(BIGINT, DOUBLE),
-                new int[] {0},
-                new int[] {1},
-                10);
+                ImmutableList.of(1),
+                10,
+                ImmutableList.of(0),
+                ImmutableList.of(ASC_NULLS_LAST));
 
         Operator operator = operatorFactory.createOperator(driverContext);
 
