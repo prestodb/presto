@@ -57,8 +57,9 @@ public class Query
         this.client = checkNotNull(client, "client is null");
     }
 
-    public void renderOutput(PrintStream out, OutputFormat outputFormat, boolean interactive)
+    public int renderOutput(PrintStream out, OutputFormat outputFormat, boolean interactive)
     {
+        int ret = 0;
         SignalHandler oldHandler = Signal.handle(SIGINT, new SignalHandler()
         {
             @Override
@@ -79,14 +80,16 @@ public class Query
             }
         });
         try {
-            renderQueryOutput(out, outputFormat, interactive);
+            ret = renderQueryOutput(out, outputFormat, interactive);
         }
         finally {
             Signal.handle(SIGINT, oldHandler);
         }
+
+        return ret;
     }
 
-    private void renderQueryOutput(PrintStream out, OutputFormat outputFormat, boolean interactive)
+    private int renderQueryOutput(PrintStream out, OutputFormat outputFormat, boolean interactive)
     {
         StatusPrinter statusPrinter = null;
         @SuppressWarnings("resource")
@@ -104,7 +107,7 @@ public class Query
             QueryResults results = client.isValid() ? client.current() : client.finalResults();
             if (results.getColumns() == null) {
                 errorChannel.printf("Query %s has no columns\n", results.getId());
-                return;
+                return -1;
             }
 
             try {
@@ -125,13 +128,18 @@ public class Query
 
         if (client.isClosed()) {
             errorChannel.println("Query aborted by user");
+            return -1;
         }
         else if (client.isGone()) {
             errorChannel.println("Query is gone (server restarted?)");
+            return -1;
         }
         else if (client.isFailed()) {
             renderFailure(client.finalResults(), errorChannel);
+            return -1;
         }
+
+        return 0;
     }
 
     private void waitForData()

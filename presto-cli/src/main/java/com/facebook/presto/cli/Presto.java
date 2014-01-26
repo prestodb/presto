@@ -29,5 +29,6 @@ public final class Presto
         }
 
         console.run();
+        System.exit(console.getStatus());
     }
 }

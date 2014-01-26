@@ -49,6 +49,8 @@ public class Console
 {
     private static final String PROMPT_NAME = "presto";
 
+    private int status;
+
     @Inject
     public HelpOption helpOption;
 
@@ -65,6 +67,8 @@ public class Console
         if (!hasQuery || !isFromFile) {
             AnsiConsole.systemInstall();
         }
+
+        status = 0;
 
         initializeLogging(session.isDebug());
 
@@ -84,7 +88,7 @@ public class Console
 
         try (QueryRunner queryRunner = QueryRunner.create(session)) {
             if (hasQuery) {
-                executeCommand(queryRunner, query, clientOptions.outputFormat);
+                status = executeCommand(queryRunner, query, clientOptions.outputFormat);
             }
             else {
                 runConsole(queryRunner, session);
@@ -92,6 +96,10 @@ public class Console
         }
     }
 
+    public int getStatus() {
+        return status;
+    }
+    
     @SuppressWarnings("fallthrough")
     private void runConsole(QueryRunner queryRunner, ClientSession session)
     {
@@ -168,25 +176,32 @@ public class Console
         }
     }
 
-    private static void executeCommand(QueryRunner queryRunner, String query, OutputFormat outputFormat)
+    private static int executeCommand(QueryRunner queryRunner, String query, OutputFormat outputFormat)
     {
         StatementSplitter splitter = new StatementSplitter(query + ";");
         for (Statement split : splitter.getCompleteStatements()) {
-            process(queryRunner, split.statement(), outputFormat, false);
+            int ret = process(queryRunner, split.statement(), outputFormat, false); 
+            if ( ret != 0) {
+                return ret;
+            }
         }
+        return 0;
     }
 
-    private static void process(QueryRunner queryRunner, String sql, OutputFormat outputFormat, boolean interactive)
+    private static int process(QueryRunner queryRunner, String sql, OutputFormat outputFormat, boolean interactive)
     {
+        int ret = 0;
         try (Query query = queryRunner.startQuery(sql)) {
-            query.renderOutput(System.out, outputFormat, interactive);
+            ret = query.renderOutput(System.out, outputFormat, interactive);
         }
         catch (RuntimeException e) {
-            System.out.println("Error running command: " + e.getMessage());
+            System.err.println("Error running command: " + e.getMessage());
             if (queryRunner.getSession().isDebug()) {
                 e.printStackTrace();
             }
+            ret = -1;
         }
+        return ret;
     }
 
     private static MemoryHistory getHistory()
