@@ -18,13 +18,16 @@ import com.facebook.presto.client.Column;
 import com.facebook.presto.client.ErrorLocation;
 import com.facebook.presto.client.QueryResults;
 import com.facebook.presto.client.StatementClient;
+import com.facebook.presto.client.StatementStats;
 import com.google.common.base.Charsets;
 import com.google.common.base.Splitter;
 import com.google.common.base.Strings;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
+import static com.google.common.io.ByteStreams.nullOutputStream;
 import io.airlift.log.Logger;
+import io.airlift.units.Duration;
 import org.fusesource.jansi.Ansi;
 import sun.misc.Signal;
 import sun.misc.SignalHandler;
@@ -37,6 +40,9 @@ import java.io.PrintStream;
 import java.io.Writer;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicBoolean;
+import static java.util.concurrent.TimeUnit.SECONDS;
+
+import static java.lang.Math.min;
 
 import static com.facebook.presto.cli.ConsolePrinter.REAL_TERMINAL;
 import static com.google.common.base.Preconditions.checkNotNull;
@@ -52,12 +58,18 @@ public class Query
     private final AtomicBoolean ignoreUserInterrupt = new AtomicBoolean();
     private final StatementClient client;
 
+    public enum InteractionLevel {
+        NONE,
+        PROGRESS,
+        ALL
+    };
+
     public Query(StatementClient client)
     {
         this.client = checkNotNull(client, "client is null");
     }
 
-    public int renderOutput(PrintStream out, OutputFormat outputFormat, boolean interactive)
+    public int renderOutput(PrintStream out, OutputFormat outputFormat, InteractionLevel il)
     {
         int ret = 0;
         SignalHandler oldHandler = Signal.handle(SIGINT, new SignalHandler()
@@ -80,7 +92,7 @@ public class Query
             }
         });
         try {
-            ret = renderQueryOutput(out, outputFormat, interactive);
+            ret = renderQueryOutput(out, outputFormat, il);
         }
         finally {
             Signal.handle(SIGINT, oldHandler);
@@ -89,18 +101,18 @@ public class Query
         return ret;
     }
 
-    private int renderQueryOutput(PrintStream out, OutputFormat outputFormat, boolean interactive)
+    private int renderQueryOutput(PrintStream out, OutputFormat outputFormat, InteractionLevel il)
     {
         StatusPrinter statusPrinter = null;
         @SuppressWarnings("resource")
-        PrintStream errorChannel = interactive ? out : System.err;
+        PrintStream errorChannel = (il == InteractionLevel.ALL) ? out : System.err;
 
-        if (interactive) {
+        if (il == InteractionLevel.ALL) {
             statusPrinter = new StatusPrinter(client, out);
             statusPrinter.printInitialStatusUpdates();
         }
         else {
-            waitForData();
+            waitForData(il);
         }
 
         if ((!client.isFailed()) && (!client.isGone()) && (!client.isClosed())) {
@@ -111,7 +123,7 @@ public class Query
             }
 
             try {
-                renderResults(out, outputFormat, interactive, results);
+                renderResults(out, outputFormat, (il == InteractionLevel.ALL), results);
             }
             catch (QueryAbortedException e) {
                 System.out.println("(query aborted by user)");
@@ -142,11 +154,43 @@ public class Query
         return 0;
     }
 
-    private void waitForData()
+    private void waitForData(InteractionLevel il)
     {
+        long lastPrint = 0;
+        int progressPercentage;
+
+        PrintStream err = System.err;
+        switch(il) {
+        case PROGRESS:
+            // retain the stderr stream
+            break;
+        case NONE:
+            // set stderr as null stream
+            System.setErr(new PrintStream(nullOutputStream()));
+            break;
+        default:
+            assert false;
+            break;
+        }
+
+        System.err.println("Started Query: " + client.current().getId());
         while (client.isValid() && (client.current().getData() == null)) {
+            QueryResults results = client.current();
+            StatementStats stats = results.getStats();
+            // Copy of what printQueryInfo() does.
+            if (Duration.nanosSince(lastPrint).getValue(SECONDS) >= 0.5) {
+                progressPercentage = (int) min(99, percentage(stats.getCompletedSplits(), stats.getTotalSplits()));
+                System.err.println(String.format("Query: %s Progress: %d%%", results.getId(), progressPercentage));
+                lastPrint = System.nanoTime();
+            }
             client.advance();
         }
+
+        if (client.isValid()) {
+            System.err.println(String.format("Query: %s Progress: 100%%", client.current().getId()));
+        }
+
+        System.setErr(err);
     }
 
     private void renderResults(PrintStream out, OutputFormat format, boolean interactive, QueryResults results)
@@ -275,5 +319,13 @@ public class Query
         if (results.getError().getFailureInfo() != null) {
             results.getError().getFailureInfo().toException().printStackTrace(out);
         }
+    }
+
+    private static double percentage(double count, double total)
+    {
+        if (total == 0) {
+            return 0;
+        }
+        return min(100, (count * 100.0) / total);
     }
 }
