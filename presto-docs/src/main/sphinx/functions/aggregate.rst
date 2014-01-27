@@ -30,11 +30,11 @@ General Aggregate Functions
     Returns the number of ``TRUE`` input values.
     This function is equivalent to ``count(CASE WHEN x THEN 1 END)``.
 
-.. function:: max(x) -> bigint
+.. function:: max(x) -> [same as input]
 
     Returns the maximum value of all input values.
 
-.. function:: min(x) -> bigint
+.. function:: min(x) -> [same as input]
 
     Returns the minimum value of all input values.
 
@@ -69,6 +69,13 @@ Approximate Aggregate Functions
     an integer value of at least one. It is effectively a replication count for
     the value ``x`` in the percentile set. The value of ``p`` must be between
     zero and one and must be constant for all input rows.
+
+.. function:: approx_avg(x) -> varchar
+
+    Returns the approximate average for all input values of
+    ``x``.
+
+
 
 Statistical Aggregate Functions
 -------------------------------
