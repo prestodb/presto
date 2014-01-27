@@ -30,11 +30,11 @@ General Aggregate Functions
     Returns the number of ``TRUE`` input values.
     This function is equivalent to ``count(CASE WHEN x THEN 1 END)``.
 
-.. function:: max(x) -> bigint
+.. function:: max(x) -> [same as input]
 
     Returns the maximum value of all input values.
 
-.. function:: min(x) -> bigint
+.. function:: min(x) -> [same as input]
 
     Returns the minimum value of all input values.
 
@@ -44,6 +44,11 @@ General Aggregate Functions
 
 Approximate Aggregate Functions
 -------------------------------
+
+.. function:: approx_avg(x) -> varchar
+
+    Returns the approximate average with bounded error at 99% confidence for
+    all input values of ``x``.
 
 .. function:: approx_distinct(x) -> bigint
 

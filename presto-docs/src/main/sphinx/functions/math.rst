@@ -74,6 +74,14 @@ Mathematical Functions
 
     Returns ``x`` raised to the power of ``p``.
 
+.. function:: rand() -> double
+
+    Alias for ``random()``.
+
+.. function:: random() -> double
+
+    Returns a pseudo-random value in the range 0.0 <= x < 1.0
+
 .. function:: round(x) -> [same as input]
 
     Returns ``x`` rounded to the nearest integer.

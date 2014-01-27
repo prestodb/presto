@@ -85,4 +85,4 @@ String Functions
 
 .. function:: upper(string) -> varchar
 
-    Converts ``string`` to uppercase.
+    Converts ``string`` to uppercase
