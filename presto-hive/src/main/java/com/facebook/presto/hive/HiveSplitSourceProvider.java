@@ -167,7 +167,6 @@ class HiveSplitSourceProvider
             Iterator<String> nameIterator = partitionNames.iterator();
             for (Partition partition : partitions) {
                 checkState(nameIterator.hasNext(), "different number of partitions and partition names!");
-                semaphore.acquire();
                 final String partitionName = nameIterator.next();
                 final Properties schema = getPartitionSchema(table, partition);
                 final List<HivePartitionKey> partitionKeys = getPartitionKeys(table, partition);
@@ -217,6 +216,11 @@ class HiveSplitSourceProvider
                     }
                 }
 
+                // Acquire semaphore so that we only have a fixed number of outstanding partitions being processed asynchronously
+                // NOTE: there must not be any calls that throw in the space between acquiring the semaphore and setting the Future
+                // callback to release it. Otherwise, we will need a try-finally block around this section.
+                semaphore.acquire();
+
                 ListenableFuture<Void> partitionFuture = new AsyncRecursiveWalker(fs, suspendingExecutor).beginWalk(path, new FileStatusCallback()
                 {
                     @Override
@@ -250,6 +254,7 @@ class HiveSplitSourceProvider
                         markerQueue.finish();
                     }
                 });
+
                 futureBuilder.add(partitionFuture);
             }
 
@@ -356,7 +361,12 @@ class HiveSplitSourceProvider
             }
         }
         else {
-            // not splittable, use the hosts from the first block
+            // not splittable, use the hosts from the first block if it exists
+            List<HostAddress> addresses = ImmutableList.of();
+            if (blockLocations.length > 0) {
+                addresses = toHostAddress(blockLocations[0].getHosts());
+            }
+
             builder.add(new HiveSplit(connectorId,
                     table.getDbName(),
                     table.getTableName(),
@@ -367,7 +377,7 @@ class HiveSplitSourceProvider
                     length,
                     schema,
                     partitionKeys,
-                    toHostAddress(blockLocations[0].getHosts())));
+                    addresses));
         }
         return builder.build();
     }
