@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.hive;
 
+import com.facebook.presto.hive.util.SerDeUtils;
 import com.facebook.presto.spi.ColumnType;
 import com.facebook.presto.spi.RecordCursor;
 import com.google.common.base.Charsets;
@@ -21,7 +22,6 @@ import org.apache.hadoop.hive.metastore.MetaStoreUtils;
 import org.apache.hadoop.hive.metastore.api.MetaException;
 import org.apache.hadoop.hive.serde2.Deserializer;
 import org.apache.hadoop.hive.serde2.SerDeException;
-import org.apache.hadoop.hive.serde2.SerDeUtils;
 import org.apache.hadoop.hive.serde2.objectinspector.ObjectInspector;
 import org.apache.hadoop.hive.serde2.objectinspector.PrimitiveObjectInspector;
 import org.apache.hadoop.hive.serde2.objectinspector.StructField;
@@ -366,7 +366,7 @@ class GenericHiveRecordCursor<K, V extends Writable>
         }
         else if (hiveTypes[column] == HiveType.MAP || hiveTypes[column] == HiveType.LIST || hiveTypes[column] == HiveType.STRUCT) {
             // temporarily special case MAP, LIST, and STRUCT types as strings
-            strings[column] = SerDeUtils.getJSONString(fieldData, fieldInspectors[column]).getBytes(Charsets.UTF_8);
+            strings[column] = SerDeUtils.getJsonBytes(fieldData, fieldInspectors[column]);
             nulls[column] = false;
         }
         else {

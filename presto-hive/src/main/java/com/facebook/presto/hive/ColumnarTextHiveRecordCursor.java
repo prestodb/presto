@@ -14,13 +14,13 @@
 package com.facebook.presto.hive;
 
 import com.facebook.presto.hive.shaded.org.apache.commons.codec.binary.Base64;
+import com.facebook.presto.hive.util.SerDeUtils;
 import com.facebook.presto.spi.ColumnType;
 import com.facebook.presto.spi.RecordCursor;
 import com.google.common.base.Charsets;
 import com.google.common.base.Throwables;
 import org.apache.hadoop.hive.metastore.api.MetaException;
 import org.apache.hadoop.hive.serde2.SerDeException;
-import org.apache.hadoop.hive.serde2.SerDeUtils;
 import org.apache.hadoop.hive.serde2.columnar.BytesRefArrayWritable;
 import org.apache.hadoop.hive.serde2.columnar.BytesRefWritable;
 import org.apache.hadoop.hive.serde2.lazy.ByteArrayRef;
@@ -468,7 +468,7 @@ class ColumnarTextHiveRecordCursor<K>
             ByteArrayRef byteArrayRef = new ByteArrayRef();
             byteArrayRef.setData(bytes);
             lazyObject.init(byteArrayRef, start, length);
-            strings[column] = SerDeUtils.getJSONString(lazyObject.getObject(), fieldInspectors[column]).getBytes(Charsets.UTF_8);
+            strings[column] = SerDeUtils.getJsonBytes(lazyObject.getObject(), fieldInspectors[column]);
             wasNull = false;
         }
         else {
