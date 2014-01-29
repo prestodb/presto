@@ -27,6 +27,7 @@ import com.google.common.collect.ImmutableList;
 import java.util.List;
 
 import static com.facebook.presto.tuple.TupleInfo.SINGLE_LONG;
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 
 public class CountAggregation
@@ -53,14 +54,16 @@ public class CountAggregation
     }
 
     @Override
-    public CountGroupedAccumulator createGroupedAggregation(Optional<Integer> maskChannel, Optional<Integer> sampleWeightChannel, int[] argumentChannels)
+    public CountGroupedAccumulator createGroupedAggregation(Optional<Integer> maskChannel, Optional<Integer> sampleWeightChannel, double confidence, int[] argumentChannels)
     {
+        checkArgument(confidence == 1.0, "count does not support approximate queries");
         return new CountGroupedAccumulator(maskChannel, sampleWeightChannel);
     }
 
     @Override
-    public GroupedAccumulator createGroupedIntermediateAggregation()
+    public GroupedAccumulator createGroupedIntermediateAggregation(double confidence)
     {
+        checkArgument(confidence == 1.0, "count does not support approximate queries");
         return new CountGroupedAccumulator(Optional.<Integer>absent(), Optional.<Integer>absent());
     }
 
@@ -139,14 +142,16 @@ public class CountAggregation
     }
 
     @Override
-    public CountAccumulator createAggregation(Optional<Integer> maskChannel, Optional<Integer> sampleWeightChannel, int... argumentChannels)
+    public CountAccumulator createAggregation(Optional<Integer> maskChannel, Optional<Integer> sampleWeightChannel, double confidence, int... argumentChannels)
     {
+        checkArgument(confidence == 1.0, "count does not support approximate queries");
         return new CountAccumulator(maskChannel, sampleWeightChannel);
     }
 
     @Override
-    public CountAccumulator createIntermediateAggregation()
+    public CountAccumulator createIntermediateAggregation(double confidence)
     {
+        checkArgument(confidence == 1.0, "count does not support approximate queries");
         return new CountAccumulator(Optional.<Integer>absent(), Optional.<Integer>absent());
     }
 

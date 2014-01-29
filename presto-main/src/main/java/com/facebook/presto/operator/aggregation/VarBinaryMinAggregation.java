@@ -23,6 +23,7 @@ import io.airlift.slice.Slice;
 
 import static com.facebook.presto.tuple.TupleInfo.SINGLE_VARBINARY;
 import static com.facebook.presto.tuple.TupleInfo.Type.VARIABLE_BINARY;
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 
 public class VarBinaryMinAggregation
@@ -36,9 +37,10 @@ public class VarBinaryMinAggregation
     }
 
     @Override
-    protected GroupedAccumulator createGroupedAccumulator(Optional<Integer> maskChannel, Optional<Integer> sampleWeightChannel, int valueChannel)
+    protected GroupedAccumulator createGroupedAccumulator(Optional<Integer> maskChannel, Optional<Integer> sampleWeightChannel, double confidence, int valueChannel)
     {
         // Min/max are not effected by distinct, so ignore it.
+        checkArgument(confidence == 1.0, "min does not support approximate queries");
         return new VarBinaryGroupedAccumulator(valueChannel);
     }
 
@@ -104,9 +106,10 @@ public class VarBinaryMinAggregation
     }
 
     @Override
-    protected Accumulator createAccumulator(Optional<Integer> maskChannel, Optional<Integer> sampleWeightChannel, int valueChannel)
+    protected Accumulator createAccumulator(Optional<Integer> maskChannel, Optional<Integer> sampleWeightChannel, double confidence, int valueChannel)
     {
         // Min/max are not effected by distinct, so ignore it.
+        checkArgument(confidence == 1.0, "min does not support approximate queries");
         return new VarBinaryMinAccumulator(valueChannel);
     }
 

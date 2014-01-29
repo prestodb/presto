@@ -23,6 +23,7 @@ import com.google.common.base.Optional;
 
 import static com.facebook.presto.tuple.TupleInfo.SINGLE_LONG;
 import static com.facebook.presto.tuple.TupleInfo.Type.FIXED_INT_64;
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 
 public class LongSumAggregation
@@ -36,8 +37,9 @@ public class LongSumAggregation
     }
 
     @Override
-    protected GroupedAccumulator createGroupedAccumulator(Optional<Integer> maskChannel, Optional<Integer> sampleWeightChannel, int valueChannel)
+    protected GroupedAccumulator createGroupedAccumulator(Optional<Integer> maskChannel, Optional<Integer> sampleWeightChannel, double confidence, int valueChannel)
     {
+        checkArgument(confidence == 1.0, "sum does not support approximate queries");
         return new LongSumGroupedAccumulator(valueChannel, maskChannel, sampleWeightChannel);
     }
 
@@ -110,8 +112,9 @@ public class LongSumAggregation
     }
 
     @Override
-    protected Accumulator createAccumulator(Optional<Integer> maskChannel, Optional<Integer> sampleWeightChannel, int valueChannel)
+    protected Accumulator createAccumulator(Optional<Integer> maskChannel, Optional<Integer> sampleWeightChannel, double confidence, int valueChannel)
     {
+        checkArgument(confidence == 1.0, "sum does not support approximate queries");
         return new LongSumAccumulator(valueChannel, maskChannel, sampleWeightChannel);
     }
 

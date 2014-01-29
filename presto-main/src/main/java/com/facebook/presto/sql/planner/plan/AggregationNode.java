@@ -43,6 +43,7 @@ public class AggregationNode
     private final Map<Symbol, Signature> functions;
     private final Step step;
     private final Optional<Symbol> sampleWeight;
+    private final double confidence;
 
     public enum Step
     {
@@ -51,9 +52,9 @@ public class AggregationNode
         SINGLE
     }
 
-    public AggregationNode(PlanNodeId id, PlanNode source, List<Symbol> groupByKeys, Map<Symbol, FunctionCall> aggregations, Map<Symbol, Signature> functions, Map<Symbol, Symbol> masks, Optional<Symbol> sampleWeight)
+    public AggregationNode(PlanNodeId id, PlanNode source, List<Symbol> groupByKeys, Map<Symbol, FunctionCall> aggregations, Map<Symbol, Signature> functions, Map<Symbol, Symbol> masks, Optional<Symbol> sampleWeight, double confidence)
     {
-        this(id, source, groupByKeys, aggregations, functions, masks, Step.SINGLE, sampleWeight);
+        this(id, source, groupByKeys, aggregations, functions, masks, Step.SINGLE, sampleWeight, confidence);
     }
 
     @JsonCreator
@@ -64,7 +65,8 @@ public class AggregationNode
             @JsonProperty("functions") Map<Symbol, Signature> functions,
             @JsonProperty("masks") Map<Symbol, Symbol> masks,
             @JsonProperty("step") Step step,
-            @JsonProperty("sampleWeight") Optional<Symbol> sampleWeight)
+            @JsonProperty("sampleWeight") Optional<Symbol> sampleWeight,
+            @JsonProperty("confidence") double confidence)
     {
         super(id);
 
@@ -78,6 +80,8 @@ public class AggregationNode
         }
         this.step = step;
         this.sampleWeight = checkNotNull(sampleWeight, "sampleWeight is null");
+        checkArgument(confidence >= 0 && confidence <= 1, "confidence must be in [0, 1]");
+        this.confidence = confidence;
     }
 
     @Override
@@ -90,6 +94,12 @@ public class AggregationNode
     public List<Symbol> getOutputSymbols()
     {
         return ImmutableList.copyOf(concat(groupByKeys, aggregations.keySet()));
+    }
+
+    @JsonProperty("confidence")
+    public double getConfidence()
+    {
+        return confidence;
     }
 
     @JsonProperty("aggregations")

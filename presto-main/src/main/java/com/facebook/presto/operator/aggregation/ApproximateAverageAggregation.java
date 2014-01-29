@@ -21,7 +21,11 @@ import com.facebook.presto.tuple.TupleInfo.Type;
 import com.facebook.presto.util.array.DoubleBigArray;
 import com.facebook.presto.util.array.LongBigArray;
 import com.google.common.base.Optional;
+import com.google.common.base.Throwables;
 import io.airlift.slice.Slice;
+import org.apache.commons.math.MathException;
+import org.apache.commons.math.distribution.NormalDistribution;
+import org.apache.commons.math.distribution.NormalDistributionImpl;
 
 import static com.facebook.presto.operator.aggregation.VarianceAggregation.createIntermediate;
 import static com.facebook.presto.operator.aggregation.VarianceAggregation.getCount;
@@ -35,6 +39,7 @@ import static com.google.common.base.Preconditions.checkState;
 public class ApproximateAverageAggregation
         extends SimpleAggregationFunction
 {
+    private static final NormalDistribution NORMAL_DISTRIBUTION = new NormalDistributionImpl();
     private final boolean inputIsLong;
 
     public ApproximateAverageAggregation(Type parameterType)
@@ -54,25 +59,27 @@ public class ApproximateAverageAggregation
     }
 
     @Override
-    protected GroupedAccumulator createGroupedAccumulator(Optional<Integer> maskChannel, Optional<Integer> sampleWeightChannel, int valueChannel)
+    protected GroupedAccumulator createGroupedAccumulator(Optional<Integer> maskChannel, Optional<Integer> sampleWeightChannel, double confidence, int valueChannel)
     {
-        return new ApproximateAverageGroupedAccumulator(valueChannel, inputIsLong, maskChannel, sampleWeightChannel);
+        return new ApproximateAverageGroupedAccumulator(valueChannel, inputIsLong, maskChannel, sampleWeightChannel, confidence);
     }
 
     public static class ApproximateAverageGroupedAccumulator
             extends SimpleGroupedAccumulator
     {
         private final boolean inputIsLong;
+        private final double confidence;
 
         private final LongBigArray counts;
         private final DoubleBigArray means;
         private final DoubleBigArray m2s;
 
-        private ApproximateAverageGroupedAccumulator(int valueChannel, boolean inputIsLong, Optional<Integer> maskChannel, Optional<Integer> sampleWeightChannel)
+        private ApproximateAverageGroupedAccumulator(int valueChannel, boolean inputIsLong, Optional<Integer> maskChannel, Optional<Integer> sampleWeightChannel, double confidence)
         {
             super(valueChannel, SINGLE_VARBINARY, SINGLE_VARBINARY, maskChannel, sampleWeightChannel);
 
             this.inputIsLong = inputIsLong;
+            this.confidence = confidence;
 
             this.counts = new LongBigArray();
             this.means = new DoubleBigArray();
@@ -198,32 +205,34 @@ public class ApproximateAverageAggregation
                 double m2 = m2s.get((long) groupId);
                 double variance = m2 / count;
 
-                String result = formatApproximateAverage(count, mean, variance);
+                String result = formatApproximateAverage(count, mean, variance, confidence);
                 output.append(result);
             }
         }
     }
 
     @Override
-    protected Accumulator createAccumulator(Optional<Integer> maskChannel, Optional<Integer> sampleWeightChannel, int valueChannel)
+    protected Accumulator createAccumulator(Optional<Integer> maskChannel, Optional<Integer> sampleWeightChannel, double confidence, int valueChannel)
     {
-        return new ApproximateAverageAccumulator(valueChannel, inputIsLong, maskChannel, sampleWeightChannel);
+        return new ApproximateAverageAccumulator(valueChannel, inputIsLong, maskChannel, sampleWeightChannel, confidence);
     }
 
     public static class ApproximateAverageAccumulator
             extends SimpleAccumulator
     {
         private final boolean inputIsLong;
+        private final double confidence;
 
         private long currentCount;
         private double currentMean;
         private double currentM2;
 
-        private ApproximateAverageAccumulator(int valueChannel, boolean inputIsLong, Optional<Integer> maskChannel, Optional<Integer> sampleWeightChannel)
+        private ApproximateAverageAccumulator(int valueChannel, boolean inputIsLong, Optional<Integer> maskChannel, Optional<Integer> sampleWeightChannel, double confidence)
         {
             super(valueChannel, SINGLE_VARBINARY, SINGLE_VARBINARY, maskChannel, sampleWeightChannel);
 
             this.inputIsLong = inputIsLong;
+            this.confidence = confidence;
         }
 
         @Override
@@ -308,18 +317,21 @@ public class ApproximateAverageAggregation
                 output.appendNull();
             }
             else {
-                String result = formatApproximateAverage(currentCount, currentMean, currentM2 / currentCount);
+                String result = formatApproximateAverage(currentCount, currentMean, currentM2 / currentCount, confidence);
                 output.append(result);
             }
         }
     }
 
-    private static String formatApproximateAverage(long count, double mean, double variance)
+    private static String formatApproximateAverage(long count, double mean, double variance, double confidence)
     {
-        // The multiplier 2.575 corresponds to the z-score of 99% confidence interval
-        // (http://upload.wikimedia.org/wikipedia/commons/b/bb/Normal_distribution_and_scales.gif)
-        double zScore = 2.575;
-
+        double zScore = 0;
+        try {
+            zScore = NORMAL_DISTRIBUTION.inverseCumulativeProbability((1 + confidence) / 2);
+        }
+        catch (MathException e) {
+            throw Throwables.propagate(e);
+        }
         // Error bars at 99% confidence interval
         StringBuilder sb = new StringBuilder();
         sb.append(mean);

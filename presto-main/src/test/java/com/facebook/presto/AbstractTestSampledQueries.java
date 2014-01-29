@@ -14,16 +14,27 @@
 package com.facebook.presto;
 
 import com.facebook.presto.util.MaterializedResult;
+import com.facebook.presto.util.MaterializedTuple;
 import io.airlift.log.Logger;
 import io.airlift.units.Duration;
 import org.intellij.lang.annotations.Language;
 import org.testng.annotations.Test;
 
+import java.util.List;
+
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertTrue;
 
 public abstract class AbstractTestSampledQueries
         extends AbstractTestQueries
 {
+    @Test
+    public void testApproximateQueryAverage()
+            throws Exception
+    {
+        assertApproximateQuery("SELECT AVG(totalprice) FROM orders APPROXIMATE AT 99.999 CONFIDENCE", "SELECT AVG(totalprice) FROM orders");
+    }
+
     @Test
     public void testSampledRightOuterJoin()
             throws Exception
@@ -208,6 +219,43 @@ public abstract class AbstractTestSampledQueries
         }
         else {
             assertEqualsIgnoreOrder(actualResults.getMaterializedTuples(), expectedResults.getMaterializedTuples());
+        }
+    }
+
+    private void assertApproximateQuery(@Language("SQL") String actual, @Language("SQL") String expected)
+            throws Exception
+    {
+        long start = System.nanoTime();
+        MaterializedResult actualResults = computeActualSampled(actual);
+        log.info("FINISHED in %s", Duration.nanosSince(start));
+
+        MaterializedResult expectedResults = computeExpected(expected, actualResults.getTupleInfos());
+        assertApproximatelyEqual(actualResults.getMaterializedTuples(), expectedResults.getMaterializedTuples());
+    }
+
+    private void assertApproximatelyEqual(List<MaterializedTuple> actual, List<MaterializedTuple> expected)
+            throws Exception
+    {
+        // TODO: support GROUP BY queries
+        assertEquals(actual.size(), 1, "approximate query returned more than one row");
+
+        MaterializedTuple actualRow = actual.get(0);
+        MaterializedTuple expectedRow = expected.get(0);
+
+        for (int i = 0; i < actualRow.getFieldCount(); i++) {
+            String actualField = (String) actualRow.getField(i);
+            double actualValue = Double.parseDouble(actualField.split(" ")[0]);
+            double error = Double.parseDouble(actualField.split(" ")[2]);
+            Object expectedField = expectedRow.getField(i);
+            assertTrue(expectedField instanceof String || expectedField instanceof Number);
+            double expectedValue;
+            if (expectedField instanceof String) {
+                expectedValue = Double.parseDouble((String) expectedField);
+            }
+            else {
+                expectedValue = ((Number) expectedField).doubleValue();
+            }
+            assertTrue(Math.abs(actualValue - expectedValue) < error);
         }
     }
 

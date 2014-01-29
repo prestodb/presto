@@ -134,7 +134,8 @@ public class TestEffectivePredicateExtractor
                 ImmutableMap.of(C, fakeFunctionHandle("test"), D, fakeFunctionHandle("test")),
                 ImmutableMap.<Symbol, Symbol>of(),
                 AggregationNode.Step.FINAL,
-                Optional.<Symbol>absent());
+                Optional.<Symbol>absent(),
+                1.0);
 
         Expression effectivePredicate = EffectivePredicateExtractor.extract(node);
 
@@ -654,7 +655,7 @@ public class TestEffectivePredicateExtractor
 
     private static Signature fakeFunctionHandle(String name)
     {
-        return new Signature(name, Type.NULL, ImmutableList.<Type>of());
+        return new Signature(name, Type.NULL, ImmutableList.<Type>of(), false);
     }
 
     private Set<Expression> normalizeConjuncts(Expression... conjuncts)
