@@ -20,6 +20,7 @@ import com.facebook.presto.hive.util.SuspendingExecutor;
 import com.facebook.presto.spi.HostAddress;
 import com.facebook.presto.spi.Split;
 import com.facebook.presto.spi.SplitSource;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Optional;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
@@ -432,7 +433,8 @@ class HiveSplitSourceProvider
         }
     }
 
-    private static class HiveSplitSource
+    @VisibleForTesting
+    static class HiveSplitSource
             implements SplitSource
     {
         private final String connectorId;
@@ -442,30 +444,50 @@ class HiveSplitSourceProvider
         private final int maxOutstandingSplits;
         private final SuspendingExecutor suspendingExecutor;
 
-        private HiveSplitSource(String connectorId, int maxOutstandingSplits, SuspendingExecutor suspendingExecutor)
+        @VisibleForTesting
+        HiveSplitSource(String connectorId, int maxOutstandingSplits, SuspendingExecutor suspendingExecutor)
         {
             this.connectorId = connectorId;
             this.maxOutstandingSplits = maxOutstandingSplits;
             this.suspendingExecutor = suspendingExecutor;
         }
 
-        private void addToQueue(Split split)
+        @VisibleForTesting
+        int getOutstandingSplitCount()
         {
-            queue.add(split);
-            if (outstandingSplitCount.incrementAndGet() == maxOutstandingSplits) {
-                suspendingExecutor.suspend();
+            return outstandingSplitCount.get();
+        }
+
+        @VisibleForTesting
+        void addToQueue(Split split)
+        {
+            if (throwable.get() == null) {
+                queue.add(split);
+                if (outstandingSplitCount.incrementAndGet() >= maxOutstandingSplits) {
+                    suspendingExecutor.suspend();
+                }
             }
         }
 
-        private void finished()
+        @VisibleForTesting
+        void finished()
         {
-            queue.add(FINISHED_MARKER);
+            if (throwable.get() == null) {
+                queue.add(FINISHED_MARKER);
+            }
         }
 
-        private void fail(Throwable e)
+        @VisibleForTesting
+        void fail(Throwable e)
         {
-            throwable.set(e);
-            queue.add(FINISHED_MARKER);
+            // only record the first error message
+            if (throwable.compareAndSet(null, e)) {
+                // add the finish marker
+                queue.add(FINISHED_MARKER);
+
+                // no need to process any more jobs
+                suspendingExecutor.suspend();
+            }
         }
 
         @Override
@@ -478,42 +500,49 @@ class HiveSplitSourceProvider
         public List<Split> getNextBatch(int maxSize)
                 throws InterruptedException
         {
-            try {
-                List<Split> splits = new ArrayList<>(maxSize);
+            // wait for at least one split and then take as may extra splits as possible
+            // if an error has been registered, the take will succeed immediately because
+            // will be at least one finished marker in the queue
+            List<Split> splits = new ArrayList<>(maxSize);
+            splits.add(queue.take());
+            queue.drainTo(splits, maxSize - 1);
 
-                splits.add(queue.take());
-                queue.drainTo(splits, maxSize - 1);
-                if (splits.get(splits.size() - 1) == FINISHED_MARKER) {
-                    // add the finish marker back to so the queue is still complete
-                    queue.add(FINISHED_MARKER);
-                    splits.remove(splits.size() - 1);
-                    if (throwable.get() != null) {
-                        throw Throwables.propagate(throwable.get());
-                    }
-                }
+            // check if we got the finished marker in our list
+            int finishedIndex = splits.indexOf(FINISHED_MARKER);
+            if (finishedIndex >= 0) {
+                // add the finish marker back to the queue so future callers will not block indefinitely
+                queue.add(FINISHED_MARKER);
+                // drop all splits after the finish marker (this shouldn't happen in a normal exit, but be safe)
+                splits = splits.subList(0, finishedIndex);
+            }
 
-                if (outstandingSplitCount.getAndDecrement() == maxOutstandingSplits) {
-                    suspendingExecutor.resume();
-                }
-                return splits;
+            // Before returning, check if there is a registered failure.
+            // If so, we want to throw the error, instead of retuning because the scheduler can block
+            // while scheduling splits and wait for work to finish before continuing.  In this case,
+            // we want to end the query as soon as possible and abort the work
+            if (throwable.get() != null) {
+                throw Throwables.propagate(throwable.get());
             }
-            catch (InterruptedException e) {
-                Thread.currentThread().interrupt();
-                throw Throwables.propagate(e);
+
+            // decrement the outstanding split count by the number of splits we took
+            if (outstandingSplitCount.addAndGet(-splits.size()) < maxOutstandingSplits) {
+                // we are below the low water mark (and there isn't a failure) so resume scanning hdfs
+                suspendingExecutor.resume();
             }
+
+            return splits;
         }
 
         @Override
         public boolean isFinished()
         {
-            Split split = queue.peek();
-            if (split == FINISHED_MARKER) {
-                if (throwable.get() != null) {
-                    throw Throwables.propagate(throwable.get());
-                }
-                return true;
+            // the finished marker must be checked before checking the throwable
+            // to avoid a race with the fail method
+            boolean isFinished = queue.peek() == FINISHED_MARKER;
+            if (throwable.get() != null) {
+                throw Throwables.propagate(throwable.get());
             }
-            return false;
+            return isFinished;
         }
     }
 

@@ -171,6 +171,7 @@ public class HiveClient
         this.connectorId = checkNotNull(connectorId, "connectorId is null").toString();
 
         this.maxSplitSize = checkNotNull(maxSplitSize, "maxSplitSize is null");
+        checkArgument(maxOutstandingSplits > 0, "maxOutstandingSplits must be at least 1");
         this.maxOutstandingSplits = maxOutstandingSplits;
         this.maxSplitIteratorThreads = maxSplitIteratorThreads;
         this.minPartitionBatchSize = minPartitionBatchSize;

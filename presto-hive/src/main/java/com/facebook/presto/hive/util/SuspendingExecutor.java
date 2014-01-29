@@ -78,6 +78,11 @@ public class SuspendingExecutor
         return !suspended;
     }
 
+    public synchronized boolean isSuspended()
+    {
+        return suspended;
+    }
+
     public synchronized void resume()
     {
         suspended = false;
