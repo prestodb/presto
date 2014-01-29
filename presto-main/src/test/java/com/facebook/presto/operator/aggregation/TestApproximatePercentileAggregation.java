@@ -41,6 +41,7 @@ public class TestApproximatePercentileAggregation
         // regular approx_percentile
         assertAggregation(
                 LONG_APPROXIMATE_PERCENTILE_AGGREGATION,
+                1.0,
                 null,
                 createPage(
                         new Long[] {null},
@@ -50,6 +51,7 @@ public class TestApproximatePercentileAggregation
                         0.5));
 
         assertAggregation(LONG_APPROXIMATE_PERCENTILE_AGGREGATION,
+                1.0,
                 1L,
                 createPage(
                         new Long[] {null},
@@ -60,6 +62,7 @@ public class TestApproximatePercentileAggregation
 
         assertAggregation(
                 LONG_APPROXIMATE_PERCENTILE_AGGREGATION,
+                1.0,
                 2L,
                 createPage(
                         new Long[] {null},
@@ -70,6 +73,7 @@ public class TestApproximatePercentileAggregation
 
         assertAggregation(
                 LONG_APPROXIMATE_PERCENTILE_AGGREGATION,
+                1.0,
                 2L,
                 createPage(
                         new Long[] {1L},
@@ -80,6 +84,7 @@ public class TestApproximatePercentileAggregation
 
         assertAggregation(
                 LONG_APPROXIMATE_PERCENTILE_AGGREGATION,
+                1.0,
                 3L,
                 createPage(
                         new Long[] {1L, null, 2L, 2L, null, 2L, 2L, null},
@@ -91,6 +96,7 @@ public class TestApproximatePercentileAggregation
         // weighted approx_percentile
         assertAggregation(
                 LONG_APPROXIMATE_PERCENTILE_WEIGHTED_AGGREGATION,
+                1.0,
                 null,
                 createPage(
                         new Long[] {null},
@@ -103,6 +109,7 @@ public class TestApproximatePercentileAggregation
 
         assertAggregation(
                 LONG_APPROXIMATE_PERCENTILE_WEIGHTED_AGGREGATION,
+                1.0,
                 1L,
                 createPage(
                         new Long[] {null},
@@ -115,6 +122,7 @@ public class TestApproximatePercentileAggregation
 
         assertAggregation(
                 LONG_APPROXIMATE_PERCENTILE_WEIGHTED_AGGREGATION,
+                1.0,
                 2L,
                 createPage(
                         new Long[] {null},
@@ -126,6 +134,7 @@ public class TestApproximatePercentileAggregation
 
         assertAggregation(
                 LONG_APPROXIMATE_PERCENTILE_WEIGHTED_AGGREGATION,
+                1.0,
                 2L,
                 createPage(
                         new Long[] {1L},
@@ -138,6 +147,7 @@ public class TestApproximatePercentileAggregation
 
         assertAggregation(
                 LONG_APPROXIMATE_PERCENTILE_WEIGHTED_AGGREGATION,
+                1.0,
                 3L,
                 createPage(
                         new Long[] {1L, null, 2L, null, 2L, null},
@@ -156,6 +166,7 @@ public class TestApproximatePercentileAggregation
         // regular approx_percentile
         assertAggregation(
                 DOUBLE_APPROXIMATE_PERCENTILE_AGGREGATION,
+                1.0,
                 null,
                 createPage(
                         new Double[] {null},
@@ -167,6 +178,7 @@ public class TestApproximatePercentileAggregation
         assertAggregation(
                 DOUBLE_APPROXIMATE_PERCENTILE_AGGREGATION,
                 1.0,
+                1.0,
                 createPage(
                         new Double[] {null},
                         0.5),
@@ -176,6 +188,7 @@ public class TestApproximatePercentileAggregation
 
         assertAggregation(
                 DOUBLE_APPROXIMATE_PERCENTILE_AGGREGATION,
+                1.0,
                 2.0,
                 createPage(
                         new Double[] {null},
@@ -186,6 +199,7 @@ public class TestApproximatePercentileAggregation
 
         assertAggregation(
                 DOUBLE_APPROXIMATE_PERCENTILE_AGGREGATION,
+                1.0,
                 2.0,
                 createPage(
                         new Double[] {1.0},
@@ -196,6 +210,7 @@ public class TestApproximatePercentileAggregation
 
         assertAggregation(
                 DOUBLE_APPROXIMATE_PERCENTILE_AGGREGATION,
+                1.0,
                 3.0,
                 createPage(
                         new Double[] {1.0, null, 2.0, 2.0, null, 2.0, 2.0, null},
@@ -207,6 +222,7 @@ public class TestApproximatePercentileAggregation
         // weighted approx_percentile
         assertAggregation(
                 DOUBLE_APPROXIMATE_PERCENTILE_WEIGHTED_AGGREGATION,
+                1.0,
                 null,
                 createPage(
                         new Double[] {null},
@@ -220,6 +236,7 @@ public class TestApproximatePercentileAggregation
         assertAggregation(
                 DOUBLE_APPROXIMATE_PERCENTILE_WEIGHTED_AGGREGATION,
                 1.0,
+                1.0,
                 createPage(
                         new Double[] {null},
                         new Long[] {1L},
@@ -231,6 +248,7 @@ public class TestApproximatePercentileAggregation
 
         assertAggregation(
                 DOUBLE_APPROXIMATE_PERCENTILE_WEIGHTED_AGGREGATION,
+                1.0,
                 2.0,
                 createPage(
                         new Double[] {null},
@@ -243,6 +261,7 @@ public class TestApproximatePercentileAggregation
 
         assertAggregation(
                 DOUBLE_APPROXIMATE_PERCENTILE_WEIGHTED_AGGREGATION,
+                1.0,
                 2.0,
                 createPage(
                         new Double[] {1.0},
@@ -255,6 +274,7 @@ public class TestApproximatePercentileAggregation
 
         assertAggregation(
                 DOUBLE_APPROXIMATE_PERCENTILE_WEIGHTED_AGGREGATION,
+                1.0,
                 3.0,
                 createPage(
                         new Double[] {1.0, null, 2.0, null, 2.0, null},

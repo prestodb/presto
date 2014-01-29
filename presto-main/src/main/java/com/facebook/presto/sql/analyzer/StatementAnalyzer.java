@@ -19,6 +19,7 @@ import com.facebook.presto.metadata.NativeTableHandle;
 import com.facebook.presto.metadata.QualifiedTableName;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.TableHandle;
+import com.facebook.presto.sql.tree.Approximate;
 import com.facebook.presto.sql.tree.BooleanLiteral;
 import com.facebook.presto.sql.tree.Cast;
 import com.facebook.presto.sql.tree.CreateMaterializedView;
@@ -96,12 +97,14 @@ class StatementAnalyzer
     private final Metadata metadata;
     private final Session session;
     private final Optional<QueryExplainer> queryExplainer;
+    private final boolean approximateQueriesEnabled;
 
-    public StatementAnalyzer(Analysis analysis, Metadata metadata, Session session, Optional<QueryExplainer> queryExplainer)
+    public StatementAnalyzer(Analysis analysis, Metadata metadata, Session session, boolean approximateQueriesEnabled, Optional<QueryExplainer> queryExplainer)
     {
         this.analysis = checkNotNull(analysis, "analysis is null");
         this.metadata = checkNotNull(metadata, "metadata is null");
         this.session = checkNotNull(session, "session is null");
+        this.approximateQueriesEnabled = approximateQueriesEnabled;
         this.queryExplainer = checkNotNull(queryExplainer, "queryExplainer is null");
     }
 
@@ -145,7 +148,8 @@ class StatementAnalyzer
                         Optional.<String>absent()
                 ),
                 ImmutableList.<SortItem>of(),
-                Optional.<String>absent());
+                Optional.<String>absent(),
+                Optional.<Approximate>absent());
 
         return process(query, context);
     }
@@ -165,7 +169,8 @@ class StatementAnalyzer
                         Optional.<String>absent()
                 ),
                 ImmutableList.<SortItem>of(),
-                Optional.<String>absent());
+                Optional.<String>absent(),
+                Optional.<Approximate>absent());
 
         return process(query, context);
     }
@@ -185,7 +190,8 @@ class StatementAnalyzer
                         Optional.<String>absent()
                 ),
                 ImmutableList.<SortItem>of(),
-                Optional.<String>absent());
+                Optional.<String>absent(),
+                Optional.<Approximate>absent());
 
         return process(query, context);
     }
@@ -217,7 +223,8 @@ class StatementAnalyzer
                         Optional.<String>absent()
                 ),
                 ImmutableList.<SortItem>of(),
-                Optional.<String>absent());
+                Optional.<String>absent(),
+                Optional.<Approximate>absent());
 
         return process(query, context);
     }
@@ -290,7 +297,8 @@ class StatementAnalyzer
                         ImmutableList.<SortItem>of(),
                         Optional.<String>absent()),
                 ImmutableList.<SortItem>of(),
-                Optional.<String>absent());
+                Optional.<String>absent(),
+                Optional.<Approximate>absent());
 
         query = new Query(
                 Optional.<With>absent(),
@@ -306,7 +314,8 @@ class StatementAnalyzer
                                 .build(),
                         showPartitions.getLimit()),
                 ImmutableList.<SortItem>of(),
-                Optional.<String>absent());
+                Optional.<String>absent(),
+                Optional.<Approximate>absent());
 
         return process(query, context);
     }
@@ -335,7 +344,8 @@ class StatementAnalyzer
                         Optional.<String>absent()
                 ),
                 ImmutableList.<SortItem>of(),
-                Optional.<String>absent());
+                Optional.<String>absent(),
+                Optional.<Approximate>absent());
 
         return process(query, context);
     }
@@ -455,7 +465,8 @@ class StatementAnalyzer
                         Optional.<String>absent()
                 ),
                 ImmutableList.<SortItem>of(),
-                Optional.<String>absent());
+                Optional.<String>absent(),
+                Optional.<Approximate>absent());
 
         return process(query, context);
     }
@@ -477,9 +488,16 @@ class StatementAnalyzer
     {
         AnalysisContext context = new AnalysisContext(parentContext);
 
+        if (node.getApproximate().isPresent()) {
+            if (!approximateQueriesEnabled) {
+                throw new SemanticException(NOT_SUPPORTED, node, "approximate queries are not enabled");
+            }
+            context.setApproximate(true);
+        }
+
         analyzeWith(node, context);
 
-        TupleAnalyzer analyzer = new TupleAnalyzer(analysis, session, metadata);
+        TupleAnalyzer analyzer = new TupleAnalyzer(analysis, session, metadata, approximateQueriesEnabled);
         TupleDescriptor descriptor = analyzer.process(node.getQueryBody(), context);
         analyzeOrderBy(node, descriptor, context);
 
@@ -553,7 +571,7 @@ class StatementAnalyzer
                 else {
                     // otherwise, just use the expression as is
                     orderByField = new FieldOrExpression(expression);
-                    ExpressionAnalysis expressionAnalysis = Analyzer.analyzeExpression(session, metadata, tupleDescriptor, analysis, context, orderByField.getExpression());
+                    ExpressionAnalysis expressionAnalysis = Analyzer.analyzeExpression(session, metadata, tupleDescriptor, analysis, approximateQueriesEnabled, context, orderByField.getExpression());
                     analysis.addInPredicates(node, expressionAnalysis.getSubqueryInPredicates());
                 }
 

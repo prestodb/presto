@@ -68,14 +68,16 @@ public class ApproximatePercentileWeightedAggregation
     }
 
     @Override
-    public ApproximatePercentileWeightedGroupedAccumulator createGroupedAggregation(Optional<Integer> maskChannel, Optional<Integer> sampleWeightChannel, int[] argumentChannels)
+    public ApproximatePercentileWeightedGroupedAccumulator createGroupedAggregation(Optional<Integer> maskChannel, Optional<Integer> sampleWeightChannel, double confidence, int[] argumentChannels)
     {
+        checkArgument(confidence == 1.0, "approximate weighted percentile does not support approximate queries");
         return new ApproximatePercentileWeightedGroupedAccumulator(argumentChannels[0], argumentChannels[1], argumentChannels[2], parameterType, maskChannel, sampleWeightChannel);
     }
 
     @Override
-    public GroupedAccumulator createGroupedIntermediateAggregation()
+    public GroupedAccumulator createGroupedIntermediateAggregation(double confidence)
     {
+        checkArgument(confidence == 1.0, "approximate weighted percentile does not support approximate queries");
         return new ApproximatePercentileWeightedGroupedAccumulator(-1, -1, -1, parameterType, Optional.<Integer>absent(), Optional.<Integer>absent());
     }
 
@@ -236,14 +238,16 @@ public class ApproximatePercentileWeightedAggregation
     }
 
     @Override
-    public ApproximatePercentileWeightedAccumulator createAggregation(Optional<Integer> maskChannel, Optional<Integer> sampleWeightChannel, int... argumentChannels)
+    public ApproximatePercentileWeightedAccumulator createAggregation(Optional<Integer> maskChannel, Optional<Integer> sampleWeightChannel, double confidence, int... argumentChannels)
     {
+        checkArgument(confidence == 1.0, "approximate weighted percentile does not support approximate queries");
         return new ApproximatePercentileWeightedAccumulator(argumentChannels[0], argumentChannels[1], argumentChannels[2], parameterType, maskChannel, sampleWeightChannel);
     }
 
     @Override
-    public ApproximatePercentileWeightedAccumulator createIntermediateAggregation()
+    public ApproximatePercentileWeightedAccumulator createIntermediateAggregation(double confidence)
     {
+        checkArgument(confidence == 1.0, "approximate weighted percentile does not support approximate queries");
         return new ApproximatePercentileWeightedAccumulator(-1, -1, -1, parameterType, Optional.<Integer>absent(), Optional.<Integer>absent());
     }
 

@@ -142,6 +142,11 @@ public abstract class AstVisitor<R, C>
         return visitNode(node, context);
     }
 
+    protected R visitApproximate(Approximate node, C context)
+    {
+        return visitNode(node, context);
+    }
+
     protected R visitWithQuery(WithQuery node, C context)
     {
         return visitNode(node, context);

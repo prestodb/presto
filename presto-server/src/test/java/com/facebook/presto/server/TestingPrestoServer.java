@@ -78,7 +78,8 @@ public class TestingPrestoServer
                 .put("storage-manager.data-directory", baseDataDir.getPath())
                 .put("presto-metastore.db.type", "h2")
                 .put("presto-metastore.db.filename", new File(baseDataDir, "db/MetaStore").getPath())
-                .put("presto.version", "testversion");
+                .put("presto.version", "testversion")
+                .put("analyzer.approximate-queries-enabled", "true");
 
         if (coordinator) {
             // TODO: enable failure detector

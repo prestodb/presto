@@ -26,6 +26,7 @@ import io.airlift.slice.Slices;
 
 import static com.facebook.presto.tuple.TupleInfo.SINGLE_DOUBLE;
 import static com.facebook.presto.tuple.TupleInfo.SINGLE_VARBINARY;
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static io.airlift.slice.SizeOf.SIZE_OF_DOUBLE;
 import static io.airlift.slice.SizeOf.SIZE_OF_LONG;
@@ -61,8 +62,9 @@ public class VarianceAggregation
     }
 
     @Override
-    protected GroupedAccumulator createGroupedAccumulator(Optional<Integer> maskChannel, Optional<Integer> sampleWeightChannel, int valueChannel)
+    protected GroupedAccumulator createGroupedAccumulator(Optional<Integer> maskChannel, Optional<Integer> sampleWeightChannel, double confidence, int valueChannel)
     {
+        checkArgument(confidence == 1.0, "variance does not support approximate queries");
         return new VarianceGroupedAccumulator(valueChannel, inputIsLong, population, standardDeviation, maskChannel, sampleWeightChannel);
     }
 
@@ -231,8 +233,9 @@ public class VarianceAggregation
     }
 
     @Override
-    protected Accumulator createAccumulator(Optional<Integer> maskChannel, Optional<Integer> sampleWeightChannel, int valueChannel)
+    protected Accumulator createAccumulator(Optional<Integer> maskChannel, Optional<Integer> sampleWeightChannel, double confidence, int valueChannel)
     {
+        checkArgument(confidence == 1.0, "variance does not support approximate queries");
         return new VarianceAccumulator(valueChannel, inputIsLong, population, standardDeviation, maskChannel, sampleWeightChannel);
     }
 

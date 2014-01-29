@@ -174,6 +174,7 @@ queryExpr
       ( (orderOrLimitQuerySpec) => orderOrLimitQuerySpec
       | queryExprBody orderClause? limitClause?
       )
+      approximateClause?
     ;
 
 orderOrLimitQuerySpec
@@ -213,6 +214,10 @@ simpleQuery
 restrictedSelectStmt
     : selectClause
       fromClause
+    ;
+
+approximateClause
+    : APPROXIMATE AT number CONFIDENCE -> ^(APPROXIMATE number)
     ;
 
 withClause
@@ -705,6 +710,7 @@ nonReserved
     | YEAR | MONTH | DAY | HOUR | MINUTE | SECOND
     | EXPLAIN | FORMAT | TYPE | TEXT | GRAPHVIZ | LOGICAL | DISTRIBUTED
     | TABLESAMPLE | SYSTEM | BERNOULLI | USE | SCHEMA | CATALOG
+    | APPROXIMATE | AT | CONFIDENCE
     ;
 
 SELECT: 'SELECT';
@@ -718,6 +724,9 @@ BY: 'BY';
 ORDER: 'ORDER';
 HAVING: 'HAVING';
 LIMIT: 'LIMIT';
+APPROXIMATE: 'APPROXIMATE';
+AT: 'AT';
+CONFIDENCE: 'CONFIDENCE';
 OR: 'OR';
 AND: 'AND';
 IN: 'IN';

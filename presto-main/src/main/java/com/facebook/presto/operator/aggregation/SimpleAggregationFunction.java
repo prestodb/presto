@@ -62,17 +62,17 @@ public abstract class SimpleAggregationFunction
     }
 
     @Override
-    public final GroupedAccumulator createGroupedAggregation(Optional<Integer> maskChannel, Optional<Integer> sampleWeightChannel, int... argumentChannels)
+    public final GroupedAccumulator createGroupedAggregation(Optional<Integer> maskChannel, Optional<Integer> sampleWeightChannel, double confidence, int... argumentChannels)
     {
         checkArgument(argumentChannels.length == 1, "Expected one argument channel, but got %s", argumentChannels.length);
 
-        return createGroupedAccumulator(maskChannel, sampleWeightChannel, argumentChannels[0]);
+        return createGroupedAccumulator(maskChannel, sampleWeightChannel, confidence, argumentChannels[0]);
     }
 
     @Override
-    public final GroupedAccumulator createGroupedIntermediateAggregation()
+    public final GroupedAccumulator createGroupedIntermediateAggregation(double confidence)
     {
-        return createGroupedAccumulator(Optional.<Integer>absent(), Optional.<Integer>absent(), -1);
+        return createGroupedAccumulator(Optional.<Integer>absent(), Optional.<Integer>absent(), confidence, -1);
     }
 
     protected static long computeSampleWeight(@Nullable BlockCursor masks, @Nullable BlockCursor sampleWeights)
@@ -88,7 +88,7 @@ public abstract class SimpleAggregationFunction
         return sampleWeight;
     }
 
-    protected abstract GroupedAccumulator createGroupedAccumulator(Optional<Integer> maskChannel, Optional<Integer> sampleWeightChannel, int valueChannel);
+    protected abstract GroupedAccumulator createGroupedAccumulator(Optional<Integer> maskChannel, Optional<Integer> sampleWeightChannel, double confidence, int valueChannel);
 
     public abstract static class SimpleGroupedAccumulator
             implements GroupedAccumulator
@@ -154,20 +154,20 @@ public abstract class SimpleAggregationFunction
     }
 
     @Override
-    public final Accumulator createAggregation(Optional<Integer> maskChannel, Optional<Integer> sampleWeightChannel, int... argumentChannels)
+    public final Accumulator createAggregation(Optional<Integer> maskChannel, Optional<Integer> sampleWeight, double confidence, int... argumentChannels)
     {
         checkArgument(argumentChannels.length == 1, "Expected one argument channel, but got %s", argumentChannels.length);
 
-        return createAccumulator(maskChannel, sampleWeightChannel, argumentChannels[0]);
+        return createAccumulator(maskChannel, sampleWeight, confidence, argumentChannels[0]);
     }
 
     @Override
-    public final Accumulator createIntermediateAggregation()
+    public final Accumulator createIntermediateAggregation(double confidence)
     {
-        return createAccumulator(Optional.<Integer>absent(), Optional.<Integer>absent(), -1);
+        return createAccumulator(Optional.<Integer>absent(), Optional.<Integer>absent(), confidence, -1);
     }
 
-    protected abstract Accumulator createAccumulator(Optional<Integer> maskChannel, Optional<Integer> sampleWeightChannel, int valueChannel);
+    protected abstract Accumulator createAccumulator(Optional<Integer> maskChannel, Optional<Integer> sampleWeightChannel, double confidence, int valueChannel);
 
     public abstract static class SimpleAccumulator
             implements Accumulator

@@ -389,7 +389,7 @@ public class HashAggregationOperator
             if (step == Step.FINAL) {
                 checkArgument(functionDefinition.getInputs().size() == 1, "Expected a single input for an intermediate aggregation");
                 intermediateChannel = functionDefinition.getInputs().get(0).getChannel();
-                aggregation = function.createGroupedIntermediateAggregation();
+                aggregation = function.createGroupedIntermediateAggregation(functionDefinition.getConfidence());
             }
             else {
                 int[] argumentChannels = new int[functionDefinition.getInputs().size()];
@@ -400,6 +400,7 @@ public class HashAggregationOperator
                 aggregation = function.createGroupedAggregation(
                         functionDefinition.getMask().transform(Input.channelGetter()),
                         functionDefinition.getSampleWeight().transform(Input.channelGetter()),
+                        functionDefinition.getConfidence(),
                         argumentChannels);
             }
             this.step = step;

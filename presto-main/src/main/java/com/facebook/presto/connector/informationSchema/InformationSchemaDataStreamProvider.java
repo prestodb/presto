@@ -170,6 +170,10 @@ public class InformationSchemaDataStreamProvider
     {
         InternalTable.Builder table = InternalTable.builder(InformationSchemaMetadata.informationSchemaTableColumns(InformationSchemaMetadata.TABLE_INTERNAL_FUNCTIONS));
         for (FunctionInfo function : metadata.listFunctions()) {
+            if (function.isApproximate()) {
+                continue;
+            }
+
             Iterable<String> arguments = transform(function.getArgumentTypes(), Type.nameGetter());
 
             String functionType;

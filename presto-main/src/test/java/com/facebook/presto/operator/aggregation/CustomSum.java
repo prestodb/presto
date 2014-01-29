@@ -27,6 +27,7 @@ import java.util.List;
 
 import static com.facebook.presto.operator.aggregation.SimpleAggregationFunction.computeSampleWeight;
 import static com.facebook.presto.tuple.TupleInfo.SINGLE_LONG;
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 
 public class CustomSum
@@ -51,26 +52,30 @@ public class CustomSum
     }
 
     @Override
-    public Accumulator createAggregation(Optional<Integer> maskChannel, Optional<Integer> sampleWeightChannel, int... argumentChannels)
+    public Accumulator createAggregation(Optional<Integer> maskChannel, Optional<Integer> sampleWeightChannel, double confidence, int... argumentChannels)
     {
+        checkArgument(confidence == 1.0, "custom sum does not support approximate queries");
         return new CustomSumAccumulator(argumentChannels[0], maskChannel, sampleWeightChannel);
     }
 
     @Override
-    public Accumulator createIntermediateAggregation()
+    public Accumulator createIntermediateAggregation(double confidence)
     {
+        checkArgument(confidence == 1.0, "custom sum does not support approximate queries");
         return new CustomSumAccumulator(-1, Optional.<Integer>absent(), Optional.<Integer>absent());
     }
 
     @Override
-    public GroupedAccumulator createGroupedAggregation(Optional<Integer> maskChannel, Optional<Integer> sampleWeightChannel, int... argumentChannels)
+    public GroupedAccumulator createGroupedAggregation(Optional<Integer> maskChannel, Optional<Integer> sampleWeightChannel, double confidence, int... argumentChannels)
     {
+        checkArgument(confidence == 1.0, "custom sum does not support approximate queries");
         return new CustomSumGroupedAccumulator(argumentChannels[0], maskChannel, sampleWeightChannel);
     }
 
     @Override
-    public GroupedAccumulator createGroupedIntermediateAggregation()
+    public GroupedAccumulator createGroupedIntermediateAggregation(double confidence)
     {
+        checkArgument(confidence == 1.0, "custom sum does not support approximate queries");
         return new CustomSumGroupedAccumulator(-1, Optional.<Integer>absent(), Optional.<Integer>absent());
     }
 

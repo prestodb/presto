@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.sql.parser;
 
+import com.facebook.presto.sql.tree.Approximate;
 import com.facebook.presto.sql.tree.CurrentTime;
 import com.facebook.presto.sql.tree.DateLiteral;
 import com.facebook.presto.sql.tree.DoubleLiteral;
@@ -88,7 +89,8 @@ public class TestSqlParser
                                 ImmutableList.<SortItem>of(),
                                 Optional.<String>absent()),
                         ImmutableList.<SortItem>of(),
-                        Optional.<String>absent()));
+                        Optional.<String>absent(),
+                        Optional.<Approximate>absent()));
     }
 
     @Test(expectedExceptions = ParsingException.class, expectedExceptionsMessageRegExp = "line 1:1: no viable alternative at input '<EOF>'")

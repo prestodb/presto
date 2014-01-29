@@ -27,22 +27,26 @@ public class Query
     private final QueryBody queryBody;
     private final List<SortItem> orderBy;
     private final Optional<String> limit;
+    private final Optional<Approximate> approximate;
 
     public Query(
             Optional<With> with,
             QueryBody queryBody,
             List<SortItem> orderBy,
-            Optional<String> limit)
+            Optional<String> limit,
+            Optional<Approximate> approximate)
     {
         checkNotNull(with, "with is null");
         checkNotNull(queryBody, "queryBody is null");
         checkNotNull(orderBy, "orderBy is null");
         checkNotNull(limit, "limit is null");
+        checkNotNull(approximate, "approximate is null");
 
         this.with = with;
         this.queryBody = queryBody;
         this.orderBy = orderBy;
         this.limit = limit;
+        this.approximate = approximate;
     }
 
     public Optional<With> getWith()
@@ -65,6 +69,11 @@ public class Query
         return limit;
     }
 
+    public Optional<Approximate> getApproximate()
+    {
+        return approximate;
+    }
+
     @Override
     public <R, C> R accept(AstVisitor<R, C> visitor, C context)
     {
@@ -79,6 +88,7 @@ public class Query
                 .add("queryBody", queryBody)
                 .add("orderBy", orderBy)
                 .add("limit", limit.orNull())
+                .add("approximate", approximate.orNull())
                 .omitNullValues()
                 .toString();
     }
@@ -96,12 +106,13 @@ public class Query
         return Objects.equal(with, o.with) &&
                 Objects.equal(queryBody, o.queryBody) &&
                 Objects.equal(orderBy, o.orderBy) &&
-                Objects.equal(limit, o.limit);
+                Objects.equal(limit, o.limit) &&
+                Objects.equal(approximate, o.approximate);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hashCode(with, queryBody, orderBy, limit);
+        return Objects.hashCode(with, queryBody, orderBy, limit, approximate);
     }
 }

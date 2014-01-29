@@ -48,7 +48,7 @@ public class BootstrapFunctionBinder
     public FunctionBinding bindFunction(QualifiedName name, ByteCodeNode getSessionByteCode, List<TypedByteCodeNode> arguments)
     {
         List<Type> argumentTypes = Lists.transform(arguments, toTupleType());
-        FunctionInfo function = metadata.getFunction(name, argumentTypes);
+        FunctionInfo function = metadata.getFunction(name, argumentTypes, false);
         checkArgument(function != null, "Unknown function %s%s", name, argumentTypes);
 
         FunctionBinding functionBinding = bindFunction(name.toString(), getSessionByteCode, arguments, function.getFunctionBinder());

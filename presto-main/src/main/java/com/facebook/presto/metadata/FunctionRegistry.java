@@ -33,7 +33,9 @@ import com.facebook.presto.sql.analyzer.Session;
 import com.facebook.presto.sql.analyzer.Type;
 import com.facebook.presto.sql.gen.FunctionBinder;
 import com.facebook.presto.sql.tree.QualifiedName;
+import com.facebook.presto.util.IterableTransformer;
 import com.google.common.base.Joiner;
+import com.google.common.base.Predicate;
 import com.google.common.base.Supplier;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
@@ -161,6 +163,8 @@ public class FunctionRegistry
                 .aggregate("approx_percentile", DOUBLE, ImmutableList.of(DOUBLE, BIGINT, DOUBLE), VARCHAR, DOUBLE_APPROXIMATE_PERCENTILE_WEIGHTED_AGGREGATION)
                 .aggregate("approx_avg", VARCHAR, ImmutableList.of(BIGINT), VARCHAR, LONG_APPROXIMATE_AVERAGE_AGGREGATION)
                 .aggregate("approx_avg", VARCHAR, ImmutableList.of(DOUBLE), VARCHAR, DOUBLE_APPROXIMATE_AVERAGE_AGGREGATION)
+                .approximateAggregate("avg", VARCHAR, ImmutableList.of(BIGINT), VARCHAR, LONG_APPROXIMATE_AVERAGE_AGGREGATION)
+                .approximateAggregate("avg", VARCHAR, ImmutableList.of(DOUBLE), VARCHAR, DOUBLE_APPROXIMATE_AVERAGE_AGGREGATION)
                 .scalar(StringFunctions.class)
                 .scalar(RegexpFunctions.class)
                 .scalar(UrlFunctions.class)
@@ -193,24 +197,32 @@ public class FunctionRegistry
         return Iterables.any(functions.get(name), isAggregationPredicate());
     }
 
-    public FunctionInfo get(QualifiedName name, List<Type> parameterTypes)
+    public FunctionInfo get(QualifiedName name, List<Type> parameterTypes, final boolean approximate)
     {
+        List<FunctionInfo> candidates = IterableTransformer.on(functions.get(name)).select(new Predicate<FunctionInfo>() {
+            @Override
+            public boolean apply(FunctionInfo input)
+            {
+                return input.isScalar() || input.isApproximate() == approximate;
+            }
+        }).list();
+
         // search for exact match
-        for (FunctionInfo functionInfo : functions.get(name)) {
+        for (FunctionInfo functionInfo : candidates) {
             if (functionInfo.getArgumentTypes().equals(parameterTypes)) {
                 return functionInfo;
             }
         }
 
         // search for coerced match
-        for (FunctionInfo functionInfo : functions.get(name)) {
+        for (FunctionInfo functionInfo : candidates) {
             if (canCoerce(parameterTypes, functionInfo)) {
                 return functionInfo;
             }
         }
 
         List<String> expectedParameters = new ArrayList<>();
-        for (FunctionInfo functionInfo : functions.get(name)) {
+        for (FunctionInfo functionInfo : candidates) {
             expectedParameters.add(format("%s(%s)", name, Joiner.on(", ").join(functionInfo.getArgumentTypes())));
         }
         String parameters = Joiner.on(", ").join(parameterTypes);
@@ -288,16 +300,26 @@ public class FunctionRegistry
             name = name.toLowerCase();
 
             String description = getDescription(function.getClass());
-            functions.add(new FunctionInfo(new Signature(name, returnType, argumentTypes), description, function));
+            functions.add(new FunctionInfo(new Signature(name, returnType, argumentTypes, false), description, function));
             return this;
+        }
+
+        public FunctionListBuilder approximateAggregate(String name, Type returnType, List<Type> argumentTypes, Type intermediateType, AggregationFunction function)
+        {
+            return aggregate(name, returnType, argumentTypes, true, intermediateType, function);
         }
 
         public FunctionListBuilder aggregate(String name, Type returnType, List<Type> argumentTypes, Type intermediateType, AggregationFunction function)
         {
+            return aggregate(name, returnType, argumentTypes, false, intermediateType, function);
+        }
+
+        private FunctionListBuilder aggregate(String name, Type returnType, List<Type> argumentTypes, boolean approximate, Type intermediateType, AggregationFunction function)
+        {
             name = name.toLowerCase();
 
             String description = getDescription(function.getClass());
-            functions.add(new FunctionInfo(new Signature(name, returnType, argumentTypes), description, intermediateType, function));
+            functions.add(new FunctionInfo(new Signature(name, returnType, argumentTypes, approximate), description, intermediateType, function));
             return this;
         }
 
@@ -307,7 +329,7 @@ public class FunctionRegistry
 
             Type returnType = type(function.type().returnType());
             List<Type> argumentTypes = types(function);
-            functions.add(new FunctionInfo(new Signature(name, returnType, argumentTypes), description, function, deterministic, functionBinder));
+            functions.add(new FunctionInfo(new Signature(name, returnType, argumentTypes, false), description, function, deterministic, functionBinder));
             return this;
         }
 

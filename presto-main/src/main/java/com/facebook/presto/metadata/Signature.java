@@ -29,12 +29,14 @@ public final class Signature
     private final String name;
     private final Type returnType;
     private final List<Type> argumentTypes;
+    private final boolean approximate;
 
     @JsonCreator
     public Signature(
             @JsonProperty("name") String name,
             @JsonProperty("returnType") Type returnType,
-            @JsonProperty("argumentTypes") List<Type> argumentTypes)
+            @JsonProperty("argumentTypes") List<Type> argumentTypes,
+            @JsonProperty("approximate") boolean approximate)
     {
         checkNotNull(name, "name is null");
         checkNotNull(returnType, "returnType is null");
@@ -43,6 +45,13 @@ public final class Signature
         this.name = name;
         this.returnType = returnType;
         this.argumentTypes = ImmutableList.copyOf(argumentTypes);
+        this.approximate = approximate;
+    }
+
+    @JsonProperty
+    public boolean isApproximate()
+    {
+        return approximate;
     }
 
     @JsonProperty
@@ -66,7 +75,7 @@ public final class Signature
     @Override
     public int hashCode()
     {
-        return Objects.hash(name, returnType, argumentTypes);
+        return Objects.hash(name, returnType, argumentTypes, approximate);
     }
 
     @Override
@@ -81,11 +90,12 @@ public final class Signature
         Signature other = (Signature) obj;
         return Objects.equals(this.name, other.name) &&
                 Objects.equals(this.returnType, other.returnType) &&
-                Objects.equals(this.argumentTypes, other.argumentTypes);
+                Objects.equals(this.argumentTypes, other.argumentTypes) &&
+                Objects.equals(this.approximate, other.approximate);
     }
 
     public String toString()
     {
-        return name + "(" + Joiner.on(",").join(argumentTypes) + "):" + returnType;
+        return name + (approximate ? "[approximate]" : "") + "(" + Joiner.on(",").join(argumentTypes) + "):" + returnType;
     }
 }

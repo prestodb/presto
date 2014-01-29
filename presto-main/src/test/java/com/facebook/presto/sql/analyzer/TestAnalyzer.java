@@ -53,6 +53,7 @@ import static org.testng.Assert.fail;
 public class TestAnalyzer
 {
     private Analyzer analyzer;
+    private Analyzer approximateDisabledAnalyzer;
 
     @Test
     public void testDuplicateRelation()
@@ -172,6 +173,29 @@ public class TestAnalyzer
             throws Exception
     {
         assertFails(TYPE_MISMATCH, "SELECT * FROM t1 WHERE a");
+    }
+
+    @Test
+    public void testApproximateNotEnabled()
+            throws Exception
+    {
+        try {
+            Statement statement = SqlParser.createStatement("SELECT AVG(a) FROM t1 APPROXIMATE AT 99.0 CONFIDENCE");
+            approximateDisabledAnalyzer.analyze(statement);
+            fail(format("Expected error %s, but analysis succeeded", NOT_SUPPORTED));
+        }
+        catch (SemanticException e) {
+            if (e.getCode() != NOT_SUPPORTED) {
+                fail(format("Expected error %s, but found %s: %s", NOT_SUPPORTED, e.getCode(), e.getMessage()), e);
+            }
+        }
+    }
+
+    @Test
+    public void testApproximateQuery()
+            throws Exception
+    {
+        analyze("SELECT AVG(a) FROM t1 APPROXIMATE AT 99.0 CONFIDENCE");
     }
 
     @Test
@@ -554,7 +578,8 @@ public class TestAnalyzer
                         new ColumnMetadata("a", ColumnType.LONG, 0, false),
                         new ColumnMetadata("b", ColumnType.LONG, 1, false)))));
 
-        analyzer = new Analyzer(new Session("user", "test", "tpch", "default", null, null), metadata, Optional.<QueryExplainer>absent());
+        analyzer = new Analyzer(new Session("user", "test", "tpch", "default", null, null), metadata, Optional.<QueryExplainer>absent(), true);
+        approximateDisabledAnalyzer = new Analyzer(new Session("user", "test", "tpch", "default", null, null), metadata, Optional.<QueryExplainer>absent(), false);
     }
 
     private void analyze(@Language("SQL") String query)

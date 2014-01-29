@@ -120,10 +120,20 @@ public final class FunctionInfo
         return isWindow;
     }
 
+    public boolean isScalar()
+    {
+        return !isWindow && !isAggregate;
+    }
+
     public Supplier<WindowFunction> getWindowFunction()
     {
         checkState(isWindow, "not a window function");
         return windowFunction;
+    }
+
+    public boolean isApproximate()
+    {
+        return signature.isApproximate();
     }
 
     public Type getReturnType()
@@ -141,10 +151,10 @@ public final class FunctionInfo
         return intermediateType;
     }
 
-    public AggregationFunctionDefinition bind(List<Input> inputs, Optional<Input> mask, Optional<Input> sampleWeight)
+    public AggregationFunctionDefinition bind(List<Input> inputs, Optional<Input> mask, Optional<Input> sampleWeight, double confidence)
     {
         checkState(isAggregate, "function is not an aggregate");
-        return aggregation(aggregationFunction, inputs, mask, sampleWeight);
+        return aggregation(aggregationFunction, inputs, mask, sampleWeight, confidence);
     }
 
     public MethodHandle getScalarFunction()

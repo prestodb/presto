@@ -27,11 +27,11 @@ public interface AggregationFunction
 
     TupleInfo getIntermediateTupleInfo();
 
-    Accumulator createAggregation(Optional<Integer> maskChannel, Optional<Integer> sampleWeightChannel, int... argumentChannels);
+    Accumulator createAggregation(Optional<Integer> maskChannel, Optional<Integer> sampleWeight, double confidence, int... argumentChannels);
 
-    Accumulator createIntermediateAggregation();
+    Accumulator createIntermediateAggregation(double confidence);
 
-    GroupedAccumulator createGroupedAggregation(Optional<Integer> maskChannel, Optional<Integer> sampleWeightChannel, int... argumentChannels);
+    GroupedAccumulator createGroupedAggregation(Optional<Integer> maskChannel, Optional<Integer> sampleWeight, double confidence, int... argumentChannels);
 
-    GroupedAccumulator createGroupedIntermediateAggregation();
+    GroupedAccumulator createGroupedIntermediateAggregation(double confidence);
 }

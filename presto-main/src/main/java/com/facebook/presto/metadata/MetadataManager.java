@@ -78,9 +78,9 @@ public class MetadataManager
     }
 
     @Override
-    public FunctionInfo getFunction(QualifiedName name, List<Type> parameterTypes)
+    public FunctionInfo getFunction(QualifiedName name, List<Type> parameterTypes, boolean approximate)
     {
-        return functions.get(name, parameterTypes);
+        return functions.get(name, parameterTypes, approximate);
     }
 
     @Override

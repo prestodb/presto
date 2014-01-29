@@ -68,14 +68,16 @@ public class ApproximatePercentileAggregation
     }
 
     @Override
-    public ApproximatePercentileGroupedAccumulator createGroupedAggregation(Optional<Integer> maskChannel, Optional<Integer> sampleWeightChannel, int[] argumentChannels)
+    public ApproximatePercentileGroupedAccumulator createGroupedAggregation(Optional<Integer> maskChannel, Optional<Integer> sampleWeightChannel, double confidence, int[] argumentChannels)
     {
+        checkArgument(confidence == 1.0, "approximate percentile does not support approximate queries");
         return new ApproximatePercentileGroupedAccumulator(argumentChannels[0], argumentChannels[1], parameterType, maskChannel, sampleWeightChannel);
     }
 
     @Override
-    public GroupedAccumulator createGroupedIntermediateAggregation()
+    public GroupedAccumulator createGroupedIntermediateAggregation(double confidence)
     {
+        checkArgument(confidence == 1.0, "approximate percentile does not support approximate queries");
         return new ApproximatePercentileGroupedAccumulator(-1, -1, parameterType, Optional.<Integer>absent(), Optional.<Integer>absent());
     }
 
@@ -236,14 +238,16 @@ public class ApproximatePercentileAggregation
     }
 
     @Override
-    public ApproximatePercentileAccumulator createAggregation(Optional<Integer> maskChannel, Optional<Integer> sampleWeightChannel, int... argumentChannels)
+    public ApproximatePercentileAccumulator createAggregation(Optional<Integer> maskChannel, Optional<Integer> sampleWeightChannel, double confidence, int... argumentChannels)
     {
+        checkArgument(confidence == 1.0, "approximate percentile does not support approximate queries");
         return new ApproximatePercentileAccumulator(argumentChannels[0], argumentChannels[1], parameterType, maskChannel, sampleWeightChannel);
     }
 
     @Override
-    public ApproximatePercentileAccumulator createIntermediateAggregation()
+    public ApproximatePercentileAccumulator createIntermediateAggregation(double confidence)
     {
+        checkArgument(confidence == 1.0, "approximate percentile does not support approximate queries");
         return new ApproximatePercentileAccumulator(-1, -1, parameterType, Optional.<Integer>absent(), Optional.<Integer>absent());
     }
 

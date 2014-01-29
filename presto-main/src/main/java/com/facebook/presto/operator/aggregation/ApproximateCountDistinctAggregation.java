@@ -61,8 +61,9 @@ public class ApproximateCountDistinctAggregation
     }
 
     @Override
-    protected GroupedAccumulator createGroupedAccumulator(Optional<Integer> maskChannel, Optional<Integer> sampleWeightChannel, int valueChannel)
+    protected GroupedAccumulator createGroupedAccumulator(Optional<Integer> maskChannel, Optional<Integer> sampleWeightChannel, double confidence, int valueChannel)
     {
+        checkArgument(confidence == 1.0, "approximate count distinct does not support approximate queries");
         return new ApproximateCountDistinctGroupedAccumulator(parameterType, valueChannel, maskChannel);
     }
 
@@ -192,8 +193,9 @@ public class ApproximateCountDistinctAggregation
     }
 
     @Override
-    protected Accumulator createAccumulator(Optional<Integer> maskChannel, Optional<Integer> sampleWeightChannel, int valueChannel)
+    protected Accumulator createAccumulator(Optional<Integer> maskChannel, Optional<Integer> sampleWeightChannel, double confidence, int valueChannel)
     {
+        checkArgument(confidence == 1.0, "approximate count distinct does not support approximate queries");
         return new ApproximateCountDistinctAccumulator(parameterType, valueChannel, maskChannel);
     }
 

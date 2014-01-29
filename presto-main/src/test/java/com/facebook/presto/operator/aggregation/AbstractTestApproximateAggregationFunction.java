@@ -71,7 +71,7 @@ public abstract class AbstractTestApproximateAggregationFunction
                     throw new AssertionError("Can only handle longs and doubles");
                 }
             }
-            Accumulator accumulator = getFunction().createAggregation(Optional.<Integer>absent(), Optional.<Integer>absent(), 0);
+            Accumulator accumulator = getFunction().createAggregation(Optional.<Integer>absent(), Optional.<Integer>absent(), getConfidence(), 0);
 
             accumulator.addInput(new Page(builder.build()));
             Block result = accumulator.evaluateFinal();
@@ -86,8 +86,7 @@ public abstract class AbstractTestApproximateAggregationFunction
             }
         }
 
-        double confidence = 0.99; //i.e., a confidence of 99%
-        assertTrue(inRange >= confidence * numberOfRuns);
+        assertTrue(inRange >= getConfidence() * numberOfRuns);
     }
 
     protected static List<Number> shuffle(Iterable<Number> iterable)

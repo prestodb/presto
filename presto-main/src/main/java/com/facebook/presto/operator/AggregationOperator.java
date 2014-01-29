@@ -201,12 +201,13 @@ public class AggregationOperator
                 aggregation = function.createAggregation(
                         functionDefinition.getMask().transform(Input.channelGetter()),
                         functionDefinition.getSampleWeight().transform(Input.channelGetter()),
+                        functionDefinition.getConfidence(),
                         argumentChannels);
             }
             else {
                 checkArgument(functionDefinition.getInputs().size() == 1, "Expected a single input for an intermediate aggregation");
                 intermediateChannel = functionDefinition.getInputs().get(0).getChannel();
-                aggregation = function.createIntermediateAggregation();
+                aggregation = function.createIntermediateAggregation(functionDefinition.getConfidence());
             }
             this.step = step;
         }
