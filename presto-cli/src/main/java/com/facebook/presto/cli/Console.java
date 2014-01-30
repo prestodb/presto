@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.cli;
 
+import com.facebook.presto.cli.Query.InteractionLevel;
 import com.facebook.presto.cli.ClientOptions.OutputFormat;
 import com.facebook.presto.client.ClientSession;
 import com.facebook.presto.sql.parser.StatementSplitter;
@@ -49,6 +50,8 @@ public class Console
 {
     private static final String PROMPT_NAME = "presto";
 
+    private int status;
+
     @Inject
     public HelpOption helpOption;
 
@@ -61,10 +64,15 @@ public class Console
         ClientSession session = clientOptions.toClientSession();
         boolean hasQuery = !Strings.isNullOrEmpty(clientOptions.execute);
         boolean isFromFile = !Strings.isNullOrEmpty(clientOptions.file);
+        boolean showProgress = clientOptions.showProgress;
+
+        InteractionLevel il = InteractionLevel.NONE;
 
         if (!hasQuery || !isFromFile) {
             AnsiConsole.systemInstall();
         }
+
+        status = 0;
 
         initializeLogging(session.isDebug());
 
@@ -82,18 +90,30 @@ public class Console
             }
         }
 
+        if (!hasQuery) {
+            il = InteractionLevel.ALL;
+        }
+        else if (showProgress) {
+            il = InteractionLevel.PROGRESS;
+        }
+
         try (QueryRunner queryRunner = QueryRunner.create(session)) {
             if (hasQuery) {
-                executeCommand(queryRunner, query, clientOptions.outputFormat);
+                status = executeCommand(queryRunner, query, clientOptions.outputFormat, il);
             }
             else {
-                runConsole(queryRunner, session);
+                runConsole(queryRunner, session, il);
             }
         }
     }
 
+    public int getStatus()
+    {
+        return status;
+    }
+
     @SuppressWarnings("fallthrough")
-    private void runConsole(QueryRunner queryRunner, ClientSession session)
+    private void runConsole(QueryRunner queryRunner, ClientSession session, InteractionLevel il)
     {
         try (TableNameCompleter tableNameCompleter = new TableNameCompleter(clientOptions.toClientSession(), queryRunner);
                 LineReader reader = new LineReader(getHistory(), tableNameCompleter)) {
@@ -151,7 +171,7 @@ public class Console
                         outputFormat = OutputFormat.VERTICAL;
                     }
 
-                    process(queryRunner, split.statement(), outputFormat, true);
+                    process(queryRunner, split.statement(), outputFormat, il);
                     reader.getHistory().add(squeezeStatement(split.statement()) + split.terminator());
                 }
 
@@ -168,25 +188,32 @@ public class Console
         }
     }
 
-    private static void executeCommand(QueryRunner queryRunner, String query, OutputFormat outputFormat)
+    private static int executeCommand(QueryRunner queryRunner, String query, OutputFormat outputFormat, InteractionLevel il)
     {
         StatementSplitter splitter = new StatementSplitter(query + ";");
         for (Statement split : splitter.getCompleteStatements()) {
-            process(queryRunner, split.statement(), outputFormat, false);
+            int ret = process(queryRunner, split.statement(), outputFormat, il);
+            if (ret != 0) {
+                return ret;
+            }
         }
+        return 0;
     }
 
-    private static void process(QueryRunner queryRunner, String sql, OutputFormat outputFormat, boolean interactive)
+    private static int process(QueryRunner queryRunner, String sql, OutputFormat outputFormat, InteractionLevel il)
     {
+        int ret = 0;
         try (Query query = queryRunner.startQuery(sql)) {
-            query.renderOutput(System.out, outputFormat, interactive);
+            ret = query.renderOutput(System.out, outputFormat, il);
         }
         catch (RuntimeException e) {
-            System.out.println("Error running command: " + e.getMessage());
+            System.err.println("Error running command: " + e.getMessage());
             if (queryRunner.getSession().isDebug()) {
                 e.printStackTrace();
             }
+            ret = -1;
         }
+        return ret;
     }
 
     private static MemoryHistory getHistory()

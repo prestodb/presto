@@ -46,6 +46,9 @@ public class ClientOptions
     @Option(name = "--execute", title = "execute", description = "Execute specified statements and exit")
     public String execute;
 
+    @Option(name = "--show-progress", title = "show-progress", description = "Show progress for the query")
+    public boolean showProgress;
+
     @Option(name = "--output-format", title = "output-format", description = "Output format for batch mode (default: CSV)")
     public OutputFormat outputFormat = OutputFormat.CSV;
 
