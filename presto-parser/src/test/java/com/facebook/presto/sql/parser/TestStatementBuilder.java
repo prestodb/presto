@@ -86,8 +86,11 @@ public class TestStatementBuilder
 
         printStatement("select * from foo tablesample system (10+1)");
         printStatement("select * from foo tablesample system (10) join bar tablesample bernoulli (30) on a.id = b.id");
+
         printStatement("select * from foo tablesample bernoulli (10) stratify on (id)");
         printStatement("select * from foo tablesample system (50) stratify on (id, name)");
+
+        printStatement("select * from foo tablesample poissonized (100)");
 
         printStatement("create table foo as select * from abc");
     }

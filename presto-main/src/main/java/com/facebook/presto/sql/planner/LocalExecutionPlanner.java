@@ -40,6 +40,7 @@ import com.facebook.presto.operator.OutputFactory;
 import com.facebook.presto.operator.ProjectionFunction;
 import com.facebook.presto.operator.ProjectionFunctions;
 import com.facebook.presto.operator.RecordSinkManager;
+import com.facebook.presto.operator.SampleOperator.SampleOperatorFactory;
 import com.facebook.presto.operator.ScanFilterAndProjectOperator.ScanFilterAndProjectOperatorFactory;
 import com.facebook.presto.operator.SetBuilderOperator.SetBuilderOperatorFactory;
 import com.facebook.presto.operator.SetBuilderOperator.SetSupplier;
@@ -466,6 +467,14 @@ public class LocalExecutionPlanner
             if (node.getSampleType() == SampleNode.Type.SYSTEM) {
                 return node.getSource().accept(this, context);
             }
+
+            if (node.getSampleType() == SampleNode.Type.POISSONIZED) {
+                PhysicalOperation source = node.getSource().accept(this, context);
+                IdentityProjectionInfo mappings = computeIdentityMapping(node.getOutputSymbols(), source.getLayout(), context.getTypes());
+                OperatorFactory operatorFactory = new SampleOperatorFactory(context.getNextOperatorId(), node.getSampleRatio(), mappings.getProjections());
+                return new PhysicalOperation(operatorFactory, source.getLayout(), source);
+            }
+
             throw new UnsupportedOperationException("not yet implemented: " + node);
         }
 
