@@ -84,6 +84,29 @@ public class TestAsyncRecursiveWalker
     }
 
     @Test
+    public void testHiddenFiles()
+            throws Exception
+    {
+        ImmutableMap<String, List<FileStatus>> paths = ImmutableMap.<String, List<FileStatus>>builder()
+                .put("/", ImmutableList.of(fileStatus("/.a", true), fileStatus("/_b", true), fileStatus("/c", true), fileStatus("/file1", false), fileStatus("/_file2", false), fileStatus("/.file3", false)))
+                .put("/.a", ImmutableList.of(fileStatus("/.a/file4", false), fileStatus("/.a/file5", false)))
+                .put("/_b", ImmutableList.of(fileStatus("/_b/file6", false), fileStatus("/_b/file7", false)))
+                .put("/c", ImmutableList.of(fileStatus("/c/file8", false), fileStatus("/c/.file9", false), fileStatus("/c/_file10", false)))
+                .build();
+
+        AsyncRecursiveWalker walker = new AsyncRecursiveWalker(createMockFileSystem(paths), MoreExecutors.sameThreadExecutor());
+
+        MockFileStatusCallback callback = new MockFileStatusCallback();
+        ListenableFuture<Void> listenableFuture = walker.beginWalk(new Path("/"), callback);
+
+        Assert.assertTrue(listenableFuture.isDone());
+        Assert.assertEquals(ImmutableSet.copyOf(callback.getProcessedFiles()), ImmutableSet.of("/file1", "/c/file8"));
+
+        // Should not have an exception
+        listenableFuture.get();
+    }
+
+    @Test
     public void testDoubleIOException()
             throws Exception
     {

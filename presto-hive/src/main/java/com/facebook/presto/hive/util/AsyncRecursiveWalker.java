@@ -70,6 +70,11 @@ public class AsyncRecursiveWalker
             RemoteIterator<LocatedFileStatus> iterator = listLocatedStatus(fileSystem, path);
             while (iterator.hasNext()) {
                 LocatedFileStatus status = iterator.next();
+                // ignore hidden files. Hive ignores files starting with _ and . as well.
+                String fileName = status.getPath().getName();
+                if (fileName.startsWith("_") || fileName.startsWith(".")) {
+                    continue;
+                }
                 if (isDirectory(status)) {
                     recursiveWalk(status.getPath(), callback, taskCount, future);
                 }
