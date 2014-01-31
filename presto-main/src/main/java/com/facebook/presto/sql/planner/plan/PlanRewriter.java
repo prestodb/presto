@@ -263,6 +263,25 @@ public final class PlanRewriter<C>
         }
 
         @Override
+        public PlanNode visitDistinctLimit(DistinctLimitNode node, Context<C> context)
+        {
+            if (!context.isDefaultRewrite()) {
+                PlanNode result = nodeRewriter.rewriteDistinctLimit(node, context.get(), PlanRewriter.this);
+                if (result != null) {
+                    return result;
+                }
+            }
+
+            PlanNode source = rewrite(node.getSource(), context.get());
+
+            if (source != node.getSource()) {
+                return new DistinctLimitNode(node.getId(), source, node.getLimit());
+            }
+
+            return node;
+        }
+
+        @Override
         public PlanNode visitTableScan(TableScanNode node, Context<C> context)
         {
             if (!context.isDefaultRewrite()) {
