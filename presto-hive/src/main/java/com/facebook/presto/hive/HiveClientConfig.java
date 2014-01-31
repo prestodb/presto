@@ -21,12 +21,17 @@ import io.airlift.units.DataSize;
 import io.airlift.units.DataSize.Unit;
 import io.airlift.units.Duration;
 import io.airlift.units.MinDuration;
+import org.apache.hadoop.hdfs.DFSConfigKeys;
+import org.apache.hadoop.security.UserGroupInformation;
 
 import javax.validation.constraints.Min;
 import javax.validation.constraints.NotNull;
 
 import java.util.List;
 import java.util.concurrent.TimeUnit;
+
+import static org.apache.hadoop.fs.CommonConfigurationKeysPublic.HADOOP_SECURITY_AUTHENTICATION;
+import static org.apache.hadoop.fs.CommonConfigurationKeysPublic.HADOOP_SECURITY_AUTHORIZATION;
 
 public class HiveClientConfig
 {
@@ -53,6 +58,14 @@ public class HiveClientConfig
 
     private String s3AwsAccessKey;
     private String s3AwsSecretKey;
+
+    private Boolean hadoopSecurityAuthorization = Boolean.FALSE;
+    private UserGroupInformation.AuthenticationMethod hadoopSecurityAuthentication = UserGroupInformation.AuthenticationMethod.SIMPLE;
+    private String dfsNNKerberosPrincipal = "";
+    private String dfsNNKeytabFile = "";
+    private String dfsDNKerberosPrincipal = "";
+    private String dfsDNKeytabFile = "";
+
 
     private List<String> resourceConfigFiles;
 
@@ -304,5 +317,73 @@ public class HiveClientConfig
     {
         this.s3AwsSecretKey = s3AwsSecretKey;
         return this;
+    }
+
+    @Config(HADOOP_SECURITY_AUTHORIZATION)
+    public HiveClientConfig setHadoopSecurityAuthorization(boolean hadoopSecurityAuthorization) {
+        this.hadoopSecurityAuthorization = hadoopSecurityAuthorization;
+        return this;
+    }
+
+    @Config(HADOOP_SECURITY_AUTHENTICATION)
+    public HiveClientConfig setHadoopSecurityAuthentication(String name) {
+        this.hadoopSecurityAuthentication = UserGroupInformation.AuthenticationMethod.valueOf(name);
+        return this;
+    }
+
+    @Config(DFSConfigKeys.DFS_NAMENODE_KEYTAB_FILE_KEY)
+    public HiveClientConfig setDfsNNKeytabFile(String file) {
+        this.dfsNNKeytabFile = file;
+        return this;
+    }
+
+    @Config(DFSConfigKeys.DFS_NAMENODE_USER_NAME_KEY)
+    public HiveClientConfig setDfsNNKerberosPrincipal(String principal) {
+        this.dfsNNKerberosPrincipal = principal;
+        return this;
+    }
+
+    @Config(DFSConfigKeys.DFS_DATANODE_KEYTAB_FILE_KEY)
+    public HiveClientConfig setDfsDNKeytabFile(String file) {
+        this.dfsDNKeytabFile = file;
+        return this;
+    }
+
+    @Config(DFSConfigKeys.DFS_DATANODE_USER_NAME_KEY)
+    public HiveClientConfig setDfsDNKerberosPrincipal(String principal) {
+        this.dfsDNKerberosPrincipal = principal;
+        return this;
+    }
+
+    public Boolean getHadoopSecurityAuthorization() {
+        return hadoopSecurityAuthorization;
+    }
+
+    public void setHadoopSecurityAuthorization(Boolean hadoopSecurityAuthorization) {
+        this.hadoopSecurityAuthorization = hadoopSecurityAuthorization;
+    }
+
+    public UserGroupInformation.AuthenticationMethod getHadoopSecurityAuthentication() {
+        return hadoopSecurityAuthentication;
+    }
+
+    public void setHadoopSecurityAuthentication(UserGroupInformation.AuthenticationMethod hadoopSecurityAuthentication) {
+        this.hadoopSecurityAuthentication = hadoopSecurityAuthentication;
+    }
+
+    public String getDfsNNKerberosPrincipal() {
+        return dfsNNKerberosPrincipal;
+    }
+
+    public String getDfsNNKeytabFile() {
+        return dfsNNKeytabFile;
+    }
+
+    public String getDfsDNKerberosPrincipal() {
+        return dfsDNKerberosPrincipal;
+    }
+
+    public String getDfsDNKeytabFile() {
+        return dfsDNKeytabFile;
     }
 }

@@ -13,23 +13,30 @@
  */
 package com.facebook.presto.hive;
 
+import com.facebook.presto.hive.util.SecurityUtils;
 import com.google.common.collect.ImmutableList;
 import com.google.common.net.HostAndPort;
 import com.google.common.primitives.Ints;
+import io.airlift.log.Logger;
 import io.airlift.units.Duration;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
+import org.apache.hadoop.hdfs.DFSConfigKeys;
 import org.apache.hadoop.net.DNSToSwitchMapping;
 import org.apache.hadoop.net.SocksSocketFactory;
+import org.apache.hadoop.security.UserGroupInformation;
 
 import javax.inject.Inject;
 import javax.net.SocketFactory;
 
+import java.io.IOException;
 import java.util.List;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static java.lang.String.format;
+import static org.apache.hadoop.fs.CommonConfigurationKeysPublic.HADOOP_SECURITY_AUTHENTICATION;
+import static org.apache.hadoop.fs.CommonConfigurationKeysPublic.HADOOP_SECURITY_AUTHORIZATION;
 
 public class HdfsConfiguration
 {
@@ -40,7 +47,17 @@ public class HdfsConfiguration
     private final String domainSocketPath;
     private final String s3AwsAccessKey;
     private final String s3AwsSecretKey;
+
+    private Boolean hadoopSecurityAuthorization;
+    private UserGroupInformation.AuthenticationMethod hadoopSecurityAuthentication;
+    private String dfsNNKerberosPrincipal;
+    private String dfsNNKeytabFile;
+    private String dfsDNKerberosPrincipal;
+    private String dfsDNKeytabFile;
+
     private final List<String> resourcePaths;
+
+    private static final Logger log = Logger.get(HdfsConfiguration.class);
 
     @SuppressWarnings("ThreadLocalNotStaticFinal")
     private final ThreadLocal<Configuration> hadoopConfiguration = new ThreadLocal<Configuration>()
@@ -66,6 +83,12 @@ public class HdfsConfiguration
         this.s3AwsAccessKey = hiveClientConfig.getS3AwsAccessKey();
         this.s3AwsSecretKey = hiveClientConfig.getS3AwsSecretKey();
         this.resourcePaths = hiveClientConfig.getResourceConfigFiles();
+        this.hadoopSecurityAuthorization = hiveClientConfig.getHadoopSecurityAuthorization();
+        this.hadoopSecurityAuthentication = hiveClientConfig.getHadoopSecurityAuthentication();
+        this.dfsNNKerberosPrincipal = hiveClientConfig.getDfsNNKerberosPrincipal();
+        this.dfsNNKeytabFile = hiveClientConfig.getDfsNNKeytabFile();
+        this.dfsDNKerberosPrincipal = hiveClientConfig.getDfsDNKerberosPrincipal();
+        this.dfsDNKeytabFile = hiveClientConfig.getDfsDNKeytabFile();
     }
 
     @SuppressWarnings("UnusedParameters")
@@ -106,7 +129,12 @@ public class HdfsConfiguration
         config.setInt("ipc.ping.interval", Ints.checkedCast(dfsTimeout.toMillis()));
         config.setInt("ipc.client.connect.timeout", Ints.checkedCast(dfsConnectTimeout.toMillis()));
         config.setInt("ipc.client.connect.max.retries", dfsConnectMaxRetries);
-
+        config.setBoolean(HADOOP_SECURITY_AUTHORIZATION, hadoopSecurityAuthorization);
+        config.setEnum(HADOOP_SECURITY_AUTHENTICATION, hadoopSecurityAuthentication);
+        config.set(DFSConfigKeys.DFS_NAMENODE_USER_NAME_KEY, dfsNNKerberosPrincipal);
+        config.set(DFSConfigKeys.DFS_NAMENODE_KEYTAB_FILE_KEY, dfsNNKeytabFile);
+        config.set(DFSConfigKeys.DFS_DATANODE_USER_NAME_KEY, dfsDNKerberosPrincipal);
+        config.set(DFSConfigKeys.DFS_DATANODE_KEYTAB_FILE_KEY, dfsDNKeytabFile);
         // re-map filesystem schemes to match Amazon Elastic MapReduce
         config.set("fs.s3.impl", "org.apache.hadoop.fs.s3native.NativeS3FileSystem");
         config.set("fs.s3bfs.impl", "org.apache.hadoop.fs.s3.S3FileSystem");
@@ -122,7 +150,16 @@ public class HdfsConfiguration
         }
 
         updateConfiguration(config);
-
+        UserGroupInformation.setConfiguration(config);
+        String prestoKeytabFile = System.getProperty("presto.keytab.file"),
+                prestoKerberosPrincipal = System.getProperty("presto.kerberos.principal");
+        if (prestoKerberosPrincipal != null && prestoKeytabFile != null) {
+            try {
+                SecurityUtils.login(prestoKerberosPrincipal, prestoKeytabFile);
+            } catch (IOException e) {
+                log.error("UGI login failed " + e.getMessage(), e);
+            }
+        }
         return config;
     }
 
