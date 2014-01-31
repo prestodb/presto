@@ -85,8 +85,8 @@ public class ExpressionInterpreter
     private final Visitor visitor;
 
     // identity-based cache for LIKE expressions with constant pattern and escape char
-    private final IdentityHashMap<LikePredicate, Regex> LIKE_PATTERN_CACHE = new IdentityHashMap<>();
-    private final IdentityHashMap<InListExpression, Set<Object>> IN_LIST_CACHE = new IdentityHashMap<>();
+    private final IdentityHashMap<LikePredicate, Regex> likePatternCache = new IdentityHashMap<>();
+    private final IdentityHashMap<InListExpression, Set<Object>> inListCache = new IdentityHashMap<>();
 
     public static ExpressionInterpreter expressionInterpreter(Expression expression, Metadata metadata, Session session)
     {
@@ -351,12 +351,12 @@ public class ExpressionInterpreter
             }
             InListExpression valueList = (InListExpression) valueListExpression;
 
-            Set<Object> set = IN_LIST_CACHE.get(valueList);
+            Set<Object> set = inListCache.get(valueList);
 
             // We use the presence of the node in the map to indicate that we've already done
             // the analysis below. If the value is null, it means that we can't apply the HashSet
             // optimization
-            if (!IN_LIST_CACHE.containsKey(valueList)) {
+            if (!inListCache.containsKey(valueList)) {
                 if (Iterables.all(valueList.getValues(), isNonNullLiteralPredicate())) {
                     // if all elements are constant, create a set with them
                     set = new HashSet<>();
@@ -364,7 +364,7 @@ public class ExpressionInterpreter
                         set.add(process(expression, context));
                     }
                 }
-                IN_LIST_CACHE.put(valueList, set);
+                inListCache.put(valueList, set);
             }
 
             if (set != null && !(value instanceof Expression)) {
@@ -835,7 +835,7 @@ public class ExpressionInterpreter
 
         private Regex getConstantPattern(LikePredicate node)
         {
-            Regex result = LIKE_PATTERN_CACHE.get(node);
+            Regex result = likePatternCache.get(node);
 
             if (result == null) {
                 StringLiteral pattern = (StringLiteral) node.getPattern();
@@ -843,7 +843,7 @@ public class ExpressionInterpreter
 
                 result = LikeUtils.likeToPattern(pattern.getSlice(), escape == null ? null : escape.getSlice());
 
-                LIKE_PATTERN_CACHE.put(node, result);
+                likePatternCache.put(node, result);
             }
 
             return result;

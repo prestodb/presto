@@ -40,6 +40,8 @@ public interface Metadata
     @NotNull
     List<FunctionInfo> listFunctions();
 
+    void addFunctions(List<FunctionInfo> functions);
+
     @NotNull
     List<String> listSchemaNames(String catalogName);
 
@@ -132,6 +134,7 @@ public interface Metadata
 
     /**
      * Gets all the loaded catalogs
+     *
      * @return Map of catalog name to connector id
      */
     @NotNull

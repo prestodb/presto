@@ -34,10 +34,11 @@ import com.facebook.presto.sql.analyzer.Type;
 import com.facebook.presto.sql.gen.FunctionBinder;
 import com.facebook.presto.sql.tree.QualifiedName;
 import com.google.common.base.Joiner;
-import com.google.common.base.Preconditions;
 import com.google.common.base.Supplier;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableListMultimap;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
@@ -47,6 +48,7 @@ import com.google.common.primitives.Primitives;
 import io.airlift.slice.Slice;
 
 import javax.annotation.Nullable;
+import javax.annotation.concurrent.ThreadSafe;
 
 import java.lang.invoke.MethodHandle;
 import java.lang.reflect.AnnotatedElement;
@@ -102,13 +104,14 @@ import static com.facebook.presto.sql.analyzer.Type.VARCHAR;
 import static com.google.common.base.CaseFormat.LOWER_CAMEL;
 import static com.google.common.base.CaseFormat.LOWER_UNDERSCORE;
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkState;
 import static java.lang.String.format;
 import static java.lang.invoke.MethodHandles.lookup;
 
+@ThreadSafe
 public class FunctionRegistry
 {
-    private final Multimap<QualifiedName, FunctionInfo> functionsByName;
-    private final Map<Signature, FunctionInfo> functionsByHandle;
+    private volatile FunctionMap functions = new FunctionMap();
 
     public FunctionRegistry()
     {
@@ -167,45 +170,47 @@ public class FunctionRegistry
                 .scalar(ColorFunctions.class)
                 .build();
 
-        functionsByName = Multimaps.index(functions, FunctionInfo.nameGetter());
-        functionsByHandle = Maps.uniqueIndex(functions, FunctionInfo.handleGetter());
+        addFunctions(functions);
+    }
 
-        // Make sure all functions with the same name are aggregations or none of them are
-        for (Map.Entry<QualifiedName, Collection<FunctionInfo>> entry : functionsByName.asMap().entrySet()) {
-            Collection<FunctionInfo> infos = entry.getValue();
-            Preconditions.checkState(Iterables.all(infos, isAggregationPredicate()) || !Iterables.any(infos, isAggregationPredicate()),
-                    "'%s' is both an aggregation and a scalar function", entry.getKey());
+    public final synchronized void addFunctions(List<FunctionInfo> functions)
+    {
+        for (FunctionInfo function : functions) {
+            checkArgument(this.functions.get(function.getHandle()) == null,
+                    "Function already registered: %s", function.getHandle());
         }
+
+        this.functions = new FunctionMap(this.functions, functions);
     }
 
     public List<FunctionInfo> list()
     {
-        return ImmutableList.copyOf(functionsByName.values());
+        return functions.list();
     }
 
     public boolean isAggregationFunction(QualifiedName name)
     {
-        return Iterables.any(functionsByName.get(name), isAggregationPredicate());
+        return Iterables.any(functions.get(name), isAggregationPredicate());
     }
 
     public FunctionInfo get(QualifiedName name, List<Type> parameterTypes)
     {
         // search for exact match
-        for (FunctionInfo functionInfo : functionsByName.get(name)) {
+        for (FunctionInfo functionInfo : functions.get(name)) {
             if (functionInfo.getArgumentTypes().equals(parameterTypes)) {
                 return functionInfo;
             }
         }
 
         // search for coerced match
-        for (FunctionInfo functionInfo : functionsByName.get(name)) {
+        for (FunctionInfo functionInfo : functions.get(name)) {
             if (canCoerce(parameterTypes, functionInfo)) {
                 return functionInfo;
             }
         }
 
         List<String> expectedParameters = new ArrayList<>();
-        for (FunctionInfo functionInfo : functionsByName.get(name)) {
+        for (FunctionInfo functionInfo : functions.get(name)) {
             expectedParameters.add(format("%s(%s)", name, Joiner.on(", ").join(functionInfo.getArgumentTypes())));
         }
         String parameters = Joiner.on(", ").join(parameterTypes);
@@ -233,9 +238,9 @@ public class FunctionRegistry
         return true;
     }
 
-    public FunctionInfo get(Signature handle)
+    public FunctionInfo get(Signature signature)
     {
-        return functionsByHandle.get(handle);
+        return functions.get(signature);
     }
 
     private static List<Type> types(MethodHandle handle)
@@ -274,7 +279,7 @@ public class FunctionRegistry
         throw new IllegalArgumentException("Unhandled type: " + clazz.getName());
     }
 
-    private static class FunctionListBuilder
+    public static class FunctionListBuilder
     {
         private final List<FunctionInfo> functions = new ArrayList<>();
 
@@ -292,7 +297,7 @@ public class FunctionRegistry
             name = name.toLowerCase();
 
             String description = getDescription(function.getClass());
-            functions.add(new FunctionInfo(new Signature(name,  returnType, argumentTypes), description, intermediateType, function));
+            functions.add(new FunctionInfo(new Signature(name, returnType, argumentTypes), description, intermediateType, function));
             return this;
         }
 
@@ -390,13 +395,13 @@ public class FunctionRegistry
             }
         }
 
-        public ImmutableList<FunctionInfo> build()
+        public List<FunctionInfo> build()
         {
             return ImmutableList.copyOf(functions);
         }
     }
 
-    private static Supplier<WindowFunction> supplier(final Class<? extends WindowFunction> clazz)
+    public static Supplier<WindowFunction> supplier(final Class<? extends WindowFunction> clazz)
     {
         return new Supplier<WindowFunction>()
         {
@@ -411,5 +416,55 @@ public class FunctionRegistry
                 }
             }
         };
+    }
+
+    private static class FunctionMap
+    {
+        private final Multimap<QualifiedName, FunctionInfo> byName;
+        private final Map<Signature, FunctionInfo> bySignature;
+
+        public FunctionMap()
+        {
+            byName = ImmutableListMultimap.of();
+            bySignature = ImmutableMap.of();
+        }
+
+        public FunctionMap(FunctionMap map, Iterable<FunctionInfo> functions)
+        {
+            Multimap<QualifiedName, FunctionInfo> byName = ImmutableListMultimap.<QualifiedName, FunctionInfo>builder()
+                    .putAll(map.byName)
+                    .putAll(Multimaps.index(functions, FunctionInfo.nameGetter()))
+                    .build();
+
+            Map<Signature, FunctionInfo> bySignature = ImmutableMap.<Signature, FunctionInfo>builder()
+                    .putAll(map.bySignature)
+                    .putAll(Maps.uniqueIndex(functions, FunctionInfo.handleGetter()))
+                    .build();
+
+            // Make sure all functions with the same name are aggregations or none of them are
+            for (Map.Entry<QualifiedName, Collection<FunctionInfo>> entry : byName.asMap().entrySet()) {
+                Collection<FunctionInfo> infos = entry.getValue();
+                checkState(Iterables.all(infos, isAggregationPredicate()) || !Iterables.any(infos, isAggregationPredicate()),
+                        "'%s' is both an aggregation and a scalar function", entry.getKey());
+            }
+
+            this.byName = byName;
+            this.bySignature = bySignature;
+        }
+
+        public List<FunctionInfo> list()
+        {
+            return ImmutableList.copyOf(byName.values());
+        }
+
+        public Collection<FunctionInfo> get(QualifiedName name)
+        {
+            return byName.get(name);
+        }
+
+        public FunctionInfo get(Signature signature)
+        {
+            return bySignature.get(signature);
+        }
     }
 }

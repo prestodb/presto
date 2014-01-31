@@ -102,6 +102,12 @@ public class MetadataManager
     }
 
     @Override
+    public void addFunctions(List<FunctionInfo> functionInfos)
+    {
+        functions.addFunctions(functionInfos);
+    }
+
+    @Override
     public List<String> listSchemaNames(String catalogName)
     {
         checkCatalogName(catalogName);
@@ -239,7 +245,7 @@ public class MetadataManager
     public Map<String, String> getCatalogNames()
     {
         ImmutableMap.Builder<String, String> catalogsMap = ImmutableMap.builder();
-        for(Map.Entry<String, ConnectorMetadataEntry> entry : connectors.entrySet()) {
+        for (Map.Entry<String, ConnectorMetadataEntry> entry : connectors.entrySet()) {
             catalogsMap.put(entry.getKey(), entry.getValue().getConnectorId());
         }
         return catalogsMap.build();
@@ -273,7 +279,6 @@ public class MetadataManager
         for (ConnectorMetadataEntry entry : internalSchemas) {
             if (entry.getMetadata().canHandle(tableHandle)) {
                 return entry;
-
             }
         }
 

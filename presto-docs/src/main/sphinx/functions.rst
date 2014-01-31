@@ -5,6 +5,8 @@ Functions and Operators
 .. toctree::
     :maxdepth: 1
 
+    operators/logical
+    operators/comparison
     functions/math
     functions/string
     functions/datetime
@@ -13,3 +15,4 @@ Functions and Operators
     functions/url
     functions/aggregate
     functions/window
+    functions/color

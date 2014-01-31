@@ -16,8 +16,10 @@ package com.facebook.presto.serde;
 import io.airlift.slice.SliceInput;
 import io.airlift.slice.SliceOutput;
 
-public class BlockEncodings
+public final class BlockEncodings
 {
+    private BlockEncodings() {}
+
     public static BlockEncoding readBlockEncoding(SliceInput input)
     {
         byte encoding = input.readByte();

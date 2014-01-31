@@ -21,8 +21,10 @@ import com.facebook.presto.tuple.TupleInfo.Type;
 import com.facebook.presto.tuple.TupleReadable;
 import com.google.common.base.Preconditions;
 
-public class ProjectionFunctions
+public final class ProjectionFunctions
 {
+    private ProjectionFunctions() {}
+
     public static ProjectionFunction singleColumn(Type columnType, int channelIndex)
     {
         return new SingleColumnProjection(columnType, channelIndex);

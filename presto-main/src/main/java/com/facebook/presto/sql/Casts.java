@@ -20,10 +20,12 @@ import io.airlift.slice.Slices;
 import static com.google.common.base.Charsets.US_ASCII;
 import static com.google.common.base.Charsets.UTF_8;
 
-public class Casts
+public final class Casts
 {
     private static final Slice TRUE = Slices.copiedBuffer("true", US_ASCII);
     private static final Slice FALSE = Slices.copiedBuffer("false", US_ASCII);
+
+    private Casts() {}
 
     public static Object toBoolean(Object value)
     {
@@ -32,10 +34,10 @@ public class Casts
                 return value;
             }
             else if (value instanceof Long) {
-                return ((Long) value).longValue() != 0;
+                return (Long) value != 0;
             }
             else if (value instanceof Double) {
-                return ((Double) value).doubleValue() != 0;
+                return (Double) value != 0;
             }
             else if (value instanceof Slice) {
                 String stringValue = ((Slice) value).toString(UTF_8).toLowerCase();
@@ -70,7 +72,7 @@ public class Casts
                 return Long.parseLong(stringValue);
             }
             else if (value instanceof Double) {
-                return (long) MathFunctions.round(((Double) value).doubleValue());
+                return (long) MathFunctions.round((Double) value);
             }
         }
         catch (RuntimeException ignored) {
@@ -98,9 +100,6 @@ public class Casts
         catch (RuntimeException ignored) {
         }
 
-        if (value instanceof Slice) {
-            value = "'" + ((Slice) value).toString(UTF_8) + "'";
-        }
         throw new IllegalArgumentException(String.format("Cannot cast %s to VARCHAR", value));
     }
 

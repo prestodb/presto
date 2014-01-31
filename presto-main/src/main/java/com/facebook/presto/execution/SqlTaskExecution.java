@@ -300,7 +300,6 @@ public class SqlTaskExecution
         checkState(!Thread.holdsLock(this), "Can not add sources while holding a lock on the %s", getClass().getSimpleName());
 
         try (SetThreadName setThreadName = new SetThreadName("Task-%s", taskId)) {
-
             // update our record of sources and schedule drivers for new partitioned splits
             Map<PlanNodeId, TaskSource> updatedUnpartitionedSources = updateSources(sources);
 

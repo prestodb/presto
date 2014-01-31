@@ -14,7 +14,6 @@
 package com.facebook.presto.sql.planner.plan;
 
 import com.facebook.presto.sql.planner.Symbol;
-import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.SampledRelation;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;

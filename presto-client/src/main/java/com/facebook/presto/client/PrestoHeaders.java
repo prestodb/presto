@@ -26,7 +26,5 @@ public final class PrestoHeaders
     public static final String PRESTO_PAGE_TOKEN = "X-Presto-Page-Sequence-Id";
     public static final String PRESTO_PAGE_NEXT_TOKEN = "X-Presto-Page-End-Sequence-Id";
 
-    public PrestoHeaders()
-    {
-    }
+    private PrestoHeaders() {}
 }

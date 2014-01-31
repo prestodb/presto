@@ -69,14 +69,14 @@ public class MockHiveMetastoreClient
     }
 
     @Override
-    public List<String> get_all_tables(String db_name)
+    public List<String> get_all_tables(String dbName)
             throws TException
     {
         accessCount.incrementAndGet();
         if (throwException) {
             throw new RuntimeException();
         }
-        if (!db_name.equals(TEST_DATABASE)) {
+        if (!dbName.equals(TEST_DATABASE)) {
             return ImmutableList.of(); // As specified by Hive specification
         }
         return ImmutableList.of(TEST_TABLE);
@@ -97,70 +97,70 @@ public class MockHiveMetastoreClient
     }
 
     @Override
-    public Table get_table(String dbname, String tbl_name)
+    public Table get_table(String dbName, String tableName)
             throws TException
     {
         accessCount.incrementAndGet();
         if (throwException) {
             throw new RuntimeException();
         }
-        if (!dbname.equals(TEST_DATABASE) || !tbl_name.equals(TEST_TABLE)) {
+        if (!dbName.equals(TEST_DATABASE) || !tableName.equals(TEST_TABLE)) {
             throw new NoSuchObjectException();
         }
         return new Table(TEST_TABLE, TEST_DATABASE, "", 0, 0, 0, null, ImmutableList.of(new FieldSchema("key", "String", null)), null, "", "", "");
     }
 
     @Override
-    public List<String> get_partition_names(String db_name, String tbl_name, short max_parts)
+    public List<String> get_partition_names(String dbName, String tableName, short maxParts)
             throws TException
     {
         accessCount.incrementAndGet();
         if (throwException) {
             throw new RuntimeException();
         }
-        if (!db_name.equals(TEST_DATABASE) || !tbl_name.equals(TEST_TABLE)) {
+        if (!dbName.equals(TEST_DATABASE) || !tableName.equals(TEST_TABLE)) {
             return ImmutableList.of();
         }
         return ImmutableList.of(TEST_PARTITION1, TEST_PARTITION2);
     }
 
     @Override
-    public List<String> get_partition_names_ps(String db_name, String tbl_name, List<String> part_vals, short max_parts)
+    public List<String> get_partition_names_ps(String dbName, String tableName, List<String> partValues, short maxParts)
             throws TException
     {
         accessCount.incrementAndGet();
         if (throwException) {
             throw new RuntimeException();
         }
-        if (!db_name.equals(TEST_DATABASE) || !tbl_name.equals(TEST_TABLE)) {
+        if (!dbName.equals(TEST_DATABASE) || !tableName.equals(TEST_TABLE)) {
             throw new NoSuchObjectException();
         }
         return ImmutableList.of(TEST_PARTITION1, TEST_PARTITION2);
     }
 
     @Override
-    public Partition get_partition_by_name(String db_name, String tbl_name, String part_name)
+    public Partition get_partition_by_name(String dbName, String tableName, String partName)
             throws TException
     {
         accessCount.incrementAndGet();
         if (throwException) {
             throw new RuntimeException();
         }
-        if (!db_name.equals(TEST_DATABASE) || !tbl_name.equals(TEST_TABLE) || !ImmutableSet.of(TEST_PARTITION1, TEST_PARTITION2).contains(part_name)) {
+        if (!dbName.equals(TEST_DATABASE) || !tableName.equals(TEST_TABLE) || !ImmutableSet.of(TEST_PARTITION1, TEST_PARTITION2).contains(partName)) {
             throw new NoSuchObjectException();
         }
         return new Partition(null, TEST_DATABASE, TEST_TABLE, 0, 0, null, null);
     }
 
     @Override
-    public List<Partition> get_partitions_by_names(String db_name, String tbl_name, List<String> names)
+    public List<Partition> get_partitions_by_names(String dbName, String tableName, List<String> names)
             throws TException
     {
         accessCount.incrementAndGet();
         if (throwException) {
             throw new RuntimeException();
         }
-        if (!db_name.equals(TEST_DATABASE) || !tbl_name.equals(TEST_TABLE) || !ImmutableSet.of(TEST_PARTITION1, TEST_PARTITION2).containsAll(names)) {
+        if (!dbName.equals(TEST_DATABASE) || !tableName.equals(TEST_TABLE) || !ImmutableSet.of(TEST_PARTITION1, TEST_PARTITION2).containsAll(names)) {
             throw new NoSuchObjectException();
         }
         return Lists.transform(names, new Function<String, Partition>()

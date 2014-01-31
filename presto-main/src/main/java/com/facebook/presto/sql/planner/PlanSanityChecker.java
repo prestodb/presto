@@ -46,8 +46,10 @@ import java.util.Set;
 /**
  * Ensures that all dependencies (i.e., symbols in expressions) for a plan node are provided by its source nodes
  */
-public class PlanSanityChecker
+public final class PlanSanityChecker
 {
+    private PlanSanityChecker() {}
+
     public static void validate(PlanNode plan)
     {
         plan.accept(new Visitor(), null);

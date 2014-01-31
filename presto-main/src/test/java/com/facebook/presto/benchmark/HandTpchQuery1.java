@@ -40,8 +40,8 @@ import java.util.List;
 import java.util.concurrent.ExecutorService;
 
 import static com.facebook.presto.operator.AggregationFunctionDefinition.aggregation;
-import static com.facebook.presto.operator.aggregation.CountAggregation.COUNT;
 import static com.facebook.presto.operator.aggregation.AverageAggregations.DOUBLE_AVERAGE;
+import static com.facebook.presto.operator.aggregation.CountAggregation.COUNT;
 import static com.facebook.presto.operator.aggregation.DoubleSumAggregation.DOUBLE_SUM;
 import static com.facebook.presto.util.Threads.daemonThreadsNamed;
 import static com.google.common.base.Charsets.UTF_8;

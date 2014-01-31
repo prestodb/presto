@@ -89,5 +89,4 @@ public abstract class AbstractTestAggregationFunction
         }
         return blockBuilder.build();
     }
-
 }

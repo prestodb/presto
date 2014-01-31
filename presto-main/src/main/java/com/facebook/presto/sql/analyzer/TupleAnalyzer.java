@@ -198,7 +198,6 @@ class TupleAnalyzer
     @Override
     protected TupleDescriptor visitSampledRelation(final SampledRelation relation, AnalysisContext context)
     {
-
         if (relation.getColumnsToStratifyOn().isPresent()) {
             throw new SemanticException(NOT_SUPPORTED, relation, "STRATIFY ON is not yet implemented");
         }

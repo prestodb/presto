@@ -30,7 +30,7 @@ import static org.joni.constants.MetaChar.INEFFECTIVE_META_CHAR;
 
 public final class LikeUtils
 {
-    private final static Syntax SYNTAX = new Syntax(
+    private static final Syntax SYNTAX = new Syntax(
             Syntax.OP_DOT_ANYCHAR | Syntax.OP_ASTERISK_ZERO_INF | Syntax.OP_LINE_ANCHOR,
             0,
             0,

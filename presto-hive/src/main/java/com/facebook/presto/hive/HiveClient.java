@@ -27,8 +27,8 @@ import com.facebook.presto.spi.ConnectorRecordSinkProvider;
 import com.facebook.presto.spi.ConnectorSplitManager;
 import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.Domain;
-import com.facebook.presto.spi.OutputTableHandle;
 import com.facebook.presto.spi.FixedSplitSource;
+import com.facebook.presto.spi.OutputTableHandle;
 import com.facebook.presto.spi.Partition;
 import com.facebook.presto.spi.PartitionResult;
 import com.facebook.presto.spi.Range;
@@ -171,6 +171,7 @@ public class HiveClient
         this.connectorId = checkNotNull(connectorId, "connectorId is null").toString();
 
         this.maxSplitSize = checkNotNull(maxSplitSize, "maxSplitSize is null");
+        checkArgument(maxOutstandingSplits > 0, "maxOutstandingSplits must be at least 1");
         this.maxOutstandingSplits = maxOutstandingSplits;
         this.maxSplitIteratorThreads = maxSplitIteratorThreads;
         this.minPartitionBatchSize = minPartitionBatchSize;

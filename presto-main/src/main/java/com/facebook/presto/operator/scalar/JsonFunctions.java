@@ -253,7 +253,6 @@ public final class JsonFunctions
                         return null;
                     }
                     return Slices.utf8Slice(parser.getValueAsString());
-
                 }
 
                 if (tokens != null) {

@@ -33,9 +33,9 @@ public class SplitJacksonModule
     {
         private final HandleResolver handleResolver;
 
-        private SplitJsonTypeIdResolver(HandleResolver HandleResolver)
+        private SplitJsonTypeIdResolver(HandleResolver handleResolver)
         {
-            this.handleResolver = checkNotNull(HandleResolver, "handleIdResolvers is null");
+            this.handleResolver = checkNotNull(handleResolver, "handleResolver is null");
         }
 
         @Override

@@ -55,8 +55,8 @@ import static com.facebook.presto.sql.analyzer.Session.DEFAULT_CATALOG;
 import static com.facebook.presto.sql.analyzer.Session.DEFAULT_SCHEMA;
 import static com.facebook.presto.tpch.TpchMetadata.TPCH_CATALOG_NAME;
 import static com.facebook.presto.tpch.TpchMetadata.TPCH_SCHEMA_NAME;
-import static com.facebook.presto.util.Types.checkType;
 import static com.facebook.presto.util.MaterializedResult.DEFAULT_PRECISION;
+import static com.facebook.presto.util.Types.checkType;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.Iterables.transform;
 import static io.airlift.json.JsonCodec.jsonCodec;
@@ -241,6 +241,10 @@ public class TestDistributedQueries
         while (!allNodesGloballyVisible()) {
             assertLessThan(nanosSince(start), new Duration(10, SECONDS));
             MILLISECONDS.sleep(10);
+        }
+
+        for (TestingPrestoServer server : servers) {
+            server.getMetadata().addFunctions(CUSTOM_FUNCTIONS);
         }
 
         log.info("Loading data...");
