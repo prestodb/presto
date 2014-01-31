@@ -1267,15 +1267,14 @@ public class PrestoDatabaseMetaData
         // Else manage filters
         buf.append(" WHERE ");
         // If catalog must be filtered
-        if (catalog!=null)
-        {
+        if (catalog != null) {
             buf.append("catalog_name='" + catalog.replace("'", "''") + "' ");
         }
         // If schema name must be filtered
-        if (schemaPattern!=null)
-        {
-            if (catalog!=null)
+        if (schemaPattern != null) {
+            if (catalog != null) {
                 buf.append("AND ");
+            }
             buf.append("schema_name='" + schemaPattern.replace("'", "''") + "' ");
         }
 
