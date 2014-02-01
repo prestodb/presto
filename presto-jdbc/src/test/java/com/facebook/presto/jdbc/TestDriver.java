@@ -122,6 +122,48 @@ public class TestDriver
     }
 
     @Test
+    public void testGetTables()
+            throws Exception
+    {
+        try (Connection connection = createConnection()) {
+            try (ResultSet rs = connection.getMetaData().getTables(null, null, null, null)) {
+                ResultSetMetaData metadata = rs.getMetaData();
+                assertEquals(metadata.getColumnCount(), 10);
+
+                assertEquals(metadata.getColumnLabel(1), "TABLE_CAT");
+                assertEquals(metadata.getColumnType(1), Types.LONGNVARCHAR);
+
+                assertEquals(metadata.getColumnLabel(2), "TABLE_SCHEM");
+                assertEquals(metadata.getColumnType(2), Types.LONGNVARCHAR);
+
+                assertEquals(metadata.getColumnLabel(3), "TABLE_NAME");
+                assertEquals(metadata.getColumnType(3), Types.LONGNVARCHAR);
+
+                assertEquals(metadata.getColumnLabel(4), "TABLE_TYPE");
+                assertEquals(metadata.getColumnType(4), Types.LONGNVARCHAR);
+
+                assertEquals(metadata.getColumnLabel(5), "REMARKS");
+                assertEquals(metadata.getColumnType(5), Types.LONGNVARCHAR);
+
+                assertEquals(metadata.getColumnLabel(6), "TYPE_CAT");
+                assertEquals(metadata.getColumnType(6), Types.LONGNVARCHAR);
+
+                assertEquals(metadata.getColumnLabel(7), "TYPE_SCHEM");
+                assertEquals(metadata.getColumnType(7), Types.LONGNVARCHAR);
+
+                assertEquals(metadata.getColumnLabel(8), "TYPE_NAME");
+                assertEquals(metadata.getColumnType(8), Types.LONGNVARCHAR);
+
+                assertEquals(metadata.getColumnLabel(9), "SELF_REFERENCING_COL_NAME");
+                assertEquals(metadata.getColumnType(9), Types.LONGNVARCHAR);
+
+                assertEquals(metadata.getColumnLabel(10), "REF_GENERATION");
+                assertEquals(metadata.getColumnType(10), Types.LONGNVARCHAR);
+            }
+        }
+    }
+
+    @Test
     public void testExecute()
             throws Exception
     {

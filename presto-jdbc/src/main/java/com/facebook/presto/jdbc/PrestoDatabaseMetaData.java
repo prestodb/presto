@@ -909,32 +909,46 @@ public class PrestoDatabaseMetaData
     public ResultSet getTables(String catalog, String schemaPattern, String tableNamePattern, String[] types)
             throws SQLException
     {
-        throw new UnsupportedOperationException("getTables");
+        return select("SELECT "
+            + "table_catalog AS TABLE_CAT, "
+            + "table_schema AS TABLE_SCHEM, "
+            + "table_name AS TABLE_NAME, "
+            + "table_type AS TABLE_TYPE, "
+            + "'' AS REMARKS, "
+            + "'' AS TYPE_CAT, "
+            + "'' AS TYPE_SCHEM, "
+            + "'' AS TYPE_NAME, "
+            + "'' AS SELF_REFERENCING_COL_NAME, "
+            + "'' AS REF_GENERATION "
+            + "FROM information_schema.tables "
+            + "ORDER BY TABLE_TYPE, TABLE_CAT, TABLE_SCHEM, TABLE_NAME");
     }
 
     @Override
     public ResultSet getSchemas()
             throws SQLException
     {
-        return select("" +
-                "SELECT schema_name TABLE_SCHEM, catalog_name TABLE_CATALOG " +
-                "FROM default.information_schema.schemata");
+        return select("SELECT DISTINCT table_schema AS TABLE_SCHEM "
+            + "FROM information_schema.tables "
+            + "ORDER BY TABLE_SCHEM");
     }
 
     @Override
     public ResultSet getCatalogs()
             throws SQLException
     {
-        return select("" +
-                "SELECT catalog_name TABLE_CAT " +
-                "FROM default.sys.catalog");
+        return select("SELECT DISTINCT table_catalog AS TABLE_CAT "
+            + "FROM information_schema.tables "
+            + "ORDER BY TABLE_CAT");
     }
 
     @Override
     public ResultSet getTableTypes()
             throws SQLException
     {
-        return select("SELECT 'TABLE' table_type FROM dual");
+        return select("SELECT DISTINCT table_type AS TABLE_TYPE "
+            + "FROM information_schema.tables "
+            + "ORDER BY TABLE_TYPE");
     }
 
     @Override
@@ -1239,8 +1253,32 @@ public class PrestoDatabaseMetaData
     public ResultSet getSchemas(String catalog, String schemaPattern)
             throws SQLException
     {
-        // TODO: implement this
-        throw new UnsupportedOperationException("getSchemas");
+        // The schema columns are:
+        // TABLE_SCHEM String => schema name
+        // TABLE_CATALOG String => catalog name (may be null)
+        StringBuilder buf = new StringBuilder("SELECT schema_name TABLE_SCHEM, catalog_name TABLE_CATALOG ");
+        buf.append("FROM information_schema.schemata");
+
+        // check if there are no filters
+        if ((catalog == null) && (schemaPattern == null)) {
+            return select(buf.toString());
+        }
+
+        // Else manage filters
+        buf.append(" WHERE ");
+        // If catalog must be filtered
+        if (catalog != null) {
+            buf.append("catalog_name='" + catalog.replace("'", "''") + "' ");
+        }
+        // If schema name must be filtered
+        if (schemaPattern != null) {
+            if (catalog != null) {
+                buf.append("AND ");
+            }
+            buf.append("schema_name='" + schemaPattern.replace("'", "''") + "' ");
+        }
+
+        return select(buf.toString());
     }
 
     @Override
