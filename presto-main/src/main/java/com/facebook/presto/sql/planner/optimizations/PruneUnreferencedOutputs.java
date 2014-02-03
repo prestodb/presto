@@ -163,6 +163,7 @@ public class PruneUnreferencedOutputs
                     functions.put(symbol, node.getFunctions().get(symbol));
                 }
             }
+            // Aggregation nodes are sometimes used without any functions, as a distinct operator
             if (node.getSampleWeight().isPresent()) {
                 expectedInputs.add(node.getSampleWeight().get());
             }

@@ -118,6 +118,13 @@ public abstract class AbstractTestQueries
     private Session session;
 
     @Test
+    public void testSampledDistinctLimit()
+            throws Exception
+    {
+        assertSampledQuery("SELECT DISTINCT custkey FROM orders ORDER BY custkey LIMIT 5", "SELECT DISTINCT custkey FROM orders ORDER BY custkey LIMIT 5");
+    }
+
+    @Test
     public void testSampledCountStar()
             throws Exception
     {

@@ -22,6 +22,7 @@ import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.SymbolAllocator;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
+import com.facebook.presto.sql.planner.plan.DistinctLimitNode;
 import com.facebook.presto.sql.planner.plan.FilterNode;
 import com.facebook.presto.sql.planner.plan.JoinNode;
 import com.facebook.presto.sql.planner.plan.LimitNode;
@@ -55,6 +56,8 @@ import java.util.Map;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Predicates.equalTo;
+import static com.google.common.base.Predicates.not;
 
 public class MaterializeSamplePullUp
         extends PlanOptimizer
@@ -184,6 +187,25 @@ public class MaterializeSamplePullUp
         }
 
         @Override
+        public PlanNode rewriteDistinctLimit(DistinctLimitNode node, Void context, PlanRewriter<Void> planRewriter)
+        {
+            PlanNode source = planRewriter.rewrite(node.getSource(), null);
+            if (source instanceof MaterializeSampleNode) {
+                // Remove the sample weight, since distinct limit will only output distinct rows
+                ImmutableMap.Builder<Symbol, Expression> projections = ImmutableMap.builder();
+                for (Symbol symbol: Iterables.filter(source.getOutputSymbols(), not(equalTo(((MaterializeSampleNode) source).getSampleWeightSymbol())))) {
+                    Expression expression = new QualifiedNameReference(symbol.toQualifiedName());
+                    projections.put(symbol, expression);
+                }
+                source = new ProjectNode(idAllocator.getNextId(), ((MaterializeSampleNode) source).getSource(), projections.build());
+                return new DistinctLimitNode(node.getId(), source, node.getLimit());
+            }
+            else {
+                return planRewriter.defaultRewrite(node, null);
+            }
+        }
+
+        @Override
         public PlanNode rewriteMarkDistinct(MarkDistinctNode node, Void context, PlanRewriter<Void> planRewriter)
         {
             PlanNode source = planRewriter.rewrite(node.getSource(), null);
@@ -221,15 +243,24 @@ public class MaterializeSamplePullUp
         {
             PlanNode source = planRewriter.rewrite(node.getSource(), null);
             if (source instanceof MaterializeSampleNode) {
-                if (node.getFunctions().isEmpty()) {
-                    // Aggregation nodes are sometimes used without any functions, as a distinct operator
-                    return new AggregationNode(node.getId(), ((MaterializeSampleNode) source).getSource(), node.getGroupBy(), node.getAggregations(), node.getFunctions(), node.getMasks(), Optional.<Symbol>absent());
+                if (node.getAggregations().isEmpty() &&
+                        node.getOutputSymbols().size() == node.getGroupBy().size() &&
+                        node.getOutputSymbols().containsAll(node.getGroupBy())) {
+                    // Remove the sample weight, since distinct will only outputs distinct rows
+                    ImmutableMap.Builder<Symbol, Expression> projections = ImmutableMap.builder();
+                    for (Symbol symbol : source.getOutputSymbols()) {
+                        Expression expression = new QualifiedNameReference(symbol.toQualifiedName());
+                        projections.put(symbol, expression);
+                    }
+                    source = new ProjectNode(idAllocator.getNextId(), ((MaterializeSampleNode) source).getSource(), projections.build());
+                    return new AggregationNode(node.getId(), source, node.getGroupBy(), node.getAggregations(), node.getFunctions(), node.getMasks(), Optional.<Symbol>absent());
                 }
                 else {
                     return new AggregationNode(node.getId(), ((MaterializeSampleNode) source).getSource(), node.getGroupBy(), node.getAggregations(), node.getFunctions(), node.getMasks(), Optional.of(((MaterializeSampleNode) source).getSampleWeightSymbol()));
                 }
             }
-            return planRewriter.defaultRewrite(node, null);
+
+            return new AggregationNode(node.getId(), source, node.getGroupBy(), node.getAggregations(), node.getFunctions(), node.getMasks(), node.getSampleWeight());
         }
 
         @Override

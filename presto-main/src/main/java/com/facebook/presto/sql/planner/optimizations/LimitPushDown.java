@@ -34,6 +34,7 @@ import com.google.common.base.Optional;
 
 import java.util.Map;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 
@@ -91,6 +92,8 @@ public class LimitPushDown
                     node.getAggregations().isEmpty() &&
                     node.getOutputSymbols().size() == node.getGroupBy().size() &&
                     node.getOutputSymbols().containsAll(node.getGroupBy())) {
+                checkArgument(!limit.getSampleWeight().isPresent(), "sample weight symbol referenced after a DISTINCT node");
+                checkArgument(!node.getSampleWeight().isPresent(), "DISTINCT aggregation has sample weight symbol");
                 PlanNode rewrittenSource = planRewriter.rewrite(node.getSource(), null);
                 return new DistinctLimitNode(idAllocator.getNextId(), rewrittenSource, limit.getCount());
             }
