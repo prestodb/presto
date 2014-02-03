@@ -115,6 +115,15 @@ public class MaterializedResult
             return this;
         }
 
+        public Builder pages(Iterable<Page> pages)
+        {
+            for (Page page: pages) {
+                this.page(page);
+            }
+
+            return this;
+        }
+
         public Builder page(Page page)
         {
             checkNotNull(page, "page is null");
