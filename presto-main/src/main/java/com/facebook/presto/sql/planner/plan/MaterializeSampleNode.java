@@ -16,13 +16,16 @@ package com.facebook.presto.sql.planner.plan;
 import com.facebook.presto.sql.planner.Symbol;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.google.common.base.Preconditions;
 import com.google.common.base.Predicates;
+import com.google.common.collect.FluentIterable;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Iterables;
 
 import javax.annotation.concurrent.Immutable;
 
 import java.util.List;
+
+import static com.google.common.base.Preconditions.checkNotNull;
 
 @Immutable
 public class MaterializeSampleNode
@@ -38,14 +41,17 @@ public class MaterializeSampleNode
     {
         super(id);
 
-        this.source = source;
-        this.sampleWeightSymbol = sampleWeightSymbol;
+        this.source = checkNotNull(source, "source is null");
+        this.sampleWeightSymbol = checkNotNull(sampleWeightSymbol, "sampleWeightSymbol is null");
+        Preconditions.checkArgument(source.getOutputSymbols().contains(sampleWeightSymbol), "source does not output sample weight");
     }
 
     @Override
     public List<Symbol> getOutputSymbols()
     {
-        return ImmutableList.copyOf(Iterables.filter(source.getOutputSymbols(), Predicates.not(Predicates.equalTo(sampleWeightSymbol))));
+        return FluentIterable.from(source.getOutputSymbols())
+                .filter(Predicates.not(Predicates.equalTo(sampleWeightSymbol)))
+                .toList();
     }
 
     @Override

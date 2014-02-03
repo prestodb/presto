@@ -119,6 +119,19 @@ public class LimitOperator
         return remainingLimit > 0 && nextPage == null;
     }
 
+    @Override
+    public void addInput(Page page)
+    {
+        checkState(needsInput());
+
+        if (sampleWeightChannel.isPresent()) {
+            addInputWithSampling(page, sampleWeightChannel.get());
+        }
+        else {
+            addInputWithoutSampling(page);
+        }
+    }
+
     private void addInputWithoutSampling(Page page)
     {
         if (page.getPositionCount() <= remainingLimit) {
@@ -142,6 +155,7 @@ public class LimitOperator
         BlockBuilder builder = new BlockBuilder(TupleInfo.SINGLE_LONG);
 
         int rowsToCopy = 0;
+        // Build the sample weight block, and count how many rows of data to copy
         while (remainingLimit > 0 && cursor.advanceNextPosition()) {
             rowsToCopy++;
             long sampleWeight = cursor.getLong();
@@ -169,19 +183,6 @@ public class LimitOperator
             }
             nextPage = new Page(rowsToCopy, blocks);
             remainingLimit = 0;
-        }
-    }
-
-    @Override
-    public void addInput(Page page)
-    {
-        checkState(needsInput());
-
-        if (sampleWeightChannel.isPresent()) {
-            addInputWithSampling(page, sampleWeightChannel.get());
-        }
-        else {
-            addInputWithoutSampling(page);
         }
     }
 

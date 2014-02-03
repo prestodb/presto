@@ -78,7 +78,6 @@ public interface Metadata
      *
      * @throws RuntimeException if the table handle is no longer valid
      */
-
     @NotNull
     Optional<ColumnHandle> getSampleWeightColumnHandle(TableHandle tableHandle);
 

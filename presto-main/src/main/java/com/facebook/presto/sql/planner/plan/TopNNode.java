@@ -55,6 +55,9 @@ public class TopNNode
         Preconditions.checkArgument(!orderBy.isEmpty(), "orderBy is empty");
         Preconditions.checkArgument(orderings.size() == orderBy.size(), "orderBy and orderings sizes don't match");
         Preconditions.checkNotNull(sampleWeight, "sampleWeight is null");
+        if (sampleWeight.isPresent()) {
+            Preconditions.checkArgument(source.getOutputSymbols().contains(sampleWeight.get()), "source does not output sample weight");
+        }
 
         this.source = source;
         this.count = count;

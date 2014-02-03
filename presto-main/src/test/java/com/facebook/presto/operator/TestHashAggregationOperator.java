@@ -32,6 +32,7 @@ import java.util.List;
 import java.util.concurrent.ExecutorService;
 
 import static com.facebook.presto.operator.AggregationFunctionDefinition.aggregation;
+import static com.facebook.presto.operator.OperatorAssertion.appendSampleWeight;
 import static com.facebook.presto.operator.OperatorAssertion.assertOperatorEqualsIgnoreOrder;
 import static com.facebook.presto.operator.OperatorAssertion.toPages;
 import static com.facebook.presto.operator.RowPagesBuilder.rowPagesBuilder;
@@ -72,6 +73,49 @@ public class TestHashAggregationOperator
     public void tearDown()
     {
         executor.shutdownNow();
+    }
+
+    @Test
+    public void testSampledHashAggregation()
+            throws Exception
+    {
+        List<Page> input = rowPagesBuilder(SINGLE_VARBINARY, SINGLE_VARBINARY, SINGLE_VARBINARY, SINGLE_LONG, SINGLE_BOOLEAN)
+                .addSequencePage(10, 100, 0, 100, 0, 500)
+                .addSequencePage(10, 100, 0, 200, 0, 500)
+                .addSequencePage(10, 100, 0, 300, 0, 500)
+                .build();
+        input = appendSampleWeight(input, 2);
+
+        Optional<Input> sampleWeightInput = Optional.of(new Input(input.get(0).getChannelCount() - 1));
+        HashAggregationOperatorFactory operatorFactory = new HashAggregationOperatorFactory(
+                0,
+                ImmutableList.of(SINGLE_VARBINARY),
+                Ints.asList(1),
+                Step.SINGLE,
+                ImmutableList.of(aggregation(COUNT, ImmutableList.of(new Input(0)), Optional.<Input>absent(), sampleWeightInput),
+                        aggregation(LONG_SUM, ImmutableList.of(new Input(3)), Optional.<Input>absent(), sampleWeightInput),
+                        aggregation(LONG_AVERAGE, ImmutableList.of(new Input(3)), Optional.<Input>absent(), sampleWeightInput),
+                        aggregation(VAR_BINARY_MAX, ImmutableList.of(new Input(2)), Optional.<Input>absent(), sampleWeightInput),
+                        aggregation(COUNT_STRING_COLUMN, ImmutableList.of(new Input(0)), Optional.<Input>absent(), sampleWeightInput),
+                        aggregation(COUNT_BOOLEAN_COLUMN, ImmutableList.of(new Input(4)), Optional.<Input>absent(), sampleWeightInput)),
+                100_000);
+
+        Operator operator = operatorFactory.createOperator(driverContext);
+
+        MaterializedResult expected = resultBuilder(VARIABLE_BINARY, FIXED_INT_64, FIXED_INT_64, DOUBLE, VARIABLE_BINARY, FIXED_INT_64, FIXED_INT_64)
+                .row("0", 6, 2 * 0, 0.0, "300", 6, 6)
+                .row("1", 6, 2 * 3, 1.0, "301", 6, 6)
+                .row("2", 6, 2 * 6, 2.0, "302", 6, 6)
+                .row("3", 6, 2 * 9, 3.0, "303", 6, 6)
+                .row("4", 6, 2 * 12, 4.0, "304", 6, 6)
+                .row("5", 6, 2 * 15, 5.0, "305", 6, 6)
+                .row("6", 6, 2 * 18, 6.0, "306", 6, 6)
+                .row("7", 6, 2 * 21, 7.0, "307", 6, 6)
+                .row("8", 6, 2 * 24, 8.0, "308", 6, 6)
+                .row("9", 6, 2 * 27, 9.0, "309", 6, 6)
+                .build();
+
+        assertOperatorEqualsIgnoreOrder(operator, input, expected);
     }
 
     @Test

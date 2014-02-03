@@ -18,6 +18,7 @@ import com.facebook.presto.tuple.TupleInfo;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListenableFuture;
 
+import java.util.Arrays;
 import java.util.List;
 
 import static com.google.common.base.Preconditions.checkNotNull;
@@ -160,9 +161,7 @@ public class MaterializeSampleOperator
 
         if (!advanced) {
             sampleWeightCursor = null;
-            for (int i = 0; i < cursors.length; i++) {
-                cursors[i] = null;
-            }
+            Arrays.fill(cursors, null);
         }
         else {
             remainingWeight = sampleWeightCursor.getLong() - 1;
