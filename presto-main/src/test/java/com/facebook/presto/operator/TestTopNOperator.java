@@ -77,13 +77,14 @@ public class TestTopNOperator
                 .row(5, 0.5)
                 .row(4, 0.41)
                 .row(6, 0.6)
+                .row(5, 0.5)
                 .pageBreak()
                 .build();
         input = appendSampleWeight(input, 2);
 
         TopNOperatorFactory factory = new TopNOperatorFactory(
                 0,
-                3,
+                5,
                 ImmutableList.of(singleColumn(FIXED_INT_64, 0), singleColumn(DOUBLE, 1), singleColumn(FIXED_INT_64, 2)),
                 Ordering.from(new FieldOrderedTupleComparator(ImmutableList.of(0), ImmutableList.of(SortOrder.DESC_NULLS_LAST))),
                 Optional.of(input.get(0).getChannelCount() - 1),
@@ -93,7 +94,7 @@ public class TestTopNOperator
 
         MaterializedResult expected = resultBuilder(FIXED_INT_64, DOUBLE, FIXED_INT_64)
                 .row(6, 0.6, 2)
-                .row(5, 0.5, 1)
+                .row(5, 0.5, 3)
                 .build();
 
         assertOperatorEquals(operator, input, expected);

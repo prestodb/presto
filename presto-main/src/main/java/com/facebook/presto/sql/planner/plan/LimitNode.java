@@ -40,6 +40,9 @@ public class LimitNode
         Preconditions.checkNotNull(source, "source is null");
         Preconditions.checkArgument(count >= 0, "count must be greater than or equal to zero");
         Preconditions.checkNotNull(sampleWeight, "sampleWeight is null");
+        if (sampleWeight.isPresent()) {
+            Preconditions.checkArgument(source.getOutputSymbols().contains(sampleWeight.get()), "source does not output sample weight");
+        }
 
         this.source = source;
         this.count = count;

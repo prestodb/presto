@@ -22,6 +22,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Ints;
 import com.google.common.util.concurrent.ListenableFuture;
 
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
 
@@ -289,9 +290,7 @@ class MarkDistinctSampledOperator
 
         if (!advanced) {
             markerCursor = null;
-            for (int i = 0; i < cursors.length; i++) {
-                cursors[i] = null;
-            }
+            Arrays.fill(cursors, null);
         }
         else {
             sampleWeight = cursors[sampleWeightChannel].getLong();
@@ -304,6 +303,7 @@ class MarkDistinctSampledOperator
     @Override
     public Page getOutput()
     {
+        // Build the weight block, giving all distinct rows a weight of one. advance() handles splitting rows with weight > 1, if they're distinct
         while (!pageBuilder.isFull() && advance()) {
             for (int i = 0; i < cursors.length; i++) {
                 BlockBuilder builder = pageBuilder.getBlockBuilder(i);

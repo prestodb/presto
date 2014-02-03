@@ -38,13 +38,13 @@ import com.facebook.presto.sql.planner.plan.TableWriterNode;
 import com.facebook.presto.sql.planner.plan.TopNNode;
 import com.facebook.presto.sql.planner.plan.UnionNode;
 import com.facebook.presto.sql.tree.ArithmeticExpression;
+import com.facebook.presto.sql.tree.CoalesceExpression;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.LongLiteral;
 import com.facebook.presto.sql.tree.QualifiedNameReference;
 import com.facebook.presto.util.IterableTransformer;
 import com.google.common.base.Function;
 import com.google.common.base.Optional;
-import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMap;
@@ -57,6 +57,8 @@ import java.util.Map;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Predicates.equalTo;
+import static com.google.common.base.Predicates.in;
+import static com.google.common.base.Predicates.instanceOf;
 import static com.google.common.base.Predicates.not;
 
 public class MaterializeSamplePullUp
@@ -193,7 +195,7 @@ public class MaterializeSamplePullUp
             if (source instanceof MaterializeSampleNode) {
                 // Remove the sample weight, since distinct limit will only output distinct rows
                 ImmutableMap.Builder<Symbol, Expression> projections = ImmutableMap.builder();
-                for (Symbol symbol: Iterables.filter(source.getOutputSymbols(), not(equalTo(((MaterializeSampleNode) source).getSampleWeightSymbol())))) {
+                for (Symbol symbol : source.getOutputSymbols()) {
                     Expression expression = new QualifiedNameReference(symbol.toQualifiedName());
                     projections.put(symbol, expression);
                 }
@@ -201,7 +203,7 @@ public class MaterializeSamplePullUp
                 return new DistinctLimitNode(node.getId(), source, node.getLimit());
             }
             else {
-                return planRewriter.defaultRewrite(node, null);
+                return new DistinctLimitNode(node.getId(), source, node.getLimit());
             }
         }
 
@@ -286,10 +288,24 @@ public class MaterializeSamplePullUp
                 Symbol outputSampleWeight;
                 if (leftSampleWeight != null && rightSampleWeight != null) {
                     ImmutableMap.Builder<Symbol, Expression> projections = ImmutableMap.builder();
-                    Expression sampleWeightExpr = new ArithmeticExpression(ArithmeticExpression.Type.MULTIPLY, new QualifiedNameReference(leftSampleWeight.toQualifiedName()), new QualifiedNameReference(rightSampleWeight.toQualifiedName()));
+                    Expression sampleWeightExpr;
+                    switch (node.getType()) {
+                        case INNER:
+                        case CROSS:
+                            sampleWeightExpr = new ArithmeticExpression(ArithmeticExpression.Type.MULTIPLY, new QualifiedNameReference(leftSampleWeight.toQualifiedName()), new QualifiedNameReference(rightSampleWeight.toQualifiedName()));
+                            break;
+                        case LEFT:
+                            sampleWeightExpr = new ArithmeticExpression(ArithmeticExpression.Type.MULTIPLY, new QualifiedNameReference(leftSampleWeight.toQualifiedName()), oneIfNull(rightSampleWeight));
+                            break;
+                        case RIGHT:
+                            sampleWeightExpr = new ArithmeticExpression(ArithmeticExpression.Type.MULTIPLY, oneIfNull(leftSampleWeight), new QualifiedNameReference(rightSampleWeight.toQualifiedName()));
+                            break;
+                        default:
+                            throw new AssertionError(String.format("Unknown join type: %s", node.getType()));
+                    }
                     outputSampleWeight = symbolAllocator.newSymbol(sampleWeightExpr, Type.BIGINT);
                     projections.put(outputSampleWeight, sampleWeightExpr);
-                    for (Symbol symbol: Iterables.filter(node.getOutputSymbols(), Predicates.not(Predicates.in(ImmutableSet.of(leftSampleWeight, rightSampleWeight))))) {
+                    for (Symbol symbol : Iterables.filter(node.getOutputSymbols(), not(in(ImmutableSet.of(leftSampleWeight, rightSampleWeight))))) {
                         Expression expression = new QualifiedNameReference(symbol.toQualifiedName());
                         projections.put(symbol, expression);
                     }
@@ -297,11 +313,28 @@ public class MaterializeSamplePullUp
                 }
                 else {
                     outputSampleWeight = leftSampleWeight == null ? rightSampleWeight : leftSampleWeight;
+                    if ((node.getType() == JoinNode.Type.LEFT && leftSampleWeight == null) || (node.getType() == JoinNode.Type.RIGHT && rightSampleWeight == null)) {
+                        // There could be NULLs in the sample weight, so fix them with a projection
+                        ImmutableMap.Builder<Symbol, Expression> projections = ImmutableMap.builder();
+                        for (Symbol symbol : Iterables.filter(node.getOutputSymbols(), not(equalTo(outputSampleWeight)))) {
+                            Expression expression = new QualifiedNameReference(symbol.toQualifiedName());
+                            projections.put(symbol, expression);
+                        }
+                        Expression sampleWeightExpr = oneIfNull(outputSampleWeight);
+                        outputSampleWeight = symbolAllocator.newSymbol(sampleWeightExpr, Type.BIGINT);
+                        projections.put(outputSampleWeight, sampleWeightExpr);
+                        joinNode = new ProjectNode(idAllocator.getNextId(), joinNode, projections.build());
+                    }
                 }
                 return new MaterializeSampleNode(idAllocator.getNextId(), joinNode, outputSampleWeight);
-
             }
-            return planRewriter.defaultRewrite(node, null);
+
+            return new JoinNode(node.getId(), node.getType(), leftSource, rightSource, node.getCriteria());
+        }
+
+        private Expression oneIfNull(Symbol symbol)
+        {
+            return new CoalesceExpression(new QualifiedNameReference(symbol.toQualifiedName()), new LongLiteral("1"));
         }
 
         @Override
@@ -315,16 +348,16 @@ public class MaterializeSamplePullUp
                 }
             }).list();
 
-            if (!Iterables.any(rewrittenSources, Predicates.instanceOf(MaterializeSampleNode.class))) {
-                return planRewriter.defaultRewrite(node, null);
+            if (Iterables.all(rewrittenSources, not(instanceOf(MaterializeSampleNode.class)))) {
+                return new UnionNode(node.getId(), rewrittenSources, node.getSymbolMapping());
             }
 
             // Add sample weight to any sources that don't have it, and pull MaterializeSample through the UNION
             ImmutableListMultimap.Builder<Symbol, Symbol> symbolMapping = ImmutableListMultimap.<Symbol, Symbol>builder().putAll(node.getSymbolMapping());
             ImmutableList.Builder<PlanNode> sources = ImmutableList.builder();
-            Symbol outputSymbol = symbolAllocator.newSymbol(((MaterializeSampleNode) Iterables.getFirst(Iterables.filter(rewrittenSources, Predicates.instanceOf(MaterializeSampleNode.class)), null)).getSampleWeightSymbol().getName(), Type.BIGINT);
+            Symbol outputSymbol = symbolAllocator.newSymbol("$sampleWeight", Type.BIGINT);
 
-            for (PlanNode source: rewrittenSources) {
+            for (PlanNode source : rewrittenSources) {
                 if (source instanceof MaterializeSampleNode) {
                     symbolMapping.put(outputSymbol, ((MaterializeSampleNode) source).getSampleWeightSymbol());
                     sources.add(((MaterializeSampleNode) source).getSource());
@@ -343,7 +376,7 @@ public class MaterializeSamplePullUp
         private PlanNode addSampleWeight(PlanNode source, Symbol sampleWeightSymbol)
         {
             ImmutableMap.Builder<Symbol, Expression> projections = ImmutableMap.builder();
-            for (Symbol symbol: source.getOutputSymbols()) {
+            for (Symbol symbol : source.getOutputSymbols()) {
                 Expression expression = new QualifiedNameReference(symbol.toQualifiedName());
                 projections.put(symbol, expression);
             }

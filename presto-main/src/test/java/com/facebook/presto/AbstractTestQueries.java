@@ -118,6 +118,22 @@ public abstract class AbstractTestQueries
     private Session session;
 
     @Test
+    public void testSampledRightOuterJoin()
+            throws Exception
+    {
+        assertSampledQuery("SELECT COUNT(*) FROM orders a RIGHT OUTER JOIN orders b ON a.custkey = b.orderkey",
+                "SELECT COUNT(*) FROM (SELECT * FROM orders UNION ALL SELECT * FROM orders) a LEFT OUTER JOIN (SELECT * FROM orders UNION ALL SELECT * FROM orders) b ON a.orderkey = b.custkey");
+    }
+
+    @Test
+    public void testSampledLeftOuterJoin()
+            throws Exception
+    {
+        assertSampledQuery("SELECT COUNT(*) FROM orders a LEFT OUTER JOIN orders b ON a.orderkey = b.custkey",
+                "SELECT COUNT(*) FROM (SELECT * FROM orders UNION ALL SELECT * FROM orders) a LEFT OUTER JOIN (SELECT * FROM orders UNION ALL SELECT * FROM orders) b ON a.orderkey = b.custkey");
+    }
+
+    @Test
     public void testSampledDistinctLimit()
             throws Exception
     {

@@ -17,6 +17,7 @@ import com.facebook.presto.sql.planner.Symbol;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.base.Optional;
+import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 
 import javax.annotation.concurrent.Immutable;
@@ -42,11 +43,14 @@ public class MarkDistinctNode
             @JsonProperty("sampleWeightSymbol") Optional<Symbol> sampleWeightSymbol)
     {
         super(id);
-
         this.source = source;
         this.markerSymbol = markerSymbol;
         this.distinctSymbols = ImmutableList.copyOf(checkNotNull(distinctSymbols, "distinctSymbols is null"));
         this.sampleWeightSymbol = checkNotNull(sampleWeightSymbol, "sampleWeightSymbol is null");
+
+        if (sampleWeightSymbol.isPresent()) {
+            Preconditions.checkArgument(source.getOutputSymbols().contains(sampleWeightSymbol.get()), "source does not output sample weight");
+        }
     }
 
     @Override
