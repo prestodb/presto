@@ -190,7 +190,7 @@ public final class BlockAssertions
 
     public static Block createStringsBlock(@Nullable String... values)
     {
-        return createStringsBlock(Arrays.asList(values));
+        return createStringsBlock(Arrays.asList(values != null ? values : new String[0]));
     }
 
     public static Block createStringsBlock(Iterable<String> values)
@@ -227,7 +227,7 @@ public final class BlockAssertions
 
     public static Block createBooleansBlock(@Nullable Boolean... values)
     {
-        return createBooleansBlock(Arrays.asList(values));
+        return createBooleansBlock(Arrays.asList(values != null ? values : new Boolean[0]));
     }
 
     public static Block createBooleansBlock(Boolean value, int count)
@@ -265,7 +265,7 @@ public final class BlockAssertions
 
     public static Block createLongsBlock(@Nullable Long... values)
     {
-        return createLongsBlock(Arrays.asList(values));
+        return createLongsBlock(Arrays.asList(values != null ? values : new Long[0]));
     }
 
     public static Block createLongsBlock(Iterable<Long> values)
@@ -318,7 +318,7 @@ public final class BlockAssertions
 
     public static Block createDoublesBlock(@Nullable Double... values)
     {
-        return createDoublesBlock(Arrays.asList(values));
+        return createDoublesBlock(Arrays.asList(values != null ? values : new Double[0]));
     }
 
     public static Block createDoublesBlock(Iterable<Double> values)
