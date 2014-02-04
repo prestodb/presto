@@ -110,6 +110,7 @@ public class HttpRemoteTask
     private final AtomicLong nextSplitId = new AtomicLong();
 
     private final StateMachine<TaskInfo> taskInfo;
+    private final StateMachine<Integer> splitCount;
 
     @GuardedBy("this")
     private Future<?> currentRequest;
@@ -187,6 +188,7 @@ public class HttpRemoteTask
                 ScheduledSplit scheduledSplit = new ScheduledSplit(nextSplitId.getAndIncrement(), entry.getValue());
                 pendingSplits.put(entry.getKey(), scheduledSplit);
             }
+            this.splitCount = new StateMachine<>("split_count " + taskId, executor, pendingSplits.size());
 
             List<BufferInfo> bufferStates = ImmutableList.copyOf(transform(outputBuffers.getBuffers().keySet(), new Function<String, BufferInfo>()
             {
@@ -247,6 +249,7 @@ public class HttpRemoteTask
                 for (Split split : splits) {
                     pendingSplits.put(sourceId, new ScheduledSplit(nextSplitId.getAndIncrement(), split));
                 }
+                updateSplitCount();
                 needsUpdate.set(true);
             }
 
@@ -285,17 +288,23 @@ public class HttpRemoteTask
     public synchronized int getSplitCount()
     {
         try (SetThreadName setThreadName = new SetThreadName("HttpRemoteTask-%s", taskId)) {
-            int splitCount = 0;
-            splitCount = pendingSplits.get(planFragment.getPartitionedSource()).size();
-            return splitCount + taskInfo.get().getStats().getQueuedDrivers() + taskInfo.get().getStats().getRunningDrivers();
+            return splitCount.get();
         }
     }
 
     @Override
-    public void addStateChangeListener(StateChangeListener<TaskInfo> stateChangeListener)
+    public void addTaskStateChangeListener(StateChangeListener<TaskInfo> stateChangeListener)
     {
         try (SetThreadName setThreadName = new SetThreadName("HttpRemoteTask-%s", taskId)) {
             taskInfo.addStateChangeListener(stateChangeListener);
+        }
+    }
+
+    @Override
+    public void addSplitCountStateChangeListener(StateChangeListener<Integer> stateChangeListener)
+    {
+        try (SetThreadName setThreadName = new SetThreadName("HttpRemoteTask-%s", taskId)) {
+            splitCount.addStateChangeListener(stateChangeListener);
         }
     }
 
@@ -327,6 +336,7 @@ public class HttpRemoteTask
         if (newValue.getState().isDone()) {
             // splits can be huge so clear the list
             pendingSplits.clear();
+            splitCount.set(0);
         }
 
         // change to new value if old value is not changed and new value has a newer version
@@ -342,6 +352,7 @@ public class HttpRemoteTask
                     // don't update to an older version (same version is ok)
                     return false;
                 }
+                updateSplitCount();
                 return true;
             }
         });
@@ -412,6 +423,7 @@ public class HttpRemoteTask
         try (SetThreadName setThreadName = new SetThreadName("HttpRemoteTask-%s", taskId)) {
             // clear pending splits to free memory
             pendingSplits.clear();
+            splitCount.set(0);
 
             // cancel pending request
             if (currentRequest != null) {
@@ -480,12 +492,22 @@ public class HttpRemoteTask
                 for (ScheduledSplit split : source.getSplits()) {
                     pendingSplits.remove(planNodeId, split);
                 }
+                updateSplitCount();
             }
 
             if (continuousTaskInfoFetcher == null) {
                 continuousTaskInfoFetcher = new ContinuousTaskInfoFetcher();
                 continuousTaskInfoFetcher.start();
             }
+        }
+    }
+
+    private void updateSplitCount()
+    {
+        int newSplitCount = pendingSplits.size() + taskInfo.get().getStats().getQueuedDrivers() + taskInfo.get().getStats().getRunningDrivers();
+        checkNotNull(splitCount);
+        if (splitCount.get() != newSplitCount) {
+            splitCount.set(pendingSplits.size() + taskInfo.get().getStats().getQueuedDrivers() + taskInfo.get().getStats().getRunningDrivers());
         }
     }
 

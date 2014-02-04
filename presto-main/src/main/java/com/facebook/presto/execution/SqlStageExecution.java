@@ -762,7 +762,7 @@ public class SqlStageExecution
                 outputReceivers,
                 currentOutputBuffers);
 
-        task.addStateChangeListener(new StateChangeListener<TaskInfo>()
+        task.addTaskStateChangeListener(new StateChangeListener<TaskInfo>()
         {
             @Override
             public void stateChanged(TaskInfo taskInfo)

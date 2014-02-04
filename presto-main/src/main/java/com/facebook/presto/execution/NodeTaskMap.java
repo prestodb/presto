@@ -81,34 +81,21 @@ public class NodeTaskMap
                 return;
             }
 
-            // create a listener to update the when ever the tasks changes
-            StateChangeListener<TaskInfo> stateChangeListener = new StateChangeListener<TaskInfo>()
+            StateChangeListener<Integer> stateChangeListener = new StateChangeListener<Integer>()
             {
                 private int currentSplitCount;
 
                 @Override
-                public synchronized void stateChanged(TaskInfo taskInfo)
+                public void stateChanged(Integer newSplitCount)
                 {
-                    if (taskInfo.getState().isDone()) {
-                        // remove the splits for this task
-                        splitCount.addAndGet(-currentSplitCount);
-                        currentSplitCount = 0;
-                        tasks.remove(taskInfo.getTaskId());
-                    }
-                    else {
-                        // update the split count for this task
-                        int newSplitCount =  task.getSplitCount();
-                        splitCount.addAndGet(newSplitCount - currentSplitCount);
-                        currentSplitCount = newSplitCount;
-                    }
+                    splitCount.addAndGet(newSplitCount - currentSplitCount);
+                    currentSplitCount = newSplitCount;
                 }
             };
 
             // set the initial state
-            stateChangeListener.stateChanged(initialTaskInfo);
-
-            // add the listener
-            task.addStateChangeListener(stateChangeListener);
+            stateChangeListener.stateChanged(task.getSplitCount());
+            task.addSplitCountStateChangeListener(stateChangeListener);
         }
     }
 }

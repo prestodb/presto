@@ -113,7 +113,7 @@ public class TestSqlStageExecution
         metadata.addInternalSchemaMetadata(MetadataManager.INTERNAL_CONNECTOR_ID, new DualMetadata());
     }
 
-    @Test(enabled = false)
+    @Test
     public void testSplitAssignment()
             throws Exception
     {
@@ -126,7 +126,7 @@ public class TestSqlStageExecution
         scheduleSqlStageExecution(futures, stageExecutions, numConcurrentStageExecution);
 
         // Allow it to schedule all splits
-        TimeUnit.SECONDS.sleep(2);
+        TimeUnit.SECONDS.sleep(1);
 
         Node additionalNode = new Node("other4", URI.create("http://127.0.0.1:14"), NodeVersion.UNKNOWN);
         nodeManager.addNode("foo", additionalNode);
@@ -137,7 +137,7 @@ public class TestSqlStageExecution
         scheduleSqlStageExecution(futures, stageExecutions, numConcurrentStageExecution);
 
         // Allow it to schedule
-        TimeUnit.MILLISECONDS.sleep(1);
+        TimeUnit.SECONDS.sleep(1);
 
         // Some splits must be queued to the new node
         assertNotEquals(nodeTaskMap.getSplitsOnNode(additionalNode), 0);
@@ -355,6 +355,7 @@ public class TestSqlStageExecution
 
             private final URI location;
             private final TaskStateMachine taskStateMachine;
+            private final StateMachine<Integer> splitCount;
             private final TaskContext taskContext;
             private final SharedBuffer sharedBuffer;
 
@@ -379,6 +380,7 @@ public class TestSqlStageExecution
 
                 this.sharedBuffer = new SharedBuffer(taskId, executor, checkNotNull(new DataSize(1, Unit.BYTE), "maxBufferSize is null"), INITIAL_EMPTY_OUTPUT_BUFFERS);
                 this.fragment = checkNotNull(fragment, "fragment is null");
+                this.splitCount = new StateMachine<>("split_count " + taskId, executor, 0);
             }
 
             @Override
@@ -421,6 +423,7 @@ public class TestSqlStageExecution
                 for (Split split : splits) {
                     this.splits.put(sourceId, split);
                 }
+                splitCount.set(this.splits.size());
             }
 
             @Override
@@ -439,7 +442,7 @@ public class TestSqlStageExecution
             }
 
             @Override
-            public void addStateChangeListener(final StateChangeListener<TaskInfo> stateChangeListener)
+            public void addTaskStateChangeListener(final StateChangeListener<TaskInfo> stateChangeListener)
             {
                 taskStateMachine.addStateChangeListener(new StateChangeListener<TaskState>()
                 {
@@ -452,9 +455,16 @@ public class TestSqlStageExecution
             }
 
             @Override
+            public void addSplitCountStateChangeListener(final StateChangeListener<Integer> stateChangeListener)
+            {
+                splitCount.addStateChangeListener(stateChangeListener);
+            }
+
+            @Override
             public void cancel()
             {
                 taskStateMachine.cancel();
+                splitCount.set(0);
             }
 
             @Override
@@ -476,7 +486,7 @@ public class TestSqlStageExecution
                 if (taskStateMachine.getState().isDone()) {
                     return 0;
                 }
-                return splits.size();
+                return splitCount.get();
             }
         }
     }
