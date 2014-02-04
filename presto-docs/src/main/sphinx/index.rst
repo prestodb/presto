@@ -10,3 +10,4 @@ Presto Documentation
     functions
     sql
     release
+    spi
