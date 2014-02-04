@@ -130,6 +130,14 @@ public class TestDriver
                 assertGetSchemasResult(rs, 1);
             }
 
+            try (ResultSet rs = connection.getMetaData().getSchemas(null, "s_s")) {
+                assertGetSchemasResult(rs, 1);
+            }
+
+            try (ResultSet rs = connection.getMetaData().getSchemas(null, "%s%")) {
+                assertGetSchemasResult(rs, 2);
+            }
+
             try (ResultSet rs = connection.getMetaData().getSchemas("unknown", null)) {
                 assertGetSchemasResult(rs, 0);
             }
@@ -275,6 +283,28 @@ public class TestDriver
                 assertTrue(rows.contains(ImmutableList.of("default", "information_schema", "tables", "BASE TABLE", "",  "",  "",  "",  "", "")));
                 assertTrue(rows.contains(ImmutableList.of("default", "information_schema", "schemata", "BASE TABLE", "", "", "", "", "", "")));
                 assertTrue(rows.contains(ImmutableList.of("default", "sys", "node", "BASE TABLE", "", "", "", "", "", "")));
+            }
+        }
+
+        try (Connection connection = createConnection()) {
+            try (ResultSet rs = connection.getMetaData().getTables("default", "inf%", "tables", null)) {
+                assertTableMetadata(rs);
+
+                Set<List<Object>> rows = ImmutableSet.copyOf(readRows(rs));
+                assertTrue(rows.contains(ImmutableList.of("default", "information_schema", "tables", "BASE TABLE", "",  "",  "",  "",  "", "")));
+                assertFalse(rows.contains(ImmutableList.of("default", "information_schema", "schemata", "BASE TABLE", "", "", "", "", "", "")));
+                assertFalse(rows.contains(ImmutableList.of("default", "sys", "node", "BASE TABLE", "",  "",  "",  "",  "", "")));
+            }
+        }
+
+        try (Connection connection = createConnection()) {
+            try (ResultSet rs = connection.getMetaData().getTables("default", "information_schema", "tab%", null)) {
+                assertTableMetadata(rs);
+
+                Set<List<Object>> rows = ImmutableSet.copyOf(readRows(rs));
+                assertTrue(rows.contains(ImmutableList.of("default", "information_schema", "tables", "BASE TABLE", "",  "",  "",  "",  "", "")));
+                assertFalse(rows.contains(ImmutableList.of("default", "information_schema", "schemata", "BASE TABLE", "", "", "", "", "", "")));
+                assertFalse(rows.contains(ImmutableList.of("default", "sys", "node", "BASE TABLE", "",  "",  "",  "",  "", "")));
             }
         }
 
