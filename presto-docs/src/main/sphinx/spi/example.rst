@@ -3,7 +3,12 @@ Example HTTP SPI
 ================
 
 The example HTTP SPI implementation provides a sample implementation
-of the SPI interfaces which can be used to introduce the SPI.
+of the SPI interfaces which can be used to introduce the SPI.  The
+example HTTP connector has a simple goal, it is a connector that is
+configured to reference data over HTTP in a comma-separated format.
+For example, if you have a large amount of data in a CSV format, you
+can point the example HTTP connector at this data and right a query
+against this data as if it were table in a data source.
 
 GitHub Code
 -----------
@@ -181,7 +186,20 @@ The omitted portion of this code simply injects instances of:
 The following sections explain the function and give a brief overview
 of the example HTTP connector's implementation of each class.
 
-ConnectorMetadata: ExampleMetadata
+Connector: ExampleConnector
+^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+You would think that the connector class is the center of the action in a Presto connector implementation, but it really isn't. At least it isn't in the example connector. This ExampleConnector class is simply a class that allows other services and managers get references to the various services provided by the connector. The most important class in the ExampleConnector is this overide:
+
+.. code-block:: java
+
+    @Override
+    public <T> T getService(Class<T> type)
+    {
+        return services.getInstance(type);
+    }
+
+Metadata: ExampleMetadata
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 This class is responsible for reporting table names, table metadata,
@@ -193,7 +211,7 @@ handle a given table name.
 The ExampleMetadata implementation delegates many of these calls to
 the ExampleClient, an object to be explored in subsequent sections.
 
-ConnectorSplitManager: ExampleSplitManager
+Split Manager: ExampleSplitManager
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 The split manager's job is to ask the underlying data source for a
@@ -202,4 +220,24 @@ partitions, each would be returned by the ConnectSplitManager
 instance.
 
 In the case of the example HTTP connect, each table only has a single
-partition.
+partition, and the ExampleSplitManager simply returns splits that
+reflect this single partition reality of HTTP connector.
+
+Record Set Provider: ExampleRecordSetProvider
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+The record set provider has a simple job. Given a split and a list of
+columns: return a RecordSet object.  Note that the example HTTP
+connector doesn't really split data up into multiple
+partitions. Unlike Hive, when you are querying an HTTP data source at
+a URL, it doesn't have the concept of splitting up the response into a
+series of splits.  The ExampleSplitManager is designed to return a
+single partition.
+
+If you dig into the ExampleRecordSet and the ExampleRecordCursor
+object you will see that the example HTTP connector understands
+responses to be in a series of comma-separated fields on independent
+lines.  More on that in the sections devoted to the ExampleRecordSet.
+
+
+
