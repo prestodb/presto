@@ -53,7 +53,7 @@ public class TestNativeMetadata
     {
         IDBI dbi = new DBI("jdbc:h2:mem:test" + System.nanoTime());
         dummyHandle = dbi.open();
-        metadata = new NativeMetadata("default", dbi, new DatabaseShardManager(dbi));
+        metadata = new NativeMetadata(new NativeConnectorId("default"), dbi, new DatabaseShardManager(dbi));
     }
 
     @AfterMethod

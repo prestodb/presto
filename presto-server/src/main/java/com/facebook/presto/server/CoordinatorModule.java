@@ -38,6 +38,8 @@ import com.facebook.presto.metadata.DiscoveryNodeManager;
 import com.facebook.presto.metadata.ForMetadata;
 import com.facebook.presto.metadata.ForShardCleaner;
 import com.facebook.presto.metadata.InternalNodeManager;
+import com.facebook.presto.metadata.NativeConnectorId;
+import com.facebook.presto.metadata.NativeMetadata;
 import com.facebook.presto.metadata.NativeRecordSinkProvider;
 import com.facebook.presto.metadata.ShardCleaner;
 import com.facebook.presto.metadata.ShardCleanerConfig;
@@ -103,6 +105,8 @@ public class CoordinatorModule
         bindConfig(binder).to(QueryManagerConfig.class);
 
         // native
+        binder.bind(NativeConnectorId.class).toInstance(new NativeConnectorId("default"));
+        binder.bind(NativeMetadata.class).in(Scopes.SINGLETON);
         binder.bind(NativeSplitManager.class).in(Scopes.SINGLETON);
         binder.bind(NativeDataStreamProvider.class).in(Scopes.SINGLETON);
         binder.bind(NativeRecordSinkProvider.class).in(Scopes.SINGLETON);

@@ -21,6 +21,8 @@ import com.facebook.presto.metadata.InMemoryNodeManager;
 import com.facebook.presto.metadata.LocalStorageManager;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.MetadataManager;
+import com.facebook.presto.metadata.NativeConnectorId;
+import com.facebook.presto.metadata.NativeMetadata;
 import com.facebook.presto.metadata.NativeRecordSinkProvider;
 import com.facebook.presto.metadata.QualifiedTableName;
 import com.facebook.presto.spi.NodeManager;
@@ -86,11 +88,10 @@ public final class BenchmarkQueryRunner
             NativeRecordSinkProvider nativeRecordSinkProvider = new NativeRecordSinkProvider(localStorageManager, nodeManager.getCurrentNode().getNodeIdentifier());
 
             IDBI metadataDbi = createDataSource(databaseDir, "Metastore");
-            NativeConnectorFactory nativeConnectorFactory = new NativeConnectorFactory(nativeDataStreamProvider, nativeRecordSinkProvider);
-            nativeConnectorFactory.setDbi(metadataDbi);
             DatabaseShardManager shardManager = new DatabaseShardManager(metadataDbi);
-            nativeConnectorFactory.setShardManager(shardManager);
-            nativeConnectorFactory.setSplitManager(new NativeSplitManager(nodeManager, shardManager, metadata));
+            NativeMetadata nativeMetadata = new NativeMetadata(new NativeConnectorId("default"), metadataDbi, shardManager);
+            NativeSplitManager nativeSplitManager = new NativeSplitManager(nodeManager, shardManager, nativeMetadata);
+            NativeConnectorFactory nativeConnectorFactory = new NativeConnectorFactory(nativeMetadata, nativeSplitManager, nativeDataStreamProvider, nativeRecordSinkProvider);
 
             return nativeConnectorFactory;
         }

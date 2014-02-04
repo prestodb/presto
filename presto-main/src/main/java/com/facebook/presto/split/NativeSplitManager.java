@@ -13,13 +13,13 @@
  */
 package com.facebook.presto.split;
 
-import com.facebook.presto.metadata.Metadata;
+import com.facebook.presto.metadata.NativeMetadata;
 import com.facebook.presto.metadata.NativeTableHandle;
 import com.facebook.presto.metadata.ShardManager;
-import com.facebook.presto.metadata.TableMetadata;
 import com.facebook.presto.metadata.TablePartition;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorSplitManager;
+import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.FixedSplitSource;
 import com.facebook.presto.spi.HostAddress;
 import com.facebook.presto.spi.Node;
@@ -67,10 +67,10 @@ public class NativeSplitManager
 
     private final NodeManager nodeManager;
     private final ShardManager shardManager;
-    private final Metadata metadata;
+    private final NativeMetadata metadata;
 
     @Inject
-    public NativeSplitManager(NodeManager nodeManager, ShardManager shardManager, Metadata metadata)
+    public NativeSplitManager(NodeManager nodeManager, ShardManager shardManager, NativeMetadata metadata)
     {
         this.nodeManager = checkNotNull(nodeManager, "nodeManager is null");
         this.shardManager = checkNotNull(shardManager, "shardManager is null");
@@ -97,7 +97,7 @@ public class NativeSplitManager
 
         checkArgument(tableHandle instanceof NativeTableHandle, "Table must be a native table");
 
-        TableMetadata tableMetadata = metadata.getTableMetadata(tableHandle);
+        ConnectorTableMetadata tableMetadata = metadata.getTableMetadata(tableHandle);
 
         checkState(tableMetadata != null, "no metadata for %s found", tableHandle);
 
