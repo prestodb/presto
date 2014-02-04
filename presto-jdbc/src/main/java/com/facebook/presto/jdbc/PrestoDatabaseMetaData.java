@@ -972,6 +972,8 @@ public class PrestoDatabaseMetaData
             Joiner.on(" AND ").appendTo(query, filters);
         }
 
+        query.append(" ORDER BY TABLE_TYPE, TABLE_CAT, TABLE_SCHEM, TABLE_NAME");
+
         return select(query.toString());
     }
 
@@ -981,7 +983,8 @@ public class PrestoDatabaseMetaData
     {
         return select("" +
                 "SELECT schema_name AS TABLE_SCHEM, catalog_name TABLE_CATALOG " +
-                "FROM information_schema.schemata");
+                "FROM information_schema.schemata " +
+                "ORDER BY TABLE_CATALOG, TABLE_SCHEM");
     }
 
     @Override
@@ -990,7 +993,8 @@ public class PrestoDatabaseMetaData
     {
         return select("" +
                 "SELECT DISTINCT catalog_name AS TABLE_CAT " +
-                "FROM information_schema.schemata");
+                "FROM information_schema.schemata " +
+                "ORDER BY TABLE_CAT");
     }
 
     @Override
@@ -999,7 +1003,8 @@ public class PrestoDatabaseMetaData
     {
         return select("" +
                 "SELECT DISTINCT table_type AS TABLE_TYPE " +
-                "FROM information_schema.tables");
+                "FROM information_schema.tables " +
+                "ORDER BY TABLE_TYPE");
     }
 
     @Override
@@ -1329,6 +1334,8 @@ public class PrestoDatabaseMetaData
             query.append(" WHERE ");
             Joiner.on(" AND ").appendTo(query, filters);
         }
+
+        query.append(" ORDER BY TABLE_CATALOG, TABLE_SCHEM");
 
         return select(query.toString());
     }
