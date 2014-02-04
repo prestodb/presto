@@ -12,3 +12,4 @@ Presto Documentation
     sql
     migration
     release
+    spi
