@@ -15,13 +15,12 @@ package com.facebook.presto.split;
 
 import com.facebook.presto.metadata.DatabaseShardManager;
 import com.facebook.presto.metadata.InMemoryNodeManager;
-import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.metadata.MetadataUtil.TableMetadataBuilder;
+import com.facebook.presto.metadata.NativeConnectorId;
 import com.facebook.presto.metadata.NativeMetadata;
 import com.facebook.presto.metadata.PrestoNode;
 import com.facebook.presto.metadata.NodeVersion;
 import com.facebook.presto.metadata.ShardManager;
-import com.facebook.presto.metadata.TableMetadata;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.Domain;
@@ -81,11 +80,10 @@ public class TestNativeSplitManager
         String nodeName = UUID.randomUUID().toString();
         nodeManager.addNode("native", new PrestoNode(nodeName, new URI("http://127.0.0.1/"), NodeVersion.UNKNOWN));
 
-        MetadataManager metadataManager = new MetadataManager();
-        metadataManager.addConnectorMetadata("local", "local", new NativeMetadata("native", dbi, shardManager));
+        NativeMetadata metadata = new NativeMetadata(new NativeConnectorId("native"), dbi, shardManager);
 
-        tableHandle = metadataManager.createTable("local", new TableMetadata("local", TEST_TABLE));
-        dsColumnHandle = metadataManager.getColumnHandle(tableHandle, "ds").get();
+        tableHandle = metadata.createTable(TEST_TABLE);
+        dsColumnHandle = metadata.getColumnHandle(tableHandle, "ds");
 
         UUID shardUuid1 = UUID.randomUUID();
         UUID shardUuid2 = UUID.randomUUID();
@@ -110,7 +108,7 @@ public class TestNativeSplitManager
                         .put(shardUuid4, nodeName)
                         .build());
 
-        nativeSplitManager = new NativeSplitManager(nodeManager, shardManager, metadataManager);
+        nativeSplitManager = new NativeSplitManager(nodeManager, shardManager, metadata);
     }
 
     @AfterMethod
