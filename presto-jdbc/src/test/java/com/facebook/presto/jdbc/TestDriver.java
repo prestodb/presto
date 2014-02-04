@@ -61,10 +61,6 @@ public class TestDriver
             throws Exception
     {
         try (Connection connection = createConnection()) {
-            try (ResultSet tableTypes = connection.getMetaData().getTableTypes()) {
-                assertRowCount(tableTypes, 1);
-            }
-
             try (Statement statement = connection.createStatement()) {
                 try (ResultSet rs = statement.executeQuery("SELECT 123 x, 'foo' y")) {
                     ResultSetMetaData metadata = rs.getMetaData();
@@ -385,6 +381,25 @@ public class TestDriver
 
         assertEquals(metadata.getColumnLabel(10), "REF_GENERATION");
         assertEquals(metadata.getColumnType(10), Types.LONGNVARCHAR);
+    }
+
+    @Test
+    public void testGetTableTypes()
+            throws Exception
+    {
+        try (Connection connection = createConnection()) {
+            try (ResultSet tableTypes = connection.getMetaData().getTableTypes()) {
+                List<List<Object>> data = readRows(tableTypes);
+                assertEquals(data.size(), 1);
+                assertEquals(data.get(0).get(0), "BASE TABLE");
+
+                ResultSetMetaData metadata = tableTypes.getMetaData();
+                assertEquals(metadata.getColumnCount(), 1);
+
+                assertEquals(metadata.getColumnLabel(1), "TABLE_TYPE");
+                assertEquals(metadata.getColumnType(1), Types.LONGNVARCHAR);
+            }
+        }
     }
 
     @Test
