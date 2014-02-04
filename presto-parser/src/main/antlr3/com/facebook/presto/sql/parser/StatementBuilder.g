@@ -64,6 +64,7 @@ statement returns [Statement value]
     | showColumns               { $value = $showColumns.value; }
     | showPartitions            { $value = $showPartitions.value; }
     | showFunctions             { $value = $showFunctions.value; }
+    | useCollection             { $value = $useCollection.value; }
     | createTable               { $value = $createTable.value; }
     | createMaterializedView    { $value = $createMaterializedView.value; }
     | refreshMaterializedView   { $value = $refreshMaterializedView.value; }
@@ -515,6 +516,11 @@ showPartitions returns [Statement value]
 
 showFunctions returns [Statement value]
     : SHOW_FUNCTIONS { $value = new ShowFunctions(); }
+    ;
+
+useCollection returns [Statement value]
+    : ^(USE_CATALOG ident) { $value = new UseCollection($ident.value, UseCollection.CollectionType.CATALOG); }
+    | ^(USE_SCHEMA ident) { $value = new UseCollection($ident.value, UseCollection.CollectionType.SCHEMA); }
     ;
 
 createTable returns [Statement value]

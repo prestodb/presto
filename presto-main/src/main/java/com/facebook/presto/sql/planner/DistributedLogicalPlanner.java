@@ -20,6 +20,7 @@ import com.facebook.presto.sql.analyzer.Type;
 import com.facebook.presto.sql.planner.PlanFragment.OutputPartitioning;
 import com.facebook.presto.sql.planner.PlanFragment.PlanDistribution;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
+import com.facebook.presto.sql.planner.plan.DistinctLimitNode;
 import com.facebook.presto.sql.planner.plan.ExchangeNode;
 import com.facebook.presto.sql.planner.plan.FilterNode;
 import com.facebook.presto.sql.planner.plan.JoinNode;
@@ -306,6 +307,23 @@ public class DistributedLogicalPlanner
                         .addChild(current.build());
             }
 
+            return current;
+        }
+
+        @Override
+        public SubPlanBuilder visitDistinctLimit(DistinctLimitNode node, Void context)
+        {
+            SubPlanBuilder current = node.getSource().accept(this, context);
+
+            current.setRoot(new DistinctLimitNode(node.getId(), current.getRoot(), node.getLimit()));
+
+            if (current.isDistributed()) {
+                current.setRoot(new SinkNode(idAllocator.getNextId(), current.getRoot(), current.getRoot().getOutputSymbols()));
+
+                PlanNode source = new ExchangeNode(idAllocator.getNextId(), current.getId(), current.getRoot().getOutputSymbols());
+                DistinctLimitNode merge = new DistinctLimitNode(idAllocator.getNextId(), source, node.getLimit());
+                current = createSingleNodePlan(merge).addChild(current.build());
+            }
             return current;
         }
 

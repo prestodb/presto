@@ -13,6 +13,8 @@
  */
 package com.facebook.presto.jdbc;
 
+import com.google.common.base.Joiner;
+
 import java.sql.Connection;
 import java.sql.DatabaseMetaData;
 import java.sql.ResultSet;
@@ -20,6 +22,8 @@ import java.sql.RowIdLifetime;
 import java.sql.SQLException;
 import java.sql.SQLFeatureNotSupportedException;
 import java.sql.Statement;
+import java.util.ArrayList;
+import java.util.List;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 
@@ -909,46 +913,93 @@ public class PrestoDatabaseMetaData
     public ResultSet getTables(String catalog, String schemaPattern, String tableNamePattern, String[] types)
             throws SQLException
     {
-        return select("SELECT "
-            + "table_catalog AS TABLE_CAT, "
-            + "table_schema AS TABLE_SCHEM, "
-            + "table_name AS TABLE_NAME, "
-            + "table_type AS TABLE_TYPE, "
-            + "'' AS REMARKS, "
-            + "'' AS TYPE_CAT, "
-            + "'' AS TYPE_SCHEM, "
-            + "'' AS TYPE_NAME, "
-            + "'' AS SELF_REFERENCING_COL_NAME, "
-            + "'' AS REF_GENERATION "
-            + "FROM information_schema.tables "
-            + "ORDER BY TABLE_TYPE, TABLE_CAT, TABLE_SCHEM, TABLE_NAME");
+        StringBuilder query = new StringBuilder(1024);
+        query.append("SELECT");
+        query.append(" table_catalog AS TABLE_CAT");
+        query.append(", table_schema AS TABLE_SCHEM");
+        query.append(", table_name AS TABLE_NAME");
+        query.append(", table_type AS TABLE_TYPE");
+        query.append(", '' AS REMARKS");
+        query.append(", '' AS TYPE_CAT");
+        query.append(", '' AS TYPE_SCHEM");
+        query.append(", '' AS TYPE_NAME");
+        query.append(", '' AS SELF_REFERENCING_COL_NAME");
+        query.append(", '' AS REF_GENERATION");
+        query.append(" FROM information_schema.tables ");
+
+        List<String> filters = new ArrayList<>(4);
+        if (catalog != null) {
+            if (catalog.length() == 0) {
+                filters.add("table_catalog IS NULL");
+            }
+            else {
+                filters.add(stringColumnEquals("table_catalog", catalog));
+            }
+        }
+
+        if (schemaPattern != null) {
+            if (schemaPattern.length() == 0) {
+                filters.add("table_schema IS NULL");
+            }
+            else {
+                filters.add(stringColumnEquals("table_schema", schemaPattern));
+            }
+        }
+
+        if (tableNamePattern != null) {
+            filters.add(stringColumnEquals("table_name", tableNamePattern));
+        }
+
+        if (types != null && types.length > 0) {
+            StringBuilder filter = new StringBuilder();
+            filter.append("table_type in (");
+
+            for (int i = 0; i < types.length; i++) {
+                String type = types[i];
+
+                if (i > 0) {
+                    filter.append(" ,");
+                }
+
+                quoteStringLiteral(filter, type);
+            }
+            filter.append(")");
+            filters.add(filter.toString());
+        }
+
+        if (filters.size() > 0) {
+            query.append(" WHERE ");
+            Joiner.on(" AND ").appendTo(query, filters);
+        }
+
+        return select(query.toString());
     }
 
     @Override
     public ResultSet getSchemas()
             throws SQLException
     {
-        return select("SELECT DISTINCT table_schema AS TABLE_SCHEM "
-            + "FROM information_schema.tables "
-            + "ORDER BY TABLE_SCHEM");
+        return select("" +
+                "SELECT schema_name AS TABLE_SCHEM, catalog_name TABLE_CATALOG " +
+                "FROM information_schema.schemata");
     }
 
     @Override
     public ResultSet getCatalogs()
             throws SQLException
     {
-        return select("SELECT DISTINCT table_catalog AS TABLE_CAT "
-            + "FROM information_schema.tables "
-            + "ORDER BY TABLE_CAT");
+        return select("" +
+                "SELECT DISTINCT catalog_name AS TABLE_CAT " +
+                "FROM information_schema.schemata");
     }
 
     @Override
     public ResultSet getTableTypes()
             throws SQLException
     {
-        return select("SELECT DISTINCT table_type AS TABLE_TYPE "
-            + "FROM information_schema.tables "
-            + "ORDER BY TABLE_TYPE");
+        return select("" +
+                "SELECT DISTINCT table_type AS TABLE_TYPE " +
+                "FROM information_schema.tables");
     }
 
     @Override
@@ -1256,29 +1307,30 @@ public class PrestoDatabaseMetaData
         // The schema columns are:
         // TABLE_SCHEM String => schema name
         // TABLE_CATALOG String => catalog name (may be null)
-        StringBuilder buf = new StringBuilder("SELECT schema_name TABLE_SCHEM, catalog_name TABLE_CATALOG ");
-        buf.append("FROM information_schema.schemata");
+        StringBuilder query = new StringBuilder(512);
+        query.append("SELECT DISTINCT schema_name TABLE_SCHEM, catalog_name TABLE_CATALOG ");
+        query.append(" FROM information_schema.schemata");
 
-        // check if there are no filters
-        if ((catalog == null) && (schemaPattern == null)) {
-            return select(buf.toString());
-        }
-
-        // Else manage filters
-        buf.append(" WHERE ");
-        // If catalog must be filtered
+        List<String> filters = new ArrayList<>(4);
         if (catalog != null) {
-            buf.append("catalog_name='" + catalog.replace("'", "''") + "' ");
-        }
-        // If schema name must be filtered
-        if (schemaPattern != null) {
-            if (catalog != null) {
-                buf.append("AND ");
+            if (catalog.length() == 0) {
+                filters.add("catalog_name IS NULL");
             }
-            buf.append("schema_name='" + schemaPattern.replace("'", "''") + "' ");
+            else {
+                filters.add(stringColumnEquals("catalog_name", catalog));
+            }
         }
 
-        return select(buf.toString());
+        if (schemaPattern != null) {
+            filters.add(stringColumnEquals("schema_name", schemaPattern));
+        }
+
+        if (filters.size() > 0) {
+            query.append(" WHERE ");
+            Joiner.on(" AND ").appendTo(query, filters);
+        }
+
+        return select(query.toString());
     }
 
     @Override
@@ -1357,5 +1409,26 @@ public class PrestoDatabaseMetaData
         try (Statement statement = getConnection().createStatement()) {
             return statement.executeQuery(sql);
         }
+    }
+
+    private static String stringColumnEquals(String columnName, String value)
+    {
+        StringBuilder filter = new StringBuilder();
+        filter.append(columnName).append(" = ");
+        quoteStringLiteral(filter, value);
+        return filter.toString();
+    }
+
+    private static void quoteStringLiteral(StringBuilder out, String string)
+    {
+        out.append('\'');
+        for (int i = 0; i < string.length(); i++) {
+            char c = string.charAt(i);
+            out.append(c);
+            if (c == '\'') {
+                out.append('\'');
+            }
+        }
+        out.append('\'');
     }
 }

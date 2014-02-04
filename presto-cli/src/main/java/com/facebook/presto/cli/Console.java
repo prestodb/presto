@@ -15,8 +15,12 @@ package com.facebook.presto.cli;
 
 import com.facebook.presto.cli.ClientOptions.OutputFormat;
 import com.facebook.presto.client.ClientSession;
+import com.facebook.presto.sql.parser.ParsingException;
+import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.parser.StatementSplitter;
+import com.facebook.presto.sql.tree.UseCollection;
 import com.google.common.base.Charsets;
+import com.google.common.base.Optional;
 import com.google.common.base.Strings;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableSet;
@@ -146,12 +150,19 @@ public class Console
                 String sql = buffer.toString();
                 StatementSplitter splitter = new StatementSplitter(sql, ImmutableSet.of(";", "\\G"));
                 for (Statement split : splitter.getCompleteStatements()) {
-                    OutputFormat outputFormat = OutputFormat.ALIGNED;
-                    if (split.terminator().equals("\\G")) {
-                        outputFormat = OutputFormat.VERTICAL;
+                    Optional<Object> statement = getParsedStatement(split.statement());
+                    if (statement.isPresent() && isSessionParameterChange(statement.get())) {
+                        session = processSessionParameterChange(statement.get(), session);
+                        queryRunner = QueryRunner.create(session);
                     }
+                    else {
+                        OutputFormat outputFormat = OutputFormat.ALIGNED;
+                        if (split.terminator().equals("\\G")) {
+                            outputFormat = OutputFormat.VERTICAL;
+                        }
 
-                    process(queryRunner, split.statement(), outputFormat, true);
+                        process(queryRunner, split.statement(), outputFormat, true);
+                    }
                     reader.getHistory().add(squeezeStatement(split.statement()) + split.terminator());
                 }
 
@@ -166,6 +177,35 @@ public class Console
         catch (IOException e) {
             System.err.println("Readline error: " + e.getMessage());
         }
+    }
+
+    private Optional<Object> getParsedStatement(String statement)
+    {
+        try {
+            return Optional.of((Object) SqlParser.createStatement(statement));
+        }
+        catch (ParsingException e) {
+            return Optional.absent();
+        }
+    }
+
+    static ClientSession processSessionParameterChange(Object parsedStatement, ClientSession session)
+    {
+        if (parsedStatement instanceof UseCollection) {
+            UseCollection useCollection = (UseCollection) parsedStatement;
+            if (useCollection.getType() == UseCollection.CollectionType.CATALOG) {
+                return ClientSession.withCatalog(session, useCollection.getCollection());
+            }
+            else if (useCollection.getType() == UseCollection.CollectionType.SCHEMA) {
+                return ClientSession.withSchema(session, useCollection.getCollection());
+            }
+        }
+        return session;
+    }
+
+    static boolean isSessionParameterChange(Object statement)
+    {
+        return statement instanceof UseCollection;
     }
 
     private static void executeCommand(QueryRunner queryRunner, String query, OutputFormat outputFormat)

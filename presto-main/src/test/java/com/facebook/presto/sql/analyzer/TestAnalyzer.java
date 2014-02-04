@@ -520,6 +520,13 @@ public class TestAnalyzer
         assertFails(SAMPLE_PERCENTAGE_OUT_OF_RANGE, "SELECT * FROM t1 TABLESAMPLE BERNOULLI (-101)");
     }
 
+    @Test
+    public void testUseCollection()
+            throws Exception
+    {
+        assertFails(NOT_SUPPORTED, "USE CATALOG default");
+    }
+
     @BeforeMethod(alwaysRun = true)
     public void setup()
             throws Exception

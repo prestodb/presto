@@ -15,6 +15,7 @@ package com.facebook.presto.sql.planner;
 
 import com.facebook.presto.spi.TupleDomain;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
+import com.facebook.presto.sql.planner.plan.DistinctLimitNode;
 import com.facebook.presto.sql.planner.plan.FilterNode;
 import com.facebook.presto.sql.planner.plan.JoinNode;
 import com.facebook.presto.sql.planner.plan.LimitNode;
@@ -142,6 +143,12 @@ public class EffectivePredicateExtractor
 
     @Override
     public Expression visitLimit(LimitNode node, Void context)
+    {
+        return node.getSource().accept(this, context);
+    }
+
+    @Override
+    public Expression visitDistinctLimit(DistinctLimitNode node, Void context)
     {
         return node.getSource().accept(this, context);
     }

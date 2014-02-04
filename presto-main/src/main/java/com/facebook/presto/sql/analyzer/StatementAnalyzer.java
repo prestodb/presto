@@ -46,6 +46,7 @@ import com.facebook.presto.sql.tree.ShowTables;
 import com.facebook.presto.sql.tree.SingleColumn;
 import com.facebook.presto.sql.tree.SortItem;
 import com.facebook.presto.sql.tree.StringLiteral;
+import com.facebook.presto.sql.tree.UseCollection;
 import com.facebook.presto.sql.tree.With;
 import com.facebook.presto.sql.tree.WithQuery;
 import com.google.common.base.Optional;
@@ -219,6 +220,12 @@ class StatementAnalyzer
                 Optional.<String>absent());
 
         return process(query, context);
+    }
+
+    @Override
+    protected TupleDescriptor visitUseCollection(UseCollection node, AnalysisContext context)
+    {
+        throw new SemanticException(NOT_SUPPORTED, node, "USE statement is not supported");
     }
 
     private static SelectItem aliasedYesNoToBoolean(String column, String alias)

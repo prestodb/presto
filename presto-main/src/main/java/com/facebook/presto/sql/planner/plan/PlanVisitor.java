@@ -55,6 +55,11 @@ public class PlanVisitor<C, R>
         return visitPlan(node, context);
     }
 
+    public R visitDistinctLimit(DistinctLimitNode node, C context)
+    {
+        return visitPlan(node, context);
+    }
+
     public R visitSample(SampleNode node, C context)
     {
         return visitPlan(node, context);
