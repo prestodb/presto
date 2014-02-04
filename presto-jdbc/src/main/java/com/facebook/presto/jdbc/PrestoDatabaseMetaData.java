@@ -942,12 +942,12 @@ public class PrestoDatabaseMetaData
                 filters.add("table_schema IS NULL");
             }
             else {
-                filters.add(stringColumnEquals("table_schema", schemaPattern));
+                filters.add(stringColumnLike("table_schema", schemaPattern));
             }
         }
 
         if (tableNamePattern != null) {
-            filters.add(stringColumnEquals("table_name", tableNamePattern));
+            filters.add(stringColumnLike("table_name", tableNamePattern));
         }
 
         if (types != null && types.length > 0) {
@@ -972,6 +972,8 @@ public class PrestoDatabaseMetaData
             Joiner.on(" AND ").appendTo(query, filters);
         }
 
+        query.append(" ORDER BY TABLE_TYPE, TABLE_CAT, TABLE_SCHEM, TABLE_NAME");
+
         return select(query.toString());
     }
 
@@ -981,7 +983,8 @@ public class PrestoDatabaseMetaData
     {
         return select("" +
                 "SELECT schema_name AS TABLE_SCHEM, catalog_name TABLE_CATALOG " +
-                "FROM information_schema.schemata");
+                "FROM information_schema.schemata " +
+                "ORDER BY TABLE_CATALOG, TABLE_SCHEM");
     }
 
     @Override
@@ -990,7 +993,8 @@ public class PrestoDatabaseMetaData
     {
         return select("" +
                 "SELECT DISTINCT catalog_name AS TABLE_CAT " +
-                "FROM information_schema.schemata");
+                "FROM information_schema.schemata " +
+                "ORDER BY TABLE_CAT");
     }
 
     @Override
@@ -999,7 +1003,8 @@ public class PrestoDatabaseMetaData
     {
         return select("" +
                 "SELECT DISTINCT table_type AS TABLE_TYPE " +
-                "FROM information_schema.tables");
+                "FROM information_schema.tables " +
+                "ORDER BY TABLE_TYPE");
     }
 
     @Override
@@ -1322,13 +1327,15 @@ public class PrestoDatabaseMetaData
         }
 
         if (schemaPattern != null) {
-            filters.add(stringColumnEquals("schema_name", schemaPattern));
+            filters.add(stringColumnLike("schema_name", schemaPattern));
         }
 
         if (filters.size() > 0) {
             query.append(" WHERE ");
             Joiner.on(" AND ").appendTo(query, filters);
         }
+
+        query.append(" ORDER BY TABLE_CATALOG, TABLE_SCHEM");
 
         return select(query.toString());
     }
@@ -1416,6 +1423,14 @@ public class PrestoDatabaseMetaData
         StringBuilder filter = new StringBuilder();
         filter.append(columnName).append(" = ");
         quoteStringLiteral(filter, value);
+        return filter.toString();
+    }
+
+    private static String stringColumnLike(String columnName, String pattern)
+    {
+        StringBuilder filter = new StringBuilder();
+        filter.append(columnName).append(" LIKE ");
+        quoteStringLiteral(filter, pattern);
         return filter.toString();
     }
 
