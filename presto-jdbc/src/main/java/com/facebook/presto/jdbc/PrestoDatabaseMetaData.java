@@ -942,12 +942,12 @@ public class PrestoDatabaseMetaData
                 filters.add("table_schema IS NULL");
             }
             else {
-                filters.add(stringColumnEquals("table_schema", schemaPattern));
+                filters.add(stringColumnLike("table_schema", schemaPattern));
             }
         }
 
         if (tableNamePattern != null) {
-            filters.add(stringColumnEquals("table_name", tableNamePattern));
+            filters.add(stringColumnLike("table_name", tableNamePattern));
         }
 
         if (types != null && types.length > 0) {
@@ -1327,7 +1327,7 @@ public class PrestoDatabaseMetaData
         }
 
         if (schemaPattern != null) {
-            filters.add(stringColumnEquals("schema_name", schemaPattern));
+            filters.add(stringColumnLike("schema_name", schemaPattern));
         }
 
         if (filters.size() > 0) {
@@ -1423,6 +1423,14 @@ public class PrestoDatabaseMetaData
         StringBuilder filter = new StringBuilder();
         filter.append(columnName).append(" = ");
         quoteStringLiteral(filter, value);
+        return filter.toString();
+    }
+
+    private static String stringColumnLike(String columnName, String pattern)
+    {
+        StringBuilder filter = new StringBuilder();
+        filter.append(columnName).append(" LIKE ");
+        quoteStringLiteral(filter, pattern);
         return filter.toString();
     }
 
