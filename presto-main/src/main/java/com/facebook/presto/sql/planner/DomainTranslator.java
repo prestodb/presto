@@ -16,6 +16,7 @@ package com.facebook.presto.sql.planner;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnType;
 import com.facebook.presto.spi.Domain;
+import com.facebook.presto.spi.Marker;
 import com.facebook.presto.spi.Range;
 import com.facebook.presto.spi.SortedRangeSet;
 import com.facebook.presto.spi.TupleDomain;
@@ -99,6 +100,10 @@ public final class DomainTranslator
             if (range.isSingleValue()) {
                 singleValues.add(toExpression(range.getLow().getValue()));
             }
+            else if (isBetween(range)) {
+                // Specialize the range with BETWEEN expression if possible b/c it is currently more efficient
+                disjuncts.add(new BetweenPredicate(reference, toExpression(range.getLow().getValue()), toExpression(range.getHigh().getValue())));
+            }
             else {
                 List<Expression> rangeConjuncts = new ArrayList<>();
                 if (!range.getLow().isLowerUnbounded()) {
@@ -149,6 +154,12 @@ public final class DomainTranslator
             disjuncts.add(new IsNullPredicate(reference));
         }
         return combineDisjunctsWithDefault(disjuncts, TRUE_LITERAL);
+    }
+
+    private static boolean isBetween(Range range)
+    {
+        return !range.getLow().isLowerUnbounded() && range.getLow().getBound() == Marker.Bound.EXACTLY
+                && !range.getHigh().isUpperUnbounded() && range.getHigh().getBound() == Marker.Bound.EXACTLY;
     }
 
     /**

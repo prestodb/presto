@@ -75,6 +75,7 @@ public class BenchmarkSuite
                 new SqlSemiJoinInPredicateBenchmark(localQueryRunner),
                 new SqlRegexpLikeBenchmark(localQueryRunner),
                 new SqlApproximatePercentileBenchmark(localQueryRunner),
+                new SqlBetweenBenchmark(localQueryRunner),
 
                 // statistics benchmarks
                 new StatisticsBenchmark.LongVarianceBenchmark(localQueryRunner),
