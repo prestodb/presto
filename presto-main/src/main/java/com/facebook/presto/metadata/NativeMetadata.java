@@ -34,6 +34,7 @@ import org.skife.jdbi.v2.TransactionStatus;
 import org.skife.jdbi.v2.VoidTransactionCallback;
 
 import javax.annotation.Nullable;
+import javax.inject.Inject;
 
 import java.util.Collection;
 import java.util.Iterator;
@@ -56,11 +57,14 @@ public class NativeMetadata
     private final IDBI dbi;
     private final MetadataDao dao;
     private final ShardManager shardManager;
-    private final String catalogName;
+    private final String connectorId;
 
-    public NativeMetadata(String catalogName, IDBI dbi, ShardManager shardManager)
+    @Inject
+    public NativeMetadata(NativeConnectorId connectorId, @ForMetadata IDBI dbi, ShardManager shardManager)
     {
-        this.catalogName = catalogName;
+        checkNotNull(connectorId, "connectorId is null");
+
+        this.connectorId = connectorId.toString();
         this.dbi = checkNotNull(dbi, "dbi is null");
         this.dao = dbi.onDemand(MetadataDao.class);
         this.shardManager = checkNotNull(shardManager, "shardManager is null");
@@ -77,14 +81,14 @@ public class NativeMetadata
     @Override
     public List<String> listSchemaNames()
     {
-        return dao.listSchemaNames(catalogName);
+        return dao.listSchemaNames(connectorId);
     }
 
     @Override
     public TableHandle getTableHandle(SchemaTableName tableName)
     {
         checkNotNull(tableName, "tableName is null");
-        Table table = dao.getTableInformation(catalogName, tableName.getSchemaName(), tableName.getTableName());
+        Table table = dao.getTableInformation(connectorId, tableName.getSchemaName(), tableName.getTableName());
         if (table == null) {
             return null;
         }
@@ -112,7 +116,7 @@ public class NativeMetadata
     @Override
     public List<SchemaTableName> listTables(@Nullable String schemaNameOrNull)
     {
-        return dao.listTables(catalogName, schemaNameOrNull);
+        return dao.listTables(connectorId, schemaNameOrNull);
     }
 
     @Override
@@ -165,7 +169,7 @@ public class NativeMetadata
         checkNotNull(prefix, "prefix is null");
 
         ImmutableListMultimap.Builder<SchemaTableName, ColumnMetadata> columns = ImmutableListMultimap.builder();
-        for (TableColumn tableColumn : dao.listTableColumns(catalogName, prefix.getSchemaName(), prefix.getTableName())) {
+        for (TableColumn tableColumn : dao.listTableColumns(connectorId, prefix.getSchemaName(), prefix.getTableName())) {
             ColumnMetadata columnMetadata = new ColumnMetadata(tableColumn.getColumnName(), tableColumn.getDataType().toColumnType(), tableColumn.getOrdinalPosition(), false);
             columns.put(tableColumn.getTable().asSchemaTableName(), columnMetadata);
         }
@@ -201,7 +205,7 @@ public class NativeMetadata
                             throws Exception
                     {
                         MetadataDao dao = handle.attach(MetadataDao.class);
-                        long tableId = dao.insertTable(catalogName, tableMetadata.getTable().getSchemaName(), tableMetadata.getTable().getTableName());
+                        long tableId = dao.insertTable(connectorId, tableMetadata.getTable().getSchemaName(), tableMetadata.getTable().getTableName());
                         int ordinalPosition = 0;
                         for (ColumnMetadata column : tableMetadata.getColumns()) {
                             long columnId = ordinalPosition + 1;
@@ -269,7 +273,7 @@ public class NativeMetadata
             protected void execute(Handle dbiHandle, TransactionStatus status)
             {
                 MetadataDao dao = dbiHandle.attach(MetadataDao.class);
-                long tableId = dao.insertTable(catalogName, table.getSchemaName(), table.getTableName());
+                long tableId = dao.insertTable(connectorId, table.getSchemaName(), table.getTableName());
                 for (int i = 0; i < table.getColumnTypes().size(); i++) {
                     NativeColumnHandle column = table.getColumnHandles().get(i);
                     ColumnType columnType = table.getColumnTypes().get(i);
