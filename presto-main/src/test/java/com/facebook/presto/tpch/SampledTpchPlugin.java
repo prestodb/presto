@@ -46,7 +46,7 @@ public class SampledTpchPlugin
     {
         if (type == ConnectorFactory.class) {
             checkNotNull(nodeManager, "nodeManager is null");
-            return ImmutableList.of(type.cast(new SampledTpchConnectorFactory(nodeManager, 1)));
+            return ImmutableList.of(type.cast(new SampledTpchConnectorFactory(nodeManager, 1, 2)));
         }
         return ImmutableList.of();
     }

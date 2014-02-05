@@ -30,11 +30,13 @@ public class SampledTpchRecordSetProvider
         extends TpchRecordSetProvider
 {
     private final TpchMetadata metadata;
+    private final int sampleWeight;
 
-    public SampledTpchRecordSetProvider(String connectorId)
+    public SampledTpchRecordSetProvider(String connectorId, int sampleWeight)
     {
         super(connectorId);
         this.metadata = new TpchMetadata(connectorId);
+        this.sampleWeight = sampleWeight;
     }
 
     @Override
@@ -62,7 +64,7 @@ public class SampledTpchRecordSetProvider
             else {
                 recordSet = super.getRecordSet(split, delegatedColumns);
             }
-            return new SampledTpchRecordSet(recordSet, sampleWeightField);
+            return new SampledTpchRecordSet(recordSet, sampleWeightField, sampleWeight);
         }
         else {
             return super.getRecordSet(split, columns);
@@ -167,11 +169,13 @@ public class SampledTpchRecordSetProvider
     {
         private final RecordSet delegate;
         private final int sampleWeightField;
+        private final int sampleWeight;
 
-        SampledTpchRecordSet(RecordSet delegate, int sampleWeightField)
+        SampledTpchRecordSet(RecordSet delegate, int sampleWeightField, int sampleWeight)
         {
             this.delegate = delegate;
             this.sampleWeightField = sampleWeightField;
+            this.sampleWeight = sampleWeight;
         }
 
         @Override
@@ -186,7 +190,7 @@ public class SampledTpchRecordSetProvider
         @Override
         public RecordCursor cursor()
         {
-            return new SampledTpchRecordCursor(delegate.cursor(), sampleWeightField);
+            return new SampledTpchRecordCursor(delegate.cursor(), sampleWeightField, sampleWeight);
         }
     }
 
@@ -195,11 +199,13 @@ public class SampledTpchRecordSetProvider
     {
         private final RecordCursor delegate;
         private final int sampleWeightField;
+        private final int sampleWeight;
 
-        public SampledTpchRecordCursor(RecordCursor delegate, int sampleWeightField)
+        public SampledTpchRecordCursor(RecordCursor delegate, int sampleWeightField, int sampleWeight)
         {
             this.delegate = delegate;
             this.sampleWeightField = sampleWeightField;
+            this.sampleWeight = sampleWeight;
         }
 
         @Override
@@ -223,7 +229,7 @@ public class SampledTpchRecordSetProvider
         public long getLong(int field)
         {
             if (field == sampleWeightField) {
-                return 2;
+                return sampleWeight;
             }
             else {
                 return delegate.getLong(field);

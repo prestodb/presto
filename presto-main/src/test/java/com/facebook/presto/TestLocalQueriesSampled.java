@@ -15,7 +15,6 @@ package com.facebook.presto;
 
 import com.facebook.presto.sql.analyzer.Session;
 import com.facebook.presto.tpch.SampledTpchConnectorFactory;
-import com.facebook.presto.tpch.TpchConnectorFactory;
 import com.facebook.presto.tpch.TpchMetadata;
 import com.facebook.presto.util.LocalQueryRunner;
 import com.facebook.presto.util.MaterializedResult;
@@ -28,10 +27,9 @@ import java.util.concurrent.ExecutorService;
 import static com.facebook.presto.util.Threads.daemonThreadsNamed;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 
-public class TestLocalQueries
+public class TestLocalQueriesSampled
         extends AbstractTestQueries
 {
-    private LocalQueryRunner localQueryRunner;
     private LocalQueryRunner localSampledQueryRunner;
     private ExecutorService executor;
 
@@ -61,15 +59,12 @@ public class TestLocalQueries
     protected Session setUpQueryFramework()
     {
         Session session = new Session("user", "test", "local", TpchMetadata.TINY_SCHEMA_NAME, null, null);
-        localQueryRunner = new LocalQueryRunner(session, getExecutor());
         localSampledQueryRunner = new LocalQueryRunner(session, getExecutor());
 
         // add the tpch catalog
         // local queries run directly against the generator
-        localQueryRunner.createCatalog(session.getCatalog(), new TpchConnectorFactory(localQueryRunner.getNodeManager(), 1), ImmutableMap.<String, String>of());
-        localSampledQueryRunner.createCatalog(session.getCatalog(), new SampledTpchConnectorFactory(localSampledQueryRunner.getNodeManager(), 1, 2), ImmutableMap.<String, String>of());
-
-        localQueryRunner.getMetadata().addFunctions(CUSTOM_FUNCTIONS);
+        localSampledQueryRunner.createCatalog(session.getCatalog(), new SampledTpchConnectorFactory(localSampledQueryRunner.getNodeManager(), 1, 1), ImmutableMap.<String, String>of());
+        localSampledQueryRunner.getMetadata().addFunctions(CUSTOM_FUNCTIONS);
 
         // dump query plan to console (for debugging)
         // tpchLocalQueryRunner.printPlan();
@@ -80,12 +75,17 @@ public class TestLocalQueries
     @Override
     protected MaterializedResult computeActual(@Language("SQL") String sql)
     {
-        return localQueryRunner.execute(sql);
+        return localSampledQueryRunner.execute(sql);
     }
 
     @Override
     protected MaterializedResult computeActualSampled(@Language("SQL") String sql)
     {
-        return localSampledQueryRunner.execute(sql);
+        throw new UnsupportedOperationException("explicitly sampled queries are disabled");
+    }
+
+    protected void assertSampledQuery(@Language("SQL") String actual, @Language("SQL") String expected)
+    {
+        // Don't run the sampled queries, since they're run in the TestLocalQueries suite
     }
 }
