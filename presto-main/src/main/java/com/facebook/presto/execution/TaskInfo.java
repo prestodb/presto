@@ -22,6 +22,8 @@ import com.google.common.base.Function;
 import com.google.common.base.Objects;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Maps;
 import org.joda.time.DateTime;
 
 import javax.annotation.concurrent.Immutable;
@@ -92,7 +94,14 @@ public class TaskInfo
             this.failures = ImmutableList.of();
         }
 
-        this.outputs = ImmutableMap.copyOf(checkNotNull(outputs, "outputs is null"));
+        checkNotNull(outputs, "outputs is null");
+        this.outputs = ImmutableMap.copyOf(Maps.transformValues(outputs, new Function<Set<?>, Set<?>>() {
+            @Override
+            public Set<?> apply(Set<?> input)
+            {
+                return ImmutableSet.copyOf(input);
+            }
+        }));
     }
 
     @JsonProperty
