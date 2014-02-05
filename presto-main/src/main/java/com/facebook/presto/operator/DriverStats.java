@@ -27,6 +27,8 @@ import javax.annotation.concurrent.Immutable;
 import java.util.List;
 
 import static com.google.common.base.Preconditions.checkNotNull;
+import static io.airlift.units.DataSize.Unit.BYTE;
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 @Immutable
 public class DriverStats
@@ -55,6 +57,33 @@ public class DriverStats
     private final long outputPositions;
 
     private final List<OperatorStats> operatorStats;
+
+    public DriverStats()
+    {
+        this.createTime = DateTime.now();
+        this.startTime = null;
+        this.endTime = null;
+        this.queuedTime = new Duration(0, MILLISECONDS);
+        this.elapsedTime = new Duration(0, MILLISECONDS);
+
+        this.memoryReservation = new DataSize(0, BYTE);
+
+        this.totalScheduledTime = new Duration(0, MILLISECONDS);
+        this.totalCpuTime = new Duration(0, MILLISECONDS);
+        this.totalUserTime = new Duration(0, MILLISECONDS);
+        this.totalBlockedTime = new Duration(0, MILLISECONDS);
+
+        this.rawInputDataSize = new DataSize(0, BYTE);
+        this.rawInputPositions = 0;
+
+        this.processedInputDataSize = new DataSize(0, BYTE);
+        this.processedInputPositions = 0;
+
+        this.outputDataSize = new DataSize(0, BYTE);
+        this.outputPositions = 0;
+
+        this.operatorStats = ImmutableList.of();
+    }
 
     @JsonCreator
     public DriverStats(
