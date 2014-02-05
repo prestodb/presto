@@ -20,10 +20,11 @@ import com.facebook.presto.execution.QueryState;
 import com.facebook.presto.execution.TaskInfo;
 import com.facebook.presto.execution.TaskManager;
 import com.facebook.presto.metadata.InMemoryNodeManager;
-import com.facebook.presto.metadata.NodeManager;
+import com.facebook.presto.metadata.InternalNodeManager;
 import com.facebook.presto.operator.HttpPageBufferClient.PageResponseHandler;
 import com.facebook.presto.operator.HttpPageBufferClient.PagesResponse;
 import com.facebook.presto.operator.Page;
+import com.facebook.presto.spi.NodeManager;
 import com.google.common.base.Throwables;
 import com.google.inject.Binder;
 import com.google.inject.Injector;
@@ -94,7 +95,8 @@ public class TestQueryResourceServer
                         binder.bind(MockTaskManager.class).in(Scopes.SINGLETON);
                         binder.bind(TaskManager.class).to(Key.get(MockTaskManager.class)).in(Scopes.SINGLETON);
                         binder.bind(PagesMapper.class).in(Scopes.SINGLETON);
-                        binder.bind(NodeManager.class).to(InMemoryNodeManager.class).in(Scopes.SINGLETON);
+                        binder.bind(InternalNodeManager.class).to(InMemoryNodeManager.class).in(Scopes.SINGLETON);
+                        binder.bind(NodeManager.class).to(Key.get(InternalNodeManager.class)).in(Scopes.SINGLETON);
                         binder.bind(LocationFactory.class).to(HttpLocationFactory.class).in(Scopes.SINGLETON);
                     }
                 });

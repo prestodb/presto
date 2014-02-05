@@ -23,7 +23,8 @@ import com.facebook.presto.execution.StateMachine.StateChangeListener;
 import com.facebook.presto.execution.TestSqlTaskManager.MockLocationFactory;
 import com.facebook.presto.metadata.InMemoryNodeManager;
 import com.facebook.presto.metadata.MetadataManager;
-import com.facebook.presto.metadata.Node;
+import com.facebook.presto.metadata.PrestoNode;
+import com.facebook.presto.spi.Node;
 import com.facebook.presto.metadata.NodeVersion;
 import com.facebook.presto.metadata.QualifiedTableName;
 import com.facebook.presto.operator.TaskContext;
@@ -101,7 +102,7 @@ public class TestSqlStageExecution
             StageExecutionPlan joinPlan = createJoinPlan("A", metadata);
 
             InMemoryNodeManager nodeManager = new InMemoryNodeManager();
-            nodeManager.addNode("foo", new Node("other", URI.create("http://127.0.0.1:11"), NodeVersion.UNKNOWN));
+            nodeManager.addNode("foo", new PrestoNode("other", URI.create("http://127.0.0.1:11"), NodeVersion.UNKNOWN));
 
             OutputBuffers outputBuffers = INITIAL_EMPTY_OUTPUT_BUFFERS
                     .withBuffer("out", new UnpartitionedPagePartitionFunction())

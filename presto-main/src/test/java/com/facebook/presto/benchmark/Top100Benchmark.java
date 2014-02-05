@@ -13,21 +13,19 @@
  */
 package com.facebook.presto.benchmark;
 
-import com.facebook.presto.block.BlockIterable;
-import com.facebook.presto.operator.AlignmentOperator.AlignmentOperatorFactory;
 import com.facebook.presto.operator.OperatorFactory;
 import com.facebook.presto.operator.SortOrder;
 import com.facebook.presto.operator.TopNOperator.TopNOperatorFactory;
-import com.facebook.presto.serde.BlocksFileEncoding;
-import com.facebook.presto.tpch.TpchBlocksProvider;
 import com.facebook.presto.tuple.FieldOrderedTupleComparator;
 import com.facebook.presto.tuple.TupleInfo.Type;
+import com.facebook.presto.util.LocalQueryRunner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Ordering;
 
 import java.util.List;
 import java.util.concurrent.ExecutorService;
 
+import static com.facebook.presto.benchmark.BenchmarkQueryRunner.createLocalQueryRunner;
 import static com.facebook.presto.operator.ProjectionFunctions.singleColumn;
 import static com.facebook.presto.util.Threads.daemonThreadsNamed;
 import static java.util.concurrent.Executors.newCachedThreadPool;
@@ -35,29 +33,28 @@ import static java.util.concurrent.Executors.newCachedThreadPool;
 public class Top100Benchmark
         extends AbstractSimpleOperatorBenchmark
 {
-    public Top100Benchmark(ExecutorService executor, TpchBlocksProvider tpchBlocksProvider)
+    public Top100Benchmark(LocalQueryRunner localQueryRunner)
     {
-        super(executor, tpchBlocksProvider, "top100", 5, 50);
+        super(localQueryRunner, "top100", 5, 50);
     }
 
     @Override
     protected List<? extends OperatorFactory> createOperatorFactories()
     {
-        BlockIterable blockIterable = getBlockIterable("orders", "totalprice", BlocksFileEncoding.RAW);
-        AlignmentOperatorFactory alignmentOperator = new AlignmentOperatorFactory(0, blockIterable);
+        OperatorFactory tableScanOperator = createTableScanOperator(0, "orders", "totalprice");
         TopNOperatorFactory topNOperator = new TopNOperatorFactory(
                 1,
                 100,
                 ImmutableList.of(singleColumn(Type.DOUBLE, 0)),
                 Ordering.from(new FieldOrderedTupleComparator(ImmutableList.of(0), ImmutableList.of(SortOrder.DESC_NULLS_LAST))),
                 false);
-        return ImmutableList.of(alignmentOperator, topNOperator);
+        return ImmutableList.of(tableScanOperator, topNOperator);
     }
 
     public static void main(String[] args)
     {
         ExecutorService executor = newCachedThreadPool(daemonThreadsNamed("test"));
-        new Top100Benchmark(executor, DEFAULT_TPCH_BLOCKS_PROVIDER).runBenchmark(
+        new Top100Benchmark(createLocalQueryRunner(executor)).runBenchmark(
                 new SimpleLineBenchmarkResultWriter(System.out)
         );
     }

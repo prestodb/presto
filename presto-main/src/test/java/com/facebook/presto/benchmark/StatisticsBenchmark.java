@@ -13,11 +13,9 @@
  */
 package com.facebook.presto.benchmark;
 
-import com.facebook.presto.tpch.TpchBlocksProvider;
+import com.facebook.presto.util.LocalQueryRunner;
 
-import java.util.concurrent.ExecutorService;
-
-import static com.facebook.presto.benchmark.AbstractOperatorBenchmark.DEFAULT_TPCH_BLOCKS_PROVIDER;
+import static com.facebook.presto.benchmark.BenchmarkQueryRunner.createLocalQueryRunner;
 import static com.facebook.presto.util.Threads.daemonThreadsNamed;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 
@@ -25,86 +23,86 @@ public abstract class StatisticsBenchmark
 {
     public static void main(String... args)
     {
-        ExecutorService executor = newCachedThreadPool(daemonThreadsNamed("test"));
-        new LongVarianceBenchmark(executor, DEFAULT_TPCH_BLOCKS_PROVIDER).runBenchmark(new AverageBenchmarkResults());
-        new LongVariancePopBenchmark(executor, DEFAULT_TPCH_BLOCKS_PROVIDER).runBenchmark(new AverageBenchmarkResults());
-        new DoubleVarianceBenchmark(executor, DEFAULT_TPCH_BLOCKS_PROVIDER).runBenchmark(new AverageBenchmarkResults());
-        new DoubleVariancePopBenchmark(executor, DEFAULT_TPCH_BLOCKS_PROVIDER).runBenchmark(new AverageBenchmarkResults());
-        new LongStdDevBenchmark(executor, DEFAULT_TPCH_BLOCKS_PROVIDER).runBenchmark(new AverageBenchmarkResults());
-        new LongStdDevPopBenchmark(executor, DEFAULT_TPCH_BLOCKS_PROVIDER).runBenchmark(new AverageBenchmarkResults());
-        new DoubleStdDevBenchmark(executor, DEFAULT_TPCH_BLOCKS_PROVIDER).runBenchmark(new AverageBenchmarkResults());
-        new DoubleStdDevPopBenchmark(executor, DEFAULT_TPCH_BLOCKS_PROVIDER).runBenchmark(new AverageBenchmarkResults());
+        LocalQueryRunner localQueryRunner = createLocalQueryRunner(newCachedThreadPool(daemonThreadsNamed("test")));
+        new LongVarianceBenchmark(localQueryRunner).runBenchmark(new AverageBenchmarkResults());
+        new LongVariancePopBenchmark(localQueryRunner).runBenchmark(new AverageBenchmarkResults());
+        new DoubleVarianceBenchmark(localQueryRunner).runBenchmark(new AverageBenchmarkResults());
+        new DoubleVariancePopBenchmark(localQueryRunner).runBenchmark(new AverageBenchmarkResults());
+        new LongStdDevBenchmark(localQueryRunner).runBenchmark(new AverageBenchmarkResults());
+        new LongStdDevPopBenchmark(localQueryRunner).runBenchmark(new AverageBenchmarkResults());
+        new DoubleStdDevBenchmark(localQueryRunner).runBenchmark(new AverageBenchmarkResults());
+        new DoubleStdDevPopBenchmark(localQueryRunner).runBenchmark(new AverageBenchmarkResults());
     }
 
     public static class LongVarianceBenchmark
             extends AbstractSqlBenchmark
     {
-        public LongVarianceBenchmark(ExecutorService executor, TpchBlocksProvider tpchBlocksProvider)
+        public LongVarianceBenchmark(LocalQueryRunner localQueryRunner)
         {
-            super(executor, tpchBlocksProvider, "stat_long_variance", 25, 150, "select var_samp(orderkey) from orders");
+            super(localQueryRunner, "stat_long_variance", 25, 150, "select var_samp(orderkey) from orders");
         }
     }
 
     public static class LongVariancePopBenchmark
             extends AbstractSqlBenchmark
     {
-        public LongVariancePopBenchmark(ExecutorService executor, TpchBlocksProvider tpchBlocksProvider)
+        public LongVariancePopBenchmark(LocalQueryRunner localQueryRunner)
         {
-            super(executor, tpchBlocksProvider, "stat_long_variance_pop", 25, 150, "select var_pop(orderkey) from orders");
+            super(localQueryRunner, "stat_long_variance_pop", 25, 150, "select var_pop(orderkey) from orders");
         }
     }
 
     public static class DoubleVarianceBenchmark
             extends AbstractSqlBenchmark
     {
-        public DoubleVarianceBenchmark(ExecutorService executor, TpchBlocksProvider tpchBlocksProvider)
+        public DoubleVarianceBenchmark(LocalQueryRunner localQueryRunner)
         {
-            super(executor, tpchBlocksProvider, "stat_double_variance", 25, 150, "select var_samp(totalprice) from orders");
+            super(localQueryRunner, "stat_double_variance", 25, 150, "select var_samp(totalprice) from orders");
         }
     }
 
     public static class DoubleVariancePopBenchmark
             extends AbstractSqlBenchmark
     {
-        public DoubleVariancePopBenchmark(ExecutorService executor, TpchBlocksProvider tpchBlocksProvider)
+        public DoubleVariancePopBenchmark(LocalQueryRunner localQueryRunner)
         {
-            super(executor, tpchBlocksProvider, "stat_double_variance_pop", 25, 150, "select var_pop(totalprice) from orders");
+            super(localQueryRunner, "stat_double_variance_pop", 25, 150, "select var_pop(totalprice) from orders");
         }
     }
 
     public static class LongStdDevBenchmark
             extends AbstractSqlBenchmark
     {
-        public LongStdDevBenchmark(ExecutorService executor, TpchBlocksProvider tpchBlocksProvider)
+        public LongStdDevBenchmark(LocalQueryRunner localQueryRunner)
         {
-            super(executor, tpchBlocksProvider, "stat_long_stddev", 25, 150, "select stddev_samp(orderkey) from orders");
+            super(localQueryRunner, "stat_long_stddev", 25, 150, "select stddev_samp(orderkey) from orders");
         }
     }
 
     public static class LongStdDevPopBenchmark
             extends AbstractSqlBenchmark
     {
-        public LongStdDevPopBenchmark(ExecutorService executor, TpchBlocksProvider tpchBlocksProvider)
+        public LongStdDevPopBenchmark(LocalQueryRunner localQueryRunner)
         {
-            super(executor, tpchBlocksProvider, "stat_long_stddev_pop", 25, 150, "select stddev_pop(orderkey) from orders");
+            super(localQueryRunner, "stat_long_stddev_pop", 25, 150, "select stddev_pop(orderkey) from orders");
         }
     }
 
     public static class DoubleStdDevBenchmark
             extends AbstractSqlBenchmark
     {
-        public DoubleStdDevBenchmark(ExecutorService executor, TpchBlocksProvider tpchBlocksProvider)
+        public DoubleStdDevBenchmark(LocalQueryRunner localQueryRunner)
         {
-            super(executor, tpchBlocksProvider, "stat_double_stddev", 25, 150, "select stddev_samp(totalprice) from orders");
+            super(localQueryRunner, "stat_double_stddev", 25, 150, "select stddev_samp(totalprice) from orders");
         }
     }
 
     public static class DoubleStdDevPopBenchmark
             extends AbstractSqlBenchmark
     {
-        public DoubleStdDevPopBenchmark(ExecutorService executor, TpchBlocksProvider tpchBlocksProvider)
+        public DoubleStdDevPopBenchmark(LocalQueryRunner localQueryRunner)
         {
-            super(executor, tpchBlocksProvider, "stat_double_stddev_pop", 25, 150, "select stddev_pop(totalprice) from orders");
+            super(localQueryRunner, "stat_double_stddev_pop", 25, 150, "select stddev_pop(totalprice) from orders");
         }
     }
 }

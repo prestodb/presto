@@ -13,13 +13,17 @@
  */
 package com.facebook.presto.operator.window;
 
+import com.facebook.presto.sql.analyzer.Session;
+import com.facebook.presto.tpch.TpchConnectorFactory;
+import com.facebook.presto.tpch.TpchMetadata;
+import com.facebook.presto.util.LocalQueryRunner;
 import com.facebook.presto.util.MaterializedResult;
+import com.google.common.collect.ImmutableMap;
 import org.intellij.lang.annotations.Language;
 
 import java.util.concurrent.ExecutorService;
 
 import static com.facebook.presto.AbstractTestQueries.assertEqualsIgnoreOrder;
-import static com.facebook.presto.util.LocalQueryRunner.createTpchLocalQueryRunner;
 import static java.lang.String.format;
 
 public final class WindowAssertions
@@ -28,7 +32,10 @@ public final class WindowAssertions
 
     public static MaterializedResult computeActual(@Language("SQL") String sql, ExecutorService executor)
     {
-        return createTpchLocalQueryRunner(executor).execute(sql);
+        LocalQueryRunner localQueryRunner = new LocalQueryRunner(new Session("user", "test", "tpch", TpchMetadata.TINY_SCHEMA_NAME, null, null), executor);
+        localQueryRunner.createCatalog("tpch", new TpchConnectorFactory(localQueryRunner.getNodeManager(), 1), ImmutableMap.<String, String>of());
+
+        return localQueryRunner.execute(sql);
     }
 
     public static void assertWindowQuery(@Language("SQL") String sql, MaterializedResult expected, ExecutorService executor)

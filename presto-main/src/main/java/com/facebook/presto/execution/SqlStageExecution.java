@@ -19,8 +19,8 @@ import com.facebook.presto.PagePartitionFunction;
 import com.facebook.presto.UnpartitionedPagePartitionFunction;
 import com.facebook.presto.execution.NodeScheduler.NodeSelector;
 import com.facebook.presto.execution.StateMachine.StateChangeListener;
-import com.facebook.presto.metadata.Node;
 import com.facebook.presto.operator.TaskStats;
+import com.facebook.presto.spi.Node;
 import com.facebook.presto.spi.Split;
 import com.facebook.presto.spi.SplitSource;
 import com.facebook.presto.split.RemoteSplit;
@@ -290,6 +290,12 @@ public class SqlStageExecution
     public StageInfo getStageInfo()
     {
         try (SetThreadName setThreadName = new SetThreadName("Stage-%s", stageId)) {
+            // stage state must be captured first in order to provide a
+            // consistent view of the stage For example, building this
+            // information, the stage could finish, and the task states would
+            // never be visible.
+            StageState state = stageState.get();
+
             List<TaskInfo> taskInfos = IterableTransformer.on(tasks.values()).transform(taskInfoGetter()).list();
             List<StageInfo> subStageInfos = IterableTransformer.on(subStages.values()).transform(stageInfoGetter()).list();
 
@@ -378,7 +384,7 @@ public class SqlStageExecution
                     outputPositions);
 
             return new StageInfo(stageId,
-                    stageState.get(),
+                    state,
                     location,
                     fragment,
                     tupleInfos,

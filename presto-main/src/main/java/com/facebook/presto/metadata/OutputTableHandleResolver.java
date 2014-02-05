@@ -30,6 +30,10 @@ public class OutputTableHandleResolver
 {
     private final ConcurrentMap<String, ConnectorOutputHandleResolver> handleIdResolvers = new ConcurrentHashMap<>();
 
+    public OutputTableHandleResolver()
+    {
+    }
+
     @Inject
     public OutputTableHandleResolver(Map<String, ConnectorOutputHandleResolver> handleIdResolvers)
     {

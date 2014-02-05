@@ -14,21 +14,23 @@
 package com.facebook.presto;
 
 import com.facebook.presto.sql.analyzer.Session;
+import com.facebook.presto.tpch.TpchConnectorFactory;
+import com.facebook.presto.tpch.TpchMetadata;
 import com.facebook.presto.util.LocalQueryRunner;
 import com.facebook.presto.util.MaterializedResult;
+import com.google.common.collect.ImmutableMap;
 import org.intellij.lang.annotations.Language;
 import org.testng.annotations.AfterClass;
 
 import java.util.concurrent.ExecutorService;
 
-import static com.facebook.presto.util.LocalQueryRunner.createTpchLocalQueryRunner;
 import static com.facebook.presto.util.Threads.daemonThreadsNamed;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 
 public class TestLocalQueries
         extends AbstractTestQueries
 {
-    private LocalQueryRunner tpchLocalQueryRunner;
+    private LocalQueryRunner localQueryRunner;
     private ExecutorService executor;
 
     public ExecutorService getExecutor()
@@ -54,19 +56,26 @@ public class TestLocalQueries
     }
 
     @Override
-    protected void setUpQueryFramework(String catalog, String schema)
+    protected Session setUpQueryFramework()
     {
-        tpchLocalQueryRunner = createTpchLocalQueryRunner(new Session("user", "test", catalog, schema, null, null), getExecutor());
+        Session session = new Session("user", "test", "local", TpchMetadata.TINY_SCHEMA_NAME, null, null);
+        localQueryRunner = new LocalQueryRunner(session, getExecutor());
 
-        tpchLocalQueryRunner.getMetadata().addFunctions(CUSTOM_FUNCTIONS);
+        // add the tpch catalog
+        // local queries run directly against the generator
+        localQueryRunner.createCatalog(session.getCatalog(), new TpchConnectorFactory(localQueryRunner.getNodeManager(), 1), ImmutableMap.<String, String>of());
+
+        localQueryRunner.getMetadata().addFunctions(CUSTOM_FUNCTIONS);
 
         // dump query plan to console (for debugging)
         // tpchLocalQueryRunner.printPlan();
+
+        return session;
     }
 
     @Override
     protected MaterializedResult computeActual(@Language("SQL") String sql)
     {
-        return tpchLocalQueryRunner.execute(sql);
+        return localQueryRunner.execute(sql);
     }
 }

@@ -14,6 +14,7 @@
 package com.facebook.presto.metadata;
 
 import com.facebook.presto.server.NoOpFailureDetector;
+import com.facebook.presto.spi.Node;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import io.airlift.discovery.client.ServiceDescriptor;
@@ -39,8 +40,8 @@ public class TestDiscoveryNodeManager
 {
     private final NodeInfo nodeInfo = new NodeInfo("test");
     private NodeVersion expectedVersion;
-    private List<Node> activeNodes;
-    private List<Node> inactiveNodes;
+    private List<PrestoNode> activeNodes;
+    private List<PrestoNode> inactiveNodes;
     private ServiceSelector selector;
 
     @BeforeMethod
@@ -48,17 +49,17 @@ public class TestDiscoveryNodeManager
     {
         expectedVersion = new NodeVersion("1");
         activeNodes = ImmutableList.of(
-                new Node(nodeInfo.getNodeId(), URI.create("http://192.0.1.1"), expectedVersion),
-                new Node(UUID.randomUUID().toString(), URI.create("http://192.0.2.1:8080"), expectedVersion),
-                new Node(UUID.randomUUID().toString(), URI.create("http://192.0.2.3"), expectedVersion),
-                new Node(UUID.randomUUID().toString(), URI.create("https://192.0.2.8"), expectedVersion));
+                new PrestoNode(nodeInfo.getNodeId(), URI.create("http://192.0.1.1"), expectedVersion),
+                new PrestoNode(UUID.randomUUID().toString(), URI.create("http://192.0.2.1:8080"), expectedVersion),
+                new PrestoNode(UUID.randomUUID().toString(), URI.create("http://192.0.2.3"), expectedVersion),
+                new PrestoNode(UUID.randomUUID().toString(), URI.create("https://192.0.2.8"), expectedVersion));
         inactiveNodes = ImmutableList.of(
-                new Node(UUID.randomUUID().toString(), URI.create("https://192.0.3.9"), NodeVersion.UNKNOWN),
-                new Node(UUID.randomUUID().toString(), URI.create("https://192.0.4.9"), new NodeVersion("2"))
+                new PrestoNode(UUID.randomUUID().toString(), URI.create("https://192.0.3.9"), NodeVersion.UNKNOWN),
+                new PrestoNode(UUID.randomUUID().toString(), URI.create("https://192.0.4.9"), new NodeVersion("2"))
         );
 
         List<ServiceDescriptor> descriptors = new ArrayList<>();
-        for (Node node : Iterables.concat(activeNodes, inactiveNodes)) {
+        for (PrestoNode node : Iterables.concat(activeNodes, inactiveNodes)) {
             descriptors.add(serviceDescriptor("presto")
                     .setNodeId(node.getNodeIdentifier())
                     .addProperty("http", node.getHttpUri().toString())

@@ -11,17 +11,15 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.metadata;
+package com.facebook.presto.spi;
 
-import java.util.Set;
+import java.net.URI;
 
-public interface NodeManager
+public interface Node
 {
-    Set<Node> getActiveDatasourceNodes(String datasourceName);
+    HostAddress getHostAndPort();
 
-    AllNodes getAllNodes();
+    URI getHttpUri();
 
-    Node getCurrentNode();
-
-    void refreshNodes();
+    String getNodeIdentifier();
 }

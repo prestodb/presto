@@ -61,10 +61,6 @@ public class TestDriver
             throws Exception
     {
         try (Connection connection = createConnection()) {
-            try (ResultSet tableTypes = connection.getMetaData().getTableTypes()) {
-                assertRowCount(tableTypes, 1);
-            }
-
             try (Statement statement = connection.createStatement()) {
                 try (ResultSet rs = statement.executeQuery("SELECT 123 x, 'foo' y")) {
                     ResultSetMetaData metadata = rs.getMetaData();
@@ -132,6 +128,14 @@ public class TestDriver
 
             try (ResultSet rs = connection.getMetaData().getSchemas(null, "sys")) {
                 assertGetSchemasResult(rs, 1);
+            }
+
+            try (ResultSet rs = connection.getMetaData().getSchemas(null, "s_s")) {
+                assertGetSchemasResult(rs, 1);
+            }
+
+            try (ResultSet rs = connection.getMetaData().getSchemas(null, "%s%")) {
+                assertGetSchemasResult(rs, 2);
             }
 
             try (ResultSet rs = connection.getMetaData().getSchemas("unknown", null)) {
@@ -283,6 +287,28 @@ public class TestDriver
         }
 
         try (Connection connection = createConnection()) {
+            try (ResultSet rs = connection.getMetaData().getTables("default", "inf%", "tables", null)) {
+                assertTableMetadata(rs);
+
+                Set<List<Object>> rows = ImmutableSet.copyOf(readRows(rs));
+                assertTrue(rows.contains(ImmutableList.of("default", "information_schema", "tables", "BASE TABLE", "",  "",  "",  "",  "", "")));
+                assertFalse(rows.contains(ImmutableList.of("default", "information_schema", "schemata", "BASE TABLE", "", "", "", "", "", "")));
+                assertFalse(rows.contains(ImmutableList.of("default", "sys", "node", "BASE TABLE", "",  "",  "",  "",  "", "")));
+            }
+        }
+
+        try (Connection connection = createConnection()) {
+            try (ResultSet rs = connection.getMetaData().getTables("default", "information_schema", "tab%", null)) {
+                assertTableMetadata(rs);
+
+                Set<List<Object>> rows = ImmutableSet.copyOf(readRows(rs));
+                assertTrue(rows.contains(ImmutableList.of("default", "information_schema", "tables", "BASE TABLE", "",  "",  "",  "",  "", "")));
+                assertFalse(rows.contains(ImmutableList.of("default", "information_schema", "schemata", "BASE TABLE", "", "", "", "", "", "")));
+                assertFalse(rows.contains(ImmutableList.of("default", "sys", "node", "BASE TABLE", "",  "",  "",  "",  "", "")));
+            }
+        }
+
+        try (Connection connection = createConnection()) {
             try (ResultSet rs = connection.getMetaData().getTables("unknown", "information_schema", "tables", new String[] {"BASE TABLE"})) {
                 assertTableMetadata(rs);
 
@@ -388,43 +414,20 @@ public class TestDriver
     }
 
     @Test
-    public void testGetTables()
+    public void testGetTableTypes()
             throws Exception
     {
         try (Connection connection = createConnection()) {
-            try (ResultSet rs = connection.getMetaData().getTables(null, null, null, null)) {
-                ResultSetMetaData metadata = rs.getMetaData();
-                assertEquals(metadata.getColumnCount(), 10);
+            try (ResultSet tableTypes = connection.getMetaData().getTableTypes()) {
+                List<List<Object>> data = readRows(tableTypes);
+                assertEquals(data.size(), 1);
+                assertEquals(data.get(0).get(0), "BASE TABLE");
 
-                assertEquals(metadata.getColumnLabel(1), "TABLE_CAT");
+                ResultSetMetaData metadata = tableTypes.getMetaData();
+                assertEquals(metadata.getColumnCount(), 1);
+
+                assertEquals(metadata.getColumnLabel(1), "TABLE_TYPE");
                 assertEquals(metadata.getColumnType(1), Types.LONGNVARCHAR);
-
-                assertEquals(metadata.getColumnLabel(2), "TABLE_SCHEM");
-                assertEquals(metadata.getColumnType(2), Types.LONGNVARCHAR);
-
-                assertEquals(metadata.getColumnLabel(3), "TABLE_NAME");
-                assertEquals(metadata.getColumnType(3), Types.LONGNVARCHAR);
-
-                assertEquals(metadata.getColumnLabel(4), "TABLE_TYPE");
-                assertEquals(metadata.getColumnType(4), Types.LONGNVARCHAR);
-
-                assertEquals(metadata.getColumnLabel(5), "REMARKS");
-                assertEquals(metadata.getColumnType(5), Types.LONGNVARCHAR);
-
-                assertEquals(metadata.getColumnLabel(6), "TYPE_CAT");
-                assertEquals(metadata.getColumnType(6), Types.LONGNVARCHAR);
-
-                assertEquals(metadata.getColumnLabel(7), "TYPE_SCHEM");
-                assertEquals(metadata.getColumnType(7), Types.LONGNVARCHAR);
-
-                assertEquals(metadata.getColumnLabel(8), "TYPE_NAME");
-                assertEquals(metadata.getColumnType(8), Types.LONGNVARCHAR);
-
-                assertEquals(metadata.getColumnLabel(9), "SELF_REFERENCING_COL_NAME");
-                assertEquals(metadata.getColumnType(9), Types.LONGNVARCHAR);
-
-                assertEquals(metadata.getColumnLabel(10), "REF_GENERATION");
-                assertEquals(metadata.getColumnType(10), Types.LONGNVARCHAR);
             }
         }
     }

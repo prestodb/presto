@@ -15,21 +15,17 @@ package com.facebook.presto.server;
 
 import com.facebook.presto.connector.ConnectorManager;
 import com.facebook.presto.metadata.AllNodes;
+import com.facebook.presto.metadata.InternalNodeManager;
 import com.facebook.presto.metadata.Metadata;
-import com.facebook.presto.metadata.NodeManager;
-import com.facebook.presto.tpch.TpchBlocksProvider;
-import com.facebook.presto.tpch.TpchModule;
-import com.facebook.presto.util.InMemoryTpchBlocksProvider;
+import com.facebook.presto.tpch.TpchPlugin;
 import com.google.common.base.Optional;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.io.Files;
 import com.google.common.net.HostAndPort;
-import com.google.inject.Binder;
 import com.google.inject.Injector;
 import com.google.inject.Module;
-import com.google.inject.Scopes;
 import io.airlift.bootstrap.Bootstrap;
 import io.airlift.bootstrap.LifeCycleManager;
 import io.airlift.discovery.client.Announcer;
@@ -61,7 +57,7 @@ public class TestingPrestoServer
     private final LifeCycleManager lifeCycleManager;
     private final TestingHttpServer server;
     private final Metadata metadata;
-    private final NodeManager nodeManager;
+    private final InternalNodeManager nodeManager;
     private final ServiceSelectorManager serviceSelectorManager;
 
     public TestingPrestoServer()
@@ -97,9 +93,7 @@ public class TestingPrestoServer
                 .add(new TestingJmxModule())
                 .add(new InMemoryEventModule())
                 .add(new TraceTokenModule())
-                .add(new ServerMainModule())
-                .add(new TpchModule())
-                .add(new InMemoryTpchModule());
+                .add(new ServerMainModule());
 
         if (discoveryUri != null) {
             checkNotNull(environment, "environment required when discoveryUri is present");
@@ -122,13 +116,16 @@ public class TestingPrestoServer
 
         lifeCycleManager = injector.getInstance(LifeCycleManager.class);
 
+        PluginManager pluginManager = injector.getInstance(PluginManager.class);
+        pluginManager.installPlugin(new TpchPlugin());
+
         ConnectorManager connectorManager = injector.getInstance(ConnectorManager.class);
         connectorManager.createConnection("default", "native", ImmutableMap.<String, String>of());
         connectorManager.createConnection("tpch", "tpch", ImmutableMap.<String, String>of());
 
         server = injector.getInstance(TestingHttpServer.class);
         metadata = injector.getInstance(Metadata.class);
-        nodeManager = injector.getInstance(NodeManager.class);
+        nodeManager = injector.getInstance(InternalNodeManager.class);
         serviceSelectorManager = injector.getInstance(ServiceSelectorManager.class);
 
         refreshNodes();
@@ -175,15 +172,5 @@ public class TestingPrestoServer
         serviceSelectorManager.forceRefresh();
         nodeManager.refreshNodes();
         return nodeManager.getAllNodes();
-    }
-
-    private static class InMemoryTpchModule
-            implements Module
-    {
-        @Override
-        public void configure(Binder binder)
-        {
-            binder.bind(TpchBlocksProvider.class).to(InMemoryTpchBlocksProvider.class).in(Scopes.SINGLETON);
-        }
     }
 }

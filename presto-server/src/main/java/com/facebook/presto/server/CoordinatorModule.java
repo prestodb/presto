@@ -37,11 +37,14 @@ import com.facebook.presto.metadata.DatabaseShardManager;
 import com.facebook.presto.metadata.DiscoveryNodeManager;
 import com.facebook.presto.metadata.ForMetadata;
 import com.facebook.presto.metadata.ForShardCleaner;
+import com.facebook.presto.metadata.InternalNodeManager;
+import com.facebook.presto.metadata.NativeConnectorId;
+import com.facebook.presto.metadata.NativeMetadata;
 import com.facebook.presto.metadata.NativeRecordSinkProvider;
-import com.facebook.presto.metadata.NodeManager;
 import com.facebook.presto.metadata.ShardCleaner;
 import com.facebook.presto.metadata.ShardCleanerConfig;
 import com.facebook.presto.metadata.ShardManager;
+import com.facebook.presto.spi.NodeManager;
 import com.facebook.presto.split.NativeDataStreamProvider;
 import com.facebook.presto.split.NativeSplitManager;
 import com.facebook.presto.split.SplitManager;
@@ -64,6 +67,7 @@ import com.facebook.presto.sql.tree.UseCollection;
 import com.facebook.presto.storage.DatabaseStorageManager;
 import com.facebook.presto.storage.StorageManager;
 import com.google.inject.Binder;
+import com.google.inject.Key;
 import com.google.inject.Provides;
 import com.google.inject.Scopes;
 import com.google.inject.TypeLiteral;
@@ -101,6 +105,8 @@ public class CoordinatorModule
         bindConfig(binder).to(QueryManagerConfig.class);
 
         // native
+        binder.bind(NativeConnectorId.class).toInstance(new NativeConnectorId("default"));
+        binder.bind(NativeMetadata.class).in(Scopes.SINGLETON);
         binder.bind(NativeSplitManager.class).in(Scopes.SINGLETON);
         binder.bind(NativeDataStreamProvider.class).in(Scopes.SINGLETON);
         binder.bind(NativeRecordSinkProvider.class).in(Scopes.SINGLETON);
@@ -109,7 +115,8 @@ public class CoordinatorModule
         binder.bind(SplitManager.class).in(Scopes.SINGLETON);
 
         // node scheduler
-        binder.bind(NodeManager.class).to(DiscoveryNodeManager.class).in(Scopes.SINGLETON);
+        binder.bind(InternalNodeManager.class).to(DiscoveryNodeManager.class).in(Scopes.SINGLETON);
+        binder.bind(NodeManager.class).to(Key.get(InternalNodeManager.class)).in(Scopes.SINGLETON);
         bindConfig(binder).to(NodeSchedulerConfig.class);
         binder.bind(NodeScheduler.class).in(Scopes.SINGLETON);
         newExporter(binder).export(NodeScheduler.class).withGeneratedName();

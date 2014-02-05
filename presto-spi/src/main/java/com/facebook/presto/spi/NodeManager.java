@@ -11,16 +11,15 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.tpch;
+package com.facebook.presto.spi;
 
-import com.facebook.presto.block.BlockIterable;
-import com.facebook.presto.serde.BlocksFileEncoding;
+import java.util.Set;
 
-public interface TpchBlocksProvider
+public interface NodeManager
 {
-    BlockIterable getBlocks(TpchTableHandle tableHandle,
-            TpchColumnHandle columnHandle,
-            int partNumber,
-            int totalParts,
-            BlocksFileEncoding encoding);
+    Set<Node> getActiveNodes();
+
+    Set<Node> getActiveDatasourceNodes(String datasourceName);
+
+    Node getCurrentNode();
 }

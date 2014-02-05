@@ -29,7 +29,6 @@ import com.facebook.presto.split.ConnectorDataStreamProvider;
 import com.facebook.presto.split.DataStreamManager;
 import com.facebook.presto.split.RecordSetDataStreamProvider;
 import com.facebook.presto.split.SplitManager;
-import com.google.common.base.Preconditions;
 import com.google.inject.Inject;
 
 import javax.annotation.Nullable;
@@ -92,12 +91,20 @@ public class ConnectorManager
         checkNotNull(connectorName, "connectorName is null");
         checkNotNull(properties, "properties is null");
 
+        ConnectorFactory connectorFactory = connectorFactories.get(connectorName);
+        checkArgument(connectorFactory != null, "No factory for connector %s", connectorName);
+        createConnection(catalogName, connectorFactory, properties);
+    }
+
+    public synchronized void createConnection(String catalogName, ConnectorFactory connectorFactory, Map<String, String> properties)
+    {
+        checkNotNull(catalogName, "catalogName is null");
+        checkNotNull(properties, "properties is null");
+        checkNotNull(connectorFactory, "connectorFactory is null");
+
         // for now connectorId == catalogName
         String connectorId = catalogName;
         checkState(!connectors.containsKey(connectorId), "A connector %s already exists", connectorId);
-
-        ConnectorFactory connectorFactory = connectorFactories.get(connectorName);
-        Preconditions.checkArgument(connectorFactory != null, "No factory for connector %s", connectorName);
 
         Connector connector = connectorFactory.create(connectorId, properties);
         connectors.put(connectorId, connector);
@@ -112,20 +119,50 @@ public class ConnectorManager
 
     private void addConnector(@Nullable String catalogName, String connectorId, Connector connector)
     {
-        ConnectorMetadata connectorMetadata = connector.getService(ConnectorMetadata.class);
+        ConnectorMetadata connectorMetadata = connector.getMetadata();
         checkState(connectorMetadata != null, "Connector %s can not provide metadata", connectorId);
 
-        ConnectorSplitManager connectorSplitManager = connector.getService(ConnectorSplitManager.class);
+        ConnectorSplitManager connectorSplitManager = connector.getSplitManager();
         checkState(connectorSplitManager != null, "Connector %s does not have a split manager", connectorId);
 
-        ConnectorDataStreamProvider connectorDataStreamProvider = connector.getService(ConnectorDataStreamProvider.class);
+        ConnectorDataStreamProvider connectorDataStreamProvider = null;
+        if (connector instanceof InternalConnector) {
+            try {
+                connectorDataStreamProvider = ((InternalConnector) connector).getDataStreamProvider();
+            }
+            catch (UnsupportedOperationException ignored) {
+            }
+        }
+
         if (connectorDataStreamProvider == null) {
-            ConnectorRecordSetProvider connectorRecordSetProvider = connector.getService(ConnectorRecordSetProvider.class);
+            ConnectorRecordSetProvider connectorRecordSetProvider = null;
+            try {
+                connectorRecordSetProvider = connector.getRecordSetProvider();
+            }
+            catch (UnsupportedOperationException ignored) {
+            }
             checkState(connectorRecordSetProvider != null, "Connector %s does not have a data stream provider", connectorId);
             connectorDataStreamProvider = new RecordSetDataStreamProvider(connectorRecordSetProvider);
         }
 
-        ConnectorHandleResolver connectorHandleResolver = connector.getService(ConnectorHandleResolver.class);
+        ConnectorHandleResolver connectorHandleResolver = connector.getHandleResolver();
+        checkNotNull("Connector %s does not have a handle resolver", connectorId);
+
+        ConnectorRecordSinkProvider connectorRecordSinkProvider = null;
+        try {
+            connectorRecordSinkProvider = connector.getRecordSinkProvider();
+            checkNotNull(connectorRecordSinkProvider, "Connector %s returned a null record sink provider", connectorId);
+        }
+        catch (UnsupportedOperationException ignored) {
+        }
+
+        ConnectorOutputHandleResolver connectorOutputHandleResolver = null;
+        try {
+            connectorOutputHandleResolver = connector.getOutputHandleResolver();
+            checkNotNull(connectorOutputHandleResolver, "Connector %s returned a null output handle resolver", connectorId);
+        }
+        catch (UnsupportedOperationException ignored) {
+        }
 
         if (catalogName != null) {
             metadataManager.addConnectorMetadata(connectorId, catalogName, connectorMetadata);
@@ -138,12 +175,10 @@ public class ConnectorManager
         splitManager.addConnectorSplitManager(connectorSplitManager);
         dataStreamManager.addConnectorDataStreamProvider(connectorDataStreamProvider);
 
-        ConnectorRecordSinkProvider connectorRecordSinkProvider = connector.getService(ConnectorRecordSinkProvider.class);
         if (connectorRecordSinkProvider != null) {
             recordSinkManager.addConnectorRecordSinkProvider(connectorRecordSinkProvider);
         }
 
-        ConnectorOutputHandleResolver connectorOutputHandleResolver = connector.getService(ConnectorOutputHandleResolver.class);
         if (connectorOutputHandleResolver != null) {
             outputTableHandleResolver.addHandleResolver(connectorId, connectorOutputHandleResolver);
         }
