@@ -14,24 +14,71 @@
 package com.facebook.presto.example;
 
 import com.facebook.presto.spi.Connector;
-import com.google.common.collect.ClassToInstanceMap;
-import com.google.common.collect.ImmutableClassToInstanceMap;
+import com.facebook.presto.spi.ConnectorHandleResolver;
+import com.facebook.presto.spi.ConnectorMetadata;
+import com.facebook.presto.spi.ConnectorOutputHandleResolver;
+import com.facebook.presto.spi.ConnectorRecordSetProvider;
+import com.facebook.presto.spi.ConnectorRecordSinkProvider;
+import com.facebook.presto.spi.ConnectorSplitManager;
 
-import java.util.Map;
+import javax.inject.Inject;
+
+import static com.google.common.base.Preconditions.checkNotNull;
 
 public class ExampleConnector
-        implements Connector
+    implements Connector
 {
-    private final ClassToInstanceMap<Object> services;
+    private final ExampleMetadata metadata;
+    private final ExampleSplitManager splitManager;
+    private final ExampleRecordSetProvider recordSetProvider;
+    private final ExampleHandleResolver handleResolver;
 
-    public ExampleConnector(Map<Class<?>, ?> services)
+    @Inject
+    public ExampleConnector(
+            ExampleMetadata metadata,
+            ExampleSplitManager splitManager,
+            ExampleRecordSetProvider recordSetProvider,
+            ExampleHandleResolver handleResolver)
     {
-        this.services = ImmutableClassToInstanceMap.copyOf(services);
+        this.metadata = checkNotNull(metadata, "metadata is null");
+        this.splitManager = checkNotNull(splitManager, "splitManager is null");
+        this.recordSetProvider = checkNotNull(recordSetProvider, "recordSetProvider is null");
+        this.handleResolver = checkNotNull(handleResolver, "handleResolver is null");
     }
 
     @Override
-    public <T> T getService(Class<T> type)
+    public ConnectorMetadata getMetadata()
     {
-        return services.getInstance(type);
+        return metadata;
+    }
+
+    @Override
+    public ConnectorSplitManager getSplitManager()
+    {
+        return splitManager;
+    }
+
+    @Override
+    public ConnectorRecordSetProvider getRecordSetProvider()
+    {
+        return recordSetProvider;
+    }
+
+    @Override
+    public ConnectorHandleResolver getHandleResolver()
+    {
+        return handleResolver;
+    }
+
+    @Override
+    public ConnectorRecordSinkProvider getRecordSinkProvider()
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public ConnectorOutputHandleResolver getOutputHandleResolver()
+    {
+        throw new UnsupportedOperationException();
     }
 }

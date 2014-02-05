@@ -14,24 +14,67 @@
 package com.facebook.presto.cassandra;
 
 import com.facebook.presto.spi.Connector;
-import com.google.common.collect.ClassToInstanceMap;
-import com.google.common.collect.ImmutableClassToInstanceMap;
+import com.facebook.presto.spi.ConnectorHandleResolver;
+import com.facebook.presto.spi.ConnectorMetadata;
+import com.facebook.presto.spi.ConnectorOutputHandleResolver;
+import com.facebook.presto.spi.ConnectorRecordSetProvider;
+import com.facebook.presto.spi.ConnectorRecordSinkProvider;
+import com.facebook.presto.spi.ConnectorSplitManager;
 
-import java.util.Map;
+import javax.inject.Inject;
+
+import static com.google.common.base.Preconditions.checkNotNull;
 
 public class CassandraConnector
         implements Connector
 {
-    private final ClassToInstanceMap<Object> services;
+    private final CassandraMetadata metadata;
+    private final CassandraSplitManager splitManager;
+    private final ConnectorRecordSetProvider recordSetProvider;
+    private final CassandraHandleResolver handleResolver;
 
-    public CassandraConnector(Map<Class<?>, ?> services)
+    @Inject
+    public CassandraConnector(
+            CassandraMetadata metadata,
+            CassandraSplitManager splitManager,
+            CassandraRecordSetProvider recordSetProvider,
+            CassandraHandleResolver handleResolver)
     {
-        this.services = ImmutableClassToInstanceMap.copyOf(services);
+        this.metadata = checkNotNull(metadata, "metadata is null");
+        this.splitManager = checkNotNull(splitManager, "splitManager is null");
+        this.recordSetProvider = checkNotNull(recordSetProvider, "recordSetProvider is null");
+        this.handleResolver = checkNotNull(handleResolver, "handleResolver is null");
+    }
+
+    public ConnectorMetadata getMetadata()
+    {
+        return metadata;
+    }
+
+    public ConnectorSplitManager getSplitManager()
+    {
+        return splitManager;
+    }
+
+    public ConnectorRecordSetProvider getRecordSetProvider()
+    {
+        return recordSetProvider;
+    }
+
+    public ConnectorHandleResolver getHandleResolver()
+    {
+        return handleResolver;
     }
 
     @Override
-    public <T> T getService(Class<T> type)
+    public ConnectorRecordSinkProvider getRecordSinkProvider()
     {
-        return services.getInstance(type);
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public ConnectorOutputHandleResolver getOutputHandleResolver()
+    {
+        throw new UnsupportedOperationException();
     }
 }

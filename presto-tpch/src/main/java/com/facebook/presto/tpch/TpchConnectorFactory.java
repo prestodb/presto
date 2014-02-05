@@ -17,11 +17,12 @@ import com.facebook.presto.spi.Connector;
 import com.facebook.presto.spi.ConnectorFactory;
 import com.facebook.presto.spi.ConnectorHandleResolver;
 import com.facebook.presto.spi.ConnectorMetadata;
+import com.facebook.presto.spi.ConnectorOutputHandleResolver;
 import com.facebook.presto.spi.ConnectorRecordSetProvider;
+import com.facebook.presto.spi.ConnectorRecordSinkProvider;
 import com.facebook.presto.spi.ConnectorSplitManager;
 import com.facebook.presto.spi.NodeManager;
 import com.google.common.base.Objects;
-import com.google.common.collect.ImmutableClassToInstanceMap;
 
 import java.util.Map;
 
@@ -30,8 +31,6 @@ import static com.google.common.base.Preconditions.checkNotNull;
 public class TpchConnectorFactory
         implements ConnectorFactory
 {
-    private static final TpchHandleResolver HANDLE_RESOLVER = new TpchHandleResolver();
-
     private final NodeManager nodeManager;
     private final int defaultSplitsPerNode;
 
@@ -53,18 +52,48 @@ public class TpchConnectorFactory
     }
 
     @Override
-    public Connector create(String connectorId, Map<String, String> properties)
+    public Connector create(final String connectorId, final Map<String, String> properties)
     {
-        checkNotNull(properties, "properties is null");
-        int splitsPerNode = getSplitsPerNode(properties);
+        final int splitsPerNode = getSplitsPerNode(properties);
 
-        ImmutableClassToInstanceMap.Builder<Object> builder = ImmutableClassToInstanceMap.builder();
-        builder.put(ConnectorMetadata.class, new TpchMetadata());
-        builder.put(ConnectorSplitManager.class, new TpchSplitManager(connectorId, nodeManager, splitsPerNode));
-        builder.put(ConnectorRecordSetProvider.class, new TpchRecordSetProvider());
-        builder.put(ConnectorHandleResolver.class, HANDLE_RESOLVER);
+        return new Connector() {
+            @Override
+            public ConnectorMetadata getMetadata()
+            {
+                return new TpchMetadata();
+            }
 
-        return new TpchConnector(builder.build());
+            @Override
+            public ConnectorSplitManager getSplitManager()
+            {
+                return new TpchSplitManager(connectorId, nodeManager, splitsPerNode);
+            }
+
+            @Override
+            public ConnectorHandleResolver getHandleResolver()
+            {
+                return new TpchHandleResolver();
+            }
+
+            @Override
+            public ConnectorRecordSetProvider getRecordSetProvider()
+            {
+                return new TpchRecordSetProvider();
+            }
+
+            @Override
+            public ConnectorRecordSinkProvider getRecordSinkProvider()
+            {
+                throw new UnsupportedOperationException();
+            }
+
+            @Override
+            public ConnectorOutputHandleResolver getOutputHandleResolver()
+            {
+                throw new UnsupportedOperationException();
+            }
+        };
+
     }
 
     private int getSplitsPerNode(Map<String, String> properties)

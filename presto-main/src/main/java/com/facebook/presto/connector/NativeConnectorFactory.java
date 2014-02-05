@@ -21,12 +21,12 @@ import com.facebook.presto.spi.ConnectorFactory;
 import com.facebook.presto.spi.ConnectorHandleResolver;
 import com.facebook.presto.spi.ConnectorMetadata;
 import com.facebook.presto.spi.ConnectorOutputHandleResolver;
+import com.facebook.presto.spi.ConnectorRecordSetProvider;
 import com.facebook.presto.spi.ConnectorRecordSinkProvider;
 import com.facebook.presto.spi.ConnectorSplitManager;
 import com.facebook.presto.split.ConnectorDataStreamProvider;
 import com.facebook.presto.split.NativeDataStreamProvider;
 import com.facebook.presto.split.NativeSplitManager;
-import com.google.common.collect.ImmutableClassToInstanceMap;
 
 import javax.inject.Inject;
 
@@ -37,8 +37,6 @@ import static com.google.common.base.Preconditions.checkNotNull;
 public class NativeConnectorFactory
         implements ConnectorFactory
 {
-    private static final NativeHandleResolver HANDLE_RESOLVER = new NativeHandleResolver();
-
     private final NativeMetadata metadata;
     private final NativeSplitManager splitManager;
     private final NativeDataStreamProvider dataStreamProvider;
@@ -66,16 +64,48 @@ public class NativeConnectorFactory
     @Override
     public Connector create(String connectorId, Map<String, String> properties)
     {
-        ImmutableClassToInstanceMap.Builder<Object> builder = ImmutableClassToInstanceMap.builder();
+        return new InternalConnector() {
+            @Override
+            public ConnectorDataStreamProvider getDataStreamProvider()
+            {
+                return dataStreamProvider;
+            }
 
-        builder.put(ConnectorMetadata.class, metadata);
-        builder.put(ConnectorSplitManager.class, splitManager);
-        builder.put(ConnectorDataStreamProvider.class, dataStreamProvider);
-        builder.put(ConnectorHandleResolver.class, HANDLE_RESOLVER);
+            @Override
+            public ConnectorHandleResolver getHandleResolver()
+            {
+                return new NativeHandleResolver();
+            }
 
-        builder.put(ConnectorRecordSinkProvider.class, recordSinkProvider);
-        builder.put(ConnectorOutputHandleResolver.class, HANDLE_RESOLVER);
+            @Override
+            public ConnectorMetadata getMetadata()
+            {
+                return metadata;
+            }
 
-        return new StaticConnector(builder.build());
+            @Override
+            public ConnectorSplitManager getSplitManager()
+            {
+                return splitManager;
+            }
+
+            @Override
+            public ConnectorRecordSinkProvider getRecordSinkProvider()
+            {
+                return recordSinkProvider;
+            }
+
+            @Override
+            public ConnectorOutputHandleResolver getOutputHandleResolver()
+            {
+                return new NativeHandleResolver();
+            }
+
+            @Override
+            public ConnectorRecordSetProvider getRecordSetProvider()
+            {
+                throw new UnsupportedOperationException();
+            }
+        };
     }
 }

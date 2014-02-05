@@ -13,36 +13,75 @@
  */
 package com.facebook.presto.connector.system;
 
-import com.facebook.presto.spi.Connector;
+import com.facebook.presto.connector.InternalConnector;
 import com.facebook.presto.spi.ConnectorHandleResolver;
 import com.facebook.presto.spi.ConnectorMetadata;
+import com.facebook.presto.spi.ConnectorOutputHandleResolver;
+import com.facebook.presto.spi.ConnectorRecordSetProvider;
+import com.facebook.presto.spi.ConnectorRecordSinkProvider;
 import com.facebook.presto.spi.ConnectorSplitManager;
 import com.facebook.presto.split.ConnectorDataStreamProvider;
-import com.google.common.collect.ClassToInstanceMap;
-import com.google.common.collect.ImmutableClassToInstanceMap;
+import com.google.common.base.Preconditions;
 
 import javax.inject.Inject;
 
 public class SystemConnector
-        implements Connector
+        implements InternalConnector
 {
-    private final ClassToInstanceMap<Object> services;
+    private final SystemTablesMetadata metadata;
+    private final SystemSplitManager splitManager;
+    private final SystemDataStreamProvider dataStreamProvider;
 
     @Inject
-    public SystemConnector(SystemTablesMetadata value, SystemSplitManager systemSplitManager, SystemDataStreamProvider systemDataStreamProvider)
+    public SystemConnector(
+            SystemTablesMetadata metadata,
+            SystemSplitManager splitManager,
+            SystemDataStreamProvider dataStreamProvider)
     {
-        ImmutableClassToInstanceMap.Builder<Object> services = ImmutableClassToInstanceMap.builder();
-        services.put(ConnectorMetadata.class, value);
-        services.put(ConnectorSplitManager.class, systemSplitManager);
-        services.put(ConnectorDataStreamProvider.class, systemDataStreamProvider);
-        services.put(ConnectorHandleResolver.class, new SystemHandleResolver());
-
-        this.services = services.build();
+        this.metadata = Preconditions.checkNotNull(metadata, "metadata is null");
+        this.splitManager = Preconditions.checkNotNull(splitManager, "splitManager is null");
+        this.dataStreamProvider = Preconditions.checkNotNull(dataStreamProvider, "dataStreamProvider is null");
     }
 
     @Override
-    public <T> T getService(Class<T> type)
+    public ConnectorMetadata getMetadata()
     {
-        return services.getInstance(type);
+        return metadata;
+    }
+
+    @Override
+    public ConnectorSplitManager getSplitManager()
+    {
+        return splitManager;
+    }
+
+    @Override
+    public ConnectorDataStreamProvider getDataStreamProvider()
+    {
+        return dataStreamProvider;
+    }
+
+    @Override
+    public ConnectorHandleResolver getHandleResolver()
+    {
+        return new SystemHandleResolver();
+    }
+
+    @Override
+    public ConnectorRecordSetProvider getRecordSetProvider()
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public ConnectorRecordSinkProvider getRecordSinkProvider()
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public ConnectorOutputHandleResolver getOutputHandleResolver()
+    {
+        throw new UnsupportedOperationException();
     }
 }

@@ -100,16 +100,16 @@ public class TestCassandraConnector
                 "cassandra.contact-points", "localhost",
                 "cassandra.native-protocol-port", "9142"));
 
-        metadata = connector.getService(ConnectorMetadata.class);
+        metadata = connector.getMetadata();
         assertInstanceOf(metadata, CassandraMetadata.class);
 
-        splitManager = connector.getService(ConnectorSplitManager.class);
+        splitManager = connector.getSplitManager();
         assertInstanceOf(splitManager, CassandraSplitManager.class);
 
-        recordSetProvider = connector.getService(ConnectorRecordSetProvider.class);
+        recordSetProvider = connector.getRecordSetProvider();
         assertInstanceOf(recordSetProvider, CassandraRecordSetProvider.class);
 
-        ConnectorHandleResolver handleResolver = connector.getService(ConnectorHandleResolver.class);
+        ConnectorHandleResolver handleResolver = connector.getHandleResolver();
         assertInstanceOf(handleResolver, CassandraHandleResolver.class);
 
         database = "presto_database";
