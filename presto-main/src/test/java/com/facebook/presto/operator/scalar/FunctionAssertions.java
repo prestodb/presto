@@ -107,6 +107,8 @@ public final class FunctionAssertions
             createStringsBlock("%el%"),
             createStringsBlock((String) null));
 
+    private static final Page ZERO_CHANNEL_PAGE = new Page(1);
+
     private static final Map<Input, Type> INPUT_TYPES = ImmutableMap.<Input, Type>builder()
             .put(new Input(0), Type.BIGINT)
             .put(new Input(1), Type.VARCHAR)
@@ -241,7 +243,7 @@ public final class FunctionAssertions
 
     public static Object selectSingleValue(Operator operator)
     {
-        Page output = getAtMostOnePage(operator);
+        Page output = getAtMostOnePage(operator, SOURCE_PAGE);
 
         assertNotNull(output);
         assertEquals(output.getPositionCount(), 1);
@@ -260,9 +262,9 @@ public final class FunctionAssertions
         }
     }
 
-    public void assertFilter(String filter, boolean expected)
+    public void assertFilter(String filter, boolean expected, boolean withNoInputColumns)
     {
-        List<Boolean> results = executeFilterWithAll(filter, SESSION);
+        List<Boolean> results = executeFilterWithAll(filter, SESSION, withNoInputColumns);
         HashSet<Boolean> resultSet = new HashSet<>(results);
 
         // we should only have a single result
@@ -271,7 +273,7 @@ public final class FunctionAssertions
         assertEquals((boolean) Iterables.getOnlyElement(resultSet), expected);
     }
 
-    public List<Boolean> executeFilterWithAll(String filter, Session session)
+    public List<Boolean> executeFilterWithAll(String filter, Session session, boolean executeWithNoInputColumns)
     {
         checkNotNull(filter, "filter is null");
 
@@ -283,6 +285,12 @@ public final class FunctionAssertions
         OperatorFactory operatorFactory = compileFilterProject(filterExpression, TRUE_LITERAL);
         Type expressionType = Type.fromRaw(operatorFactory.getTupleInfos().get(0).getType());
         results.add(executeFilter(operatorFactory, session));
+
+        if (executeWithNoInputColumns) {
+            // execute as standalone operator
+            operatorFactory = compileFilterWithNoInputColumns(filterExpression);
+            results.add(executeFilterWithNoInputColumns(operatorFactory, session));
+        }
 
         // interpret
         boolean interpretedValue = executeFilter(interpretedFilterProject(filterExpression, TRUE_LITERAL, expressionType, session));
@@ -323,6 +331,11 @@ public final class FunctionAssertions
         return results;
     }
 
+    private static boolean executeFilterWithNoInputColumns(OperatorFactory operatorFactory, Session session)
+    {
+        return executeFilterWithNoInputColumns(operatorFactory.createOperator(createDriverContext(session)));
+    }
+
     private static boolean executeFilter(OperatorFactory operatorFactory, Session session)
     {
         return executeFilter(operatorFactory.createOperator(createDriverContext(session)));
@@ -338,7 +351,7 @@ public final class FunctionAssertions
 
     private static boolean executeFilter(Operator operator)
     {
-        Page page = getAtMostOnePage(operator);
+        Page page = getAtMostOnePage(operator, SOURCE_PAGE);
 
         boolean value;
         if (page != null) {
@@ -348,6 +361,22 @@ public final class FunctionAssertions
             BlockCursor cursor = page.getBlock(0).cursor();
             assertTrue(cursor.advanceNextPosition());
             assertTrue(cursor.getBoolean());
+            value = true;
+        }
+        else {
+            value = false;
+        }
+        return value;
+    }
+
+    private static boolean executeFilterWithNoInputColumns(Operator operator)
+    {
+        Page page = getAtMostOnePage(operator, ZERO_CHANNEL_PAGE);
+
+        boolean value;
+        if (page != null) {
+            assertEquals(page.getPositionCount(), 1);
+            assertEquals(page.getChannelCount(), 0);
             value = true;
         }
         else {
@@ -392,6 +421,21 @@ public final class FunctionAssertions
         return operatorFactory.createOperator(createDriverContext(session));
     }
 
+    private OperatorFactory compileFilterWithNoInputColumns(Expression filter)
+    {
+        filter = ExpressionTreeRewriter.rewriteWith(new SymbolToInputRewriter(ImmutableMap.<Symbol, Input>of()), filter);
+
+        try {
+            return compiler.compileFilterAndProjectOperator(0, filter, ImmutableList.<Expression>of(), ImmutableMap.<Input, Type>of());
+        }
+        catch (Throwable e) {
+            if (e instanceof UncheckedExecutionException) {
+                e = e.getCause();
+            }
+            throw new RuntimeException("Error compiling " + filter + ": " + e.getMessage(), e);
+        }
+    }
+
     private OperatorFactory compileFilterProject(Expression filter, Expression projection)
     {
         filter = ExpressionTreeRewriter.rewriteWith(new SymbolToInputRewriter(INPUT_MAPPING), filter);
@@ -431,11 +475,11 @@ public final class FunctionAssertions
         }
     }
 
-    private static Page getAtMostOnePage(Operator operator)
+    private static Page getAtMostOnePage(Operator operator, Page sourcePage)
     {
         // add our input page if needed
         if (operator.needsInput()) {
-            operator.addInput(SOURCE_PAGE);
+            operator.addInput(sourcePage);
         }
 
         // try to get the output page
