@@ -55,7 +55,7 @@ public final class BenchmarkQueryRunner
 
         // add sampled tpch
         InMemoryNodeManager nodeManager = localQueryRunner.getNodeManager();
-        localQueryRunner.createCatalog("tpch_sampled", new SampledTpchConnectorFactory(nodeManager, 1), ImmutableMap.<String, String>of());
+        localQueryRunner.createCatalog("tpch_sampled", new SampledTpchConnectorFactory(nodeManager, 1, 2), ImmutableMap.<String, String>of());
 
         // add native
         MetadataManager metadata = localQueryRunner.getMetadata();

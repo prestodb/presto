@@ -33,11 +33,13 @@ public class SampledTpchConnectorFactory
 {
     private final NodeManager nodeManager;
     private final int defaultSplitsPerNode;
+    private final int sampleWeight;
 
-    public SampledTpchConnectorFactory(NodeManager nodeManager, int defaultSplitsPerNode)
+    public SampledTpchConnectorFactory(NodeManager nodeManager, int defaultSplitsPerNode, int sampleWeight)
     {
         this.nodeManager = checkNotNull(nodeManager, "nodeManager is null");
         this.defaultSplitsPerNode = defaultSplitsPerNode;
+        this.sampleWeight = sampleWeight;
     }
 
     @Override
@@ -74,7 +76,7 @@ public class SampledTpchConnectorFactory
             @Override
             public ConnectorRecordSetProvider getRecordSetProvider()
             {
-                return new SampledTpchRecordSetProvider(connectorId);
+                return new SampledTpchRecordSetProvider(connectorId, sampleWeight);
             }
 
             @Override
