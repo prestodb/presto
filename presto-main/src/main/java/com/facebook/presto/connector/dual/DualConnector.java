@@ -13,37 +13,70 @@
  */
 package com.facebook.presto.connector.dual;
 
-import com.facebook.presto.spi.Connector;
+import com.facebook.presto.connector.InternalConnector;
 import com.facebook.presto.spi.ConnectorHandleResolver;
 import com.facebook.presto.spi.ConnectorMetadata;
+import com.facebook.presto.spi.ConnectorOutputHandleResolver;
+import com.facebook.presto.spi.ConnectorRecordSetProvider;
+import com.facebook.presto.spi.ConnectorRecordSinkProvider;
 import com.facebook.presto.spi.ConnectorSplitManager;
 import com.facebook.presto.spi.NodeManager;
 import com.facebook.presto.split.ConnectorDataStreamProvider;
-import com.google.common.collect.ClassToInstanceMap;
-import com.google.common.collect.ImmutableClassToInstanceMap;
 
 import javax.inject.Inject;
 
+import static com.google.common.base.Preconditions.checkNotNull;
+
 public class DualConnector
-        implements Connector
+        implements InternalConnector
 {
-    private final ClassToInstanceMap<Object> services;
+    private final NodeManager nodeManager;
 
     @Inject
     public DualConnector(NodeManager nodeManager)
     {
-        ImmutableClassToInstanceMap.Builder<Object> services = ImmutableClassToInstanceMap.builder();
-        services.put(ConnectorMetadata.class, new DualMetadata());
-        services.put(ConnectorSplitManager.class, new DualSplitManager(nodeManager));
-        services.put(ConnectorDataStreamProvider.class, new DualDataStreamProvider());
-        services.put(ConnectorHandleResolver.class, new DualHandleResolver());
-
-        this.services = services.build();
+        this.nodeManager = checkNotNull(nodeManager, "nodeManager is null");
     }
 
     @Override
-    public <T> T getService(Class<T> type)
+    public ConnectorHandleResolver getHandleResolver()
     {
-        return services.getInstance(type);
+        return new DualHandleResolver();
+    }
+
+    @Override
+    public ConnectorMetadata getMetadata()
+    {
+        return new DualMetadata();
+    }
+
+    @Override
+    public ConnectorSplitManager getSplitManager()
+    {
+        return new DualSplitManager(nodeManager);
+    }
+
+    @Override
+    public ConnectorDataStreamProvider getDataStreamProvider()
+    {
+        return new DualDataStreamProvider();
+    }
+
+    @Override
+    public ConnectorRecordSetProvider getRecordSetProvider()
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public ConnectorRecordSinkProvider getRecordSinkProvider()
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public ConnectorOutputHandleResolver getOutputHandleResolver()
+    {
+        throw new UnsupportedOperationException();
     }
 }

@@ -35,6 +35,7 @@ public class ExampleModule
     @Override
     public void configure(Binder binder)
     {
+        binder.bind(ExampleConnector.class).in(Scopes.SINGLETON);
         binder.bind(ExampleConnectorId.class).toInstance(new ExampleConnectorId(connectorId));
         binder.bind(ExampleMetadata.class).in(Scopes.SINGLETON);
         binder.bind(ExampleClient.class).in(Scopes.SINGLETON);

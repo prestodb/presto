@@ -15,5 +15,11 @@ package com.facebook.presto.spi;
 
 public interface Connector
 {
-    <T> T getService(Class<T> type);
+    ConnectorHandleResolver getHandleResolver();
+    ConnectorOutputHandleResolver getOutputHandleResolver();
+
+    ConnectorMetadata getMetadata();
+    ConnectorSplitManager getSplitManager();
+    ConnectorRecordSetProvider getRecordSetProvider();
+    ConnectorRecordSinkProvider getRecordSinkProvider();
 }

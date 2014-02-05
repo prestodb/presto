@@ -15,13 +15,7 @@ package com.facebook.presto.example;
 
 import com.facebook.presto.spi.Connector;
 import com.facebook.presto.spi.ConnectorFactory;
-import com.facebook.presto.spi.ConnectorHandleResolver;
-import com.facebook.presto.spi.ConnectorMetadata;
-import com.facebook.presto.spi.ConnectorRecordSetProvider;
-import com.facebook.presto.spi.ConnectorSplitManager;
 import com.google.common.base.Throwables;
-import com.google.common.collect.ClassToInstanceMap;
-import com.google.common.collect.ImmutableClassToInstanceMap;
 import com.google.common.collect.ImmutableMap;
 import com.google.inject.Injector;
 import io.airlift.bootstrap.Bootstrap;
@@ -66,14 +60,7 @@ public class ExampleConnectorFactory
                     .setOptionalConfigurationProperties(optionalConfig)
                     .initialize();
 
-            ClassToInstanceMap<Object> services = ImmutableClassToInstanceMap.builder()
-                    .put(ConnectorMetadata.class, injector.getInstance(ExampleMetadata.class))
-                    .put(ConnectorSplitManager.class, injector.getInstance(ExampleSplitManager.class))
-                    .put(ConnectorRecordSetProvider.class, injector.getInstance(ExampleRecordSetProvider.class))
-                    .put(ConnectorHandleResolver.class, injector.getInstance(ExampleHandleResolver.class))
-                    .build();
-
-            return new ExampleConnector(services);
+            return injector.getInstance(ExampleConnector.class);
         }
         catch (Exception e) {
             throw Throwables.propagate(e);

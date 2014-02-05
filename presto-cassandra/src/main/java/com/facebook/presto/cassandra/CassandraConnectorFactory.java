@@ -15,12 +15,7 @@ package com.facebook.presto.cassandra;
 
 import com.facebook.presto.spi.Connector;
 import com.facebook.presto.spi.ConnectorFactory;
-import com.facebook.presto.spi.ConnectorHandleResolver;
-import com.facebook.presto.spi.ConnectorMetadata;
-import com.facebook.presto.spi.ConnectorRecordSetProvider;
-import com.facebook.presto.spi.ConnectorSplitManager;
 import com.google.common.base.Throwables;
-import com.google.common.collect.ImmutableClassToInstanceMap;
 import com.google.inject.Binder;
 import com.google.inject.Injector;
 import com.google.inject.Module;
@@ -82,18 +77,7 @@ public class CassandraConnectorFactory
                     .setRequiredConfigurationProperties(config)
                     .setOptionalConfigurationProperties(optionalConfig).initialize();
 
-            CassandraMetadata metadata = injector.getInstance(CassandraMetadata.class);
-            CassandraSplitManager splitManager = injector.getInstance(CassandraSplitManager.class);
-            ConnectorRecordSetProvider recordSetProvider = injector.getInstance(CassandraRecordSetProvider.class);
-            CassandraHandleResolver handleResolver = injector.getInstance(CassandraHandleResolver.class);
-
-            ImmutableClassToInstanceMap.Builder<Object> builder = ImmutableClassToInstanceMap.builder();
-            builder.put(ConnectorMetadata.class, metadata);
-            builder.put(ConnectorSplitManager.class, splitManager);
-            builder.put(ConnectorRecordSetProvider.class, recordSetProvider);
-            builder.put(ConnectorHandleResolver.class, handleResolver);
-
-            return new CassandraConnector(builder.build());
+            return injector.getInstance(CassandraConnector.class);
         }
         catch (Exception e) {
             throw Throwables.propagate(e);

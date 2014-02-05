@@ -13,15 +13,17 @@
  */
 package com.facebook.presto.connector.jmx;
 
-import com.facebook.presto.connector.StaticConnector;
+import com.facebook.presto.connector.InternalConnector;
 import com.facebook.presto.spi.Connector;
 import com.facebook.presto.spi.ConnectorFactory;
 import com.facebook.presto.spi.ConnectorHandleResolver;
 import com.facebook.presto.spi.ConnectorMetadata;
+import com.facebook.presto.spi.ConnectorOutputHandleResolver;
+import com.facebook.presto.spi.ConnectorRecordSetProvider;
+import com.facebook.presto.spi.ConnectorRecordSinkProvider;
 import com.facebook.presto.spi.ConnectorSplitManager;
 import com.facebook.presto.spi.NodeManager;
 import com.facebook.presto.split.ConnectorDataStreamProvider;
-import com.google.common.collect.ImmutableClassToInstanceMap;
 import io.airlift.node.NodeInfo;
 
 import javax.inject.Inject;
@@ -34,8 +36,6 @@ import static com.google.common.base.Preconditions.checkNotNull;
 public class JmxConnectorFactory
         implements ConnectorFactory
 {
-    private static final JmxHandleResolver HANDLE_RESOLVER = new JmxHandleResolver();
-
     private final MBeanServer mbeanServer;
     private final NodeManager nodeManager;
     private final NodeInfo nodeInfo;
@@ -55,15 +55,50 @@ public class JmxConnectorFactory
     }
 
     @Override
-    public Connector create(String connectorId, Map<String, String> properties)
+    public Connector create(final String connectorId, Map<String, String> properties)
     {
-        JmxConnectorId jmxConnectorId = new JmxConnectorId(connectorId);
-        ImmutableClassToInstanceMap.Builder<Object> builder = ImmutableClassToInstanceMap.builder();
-        builder.put(ConnectorMetadata.class, new JmxMetadata(jmxConnectorId, mbeanServer));
-        builder.put(ConnectorSplitManager.class, new JmxSplitManager(jmxConnectorId, nodeManager));
-        builder.put(ConnectorDataStreamProvider.class, new JmxDataStreamProvider(jmxConnectorId, mbeanServer, nodeInfo));
-        builder.put(ConnectorHandleResolver.class, HANDLE_RESOLVER);
+        return new InternalConnector() {
+            @Override
+            public ConnectorHandleResolver getHandleResolver()
+            {
+                return new JmxHandleResolver();
+            }
 
-        return new StaticConnector(builder.build());
+            @Override
+            public ConnectorMetadata getMetadata()
+            {
+                return new JmxMetadata(new JmxConnectorId(connectorId), mbeanServer);
+            }
+
+            @Override
+            public ConnectorSplitManager getSplitManager()
+            {
+                return new JmxSplitManager(new JmxConnectorId(connectorId), nodeManager);
+            }
+
+            @Override
+            public ConnectorDataStreamProvider getDataStreamProvider()
+            {
+                return new JmxDataStreamProvider(new JmxConnectorId(connectorId), mbeanServer, nodeInfo);
+            }
+
+            @Override
+            public ConnectorRecordSetProvider getRecordSetProvider()
+            {
+                throw new UnsupportedOperationException();
+            }
+
+            @Override
+            public ConnectorRecordSinkProvider getRecordSinkProvider()
+            {
+                throw new UnsupportedOperationException();
+            }
+
+            @Override
+            public ConnectorOutputHandleResolver getOutputHandleResolver()
+            {
+                throw new UnsupportedOperationException();
+            }
+        };
     }
 }
