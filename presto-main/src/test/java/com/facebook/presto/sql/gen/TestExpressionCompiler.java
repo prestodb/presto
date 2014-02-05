@@ -214,6 +214,15 @@ public class TestExpressionCompiler
     }
 
     @Test
+    public void testFilterEmptyInput()
+            throws Exception
+    {
+        assertFilterWithNoInputColumns("true", true);
+
+        Futures.allAsList(futures).get();
+    }
+
+    @Test
     public void testBinaryOperatorsBoolean()
             throws Exception
     {
@@ -1213,9 +1222,14 @@ public class TestExpressionCompiler
         }
     }
 
+    private void assertFilterWithNoInputColumns(String filter, boolean expected)
+    {
+        futures.add(executor.submit(new AssertFilterTask(functionAssertions, filter, expected, true)));
+    }
+
     private void assertFilter(String filter, boolean expected)
     {
-        futures.add(executor.submit(new AssertFilterTask(functionAssertions, filter, expected)));
+        futures.add(executor.submit(new AssertFilterTask(functionAssertions, filter, expected, false)));
     }
 
     private static class AssertFilterTask
@@ -1224,12 +1238,14 @@ public class TestExpressionCompiler
         private final FunctionAssertions functionAssertions;
         private final String filter;
         private final boolean expected;
+        private final boolean withNoInputColumns;
 
-        public AssertFilterTask(FunctionAssertions functionAssertions, String filter, boolean expected)
+        public AssertFilterTask(FunctionAssertions functionAssertions, String filter, boolean expected, boolean withNoInputColumns)
         {
             this.functionAssertions = functionAssertions;
             this.filter = filter;
             this.expected = expected;
+            this.withNoInputColumns = withNoInputColumns;
         }
 
         @Override
@@ -1237,7 +1253,7 @@ public class TestExpressionCompiler
                 throws Exception
         {
             try {
-                functionAssertions.assertFilter(filter, expected);
+                functionAssertions.assertFilter(filter, expected, withNoInputColumns);
             }
             catch (Throwable e) {
                 throw new RuntimeException("Error processing " + filter, e);

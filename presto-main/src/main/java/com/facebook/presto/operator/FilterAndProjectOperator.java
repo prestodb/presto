@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.operator;
 
-import com.facebook.presto.block.Block;
 import com.facebook.presto.block.BlockCursor;
 import com.facebook.presto.tuple.TupleInfo;
 import com.google.common.collect.ImmutableList;
@@ -74,13 +73,13 @@ public class FilterAndProjectOperator
         this.projections = ImmutableList.copyOf(projections);
     }
 
-    protected void filterAndProjectRowOriented(Block[] blocks, PageBuilder pageBuilder)
+    protected void filterAndProjectRowOriented(Page page, PageBuilder pageBuilder)
     {
-        int rows = blocks[0].getPositionCount();
+        int rows = page.getPositionCount();
 
-        BlockCursor[] cursors = new BlockCursor[blocks.length];
-        for (int i = 0; i < blocks.length; i++) {
-            cursors[i] = blocks[i].cursor();
+        BlockCursor[] cursors = new BlockCursor[page.getChannelCount()];
+        for (int i = 0; i < page.getChannelCount(); i++) {
+            cursors[i] = page.getBlock(i).cursor();
         }
 
         for (int position = 0; position < rows; position++) {
