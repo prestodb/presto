@@ -13,24 +13,29 @@
  */
 package com.facebook.presto.benchmark;
 
-import com.facebook.presto.tpch.TpchBlocksProvider;
+import com.facebook.presto.util.LocalQueryRunner;
 
 import java.util.concurrent.ExecutorService;
 
+import static com.facebook.presto.benchmark.BenchmarkQueryRunner.createLocalQueryRunner;
 import static com.facebook.presto.util.Threads.daemonThreadsNamed;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 
 public class SqlSemiJoinInPredicateBenchmark
         extends AbstractSqlBenchmark
 {
-    public SqlSemiJoinInPredicateBenchmark(ExecutorService executor, TpchBlocksProvider tpchBlocksProvider)
+    public SqlSemiJoinInPredicateBenchmark(LocalQueryRunner localQueryRunner)
     {
-        super(executor, tpchBlocksProvider, "sql_semijoin_in", 2, 4, "SELECT orderkey FROM lineitem WHERE orderkey IN (SELECT orderkey FROM orders WHERE orderkey % 2 = 0)");
+        super(localQueryRunner,
+                "sql_semijoin_in",
+                2,
+                4,
+                "SELECT orderkey FROM lineitem WHERE orderkey IN (SELECT orderkey FROM orders WHERE orderkey % 2 = 0)");
     }
 
     public static void main(String[] args)
     {
         ExecutorService executor = newCachedThreadPool(daemonThreadsNamed("test"));
-        new SqlSemiJoinInPredicateBenchmark(executor, DEFAULT_TPCH_BLOCKS_PROVIDER).runBenchmark(new SimpleLineBenchmarkResultWriter(System.out));
+        new SqlSemiJoinInPredicateBenchmark(createLocalQueryRunner(executor)).runBenchmark(new SimpleLineBenchmarkResultWriter(System.out));
     }
 }

@@ -16,8 +16,6 @@ package com.facebook.presto.benchmark;
 import com.facebook.presto.benchmark.HandTpchQuery1.TpchQuery1Operator.TpchQuery1OperatorFactory;
 import com.facebook.presto.block.Block;
 import com.facebook.presto.block.BlockCursor;
-import com.facebook.presto.block.BlockIterable;
-import com.facebook.presto.operator.AlignmentOperator.AlignmentOperatorFactory;
 import com.facebook.presto.operator.DriverContext;
 import com.facebook.presto.operator.HashAggregationOperator.HashAggregationOperatorFactory;
 import com.facebook.presto.operator.Operator;
@@ -25,11 +23,10 @@ import com.facebook.presto.operator.OperatorContext;
 import com.facebook.presto.operator.OperatorFactory;
 import com.facebook.presto.operator.Page;
 import com.facebook.presto.operator.PageBuilder;
-import com.facebook.presto.serde.BlocksFileEncoding;
 import com.facebook.presto.sql.planner.plan.AggregationNode.Step;
 import com.facebook.presto.sql.tree.Input;
-import com.facebook.presto.tpch.TpchBlocksProvider;
 import com.facebook.presto.tuple.TupleInfo;
+import com.facebook.presto.util.LocalQueryRunner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Ints;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -39,10 +36,13 @@ import io.airlift.slice.Slices;
 import java.util.List;
 import java.util.concurrent.ExecutorService;
 
+import static com.facebook.presto.benchmark.BenchmarkQueryRunner.createLocalQueryRunner;
 import static com.facebook.presto.operator.AggregationFunctionDefinition.aggregation;
 import static com.facebook.presto.operator.aggregation.AverageAggregations.DOUBLE_AVERAGE;
+import static com.facebook.presto.operator.aggregation.AverageAggregations.LONG_AVERAGE;
 import static com.facebook.presto.operator.aggregation.CountAggregation.COUNT;
 import static com.facebook.presto.operator.aggregation.DoubleSumAggregation.DOUBLE_SUM;
+import static com.facebook.presto.operator.aggregation.LongSumAggregation.LONG_SUM;
 import static com.facebook.presto.util.Threads.daemonThreadsNamed;
 import static com.google.common.base.Charsets.UTF_8;
 import static com.google.common.base.Preconditions.checkNotNull;
@@ -52,9 +52,9 @@ import static java.util.concurrent.Executors.newCachedThreadPool;
 public class HandTpchQuery1
         extends AbstractSimpleOperatorBenchmark
 {
-    public HandTpchQuery1(ExecutorService executor, TpchBlocksProvider tpchBlocksProvider)
+    public HandTpchQuery1(LocalQueryRunner localQueryRunner)
     {
-        super(executor, tpchBlocksProvider, "hand_tpch_query_1", 1, 5);
+        super(localQueryRunner, "hand_tpch_query_1", 1, 5);
     }
 
     @Override
@@ -82,23 +82,16 @@ public class HandTpchQuery1
         //     returnflag,
         //     linestatus
 
-        BlockIterable returnFlag = getBlockIterable("lineitem", "returnflag", BlocksFileEncoding.RAW);
-        BlockIterable lineStatus = getBlockIterable("lineitem", "linestatus", BlocksFileEncoding.RAW);
-        BlockIterable quantity = getBlockIterable("lineitem", "quantity", BlocksFileEncoding.RAW);
-        BlockIterable extendedPrice = getBlockIterable("lineitem", "extendedprice", BlocksFileEncoding.RAW);
-        BlockIterable discount = getBlockIterable("lineitem", "discount", BlocksFileEncoding.RAW);
-        BlockIterable tax = getBlockIterable("lineitem", "tax", BlocksFileEncoding.RAW);
-        BlockIterable shipDate = getBlockIterable("lineitem", "shipdate", BlocksFileEncoding.RAW);
-
-        AlignmentOperatorFactory alignmentOperator = new AlignmentOperatorFactory(
+        OperatorFactory tableScanOperator = createTableScanOperator(
                 0,
-                returnFlag,
-                lineStatus,
-                quantity,
-                extendedPrice,
-                discount,
-                tax,
-                shipDate);
+                "lineitem",
+                "returnflag",
+                "linestatus",
+                "quantity",
+                "extendedprice",
+                "discount",
+                "tax",
+                "shipdate");
 
         TpchQuery1OperatorFactory tpchQuery1Operator = new TpchQuery1OperatorFactory(1);
         HashAggregationOperatorFactory aggregationOperator = new HashAggregationOperatorFactory(
@@ -107,17 +100,17 @@ public class HandTpchQuery1
                 Ints.asList(0, 1),
                 Step.SINGLE,
                 ImmutableList.of(
-                        aggregation(DOUBLE_SUM, new Input(2)),
+                        aggregation(LONG_SUM, new Input(2)),
                         aggregation(DOUBLE_SUM, new Input(3)),
                         aggregation(DOUBLE_SUM, new Input(4)),
-                        aggregation(DOUBLE_AVERAGE, new Input(2)),
+                        aggregation(LONG_AVERAGE, new Input(2)),
                         aggregation(DOUBLE_AVERAGE, new Input(5)),
                         aggregation(DOUBLE_AVERAGE, new Input(6)),
                         aggregation(COUNT, new Input(2))
                 ),
                 10_000);
 
-        return ImmutableList.of(alignmentOperator, tpchQuery1Operator, aggregationOperator);
+        return ImmutableList.of(tableScanOperator, tpchQuery1Operator, aggregationOperator);
     }
 
     public static class TpchQuery1Operator
@@ -126,7 +119,7 @@ public class HandTpchQuery1
         private static final ImmutableList<TupleInfo> TUPLE_INFOS = ImmutableList.of(
                 TupleInfo.SINGLE_VARBINARY,
                 TupleInfo.SINGLE_VARBINARY,
-                TupleInfo.SINGLE_DOUBLE,
+                TupleInfo.SINGLE_LONG,
                 TupleInfo.SINGLE_DOUBLE,
                 TupleInfo.SINGLE_DOUBLE,
                 TupleInfo.SINGLE_DOUBLE,
@@ -275,7 +268,8 @@ public class HandTpchQuery1
                 // where
                 //     shipdate <= '1998-09-02'
                 if (shipDate.compareTo(MAX_SHIP_DATE) <= 0) {
-                    //     returnflag, linestatus
+                    //     returnflag,
+                    //     linestatus
                     //     quantity
                     //     extendedprice
                     //     extendedprice * (1 - discount)
@@ -295,7 +289,7 @@ public class HandTpchQuery1
                         pageBuilder.getBlockBuilder(1).append(lineStatusCursor.getSlice());
                     }
 
-                    double quantity = quantityCursor.getDouble();
+                    long quantity = quantityCursor.getLong();
                     double extendedPrice = extendedPriceCursor.getDouble();
                     double discount = discountCursor.getDouble();
                     double tax = taxCursor.getDouble();
@@ -355,7 +349,7 @@ public class HandTpchQuery1
     public static void main(String[] args)
     {
         ExecutorService executor = newCachedThreadPool(daemonThreadsNamed("test"));
-        new HandTpchQuery1(executor, DEFAULT_TPCH_BLOCKS_PROVIDER).runBenchmark(
+        new HandTpchQuery1(createLocalQueryRunner(executor)).runBenchmark(
                 new SimpleLineBenchmarkResultWriter(System.out)
         );
     }

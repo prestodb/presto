@@ -13,12 +13,12 @@
  */
 package com.facebook.presto.connector.system;
 
-import com.facebook.presto.metadata.Node;
-import com.facebook.presto.metadata.NodeManager;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorSplitManager;
 import com.facebook.presto.spi.FixedSplitSource;
 import com.facebook.presto.spi.HostAddress;
+import com.facebook.presto.spi.Node;
+import com.facebook.presto.spi.NodeManager;
 import com.facebook.presto.spi.Partition;
 import com.facebook.presto.spi.PartitionResult;
 import com.facebook.presto.spi.SchemaTableName;
@@ -121,7 +121,7 @@ public class SystemSplitManager
 
         if (systemTable.isDistributed()) {
             ImmutableList.Builder<Split> splits = ImmutableList.builder();
-            for (Node node : nodeManager.getAllNodes().getActiveNodes()) {
+            for (Node node : nodeManager.getActiveNodes()) {
                 splits.add(new SystemSplit(systemPartition.tableHandle, filters.build(), node.getHostAndPort()));
             }
             return new FixedSplitSource(null, splits.build());

@@ -18,7 +18,7 @@ import com.facebook.presto.metadata.InMemoryNodeManager;
 import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.metadata.MetadataUtil.TableMetadataBuilder;
 import com.facebook.presto.metadata.NativeMetadata;
-import com.facebook.presto.metadata.Node;
+import com.facebook.presto.metadata.PrestoNode;
 import com.facebook.presto.metadata.NodeVersion;
 import com.facebook.presto.metadata.ShardManager;
 import com.facebook.presto.metadata.TableMetadata;
@@ -79,7 +79,7 @@ public class TestNativeSplitManager
         InMemoryNodeManager nodeManager = new InMemoryNodeManager();
 
         String nodeName = UUID.randomUUID().toString();
-        nodeManager.addNode("native", new Node(nodeName, new URI("http://127.0.0.1/"), NodeVersion.UNKNOWN));
+        nodeManager.addNode("native", new PrestoNode(nodeName, new URI("http://127.0.0.1/"), NodeVersion.UNKNOWN));
 
         MetadataManager metadataManager = new MetadataManager();
         metadataManager.addConnectorMetadata("local", "local", new NativeMetadata("native", dbi, shardManager));

@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.execution;
 
-import com.facebook.presto.metadata.Node;
+import com.facebook.presto.spi.Node;
 
 import java.net.URI;
 

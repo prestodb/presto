@@ -13,38 +13,34 @@
  */
 package com.facebook.presto.benchmark;
 
-import com.facebook.presto.block.BlockIterable;
-import com.facebook.presto.operator.AlignmentOperator.AlignmentOperatorFactory;
 import com.facebook.presto.operator.Driver;
 import com.facebook.presto.operator.DriverFactory;
 import com.facebook.presto.operator.HashBuilderOperator.HashBuilderOperatorFactory;
+import com.facebook.presto.operator.OperatorFactory;
 import com.facebook.presto.operator.TaskContext;
-import com.facebook.presto.serde.BlocksFileEncoding;
-import com.facebook.presto.tpch.TpchBlocksProvider;
+import com.facebook.presto.util.LocalQueryRunner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Ints;
 
 import java.util.List;
 import java.util.concurrent.ExecutorService;
 
+import static com.facebook.presto.benchmark.BenchmarkQueryRunner.createLocalQueryRunner;
 import static com.facebook.presto.util.Threads.daemonThreadsNamed;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 
 public class HashBuildBenchmark
         extends AbstractOperatorBenchmark
 {
-    public HashBuildBenchmark(ExecutorService executor, TpchBlocksProvider tpchBlocksProvider)
+    public HashBuildBenchmark(LocalQueryRunner localQueryRunner)
     {
-        super(executor, tpchBlocksProvider, "hash_build", 4, 5);
+        super(localQueryRunner, "hash_build", 4, 5);
     }
 
     @Override
     protected List<Driver> createDrivers(TaskContext taskContext)
     {
-        BlockIterable orderOrderKey = getBlockIterable("orders", "orderkey", BlocksFileEncoding.RAW);
-        BlockIterable totalPrice = getBlockIterable("orders", "totalprice", BlocksFileEncoding.RAW);
-
-        AlignmentOperatorFactory ordersTableScan = new AlignmentOperatorFactory(0, orderOrderKey, totalPrice);
+        OperatorFactory ordersTableScan = createTableScanOperator(0, "orders", "orderkey", "totalprice");
         HashBuilderOperatorFactory hashBuilder = new HashBuilderOperatorFactory(1, ordersTableScan.getTupleInfos(), Ints.asList(0), 1_500_000);
 
         DriverFactory driverFactory = new DriverFactory(true, true, ordersTableScan, hashBuilder);
@@ -55,7 +51,7 @@ public class HashBuildBenchmark
     public static void main(String[] args)
     {
         ExecutorService executor = newCachedThreadPool(daemonThreadsNamed("test"));
-        new HashBuildBenchmark(executor, DEFAULT_TPCH_BLOCKS_PROVIDER).runBenchmark(
+        new HashBuildBenchmark(createLocalQueryRunner(executor)).runBenchmark(
                 new SimpleLineBenchmarkResultWriter(System.out)
         );
     }

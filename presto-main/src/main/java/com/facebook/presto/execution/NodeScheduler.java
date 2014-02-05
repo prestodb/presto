@@ -13,9 +13,9 @@
  */
 package com.facebook.presto.execution;
 
-import com.facebook.presto.metadata.Node;
-import com.facebook.presto.metadata.NodeManager;
 import com.facebook.presto.spi.HostAddress;
+import com.facebook.presto.spi.Node;
+import com.facebook.presto.spi.NodeManager;
 import com.facebook.presto.spi.Split;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Supplier;
@@ -86,11 +86,11 @@ public class NodeScheduler
         scheduleRandom.set(0);
     }
 
-    public NodeSelector createNodeSelector(final String dataSourceName, final Comparator<Node> nodeComparator)
+    public NodeSelector createNodeSelector(final String dataSourceName, Comparator<Node> nodeComparator)
     {
         // this supplier is thread-safe. TODO: this logic should probably move to the scheduler since the choice of which node to run in should be
         // done as close to when the the split is about to be scheduled
-        final Supplier<NodeMap> nodeMap = Suppliers.memoizeWithExpiration(new Supplier<NodeMap>()
+        Supplier<NodeMap> nodeMap = Suppliers.memoizeWithExpiration(new Supplier<NodeMap>()
         {
             @Override
             public NodeMap get()
@@ -104,7 +104,7 @@ public class NodeScheduler
                     nodes = nodeManager.getActiveDatasourceNodes(dataSourceName);
                 }
                 else {
-                    nodes = nodeManager.getAllNodes().getActiveNodes();
+                    nodes = nodeManager.getActiveNodes();
                 }
 
                 for (Node node : nodes) {

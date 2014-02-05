@@ -11,13 +11,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.tpch;
+package com.facebook.presto.metadata;
 
-import com.facebook.presto.serde.BlocksFileEncoding;
+import com.facebook.presto.spi.NodeManager;
 
-import java.io.File;
-
-public interface TpchDataFileLoader
+public interface InternalNodeManager
+        extends NodeManager
 {
-    File getDataFile(TpchTableHandle tableHandle, TpchColumnHandle columnHandle, BlocksFileEncoding encoding);
+    AllNodes getAllNodes();
+
+    void refreshNodes();
 }

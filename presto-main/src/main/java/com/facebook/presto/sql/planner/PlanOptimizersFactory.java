@@ -15,8 +15,8 @@ package com.facebook.presto.sql.planner;
 
 import com.facebook.presto.metadata.AliasDao;
 import com.facebook.presto.metadata.Metadata;
-import com.facebook.presto.metadata.NodeManager;
 import com.facebook.presto.metadata.ShardManager;
+import com.facebook.presto.spi.NodeManager;
 import com.facebook.presto.split.SplitManager;
 import com.facebook.presto.sql.planner.optimizations.ImplementSampleAsFilter;
 import com.facebook.presto.sql.planner.optimizations.LimitPushDown;

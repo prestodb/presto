@@ -13,35 +13,24 @@
  */
 package com.facebook.presto.tpch;
 
-import com.facebook.presto.block.BlockIterable;
-import com.facebook.presto.operator.AlignmentOperator;
-import com.facebook.presto.operator.Operator;
-import com.facebook.presto.operator.OperatorContext;
-import com.facebook.presto.serde.BlocksFileEncoding;
 import com.facebook.presto.spi.ColumnHandle;
+import com.facebook.presto.spi.ConnectorRecordSetProvider;
+import com.facebook.presto.spi.RecordSet;
 import com.facebook.presto.spi.Split;
-import com.facebook.presto.split.ConnectorDataStreamProvider;
-import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
-
-import javax.inject.Inject;
+import io.airlift.tpch.TpchColumn;
+import io.airlift.tpch.TpchEntity;
+import io.airlift.tpch.TpchTable;
 
 import java.util.List;
 
+import static com.facebook.presto.tpch.TpchRecordSet.createTpchRecordSet;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 
-public class TpchDataStreamProvider
-        implements ConnectorDataStreamProvider
+public class TpchRecordSetProvider
+        implements ConnectorRecordSetProvider
 {
-    private final TpchBlocksProvider tpchBlocksProvider;
-
-    @Inject
-    public TpchDataStreamProvider(TpchBlocksProvider tpchBlocksProvider)
-    {
-        this.tpchBlocksProvider = Preconditions.checkNotNull(tpchBlocksProvider, "tpchBlocksProvider is null");
-    }
-
     @Override
     public boolean canHandle(Split split)
     {
@@ -49,12 +38,7 @@ public class TpchDataStreamProvider
     }
 
     @Override
-    public Operator createNewDataStream(OperatorContext operatorContext, Split split, List<ColumnHandle> columns)
-    {
-        return new AlignmentOperator(operatorContext, getChannels(split, columns));
-    }
-
-    private List<BlockIterable> getChannels(Split split, List<ColumnHandle> columns)
+    public RecordSet getRecordSet(Split split, List<? extends ColumnHandle> columns)
     {
         checkNotNull(split, "split is null");
         checkArgument(split instanceof TpchSplit, "Split must be a tpch split!");
@@ -63,16 +47,22 @@ public class TpchDataStreamProvider
         checkArgument(!columns.isEmpty(), "must provide at least one column");
 
         TpchSplit tpchSplit = (TpchSplit) split;
+        String tableName = tpchSplit.getTableHandle().getTableName();
 
-        ImmutableList.Builder<BlockIterable> builder = ImmutableList.builder();
+        TpchTable<?> tpchTable = TpchTable.getTable(tableName);
+
+        return getRecordSet(tpchTable, columns, tpchSplit);
+    }
+
+    private <E extends TpchEntity> RecordSet getRecordSet(TpchTable<E> table, List<? extends ColumnHandle> columns, TpchSplit tpchSplit)
+    {
+        ImmutableList.Builder<TpchColumn<E>> builder = ImmutableList.builder();
         for (ColumnHandle column : columns) {
             checkArgument(column instanceof TpchColumnHandle, "column must be of type TpchColumnHandle, not %s", column.getClass().getName());
-            builder.add(tpchBlocksProvider.getBlocks(tpchSplit.getTableHandle(),
-                    (TpchColumnHandle) column,
-                    tpchSplit.getPartNumber(),
-                    tpchSplit.getTotalParts(),
-                    BlocksFileEncoding.RAW));
+            String columnName = ((TpchColumnHandle) column).getColumnName();
+            builder.add(table.getColumn(columnName));
         }
-        return builder.build();
+
+        return createTpchRecordSet(table, builder.build(), tpchSplit.getTableHandle().getScaleFactor(), tpchSplit.getPartNumber() + 1, tpchSplit.getTotalParts());
     }
 }

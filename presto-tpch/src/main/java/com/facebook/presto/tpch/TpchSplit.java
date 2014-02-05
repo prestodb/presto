@@ -18,7 +18,6 @@ import com.facebook.presto.spi.PartitionKey;
 import com.facebook.presto.spi.PartitionedSplit;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Objects;
 import com.google.common.collect.ImmutableList;
 
@@ -53,12 +52,6 @@ public class TpchSplit
         this.totalParts = totalParts;
         this.partition = "tpch_part_" + partNumber;
         this.addresses = ImmutableList.copyOf(checkNotNull(addresses, "addresses is null"));
-    }
-
-    @VisibleForTesting
-    public TpchSplit(TpchTableHandle tableHandle)
-    {
-        this(tableHandle, 0, 1, ImmutableList.<HostAddress>of());
     }
 
     @JsonProperty

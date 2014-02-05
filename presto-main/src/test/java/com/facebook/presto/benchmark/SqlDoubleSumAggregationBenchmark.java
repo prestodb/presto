@@ -13,24 +13,25 @@
  */
 package com.facebook.presto.benchmark;
 
-import com.facebook.presto.tpch.TpchBlocksProvider;
+import com.facebook.presto.util.LocalQueryRunner;
 
 import java.util.concurrent.ExecutorService;
 
+import static com.facebook.presto.benchmark.BenchmarkQueryRunner.createLocalQueryRunner;
 import static com.facebook.presto.util.Threads.daemonThreadsNamed;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 
 public class SqlDoubleSumAggregationBenchmark
         extends AbstractSqlBenchmark
 {
-    public SqlDoubleSumAggregationBenchmark(ExecutorService executor, TpchBlocksProvider tpchBlocksProvider)
+    public SqlDoubleSumAggregationBenchmark(LocalQueryRunner localQueryRunner)
     {
-        super(executor, tpchBlocksProvider, "sql_double_sum_agg", 10, 100, "select sum(totalprice) from orders");
+        super(localQueryRunner, "sql_double_sum_agg", 10, 100, "select sum(totalprice) from orders");
     }
 
     public static void main(String[] args)
     {
         ExecutorService executor = newCachedThreadPool(daemonThreadsNamed("test"));
-        new SqlDoubleSumAggregationBenchmark(executor, DEFAULT_TPCH_BLOCKS_PROVIDER).runBenchmark(new SimpleLineBenchmarkResultWriter(System.out));
+        new SqlDoubleSumAggregationBenchmark(createLocalQueryRunner(executor)).runBenchmark(new SimpleLineBenchmarkResultWriter(System.out));
     }
 }
