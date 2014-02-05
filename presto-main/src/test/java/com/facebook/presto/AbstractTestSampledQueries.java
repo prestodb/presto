@@ -29,6 +29,27 @@ public abstract class AbstractTestSampledQueries
         extends AbstractTestQueries
 {
     @Test
+    public void testApproximateQueryCount()
+            throws Exception
+    {
+        assertApproximateQuery("SELECT COUNT(*) FROM orders APPROXIMATE AT 99.999 CONFIDENCE", "SELECT 2 * COUNT(*) FROM orders");
+    }
+
+    @Test
+    public void testApproximateQueryCountCustkey()
+            throws Exception
+    {
+        assertApproximateQuery("SELECT COUNT(custkey) FROM orders APPROXIMATE AT 99.999 CONFIDENCE", "SELECT 2 * COUNT(custkey) FROM orders");
+    }
+
+    @Test
+    public void testApproximateQuerySum()
+            throws Exception
+    {
+        assertApproximateQuery("SELECT SUM(totalprice) FROM orders APPROXIMATE AT 99.999 CONFIDENCE", "SELECT 2 * SUM(totalprice) FROM orders");
+    }
+
+    @Test
     public void testApproximateQueryAverage()
             throws Exception
     {
