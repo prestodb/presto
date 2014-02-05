@@ -290,6 +290,12 @@ public class SqlStageExecution
     public StageInfo getStageInfo()
     {
         try (SetThreadName setThreadName = new SetThreadName("Stage-%s", stageId)) {
+            // stage state must be captured first in order to provide a
+            // consistent view of the stage For example, building this
+            // information, the stage could finish, and the task states would
+            // never be visible.
+            StageState state = stageState.get();
+
             List<TaskInfo> taskInfos = IterableTransformer.on(tasks.values()).transform(taskInfoGetter()).list();
             List<StageInfo> subStageInfos = IterableTransformer.on(subStages.values()).transform(stageInfoGetter()).list();
 
@@ -378,7 +384,7 @@ public class SqlStageExecution
                     outputPositions);
 
             return new StageInfo(stageId,
-                    stageState.get(),
+                    state,
                     location,
                     fragment,
                     tupleInfos,
