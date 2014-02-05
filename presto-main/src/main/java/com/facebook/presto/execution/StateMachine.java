@@ -18,7 +18,6 @@ import com.google.common.collect.ImmutableList;
 import io.airlift.log.Logger;
 import io.airlift.units.Duration;
 
-import javax.annotation.Nullable;
 import javax.annotation.concurrent.GuardedBy;
 import javax.annotation.concurrent.ThreadSafe;
 
@@ -43,7 +42,6 @@ public class StateMachine<T>
     private final String name;
     private final Executor executor;
 
-    @Nullable
     @GuardedBy("this")
     private volatile T state;
 
@@ -57,14 +55,13 @@ public class StateMachine<T>
      * @param executor executor for firing state change events; must not be a same thread executor
      * @param initialState the initial value
      */
-    public StateMachine(String name, Executor executor, @Nullable T initialState)
+    public StateMachine(String name, Executor executor, T initialState)
     {
         this.name = checkNotNull(name, "name is null");
         this.executor = checkNotNull(executor, "executor is null");
-        this.state = initialState;
+        this.state = checkNotNull(initialState, "initialState is null");
     }
 
-    @Nullable
     public T get()
     {
         return state;
@@ -79,6 +76,7 @@ public class StateMachine<T>
     public T set(T newState)
     {
         checkState(!Thread.holdsLock(this), "Can not set state while holding a lock on this");
+        checkNotNull(newState, "newState is null");
 
         T oldState;
         ImmutableList<StateChangeListener<T>> stateChangeListeners;
@@ -132,6 +130,8 @@ public class StateMachine<T>
     public boolean compareAndSet(T expectedState, T newState)
     {
         checkState(!Thread.holdsLock(this), "Can not set state while holding a lock on this");
+        checkNotNull(expectedState, "expectedState is null");
+        checkNotNull(newState, "newState is null");
 
         ImmutableList<StateChangeListener<T>> stateChangeListeners;
         synchronized (this) {
