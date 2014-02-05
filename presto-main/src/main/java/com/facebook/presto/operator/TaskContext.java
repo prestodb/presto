@@ -22,6 +22,9 @@ import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.google.common.base.Function;
 import com.google.common.collect.HashMultimap;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Maps;
 import com.google.common.collect.Multimaps;
 import com.google.common.collect.SetMultimap;
 import io.airlift.stats.CounterStat;
@@ -235,8 +238,17 @@ public class TaskContext
     @Deprecated
     public Map<PlanNodeId, Set<?>> getOutputItems()
     {
-        // generics are broken
-        return (Map<PlanNodeId, Set<?>>) (Object) outputItems.asMap();
+        // outputItems is a synchronized multimap, so we must synchronize to iterate over it
+        synchronized (outputItems) {
+            return ImmutableMap.copyOf(Maps.transformValues(outputItems.asMap(), new Function<Iterable<?>, Set<?>>()
+            {
+                @Override
+                public Set<?> apply(Iterable<?> values)
+                {
+                    return ImmutableSet.copyOf(values);
+                }
+            }));
+        }
     }
 
     @Deprecated
