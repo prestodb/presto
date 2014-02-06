@@ -176,7 +176,11 @@ public class SqlTaskExecution
                     if (taskState.isDone()) {
                         SqlTaskExecution.this.taskExecutor.removeTask(taskHandle);
                         // make sure buffers are cleaned up
-                        sharedBuffer.destroy();
+                        if (taskState != TaskState.FAILED) {
+                            // don't close buffers for a failed query
+                            // closed buffers signal to upstream tasks that everything finished cleanly
+                            sharedBuffer.destroy();
+                        }
                     }
                 }
             });

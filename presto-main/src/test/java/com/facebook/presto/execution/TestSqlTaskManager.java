@@ -63,7 +63,6 @@ import org.testng.annotations.Test;
 
 import java.io.File;
 import java.net.URI;
-import java.util.List;
 import java.util.NoSuchElementException;
 import java.util.concurrent.TimeUnit;
 
@@ -72,6 +71,7 @@ import static com.facebook.presto.sql.planner.plan.TableScanNode.GeneratedPartit
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertNull;
+import static org.testng.Assert.assertTrue;
 import static org.testng.Assert.fail;
 
 public class TestSqlTaskManager
@@ -106,16 +106,9 @@ public class TestSqlTaskManager
         DualSplitManager dualSplitManager = new DualSplitManager(new InMemoryNodeManager());
         PartitionResult partitionResult = dualSplitManager.getPartitions(tableHandle, TupleDomain.all());
 
-        split = null;
         SplitSource splitSource = dualSplitManager.getPartitionSplits(tableHandle, partitionResult.getPartitions());
-        while (!splitSource.isFinished()) {
-            List<Split> nextBatch = splitSource.getNextBatch(1000);
-            if (!nextBatch.isEmpty()) {
-                assertNull(split);
-                split = Iterables.getOnlyElement(nextBatch);
-            }
-        }
-        assertNotNull(split);
+        split = Iterables.getOnlyElement(splitSource.getNextBatch(1));
+        assertTrue(splitSource.isFinished());
 
         planner = new LocalExecutionPlanner(
                 new NodeInfo("test"),
