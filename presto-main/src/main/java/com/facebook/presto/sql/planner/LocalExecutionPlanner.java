@@ -27,7 +27,7 @@ import com.facebook.presto.operator.FilterFunctions;
 import com.facebook.presto.operator.HashAggregationOperator.HashAggregationOperatorFactory;
 import com.facebook.presto.operator.HashBuilderOperator.HashBuilderOperatorFactory;
 import com.facebook.presto.operator.HashBuilderOperator.HashSupplier;
-import com.facebook.presto.operator.HashJoinOperators;
+import com.facebook.presto.operator.LookupJoinOperators;
 import com.facebook.presto.operator.HashSemiJoinOperator.HashSemiJoinOperatorFactory;
 import com.facebook.presto.operator.InMemoryExchange;
 import com.facebook.presto.operator.InMemoryExchangeSourceOperator.InMemoryExchangeSourceOperatorFactory;
@@ -845,10 +845,10 @@ public class LocalExecutionPlanner
         {
             switch (type) {
                 case INNER:
-                    return HashJoinOperators.innerJoin(context.getNextOperatorId(), hashSupplier, probeTypes, probeJoinChannels);
+                    return LookupJoinOperators.innerJoin(context.getNextOperatorId(), hashSupplier, probeTypes, probeJoinChannels);
                 case LEFT:
                 case RIGHT:
-                    return HashJoinOperators.outerJoin(context.getNextOperatorId(), hashSupplier, probeTypes, probeJoinChannels);
+                    return LookupJoinOperators.outerJoin(context.getNextOperatorId(), hashSupplier, probeTypes, probeJoinChannels);
                 default:
                     throw new UnsupportedOperationException("Unsupported join type: " + type);
             }

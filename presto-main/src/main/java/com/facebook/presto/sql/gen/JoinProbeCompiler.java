@@ -13,6 +13,8 @@
  */
 package com.facebook.presto.sql.gen;
 
+import com.facebook.presto.operator.LookupJoinOperator;
+import com.facebook.presto.operator.LookupJoinOperatorFactory;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockCursor;
 import com.facebook.presto.byteCode.Block;
@@ -28,8 +30,6 @@ import com.facebook.presto.byteCode.SmartClassWriter;
 import com.facebook.presto.byteCode.control.IfStatement;
 import com.facebook.presto.byteCode.instruction.LabelNode;
 import com.facebook.presto.operator.HashBuilderOperator.HashSupplier;
-import com.facebook.presto.operator.HashJoinOperator;
-import com.facebook.presto.operator.HashJoinOperatorFactory;
 import com.facebook.presto.operator.JoinHash;
 import com.facebook.presto.operator.JoinProbe;
 import com.facebook.presto.operator.JoinProbeFactory;
@@ -160,8 +160,8 @@ public class JoinProbeCompiler
         Class<? extends OperatorFactory> operatorFactoryClass = IsolatedClass.isolateClass(
                 classLoader,
                 OperatorFactory.class,
-                HashJoinOperatorFactory.class,
-                HashJoinOperator.class);
+                LookupJoinOperatorFactory.class,
+                LookupJoinOperator.class);
 
         return new HashJoinOperatorFactoryFactory(joinProbeFactory, operatorFactoryClass);
     }
