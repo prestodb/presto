@@ -198,11 +198,20 @@ public class DistributedLogicalPlanner
             SubPlanBuilder current = node.getSource().accept(this, context);
 
             if (current.isDistributed()) {
+                List<Symbol> partitionedBy = node.getPartitionBy();
                 current.setRoot(new SinkNode(idAllocator.getNextId(), current.getRoot(), current.getRoot().getOutputSymbols()));
 
-                // create a new non-partitioned fragment
-                current = createSingleNodePlan(new ExchangeNode(idAllocator.getNextId(), current.getId(), current.getRoot().getOutputSymbols()))
-                        .addChild(current.build());
+                ExchangeNode source = new ExchangeNode(idAllocator.getNextId(), current.getId(), current.getRoot().getOutputSymbols());
+                if (partitionedBy.isEmpty()) {
+                    // create a new non-partitioned fragment
+                    current = createSingleNodePlan(source)
+                            .addChild(current.build());
+                }
+                else {
+                    current.setHashOutputPartitioning(partitionedBy);
+                    current = createFixedDistributionPlan(source)
+                            .addChild(current.build());
+                }
             }
 
             current.setRoot(new WindowNode(node.getId(), current.getRoot(), node.getPartitionBy(), node.getOrderBy(), node.getOrderings(), node.getWindowFunctions(), node.getSignatures()));

@@ -2943,7 +2943,7 @@ public abstract class AbstractTestQueries
                 "  SELECT orderstatus, clerk, sum(totalprice) sales\n" +
                 "  FROM orders\n" +
                 "  GROUP BY orderstatus, clerk\n" +
-                ")";
+                ") order by clerk";
 
         assertEquals(computeActual(sql), computeActual(sql.replace("custom_rank", "rank")));
     }
