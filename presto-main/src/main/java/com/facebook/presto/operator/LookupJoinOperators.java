@@ -19,9 +19,9 @@ import com.facebook.presto.spi.type.Type;
 
 import java.util.List;
 
-public class HashJoinOperators
+public class LookupJoinOperators
 {
-    private HashJoinOperators()
+    private LookupJoinOperators()
     {
     }
 

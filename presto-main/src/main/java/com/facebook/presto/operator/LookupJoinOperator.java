@@ -24,7 +24,7 @@ import static com.facebook.presto.util.MoreFutures.tryGetUnchecked;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 
-public class HashJoinOperator
+public class LookupJoinOperator
         implements Operator
 {
     private final ListenableFuture<JoinHash> hashFuture;
@@ -41,7 +41,7 @@ public class HashJoinOperator
     private boolean finishing;
     private int joinPosition = -1;
 
-    public HashJoinOperator(
+    public LookupJoinOperator(
             OperatorContext operatorContext,
             HashSupplier hashSupplier,
             List<Type> probeTypes,
