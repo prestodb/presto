@@ -26,20 +26,20 @@ import static com.facebook.presto.util.MoreFutures.tryGetUnchecked;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 
-public class HashJoinOperator
+public class LookupJoinOperator
         implements Operator
 {
-    public static HashJoinOperatorFactory innerJoin(int operatorId, HashSupplier hashSupplier, List<TupleInfo> probeTupleInfos, List<Integer> probeJoinChannel)
+    public static LookupJoinOperatorFactory innerJoin(int operatorId, HashSupplier hashSupplier, List<TupleInfo> probeTupleInfos, List<Integer> probeJoinChannel)
     {
-        return new HashJoinOperatorFactory(operatorId, hashSupplier, probeTupleInfos, probeJoinChannel, false);
+        return new LookupJoinOperatorFactory(operatorId, hashSupplier, probeTupleInfos, probeJoinChannel, false);
     }
 
-    public static HashJoinOperatorFactory outerJoin(int operatorId, HashSupplier hashSupplier, List<TupleInfo> probeTupleInfos, List<Integer> probeJoinChannel)
+    public static LookupJoinOperatorFactory outerJoin(int operatorId, HashSupplier hashSupplier, List<TupleInfo> probeTupleInfos, List<Integer> probeJoinChannel)
     {
-        return new HashJoinOperatorFactory(operatorId, hashSupplier, probeTupleInfos, probeJoinChannel, true);
+        return new LookupJoinOperatorFactory(operatorId, hashSupplier, probeTupleInfos, probeJoinChannel, true);
     }
 
-    public static class HashJoinOperatorFactory
+    public static class LookupJoinOperatorFactory
             implements OperatorFactory
     {
         private final int operatorId;
@@ -50,7 +50,7 @@ public class HashJoinOperator
         private final List<TupleInfo> tupleInfos;
         private boolean closed;
 
-        public HashJoinOperatorFactory(int operatorId, HashSupplier hashSupplier, List<TupleInfo> probeTupleInfos, List<Integer> probeJoinChannels, boolean enableOuterJoin)
+        public LookupJoinOperatorFactory(int operatorId, HashSupplier hashSupplier, List<TupleInfo> probeTupleInfos, List<Integer> probeJoinChannels, boolean enableOuterJoin)
         {
             this.operatorId = operatorId;
             this.hashSupplier = hashSupplier;
@@ -74,8 +74,8 @@ public class HashJoinOperator
         public Operator createOperator(DriverContext driverContext)
         {
             checkState(!closed, "Factory is already closed");
-            OperatorContext operatorContext = driverContext.addOperatorContext(operatorId, HashJoinOperator.class.getSimpleName());
-            return new HashJoinOperator(operatorContext, hashSupplier, probeTupleInfos, probeJoinChannels, enableOuterJoin);
+            OperatorContext operatorContext = driverContext.addOperatorContext(operatorId, LookupJoinOperator.class.getSimpleName());
+            return new LookupJoinOperator(operatorContext, hashSupplier, probeTupleInfos, probeJoinChannels, enableOuterJoin);
         }
 
         @Override
@@ -100,7 +100,7 @@ public class HashJoinOperator
     private boolean finishing;
     private int joinPosition = -1;
 
-    public HashJoinOperator(OperatorContext operatorContext, HashSupplier hashSupplier, List<TupleInfo> probeTupleInfos, List<Integer> probeJoinChannels, boolean enableOuterJoin)
+    public LookupJoinOperator(OperatorContext operatorContext, HashSupplier hashSupplier, List<TupleInfo> probeTupleInfos, List<Integer> probeJoinChannels, boolean enableOuterJoin)
     {
         this.operatorContext = checkNotNull(operatorContext, "operatorContext is null");
 

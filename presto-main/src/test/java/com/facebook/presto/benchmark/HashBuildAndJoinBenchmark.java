@@ -16,8 +16,7 @@ package com.facebook.presto.benchmark;
 import com.facebook.presto.operator.Driver;
 import com.facebook.presto.operator.DriverFactory;
 import com.facebook.presto.operator.HashBuilderOperator.HashBuilderOperatorFactory;
-import com.facebook.presto.operator.HashJoinOperator;
-import com.facebook.presto.operator.HashJoinOperator.HashJoinOperatorFactory;
+import com.facebook.presto.operator.LookupJoinOperator;
 import com.facebook.presto.operator.NullOutputOperator.NullOutputOperatorFactory;
 import com.facebook.presto.operator.OperatorFactory;
 import com.facebook.presto.operator.TaskContext;
@@ -29,6 +28,7 @@ import java.util.List;
 import java.util.concurrent.ExecutorService;
 
 import static com.facebook.presto.benchmark.BenchmarkQueryRunner.createLocalQueryRunner;
+import static com.facebook.presto.operator.LookupJoinOperator.LookupJoinOperatorFactory;
 import static com.facebook.presto.util.Threads.daemonThreadsNamed;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 
@@ -57,7 +57,7 @@ public class HashBuildAndJoinBenchmark
         // join
         OperatorFactory lineItemTableScan = createTableScanOperator(0, "lineitem", "orderkey", "quantity");
 
-        HashJoinOperatorFactory joinOperator = HashJoinOperator.innerJoin(1, hashBuilder.getHashSupplier(), lineItemTableScan.getTupleInfos(), Ints.asList(0));
+        LookupJoinOperatorFactory joinOperator = LookupJoinOperator.innerJoin(1, hashBuilder.getHashSupplier(), lineItemTableScan.getTupleInfos(), Ints.asList(0));
 
         NullOutputOperatorFactory output = new NullOutputOperatorFactory(2, joinOperator.getTupleInfos());
 
