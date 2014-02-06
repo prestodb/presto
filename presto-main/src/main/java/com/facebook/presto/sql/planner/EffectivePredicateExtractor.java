@@ -13,6 +13,9 @@
  */
 package com.facebook.presto.sql.planner;
 
+import com.facebook.presto.spi.ColumnHandle;
+import com.facebook.presto.spi.Domain;
+import com.facebook.presto.spi.SortedRangeSet;
 import com.facebook.presto.spi.TupleDomain;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.planner.plan.DistinctLimitNode;
@@ -38,6 +41,7 @@ import com.google.common.base.Predicate;
 import com.google.common.collect.ImmutableBiMap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
 
 import java.util.ArrayList;
@@ -165,8 +169,32 @@ public class EffectivePredicateExtractor
         // Note: the TupleDomain used to generate the partitions may contain columns/predicates that are unknown to the partition TupleDomain summary,
         // but those are guaranteed to be part of a FilterNode directly above this table scan, so it's ok to include.
         TupleDomain tupleDomain = node.getPartitionsDomainSummary().intersect(node.getGeneratedPartitions().get().getTupleDomainInput());
+
+        // A TupleDomain that has too many disjunctions will produce an Expression that will be very expensive to evaluate at runtime.
+        // For the time being, we will just summarize the TupleDomain by the span over each of its columns (which is ok since we only need to generate
+        // an effective predicate here).
+        // In the future, we can do further optimizations here that will simplify the TupleDomain, but still improve the specificity compared to just a simple span (e.g. range clustering).
+        tupleDomain = spanTupleDomain(tupleDomain);
+
         Expression partitionPredicate = DomainTranslator.toPredicate(tupleDomain, ImmutableBiMap.copyOf(node.getAssignments()).inverse());
         return pullExpressionThroughSymbols(partitionPredicate, node.getOutputSymbols());
+    }
+
+    private static TupleDomain spanTupleDomain(TupleDomain tupleDomain)
+    {
+        if (tupleDomain.isNone()) {
+            return tupleDomain;
+        }
+        Map<ColumnHandle, Domain> spannedDomains = Maps.transformValues(tupleDomain.getDomains(), new Function<Domain, Domain>()
+        {
+            @Override
+            public Domain apply(Domain domain)
+            {
+                // Retain nullability, but collapse each SortedRangeSet into a single span
+                return Domain.create(SortedRangeSet.of(domain.getRanges().getSpan()), domain.isNullAllowed());
+            }
+        });
+        return TupleDomain.withColumnDomains(spannedDomains);
     }
 
     @Override
