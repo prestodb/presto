@@ -297,6 +297,22 @@ public abstract class AbstractTestQueries
     }
 
     @Test
+    public void test15WayGroupBy()
+            throws Exception
+    {
+        // Among other things, this test verifies we are not getting for overflow in the distributed HashPagePartitionFunction
+        assertQuery("" +
+                "SELECT " +
+                "    orderkey + 1, orderkey + 2, orderkey + 3, orderkey + 4, orderkey + 5, " +
+                "    orderkey + 6, orderkey + 7, orderkey + 8, orderkey + 9, orderkey + 10, " +
+                "    count(*) " +
+                "FROM orders " +
+                "GROUP BY " +
+                "    orderkey + 1, orderkey + 2, orderkey + 3, orderkey + 4, orderkey + 5, " +
+                "    orderkey + 6, orderkey + 7, orderkey + 8, orderkey + 9, orderkey + 10");
+    }
+
+    @Test
     public void testDistinctMultipleFields()
             throws Exception
     {
