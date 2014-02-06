@@ -20,6 +20,7 @@ import com.facebook.presto.tuple.TupleInfo;
 import com.google.common.base.Supplier;
 import com.google.common.util.concurrent.ListenableFuture;
 
+import java.io.Closeable;
 import java.net.URI;
 import java.util.List;
 
@@ -28,7 +29,7 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 
 public class ExchangeOperator
-        implements SourceOperator
+        implements SourceOperator, Closeable
 {
     public static class ExchangeOperatorFactory
             implements SourceOperatorFactory
@@ -142,7 +143,7 @@ public class ExchangeOperator
     @Override
     public void finish()
     {
-        exchangeClient.close();
+        close();
     }
 
     @Override
@@ -181,5 +182,11 @@ public class ExchangeOperator
             operatorContext.recordGeneratedInput(page.getDataSize(), page.getPositionCount());
         }
         return page;
+    }
+
+    @Override
+    public void close()
+    {
+        exchangeClient.close();
     }
 }
