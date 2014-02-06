@@ -13,11 +13,10 @@
  */
 package com.facebook.presto.operator.scalar;
 
+import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import static com.facebook.presto.operator.scalar.FunctionAssertions.SESSION;
-import static com.facebook.presto.operator.scalar.FunctionAssertions.assertFunction;
-import static com.facebook.presto.operator.scalar.FunctionAssertions.executeProjectionWithAll;
 
 public class TestMathFunctions
 {
@@ -26,6 +25,14 @@ public class TestMathFunctions
     private static final long[] longRights = {3, -3};
     private static final double[] doubleLefts = {9, 10, 11, -9, -10, -11, 9.1, 10.1, 11.1, -9.1, -10.1, -11.1};
     private static final double[] doubleRights = {3, -3, 3.1, -3.1};
+
+    private FunctionAssertions functionAssertions;
+
+    @BeforeClass
+    public void setUp()
+    {
+        functionAssertions = new FunctionAssertions();
+    }
 
     @Test
     public void testAbs()
@@ -274,8 +281,8 @@ public class TestMathFunctions
     public void testRandom()
     {
         // random is non-deterministic
-        executeProjectionWithAll("rand()", SESSION);
-        executeProjectionWithAll("random()", SESSION);
+        functionAssertions.executeProjectionWithAll("rand()", SESSION);
+        functionAssertions.executeProjectionWithAll("random()", SESSION);
     }
 
     @Test
@@ -345,5 +352,10 @@ public class TestMathFunctions
         for (double doubleValue : DOUBLE_VALUES) {
             assertFunction("tanh(" + doubleValue + ")", Math.tanh(doubleValue));
         }
+    }
+
+    private void assertFunction(String projection, Object expected)
+    {
+        functionAssertions.assertFunction(projection, expected);
     }
 }

@@ -14,13 +14,21 @@
 package com.facebook.presto.operator.scalar;
 
 import io.airlift.slice.Slices;
+import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
-import static com.facebook.presto.operator.scalar.FunctionAssertions.assertFunction;
 import static java.lang.String.format;
 
 public class TestJsonFunctions
 {
+    private FunctionAssertions functionAssertions;
+
+    @BeforeClass
+    public void setUp()
+    {
+        functionAssertions = new FunctionAssertions();
+    }
+
     @Test
     public void testJsonArrayLength()
     {
@@ -134,5 +142,10 @@ public class TestJsonFunctions
                 assertFunction(format("JSON_ARRAY_CONTAINS('%s', %s)", array, value), null);
             }
         }
+    }
+
+    private void assertFunction(String projection, Object expected)
+    {
+        functionAssertions.assertFunction(projection, expected);
     }
 }

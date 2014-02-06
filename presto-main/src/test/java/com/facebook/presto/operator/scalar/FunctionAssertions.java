@@ -16,6 +16,8 @@ package com.facebook.presto.operator.scalar;
 import com.facebook.presto.block.Block;
 import com.facebook.presto.block.BlockCursor;
 import com.facebook.presto.execution.TaskId;
+import com.facebook.presto.metadata.FunctionInfo;
+import com.facebook.presto.metadata.FunctionRegistry.FunctionListBuilder;
 import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.operator.DriverContext;
 import com.facebook.presto.operator.FilterAndProjectOperator.FilterAndProjectOperatorFactory;
@@ -96,9 +98,6 @@ public final class FunctionAssertions
 
     private static final ExecutorService EXECUTOR = Executors.newCachedThreadPool(Threads.daemonThreadsNamed("test-%s"));
 
-    private static final MetadataManager METADATA_MANAGER = new MetadataManager();
-    private static final ExpressionCompiler COMPILER = new ExpressionCompiler(METADATA_MANAGER);
-
     private static final Page SOURCE_PAGE = new Page(
             createLongsBlock(1234L),
             createStringsBlock("hello"),
@@ -131,14 +130,24 @@ public final class FunctionAssertions
     private static final DataStreamProvider DATA_STREAM_PROVIDER = new TestDataStreamProvider();
     private static final PlanNodeId SOURCE_ID = new PlanNodeId("scan");
 
-    private FunctionAssertions() {}
+    private final MetadataManager metadataManager = new MetadataManager();
+    private final ExpressionCompiler compiler = new ExpressionCompiler(metadataManager);
 
-    public static MetadataManager getMetadataManager()
+    public FunctionAssertions() {}
+
+    public FunctionAssertions addFunctions(List<FunctionInfo> functionInfos)
     {
-        return METADATA_MANAGER;
+        metadataManager.addFunctions(functionInfos);
+        return this;
     }
 
-    public static void assertFunction(String projection, Object expected)
+    public FunctionAssertions addScalarFunctions(Class<?> clazz)
+    {
+        metadataManager.addFunctions(new FunctionListBuilder().scalar(clazz).build());
+        return this;
+    }
+
+    public void assertFunction(String projection, Object expected)
     {
         if (expected instanceof Integer) {
             expected = ((Integer) expected).longValue();
@@ -149,17 +158,17 @@ public final class FunctionAssertions
         assertEquals(selectSingleValue(projection), expected);
     }
 
-    public static void assertFunctionNull(String projection)
+    public void assertFunctionNull(String projection)
     {
         assertNull(selectSingleValue(projection));
     }
 
-    public static Object selectSingleValue(String projection)
+    public Object selectSingleValue(String projection)
     {
         return selectSingleValue(projection, SESSION);
     }
 
-    public static Object selectSingleValue(String projection, Session session)
+    public Object selectSingleValue(String projection, Session session)
     {
         List<Object> results = executeProjectionWithAll(projection, session);
         HashSet<Object> resultSet = new HashSet<>(results);
@@ -170,7 +179,7 @@ public final class FunctionAssertions
         return Iterables.getOnlyElement(resultSet);
     }
 
-    public static List<Object> executeProjectionWithAll(String projection, Session session)
+    public List<Object> executeProjectionWithAll(String projection, Session session)
     {
         checkNotNull(projection, "projection is null");
 
@@ -251,7 +260,7 @@ public final class FunctionAssertions
         }
     }
 
-    public static void assertFilter(String filter, boolean expected)
+    public void assertFilter(String filter, boolean expected)
     {
         List<Boolean> results = executeFilterWithAll(filter, SESSION);
         HashSet<Boolean> resultSet = new HashSet<>(results);
@@ -262,7 +271,7 @@ public final class FunctionAssertions
         assertEquals((boolean) Iterables.getOnlyElement(resultSet), expected);
     }
 
-    public static List<Boolean> executeFilterWithAll(String filter, Session session)
+    public List<Boolean> executeFilterWithAll(String filter, Session session)
     {
         checkNotNull(filter, "filter is null");
 
@@ -362,12 +371,12 @@ public final class FunctionAssertions
         return hasQualifiedNameReference.get();
     }
 
-    private static Operator interpretedFilterProject(Expression filter, Expression projection, Type expressionType, Session session)
+    private Operator interpretedFilterProject(Expression filter, Expression projection, Type expressionType, Session session)
     {
         FilterFunction filterFunction = new InterpretedFilterFunction(
                 filter,
                 INPUT_MAPPING,
-                getMetadataManager(),
+                metadataManager,
                 session
         );
 
@@ -375,7 +384,7 @@ public final class FunctionAssertions
                 expressionType,
                 projection,
                 INPUT_MAPPING,
-                getMetadataManager(),
+                metadataManager,
                 session
         );
 
@@ -383,13 +392,13 @@ public final class FunctionAssertions
         return operatorFactory.createOperator(createDriverContext(session));
     }
 
-    private static OperatorFactory compileFilterProject(Expression filter, Expression projection)
+    private OperatorFactory compileFilterProject(Expression filter, Expression projection)
     {
         filter = ExpressionTreeRewriter.rewriteWith(new SymbolToInputRewriter(INPUT_MAPPING), filter);
         projection = ExpressionTreeRewriter.rewriteWith(new SymbolToInputRewriter(INPUT_MAPPING), projection);
 
         try {
-            return COMPILER.compileFilterAndProjectOperator(0, filter, ImmutableList.of(projection), INPUT_TYPES);
+            return compiler.compileFilterAndProjectOperator(0, filter, ImmutableList.of(projection), INPUT_TYPES);
         }
         catch (Throwable e) {
             if (e instanceof UncheckedExecutionException) {
@@ -399,13 +408,13 @@ public final class FunctionAssertions
         }
     }
 
-    private static SourceOperatorFactory compileScanFilterProject(Expression filter, Expression projection)
+    private SourceOperatorFactory compileScanFilterProject(Expression filter, Expression projection)
     {
         filter = ExpressionTreeRewriter.rewriteWith(new SymbolToInputRewriter(INPUT_MAPPING), filter);
         projection = ExpressionTreeRewriter.rewriteWith(new SymbolToInputRewriter(INPUT_MAPPING), projection);
 
         try {
-            return COMPILER.compileScanFilterAndProjectOperator(
+            return compiler.compileScanFilterAndProjectOperator(
                     0,
                     SOURCE_ID,
                     DATA_STREAM_PROVIDER,

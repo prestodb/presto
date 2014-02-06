@@ -13,31 +13,22 @@
  */
 package com.facebook.presto.operator.scalar;
 
-import com.facebook.presto.metadata.FunctionInfo;
-import com.facebook.presto.metadata.FunctionRegistry.FunctionListBuilder;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
-import java.util.List;
-
-import static com.facebook.presto.operator.scalar.FunctionAssertions.assertFunction;
-import static com.facebook.presto.operator.scalar.FunctionAssertions.getMetadataManager;
-
 public class TestCustomFunctions
 {
+    private FunctionAssertions functionAssertions;
+
     @BeforeClass
     public void setupClass()
     {
-        List<FunctionInfo> functions = new FunctionListBuilder()
-                .scalar(CustomAdd.class)
-                .build();
-
-        getMetadataManager().addFunctions(functions);
+        functionAssertions = new FunctionAssertions().addScalarFunctions(CustomAdd.class);
     }
 
     @Test
     public void testCustomAdd()
     {
-        assertFunction("custom_add(123, 456)", 579L);
+        functionAssertions.assertFunction("custom_add(123, 456)", 579L);
     }
 }

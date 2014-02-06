@@ -13,13 +13,19 @@
  */
 package com.facebook.presto.operator.scalar;
 
+import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
-
-import static com.facebook.presto.operator.scalar.FunctionAssertions.assertFunction;
-import static com.facebook.presto.operator.scalar.FunctionAssertions.assertFunctionNull;
 
 public class TestUrlFunctions
 {
+    private FunctionAssertions functionAssertions;
+
+    @BeforeClass
+    public void setUp()
+    {
+        functionAssertions = new FunctionAssertions();
+    }
+
     @Test
     public void testUrlExtract()
     {
@@ -48,7 +54,7 @@ public class TestUrlFunctions
         assertFunction("url_extract_parameter('foo', 'k1')", null);
     }
 
-    private static void validateUrlExtract(String url, String protocol, String host, Long port, String path, String query, String fragment)
+    private void validateUrlExtract(String url, String protocol, String host, Long port, String path, String query, String fragment)
     {
         assertFunction("url_extract_protocol('" + url + "')", protocol);
         assertFunction("url_extract_host('" + url + "')", host);
@@ -61,5 +67,15 @@ public class TestUrlFunctions
         assertFunction("url_extract_path('" + url + "')", path);
         assertFunction("url_extract_query('" + url + "')", query);
         assertFunction("url_extract_fragment('" + url + "')", fragment);
+    }
+
+    private void assertFunction(String projection, Object expected)
+    {
+        functionAssertions.assertFunction(projection, expected);
+    }
+
+    private void assertFunctionNull(String projection)
+    {
+        functionAssertions.assertFunctionNull(projection);
     }
 }
