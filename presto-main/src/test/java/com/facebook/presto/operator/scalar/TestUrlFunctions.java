@@ -43,30 +43,30 @@ public class TestUrlFunctions
     @Test
     public void testUrlExtractParameter()
     {
-        assertFunction("url_extract_parameter('http://example.com/path1/p.php?k1=v1&k2=v2&k3&k4#Ref1', 'k1')", "v1");
-        assertFunction("url_extract_parameter('http://example.com/path1/p.php?k1=v1&k2=v2&k3&k4#Ref1', 'k2')", "v2");
-        assertFunction("url_extract_parameter('http://example.com/path1/p.php?k1=v1&k2=v2&k3&k4#Ref1', 'k3')", "");
-        assertFunction("url_extract_parameter('http://example.com/path1/p.php?k1=v1&k2=v2&k3&k4#Ref1', 'k4')", "");
-        assertFunction("url_extract_parameter('http://example.com/path1/p.php?k1=v1&k2=v2&k3&k4#Ref1', 'k5')", null);
-        assertFunction("url_extract_parameter('http://example.com/path1/p.php?k1=v1&k1=v2&k1&k1#Ref1', 'k1')", "v1");
-        assertFunction("url_extract_parameter('http://example.com/path1/p.php?k1&k1=v1&k1&k1#Ref1', 'k1')", "");
-        assertFunction("url_extract_parameter('http://example.com/path1/p.php?k=a=b=c&x=y#Ref1', 'k')", "a=b=c");
-        assertFunction("url_extract_parameter('foo', 'k1')", null);
+        functionAssertions.assertFunction("url_extract_parameter('http://example.com/path1/p.php?k1=v1&k2=v2&k3&k4#Ref1', 'k1')", "v1");
+        functionAssertions.assertFunction("url_extract_parameter('http://example.com/path1/p.php?k1=v1&k2=v2&k3&k4#Ref1', 'k2')", "v2");
+        functionAssertions.assertFunction("url_extract_parameter('http://example.com/path1/p.php?k1=v1&k2=v2&k3&k4#Ref1', 'k3')", "");
+        functionAssertions.assertFunction("url_extract_parameter('http://example.com/path1/p.php?k1=v1&k2=v2&k3&k4#Ref1', 'k4')", "");
+        functionAssertions.assertFunction("url_extract_parameter('http://example.com/path1/p.php?k1=v1&k2=v2&k3&k4#Ref1', 'k5')", null);
+        functionAssertions.assertFunction("url_extract_parameter('http://example.com/path1/p.php?k1=v1&k1=v2&k1&k1#Ref1', 'k1')", "v1");
+        functionAssertions.assertFunction("url_extract_parameter('http://example.com/path1/p.php?k1&k1=v1&k1&k1#Ref1', 'k1')", "");
+        functionAssertions.assertFunction("url_extract_parameter('http://example.com/path1/p.php?k=a=b=c&x=y#Ref1', 'k')", "a=b=c");
+        functionAssertions.assertFunction("url_extract_parameter('foo', 'k1')", null);
     }
 
     private void validateUrlExtract(String url, String protocol, String host, Long port, String path, String query, String fragment)
     {
-        assertFunction("url_extract_protocol('" + url + "')", protocol);
-        assertFunction("url_extract_host('" + url + "')", host);
+        functionAssertions.assertFunction("url_extract_protocol('" + url + "')", protocol);
+        functionAssertions.assertFunction("url_extract_host('" + url + "')", host);
         if (port == null) {
-            assertFunctionNull("url_extract_port('" + url + "')");
+            functionAssertions.assertFunctionNull("url_extract_port('" + url + "')");
         }
         else {
-            assertFunction("url_extract_port('" + url + "')", port);
+            functionAssertions.assertFunction("url_extract_port('" + url + "')", port);
         }
-        assertFunction("url_extract_path('" + url + "')", path);
-        assertFunction("url_extract_query('" + url + "')", query);
-        assertFunction("url_extract_fragment('" + url + "')", fragment);
+        functionAssertions.assertFunction("url_extract_path('" + url + "')", path);
+        functionAssertions.assertFunction("url_extract_query('" + url + "')", query);
+        functionAssertions.assertFunction("url_extract_fragment('" + url + "')", fragment);
     }
 
     private void assertFunction(String projection, Object expected)
