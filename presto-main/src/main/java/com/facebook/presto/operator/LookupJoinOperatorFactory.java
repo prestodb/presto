@@ -21,7 +21,7 @@ import java.util.List;
 
 import static com.google.common.base.Preconditions.checkState;
 
-public class HashJoinOperatorFactory
+public class LookupJoinOperatorFactory
         implements OperatorFactory
 {
     private final int operatorId;
@@ -32,7 +32,7 @@ public class HashJoinOperatorFactory
     private final JoinProbeFactory joinProbeFactory;
     private boolean closed;
 
-    public HashJoinOperatorFactory(int operatorId,
+    public LookupJoinOperatorFactory(int operatorId,
             HashSupplier hashSupplier,
             List<Type> probeTypes,
             boolean enableOuterJoin,
@@ -61,8 +61,8 @@ public class HashJoinOperatorFactory
     public Operator createOperator(DriverContext driverContext)
     {
         checkState(!closed, "Factory is already closed");
-        OperatorContext operatorContext = driverContext.addOperatorContext(operatorId, HashJoinOperator.class.getSimpleName());
-        return new HashJoinOperator(operatorContext, hashSupplier, probeTypes, enableOuterJoin, joinProbeFactory);
+        OperatorContext operatorContext = driverContext.addOperatorContext(operatorId, LookupJoinOperator.class.getSimpleName());
+        return new LookupJoinOperator(operatorContext, hashSupplier, probeTypes, enableOuterJoin, joinProbeFactory);
     }
 
     @Override
