@@ -100,6 +100,7 @@ public class TestExpressionCompiler
     private static final Logger log = Logger.get(TestExpressionCompiler.class);
     private long start;
     private ListeningExecutorService executor;
+    private FunctionAssertions functionAssertions;
     private List<ListenableFuture<Void>> futures;
 
     @BeforeSuite
@@ -107,6 +108,7 @@ public class TestExpressionCompiler
     {
         Logging.initialize();
         executor = MoreExecutors.listeningDecorator(newFixedThreadPool(getRuntime().availableProcessors() * 2, daemonThreadsNamed("completer-%d")));
+        functionAssertions = new FunctionAssertions();
     }
 
     @AfterSuite
@@ -271,7 +273,7 @@ public class TestExpressionCompiler
                 Object expectedNullIf = nullIf(left, right);
                 for (String expression : generateExpression("nullif(%s, %s)", left, right)) {
                     try {
-                        Object actual = FunctionAssertions.selectSingleValue(expression);
+                        Object actual = functionAssertions.selectSingleValue(expression);
                         if (!Objects.equals(actual, expectedNullIf)) {
                             if (left != null && right == null) {
                                 expectedNullIf = ((Number) expectedNullIf).doubleValue();
@@ -1170,7 +1172,7 @@ public class TestExpressionCompiler
 
     private void assertExecute(String expression, Object expected)
     {
-        futures.add(executor.submit(new AssertExecuteTask(expression, expected)));
+        futures.add(executor.submit(new AssertExecuteTask(functionAssertions, expression, expected)));
     }
 
     private void assertExecute(List<String> expressions, Object expected)
@@ -1179,18 +1181,20 @@ public class TestExpressionCompiler
             expected = ((Slice) expected).toString(Charsets.UTF_8);
         }
         for (String expression : expressions) {
-            futures.add(executor.submit(new AssertExecuteTask(expression, expected)));
+            futures.add(executor.submit(new AssertExecuteTask(functionAssertions, expression, expected)));
         }
     }
 
     private static class AssertExecuteTask
             implements Callable<Void>
     {
+        private final FunctionAssertions functionAssertions;
         private final String expression;
         private final Object expected;
 
-        public AssertExecuteTask(String expression, Object expected)
+        public AssertExecuteTask(FunctionAssertions functionAssertions, String expression, Object expected)
         {
+            this.functionAssertions = functionAssertions;
             this.expression = expression;
             this.expected = expected;
         }
@@ -1200,7 +1204,7 @@ public class TestExpressionCompiler
                 throws Exception
         {
             try {
-                assertEquals(FunctionAssertions.selectSingleValue(expression), expected);
+                assertEquals(functionAssertions.selectSingleValue(expression), expected);
             }
             catch (Throwable e) {
                 throw new RuntimeException("Error processing " + expression, e);
@@ -1211,17 +1215,19 @@ public class TestExpressionCompiler
 
     private void assertFilter(String filter, boolean expected)
     {
-        futures.add(executor.submit(new AssertFilterTask(filter, expected)));
+        futures.add(executor.submit(new AssertFilterTask(functionAssertions, filter, expected)));
     }
 
     private static class AssertFilterTask
             implements Callable<Void>
     {
+        private final FunctionAssertions functionAssertions;
         private final String filter;
         private final boolean expected;
 
-        public AssertFilterTask(String filter, boolean expected)
+        public AssertFilterTask(FunctionAssertions functionAssertions, String filter, boolean expected)
         {
+            this.functionAssertions = functionAssertions;
             this.filter = filter;
             this.expected = expected;
         }
@@ -1231,7 +1237,7 @@ public class TestExpressionCompiler
                 throws Exception
         {
             try {
-                FunctionAssertions.assertFilter(filter, expected);
+                functionAssertions.assertFilter(filter, expected);
             }
             catch (Throwable e) {
                 throw new RuntimeException("Error processing " + filter, e);

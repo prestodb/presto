@@ -25,10 +25,9 @@ import org.joda.time.Seconds;
 import org.joda.time.Weeks;
 import org.joda.time.Years;
 import org.joda.time.chrono.ISOChronology;
+import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
-import static com.facebook.presto.operator.scalar.FunctionAssertions.assertFunction;
-import static com.facebook.presto.operator.scalar.FunctionAssertions.selectSingleValue;
 import static com.facebook.presto.sql.analyzer.Session.DEFAULT_CATALOG;
 import static com.facebook.presto.sql.analyzer.Session.DEFAULT_SCHEMA;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
@@ -38,14 +37,22 @@ public class TestUnixTimeFunctions
 {
     private static final DateTimeField CENTURY_FIELD = ISOChronology.getInstance(DateTimeZone.UTC).centuryOfEra();
 
+    private FunctionAssertions functionAssertions;
+
+    @BeforeClass
+    public void setUp()
+    {
+        functionAssertions = new FunctionAssertions();
+    }
+
     @Test
     public void testCurrentTime()
     {
         long millis = new DateTime(2001, 1, 22, 3, 4, 5, 321, DateTimeZone.UTC).getMillis();
         Session session = new Session("user", "test", DEFAULT_CATALOG, DEFAULT_SCHEMA, null, null, millis);
 
-        assertEquals((long) selectSingleValue("current_timestamp", session), fromMillis(millis));
-        assertEquals((long) selectSingleValue("now()", session), fromMillis(millis));
+        assertEquals((long) functionAssertions.selectSingleValue("current_timestamp", session), fromMillis(millis));
+        assertEquals((long) functionAssertions.selectSingleValue("now()", session), fromMillis(millis));
     }
 
     @Test
@@ -232,6 +239,11 @@ public class TestUnixTimeFunctions
         finally {
             DateTimeZone.setDefault(defaultTimeZone);
         }
+    }
+
+    private void assertFunction(String projection, Object expected)
+    {
+        functionAssertions.assertFunction(projection, expected);
     }
 
     private static long getSeconds(DateTime dateTime)

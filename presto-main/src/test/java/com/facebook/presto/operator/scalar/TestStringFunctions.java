@@ -13,12 +13,19 @@
  */
 package com.facebook.presto.operator.scalar;
 
+import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
-
-import static com.facebook.presto.operator.scalar.FunctionAssertions.assertFunction;
 
 public class TestStringFunctions
 {
+    private FunctionAssertions functionAssertions;
+
+    @BeforeClass
+    public void setUp()
+    {
+        functionAssertions = new FunctionAssertions();
+    }
+
     @Test
     public void testChr()
     {
@@ -202,5 +209,10 @@ public class TestStringFunctions
         assertFunction("UPPER('')", "");
         assertFunction("UPPER('Hello World')", "HELLO WORLD");
         assertFunction("UPPER('what!!')", "WHAT!!");
+    }
+
+    private void assertFunction(String projection, Object expected)
+    {
+        functionAssertions.assertFunction(projection, expected);
     }
 }

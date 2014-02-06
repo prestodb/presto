@@ -14,14 +14,21 @@
 package com.facebook.presto.operator.scalar;
 
 import com.facebook.presto.sql.analyzer.SemanticException;
+import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
-import static com.facebook.presto.operator.scalar.FunctionAssertions.assertFunction;
-import static com.facebook.presto.operator.scalar.FunctionAssertions.selectSingleValue;
 import static org.testng.Assert.fail;
 
 public class TestConditions
 {
+    private FunctionAssertions functionAssertions;
+
+    @BeforeClass
+    public void setUp()
+    {
+        functionAssertions = new FunctionAssertions();
+    }
+
     @Test
     public void testLike()
     {
@@ -208,5 +215,15 @@ public class TestConditions
         }
         catch (ClassCastException | SemanticException expected) {
         }
+    }
+
+    private void assertFunction(String projection, Object expected)
+    {
+        functionAssertions.assertFunction(projection, expected);
+    }
+
+    private Object selectSingleValue(String projection)
+    {
+        return functionAssertions.selectSingleValue(projection);
     }
 }
