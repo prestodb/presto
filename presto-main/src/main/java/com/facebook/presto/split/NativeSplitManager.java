@@ -90,7 +90,7 @@ public class NativeSplitManager
     }
 
     @Override
-    public PartitionResult getPartitions(TableHandle tableHandle, TupleDomain tupleDomain)
+    public PartitionResult getPartitions(TableHandle tableHandle, TupleDomain<ColumnHandle> tupleDomain)
     {
         Stopwatch partitionTimer = new Stopwatch();
         partitionTimer.start();
@@ -170,9 +170,9 @@ public class NativeSplitManager
             implements Partition
     {
         private final long partitionId;
-        private final TupleDomain tupleDomain;
+        private final TupleDomain<ColumnHandle> tupleDomain;
 
-        public NativePartition(long partitionId, TupleDomain tupleDomain)
+        public NativePartition(long partitionId, TupleDomain<ColumnHandle> tupleDomain)
         {
             this.partitionId = partitionId;
             this.tupleDomain = checkNotNull(tupleDomain, "tupleDomain is null");
@@ -190,7 +190,7 @@ public class NativeSplitManager
         }
 
         @Override
-        public TupleDomain getTupleDomain()
+        public TupleDomain<ColumnHandle> getTupleDomain()
         {
             return tupleDomain;
         }

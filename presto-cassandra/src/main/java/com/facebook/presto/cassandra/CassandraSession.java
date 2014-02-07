@@ -229,7 +229,7 @@ public class CassandraSession
             buffer.flip();
             byte[] key = new byte[buffer.limit()];
             buffer.get(key);
-            TupleDomain tupleDomain = TupleDomain.withFixedValues(map);
+            TupleDomain<ColumnHandle> tupleDomain = TupleDomain.withFixedValues(map);
             String partitionId = stringBuilder.toString();
             if (uniquePartitionIds.add(partitionId)) {
                 partitions.add(new CassandraPartition(key, partitionId, tupleDomain));

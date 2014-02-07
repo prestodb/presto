@@ -102,7 +102,7 @@ public class TestDomainTranslator
     public void testNoneRoundTrip()
             throws Exception
     {
-        TupleDomain tupleDomain = TupleDomain.none();
+        TupleDomain<ColumnHandle> tupleDomain = TupleDomain.none();
         ExtractionResult result = fromPredicate(toPredicate(tupleDomain, COLUMN_HANDLES.inverse()), TYPES, COLUMN_HANDLES);
         Assert.assertEquals(result.getRemainingExpression(), TRUE_LITERAL);
         Assert.assertEquals(result.getTupleDomain(), tupleDomain);
@@ -112,7 +112,7 @@ public class TestDomainTranslator
     public void testAllRoundTrip()
             throws Exception
     {
-        TupleDomain tupleDomain = TupleDomain.all();
+        TupleDomain<ColumnHandle> tupleDomain = TupleDomain.all();
         ExtractionResult result = fromPredicate(toPredicate(tupleDomain, COLUMN_HANDLES.inverse()), TYPES, COLUMN_HANDLES);
         Assert.assertEquals(result.getRemainingExpression(), TRUE_LITERAL);
         Assert.assertEquals(result.getTupleDomain(), tupleDomain);
@@ -122,7 +122,7 @@ public class TestDomainTranslator
     public void testRoundTrip()
             throws Exception
     {
-        TupleDomain tupleDomain = withColumnDomains(ImmutableMap.<ColumnHandle, Domain>builder()
+        TupleDomain<ColumnHandle> tupleDomain = withColumnDomains(ImmutableMap.<ColumnHandle, Domain>builder()
                 .put(ACH, Domain.singleValue(1L))
                 .put(BCH, Domain.onlyNull(Double.class))
                 .put(CCH, Domain.notNull(String.class))
@@ -141,7 +141,7 @@ public class TestDomainTranslator
     public void testToPredicateNone()
             throws Exception
     {
-        TupleDomain tupleDomain = withColumnDomains(ImmutableMap.<ColumnHandle, Domain>builder()
+        TupleDomain<ColumnHandle> tupleDomain = withColumnDomains(ImmutableMap.<ColumnHandle, Domain>builder()
                 .put(ACH, Domain.singleValue(1L))
                 .put(BCH, Domain.onlyNull(Double.class))
                 .put(CCH, Domain.notNull(String.class))
@@ -155,7 +155,7 @@ public class TestDomainTranslator
     public void testToPredicateAllIgnored()
             throws Exception
     {
-        TupleDomain tupleDomain = withColumnDomains(ImmutableMap.<ColumnHandle, Domain>builder()
+        TupleDomain<ColumnHandle> tupleDomain = withColumnDomains(ImmutableMap.<ColumnHandle, Domain>builder()
                 .put(ACH, Domain.singleValue(1L))
                 .put(BCH, Domain.onlyNull(Double.class))
                 .put(CCH, Domain.notNull(String.class))
@@ -175,7 +175,7 @@ public class TestDomainTranslator
     public void testToPredicate()
             throws Exception
     {
-        TupleDomain tupleDomain;
+        TupleDomain<ColumnHandle> tupleDomain;
 
         tupleDomain = withColumnDomains(ImmutableMap.<ColumnHandle, Domain>of(ACH, Domain.notNull(Long.class)));
         Assert.assertEquals(toPredicate(tupleDomain, COLUMN_HANDLES.inverse()), isNotNull(A));

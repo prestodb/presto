@@ -23,5 +23,5 @@ public interface Partition
     /**
      * Gets the TupleDomain that provides a bound on the tuples within this Partition.
      */
-    TupleDomain getTupleDomain();
+    TupleDomain<ColumnHandle> getTupleDomain();
 }

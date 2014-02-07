@@ -79,7 +79,7 @@ public class SystemSplitManager
     }
 
     @Override
-    public PartitionResult getPartitions(TableHandle table, TupleDomain tupleDomain)
+    public PartitionResult getPartitions(TableHandle table, TupleDomain<ColumnHandle> tupleDomain)
     {
         checkNotNull(table, "table is null");
         checkNotNull(tupleDomain, "tupleDomain is null");
@@ -89,7 +89,7 @@ public class SystemSplitManager
 
         Map<ColumnHandle, Comparable<?>> bindings = tupleDomain.extractFixedValues();
 
-        TupleDomain unusedTupleDomain = TupleDomain.none();
+        TupleDomain<ColumnHandle> unusedTupleDomain = TupleDomain.none();
         if (!tupleDomain.isNone()) {
             unusedTupleDomain = TupleDomain.withColumnDomains(Maps.filterKeys(tupleDomain.getDomains(), not(in(bindings.keySet()))));
         }
@@ -156,7 +156,7 @@ public class SystemSplitManager
         }
 
         @Override
-        public TupleDomain getTupleDomain()
+        public TupleDomain<ColumnHandle> getTupleDomain()
         {
             return TupleDomain.withFixedValues(filters);
         }

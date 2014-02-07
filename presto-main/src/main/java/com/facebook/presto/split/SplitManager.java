@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.split;
 
+import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorSplitManager;
 import com.facebook.presto.spi.Partition;
 import com.facebook.presto.spi.PartitionResult;
@@ -42,9 +43,9 @@ public class SplitManager
         splitManagers.add(connectorSplitManager);
     }
 
-    public PartitionResult getPartitions(TableHandle table, Optional<TupleDomain> tupleDomain)
+    public PartitionResult getPartitions(TableHandle table, Optional<TupleDomain<ColumnHandle>> tupleDomain)
     {
-        return getConnectorSplitManager(table).getPartitions(table, tupleDomain.or(TupleDomain.all()));
+        return getConnectorSplitManager(table).getPartitions(table, tupleDomain.or(TupleDomain.<ColumnHandle>all()));
     }
 
     public SplitSource getPartitionSplits(TableHandle handle, List<Partition> partitions)
