@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.connector.system;
 
+import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorSplitManager;
 import com.facebook.presto.spi.FixedSplitSource;
 import com.facebook.presto.spi.HostAddress;
@@ -72,7 +73,7 @@ public class SystemSplitManager
     }
 
     @Override
-    public PartitionResult getPartitions(TableHandle table, TupleDomain tupleDomain)
+    public PartitionResult getPartitions(TableHandle table, TupleDomain<ColumnHandle> tupleDomain)
     {
         checkNotNull(table, "table is null");
         checkNotNull(tupleDomain, "tupleDomain is null");
@@ -134,7 +135,7 @@ public class SystemSplitManager
         }
 
         @Override
-        public TupleDomain getTupleDomain()
+        public TupleDomain<ColumnHandle> getTupleDomain()
         {
             return TupleDomain.all();
         }

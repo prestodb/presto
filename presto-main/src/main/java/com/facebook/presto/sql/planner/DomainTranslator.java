@@ -75,7 +75,7 @@ public final class DomainTranslator
     {
     }
 
-    public static Expression toPredicate(TupleDomain tupleDomain, Map<ColumnHandle, Symbol> symbolTranslationMap, Map<Symbol, Type> symbolTypes)
+    public static Expression toPredicate(TupleDomain<ColumnHandle> tupleDomain, Map<ColumnHandle, Symbol> symbolTranslationMap, Map<Symbol, Type> symbolTypes)
     {
         if (tupleDomain.isNone()) {
             return FALSE_LITERAL;
@@ -238,7 +238,7 @@ public final class DomainTranslator
         protected ExtractionResult visitExpression(Expression node, Boolean complement)
         {
             // If we don't know how to process this node, the default response is to say that the TupleDomain is "all"
-            return new ExtractionResult(TupleDomain.all(), complementIfNecessary(node, complement));
+            return new ExtractionResult(TupleDomain.<ColumnHandle>all(), complementIfNecessary(node, complement));
         }
 
         @Override
@@ -255,7 +255,7 @@ public final class DomainTranslator
                             combineConjuncts(leftResult.getRemainingExpression(), rightResult.getRemainingExpression()));
 
                 case OR:
-                    TupleDomain columnUnionedTupleDomain = TupleDomain.columnWiseUnion(leftResult.getTupleDomain(), rightResult.getTupleDomain());
+                    TupleDomain<ColumnHandle> columnUnionedTupleDomain = TupleDomain.columnWiseUnion(leftResult.getTupleDomain(), rightResult.getTupleDomain());
 
                     // In most cases, the columnUnionedTupleDomain is only a superset of the actual strict union
                     // and so we can return the current node as the remainingExpression so that all bounds will be double checked again at execution time.
@@ -342,7 +342,7 @@ public final class DomainTranslator
                     case LESS_THAN:
                     case LESS_THAN_OR_EQUAL:
                     case NOT_EQUAL:
-                        return new ExtractionResult(TupleDomain.none(), TRUE_LITERAL);
+                        return new ExtractionResult(TupleDomain.<ColumnHandle>none(), TRUE_LITERAL);
 
                     case IS_DISTINCT_FROM:
                         Domain domain = complementIfNecessary(Domain.notNull(wrap(columnType.getJavaType())), complement);
@@ -462,13 +462,13 @@ public final class DomainTranslator
         protected ExtractionResult visitBooleanLiteral(BooleanLiteral node, Boolean complement)
         {
             boolean value = complement ? !node.getValue() : node.getValue();
-            return new ExtractionResult(value ? TupleDomain.all() : TupleDomain.none(), TRUE_LITERAL);
+            return new ExtractionResult(value ? TupleDomain.<ColumnHandle>all() : TupleDomain.<ColumnHandle>none(), TRUE_LITERAL);
         }
 
         @Override
         protected ExtractionResult visitNullLiteral(NullLiteral node, Boolean complement)
         {
-            return new ExtractionResult(TupleDomain.none(), TRUE_LITERAL);
+            return new ExtractionResult(TupleDomain.<ColumnHandle>none(), TRUE_LITERAL);
         }
     }
 
@@ -562,16 +562,16 @@ public final class DomainTranslator
 
     public static class ExtractionResult
     {
-        private final TupleDomain tupleDomain;
+        private final TupleDomain<ColumnHandle> tupleDomain;
         private final Expression remainingExpression;
 
-        public ExtractionResult(TupleDomain tupleDomain, Expression remainingExpression)
+        public ExtractionResult(TupleDomain<ColumnHandle> tupleDomain, Expression remainingExpression)
         {
             this.tupleDomain = checkNotNull(tupleDomain, "tupleDomain is null");
             this.remainingExpression = checkNotNull(remainingExpression, "remainingExpression is null");
         }
 
-        public TupleDomain getTupleDomain()
+        public TupleDomain<ColumnHandle> getTupleDomain()
         {
             return tupleDomain;
         }

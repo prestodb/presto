@@ -251,7 +251,7 @@ public abstract class AbstractTestHiveClient
             throws Exception
     {
         TableHandle tableHandle = getTableHandle(table);
-        PartitionResult partitionResult = splitManager.getPartitions(tableHandle, TupleDomain.all());
+        PartitionResult partitionResult = splitManager.getPartitions(tableHandle, TupleDomain.<ColumnHandle>all());
         assertExpectedPartitions(partitionResult.getPartitions());
     }
 
@@ -268,7 +268,7 @@ public abstract class AbstractTestHiveClient
     public void testGetPartitionsException()
             throws Exception
     {
-        splitManager.getPartitions(invalidTableHandle, TupleDomain.all());
+        splitManager.getPartitions(invalidTableHandle, TupleDomain.<ColumnHandle>all());
     }
 
     @Test
@@ -276,7 +276,7 @@ public abstract class AbstractTestHiveClient
             throws Exception
     {
         TableHandle tableHandle = getTableHandle(table);
-        PartitionResult partitionResult = splitManager.getPartitions(tableHandle, TupleDomain.all());
+        PartitionResult partitionResult = splitManager.getPartitions(tableHandle, TupleDomain.<ColumnHandle>all());
         assertExpectedPartitions(partitionResult.getPartitions());
     }
 
@@ -306,7 +306,7 @@ public abstract class AbstractTestHiveClient
             throws Exception
     {
         TableHandle tableHandle = getTableHandle(tableUnpartitioned);
-        PartitionResult partitionResult = splitManager.getPartitions(tableHandle, TupleDomain.all());
+        PartitionResult partitionResult = splitManager.getPartitions(tableHandle, TupleDomain.<ColumnHandle>all());
         assertEquals(partitionResult.getPartitions().size(), 1);
         assertEquals(partitionResult.getPartitions(), unpartitionedPartitions);
     }
@@ -315,7 +315,7 @@ public abstract class AbstractTestHiveClient
     public void testGetPartitionNamesException()
             throws Exception
     {
-        splitManager.getPartitions(invalidTableHandle, TupleDomain.all());
+        splitManager.getPartitions(invalidTableHandle, TupleDomain.<ColumnHandle>all());
     }
 
     @SuppressWarnings({"ValueOfIncrementOrDecrementUsed", "UnusedAssignment"})
@@ -391,7 +391,7 @@ public abstract class AbstractTestHiveClient
             throws Exception
     {
         TableHandle tableHandle = getTableHandle(table);
-        PartitionResult partitionResult = splitManager.getPartitions(tableHandle, TupleDomain.all());
+        PartitionResult partitionResult = splitManager.getPartitions(tableHandle, TupleDomain.<ColumnHandle>all());
         SplitSource splitSource = splitManager.getPartitionSplits(tableHandle, partitionResult.getPartitions());
 
         assertEquals(getSplitCount(splitSource), partitions.size());
@@ -402,7 +402,7 @@ public abstract class AbstractTestHiveClient
             throws Exception
     {
         TableHandle tableHandle = getTableHandle(tableUnpartitioned);
-        PartitionResult partitionResult = splitManager.getPartitions(tableHandle, TupleDomain.all());
+        PartitionResult partitionResult = splitManager.getPartitions(tableHandle, TupleDomain.<ColumnHandle>all());
         SplitSource splitSource = splitManager.getPartitionSplits(tableHandle, partitionResult.getPartitions());
 
         assertEquals(getSplitCount(splitSource), 1);
@@ -430,7 +430,7 @@ public abstract class AbstractTestHiveClient
     {
         TableHandle tableHandle = getTableHandle(tableOffline);
         try {
-            splitManager.getPartitions(tableHandle, TupleDomain.all());
+            splitManager.getPartitions(tableHandle, TupleDomain.<ColumnHandle>all());
             fail("expected TableOfflineException");
         }
         catch (TableOfflineException e) {
@@ -449,7 +449,7 @@ public abstract class AbstractTestHiveClient
         assertNotNull(dsColumn);
 
         Domain domain = Domain.singleValue(utf8Slice("2012-12-30"));
-        TupleDomain tupleDomain = TupleDomain.withColumnDomains(ImmutableMap.<ColumnHandle, Domain>of(dsColumn, domain));
+        TupleDomain<ColumnHandle> tupleDomain = TupleDomain.withColumnDomains(ImmutableMap.of(dsColumn, domain));
         PartitionResult partitionResult = splitManager.getPartitions(tableHandle, tupleDomain);
         for (Partition partition : partitionResult.getPartitions()) {
             if (domain.equals(partition.getTupleDomain().getDomains().get(dsColumn))) {
@@ -581,7 +581,7 @@ public abstract class AbstractTestHiveClient
             throws Exception
     {
         // the bucketed test tables should have exactly 32 splits
-        PartitionResult partitionResult = splitManager.getPartitions(tableHandle, TupleDomain.all());
+        PartitionResult partitionResult = splitManager.getPartitions(tableHandle, TupleDomain.<ColumnHandle>all());
         List<Split> splits = getAllSplits(splitManager.getPartitionSplits(tableHandle, partitionResult.getPartitions()));
         assertEquals(splits.size(), 32);
 
@@ -601,7 +601,7 @@ public abstract class AbstractTestHiveClient
         List<ColumnHandle> columnHandles = ImmutableList.copyOf(metadata.getColumnHandles(tableHandle).values());
         Map<String, Integer> columnIndex = indexColumns(columnHandles);
 
-        PartitionResult partitionResult = splitManager.getPartitions(tableHandle, TupleDomain.all());
+        PartitionResult partitionResult = splitManager.getPartitions(tableHandle, TupleDomain.<ColumnHandle>all());
         List<Split> splits = getAllSplits(splitManager.getPartitionSplits(tableHandle, partitionResult.getPartitions()));
         assertEquals(splits.size(), this.partitions.size());
         for (Split split : splits) {
@@ -724,7 +724,7 @@ public abstract class AbstractTestHiveClient
         List<ColumnHandle> columnHandles = ImmutableList.copyOf(metadata.getColumnHandles(tableHandle).values());
         Map<String, Integer> columnIndex = indexColumns(columnHandles);
 
-        PartitionResult partitionResult = splitManager.getPartitions(tableHandle, TupleDomain.all());
+        PartitionResult partitionResult = splitManager.getPartitions(tableHandle, TupleDomain.<ColumnHandle>all());
         List<Split> splits = getAllSplits(splitManager.getPartitionSplits(tableHandle, partitionResult.getPartitions()));
         assertEquals(splits.size(), this.partitions.size());
         for (Split split : splits) {
@@ -761,7 +761,7 @@ public abstract class AbstractTestHiveClient
         List<ColumnHandle> columnHandles = ImmutableList.copyOf(metadata.getColumnHandles(tableHandle).values());
         Map<String, Integer> columnIndex = indexColumns(columnHandles);
 
-        PartitionResult partitionResult = splitManager.getPartitions(tableHandle, TupleDomain.all());
+        PartitionResult partitionResult = splitManager.getPartitions(tableHandle, TupleDomain.<ColumnHandle>all());
         List<Split> splits = getAllSplits(splitManager.getPartitionSplits(tableHandle, partitionResult.getPartitions()));
         assertEquals(splits.size(), 1);
 
@@ -800,7 +800,7 @@ public abstract class AbstractTestHiveClient
             throws Exception
     {
         TableHandle table = getTableHandle(tableUnpartitioned);
-        PartitionResult partitionResult = splitManager.getPartitions(table, TupleDomain.all());
+        PartitionResult partitionResult = splitManager.getPartitions(table, TupleDomain.<ColumnHandle>all());
         Split split = Iterables.getFirst(getAllSplits(splitManager.getPartitionSplits(table, partitionResult.getPartitions())), null);
         RecordSet recordSet = recordSetProvider.getRecordSet(split, ImmutableList.of(invalidColumnHandle));
         recordSet.cursor();
@@ -892,7 +892,7 @@ public abstract class AbstractTestHiveClient
         assertPrimitiveField(columnMap, 0, "sales", BIGINT, false);
 
         // verify the data
-        PartitionResult partitionResult = splitManager.getPartitions(tableHandle, TupleDomain.all());
+        PartitionResult partitionResult = splitManager.getPartitions(tableHandle, TupleDomain.<ColumnHandle>all());
         assertEquals(partitionResult.getPartitions().size(), 1);
         SplitSource splitSource = splitManager.getPartitionSplits(tableHandle, partitionResult.getPartitions());
         Split split = getOnlyElement(getAllSplits(splitSource));
@@ -980,7 +980,7 @@ public abstract class AbstractTestHiveClient
         assertPrimitiveField(columnMap, 4, "t_boolean", BOOLEAN, false);
 
         // verify the data
-        PartitionResult partitionResult = splitManager.getPartitions(tableHandle, TupleDomain.all());
+        PartitionResult partitionResult = splitManager.getPartitions(tableHandle, TupleDomain.<ColumnHandle>all());
         assertEquals(partitionResult.getPartitions().size(), 1);
         SplitSource splitSource = splitManager.getPartitionSplits(tableHandle, partitionResult.getPartitions());
         Split split = getOnlyElement(getAllSplits(splitSource));

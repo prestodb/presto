@@ -64,7 +64,7 @@ public class HivePartition
     }
 
     @Override
-    public TupleDomain getTupleDomain()
+    public TupleDomain<ColumnHandle> getTupleDomain()
     {
         return TupleDomain.withFixedValues(keys);
     }

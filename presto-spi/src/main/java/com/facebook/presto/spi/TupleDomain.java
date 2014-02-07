@@ -31,11 +31,8 @@ import java.util.Set;
 /**
  * Defines a set of valid tuples according to the constraints on each of its constituent columns
  */
-public final class TupleDomain
+public final class TupleDomain<T>
 {
-    private static final TupleDomain NONE = new TupleDomain(null);
-    private static final TupleDomain ALL = new TupleDomain(Collections.<ColumnHandle, Domain>emptyMap());
-
     /**
      * TupleDomain is internally represented as a normalized map of each column to its
      * respective allowable value Domain. Conceptually, these Domains can be thought of
@@ -49,9 +46,9 @@ public final class TupleDomain
      * any unmentioned column is equivalent to having Domain.all(). To normalize this structure,
      * we remove any Domain.all() values from the map.
      */
-    private final Map<ColumnHandle, Domain> domains;
+    private final Map<T, Domain> domains;
 
-    private TupleDomain(Map<ColumnHandle, Domain> domains)
+    private TupleDomain(Map<T, Domain> domains)
     {
         if (domains == null || containsNoneDomain(domains)) {
             this.domains = null;
@@ -61,26 +58,26 @@ public final class TupleDomain
         }
     }
 
-    public static TupleDomain withColumnDomains(Map<ColumnHandle, Domain> domains)
+    public static <T> TupleDomain<T> withColumnDomains(Map<T, Domain> domains)
     {
-        return new TupleDomain(Objects.requireNonNull(domains, "domains is null"));
+        return new TupleDomain<>(Objects.requireNonNull(domains, "domains is null"));
     }
 
-    public static TupleDomain none()
+    public static <T> TupleDomain<T> none()
     {
-        return NONE;
+        return new TupleDomain<>(null);
     }
 
-    public static TupleDomain all()
+    public static <T> TupleDomain<T> all()
     {
-        return ALL;
+        return new TupleDomain<>(Collections.<T, Domain>emptyMap());
     }
 
     /**
      * Convert a map of columns to values into the TupleDomain which requires
      * those columns to be fixed to those values.
      */
-    public static TupleDomain withFixedValues(Map<ColumnHandle, Comparable<?>> fixedValues)
+    public static TupleDomain<ColumnHandle> withFixedValues(Map<ColumnHandle, Comparable<?>> fixedValues)
     {
         Map<ColumnHandle, Domain> domains = new HashMap<>();
         for (Map.Entry<ColumnHandle, Comparable<?>> entry : fixedValues.entrySet()) {
@@ -91,7 +88,7 @@ public final class TupleDomain
 
     @JsonCreator
     // Available for Jackson deserialization only!
-    public static TupleDomain fromNullableColumnDomains(@JsonProperty("nullableColumnDomains") List<ColumnDomain> nullableColumnDomains)
+    public static <T> TupleDomain<T> fromNullableColumnDomains(@JsonProperty("nullableColumnDomains") List<ColumnDomain<T>> nullableColumnDomains)
     {
         if (nullableColumnDomains == null) {
             return none();
@@ -101,15 +98,15 @@ public final class TupleDomain
 
     @JsonProperty
     // Available for Jackson serialization only!
-    public List<ColumnDomain> getNullableColumnDomains()
+    public List<ColumnDomain<T>> getNullableColumnDomains()
     {
         return domains == null ? null : toList(domains);
     }
 
-    private static Map<ColumnHandle, Domain> toMap(List<ColumnDomain> columnDomains)
+    private static <T> Map<T, Domain> toMap(List<ColumnDomain<T>> columnDomains)
     {
-        Map<ColumnHandle, Domain> map = new HashMap<>();
-        for (ColumnDomain columnDomain : columnDomains) {
+        Map<T, Domain> map = new HashMap<>();
+        for (ColumnDomain<T> columnDomain : columnDomains) {
             if (map.containsKey(columnDomain.getColumnHandle())) {
                 throw new IllegalArgumentException("Duplicate column handle!");
             }
@@ -118,16 +115,16 @@ public final class TupleDomain
         return map;
     }
 
-    private static List<ColumnDomain> toList(Map<ColumnHandle, Domain> columnDomains)
+    private static <T> List<ColumnDomain<T>> toList(Map<T, Domain> columnDomains)
     {
-        List<ColumnDomain> list = new ArrayList<>();
-        for (Map.Entry<ColumnHandle, Domain> entry : columnDomains.entrySet()) {
-            list.add(new ColumnDomain(entry.getKey(), entry.getValue()));
+        List<ColumnDomain<T>> list = new ArrayList<>();
+        for (Map.Entry<T, Domain> entry : columnDomains.entrySet()) {
+            list.add(new ColumnDomain<>(entry.getKey(), entry.getValue()));
         }
         return list;
     }
 
-    private static boolean containsNoneDomain(Map<ColumnHandle, Domain> domains)
+    private static <T> boolean containsNoneDomain(Map<T, Domain> domains)
     {
         for (Domain domain : domains.values()) {
             if (domain.isNone()) {
@@ -137,10 +134,10 @@ public final class TupleDomain
         return false;
     }
 
-    private static Map<ColumnHandle, Domain> normalizeAndCopy(Map<ColumnHandle, Domain> domains)
+    private static <T> Map<T, Domain> normalizeAndCopy(Map<T, Domain> domains)
     {
-        Map<ColumnHandle, Domain> map = new HashMap<>();
-        for (Map.Entry<ColumnHandle, Domain> entry : domains.entrySet()) {
+        Map<T, Domain> map = new HashMap<>();
+        for (Map.Entry<T, Domain> entry : domains.entrySet()) {
             if (!entry.getValue().isAll()) {
                 map.put(entry.getKey(), entry.getValue());
             }
@@ -173,7 +170,7 @@ public final class TupleDomain
      * - The column Domains can be thought of as AND'ed to together to form the whole predicate
      */
     @JsonIgnore
-    public Map<ColumnHandle, Domain> getDomains()
+    public Map<T, Domain> getDomains()
     {
         if (domains == null) {
             throw new IllegalStateException("Can not get column Domains from a none TupleDomain");
@@ -184,14 +181,14 @@ public final class TupleDomain
     /**
      * Extract all column constraints that require exactly one value in their respective Domains.
      */
-    public Map<ColumnHandle, Comparable<?>> extractFixedValues()
+    public Map<T, Comparable<?>> extractFixedValues()
     {
         if (isNone()) {
             return Collections.emptyMap();
         }
 
-        Map<ColumnHandle, Comparable<?>> fixedValues = new HashMap<>();
-        for (Map.Entry<ColumnHandle, Domain> entry : getDomains().entrySet()) {
+        Map<T, Comparable<?>> fixedValues = new HashMap<>();
+        for (Map.Entry<T, Domain> entry : getDomains().entrySet()) {
             if (entry.getValue().isSingleValue()) {
                 fixedValues.put(entry.getKey(), entry.getValue().getSingleValue());
             }
@@ -204,14 +201,14 @@ public final class TupleDomain
      * The resulting TupleDomain represents the set of tuples that would would be valid
      * in both TupleDomains.
      */
-    public TupleDomain intersect(TupleDomain other)
+    public TupleDomain<T> intersect(TupleDomain<T> other)
     {
         if (this.isNone() || other.isNone()) {
             return none();
         }
 
-        Map<ColumnHandle, Domain> intersected = new HashMap<>(this.getDomains());
-        for (Map.Entry<ColumnHandle, Domain> entry : other.getDomains().entrySet()) {
+        Map<T, Domain> intersected = new HashMap<>(this.getDomains());
+        for (Map.Entry<T, Domain> entry : other.getDomains().entrySet()) {
             Domain intersectionDomain = intersected.get(entry.getKey());
             if (intersectionDomain == null) {
                 intersected.put(entry.getKey(), entry.getValue());
@@ -223,9 +220,10 @@ public final class TupleDomain
         return withColumnDomains(intersected);
     }
 
-    public static TupleDomain columnWiseUnion(TupleDomain first, TupleDomain second, TupleDomain... rest)
+    @SafeVarargs
+    public static <T> TupleDomain<T> columnWiseUnion(TupleDomain<T> first, TupleDomain<T> second, TupleDomain<T>... rest)
     {
-        List<TupleDomain> domains = new ArrayList<>();
+        List<TupleDomain<T>> domains = new ArrayList<>();
         domains.add(first);
         domains.add(second);
         domains.addAll(Arrays.asList(rest));
@@ -246,7 +244,7 @@ public final class TupleDomain
      * not be valid for either TupleDomain X or TupleDomain Y.
      * However, this result is guaranteed to be a superset of the strict union.
      */
-    public static TupleDomain columnWiseUnion(List<TupleDomain> tupleDomains)
+    public static <T> TupleDomain<T> columnWiseUnion(List<TupleDomain<T>> tupleDomains)
     {
         if (tupleDomains.isEmpty()) {
             throw new IllegalArgumentException("tupleDomains must have at least one element");
@@ -257,13 +255,13 @@ public final class TupleDomain
         }
 
         // gather all common columns
-        Set<ColumnHandle> commonColumns = new HashSet<>();
+        Set<T> commonColumns = new HashSet<>();
 
         // first, find a non-none domain
         boolean found = false;
-        Iterator<TupleDomain> domains = tupleDomains.iterator();
+        Iterator<TupleDomain<T>> domains = tupleDomains.iterator();
         while (domains.hasNext()) {
-            TupleDomain domain = domains.next();
+            TupleDomain<T> domain = domains.next();
             if (!domain.isNone()) {
                 found = true;
                 commonColumns.addAll(domain.getDomains().keySet());
@@ -277,18 +275,18 @@ public final class TupleDomain
 
         // then, get the common columns
         while (domains.hasNext()) {
-            TupleDomain domain = domains.next();
+            TupleDomain<T> domain = domains.next();
             if (!domain.isNone()) {
                 commonColumns.retainAll(domain.getDomains().keySet());
             }
         }
 
         // group domains by column (only for common columns)
-        Map<ColumnHandle, List<Domain>> domainsByColumn = new HashMap<>();
+        Map<T, List<Domain>> domainsByColumn = new HashMap<>();
 
-        for (TupleDomain domain : tupleDomains) {
+        for (TupleDomain<T> domain : tupleDomains) {
             if (!domain.isNone()) {
-                for (Map.Entry<ColumnHandle, Domain> entry : domain.getDomains().entrySet()) {
+                for (Map.Entry<T, Domain> entry : domain.getDomains().entrySet()) {
                     if (commonColumns.contains(entry.getKey())) {
                         List<Domain> domainForColumn = domainsByColumn.get(entry.getKey());
                         if (domainForColumn == null) {
@@ -302,8 +300,8 @@ public final class TupleDomain
         }
 
         // finally, do the column-wise union
-        Map<ColumnHandle, Domain> result = new HashMap<>();
-        for (Map.Entry<ColumnHandle, List<Domain>> entry : domainsByColumn.entrySet()) {
+        Map<T, Domain> result = new HashMap<>();
+        for (Map.Entry<T, List<Domain>> entry : domainsByColumn.entrySet()) {
             result.put(entry.getKey(), Domain.union(entry.getValue()));
         }
         return withColumnDomains(result);
@@ -313,7 +311,7 @@ public final class TupleDomain
      * Returns true only if there exists a strict intersection between the TupleDomains.
      * i.e. there exists some potential tuple that would be allowable in both TupleDomains.
      */
-    public boolean overlaps(TupleDomain other)
+    public boolean overlaps(TupleDomain<T> other)
     {
         return !this.intersect(other).isNone();
     }
@@ -322,7 +320,7 @@ public final class TupleDomain
      * Returns true only if the this TupleDomain contains all possible tuples that would be allowable by
      * the other TupleDomain.
      */
-    public boolean contains(TupleDomain other)
+    public boolean contains(TupleDomain<T> other)
     {
         return other.isNone() || columnWiseUnion(this, other).equals(this);
     }
@@ -337,7 +335,7 @@ public final class TupleDomain
             return false;
         }
 
-        TupleDomain that = (TupleDomain) o;
+        TupleDomain<T> that = (TupleDomain<T>) o;
 
         if (domains != null ? !domains.equals(that.domains) : that.domains != null) {
             return false;
@@ -370,14 +368,14 @@ public final class TupleDomain
     }
 
     // Available for Jackson serialization only!
-    public static class ColumnDomain
+    public static class ColumnDomain<C>
     {
-        private final ColumnHandle columnHandle;
+        private final C columnHandle;
         private final Domain domain;
 
         @JsonCreator
         public ColumnDomain(
-                @JsonProperty("columnHandle") ColumnHandle columnHandle,
+                @JsonProperty("columnHandle") C columnHandle,
                 @JsonProperty("domain") Domain domain)
         {
             this.columnHandle = Objects.requireNonNull(columnHandle, "columnHandle is null");
@@ -385,7 +383,7 @@ public final class TupleDomain
         }
 
         @JsonProperty
-        public ColumnHandle getColumnHandle()
+        public C getColumnHandle()
         {
             return columnHandle;
         }

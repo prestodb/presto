@@ -763,7 +763,7 @@ public class PredicatePushDown
                     symbolAllocator.getTypes(),
                     node.getAssignments());
             Expression extractionRemainingExpression = extractionResult.getRemainingExpression();
-            TupleDomain tupleDomain = extractionResult.getTupleDomain();
+            TupleDomain<ColumnHandle> tupleDomain = extractionResult.getTupleDomain();
 
             if (node.getGeneratedPartitions().isPresent()) {
                 // Add back in the TupleDomain that was used to generate the previous set of Partitions if present
@@ -774,7 +774,7 @@ public class PredicatePushDown
 
             PartitionResult matchingPartitions = splitManager.getPartitions(node.getTable(), Optional.of(tupleDomain));
             List<Partition> partitions = matchingPartitions.getPartitions();
-            TupleDomain undeterminedTupleDomain = matchingPartitions.getUndeterminedTupleDomain();
+            TupleDomain<ColumnHandle> undeterminedTupleDomain = matchingPartitions.getUndeterminedTupleDomain();
 
             Expression unevaluatedDomainPredicate = DomainTranslator.toPredicate(
                     undeterminedTupleDomain,

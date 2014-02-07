@@ -176,7 +176,7 @@ public class TestCassandraConnector
         List<ColumnHandle> columnHandles = ImmutableList.copyOf(metadata.getColumnHandles(tableHandle).values());
         Map<String, Integer> columnIndex = indexColumns(columnHandles);
 
-        PartitionResult partitionResult = splitManager.getPartitions(tableHandle, TupleDomain.all());
+        PartitionResult partitionResult = splitManager.getPartitions(tableHandle, TupleDomain.<ColumnHandle>all());
         List<Split> splits = getAllSplits(splitManager.getPartitionSplits(tableHandle, partitionResult.getPartitions()));
 
         long rowNumber = 0;

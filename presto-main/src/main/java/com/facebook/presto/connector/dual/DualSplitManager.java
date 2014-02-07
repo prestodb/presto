@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.connector.dual;
 
+import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorSplitManager;
 import com.facebook.presto.spi.FixedSplitSource;
 import com.facebook.presto.spi.NodeManager;
@@ -58,7 +59,7 @@ public class DualSplitManager
     }
 
     @Override
-    public PartitionResult getPartitions(TableHandle table, TupleDomain tupleDomain)
+    public PartitionResult getPartitions(TableHandle table, TupleDomain<ColumnHandle> tupleDomain)
     {
         checkNotNull(table, "table is null");
         checkNotNull(tupleDomain, "tupleDomain is null");
@@ -95,7 +96,7 @@ public class DualSplitManager
         }
 
         @Override
-        public TupleDomain getTupleDomain()
+        public TupleDomain<ColumnHandle> getTupleDomain()
         {
             return TupleDomain.all();
         }

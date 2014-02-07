@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.cassandra;
 
+import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.Partition;
 import com.facebook.presto.spi.TupleDomain;
 
@@ -26,7 +27,7 @@ public class CassandraPartition
 
     private final String partitionId;
     private final byte[] key;
-    private final TupleDomain tupleDomain;
+    private final TupleDomain<ColumnHandle> tupleDomain;
 
     private CassandraPartition()
     {
@@ -35,7 +36,7 @@ public class CassandraPartition
         key = null;
     }
 
-    public CassandraPartition(byte[] key, String partitionId, TupleDomain tupleDomain)
+    public CassandraPartition(byte[] key, String partitionId, TupleDomain<ColumnHandle> tupleDomain)
     {
         this.key = key;
         this.partitionId = partitionId;
@@ -48,7 +49,7 @@ public class CassandraPartition
     }
 
     @Override
-    public TupleDomain getTupleDomain()
+    public TupleDomain<ColumnHandle> getTupleDomain()
     {
         return tupleDomain;
     }

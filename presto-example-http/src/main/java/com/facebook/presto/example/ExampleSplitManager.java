@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.example;
 
+import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorSplitManager;
 import com.facebook.presto.spi.FixedSplitSource;
 import com.facebook.presto.spi.Partition;
@@ -60,7 +61,7 @@ public class ExampleSplitManager
     }
 
     @Override
-    public PartitionResult getPartitions(TableHandle tableHandle, TupleDomain tupleDomain)
+    public PartitionResult getPartitions(TableHandle tableHandle, TupleDomain<ColumnHandle> tupleDomain)
     {
         checkArgument(tableHandle instanceof ExampleTableHandle, "tableHandle is not an instance of ExampleTableHandle");
         ExampleTableHandle exampleTableHandle = (ExampleTableHandle) tableHandle;

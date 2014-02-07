@@ -50,7 +50,7 @@ public class TableScanNode
     private final Map<Symbol, ColumnHandle> assignments; // symbol -> column
     private final Optional<GeneratedPartitions> generatedPartitions;
     private final boolean partitionsDroppedBySerialization;
-    private final TupleDomain partitionDomainSummary;
+    private final TupleDomain<ColumnHandle> partitionDomainSummary;
 
     // HACK!
     //
@@ -131,12 +131,12 @@ public class TableScanNode
         return generatedPartitions;
     }
 
-    public TupleDomain getPartitionsDomainSummary()
+    public TupleDomain<ColumnHandle> getPartitionsDomainSummary()
     {
         return partitionDomainSummary;
     }
 
-    private static TupleDomain computePartitionsDomainSummary(Optional<GeneratedPartitions> generatedPartitions)
+    private static TupleDomain<ColumnHandle> computePartitionsDomainSummary(Optional<GeneratedPartitions> generatedPartitions)
     {
         if (!generatedPartitions.isPresent()) {
             return TupleDomain.all();
@@ -146,10 +146,10 @@ public class TableScanNode
             return TupleDomain.none();
         }
 
-        List<TupleDomain> domains = Lists.transform(generatedPartitions.get().getPartitions(), new Function<Partition, TupleDomain>()
+        List<TupleDomain<ColumnHandle>> domains = Lists.transform(generatedPartitions.get().getPartitions(), new Function<Partition, TupleDomain<ColumnHandle>>()
         {
             @Override
-            public TupleDomain apply(Partition partition)
+            public TupleDomain<ColumnHandle> apply(Partition partition)
             {
                 return partition.getTupleDomain();
             }
@@ -188,16 +188,16 @@ public class TableScanNode
 
     public static final class GeneratedPartitions
     {
-        private final TupleDomain tupleDomainInput; // The TupleDomain used to generate the current list of Partitions
+        private final TupleDomain<ColumnHandle> tupleDomainInput; // The TupleDomain used to generate the current list of Partitions
         private final List<Partition> partitions;
 
-        public GeneratedPartitions(TupleDomain tupleDomainInput, List<Partition> partitions)
+        public GeneratedPartitions(TupleDomain<ColumnHandle> tupleDomainInput, List<Partition> partitions)
         {
             this.tupleDomainInput = checkNotNull(tupleDomainInput, "tupleDomainInput is null");
             this.partitions = ImmutableList.copyOf(checkNotNull(partitions, "partitions is null"));
         }
 
-        public TupleDomain getTupleDomainInput()
+        public TupleDomain<ColumnHandle> getTupleDomainInput()
         {
             return tupleDomainInput;
         }

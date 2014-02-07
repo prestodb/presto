@@ -16,11 +16,23 @@ package com.facebook.presto.spi;
 public interface Connector
 {
     ConnectorHandleResolver getHandleResolver();
+
+    /**
+     * @throws UnsupportedOperationException if this connector doesn't support writing tables
+     */
     ConnectorOutputHandleResolver getOutputHandleResolver();
 
     ConnectorMetadata getMetadata();
     ConnectorSplitManager getSplitManager();
+
+    /**
+     * @throws UnsupportedOperationException if this connector doesn't support reading tables
+     */
     ConnectorRecordSetProvider getRecordSetProvider();
+
+    /**
+     * @throws UnsupportedOperationException if this connector doesn't support writing tables
+     */
     ConnectorRecordSinkProvider getRecordSinkProvider();
     ConnectorIndexResolver getIndexResolver();
 }

@@ -637,7 +637,7 @@ public class HiveClient
     }
 
     @Override
-    public PartitionResult getPartitions(TableHandle tableHandle, TupleDomain tupleDomain)
+    public PartitionResult getPartitions(TableHandle tableHandle, TupleDomain<ColumnHandle> tupleDomain)
     {
         checkNotNull(tableHandle, "tableHandle is null");
         checkNotNull(tupleDomain, "tupleDomain is null");
@@ -711,7 +711,7 @@ public class HiveClient
                 .toList();
 
         // All partition key domains will be fully evaluated, so we don't need to include those
-        TupleDomain remainingTupleDomain = TupleDomain.none();
+        TupleDomain<ColumnHandle> remainingTupleDomain = TupleDomain.none();
         if (!tupleDomain.isNone()) {
             remainingTupleDomain = TupleDomain.withColumnDomains(Maps.filterKeys(tupleDomain.getDomains(), not(in(partitionKeysByName.values()))));
         }
@@ -960,7 +960,7 @@ public class HiveClient
         };
     }
 
-    public static Predicate<HivePartition> partitionMatches(final TupleDomain tupleDomain)
+    public static Predicate<HivePartition> partitionMatches(final TupleDomain<ColumnHandle> tupleDomain)
     {
         return new Predicate<HivePartition>()
         {
