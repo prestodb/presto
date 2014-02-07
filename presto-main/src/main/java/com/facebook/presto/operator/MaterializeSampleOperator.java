@@ -155,7 +155,7 @@ public class MaterializeSampleOperator
         }
 
         boolean advanced = sampleWeightCursor.advanceNextPosition();
-        for (BlockCursor cursor: cursors) {
+        for (BlockCursor cursor : cursors) {
             checkState(advanced == cursor.advanceNextPosition());
         }
 

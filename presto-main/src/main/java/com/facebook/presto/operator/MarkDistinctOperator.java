@@ -284,7 +284,7 @@ class MarkDistinctSampledOperator
         }
 
         boolean advanced = markerCursor.advanceNextPosition();
-        for (BlockCursor cursor: cursors) {
+        for (BlockCursor cursor : cursors) {
             checkState(advanced == cursor.advanceNextPosition());
         }
 

@@ -117,7 +117,7 @@ public class MaterializedResult
 
         public Builder pages(Iterable<Page> pages)
         {
-            for (Page page: pages) {
+            for (Page page : pages) {
                 this.page(page);
             }
 
