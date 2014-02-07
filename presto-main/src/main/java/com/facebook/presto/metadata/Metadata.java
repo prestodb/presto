@@ -74,6 +74,20 @@ public interface Metadata
     Optional<ColumnHandle> getColumnHandle(TableHandle tableHandle, String columnName);
 
     /**
+     * Returns the handle for the sample weight column.
+     *
+     * @throws RuntimeException if the table handle is no longer valid
+     */
+    @NotNull
+    Optional<ColumnHandle> getSampleWeightColumnHandle(TableHandle tableHandle);
+
+    /**
+     * Returns true iff this catalog supports creation of sampled tables
+     *
+     */
+    boolean canCreateSampledTables(String catalogName);
+
+    /**
      * Gets all of the columns on the specified table, or an empty map if the columns can not be enumerated.
      *
      * @throws RuntimeException if table handle is no longer valid

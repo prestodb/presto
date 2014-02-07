@@ -54,9 +54,9 @@ public class ApproximateAverageAggregation
     }
 
     @Override
-    protected GroupedAccumulator createGroupedAccumulator(Optional<Integer> maskChannel, int valueChannel)
+    protected GroupedAccumulator createGroupedAccumulator(Optional<Integer> maskChannel, Optional<Integer> sampleWeightChannel, int valueChannel)
     {
-        return new ApproximateAverageGroupedAccumulator(valueChannel, inputIsLong, maskChannel);
+        return new ApproximateAverageGroupedAccumulator(valueChannel, inputIsLong, maskChannel, sampleWeightChannel);
     }
 
     public static class ApproximateAverageGroupedAccumulator
@@ -68,9 +68,9 @@ public class ApproximateAverageAggregation
         private final DoubleBigArray means;
         private final DoubleBigArray m2s;
 
-        private ApproximateAverageGroupedAccumulator(int valueChannel, boolean inputIsLong, Optional<Integer> maskChannel)
+        private ApproximateAverageGroupedAccumulator(int valueChannel, boolean inputIsLong, Optional<Integer> maskChannel, Optional<Integer> sampleWeightChannel)
         {
-            super(valueChannel, SINGLE_VARBINARY, SINGLE_VARBINARY, maskChannel);
+            super(valueChannel, SINGLE_VARBINARY, SINGLE_VARBINARY, maskChannel, sampleWeightChannel);
 
             this.inputIsLong = inputIsLong;
 
@@ -86,7 +86,7 @@ public class ApproximateAverageAggregation
         }
 
         @Override
-        protected void processInput(GroupByIdBlock groupIdsBlock, Block valuesBlock, Optional<Block> maskBlock)
+        protected void processInput(GroupByIdBlock groupIdsBlock, Block valuesBlock, Optional<Block> maskBlock, Optional<Block> sampleWeightBlock)
         {
             counts.ensureCapacity(groupIdsBlock.getGroupCount());
             means.ensureCapacity(groupIdsBlock.getGroupCount());
@@ -97,12 +97,18 @@ public class ApproximateAverageAggregation
             if (maskBlock.isPresent()) {
                 masks = maskBlock.get().cursor();
             }
+            BlockCursor sampleWeights = null;
+            if (sampleWeightBlock.isPresent()) {
+                sampleWeights = sampleWeightBlock.get().cursor();
+            }
 
             for (int position = 0; position < groupIdsBlock.getPositionCount(); position++) {
                 checkState(values.advanceNextPosition());
                 checkState(masks == null || masks.advanceNextPosition());
+                checkState(sampleWeights == null || sampleWeights.advanceNextPosition());
+                long sampleWeight = computeSampleWeight(masks, sampleWeights);
 
-                if (!values.isNull() && (masks == null || masks.getBoolean())) {
+                if (!values.isNull() && sampleWeight > 0) {
                     long groupId = groupIdsBlock.getGroupId(position);
                     double inputValue;
                     if (inputIsLong) {
@@ -116,11 +122,13 @@ public class ApproximateAverageAggregation
                     double currentMean = means.get(groupId);
 
                     // Use numerically stable variant
-                    currentCount++;
-                    double delta = inputValue - currentMean;
-                    currentMean += (delta / currentCount);
-                    // update m2 inline
-                    m2s.add(groupId, (delta * (inputValue - currentMean)));
+                    for (int i = 0; i < sampleWeight; i++) {
+                        currentCount++;
+                        double delta = inputValue - currentMean;
+                        currentMean += (delta / currentCount);
+                        // update m2 inline
+                        m2s.add(groupId, (delta * (inputValue - currentMean)));
+                    }
 
                     // write values back out
                     counts.set(groupId, currentCount);
@@ -197,9 +205,9 @@ public class ApproximateAverageAggregation
     }
 
     @Override
-    protected Accumulator createAccumulator(Optional<Integer> maskChannel, int valueChannel)
+    protected Accumulator createAccumulator(Optional<Integer> maskChannel, Optional<Integer> sampleWeightChannel, int valueChannel)
     {
-        return new ApproximateAverageAccumulator(valueChannel, inputIsLong, maskChannel);
+        return new ApproximateAverageAccumulator(valueChannel, inputIsLong, maskChannel, sampleWeightChannel);
     }
 
     public static class ApproximateAverageAccumulator
@@ -211,27 +219,33 @@ public class ApproximateAverageAggregation
         private double currentMean;
         private double currentM2;
 
-        private ApproximateAverageAccumulator(int valueChannel, boolean inputIsLong, Optional<Integer> maskChannel)
+        private ApproximateAverageAccumulator(int valueChannel, boolean inputIsLong, Optional<Integer> maskChannel, Optional<Integer> sampleWeightChannel)
         {
-            super(valueChannel, SINGLE_VARBINARY, SINGLE_VARBINARY, maskChannel);
+            super(valueChannel, SINGLE_VARBINARY, SINGLE_VARBINARY, maskChannel, sampleWeightChannel);
 
             this.inputIsLong = inputIsLong;
         }
 
         @Override
-        protected void processInput(Block block, Optional<Block> maskBlock)
+        protected void processInput(Block block, Optional<Block> maskBlock, Optional<Block> sampleWeightBlock)
         {
             BlockCursor values = block.cursor();
             BlockCursor masks = null;
             if (maskBlock.isPresent()) {
                 masks = maskBlock.get().cursor();
             }
+            BlockCursor sampleWeights = null;
+            if (sampleWeightBlock.isPresent()) {
+                sampleWeights = sampleWeightBlock.get().cursor();
+            }
 
             for (int position = 0; position < block.getPositionCount(); position++) {
                 checkState(values.advanceNextPosition());
                 checkState(masks == null || masks.advanceNextPosition());
+                checkState(sampleWeights == null || sampleWeights.advanceNextPosition());
+                long sampleWeight = computeSampleWeight(masks, sampleWeights);
 
-                if (!values.isNull() && (masks == null || masks.getBoolean())) {
+                if (!values.isNull() && sampleWeight > 0) {
                     double inputValue;
                     if (inputIsLong) {
                         inputValue = values.getLong();
@@ -240,12 +254,14 @@ public class ApproximateAverageAggregation
                         inputValue = values.getDouble();
                     }
 
-                    // Use numerically stable variant
-                    currentCount++;
-                    double delta = inputValue - currentMean;
-                    currentMean += (delta / currentCount);
-                    // update m2 inline
-                    currentM2 += (delta * (inputValue - currentMean));
+                    for (int i = 0; i < sampleWeight; i++) {
+                        // Use numerically stable variant
+                        currentCount++;
+                        double delta = inputValue - currentMean;
+                        currentMean += (delta / currentCount);
+                        // update m2 inline
+                        currentM2 += (delta * (inputValue - currentMean));
+                    }
                 }
             }
             checkState(!values.advanceNextPosition());

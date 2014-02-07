@@ -139,6 +139,12 @@ public class JmxMetadata
     }
 
     @Override
+    public ColumnHandle getSampleWeightColumnHandle(TableHandle tableHandle)
+    {
+        return null;
+    }
+
+    @Override
     public Map<String, ColumnHandle> getColumnHandles(TableHandle tableHandle)
     {
         checkNotNull(tableHandle, "tableHandle is null");

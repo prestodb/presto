@@ -36,7 +36,7 @@ public class DoubleMinAggregation
     }
 
     @Override
-    protected GroupedAccumulator createGroupedAccumulator(Optional<Integer> maskChannel, int valueChannel)
+    protected GroupedAccumulator createGroupedAccumulator(Optional<Integer> maskChannel, Optional<Integer> sampleWeightChannel, int valueChannel)
     {
         // Min/max are not effected by distinct, so ignore it.
         return new DoubleMinGroupedAccumulator(valueChannel);
@@ -50,7 +50,7 @@ public class DoubleMinAggregation
 
         public DoubleMinGroupedAccumulator(int valueChannel)
         {
-            super(valueChannel, SINGLE_DOUBLE, SINGLE_DOUBLE, Optional.<Integer>absent());
+            super(valueChannel, SINGLE_DOUBLE, SINGLE_DOUBLE, Optional.<Integer>absent(), Optional.<Integer>absent());
 
             this.notNull = new BooleanBigArray();
 
@@ -64,7 +64,7 @@ public class DoubleMinAggregation
         }
 
         @Override
-        protected void processInput(GroupByIdBlock groupIdsBlock, Block valuesBlock, Optional<Block> maskBlock)
+        protected void processInput(GroupByIdBlock groupIdsBlock, Block valuesBlock, Optional<Block> maskBlock, Optional<Block> sampleWeightBlock)
         {
             notNull.ensureCapacity(groupIdsBlock.getGroupCount());
             minValues.ensureCapacity(groupIdsBlock.getGroupCount(), Double.POSITIVE_INFINITY);
@@ -101,7 +101,7 @@ public class DoubleMinAggregation
     }
 
     @Override
-    protected Accumulator createAccumulator(Optional<Integer> maskChannel, int valueChannel)
+    protected Accumulator createAccumulator(Optional<Integer> maskChannel, Optional<Integer> sampleWeightChannel, int valueChannel)
     {
         // Min/max are not effected by distinct, so ignore it.
         return new DoubleMinAccumulator(valueChannel);
@@ -115,11 +115,11 @@ public class DoubleMinAggregation
 
         public DoubleMinAccumulator(int valueChannel)
         {
-            super(valueChannel, SINGLE_DOUBLE, SINGLE_DOUBLE, Optional.<Integer>absent());
+            super(valueChannel, SINGLE_DOUBLE, SINGLE_DOUBLE, Optional.<Integer>absent(), Optional.<Integer>absent());
         }
 
         @Override
-        protected void processInput(Block block, Optional<Block> maskBlock)
+        protected void processInput(Block block, Optional<Block> maskBlock, Optional<Block> sampleWeightBlock)
         {
             BlockCursor values = block.cursor();
 

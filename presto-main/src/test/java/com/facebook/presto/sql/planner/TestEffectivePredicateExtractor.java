@@ -133,7 +133,8 @@ public class TestEffectivePredicateExtractor
                 ImmutableMap.of(C, fakeFunction("test"), D, fakeFunction("test")),
                 ImmutableMap.of(C, fakeFunctionHandle("test"), D, fakeFunctionHandle("test")),
                 ImmutableMap.<Symbol, Symbol>of(),
-                AggregationNode.Step.FINAL);
+                AggregationNode.Step.FINAL,
+                Optional.<Symbol>absent());
 
         Expression effectivePredicate = EffectivePredicateExtractor.extract(node);
 
@@ -193,7 +194,7 @@ public class TestEffectivePredicateExtractor
                                 equals(AE, BE),
                                 equals(BE, CE),
                                 lessThan(CE, number(10)))),
-                1, ImmutableList.of(A), ImmutableMap.of(A, SortOrder.ASC_NULLS_LAST), true);
+                1, ImmutableList.of(A), ImmutableMap.of(A, SortOrder.ASC_NULLS_LAST), true, Optional.<Symbol>absent());
 
         Expression effectivePredicate = EffectivePredicateExtractor.extract(node);
 
@@ -215,7 +216,8 @@ public class TestEffectivePredicateExtractor
                                 equals(AE, BE),
                                 equals(BE, CE),
                                 lessThan(CE, number(10)))),
-                1);
+                1,
+                Optional.<Symbol>absent());
 
         Expression effectivePredicate = EffectivePredicateExtractor.extract(node);
 

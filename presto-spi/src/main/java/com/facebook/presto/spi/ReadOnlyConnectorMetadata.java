@@ -37,6 +37,12 @@ public abstract class ReadOnlyConnectorMetadata
     }
 
     @Override
+    public final boolean canCreateSampledTables()
+    {
+        return false;
+    }
+
+    @Override
     public final OutputTableHandle beginCreateTable(ConnectorTableMetadata tableMetadata)
     {
         throw new UnsupportedOperationException();

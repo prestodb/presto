@@ -467,7 +467,7 @@ public class ExpressionCompiler
                 a(PUBLIC),
                 "filterAndProjectRowOriented",
                 type(void.class),
-                arg("blocks", com.facebook.presto.block.Block[].class),
+                arg("page", com.facebook.presto.operator.Page.class),
                 arg("pageBuilder", PageBuilder.class));
 
         CompilerContext compilerContext = filterAndProjectMethod.getCompilerContext();
@@ -476,23 +476,21 @@ public class ExpressionCompiler
 
         LocalVariableDefinition rowsVariable = compilerContext.declareVariable(int.class, "rows");
         filterAndProjectMethod.getBody()
-                .comment("int rows = blocks[0].getPositionCount();")
-                .getVariable("blocks")
-                .push(0)
-                .getObjectArrayElement()
-                .invokeInterface(com.facebook.presto.block.Block.class, "getPositionCount", int.class)
+                .comment("int rows = page.getPositionCount();")
+                .getVariable("page")
+                .invokeVirtual(com.facebook.presto.operator.Page.class, "getPositionCount", int.class)
                 .putVariable(rowsVariable);
 
         List<LocalVariableDefinition> cursorVariables = new ArrayList<>();
-        int channels = Ordering.natural().max(transform(inputTypes.keySet(), Input.channelGetter())) + 1;
+        int channels = inputTypes.isEmpty() ? 0 : Ordering.natural().max(transform(inputTypes.keySet(), Input.channelGetter())) + 1;
         for (int i = 0; i < channels; i++) {
             LocalVariableDefinition cursorVariable = compilerContext.declareVariable(BlockCursor.class, "cursor_" + i);
             cursorVariables.add(cursorVariable);
             filterAndProjectMethod.getBody()
-                    .comment("BlockCursor %s = blocks[%s].cursor();", cursorVariable.getName(), i)
-                    .getVariable("blocks")
+                    .comment("BlockCursor %s = page.getBlock(%s).cursor();", cursorVariable.getName(), i)
+                    .getVariable("page")
                     .push(i)
-                    .getObjectArrayElement()
+                    .invokeVirtual(com.facebook.presto.operator.Page.class, "getBlock", com.facebook.presto.block.Block.class, int.class)
                     .invokeInterface(com.facebook.presto.block.Block.class, "cursor", BlockCursor.class)
                     .putVariable(cursorVariable);
         }
@@ -841,7 +839,7 @@ public class ExpressionCompiler
     private List<NamedParameterDefinition> toTupleReaderParameters(Map<Input, Type> inputTypes)
     {
         ImmutableList.Builder<NamedParameterDefinition> parameters = ImmutableList.builder();
-        int channels = Ordering.natural().max(transform(inputTypes.keySet(), Input.channelGetter())) + 1;
+        int channels = inputTypes.isEmpty() ? 0 : Ordering.natural().max(transform(inputTypes.keySet(), Input.channelGetter())) + 1;
         for (int i = 0; i < channels; i++) {
             parameters.add(arg("channel_" + i, TupleReadable.class));
         }

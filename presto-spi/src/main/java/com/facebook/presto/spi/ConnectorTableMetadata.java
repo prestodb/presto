@@ -23,6 +23,7 @@ public class ConnectorTableMetadata
     private final List<ColumnMetadata> columns;
     /* nullable */
     private final String owner;
+    private final boolean sampled;
 
     public ConnectorTableMetadata(SchemaTableName table, List<ColumnMetadata> columns)
     {
@@ -30,6 +31,11 @@ public class ConnectorTableMetadata
     }
 
     public ConnectorTableMetadata(SchemaTableName table, List<ColumnMetadata> columns, String owner)
+    {
+        this(table, columns, owner, false);
+    }
+
+    public ConnectorTableMetadata(SchemaTableName table, List<ColumnMetadata> columns, String owner, boolean sampled)
     {
         if (table == null) {
             throw new NullPointerException("table is null or empty");
@@ -41,6 +47,12 @@ public class ConnectorTableMetadata
         this.table = table;
         this.columns = Collections.unmodifiableList(new ArrayList<>(columns));
         this.owner = owner;
+        this.sampled = sampled;
+    }
+
+    public boolean isSampled()
+    {
+        return sampled;
     }
 
     public SchemaTableName getTable()

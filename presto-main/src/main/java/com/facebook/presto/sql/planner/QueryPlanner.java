@@ -188,6 +188,7 @@ class QueryPlanner
         TableHandle table = optionalHandle.get();
         TableMetadata tableMetadata = metadata.getTableMetadata(table);
         Map<String, ColumnHandle> columnHandles = metadata.getColumnHandles(table);
+        checkState(!metadata.getSampleWeightColumnHandle(table).isPresent(), "dual table should not have a sample weight");
 
         ImmutableMap.Builder<Symbol, ColumnHandle> columns = ImmutableMap.builder();
         for (ColumnMetadata column : tableMetadata.getColumns()) {
@@ -196,9 +197,9 @@ class QueryPlanner
         }
 
         ImmutableMap<Symbol, ColumnHandle> assignments = columns.build();
-        TableScanNode tableScan = new TableScanNode(idAllocator.getNextId(), table, ImmutableList.copyOf(assignments.keySet()), assignments, null, Optional.<GeneratedPartitions>absent());
+        PlanNode node = new TableScanNode(idAllocator.getNextId(), table, ImmutableList.copyOf(assignments.keySet()), assignments, null, Optional.<GeneratedPartitions>absent());
 
-        return new RelationPlan(tableScan, new TupleDescriptor(), ImmutableList.<Symbol>of());
+        return new RelationPlan(node, new TupleDescriptor(), ImmutableList.<Symbol>of());
     }
 
     private PlanBuilder filter(PlanBuilder subPlan, Expression predicate)
@@ -307,11 +308,12 @@ class QueryPlanner
             MarkDistinctNode markDistinct = new MarkDistinctNode(idAllocator.getNextId(),
                     subPlan.getRoot(),
                     entry.getValue(),
-                    builder.build());
+                    builder.build(),
+                    Optional.<Symbol>absent());
             subPlan = new PlanBuilder(subPlan.getTranslations(), markDistinct);
         }
 
-        return new PlanBuilder(translations, new AggregationNode(idAllocator.getNextId(), subPlan.getRoot(), ImmutableList.copyOf(groupBySymbols), aggregationAssignments.build(), functions.build(), masks.build()));
+        return new PlanBuilder(translations, new AggregationNode(idAllocator.getNextId(), subPlan.getRoot(), ImmutableList.copyOf(groupBySymbols), aggregationAssignments.build(), functions.build(), masks.build(), Optional.<Symbol>absent()));
     }
 
     private PlanBuilder window(PlanBuilder subPlan, QuerySpecification node)
@@ -454,7 +456,8 @@ class QueryPlanner
                     subPlan.getRoot().getOutputSymbols(),
                     ImmutableMap.<Symbol, FunctionCall>of(),
                     ImmutableMap.<Symbol, Signature>of(),
-                    ImmutableMap.<Symbol, Symbol>of());
+                    ImmutableMap.<Symbol, Symbol>of(),
+                    Optional.<Symbol>absent());
 
             return new PlanBuilder(subPlan.getTranslations(), aggregation);
         }
@@ -491,7 +494,7 @@ class QueryPlanner
 
         PlanNode planNode;
         if (limit.isPresent()) {
-            planNode = new TopNNode(idAllocator.getNextId(), subPlan.getRoot(), Long.valueOf(limit.get()), orderBySymbols.build(), orderings.build(), false);
+            planNode = new TopNNode(idAllocator.getNextId(), subPlan.getRoot(), Long.valueOf(limit.get()), orderBySymbols.build(), orderings.build(), false, Optional.<Symbol>absent());
         }
         else {
             planNode = new SortNode(idAllocator.getNextId(), subPlan.getRoot(), orderBySymbols.build(), orderings.build());
@@ -513,7 +516,8 @@ class QueryPlanner
     private PlanBuilder limit(PlanBuilder subPlan, List<SortItem> orderBy, Optional<String> limit)
     {
         if (orderBy.isEmpty() && limit.isPresent()) {
-            return new PlanBuilder(subPlan.getTranslations(), new LimitNode(idAllocator.getNextId(), subPlan.getRoot(), Long.valueOf(limit.get())));
+            long limitValue = Long.valueOf(limit.get());
+            return new PlanBuilder(subPlan.getTranslations(), new LimitNode(idAllocator.getNextId(), subPlan.getRoot(), limitValue, Optional.<Symbol>absent()));
         }
 
         return subPlan;

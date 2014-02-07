@@ -18,6 +18,7 @@ import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.ShardManager;
 import com.facebook.presto.spi.NodeManager;
 import com.facebook.presto.split.SplitManager;
+import com.facebook.presto.sql.planner.optimizations.MaterializeSamplePullUp;
 import com.facebook.presto.sql.planner.optimizations.ImplementSampleAsFilter;
 import com.facebook.presto.sql.planner.optimizations.LimitPushDown;
 import com.facebook.presto.sql.planner.optimizations.MergeProjections;
@@ -57,6 +58,7 @@ public class PlanOptimizersFactory
                 new UnaliasSymbolReferences(),
                 new PruneRedundantProjections(),
                 new SetFlatteningOptimizer(),
+                new MaterializeSamplePullUp(),
                 new LimitPushDown(), // Run the LimitPushDown after flattening set operators to make it easier to do the set flattening
                 new PredicatePushDown(metadata, splitManager),
                 new PredicatePushDown(metadata, splitManager), // Run predicate push down one more time in case we can leverage new information from generated partitions

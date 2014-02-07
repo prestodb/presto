@@ -16,6 +16,8 @@ package com.facebook.presto.sql.planner.plan;
 import com.facebook.presto.sql.planner.Symbol;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.google.common.base.Optional;
+import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 
 import javax.annotation.concurrent.Immutable;
@@ -31,18 +33,24 @@ public class MarkDistinctNode
     private final PlanNode source;
     private final Symbol markerSymbol;
     private final List<Symbol> distinctSymbols;
+    private final Optional<Symbol> sampleWeightSymbol;
 
     @JsonCreator
     public MarkDistinctNode(@JsonProperty("id") PlanNodeId id,
             @JsonProperty("source") PlanNode source,
             @JsonProperty("markerSymbol") Symbol markerSymbol,
-            @JsonProperty("distinctSymbols") List<Symbol> distinctSymbols)
+            @JsonProperty("distinctSymbols") List<Symbol> distinctSymbols,
+            @JsonProperty("sampleWeightSymbol") Optional<Symbol> sampleWeightSymbol)
     {
         super(id);
-
         this.source = source;
         this.markerSymbol = markerSymbol;
         this.distinctSymbols = ImmutableList.copyOf(checkNotNull(distinctSymbols, "distinctSymbols is null"));
+        this.sampleWeightSymbol = checkNotNull(sampleWeightSymbol, "sampleWeightSymbol is null");
+
+        if (sampleWeightSymbol.isPresent()) {
+            Preconditions.checkArgument(source.getOutputSymbols().contains(sampleWeightSymbol.get()), "source does not output sample weight");
+        }
     }
 
     @Override
@@ -58,6 +66,12 @@ public class MarkDistinctNode
     public List<PlanNode> getSources()
     {
         return ImmutableList.of(source);
+    }
+
+    @JsonProperty
+    public Optional<Symbol> getSampleWeightSymbol()
+    {
+        return sampleWeightSymbol;
     }
 
     @JsonProperty

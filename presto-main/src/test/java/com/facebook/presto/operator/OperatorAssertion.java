@@ -13,8 +13,12 @@
  */
 package com.facebook.presto.operator;
 
+import com.facebook.presto.block.Block;
+import com.facebook.presto.block.BlockBuilder;
 import com.facebook.presto.tuple.TupleInfo;
+import com.facebook.presto.util.IterableTransformer;
 import com.facebook.presto.util.MaterializedResult;
+import com.google.common.base.Function;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
@@ -28,6 +32,25 @@ public final class OperatorAssertion
 {
     private OperatorAssertion()
     {
+    }
+
+    public static List<Page> appendSampleWeight(List<Page> input, final int sampleWeight)
+    {
+        return IterableTransformer.on(input).transform(new Function<Page, Page>()
+        {
+            @Override
+            public Page apply(Page page)
+            {
+                BlockBuilder builder = new BlockBuilder(TupleInfo.SINGLE_LONG);
+                for (int i = 0; i < page.getPositionCount(); i++) {
+                    builder.append(sampleWeight);
+                }
+                Block[] blocks = new Block[page.getChannelCount() + 1];
+                System.arraycopy(page.getBlocks(), 0, blocks, 0, page.getChannelCount());
+                blocks[blocks.length - 1] = builder.build();
+                return new Page(blocks);
+            }
+        }).list();
     }
 
     public static List<Page> toPages(Operator operator, List<Page> input)

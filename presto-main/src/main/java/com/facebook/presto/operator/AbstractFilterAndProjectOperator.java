@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.operator;
 
-import com.facebook.presto.block.Block;
 import com.facebook.presto.tuple.TupleInfo;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -39,7 +38,7 @@ public abstract class AbstractFilterAndProjectOperator
         this.pageBuilder = new PageBuilder(getTupleInfos());
     }
 
-    protected abstract void filterAndProjectRowOriented(Block[] blocks, PageBuilder pageBuilder);
+    protected abstract void filterAndProjectRowOriented(Page page, PageBuilder pageBuilder);
 
     @Override
     public OperatorContext getOperatorContext()
@@ -84,8 +83,7 @@ public abstract class AbstractFilterAndProjectOperator
         checkNotNull(page, "page is null");
         checkState(!pageBuilder.isFull(), "Page buffer is full");
 
-        Block[] blocks = page.getBlocks();
-        filterAndProjectRowOriented(blocks, pageBuilder);
+        filterAndProjectRowOriented(page, pageBuilder);
     }
 
     @Override

@@ -36,7 +36,7 @@ public class VarBinaryMaxAggregation
     }
 
     @Override
-    protected GroupedAccumulator createGroupedAccumulator(Optional<Integer> maskChannel, int valueChannel)
+    protected GroupedAccumulator createGroupedAccumulator(Optional<Integer> maskChannel, Optional<Integer> sampleWeightChannel, int valueChannel)
     {
         // Min/max are not effected by distinct, so ignore it.
         return new VarBinaryMaxGroupedAccumulator(valueChannel);
@@ -50,7 +50,7 @@ public class VarBinaryMaxAggregation
 
         public VarBinaryMaxGroupedAccumulator(int valueChannel)
         {
-            super(valueChannel, SINGLE_VARBINARY, SINGLE_VARBINARY, Optional.<Integer>absent());
+            super(valueChannel, SINGLE_VARBINARY, SINGLE_VARBINARY, Optional.<Integer>absent(), Optional.<Integer>absent());
 
             this.maxValues = new ObjectBigArray<>();
         }
@@ -62,7 +62,7 @@ public class VarBinaryMaxAggregation
         }
 
         @Override
-        protected void processInput(GroupByIdBlock groupIdsBlock, Block valuesBlock, Optional<Block> maskBlock)
+        protected void processInput(GroupByIdBlock groupIdsBlock, Block valuesBlock, Optional<Block> maskBlock, Optional<Block> sampleWeightBlock)
         {
             maxValues.ensureCapacity(groupIdsBlock.getGroupCount());
 
@@ -105,7 +105,7 @@ public class VarBinaryMaxAggregation
     }
 
     @Override
-    protected Accumulator createAccumulator(Optional<Integer> maskChannel, int valueChannel)
+    protected Accumulator createAccumulator(Optional<Integer> maskChannel, Optional<Integer> sampleWeightChannel, int valueChannel)
     {
         // Min/max are not effected by distinct, so ignore it.
         return new VarBinaryMaxAccumulator(valueChannel);
@@ -118,11 +118,11 @@ public class VarBinaryMaxAggregation
 
         public VarBinaryMaxAccumulator(int valueChannel)
         {
-            super(valueChannel, SINGLE_VARBINARY, SINGLE_VARBINARY, Optional.<Integer>absent());
+            super(valueChannel, SINGLE_VARBINARY, SINGLE_VARBINARY, Optional.<Integer>absent(), Optional.<Integer>absent());
         }
 
         @Override
-        protected void processInput(Block block, Optional<Block> maskBlock)
+        protected void processInput(Block block, Optional<Block> maskBlock, Optional<Block> sampleWeightBlock)
         {
             BlockCursor values = block.cursor();
 

@@ -52,6 +52,7 @@ import java.util.Properties;
 
 import static com.facebook.presto.hive.HiveType.columnTypeToHiveType;
 import static com.facebook.presto.hive.HiveType.hiveTypeNameGetter;
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.Iterables.transform;
 import static java.nio.charset.StandardCharsets.UTF_8;
@@ -97,8 +98,9 @@ public class HiveRecordSink
     }
 
     @Override
-    public void beginRecord()
+    public void beginRecord(long sampleWeight)
     {
+        checkArgument(sampleWeight == 1, "HiveRecordSink does not support storing sampled data");
         checkState(field == -1, "already in record");
         field = 0;
     }

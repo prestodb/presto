@@ -100,6 +100,12 @@ public class DualMetadata
         return new DualColumnHandle(COLUMN_NAME);
     }
 
+    @Override
+    public ColumnHandle getSampleWeightColumnHandle(TableHandle tableHandle)
+    {
+        return null;
+    }
+
     public Map<String, ColumnHandle> getColumnHandles(TableHandle tableHandle)
     {
         checkNotNull(tableHandle, "tableHandle is null");
