@@ -120,8 +120,11 @@ public final class HashPagePartitionFunction
         long hashCode = 1;
         for (int channel : partitioningChannels) {
             hashCode *= 31;
-            hashCode += calculateHashCode(tupleInfos.get(channel), cursors[channel]) & 0xFFFF_FFFFL;
+            hashCode += calculateHashCode(tupleInfos.get(channel), cursors[channel]);
         }
+        // clear the sign bit
+        hashCode &= 0x7fff_ffff_ffff_ffffL;
+
         int bucket = (int) (hashCode % partitionCount);
         checkState(bucket >= 0 && bucket < partitionCount);
         return bucket;

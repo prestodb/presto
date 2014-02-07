@@ -24,6 +24,7 @@ import com.facebook.presto.execution.TaskExecutor.TaskHandle;
 import com.facebook.presto.operator.Driver;
 import com.facebook.presto.operator.DriverContext;
 import com.facebook.presto.operator.DriverFactory;
+import com.facebook.presto.operator.DriverStats;
 import com.facebook.presto.operator.PipelineContext;
 import com.facebook.presto.operator.TaskContext;
 import com.facebook.presto.operator.TaskOutputOperator.TaskOutputFactory;
@@ -175,7 +176,11 @@ public class SqlTaskExecution
                     if (taskState.isDone()) {
                         SqlTaskExecution.this.taskExecutor.removeTask(taskHandle);
                         // make sure buffers are cleaned up
-                        sharedBuffer.destroy();
+                        if (taskState != TaskState.FAILED) {
+                            // don't close buffers for a failed query
+                            // closed buffers signal to upstream tasks that everything finished cleanly
+                            sharedBuffer.destroy();
+                        }
                     }
                 }
             });
@@ -428,8 +433,18 @@ public class SqlTaskExecution
                         // record driver is finished
                         remainingDrivers.decrementAndGet();
 
-                        // todo add failure info to split completion event
-                        queryMonitor.splitFailedEvent(taskId, splitRunner.getDriverContext().getDriverStats(), cause);
+                        DriverContext driverContext = splitRunner.getDriverContext();
+                        DriverStats driverStats;
+                        if (driverContext != null) {
+                            driverStats = driverContext.getDriverStats();
+                        }
+                        else {
+                            // split runner did not start successfully
+                            driverStats = new DriverStats();
+                        }
+
+                        // fire failed event with cause
+                        queryMonitor.splitFailedEvent(taskId, driverStats, cause);
                     }
                 }
             }, notificationExecutor);

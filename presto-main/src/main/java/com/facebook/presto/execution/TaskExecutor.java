@@ -192,10 +192,12 @@ public class TaskExecutor
             if (forceStart) {
                 // Note: we do not record queued time for forced splits
                 startSplit(prioritizedSplitRunner);
+                // add the runner to the handle so it can be destroyed if the task is canceled
+                taskHandle.recordRunningSplit(prioritizedSplitRunner);
             }
             else {
                 // add this to the work queue for the task
-                taskHandle.addSplit(prioritizedSplitRunner);
+                taskHandle.enqueueSplit(prioritizedSplitRunner);
                 // if task is under the limit for gaurenteed splits, start one
                 scheduleTaskIfNecessary(taskHandle);
                 // if globally we have more resources, start more
@@ -319,9 +321,14 @@ public class TaskExecutor
             queuedSplits.clear();
         }
 
-        private void addSplit(PrioritizedSplitRunner split)
+        private void enqueueSplit(PrioritizedSplitRunner split)
         {
             queuedSplits.add(split);
+        }
+
+        private void recordRunningSplit(PrioritizedSplitRunner split)
+        {
+            runningSplits.add(split);
         }
 
         private int getRunningSplits()
@@ -407,13 +414,13 @@ public class TaskExecutor
 
         public void destroy()
         {
+            destroyed.set(true);
             try {
                 split.close();
             }
             catch (RuntimeException e) {
                 log.error(e, "Error closing split for task %s", taskHandle.getTaskId());
             }
-            destroyed.set(true);
         }
 
         public boolean isFinished()
