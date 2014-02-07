@@ -108,11 +108,13 @@ public class HdfsConfiguration
         config.setInt("ipc.client.connect.max.retries", dfsConnectMaxRetries);
 
         // re-map filesystem schemes to match Amazon Elastic MapReduce
-        config.set("fs.s3.impl", "org.apache.hadoop.fs.s3native.NativeS3FileSystem");
+        config.set("fs.s3.impl", PrestoS3FileSystem.class.getName());
+        config.set("fs.s3n.impl", PrestoS3FileSystem.class.getName());
         config.set("fs.s3bfs.impl", "org.apache.hadoop.fs.s3.S3FileSystem");
 
         // set AWS credentials for S3
         for (String scheme : ImmutableList.of("s3", "s3bfs", "s3n")) {
+            config.setBoolean(format("fs.%s.impl.disable.cache", scheme), true);
             if (s3AwsAccessKey != null) {
                 config.set(format("fs.%s.awsAccessKeyId", scheme), s3AwsAccessKey);
             }

@@ -329,7 +329,7 @@ class HiveSplitSourceProvider
             throws IOException
     {
         ImmutableList.Builder<HiveSplit> builder = ImmutableList.builder();
-        if (splittable) {
+        if (splittable && (blockLocations.length > 0)) {
             for (BlockLocation blockLocation : blockLocations) {
                 // get the addresses for the block
                 List<HostAddress> addresses = toHostAddress(blockLocation.getHosts());
