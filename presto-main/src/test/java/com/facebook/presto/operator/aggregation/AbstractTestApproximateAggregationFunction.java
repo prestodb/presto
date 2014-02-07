@@ -60,7 +60,7 @@ public abstract class AbstractTestApproximateAggregationFunction
             Iterable<Number> sampledList = Iterables.limit(shuffle(inputList), (int) (inputList.size() * sampleRatio));
 
             BlockBuilder builder = new BlockBuilder(type);
-            for (Number sample: sampledList) {
+            for (Number sample : sampledList) {
                 if (sample instanceof Double) {
                     builder.append(sample.doubleValue());
                 }
