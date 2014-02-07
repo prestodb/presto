@@ -2944,7 +2944,7 @@ public abstract class AbstractTestQueries
                 "  FROM orders\n" +
                 "  GROUP BY orderstatus, clerk\n" +
                 ")\n" +
-                "ORDER BY clerk";
+                "ORDER BY orderstatus, clerk";
 
         assertEquals(computeActual(sql), computeActual(sql.replace("custom_rank", "rank")));
     }
