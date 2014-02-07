@@ -67,7 +67,7 @@ public class TpchIndexResolver
     }
 
     @Override
-    public ResolvedIndex resolveIndex(TableHandle tableHandle, Set<ColumnHandle> indexableColumns, TupleDomain tupleDomain)
+    public ResolvedIndex resolveIndex(TableHandle tableHandle, Set<ColumnHandle> indexableColumns, TupleDomain<ColumnHandle> tupleDomain)
     {
         checkArgument(tableHandle instanceof TpchTableHandle, "tableHandle is not an instance of TpchTableHandle: %s", tableHandle);
         TpchTableHandle tpchTableHandle = (TpchTableHandle) tableHandle;
@@ -87,7 +87,7 @@ public class TpchIndexResolver
             return null;
         }
 
-        TupleDomain filteredTupleDomain = tupleDomain;
+        TupleDomain<ColumnHandle> filteredTupleDomain = tupleDomain;
         if (!tupleDomain.isNone()) {
             filteredTupleDomain = TupleDomain.withColumnDomains(Maps.filterKeys(tupleDomain.getDomains(), not(in(fixedValues.keySet()))));
         }

@@ -176,7 +176,7 @@ public class EffectivePredicateExtractor
         // and the TupleDomain that was initially used to generate those Partitions. We do this because we need to select the more restrictive of the two.
         // Note: the TupleDomain used to generate the partitions may contain columns/predicates that are unknown to the partition TupleDomain summary,
         // but those are guaranteed to be part of a FilterNode directly above this table scan, so it's ok to include.
-        TupleDomain tupleDomain = node.getPartitionsDomainSummary().intersect(node.getGeneratedPartitions().get().getTupleDomainInput());
+        TupleDomain<ColumnHandle> tupleDomain = node.getPartitionsDomainSummary().intersect(node.getGeneratedPartitions().get().getTupleDomainInput());
 
         // A TupleDomain that has too many disjunctions will produce an Expression that will be very expensive to evaluate at runtime.
         // For the time being, we will just summarize the TupleDomain by the span over each of its columns (which is ok since we only need to generate
@@ -188,7 +188,7 @@ public class EffectivePredicateExtractor
         return pullExpressionThroughSymbols(partitionPredicate, node.getOutputSymbols());
     }
 
-    private static TupleDomain spanTupleDomain(TupleDomain tupleDomain)
+    private static TupleDomain<ColumnHandle> spanTupleDomain(TupleDomain<ColumnHandle> tupleDomain)
     {
         if (tupleDomain.isNone()) {
             return tupleDomain;

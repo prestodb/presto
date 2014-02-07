@@ -23,7 +23,7 @@ public interface ConnectorIndexResolver
     boolean canHandle(IndexHandle indexHandle);
 
     // TODO: should we allow partial index resolutions? (e.g. only index on colA when asking for an index on colA and colB)
-    ResolvedIndex resolveIndex(TableHandle tableHandle, Set<ColumnHandle> indexableColumns, TupleDomain tupleDomain);
+    ResolvedIndex resolveIndex(TableHandle tableHandle, Set<ColumnHandle> indexableColumns, TupleDomain<ColumnHandle> tupleDomain);
 
     Index getIndex(IndexHandle indexHandle, List<ColumnHandle> lookupSchema, List<ColumnHandle> outputSchema);
 }

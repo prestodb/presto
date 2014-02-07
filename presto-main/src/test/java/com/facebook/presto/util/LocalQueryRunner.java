@@ -383,7 +383,7 @@ public class LocalQueryRunner
         }
 
         // Otherwise return all partitions
-        PartitionResult matchingPartitions = splitManager.getPartitions(node.getTable(), Optional.<TupleDomain>absent());
+        PartitionResult matchingPartitions = splitManager.getPartitions(node.getTable(), Optional.<TupleDomain<ColumnHandle>>absent());
         return matchingPartitions.getPartitions();
     }
 
@@ -434,7 +434,7 @@ public class LocalQueryRunner
     private Split getLocalQuerySplit(TableHandle tableHandle)
     {
         try {
-            List<Partition> partitions = splitManager.getPartitions(tableHandle, Optional.<TupleDomain>absent()).getPartitions();
+            List<Partition> partitions = splitManager.getPartitions(tableHandle, Optional.<TupleDomain<ColumnHandle>>absent()).getPartitions();
             SplitSource splitSource = splitManager.getPartitionSplits(tableHandle, partitions);
             Split split = Iterables.getOnlyElement(splitSource.getNextBatch(1000));
             checkState(splitSource.isFinished(), "Expected only one split for a local query");

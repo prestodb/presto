@@ -81,7 +81,7 @@ public class CassandraSplitManager
     }
 
     @Override
-    public PartitionResult getPartitions(TableHandle tableHandle, TupleDomain tupleDomain)
+    public PartitionResult getPartitions(TableHandle tableHandle, TupleDomain<ColumnHandle> tupleDomain)
     {
         checkNotNull(tableHandle, "tableHandle is null");
         checkNotNull(tupleDomain, "tupleDomain is null");
@@ -121,7 +121,7 @@ public class CassandraSplitManager
                 .toList();
 
         // All partition key domains will be fully evaluated, so we don't need to include those
-        TupleDomain remainingTupleDomain = TupleDomain.none();
+        TupleDomain<ColumnHandle> remainingTupleDomain = TupleDomain.none();
         if (!tupleDomain.isNone()) {
             @SuppressWarnings({"rawtypes", "unchecked"})
             List<ColumnHandle> partitionColumns = (List) partitionKeys;
@@ -224,7 +224,7 @@ public class CassandraSplitManager
                 .toString();
     }
 
-    public static Predicate<CassandraPartition> partitionMatches(final TupleDomain tupleDomain)
+    public static Predicate<CassandraPartition> partitionMatches(final TupleDomain<ColumnHandle> tupleDomain)
     {
         return new Predicate<CassandraPartition>()
         {

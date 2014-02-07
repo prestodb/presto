@@ -39,7 +39,7 @@ public class IndexSourceNode
     private final Set<Symbol> lookupSymbols;
     private final List<Symbol> outputSymbols;
     private final Map<Symbol, ColumnHandle> assignments; // symbol -> column
-    private final TupleDomain effectiveTupleDomain; // general summary of how the output columns will be constrained
+    private final TupleDomain<ColumnHandle> effectiveTupleDomain; // general summary of how the output columns will be constrained
 
     @JsonCreator
     public IndexSourceNode(
@@ -49,7 +49,7 @@ public class IndexSourceNode
             @JsonProperty("lookupSymbols") Set<Symbol> lookupSymbols,
             @JsonProperty("outputSymbols") List<Symbol> outputSymbols,
             @JsonProperty("assignments") Map<Symbol, ColumnHandle> assignments,
-            @JsonProperty("effectiveTupleDomain") TupleDomain effectiveTupleDomain)
+            @JsonProperty("effectiveTupleDomain") TupleDomain<ColumnHandle> effectiveTupleDomain)
     {
         super(id);
         this.indexHandle = checkNotNull(indexHandle, "indexHandle is null");
@@ -96,7 +96,7 @@ public class IndexSourceNode
     }
 
     @JsonProperty
-    public TupleDomain getEffectiveTupleDomain()
+    public TupleDomain<ColumnHandle> getEffectiveTupleDomain()
     {
         return effectiveTupleDomain;
     }

@@ -103,7 +103,7 @@ public class TestSqlTaskExecution
         metadata.addInternalSchemaMetadata(MetadataManager.INTERNAL_CONNECTOR_ID, dualMetadata);
 
         DualSplitManager dualSplitManager = new DualSplitManager(new InMemoryNodeManager());
-        PartitionResult partitionResult = dualSplitManager.getPartitions(tableHandle, TupleDomain.all());
+        PartitionResult partitionResult = dualSplitManager.getPartitions(tableHandle, TupleDomain.<ColumnHandle>all());
 
         SplitSource splitSource = dualSplitManager.getPartitionSplits(tableHandle, partitionResult.getPartitions());
         split = Iterables.getOnlyElement(splitSource.getNextBatch(1));

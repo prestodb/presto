@@ -130,12 +130,12 @@ public class TestNativeSplitManager
     public void testSanity()
             throws InterruptedException
     {
-        PartitionResult partitionResult = nativeSplitManager.getPartitions(tableHandle, TupleDomain.all());
+        PartitionResult partitionResult = nativeSplitManager.getPartitions(tableHandle, TupleDomain.<ColumnHandle>all());
         assertEquals(partitionResult.getPartitions().size(), 2);
         assertTrue(partitionResult.getUndeterminedTupleDomain().isAll());
 
         List<Partition> partitions = partitionResult.getPartitions();
-        TupleDomain columnUnionedTupleDomain = TupleDomain.columnWiseUnion(partitions.get(0).getTupleDomain(), partitions.get(1).getTupleDomain());
+        TupleDomain<ColumnHandle> columnUnionedTupleDomain = TupleDomain.columnWiseUnion(partitions.get(0).getTupleDomain(), partitions.get(1).getTupleDomain());
         assertEquals(columnUnionedTupleDomain, TupleDomain.withColumnDomains(
                 ImmutableMap.of(dsColumnHandle, Domain.create(SortedRangeSet.of(Range.equal(utf8Slice("1")), Range.equal(utf8Slice("2"))), false))));
 

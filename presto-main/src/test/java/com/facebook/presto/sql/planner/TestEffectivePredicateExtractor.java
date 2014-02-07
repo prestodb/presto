@@ -355,7 +355,7 @@ public class TestEffectivePredicateExtractor
                 assignments,
                 null,
                 Optional.<GeneratedPartitions>of(new GeneratedPartitions(
-                        TupleDomain.all(),
+                        TupleDomain.<ColumnHandle>all(),
                         ImmutableList.<Partition>of())));
         effectivePredicate = EffectivePredicateExtractor.extract(node, TYPES);
         Assert.assertEquals(effectivePredicate, BooleanLiteral.FALSE_LITERAL);
@@ -368,7 +368,7 @@ public class TestEffectivePredicateExtractor
                 assignments,
                 null,
                 Optional.<GeneratedPartitions>of(new GeneratedPartitions(
-                        TupleDomain.all(),
+                        TupleDomain.<ColumnHandle>all(),
                         ImmutableList.<Partition>of(new DualPartition()))));
         effectivePredicate = EffectivePredicateExtractor.extract(node, TYPES);
         Assert.assertEquals(effectivePredicate, BooleanLiteral.TRUE_LITERAL);
@@ -381,7 +381,7 @@ public class TestEffectivePredicateExtractor
                 assignments,
                 null,
                 Optional.<GeneratedPartitions>of(new GeneratedPartitions(
-                        TupleDomain.all(),
+                        TupleDomain.<ColumnHandle>all(),
                         ImmutableList.<Partition>of(tupleDomainPartition(TupleDomain.withColumnDomains(ImmutableMap.<ColumnHandle, Domain>of(
                                 scanAssignments.get(A), Domain.singleValue(1L),
                                 scanAssignments.get(B), Domain.singleValue(2L))))))));
@@ -406,7 +406,7 @@ public class TestEffectivePredicateExtractor
         Assert.assertEquals(normalizeConjuncts(effectivePredicate), normalizeConjuncts(equals(number(1L), AE)));
     }
 
-    private static Partition tupleDomainPartition(final TupleDomain tupleDomain)
+    private static Partition tupleDomainPartition(final TupleDomain<ColumnHandle> tupleDomain)
     {
         return new Partition()
         {
@@ -417,7 +417,7 @@ public class TestEffectivePredicateExtractor
             }
 
             @Override
-            public TupleDomain getTupleDomain()
+            public TupleDomain<ColumnHandle> getTupleDomain()
             {
                 return tupleDomain;
             }

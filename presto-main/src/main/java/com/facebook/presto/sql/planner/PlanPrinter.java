@@ -282,7 +282,7 @@ public class PlanPrinter
         @Override
         public Void visitTableScan(TableScanNode node, Integer indent)
         {
-            TupleDomain partitionsDomainSummary = node.getPartitionsDomainSummary();
+            TupleDomain<ColumnHandle> partitionsDomainSummary = node.getPartitionsDomainSummary();
             print(indent, "- TableScan[%s, original constraint=%s] => [%s]", node.getTable(), node.getOriginalConstraint(), formatOutputs(node.getOutputSymbols()));
             for (Map.Entry<Symbol, ColumnHandle> entry : node.getAssignments().entrySet()) {
                 boolean isOutputSymbol = node.getOutputSymbols().contains(entry.getKey());

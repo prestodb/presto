@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.tpch;
 
+import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.IndexHandle;
 import com.facebook.presto.spi.TupleDomain;
 import com.fasterxml.jackson.annotation.JsonCreator;
@@ -30,7 +31,7 @@ public class TpchIndexHandle
     private final String tableName;
     private final double scaleFactor;
     private final Set<String> indexColumnNames;
-    private final TupleDomain fixedValues;
+    private final TupleDomain<ColumnHandle> fixedValues;
 
     @JsonCreator
     public TpchIndexHandle(
@@ -38,7 +39,7 @@ public class TpchIndexHandle
             @JsonProperty("tableName") String tableName,
             @JsonProperty("scaleFactor") double scaleFactor,
             @JsonProperty("indexColumnNames") Set<String> indexColumnNames,
-            @JsonProperty("fixedValues") TupleDomain fixedValues)
+            @JsonProperty("fixedValues") TupleDomain<ColumnHandle> fixedValues)
     {
         this.connectorId = checkNotNull(connectorId, "connectorId is null");
         this.tableName = checkNotNull(tableName, "tableName is null");
@@ -72,7 +73,7 @@ public class TpchIndexHandle
     }
 
     @JsonProperty
-    public TupleDomain getFixedValues()
+    public TupleDomain<ColumnHandle> getFixedValues()
     {
         return fixedValues;
     }

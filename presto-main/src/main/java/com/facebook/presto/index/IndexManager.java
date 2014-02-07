@@ -48,7 +48,7 @@ public class IndexManager
         indexResolvers.add(connectorIndexResolver);
     }
 
-    public Optional<ResolvedIndex> resolveIndex(TableHandle tableHandle, Set<ColumnHandle> indexableColumns, TupleDomain tupleDomain)
+    public Optional<ResolvedIndex> resolveIndex(TableHandle tableHandle, Set<ColumnHandle> indexableColumns, TupleDomain<ColumnHandle> tupleDomain)
     {
         Optional<ConnectorIndexResolver> connectorIndexResolver = getConnectorIndexResolver(tableHandle);
         if (!connectorIndexResolver.isPresent()) {

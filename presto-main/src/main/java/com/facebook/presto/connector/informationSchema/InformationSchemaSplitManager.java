@@ -63,7 +63,7 @@ public class InformationSchemaSplitManager
     }
 
     @Override
-    public PartitionResult getPartitions(TableHandle table, TupleDomain tupleDomain)
+    public PartitionResult getPartitions(TableHandle table, TupleDomain<ColumnHandle> tupleDomain)
     {
         checkNotNull(table, "table is null");
         checkNotNull(tupleDomain, "tupleDomain is null");
@@ -128,7 +128,7 @@ public class InformationSchemaSplitManager
         }
 
         @Override
-        public TupleDomain getTupleDomain()
+        public TupleDomain<ColumnHandle> getTupleDomain()
         {
             return TupleDomain.withFixedValues(filters);
         }

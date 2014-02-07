@@ -109,7 +109,7 @@ public abstract class AbstractTestHiveClientS3
         List<ColumnHandle> columnHandles = ImmutableList.copyOf(client.getColumnHandles(table).values());
         Map<String, Integer> columnIndex = indexColumns(columnHandles);
 
-        PartitionResult partitionResult = client.getPartitions(table, TupleDomain.all());
+        PartitionResult partitionResult = client.getPartitions(table, TupleDomain.<ColumnHandle>all());
         assertEquals(partitionResult.getPartitions().size(), 1);
         SplitSource splitSource = client.getPartitionSplits(table, partitionResult.getPartitions());
 
@@ -194,7 +194,7 @@ public abstract class AbstractTestHiveClientS3
         List<ColumnHandle> columnHandles = ImmutableList.copyOf(client.getColumnHandles(tableHandle).values());
 
         // verify the data
-        PartitionResult partitionResult = client.getPartitions(tableHandle, TupleDomain.all());
+        PartitionResult partitionResult = client.getPartitions(tableHandle, TupleDomain.<ColumnHandle>all());
         assertEquals(partitionResult.getPartitions().size(), 1);
         SplitSource splitSource = client.getPartitionSplits(tableHandle, partitionResult.getPartitions());
         Split split = getOnlyElement(getAllSplits(splitSource));
