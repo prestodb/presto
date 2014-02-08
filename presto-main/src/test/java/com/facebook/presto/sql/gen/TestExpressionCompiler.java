@@ -791,11 +791,11 @@ public class TestExpressionCompiler
     public void testHugeIn()
             throws Exception
     {
-        ContiguousSet<Integer> longValues = Range.openClosed(2000, 7000).asSet(DiscreteDomain.integers());
+        ContiguousSet<Integer> longValues = ContiguousSet.create(Range.openClosed(2000, 7000), DiscreteDomain.integers());
         assertExecute("bound_long in (1234, " + Joiner.on(", ").join(longValues) + ")", true);
         assertExecute("bound_long in (" + Joiner.on(", ").join(longValues) + ")", false);
 
-        Iterable<Object> doubleValues = transform(Range.openClosed(2000, 7000).asSet(DiscreteDomain.integers()), new Function<Integer, Object>()
+        Iterable<Object> doubleValues = transform(ContiguousSet.create(Range.openClosed(2000, 7000), DiscreteDomain.integers()), new Function<Integer, Object>()
         {
             @Override
             public Object apply(Integer i)
@@ -811,7 +811,7 @@ public class TestExpressionCompiler
         assertExecute("bound_double in (12.34, " + Joiner.on(", ").join(doubleValues) + ")", true);
         assertExecute("bound_double in (" + Joiner.on(", ").join(doubleValues) + ")", false);
 
-        Iterable<Object> stringValues = transform(Range.openClosed(2000, 7000).asSet(DiscreteDomain.integers()), new Function<Integer, Object>()
+        Iterable<Object> stringValues = transform(ContiguousSet.create(Range.openClosed(2000, 7000), DiscreteDomain.integers()), new Function<Integer, Object>()
         {
             @Override
             public Object apply(Integer i)
