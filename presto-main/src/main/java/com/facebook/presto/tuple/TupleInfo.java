@@ -159,7 +159,7 @@ public class TupleInfo
     @JsonCreator
     public TupleInfo(Type tupleType)
     {
-        this.type = tupleType;
+        this.type = checkNotNull(tupleType, "tupleType is null");
     }
 
     @JsonValue
