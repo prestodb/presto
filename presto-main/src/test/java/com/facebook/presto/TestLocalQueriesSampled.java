@@ -77,15 +77,4 @@ public class TestLocalQueriesSampled
     {
         return localSampledQueryRunner.execute(sql);
     }
-
-    @Override
-    protected MaterializedResult computeActualSampled(@Language("SQL") String sql)
-    {
-        throw new UnsupportedOperationException("explicitly sampled queries are disabled");
-    }
-
-    protected void assertSampledQuery(@Language("SQL") String actual, @Language("SQL") String expected)
-    {
-        // Don't run the sampled queries, since they're run in the TestLocalQueries suite
-    }
 }

@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.server;
 
-import com.facebook.presto.AbstractTestQueries;
+import com.facebook.presto.AbstractTestSampledQueries;
 import com.facebook.presto.client.ClientSession;
 import com.facebook.presto.client.Column;
 import com.facebook.presto.client.QueryError;
@@ -68,7 +68,7 @@ import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
 
 public class TestDistributedQueries
-        extends AbstractTestQueries
+        extends AbstractTestSampledQueries
 {
     private static final Session SESSION = new Session("user", "test", DEFAULT_CATALOG, "test", null, null);
 
