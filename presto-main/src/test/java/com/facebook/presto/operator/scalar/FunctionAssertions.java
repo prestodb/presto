@@ -38,8 +38,13 @@ import com.facebook.presto.spi.InMemoryRecordSet;
 import com.facebook.presto.spi.RecordSet;
 import com.facebook.presto.spi.Split;
 import com.facebook.presto.split.DataStreamProvider;
+import com.facebook.presto.sql.analyzer.Analysis;
+import com.facebook.presto.sql.analyzer.AnalysisContext;
+import com.facebook.presto.sql.analyzer.ExpressionAnalyzer;
+import com.facebook.presto.sql.analyzer.Field;
 import com.facebook.presto.sql.analyzer.SemanticException;
 import com.facebook.presto.sql.analyzer.Session;
+import com.facebook.presto.sql.analyzer.TupleDescriptor;
 import com.facebook.presto.sql.analyzer.Type;
 import com.facebook.presto.sql.gen.ExpressionCompiler;
 import com.facebook.presto.sql.planner.InterpretedFilterFunction;
@@ -56,6 +61,7 @@ import com.facebook.presto.util.LocalQueryRunner;
 import com.facebook.presto.util.MaterializedResult;
 import com.facebook.presto.util.Threads;
 import com.google.common.base.Charsets;
+import com.google.common.base.Function;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
@@ -68,6 +74,7 @@ import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -85,6 +92,7 @@ import static com.facebook.presto.spi.ColumnType.STRING;
 import static com.facebook.presto.sql.parser.SqlParser.createExpression;
 import static com.facebook.presto.sql.tree.BooleanLiteral.TRUE_LITERAL;
 import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.collect.Iterables.transform;
 import static io.airlift.testing.Assertions.assertInstanceOf;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static org.testng.Assert.assertEquals;
@@ -128,6 +136,15 @@ public final class FunctionAssertions
             .put(new Symbol("bound_pattern"), new Input(5))
             .put(new Symbol("bound_null_string"), new Input(6))
             .build();
+
+    private static final TupleDescriptor TUPLE_DESCRIPTOR = new TupleDescriptor(ImmutableList.copyOf(transform(INPUT_MAPPING.entrySet(), new Function<Entry<Symbol, Input>, Field>()
+    {
+        @Override
+        public Field apply(Entry<Symbol, Input> entry)
+        {
+            return Field.newUnqualified(entry.getKey().getName(), INPUT_TYPES.get(entry.getValue()));
+        }
+    })));
 
     private static final DataStreamProvider DATA_STREAM_PROVIDER = new TestDataStreamProvider();
     private static final PlanNodeId SOURCE_ID = new PlanNodeId("scan");
@@ -426,7 +443,7 @@ public final class FunctionAssertions
         filter = ExpressionTreeRewriter.rewriteWith(new SymbolToInputRewriter(ImmutableMap.<Symbol, Input>of()), filter);
 
         try {
-            return compiler.compileFilterAndProjectOperator(0, filter, ImmutableList.<Expression>of(), ImmutableMap.<Input, Type>of());
+            return compiler.compileFilterAndProjectOperator(0, filter, ImmutableList.<Expression>of(), ImmutableMap.<Input, Type>of(), ImmutableList.<Type>of());
         }
         catch (Throwable e) {
             if (e instanceof UncheckedExecutionException) {
@@ -438,11 +455,13 @@ public final class FunctionAssertions
 
     private OperatorFactory compileFilterProject(Expression filter, Expression projection)
     {
+        Type projectionType = getExpressionType(projection);
+
         filter = ExpressionTreeRewriter.rewriteWith(new SymbolToInputRewriter(INPUT_MAPPING), filter);
         projection = ExpressionTreeRewriter.rewriteWith(new SymbolToInputRewriter(INPUT_MAPPING), projection);
 
         try {
-            return compiler.compileFilterAndProjectOperator(0, filter, ImmutableList.of(projection), INPUT_TYPES);
+            return compiler.compileFilterAndProjectOperator(0, filter, ImmutableList.of(projection), INPUT_TYPES, ImmutableList.of(projectionType));
         }
         catch (Throwable e) {
             if (e instanceof UncheckedExecutionException) {
@@ -454,6 +473,8 @@ public final class FunctionAssertions
 
     private SourceOperatorFactory compileScanFilterProject(Expression filter, Expression projection)
     {
+        Type projectionType = getExpressionType(projection);
+
         filter = ExpressionTreeRewriter.rewriteWith(new SymbolToInputRewriter(INPUT_MAPPING), filter);
         projection = ExpressionTreeRewriter.rewriteWith(new SymbolToInputRewriter(INPUT_MAPPING), projection);
 
@@ -465,7 +486,8 @@ public final class FunctionAssertions
                     ImmutableList.<ColumnHandle>of(),
                     filter,
                     ImmutableList.of(projection),
-                    INPUT_TYPES);
+                    INPUT_TYPES,
+                    ImmutableList.of(projectionType));
         }
         catch (Throwable e) {
             if (e instanceof UncheckedExecutionException) {
@@ -508,6 +530,11 @@ public final class FunctionAssertions
         return new TaskContext(new TaskId("query", "stage", "task"), EXECUTOR, session)
                 .addPipelineContext(true, true)
                 .addDriverContext();
+    }
+
+    private Type getExpressionType(Expression projection)
+    {
+        return new ExpressionAnalyzer(new Analysis(), SESSION, metadataManager, false).analyze(projection, TUPLE_DESCRIPTOR, new AnalysisContext());
     }
 
     private static class TestDataStreamProvider

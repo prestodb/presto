@@ -610,9 +610,13 @@ public class LocalExecutionPlanner
                 // compiler uses inputs instead of symbols, so rewrite the expressions first
                 SymbolToInputRewriter symbolToInputRewriter = new SymbolToInputRewriter(sourceLayout);
                 Expression rewrittenFilter = ExpressionTreeRewriter.rewriteWith(symbolToInputRewriter, filterExpression);
+
                 List<Expression> rewrittenProjections = new ArrayList<>();
-                for (Expression projection : projectionExpressions) {
+                List<Type> outputTypes = new ArrayList<>();
+                for (int i = 0; i < projectionExpressions.size(); i++) {
+                    Expression projection = projectionExpressions.get(i);
                     rewrittenProjections.add(ExpressionTreeRewriter.rewriteWith(symbolToInputRewriter, projection));
+                    outputTypes.add(context.getTypes().get(outputSymbols.get(i)));
                 }
 
                 if (columns != null) {
@@ -623,12 +627,18 @@ public class LocalExecutionPlanner
                             columns,
                             rewrittenFilter,
                             rewrittenProjections,
-                            sourceTypes);
+                            sourceTypes,
+                            outputTypes);
 
                     return new PhysicalOperation(operatorFactory, outputMappings);
                 }
                 else {
-                    OperatorFactory operatorFactory = compiler.compileFilterAndProjectOperator(context.getNextOperatorId(), rewrittenFilter, rewrittenProjections, sourceTypes);
+                    OperatorFactory operatorFactory = compiler.compileFilterAndProjectOperator(
+                            context.getNextOperatorId(),
+                            rewrittenFilter,
+                            rewrittenProjections,
+                            sourceTypes,
+                            outputTypes);
                     return new PhysicalOperation(operatorFactory, outputMappings, source);
                 }
             }
