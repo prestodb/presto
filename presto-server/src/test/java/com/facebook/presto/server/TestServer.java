@@ -13,10 +13,11 @@
  */
 package com.facebook.presto.server;
 
-import com.google.common.io.Closeables;
+import com.facebook.presto.server.testing.TestingPrestoServer;
 import io.airlift.http.client.ApacheHttpClient;
 import io.airlift.http.client.HttpClient;
 import io.airlift.http.client.StatusResponseHandler;
+import io.airlift.testing.Closeables;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
