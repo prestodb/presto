@@ -29,7 +29,7 @@ import static com.facebook.presto.util.Threads.daemonThreadsNamed;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 
 public class TestLocalQueries
-        extends AbstractTestQueries
+        extends AbstractTestSampledQueries
 {
     private LocalQueryRunner localQueryRunner;
     private LocalQueryRunner localSampledQueryRunner;
