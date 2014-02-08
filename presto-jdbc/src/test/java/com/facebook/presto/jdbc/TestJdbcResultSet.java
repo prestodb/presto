@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.jdbc;
 
-import com.facebook.presto.server.TestingPrestoServer;
+import com.facebook.presto.server.testing.TestingPrestoServer;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;

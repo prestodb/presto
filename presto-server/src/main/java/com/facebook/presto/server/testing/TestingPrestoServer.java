@@ -11,19 +11,19 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.server;
+package com.facebook.presto.server.testing;
 
 import com.facebook.presto.connector.ConnectorManager;
 import com.facebook.presto.metadata.AllNodes;
 import com.facebook.presto.metadata.InternalNodeManager;
 import com.facebook.presto.metadata.Metadata;
-import com.facebook.presto.tpch.SampledTpchPlugin;
-import com.facebook.presto.tpch.TpchPlugin;
+import com.facebook.presto.server.PluginManager;
+import com.facebook.presto.server.ServerMainModule;
+import com.facebook.presto.spi.Plugin;
 import com.google.common.base.Optional;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.io.Files;
 import com.google.common.net.HostAndPort;
 import com.google.inject.Injector;
 import com.google.inject.Module;
@@ -40,22 +40,25 @@ import io.airlift.jaxrs.JaxrsModule;
 import io.airlift.jmx.testing.TestingJmxModule;
 import io.airlift.json.JsonModule;
 import io.airlift.node.testing.TestingNodeModule;
-import io.airlift.testing.FileUtils;
 import io.airlift.tracetoken.TraceTokenModule;
 import org.weakref.jmx.guice.MBeanModule;
 
 import java.io.Closeable;
-import java.io.File;
 import java.net.URI;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.Map;
 
+import static com.facebook.presto.server.testing.FileUtils.deleteRecursively;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 public class TestingPrestoServer
         implements Closeable
 {
-    private final File baseDataDir;
+    private final Path baseDataDir;
     private final LifeCycleManager lifeCycleManager;
+    private final PluginManager pluginManager;
+    private final ConnectorManager connectorManager;
     private final TestingHttpServer server;
     private final Metadata metadata;
     private final InternalNodeManager nodeManager;
@@ -70,14 +73,14 @@ public class TestingPrestoServer
     public TestingPrestoServer(boolean coordinator, Map<String, String> properties, String environment, URI discoveryUri)
             throws Exception
     {
-        baseDataDir = Files.createTempDir();
+        baseDataDir = Files.createTempDirectory("PrestoTest");
 
         ImmutableMap.Builder<String, String> serverProperties = ImmutableMap.<String, String>builder()
                 .putAll(properties)
                 .put("coordinator", String.valueOf(coordinator))
-                .put("storage-manager.data-directory", baseDataDir.getPath())
+                .put("storage-manager.data-directory", baseDataDir.toString())
                 .put("presto-metastore.db.type", "h2")
-                .put("presto-metastore.db.filename", new File(baseDataDir, "db/MetaStore").getPath())
+                .put("presto-metastore.db.filename", baseDataDir.resolve("db/MetaStore").toString())
                 .put("presto.version", "testversion")
                 .put("analyzer.approximate-queries-enabled", "true");
 
@@ -118,14 +121,10 @@ public class TestingPrestoServer
 
         lifeCycleManager = injector.getInstance(LifeCycleManager.class);
 
-        PluginManager pluginManager = injector.getInstance(PluginManager.class);
-        pluginManager.installPlugin(new TpchPlugin());
-        pluginManager.installPlugin(new SampledTpchPlugin());
+        pluginManager = injector.getInstance(PluginManager.class);
 
-        ConnectorManager connectorManager = injector.getInstance(ConnectorManager.class);
+        connectorManager = injector.getInstance(ConnectorManager.class);
         connectorManager.createConnection("default", "native", ImmutableMap.<String, String>of());
-        connectorManager.createConnection("tpch", "tpch", ImmutableMap.<String, String>of());
-        connectorManager.createConnection("tpch_sampled", "tpch_sampled", ImmutableMap.<String, String>of());
 
         server = injector.getInstance(TestingHttpServer.class);
         metadata = injector.getInstance(Metadata.class);
@@ -147,8 +146,14 @@ public class TestingPrestoServer
             throw Throwables.propagate(e);
         }
         finally {
-            FileUtils.deleteRecursively(baseDataDir);
+            deleteRecursively(baseDataDir);
         }
+    }
+
+    public void installPlugin(Plugin plugin, String catalogName, String connectorName)
+    {
+        pluginManager.installPlugin(plugin);
+        connectorManager.createConnection(catalogName, connectorName, ImmutableMap.<String, String>of());
     }
 
     public URI getBaseUrl()
