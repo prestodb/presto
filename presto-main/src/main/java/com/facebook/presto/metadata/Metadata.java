@@ -30,7 +30,7 @@ import java.util.Map;
 
 public interface Metadata
 {
-    FunctionInfo getFunction(QualifiedName name, List<Type> parameterTypes);
+    FunctionInfo getFunction(QualifiedName name, List<Type> parameterTypes, boolean approximate);
 
     @NotNull
     FunctionInfo getFunction(Signature handle);

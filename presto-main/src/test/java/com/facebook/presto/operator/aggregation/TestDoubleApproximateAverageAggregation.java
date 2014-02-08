@@ -44,6 +44,12 @@ public class TestDoubleApproximateAverageAggregation
     }
 
     @Override
+    public double getConfidence()
+    {
+        return 0.99;
+    }
+
+    @Override
     public String getExpectedValue(int start, int length)
     {
         if (length == 0) {
@@ -62,11 +68,10 @@ public class TestDoubleApproximateAverageAggregation
         }
 
         double variance = m2 / length;
-
         StringBuilder sb = new StringBuilder();
         sb.append(mean);
         sb.append(" +/- ");
-        sb.append((2.575 * Math.sqrt(variance / length)));
+        sb.append((2.575829311439 * Math.sqrt(variance / length)));
 
         return sb.toString();
     }

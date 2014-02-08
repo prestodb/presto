@@ -111,7 +111,7 @@ public class DistributedLogicalPlanner
 
             if (!current.isDistributed()) {
                 // add the aggregation node as the root of the current fragment
-                current.setRoot(new AggregationNode(node.getId(), current.getRoot(), node.getGroupBy(), node.getAggregations(), node.getFunctions(), node.getMasks(), SINGLE, node.getSampleWeight()));
+                current.setRoot(new AggregationNode(node.getId(), current.getRoot(), node.getGroupBy(), node.getAggregations(), node.getFunctions(), node.getMasks(), SINGLE, node.getSampleWeight(), node.getConfidence()));
                 return current;
             }
 
@@ -121,7 +121,7 @@ public class DistributedLogicalPlanner
             List<Symbol> groupBy = node.getGroupBy();
 
             // else, we need to "close" the current fragment and create an unpartitioned fragment for the final aggregation
-            return addDistributedAggregation(current, aggregations, functions, masks, groupBy, node.getSampleWeight());
+            return addDistributedAggregation(current, aggregations, functions, masks, groupBy, node.getSampleWeight(), node.getConfidence());
         }
 
         @Override
@@ -156,7 +156,7 @@ public class DistributedLogicalPlanner
             }
         }
 
-        private SubPlanBuilder addDistributedAggregation(SubPlanBuilder plan, Map<Symbol, FunctionCall> aggregations, Map<Symbol, Signature> functions, Map<Symbol, Symbol> masks, List<Symbol> groupBy, Optional<Symbol> sampleWeight)
+        private SubPlanBuilder addDistributedAggregation(SubPlanBuilder plan, Map<Symbol, FunctionCall> aggregations, Map<Symbol, Signature> functions, Map<Symbol, Symbol> masks, List<Symbol> groupBy, Optional<Symbol> sampleWeight, double confidence)
         {
             Map<Symbol, FunctionCall> finalCalls = new HashMap<>();
             Map<Symbol, FunctionCall> intermediateCalls = new HashMap<>();
@@ -178,12 +178,12 @@ public class DistributedLogicalPlanner
             }
 
             // create partial aggregation plan
-            AggregationNode partialAggregation = new AggregationNode(idAllocator.getNextId(), plan.getRoot(), groupBy, intermediateCalls, intermediateFunctions, intermediateMask, PARTIAL, sampleWeight);
+            AggregationNode partialAggregation = new AggregationNode(idAllocator.getNextId(), plan.getRoot(), groupBy, intermediateCalls, intermediateFunctions, intermediateMask, PARTIAL, sampleWeight, confidence);
             plan.setRoot(new SinkNode(idAllocator.getNextId(), partialAggregation, partialAggregation.getOutputSymbols()));
 
             // create final aggregation plan
             ExchangeNode source = new ExchangeNode(idAllocator.getNextId(), plan.getId(), plan.getRoot().getOutputSymbols());
-            AggregationNode finalAggregation = new AggregationNode(idAllocator.getNextId(), source, groupBy, finalCalls, functions, ImmutableMap.<Symbol, Symbol>of(), FINAL, Optional.<Symbol>absent());
+            AggregationNode finalAggregation = new AggregationNode(idAllocator.getNextId(), source, groupBy, finalCalls, functions, ImmutableMap.<Symbol, Symbol>of(), FINAL, Optional.<Symbol>absent(), confidence);
 
             if (groupBy.isEmpty()) {
                 plan = createSingleNodePlan(finalAggregation)
@@ -406,7 +406,7 @@ public class DistributedLogicalPlanner
                 subPlanBuilder = createSubPlan(subPlanBuilder.getRoot(), subPlanBuilder.getDistribution(), node.getId());
 
                 // Put a simple SUM(<output symbol>) on top of the table writer node
-                FunctionInfo sum = metadata.getFunction(QualifiedName.of("sum"), ImmutableList.of(Type.BIGINT));
+                FunctionInfo sum = metadata.getFunction(QualifiedName.of("sum"), ImmutableList.of(Type.BIGINT), false);
 
                 Symbol intermediateOutput = allocator.newSymbol(node.getOutput().toString(), sum.getReturnType());
 
@@ -425,7 +425,8 @@ public class DistributedLogicalPlanner
                         ImmutableMap.of(node.getOutput(), sum.getHandle()),
                         ImmutableMap.<Symbol, Symbol>of(),
                         ImmutableList.<Symbol>of(),
-                        Optional.<Symbol>absent());
+                        Optional.<Symbol>absent(),
+                        1.0);
             }
 
             return subPlanBuilder;

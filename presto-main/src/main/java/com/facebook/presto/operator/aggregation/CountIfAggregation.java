@@ -22,6 +22,7 @@ import com.google.common.base.Optional;
 
 import static com.facebook.presto.tuple.TupleInfo.SINGLE_LONG;
 import static com.facebook.presto.tuple.TupleInfo.Type.BOOLEAN;
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 
 public class CountIfAggregation
@@ -35,8 +36,9 @@ public class CountIfAggregation
     }
 
     @Override
-    protected GroupedAccumulator createGroupedAccumulator(Optional<Integer> maskChannel, Optional<Integer> sampleWeightChannel, int valueChannel)
+    protected GroupedAccumulator createGroupedAccumulator(Optional<Integer> maskChannel, Optional<Integer> sampleWeightChannel, double confidence, int valueChannel)
     {
+        checkArgument(confidence == 1.0, "count_if does not support approximate queries");
         return new CountIfGroupedAccumulator(valueChannel, maskChannel, sampleWeightChannel);
     }
 
@@ -113,8 +115,9 @@ public class CountIfAggregation
     }
 
     @Override
-    protected Accumulator createAccumulator(Optional<Integer> maskChannel, Optional<Integer> sampleWeightChannel, int valueChannel)
+    protected Accumulator createAccumulator(Optional<Integer> maskChannel, Optional<Integer> sampleWeightChannel, double confidence, int valueChannel)
     {
+        checkArgument(confidence == 1.0, "count_if does not support approximate queries");
         return new CountIfAccumulator(valueChannel, maskChannel, sampleWeightChannel);
     }
 

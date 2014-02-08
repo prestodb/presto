@@ -255,14 +255,14 @@ public class MaterializeSamplePullUp
                         projections.put(symbol, expression);
                     }
                     source = new ProjectNode(idAllocator.getNextId(), ((MaterializeSampleNode) source).getSource(), projections.build());
-                    return new AggregationNode(node.getId(), source, node.getGroupBy(), node.getAggregations(), node.getFunctions(), node.getMasks(), Optional.<Symbol>absent());
+                    return new AggregationNode(node.getId(), source, node.getGroupBy(), node.getAggregations(), node.getFunctions(), node.getMasks(), Optional.<Symbol>absent(), node.getConfidence());
                 }
                 else {
-                    return new AggregationNode(node.getId(), ((MaterializeSampleNode) source).getSource(), node.getGroupBy(), node.getAggregations(), node.getFunctions(), node.getMasks(), Optional.of(((MaterializeSampleNode) source).getSampleWeightSymbol()));
+                    return new AggregationNode(node.getId(), ((MaterializeSampleNode) source).getSource(), node.getGroupBy(), node.getAggregations(), node.getFunctions(), node.getMasks(), Optional.of(((MaterializeSampleNode) source).getSampleWeightSymbol()), node.getConfidence());
                 }
             }
 
-            return new AggregationNode(node.getId(), source, node.getGroupBy(), node.getAggregations(), node.getFunctions(), node.getMasks(), node.getSampleWeight());
+            return new AggregationNode(node.getId(), source, node.getGroupBy(), node.getAggregations(), node.getFunctions(), node.getMasks(), node.getSampleWeight(), node.getConfidence());
         }
 
         @Override

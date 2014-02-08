@@ -38,38 +38,38 @@ public final class AggregationTestUtils
     {
     }
 
-    public static void assertAggregation(AggregationFunction function, Object expectedValue, int positions, Block... blocks)
+    public static void assertAggregation(AggregationFunction function, double confidence, Object expectedValue, int positions, Block... blocks)
     {
         if (positions == 0) {
-            assertAggregation(function, expectedValue);
+            assertAggregation(function, confidence, expectedValue);
         }
         else {
-            assertAggregation(function, expectedValue, new Page(positions, blocks));
+            assertAggregation(function, confidence, expectedValue, new Page(positions, blocks));
         }
     }
 
-    public static void assertAggregation(AggregationFunction function, Object expectedValue, Page... pages)
+    public static void assertAggregation(AggregationFunction function, double confidence, Object expectedValue, Page... pages)
     {
-        assertEquals(aggregation(function, pages), expectedValue);
-        assertEquals(partialAggregation(function, pages), expectedValue);
+        assertEquals(aggregation(function, confidence, pages), expectedValue);
+        assertEquals(partialAggregation(function, confidence, pages), expectedValue);
         if (pages.length > 0) {
-            assertEquals(groupedAggregation(function, pages), expectedValue);
-            assertEquals(groupedPartialAggregation(function, pages), expectedValue);
-            assertEquals(distinctAggregation(function, pages), expectedValue);
+            assertEquals(groupedAggregation(function, confidence, pages), expectedValue);
+            assertEquals(groupedPartialAggregation(function, confidence, pages), expectedValue);
+            assertEquals(distinctAggregation(function, confidence, pages), expectedValue);
         }
     }
 
-    public static Object distinctAggregation(AggregationFunction function, Page... pages)
+    public static Object distinctAggregation(AggregationFunction function, double confidence, Page... pages)
     {
         Optional<Integer> maskChannel = Optional.of(pages[0].getChannelCount());
         // Execute normally
-        Object aggregation = aggregation(function, createArgs(function), maskChannel, maskPages(true, pages));
+        Object aggregation = aggregation(function, createArgs(function), maskChannel, confidence, maskPages(true, pages));
         Page[] dupedPages = new Page[pages.length * 2];
         // Create two copies of each page with one of them masked off
         System.arraycopy(maskPages(true, pages), 0, dupedPages, 0, pages.length);
         System.arraycopy(maskPages(false, pages), 0, dupedPages, pages.length, pages.length);
         // Execute with masked pages and assure equal to normal execution
-        Object aggregationWithDupes = aggregation(function, createArgs(function), maskChannel, dupedPages);
+        Object aggregationWithDupes = aggregation(function, createArgs(function), maskChannel, confidence, dupedPages);
 
         assertEquals(aggregationWithDupes, aggregation, "Inconsistent results with mask");
 
@@ -100,27 +100,27 @@ public final class AggregationTestUtils
         return maskedPages;
     }
 
-    public static Object aggregation(AggregationFunction function, Page... pages)
+    public static Object aggregation(AggregationFunction function, double confidence, Page... pages)
     {
         // execute with args in positions: arg0, arg1, arg2
-        Object aggregation = aggregation(function, createArgs(function), Optional.<Integer>absent(), pages);
+        Object aggregation = aggregation(function, createArgs(function), Optional.<Integer>absent(), confidence, pages);
 
         // execute with args in reverse order: arg2, arg1, arg0
         if (function.getParameterTypes().size() > 1) {
-            Object aggregationWithOffset = aggregation(function, reverseArgs(function), Optional.<Integer>absent(), reverseColumns(pages));
+            Object aggregationWithOffset = aggregation(function, reverseArgs(function), Optional.<Integer>absent(), confidence, reverseColumns(pages));
             assertEquals(aggregationWithOffset, aggregation, "Inconsistent results with reversed channels");
         }
 
         // execute with args at an offset (and possibly reversed): null, null, null, arg2, arg1, arg0
-        Object aggregationWithOffset = aggregation(function, offsetArgs(function, 3), Optional.<Integer>absent(), offsetColumns(pages, 3));
+        Object aggregationWithOffset = aggregation(function, offsetArgs(function, 3), Optional.<Integer>absent(), confidence, offsetColumns(pages, 3));
         assertEquals(aggregationWithOffset, aggregation, "Inconsistent results with channel offset");
 
         return aggregation;
     }
 
-    private static Object aggregation(AggregationFunction function, int[] args, Optional<Integer> maskChannel, Page... pages)
+    private static Object aggregation(AggregationFunction function, int[] args, Optional<Integer> maskChannel, double confidence, Page... pages)
     {
-        Accumulator aggregation = function.createAggregation(maskChannel, Optional.<Integer>absent(), args);
+        Accumulator aggregation = function.createAggregation(maskChannel, Optional.<Integer>absent(), confidence, args);
         for (Page page : pages) {
             if (page.getPositionCount() > 0) {
                 aggregation.addInput(page);
@@ -131,27 +131,27 @@ public final class AggregationTestUtils
         return BlockAssertions.getOnlyValue(block);
     }
 
-    public static Object partialAggregation(AggregationFunction function, Page... pages)
+    public static Object partialAggregation(AggregationFunction function, double confidence, Page... pages)
     {
         // execute with args in positions: arg0, arg1, arg2
-        Object aggregation = partialAggregation(function, createArgs(function), pages);
+        Object aggregation = partialAggregation(function, confidence, createArgs(function), pages);
 
         // execute with args in reverse order: arg2, arg1, arg0
         if (function.getParameterTypes().size() > 1) {
-            Object aggregationWithOffset = partialAggregation(function, reverseArgs(function), reverseColumns(pages));
+            Object aggregationWithOffset = partialAggregation(function, confidence, reverseArgs(function), reverseColumns(pages));
             assertEquals(aggregationWithOffset, aggregation, "Inconsistent results with reversed channels");
         }
 
         // execute with args at an offset (and possibly reversed): null, null, null, arg2, arg1, arg0
-        Object aggregationWithOffset = partialAggregation(function, offsetArgs(function, 3), offsetColumns(pages, 3));
+        Object aggregationWithOffset = partialAggregation(function, confidence, offsetArgs(function, 3), offsetColumns(pages, 3));
         assertEquals(aggregationWithOffset, aggregation, "Inconsistent results with channel offset");
 
         return aggregation;
     }
 
-    public static Object partialAggregation(AggregationFunction function, int[] args, Page... pages)
+    public static Object partialAggregation(AggregationFunction function, double confidence, int[] args, Page... pages)
     {
-        Accumulator partialAggregation = function.createAggregation(Optional.<Integer>absent(), Optional.<Integer>absent(), args);
+        Accumulator partialAggregation = function.createAggregation(Optional.<Integer>absent(), Optional.<Integer>absent(), confidence, args);
         for (Page page : pages) {
             if (page.getPositionCount() > 0) {
                 partialAggregation.addInput(page);
@@ -160,34 +160,34 @@ public final class AggregationTestUtils
 
         Block partialBlock = partialAggregation.evaluateIntermediate();
 
-        Accumulator finalAggregation = function.createIntermediateAggregation();
+        Accumulator finalAggregation = function.createIntermediateAggregation(confidence);
         finalAggregation.addIntermediate(partialBlock);
 
         Block finalBlock = finalAggregation.evaluateFinal();
         return BlockAssertions.getOnlyValue(finalBlock);
     }
 
-    public static Object groupedAggregation(AggregationFunction function, Page... pages)
+    public static Object groupedAggregation(AggregationFunction function, double confidence, Page... pages)
     {
         // execute with args in positions: arg0, arg1, arg2
-        Object aggregation = groupedAggregation(function, createArgs(function), pages);
+        Object aggregation = groupedAggregation(function, confidence, createArgs(function), pages);
 
         // execute with args in reverse order: arg2, arg1, arg0
         if (function.getParameterTypes().size() > 1) {
-            Object aggregationWithOffset = groupedAggregation(function, reverseArgs(function), reverseColumns(pages));
+            Object aggregationWithOffset = groupedAggregation(function, confidence, reverseArgs(function), reverseColumns(pages));
             assertEquals(aggregationWithOffset, aggregation, "Inconsistent results with reversed channels");
         }
 
         // execute with args at an offset (and possibly reversed): null, null, null, arg2, arg1, arg0
-        Object aggregationWithOffset = groupedAggregation(function, offsetArgs(function, 3), offsetColumns(pages, 3));
+        Object aggregationWithOffset = groupedAggregation(function, confidence, offsetArgs(function, 3), offsetColumns(pages, 3));
         assertEquals(aggregationWithOffset, aggregation, "Inconsistent results with channel offset");
 
         return aggregation;
     }
 
-    public static Object groupedAggregation(AggregationFunction function, int[] args, Page... pages)
+    public static Object groupedAggregation(AggregationFunction function, double confidence, int[] args, Page... pages)
     {
-        GroupedAccumulator groupedAggregation = function.createGroupedAggregation(Optional.<Integer>absent(), Optional.<Integer>absent(), args);
+        GroupedAccumulator groupedAggregation = function.createGroupedAggregation(Optional.<Integer>absent(), Optional.<Integer>absent(), confidence, args);
         for (Page page : pages) {
             groupedAggregation.addInput(createGroupByIdBlock(0, page.getPositionCount()), page);
         }
@@ -202,27 +202,27 @@ public final class AggregationTestUtils
         return groupValue;
     }
 
-    public static Object groupedPartialAggregation(AggregationFunction function, Page... pages)
+    public static Object groupedPartialAggregation(AggregationFunction function, double confidence, Page... pages)
     {
         // execute with args in positions: arg0, arg1, arg2
-        Object aggregation = groupedPartialAggregation(function, createArgs(function), pages);
+        Object aggregation = groupedPartialAggregation(function, confidence, createArgs(function), pages);
 
         // execute with args in reverse order: arg2, arg1, arg0
         if (function.getParameterTypes().size() > 1) {
-            Object aggregationWithOffset = groupedPartialAggregation(function, reverseArgs(function), reverseColumns(pages));
+            Object aggregationWithOffset = groupedPartialAggregation(function, confidence, reverseArgs(function), reverseColumns(pages));
             assertEquals(aggregationWithOffset, aggregation, "Inconsistent results with reversed channels");
         }
 
         // execute with args at an offset (and possibly reversed): null, null, null, arg2, arg1, arg0
-        Object aggregationWithOffset = groupedPartialAggregation(function, offsetArgs(function, 3), offsetColumns(pages, 3));
+        Object aggregationWithOffset = groupedPartialAggregation(function, confidence, offsetArgs(function, 3), offsetColumns(pages, 3));
         assertEquals(aggregationWithOffset, aggregation, "Inconsistent results with channel offset");
 
         return aggregation;
     }
 
-    public static Object groupedPartialAggregation(AggregationFunction function, int[] args, Page... pages)
+    public static Object groupedPartialAggregation(AggregationFunction function, double confidence, int[] args, Page... pages)
     {
-        GroupedAccumulator partialAggregation = function.createGroupedAggregation(Optional.<Integer>absent(), Optional.<Integer>absent(), args);
+        GroupedAccumulator partialAggregation = function.createGroupedAggregation(Optional.<Integer>absent(), Optional.<Integer>absent(), confidence, args);
         for (Page page : pages) {
             partialAggregation.addInput(createGroupByIdBlock(0, page.getPositionCount()), page);
         }
@@ -231,7 +231,7 @@ public final class AggregationTestUtils
         partialAggregation.evaluateIntermediate(0, partialOut);
         UncompressedBlock partialBlock = partialOut.build();
 
-        GroupedAccumulator finalAggregation = function.createGroupedIntermediateAggregation();
+        GroupedAccumulator finalAggregation = function.createGroupedIntermediateAggregation(confidence);
         finalAggregation.addIntermediate(createGroupByIdBlock(0, partialBlock.getPositionCount()), partialBlock);
 
         return getGroupValue(finalAggregation, 0);

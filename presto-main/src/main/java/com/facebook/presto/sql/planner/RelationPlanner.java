@@ -357,6 +357,7 @@ class RelationPlanner
                 ImmutableMap.<Symbol, FunctionCall>of(),
                 ImmutableMap.<Symbol, Signature>of(),
                 ImmutableMap.<Symbol, Symbol>of(),
-                Optional.<Symbol>absent());
+                Optional.<Symbol>absent(),
+                1.0);
     }
 }

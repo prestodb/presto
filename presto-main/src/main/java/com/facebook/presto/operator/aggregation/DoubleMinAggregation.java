@@ -23,6 +23,7 @@ import com.google.common.base.Optional;
 
 import static com.facebook.presto.tuple.TupleInfo.SINGLE_DOUBLE;
 import static com.facebook.presto.tuple.TupleInfo.Type.DOUBLE;
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 
 public class DoubleMinAggregation
@@ -36,9 +37,10 @@ public class DoubleMinAggregation
     }
 
     @Override
-    protected GroupedAccumulator createGroupedAccumulator(Optional<Integer> maskChannel, Optional<Integer> sampleWeightChannel, int valueChannel)
+    protected GroupedAccumulator createGroupedAccumulator(Optional<Integer> maskChannel, Optional<Integer> sampleWeightChannel, double confidence, int valueChannel)
     {
         // Min/max are not effected by distinct, so ignore it.
+        checkArgument(confidence == 1.0, "min does not support approximate queries");
         return new DoubleMinGroupedAccumulator(valueChannel);
     }
 
@@ -101,9 +103,10 @@ public class DoubleMinAggregation
     }
 
     @Override
-    protected Accumulator createAccumulator(Optional<Integer> maskChannel, Optional<Integer> sampleWeightChannel, int valueChannel)
+    protected Accumulator createAccumulator(Optional<Integer> maskChannel, Optional<Integer> sampleWeightChannel, double confidence, int valueChannel)
     {
         // Min/max are not effected by distinct, so ignore it.
+        checkArgument(confidence == 1.0, "min does not support approximate queries");
         return new DoubleMinAccumulator(valueChannel);
     }
 
