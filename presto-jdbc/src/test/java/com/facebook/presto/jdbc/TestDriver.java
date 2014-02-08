@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.jdbc;
 
-import com.facebook.presto.server.TestingPrestoServer;
+import com.facebook.presto.server.testing.TestingPrestoServer;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import org.testng.annotations.AfterMethod;

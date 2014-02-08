@@ -22,9 +22,12 @@ import com.facebook.presto.client.StatementClient;
 import com.facebook.presto.metadata.AllNodes;
 import com.facebook.presto.metadata.QualifiedTableName;
 import com.facebook.presto.metadata.QualifiedTablePrefix;
+import com.facebook.presto.server.testing.TestingPrestoServer;
 import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.sql.analyzer.Session;
+import com.facebook.presto.tpch.SampledTpchPlugin;
 import com.facebook.presto.tpch.TpchMetadata;
+import com.facebook.presto.tpch.TpchPlugin;
 import com.facebook.presto.tuple.TupleInfo;
 import com.facebook.presto.tuple.TupleInfo.Type;
 import com.facebook.presto.util.MaterializedResult;
@@ -440,6 +443,9 @@ public class TestDistributedQueries
                 .put("datasources", "native,tpch,tpch_sampled")
                 .build();
 
-        return new TestingPrestoServer(coordinator, properties, ENVIRONMENT, discoveryUri);
+        TestingPrestoServer server = new TestingPrestoServer(coordinator, properties, ENVIRONMENT, discoveryUri);
+        server.installPlugin(new TpchPlugin(), "tpch", "tpch");
+        server.installPlugin(new SampledTpchPlugin(), "tpch_sampled", "tpch_sampled");
+        return server;
     }
 }

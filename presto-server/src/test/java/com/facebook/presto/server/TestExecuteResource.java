@@ -14,6 +14,7 @@
 package com.facebook.presto.server;
 
 import com.facebook.presto.client.PrestoHeaders;
+import com.facebook.presto.server.testing.TestingPrestoServer;
 import com.facebook.presto.sql.analyzer.Session;
 import com.google.common.base.Charsets;
 import com.google.common.net.HttpHeaders;
