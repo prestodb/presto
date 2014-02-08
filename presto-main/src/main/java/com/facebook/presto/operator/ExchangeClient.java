@@ -16,7 +16,6 @@ package com.facebook.presto.operator;
 import com.facebook.presto.operator.HttpPageBufferClient.ClientCallback;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Sets;
-import com.google.common.io.Closeables;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
@@ -203,7 +202,7 @@ public class ExchangeClient
     {
         closed.set(true);
         for (HttpPageBufferClient client : allClients.values()) {
-            Closeables.closeQuietly(client);
+            closeQuietly(client);
         }
         pageBuffer.clear();
         bufferBytes = 0;
@@ -342,6 +341,16 @@ public class ExchangeClient
         public void clientFinished(HttpPageBufferClient client)
         {
             ExchangeClient.this.clientFinished(client);
+        }
+    }
+
+    private static void closeQuietly(HttpPageBufferClient client)
+    {
+        try {
+            client.close();
+        }
+        catch (RuntimeException e) {
+            // ignored
         }
     }
 }
