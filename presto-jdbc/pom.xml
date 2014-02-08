@@ -26,14 +26,10 @@
             <groupId>io.airlift</groupId>
             <artifactId>http-client</artifactId>
             <exclusions>
-                <!-- airlift configuration annotations are needed, but bval and cglib are not -->
+                <!-- configuration is not used -->
                 <exclusion>
-                    <groupId>org.apache.bval</groupId>
-                    <artifactId>bval-jsr303</artifactId>
-                </exclusion>
-                <exclusion>
-                    <groupId>cglib</groupId>
-                    <artifactId>cglib-nodep</artifactId>
+                    <groupId>io.airlift</groupId>
+                    <artifactId>configuration</artifactId>
                 </exclusion>
                 <!-- trace-token is not used -->
                 <exclusion>
@@ -41,10 +37,6 @@
                     <artifactId>trace-token</artifactId>
                 </exclusion>
                 <!-- guice is not used -->
-                <exclusion>
-                    <groupId>javax.inject</groupId>
-                    <artifactId>javax.inject</artifactId>
-                </exclusion>
                 <exclusion>
                     <groupId>com.google.inject</groupId>
                     <artifactId>guice</artifactId>
@@ -62,6 +54,10 @@
                     <groupId>org.apache.httpcomponents</groupId>
                     <artifactId>httpcore</artifactId>
                 </exclusion>
+                <exclusion>
+                    <groupId>org.slf4j</groupId>
+                    <artifactId>jcl-over-slf4j</artifactId>
+                </exclusion>
                 <!-- jmxutils is not used -->
                 <exclusion>
                     <groupId>org.weakref</groupId>
@@ -73,13 +69,6 @@
         <dependency>
             <groupId>io.airlift</groupId>
             <artifactId>units</artifactId>
-            <exclusions>
-                <exclusion>
-                    <!-- TODO: fix in airlift to be a test dependency -->
-                    <groupId>org.apache.bval</groupId>
-                    <artifactId>bval-jsr303</artifactId>
-                </exclusion>
-            </exclusions>
         </dependency>
 
         <dependency>
@@ -90,11 +79,10 @@
                     <groupId>javax.inject</groupId>
                     <artifactId>javax.inject</artifactId>
                 </exclusion>
-                <!-- TODO: fix in airlift to use TypeToken -->
-                <!--<exclusion>-->
-                    <!--<groupId>com.google.inject</groupId>-->
-                    <!--<artifactId>guice</artifactId>-->
-                <!--</exclusion>-->
+                <exclusion>
+                    <groupId>com.google.inject</groupId>
+                    <artifactId>guice</artifactId>
+                </exclusion>
                 <exclusion>
                     <groupId>com.google.inject.extensions</groupId>
                     <artifactId>guice-multibindings</artifactId>
@@ -156,6 +144,12 @@
             <groupId>org.apache.httpcomponents</groupId>
             <artifactId>httpclient</artifactId>
             <scope>test</scope>
+            <exclusions>
+                <exclusion>
+                    <groupId>commons-logging</groupId>
+                    <artifactId>commons-logging</artifactId>
+                </exclusion>
+            </exclusions>
         </dependency>
     </dependencies>
 
@@ -178,16 +172,10 @@
                             <artifactSet>
                                 <excludes>
                                     <exclude>com.google.code.findbugs:annotations</exclude>
-                                    <!-- TODO: remove aopalliance and guice excludes here when excluded above -->
-                                    <exclude>aopalliance:aopalliance</exclude>
                                     <exclude>javax.validation:validation-api</exclude>
                                 </excludes>
                             </artifactSet>
                             <relocations>
-                                <reloation>
-                                    <pattern>com.google.inject</pattern>
-                                    <shadedPattern>${shadeBase}.guice</shadedPattern>
-                                </reloation>
                                 <relocation>
                                     <pattern>com.facebook.presto.client</pattern>
                                     <shadedPattern>${shadeBase}.client</shadedPattern>
@@ -201,8 +189,20 @@
                                     <shadedPattern>${shadeBase}.guava</shadedPattern>
                                 </relocation>
                                 <relocation>
+                                    <pattern>com.google.thirdparty</pattern>
+                                    <shadedPattern>${shadeBase}.guava</shadedPattern>
+                                </relocation>
+                                <relocation>
                                     <pattern>io.airlift</pattern>
                                     <shadedPattern>${shadeBase}.airlift</shadedPattern>
+                                </relocation>
+                                <relocation>
+                                    <pattern>javax.inject</pattern>
+                                    <shadedPattern>${shadeBase}.inject</shadedPattern>
+                                </relocation>
+                                <relocation>
+                                    <pattern>org.openjdk.jol</pattern>
+                                    <shadedPattern>${shadeBase}.jol</shadedPattern>
                                 </relocation>
                                 <relocation>
                                     <pattern>org.jboss.netty</pattern>
@@ -219,6 +219,7 @@
                                     <excludes>
                                         <exclude>META-INF/maven/**</exclude>
                                         <exclude>META-INF/*.xml</exclude>
+                                        <exclude>LICENSE</exclude>
                                     </excludes>
                                 </filter>
                                 <filter>
