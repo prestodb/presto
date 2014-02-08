@@ -151,16 +151,9 @@
                             <goal>shade</goal>
                         </goals>
                         <configuration>
-                            <shadedArtifactAttached>true</shadedArtifactAttached>
-                            <shadedClassifierName>standalone</shadedClassifierName>
                             <createSourcesJar>true</createSourcesJar>
-                            <keepDependenciesWithProvidedScope>false</keepDependenciesWithProvidedScope>
-                            <artifactSet>
-                                <excludes>
-                                    <exclude>com.google.code.findbugs:annotations</exclude>
-                                    <exclude>javax.validation:validation-api</exclude>
-                                </excludes>
-                            </artifactSet>
+                            <shadeSourcesContent>true</shadeSourcesContent>
+                            <dependencyReducedPomLocation>${project.build.directory}/pom.xml</dependencyReducedPomLocation>
                             <relocations>
                                 <relocation>
                                     <pattern>com.facebook.presto.client</pattern>
@@ -212,6 +205,18 @@
                                     <artifact>com.fasterxml.jackson.core:*</artifact>
                                     <excludes>
                                         <exclude>META-INF/services/**</exclude>
+                                    </excludes>
+                                </filter>
+                                <filter>
+                                    <artifact>com.google.code.findbugs:annotations</artifact>
+                                    <excludes>
+                                        <exclude>**</exclude>
+                                    </excludes>
+                                </filter>
+                                <filter>
+                                    <artifact>javax.validation:validation-api</artifact>
+                                    <excludes>
+                                        <exclude>**</exclude>
                                     </excludes>
                                 </filter>
                             </filters>
