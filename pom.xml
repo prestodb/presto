@@ -493,7 +493,7 @@
                 <plugin>
                     <groupId>org.apache.maven.plugins</groupId>
                     <artifactId>maven-shade-plugin</artifactId>
-                    <version>1.5</version>
+                    <version>2.2</version>
                 </plugin>
 
                 <plugin>
