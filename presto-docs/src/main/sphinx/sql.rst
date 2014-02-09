@@ -19,17 +19,11 @@ This chapter describes the SQL syntax used in Presto.
     sql/show-schemas
     sql/show-tables
 
-
-
     sql/create-table
     sql/drop-table
 
-    sql/create-alias
-    sql/drop-alias
-
     sql/explain
     sql/describe
-
 
     sql/use-catalog
     sql/use-schema
