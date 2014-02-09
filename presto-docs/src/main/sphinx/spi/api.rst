@@ -2,16 +2,16 @@
 The Presto SPI API
 ==================
 
-Implementing a new Presto connector is really just implementing and
-overriding a set of methods on intefaces defined by the SPI. Doing so
-gives Presto a structure for invoking your code to access any data
-source. Even if that data source doesn't have underlying tables
-backing your data, as long as you adapt your data source to the API
-expected by Presto, you can write queries against this data.
+When you implement a new Presto connector you implement interfaces and
+override methods defined by the SPI. Doing so gives Presto a structure
+for invoking your code to access any data source. Even if that data
+source doesn't have underlying tables backing your data, as long as
+you adapt your data source to the API expected by Presto, you can
+write queries against this data.
 
-In this chapter, we're going to walk through the several interfaces
-that comprise the Presto SPI and discuss strategies for adapting this
-API to your data source.
+This chapter walks through the several interfaces that comprise the
+Presto SPI and discusses strategies for adapting this API to your data
+source.
 
 GitHub Code
 -----------
@@ -25,10 +25,10 @@ Plugin Metadata
 
 Each plugin identifies an entry point - an implementation of the
 Plugin interface. This class is listed in a common location in every
-SPI JAR archive. The plugin descriptor available on the classpath in
-META-INF/services in a file named com.facebook.presto.spi.Plugin. The
-contents of this file is a single line listing the name of the Plugin
-class.
+SPI JAR archive. The plugin descriptor is available on the classpath
+in ``META-INF/services`` in a file named
+``com.facebook.presto.spi.Plugin``. The contents of this file is a
+single line listing the name of the Plugin class.
 
 .. code-block:: none
 
@@ -37,14 +37,15 @@ class.
 Plugin
 ---------------------
 
-The plugin interface is a good place to start to understand the Presto
-SPI. This interface provides a mechanism for setting optional
-configuration. This is configuration that is going to be passed in via
-a catalog configuration file and it is your connector's ability to
-keep track of additional configuration that is specific to your
-connector.  For example, if your connector is connecting to a
-relational database, this is where you would keep track of
-configuration parameters that point to specific ports or host names.
+The plugin interface is a good place starting for developers looking
+to understand the Presto SPI. This interface provides a mechanism for
+setting optional configuration - configuration passed in via a catalog
+configuration file. Your connector's ability to keep track of this
+additional configuration that is specific to your connector is housed
+in this Plugin implementation.  For example, if your connector is
+connecting to a relational database, this is where you would keep
+track of configuration parameters that point to specific ports or host
+names.
 
 The getServices() method is a top-level function that Presto calls to
 retrieve a ConnectorFactory when Presto is ready to create an instance
@@ -74,7 +75,9 @@ a ConnectorFactory instance which is created when Presto calls
 getServices() on the plugin to request a service of type
 ConnectorFactory.
 
-The ConnectorFactory is a simple interface responsible for creating an instance of a Connector object and creating it with references to a series of lower-level managers.
+The ConnectorFactory is a simple interface responsible for creating an
+instance of a Connector object and creating it with references to a
+series of lower-level managers.
 
 .. code-block:: java
 
@@ -142,7 +145,8 @@ partitions. Take Hive as an example, when you query a large table with
 Hive, Hive returns partitions that Presto then turns into splits which
 are then distributed to tasks.
 
-Here are the key functions to implement in the ConnectorSplitManager interface:
+Here are the key functions to implement in the ConnectorSplitManager
+interface:
 
 .. code-block:: java
 
@@ -160,7 +164,9 @@ connector.
 ConnectorRecordSetProvider
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Given a split and a list of columns, the record set provider is responsible for delivering data to Presto components.  Here's the interface of the ConnectorRecordSetProvider:
+Given a split and a list of columns, the record set provider is
+responsible for delivering data to Presto components.  Here's the
+interface of the ConnectorRecordSetProvider:
 
 .. code-block: java
 

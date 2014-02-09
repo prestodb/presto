@@ -9,5 +9,5 @@ Presto Documentation
     installation
     functions
     sql
-    release
     spi
+    release
