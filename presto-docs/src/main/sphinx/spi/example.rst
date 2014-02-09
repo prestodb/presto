@@ -189,7 +189,12 @@ of the example HTTP connector's implementation of each class.
 Connector: ExampleConnector
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-You would think that the connector class is the center of the action in a Presto connector implementation, but it really isn't. At least it isn't in the example connector. This ExampleConnector class is simply a class that allows other services and managers get references to the various services provided by the connector. The most important class in the ExampleConnector is this overide:
+You would think that the connector class is the center of the action
+in a Presto connector implementation, but it really isn't. At least it
+isn't in the example connector. This ExampleConnector class is simply
+a class that allows other services and managers get references to the
+various services provided by the connector. The most important class
+in the ExampleConnector is this overide:
 
 .. code-block:: java
 
