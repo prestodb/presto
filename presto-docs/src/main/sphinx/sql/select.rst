@@ -64,3 +64,59 @@ Using with tablealias and joins::
 	table2 t2 TABLESAMPLE BERNOULLI (40)
 	ON
 	t1.id = t2.id
+
+UNION Clause
+------------
+
+The UNION clause is used to combine the results of more than one
+select statement into a single result set.  The argument to a UNION
+clause is another select statement that adheres to the structure
+defined in this documentation.
+
+.. code-block:: sql
+  select_statement UNION [ALL | DISTINCT] select_statement
+
+The argument ALL or DISTINCT controls which results are included in
+the final result set. If the argument ALL is specified all results are
+included even if the results are identical.  If the argument DISTINCT
+is specified only distinct results are included in the combined result
+set. If neither ALL nor DISTINCT is specified the behavior of the
+UNION clause defaults to the behavior specified by DISTINCT.
+
+The following is an example of one of the simplest possible UNION
+clauses. The following query selects the bigint value 1 and combines
+this result set with a second select statement which selects the
+bigint value 2.
+
+.. code-block:: sql
+    presto:default> select 1 union select 2;
+     _col0 
+    -------
+         2 
+         1 
+    (2 rows)
+
+To illustrate the behavior of ALL of DISTINCT, consider the following
+query example:
+
+.. code-block:: sql
+    presto:default> select 1 union select 1;
+     _col0 
+    -------
+         1 
+    (1 row)
+
+The query shown above doesn't specific ALL or DISTINCT, so the UNION
+clause defaults to DISTINCT behavior. The query shown above is
+equivalent to ``select 1 union distinct select 1;``.
+
+Next consider the output of the same query with a UNION clause that
+specifies ALL behavior:
+
+.. code-block:: sql
+    presto:default> select 1 union all select 1;
+     _col0 
+    -------
+         1 
+         1 
+    (2 rows)
