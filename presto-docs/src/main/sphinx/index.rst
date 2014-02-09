@@ -8,5 +8,6 @@ Presto Documentation
 
     installation
     functions
+    types
     sql
     release

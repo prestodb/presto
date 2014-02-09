@@ -16,3 +16,4 @@ Functions and Operators
     functions/aggregate
     functions/window
     functions/color
+    functions/conversion
