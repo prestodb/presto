@@ -13,3 +13,18 @@ Description
 -----------
 
 Update the session to use the specified catalog
+
+Parameters
+----------
+
+catalog
+
+    Name of Presto catalog
+
+Examples
+--------
+
+.. code-block:: sql
+
+    USE CATALOG jmx;
+    USE CATALOG hive;
