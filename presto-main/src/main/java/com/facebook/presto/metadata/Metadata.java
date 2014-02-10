@@ -13,10 +13,7 @@
  */
 package com.facebook.presto.metadata;
 
-import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
-import com.facebook.presto.spi.OutputTableHandle;
-import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.sql.analyzer.Type;
 import com.facebook.presto.sql.tree.QualifiedName;
 import com.google.common.base.Optional;

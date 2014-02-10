@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.tpch;
 
-import com.facebook.presto.spi.ColumnHandle;
+import com.facebook.presto.spi.ConnectorColumnHandle;
 import com.facebook.presto.spi.ColumnType;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
@@ -22,7 +22,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 public class TpchColumnHandle
-        implements ColumnHandle
+        implements ConnectorColumnHandle
 {
     private final String columnName;
     private final int fieldIndex;

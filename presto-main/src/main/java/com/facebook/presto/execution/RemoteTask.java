@@ -15,7 +15,7 @@ package com.facebook.presto.execution;
 
 import com.facebook.presto.OutputBuffers;
 import com.facebook.presto.execution.StateMachine.StateChangeListener;
-import com.facebook.presto.spi.Split;
+import com.facebook.presto.metadata.Split;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import io.airlift.units.Duration;
 
@@ -27,7 +27,7 @@ public interface RemoteTask
 
     void start();
 
-    void addSplits(PlanNodeId sourceId, Iterable<? extends Split> split);
+    void addSplits(PlanNodeId sourceId, Iterable<Split> split);
 
     void noMoreSplits(PlanNodeId sourceId);
 

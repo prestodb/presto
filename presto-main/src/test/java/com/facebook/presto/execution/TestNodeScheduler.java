@@ -13,15 +13,16 @@
  */
 package com.facebook.presto.execution;
 
+import com.facebook.presto.connector.dual.DualConnector;
 import com.facebook.presto.connector.dual.DualMetadata;
 import com.facebook.presto.connector.dual.DualSplit;
 import com.facebook.presto.metadata.InMemoryNodeManager;
 import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.metadata.NodeVersion;
 import com.facebook.presto.metadata.PrestoNode;
+import com.facebook.presto.metadata.Split;
 import com.facebook.presto.spi.HostAddress;
 import com.facebook.presto.spi.Node;
-import com.facebook.presto.spi.Split;
 import com.facebook.presto.sql.analyzer.Session;
 import com.facebook.presto.sql.planner.StageExecutionPlan;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
@@ -154,7 +155,7 @@ public class TestNodeScheduler
     {
         ImmutableList.Builder<Split> splits = ImmutableList.builder();
         for (int i = 0; i < splitCount; i++) {
-            splits.add(new DualSplit(HostAddress.fromString("127.0.0.1")));
+            splits.add(new Split(DualConnector.CONNECTOR_ID, new DualSplit(HostAddress.fromString("127.0.0.1"))));
         }
         return splits.build();
     }
@@ -166,7 +167,7 @@ public class TestNodeScheduler
 
         ImmutableMultimap.Builder<PlanNodeId, Split> initialSplits = ImmutableMultimap.builder();
         for (int i = 0; i < splitCount; i++) {
-            initialSplits.put(id, new DualSplit(HostAddress.fromString("127.0.0.1")));
+            initialSplits.put(id, new Split(DualConnector.CONNECTOR_ID, new DualSplit(HostAddress.fromString("127.0.0.1"))));
         }
         return taskFactory.createRemoteTask(SESSION, taskId, node, plan.getFragment(), initialSplits.build(), null);
     }

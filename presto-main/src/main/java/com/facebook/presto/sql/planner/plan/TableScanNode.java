@@ -13,9 +13,9 @@
  */
 package com.facebook.presto.sql.planner.plan;
 
-import com.facebook.presto.spi.ColumnHandle;
-import com.facebook.presto.spi.Partition;
-import com.facebook.presto.spi.TableHandle;
+import com.facebook.presto.metadata.ColumnHandle;
+import com.facebook.presto.metadata.Partition;
+import com.facebook.presto.metadata.TableHandle;
 import com.facebook.presto.spi.TupleDomain;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.tree.Expression;

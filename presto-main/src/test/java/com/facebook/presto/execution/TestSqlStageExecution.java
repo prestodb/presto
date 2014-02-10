@@ -19,18 +19,17 @@ import com.facebook.presto.connector.dual.DualConnector;
 import com.facebook.presto.connector.dual.DualMetadata;
 import com.facebook.presto.connector.dual.DualSplit;
 import com.facebook.presto.execution.TestSqlTaskManager.MockLocationFactory;
+import com.facebook.presto.metadata.ColumnHandle;
 import com.facebook.presto.metadata.InMemoryNodeManager;
 import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.metadata.NodeVersion;
 import com.facebook.presto.metadata.PrestoNode;
 import com.facebook.presto.metadata.QualifiedTableName;
-import com.facebook.presto.spi.ColumnHandle;
+import com.facebook.presto.metadata.TableHandle;
+import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.FixedSplitSource;
 import com.facebook.presto.spi.HostAddress;
 import com.facebook.presto.spi.Node;
-import com.facebook.presto.spi.Split;
-import com.facebook.presto.spi.SplitSource;
-import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.sql.analyzer.Session;
 import com.facebook.presto.sql.analyzer.Type;
 import com.facebook.presto.sql.planner.PlanFragment;
@@ -368,11 +367,12 @@ public class TestSqlStageExecution
                 OutputPartitioning.NONE,
                 ImmutableList.<Symbol>of());
 
-        ImmutableList.Builder<Split> splits = ImmutableList.builder();
+        ImmutableList.Builder<ConnectorSplit> splits = ImmutableList.builder();
+
         for (int i = 0; i < initialSplitCount; i++) {
             splits.add(new DualSplit(HostAddress.fromString("127.0.0.1")));
         }
-        SplitSource splitSource = new FixedSplitSource(datasource, splits.build());
+        SplitSource splitSource = new ConnectorAwareSplitSource(DualConnector.CONNECTOR_ID, new FixedSplitSource(null, splits.build()));
 
         return new StageExecutionPlan(testFragment,
                 Optional.of(splitSource),

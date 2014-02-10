@@ -16,9 +16,11 @@ package com.facebook.presto.operator.scalar;
 import com.facebook.presto.block.Block;
 import com.facebook.presto.block.BlockCursor;
 import com.facebook.presto.execution.TaskId;
+import com.facebook.presto.metadata.ColumnHandle;
 import com.facebook.presto.metadata.FunctionInfo;
 import com.facebook.presto.metadata.FunctionRegistry.FunctionListBuilder;
 import com.facebook.presto.metadata.MetadataManager;
+import com.facebook.presto.metadata.Split;
 import com.facebook.presto.operator.DriverContext;
 import com.facebook.presto.operator.FilterAndProjectOperator.FilterAndProjectOperatorFactory;
 import com.facebook.presto.operator.FilterFunction;
@@ -32,11 +34,10 @@ import com.facebook.presto.operator.SourceOperator;
 import com.facebook.presto.operator.SourceOperatorFactory;
 import com.facebook.presto.operator.ValuesOperator;
 import com.facebook.presto.operator.TaskContext;
-import com.facebook.presto.spi.ColumnHandle;
+import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.HostAddress;
 import com.facebook.presto.spi.InMemoryRecordSet;
 import com.facebook.presto.spi.RecordSet;
-import com.facebook.presto.spi.Split;
 import com.facebook.presto.split.DataStreamProvider;
 import com.facebook.presto.sql.analyzer.Analysis;
 import com.facebook.presto.sql.analyzer.AnalysisContext;
@@ -543,8 +544,8 @@ public final class FunctionAssertions
         @Override
         public Operator createNewDataStream(OperatorContext operatorContext, Split split, List<ColumnHandle> columns)
         {
-            assertInstanceOf(split, FunctionAssertions.TestSplit.class);
-            FunctionAssertions.TestSplit testSplit = (FunctionAssertions.TestSplit) split;
+            assertInstanceOf(split.getConnectorSplit(), FunctionAssertions.TestSplit.class);
+            FunctionAssertions.TestSplit testSplit = (FunctionAssertions.TestSplit) split.getConnectorSplit();
             if (testSplit.isRecordSet()) {
                 RecordSet records = InMemoryRecordSet.builder(ImmutableList.of(LONG, STRING, DOUBLE, BOOLEAN, LONG, STRING, STRING)).addRow(
                         1234L,
@@ -564,16 +565,16 @@ public final class FunctionAssertions
     }
 
     static class TestSplit
-            implements Split
+            implements ConnectorSplit
     {
         static Split createRecordSetSplit()
         {
-            return new TestSplit(true);
+            return new Split("test", new TestSplit(true));
         }
 
         static Split createNormalSplit()
         {
-            return new TestSplit(false);
+            return new Split("test", new TestSplit(false));
         }
 
         private final boolean recordSet;

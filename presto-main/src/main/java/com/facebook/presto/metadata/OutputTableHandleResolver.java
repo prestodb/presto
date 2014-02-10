@@ -14,7 +14,7 @@
 package com.facebook.presto.metadata;
 
 import com.facebook.presto.spi.ConnectorOutputHandleResolver;
-import com.facebook.presto.spi.OutputTableHandle;
+import com.facebook.presto.spi.ConnectorOutputTableHandle;
 
 import javax.inject.Inject;
 
@@ -46,7 +46,7 @@ public class OutputTableHandleResolver
         checkState(existingResolver == null, "Id %s is already assigned to resolver %s", id, existingResolver);
     }
 
-    public String getId(OutputTableHandle tableHandle)
+    public String getId(ConnectorOutputTableHandle tableHandle)
     {
         for (Entry<String, ConnectorOutputHandleResolver> entry : handleIdResolvers.entrySet()) {
             if (entry.getValue().canHandle(tableHandle)) {
@@ -56,7 +56,7 @@ public class OutputTableHandleResolver
         throw new IllegalArgumentException("No connector for output table handle: " + tableHandle);
     }
 
-    public Class<? extends OutputTableHandle> getOutputTableHandleClass(String id)
+    public Class<? extends ConnectorOutputTableHandle> getOutputTableHandleClass(String id)
     {
         ConnectorOutputHandleResolver resolver = handleIdResolvers.get(id);
         checkArgument(resolver != null, "No handle resolver for %s", id);

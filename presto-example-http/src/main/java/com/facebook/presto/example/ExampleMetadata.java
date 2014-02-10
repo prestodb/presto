@@ -13,13 +13,13 @@
  */
 package com.facebook.presto.example;
 
-import com.facebook.presto.spi.ColumnHandle;
+import com.facebook.presto.spi.ConnectorColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
+import com.facebook.presto.spi.ConnectorTableHandle;
 import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.ReadOnlyConnectorMetadata;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.SchemaTablePrefix;
-import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.spi.TableNotFoundException;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -49,7 +49,7 @@ public class ExampleMetadata
     }
 
     @Override
-    public boolean canHandle(TableHandle tableHandle)
+    public boolean canHandle(ConnectorTableHandle tableHandle)
     {
         return tableHandle instanceof ExampleTableHandle && ((ExampleTableHandle) tableHandle).getConnectorId().equals(connectorId);
     }
@@ -76,7 +76,7 @@ public class ExampleMetadata
     }
 
     @Override
-    public ConnectorTableMetadata getTableMetadata(TableHandle table)
+    public ConnectorTableMetadata getTableMetadata(ConnectorTableHandle table)
     {
         checkArgument(table instanceof ExampleTableHandle, "tableHandle is not an instance of ExampleTableHandle");
         ExampleTableHandle exampleTableHandle = (ExampleTableHandle) table;
@@ -107,19 +107,19 @@ public class ExampleMetadata
     }
 
     @Override
-    public ColumnHandle getColumnHandle(TableHandle tableHandle, String columnName)
+    public ConnectorColumnHandle getColumnHandle(ConnectorTableHandle tableHandle, String columnName)
     {
         return getColumnHandles(tableHandle).get(columnName);
     }
 
     @Override
-    public ColumnHandle getSampleWeightColumnHandle(TableHandle tableHandle)
+    public ConnectorColumnHandle getSampleWeightColumnHandle(ConnectorTableHandle tableHandle)
     {
         return null;
     }
 
     @Override
-    public Map<String, ColumnHandle> getColumnHandles(TableHandle tableHandle)
+    public Map<String, ConnectorColumnHandle> getColumnHandles(ConnectorTableHandle tableHandle)
     {
         checkNotNull(tableHandle, "tableHandle is null");
         checkArgument(tableHandle instanceof ExampleTableHandle, "tableHandle is not an instance of ExampleTableHandle");
@@ -131,7 +131,7 @@ public class ExampleMetadata
             throw new TableNotFoundException(exampleTableHandle.toSchemaTableName());
         }
 
-        ImmutableMap.Builder<String, ColumnHandle> columnHandles = ImmutableMap.builder();
+        ImmutableMap.Builder<String, ConnectorColumnHandle> columnHandles = ImmutableMap.builder();
         for (ColumnMetadata columnMetadata : table.getColumnsMetadata()) {
             columnHandles.put(columnMetadata.getName(), new ExampleColumnHandle(connectorId, columnMetadata));
         }
@@ -176,7 +176,7 @@ public class ExampleMetadata
     }
 
     @Override
-    public ColumnMetadata getColumnMetadata(TableHandle tableHandle, ColumnHandle columnHandle)
+    public ColumnMetadata getColumnMetadata(ConnectorTableHandle tableHandle, ConnectorColumnHandle columnHandle)
     {
         checkNotNull(tableHandle, "tableHandle is null");
         checkNotNull(columnHandle, "columnHandle is null");

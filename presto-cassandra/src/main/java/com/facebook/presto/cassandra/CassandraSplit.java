@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.cassandra;
 
+import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.HostAddress;
-import com.facebook.presto.spi.Split;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.base.Objects;
@@ -26,7 +26,7 @@ import java.util.List;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 public class CassandraSplit
-        implements Split
+        implements ConnectorSplit
 {
     private final String connectorId;
     private final String partitionId;

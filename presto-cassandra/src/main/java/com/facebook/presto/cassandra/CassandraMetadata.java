@@ -14,15 +14,15 @@
 package com.facebook.presto.cassandra;
 
 import com.facebook.presto.cassandra.util.CassandraCqlUtils;
-import com.facebook.presto.spi.ColumnHandle;
+import com.facebook.presto.spi.ConnectorColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
+import com.facebook.presto.spi.ConnectorTableHandle;
 import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.NotFoundException;
 import com.facebook.presto.spi.ReadOnlyConnectorMetadata;
 import com.facebook.presto.spi.SchemaNotFoundException;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.SchemaTablePrefix;
-import com.facebook.presto.spi.TableHandle;
 import com.google.common.base.Objects;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -70,14 +70,14 @@ public class CassandraMetadata
         }
     }
 
-    private static SchemaTableName getTableName(TableHandle tableHandle)
+    private static SchemaTableName getTableName(ConnectorTableHandle tableHandle)
     {
         checkArgument(tableHandle instanceof CassandraTableHandle, "tableHandle is not an instance of CassandraTableHandle");
         return ((CassandraTableHandle) tableHandle).getSchemaTableName();
     }
 
     @Override
-    public ConnectorTableMetadata getTableMetadata(TableHandle tableHandle)
+    public ConnectorTableMetadata getTableMetadata(ConnectorTableHandle tableHandle)
     {
         checkNotNull(tableHandle, "tableHandle is null");
         SchemaTableName tableName = getTableName(tableHandle);
@@ -118,7 +118,7 @@ public class CassandraMetadata
     }
 
     @Override
-    public ColumnHandle getColumnHandle(TableHandle tableHandle, String columnName)
+    public ConnectorColumnHandle getColumnHandle(ConnectorTableHandle tableHandle, String columnName)
     {
         checkNotNull(tableHandle, "tableHandle is null");
         checkNotNull(columnName, "columnName is null");
@@ -126,16 +126,16 @@ public class CassandraMetadata
     }
 
     @Override
-    public ColumnHandle getSampleWeightColumnHandle(TableHandle tableHandle)
+    public ConnectorColumnHandle getSampleWeightColumnHandle(ConnectorTableHandle tableHandle)
     {
         return null;
     }
 
     @Override
-    public Map<String, ColumnHandle> getColumnHandles(TableHandle tableHandle)
+    public Map<String, ConnectorColumnHandle> getColumnHandles(ConnectorTableHandle tableHandle)
     {
         CassandraTable table = schemaProvider.getTable((CassandraTableHandle) tableHandle);
-        ImmutableMap.Builder<String, ColumnHandle> columnHandles = ImmutableMap.builder();
+        ImmutableMap.Builder<String, ConnectorColumnHandle> columnHandles = ImmutableMap.builder();
         for (CassandraColumnHandle columnHandle : table.getColumns()) {
             columnHandles.put(CassandraCqlUtils.cqlNameToSqlName(columnHandle.getName()).toLowerCase(), columnHandle);
         }
@@ -167,7 +167,7 @@ public class CassandraMetadata
     }
 
     @Override
-    public ColumnMetadata getColumnMetadata(TableHandle tableHandle, ColumnHandle columnHandle)
+    public ColumnMetadata getColumnMetadata(ConnectorTableHandle tableHandle, ConnectorColumnHandle columnHandle)
     {
         checkNotNull(tableHandle, "tableHandle is null");
         checkNotNull(columnHandle, "columnHandle is null");
@@ -177,7 +177,7 @@ public class CassandraMetadata
     }
 
     @Override
-    public boolean canHandle(TableHandle tableHandle)
+    public boolean canHandle(ConnectorTableHandle tableHandle)
     {
         return tableHandle instanceof CassandraTableHandle && ((CassandraTableHandle) tableHandle).getConnectorId().equals(connectorId);
     }

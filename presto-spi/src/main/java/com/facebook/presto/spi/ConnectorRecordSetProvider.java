@@ -17,7 +17,7 @@ import java.util.List;
 
 public interface ConnectorRecordSetProvider
 {
-    boolean canHandle(Split split);
+    boolean canHandle(ConnectorSplit split);
 
-    RecordSet getRecordSet(Split split, List<? extends ColumnHandle> columns);
+    RecordSet getRecordSet(ConnectorSplit split, List<? extends ConnectorColumnHandle> columns);
 }

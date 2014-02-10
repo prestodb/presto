@@ -24,7 +24,7 @@ import com.facebook.presto.operator.TaskContext;
 import com.facebook.presto.serde.BlocksFileEncoding;
 import com.facebook.presto.serde.BlocksFileReader;
 import com.facebook.presto.serde.BlocksFileStats;
-import com.facebook.presto.spi.ColumnHandle;
+import com.facebook.presto.spi.ConnectorColumnHandle;
 import com.facebook.presto.sql.analyzer.Session;
 import com.facebook.presto.util.KeyBoundedExecutor;
 import com.google.common.annotations.VisibleForTesting;
@@ -139,14 +139,14 @@ public class DatabaseLocalStorageManager
     }
 
     @Override
-    public ColumnFileHandle createStagingFileHandles(UUID shardUuid, List<? extends ColumnHandle> columnHandles)
+    public ColumnFileHandle createStagingFileHandles(UUID shardUuid, List<? extends ConnectorColumnHandle> columnHandles)
             throws IOException
     {
         File shardPath = getShardPath(baseStagingDir, shardUuid);
 
         ColumnFileHandle.Builder builder = ColumnFileHandle.builder(shardUuid);
 
-        for (ColumnHandle columnHandle : columnHandles) {
+        for (ConnectorColumnHandle columnHandle : columnHandles) {
             File file = getColumnFile(shardPath, columnHandle, defaultEncoding);
             Files.createParentDirs(file);
             builder.addColumn(columnHandle, file, defaultEncoding);
@@ -182,9 +182,9 @@ public class DatabaseLocalStorageManager
         ImmutableList.Builder<BlockIterable> sourcesBuilder = ImmutableList.builder();
         ColumnFileHandle.Builder builder = ColumnFileHandle.builder(shardUuid);
 
-        for (Map.Entry<ColumnHandle, File> entry : columnFileHandle.getFiles().entrySet()) {
+        for (Map.Entry<ConnectorColumnHandle, File> entry : columnFileHandle.getFiles().entrySet()) {
             File file = entry.getValue();
-            ColumnHandle columnHandle = entry.getKey();
+            ConnectorColumnHandle columnHandle = entry.getKey();
 
             if (file.length() > 0) {
                 Slice slice = mappedFileCache.getUnchecked(file.getAbsoluteFile());
@@ -302,7 +302,7 @@ public class DatabaseLocalStorageManager
                 .toFile();
     }
 
-    private static File getColumnFile(File shardPath, ColumnHandle columnHandle, BlocksFileEncoding encoding)
+    private static File getColumnFile(File shardPath, ConnectorColumnHandle columnHandle, BlocksFileEncoding encoding)
     {
         checkState(columnHandle instanceof NativeColumnHandle, "Can only import in a native column");
         long columnId = ((NativeColumnHandle) columnHandle).getColumnId();
@@ -319,8 +319,8 @@ public class DatabaseLocalStorageManager
             {
                 StorageManagerDao dao = handle.attach(StorageManagerDao.class);
 
-                for (Map.Entry<ColumnHandle, File> entry : columnFileHandle.getFiles().entrySet()) {
-                    ColumnHandle columnHandle = entry.getKey();
+                for (Map.Entry<ConnectorColumnHandle, File> entry : columnFileHandle.getFiles().entrySet()) {
+                    ConnectorColumnHandle columnHandle = entry.getKey();
                     File file = entry.getValue();
 
                     checkState(columnHandle instanceof NativeColumnHandle, "Can only import in a native column");
@@ -333,7 +333,7 @@ public class DatabaseLocalStorageManager
     }
 
     @Override
-    public BlockIterable getBlocks(UUID shardUuid, ColumnHandle columnHandle)
+    public BlockIterable getBlocks(UUID shardUuid, ConnectorColumnHandle columnHandle)
     {
         checkNotNull(columnHandle);
         checkState(columnHandle instanceof NativeColumnHandle, "Can only load blocks from a native column");

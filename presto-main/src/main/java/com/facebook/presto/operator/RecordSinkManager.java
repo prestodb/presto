@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.operator;
 
+import com.facebook.presto.metadata.OutputTableHandle;
 import com.facebook.presto.spi.ConnectorRecordSinkProvider;
-import com.facebook.presto.spi.OutputTableHandle;
 import com.facebook.presto.spi.RecordSink;
 import com.google.common.collect.ImmutableSet;
 
@@ -49,8 +49,8 @@ public class RecordSinkManager
     public RecordSink getRecordSink(OutputTableHandle tableHandle)
     {
         for (ConnectorRecordSinkProvider provider : recordSinkProviders) {
-            if (provider.canHandle(tableHandle)) {
-                return provider.getRecordSink(tableHandle);
+            if (provider.canHandle(tableHandle.getConnectorHandle())) {
+                return provider.getRecordSink(tableHandle.getConnectorHandle());
             }
         }
         throw new IllegalArgumentException("No record sink for " + tableHandle);

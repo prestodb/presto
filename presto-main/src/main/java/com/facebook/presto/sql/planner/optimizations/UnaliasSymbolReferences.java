@@ -13,9 +13,9 @@
  */
 package com.facebook.presto.sql.planner.optimizations;
 
+import com.facebook.presto.metadata.ColumnHandle;
 import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.operator.SortOrder;
-import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.sql.analyzer.Session;
 import com.facebook.presto.sql.analyzer.Type;
 import com.facebook.presto.sql.planner.PlanNodeIdAllocator;

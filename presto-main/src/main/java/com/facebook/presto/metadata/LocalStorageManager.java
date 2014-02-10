@@ -14,7 +14,7 @@
 package com.facebook.presto.metadata;
 
 import com.facebook.presto.block.BlockIterable;
-import com.facebook.presto.spi.ColumnHandle;
+import com.facebook.presto.spi.ConnectorColumnHandle;
 
 import java.io.IOException;
 import java.util.List;
@@ -22,7 +22,7 @@ import java.util.UUID;
 
 public interface LocalStorageManager
 {
-    BlockIterable getBlocks(UUID shardUuid, ColumnHandle columnHandle);
+    BlockIterable getBlocks(UUID shardUuid, ConnectorColumnHandle columnHandle);
 
     boolean shardExists(UUID shardUuid);
 
@@ -30,7 +30,7 @@ public interface LocalStorageManager
 
     boolean isShardActive(UUID shardUuid);
 
-    ColumnFileHandle createStagingFileHandles(UUID shardUuid, List<? extends ColumnHandle> columnHandles)
+    ColumnFileHandle createStagingFileHandles(UUID shardUuid, List<? extends ConnectorColumnHandle> columnHandles)
             throws IOException;
 
     void commit(ColumnFileHandle columnFileHandle)

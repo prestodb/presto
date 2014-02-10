@@ -17,7 +17,7 @@ import com.facebook.presto.block.Block;
 import com.facebook.presto.operator.Page;
 import com.facebook.presto.serde.BlocksFileEncoding;
 import com.facebook.presto.serde.BlocksFileWriter;
-import com.facebook.presto.spi.ColumnHandle;
+import com.facebook.presto.spi.ConnectorColumnHandle;
 import com.google.common.base.Throwables;
 import com.google.common.io.OutputSupplier;
 import com.google.common.primitives.Ints;
@@ -44,8 +44,8 @@ public class ColumnFileHandle
     private static final DataSize OUTPUT_BUFFER_SIZE = new DataSize(64, KILOBYTE);
 
     private final UUID shardUuid;
-    private final Map<ColumnHandle, File> files;
-    private final Map<ColumnHandle, BlocksFileWriter> writers;
+    private final Map<ConnectorColumnHandle, File> files;
+    private final Map<ConnectorColumnHandle, BlocksFileWriter> writers;
 
     private final AtomicBoolean committed = new AtomicBoolean();
 
@@ -66,7 +66,7 @@ public class ColumnFileHandle
         return files.size();
     }
 
-    public Map<ColumnHandle, File> getFiles()
+    public Map<ConnectorColumnHandle, File> getFiles()
     {
         return files;
     }
@@ -129,8 +129,8 @@ public class ColumnFileHandle
         private final UUID shardUuid;
         // both of these Maps are ordered by the column handles. The writer map
         // may contain less writers than files.
-        private final Map<ColumnHandle, File> files = new LinkedHashMap<>();
-        private final Map<ColumnHandle, BlocksFileWriter> writers = new LinkedHashMap<>();
+        private final Map<ConnectorColumnHandle, File> files = new LinkedHashMap<>();
+        private final Map<ConnectorColumnHandle, BlocksFileWriter> writers = new LinkedHashMap<>();
 
         public Builder(UUID shardUuid)
         {
@@ -140,7 +140,7 @@ public class ColumnFileHandle
         /**
          * Register a file as part of the column set with a given encoding.
          */
-        public Builder addColumn(ColumnHandle columnHandle, File targetFile, BlocksFileEncoding encoding)
+        public Builder addColumn(ConnectorColumnHandle columnHandle, File targetFile, BlocksFileEncoding encoding)
         {
             checkNotNull(columnHandle, "columnHandle is null");
             checkNotNull(targetFile, "targetFile is null");
@@ -160,7 +160,7 @@ public class ColumnFileHandle
         /**
          * Register a file as part of the column set which does not get written.
          */
-        public Builder addColumn(ColumnHandle columnHandle, File targetFile)
+        public Builder addColumn(ConnectorColumnHandle columnHandle, File targetFile)
         {
             checkNotNull(columnHandle, "columnHandle is null");
             checkNotNull(targetFile, "targetFile is null");
@@ -181,12 +181,12 @@ public class ColumnFileHandle
             return shardUuid;
         }
 
-        private Map<ColumnHandle, File> getFiles()
+        private Map<ConnectorColumnHandle, File> getFiles()
         {
             return files;
         }
 
-        private Map<ColumnHandle, BlocksFileWriter> getWriters()
+        private Map<ConnectorColumnHandle, BlocksFileWriter> getWriters()
         {
             return writers;
         }

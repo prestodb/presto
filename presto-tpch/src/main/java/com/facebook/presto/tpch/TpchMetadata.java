@@ -13,14 +13,14 @@
  */
 package com.facebook.presto.tpch;
 
-import com.facebook.presto.spi.ColumnHandle;
+import com.facebook.presto.spi.ConnectorColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ColumnType;
+import com.facebook.presto.spi.ConnectorTableHandle;
 import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.ReadOnlyConnectorMetadata;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.SchemaTablePrefix;
-import com.facebook.presto.spi.TableHandle;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -55,7 +55,7 @@ public class TpchMetadata
     }
 
     @Override
-    public boolean canHandle(TableHandle tableHandle)
+    public boolean canHandle(ConnectorTableHandle tableHandle)
     {
         return tableHandle instanceof TpchTableHandle && ((TpchTableHandle) tableHandle).getConnectorId().equals(connectorId);
     }
@@ -84,7 +84,7 @@ public class TpchMetadata
     }
 
     @Override
-    public ConnectorTableMetadata getTableMetadata(TableHandle tableHandle)
+    public ConnectorTableMetadata getTableMetadata(ConnectorTableHandle tableHandle)
     {
         checkNotNull(tableHandle, "tableHandle is null");
         checkArgument(tableHandle instanceof TpchTableHandle, "tableHandle is not an instance of TpchTableHandle");
@@ -109,9 +109,9 @@ public class TpchMetadata
     }
 
     @Override
-    public Map<String, ColumnHandle> getColumnHandles(TableHandle tableHandle)
+    public Map<String, ConnectorColumnHandle> getColumnHandles(ConnectorTableHandle tableHandle)
     {
-        ImmutableMap.Builder<String, ColumnHandle> builder = ImmutableMap.builder();
+        ImmutableMap.Builder<String, ConnectorColumnHandle> builder = ImmutableMap.builder();
         for (ColumnMetadata columnMetadata : getTableMetadata(tableHandle).getColumns()) {
             builder.put(columnMetadata.getName(), new TpchColumnHandle(columnMetadata.getName(), columnMetadata.getOrdinalPosition(), columnMetadata.getType()));
         }
@@ -119,13 +119,13 @@ public class TpchMetadata
     }
 
     @Override
-    public ColumnHandle getColumnHandle(TableHandle tableHandle, String columnName)
+    public ConnectorColumnHandle getColumnHandle(ConnectorTableHandle tableHandle, String columnName)
     {
         return getColumnHandles(tableHandle).get(columnName);
     }
 
     @Override
-    public ColumnHandle getSampleWeightColumnHandle(TableHandle tableHandle)
+    public ConnectorColumnHandle getSampleWeightColumnHandle(ConnectorTableHandle tableHandle)
     {
         return null;
     }
@@ -146,7 +146,7 @@ public class TpchMetadata
     }
 
     @Override
-    public ColumnMetadata getColumnMetadata(TableHandle tableHandle, ColumnHandle columnHandle)
+    public ColumnMetadata getColumnMetadata(ConnectorTableHandle tableHandle, ConnectorColumnHandle columnHandle)
     {
         ConnectorTableMetadata tableMetadata = getTableMetadata(tableHandle);
         checkArgument(columnHandle instanceof TpchColumnHandle, "columnHandle is not an instance of TpchColumnHandle");

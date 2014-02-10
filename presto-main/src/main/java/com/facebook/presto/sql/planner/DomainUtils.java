@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.sql.planner;
 
-import com.facebook.presto.spi.ColumnHandle;
+import com.facebook.presto.metadata.ColumnHandle;
 import com.facebook.presto.spi.Domain;
 import com.facebook.presto.spi.SortedRangeSet;
 import com.google.common.base.Function;
