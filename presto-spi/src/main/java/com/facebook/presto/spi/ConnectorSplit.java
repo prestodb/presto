@@ -15,7 +15,7 @@ package com.facebook.presto.spi;
 
 import java.util.List;
 
-public interface Split
+public interface ConnectorSplit
 {
     boolean isRemotelyAccessible();
 

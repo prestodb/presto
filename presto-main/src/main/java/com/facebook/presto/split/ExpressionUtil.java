@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.split;
 
-import com.facebook.presto.spi.ColumnHandle;
+import com.facebook.presto.spi.ConnectorColumnHandle;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.tree.BooleanLiteral;
 import com.facebook.presto.sql.tree.ComparisonExpression;
@@ -46,7 +46,7 @@ public final class ExpressionUtil
      *
      * @return the constant values or absent if expression will always be false
      */
-    public static Optional<Map<ColumnHandle, Object>> extractConstantValues(Expression predicate, Map<Symbol, ColumnHandle> symbolToColumnName)
+    public static Optional<Map<ConnectorColumnHandle, Object>> extractConstantValues(Expression predicate, Map<Symbol, ConnectorColumnHandle> symbolToColumnName)
     {
         // Look for any sub-expression in an AND expression of the form <partition key> = 'value'
         Set<ComparisonExpression> comparisons = IterableTransformer.on(extractConjuncts(predicate))
@@ -63,13 +63,13 @@ public final class ExpressionUtil
                         matchesPattern(ComparisonExpression.Type.EQUAL, BooleanLiteral.class, QualifiedNameReference.class)))
                 .set();
 
-        final Map<ColumnHandle, Object> bindings = new HashMap<>();
+        final Map<ConnectorColumnHandle, Object> bindings = new HashMap<>();
         for (ComparisonExpression comparison : comparisons) {
             // Record binding if condition is an equality comparison over a partition key
             QualifiedNameReference reference = extractReference(comparison);
             Symbol symbol = Symbol.fromQualifiedName(reference.getName());
 
-            ColumnHandle column = symbolToColumnName.get(symbol);
+            ConnectorColumnHandle column = symbolToColumnName.get(symbol);
             if (column != null) {
                 Literal literal = extractLiteral(comparison);
 

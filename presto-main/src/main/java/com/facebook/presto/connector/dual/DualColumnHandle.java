@@ -13,13 +13,13 @@
  */
 package com.facebook.presto.connector.dual;
 
-import com.facebook.presto.spi.ColumnHandle;
+import com.facebook.presto.spi.ConnectorColumnHandle;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.base.Objects;
 
 public class DualColumnHandle
-        implements ColumnHandle
+        implements ConnectorColumnHandle
 {
     private final String columnName;
 

@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.tpch;
 
-import com.facebook.presto.spi.TableHandle;
+import com.facebook.presto.spi.ConnectorTableHandle;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.base.Objects;
@@ -22,7 +22,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 public class TpchTableHandle
-        implements TableHandle
+        implements ConnectorTableHandle
 {
     private final String connectorId;
     private final String tableName;

@@ -20,8 +20,8 @@ import com.facebook.presto.connector.informationSchema.InformationSchemaTableHan
 import com.facebook.presto.connector.system.SystemHandleResolver;
 import com.facebook.presto.connector.system.SystemTableHandle;
 import com.facebook.presto.spi.ConnectorHandleResolver;
+import com.facebook.presto.spi.ConnectorTableHandle;
 import com.facebook.presto.spi.SchemaTableName;
-import com.facebook.presto.spi.TableHandle;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableMap;
@@ -143,7 +143,7 @@ public class TestJsonTableHandle
     {
         String json = objectMapper.writeValueAsString(NATIVE_AS_MAP);
 
-        TableHandle tableHandle = objectMapper.readValue(json, TableHandle.class);
+        ConnectorTableHandle tableHandle = objectMapper.readValue(json, ConnectorTableHandle.class);
         assertEquals(tableHandle.getClass(), NativeTableHandle.class);
         NativeTableHandle nativeHandle = (NativeTableHandle) tableHandle;
 
@@ -158,7 +158,7 @@ public class TestJsonTableHandle
     {
         String json = objectMapper.writeValueAsString(SYSTEM_AS_MAP);
 
-        TableHandle tableHandle = objectMapper.readValue(json, TableHandle.class);
+        ConnectorTableHandle tableHandle = objectMapper.readValue(json, ConnectorTableHandle.class);
         assertEquals(tableHandle.getClass(), SystemTableHandle.class);
         SystemTableHandle systemHandle = (SystemTableHandle) tableHandle;
 
@@ -171,7 +171,7 @@ public class TestJsonTableHandle
     {
         String json = objectMapper.writeValueAsString(DUAL_AS_MAP);
 
-        TableHandle tableHandle = objectMapper.readValue(json, TableHandle.class);
+        ConnectorTableHandle tableHandle = objectMapper.readValue(json, ConnectorTableHandle.class);
         assertEquals(tableHandle.getClass(), DualTableHandle.class);
         DualTableHandle dualHandle = (DualTableHandle) tableHandle;
 
@@ -184,7 +184,7 @@ public class TestJsonTableHandle
     {
         String json = objectMapper.writeValueAsString(INFORMATION_SCHEMA_AS_MAP);
 
-        TableHandle tableHandle = objectMapper.readValue(json, TableHandle.class);
+        ConnectorTableHandle tableHandle = objectMapper.readValue(json, ConnectorTableHandle.class);
         assertEquals(tableHandle.getClass(), InformationSchemaTableHandle.class);
         InformationSchemaTableHandle informationSchemaHandle = (InformationSchemaTableHandle) tableHandle;
 

@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.tpch;
 
-import com.facebook.presto.spi.IndexHandle;
+import com.facebook.presto.spi.ConnectorIndexHandle;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 
@@ -29,13 +29,13 @@ public class TpchIndexHandleResolver
     }
 
     @Override
-    public boolean canHandle(IndexHandle indexHandle)
+    public boolean canHandle(ConnectorIndexHandle indexHandle)
     {
         return indexHandle instanceof TpchIndexHandle && ((TpchIndexHandle) indexHandle).getConnectorId().equals(connectorId);
     }
 
     @Override
-    public Class<? extends IndexHandle> getIndexHandleClass()
+    public Class<? extends ConnectorIndexHandle> getIndexHandleClass()
     {
         return TpchIndexHandle.class;
     }

@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.tpch;
 
+import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.HostAddress;
-import com.facebook.presto.spi.Split;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.base.Objects;
@@ -27,7 +27,7 @@ import static com.google.common.base.Preconditions.checkState;
 
 // Right now, splits are just the entire TPCH table
 public class TpchSplit
-        implements Split
+        implements ConnectorSplit
 {
     private final TpchTableHandle tableHandle;
     private final int totalParts;

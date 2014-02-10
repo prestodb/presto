@@ -18,8 +18,8 @@ import com.facebook.presto.metadata.InternalTable;
 import com.facebook.presto.operator.AlignmentOperator;
 import com.facebook.presto.operator.Operator;
 import com.facebook.presto.operator.OperatorContext;
-import com.facebook.presto.spi.ColumnHandle;
-import com.facebook.presto.spi.Split;
+import com.facebook.presto.spi.ConnectorColumnHandle;
+import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.split.ConnectorDataStreamProvider;
 import com.google.common.collect.ImmutableList;
 
@@ -43,18 +43,18 @@ public class DualDataStreamProvider
     }
 
     @Override
-    public boolean canHandle(Split split)
+    public boolean canHandle(ConnectorSplit split)
     {
         return split instanceof DualSplit;
     }
 
     @Override
-    public Operator createNewDataStream(OperatorContext operatorContext, Split split, List<ColumnHandle> columns)
+    public Operator createNewDataStream(OperatorContext operatorContext, ConnectorSplit split, List<ConnectorColumnHandle> columns)
     {
         return new AlignmentOperator(operatorContext, createChannels(split, columns));
     }
 
-    private List<BlockIterable> createChannels(Split split, List<ColumnHandle> columns)
+    private List<BlockIterable> createChannels(ConnectorSplit split, List<ConnectorColumnHandle> columns)
     {
         checkNotNull(split, "split is null");
         checkArgument(split instanceof DualSplit, "Split must be of type %s, not %s", DualSplit.class.getName(), split.getClass().getName());
@@ -63,7 +63,7 @@ public class DualDataStreamProvider
         checkArgument(!columns.isEmpty(), "must provide at least one column");
 
         ImmutableList.Builder<BlockIterable> list = ImmutableList.builder();
-        for (ColumnHandle column : columns) {
+        for (ConnectorColumnHandle column : columns) {
             checkArgument(column instanceof DualColumnHandle, "column must be of type %s, not %s", DualColumnHandle.class.getName(), column.getClass().getName());
             DualColumnHandle dualColumn = (DualColumnHandle) column;
 

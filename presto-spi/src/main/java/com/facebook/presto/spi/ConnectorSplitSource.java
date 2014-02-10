@@ -13,7 +13,14 @@
  */
 package com.facebook.presto.spi;
 
-@SuppressWarnings("MarkerInterface")
-public interface OutputTableHandle
+import java.util.List;
+
+public interface ConnectorSplitSource
 {
+    String getDataSourceName();
+
+    List<ConnectorSplit> getNextBatch(int maxSize)
+            throws InterruptedException;
+
+    boolean isFinished();
 }

@@ -13,12 +13,12 @@
  */
 package com.facebook.presto.connector.dual;
 
-import com.facebook.presto.spi.TableHandle;
+import com.facebook.presto.spi.ConnectorTableHandle;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
 public class DualTableHandle
-        implements TableHandle
+        implements ConnectorTableHandle
 {
     private final String schemaName;
 

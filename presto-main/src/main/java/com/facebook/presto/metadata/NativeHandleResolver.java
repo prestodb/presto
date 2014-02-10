@@ -13,74 +13,74 @@
  */
 package com.facebook.presto.metadata;
 
-import com.facebook.presto.spi.ColumnHandle;
+import com.facebook.presto.spi.ConnectorColumnHandle;
 import com.facebook.presto.spi.ConnectorHandleResolver;
+import com.facebook.presto.spi.ConnectorIndexHandle;
 import com.facebook.presto.spi.ConnectorOutputHandleResolver;
-import com.facebook.presto.spi.IndexHandle;
-import com.facebook.presto.spi.OutputTableHandle;
-import com.facebook.presto.spi.Split;
-import com.facebook.presto.spi.TableHandle;
+import com.facebook.presto.spi.ConnectorOutputTableHandle;
+import com.facebook.presto.spi.ConnectorSplit;
+import com.facebook.presto.spi.ConnectorTableHandle;
 import com.facebook.presto.split.NativeSplit;
 
 public class NativeHandleResolver
         implements ConnectorHandleResolver, ConnectorOutputHandleResolver
 {
     @Override
-    public boolean canHandle(TableHandle tableHandle)
+    public boolean canHandle(ConnectorTableHandle tableHandle)
     {
         return tableHandle instanceof NativeTableHandle;
     }
 
     @Override
-    public boolean canHandle(ColumnHandle columnHandle)
+    public boolean canHandle(ConnectorColumnHandle columnHandle)
     {
         return columnHandle instanceof NativeColumnHandle;
     }
 
     @Override
-    public boolean canHandle(Split split)
+    public boolean canHandle(ConnectorSplit split)
     {
         return split instanceof NativeSplit;
     }
 
     @Override
-    public boolean canHandle(OutputTableHandle tableHandle)
+    public boolean canHandle(ConnectorOutputTableHandle tableHandle)
     {
         return tableHandle instanceof NativeOutputTableHandle;
     }
 
     @Override
-    public boolean canHandle(IndexHandle indexHandle)
+    public boolean canHandle(ConnectorIndexHandle indexHandle)
     {
         return false;
     }
 
     @Override
-    public Class<? extends TableHandle> getTableHandleClass()
+    public Class<? extends ConnectorTableHandle> getTableHandleClass()
     {
         return NativeTableHandle.class;
     }
 
     @Override
-    public Class<? extends ColumnHandle> getColumnHandleClass()
+    public Class<? extends ConnectorColumnHandle> getColumnHandleClass()
     {
         return NativeColumnHandle.class;
     }
 
     @Override
-    public Class<? extends Split> getSplitClass()
+    public Class<? extends ConnectorSplit> getSplitClass()
     {
         return NativeSplit.class;
     }
 
     @Override
-    public Class<? extends OutputTableHandle> getOutputTableHandleClass()
+    public Class<? extends ConnectorOutputTableHandle> getOutputTableHandleClass()
     {
         return NativeOutputTableHandle.class;
     }
 
     @Override
-    public Class<? extends IndexHandle> getIndexHandleClass()
+    public Class<? extends ConnectorIndexHandle> getIndexHandleClass()
     {
         throw new UnsupportedOperationException();
     }

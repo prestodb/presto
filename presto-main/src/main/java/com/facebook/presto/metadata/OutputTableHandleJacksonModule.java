@@ -13,23 +13,23 @@
  */
 package com.facebook.presto.metadata;
 
-import com.facebook.presto.spi.OutputTableHandle;
+import com.facebook.presto.spi.ConnectorOutputTableHandle;
 
 import javax.inject.Inject;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 
 public class OutputTableHandleJacksonModule
-        extends AbstractTypedJacksonModule<OutputTableHandle>
+        extends AbstractTypedJacksonModule<ConnectorOutputTableHandle>
 {
     @Inject
     public OutputTableHandleJacksonModule(OutputTableHandleResolver handleResolver)
     {
-        super(OutputTableHandle.class, "type", new OutputTableHandleJsonTypeIdResolver(handleResolver));
+        super(ConnectorOutputTableHandle.class, "type", new OutputTableHandleJsonTypeIdResolver(handleResolver));
     }
 
     private static class OutputTableHandleJsonTypeIdResolver
-            implements JsonTypeIdResolver<OutputTableHandle>
+            implements JsonTypeIdResolver<ConnectorOutputTableHandle>
     {
         private final OutputTableHandleResolver handleResolver;
 
@@ -39,13 +39,13 @@ public class OutputTableHandleJacksonModule
         }
 
         @Override
-        public String getId(OutputTableHandle tableHandle)
+        public String getId(ConnectorOutputTableHandle tableHandle)
         {
             return handleResolver.getId(tableHandle);
         }
 
         @Override
-        public Class<? extends OutputTableHandle> getType(String id)
+        public Class<? extends ConnectorOutputTableHandle> getType(String id)
         {
             return handleResolver.getOutputTableHandleClass(id);
         }

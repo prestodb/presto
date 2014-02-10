@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.tpch;
 
-import com.facebook.presto.spi.ColumnHandle;
-import com.facebook.presto.spi.IndexHandle;
+import com.facebook.presto.spi.ConnectorColumnHandle;
+import com.facebook.presto.spi.ConnectorIndexHandle;
 import com.facebook.presto.spi.TupleDomain;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
@@ -25,13 +25,13 @@ import java.util.Set;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 public class TpchIndexHandle
-        implements IndexHandle
+        implements ConnectorIndexHandle
 {
     private final String connectorId;
     private final String tableName;
     private final double scaleFactor;
     private final Set<String> indexColumnNames;
-    private final TupleDomain<ColumnHandle> fixedValues;
+    private final TupleDomain<ConnectorColumnHandle> fixedValues;
 
     @JsonCreator
     public TpchIndexHandle(
@@ -39,7 +39,7 @@ public class TpchIndexHandle
             @JsonProperty("tableName") String tableName,
             @JsonProperty("scaleFactor") double scaleFactor,
             @JsonProperty("indexColumnNames") Set<String> indexColumnNames,
-            @JsonProperty("fixedValues") TupleDomain<ColumnHandle> fixedValues)
+            @JsonProperty("fixedValues") TupleDomain<ConnectorColumnHandle> fixedValues)
     {
         this.connectorId = checkNotNull(connectorId, "connectorId is null");
         this.tableName = checkNotNull(tableName, "tableName is null");
@@ -73,7 +73,7 @@ public class TpchIndexHandle
     }
 
     @JsonProperty
-    public TupleDomain<ColumnHandle> getFixedValues()
+    public TupleDomain<ConnectorColumnHandle> getFixedValues()
     {
         return fixedValues;
     }

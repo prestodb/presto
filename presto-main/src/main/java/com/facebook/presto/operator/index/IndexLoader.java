@@ -15,6 +15,7 @@ package com.facebook.presto.operator.index;
 
 import com.facebook.presto.ScheduledSplit;
 import com.facebook.presto.TaskSource;
+import com.facebook.presto.metadata.Split;
 import com.facebook.presto.operator.Driver;
 import com.facebook.presto.operator.DriverFactory;
 import com.facebook.presto.operator.LookupSource;
@@ -204,7 +205,7 @@ public class IndexLoader
         {
             // Drive index lookup to produce the output (landing in pagesIndexOutput)
             Driver driver = driverFactory.createDriver(pipelineContext.addDriverContext());
-            driver.updateSource(new TaskSource(sourcePlanNodeId, ImmutableSet.of(new ScheduledSplit(0, new IndexSplit(unloadedKeysRecordSet))), true));
+            driver.updateSource(new TaskSource(sourcePlanNodeId, ImmutableSet.of(new ScheduledSplit(0, new Split("index", new IndexSplit(unloadedKeysRecordSet)))), true));
             while (!driver.isFinished()) {
                 ListenableFuture<?> process = driver.process();
                 checkState(process.isDone(), "Driver should never block");

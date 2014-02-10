@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.metadata;
 
+import com.facebook.presto.spi.ConnectorTableHandle;
 import com.facebook.presto.spi.PartitionKey;
-import com.facebook.presto.spi.TableHandle;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -68,7 +68,7 @@ public class TestDatabaseShardManager
             throws Exception
     {
         long tableId = 1;
-        TableHandle tableHandle = new NativeTableHandle("demo", "test", tableId, null);
+        ConnectorTableHandle tableHandle = new NativeTableHandle("demo", "test", tableId, null);
         UUID shardId1 = UUID.randomUUID();
         UUID shardId2 = UUID.randomUUID();
 

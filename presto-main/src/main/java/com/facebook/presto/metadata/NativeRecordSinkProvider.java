@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.metadata;
 
+import com.facebook.presto.spi.ConnectorOutputTableHandle;
 import com.facebook.presto.spi.ConnectorRecordSinkProvider;
-import com.facebook.presto.spi.OutputTableHandle;
 import com.facebook.presto.spi.RecordSink;
 import com.google.common.base.Throwables;
 import io.airlift.node.NodeInfo;
@@ -47,13 +47,13 @@ public class NativeRecordSinkProvider
     }
 
     @Override
-    public boolean canHandle(OutputTableHandle tableHandle)
+    public boolean canHandle(ConnectorOutputTableHandle tableHandle)
     {
         return tableHandle instanceof NativeOutputTableHandle;
     }
 
     @Override
-    public RecordSink getRecordSink(OutputTableHandle tableHandle)
+    public RecordSink getRecordSink(ConnectorOutputTableHandle tableHandle)
     {
         NativeOutputTableHandle handle = checkType(tableHandle, NativeOutputTableHandle.class, "tableHandle");
 

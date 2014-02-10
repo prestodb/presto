@@ -13,16 +13,16 @@
  */
 package com.facebook.presto.operator.index;
 
+import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.HostAddress;
 import com.facebook.presto.spi.RecordSet;
-import com.facebook.presto.spi.Split;
 
 import java.util.List;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 
 public class IndexSplit
-        implements Split
+        implements ConnectorSplit
 {
     private final RecordSet keyRecordSet;
 

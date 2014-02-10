@@ -13,6 +13,15 @@
  */
 package com.facebook.presto.spi;
 
-public interface ColumnHandle
+public interface ConnectorPartition
 {
+    /**
+     * Get the unique id of this partition within the scope of the table.
+     */
+    String getPartitionId();
+
+    /**
+     * Gets the TupleDomain that provides a bound on the tuples within this Partition.
+     */
+    TupleDomain<ConnectorColumnHandle> getTupleDomain();
 }

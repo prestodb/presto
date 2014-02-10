@@ -77,10 +77,10 @@ public final class TupleDomain<T>
      * Convert a map of columns to values into the TupleDomain which requires
      * those columns to be fixed to those values.
      */
-    public static TupleDomain<ColumnHandle> withFixedValues(Map<ColumnHandle, Comparable<?>> fixedValues)
+    public static TupleDomain<ConnectorColumnHandle> withFixedValues(Map<ConnectorColumnHandle, Comparable<?>> fixedValues)
     {
-        Map<ColumnHandle, Domain> domains = new HashMap<>();
-        for (Map.Entry<ColumnHandle, Comparable<?>> entry : fixedValues.entrySet()) {
+        Map<ConnectorColumnHandle, Domain> domains = new HashMap<>();
+        for (Map.Entry<ConnectorColumnHandle, Comparable<?>> entry : fixedValues.entrySet()) {
             domains.put(entry.getKey(), Domain.singleValue(entry.getValue()));
         }
         return withColumnDomains(domains);
@@ -367,6 +367,26 @@ public final class TupleDomain<T>
         return builder.toString();
     }
 
+    public <U> TupleDomain<U> transform(Function<T, U> function)
+    {
+        if (domains == null) {
+            return new TupleDomain<>(null);
+        }
+
+        HashMap<U, Domain> result = new HashMap<>(domains.size());
+        for (Map.Entry<T, Domain> entry : domains.entrySet()) {
+            U key = function.apply(entry.getKey());
+
+            Domain previous = result.put(key, entry.getValue());
+
+            if (previous != null) {
+                throw new IllegalArgumentException(String.format("Every argument must have a unique mapping. %s maps to %s and %s", entry.getKey(), entry.getValue(), previous));
+            }
+        }
+
+        return new TupleDomain<>(result);
+    }
+
     // Available for Jackson serialization only!
     public static class ColumnDomain<C>
     {
@@ -393,5 +413,11 @@ public final class TupleDomain<T>
         {
             return domain;
         }
+    }
+
+    // Custom Function interface because SPI does not include Guava
+    public static interface Function<F, T>
+    {
+        T apply(F input);
     }
 }

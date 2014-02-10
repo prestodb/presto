@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.connector.jmx;
 
-import com.facebook.presto.spi.ColumnHandle;
+import com.facebook.presto.spi.ConnectorColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.type.Type;
 import com.fasterxml.jackson.annotation.JsonCreator;
@@ -22,7 +22,7 @@ import com.google.common.base.Function;
 import com.google.common.base.Objects;
 
 public class JmxColumnHandle
-        implements ColumnHandle
+        implements ConnectorColumnHandle
 {
     private final String connectorId;
     private final String columnName;

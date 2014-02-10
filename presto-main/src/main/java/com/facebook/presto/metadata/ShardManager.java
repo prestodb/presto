@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.metadata;
 
+import com.facebook.presto.spi.ConnectorTableHandle;
 import com.facebook.presto.spi.PartitionKey;
-import com.facebook.presto.spi.TableHandle;
 import com.google.common.base.Optional;
 import com.google.common.collect.Multimap;
 
@@ -42,38 +42,38 @@ public interface ShardManager
     /**
      * Commit a partition for a table.
      */
-    void commitPartition(TableHandle tableHandle, String partition, List<? extends PartitionKey> partitionKeys, Map<UUID, String> shards);
+    void commitPartition(ConnectorTableHandle tableHandle, String partition, List<? extends PartitionKey> partitionKeys, Map<UUID, String> shards);
 
     /**
      * Commit an unpartitioned table.
      */
-    void commitUnpartitionedTable(TableHandle tableHandle, Map<UUID, String> shards);
+    void commitUnpartitionedTable(ConnectorTableHandle tableHandle, Map<UUID, String> shards);
 
     /**
      * Get the names of all partitions that have been successfully imported.
      *
      * @return list of partition names
      */
-    Set<TablePartition> getPartitions(TableHandle tableHandle);
+    Set<TablePartition> getPartitions(ConnectorTableHandle tableHandle);
 
     /**
      * Get all partition keys by Partition for a given table handle.
      */
-    Multimap<String, ? extends PartitionKey> getAllPartitionKeys(TableHandle tableHandle);
+    Multimap<String, ? extends PartitionKey> getAllPartitionKeys(ConnectorTableHandle tableHandle);
 
     /**
      * Return a map of shard nodes by partition for a given table.
      *
      * @return partitionId -> (shardUuid -> nodeIdentifier)
      */
-    Multimap<Long, Entry<UUID, String>> getShardNodesByPartition(TableHandle tableHandle);
+    Multimap<Long, Entry<UUID, String>> getShardNodesByPartition(ConnectorTableHandle tableHandle);
 
     /**
      * Return list of nodes used by table shards.
      *
      * @return shardUuid -> nodeIdentifier
      */
-    Set<String> getTableNodes(TableHandle tableHandle);
+    Set<String> getTableNodes(ConnectorTableHandle tableHandle);
 
     /**
      * Return a collection of all nodes that were used in this shard manager.
@@ -83,7 +83,7 @@ public interface ShardManager
     /**
      * Drop all record of the specified partition
      */
-    void dropPartition(TableHandle tableHandle, String partitionName);
+    void dropPartition(ConnectorTableHandle tableHandle, String partitionName);
 
     /**
      * remove all partitions that are no longer referred from any shard.

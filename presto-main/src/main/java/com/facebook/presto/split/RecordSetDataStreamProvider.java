@@ -16,9 +16,9 @@ package com.facebook.presto.split;
 import com.facebook.presto.operator.Operator;
 import com.facebook.presto.operator.OperatorContext;
 import com.facebook.presto.operator.RecordProjectOperator;
-import com.facebook.presto.spi.ColumnHandle;
+import com.facebook.presto.spi.ConnectorColumnHandle;
 import com.facebook.presto.spi.ConnectorRecordSetProvider;
-import com.facebook.presto.spi.Split;
+import com.facebook.presto.spi.ConnectorSplit;
 
 import java.util.List;
 
@@ -35,13 +35,13 @@ public class RecordSetDataStreamProvider
     }
 
     @Override
-    public boolean canHandle(Split split)
+    public boolean canHandle(ConnectorSplit split)
     {
         return recordSetProvider.canHandle(split);
     }
 
     @Override
-    public Operator createNewDataStream(OperatorContext operatorContext, Split split, List<ColumnHandle> columns)
+    public Operator createNewDataStream(OperatorContext operatorContext, ConnectorSplit split, List<ConnectorColumnHandle> columns)
     {
         return new RecordProjectOperator(operatorContext, recordSetProvider.getRecordSet(split, columns));
     }

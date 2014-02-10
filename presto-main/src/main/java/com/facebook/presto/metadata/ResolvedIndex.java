@@ -11,19 +11,26 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.spi;
+package com.facebook.presto.metadata;
 
-import java.util.Objects;
+import com.facebook.presto.spi.ConnectorResolvedIndex;
+import com.facebook.presto.spi.TupleDomain;
+import com.google.common.base.Preconditions;
 
-public class ResolvedIndex
+import static com.facebook.presto.metadata.Util.fromConnectorDomain;
+
+public final class ResolvedIndex
 {
     private final IndexHandle indexHandle;
-    private final TupleDomain<ColumnHandle> unresolvedTupleDomain;
+    private final TupleDomain<ColumnHandle> undeterminedTupleDomain;
 
-    public ResolvedIndex(IndexHandle indexHandle, TupleDomain<ColumnHandle> unresolvedTupleDomain)
+    public ResolvedIndex(String connectorId, ConnectorResolvedIndex index)
     {
-        this.indexHandle = Objects.requireNonNull(indexHandle, "indexHandle is null");
-        this.unresolvedTupleDomain = Objects.requireNonNull(unresolvedTupleDomain, "unresolvedTupleDomain is null");
+        Preconditions.checkNotNull(connectorId, "connectorId is null");
+        Preconditions.checkNotNull(index, "index is null");
+
+        indexHandle = new IndexHandle(connectorId, index.getIndexHandle());
+        undeterminedTupleDomain = fromConnectorDomain(connectorId, index.getUnresolvedTupleDomain());
     }
 
     public IndexHandle getIndexHandle()
@@ -33,6 +40,6 @@ public class ResolvedIndex
 
     public TupleDomain<ColumnHandle> getUnresolvedTupleDomain()
     {
-        return unresolvedTupleDomain;
+        return undeterminedTupleDomain;
     }
 }

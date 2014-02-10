@@ -13,21 +13,21 @@
  */
 package com.facebook.presto.cassandra;
 
-import com.facebook.presto.spi.ColumnHandle;
-import com.facebook.presto.spi.Partition;
+import com.facebook.presto.spi.ConnectorColumnHandle;
+import com.facebook.presto.spi.ConnectorPartition;
 import com.facebook.presto.spi.TupleDomain;
 
 import java.nio.ByteBuffer;
 
 public class CassandraPartition
-        implements Partition
+        implements ConnectorPartition
 {
     static final String UNPARTITIONED_ID = "<UNPARTITIONED>";
     public static final CassandraPartition UNPARTITIONED = new CassandraPartition();
 
     private final String partitionId;
     private final byte[] key;
-    private final TupleDomain<ColumnHandle> tupleDomain;
+    private final TupleDomain<ConnectorColumnHandle> tupleDomain;
 
     private CassandraPartition()
     {
@@ -36,7 +36,7 @@ public class CassandraPartition
         key = null;
     }
 
-    public CassandraPartition(byte[] key, String partitionId, TupleDomain<ColumnHandle> tupleDomain)
+    public CassandraPartition(byte[] key, String partitionId, TupleDomain<ConnectorColumnHandle> tupleDomain)
     {
         this.key = key;
         this.partitionId = partitionId;
@@ -49,7 +49,7 @@ public class CassandraPartition
     }
 
     @Override
-    public TupleDomain<ColumnHandle> getTupleDomain()
+    public TupleDomain<ConnectorColumnHandle> getTupleDomain()
     {
         return tupleDomain;
     }

@@ -13,19 +13,19 @@
  */
 package com.facebook.presto.connector.system;
 
-import com.facebook.presto.spi.ColumnHandle;
+import com.facebook.presto.spi.ConnectorColumnHandle;
+import com.facebook.presto.spi.ConnectorPartition;
+import com.facebook.presto.spi.ConnectorPartitionResult;
+import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.ConnectorSplitManager;
+import com.facebook.presto.spi.ConnectorSplitSource;
+import com.facebook.presto.spi.ConnectorTableHandle;
 import com.facebook.presto.spi.FixedSplitSource;
 import com.facebook.presto.spi.HostAddress;
 import com.facebook.presto.spi.Node;
 import com.facebook.presto.spi.NodeManager;
-import com.facebook.presto.spi.Partition;
-import com.facebook.presto.spi.PartitionResult;
 import com.facebook.presto.spi.SchemaTableName;
-import com.facebook.presto.spi.Split;
-import com.facebook.presto.spi.SplitSource;
 import com.facebook.presto.spi.SystemTable;
-import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.spi.TupleDomain;
 import com.google.common.base.Objects;
 import com.google.common.collect.ImmutableList;
@@ -67,13 +67,13 @@ public class SystemSplitManager
     }
 
     @Override
-    public boolean canHandle(TableHandle handle)
+    public boolean canHandle(ConnectorTableHandle handle)
     {
         return handle instanceof SystemTableHandle;
     }
 
     @Override
-    public PartitionResult getPartitions(TableHandle table, TupleDomain<ColumnHandle> tupleDomain)
+    public ConnectorPartitionResult getPartitions(ConnectorTableHandle table, TupleDomain<ConnectorColumnHandle> tupleDomain)
     {
         checkNotNull(table, "table is null");
         checkNotNull(tupleDomain, "tupleDomain is null");
@@ -81,19 +81,19 @@ public class SystemSplitManager
         checkArgument(table instanceof SystemTableHandle, "TableHandle must be an SystemTableHandle");
         SystemTableHandle systemTableHandle = (SystemTableHandle) table;
 
-        List<Partition> partitions = ImmutableList.<Partition>of(new SystemPartition(systemTableHandle));
-        return new PartitionResult(partitions, tupleDomain);
+        List<ConnectorPartition> partitions = ImmutableList.<ConnectorPartition>of(new SystemPartition(systemTableHandle));
+        return new ConnectorPartitionResult(partitions, tupleDomain);
     }
 
     @Override
-    public SplitSource getPartitionSplits(TableHandle table, List<Partition> partitions)
+    public ConnectorSplitSource getPartitionSplits(ConnectorTableHandle table, List<ConnectorPartition> partitions)
     {
         checkNotNull(partitions, "partitions is null");
         if (partitions.isEmpty()) {
-            return new FixedSplitSource(null, ImmutableList.<Split>of());
+            return new FixedSplitSource(null, ImmutableList.<ConnectorSplit>of());
         }
 
-        Partition partition = Iterables.getOnlyElement(partitions);
+        ConnectorPartition partition = Iterables.getOnlyElement(partitions);
         checkArgument(partition instanceof SystemPartition, "Partition must be a system partition");
         SystemPartition systemPartition = (SystemPartition) partition;
 
@@ -101,7 +101,7 @@ public class SystemSplitManager
         checkArgument(systemTable != null, "Table %s does not exist", systemPartition.getTableHandle().getTableName());
 
         if (systemTable.isDistributed()) {
-            ImmutableList.Builder<Split> splits = ImmutableList.builder();
+            ImmutableList.Builder<ConnectorSplit> splits = ImmutableList.builder();
             for (Node node : nodeManager.getActiveNodes()) {
                 splits.add(new SystemSplit(systemPartition.tableHandle, node.getHostAndPort()));
             }
@@ -109,12 +109,12 @@ public class SystemSplitManager
         }
 
         HostAddress address = nodeManager.getCurrentNode().getHostAndPort();
-        Split split = new SystemSplit(systemPartition.tableHandle, address);
+        ConnectorSplit split = new SystemSplit(systemPartition.tableHandle, address);
         return new FixedSplitSource(null, ImmutableList.of(split));
     }
 
     public static class SystemPartition
-            implements Partition
+            implements ConnectorPartition
     {
         private final SystemTableHandle tableHandle;
 
@@ -135,7 +135,7 @@ public class SystemSplitManager
         }
 
         @Override
-        public TupleDomain<ColumnHandle> getTupleDomain()
+        public TupleDomain<ConnectorColumnHandle> getTupleDomain()
         {
             return TupleDomain.all();
         }

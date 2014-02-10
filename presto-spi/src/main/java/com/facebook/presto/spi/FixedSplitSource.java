@@ -18,20 +18,20 @@ import java.util.Collections;
 import java.util.List;
 
 public class FixedSplitSource
-        implements SplitSource
+        implements ConnectorSplitSource
 {
     private final String dataSourceName;
-    private final List<Split> splits;
+    private final List<ConnectorSplit> splits;
     private int offset;
 
-    public FixedSplitSource(String dataSourceName, Iterable<? extends Split> splits)
+    public FixedSplitSource(String dataSourceName, Iterable<? extends ConnectorSplit> splits)
     {
         this.dataSourceName = dataSourceName;
         if (splits == null) {
             throw new NullPointerException("splits is null");
         }
-        List<Split> splitsList = new ArrayList<>();
-        for (Split split : splits) {
+        List<ConnectorSplit> splitsList = new ArrayList<>();
+        for (ConnectorSplit split : splits) {
             splitsList.add(split);
         }
         this.splits = Collections.unmodifiableList(splitsList);
@@ -44,12 +44,12 @@ public class FixedSplitSource
     }
 
     @Override
-    public List<Split> getNextBatch(int maxSize)
+    public List<ConnectorSplit> getNextBatch(int maxSize)
             throws InterruptedException
     {
         int remainingSplits = splits.size() - offset;
         int size = Math.min(remainingSplits, maxSize);
-        List<Split> results = splits.subList(offset, offset + size);
+        List<ConnectorSplit> results = splits.subList(offset, offset + size);
         offset += size;
         return results;
     }

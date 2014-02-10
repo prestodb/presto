@@ -13,10 +13,10 @@
  */
 package com.facebook.presto.tpch;
 
-import com.facebook.presto.spi.ColumnHandle;
+import com.facebook.presto.spi.ConnectorColumnHandle;
 import com.facebook.presto.spi.ConnectorRecordSetProvider;
+import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.RecordSet;
-import com.facebook.presto.spi.Split;
 import com.google.common.collect.ImmutableList;
 import io.airlift.tpch.TpchColumn;
 import io.airlift.tpch.TpchEntity;
@@ -39,13 +39,13 @@ public class TpchRecordSetProvider
     }
 
     @Override
-    public boolean canHandle(Split split)
+    public boolean canHandle(ConnectorSplit split)
     {
         return split instanceof TpchSplit && ((TpchSplit) split).getTableHandle().getConnectorId().equals(connectorId);
     }
 
     @Override
-    public RecordSet getRecordSet(Split split, List<? extends ColumnHandle> columns)
+    public RecordSet getRecordSet(ConnectorSplit split, List<? extends ConnectorColumnHandle> columns)
     {
         checkNotNull(split, "split is null");
         checkArgument(split instanceof TpchSplit, "Split must be a tpch split!");
@@ -61,10 +61,10 @@ public class TpchRecordSetProvider
         return getRecordSet(tpchTable, columns, tpchSplit);
     }
 
-    private <E extends TpchEntity> RecordSet getRecordSet(TpchTable<E> table, List<? extends ColumnHandle> columns, TpchSplit tpchSplit)
+    private <E extends TpchEntity> RecordSet getRecordSet(TpchTable<E> table, List<? extends ConnectorColumnHandle> columns, TpchSplit tpchSplit)
     {
         ImmutableList.Builder<TpchColumn<E>> builder = ImmutableList.builder();
-        for (ColumnHandle column : columns) {
+        for (ConnectorColumnHandle column : columns) {
             checkArgument(column instanceof TpchColumnHandle, "column must be of type TpchColumnHandle, not %s", column.getClass().getName());
             String columnName = ((TpchColumnHandle) column).getColumnName();
             builder.add(table.getColumn(columnName));

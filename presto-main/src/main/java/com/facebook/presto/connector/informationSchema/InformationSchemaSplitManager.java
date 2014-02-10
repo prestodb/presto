@@ -13,16 +13,16 @@
  */
 package com.facebook.presto.connector.informationSchema;
 
-import com.facebook.presto.spi.ColumnHandle;
+import com.facebook.presto.spi.ConnectorColumnHandle;
+import com.facebook.presto.spi.ConnectorPartition;
+import com.facebook.presto.spi.ConnectorPartitionResult;
+import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.ConnectorSplitManager;
+import com.facebook.presto.spi.ConnectorSplitSource;
+import com.facebook.presto.spi.ConnectorTableHandle;
 import com.facebook.presto.spi.FixedSplitSource;
 import com.facebook.presto.spi.HostAddress;
 import com.facebook.presto.spi.NodeManager;
-import com.facebook.presto.spi.Partition;
-import com.facebook.presto.spi.PartitionResult;
-import com.facebook.presto.spi.Split;
-import com.facebook.presto.spi.SplitSource;
-import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.spi.TupleDomain;
 import com.google.common.base.Objects;
 import com.google.common.collect.ImmutableList;
@@ -57,13 +57,13 @@ public class InformationSchemaSplitManager
     }
 
     @Override
-    public boolean canHandle(TableHandle handle)
+    public boolean canHandle(ConnectorTableHandle handle)
     {
         return handle instanceof InformationSchemaTableHandle;
     }
 
     @Override
-    public PartitionResult getPartitions(TableHandle table, TupleDomain<ColumnHandle> tupleDomain)
+    public ConnectorPartitionResult getPartitions(ConnectorTableHandle table, TupleDomain<ConnectorColumnHandle> tupleDomain)
     {
         checkNotNull(table, "table is null");
         checkNotNull(tupleDomain, "tupleDomain is null");
@@ -71,46 +71,46 @@ public class InformationSchemaSplitManager
         checkArgument(table instanceof InformationSchemaTableHandle, "TableHandle must be an InformationSchemaTableHandle");
         InformationSchemaTableHandle informationSchemaTableHandle = (InformationSchemaTableHandle) table;
 
-        Map<ColumnHandle, Comparable<?>> bindings = tupleDomain.extractFixedValues();
+        Map<ConnectorColumnHandle, Comparable<?>> bindings = tupleDomain.extractFixedValues();
 
-        List<Partition> partitions = ImmutableList.<Partition>of(new InformationSchemaPartition(informationSchemaTableHandle, bindings));
+        List<ConnectorPartition> partitions = ImmutableList.<ConnectorPartition>of(new InformationSchemaPartition(informationSchemaTableHandle, bindings));
         // We don't strip out the bindings that we have created from the undeterminedTupleDomain b/c the current InformationSchema
         // system requires that all filters be re-applied at execution time.
-        return new PartitionResult(partitions, tupleDomain);
+        return new ConnectorPartitionResult(partitions, tupleDomain);
     }
 
     @Override
-    public SplitSource getPartitionSplits(TableHandle table, List<Partition> partitions)
+    public ConnectorSplitSource getPartitionSplits(ConnectorTableHandle table, List<ConnectorPartition> partitions)
     {
         checkNotNull(partitions, "partitions is null");
         if (partitions.isEmpty()) {
-            return new FixedSplitSource(null, ImmutableList.<Split>of());
+            return new FixedSplitSource(null, ImmutableList.<ConnectorSplit>of());
         }
 
-        Partition partition = Iterables.getOnlyElement(partitions);
+        ConnectorPartition partition = Iterables.getOnlyElement(partitions);
         checkArgument(partition instanceof InformationSchemaPartition, "Partition must be an informationSchema partition");
         InformationSchemaPartition informationSchemaPartition = (InformationSchemaPartition) partition;
 
         List<HostAddress> localAddress = ImmutableList.of(nodeManager.getCurrentNode().getHostAndPort());
 
         ImmutableMap.Builder<String, Object> filters = ImmutableMap.builder();
-        for (Entry<ColumnHandle, Comparable<?>> entry : informationSchemaPartition.getFilters().entrySet()) {
+        for (Entry<ConnectorColumnHandle, Comparable<?>> entry : informationSchemaPartition.getFilters().entrySet()) {
             InformationSchemaColumnHandle informationSchemaColumnHandle = (InformationSchemaColumnHandle) entry.getKey();
             filters.put(informationSchemaColumnHandle.getColumnName(), entry.getValue());
         }
 
-        Split split = new InformationSchemaSplit(informationSchemaPartition.table, filters.build(), localAddress);
+        ConnectorSplit split = new InformationSchemaSplit(informationSchemaPartition.table, filters.build(), localAddress);
 
         return new FixedSplitSource(null, ImmutableList.of(split));
     }
 
     public static class InformationSchemaPartition
-            implements Partition
+            implements ConnectorPartition
     {
         private final InformationSchemaTableHandle table;
-        private final Map<ColumnHandle, Comparable<?>> filters;
+        private final Map<ConnectorColumnHandle, Comparable<?>> filters;
 
-        public InformationSchemaPartition(InformationSchemaTableHandle table, Map<ColumnHandle, Comparable<?>> filters)
+        public InformationSchemaPartition(InformationSchemaTableHandle table, Map<ConnectorColumnHandle, Comparable<?>> filters)
         {
             this.table = checkNotNull(table, "table is null");
             this.filters = ImmutableMap.copyOf(checkNotNull(filters, "filters is null"));
@@ -128,12 +128,12 @@ public class InformationSchemaSplitManager
         }
 
         @Override
-        public TupleDomain<ColumnHandle> getTupleDomain()
+        public TupleDomain<ConnectorColumnHandle> getTupleDomain()
         {
             return TupleDomain.withFixedValues(filters);
         }
 
-        public Map<ColumnHandle, Comparable<?>> getFilters()
+        public Map<ConnectorColumnHandle, Comparable<?>> getFilters()
         {
             return filters;
         }

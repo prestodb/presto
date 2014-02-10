@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.metadata;
 
-import com.facebook.presto.spi.OutputTableHandle;
 import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.spi.ConnectorOutputTableHandle;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
@@ -28,7 +28,7 @@ import static com.facebook.presto.metadata.MetadataUtil.checkTableName;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 public class NativeOutputTableHandle
-        implements OutputTableHandle
+        implements ConnectorOutputTableHandle
 {
     private final String schemaName;
     private final String tableName;

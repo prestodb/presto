@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.hive;
 
-import com.facebook.presto.spi.Partition;
+import com.facebook.presto.spi.ConnectorPartition;
 import com.google.common.base.Function;
 import com.google.common.base.Throwables;
 import org.apache.hadoop.conf.Configuration;
@@ -99,12 +99,12 @@ final class HiveUtil
         return PrimitiveObjectInspectorUtils.getTypeEntryFromTypeName(type).primitiveCategory;
     }
 
-    public static Function<Partition, String> partitionIdGetter()
+    public static Function<ConnectorPartition, String> partitionIdGetter()
     {
-        return new Function<Partition, String>()
+        return new Function<ConnectorPartition, String>()
         {
             @Override
-            public String apply(Partition input)
+            public String apply(ConnectorPartition input)
             {
                 return input.getPartitionId();
             }

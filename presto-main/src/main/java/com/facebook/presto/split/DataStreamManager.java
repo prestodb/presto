@@ -13,11 +13,13 @@
  */
 package com.facebook.presto.split;
 
+import com.facebook.presto.metadata.ColumnHandle;
+import com.facebook.presto.metadata.Split;
 import com.facebook.presto.operator.Operator;
 import com.facebook.presto.operator.OperatorContext;
-import com.facebook.presto.spi.ColumnHandle;
-import com.facebook.presto.spi.Split;
+import com.facebook.presto.spi.ConnectorColumnHandle;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
 
 import javax.inject.Inject;
@@ -26,6 +28,7 @@ import java.util.List;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
+import static com.facebook.presto.metadata.ColumnHandle.connectorHandleGetter;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 
@@ -58,13 +61,15 @@ public class DataStreamManager
         checkNotNull(columns, "columns is null");
         checkArgument(!columns.isEmpty(), "no columns specified");
 
-        return getDataStreamProvider(split).createNewDataStream(operatorContext, split, columns);
+        List<ConnectorColumnHandle> handles = Lists.transform(columns, connectorHandleGetter());
+
+        return getDataStreamProvider(split).createNewDataStream(operatorContext, split.getConnectorSplit(), handles);
     }
 
     private ConnectorDataStreamProvider getDataStreamProvider(Split split)
     {
         for (ConnectorDataStreamProvider dataStreamProvider : dataStreamProviders) {
-            if (dataStreamProvider.canHandle(split)) {
+            if (dataStreamProvider.canHandle(split.getConnectorSplit())) {
                 return dataStreamProvider;
             }
         }

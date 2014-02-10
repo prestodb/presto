@@ -15,7 +15,7 @@ package com.facebook.presto.metadata;
 
 import com.facebook.presto.block.BlockIterable;
 import com.facebook.presto.metadata.ColumnFileHandle.Builder;
-import com.facebook.presto.spi.ColumnHandle;
+import com.facebook.presto.spi.ConnectorColumnHandle;
 import com.google.common.base.Throwables;
 import com.google.common.io.Files;
 
@@ -56,7 +56,7 @@ public class MockLocalStorageManager
     }
 
     @Override
-    public BlockIterable getBlocks(UUID shardUuid, ColumnHandle columnHandle)
+    public BlockIterable getBlocks(UUID shardUuid, ConnectorColumnHandle columnHandle)
     {
         throw new UnsupportedOperationException();
     }
@@ -79,11 +79,11 @@ public class MockLocalStorageManager
     }
 
     @Override
-    public ColumnFileHandle createStagingFileHandles(UUID shardUuid, List<? extends ColumnHandle> columnHandles)
+    public ColumnFileHandle createStagingFileHandles(UUID shardUuid, List<? extends ConnectorColumnHandle> columnHandles)
             throws IOException
     {
-        Builder builder = ColumnFileHandle.builder(shardUuid, createTestingBlockEncodingManager());
-        for (ColumnHandle handle : columnHandles) {
+            Builder builder = ColumnFileHandle.builder(shardUuid, createTestingBlockEncodingManager());
+            for (ConnectorColumnHandle handle : columnHandles) {
             File tmpfile = File.createTempFile("mock-storage", "mock", storageFolder);
             tmpfile.deleteOnExit();
             builder.addColumn(handle, tmpfile);

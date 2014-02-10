@@ -14,9 +14,9 @@
 package com.facebook.presto.split;
 
 import com.facebook.presto.metadata.TablePartition;
-import com.facebook.presto.spi.ColumnHandle;
+import com.facebook.presto.spi.ConnectorColumnHandle;
+import com.facebook.presto.spi.ConnectorPartition;
 import com.facebook.presto.spi.Domain;
-import com.facebook.presto.spi.Partition;
 import com.facebook.presto.spi.PartitionKey;
 import com.facebook.presto.spi.TupleDomain;
 import com.facebook.presto.split.NativeSplitManager.NativePartition;
@@ -32,12 +32,12 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import static io.airlift.slice.Slices.utf8Slice;
 
 public class PartitionFunction
-        implements Function<TablePartition, Partition>
+        implements Function<TablePartition, ConnectorPartition>
 {
-    private final Map<String, ColumnHandle> columnHandles;
+    private final Map<String, ConnectorColumnHandle> columnHandles;
     private final Multimap<String, ? extends PartitionKey> allPartitionKeys;
 
-    PartitionFunction(Map<String, ColumnHandle> columnHandles,
+    PartitionFunction(Map<String, ConnectorColumnHandle> columnHandles,
             Multimap<String, ? extends PartitionKey> allPartitionKeys)
     {
         this.columnHandles = checkNotNull(columnHandles, "columnHandles is null");
@@ -45,13 +45,13 @@ public class PartitionFunction
     }
 
     @Override
-    public Partition apply(TablePartition tablePartition)
+    public ConnectorPartition apply(TablePartition tablePartition)
     {
         String partitionName = tablePartition.getPartitionName();
 
-        ImmutableMap.Builder<ColumnHandle, Domain> builder = ImmutableMap.builder();
+        ImmutableMap.Builder<ConnectorColumnHandle, Domain> builder = ImmutableMap.builder();
         for (PartitionKey partitionKey : allPartitionKeys.get(partitionName)) {
-            ColumnHandle columnHandle = columnHandles.get(partitionKey.getName());
+            ConnectorColumnHandle columnHandle = columnHandles.get(partitionKey.getName());
             checkArgument(columnHandles != null, "Invalid partition key for column %s in partition %s", partitionKey.getName(), tablePartition.getPartitionName());
 
             String value = partitionKey.getValue();

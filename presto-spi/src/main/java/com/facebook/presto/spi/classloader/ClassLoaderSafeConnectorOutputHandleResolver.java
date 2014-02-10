@@ -14,7 +14,7 @@
 package com.facebook.presto.spi.classloader;
 
 import com.facebook.presto.spi.ConnectorOutputHandleResolver;
-import com.facebook.presto.spi.OutputTableHandle;
+import com.facebook.presto.spi.ConnectorOutputTableHandle;
 
 import static java.util.Objects.requireNonNull;
 
@@ -31,7 +31,7 @@ public class ClassLoaderSafeConnectorOutputHandleResolver
     }
 
     @Override
-    public boolean canHandle(OutputTableHandle tableHandle)
+    public boolean canHandle(ConnectorOutputTableHandle tableHandle)
     {
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
             return delegate.canHandle(tableHandle);
@@ -39,7 +39,7 @@ public class ClassLoaderSafeConnectorOutputHandleResolver
     }
 
     @Override
-    public Class<? extends OutputTableHandle> getOutputTableHandleClass()
+    public Class<? extends ConnectorOutputTableHandle> getOutputTableHandleClass()
     {
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
             return delegate.getOutputTableHandleClass();

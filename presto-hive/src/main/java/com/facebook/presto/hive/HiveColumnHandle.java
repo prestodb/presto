@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.hive;
 
-import com.facebook.presto.spi.ColumnHandle;
+import com.facebook.presto.spi.ConnectorColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.type.Type;
 import com.fasterxml.jackson.annotation.JsonCreator;
@@ -26,7 +26,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 public class HiveColumnHandle
-        implements ColumnHandle
+        implements ConnectorColumnHandle
 {
     public static final String SAMPLE_WEIGHT_COLUMN_NAME = "__presto__sample_weight__";
 
@@ -138,12 +138,12 @@ public class HiveColumnHandle
                 .toString();
     }
 
-    public static Function<ColumnHandle, HiveColumnHandle> hiveColumnHandle()
+    public static Function<ConnectorColumnHandle, HiveColumnHandle> hiveColumnHandle()
     {
-        return new Function<ColumnHandle, HiveColumnHandle>()
+        return new Function<ConnectorColumnHandle, HiveColumnHandle>()
         {
             @Override
-            public HiveColumnHandle apply(ColumnHandle columnHandle)
+            public HiveColumnHandle apply(ConnectorColumnHandle columnHandle)
             {
                 checkNotNull(columnHandle, "columnHandle is null");
                 checkArgument(columnHandle instanceof HiveColumnHandle, "columnHandle is not an instance of HiveColumnHandle");

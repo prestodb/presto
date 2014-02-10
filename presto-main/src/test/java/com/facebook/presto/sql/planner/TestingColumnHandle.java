@@ -13,30 +13,33 @@
  */
 package com.facebook.presto.sql.planner;
 
-import com.facebook.presto.spi.ColumnHandle;
+import com.facebook.presto.spi.ConnectorColumnHandle;
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.base.Objects;
-
-import static com.google.common.base.Preconditions.checkNotNull;
+import com.google.common.base.Preconditions;
 
 public class TestingColumnHandle
-        implements ColumnHandle
+        implements ConnectorColumnHandle
 {
-    private final Symbol symbol;
+    private final String name;
 
-    public TestingColumnHandle(Symbol symbol)
+    @JsonCreator
+    public TestingColumnHandle(@JsonProperty("name") String name)
     {
-        this.symbol = checkNotNull(symbol, "symbol is null");
+        this.name = Preconditions.checkNotNull(name, "name is null");
     }
 
-    public Symbol getSymbol()
+    @JsonProperty
+    public String getName()
     {
-        return symbol;
+        return name;
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hashCode(symbol);
+        return Objects.hashCode(name);
     }
 
     @Override
@@ -49,14 +52,14 @@ public class TestingColumnHandle
             return false;
         }
         final TestingColumnHandle other = (TestingColumnHandle) obj;
-        return Objects.equal(this.symbol, other.symbol);
+        return Objects.equal(this.name, other.name);
     }
 
     @Override
     public String toString()
     {
         return Objects.toStringHelper(this)
-                .add("symbol", symbol)
+                .add("name", name)
                 .toString();
     }
 }

@@ -18,12 +18,12 @@ import java.util.Set;
 
 public interface ConnectorIndexResolver
 {
-    boolean canHandle(TableHandle tableHandle);
+    boolean canHandle(ConnectorTableHandle tableHandle);
 
-    boolean canHandle(IndexHandle indexHandle);
+    boolean canHandle(ConnectorIndexHandle indexHandle);
 
     // TODO: should we allow partial index resolutions? (e.g. only index on colA when asking for an index on colA and colB)
-    ResolvedIndex resolveIndex(TableHandle tableHandle, Set<ColumnHandle> indexableColumns, TupleDomain<ColumnHandle> tupleDomain);
+    ConnectorResolvedIndex resolveIndex(ConnectorTableHandle tableHandle, Set<ConnectorColumnHandle> indexableColumns, TupleDomain<ConnectorColumnHandle> tupleDomain);
 
-    Index getIndex(IndexHandle indexHandle, List<ColumnHandle> lookupSchema, List<ColumnHandle> outputSchema);
+    Index getIndex(ConnectorIndexHandle indexHandle, List<ConnectorColumnHandle> lookupSchema, List<ConnectorColumnHandle> outputSchema);
 }

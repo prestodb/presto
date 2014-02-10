@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.connector.informationSchema;
 
+import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.HostAddress;
-import com.facebook.presto.spi.Split;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.base.Objects;
@@ -27,7 +27,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 public class InformationSchemaSplit
-        implements Split
+        implements ConnectorSplit
 {
     private final InformationSchemaTableHandle tableHandle;
     private final Map<String, Object> filters;
