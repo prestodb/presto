@@ -74,7 +74,8 @@ clause is another select statement that adheres to the structure
 defined in this documentation.
 
 .. code-block:: sql
-  select_statement UNION [ALL | DISTINCT] select_statement
+
+    select_statement UNION [ALL | DISTINCT] select_statement
 
 The argument ALL or DISTINCT controls which results are included in
 the final result set. If the argument ALL is specified all results are
@@ -89,6 +90,7 @@ this result set with a second select statement which selects the
 bigint value 2.
 
 .. code-block:: sql
+
     presto:default> select 1 union select 2;
      _col0 
     -------
@@ -100,6 +102,7 @@ To illustrate the behavior of ALL of DISTINCT, consider the following
 query example:
 
 .. code-block:: sql
+
     presto:default> select 1 union select 1;
      _col0 
     -------
@@ -114,6 +117,7 @@ Next consider the output of the same query with a UNION clause that
 specifies ALL behavior:
 
 .. code-block:: sql
+
     presto:default> select 1 union all select 1;
      _col0 
     -------
@@ -127,6 +131,7 @@ error as the query is attempting to union two select statements with
 different column types.
 
 .. code-block:: sql
+
     presto:default> select CAST(1 as varchar) union select 2;
     
     Query 20140209_174939_00046_qhay4 failed: Union query terms have
@@ -140,6 +145,7 @@ three select statements with distinct elements in the final result
 set:
 
 .. code-block:: sql
+
     presto:default> select 1 union \
                     select 1 union \
                     select 1;
@@ -152,6 +158,7 @@ If an ALL is specified on the first UNION clause, the result set will
 include all results from three select statments:
 
 .. code-block:: sql
+
     presto:default> select 1 union all \
                     select 1 union \
                     select 1;
@@ -169,6 +176,7 @@ specifies DISTINCT. In this case the result of two UNION clauses uses
 the behavior specified by the first UNION clause which is ALL.
 
 .. code-block:: sql
+
     presto:default> select 1 union all \
                     select 1 union distinct \
                     select 1;
@@ -186,6 +194,7 @@ The ORDER BY clause is used to sort a result set of a select statement
 by one or more columns. This clause has the following structure:
 
 .. code-block:: sql
+
     ORDER BY expression [ ASC | DESC ] [, ...]
 
 Expression can be a column name or a function call which produces a
@@ -197,6 +206,7 @@ Consider the following example which sorts the union of three select
 statements.
 
 .. code-block:: sql
+
     presto:default> select 2 as value union \
                     select 1 as value union \
                     select 4 as value \
@@ -213,6 +223,7 @@ function against a column value.  Consider the output of the following
 statement which sorts numeric values by absolute value.
 
 .. code-block:: sql
+
     presto:default> select -12 as value union \
                     select 2 as value union \
                     select -1 as value \
@@ -230,7 +241,8 @@ LIMIT Clause
 The LIMIT clause has the following syntax:
 
 .. code-block:: sql
-   LIMIT count
+
+    LIMIT count
 
 Specifying a LIMIT count value restricts the query output to a limited
 number of records. The following example queries a table with 7.5
@@ -238,6 +250,7 @@ million rows, but the limit clause limits the output to only five
 rows:
 
 .. code-block:: sql
+
     presto:default> select o_orderdate from orders limit 5;
      o_orderdate 
     -------------

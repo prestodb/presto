@@ -23,6 +23,7 @@ While the command ``select CONCAT( 'TEST', 123 );`` will produce an
 error, the integer literal can be cast to a varchar using CAST.
 
 .. code-block:: sql
+
     presto:default> select CONCAT('TEST', CAST( 123 as varchar ));
       _col0  
     ---------
