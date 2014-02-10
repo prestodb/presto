@@ -17,10 +17,10 @@ import com.facebook.presto.hive.util.AsyncRecursiveWalker;
 import com.facebook.presto.hive.util.BoundedExecutor;
 import com.facebook.presto.hive.util.FileStatusCallback;
 import com.facebook.presto.hive.util.SuspendingExecutor;
+import com.facebook.presto.spi.ConnectorSplit;
+import com.facebook.presto.spi.ConnectorSplitSource;
 import com.facebook.presto.spi.HostAddress;
 import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.spi.Split;
-import com.facebook.presto.spi.SplitSource;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Optional;
 import com.google.common.base.Throwables;
@@ -75,7 +75,7 @@ import static com.google.common.base.Preconditions.checkState;
 
 class HiveSplitSourceProvider
 {
-    private static final Split FINISHED_MARKER = new Split()
+    private static final ConnectorSplit FINISHED_MARKER = new ConnectorSplit()
     {
         @Override
         public boolean isRemotelyAccessible()
@@ -141,7 +141,7 @@ class HiveSplitSourceProvider
         this.classLoader = Thread.currentThread().getContextClassLoader();
     }
 
-    public SplitSource get()
+    public ConnectorSplitSource get()
     {
         // Each iterator has its own bounded executor and can be independently suspended
         final SuspendingExecutor suspendingExecutor = new SuspendingExecutor(new BoundedExecutor(executor, maxThreads));
@@ -396,10 +396,10 @@ class HiveSplitSourceProvider
 
     @VisibleForTesting
     static class HiveSplitSource
-            implements SplitSource
+            implements ConnectorSplitSource
     {
         private final String connectorId;
-        private final BlockingQueue<Split> queue = new LinkedBlockingQueue<>();
+        private final BlockingQueue<ConnectorSplit> queue = new LinkedBlockingQueue<>();
         private final AtomicInteger outstandingSplitCount = new AtomicInteger();
         private final AtomicReference<Throwable> throwable = new AtomicReference<>();
         private final int maxOutstandingSplits;
@@ -419,15 +419,15 @@ class HiveSplitSourceProvider
             return outstandingSplitCount.get();
         }
 
-        void addToQueue(Iterable<? extends Split> splits)
+        void addToQueue(Iterable<? extends ConnectorSplit> splits)
         {
-            for (Split split : splits) {
+            for (ConnectorSplit split : splits) {
                 addToQueue(split);
             }
         }
 
         @VisibleForTesting
-        void addToQueue(Split split)
+        void addToQueue(ConnectorSplit split)
         {
             if (throwable.get() == null) {
                 queue.add(split);
@@ -465,13 +465,13 @@ class HiveSplitSourceProvider
         }
 
         @Override
-        public List<Split> getNextBatch(int maxSize)
+        public List<ConnectorSplit> getNextBatch(int maxSize)
                 throws InterruptedException
         {
             // wait for at least one split and then take as may extra splits as possible
             // if an error has been registered, the take will succeed immediately because
             // will be at least one finished marker in the queue
-            List<Split> splits = new ArrayList<>(maxSize);
+            List<ConnectorSplit> splits = new ArrayList<>(maxSize);
             splits.add(queue.take());
             queue.drainTo(splits, maxSize - 1);
 

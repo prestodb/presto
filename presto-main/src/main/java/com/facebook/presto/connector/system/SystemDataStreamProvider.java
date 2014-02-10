@@ -16,11 +16,11 @@ package com.facebook.presto.connector.system;
 import com.facebook.presto.operator.Operator;
 import com.facebook.presto.operator.OperatorContext;
 import com.facebook.presto.operator.RecordProjectOperator;
-import com.facebook.presto.spi.ColumnHandle;
+import com.facebook.presto.spi.ConnectorColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
+import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.RecordSet;
 import com.facebook.presto.spi.SchemaTableName;
-import com.facebook.presto.spi.Split;
 import com.facebook.presto.spi.SystemTable;
 import com.facebook.presto.split.ConnectorDataStreamProvider;
 import com.facebook.presto.split.MappedRecordSet;
@@ -49,18 +49,18 @@ public class SystemDataStreamProvider
     }
 
     @Override
-    public boolean canHandle(Split split)
+    public boolean canHandle(ConnectorSplit split)
     {
         return split instanceof SystemSplit && tables.containsKey(((SystemSplit) split).getTableHandle().getSchemaTableName());
     }
 
     @Override
-    public Operator createNewDataStream(OperatorContext operatorContext, Split split, List<ColumnHandle> columns)
+    public Operator createNewDataStream(OperatorContext operatorContext, ConnectorSplit split, List<ConnectorColumnHandle> columns)
     {
         return new RecordProjectOperator(operatorContext, createRecordSet(split, columns));
     }
 
-    private RecordSet createRecordSet(Split split, List<ColumnHandle> columns)
+    private RecordSet createRecordSet(ConnectorSplit split, List<ConnectorColumnHandle> columns)
     {
         checkNotNull(split, "split is null");
         checkArgument(split instanceof SystemSplit, "Split must be of type %s, not %s", SystemSplit.class.getName(), split.getClass().getName());
@@ -74,7 +74,7 @@ public class SystemDataStreamProvider
         Map<String, ColumnMetadata> columnsByName = Maps.uniqueIndex(systemTable.getTableMetadata().getColumns(), columnNameGetter());
 
         ImmutableList.Builder<Integer> userToSystemFieldIndex = ImmutableList.builder();
-        for (ColumnHandle column : columns) {
+        for (ConnectorColumnHandle column : columns) {
             checkArgument(column instanceof SystemColumnHandle, "column must be of type %s, not %s", SystemColumnHandle.class.getName(), column.getClass().getName());
             String columnName = ((SystemColumnHandle) column).getColumnName();
 

@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.sql.planner;
 
-import com.facebook.presto.spi.SplitSource;
+import com.facebook.presto.execution.SplitSource;
 import com.facebook.presto.sql.planner.plan.OutputNode;
 import com.google.common.base.Objects;
 import com.google.common.base.Optional;

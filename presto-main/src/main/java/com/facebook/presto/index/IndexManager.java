@@ -13,14 +13,19 @@
  */
 package com.facebook.presto.index;
 
-import com.facebook.presto.spi.ColumnHandle;
+import com.facebook.presto.metadata.ColumnHandle;
+import com.facebook.presto.metadata.IndexHandle;
+import com.facebook.presto.metadata.ResolvedIndex;
+import com.facebook.presto.metadata.TableHandle;
+import com.facebook.presto.spi.ConnectorColumnHandle;
 import com.facebook.presto.spi.ConnectorIndexResolver;
+import com.facebook.presto.spi.ConnectorResolvedIndex;
 import com.facebook.presto.spi.Index;
-import com.facebook.presto.spi.IndexHandle;
-import com.facebook.presto.spi.ResolvedIndex;
-import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.spi.TupleDomain;
 import com.google.common.base.Optional;
+import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Iterables;
+import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
 
 import javax.inject.Inject;
@@ -28,6 +33,9 @@ import javax.inject.Inject;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+
+import static com.facebook.presto.metadata.ColumnHandle.connectorHandleGetter;
+import static com.facebook.presto.metadata.Util.toConnectorDomain;
 
 public class IndexManager
 {
@@ -50,22 +58,31 @@ public class IndexManager
 
     public Optional<ResolvedIndex> resolveIndex(TableHandle tableHandle, Set<ColumnHandle> indexableColumns, TupleDomain<ColumnHandle> tupleDomain)
     {
-        Optional<ConnectorIndexResolver> connectorIndexResolver = getConnectorIndexResolver(tableHandle);
-        if (!connectorIndexResolver.isPresent()) {
+        Optional<ConnectorIndexResolver> resolver = getConnectorIndexResolver(tableHandle);
+        if (!resolver.isPresent()) {
             return Optional.absent();
         }
-        return Optional.fromNullable(connectorIndexResolver.get().resolveIndex(tableHandle, indexableColumns, tupleDomain));
+
+        Set<ConnectorColumnHandle> columns = ImmutableSet.copyOf(Iterables.transform(indexableColumns, ColumnHandle.connectorHandleGetter()));
+        ConnectorResolvedIndex resolved = resolver.get().resolveIndex(tableHandle.getConnectorHandle(), columns, toConnectorDomain(tupleDomain));
+
+        if (resolved == null) {
+            return Optional.absent();
+        }
+
+        return Optional.of(new ResolvedIndex(tableHandle.getConnectorId(), resolved));
     }
 
     public Index getIndex(IndexHandle indexHandle, List<ColumnHandle> lookupSchema, List<ColumnHandle> outputSchema)
     {
-        return getConnectorIndexResolver(indexHandle).getIndex(indexHandle, lookupSchema, outputSchema);
+        return getConnectorIndexResolver(indexHandle)
+                .getIndex(indexHandle.getConnectorHandle(), Lists.transform(lookupSchema, connectorHandleGetter()), Lists.transform(outputSchema, connectorHandleGetter()));
     }
 
     private Optional<ConnectorIndexResolver> getConnectorIndexResolver(TableHandle handle)
     {
         for (ConnectorIndexResolver indexResolver : indexResolvers) {
-            if (indexResolver.canHandle(handle)) {
+            if (indexResolver.canHandle(handle.getConnectorHandle())) {
                 return Optional.of(indexResolver);
             }
         }
@@ -74,11 +91,11 @@ public class IndexManager
 
     private ConnectorIndexResolver getConnectorIndexResolver(IndexHandle handle)
     {
-        for (ConnectorIndexResolver indexResolver : indexResolvers) {
-            if (indexResolver.canHandle(handle)) {
-                return indexResolver;
+        for (ConnectorIndexResolver resolver : indexResolvers) {
+            if (resolver.canHandle(handle.getConnectorHandle())) {
+                return resolver;
             }
         }
-        throw new IllegalArgumentException("No ConnectorIndexResolver found for IndexHandle: " + handle);
+        throw new IllegalArgumentException("Not index resolver for " + handle);
     }
 }

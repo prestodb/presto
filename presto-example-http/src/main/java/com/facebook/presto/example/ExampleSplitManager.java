@@ -13,14 +13,14 @@
  */
 package com.facebook.presto.example;
 
-import com.facebook.presto.spi.ColumnHandle;
+import com.facebook.presto.spi.ConnectorColumnHandle;
+import com.facebook.presto.spi.ConnectorPartition;
+import com.facebook.presto.spi.ConnectorPartitionResult;
+import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.ConnectorSplitManager;
+import com.facebook.presto.spi.ConnectorSplitSource;
+import com.facebook.presto.spi.ConnectorTableHandle;
 import com.facebook.presto.spi.FixedSplitSource;
-import com.facebook.presto.spi.Partition;
-import com.facebook.presto.spi.PartitionResult;
-import com.facebook.presto.spi.Split;
-import com.facebook.presto.spi.SplitSource;
-import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.spi.TupleDomain;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
@@ -55,29 +55,29 @@ public class ExampleSplitManager
     }
 
     @Override
-    public boolean canHandle(TableHandle tableHandle)
+    public boolean canHandle(ConnectorTableHandle tableHandle)
     {
         return tableHandle instanceof ExampleTableHandle && ((ExampleTableHandle) tableHandle).getConnectorId().equals(connectorId);
     }
 
     @Override
-    public PartitionResult getPartitions(TableHandle tableHandle, TupleDomain<ColumnHandle> tupleDomain)
+    public ConnectorPartitionResult getPartitions(ConnectorTableHandle tableHandle, TupleDomain<ConnectorColumnHandle> tupleDomain)
     {
         checkArgument(tableHandle instanceof ExampleTableHandle, "tableHandle is not an instance of ExampleTableHandle");
         ExampleTableHandle exampleTableHandle = (ExampleTableHandle) tableHandle;
 
         // example connector has only one partition
-        List<Partition> partitions = ImmutableList.<Partition>of(new ExamplePartition(exampleTableHandle.getSchemaName(), exampleTableHandle.getTableName()));
+        List<ConnectorPartition> partitions = ImmutableList.<ConnectorPartition>of(new ExamplePartition(exampleTableHandle.getSchemaName(), exampleTableHandle.getTableName()));
         // example connector does not do any additional processing/filtering with the TupleDomain, so just return the whole TupleDomain
-        return new PartitionResult(partitions, tupleDomain);
+        return new ConnectorPartitionResult(partitions, tupleDomain);
     }
 
     @Override
-    public SplitSource getPartitionSplits(TableHandle tableHandle, List<Partition> partitions)
+    public ConnectorSplitSource getPartitionSplits(ConnectorTableHandle tableHandle, List<ConnectorPartition> partitions)
     {
         checkNotNull(partitions, "partitions is null");
         checkArgument(partitions.size() == 1, "Expected one partition but got %s", partitions.size());
-        Partition partition = partitions.get(0);
+        ConnectorPartition partition = partitions.get(0);
 
         checkArgument(partition instanceof ExamplePartition, "partition is not an instance of ExamplePartition");
         ExamplePartition examplePartition = (ExamplePartition) partition;
@@ -87,7 +87,7 @@ public class ExampleSplitManager
         // this can happen if table is removed during a query
         checkState(table != null, "Table %s.%s no longer exists", exampleTableHandle.getSchemaName(), exampleTableHandle.getTableName());
 
-        List<Split> splits = Lists.newArrayList();
+        List<ConnectorSplit> splits = Lists.newArrayList();
         for (URI uri : table.getSources()) {
             splits.add(new ExampleSplit(connectorId, examplePartition.getSchemaName(), examplePartition.getTableName(), uri));
         }

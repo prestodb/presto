@@ -24,17 +24,18 @@ import com.facebook.presto.connector.dual.DualSplitManager;
 import com.facebook.presto.event.query.QueryMonitor;
 import com.facebook.presto.execution.TestSqlTaskManager.MockExchangeClientSupplier;
 import com.facebook.presto.index.IndexManager;
+import com.facebook.presto.metadata.ColumnHandle;
 import com.facebook.presto.metadata.InMemoryNodeManager;
 import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.metadata.MockLocalStorageManager;
+import com.facebook.presto.metadata.TableHandle;
 import com.facebook.presto.operator.RecordSinkManager;
-import com.facebook.presto.spi.ColumnHandle;
-import com.facebook.presto.spi.PartitionResult;
+import com.facebook.presto.spi.ConnectorColumnHandle;
+import com.facebook.presto.spi.ConnectorPartitionResult;
+import com.facebook.presto.spi.ConnectorSplit;
+import com.facebook.presto.spi.ConnectorSplitSource;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.Session;
-import com.facebook.presto.spi.Split;
-import com.facebook.presto.spi.SplitSource;
-import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.spi.TupleDomain;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.split.DataStreamManager;
@@ -84,7 +85,7 @@ import static org.testng.Assert.assertTrue;
 public class TestSqlTaskExecution
 {
     private TaskExecutor taskExecutor;
-    private Split split;
+    private ConnectorSplit split;
     private ExecutorService taskNotificationExecutor;
     private SqlTaskExecution taskExecution;
     private OutputBuffers outputBuffers;
@@ -95,10 +96,10 @@ public class TestSqlTaskExecution
             throws Exception
     {
         DualMetadata dualMetadata = new DualMetadata();
-        TableHandle tableHandle = dualMetadata.getTableHandle(new SchemaTableName("default", DualMetadata.NAME));
+        TableHandle tableHandle = new TableHandle(DualConnector.CONNECTOR_ID, dualMetadata.getTableHandle(new SchemaTableName("default", DualMetadata.NAME)));
         assertNotNull(tableHandle, "tableHandle is null");
 
-        ColumnHandle columnHandle = dualMetadata.getColumnHandle(tableHandle, DualMetadata.COLUMN_NAME);
+        ColumnHandle columnHandle = new ColumnHandle(DualConnector.CONNECTOR_ID, dualMetadata.getColumnHandle(tableHandle.getConnectorHandle(), DualMetadata.COLUMN_NAME));
         assertNotNull(columnHandle, "columnHandle is null");
         Symbol symbol = new Symbol(DualMetadata.COLUMN_NAME);
 
@@ -106,9 +107,9 @@ public class TestSqlTaskExecution
         metadata.addInternalSchemaMetadata(DualConnector.CONNECTOR_ID, dualMetadata);
 
         DualSplitManager dualSplitManager = new DualSplitManager(new InMemoryNodeManager());
-        PartitionResult partitionResult = dualSplitManager.getPartitions(tableHandle, TupleDomain.<ColumnHandle>all());
+        ConnectorPartitionResult partitionResult = dualSplitManager.getPartitions(tableHandle.getConnectorHandle(), TupleDomain.<ConnectorColumnHandle>all());
 
-        SplitSource splitSource = dualSplitManager.getPartitionSplits(tableHandle, partitionResult.getPartitions());
+        ConnectorSplitSource splitSource = dualSplitManager.getPartitionSplits(tableHandle.getConnectorHandle(), partitionResult.getPartitions());
         split = Iterables.getOnlyElement(splitSource.getNextBatch(1));
         assertTrue(splitSource.isFinished());
 

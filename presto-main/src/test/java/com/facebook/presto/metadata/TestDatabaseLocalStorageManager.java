@@ -20,7 +20,7 @@ import com.facebook.presto.operator.Operator;
 import com.facebook.presto.operator.OperatorAssertion;
 import com.facebook.presto.operator.Page;
 import com.facebook.presto.operator.TaskContext;
-import com.facebook.presto.spi.ColumnHandle;
+import com.facebook.presto.spi.ConnectorColumnHandle;
 import com.facebook.presto.spi.Session;
 import com.facebook.presto.util.MaterializedResult;
 import com.google.common.collect.ImmutableList;
@@ -94,7 +94,7 @@ public class TestDatabaseLocalStorageManager
         UUID shardUuid = UUID.randomUUID();
         assertFalse(storageManager.shardExists(shardUuid));
 
-        List<ColumnHandle> columnHandles = ImmutableList.<ColumnHandle>of(new NativeColumnHandle("column_7", 7L), new NativeColumnHandle("column_11", 11L));
+        List<ConnectorColumnHandle> columnHandles = ImmutableList.<ConnectorColumnHandle>of(new NativeColumnHandle("column_7", 7L), new NativeColumnHandle("column_11", 11L));
 
         List<Page> pages = rowPagesBuilder(VARCHAR, BIGINT)
                 .row("alice", 0)
@@ -137,7 +137,7 @@ public class TestDatabaseLocalStorageManager
             throws IOException
     {
         UUID shardUuid = UUID.randomUUID();
-        List<ColumnHandle> columnHandles = ImmutableList.<ColumnHandle>of(new NativeColumnHandle("column_13", 13L));
+        List<ConnectorColumnHandle> columnHandles = ImmutableList.<ConnectorColumnHandle>of(new NativeColumnHandle("column_13", 13L));
 
         ColumnFileHandle fileHandles = storageManager.createStagingFileHandles(shardUuid, columnHandles);
         storageManager.commit(fileHandles);

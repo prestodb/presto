@@ -19,8 +19,8 @@ import com.facebook.presto.metadata.NativeColumnHandle;
 import com.facebook.presto.operator.AlignmentOperator;
 import com.facebook.presto.operator.Operator;
 import com.facebook.presto.operator.OperatorContext;
-import com.facebook.presto.spi.ColumnHandle;
-import com.facebook.presto.spi.Split;
+import com.facebook.presto.spi.ConnectorColumnHandle;
+import com.facebook.presto.spi.ConnectorSplit;
 import com.google.common.collect.ImmutableList;
 import com.google.inject.Inject;
 
@@ -41,18 +41,18 @@ public class NativeDataStreamProvider
     }
 
     @Override
-    public boolean canHandle(Split split)
+    public boolean canHandle(ConnectorSplit split)
     {
         return split instanceof NativeSplit;
     }
 
     @Override
-    public Operator createNewDataStream(OperatorContext operatorContext, Split split, List<ColumnHandle> columns)
+    public Operator createNewDataStream(OperatorContext operatorContext, ConnectorSplit split, List<ConnectorColumnHandle> columns)
     {
         return new AlignmentOperator(operatorContext, createChannels(split, columns));
     }
 
-    private List<BlockIterable> createChannels(Split split, List<ColumnHandle> columns)
+    private List<BlockIterable> createChannels(ConnectorSplit split, List<ConnectorColumnHandle> columns)
     {
         checkNotNull(split, "split is null");
         checkArgument(split instanceof NativeSplit, "Split must be of type NativeType, not %s", split.getClass().getName());
@@ -62,7 +62,7 @@ public class NativeDataStreamProvider
         NativeSplit nativeSplit = (NativeSplit) split;
 
         ImmutableList.Builder<BlockIterable> builder = ImmutableList.builder();
-        for (ColumnHandle column : columns) {
+        for (ConnectorColumnHandle column : columns) {
             checkArgument(column instanceof NativeColumnHandle, "column must be native, not %s", column);
             builder.add(storageManager.getBlocks(nativeSplit.getShardUuid(), column));
         }

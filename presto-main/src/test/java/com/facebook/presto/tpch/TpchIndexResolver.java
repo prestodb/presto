@@ -13,13 +13,13 @@
  */
 package com.facebook.presto.tpch;
 
-import com.facebook.presto.spi.ColumnHandle;
+import com.facebook.presto.spi.ConnectorColumnHandle;
+import com.facebook.presto.spi.ConnectorIndexHandle;
 import com.facebook.presto.spi.ConnectorIndexResolver;
+import com.facebook.presto.spi.ConnectorResolvedIndex;
+import com.facebook.presto.spi.ConnectorTableHandle;
 import com.facebook.presto.spi.Index;
-import com.facebook.presto.spi.IndexHandle;
 import com.facebook.presto.spi.RecordSet;
-import com.facebook.presto.spi.ResolvedIndex;
-import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.spi.TupleDomain;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.split.MappedRecordSet;
@@ -55,26 +55,26 @@ public class TpchIndexResolver
     }
 
     @Override
-    public boolean canHandle(TableHandle tableHandle)
+    public boolean canHandle(ConnectorTableHandle tableHandle)
     {
         return tableHandle instanceof TpchTableHandle && ((TpchTableHandle) tableHandle).getConnectorId().equals(connectorId);
     }
 
     @Override
-    public boolean canHandle(IndexHandle indexHandle)
+    public boolean canHandle(ConnectorIndexHandle indexHandle)
     {
         return indexHandle instanceof TpchIndexHandle && ((TpchIndexHandle) indexHandle).getConnectorId().equals(connectorId);
     }
 
     @Override
-    public ResolvedIndex resolveIndex(TableHandle tableHandle, Set<ColumnHandle> indexableColumns, TupleDomain<ColumnHandle> tupleDomain)
+    public ConnectorResolvedIndex resolveIndex(ConnectorTableHandle tableHandle, Set<ConnectorColumnHandle> indexableColumns, TupleDomain<ConnectorColumnHandle> tupleDomain)
     {
         checkArgument(tableHandle instanceof TpchTableHandle, "tableHandle is not an instance of TpchTableHandle: %s", tableHandle);
         TpchTableHandle tpchTableHandle = (TpchTableHandle) tableHandle;
 
         // Keep the fixed values that don't overlap with the indexableColumns
         // Note: technically we could more efficiently utilize the overlapped columns, but this way is simpler for now
-        Map<ColumnHandle, Comparable<?>> fixedValues = Maps.filterKeys(tupleDomain.extractFixedValues(), not(in(indexableColumns)));
+        Map<ConnectorColumnHandle, Comparable<?>> fixedValues = Maps.filterKeys(tupleDomain.extractFixedValues(), not(in(indexableColumns)));
 
         // determine all columns available for index lookup
         ImmutableSet.Builder<String> builder = ImmutableSet.builder();
@@ -87,29 +87,29 @@ public class TpchIndexResolver
             return null;
         }
 
-        TupleDomain<ColumnHandle> filteredTupleDomain = tupleDomain;
+        TupleDomain<ConnectorColumnHandle> filteredTupleDomain = tupleDomain;
         if (!tupleDomain.isNone()) {
             filteredTupleDomain = TupleDomain.withColumnDomains(Maps.filterKeys(tupleDomain.getDomains(), not(in(fixedValues.keySet()))));
         }
-        return new ResolvedIndex(new TpchIndexHandle(connectorId, tpchTableHandle.getTableName(), tpchTableHandle.getScaleFactor(), lookupColumnNames, TupleDomain.withFixedValues(fixedValues)), filteredTupleDomain);
+        return new ConnectorResolvedIndex(new TpchIndexHandle(connectorId, tpchTableHandle.getTableName(), tpchTableHandle.getScaleFactor(), lookupColumnNames, TupleDomain.withFixedValues(fixedValues)), filteredTupleDomain);
     }
 
     @Override
-    public Index getIndex(IndexHandle indexHandle, List<ColumnHandle> lookupSchema, List<ColumnHandle> outputSchema)
+    public Index getIndex(ConnectorIndexHandle indexHandle, List<ConnectorColumnHandle> lookupSchema, List<ConnectorColumnHandle> outputSchema)
     {
         checkArgument(indexHandle instanceof TpchIndexHandle, "indexHandle is not an instance of TpchIndexHandle: %s", indexHandle);
         TpchIndexHandle tpchIndexHandle = (TpchIndexHandle) indexHandle;
 
-        Map<ColumnHandle, Comparable<?>> fixedValues = tpchIndexHandle.getFixedValues().extractFixedValues();
+        Map<ConnectorColumnHandle, Comparable<?>> fixedValues = tpchIndexHandle.getFixedValues().extractFixedValues();
         checkArgument(!any(lookupSchema, in(fixedValues.keySet())), "Lookup columnHandles are not expected to overlap with the fixed value predicates");
 
         // Establish an order for the fixedValues
-        List<ColumnHandle> fixedValueColumns = ImmutableList.copyOf(fixedValues.keySet());
+        List<ConnectorColumnHandle> fixedValueColumns = ImmutableList.copyOf(fixedValues.keySet());
 
         // Extract the fixedValues as their raw values and types
         ImmutableList.Builder<Object> valueBuilder = ImmutableList.builder();
         ImmutableList.Builder<Type> typeBuilder = ImmutableList.builder();
-        for (ColumnHandle fixedValueColumn : fixedValueColumns) {
+        for (ConnectorColumnHandle fixedValueColumn : fixedValueColumns) {
             valueBuilder.add(fixedValues.get(fixedValueColumn));
             typeBuilder.add(((TpchColumnHandle) fixedValueColumn).getType());
         }
@@ -117,7 +117,7 @@ public class TpchIndexResolver
         final List<Type> rawFixedTypes = typeBuilder.build();
 
         // Establish the schema after we append the fixed values to the lookup keys.
-        List<ColumnHandle> finalLookupSchema = ImmutableList.<ColumnHandle>builder()
+        List<ConnectorColumnHandle> finalLookupSchema = ImmutableList.<ConnectorColumnHandle>builder()
                 .addAll(lookupSchema)
                 .addAll(fixedValueColumns)
                 .build();
@@ -162,17 +162,17 @@ public class TpchIndexResolver
         return builder.build();
     }
 
-    private static List<String> handleToNames(List<ColumnHandle> columnHandles)
+    private static List<String> handleToNames(List<ConnectorColumnHandle> columnHandles)
     {
         return Lists.transform(columnHandles, columnNameGetter());
     }
 
-    private static Function<ColumnHandle, String> columnNameGetter()
+    private static Function<ConnectorColumnHandle, String> columnNameGetter()
     {
-        return new Function<ColumnHandle, String>()
+        return new Function<ConnectorColumnHandle, String>()
         {
             @Override
-            public String apply(ColumnHandle columnHandle)
+            public String apply(ConnectorColumnHandle columnHandle)
             {
                 checkArgument(columnHandle instanceof TpchColumnHandle, "columnHandle is not an instance of TpchColumnHandle: %s", columnHandle);
                 return ((TpchColumnHandle) columnHandle).getColumnName();

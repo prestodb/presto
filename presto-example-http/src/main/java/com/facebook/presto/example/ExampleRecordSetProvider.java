@@ -13,10 +13,10 @@
  */
 package com.facebook.presto.example;
 
-import com.facebook.presto.spi.ColumnHandle;
+import com.facebook.presto.spi.ConnectorColumnHandle;
 import com.facebook.presto.spi.ConnectorRecordSetProvider;
+import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.RecordSet;
-import com.facebook.presto.spi.Split;
 import com.google.common.collect.ImmutableList;
 
 import javax.inject.Inject;
@@ -38,13 +38,13 @@ public class ExampleRecordSetProvider
     }
 
     @Override
-    public boolean canHandle(Split split)
+    public boolean canHandle(ConnectorSplit split)
     {
         return split instanceof ExampleSplit && ((ExampleSplit) split).getConnectorId().equals(connectorId);
     }
 
     @Override
-    public RecordSet getRecordSet(Split split, List<? extends ColumnHandle> columns)
+    public RecordSet getRecordSet(ConnectorSplit split, List<? extends ConnectorColumnHandle> columns)
     {
         checkNotNull(split, "partitionChunk is null");
         checkArgument(split instanceof ExampleSplit);
@@ -53,7 +53,7 @@ public class ExampleRecordSetProvider
         checkArgument(exampleSplit.getConnectorId().equals(connectorId), "split is not for this connector");
 
         ImmutableList.Builder<ExampleColumnHandle> handles = ImmutableList.builder();
-        for (ColumnHandle handle : columns) {
+        for (ConnectorColumnHandle handle : columns) {
             checkArgument(handle instanceof ExampleColumnHandle);
             handles.add((ExampleColumnHandle) handle);
         }

@@ -14,7 +14,7 @@
 package com.facebook.presto.cassandra;
 
 import com.facebook.presto.cassandra.util.CassandraCqlUtils;
-import com.facebook.presto.spi.ColumnHandle;
+import com.facebook.presto.spi.ConnectorColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.type.Type;
 import com.fasterxml.jackson.annotation.JsonCreator;
@@ -31,7 +31,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 public class CassandraColumnHandle
-        implements ColumnHandle
+        implements ConnectorColumnHandle
 {
     private final String connectorId;
     private final String name;
@@ -172,12 +172,12 @@ public class CassandraColumnHandle
         return helper.toString();
     }
 
-    public static Function<ColumnHandle, CassandraColumnHandle> cassandraColumnHandle()
+    public static Function<ConnectorColumnHandle, CassandraColumnHandle> cassandraColumnHandle()
     {
-        return new Function<ColumnHandle, CassandraColumnHandle>()
+        return new Function<ConnectorColumnHandle, CassandraColumnHandle>()
         {
             @Override
-            public CassandraColumnHandle apply(ColumnHandle columnHandle)
+            public CassandraColumnHandle apply(ConnectorColumnHandle columnHandle)
             {
                 checkNotNull(columnHandle, "columnHandle is null");
                 checkArgument(columnHandle instanceof CassandraColumnHandle,

@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.hive;
 
-import com.facebook.presto.spi.OutputTableHandle;
 import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.spi.ConnectorOutputTableHandle;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
@@ -25,7 +25,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 public class HiveOutputTableHandle
-        implements OutputTableHandle
+        implements ConnectorOutputTableHandle
 {
     private final String clientId;
     private final String schemaName;

@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.operator;
 
-import com.facebook.presto.spi.ColumnHandle;
-import com.facebook.presto.spi.Split;
+import com.facebook.presto.metadata.ColumnHandle;
+import com.facebook.presto.metadata.Split;
 import com.facebook.presto.split.DataStreamProvider;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.facebook.presto.spi.type.Type;

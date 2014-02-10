@@ -16,11 +16,11 @@ package com.facebook.presto.connector.jmx;
 import com.facebook.presto.operator.Operator;
 import com.facebook.presto.operator.OperatorContext;
 import com.facebook.presto.operator.RecordProjectOperator;
-import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.InMemoryRecordSet;
 import com.facebook.presto.spi.RecordSet;
-import com.facebook.presto.spi.Split;
 import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.spi.ConnectorColumnHandle;
+import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.split.ConnectorDataStreamProvider;
 import com.facebook.presto.util.IterableTransformer;
 import com.google.common.base.Function;
@@ -60,18 +60,18 @@ public class JmxDataStreamProvider
     }
 
     @Override
-    public boolean canHandle(Split split)
+    public boolean canHandle(ConnectorSplit split)
     {
         return split instanceof JmxSplit && ((JmxSplit) split).getTableHandle().getConnectorId().equals(connectorId);
     }
 
     @Override
-    public Operator createNewDataStream(OperatorContext operatorContext, Split split, List<ColumnHandle> columns)
+    public Operator createNewDataStream(OperatorContext operatorContext, ConnectorSplit split, List<ConnectorColumnHandle> columns)
     {
         return new RecordProjectOperator(operatorContext, createRecordSet(split, columns));
     }
 
-    private RecordSet createRecordSet(Split split, List<ColumnHandle> columns)
+    private RecordSet createRecordSet(ConnectorSplit split, List<ConnectorColumnHandle> columns)
     {
         checkNotNull(split, "split is null");
         checkArgument(split instanceof JmxSplit, "Split must be of type %s, not %s", JmxSplit.class.getName(), split.getClass().getName());
@@ -81,7 +81,7 @@ public class JmxDataStreamProvider
         checkArgument(!columns.isEmpty(), "must provide at least one column");
 
         ImmutableMap.Builder<String, Type> builder = ImmutableMap.builder();
-        for (ColumnHandle column : columns) {
+        for (ConnectorColumnHandle column : columns) {
             checkArgument(column instanceof JmxColumnHandle, "column must be of type %s, not %s", JmxColumnHandle.class.getName(), column.getClass().getName());
             JmxColumnHandle jmxColumnHandle = (JmxColumnHandle) column;
             builder.put(jmxColumnHandle.getColumnName(), jmxColumnHandle.getColumnType());

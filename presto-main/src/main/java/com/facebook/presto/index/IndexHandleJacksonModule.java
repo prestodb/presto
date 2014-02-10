@@ -16,23 +16,23 @@ package com.facebook.presto.index;
 import com.facebook.presto.metadata.AbstractTypedJacksonModule;
 import com.facebook.presto.metadata.HandleResolver;
 import com.facebook.presto.metadata.JsonTypeIdResolver;
-import com.facebook.presto.spi.IndexHandle;
+import com.facebook.presto.spi.ConnectorIndexHandle;
 
 import javax.inject.Inject;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 
 public class IndexHandleJacksonModule
-        extends AbstractTypedJacksonModule<IndexHandle>
+        extends AbstractTypedJacksonModule<ConnectorIndexHandle>
 {
     @Inject
     public IndexHandleJacksonModule(HandleResolver handleResolver)
     {
-        super(IndexHandle.class, "type", new IndexHandleJsonTypeIdResolver(handleResolver));
+        super(ConnectorIndexHandle.class, "type", new IndexHandleJsonTypeIdResolver(handleResolver));
     }
 
     private static class IndexHandleJsonTypeIdResolver
-            implements JsonTypeIdResolver<IndexHandle>
+            implements JsonTypeIdResolver<ConnectorIndexHandle>
     {
         private final HandleResolver handleResolver;
 
@@ -42,13 +42,13 @@ public class IndexHandleJacksonModule
         }
 
         @Override
-        public String getId(IndexHandle indexHandle)
+        public String getId(ConnectorIndexHandle indexHandle)
         {
             return handleResolver.getId(indexHandle);
         }
 
         @Override
-        public Class<? extends IndexHandle> getType(String id)
+        public Class<? extends ConnectorIndexHandle> getType(String id)
         {
             return handleResolver.getIndexHandleClass(id);
         }

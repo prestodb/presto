@@ -13,20 +13,28 @@
  */
 package com.facebook.presto.split;
 
-import com.facebook.presto.spi.ColumnHandle;
+import com.facebook.presto.execution.ConnectorAwareSplitSource;
+import com.facebook.presto.execution.SplitSource;
+import com.facebook.presto.metadata.ColumnHandle;
+import com.facebook.presto.metadata.Partition;
+import com.facebook.presto.metadata.PartitionResult;
+import com.facebook.presto.metadata.TableHandle;
+import com.facebook.presto.spi.ConnectorPartitionResult;
 import com.facebook.presto.spi.ConnectorSplitManager;
-import com.facebook.presto.spi.Partition;
-import com.facebook.presto.spi.PartitionResult;
-import com.facebook.presto.spi.SplitSource;
-import com.facebook.presto.spi.TableHandle;
+import com.facebook.presto.spi.ConnectorSplitSource;
+import com.facebook.presto.spi.ConnectorTableHandle;
 import com.facebook.presto.spi.TupleDomain;
 import com.google.common.base.Optional;
+import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
 import com.google.inject.Inject;
 
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+
+import static com.facebook.presto.metadata.Partition.connectorPartitionGetter;
+import static com.facebook.presto.metadata.Util.toConnectorDomain;
 
 public class SplitManager
 {
@@ -45,16 +53,20 @@ public class SplitManager
 
     public PartitionResult getPartitions(TableHandle table, Optional<TupleDomain<ColumnHandle>> tupleDomain)
     {
-        return getConnectorSplitManager(table).getPartitions(table, tupleDomain.or(TupleDomain.<ColumnHandle>all()));
+        ConnectorTableHandle connectorTable = table.getConnectorHandle();
+        ConnectorPartitionResult result = getConnectorSplitManager(connectorTable).getPartitions(connectorTable, toConnectorDomain(tupleDomain.or(TupleDomain.<ColumnHandle>all())));
+
+        return new PartitionResult(table.getConnectorId(), result);
     }
 
     public SplitSource getPartitionSplits(TableHandle handle, List<Partition> partitions)
     {
-        ConnectorSplitManager connectorSplitManager = getConnectorSplitManager(handle);
-        return connectorSplitManager.getPartitionSplits(handle, partitions);
+        ConnectorTableHandle table = handle.getConnectorHandle();
+        ConnectorSplitSource source = getConnectorSplitManager(table).getPartitionSplits(table, Lists.transform(partitions, connectorPartitionGetter()));
+        return new ConnectorAwareSplitSource(handle.getConnectorId(), source);
     }
 
-    private ConnectorSplitManager getConnectorSplitManager(TableHandle handle)
+    private ConnectorSplitManager getConnectorSplitManager(ConnectorTableHandle handle)
     {
         for (ConnectorSplitManager connectorSplitManager : splitManagers) {
             if (connectorSplitManager.canHandle(handle)) {

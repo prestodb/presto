@@ -13,23 +13,23 @@
  */
 package com.facebook.presto.metadata;
 
-import com.facebook.presto.spi.Split;
+import com.facebook.presto.spi.ConnectorSplit;
 
 import javax.inject.Inject;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 
 public class SplitJacksonModule
-        extends AbstractTypedJacksonModule<Split>
+        extends AbstractTypedJacksonModule<ConnectorSplit>
 {
     @Inject
     public SplitJacksonModule(HandleResolver handleResolver)
     {
-        super(Split.class, "type", new SplitJsonTypeIdResolver(handleResolver));
+        super(ConnectorSplit.class, "type", new SplitJsonTypeIdResolver(handleResolver));
     }
 
     private static class SplitJsonTypeIdResolver
-            implements JsonTypeIdResolver<Split>
+            implements JsonTypeIdResolver<ConnectorSplit>
     {
         private final HandleResolver handleResolver;
 
@@ -39,13 +39,13 @@ public class SplitJacksonModule
         }
 
         @Override
-        public String getId(Split split)
+        public String getId(ConnectorSplit split)
         {
             return handleResolver.getId(split);
         }
 
         @Override
-        public Class<? extends Split> getType(String id)
+        public Class<? extends ConnectorSplit> getType(String id)
         {
             return handleResolver.getSplitClass(id);
         }

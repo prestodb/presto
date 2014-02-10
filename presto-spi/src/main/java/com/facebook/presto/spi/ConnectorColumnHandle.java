@@ -13,6 +13,6 @@
  */
 package com.facebook.presto.spi;
 
-public interface IndexHandle
+public interface ConnectorColumnHandle
 {
 }

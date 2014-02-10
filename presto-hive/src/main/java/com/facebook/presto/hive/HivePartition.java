@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.hive;
 
-import com.facebook.presto.spi.ColumnHandle;
-import com.facebook.presto.spi.Partition;
+import com.facebook.presto.spi.ConnectorColumnHandle;
+import com.facebook.presto.spi.ConnectorPartition;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.TupleDomain;
 import com.google.common.base.Optional;
@@ -27,13 +27,13 @@ import static com.facebook.presto.hive.HiveBucketing.HiveBucket;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 public class HivePartition
-        implements Partition
+        implements ConnectorPartition
 {
     public static final String UNPARTITIONED_ID = "<UNPARTITIONED>";
 
     private final SchemaTableName tableName;
     private final String partitionId;
-    private final Map<ColumnHandle, Comparable<?>> keys;
+    private final Map<ConnectorColumnHandle, Comparable<?>> keys;
     private final Optional<HiveBucket> bucket;
 
     public HivePartition(SchemaTableName tableName)
@@ -44,7 +44,7 @@ public class HivePartition
         this.bucket = Optional.absent();
     }
 
-    public HivePartition(SchemaTableName tableName, String partitionId, Map<ColumnHandle, Comparable<?>> keys, Optional<HiveBucket> bucket)
+    public HivePartition(SchemaTableName tableName, String partitionId, Map<ConnectorColumnHandle, Comparable<?>> keys, Optional<HiveBucket> bucket)
     {
         this.tableName = checkNotNull(tableName, "tableName is null");
         this.partitionId = checkNotNull(partitionId, "partitionId is null");
@@ -64,12 +64,12 @@ public class HivePartition
     }
 
     @Override
-    public TupleDomain<ColumnHandle> getTupleDomain()
+    public TupleDomain<ConnectorColumnHandle> getTupleDomain()
     {
         return TupleDomain.withFixedValues(keys);
     }
 
-    public Map<ColumnHandle, Comparable<?>> getKeys()
+    public Map<ConnectorColumnHandle, Comparable<?>> getKeys()
     {
         return keys;
     }

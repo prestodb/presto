@@ -13,14 +13,14 @@
  */
 package com.facebook.presto.metadata;
 
-import com.facebook.presto.spi.ColumnHandle;
+import com.facebook.presto.spi.ConnectorColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorMetadata;
+import com.facebook.presto.spi.ConnectorOutputTableHandle;
+import com.facebook.presto.spi.ConnectorTableHandle;
 import com.facebook.presto.spi.ConnectorTableMetadata;
-import com.facebook.presto.spi.OutputTableHandle;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.SchemaTablePrefix;
-import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -42,7 +42,7 @@ public class InMemoryMetadata
     private final ConcurrentMap<SchemaTableName, ConnectorTableMetadata> tables = new ConcurrentHashMap<>();
 
     @Override
-    public boolean canHandle(TableHandle tableHandle)
+    public boolean canHandle(ConnectorTableHandle tableHandle)
     {
         return tableHandle instanceof InMemoryTableHandle;
     }
@@ -60,7 +60,7 @@ public class InMemoryMetadata
     }
 
     @Override
-    public TableHandle getTableHandle(SchemaTableName tableName)
+    public ConnectorTableHandle getTableHandle(SchemaTableName tableName)
     {
         checkNotNull(tableName, "tableName is null");
         if (!tables.containsKey(tableName)) {
@@ -70,7 +70,7 @@ public class InMemoryMetadata
     }
 
     @Override
-    public ConnectorTableMetadata getTableMetadata(TableHandle tableHandle)
+    public ConnectorTableMetadata getTableMetadata(ConnectorTableHandle tableHandle)
     {
         checkNotNull(tableHandle, "tableHandle is null");
         SchemaTableName tableName = getTableName(tableHandle);
@@ -80,9 +80,9 @@ public class InMemoryMetadata
     }
 
     @Override
-    public Map<String, ColumnHandle> getColumnHandles(TableHandle tableHandle)
+    public Map<String, ConnectorColumnHandle> getColumnHandles(ConnectorTableHandle tableHandle)
     {
-        ImmutableMap.Builder<String, ColumnHandle> builder = ImmutableMap.builder();
+        ImmutableMap.Builder<String, ConnectorColumnHandle> builder = ImmutableMap.builder();
         for (ColumnMetadata columnMetadata : getTableMetadata(tableHandle).getColumns()) {
             builder.put(columnMetadata.getName(), new InMemoryColumnHandle(columnMetadata.getName(), columnMetadata.getOrdinalPosition(), columnMetadata.getType()));
         }
@@ -90,7 +90,7 @@ public class InMemoryMetadata
     }
 
     @Override
-    public ColumnHandle getColumnHandle(TableHandle tableHandle, String columnName)
+    public ConnectorColumnHandle getColumnHandle(ConnectorTableHandle tableHandle, String columnName)
     {
         for (ColumnMetadata columnMetadata : getTableMetadata(tableHandle).getColumns()) {
             if (columnMetadata.getName().equals(columnName)) {
@@ -101,7 +101,7 @@ public class InMemoryMetadata
     }
 
     @Override
-    public ColumnHandle getSampleWeightColumnHandle(TableHandle tableHandle)
+    public ConnectorColumnHandle getSampleWeightColumnHandle(ConnectorTableHandle tableHandle)
     {
         return null;
     }
@@ -131,7 +131,7 @@ public class InMemoryMetadata
     }
 
     @Override
-    public ColumnMetadata getColumnMetadata(TableHandle tableHandle, ColumnHandle columnHandle)
+    public ColumnMetadata getColumnMetadata(ConnectorTableHandle tableHandle, ConnectorColumnHandle columnHandle)
     {
         SchemaTableName tableName = getTableName(tableHandle);
         checkArgument(columnHandle instanceof InMemoryColumnHandle, "columnHandle is not an instance of InMemoryColumnHandle");
@@ -153,7 +153,7 @@ public class InMemoryMetadata
     }
 
     @Override
-    public TableHandle createTable(ConnectorTableMetadata tableMetadata)
+    public ConnectorTableHandle createTable(ConnectorTableMetadata tableMetadata)
     {
         ConnectorTableMetadata existingTable = tables.putIfAbsent(tableMetadata.getTable(), tableMetadata);
         checkArgument(existingTable == null, "Table %s already exists", tableMetadata.getTable());
@@ -161,30 +161,30 @@ public class InMemoryMetadata
     }
 
     @Override
-    public void dropTable(TableHandle tableHandle)
+    public void dropTable(ConnectorTableHandle tableHandle)
     {
         tables.remove(getTableName(tableHandle));
     }
 
     @Override
-    public boolean canHandle(OutputTableHandle tableHandle)
+    public boolean canHandle(ConnectorOutputTableHandle tableHandle)
     {
         return false;
     }
 
     @Override
-    public OutputTableHandle beginCreateTable(ConnectorTableMetadata tableMetadata)
+    public ConnectorOutputTableHandle beginCreateTable(ConnectorTableMetadata tableMetadata)
     {
         throw new UnsupportedOperationException();
     }
 
     @Override
-    public void commitCreateTable(OutputTableHandle tableHandle, Collection<String> fragments)
+    public void commitCreateTable(ConnectorOutputTableHandle tableHandle, Collection<String> fragments)
     {
         throw new UnsupportedOperationException();
     }
 
-    private SchemaTableName getTableName(TableHandle tableHandle)
+    private SchemaTableName getTableName(ConnectorTableHandle tableHandle)
     {
         checkNotNull(tableHandle, "tableHandle is null");
         checkArgument(tableHandle instanceof InMemoryTableHandle, "tableHandle is not an instance of InMemoryTableHandle");
@@ -193,7 +193,7 @@ public class InMemoryMetadata
     }
 
     public static class InMemoryTableHandle
-            implements TableHandle
+            implements ConnectorTableHandle
     {
         private final SchemaTableName tableName;
 
@@ -209,7 +209,7 @@ public class InMemoryMetadata
     }
 
     public static class InMemoryColumnHandle
-            implements ColumnHandle
+            implements ConnectorColumnHandle
     {
         private final String name;
         private final int ordinalPosition;

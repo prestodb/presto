@@ -13,13 +13,13 @@
  */
 package com.facebook.presto.metadata;
 
-import com.facebook.presto.spi.ColumnHandle;
+import com.facebook.presto.spi.ConnectorColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorMetadata;
+import com.facebook.presto.spi.ConnectorTableHandle;
 import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.SchemaTablePrefix;
-import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.split.NativePartitionKey;
 import com.facebook.presto.type.TypeRegistry;
 import com.google.common.collect.ImmutableList;
@@ -73,14 +73,14 @@ public class TestNativeMetadata
     {
         assertNull(metadata.getTableHandle(DEFAULT_TEST_ORDERS));
 
-        TableHandle tableHandle = metadata.createTable(getOrdersTable());
+        ConnectorTableHandle tableHandle = metadata.createTable(getOrdersTable());
         assertInstanceOf(tableHandle, NativeTableHandle.class);
         assertEquals(((NativeTableHandle) tableHandle).getTableId(), 1);
 
         ConnectorTableMetadata table = metadata.getTableMetadata(tableHandle);
         assertTableEqual(table, getOrdersTable());
 
-        ColumnHandle columnHandle = metadata.getColumnHandle(tableHandle, "orderkey");
+        ConnectorColumnHandle columnHandle = metadata.getColumnHandle(tableHandle, "orderkey");
         assertInstanceOf(columnHandle, NativeColumnHandle.class);
         assertEquals(((NativeColumnHandle) columnHandle).getColumnId(), 1);
     }

@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.operator.index;
 
+import com.facebook.presto.metadata.Split;
 import com.facebook.presto.operator.DriverContext;
 import com.facebook.presto.operator.FinishedOperator;
 import com.facebook.presto.operator.Operator;
@@ -23,7 +24,6 @@ import com.facebook.presto.operator.SourceOperator;
 import com.facebook.presto.operator.SourceOperatorFactory;
 import com.facebook.presto.spi.Index;
 import com.facebook.presto.spi.RecordSet;
-import com.facebook.presto.spi.Split;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.split.MappedRecordSet;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
@@ -137,10 +137,10 @@ public class IndexSourceOperator
     public synchronized void addSplit(Split split)
     {
         checkNotNull(split, "split is null");
-        checkArgument(split instanceof IndexSplit, "Split must be instance of IndexSplit");
+        checkArgument(split.getConnectorSplit() instanceof IndexSplit, "Split must be instance of IndexSplit");
         checkState(getSource() == null, "Index source split already set");
 
-        IndexSplit indexSplit = (IndexSplit) split;
+        IndexSplit indexSplit = (IndexSplit) split.getConnectorSplit();
 
         // Remap the record set into the format the index is expecting
         RecordSet recordSet = new MappedRecordSet(indexSplit.getKeyRecordSet(), probeKeyRemap);

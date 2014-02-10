@@ -13,15 +13,15 @@
  */
 package com.facebook.presto.example;
 
-import com.facebook.presto.spi.ColumnHandle;
-import com.facebook.presto.spi.Partition;
+import com.facebook.presto.spi.ConnectorColumnHandle;
+import com.facebook.presto.spi.ConnectorPartition;
 import com.facebook.presto.spi.TupleDomain;
 import com.google.common.base.Objects;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 
 public class ExamplePartition
-        implements Partition
+        implements ConnectorPartition
 {
     private final String schemaName;
     private final String tableName;
@@ -49,7 +49,7 @@ public class ExamplePartition
     }
 
     @Override
-    public TupleDomain<ColumnHandle> getTupleDomain()
+    public TupleDomain<ConnectorColumnHandle> getTupleDomain()
     {
         return TupleDomain.all();
     }

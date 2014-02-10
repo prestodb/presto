@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.operator;
 
-import com.facebook.presto.spi.Split;
+import com.facebook.presto.metadata.Split;
 import com.facebook.presto.split.RemoteSplit;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.facebook.presto.spi.type.Type;
@@ -116,9 +116,9 @@ public class ExchangeOperator
     public void addSplit(Split split)
     {
         checkNotNull(split, "split is null");
-        checkArgument(split instanceof RemoteSplit, "split is not a remote split");
+        checkArgument(split.getConnectorId().equals("remote"), "split is not a remote split");
 
-        URI location = ((RemoteSplit) split).getLocation();
+        URI location = ((RemoteSplit) split.getConnectorSplit()).getLocation();
         exchangeClient.addLocation(location);
     }
 
