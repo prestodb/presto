@@ -32,6 +32,8 @@ import static com.facebook.presto.operator.HashStrategyUtils.valueHashCode;
 import static com.facebook.presto.operator.SyntheticAddress.decodePosition;
 import static com.facebook.presto.operator.SyntheticAddress.decodeSliceIndex;
 import static com.facebook.presto.operator.SyntheticAddress.encodeSyntheticAddress;
+import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 import static io.airlift.slice.SizeOf.sizeOf;
 
@@ -105,6 +107,9 @@ public class ChannelIndex
 
     public void indexBlock(UncompressedBlock block)
     {
+        checkNotNull(block, "block is null");
+        checkArgument(block.getTupleInfo().getType().equals(type), "Expected block to be type %s, but is %s", type, block.getTupleInfo().getType());
+
         positionCount += block.getPositionCount();
 
         // index the block

@@ -60,6 +60,7 @@ import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Ordering;
 import com.google.common.io.Files;
 import io.airlift.log.Logger;
@@ -100,6 +101,7 @@ import static com.facebook.presto.byteCode.ParameterizedType.type;
 import static com.facebook.presto.byteCode.ParameterizedType.typeFromPathName;
 import static com.facebook.presto.byteCode.control.ForLoop.forLoopBuilder;
 import static com.google.common.base.Objects.toStringHelper;
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.Iterables.transform;
@@ -126,7 +128,7 @@ public class ExpressionCompiler
                 public FilterAndProjectOperatorFactoryFactory load(OperatorCacheKey key)
                         throws Exception
                 {
-                    return internalCompileFilterAndProjectOperator(key.getFilter(), key.getProjections(), key.getInputTypes());
+                    return internalCompileFilterAndProjectOperator(key.getFilter(), key.getProjections(), key.getInputTypes(), key.getOutputTypes());
                 }
             });
 
@@ -137,7 +139,7 @@ public class ExpressionCompiler
                 public ScanFilterAndProjectOperatorFactoryFactory load(OperatorCacheKey key)
                         throws Exception
                 {
-                    return internalCompileScanFilterAndProjectOperator(key.getSourceId(), key.getFilter(), key.getProjections(), key.getInputTypes());
+                    return internalCompileScanFilterAndProjectOperator(key.getSourceId(), key.getFilter(), key.getProjections(), key.getInputTypes(), key.getOutputTypes());
                 }
             });
 
@@ -213,9 +215,9 @@ public class ExpressionCompiler
         return sourceOperatorFactories.size();
     }
 
-    public OperatorFactory compileFilterAndProjectOperator(int operatorId, Expression filter, List<Expression> projections, Map<Input, Type> inputTypes)
+    public OperatorFactory compileFilterAndProjectOperator(int operatorId, Expression filter, List<Expression> projections, Map<Input, Type> inputTypes, List<Type> outputTypes)
     {
-        return operatorFactories.getUnchecked(new OperatorCacheKey(filter, projections, inputTypes, null)).create(operatorId);
+        return operatorFactories.getUnchecked(new OperatorCacheKey(filter, projections, inputTypes, outputTypes, null)).create(operatorId);
     }
 
     private DynamicClassLoader createClassLoader()
@@ -224,12 +226,16 @@ public class ExpressionCompiler
     }
 
     @VisibleForTesting
-    public FilterAndProjectOperatorFactoryFactory internalCompileFilterAndProjectOperator(Expression filter, List<Expression> projections, Map<Input, Type> inputTypes)
+    public FilterAndProjectOperatorFactoryFactory internalCompileFilterAndProjectOperator(
+            Expression filter,
+            List<Expression> projections,
+            Map<Input, Type> inputTypes,
+            List<Type> outputTypes)
     {
         DynamicClassLoader classLoader = createClassLoader();
 
         // create filter and project page iterator class
-        TypedOperatorClass typedOperatorClass = compileFilterAndProjectOperator(filter, projections, inputTypes, classLoader);
+        TypedOperatorClass typedOperatorClass = compileFilterAndProjectOperator(filter, projections, inputTypes, outputTypes, classLoader);
 
         Constructor<? extends Operator> constructor;
         try {
@@ -247,6 +253,7 @@ public class ExpressionCompiler
             Expression filter,
             List<Expression> projections,
             Map<Input, Type> inputTypes,
+            List<Type> outputTypes,
             DynamicClassLoader classLoader)
     {
         ClassDefinition classDefinition = new ClassDefinition(new CompilerContext(bootstrapMethod),
@@ -288,21 +295,30 @@ public class ExpressionCompiler
         //
         List<TupleInfo> tupleInfos = new ArrayList<>();
         int projectionIndex = 0;
-        for (Expression projection : projections) {
+        for (int i = 0; i < projections.size(); i++) {
+            Type outputType = outputTypes.get(i);
+            checkArgument(outputType != Type.NULL, "NULL output type is not supported");
+            tupleInfos.add(new TupleInfo(outputType.getRawType()));
+
+            // verify the compiled projection has the correct type
+            Expression projection = projections.get(i);
+
             Class<?> type = generateProjectMethod(classDefinition, "project_" + projectionIndex, projection, inputTypes, true);
             generateProjectMethod(classDefinition, "project_" + projectionIndex, projection, inputTypes, false);
             if (type == boolean.class) {
-                tupleInfos.add(TupleInfo.SINGLE_BOOLEAN);
+                checkState(outputType == Type.BOOLEAN);
             }
-            // todo remove assumption that void is a long
-            else if (type == long.class || type == void.class) {
-                tupleInfos.add(TupleInfo.SINGLE_LONG);
+            else if (type == long.class) {
+                checkState(outputType == Type.BIGINT);
             }
             else if (type == double.class) {
-                tupleInfos.add(TupleInfo.SINGLE_DOUBLE);
+                checkState(outputType == Type.DOUBLE);
             }
             else if (type == Slice.class) {
-                tupleInfos.add(TupleInfo.SINGLE_VARBINARY);
+                checkState(outputType == Type.VARCHAR);
+            }
+            else if (type == void.class) {
+                // void type is a null literal so it can be any type
             }
             else {
                 throw new IllegalStateException("Type " + type.getName() + "can be output");
@@ -332,9 +348,10 @@ public class ExpressionCompiler
             List<ColumnHandle> columns,
             Expression filter,
             List<Expression> projections,
-            Map<Input, Type> inputTypes)
+            Map<Input, Type> inputTypes,
+            List<Type> outputTypes)
     {
-        return sourceOperatorFactories.getUnchecked(new OperatorCacheKey(filter, projections, inputTypes, sourceId)).create(operatorId, dataStreamProvider, columns);
+        return sourceOperatorFactories.getUnchecked(new OperatorCacheKey(filter, projections, inputTypes, outputTypes, sourceId)).create(operatorId, dataStreamProvider, columns);
     }
 
     @VisibleForTesting
@@ -342,12 +359,13 @@ public class ExpressionCompiler
             PlanNodeId sourceId,
             Expression filter,
             List<Expression> projections,
-            Map<Input, Type> inputTypes)
+            Map<Input, Type> inputTypes,
+            List<Type> outputTypes)
     {
         DynamicClassLoader classLoader = createClassLoader();
 
         // create filter and project page iterator class
-        TypedOperatorClass typedOperatorClass = compileScanFilterAndProjectOperator(filter, projections, inputTypes, classLoader);
+        TypedOperatorClass typedOperatorClass = compileScanFilterAndProjectOperator(filter, projections, inputTypes, outputTypes, classLoader);
 
         Constructor<? extends SourceOperator> constructor;
         try {
@@ -374,6 +392,7 @@ public class ExpressionCompiler
             Expression filter,
             List<Expression> projections,
             Map<Input, Type> inputTypes,
+            List<Type> outputTypes,
             DynamicClassLoader classLoader)
     {
         ClassDefinition classDefinition = new ClassDefinition(new CompilerContext(bootstrapMethod),
@@ -422,21 +441,30 @@ public class ExpressionCompiler
         //
         List<TupleInfo> tupleInfos = new ArrayList<>();
         int projectionIndex = 0;
-        for (Expression projection : projections) {
+        for (int i = 0; i < projections.size(); i++) {
+            Type outputType = outputTypes.get(i);
+            checkArgument(outputType != Type.NULL, "NULL output type is not supported");
+            tupleInfos.add(new TupleInfo(outputType.getRawType()));
+
+            // verify the compiled projection has the correct type
+            Expression projection = projections.get(i);
+
             Class<?> type = generateProjectMethod(classDefinition, "project_" + projectionIndex, projection, inputTypes, true);
             generateProjectMethod(classDefinition, "project_" + projectionIndex, projection, inputTypes, false);
             if (type == boolean.class) {
-                tupleInfos.add(TupleInfo.SINGLE_BOOLEAN);
+                checkState(outputType == Type.BOOLEAN);
             }
-            // todo remove assumption that void is a long
-            else if (type == long.class || type == void.class) {
-                tupleInfos.add(TupleInfo.SINGLE_LONG);
+            else if (type == long.class) {
+                checkState(outputType == Type.BIGINT);
             }
             else if (type == double.class) {
-                tupleInfos.add(TupleInfo.SINGLE_DOUBLE);
+                checkState(outputType == Type.DOUBLE);
             }
             else if (type == Slice.class) {
-                tupleInfos.add(TupleInfo.SINGLE_VARBINARY);
+                checkState(outputType == Type.VARCHAR);
+            }
+            else if (type == void.class) {
+                // void type is a null literal so it can be any type
             }
             else {
                 throw new IllegalStateException("Type " + type.getName() + "can be output");
@@ -905,13 +933,15 @@ public class ExpressionCompiler
         private final Expression filter;
         private final List<Expression> projections;
         private final Map<Input, Type> inputTypes;
+        private final List<Type> outputTypes;
         private final PlanNodeId sourceId;
 
-        private OperatorCacheKey(Expression expression, List<Expression> projections, Map<Input, Type> inputTypes, PlanNodeId sourceId)
+        private OperatorCacheKey(Expression expression, List<Expression> projections, Map<Input, Type> inputTypes, List<Type> outputTypes, PlanNodeId sourceId)
         {
             this.filter = expression;
             this.projections = ImmutableList.copyOf(projections);
-            this.inputTypes = inputTypes;
+            this.inputTypes = ImmutableMap.copyOf(inputTypes);
+            this.outputTypes = ImmutableList.copyOf(outputTypes);
             this.sourceId = sourceId;
         }
 
@@ -928,6 +958,11 @@ public class ExpressionCompiler
         private Map<Input, Type> getInputTypes()
         {
             return inputTypes;
+        }
+
+        public List<Type> getOutputTypes()
+        {
+            return outputTypes;
         }
 
         private PlanNodeId getSourceId()
@@ -950,10 +985,11 @@ public class ExpressionCompiler
             if (obj == null || getClass() != obj.getClass()) {
                 return false;
             }
-            final OperatorCacheKey other = (OperatorCacheKey) obj;
+            OperatorCacheKey other = (OperatorCacheKey) obj;
             return Objects.equal(this.filter, other.filter) &&
                     Objects.equal(this.projections, other.projections) &&
                     Objects.equal(this.inputTypes, other.inputTypes) &&
+                    Objects.equal(this.outputTypes, other.outputTypes) &&
                     Objects.equal(this.sourceId, other.sourceId);
         }
 
@@ -964,6 +1000,7 @@ public class ExpressionCompiler
                     .add("filter", filter)
                     .add("projections", projections)
                     .add("inputTypes", inputTypes)
+                    .add("outputTypes", outputTypes)
                     .add("sourceId", sourceId)
                     .toString();
         }

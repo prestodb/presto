@@ -2306,6 +2306,18 @@ public abstract class AbstractTestQueries
     }
 
     @Test
+    public void testSelectColumnOfNulls()
+            throws Exception
+    {
+        // Currently nulls can confuse the local planner, so select some
+        assertQueryOrdered("SELECT \n" +
+                " CAST(NULL AS VARCHAR),\n" +
+                " CAST(NULL AS BIGINT)\n" +
+                "FROM ORDERS\n" +
+                " ORDER BY 1\n");
+    }
+
+    @Test
     public void testNoFrom()
             throws Exception
     {
