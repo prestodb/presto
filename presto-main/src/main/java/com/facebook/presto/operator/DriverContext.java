@@ -15,7 +15,6 @@ package com.facebook.presto.operator;
 
 import com.facebook.presto.execution.TaskId;
 import com.facebook.presto.sql.analyzer.Session;
-import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.google.common.base.Function;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
@@ -25,7 +24,6 @@ import io.airlift.units.Duration;
 import org.joda.time.DateTime;
 
 import java.util.List;
-import java.util.Set;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -194,12 +192,6 @@ public class DriverContext
         else {
             return new CounterStat();
         }
-    }
-
-    @Deprecated
-    public void addOutputItems(PlanNodeId id, Set<?> output)
-    {
-        pipelineContext.addOutputItems(id, output);
     }
 
     public DriverStats getDriverStats()

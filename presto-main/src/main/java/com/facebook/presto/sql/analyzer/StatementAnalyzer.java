@@ -15,14 +15,12 @@ package com.facebook.presto.sql.analyzer;
 
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.MetadataUtil;
-import com.facebook.presto.metadata.NativeTableHandle;
 import com.facebook.presto.metadata.QualifiedTableName;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.sql.tree.Approximate;
 import com.facebook.presto.sql.tree.BooleanLiteral;
 import com.facebook.presto.sql.tree.Cast;
-import com.facebook.presto.sql.tree.CreateMaterializedView;
 import com.facebook.presto.sql.tree.CreateTable;
 import com.facebook.presto.sql.tree.DefaultTraversalVisitor;
 import com.facebook.presto.sql.tree.Explain;
@@ -36,7 +34,6 @@ import com.facebook.presto.sql.tree.LongLiteral;
 import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.sql.tree.Query;
 import com.facebook.presto.sql.tree.QuerySpecification;
-import com.facebook.presto.sql.tree.RefreshMaterializedView;
 import com.facebook.presto.sql.tree.SelectItem;
 import com.facebook.presto.sql.tree.ShowCatalogs;
 import com.facebook.presto.sql.tree.ShowColumns;
@@ -67,7 +64,6 @@ import static com.facebook.presto.sql.analyzer.Analyzer.ExpressionAnalysis;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.COLUMN_NAME_NOT_SPECIFIED;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.DUPLICATE_COLUMN_NAME;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.DUPLICATE_RELATION;
-import static com.facebook.presto.sql.analyzer.SemanticErrorCode.INVALID_MATERIALIZED_VIEW_REFRESH_INTERVAL;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.INVALID_ORDINAL;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.INVALID_SCHEMA_NAME;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MISSING_TABLE;
@@ -380,52 +376,6 @@ class StatementAnalyzer
         }
 
         return new TupleDescriptor(Field.newUnqualified("rows", Type.BIGINT));
-    }
-
-    @Override
-    protected TupleDescriptor visitCreateMaterializedView(CreateMaterializedView node, AnalysisContext context)
-    {
-        // Turn this into a query that has a new table writer node on top.
-        QualifiedTableName targetTable = MetadataUtil.createQualifiedTableName(session, node.getName());
-        analysis.setMaterializedViewDestination(targetTable);
-
-        Optional<TableHandle> targetTableHandle = metadata.getTableHandle(targetTable);
-        if (targetTableHandle.isPresent()) {
-            throw new SemanticException(TABLE_ALREADY_EXISTS, node, "Destination table '%s' already exists", targetTable);
-        }
-
-        if (node.getRefresh().isPresent()) {
-            int refreshInterval = Integer.parseInt(node.getRefresh().get());
-            if (refreshInterval <= 0) {
-                throw new SemanticException(INVALID_MATERIALIZED_VIEW_REFRESH_INTERVAL, node, "Refresh interval must be > 0 (was %s)", refreshInterval);
-            }
-
-            analysis.setRefreshInterval(Optional.of(refreshInterval));
-        }
-        else {
-            analysis.setRefreshInterval(Optional.<Integer>absent());
-        }
-
-        // Analyze the query that creates the table...
-        process(node.getTableDefinition(), context);
-
-        return new TupleDescriptor(Field.newUnqualified("imported_rows", Type.BIGINT));
-    }
-
-    @Override
-    protected TupleDescriptor visitRefreshMaterializedView(RefreshMaterializedView node, AnalysisContext context)
-    {
-        QualifiedTableName targetTable = MetadataUtil.createQualifiedTableName(session, node.getName());
-        Optional<TableHandle> tableHandle = metadata.getTableHandle(targetTable);
-        if (!tableHandle.isPresent()) {
-            throw new SemanticException(MISSING_TABLE, node, "Destination table '%s' does not exist", targetTable);
-        }
-
-        checkState(tableHandle.get() instanceof NativeTableHandle, "Cannot import into non-native table %s", targetTable);
-        analysis.setMaterializedViewDestination(targetTable);
-        analysis.setDoRefresh(true);
-
-        return new TupleDescriptor(Field.newUnqualified("imported_rows", Type.BIGINT));
     }
 
     @Override

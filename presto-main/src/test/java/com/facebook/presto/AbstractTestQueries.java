@@ -15,7 +15,6 @@ package com.facebook.presto;
 
 import com.facebook.presto.connector.dual.DualMetadata;
 import com.facebook.presto.connector.dual.DualSplitManager;
-import com.facebook.presto.importer.MockPeriodicImportManager;
 import com.facebook.presto.metadata.FunctionInfo;
 import com.facebook.presto.metadata.FunctionRegistry;
 import com.facebook.presto.metadata.InMemoryNodeManager;
@@ -38,7 +37,6 @@ import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.PlanOptimizersFactory;
 import com.facebook.presto.sql.planner.optimizations.PlanOptimizer;
 import com.facebook.presto.sql.tree.ExplainType;
-import com.facebook.presto.storage.MockStorageManager;
 import com.facebook.presto.tpch.TpchMetadata;
 import com.facebook.presto.tpch.TpchTableHandle;
 import com.facebook.presto.tuple.TupleInfo;
@@ -3237,6 +3235,6 @@ public abstract class AbstractTestQueries
         SplitManager splitManager = new SplitManager(ImmutableSet.<ConnectorSplitManager>of(new DualSplitManager(new InMemoryNodeManager())));
         AnalyzerConfig analyzerConfig = new AnalyzerConfig().setApproximateQueriesEnabled(true);
         List<PlanOptimizer> optimizers = new PlanOptimizersFactory(metadata, splitManager, analyzerConfig).get();
-        return new QueryExplainer(session, optimizers, metadata, new MockPeriodicImportManager(), new MockStorageManager(), analyzerConfig.isApproximateQueriesEnabled());
+        return new QueryExplainer(session, optimizers, metadata, analyzerConfig.isApproximateQueriesEnabled());
     }
 }

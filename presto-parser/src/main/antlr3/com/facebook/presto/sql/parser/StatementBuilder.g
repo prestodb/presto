@@ -66,8 +66,6 @@ statement returns [Statement value]
     | showFunctions             { $value = $showFunctions.value; }
     | useCollection             { $value = $useCollection.value; }
     | createTable               { $value = $createTable.value; }
-    | createMaterializedView    { $value = $createMaterializedView.value; }
-    | refreshMaterializedView   { $value = $refreshMaterializedView.value; }
     | createAlias               { $value = $createAlias.value; }
     | dropAlias                 { $value = $dropAlias.value; }
     | dropTable                 { $value = $dropTable.value; }
@@ -534,19 +532,6 @@ useCollection returns [Statement value]
 
 createTable returns [Statement value]
     : ^(CREATE_TABLE qname query) { $value = new CreateTable($qname.value, $query.value); }
-    ;
-
-createMaterializedView returns [Statement value]
-    : ^(CREATE_MATERIALIZED_VIEW qname refresh=viewRefresh? select=restrictedSelectStmt)
-        { $value = new CreateMaterializedView($qname.value, Optional.fromNullable($refresh.value), $select.value); }
-    ;
-
-refreshMaterializedView returns [Statement value]
-    : ^(REFRESH_MATERIALIZED_VIEW qname) { $value = new RefreshMaterializedView($qname.value); }
-    ;
-
-viewRefresh returns [String value]
-    : ^(REFRESH integer) { $value = $integer.value; }
     ;
 
 createAlias returns [Statement value]

@@ -17,18 +17,16 @@ import com.facebook.presto.metadata.FunctionInfo;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.spi.OutputTableHandle;
-import com.facebook.presto.sql.analyzer.Type;
 import com.facebook.presto.sql.planner.PlanFragment.OutputPartitioning;
 import com.facebook.presto.sql.planner.PlanFragment.PlanDistribution;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.planner.plan.DistinctLimitNode;
-import com.facebook.presto.sql.planner.plan.MaterializeSampleNode;
 import com.facebook.presto.sql.planner.plan.ExchangeNode;
 import com.facebook.presto.sql.planner.plan.FilterNode;
 import com.facebook.presto.sql.planner.plan.JoinNode;
 import com.facebook.presto.sql.planner.plan.LimitNode;
 import com.facebook.presto.sql.planner.plan.MarkDistinctNode;
-import com.facebook.presto.sql.planner.plan.MaterializedViewWriterNode;
+import com.facebook.presto.sql.planner.plan.MaterializeSampleNode;
 import com.facebook.presto.sql.planner.plan.OutputNode;
 import com.facebook.presto.sql.planner.plan.PlanFragmentId;
 import com.facebook.presto.sql.planner.plan.PlanNode;
@@ -47,7 +45,6 @@ import com.facebook.presto.sql.planner.plan.UnionNode;
 import com.facebook.presto.sql.planner.plan.WindowNode;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.FunctionCall;
-import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.sql.tree.QualifiedNameReference;
 import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
@@ -387,49 +384,6 @@ public class DistributedLogicalPlanner
             current.setRoot(new TableCommitNode(node.getId(), current.getRoot(), target, node.getOutputSymbols()));
 
             return current;
-        }
-
-        @Override
-        public SubPlanBuilder visitMaterializedViewWriter(MaterializedViewWriterNode node, Void context)
-        {
-            SubPlanBuilder subPlanBuilder = node.getSource().accept(this, context);
-
-            if (createSingleNodePlan) {
-                subPlanBuilder.setRoot(new MaterializedViewWriterNode(node.getId(),
-                        subPlanBuilder.getRoot(),
-                        node.getTable(),
-                        node.getColumns(),
-                        node.getOutput()));
-            }
-            else {
-                // rewrite the sub-plan builder to use the source id of the table writer node
-                subPlanBuilder = createSubPlan(subPlanBuilder.getRoot(), subPlanBuilder.getDistribution(), node.getId());
-
-                // Put a simple SUM(<output symbol>) on top of the table writer node
-                FunctionInfo sum = metadata.getFunction(QualifiedName.of("sum"), ImmutableList.of(Type.BIGINT), false);
-
-                Symbol intermediateOutput = allocator.newSymbol(node.getOutput().toString(), sum.getReturnType());
-
-                MaterializedViewWriterNode writer = new MaterializedViewWriterNode(node.getId(),
-                        subPlanBuilder.getRoot(),
-                        node.getTable(),
-                        node.getColumns(),
-                        intermediateOutput);
-                subPlanBuilder.setRoot(writer);
-
-                FunctionCall aggregate = new FunctionCall(sum.getName(),
-                        ImmutableList.<Expression>of(new QualifiedNameReference(intermediateOutput.toQualifiedName())));
-
-                return addDistributedAggregation(subPlanBuilder,
-                        ImmutableMap.of(node.getOutput(), aggregate),
-                        ImmutableMap.of(node.getOutput(), sum.getHandle()),
-                        ImmutableMap.<Symbol, Symbol>of(),
-                        ImmutableList.<Symbol>of(),
-                        Optional.<Symbol>absent(),
-                        1.0);
-            }
-
-            return subPlanBuilder;
         }
 
         @Override

@@ -25,7 +25,6 @@ import com.facebook.presto.sql.planner.PlanFragment;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.Uninterruptibles;
 import io.airlift.concurrent.ThreadPoolExecutorMBean;
@@ -46,7 +45,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
-import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.ExecutorService;
@@ -404,8 +402,7 @@ public class SqlTaskManager
                         new SharedBufferInfo(QueueState.FINISHED, 0, 0, ImmutableList.<BufferInfo>of()),
                         ImmutableSet.<PlanNodeId>of(),
                         taskContext.getTaskStats(),
-                        ImmutableList.<FailureInfo>of(),
-                        ImmutableMap.<PlanNodeId, Set<?>>of());
+                        ImmutableList.<FailureInfo>of());
                 TaskInfo existingTaskInfo = taskInfos.putIfAbsent(taskId, taskInfo);
                 if (existingTaskInfo != null) {
                     taskInfo = existingTaskInfo;

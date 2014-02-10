@@ -14,7 +14,7 @@
 package com.facebook.presto.hive;
 
 import com.facebook.presto.spi.HostAddress;
-import com.facebook.presto.spi.PartitionedSplit;
+import com.facebook.presto.spi.Split;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.base.Objects;
@@ -28,11 +28,9 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 public class HiveSplit
-        implements PartitionedSplit
+        implements Split
 {
     private final String clientId;
-    private final String partitionId;
-    private final boolean lastSplit;
     private final String path;
     private final long start;
     private final long length;
@@ -41,14 +39,14 @@ public class HiveSplit
     private final List<HostAddress> addresses;
     private final String database;
     private final String table;
+    private final String partitionName;
 
     @JsonCreator
     public HiveSplit(
             @JsonProperty("clientId") String clientId,
             @JsonProperty("database") String database,
             @JsonProperty("table") String table,
-            @JsonProperty("partitionId") String partitionId,
-            @JsonProperty("lastSplit") boolean lastSplit,
+            @JsonProperty("partitionName") String partitionName,
             @JsonProperty("path") String path,
             @JsonProperty("start") long start,
             @JsonProperty("length") long length,
@@ -61,7 +59,7 @@ public class HiveSplit
         checkArgument(length >= 0, "length must be positive");
         checkNotNull(database, "database is null");
         checkNotNull(table, "table is null");
-        checkNotNull(partitionId, "partitionName is null");
+        checkNotNull(partitionName, "partitionName is null");
         checkNotNull(path, "path is null");
         checkNotNull(schema, "schema is null");
         checkNotNull(partitionKeys, "partitionKeys is null");
@@ -70,8 +68,7 @@ public class HiveSplit
         this.clientId = clientId;
         this.database = database;
         this.table = table;
-        this.partitionId = partitionId;
-        this.lastSplit = lastSplit;
+        this.partitionName = partitionName;
         this.path = path;
         this.start = start;
         this.length = length;
@@ -99,17 +96,9 @@ public class HiveSplit
     }
 
     @JsonProperty
-    @Override
-    public String getPartitionId()
+    public String getPartitionName()
     {
-        return partitionId;
-    }
-
-    @JsonProperty
-    @Override
-    public boolean isLastSplit()
-    {
-        return lastSplit;
+        return partitionName;
     }
 
     @JsonProperty
@@ -137,7 +126,6 @@ public class HiveSplit
     }
 
     @JsonProperty
-    @Override
     public List<HivePartitionKey> getPartitionKeys()
     {
         return partitionKeys;
@@ -166,7 +154,7 @@ public class HiveSplit
                 .put("hosts", addresses)
                 .put("database", database)
                 .put("table", table)
-                .put("partitionId", partitionId)
+                .put("partitionName", partitionName)
                 .build();
     }
 
@@ -178,24 +166,5 @@ public class HiveSplit
                 .addValue(start)
                 .addValue(length)
                 .toString();
-    }
-
-    public static HiveSplit markAsLastSplit(HiveSplit split)
-    {
-        if (split.isLastSplit()) {
-            return split;
-        }
-
-        return new HiveSplit(split.getClientId(),
-                split.getDatabase(),
-                split.getTable(),
-                split.getPartitionId(),
-                true,
-                split.getPath(),
-                split.getStart(),
-                split.getLength(),
-                split.getSchema(),
-                split.getPartitionKeys(),
-                split.getAddresses());
     }
 }

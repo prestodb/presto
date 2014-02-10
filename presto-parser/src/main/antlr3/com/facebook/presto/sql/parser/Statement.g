@@ -70,9 +70,6 @@ tokens {
     USE_CATALOG;
     USE_SCHEMA;
     CREATE_TABLE;
-    CREATE_MATERIALIZED_VIEW;
-    REFRESH_MATERIALIZED_VIEW;
-    VIEW_REFRESH;
     CREATE_ALIAS;
     DROP_ALIAS;
     DROP_TABLE;
@@ -159,8 +156,6 @@ statement
     | useCollectionStmt
     | createTableStmt
     | dropTableStmt
-    | createMaterializedViewStmt
-    | refreshMaterializedViewStmt
     | createAliasStmt
     | dropAliasStmt
     ;
@@ -597,18 +592,6 @@ dropTableStmt
     : DROP TABLE qname -> ^(DROP_TABLE qname)
     ;
 
-createMaterializedViewStmt
-    : CREATE MATERIALIZED VIEW qname r=viewRefresh? AS s=restrictedSelectStmt -> ^(CREATE_MATERIALIZED_VIEW qname $r? $s)
-    ;
-
-refreshMaterializedViewStmt
-    : REFRESH MATERIALIZED VIEW qname -> ^(REFRESH_MATERIALIZED_VIEW qname)
-    ;
-
-viewRefresh
-    : REFRESH r=integer -> ^(REFRESH $r)
-    ;
-
 createAliasStmt
     : CREATE ALIAS qname forRemote -> ^(CREATE_ALIAS qname forRemote)
     ;
@@ -706,7 +689,7 @@ integer
 nonReserved
     : SHOW | TABLES | COLUMNS | PARTITIONS | FUNCTIONS | SCHEMAS | CATALOGS
     | OVER | PARTITION | RANGE | ROWS | PRECEDING | FOLLOWING | CURRENT | ROW
-    | REFRESH | MATERIALIZED | VIEW | ALIAS
+    | ALIAS
     | DATE | TIME | TIMESTAMP | INTERVAL
     | YEAR | MONTH | DAY | HOUR | MINUTE | SECOND
     | EXPLAIN | FORMAT | TYPE | TEXT | GRAPHVIZ | LOGICAL | DISTRIBUTED
@@ -826,9 +809,6 @@ COLUMNS: 'COLUMNS';
 USE: 'USE';
 PARTITIONS: 'PARTITIONS';
 FUNCTIONS: 'FUNCTIONS';
-MATERIALIZED: 'MATERIALIZED';
-VIEW: 'VIEW';
-REFRESH: 'REFRESH';
 DROP: 'DROP';
 ALIAS: 'ALIAS';
 UNION: 'UNION';

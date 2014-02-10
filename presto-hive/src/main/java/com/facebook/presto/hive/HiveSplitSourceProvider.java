@@ -45,8 +45,6 @@ import org.apache.hadoop.mapred.InputFormat;
 import org.apache.hadoop.mapred.InputSplit;
 import org.apache.hadoop.mapred.JobConf;
 
-import javax.annotation.concurrent.ThreadSafe;
-
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -59,13 +57,11 @@ import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.Executor;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.Semaphore;
-import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 
 import static com.facebook.presto.hadoop.HadoopFileStatus.isFile;
 import static com.facebook.presto.hive.HiveBucketing.HiveBucket;
-import static com.facebook.presto.hive.HiveSplit.markAsLastSplit;
 import static com.facebook.presto.hive.HiveType.getSupportedHiveType;
 import static com.facebook.presto.hive.HiveUtil.convertNativeHiveType;
 import static com.facebook.presto.hive.HiveUtil.getInputFormat;
@@ -177,7 +173,6 @@ class HiveSplitSourceProvider
                 final InputFormat<?, ?> inputFormat = getInputFormat(configuration, schema, false);
 
                 FileSystem fs = path.getFileSystem(configuration);
-                final LastSplitMarkingQueue markerQueue = new LastSplitMarkingQueue(hiveSplitSource);
 
                 if (inputFormat instanceof SymlinkTextInputFormat) {
                     JobConf jobConf = new JobConf(configuration);
@@ -189,7 +184,7 @@ class HiveSplitSourceProvider
                         // get the filesystem for the target path -- it may be a different hdfs instance
                         FileSystem targetFilesystem = split.getPath().getFileSystem(configuration);
                         FileStatus fileStatus = targetFilesystem.getFileStatus(split.getPath());
-                        markerQueue.addToQueue(createHiveSplits(
+                        hiveSplitSource.addToQueue(createHiveSplits(
                                 partitionName,
                                 fileStatus,
                                 targetFilesystem.getFileBlockLocations(fileStatus, split.getStart(), split.getLength()),
@@ -199,7 +194,6 @@ class HiveSplitSourceProvider
                                 partitionKeys,
                                 false));
                     }
-                    markerQueue.finish();
                     continue;
                 }
 
@@ -211,8 +205,7 @@ class HiveSplitSourceProvider
                         BlockLocation[] blockLocations = fs.getFileBlockLocations(file, 0, file.getLen());
                         boolean splittable = isSplittable(inputFormat, fs, file.getPath());
 
-                        markerQueue.addToQueue(createHiveSplits(partitionName, file, blockLocations, 0, file.getLen(), schema, partitionKeys, splittable));
-                        markerQueue.finish();
+                        hiveSplitSource.addToQueue(createHiveSplits(partitionName, file, blockLocations, 0, file.getLen(), schema, partitionKeys, splittable));
                         continue;
                     }
                 }
@@ -230,7 +223,7 @@ class HiveSplitSourceProvider
                         try {
                             boolean splittable = isSplittable(inputFormat, file.getPath().getFileSystem(configuration), file.getPath());
 
-                            markerQueue.addToQueue(createHiveSplits(partitionName, file, blockLocations, 0, file.getLen(), schema, partitionKeys, splittable));
+                            hiveSplitSource.addToQueue(createHiveSplits(partitionName, file, blockLocations, 0, file.getLen(), schema, partitionKeys, splittable));
                         }
                         catch (IOException e) {
                             hiveSplitSource.fail(e);
@@ -245,14 +238,12 @@ class HiveSplitSourceProvider
                     public void onSuccess(Void result)
                     {
                         semaphore.release();
-                        markerQueue.finish();
                     }
 
                     @Override
                     public void onFailure(Throwable t)
                     {
                         semaphore.release();
-                        markerQueue.finish();
                     }
                 });
 
@@ -348,7 +339,6 @@ class HiveSplitSourceProvider
                             table.getDbName(),
                             table.getTableName(),
                             partitionName,
-                            false,
                             file.getPath().toString(),
                             blockLocation.getOffset() + chunkOffset,
                             chunkLength,
@@ -372,7 +362,6 @@ class HiveSplitSourceProvider
                     table.getDbName(),
                     table.getTableName(),
                     partitionName,
-                    false,
                     file.getPath().toString(),
                     start,
                     length,
@@ -390,47 +379,6 @@ class HiveSplitSourceProvider
             builder.add(HostAddress.fromString(host));
         }
         return builder.build();
-    }
-
-    /**
-     * Buffers a single split for a given partition and when the queue
-     * is finished, tags the final split so a reader of the stream can
-     * know when
-     */
-    @ThreadSafe
-    private static class LastSplitMarkingQueue
-    {
-        private final HiveSplitSource hiveSplitSource;
-
-        private final AtomicReference<HiveSplit> bufferedSplit = new AtomicReference<>();
-        private final AtomicBoolean done = new AtomicBoolean();
-
-        private LastSplitMarkingQueue(HiveSplitSource hiveSplitSource)
-        {
-            this.hiveSplitSource = checkNotNull(hiveSplitSource, "split is null");
-        }
-
-        public synchronized void addToQueue(Iterable<HiveSplit> splits)
-        {
-            checkNotNull(splits, "splits is null");
-            checkState(!done.get(), "already done");
-
-            for (HiveSplit split : splits) {
-                HiveSplit previousSplit = bufferedSplit.getAndSet(split);
-                if (previousSplit != null) {
-                    hiveSplitSource.addToQueue(previousSplit);
-                }
-            }
-        }
-
-        private synchronized void finish()
-        {
-            checkState(!done.getAndSet(true), "already done");
-            HiveSplit finalSplit = bufferedSplit.getAndSet(null);
-            if (finalSplit != null) {
-                hiveSplitSource.addToQueue(markAsLastSplit(finalSplit));
-            }
-        }
     }
 
     @VisibleForTesting
@@ -456,6 +404,13 @@ class HiveSplitSourceProvider
         int getOutstandingSplitCount()
         {
             return outstandingSplitCount.get();
+        }
+
+        void addToQueue(Iterable<? extends Split> splits)
+        {
+            for (Split split : splits) {
+                addToQueue(split);
+            }
         }
 
         @VisibleForTesting

@@ -29,7 +29,6 @@ import com.facebook.presto.sql.planner.plan.FilterNode;
 import com.facebook.presto.sql.planner.plan.JoinNode;
 import com.facebook.presto.sql.planner.plan.LimitNode;
 import com.facebook.presto.sql.planner.plan.MarkDistinctNode;
-import com.facebook.presto.sql.planner.plan.MaterializedViewWriterNode;
 import com.facebook.presto.sql.planner.plan.OutputNode;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.PlanVisitor;
@@ -185,12 +184,6 @@ public final class JsonPlanPrinter
 
         @Override
         public Void visitSort(final SortNode node, Void context)
-        {
-            return processChildren(node);
-        }
-
-        @Override
-        public Void visitMaterializedViewWriter(MaterializedViewWriterNode node, Void context)
         {
             return processChildren(node);
         }
