@@ -256,8 +256,7 @@ public class MockTaskManager
                     sharedBuffer.getInfo(),
                     ImmutableSet.<PlanNodeId>of(),
                     taskContext.getTaskStats(),
-                    failures,
-                    taskContext.getOutputItems());
+                    failures);
         }
     }
 }

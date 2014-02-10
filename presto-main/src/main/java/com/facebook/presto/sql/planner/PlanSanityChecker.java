@@ -21,7 +21,6 @@ import com.facebook.presto.sql.planner.plan.FilterNode;
 import com.facebook.presto.sql.planner.plan.JoinNode;
 import com.facebook.presto.sql.planner.plan.LimitNode;
 import com.facebook.presto.sql.planner.plan.MarkDistinctNode;
-import com.facebook.presto.sql.planner.plan.MaterializedViewWriterNode;
 import com.facebook.presto.sql.planner.plan.OutputNode;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
@@ -332,17 +331,6 @@ public final class PlanSanityChecker
         {
             PlanNode source = node.getSource();
             Preconditions.checkArgument(source instanceof TableWriterNode, "Invalid node. TableCommit source must be a TableWriter not %s", source.getClass().getSimpleName());
-            source.accept(this, context); // visit child
-
-            verifyUniqueId(node);
-
-            return null;
-        }
-
-        @Override
-        public Void visitMaterializedViewWriter(MaterializedViewWriterNode node, Void context)
-        {
-            PlanNode source = node.getSource();
             source.accept(this, context); // visit child
 
             verifyUniqueId(node);

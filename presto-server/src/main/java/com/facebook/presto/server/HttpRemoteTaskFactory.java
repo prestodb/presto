@@ -23,7 +23,6 @@ import com.facebook.presto.execution.TaskInfo;
 import com.facebook.presto.operator.ForScheduler;
 import com.facebook.presto.spi.Split;
 import com.facebook.presto.sql.analyzer.Session;
-import com.facebook.presto.sql.planner.OutputReceiver;
 import com.facebook.presto.sql.planner.PlanFragment;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.google.common.collect.Multimap;
@@ -36,7 +35,6 @@ import org.weakref.jmx.Nested;
 
 import javax.inject.Inject;
 
-import java.util.Map;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ThreadPoolExecutor;
 
@@ -83,7 +81,6 @@ public class HttpRemoteTaskFactory
             com.facebook.presto.spi.Node node,
             PlanFragment fragment,
             Multimap<PlanNodeId, Split> initialSplits,
-            Map<PlanNodeId, OutputReceiver> outputReceivers,
             OutputBuffers outputBuffers)
     {
         return new HttpRemoteTask(session,
@@ -92,7 +89,6 @@ public class HttpRemoteTaskFactory
                 locationFactory.createTaskLocation(node, taskId),
                 fragment,
                 initialSplits,
-                outputReceivers,
                 outputBuffers,
                 httpClient,
                 executor,

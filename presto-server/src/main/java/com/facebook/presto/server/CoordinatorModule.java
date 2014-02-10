@@ -25,13 +25,6 @@ import com.facebook.presto.execution.QueryManagerConfig;
 import com.facebook.presto.execution.SqlQueryExecution;
 import com.facebook.presto.execution.SqlQueryManager;
 import com.facebook.presto.guice.AbstractConfigurationAwareModule;
-import com.facebook.presto.importer.DatabasePeriodicImportManager;
-import com.facebook.presto.importer.ForPeriodicImport;
-import com.facebook.presto.importer.JobStateFactory;
-import com.facebook.presto.importer.PeriodicImportConfig;
-import com.facebook.presto.importer.PeriodicImportController;
-import com.facebook.presto.importer.PeriodicImportManager;
-import com.facebook.presto.importer.PeriodicImportRunnable;
 import com.facebook.presto.metadata.AliasDao;
 import com.facebook.presto.metadata.DatabaseShardManager;
 import com.facebook.presto.metadata.DiscoveryNodeManager;
@@ -50,13 +43,11 @@ import com.facebook.presto.split.NativeSplitManager;
 import com.facebook.presto.split.SplitManager;
 import com.facebook.presto.sql.analyzer.AnalyzerConfig;
 import com.facebook.presto.sql.tree.CreateAlias;
-import com.facebook.presto.sql.tree.CreateMaterializedView;
 import com.facebook.presto.sql.tree.CreateTable;
 import com.facebook.presto.sql.tree.DropAlias;
 import com.facebook.presto.sql.tree.DropTable;
 import com.facebook.presto.sql.tree.Explain;
 import com.facebook.presto.sql.tree.Query;
-import com.facebook.presto.sql.tree.RefreshMaterializedView;
 import com.facebook.presto.sql.tree.ShowCatalogs;
 import com.facebook.presto.sql.tree.ShowColumns;
 import com.facebook.presto.sql.tree.ShowFunctions;
@@ -65,8 +56,6 @@ import com.facebook.presto.sql.tree.ShowSchemas;
 import com.facebook.presto.sql.tree.ShowTables;
 import com.facebook.presto.sql.tree.Statement;
 import com.facebook.presto.sql.tree.UseCollection;
-import com.facebook.presto.storage.DatabaseStorageManager;
-import com.facebook.presto.storage.StorageManager;
 import com.google.inject.Binder;
 import com.google.inject.Key;
 import com.google.inject.Provides;
@@ -132,19 +121,6 @@ public class CoordinatorModule
         httpClientBinder(binder).bindHttpClient("shard-cleaner", ForShardCleaner.class);
         binder.bind(ShardResource.class).in(Scopes.SINGLETON);
 
-        // storage manager
-        binder.bind(StorageManager.class).to(DatabaseStorageManager.class).in(Scopes.SINGLETON);
-
-        // periodic import
-        bindConfig(binder).to(PeriodicImportConfig.class);
-        binder.bind(PeriodicImportJobResource.class).in(Scopes.SINGLETON);
-        binder.bind(PeriodicImportManager.class).to(DatabasePeriodicImportManager.class).in(Scopes.SINGLETON);
-        binder.bind(PeriodicImportController.class).in(Scopes.SINGLETON);
-        binder.bind(JobStateFactory.class).in(Scopes.SINGLETON);
-        binder.bind(PeriodicImportRunnable.PeriodicImportRunnableFactory.class).in(Scopes.SINGLETON);
-        newExporter(binder).export(PeriodicImportController.class).as("com.facebook.presto:name=periodic-import");
-        httpClientBinder(binder).bindAsyncHttpClient("periodic-importer", ForPeriodicImport.class).withTracing();
-
         // query execution
         binder.bind(SqlQueryExecution.SqlQueryExecutionFactory.class).in(Scopes.SINGLETON);
         newExporter(binder).export(SqlQueryExecution.SqlQueryExecutionFactory.class).withGeneratedName();
@@ -175,8 +151,6 @@ public class CoordinatorModule
         executionBinder.addBinding(ShowSchemas.class).to(SqlQueryExecution.SqlQueryExecutionFactory.class).in(Scopes.SINGLETON);
         executionBinder.addBinding(ShowCatalogs.class).to(SqlQueryExecution.SqlQueryExecutionFactory.class).in(Scopes.SINGLETON);
         executionBinder.addBinding(UseCollection.class).to(SqlQueryExecution.SqlQueryExecutionFactory.class).in(Scopes.SINGLETON);
-        executionBinder.addBinding(CreateMaterializedView.class).to(SqlQueryExecution.SqlQueryExecutionFactory.class).in(Scopes.SINGLETON);
-        executionBinder.addBinding(RefreshMaterializedView.class).to(SqlQueryExecution.SqlQueryExecutionFactory.class).in(Scopes.SINGLETON);
         executionBinder.addBinding(CreateTable.class).to(SqlQueryExecution.SqlQueryExecutionFactory.class).in(Scopes.SINGLETON);
     }
 

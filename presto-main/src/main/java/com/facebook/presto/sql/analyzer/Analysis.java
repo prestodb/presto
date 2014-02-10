@@ -75,11 +75,6 @@ public class Analysis
     // for create table
     private Optional<QualifiedTableName> createTableDestination = Optional.absent();
 
-    // for materialized views
-    private Optional<QualifiedTableName> materializedViewDestination = Optional.absent();
-    private Optional<Integer> refreshInterval;
-    private boolean refresh;
-
     public Query getQuery()
     {
         return query;
@@ -285,36 +280,6 @@ public class Analysis
     public Optional<QualifiedTableName> getCreateTableDestination()
     {
         return createTableDestination;
-    }
-
-    public void setMaterializedViewDestination(QualifiedTableName destination)
-    {
-        this.materializedViewDestination = Optional.of(destination);
-    }
-
-    public Optional<QualifiedTableName> getMaterializedViewDestination()
-    {
-        return materializedViewDestination;
-    }
-
-    public Optional<Integer> getRefreshInterval()
-    {
-        return refreshInterval;
-    }
-
-    public void setDoRefresh(boolean refresh)
-    {
-        this.refresh = refresh;
-    }
-
-    public boolean isDoRefresh()
-    {
-        return refresh;
-    }
-
-    public void setRefreshInterval(Optional<Integer> refreshInterval)
-    {
-        this.refreshInterval = refreshInterval;
     }
 
     public Query getNamedQuery(Table table)

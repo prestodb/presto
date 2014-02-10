@@ -27,7 +27,6 @@ import com.facebook.presto.sql.analyzer.Type;
 import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.SymbolAllocator;
-import com.facebook.presto.sql.planner.plan.MaterializedViewWriterNode;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.PlanNodeRewriter;
 import com.facebook.presto.sql.planner.plan.PlanRewriter;
@@ -72,30 +71,9 @@ public class TableAliasSelector
         checkNotNull(symbolAllocator, "symbolAllocator is null");
         checkNotNull(idAllocator, "idAllocator is null");
 
-        // don't optimize plans that actually write local tables. We always want to
-        // read the remote table in that case.
-        if (containsMaterializedViewWriter(plan)) {
-            return plan;
-        }
+        // TODO: this is probably broken for create table
 
         return PlanRewriter.rewriteWith(new Rewriter(), plan);
-    }
-
-    private static boolean containsMaterializedViewWriter(PlanNode plan)
-    {
-        if (plan == null) {
-            return false;
-        }
-        if (plan instanceof MaterializedViewWriterNode) {
-            return true;
-        }
-        for (PlanNode sourceNode : plan.getSources()) {
-            if (containsMaterializedViewWriter(sourceNode)) {
-                return true;
-            }
-        }
-
-        return false;
     }
 
     private class Rewriter

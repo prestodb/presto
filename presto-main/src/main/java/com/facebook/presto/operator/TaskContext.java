@@ -18,15 +18,8 @@ import com.facebook.presto.execution.TaskId;
 import com.facebook.presto.execution.TaskState;
 import com.facebook.presto.execution.TaskStateMachine;
 import com.facebook.presto.sql.analyzer.Session;
-import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.google.common.base.Function;
-import com.google.common.collect.HashMultimap;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Maps;
-import com.google.common.collect.Multimaps;
-import com.google.common.collect.SetMultimap;
 import io.airlift.stats.CounterStat;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
@@ -35,8 +28,6 @@ import org.joda.time.DateTime;
 import javax.annotation.concurrent.ThreadSafe;
 
 import java.util.List;
-import java.util.Map;
-import java.util.Set;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicLong;
@@ -72,8 +63,6 @@ public class TaskContext
     private final AtomicReference<DateTime> executionStartTime = new AtomicReference<>();
     private final AtomicReference<DateTime> lastExecutionStartTime = new AtomicReference<>();
     private final AtomicReference<DateTime> executionEndTime = new AtomicReference<>();
-
-    private final SetMultimap<PlanNodeId, Object> outputItems = Multimaps.synchronizedSetMultimap(HashMultimap.<PlanNodeId, Object>create());
 
     private final List<PipelineContext> pipelineContexts = new CopyOnWriteArrayList<>();
 
@@ -233,31 +222,6 @@ public class TaskContext
             }
         }
         return stat;
-    }
-
-    @Deprecated
-    public Map<PlanNodeId, Set<?>> getOutputItems()
-    {
-        // outputItems is a synchronized multimap, so we must synchronize to iterate over it
-        synchronized (outputItems) {
-            return ImmutableMap.copyOf(Maps.transformValues(outputItems.asMap(), new Function<Iterable<?>, Set<?>>()
-            {
-                @Override
-                public Set<?> apply(Iterable<?> values)
-                {
-                    return ImmutableSet.copyOf(values);
-                }
-            }));
-        }
-    }
-
-    @Deprecated
-    public void addOutputItems(PlanNodeId id, Iterable<?> outputItems)
-    {
-        checkNotNull(id, "id is null");
-        checkNotNull(outputItems, "outputItems is null");
-
-        this.outputItems.putAll(id, outputItems);
     }
 
     public TaskStats getTaskStats()

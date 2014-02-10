@@ -27,7 +27,6 @@ import com.facebook.presto.sql.planner.plan.FilterNode;
 import com.facebook.presto.sql.planner.plan.JoinNode;
 import com.facebook.presto.sql.planner.plan.LimitNode;
 import com.facebook.presto.sql.planner.plan.MarkDistinctNode;
-import com.facebook.presto.sql.planner.plan.MaterializedViewWriterNode;
 import com.facebook.presto.sql.planner.plan.OutputNode;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.PlanNodeRewriter;
@@ -98,20 +97,6 @@ public class UnaliasSymbolReferences
         public Rewriter(Map<Symbol, Symbol> mapping)
         {
             this.mapping = mapping;
-        }
-
-        @Override
-        public PlanNode rewriteMaterializedViewWriter(MaterializedViewWriterNode node, Void context, PlanRewriter<Void> planRewriter)
-        {
-            PlanNode source = planRewriter.rewrite(node.getSource(), context);
-
-            ImmutableMap.Builder<Symbol, ColumnHandle> columns = ImmutableMap.builder();
-
-            for (Map.Entry<Symbol, ColumnHandle> entry : node.getColumns().entrySet()) {
-                columns.put(canonicalize(entry.getKey()), entry.getValue());
-            }
-
-            return new MaterializedViewWriterNode(node.getId(), source, node.getTable(), columns.build(), canonicalize(node.getOutput()));
         }
 
         @Override

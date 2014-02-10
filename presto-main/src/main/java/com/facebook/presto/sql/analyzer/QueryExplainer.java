@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.sql.analyzer;
 
-import com.facebook.presto.importer.PeriodicImportManager;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.sql.planner.DistributedLogicalPlanner;
 import com.facebook.presto.sql.planner.LogicalPlanner;
@@ -24,7 +23,6 @@ import com.facebook.presto.sql.planner.SubPlan;
 import com.facebook.presto.sql.planner.optimizations.PlanOptimizer;
 import com.facebook.presto.sql.tree.ExplainType;
 import com.facebook.presto.sql.tree.Statement;
-import com.facebook.presto.storage.StorageManager;
 import com.google.common.base.Optional;
 
 import java.util.List;
@@ -36,22 +34,16 @@ public class QueryExplainer
     public final Session session;
     public final List<PlanOptimizer> planOptimizers;
     public final Metadata metadata;
-    public final PeriodicImportManager periodicImportManager;
-    public final StorageManager storageManager;
     public final boolean approximateQueriesEnabled;
 
     public QueryExplainer(Session session,
             List<PlanOptimizer> planOptimizers,
             Metadata metadata,
-            PeriodicImportManager periodicImportManager,
-            StorageManager storageManager,
             boolean approximateQueriesEnabled)
     {
         this.session = checkNotNull(session, "session is null");
         this.planOptimizers = checkNotNull(planOptimizers, "planOptimizers is null");
         this.metadata = checkNotNull(metadata, "metadata is null");
-        this.periodicImportManager = checkNotNull(periodicImportManager, "periodicImportManager is null");
-        this.storageManager = checkNotNull(storageManager, "storageManager is null");
         this.approximateQueriesEnabled = approximateQueriesEnabled;
     }
 
@@ -96,7 +88,7 @@ public class QueryExplainer
         PlanNodeIdAllocator idAllocator = new PlanNodeIdAllocator();
 
         // plan statement
-        LogicalPlanner logicalPlanner = new LogicalPlanner(session, planOptimizers, idAllocator, metadata, periodicImportManager, storageManager);
+        LogicalPlanner logicalPlanner = new LogicalPlanner(session, planOptimizers, idAllocator, metadata);
         return logicalPlanner.plan(analysis);
     }
 
@@ -109,7 +101,7 @@ public class QueryExplainer
         PlanNodeIdAllocator idAllocator = new PlanNodeIdAllocator();
 
         // plan statement
-        LogicalPlanner logicalPlanner = new LogicalPlanner(session, planOptimizers, idAllocator, metadata, periodicImportManager, storageManager);
+        LogicalPlanner logicalPlanner = new LogicalPlanner(session, planOptimizers, idAllocator, metadata);
         Plan plan = logicalPlanner.plan(analysis);
 
         return new DistributedLogicalPlanner(metadata, idAllocator).createSubPlans(plan, false);

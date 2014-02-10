@@ -21,7 +21,6 @@ import com.facebook.presto.sql.planner.plan.FilterNode;
 import com.facebook.presto.sql.planner.plan.JoinNode;
 import com.facebook.presto.sql.planner.plan.LimitNode;
 import com.facebook.presto.sql.planner.plan.MarkDistinctNode;
-import com.facebook.presto.sql.planner.plan.MaterializedViewWriterNode;
 import com.facebook.presto.sql.planner.plan.OutputNode;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.PlanVisitor;
@@ -204,16 +203,6 @@ public final class SymbolExtractor
 
         @Override
         public Void visitTableCommit(TableCommitNode node, Void context)
-        {
-            node.getSource().accept(this, context);
-
-            builder.addAll(node.getOutputSymbols());
-
-            return null;
-        }
-
-        @Override
-        public Void visitMaterializedViewWriter(MaterializedViewWriterNode node, Void context)
         {
             node.getSource().accept(this, context);
 

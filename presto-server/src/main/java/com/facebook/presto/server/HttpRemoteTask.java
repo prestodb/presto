@@ -31,7 +31,6 @@ import com.facebook.presto.operator.TaskContext;
 import com.facebook.presto.operator.TaskStats;
 import com.facebook.presto.spi.Split;
 import com.facebook.presto.sql.analyzer.Session;
-import com.facebook.presto.sql.planner.OutputReceiver;
 import com.facebook.presto.sql.planner.PlanFragment;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.facebook.presto.tuple.TupleInfo;
@@ -41,7 +40,6 @@ import com.google.common.base.Objects;
 import com.google.common.base.Predicate;
 import com.google.common.collect.HashMultimap;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Multimap;
 import com.google.common.collect.SetMultimap;
@@ -68,7 +66,6 @@ import java.net.SocketTimeoutException;
 import java.net.URI;
 import java.util.HashSet;
 import java.util.List;
-import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Queue;
 import java.util.Set;
@@ -131,7 +128,6 @@ public class HttpRemoteTask
     private final JsonCodec<TaskInfo> taskInfoCodec;
     private final JsonCodec<TaskUpdateRequest> taskUpdateRequestCodec;
     private final List<TupleInfo> tupleInfos;
-    private final Map<PlanNodeId, OutputReceiver> outputReceivers;
 
     private final RateLimiter errorRequestRateLimiter = RateLimiter.create(0.1);
 
@@ -147,7 +143,6 @@ public class HttpRemoteTask
             URI location,
             PlanFragment planFragment,
             Multimap<PlanNodeId, Split> initialSplits,
-            Map<PlanNodeId, OutputReceiver> outputReceivers,
             OutputBuffers outputBuffers,
             AsyncHttpClient httpClient,
             Executor executor,
@@ -161,7 +156,6 @@ public class HttpRemoteTask
         checkNotNull(nodeId, "nodeId is null");
         checkNotNull(location, "location is null");
         checkNotNull(planFragment, "planFragment1 is null");
-        checkNotNull(outputReceivers, "outputReceivers is null");
         checkNotNull(outputBuffers, "outputBuffers is null");
         checkNotNull(httpClient, "httpClient is null");
         checkNotNull(executor, "executor is null");
@@ -173,7 +167,6 @@ public class HttpRemoteTask
             this.session = session;
             this.nodeId = nodeId;
             this.planFragment = planFragment;
-            this.outputReceivers = ImmutableMap.copyOf(outputReceivers);
             this.outputBuffers.set(outputBuffers);
             this.httpClient = httpClient;
             this.executor = executor;
@@ -208,8 +201,7 @@ public class HttpRemoteTask
                     new SharedBufferInfo(QueueState.OPEN, 0, 0, bufferStates),
                     ImmutableSet.<PlanNodeId>of(),
                     taskStats,
-                    ImmutableList.<FailureInfo>of(),
-                    ImmutableMap.<PlanNodeId, Set<?>>of()));
+                    ImmutableList.<FailureInfo>of()));
         }
     }
 
@@ -316,14 +308,6 @@ public class HttpRemoteTask
 
     private synchronized void updateTaskInfo(final TaskInfo newValue)
     {
-        for (Entry<PlanNodeId, Set<?>> entry : newValue.getOutputs().entrySet()) {
-            OutputReceiver outputReceiver = outputReceivers.get(entry.getKey());
-            checkState(outputReceiver != null, "Got Result for node %s which is not an output receiver!", entry.getKey());
-            for (Object result : entry.getValue()) {
-                outputReceiver.updateOutput(result);
-            }
-        }
-
         if (newValue.getState().isDone()) {
             // splits can be huge so clear the list
             pendingSplits.clear();
@@ -430,8 +414,7 @@ public class HttpRemoteTask
                     taskInfo.getOutputBuffers(),
                     taskInfo.getNoMoreSplits(),
                     taskInfo.getStats(),
-                    ImmutableList.<FailureInfo>of(),
-                    ImmutableMap.<PlanNodeId, Set<?>>of()));
+                    ImmutableList.<FailureInfo>of()));
 
             // fire delete to task and ignore response
             if (taskInfo.getSelf() != null) {
@@ -545,8 +528,7 @@ public class HttpRemoteTask
                 taskInfo.getOutputBuffers(),
                 taskInfo.getNoMoreSplits(),
                 taskInfo.getStats(),
-                ImmutableList.of(toFailure(cause)),
-                taskInfo.getOutputs()));
+                ImmutableList.of(toFailure(cause))));
     }
 
     @Override

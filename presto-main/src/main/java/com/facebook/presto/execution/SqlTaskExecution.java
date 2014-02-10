@@ -293,8 +293,7 @@ public class SqlTaskExecution
                     sharedBuffer.getInfo(),
                     getNoMoreSplits(),
                     taskContext.getTaskStats(),
-                    failures,
-                    taskContext.getOutputItems());
+                    failures);
         }
     }
 

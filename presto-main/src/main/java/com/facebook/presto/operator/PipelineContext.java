@@ -15,7 +15,6 @@ package com.facebook.presto.operator;
 
 import com.facebook.presto.execution.TaskId;
 import com.facebook.presto.sql.analyzer.Session;
-import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.google.common.base.Function;
 import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.ImmutableList;
@@ -242,12 +241,6 @@ public class PipelineContext
             stat.merge(driver.getOutputPositions());
         }
         return stat;
-    }
-
-    @Deprecated
-    public void addOutputItems(PlanNodeId id, Iterable<?> outputItems)
-    {
-        taskContext.addOutputItems(id, outputItems);
     }
 
     public PipelineStats getPipelineStats()

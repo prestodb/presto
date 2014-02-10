@@ -179,7 +179,7 @@ public class CassandraSplitManager
             long endToken = startToken + delta;
             String condition = buildTokenCondition(tokenExpression, startToken, endToken);
 
-            CassandraSplit split = new CassandraSplit(connectorId, schema, tableName, partitionId, condition, false, addresses);
+            CassandraSplit split = new CassandraSplit(connectorId, schema, tableName, partitionId, condition, addresses);
             builder.add(split);
 
             startToken = endToken + 1;
@@ -187,7 +187,7 @@ public class CassandraSplitManager
 
         // special handling for last split
         String condition = buildTokenCondition(tokenExpression, startToken, end.longValue());
-        CassandraSplit split = new CassandraSplit(connectorId, schema, tableName, partitionId, condition, true, addresses);
+        CassandraSplit split = new CassandraSplit(connectorId, schema, tableName, partitionId, condition, addresses);
         builder.add(split);
 
         return builder.build();
@@ -210,7 +210,7 @@ public class CassandraSplitManager
 
             Set<Host> hosts = cassandraSession.getReplicas(schema, cassandraPartition.getKeyAsByteBuffer());
             List<HostAddress> addresses = hostAddressFactory.toHostAddressList(hosts);
-            CassandraSplit split = new CassandraSplit(connectorId, schema, table, cassandraPartition.getPartitionId(), null, true, addresses);
+            CassandraSplit split = new CassandraSplit(connectorId, schema, table, cassandraPartition.getPartitionId(), null, addresses);
             builder.add(split);
         }
         return builder.build();

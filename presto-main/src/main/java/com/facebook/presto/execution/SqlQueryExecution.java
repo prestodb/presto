@@ -16,7 +16,6 @@ package com.facebook.presto.execution;
 import com.facebook.presto.OutputBuffers;
 import com.facebook.presto.UnpartitionedPagePartitionFunction;
 import com.facebook.presto.execution.StateMachine.StateChangeListener;
-import com.facebook.presto.importer.PeriodicImportManager;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.ShardManager;
 import com.facebook.presto.split.SplitManager;
@@ -35,7 +34,6 @@ import com.facebook.presto.sql.planner.StageExecutionPlan;
 import com.facebook.presto.sql.planner.SubPlan;
 import com.facebook.presto.sql.planner.optimizations.PlanOptimizer;
 import com.facebook.presto.sql.tree.Statement;
-import com.facebook.presto.storage.StorageManager;
 import com.facebook.presto.util.SetThreadName;
 import com.google.common.base.Optional;
 import com.google.common.base.Preconditions;
@@ -83,9 +81,6 @@ public class SqlQueryExecution
     private final boolean approximateQueriesEnabled;
     private final ExecutorService queryExecutor;
     private final ShardManager shardManager;
-    private final StorageManager storageManager;
-
-    private final PeriodicImportManager periodicImportManager;
 
     private final QueryExplainer queryExplainer;
     private final AtomicReference<SqlStageExecution> outputStage = new AtomicReference<>();
@@ -106,9 +101,7 @@ public class SqlQueryExecution
             int initialHashPartitions,
             boolean approximateQueriesEnabled,
             ExecutorService queryExecutor,
-            ShardManager shardManager,
-            StorageManager storageManager,
-            PeriodicImportManager periodicImportManager)
+            ShardManager shardManager)
     {
         try (SetThreadName setThreadName = new SetThreadName("Query-%s", queryId)) {
             this.statement = checkNotNull(statement, "statement is null");
@@ -120,8 +113,6 @@ public class SqlQueryExecution
             this.locationFactory = checkNotNull(locationFactory, "locationFactory is null");
             this.queryExecutor = checkNotNull(queryExecutor, "queryExecutor is null");
             this.shardManager = checkNotNull(shardManager, "shardManager is null");
-            this.storageManager = checkNotNull(storageManager, "storageManager is null");
-            this.periodicImportManager = checkNotNull(periodicImportManager, "periodicImportManager is null");
             this.approximateQueriesEnabled = approximateQueriesEnabled;
 
             checkArgument(maxPendingSplitsPerNode > 0, "scheduleSplitBatchSize must be greater than 0");
@@ -139,7 +130,7 @@ public class SqlQueryExecution
             checkNotNull(self, "self is null");
             this.stateMachine = new QueryStateMachine(queryId, query, session, self, queryExecutor);
 
-            this.queryExplainer = new QueryExplainer(session, planOptimizers, metadata, periodicImportManager, storageManager, approximateQueriesEnabled);
+            this.queryExplainer = new QueryExplainer(session, planOptimizers, metadata, approximateQueriesEnabled);
         }
     }
 
@@ -212,7 +203,7 @@ public class SqlQueryExecution
         Analysis analysis = analyzer.analyze(statement);
         PlanNodeIdAllocator idAllocator = new PlanNodeIdAllocator();
         // plan query
-        LogicalPlanner logicalPlanner = new LogicalPlanner(stateMachine.getSession(), planOptimizers, idAllocator, metadata, periodicImportManager, storageManager);
+        LogicalPlanner logicalPlanner = new LogicalPlanner(stateMachine.getSession(), planOptimizers, idAllocator, metadata);
         Plan plan = logicalPlanner.plan(analysis);
 
         List<Input> inputs = new InputExtractor(metadata).extract(plan.getRoot());
@@ -231,7 +222,7 @@ public class SqlQueryExecution
         long distributedPlanningStart = System.nanoTime();
 
         // plan the execution on the active nodes
-        DistributedExecutionPlanner distributedPlanner = new DistributedExecutionPlanner(splitManager, shardManager);
+        DistributedExecutionPlanner distributedPlanner = new DistributedExecutionPlanner(splitManager);
         StageExecutionPlan outputStageExecutionPlan = distributedPlanner.plan(subplan);
 
         if (stateMachine.isDone()) {
@@ -405,9 +396,7 @@ public class SqlQueryExecution
         private final RemoteTaskFactory remoteTaskFactory;
         private final LocationFactory locationFactory;
         private final ShardManager shardManager;
-        private final StorageManager storageManager;
 
-        private final PeriodicImportManager periodicImportManager;
         private final ExecutorService executor;
         private final ThreadPoolExecutorMBean executorMBean;
 
@@ -420,9 +409,7 @@ public class SqlQueryExecution
                 NodeScheduler nodeScheduler,
                 List<PlanOptimizer> planOptimizers,
                 RemoteTaskFactory remoteTaskFactory,
-                ShardManager shardManager,
-                StorageManager storageManager,
-                PeriodicImportManager periodicImportManager)
+                ShardManager shardManager)
         {
             checkNotNull(config, "config is null");
             this.scheduleSplitBatchSize = config.getScheduleSplitBatchSize();
@@ -435,8 +422,6 @@ public class SqlQueryExecution
             this.planOptimizers = checkNotNull(planOptimizers, "planOptimizers is null");
             this.remoteTaskFactory = checkNotNull(remoteTaskFactory, "remoteTaskFactory is null");
             this.shardManager = checkNotNull(shardManager, "shardManager is null");
-            this.storageManager = checkNotNull(storageManager, "storageManager is null");
-            this.periodicImportManager = checkNotNull(periodicImportManager, "periodicImportManager is null");
             this.approximateQueriesEnabled = checkNotNull(analyzerConfig, "analyzerConfig is null").isApproximateQueriesEnabled();
 
             this.executor = Executors.newCachedThreadPool(threadsNamed("query-scheduler-%d"));
@@ -469,9 +454,7 @@ public class SqlQueryExecution
                     initialHashPartitions,
                     approximateQueriesEnabled,
                     executor,
-                    shardManager,
-                    storageManager,
-                    periodicImportManager);
+                    shardManager);
 
             return queryExecution;
         }
