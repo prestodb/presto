@@ -15,7 +15,6 @@ package com.facebook.presto.execution;
 
 import com.facebook.presto.OutputBuffers;
 import com.facebook.presto.UnpartitionedPagePartitionFunction;
-import com.facebook.presto.client.Input;
 import com.facebook.presto.execution.StateMachine.StateChangeListener;
 import com.facebook.presto.importer.PeriodicImportManager;
 import com.facebook.presto.metadata.Metadata;
