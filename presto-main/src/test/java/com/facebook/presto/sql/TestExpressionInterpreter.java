@@ -64,6 +64,8 @@ public class TestExpressionInterpreter
         assertOptimizedEquals("a='z' and false", "false");
         assertOptimizedEquals("true and a='z'", "a='z'");
         assertOptimizedEquals("false and a='z'", "false");
+
+        assertOptimizedEquals("a='z' and b=1+1", "a='z' and b=2");
     }
 
     @Test
@@ -86,6 +88,8 @@ public class TestExpressionInterpreter
         assertOptimizedEquals("a='z' or false", "a='z'");
         assertOptimizedEquals("true or a='z'", "true");
         assertOptimizedEquals("false or a='z'", "a='z'");
+
+        assertOptimizedEquals("a='z' or b=1+1", "a='z' or b=2");
     }
 
     @Test
@@ -119,6 +123,85 @@ public class TestExpressionInterpreter
         assertOptimizedEquals("null is distinct from 3", "true");
 
         assertOptimizedEquals("10151082135029368 is distinct from 10151082135029369", "true");
+    }
+
+    @Test
+    public void testIsNull()
+            throws Exception
+    {
+        assertOptimizedEquals("null is null", "true");
+        assertOptimizedEquals("1 is null", "false");
+        assertOptimizedEquals("1.0 is null", "false");
+        assertOptimizedEquals("'a' is null", "false");
+        assertOptimizedEquals("true is null", "false");
+        assertOptimizedEquals("null+1 is null", "true");
+        assertOptimizedEquals("a is null", "a is null");
+        assertOptimizedEquals("a+(1+1) is null", "a+2 is null");
+    }
+
+    @Test
+    public void testIsNotNull()
+            throws Exception
+    {
+        assertOptimizedEquals("null is not null", "false");
+        assertOptimizedEquals("1 is not null", "true");
+        assertOptimizedEquals("1.0 is not null", "true");
+        assertOptimizedEquals("'a' is not null", "true");
+        assertOptimizedEquals("true is not null", "true");
+        assertOptimizedEquals("null+1 is not null", "false");
+        assertOptimizedEquals("a is not null", "a is not null");
+        assertOptimizedEquals("a+(1+1) is not null", "a+2 is not null");
+    }
+
+    @Test
+    public void testNullIf()
+            throws Exception
+    {
+        assertOptimizedEquals("nullif(true, true)", "null");
+        assertOptimizedEquals("nullif(true, false)", "true");
+        assertOptimizedEquals("nullif(null, false)", "null");
+        assertOptimizedEquals("nullif(true, null)", "true");
+
+        assertOptimizedEquals("nullif('a', 'a')", "null");
+        assertOptimizedEquals("nullif('a', 'b')", "'a'");
+        assertOptimizedEquals("nullif(null, 'b')", "null");
+        assertOptimizedEquals("nullif('a', null)", "'a'");
+
+        assertOptimizedEquals("nullif(1, 1)", "null");
+        assertOptimizedEquals("nullif(1, 2)", "1");
+        assertOptimizedEquals("nullif(1.0, 1)", "null");
+        assertOptimizedEquals("nullif(1.1, 1)", "1.1");
+        assertOptimizedEquals("nullif(1.1, 1.1)", "null");
+        assertOptimizedEquals("nullif(1, 2-1)", "null");
+        assertOptimizedEquals("nullif(null, null)", "null");
+        assertOptimizedEquals("nullif(1, null)", "1");
+        assertOptimizedEquals("nullif(a, 1)", "nullif(a, 1)");
+        assertOptimizedEquals("nullif(a, b)", "nullif(a, b)");
+        assertOptimizedEquals("nullif(a, b+(1+1))", "nullif(a, b+2)");
+    }
+
+    @Test
+    public void testNegative()
+            throws Exception
+    {
+        assertOptimizedEquals("-(1)", "-1");
+        assertOptimizedEquals("-(a+1)", "-(a+1)");
+        assertOptimizedEquals("-(1+1)", "-2");
+        assertOptimizedEquals("-(null)", "null");
+        assertOptimizedEquals("-(a+(1+1))", "-(a+2)");
+    }
+
+    @Test
+    public void testNot()
+            throws Exception
+    {
+        assertOptimizedEquals("not true", "false");
+        assertOptimizedEquals("not false", "true");
+        assertOptimizedEquals("not null", "null");
+        assertOptimizedEquals("not 1=1", "false");
+        assertOptimizedEquals("not 1!=1", "true");
+        assertOptimizedEquals("not a=1", "not a=1");
+        assertOptimizedEquals("not a=(1+1)", "not a=2");
     }
 
     @Test
