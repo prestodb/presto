@@ -184,9 +184,9 @@ public class TestDriver
                 assertTableMetadata(rs);
 
                 Set<List<Object>> rows = ImmutableSet.copyOf(readRows(rs));
-                assertTrue(rows.contains(ImmutableList.of("default", "information_schema", "tables", "BASE TABLE", "",  "",  "",  "",  "", "")));
-                assertTrue(rows.contains(ImmutableList.of("default", "information_schema", "schemata", "BASE TABLE", "",  "",  "",  "",  "", "")));
-                assertTrue(rows.contains(ImmutableList.of("default", "sys", "node", "BASE TABLE", "",  "",  "",  "",  "", "")));
+                assertTrue(rows.contains(getTablesRow("information_schema", "tables")));
+                assertTrue(rows.contains(getTablesRow("information_schema", "schemata")));
+                assertTrue(rows.contains(getTablesRow("sys", "node")));
             }
         }
 
@@ -195,9 +195,9 @@ public class TestDriver
                 assertTableMetadata(rs);
 
                 Set<List<Object>> rows = ImmutableSet.copyOf(readRows(rs));
-                assertTrue(rows.contains(ImmutableList.of("default", "information_schema", "tables", "BASE TABLE", "",  "",  "",  "",  "", "")));
-                assertTrue(rows.contains(ImmutableList.of("default", "information_schema", "schemata", "BASE TABLE", "",  "",  "",  "",  "", "")));
-                assertTrue(rows.contains(ImmutableList.of("default", "sys", "node", "BASE TABLE", "",  "",  "",  "",  "", "")));
+                assertTrue(rows.contains(getTablesRow("information_schema", "tables")));
+                assertTrue(rows.contains(getTablesRow("information_schema", "schemata")));
+                assertTrue(rows.contains(getTablesRow("sys", "node")));
             }
         }
 
@@ -216,9 +216,9 @@ public class TestDriver
                 assertTableMetadata(rs);
 
                 Set<List<Object>> rows = ImmutableSet.copyOf(readRows(rs));
-                assertTrue(rows.contains(ImmutableList.of("default", "information_schema", "tables", "BASE TABLE", "",  "",  "",  "",  "", "")));
-                assertTrue(rows.contains(ImmutableList.of("default", "information_schema", "schemata", "BASE TABLE", "",  "",  "",  "",  "", "")));
-                assertFalse(rows.contains(ImmutableList.of("default", "sys", "node", "BASE TABLE", "", "", "", "", "", "")));
+                assertTrue(rows.contains(getTablesRow("information_schema", "tables")));
+                assertTrue(rows.contains(getTablesRow("information_schema", "schemata")));
+                assertFalse(rows.contains(getTablesRow("sys", "node")));
             }
         }
 
@@ -236,9 +236,9 @@ public class TestDriver
                 assertTableMetadata(rs);
 
                 Set<List<Object>> rows = ImmutableSet.copyOf(readRows(rs));
-                assertTrue(rows.contains(ImmutableList.of("default", "information_schema", "tables", "BASE TABLE", "",  "",  "",  "",  "", "")));
-                assertFalse(rows.contains(ImmutableList.of("default", "information_schema", "schemata", "BASE TABLE", "", "", "", "", "", "")));
-                assertFalse(rows.contains(ImmutableList.of("default", "sys", "node", "BASE TABLE", "",  "",  "",  "",  "", "")));
+                assertTrue(rows.contains(getTablesRow("information_schema", "tables")));
+                assertFalse(rows.contains(getTablesRow("information_schema", "schemata")));
+                assertFalse(rows.contains(getTablesRow("sys", "node")));
             }
         }
 
@@ -247,9 +247,9 @@ public class TestDriver
                 assertTableMetadata(rs);
 
                 Set<List<Object>> rows = ImmutableSet.copyOf(readRows(rs));
-                assertTrue(rows.contains(ImmutableList.of("default", "information_schema", "tables", "BASE TABLE", "",  "",  "",  "",  "", "")));
-                assertFalse(rows.contains(ImmutableList.of("default", "information_schema", "schemata", "BASE TABLE", "",  "",  "",  "",  "", "")));
-                assertFalse(rows.contains(ImmutableList.of("default", "sys", "node", "BASE TABLE", "",  "",  "",  "",  "", "")));
+                assertTrue(rows.contains(getTablesRow("information_schema", "tables")));
+                assertFalse(rows.contains(getTablesRow("information_schema", "schemata")));
+                assertFalse(rows.contains(getTablesRow("sys", "node")));
             }
         }
 
@@ -258,9 +258,9 @@ public class TestDriver
                 assertTableMetadata(rs);
 
                 Set<List<Object>> rows = ImmutableSet.copyOf(readRows(rs));
-                assertTrue(rows.contains(ImmutableList.of("default", "information_schema", "tables", "BASE TABLE", "",  "",  "",  "",  "", "")));
-                assertTrue(rows.contains(ImmutableList.of("default", "information_schema", "schemata", "BASE TABLE", "", "", "", "", "", "")));
-                assertFalse(rows.contains(ImmutableList.of("default", "sys", "node", "BASE TABLE", "", "", "", "", "", "")));
+                assertTrue(rows.contains(getTablesRow("information_schema", "tables")));
+                assertTrue(rows.contains(getTablesRow("information_schema", "schemata")));
+                assertFalse(rows.contains(getTablesRow("sys", "node")));
             }
         }
 
@@ -280,9 +280,9 @@ public class TestDriver
                 assertTableMetadata(rs);
 
                 Set<List<Object>> rows = ImmutableSet.copyOf(readRows(rs));
-                assertTrue(rows.contains(ImmutableList.of("default", "information_schema", "tables", "BASE TABLE", "",  "",  "",  "",  "", "")));
-                assertTrue(rows.contains(ImmutableList.of("default", "information_schema", "schemata", "BASE TABLE", "", "", "", "", "", "")));
-                assertTrue(rows.contains(ImmutableList.of("default", "sys", "node", "BASE TABLE", "", "", "", "", "", "")));
+                assertTrue(rows.contains(getTablesRow("information_schema", "tables")));
+                assertTrue(rows.contains(getTablesRow("information_schema", "schemata")));
+                assertTrue(rows.contains(getTablesRow("sys", "node")));
             }
         }
 
@@ -291,9 +291,9 @@ public class TestDriver
                 assertTableMetadata(rs);
 
                 Set<List<Object>> rows = ImmutableSet.copyOf(readRows(rs));
-                assertTrue(rows.contains(ImmutableList.of("default", "information_schema", "tables", "BASE TABLE", "",  "",  "",  "",  "", "")));
-                assertFalse(rows.contains(ImmutableList.of("default", "information_schema", "schemata", "BASE TABLE", "", "", "", "", "", "")));
-                assertFalse(rows.contains(ImmutableList.of("default", "sys", "node", "BASE TABLE", "",  "",  "",  "",  "", "")));
+                assertTrue(rows.contains(getTablesRow("information_schema", "tables")));
+                assertFalse(rows.contains(getTablesRow("information_schema", "schemata")));
+                assertFalse(rows.contains(getTablesRow("sys", "node")));
             }
         }
 
@@ -302,9 +302,9 @@ public class TestDriver
                 assertTableMetadata(rs);
 
                 Set<List<Object>> rows = ImmutableSet.copyOf(readRows(rs));
-                assertTrue(rows.contains(ImmutableList.of("default", "information_schema", "tables", "BASE TABLE", "",  "",  "",  "",  "", "")));
-                assertFalse(rows.contains(ImmutableList.of("default", "information_schema", "schemata", "BASE TABLE", "", "", "", "", "", "")));
-                assertFalse(rows.contains(ImmutableList.of("default", "sys", "node", "BASE TABLE", "",  "",  "",  "",  "", "")));
+                assertTrue(rows.contains(getTablesRow("information_schema", "tables")));
+                assertFalse(rows.contains(getTablesRow("information_schema", "schemata")));
+                assertFalse(rows.contains(getTablesRow("sys", "node")));
             }
         }
 
@@ -313,9 +313,9 @@ public class TestDriver
                 assertTableMetadata(rs);
 
                 Set<List<Object>> rows = ImmutableSet.copyOf(readRows(rs));
-                assertFalse(rows.contains(ImmutableList.of("default", "information_schema", "tables", "BASE TABLE", "",  "",  "",  "",  "", "")));
-                assertFalse(rows.contains(ImmutableList.of("default", "information_schema", "schemata", "BASE TABLE", "",  "",  "",  "",  "", "")));
-                assertFalse(rows.contains(ImmutableList.of("default", "sys", "node", "BASE TABLE", "",  "",  "",  "",  "", "")));
+                assertFalse(rows.contains(getTablesRow("information_schema", "tables")));
+                assertFalse(rows.contains(getTablesRow("information_schema", "schemata")));
+                assertFalse(rows.contains(getTablesRow("sys", "node")));
             }
         }
 
@@ -325,9 +325,9 @@ public class TestDriver
                 assertTableMetadata(rs);
 
                 Set<List<Object>> rows = ImmutableSet.copyOf(readRows(rs));
-                assertFalse(rows.contains(ImmutableList.of("default", "information_schema", "tables", "BASE TABLE", "",  "",  "",  "",  "", "")));
-                assertFalse(rows.contains(ImmutableList.of("default", "information_schema", "schemata", "BASE TABLE", "",  "",  "",  "",  "", "")));
-                assertFalse(rows.contains(ImmutableList.of("default", "sys", "node", "BASE TABLE", "",  "",  "",  "",  "", "")));
+                assertFalse(rows.contains(getTablesRow("information_schema", "tables")));
+                assertFalse(rows.contains(getTablesRow("information_schema", "schemata")));
+                assertFalse(rows.contains(getTablesRow("sys", "node")));
             }
         }
 
@@ -336,9 +336,9 @@ public class TestDriver
                 assertTableMetadata(rs);
 
                 Set<List<Object>> rows = ImmutableSet.copyOf(readRows(rs));
-                assertFalse(rows.contains(ImmutableList.of("default", "information_schema", "tables", "BASE TABLE", "", "", "", "", "", "")));
-                assertFalse(rows.contains(ImmutableList.of("default", "information_schema", "schemata", "BASE TABLE", "", "", "", "", "", "")));
-                assertFalse(rows.contains(ImmutableList.of("default", "sys", "node", "BASE TABLE", "", "", "", "", "", "")));
+                assertFalse(rows.contains(getTablesRow("information_schema", "tables")));
+                assertFalse(rows.contains(getTablesRow("information_schema", "schemata")));
+                assertFalse(rows.contains(getTablesRow("sys", "node")));
             }
         }
 
@@ -347,9 +347,9 @@ public class TestDriver
                 assertTableMetadata(rs);
 
                 Set<List<Object>> rows = ImmutableSet.copyOf(readRows(rs));
-                assertFalse(rows.contains(ImmutableList.of("default", "information_schema", "tables", "BASE TABLE", "",  "",  "",  "",  "", "")));
-                assertFalse(rows.contains(ImmutableList.of("default", "information_schema", "schemata", "BASE TABLE", "",  "",  "",  "",  "", "")));
-                assertFalse(rows.contains(ImmutableList.of("default", "sys", "node", "BASE TABLE", "",  "",  "",  "",  "", "")));
+                assertFalse(rows.contains(getTablesRow("information_schema", "tables")));
+                assertFalse(rows.contains(getTablesRow("information_schema", "schemata")));
+                assertFalse(rows.contains(getTablesRow("sys", "node")));
             }
         }
 
@@ -358,9 +358,9 @@ public class TestDriver
                 assertTableMetadata(rs);
 
                 Set<List<Object>> rows = ImmutableSet.copyOf(readRows(rs));
-                assertTrue(rows.contains(ImmutableList.of("default", "information_schema", "tables", "BASE TABLE", "",  "",  "",  "",  "", "")));
-                assertFalse(rows.contains(ImmutableList.of("default", "information_schema", "schemata", "BASE TABLE", "", "", "", "", "", "")));
-                assertFalse(rows.contains(ImmutableList.of("default", "sys", "node", "BASE TABLE", "", "", "", "", "", "")));
+                assertTrue(rows.contains(getTablesRow("information_schema", "tables")));
+                assertFalse(rows.contains(getTablesRow("information_schema", "schemata")));
+                assertFalse(rows.contains(getTablesRow("sys", "node")));
             }
         }
 
@@ -369,11 +369,16 @@ public class TestDriver
                 assertTableMetadata(rs);
 
                 Set<List<Object>> rows = ImmutableSet.copyOf(readRows(rs));
-                assertTrue(rows.contains(ImmutableList.of("default", "information_schema", "tables", "BASE TABLE", "", "", "", "", "", "")));
-                assertFalse(rows.contains(ImmutableList.of("default", "information_schema", "schemata", "BASE TABLE", "", "", "", "", "", "")));
-                assertFalse(rows.contains(ImmutableList.of("default", "sys", "node", "BASE TABLE", "", "", "", "", "", "")));
+                assertTrue(rows.contains(getTablesRow("information_schema", "tables")));
+                assertFalse(rows.contains(getTablesRow("information_schema", "schemata")));
+                assertFalse(rows.contains(getTablesRow("sys", "node")));
             }
         }
+    }
+
+    private static List<Object> getTablesRow(String schema, String table)
+    {
+        return ImmutableList.<Object>of("default", schema, table, "BASE TABLE", "", "", "", "", "", "");
     }
 
     private void assertTableMetadata(ResultSet rs)
