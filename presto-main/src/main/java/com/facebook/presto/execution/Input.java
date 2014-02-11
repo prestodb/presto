@@ -15,6 +15,7 @@ package com.facebook.presto.execution;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.google.common.base.Objects;
 import com.google.common.collect.ImmutableList;
 
 import javax.annotation.concurrent.Immutable;
@@ -24,19 +25,19 @@ import java.util.List;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 @Immutable
-public class Input
+public final class Input
 {
     private final String connectorId;
     private final String schema;
     private final String table;
-    private final List<String> columns;
+    private final List<Column> columns;
 
     @JsonCreator
     public Input(
             @JsonProperty("connectorId") String connectorId,
             @JsonProperty("schema") String schema,
             @JsonProperty("table") String table,
-            @JsonProperty("columns") List<String> columns)
+            @JsonProperty("columns") List<Column> columns)
     {
         checkNotNull(connectorId, "connectorId is null");
         checkNotNull(schema, "schema is null");
@@ -68,8 +69,43 @@ public class Input
     }
 
     @JsonProperty
-    public List<String> getColumns()
+    public List<Column> getColumns()
     {
         return columns;
+    }
+
+    @Override
+    public boolean equals(Object o)
+    {
+        if (this == o) {
+            return true;
+        }
+        if (o == null || getClass() != o.getClass()) {
+            return false;
+        }
+
+        Input that = (Input) o;
+
+        return Objects.equal(this.connectorId, that.connectorId) &&
+                Objects.equal(this.schema, that.schema) &&
+                Objects.equal(this.table, that.table) &&
+                Objects.equal(this.columns, that.columns);
+    }
+
+    @Override
+    public int hashCode()
+    {
+        return Objects.hashCode(connectorId, schema, table, columns);
+    }
+
+    @Override
+    public String toString()
+    {
+        return Objects.toStringHelper(this)
+                .addValue(connectorId)
+                .addValue(schema)
+                .addValue(table)
+                .addValue(columns)
+                .toString();
     }
 }
