@@ -154,10 +154,15 @@ public class MaterializeSampleOperator
             return false;
         }
 
-        boolean advanced = sampleWeightCursor.advanceNextPosition();
-        for (BlockCursor cursor : cursors) {
-            checkState(advanced == cursor.advanceNextPosition());
-        }
+        boolean advanced;
+        // Read rows until we find one that has a non-zero weight
+        do {
+            advanced = sampleWeightCursor.advanceNextPosition();
+            for (BlockCursor cursor : cursors) {
+                checkState(advanced == cursor.advanceNextPosition());
+            }
+            checkState(!(advanced && sampleWeightCursor.isNull()), "Encountered NULL sample weight");
+        } while(advanced && sampleWeightCursor.getLong() == 0);
 
         if (!advanced) {
             sampleWeightCursor = null;
