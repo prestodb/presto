@@ -16,6 +16,7 @@ package com.facebook.presto.jdbc;
 import com.facebook.presto.server.testing.TestingPrestoServer;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import io.airlift.log.Logging;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
@@ -47,6 +48,7 @@ public class TestDriver
     public void setup()
             throws Exception
     {
+        Logging.initialize();
         server = new TestingPrestoServer();
     }
 
