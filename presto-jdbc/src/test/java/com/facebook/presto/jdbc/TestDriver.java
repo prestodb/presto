@@ -268,10 +268,10 @@ public class TestDriver
             try (ResultSet rs = connection.getMetaData().getTables(null, null, "tables", null)) {
                 assertTableMetadata(rs);
 
-                // todo why does Presto require a schema name in this case
-                readRows(rs);
-                fail("Expected SQLException");
-            } catch (SQLException expected) {
+                Set<List<Object>> rows = ImmutableSet.copyOf(readRows(rs));
+                assertTrue(rows.contains(getTablesRow("information_schema", "tables")));
+                assertFalse(rows.contains(getTablesRow("information_schema", "schemata")));
+                assertFalse(rows.contains(getTablesRow("sys", "node")));
             }
         }
 
