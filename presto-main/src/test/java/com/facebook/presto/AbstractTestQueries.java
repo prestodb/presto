@@ -2306,6 +2306,15 @@ public abstract class AbstractTestQueries
     }
 
     @Test
+    public void testInformationSchemaFiltering()
+            throws Exception
+    {
+        assertQuery(
+                "SELECT table_name FROM information_schema.tables WHERE table_name = 'orders' LIMIT 1",
+                "SELECT 'orders' table_name");
+    }
+
+    @Test
     public void testSelectColumnOfNulls()
             throws Exception
     {

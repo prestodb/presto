@@ -30,7 +30,6 @@ import java.util.List;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
-import static com.google.common.base.Preconditions.checkState;
 
 public final class MetadataUtil
 {
@@ -51,9 +50,7 @@ public final class MetadataUtil
         checkSchemaName(schemaName);
         checkTableName(tableName);
 
-        if (!schemaName.isPresent()) {
-            checkState(!tableName.isPresent(), "schemaName is absent!");
-        }
+        checkArgument(schemaName.isPresent() || !tableName.isPresent(), "tableName specified but schemaName is missing");
     }
 
     public static String checkCatalogName(String catalogName)
