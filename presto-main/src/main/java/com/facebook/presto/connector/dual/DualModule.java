@@ -25,6 +25,8 @@ public class DualModule
     @Override
     public void configure(Binder binder)
     {
-        newMapBinder(binder, String.class, Connector.class).addBinding("dual").to(DualConnector.class);
+        newMapBinder(binder, String.class, Connector.class)
+                .addBinding(DualConnector.CONNECTOR_ID)
+                .to(DualConnector.class);
     }
 }

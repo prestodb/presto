@@ -13,6 +13,9 @@
  */
 package com.facebook.presto;
 
+import com.facebook.presto.connector.dual.DualConnector;
+import com.facebook.presto.connector.dual.DualMetadata;
+import com.facebook.presto.connector.dual.DualSplitManager;
 import com.facebook.presto.metadata.FunctionInfo;
 import com.facebook.presto.metadata.FunctionRegistry;
 import com.facebook.presto.operator.aggregation.CustomSum;

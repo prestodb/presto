@@ -31,6 +31,8 @@ import static com.google.common.base.Preconditions.checkNotNull;
 public class DualConnector
         implements InternalConnector
 {
+    public static final String CONNECTOR_ID = "dual";
+
     private final NodeManager nodeManager;
 
     @Inject

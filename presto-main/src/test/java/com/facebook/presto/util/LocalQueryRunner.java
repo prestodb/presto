@@ -16,6 +16,7 @@ package com.facebook.presto.util;
 import com.facebook.presto.ScheduledSplit;
 import com.facebook.presto.TaskSource;
 import com.facebook.presto.connector.ConnectorManager;
+import com.facebook.presto.connector.dual.DualConnector;
 import com.facebook.presto.connector.dual.DualDataStreamProvider;
 import com.facebook.presto.connector.dual.DualMetadata;
 import com.facebook.presto.connector.dual.DualSplitManager;
@@ -157,7 +158,7 @@ public class LocalQueryRunner
         dataStreamProvider.addConnectorDataStreamProvider(new InformationSchemaDataStreamProvider(metadata, splitManager));
 
         // dual table
-        metadata.addInternalSchemaMetadata(MetadataManager.INTERNAL_CONNECTOR_ID, new DualMetadata());
+        metadata.addInternalSchemaMetadata(DualConnector.CONNECTOR_ID, new DualMetadata());
         splitManager.addConnectorSplitManager(new DualSplitManager(nodeManager));
         dataStreamProvider.addConnectorDataStreamProvider(new DualDataStreamProvider());
 

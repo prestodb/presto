@@ -15,6 +15,7 @@ package com.facebook.presto.execution;
 
 import com.facebook.presto.OutputBuffers;
 import com.facebook.presto.UnpartitionedPagePartitionFunction;
+import com.facebook.presto.connector.dual.DualConnector;
 import com.facebook.presto.connector.dual.DualMetadata;
 import com.facebook.presto.connector.dual.DualSplit;
 import com.facebook.presto.execution.SharedBuffer.QueueState;
@@ -93,6 +94,7 @@ import static org.testng.Assert.fail;
 public class TestSqlStageExecution
 {
     public static final Session SESSION = new Session("user", "source", "catalog", "schema", UTC_KEY, Locale.ENGLISH, "address", "agent");
+
     MetadataManager metadata;
     LocationFactory locationFactory = new MockLocationFactory();
 
@@ -101,8 +103,7 @@ public class TestSqlStageExecution
             throws Exception
     {
         metadata = new MetadataManager(new FeaturesConfig(), new TypeRegistry());
-        metadata.addInternalSchemaMetadata(MetadataManager.INTERNAL_CONNECTOR_ID, new DualMetadata());
-
+        metadata.addInternalSchemaMetadata(DualConnector.CONNECTOR_ID, new DualMetadata());
     }
 
     @Test
@@ -208,7 +209,7 @@ public class TestSqlStageExecution
         SqlStageExecution stageExecution = null;
         try {
             MetadataManager metadata = new MetadataManager(new FeaturesConfig(), new TypeRegistry());
-            metadata.addInternalSchemaMetadata(MetadataManager.INTERNAL_CONNECTOR_ID, new DualMetadata());
+            metadata.addInternalSchemaMetadata(DualConnector.CONNECTOR_ID, new DualMetadata());
 
             StageExecutionPlan joinPlan = createJoinPlan("A", metadata);
 

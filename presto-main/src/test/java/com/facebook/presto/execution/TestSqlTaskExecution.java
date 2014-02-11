@@ -17,6 +17,7 @@ import com.facebook.presto.OutputBuffers;
 import com.facebook.presto.ScheduledSplit;
 import com.facebook.presto.TaskSource;
 import com.facebook.presto.UnpartitionedPagePartitionFunction;
+import com.facebook.presto.connector.dual.DualConnector;
 import com.facebook.presto.connector.dual.DualDataStreamProvider;
 import com.facebook.presto.connector.dual.DualMetadata;
 import com.facebook.presto.connector.dual.DualSplitManager;
@@ -37,6 +38,7 @@ import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.spi.TupleDomain;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.split.DataStreamManager;
+import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.sql.gen.ExpressionCompiler;
 import com.facebook.presto.sql.planner.LocalExecutionPlanner;
 import com.facebook.presto.sql.planner.PlanFragment;
@@ -47,6 +49,7 @@ import com.facebook.presto.sql.planner.plan.PlanFragmentId;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.facebook.presto.sql.planner.plan.TableScanNode;
 import com.facebook.presto.sql.planner.plan.TableScanNode.GeneratedPartitions;
+import com.facebook.presto.type.TypeRegistry;
 import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -99,8 +102,8 @@ public class TestSqlTaskExecution
         assertNotNull(columnHandle, "columnHandle is null");
         Symbol symbol = new Symbol(DualMetadata.COLUMN_NAME);
 
-        MetadataManager metadata = new MetadataManager();
-        metadata.addInternalSchemaMetadata(MetadataManager.INTERNAL_CONNECTOR_ID, dualMetadata);
+        MetadataManager metadata = new MetadataManager(new FeaturesConfig(), new TypeRegistry());
+        metadata.addInternalSchemaMetadata(DualConnector.CONNECTOR_ID, dualMetadata);
 
         DualSplitManager dualSplitManager = new DualSplitManager(new InMemoryNodeManager());
         PartitionResult partitionResult = dualSplitManager.getPartitions(tableHandle, TupleDomain.<ColumnHandle>all());
