@@ -83,7 +83,7 @@ public class StatementClient
     private static Request buildQueryRequest(ClientSession session, String query)
     {
         Request.Builder builder = preparePost()
-                .setUri(uriBuilderFrom(session.getServer()).replacePath("/v1/statement").build())
+                .setUri(uriBuilderFrom(session.getServer()).replacePath("/v2/statement").build())
                 .setBodyGenerator(createStaticBodyGenerator(query, Charsets.UTF_8));
 
         if (session.getUser() != null) {
@@ -125,7 +125,7 @@ public class StatementClient
 
     public boolean isFailed()
     {
-        return currentResults.get().getError() != null;
+        return currentResults.get().getQueryStats().getError() != null;
     }
 
     public QueryResults current()
@@ -204,7 +204,7 @@ public class StatementClient
     {
         checkState(!isClosed(), "client is closed");
 
-        URI uri = current().getPartialCancelUri();
+        URI uri = current().getQueryStats().getPartialCancelUri();
         if (uri == null) {
             return false;
         }

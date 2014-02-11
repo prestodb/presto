@@ -164,7 +164,7 @@ public class ExecuteResource
 
     private static String failureMessage(QueryResults results)
     {
-        return format("Query failed (#%s): %s", results.getId(), results.getError().getMessage());
+        return format("Query failed (#%s): %s", results.getQueryStats().getId(), results.getQueryStats().getError().getMessage());
     }
 
     public static class SimpleQueryResults

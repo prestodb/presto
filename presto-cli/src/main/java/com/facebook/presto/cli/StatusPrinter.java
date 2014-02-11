@@ -108,7 +108,7 @@ Parallelism: 2.5
         Duration wallTime = Duration.nanosSince(start);
 
         QueryResults results = client.finalResults();
-        StatementStats stats = results.getStats();
+        StatementStats stats = results.getQueryStats().getStats();
 
         int nodes = stats.getNodes();
         if ((nodes == 0) || (stats.getTotalSplits() == 0)) {
@@ -120,14 +120,14 @@ Parallelism: 2.5
 
         // Query 12, FINISHED, 1 node
         String querySummary = String.format("Query %s, %s, %,d %s",
-                results.getId(),
+                results.getQueryStats().getId(),
                 stats.getState(),
                 nodes,
                 pluralize("node", nodes));
         out.println(querySummary);
 
         if (client.isDebug()) {
-            out.println(results.getInfoUri() + "?pretty");
+            out.println(results.getQueryStats().getInfoUri() + "?pretty");
         }
 
         // Splits: 1000 total, 842 done (84.20%)
@@ -175,7 +175,7 @@ Parallelism: 2.5
 
     private void printQueryInfo(QueryResults results)
     {
-        StatementStats stats = results.getStats();
+        StatementStats stats = results.getQueryStats().getStats();
         Duration wallTime = Duration.nanosSince(start);
 
         // cap progress at 99%, otherwise it looks weird when the query is still running and it says 100%
@@ -201,7 +201,7 @@ Parallelism: 2.5
 
             // Query 10, RUNNING, 1 node, 778 splits
             String querySummary = String.format("Query %s, %s, %,d %s, %,d splits",
-                    results.getId(),
+                    results.getQueryStats().getId(),
                     stats.getState(),
                     nodes,
                     pluralize("node", nodes),
@@ -209,7 +209,7 @@ Parallelism: 2.5
             reprintLine(querySummary);
 
             if (client.isDebug()) {
-                reprintLine(results.getInfoUri() + "?pretty");
+                reprintLine(results.getQueryStats().getInfoUri() + "?pretty");
             }
 
             if ((nodes == 0) || (stats.getTotalSplits() == 0)) {
@@ -304,7 +304,7 @@ Parallelism: 2.5
         else {
             // Query 31 [S] i[2.7M 67.3MB 62.7MBps] o[35 6.1KB 1KBps] splits[252/16/380]
             String querySummary = String.format("Query %s [%s] i[%s %s %s] o[%s %s %s] splits[%,d/%,d/%,d]",
-                    results.getId(),
+                    results.getQueryStats().getId(),
                     stats.getState(),
 
                     formatCount(stats.getProcessedRows()),
