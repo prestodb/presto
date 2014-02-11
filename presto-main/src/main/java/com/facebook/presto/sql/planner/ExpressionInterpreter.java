@@ -223,7 +223,7 @@ public class ExpressionInterpreter
             Object value = process(node.getValue(), context);
 
             if (value instanceof Expression) {
-                return node;
+                return new IsNullPredicate(toExpression(value));
             }
 
             return value == null;
@@ -235,7 +235,7 @@ public class ExpressionInterpreter
             Object value = process(node.getValue(), context);
 
             if (value instanceof Expression) {
-                return node;
+                return new IsNotNullPredicate(toExpression(value));
             }
 
             return value != null;
@@ -416,7 +416,7 @@ public class ExpressionInterpreter
                 return null;
             }
             if (value instanceof Expression) {
-                return node;
+                return new NegativeExpression(toExpression(value));
             }
 
             if (value instanceof Long) {
@@ -438,7 +438,7 @@ public class ExpressionInterpreter
             }
 
             if (left instanceof Expression || right instanceof Expression) {
-                return node;
+                return new ArithmeticExpression(node.getType(), toExpression(left), toExpression(right));
             }
 
             Number leftNumber = (Number) left;
@@ -640,7 +640,7 @@ public class ExpressionInterpreter
                 return first.equals(second) ? null : first;
             }
 
-            return node;
+            return new NullIfExpression(toExpression(first), toExpression(second));
         }
 
         @Override
@@ -677,7 +677,7 @@ public class ExpressionInterpreter
             }
 
             if (value instanceof Expression) {
-                return node;
+                return new NotExpression(toExpression(value));
             }
 
             return !(Boolean) value;
@@ -716,7 +716,7 @@ public class ExpressionInterpreter
                 return null;
             }
 
-            return node;
+            return new LogicalBinaryExpression(node.getType(), toExpression(left), toExpression(right));
         }
 
         @Override
