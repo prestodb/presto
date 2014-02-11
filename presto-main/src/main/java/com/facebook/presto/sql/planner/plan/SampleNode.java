@@ -17,6 +17,7 @@ import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.tree.SampledRelation;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
 
 import javax.annotation.concurrent.Immutable;
@@ -33,6 +34,7 @@ public class SampleNode
     private final PlanNode source;
     private final double sampleRatio;
     private final Type sampleType;
+    private final Optional<Symbol> sampleWeightSymbol;
 
     public enum Type
     {
@@ -60,7 +62,8 @@ public class SampleNode
             @JsonProperty("id") PlanNodeId id,
             @JsonProperty("source") PlanNode source,
             @JsonProperty("sampleRatio") double sampleRatio,
-            @JsonProperty("sampleType") Type sampleType)
+            @JsonProperty("sampleType") Type sampleType,
+            @JsonProperty("sampleWeightSymbol") Optional<Symbol> sampleWeightSymbol)
     {
         super(id);
 
@@ -70,12 +73,20 @@ public class SampleNode
         this.sampleType = checkNotNull(sampleType, "sample type is null");
         this.source = checkNotNull(source, "source is null");
         this.sampleRatio = checkNotNull(sampleRatio, "sample ratio is null");
+        this.sampleWeightSymbol = checkNotNull(sampleWeightSymbol, "sample weight symbol is null");
+        checkArgument(sampleWeightSymbol.isPresent() == (sampleType == Type.POISSONIZED), "sample weight symbol must be used with POISSONIZED sampling");
     }
 
     @Override
     public List<PlanNode> getSources()
     {
         return ImmutableList.of(source);
+    }
+
+    @JsonProperty
+    public Optional<Symbol> getSampleWeightSymbol()
+    {
+        return sampleWeightSymbol;
     }
 
     @JsonProperty
@@ -99,7 +110,12 @@ public class SampleNode
     @Override
     public List<Symbol> getOutputSymbols()
     {
-        return source.getOutputSymbols();
+        if (sampleWeightSymbol.isPresent()) {
+            return ImmutableList.<Symbol>builder().addAll(source.getOutputSymbols()).add(sampleWeightSymbol.get()).build();
+        }
+        else {
+            return source.getOutputSymbols();
+        }
     }
 
     @Override

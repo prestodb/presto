@@ -150,10 +150,15 @@ class RelationPlanner
 
         TupleDescriptor outputDescriptor = analysis.getOutputDescriptor(node);
         double ratio = analysis.getSampleRatio(node);
-        return new RelationPlan(
-                new SampleNode(idAllocator.getNextId(), subPlan.getRoot(), ratio, SampleNode.Type.fromType(node.getType())),
-                outputDescriptor,
-                subPlan.getOutputSymbols());
+        Symbol sampleWeightSymbol = null;
+        if (node.getType() == SampledRelation.Type.POISSONIZED) {
+            sampleWeightSymbol = symbolAllocator.newSymbol("$sampleWeight", Type.BIGINT);
+        }
+        PlanNode planNode = new SampleNode(idAllocator.getNextId(), subPlan.getRoot(), ratio, SampleNode.Type.fromType(node.getType()), Optional.fromNullable(sampleWeightSymbol));
+        if (sampleWeightSymbol != null) {
+            planNode = new MaterializeSampleNode(idAllocator.getNextId(), planNode, sampleWeightSymbol);
+        }
+        return new RelationPlan(planNode, outputDescriptor, subPlan.getOutputSymbols());
     }
 
     @Override

@@ -37,11 +37,14 @@ public class SampleOperator
         private final List<TupleInfo> tupleInfos;
         private boolean closed;
 
-        public SampleOperatorFactory(int operatorId, double sampleRatio, List<TupleInfo> tupleInfos)
+        public SampleOperatorFactory(int operatorId, double sampleRatio, List<TupleInfo> sourceTupleInfos)
         {
             this.operatorId = operatorId;
             this.sampleRatio = sampleRatio;
-            this.tupleInfos = ImmutableList.copyOf(checkNotNull(tupleInfos, "tupleInfos is null"));
+            this.tupleInfos = ImmutableList.<TupleInfo>builder()
+                    .addAll(checkNotNull(sourceTupleInfos, "sourceTupleInfos is null"))
+                    .add(TupleInfo.SINGLE_LONG)
+                    .build();
         }
 
         @Override
@@ -70,6 +73,7 @@ public class SampleOperator
     private final PageBuilder pageBuilder;
     private final BlockCursor[] cursors;
     private final PoissonDistribution poisson;
+    private final int sampleWeightChannel;
     private boolean finishing;
     private int remainingPositions;
 
@@ -81,8 +85,9 @@ public class SampleOperator
         this.operatorContext = checkNotNull(operatorContext, "operatorContext is null");
         this.tupleInfos = ImmutableList.copyOf(tupleInfos);
         this.pageBuilder = new PageBuilder(tupleInfos);
-        this.cursors = new BlockCursor[tupleInfos.size()];
+        this.cursors = new BlockCursor[tupleInfos.size() - 1];
         this.poisson = new PoissonDistribution(sampleRatio);
+        this.sampleWeightChannel = tupleInfos.size() - 1;
     }
 
     @Override
@@ -144,11 +149,11 @@ public class SampleOperator
             }
 
             int repeats = poisson.sample();
-            for (int i = 0; i < repeats; i++) {
-                pageBuilder.declarePosition();
-                for (int j = 0; j < cursors.length; j++) {
-                    cursors[j].appendTupleTo(pageBuilder.getBlockBuilder(j));
+            if (repeats > 0) {
+                for (int i = 0; i < cursors.length; i++) {
+                    cursors[i].appendTupleTo(pageBuilder.getBlockBuilder(i));
                 }
+                pageBuilder.getBlockBuilder(sampleWeightChannel).append(repeats);
             }
         }
 
