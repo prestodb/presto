@@ -16,8 +16,8 @@ package com.facebook.presto.jdbc;
 import com.facebook.presto.server.testing.TestingPrestoServer;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-import org.testng.annotations.AfterMethod;
-import org.testng.annotations.BeforeMethod;
+import org.testng.annotations.AfterClass;
+import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import java.sql.Connection;
@@ -43,14 +43,14 @@ public class TestDriver
 {
     private TestingPrestoServer server;
 
-    @BeforeMethod
+    @BeforeClass
     public void setup()
             throws Exception
     {
         server = new TestingPrestoServer();
     }
 
-    @AfterMethod
+    @AfterClass
     public void teardown()
     {
         closeQuietly(server);
