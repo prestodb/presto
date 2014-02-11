@@ -137,7 +137,7 @@ public class MetadataManager
     public TableMetadata getTableMetadata(TableHandle tableHandle)
     {
         ConnectorTableMetadata tableMetadata = lookupConnectorFor(tableHandle).getMetadata().getTableMetadata(tableHandle);
-        return new TableMetadata(getConnectorId(tableHandle), tableMetadata);
+        return new TableMetadata(lookupConnectorFor(tableHandle).getConnectorId(), tableMetadata);
     }
 
     @Override
@@ -237,23 +237,6 @@ public class MetadataManager
     public void commitCreateTable(OutputTableHandle tableHandle, Collection<String> fragments)
     {
         lookupConnectorFor(tableHandle).getMetadata().commitCreateTable(tableHandle, fragments);
-    }
-
-    @Override
-    public String getConnectorId(TableHandle tableHandle)
-    {
-        return lookupConnectorFor(tableHandle).getConnectorId();
-    }
-
-    @Override
-    public Optional<TableHandle> getTableHandle(String connectorId, SchemaTableName tableName)
-    {
-        // use catalog name in place of connector id
-        ConnectorMetadataEntry entry = connectors.get(connectorId);
-        if (entry == null) {
-            return Optional.absent();
-        }
-        return Optional.fromNullable(entry.getMetadata().getTableHandle(tableName));
     }
 
     @Override

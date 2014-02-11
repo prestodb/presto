@@ -66,8 +66,6 @@ statement returns [Statement value]
     | showFunctions             { $value = $showFunctions.value; }
     | useCollection             { $value = $useCollection.value; }
     | createTable               { $value = $createTable.value; }
-    | createAlias               { $value = $createAlias.value; }
-    | dropAlias                 { $value = $dropAlias.value; }
     | dropTable                 { $value = $dropTable.value; }
     ;
 
@@ -532,18 +530,6 @@ useCollection returns [Statement value]
 
 createTable returns [Statement value]
     : ^(CREATE_TABLE qname query) { $value = new CreateTable($qname.value, $query.value); }
-    ;
-
-createAlias returns [Statement value]
-    : ^(CREATE_ALIAS qname remote=forRemote) { $value = new CreateAlias($qname.value, $remote.value); }
-    ;
-
-dropAlias returns [Statement value]
-    : ^(DROP_ALIAS qname) { $value = new DropAlias($qname.value); }
-    ;
-
-forRemote returns [QualifiedName value]
-    : ^(FOR qname) { $value = $qname.value; }
     ;
 
 dropTable returns [Statement value]
