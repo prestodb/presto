@@ -60,7 +60,7 @@ public class TpchConnectorFactory
             @Override
             public ConnectorMetadata getMetadata()
             {
-                return new TpchMetadata();
+                return new TpchMetadata(connectorId);
             }
 
             @Override
@@ -72,13 +72,13 @@ public class TpchConnectorFactory
             @Override
             public ConnectorHandleResolver getHandleResolver()
             {
-                return new TpchHandleResolver();
+                return new TpchHandleResolver(connectorId);
             }
 
             @Override
             public ConnectorRecordSetProvider getRecordSetProvider()
             {
-                return new TpchRecordSetProvider();
+                return new TpchRecordSetProvider(connectorId);
             }
 
             @Override
@@ -93,7 +93,6 @@ public class TpchConnectorFactory
                 throw new UnsupportedOperationException();
             }
         };
-
     }
 
     private int getSplitsPerNode(Map<String, String> properties)

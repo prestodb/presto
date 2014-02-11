@@ -18,6 +18,7 @@ import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.tree.FunctionCall;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 
@@ -41,6 +42,8 @@ public class AggregationNode
     private final Map<Symbol, Symbol> masks;
     private final Map<Symbol, Signature> functions;
     private final Step step;
+    private final Optional<Symbol> sampleWeight;
+    private final double confidence;
 
     public enum Step
     {
@@ -49,9 +52,9 @@ public class AggregationNode
         SINGLE
     }
 
-    public AggregationNode(PlanNodeId id, PlanNode source, List<Symbol> groupByKeys, Map<Symbol, FunctionCall> aggregations, Map<Symbol, Signature> functions, Map<Symbol, Symbol> masks)
+    public AggregationNode(PlanNodeId id, PlanNode source, List<Symbol> groupByKeys, Map<Symbol, FunctionCall> aggregations, Map<Symbol, Signature> functions, Map<Symbol, Symbol> masks, Optional<Symbol> sampleWeight, double confidence)
     {
-        this(id, source, groupByKeys, aggregations, functions, masks, Step.SINGLE);
+        this(id, source, groupByKeys, aggregations, functions, masks, Step.SINGLE, sampleWeight, confidence);
     }
 
     @JsonCreator
@@ -61,7 +64,9 @@ public class AggregationNode
             @JsonProperty("aggregations") Map<Symbol, FunctionCall> aggregations,
             @JsonProperty("functions") Map<Symbol, Signature> functions,
             @JsonProperty("masks") Map<Symbol, Symbol> masks,
-            @JsonProperty("step") Step step)
+            @JsonProperty("step") Step step,
+            @JsonProperty("sampleWeight") Optional<Symbol> sampleWeight,
+            @JsonProperty("confidence") double confidence)
     {
         super(id);
 
@@ -74,6 +79,9 @@ public class AggregationNode
             checkArgument(aggregations.containsKey(mask), "mask does not match any aggregations");
         }
         this.step = step;
+        this.sampleWeight = checkNotNull(sampleWeight, "sampleWeight is null");
+        checkArgument(confidence >= 0 && confidence <= 1, "confidence must be in [0, 1]");
+        this.confidence = confidence;
     }
 
     @Override
@@ -86,6 +94,12 @@ public class AggregationNode
     public List<Symbol> getOutputSymbols()
     {
         return ImmutableList.copyOf(concat(groupByKeys, aggregations.keySet()));
+    }
+
+    @JsonProperty("confidence")
+    public double getConfidence()
+    {
+        return confidence;
     }
 
     @JsonProperty("aggregations")
@@ -122,6 +136,12 @@ public class AggregationNode
     public Step getStep()
     {
         return step;
+    }
+
+    @JsonProperty("sampleWeight")
+    public Optional<Symbol> getSampleWeight()
+    {
+        return sampleWeight;
     }
 
     public <C, R> R accept(PlanVisitor<C, R> visitor, C context)

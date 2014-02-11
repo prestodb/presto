@@ -18,6 +18,7 @@ import com.facebook.presto.sql.planner.SubPlan;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.planner.plan.DistinctLimitNode;
+import com.facebook.presto.sql.planner.plan.MaterializeSampleNode;
 import com.facebook.presto.sql.planner.plan.ExchangeNode;
 import com.facebook.presto.sql.planner.plan.FilterNode;
 import com.facebook.presto.sql.planner.plan.JoinNode;
@@ -74,7 +75,8 @@ public final class GraphvizPrinter
         WINDOW,
         UNION,
         SORT,
-        MARK_DISTINCT
+        MARK_DISTINCT,
+        MATERIALIZE_SAMPLE
     }
 
     private static final Map<NodeType, String> NODE_COLORS = immutableEnumMap(ImmutableMap.<NodeType, String>builder()
@@ -93,6 +95,7 @@ public final class GraphvizPrinter
             .put(NodeType.WINDOW, "darkolivegreen4")
             .put(NodeType.UNION, "turquoise4")
             .put(NodeType.MARK_DISTINCT, "violet")
+            .put(NodeType.MATERIALIZE_SAMPLE, "hotpink")
             .build());
 
     static {
@@ -191,6 +194,13 @@ public final class GraphvizPrinter
         protected Void visitPlan(PlanNode node, Void context)
         {
             throw new UnsupportedOperationException(format("Node %s does not have a Graphviz visitor", node.getClass().getName()));
+        }
+
+        @Override
+        public Void visitMaterializeSample(MaterializeSampleNode node, Void context)
+        {
+            printNode(node, format("MaterializeSample[%s]", node.getSampleWeightSymbol()), NODE_COLORS.get(NodeType.MATERIALIZE_SAMPLE));
+            return node.getSource().accept(this, context);
         }
 
         @Override

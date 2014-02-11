@@ -22,6 +22,7 @@ import com.facebook.presto.util.array.LongBigArray;
 import com.google.common.base.Optional;
 
 import static com.facebook.presto.tuple.TupleInfo.SINGLE_LONG;
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 
 public class CountColumnAggregation
@@ -33,9 +34,10 @@ public class CountColumnAggregation
     }
 
     @Override
-    protected GroupedAccumulator createGroupedAccumulator(Optional<Integer> maskChannel, int valueChannel)
+    protected GroupedAccumulator createGroupedAccumulator(Optional<Integer> maskChannel, Optional<Integer> sampleWeightChannel, double confidence, int valueChannel)
     {
-        return new CountColumnGroupedAccumulator(valueChannel, maskChannel);
+        checkArgument(confidence == 1.0, "count does not support approximate queries");
+        return new CountColumnGroupedAccumulator(valueChannel, maskChannel, sampleWeightChannel);
     }
 
     public static class CountColumnGroupedAccumulator
@@ -43,9 +45,9 @@ public class CountColumnAggregation
     {
         private final LongBigArray counts;
 
-        public CountColumnGroupedAccumulator(int valueChannel, Optional<Integer> maskChannel)
+        public CountColumnGroupedAccumulator(int valueChannel, Optional<Integer> maskChannel, Optional<Integer> sampleWeightChannel)
         {
-            super(valueChannel, SINGLE_LONG, SINGLE_LONG, maskChannel);
+            super(valueChannel, SINGLE_LONG, SINGLE_LONG, maskChannel, sampleWeightChannel);
             this.counts = new LongBigArray();
         }
 
@@ -56,22 +58,28 @@ public class CountColumnAggregation
         }
 
         @Override
-        protected void processInput(GroupByIdBlock groupIdsBlock, Block valuesBlock, Optional<Block> maskBlock)
+        protected void processInput(GroupByIdBlock groupIdsBlock, Block valuesBlock, Optional<Block> maskBlock, Optional<Block> sampleWeightBlock)
         {
             counts.ensureCapacity(groupIdsBlock.getGroupCount());
 
             BlockCursor values = valuesBlock.cursor();
             BlockCursor masks = null;
+            BlockCursor sampleWeights = null;
             if (maskBlock.isPresent()) {
                 masks = maskBlock.get().cursor();
+            }
+            if (sampleWeightBlock.isPresent()) {
+                sampleWeights = sampleWeightBlock.get().cursor();
             }
 
             for (int position = 0; position < groupIdsBlock.getPositionCount(); position++) {
                 checkState(values.advanceNextPosition());
                 checkState(masks == null || masks.advanceNextPosition());
-                if (!values.isNull() && (masks == null || masks.getBoolean())) {
+                checkState(sampleWeights == null || sampleWeights.advanceNextPosition());
+                long sampleWeight = computeSampleWeight(masks, sampleWeights);
+                if (!values.isNull() && sampleWeight > 0) {
                     long groupId = groupIdsBlock.getGroupId(position);
-                    counts.increment(groupId);
+                    counts.add(groupId, sampleWeight);
                 }
             }
             checkState(!values.advanceNextPosition());
@@ -104,9 +112,10 @@ public class CountColumnAggregation
     }
 
     @Override
-    protected Accumulator createAccumulator(Optional<Integer> maskChannel, int valueChannel)
+    protected Accumulator createAccumulator(Optional<Integer> maskChannel, Optional<Integer> sampleWeightChannel, double confidence, int valueChannel)
     {
-        return new CountColumnAccumulator(valueChannel, maskChannel);
+        checkArgument(confidence == 1.0, "count does not support approximate queries");
+        return new CountColumnAccumulator(valueChannel, maskChannel, sampleWeightChannel);
     }
 
     public static class CountColumnAccumulator
@@ -114,25 +123,31 @@ public class CountColumnAggregation
     {
         private long count;
 
-        public CountColumnAccumulator(int valueChannel, Optional<Integer> maskChannel)
+        public CountColumnAccumulator(int valueChannel, Optional<Integer> maskChannel, Optional<Integer> sampleWeightChannel)
         {
-            super(valueChannel, SINGLE_LONG, SINGLE_LONG, maskChannel);
+            super(valueChannel, SINGLE_LONG, SINGLE_LONG, maskChannel, sampleWeightChannel);
         }
 
         @Override
-        protected void processInput(Block block, Optional<Block> maskBlock)
+        protected void processInput(Block block, Optional<Block> maskBlock, Optional<Block> sampleWeightBlock)
         {
             BlockCursor values = block.cursor();
-            BlockCursor mask = null;
+            BlockCursor masks = null;
+            BlockCursor sampleWeights = null;
             if (maskBlock.isPresent()) {
-                mask = maskBlock.get().cursor();
+                masks = maskBlock.get().cursor();
+            }
+            if (sampleWeightBlock.isPresent()) {
+                sampleWeights = sampleWeightBlock.get().cursor();
             }
 
             for (int position = 0; position < block.getPositionCount(); position++) {
                 checkState(values.advanceNextPosition());
-                checkState(mask == null || mask.advanceNextPosition());
-                if (!values.isNull() && (mask == null || mask.getBoolean())) {
-                    count++;
+                checkState(masks == null || masks.advanceNextPosition());
+                checkState(sampleWeights == null || sampleWeights.advanceNextPosition());
+                long sampleWeight = computeSampleWeight(masks, sampleWeights);
+                if (!values.isNull() && sampleWeight > 0) {
+                    count += sampleWeight;
                 }
             }
         }

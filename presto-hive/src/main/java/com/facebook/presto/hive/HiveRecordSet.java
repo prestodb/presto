@@ -111,7 +111,7 @@ public class HiveRecordSet
 
         RecordReader<?, ?> recordReader = createRecordReader(split, configuration, wrappedPath);
 
-        for (HiveRecordCursorProvider provider: cursorProviders) {
+        for (HiveRecordCursorProvider provider : cursorProviders) {
             Optional<RecordCursor> cursor = provider.createHiveRecordCursor(split, recordReader, columns);
             if (cursor.isPresent()) {
                 return cursor.get();

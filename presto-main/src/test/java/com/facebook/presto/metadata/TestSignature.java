@@ -27,7 +27,7 @@ public class TestSignature
     @Test
     public void testRoundTrip()
     {
-        Signature expected = new Signature("function", Type.BIGINT, ImmutableList.of(Type.BOOLEAN, Type.DOUBLE, Type.VARCHAR));
+        Signature expected = new Signature("function", Type.BIGINT, ImmutableList.of(Type.BOOLEAN, Type.DOUBLE, Type.VARCHAR), false);
 
         String json = codec.toJson(expected);
         Signature actual = codec.fromJson(json);
@@ -35,5 +35,6 @@ public class TestSignature
         assertEquals(actual.getName(), expected.getName());
         assertEquals(actual.getReturnType(), expected.getReturnType());
         assertEquals(actual.getArgumentTypes(), expected.getArgumentTypes());
+        assertEquals(actual.isApproximate(), expected.isApproximate());
     }
 }

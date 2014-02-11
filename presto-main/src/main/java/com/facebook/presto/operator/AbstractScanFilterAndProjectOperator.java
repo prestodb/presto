@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.operator;
 
-import com.facebook.presto.block.Block;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.RecordCursor;
 import com.facebook.presto.spi.Split;
@@ -70,7 +69,7 @@ public abstract class AbstractScanFilterAndProjectOperator
         this.pageBuilder = new PageBuilder(getTupleInfos());
     }
 
-    protected abstract void filterAndProjectRowOriented(Block[] blocks, PageBuilder pageBuilder);
+    protected abstract void filterAndProjectRowOriented(Page page, PageBuilder pageBuilder);
 
     protected abstract int filterAndProjectRowOriented(RecordCursor cursor, PageBuilder pageBuilder);
 
@@ -187,7 +186,7 @@ public abstract class AbstractScanFilterAndProjectOperator
             else {
                 Page output = operator.getOutput();
                 if (output != null) {
-                    filterAndProjectRowOriented(output.getBlocks(), pageBuilder);
+                    filterAndProjectRowOriented(output, pageBuilder);
                 }
             }
         }

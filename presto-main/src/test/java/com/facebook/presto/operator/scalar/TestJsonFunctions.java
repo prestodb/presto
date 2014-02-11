@@ -83,7 +83,7 @@ public class TestJsonFunctions
     {
         assertFunction("JSON_ARRAY_CONTAINS('[]', 'x')", false);
         assertFunction("JSON_ARRAY_CONTAINS('[\"foo\"]', 'foo')", true);
-        assertFunction("JSON_ARRAY_CONTAINS('[\"foo\", null]', null)", null);
+        assertFunction("JSON_ARRAY_CONTAINS('[\"foo\", null]', cast(null as varchar))", null);
         assertFunction("JSON_ARRAY_CONTAINS('[\"8\"]', '8')", true);
         assertFunction("JSON_ARRAY_CONTAINS('[1, \"foo\", null]', 'foo')", true);
         assertFunction("JSON_ARRAY_CONTAINS('[1, 5]', '5')", false);
@@ -137,7 +137,7 @@ public class TestJsonFunctions
     @Test
     public void testJsonArrayContainsInvalid()
     {
-        for (String value : new String[] {"'x'", "2.5", "8", "true", null}) {
+        for (String value : new String[] {"'x'", "2.5", "8", "true", "cast(null as varchar)"}) {
             for (String array : new String[] {"", "123", "[", "[1,0,]", "[1,,0]"}) {
                 assertFunction(format("JSON_ARRAY_CONTAINS('%s', %s)", array, value), null);
             }

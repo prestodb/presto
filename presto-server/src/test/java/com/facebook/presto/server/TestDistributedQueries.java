@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.server;
 
-import com.facebook.presto.AbstractTestQueries;
+import com.facebook.presto.AbstractTestSampledQueries;
 import com.facebook.presto.client.ClientSession;
 import com.facebook.presto.client.Column;
 import com.facebook.presto.client.QueryError;
@@ -22,9 +22,12 @@ import com.facebook.presto.client.StatementClient;
 import com.facebook.presto.metadata.AllNodes;
 import com.facebook.presto.metadata.QualifiedTableName;
 import com.facebook.presto.metadata.QualifiedTablePrefix;
+import com.facebook.presto.server.testing.TestingPrestoServer;
 import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.sql.analyzer.Session;
+import com.facebook.presto.tpch.SampledTpchPlugin;
 import com.facebook.presto.tpch.TpchMetadata;
+import com.facebook.presto.tpch.TpchPlugin;
 import com.facebook.presto.tuple.TupleInfo;
 import com.facebook.presto.tuple.TupleInfo.Type;
 import com.facebook.presto.util.MaterializedResult;
@@ -34,12 +37,12 @@ import com.google.common.base.Joiner;
 import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.io.Closeables;
 import io.airlift.http.client.AsyncHttpClient;
 import io.airlift.http.client.HttpClientConfig;
 import io.airlift.http.client.netty.StandaloneNettyAsyncHttpClient;
 import io.airlift.json.JsonCodec;
 import io.airlift.log.Logger;
+import io.airlift.testing.Closeables;
 import io.airlift.units.Duration;
 import org.intellij.lang.annotations.Language;
 import org.testng.annotations.Test;
@@ -68,7 +71,7 @@ import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
 
 public class TestDistributedQueries
-        extends AbstractTestQueries
+        extends AbstractTestSampledQueries
 {
     private static final Session SESSION = new Session("user", "test", DEFAULT_CATALOG, "test", null, null);
 
@@ -164,12 +167,29 @@ public class TestDistributedQueries
                 "SELECT 1");
     }
 
+    @Test
+    public void testCreateSampledTableAsSelectLimit()
+            throws Exception
+    {
+        assertCreateTable(
+                "test_limit_sampled",
+                "SELECT orderkey FROM tpch_sampled.tiny.orders ORDER BY orderkey LIMIT 10",
+                "SELECT orderkey FROM (SELECT orderkey FROM orders) UNION ALL (SELECT orderkey FROM orders) ORDER BY orderkey LIMIT 10",
+                "SELECT 10");
+    }
+
     private void assertCreateTable(String table, @Language("SQL") String query, @Language("SQL") String rowCountQuery)
             throws Exception
     {
+        assertCreateTable(table, query, query, rowCountQuery);
+    }
+
+    private void assertCreateTable(String table, @Language("SQL") String query, @Language("SQL") String expectedQuery, @Language("SQL") String rowCountQuery)
+           throws Exception
+    {
         try {
             assertQuery("CREATE TABLE " +  table + " AS " + query, rowCountQuery);
-            assertQuery("SELECT * FROM " + table, query);
+            assertQuery("SELECT * FROM " + table, expectedQuery);
         }
         finally {
             QualifiedTableName name = new QualifiedTableName(DEFAULT_CATALOG, DEFAULT_SCHEMA, table);
@@ -240,7 +260,8 @@ public class TestDistributedQueries
 
         log.info("Loading data...");
         long startTime = System.nanoTime();
-        distributeData("tpch", TpchMetadata.TINY_SCHEMA_NAME);
+        distributeData("tpch", TpchMetadata.TINY_SCHEMA_NAME, getClientSession());
+        distributeData("tpch_sampled", TpchMetadata.TINY_SCHEMA_NAME, getSampledClientSession());
         log.info("Loading complete in %s", nanosSince(startTime).toString(SECONDS));
 
         return SESSION;
@@ -271,7 +292,7 @@ public class TestDistributedQueries
         Closeables.closeQuietly(discoveryServer);
     }
 
-    private void distributeData(String catalog, String schema)
+    private void distributeData(String catalog, String schema, ClientSession session)
             throws Exception
     {
         for (QualifiedTableName table : coordinator.getMetadata().listTables(new QualifiedTablePrefix(catalog, schema))) {
@@ -280,16 +301,35 @@ public class TestDistributedQueries
             }
             log.info("Running import for %s", table.getTableName());
             @Language("SQL") String sql = format("CREATE TABLE %s AS SELECT * FROM %s", table.getTableName(), table);
-            long rows = checkType(computeActual(sql).getMaterializedTuples().get(0).getField(0), Long.class, "rows");
+            long rows = checkType(compute(sql, session).getMaterializedTuples().get(0).getField(0), Long.class, "rows");
             log.info("Imported %s rows for %s", rows, table.getTableName());
         }
+    }
+
+    protected ClientSession getClientSession()
+    {
+        return new ClientSession(coordinator.getBaseUrl(), SESSION.getUser(), SESSION.getSource(), SESSION.getCatalog(), SESSION.getSchema(), true);
+    }
+
+    protected ClientSession getSampledClientSession()
+    {
+        return new ClientSession(coordinator.getBaseUrl(), SESSION.getUser(), SESSION.getSource(), SESSION.getCatalog(), "sampled", true);
+    }
+
+    @Override
+    protected MaterializedResult computeActualSampled(@Language("SQL") String sql)
+    {
+        return compute(sql, getSampledClientSession());
     }
 
     @Override
     protected MaterializedResult computeActual(@Language("SQL") String sql)
     {
-        ClientSession session = new ClientSession(coordinator.getBaseUrl(), SESSION.getUser(), SESSION.getSource(), SESSION.getCatalog(), SESSION.getSchema(), true);
+        return compute(sql, getClientSession());
+    }
 
+    private MaterializedResult compute(@Language("SQL") String sql, ClientSession session)
+    {
         try (StatementClient client = new StatementClient(httpClient, queryResultsCodec, session, sql)) {
             AtomicBoolean loggedUri = new AtomicBoolean(false);
             ImmutableList.Builder<MaterializedTuple> rows = ImmutableList.builder();
@@ -400,9 +440,12 @@ public class TestDistributedQueries
         Map<String, String> properties = ImmutableMap.<String, String>builder()
                 .put("query.client.timeout", "10m")
                 .put("exchange.http-client.read-timeout", "1h")
-                .put("datasources", "native,tpch")
+                .put("datasources", "native,tpch,tpch_sampled")
                 .build();
 
-        return new TestingPrestoServer(coordinator, properties, ENVIRONMENT, discoveryUri);
+        TestingPrestoServer server = new TestingPrestoServer(coordinator, properties, ENVIRONMENT, discoveryUri);
+        server.installPlugin(new TpchPlugin(), "tpch", "tpch");
+        server.installPlugin(new SampledTpchPlugin(), "tpch_sampled", "tpch_sampled");
+        return server;
     }
 }

@@ -15,7 +15,6 @@ package com.facebook.presto.execution;
 
 import com.facebook.presto.OutputBuffers;
 import com.facebook.presto.UnpartitionedPagePartitionFunction;
-import com.facebook.presto.client.Input;
 import com.facebook.presto.execution.StateMachine.StateChangeListener;
 import com.facebook.presto.importer.PeriodicImportManager;
 import com.facebook.presto.metadata.Metadata;
@@ -23,6 +22,7 @@ import com.facebook.presto.metadata.ShardManager;
 import com.facebook.presto.split.SplitManager;
 import com.facebook.presto.sql.analyzer.Analysis;
 import com.facebook.presto.sql.analyzer.Analyzer;
+import com.facebook.presto.sql.analyzer.AnalyzerConfig;
 import com.facebook.presto.sql.analyzer.QueryExplainer;
 import com.facebook.presto.sql.analyzer.Session;
 import com.facebook.presto.sql.planner.DistributedExecutionPlanner;
@@ -80,6 +80,7 @@ public class SqlQueryExecution
     private final int scheduleSplitBatchSize;
     private final int maxPendingSplitsPerNode;
     private final int initialHashPartitions;
+    private final boolean approximateQueriesEnabled;
     private final ExecutorService queryExecutor;
     private final ShardManager shardManager;
     private final StorageManager storageManager;
@@ -103,6 +104,7 @@ public class SqlQueryExecution
             int scheduleSplitBatchSize,
             int maxPendingSplitsPerNode,
             int initialHashPartitions,
+            boolean approximateQueriesEnabled,
             ExecutorService queryExecutor,
             ShardManager shardManager,
             StorageManager storageManager,
@@ -120,6 +122,7 @@ public class SqlQueryExecution
             this.shardManager = checkNotNull(shardManager, "shardManager is null");
             this.storageManager = checkNotNull(storageManager, "storageManager is null");
             this.periodicImportManager = checkNotNull(periodicImportManager, "periodicImportManager is null");
+            this.approximateQueriesEnabled = approximateQueriesEnabled;
 
             checkArgument(maxPendingSplitsPerNode > 0, "scheduleSplitBatchSize must be greater than 0");
             this.scheduleSplitBatchSize = scheduleSplitBatchSize;
@@ -136,7 +139,7 @@ public class SqlQueryExecution
             checkNotNull(self, "self is null");
             this.stateMachine = new QueryStateMachine(queryId, query, session, self, queryExecutor);
 
-            this.queryExplainer = new QueryExplainer(session, planOptimizers, metadata, periodicImportManager, storageManager);
+            this.queryExplainer = new QueryExplainer(session, planOptimizers, metadata, periodicImportManager, storageManager, approximateQueriesEnabled);
         }
     }
 
@@ -204,7 +207,7 @@ public class SqlQueryExecution
         long analysisStart = System.nanoTime();
 
         // analyze query
-        Analyzer analyzer = new Analyzer(stateMachine.getSession(), metadata, Optional.of(queryExplainer));
+        Analyzer analyzer = new Analyzer(stateMachine.getSession(), metadata, Optional.of(queryExplainer), approximateQueriesEnabled);
 
         Analysis analysis = analyzer.analyze(statement);
         PlanNodeIdAllocator idAllocator = new PlanNodeIdAllocator();
@@ -394,6 +397,7 @@ public class SqlQueryExecution
         private final int scheduleSplitBatchSize;
         private final int maxPendingSplitsPerNode;
         private final int initialHashPartitions;
+        private final boolean approximateQueriesEnabled;
         private final Metadata metadata;
         private final SplitManager splitManager;
         private final NodeScheduler nodeScheduler;
@@ -409,6 +413,7 @@ public class SqlQueryExecution
 
         @Inject
         SqlQueryExecutionFactory(QueryManagerConfig config,
+                AnalyzerConfig analyzerConfig,
                 Metadata metadata,
                 LocationFactory locationFactory,
                 SplitManager splitManager,
@@ -432,6 +437,7 @@ public class SqlQueryExecution
             this.shardManager = checkNotNull(shardManager, "shardManager is null");
             this.storageManager = checkNotNull(storageManager, "storageManager is null");
             this.periodicImportManager = checkNotNull(periodicImportManager, "periodicImportManager is null");
+            this.approximateQueriesEnabled = checkNotNull(analyzerConfig, "analyzerConfig is null").isApproximateQueriesEnabled();
 
             this.executor = Executors.newCachedThreadPool(threadsNamed("query-scheduler-%d"));
             this.executorMBean = new ThreadPoolExecutorMBean((ThreadPoolExecutor) executor);
@@ -461,6 +467,7 @@ public class SqlQueryExecution
                     scheduleSplitBatchSize,
                     maxPendingSplitsPerNode,
                     initialHashPartitions,
+                    approximateQueriesEnabled,
                     executor,
                     shardManager,
                     storageManager,

@@ -23,15 +23,27 @@ public class AnalysisContext
 {
     private final AnalysisContext parent;
     private final Map<String, Query> namedQueries = new HashMap<>();
+    private boolean approximate;
 
     public AnalysisContext(AnalysisContext parent)
     {
         this.parent = parent;
+        this.approximate = parent.approximate;
     }
 
     public AnalysisContext()
     {
         parent = null;
+    }
+
+    public boolean isApproximate()
+    {
+        return approximate;
+    }
+
+    public void setApproximate(boolean approximate)
+    {
+        this.approximate = approximate;
     }
 
     public void addNamedQuery(String name, Query query)

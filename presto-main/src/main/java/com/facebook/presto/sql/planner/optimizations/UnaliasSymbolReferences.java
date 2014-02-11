@@ -22,8 +22,10 @@ import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.SymbolAllocator;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
+import com.facebook.presto.sql.planner.plan.MaterializeSampleNode;
 import com.facebook.presto.sql.planner.plan.FilterNode;
 import com.facebook.presto.sql.planner.plan.JoinNode;
+import com.facebook.presto.sql.planner.plan.LimitNode;
 import com.facebook.presto.sql.planner.plan.MarkDistinctNode;
 import com.facebook.presto.sql.planner.plan.MaterializedViewWriterNode;
 import com.facebook.presto.sql.planner.plan.OutputNode;
@@ -44,6 +46,7 @@ import com.facebook.presto.sql.tree.ExpressionTreeRewriter;
 import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.QualifiedNameReference;
 import com.google.common.base.Function;
+import com.google.common.base.Optional;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
@@ -112,6 +115,13 @@ public class UnaliasSymbolReferences
         }
 
         @Override
+        public PlanNode rewriteLimit(LimitNode node, Void context, PlanRewriter<Void> planRewriter)
+        {
+            PlanNode source = planRewriter.rewrite(node.getSource(), context);
+            return new LimitNode(node.getId(), source, node.getCount(), canonicalize(node.getSampleWeight()));
+        }
+
+        @Override
         public PlanNode rewriteAggregation(AggregationNode node, Void context, PlanRewriter<Void> planRewriter)
         {
             PlanNode source = planRewriter.rewrite(node.getSource(), context);
@@ -131,7 +141,7 @@ public class UnaliasSymbolReferences
             }
 
             List<Symbol> groupByKeys = ImmutableList.copyOf(ImmutableSet.copyOf(canonicalize(node.getGroupBy())));
-            return new AggregationNode(node.getId(), source, groupByKeys, functionCalls.build(), functionInfos.build(), masks.build());
+            return new AggregationNode(node.getId(), source, groupByKeys, functionCalls.build(), functionInfos.build(), masks.build(), canonicalize(node.getSampleWeight()), node.getConfidence());
         }
 
         @Override
@@ -139,7 +149,14 @@ public class UnaliasSymbolReferences
         {
             PlanNode source = planRewriter.rewrite(node.getSource(), context);
             List<Symbol> symbols = ImmutableList.copyOf(ImmutableSet.copyOf(canonicalize(node.getDistinctSymbols())));
-            return new MarkDistinctNode(node.getId(), source, canonicalize(node.getMarkerSymbol()), symbols);
+            return new MarkDistinctNode(node.getId(), source, canonicalize(node.getMarkerSymbol()), symbols, canonicalize(node.getSampleWeightSymbol()));
+        }
+
+        @Override
+        public PlanNode rewriteMaterializeSample(MaterializeSampleNode node, Void context, PlanRewriter<Void> planRewriter)
+        {
+            PlanNode source = planRewriter.rewrite(node.getSource(), context);
+            return new MaterializeSampleNode(node.getId(), source, canonicalize(node.getSampleWeightSymbol()));
         }
 
         @Override
@@ -235,7 +252,7 @@ public class UnaliasSymbolReferences
                 orderings.put(canonical, node.getOrderings().get(symbol));
             }
 
-            return new TopNNode(node.getId(), source, node.getCount(), symbols.build(), orderings.build(), node.isPartial());
+            return new TopNNode(node.getId(), source, node.getCount(), symbols.build(), orderings.build(), node.isPartial(), canonicalize(node.getSampleWeight()));
         }
 
         @Override
@@ -288,13 +305,21 @@ public class UnaliasSymbolReferences
         {
             PlanNode source = planRewriter.rewrite(node.getSource(), context);
 
-            return new TableWriterNode(node.getId(), source, node.getTarget(), canonicalize(node.getColumns()), node.getColumnNames(), canonicalize(node.getOutputSymbols()));
+            return new TableWriterNode(node.getId(), source, node.getTarget(), canonicalize(node.getColumns()), node.getColumnNames(), canonicalize(node.getOutputSymbols()), canonicalize(node.getSampleWeightSymbol()), node.getCatalog(), node.getTableMetadata(), node.isSampleWeightSupported());
         }
 
         private void map(Symbol symbol, Symbol canonical)
         {
             Preconditions.checkArgument(!symbol.equals(canonical), "Can't map symbol to itself: %s", symbol);
             mapping.put(symbol, canonical);
+        }
+
+        private Optional<Symbol> canonicalize(Optional<Symbol> symbol)
+        {
+            if (symbol.isPresent()) {
+                return Optional.of(canonicalize(symbol.get()));
+            }
+            return Optional.absent();
         }
 
         private Symbol canonicalize(Symbol symbol)

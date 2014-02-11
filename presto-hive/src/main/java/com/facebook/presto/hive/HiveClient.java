@@ -274,6 +274,18 @@ public class HiveClient
     }
 
     @Override
+    public ColumnHandle getSampleWeightColumnHandle(TableHandle tableHandle)
+    {
+        return null;
+    }
+
+    @Override
+    public boolean canCreateSampledTables()
+    {
+        return false;
+    }
+
+    @Override
     public Map<String, ColumnHandle> getColumnHandles(TableHandle tableHandle)
     {
         SchemaTableName tableName = getTableName(tableHandle);

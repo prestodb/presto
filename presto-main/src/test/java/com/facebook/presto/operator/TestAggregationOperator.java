@@ -19,6 +19,7 @@ import com.facebook.presto.sql.analyzer.Session;
 import com.facebook.presto.sql.planner.plan.AggregationNode.Step;
 import com.facebook.presto.sql.tree.Input;
 import com.facebook.presto.util.MaterializedResult;
+import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
@@ -28,6 +29,7 @@ import java.util.List;
 import java.util.concurrent.ExecutorService;
 
 import static com.facebook.presto.operator.AggregationFunctionDefinition.aggregation;
+import static com.facebook.presto.operator.OperatorAssertion.appendSampleWeight;
 import static com.facebook.presto.operator.OperatorAssertion.assertOperatorEquals;
 import static com.facebook.presto.operator.RowPagesBuilder.rowPagesBuilder;
 import static com.facebook.presto.operator.aggregation.AverageAggregations.LONG_AVERAGE;
@@ -68,6 +70,37 @@ public class TestAggregationOperator
     }
 
     @Test
+    public void testSampledAggregation()
+            throws Exception
+    {
+        List<Page> input = rowPagesBuilder(SINGLE_VARBINARY, SINGLE_LONG, SINGLE_VARBINARY, SINGLE_LONG, SINGLE_DOUBLE, SINGLE_VARBINARY)
+                .addSequencePage(100, 0, 0, 300, 500, 500, 500)
+                .build();
+
+        input = appendSampleWeight(input, 2);
+
+        Optional<Input> sampleWeightInput = Optional.of(new Input(input.get(0).getChannelCount() - 1));
+        OperatorFactory operatorFactory = new AggregationOperatorFactory(
+                0,
+                Step.SINGLE,
+                ImmutableList.of(aggregation(COUNT, ImmutableList.of(new Input(0)), Optional.<Input>absent(), sampleWeightInput, 1.0),
+                        aggregation(LONG_SUM, ImmutableList.of(new Input(1)), Optional.<Input>absent(), sampleWeightInput, 1.0),
+                        aggregation(LONG_AVERAGE, ImmutableList.of(new Input(1)), Optional.<Input>absent(), sampleWeightInput, 1.0),
+                        aggregation(VAR_BINARY_MAX, ImmutableList.of(new Input(2)), Optional.<Input>absent(), sampleWeightInput, 1.0),
+                        aggregation(COUNT_STRING_COLUMN, ImmutableList.of(new Input(0)), Optional.<Input>absent(), sampleWeightInput, 1.0),
+                        aggregation(LONG_SUM, ImmutableList.of(new Input(3)), Optional.<Input>absent(), sampleWeightInput, 1.0),
+                        aggregation(DOUBLE_SUM, ImmutableList.of(new Input(4)), Optional.<Input>absent(), sampleWeightInput, 1.0),
+                        aggregation(VAR_BINARY_MAX, ImmutableList.of(new Input(5)), Optional.<Input>absent(), sampleWeightInput, 1.0)));
+        Operator operator = operatorFactory.createOperator(driverContext);
+
+        MaterializedResult expected = resultBuilder(FIXED_INT_64, FIXED_INT_64, DOUBLE, VARIABLE_BINARY, FIXED_INT_64, FIXED_INT_64, DOUBLE, VARIABLE_BINARY)
+                .row(200, 2 * 4950, 49.5, "399", 200, 2 * 54950, 2 * 54950.0, "599")
+                .build();
+
+        assertOperatorEquals(operator, input, expected);
+    }
+
+    @Test
     public void testAggregation()
             throws Exception
     {
@@ -78,14 +111,14 @@ public class TestAggregationOperator
         OperatorFactory operatorFactory = new AggregationOperatorFactory(
                 0,
                 Step.SINGLE,
-                ImmutableList.of(aggregation(COUNT, new Input(0)),
-                        aggregation(LONG_SUM, new Input(1)),
-                        aggregation(LONG_AVERAGE, new Input(1)),
-                        aggregation(VAR_BINARY_MAX, new Input(2)),
-                        aggregation(COUNT_STRING_COLUMN, new Input(0)),
-                        aggregation(LONG_SUM, new Input(3)),
-                        aggregation(DOUBLE_SUM, new Input(4)),
-                        aggregation(VAR_BINARY_MAX, new Input(5))));
+                ImmutableList.of(aggregation(COUNT, ImmutableList.of(new Input(0)), Optional.<Input>absent(), Optional.<Input>absent(), 1.0),
+                        aggregation(LONG_SUM, ImmutableList.of(new Input(1)), Optional.<Input>absent(), Optional.<Input>absent(), 1.0),
+                        aggregation(LONG_AVERAGE, ImmutableList.of(new Input(1)), Optional.<Input>absent(), Optional.<Input>absent(), 1.0),
+                        aggregation(VAR_BINARY_MAX, ImmutableList.of(new Input(2)), Optional.<Input>absent(), Optional.<Input>absent(), 1.0),
+                        aggregation(COUNT_STRING_COLUMN, ImmutableList.of(new Input(0)), Optional.<Input>absent(), Optional.<Input>absent(), 1.0),
+                        aggregation(LONG_SUM, ImmutableList.of(new Input(3)), Optional.<Input>absent(), Optional.<Input>absent(), 1.0),
+                        aggregation(DOUBLE_SUM, ImmutableList.of(new Input(4)), Optional.<Input>absent(), Optional.<Input>absent(), 1.0),
+                        aggregation(VAR_BINARY_MAX, ImmutableList.of(new Input(5)), Optional.<Input>absent(), Optional.<Input>absent(), 1.0)));
         Operator operator = operatorFactory.createOperator(driverContext);
 
         MaterializedResult expected = resultBuilder(FIXED_INT_64, FIXED_INT_64, DOUBLE, VARIABLE_BINARY, FIXED_INT_64, FIXED_INT_64, DOUBLE, VARIABLE_BINARY)

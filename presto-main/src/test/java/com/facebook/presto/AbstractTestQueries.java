@@ -30,6 +30,7 @@ import com.facebook.presto.spi.RecordCursor;
 import com.facebook.presto.spi.RecordSet;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.split.SplitManager;
+import com.facebook.presto.sql.analyzer.AnalyzerConfig;
 import com.facebook.presto.sql.analyzer.QueryExplainer;
 import com.facebook.presto.sql.analyzer.Session;
 import com.facebook.presto.sql.analyzer.Type;
@@ -117,7 +118,8 @@ public abstract class AbstractTestQueries
     private Handle handle;
     private Session session;
 
-    @Test void testSpecialFloatingPointValues()
+    @Test
+    public void testSpecialFloatingPointValues()
             throws Exception
     {
         MaterializedResult actual = computeActual("SELECT nan(), infinity(), -infinity()");
@@ -2304,6 +2306,27 @@ public abstract class AbstractTestQueries
     }
 
     @Test
+    public void testInformationSchemaFiltering()
+            throws Exception
+    {
+        assertQuery(
+                "SELECT table_name FROM information_schema.tables WHERE table_name = 'orders' LIMIT 1",
+                "SELECT 'orders' table_name");
+    }
+
+    @Test
+    public void testSelectColumnOfNulls()
+            throws Exception
+    {
+        // Currently nulls can confuse the local planner, so select some
+        assertQueryOrdered("SELECT \n" +
+                " CAST(NULL AS VARCHAR),\n" +
+                " CAST(NULL AS BIGINT)\n" +
+                "FROM ORDERS\n" +
+                " ORDER BY 1\n");
+    }
+
+    @Test
     public void testNoFrom()
             throws Exception
     {
@@ -2944,7 +2967,7 @@ public abstract class AbstractTestQueries
                 "  FROM orders\n" +
                 "  GROUP BY orderstatus, clerk\n" +
                 ")\n" +
-                "ORDER BY clerk";
+                "ORDER BY orderstatus, clerk";
 
         assertEquals(computeActual(sql), computeActual(sql.replace("custom_rank", "rank")));
     }
@@ -2956,7 +2979,7 @@ public abstract class AbstractTestQueries
         Logging.initialize();
 
         handle = DBI.open("jdbc:h2:mem:test" + System.nanoTime());
-        TpchMetadata tpchMetadata = new TpchMetadata();
+        TpchMetadata tpchMetadata = new TpchMetadata("");
 
         handle.execute("CREATE TABLE orders (\n" +
                 "  orderkey BIGINT PRIMARY KEY,\n" +
@@ -3076,7 +3099,7 @@ public abstract class AbstractTestQueries
         }
     }
 
-    private MaterializedResult computeExpected(@Language("SQL") String sql, List<TupleInfo> resultTupleInfos)
+    protected MaterializedResult computeExpected(@Language("SQL") String sql, List<TupleInfo> resultTupleInfos)
     {
         return new MaterializedResult(
                 handle.createQuery(sql)
@@ -3212,7 +3235,8 @@ public abstract class AbstractTestQueries
         MetadataManager metadata = new MetadataManager();
         metadata.addInternalSchemaMetadata(MetadataManager.INTERNAL_CONNECTOR_ID, new DualMetadata());
         SplitManager splitManager = new SplitManager(ImmutableSet.<ConnectorSplitManager>of(new DualSplitManager(new InMemoryNodeManager())));
-        List<PlanOptimizer> optimizers = new PlanOptimizersFactory(metadata, splitManager).get();
-        return new QueryExplainer(session, optimizers, metadata, new MockPeriodicImportManager(), new MockStorageManager());
+        AnalyzerConfig analyzerConfig = new AnalyzerConfig().setApproximateQueriesEnabled(true);
+        List<PlanOptimizer> optimizers = new PlanOptimizersFactory(metadata, splitManager, analyzerConfig).get();
+        return new QueryExplainer(session, optimizers, metadata, new MockPeriodicImportManager(), new MockStorageManager(), analyzerConfig.isApproximateQueriesEnabled());
     }
 }

@@ -27,6 +27,7 @@ import com.facebook.presto.sql.planner.plan.FilterNode;
 import com.facebook.presto.sql.planner.plan.JoinNode;
 import com.facebook.presto.sql.planner.plan.LimitNode;
 import com.facebook.presto.sql.planner.plan.MarkDistinctNode;
+import com.facebook.presto.sql.planner.plan.MaterializeSampleNode;
 import com.facebook.presto.sql.planner.plan.MaterializedViewWriterNode;
 import com.facebook.presto.sql.planner.plan.OutputNode;
 import com.facebook.presto.sql.planner.plan.PlanNode;
@@ -162,10 +163,13 @@ public class PruneUnreferencedOutputs
                     functions.put(symbol, node.getFunctions().get(symbol));
                 }
             }
+            if (node.getSampleWeight().isPresent()) {
+                expectedInputs.add(node.getSampleWeight().get());
+            }
 
             PlanNode source = planRewriter.rewrite(node.getSource(), expectedInputs.build());
 
-            return new AggregationNode(node.getId(), source, node.getGroupBy(), functionCalls.build(), functions.build(), masks.build());
+            return new AggregationNode(node.getId(), source, node.getGroupBy(), functionCalls.build(), functions.build(), masks.build(), node.getSampleWeight(), node.getConfidence());
         }
 
         @Override
@@ -242,20 +246,36 @@ public class PruneUnreferencedOutputs
         }
 
         @Override
+        public PlanNode rewriteMaterializeSample(MaterializeSampleNode node, Set<Symbol> expectedOutputs, PlanRewriter<Set<Symbol>> planRewriter)
+        {
+            Set<Symbol> expectedInputs = ImmutableSet.<Symbol>builder()
+                    .add(node.getSampleWeightSymbol())
+                    .addAll(expectedOutputs)
+                    .build();
+
+            PlanNode source = planRewriter.rewrite(node.getSource(), expectedInputs);
+
+            return new MaterializeSampleNode(node.getId(), source, node.getSampleWeightSymbol());
+        }
+
+        @Override
         public PlanNode rewriteMarkDistinct(MarkDistinctNode node, Set<Symbol> expectedOutputs, PlanRewriter<Set<Symbol>> planRewriter)
         {
             if (!expectedOutputs.contains(node.getMarkerSymbol())) {
                 return planRewriter.rewrite(node.getSource(), expectedOutputs);
             }
 
-            Set<Symbol> expectedInputs = ImmutableSet.<Symbol>builder()
+            ImmutableSet.Builder<Symbol> expectedInputs = ImmutableSet.<Symbol>builder()
                     .addAll(node.getDistinctSymbols())
-                    .addAll(expectedOutputs)
-                    .build();
+                    .addAll(expectedOutputs);
 
-            PlanNode source = planRewriter.rewrite(node.getSource(), expectedInputs);
+            if (node.getSampleWeightSymbol().isPresent()) {
+                expectedInputs.add(node.getSampleWeightSymbol().get());
+            }
 
-            return new MarkDistinctNode(node.getId(), source, node.getMarkerSymbol(), node.getDistinctSymbols());
+            PlanNode source = planRewriter.rewrite(node.getSource(), expectedInputs.build());
+
+            return new MarkDistinctNode(node.getId(), source, node.getMarkerSymbol(), node.getDistinctSymbols(), node.getSampleWeightSymbol());
         }
 
         @Override
@@ -290,8 +310,13 @@ public class PruneUnreferencedOutputs
         @Override
         public PlanNode rewriteLimit(LimitNode node, Set<Symbol> expectedOutputs, PlanRewriter<Set<Symbol>> planRewriter)
         {
-            PlanNode source = planRewriter.rewrite(node.getSource(), expectedOutputs);
-            return new LimitNode(node.getId(), source, node.getCount());
+            ImmutableSet.Builder<Symbol> expectedInputs = ImmutableSet.<Symbol>builder()
+                    .addAll(expectedOutputs);
+            if (node.getSampleWeight().isPresent()) {
+                expectedInputs.add(node.getSampleWeight().get());
+            }
+            PlanNode source = planRewriter.rewrite(node.getSource(), expectedInputs.build());
+            return new LimitNode(node.getId(), source, node.getCount(), node.getSampleWeight());
         }
 
         @Override
@@ -304,11 +329,16 @@ public class PruneUnreferencedOutputs
         @Override
         public PlanNode rewriteTopN(TopNNode node, Set<Symbol> expectedOutputs, PlanRewriter<Set<Symbol>> planRewriter)
         {
-            Set<Symbol> expectedInputs = ImmutableSet.copyOf(concat(expectedOutputs, node.getOrderBy()));
+            ImmutableSet.Builder<Symbol> expectedInputs = ImmutableSet.<Symbol>builder()
+                    .addAll(expectedOutputs)
+                    .addAll(node.getOrderBy());
+            if (node.getSampleWeight().isPresent()) {
+                expectedInputs.add(node.getSampleWeight().get());
+            }
 
-            PlanNode source = planRewriter.rewrite(node.getSource(), expectedInputs);
+            PlanNode source = planRewriter.rewrite(node.getSource(), expectedInputs.build());
 
-            return new TopNNode(node.getId(), source, node.getCount(), node.getOrderBy(), node.getOrderings(), node.isPartial());
+            return new TopNNode(node.getId(), source, node.getCount(), node.getOrderBy(), node.getOrderings(), node.isPartial(), node.getSampleWeight());
         }
 
         @Override
@@ -324,9 +354,14 @@ public class PruneUnreferencedOutputs
         @Override
         public PlanNode rewriteTableWriter(TableWriterNode node, Set<Symbol> expectedOutputs, PlanRewriter<Set<Symbol>> planRewriter)
         {
-            PlanNode source = planRewriter.rewrite(node.getSource(), ImmutableSet.copyOf(node.getColumns()));
+            ImmutableSet.Builder<Symbol> expectedInputs = ImmutableSet.<Symbol>builder()
+                    .addAll(node.getColumns());
+            if (node.getSampleWeightSymbol().isPresent()) {
+                expectedInputs.add(node.getSampleWeightSymbol().get());
+            }
+            PlanNode source = planRewriter.rewrite(node.getSource(), expectedInputs.build());
 
-            return new TableWriterNode(node.getId(), source, node.getTarget(), node.getColumns(), node.getColumnNames(), node.getOutputSymbols());
+            return new TableWriterNode(node.getId(), source, node.getTarget(), node.getColumns(), node.getColumnNames(), node.getOutputSymbols(), node.getSampleWeightSymbol(), node.getCatalog(), node.getTableMetadata(), node.isSampleWeightSupported());
         }
 
         @Override

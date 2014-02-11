@@ -18,36 +18,31 @@ import com.facebook.presto.sql.tree.Input;
 import com.google.common.base.Optional;
 import com.google.common.base.Preconditions;
 
-import java.util.Arrays;
 import java.util.List;
 
 public class AggregationFunctionDefinition
 {
-    public static AggregationFunctionDefinition aggregation(AggregationFunction function, List<Input> inputs, Optional<Input> mask)
+    public static AggregationFunctionDefinition aggregation(AggregationFunction function, List<Input> inputs, Optional<Input> mask, Optional<Input> sampleWeight, double confidence)
     {
         Preconditions.checkNotNull(function, "function is null");
         Preconditions.checkNotNull(inputs, "inputs is null");
 
-        return new AggregationFunctionDefinition(function, inputs, mask);
-    }
-
-    public static AggregationFunctionDefinition aggregation(AggregationFunction function, Input... inputs)
-    {
-        Preconditions.checkNotNull(function, "function is null");
-        Preconditions.checkNotNull(inputs, "inputs is null");
-
-        return aggregation(function, Arrays.asList(inputs), Optional.<Input>absent());
+        return new AggregationFunctionDefinition(function, inputs, mask, sampleWeight, confidence);
     }
 
     private final AggregationFunction function;
     private final List<Input> inputs;
     private final Optional<Input> mask;
+    private final Optional<Input> sampleWeight;
+    private final double confidence;
 
-    AggregationFunctionDefinition(AggregationFunction function, List<Input> inputs, Optional<Input> mask)
+    AggregationFunctionDefinition(AggregationFunction function, List<Input> inputs, Optional<Input> mask, Optional<Input> sampleWeight, double confidence)
     {
         this.function = function;
         this.inputs = inputs;
         this.mask = mask;
+        this.sampleWeight = sampleWeight;
+        this.confidence = confidence;
     }
 
     public AggregationFunction getFunction()
@@ -63,5 +58,15 @@ public class AggregationFunctionDefinition
     public Optional<Input> getMask()
     {
         return mask;
+    }
+
+    public Optional<Input> getSampleWeight()
+    {
+        return sampleWeight;
+    }
+
+    public double getConfidence()
+    {
+        return confidence;
     }
 }

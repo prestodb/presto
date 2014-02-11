@@ -67,7 +67,7 @@ public class TestDatabaseShardManager
             throws Exception
     {
         long tableId = 1;
-        TableHandle tableHandle = new NativeTableHandle("demo", "test", tableId);
+        TableHandle tableHandle = new NativeTableHandle("demo", "test", tableId, null);
         UUID shardId1 = UUID.randomUUID();
         UUID shardId2 = UUID.randomUUID();
 

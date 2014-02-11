@@ -19,6 +19,7 @@ import com.facebook.presto.operator.TopNOperator.TopNOperatorFactory;
 import com.facebook.presto.tuple.FieldOrderedTupleComparator;
 import com.facebook.presto.tuple.TupleInfo.Type;
 import com.facebook.presto.util.LocalQueryRunner;
+import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Ordering;
 
@@ -47,6 +48,7 @@ public class Top100Benchmark
                 100,
                 ImmutableList.of(singleColumn(Type.DOUBLE, 0)),
                 Ordering.from(new FieldOrderedTupleComparator(ImmutableList.of(0), ImmutableList.of(SortOrder.DESC_NULLS_LAST))),
+                Optional.<Integer>absent(),
                 false);
         return ImmutableList.of(tableScanOperator, topNOperator);
     }

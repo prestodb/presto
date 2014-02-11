@@ -22,6 +22,7 @@ import com.facebook.presto.spi.TupleDomain;
 import com.facebook.presto.split.SplitManager;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.planner.plan.DistinctLimitNode;
+import com.facebook.presto.sql.planner.plan.MaterializeSampleNode;
 import com.facebook.presto.sql.planner.plan.ExchangeNode;
 import com.facebook.presto.sql.planner.plan.FilterNode;
 import com.facebook.presto.sql.planner.plan.JoinNode;
@@ -188,6 +189,12 @@ public class DistributedExecutionPlanner
 
         @Override
         public NodeSplits visitAggregation(AggregationNode node, Predicate<Partition> materializedViewPartitionPredicate)
+        {
+            return node.getSource().accept(this, materializedViewPartitionPredicate);
+        }
+
+        @Override
+        public NodeSplits visitMaterializeSample(MaterializeSampleNode node, Predicate<Partition> materializedViewPartitionPredicate)
         {
             return node.getSource().accept(this, materializedViewPartitionPredicate);
         }

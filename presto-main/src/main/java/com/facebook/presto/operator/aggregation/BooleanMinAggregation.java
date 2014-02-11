@@ -22,6 +22,7 @@ import com.google.common.base.Optional;
 
 import static com.facebook.presto.tuple.TupleInfo.SINGLE_BOOLEAN;
 import static com.facebook.presto.tuple.TupleInfo.Type.BOOLEAN;
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 
 public class BooleanMinAggregation
@@ -35,9 +36,10 @@ public class BooleanMinAggregation
     }
 
     @Override
-    protected GroupedAccumulator createGroupedAccumulator(Optional<Integer> maskChannel, int valueChannel)
+    protected GroupedAccumulator createGroupedAccumulator(Optional<Integer> maskChannel, Optional<Integer> sampleWeightChannel, double confidence, int valueChannel)
     {
         // Min/max are not effected by distinct, so ignore it.
+        checkArgument(confidence == 1.0, "min does not support approximate queries");
         return new BooleanMinGroupedAccumulator(valueChannel);
     }
 
@@ -54,7 +56,7 @@ public class BooleanMinAggregation
         public BooleanMinGroupedAccumulator(int valueChannel)
         {
             // Min/max are not effected by distinct, so ignore it.
-            super(valueChannel, SINGLE_BOOLEAN, SINGLE_BOOLEAN, Optional.<Integer>absent());
+            super(valueChannel, SINGLE_BOOLEAN, SINGLE_BOOLEAN, Optional.<Integer>absent(), Optional.<Integer>absent());
             this.minValues = new ByteBigArray();
         }
 
@@ -65,7 +67,7 @@ public class BooleanMinAggregation
         }
 
         @Override
-        protected void processInput(GroupByIdBlock groupIdsBlock, Block valuesBlock, Optional<Block> maskBlock)
+        protected void processInput(GroupByIdBlock groupIdsBlock, Block valuesBlock, Optional<Block> maskBlock, Optional<Block> sampleWeightBlock)
         {
             minValues.ensureCapacity(groupIdsBlock.getGroupCount());
 
@@ -107,9 +109,10 @@ public class BooleanMinAggregation
     }
 
     @Override
-    protected Accumulator createAccumulator(Optional<Integer> maskChannel, int valueChannel)
+    protected Accumulator createAccumulator(Optional<Integer> maskChannel, Optional<Integer> sampleWeightChannel, double confidence, int valueChannel)
     {
         // Min/max are not effected by distinct, so ignore it.
+        checkArgument(confidence == 1.0, "min does not support approximate queries");
         return new BooleanMinAccumulator(valueChannel);
     }
 
@@ -122,11 +125,11 @@ public class BooleanMinAggregation
         public BooleanMinAccumulator(int valueChannel)
         {
             // Min/max are not effected by distinct, so ignore it.
-            super(valueChannel, SINGLE_BOOLEAN, SINGLE_BOOLEAN, Optional.<Integer>absent());
+            super(valueChannel, SINGLE_BOOLEAN, SINGLE_BOOLEAN, Optional.<Integer>absent(), Optional.<Integer>absent());
         }
 
         @Override
-        protected void processInput(Block block, Optional<Block> maskBlock)
+        protected void processInput(Block block, Optional<Block> maskBlock, Optional<Block> sampleWeightBlock)
         {
             BlockCursor values = block.cursor();
 

@@ -164,6 +164,12 @@ public class InformationSchemaMetadata
     }
 
     @Override
+    public ColumnHandle getSampleWeightColumnHandle(TableHandle tableHandle)
+    {
+        return null;
+    }
+
+    @Override
     public ColumnMetadata getColumnMetadata(TableHandle tableHandle, ColumnHandle columnHandle)
     {
         InformationSchemaTableHandle informationSchemaTableHandle = checkTableHandle(tableHandle);

@@ -82,11 +82,13 @@ queryExpr returns [Query value]
       queryBody
       orderClause?
       limitClause?
+      approximateClause?
         { $value = new Query(
             Optional.fromNullable($withClause.value),
             $queryBody.value,
             Objects.firstNonNull($orderClause.value, ImmutableList.<SortItem>of()),
-            Optional.fromNullable($limitClause.value));
+            Optional.fromNullable($limitClause.value),
+            Optional.fromNullable($approximateClause.value));
         }
     ;
 
@@ -136,12 +138,18 @@ restrictedSelectStmt returns [Query value]
                 ImmutableList.<SortItem>of(),
                 Optional.<String>absent()),
             ImmutableList.<SortItem>of(),
-            Optional.<String>absent());
+            Optional.<String>absent(),
+            Optional.<Approximate>absent());
         }
     ;
 
 withClause returns [With value]
     : ^(WITH recursive withList) { $value = new With($recursive.value, $withList.value); }
+    ;
+
+approximateClause returns [Approximate value]
+    : ^(APPROXIMATE decimal) { $value = new Approximate($decimal.value); }
+    | ^(APPROXIMATE integer) { $value = new Approximate($integer.value); }
     ;
 
 recursive returns [boolean value]

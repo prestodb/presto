@@ -78,9 +78,9 @@ public class MetadataManager
     }
 
     @Override
-    public FunctionInfo getFunction(QualifiedName name, List<Type> parameterTypes)
+    public FunctionInfo getFunction(QualifiedName name, List<Type> parameterTypes, boolean approximate)
     {
-        return functions.get(name, parameterTypes);
+        return functions.get(name, parameterTypes, approximate);
     }
 
     @Override
@@ -177,6 +177,21 @@ public class MetadataManager
         checkColumnName(columnName);
 
         return Optional.fromNullable(lookupConnectorFor(tableHandle).getMetadata().getColumnHandle(tableHandle, columnName));
+    }
+
+    @Override
+    public Optional<ColumnHandle> getSampleWeightColumnHandle(TableHandle tableHandle)
+    {
+        checkNotNull(tableHandle, "tableHandle is null");
+        return Optional.fromNullable(lookupConnectorFor(tableHandle).getMetadata().getSampleWeightColumnHandle(tableHandle));
+    }
+
+    @Override
+    public boolean canCreateSampledTables(String catalogName)
+    {
+        ConnectorMetadataEntry connectorMetadata = connectors.get(catalogName);
+        checkArgument(connectorMetadata != null, "Catalog %s does not exist", catalogName);
+        return connectorMetadata.getMetadata().canCreateSampledTables();
     }
 
     @Override

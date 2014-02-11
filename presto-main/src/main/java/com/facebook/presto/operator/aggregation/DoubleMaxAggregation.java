@@ -23,6 +23,7 @@ import com.google.common.base.Optional;
 
 import static com.facebook.presto.tuple.TupleInfo.SINGLE_DOUBLE;
 import static com.facebook.presto.tuple.TupleInfo.Type.DOUBLE;
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 
 public class DoubleMaxAggregation
@@ -36,9 +37,10 @@ public class DoubleMaxAggregation
     }
 
     @Override
-    protected GroupedAccumulator createGroupedAccumulator(Optional<Integer> maskChannel, int valueChannel)
+    protected GroupedAccumulator createGroupedAccumulator(Optional<Integer> maskChannel, Optional<Integer> sampleWeightChannel, double confidence, int valueChannel)
     {
         // Min/max are not effected by distinct, so ignore it.
+        checkArgument(confidence == 1.0, "max does not support approximate queries");
         return new DoubleMaxGroupedAccumulator(valueChannel);
     }
 
@@ -51,7 +53,7 @@ public class DoubleMaxAggregation
         public DoubleMaxGroupedAccumulator(int valueChannel)
         {
             // Min/max are not effected by distinct, so ignore it.
-            super(valueChannel, SINGLE_DOUBLE, SINGLE_DOUBLE, Optional.<Integer>absent());
+            super(valueChannel, SINGLE_DOUBLE, SINGLE_DOUBLE, Optional.<Integer>absent(), Optional.<Integer>absent());
 
             this.notNull = new BooleanBigArray();
 
@@ -65,7 +67,7 @@ public class DoubleMaxAggregation
         }
 
         @Override
-        protected void processInput(GroupByIdBlock groupIdsBlock, Block valuesBlock, Optional<Block> maskBlock)
+        protected void processInput(GroupByIdBlock groupIdsBlock, Block valuesBlock, Optional<Block> maskBlock, Optional<Block> sampleWeightBlock)
         {
             notNull.ensureCapacity(groupIdsBlock.getGroupCount());
             maxValues.ensureCapacity(groupIdsBlock.getGroupCount(), Double.NEGATIVE_INFINITY);
@@ -102,9 +104,10 @@ public class DoubleMaxAggregation
     }
 
     @Override
-    protected Accumulator createAccumulator(Optional<Integer> maskChannel, int valueChannel)
+    protected Accumulator createAccumulator(Optional<Integer> maskChannel, Optional<Integer> sampleWeightChannel, double confidence, int valueChannel)
     {
         // Min/max are not effected by distinct, so ignore it.
+        checkArgument(confidence == 1.0, "max does not support approximate queries");
         return new DoubleMaxAccumulator(valueChannel);
     }
 
@@ -117,11 +120,11 @@ public class DoubleMaxAggregation
         public DoubleMaxAccumulator(int valueChannel)
         {
             // Min/max are not effected by distinct, so ignore it.
-            super(valueChannel, SINGLE_DOUBLE, SINGLE_DOUBLE, Optional.<Integer>absent());
+            super(valueChannel, SINGLE_DOUBLE, SINGLE_DOUBLE, Optional.<Integer>absent(), Optional.<Integer>absent());
         }
 
         @Override
-        protected void processInput(Block block, Optional<Block> maskBlock)
+        protected void processInput(Block block, Optional<Block> maskBlock, Optional<Block> sampleWeightBlock)
         {
             BlockCursor values = block.cursor();
 

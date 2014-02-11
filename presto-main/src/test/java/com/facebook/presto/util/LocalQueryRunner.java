@@ -62,6 +62,7 @@ import com.facebook.presto.split.DataStreamManager;
 import com.facebook.presto.split.SplitManager;
 import com.facebook.presto.sql.analyzer.Analysis;
 import com.facebook.presto.sql.analyzer.Analyzer;
+import com.facebook.presto.sql.analyzer.AnalyzerConfig;
 import com.facebook.presto.sql.analyzer.QueryExplainer;
 import com.facebook.presto.sql.analyzer.Session;
 import com.facebook.presto.sql.gen.ExpressionCompiler;
@@ -280,10 +281,11 @@ public class LocalQueryRunner
         }
 
         PlanNodeIdAllocator idAllocator = new PlanNodeIdAllocator();
-        PlanOptimizersFactory planOptimizersFactory = new PlanOptimizersFactory(metadata, splitManager);
+        AnalyzerConfig analyzerConfig = new AnalyzerConfig().setApproximateQueriesEnabled(true);
+        PlanOptimizersFactory planOptimizersFactory = new PlanOptimizersFactory(metadata, splitManager, analyzerConfig);
 
-        QueryExplainer queryExplainer = new QueryExplainer(session, planOptimizersFactory.get(), metadata, new MockPeriodicImportManager(), new MockStorageManager());
-        Analyzer analyzer = new Analyzer(session, metadata, Optional.of(queryExplainer));
+        QueryExplainer queryExplainer = new QueryExplainer(session, planOptimizersFactory.get(), metadata, new MockPeriodicImportManager(), new MockStorageManager(), analyzerConfig.isApproximateQueriesEnabled());
+        Analyzer analyzer = new Analyzer(session, metadata, Optional.of(queryExplainer), analyzerConfig.isApproximateQueriesEnabled());
 
         Analysis analysis = analyzer.analyze(statement);
 

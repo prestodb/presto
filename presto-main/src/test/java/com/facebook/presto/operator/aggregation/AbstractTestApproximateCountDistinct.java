@@ -119,19 +119,19 @@ public abstract class AbstractTestApproximateCountDistinct
 
     private long estimateGroupByCount(List<Object> values)
     {
-        Object result = AggregationTestUtils.groupedAggregation(getAggregationFunction(), createPage(values));
+        Object result = AggregationTestUtils.groupedAggregation(getAggregationFunction(), 1.0, createPage(values));
         return (long) result;
     }
 
     private long estimateCount(List<Object> values)
     {
-        Object result = AggregationTestUtils.aggregation(getAggregationFunction(), createPage(values));
+        Object result = AggregationTestUtils.aggregation(getAggregationFunction(), 1.0, createPage(values));
         return (long) result;
     }
 
     private long estimateCountPartial(List<Object> values)
     {
-        Object result = AggregationTestUtils.partialAggregation(getAggregationFunction(), createPage(values));
+        Object result = AggregationTestUtils.partialAggregation(getAggregationFunction(), 1.0, createPage(values));
         return (long) result;
     }
 
