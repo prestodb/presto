@@ -35,7 +35,6 @@ import com.facebook.presto.split.SplitManager;
 import com.facebook.presto.sql.analyzer.Type;
 import com.google.common.base.Joiner;
 import com.google.common.base.Optional;
-import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableBiMap;
 import com.google.common.collect.ImmutableList;
 
@@ -239,20 +238,23 @@ public class InformationSchemaDataStreamProvider
         return table.build();
     }
 
-    private QualifiedTableName extractQualifiedTableName(String catalogName, Map<String, Object> filters)
+    private static QualifiedTableName extractQualifiedTableName(String catalogName, Map<String, Object> filters)
     {
         Optional<String> schemaName = getFilterColumn(filters, "table_schema");
-        Preconditions.checkArgument(schemaName.isPresent(), "filter is required for column: %s.%s", InformationSchemaMetadata.TABLE_INTERNAL_PARTITIONS, "table_schema");
+        checkArgument(schemaName.isPresent(), "filter is required for column: %s.%s", InformationSchemaMetadata.TABLE_INTERNAL_PARTITIONS, "table_schema");
         Optional<String> tableName = getFilterColumn(filters, "table_name");
-        Preconditions.checkArgument(tableName.isPresent(), "filter is required for column: %s.%s", InformationSchemaMetadata.TABLE_INTERNAL_PARTITIONS, "table_name");
+        checkArgument(tableName.isPresent(), "filter is required for column: %s.%s", InformationSchemaMetadata.TABLE_INTERNAL_PARTITIONS, "table_name");
         return new QualifiedTableName(catalogName, schemaName.get(), tableName.get());
     }
 
-    private QualifiedTablePrefix extractQualifiedTablePrefix(String catalogName, Map<String, Object> filters)
+    private static QualifiedTablePrefix extractQualifiedTablePrefix(String catalogName, Map<String, Object> filters)
     {
-        return new QualifiedTablePrefix(catalogName,
-                getFilterColumn(filters, "table_schema"),
-                getFilterColumn(filters, "table_name"));
+        Optional<String> schemaName = getFilterColumn(filters, "table_schema");
+        Optional<String> tableName = getFilterColumn(filters, "table_name");
+        if (!schemaName.isPresent()) {
+            return new QualifiedTablePrefix(catalogName, Optional.<String>absent(), Optional.<String>absent());
+        }
+        return new QualifiedTablePrefix(catalogName, schemaName, tableName);
     }
 
     private static Optional<String> getFilterColumn(Map<String, Object> filters, String columnName)
