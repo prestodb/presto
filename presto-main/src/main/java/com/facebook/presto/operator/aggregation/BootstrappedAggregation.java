@@ -29,9 +29,8 @@ import io.airlift.slice.BasicSliceInput;
 import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.SliceInput;
 import io.airlift.slice.SliceOutput;
-import org.apache.commons.math.random.RandomData;
-import org.apache.commons.math.random.RandomDataImpl;
-import org.apache.commons.math.stat.descriptive.DescriptiveStatistics;
+import org.apache.commons.math3.random.RandomDataGenerator;
+import org.apache.commons.math3.stat.descriptive.DescriptiveStatistics;
 
 import java.util.Arrays;
 import java.util.List;
@@ -144,15 +143,13 @@ public class BootstrappedAggregation
     {
         protected final int sampleWeightChannel;
         protected final double confidence;
-        private final RandomData rand;
+        private final RandomDataGenerator rand = new RandomDataGenerator();
 
         public AbstractBootstrappedAccumulator(int sampleWeightChannel, double confidence, long seed)
         {
             this.sampleWeightChannel = sampleWeightChannel;
             this.confidence = confidence;
-            RandomDataImpl rand = new RandomDataImpl();
             rand.reSeed(seed);
-            this.rand = rand;
         }
 
         protected Block resampleWeightBlock(Block block)

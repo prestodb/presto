@@ -21,6 +21,7 @@ import com.facebook.presto.tuple.TupleInfo;
 import com.google.common.base.Optional;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
+import org.apache.commons.math3.distribution.NormalDistribution;
 
 import java.util.Collections;
 import java.util.List;
@@ -94,5 +95,11 @@ public abstract class AbstractTestApproximateAggregationFunction
         List<Number> list = Lists.newArrayList(iterable);
         Collections.shuffle(list, new Random(1));
         return list;
+    }
+
+    protected static double zScore(double p)
+    {
+        NormalDistribution norm = new NormalDistribution();
+        return norm.inverseCumulativeProbability((1 + p) / 2);
     }
 }
