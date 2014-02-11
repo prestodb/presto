@@ -15,6 +15,7 @@ package com.facebook.presto.execution;
 
 import com.facebook.presto.OutputBuffers;
 import com.facebook.presto.UnpartitionedPagePartitionFunction;
+import com.facebook.presto.connector.dual.DualConnector;
 import com.facebook.presto.connector.dual.DualMetadata;
 import com.facebook.presto.connector.dual.DualSplit;
 import com.facebook.presto.execution.TestSqlTaskManager.MockLocationFactory;
@@ -69,7 +70,7 @@ import static org.testng.Assert.fail;
 public class TestSqlStageExecution
 {
     public static final Session SESSION = new Session("user", "source", "catalog", "schema", "address", "agent");
-    private final MetadataManager metadata = new MetadataManager();
+    private MetadataManager metadata;
     private final LocationFactory locationFactory = new MockLocationFactory();
     private final NodeTaskMap nodeTaskMap = new NodeTaskMap();
     private final NodeSchedulerConfig nodeSchedulerConfig = new NodeSchedulerConfig().setMaxSplitsPerNode(20);
@@ -92,7 +93,9 @@ public class TestSqlStageExecution
         nodeManager = new InMemoryNodeManager();
         nodeManager.addNode(datasourceName, nodes);
         nodeScheduler = new NodeScheduler(nodeManager, nodeSchedulerConfig, nodeTaskMap);
-        metadata.addInternalSchemaMetadata(MetadataManager.INTERNAL_CONNECTOR_ID, new DualMetadata());
+
+        metadata = new MetadataManager();
+        metadata.addInternalSchemaMetadata(DualConnector.CONNECTOR_ID, new DualMetadata());
     }
 
     @Test
@@ -238,7 +241,7 @@ public class TestSqlStageExecution
         SqlStageExecution stageExecution = null;
         try {
             MetadataManager metadata = new MetadataManager();
-            metadata.addInternalSchemaMetadata(MetadataManager.INTERNAL_CONNECTOR_ID, new DualMetadata());
+            metadata.addInternalSchemaMetadata(DualConnector.CONNECTOR_ID, new DualMetadata());
 
             StageExecutionPlan joinPlan = createJoinPlan("A", metadata);
 

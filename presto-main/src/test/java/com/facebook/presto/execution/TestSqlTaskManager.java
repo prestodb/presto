@@ -16,6 +16,7 @@ package com.facebook.presto.execution;
 import com.facebook.presto.ScheduledSplit;
 import com.facebook.presto.TaskSource;
 import com.facebook.presto.UnpartitionedPagePartitionFunction;
+import com.facebook.presto.connector.dual.DualConnector;
 import com.facebook.presto.connector.dual.DualDataStreamProvider;
 import com.facebook.presto.connector.dual.DualMetadata;
 import com.facebook.presto.connector.dual.DualSplitManager;
@@ -102,7 +103,7 @@ public class TestSqlTaskManager
         symbol = new Symbol(DualMetadata.COLUMN_NAME);
 
         MetadataManager metadata = new MetadataManager();
-        metadata.addInternalSchemaMetadata(MetadataManager.INTERNAL_CONNECTOR_ID, dualMetadata);
+        metadata.addInternalSchemaMetadata(DualConnector.CONNECTOR_ID, dualMetadata);
 
         DualSplitManager dualSplitManager = new DualSplitManager(new InMemoryNodeManager());
         PartitionResult partitionResult = dualSplitManager.getPartitions(tableHandle, TupleDomain.<ColumnHandle>all());

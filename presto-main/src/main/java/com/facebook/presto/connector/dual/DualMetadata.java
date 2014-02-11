@@ -40,7 +40,7 @@ public class DualMetadata
 
     static {
         DUAL_METADATA_MANAGER = new MetadataManager();
-        DUAL_METADATA_MANAGER.addInternalSchemaMetadata(MetadataManager.INTERNAL_CONNECTOR_ID, new DualMetadata());
+        DUAL_METADATA_MANAGER.addInternalSchemaMetadata(DualConnector.CONNECTOR_ID, new DualMetadata());
     }
 
     public static final String NAME = "dual";

@@ -13,6 +13,7 @@
  */
 package com.facebook.presto;
 
+import com.facebook.presto.connector.dual.DualConnector;
 import com.facebook.presto.connector.dual.DualMetadata;
 import com.facebook.presto.connector.dual.DualSplitManager;
 import com.facebook.presto.metadata.FunctionInfo;
@@ -3318,7 +3319,7 @@ public abstract class AbstractTestQueries
     private QueryExplainer getQueryExplainer()
     {
         MetadataManager metadata = new MetadataManager();
-        metadata.addInternalSchemaMetadata(MetadataManager.INTERNAL_CONNECTOR_ID, new DualMetadata());
+        metadata.addInternalSchemaMetadata(DualConnector.CONNECTOR_ID, new DualMetadata());
         SplitManager splitManager = new SplitManager(ImmutableSet.<ConnectorSplitManager>of(new DualSplitManager(new InMemoryNodeManager())));
         AnalyzerConfig analyzerConfig = new AnalyzerConfig().setExperimentalSyntaxEnabled(true);
         List<PlanOptimizer> optimizers = new PlanOptimizersFactory(metadata, splitManager, analyzerConfig).get();
