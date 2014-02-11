@@ -15,7 +15,7 @@ package com.facebook.presto.operator.aggregation;
 
 import com.facebook.presto.block.Block;
 import com.facebook.presto.block.BlockBuilder;
-import org.apache.commons.math.stat.descriptive.moment.StandardDeviation;
+import org.apache.commons.math3.stat.descriptive.moment.StandardDeviation;
 
 import static com.facebook.presto.operator.aggregation.VarianceAggregations.DOUBLE_STDDEV_POP_INSTANCE;
 import static com.facebook.presto.tuple.TupleInfo.SINGLE_DOUBLE;

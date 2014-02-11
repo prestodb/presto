@@ -426,9 +426,9 @@
             </dependency>
 
             <dependency>
-                <groupId>commons-math</groupId>
-                <artifactId>commons-math</artifactId>
-                <version>1.2</version>
+                <groupId>org.apache.commons</groupId>
+                <artifactId>commons-math3</artifactId>
+                <version>3.2</version>
             </dependency>
 
             <dependency>

@@ -57,7 +57,7 @@ import io.airlift.log.Logger;
 import io.airlift.log.Logging;
 import io.airlift.tpch.TpchTable;
 import io.airlift.units.Duration;
-import org.apache.commons.math.stat.descriptive.DescriptiveStatistics;
+import org.apache.commons.math3.stat.descriptive.DescriptiveStatistics;
 import org.intellij.lang.annotations.Language;
 import org.joda.time.DateTime;
 import org.joda.time.DateTimeZone;

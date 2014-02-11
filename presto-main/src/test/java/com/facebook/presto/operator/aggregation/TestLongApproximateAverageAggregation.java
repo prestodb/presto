@@ -71,7 +71,7 @@ public class TestLongApproximateAverageAggregation
         StringBuilder sb = new StringBuilder();
         sb.append(mean);
         sb.append(" +/- ");
-        sb.append((2.575829311439 * Math.sqrt(variance / length)));
+        sb.append(zScore(getConfidence()) * Math.sqrt(variance / length));
 
         return sb.toString();
     }

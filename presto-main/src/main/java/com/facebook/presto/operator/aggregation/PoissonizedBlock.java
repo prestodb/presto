@@ -22,8 +22,7 @@ import com.facebook.presto.tuple.Tuple;
 import com.facebook.presto.tuple.TupleInfo;
 import io.airlift.slice.Slice;
 import io.airlift.units.DataSize;
-import org.apache.commons.math.random.RandomData;
-import org.apache.commons.math.random.RandomDataImpl;
+import org.apache.commons.math3.random.RandomDataGenerator;
 
 import static com.facebook.presto.tuple.TupleInfo.SINGLE_LONG;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -86,7 +85,7 @@ class PoissonizedBlock
     public static class PoissonizedBlockCursor
             implements BlockCursor
     {
-        private final RandomData rand;
+        private final RandomDataGenerator rand = new RandomDataGenerator();
         private final BlockCursor delegate;
         private long currentValue;
 
@@ -94,9 +93,7 @@ class PoissonizedBlock
         {
             checkArgument(delegate.getTupleInfo().equals(SINGLE_LONG), "delegate must be a cursor of longs");
             this.delegate = delegate;
-            RandomDataImpl rand = new RandomDataImpl();
             rand.reSeed(seed);
-            this.rand = rand;
         }
 
         @Override

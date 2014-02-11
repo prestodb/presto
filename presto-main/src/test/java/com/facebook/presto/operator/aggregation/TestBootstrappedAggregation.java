@@ -16,8 +16,7 @@ package com.facebook.presto.operator.aggregation;
 import com.facebook.presto.operator.PageBuilder;
 import com.facebook.presto.tuple.TupleInfo;
 import com.google.common.collect.ImmutableList;
-import org.apache.commons.math.distribution.BinomialDistribution;
-import org.apache.commons.math.distribution.BinomialDistributionImpl;
+import org.apache.commons.math3.distribution.BinomialDistribution;
 import org.testng.annotations.Test;
 
 import java.util.List;
@@ -55,7 +54,7 @@ public class TestBootstrappedAggregation
             throws Exception
     {
         int trials = 20;
-        BinomialDistribution binomial = new BinomialDistributionImpl(trials, 0.5);
+        BinomialDistribution binomial = new BinomialDistribution(trials, 0.5);
 
         int successes = 0;
         Random rand = new Random(0);
