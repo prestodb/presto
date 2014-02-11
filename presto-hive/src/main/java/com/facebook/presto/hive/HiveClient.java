@@ -96,6 +96,7 @@ import static com.facebook.presto.hive.HiveBucketing.HiveBucket;
 import static com.facebook.presto.hive.HiveBucketing.getHiveBucket;
 import static com.facebook.presto.hive.HiveColumnHandle.columnMetadataGetter;
 import static com.facebook.presto.hive.HiveColumnHandle.hiveColumnHandle;
+import static com.facebook.presto.hive.HiveColumnHandle.SAMPLE_WEIGHT_COLUMN_NAME;
 import static com.facebook.presto.hive.HivePartition.UNPARTITIONED_ID;
 import static com.facebook.presto.hive.HiveType.columnTypeToHiveType;
 import static com.facebook.presto.hive.HiveType.getHiveType;
@@ -238,7 +239,7 @@ public class HiveClient
     {
         try {
             Table table = metastore.getTable(tableName.getSchemaName(), tableName.getTableName());
-            List<ColumnMetadata> columns = ImmutableList.copyOf(transform(getColumnHandles(table), columnMetadataGetter()));
+            List<ColumnMetadata> columns = ImmutableList.copyOf(transform(getColumnHandles(table, false), columnMetadataGetter()));
             return new ConnectorTableMetadata(tableName, columns, table.getOwner());
         }
         catch (NoSuchObjectException e) {
@@ -282,13 +283,25 @@ public class HiveClient
     @Override
     public ColumnHandle getSampleWeightColumnHandle(TableHandle tableHandle)
     {
-        return null;
+        SchemaTableName tableName = getTableName(tableHandle);
+        try {
+            Table table = metastore.getTable(tableName.getSchemaName(), tableName.getTableName());
+            for (HiveColumnHandle columnHandle : getColumnHandles(table, true)) {
+                if (columnHandle.getName().equals(HiveColumnHandle.SAMPLE_WEIGHT_COLUMN_NAME)) {
+                    return columnHandle;
+                }
+            }
+            return null;
+        }
+        catch (NoSuchObjectException e) {
+            throw new TableNotFoundException(tableName);
+        }
     }
 
     @Override
     public boolean canCreateSampledTables()
     {
-        return false;
+        return true;
     }
 
     @Override
@@ -298,7 +311,7 @@ public class HiveClient
         try {
             Table table = metastore.getTable(tableName.getSchemaName(), tableName.getTableName());
             ImmutableMap.Builder<String, ColumnHandle> columnHandles = ImmutableMap.builder();
-            for (HiveColumnHandle columnHandle : getColumnHandles(table)) {
+            for (HiveColumnHandle columnHandle : getColumnHandles(table, false)) {
                 columnHandles.put(columnHandle.getName(), columnHandle);
             }
             return columnHandles.build();
@@ -308,7 +321,7 @@ public class HiveClient
         }
     }
 
-    private List<HiveColumnHandle> getColumnHandles(Table table)
+    private List<HiveColumnHandle> getColumnHandles(Table table, boolean includeSampleWeight)
     {
         try {
             ImmutableList.Builder<HiveColumnHandle> columns = ImmutableList.builder();
@@ -318,7 +331,7 @@ public class HiveClient
             for (StructField field : getTableStructFields(table)) {
                 // ignore unsupported types rather than failing
                 HiveType hiveType = getHiveType(field.getFieldObjectInspector());
-                if (hiveType != null) {
+                if (hiveType != null && (includeSampleWeight || !field.getFieldName().equals(SAMPLE_WEIGHT_COLUMN_NAME))) {
                     columns.add(new HiveColumnHandle(connectorId, field.getFieldName(), hiveColumnIndex, hiveType, hiveColumnIndex, false));
                 }
                 hiveColumnIndex++;
@@ -397,6 +410,10 @@ public class HiveClient
             columnNames.add(column.getName());
             columnTypes.add(column.getType());
         }
+        if (tableMetadata.isSampled()) {
+            columnNames.add(SAMPLE_WEIGHT_COLUMN_NAME);
+            columnTypes.add(ColumnType.LONG);
+        }
 
         // get the root directory for the database
         SchemaTableName table = tableMetadata.getTable();
@@ -465,11 +482,18 @@ public class HiveClient
                 .transform(hiveTypeNameGetter())
                 .toList();
 
+        boolean sampled = false;
         ImmutableList.Builder<FieldSchema> columns = ImmutableList.builder();
         for (int i = 0; i < handle.getColumnNames().size(); i++) {
             String name = handle.getColumnNames().get(i);
             String type = types.get(i);
-            columns.add(new FieldSchema(name, type, null));
+            if (name.equals(SAMPLE_WEIGHT_COLUMN_NAME)) {
+                columns.add(new FieldSchema(name, type, "Presto sample weight column"));
+                sampled = true;
+            }
+            else {
+                columns.add(new FieldSchema(name, type, null));
+            }
         }
 
         SerDeInfo serdeInfo = new SerDeInfo();
@@ -488,7 +512,11 @@ public class HiveClient
         table.setTableName(handle.getTableName());
         table.setOwner(handle.getTableOwner());
         table.setTableType(TableType.MANAGED_TABLE.toString());
-        table.setParameters(ImmutableMap.of("comment", "Created by Presto"));
+        String tableComment = "Created by Presto";
+        if (sampled) {
+            tableComment = "Sampled table created by Presto. Only query this table from Hive if you understand how Presto implements sampling.";
+        }
+        table.setParameters(ImmutableMap.of("comment", tableComment));
         table.setSd(sd);
 
         metastore.createTable(table);

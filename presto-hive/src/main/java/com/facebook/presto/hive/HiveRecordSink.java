@@ -52,7 +52,7 @@ import java.util.Properties;
 
 import static com.facebook.presto.hive.HiveType.columnTypeToHiveType;
 import static com.facebook.presto.hive.HiveType.hiveTypeNameGetter;
-import static com.google.common.base.Preconditions.checkArgument;
+import static com.facebook.presto.hive.HiveColumnHandle.SAMPLE_WEIGHT_COLUMN_NAME;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.Iterables.transform;
 import static java.nio.charset.StandardCharsets.UTF_8;
@@ -75,12 +75,15 @@ public class HiveRecordSink
     private final SettableStructObjectInspector tableInspector;
     private final List<StructField> structFields;
     private final Object row;
+    private final int sampleWeightField;
 
     private int field = -1;
 
     public HiveRecordSink(HiveOutputTableHandle handle, Path target, JobConf conf)
     {
         fieldCount = handle.getColumnNames().size();
+
+        sampleWeightField = handle.getColumnNames().indexOf(SAMPLE_WEIGHT_COLUMN_NAME);
 
         Iterable<HiveType> hiveTypes = transform(handle.getColumnTypes(), columnTypeToHiveType());
         Iterable<String> hiveTypeNames = transform(hiveTypes, hiveTypeNameGetter());
@@ -100,9 +103,14 @@ public class HiveRecordSink
     @Override
     public void beginRecord(long sampleWeight)
     {
-        checkArgument(sampleWeight == 1, "HiveRecordSink does not support storing sampled data");
         checkState(field == -1, "already in record");
+        if (sampleWeightField >= 0) {
+            tableInspector.setStructFieldData(row, structFields.get(sampleWeightField), sampleWeight);
+        }
         field = 0;
+        if (sampleWeightField == 0) {
+            field++;
+        }
     }
 
     @Override
@@ -172,6 +180,9 @@ public class HiveRecordSink
 
         tableInspector.setStructFieldData(row, structFields.get(field), value);
         field++;
+        if (field == sampleWeightField) {
+            field++;
+        }
     }
 
     @SuppressWarnings("deprecation")
