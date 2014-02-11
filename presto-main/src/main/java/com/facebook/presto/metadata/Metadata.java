@@ -16,7 +16,6 @@ package com.facebook.presto.metadata;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.OutputTableHandle;
-import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.sql.analyzer.Type;
 import com.facebook.presto.sql.tree.QualifiedName;
@@ -131,20 +130,6 @@ public interface Metadata
      * Commit a table creation with data after the data is written.
      */
     void commitCreateTable(OutputTableHandle tableHandle, Collection<String> fragments);
-
-    /**
-     * HACK: This is here only for table alias support and should be remove when aliases are based on serialized table handles.
-     */
-    @NotNull
-    @Deprecated
-    String getConnectorId(TableHandle tableHandle);
-
-    /**
-     * HACK: This is here only for table alias support and should be remove when aliases are based on serialized table handles.
-     */
-    @NotNull
-    @Deprecated
-    Optional<TableHandle> getTableHandle(String connectorId, SchemaTableName tableName);
 
     /**
      * Gets all the loaded catalogs

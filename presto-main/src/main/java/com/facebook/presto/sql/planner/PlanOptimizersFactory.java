@@ -13,15 +13,12 @@
  */
 package com.facebook.presto.sql.planner;
 
-import com.facebook.presto.metadata.AliasDao;
 import com.facebook.presto.metadata.Metadata;
-import com.facebook.presto.metadata.ShardManager;
-import com.facebook.presto.spi.NodeManager;
 import com.facebook.presto.split.SplitManager;
-import com.facebook.presto.sql.planner.optimizations.MaterializeSamplePullUp;
 import com.facebook.presto.sql.analyzer.AnalyzerConfig;
 import com.facebook.presto.sql.planner.optimizations.ImplementSampleAsFilter;
 import com.facebook.presto.sql.planner.optimizations.LimitPushDown;
+import com.facebook.presto.sql.planner.optimizations.MaterializeSamplePullUp;
 import com.facebook.presto.sql.planner.optimizations.MergeProjections;
 import com.facebook.presto.sql.planner.optimizations.PlanOptimizer;
 import com.facebook.presto.sql.planner.optimizations.PredicatePushDown;
@@ -29,7 +26,6 @@ import com.facebook.presto.sql.planner.optimizations.PruneRedundantProjections;
 import com.facebook.presto.sql.planner.optimizations.PruneUnreferencedOutputs;
 import com.facebook.presto.sql.planner.optimizations.SetFlatteningOptimizer;
 import com.facebook.presto.sql.planner.optimizations.SimplifyExpressions;
-import com.facebook.presto.sql.planner.optimizations.TableAliasSelector;
 import com.facebook.presto.sql.planner.optimizations.UnaliasSymbolReferences;
 import com.google.common.collect.ImmutableList;
 import com.google.inject.Inject;
@@ -38,20 +34,14 @@ import javax.inject.Provider;
 
 import java.util.List;
 
-import static com.google.common.base.Preconditions.checkNotNull;
-
 public class PlanOptimizersFactory
         implements Provider<List<PlanOptimizer>>
 {
-    private final Metadata metadata;
-
-    private List<PlanOptimizer> optimizers;
+    private final List<PlanOptimizer> optimizers;
 
     @Inject
     public PlanOptimizersFactory(Metadata metadata, SplitManager splitManager, AnalyzerConfig analyzerConfig)
     {
-        this.metadata = checkNotNull(metadata, "metadata is null");
-
         ImmutableList.Builder<PlanOptimizer> builder = ImmutableList.builder();
 
         builder.add(new ImplementSampleAsFilter(),
@@ -70,20 +60,6 @@ public class PlanOptimizersFactory
                 new PruneRedundantProjections()); // This MUST run after PruneUnreferencedOutputs as it may introduce new redundant projections
         // TODO: consider adding a formal final plan sanitization optimizer that prepares the plan for transmission/execution/logging
         // TODO: figure out how to improve the set flattening optimizer so that it can run at any point
-
-        this.optimizers = builder.build();
-    }
-
-    @Inject(optional = true)
-    public synchronized void injectAdditionalDependencies(AliasDao aliasDao, NodeManager nodeManager, ShardManager shardManager)
-    {
-        checkNotNull(aliasDao, "aliasDao is null");
-        checkNotNull(nodeManager, "nodeManager is null");
-        checkNotNull(shardManager, "shardManager is null");
-
-        ImmutableList.Builder<PlanOptimizer> builder = ImmutableList.builder();
-        builder.addAll(optimizers);
-        builder.add(new TableAliasSelector(metadata, aliasDao, nodeManager, shardManager));
 
         this.optimizers = builder.build();
     }

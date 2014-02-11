@@ -70,8 +70,6 @@ tokens {
     USE_CATALOG;
     USE_SCHEMA;
     CREATE_TABLE;
-    CREATE_ALIAS;
-    DROP_ALIAS;
     DROP_TABLE;
     TABLE_ELEMENT_LIST;
     COLUMN_DEF;
@@ -156,8 +154,6 @@ statement
     | useCollectionStmt
     | createTableStmt
     | dropTableStmt
-    | createAliasStmt
-    | dropAliasStmt
     ;
 
 query
@@ -592,18 +588,6 @@ dropTableStmt
     : DROP TABLE qname -> ^(DROP_TABLE qname)
     ;
 
-createAliasStmt
-    : CREATE ALIAS qname forRemote -> ^(CREATE_ALIAS qname forRemote)
-    ;
-
-dropAliasStmt
-    : DROP ALIAS qname -> ^(DROP_ALIAS qname)
-    ;
-
-forRemote
-    : FOR qname -> ^(FOR qname)
-    ;
-
 createTableStmt
     : CREATE TABLE qname s=tableContentsSource -> ^(CREATE_TABLE qname $s)
     ;
@@ -689,7 +673,6 @@ integer
 nonReserved
     : SHOW | TABLES | COLUMNS | PARTITIONS | FUNCTIONS | SCHEMAS | CATALOGS
     | OVER | PARTITION | RANGE | ROWS | PRECEDING | FOLLOWING | CURRENT | ROW
-    | ALIAS
     | DATE | TIME | TIMESTAMP | INTERVAL
     | YEAR | MONTH | DAY | HOUR | MINUTE | SECOND
     | EXPLAIN | FORMAT | TYPE | TEXT | GRAPHVIZ | LOGICAL | DISTRIBUTED
@@ -810,7 +793,6 @@ USE: 'USE';
 PARTITIONS: 'PARTITIONS';
 FUNCTIONS: 'FUNCTIONS';
 DROP: 'DROP';
-ALIAS: 'ALIAS';
 UNION: 'UNION';
 EXCEPT: 'EXCEPT';
 INTERSECT: 'INTERSECT';
