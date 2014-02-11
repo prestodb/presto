@@ -14,7 +14,9 @@
 package com.facebook.presto.jdbc;
 
 import com.facebook.presto.server.testing.TestingPrestoServer;
+import org.testng.annotations.AfterClass;
 import org.testng.annotations.AfterMethod;
+import org.testng.annotations.BeforeClass;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
@@ -38,12 +40,24 @@ public class TestJdbcResultSet
     private Connection connection;
     private Statement statement;
 
+    @BeforeClass
+    public void setupServer()
+            throws Exception
+    {
+        server = new TestingPrestoServer();
+    }
+
+    @AfterClass
+    public void teardownServer()
+    {
+        closeQuietly(server);
+    }
+
     @SuppressWarnings("JDBCResourceOpenedButNotSafelyClosed")
     @BeforeMethod
     public void setup()
             throws Exception
     {
-        server = new TestingPrestoServer();
         connection = createConnection();
         statement = connection.createStatement();
     }
@@ -53,7 +67,6 @@ public class TestJdbcResultSet
     {
         closeQuietly(statement);
         closeQuietly(connection);
-        closeQuietly(server);
     }
 
     @Test
