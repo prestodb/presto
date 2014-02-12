@@ -213,6 +213,13 @@
             <artifactId>discovery-server</artifactId>
         </dependency>
 
+        <!-- should be scope test but is needed transitively -->
+        <dependency>
+            <groupId>commons-math</groupId>
+            <artifactId>commons-math</artifactId>
+            <scope>runtime</scope>
+        </dependency>
+
         <!-- for testing -->
         <dependency>
             <groupId>org.testng</groupId>
@@ -235,12 +242,6 @@
         <dependency>
             <groupId>io.airlift</groupId>
             <artifactId>testing</artifactId>
-            <scope>test</scope>
-        </dependency>
-
-        <dependency>
-            <groupId>commons-math</groupId>
-            <artifactId>commons-math</artifactId>
             <scope>test</scope>
         </dependency>
 
