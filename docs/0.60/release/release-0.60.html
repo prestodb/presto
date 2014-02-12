@@ -147,6 +147,12 @@ The first problem was not inspecting the queued split count of the nodes while
 scheduling the batch, and the second problem was not counting the splits
 awaiting creation in the task executor.</p>
 </li>
+<li><p class="first">JSON conversion of complex Hive types</p>
+<p>Presto converts complex Hive types (array, map, struct and union) into JSON.
+Previously, numeric keys in maps were converted to numbers, not strings,
+which is invalid as JSON only allows strings for object keys. This prevented
+the <a class="reference internal" href="../functions/json.html"><em>JSON Functions</em></a> from working.</p>
+</li>
 <li><p class="first">Hive hidden files</p>
 <p>Presto will now ignore files in Hive that start with an underscore <tt class="docutils literal"><span class="pre">_</span></tt> or
 a dot <tt class="docutils literal"><span class="pre">.</span></tt>.  This matches the behavior of Hadoop MapReduce / Hive.</p>
