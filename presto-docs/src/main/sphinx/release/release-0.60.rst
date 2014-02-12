@@ -28,6 +28,8 @@ To add the ``tpch`` catalog to your system, create the catalog property file ``e
 
     connector.name=tpch
 
+and update the ``datasource`` property in the config properties file, ``etc/config.properties``, for the workers to include ``tpch``.
+
 SPI changes
 -----------
 

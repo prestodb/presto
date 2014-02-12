@@ -80,6 +80,9 @@ public class TpchSplitManager
         TpchTableHandle tableHandle = ((TpchPartition) partition).getTable();
 
         Set<Node> nodes = nodeManager.getActiveDatasourceNodes(connectorId);
+        if (nodes.isEmpty()) {
+            throw new IllegalStateException("No TPCH nodes available: Add 'tpch' to the datasources property of each worker node");
+        }
 
         int totalParts = nodes.size() * splitsPerNode;
         int partNumber = 0;
