@@ -112,6 +112,13 @@ Bug fixes
   scheduling the batch, and the second problem was not counting the splits
   awaiting creation in the task executor.
 
+* JSON conversion of complex Hive types
+
+  Presto converts complex Hive types (array, map, struct and union) into JSON.
+  Previously, numeric keys in maps were converted to numbers, not strings,
+  which is invalid as JSON only allows strings for object keys. This prevented
+  the :doc:`/functions/json` from working.
+
 * Hive hidden files
 
   Presto will now ignore files in Hive that start with an underscore ``_`` or
