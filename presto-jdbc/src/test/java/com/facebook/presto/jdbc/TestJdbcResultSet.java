@@ -14,6 +14,7 @@
 package com.facebook.presto.jdbc;
 
 import com.facebook.presto.server.testing.TestingPrestoServer;
+import io.airlift.log.Logging;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeClass;
@@ -44,6 +45,7 @@ public class TestJdbcResultSet
     public void setupServer()
             throws Exception
     {
+        Logging.initialize();
         server = new TestingPrestoServer();
     }
 

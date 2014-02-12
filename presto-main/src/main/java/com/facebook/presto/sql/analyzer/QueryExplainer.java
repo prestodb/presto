@@ -81,6 +81,12 @@ public class QueryExplainer
         throw new IllegalArgumentException("Unhandled plan type: " + planType);
     }
 
+    public String getJsonPlan(Statement statement)
+    {
+        Plan plan = getLogicalPlan(statement);
+        return PlanPrinter.getJsonPlanSource(plan.getRoot(), metadata);
+    }
+
     private Plan getLogicalPlan(Statement statement)
     {
         // analyze statement

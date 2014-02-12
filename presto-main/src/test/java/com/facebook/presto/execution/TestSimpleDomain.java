@@ -13,28 +13,30 @@
  */
 package com.facebook.presto.execution;
 
+import com.facebook.presto.spi.SerializableNativeValue;
 import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
 import io.airlift.json.JsonCodec;
 import org.testng.annotations.Test;
 
+import java.util.List;
+
 import static org.testng.Assert.assertEquals;
 
-public class TestInput
+public class TestSimpleDomain
 {
-    private static final JsonCodec<Input> codec = JsonCodec.jsonCodec(Input.class);
+    private static final JsonCodec<SimpleDomain> codec = JsonCodec.jsonCodec(SimpleDomain.class);
 
     @Test
     public void testRoundTrip()
-            throws Exception
     {
-        Input expected = new Input("connectorId", "schema", "table", ImmutableList.of(
-                new Column("column1", "string", Optional.<SimpleDomain>absent()),
-                new Column("column2", "string", Optional.<SimpleDomain>absent()),
-                new Column("column3", "string", Optional.<SimpleDomain>absent())));
+        SimpleMarker low = new SimpleMarker(true, new SerializableNativeValue(Long.class, new Long(10)));
+        SimpleMarker high = new SimpleMarker(false, new SerializableNativeValue(Long.class, new Long(100)));
+        List<SimpleRange> ranges = ImmutableList.of(new SimpleRange(Optional.fromNullable(low), Optional.fromNullable(high)));
+        SimpleDomain expected = new SimpleDomain(true, Optional.fromNullable(ranges));
 
         String json = codec.toJson(expected);
-        Input actual = codec.fromJson(json);
+        SimpleDomain actual = codec.fromJson(json);
 
         assertEquals(actual, expected);
     }

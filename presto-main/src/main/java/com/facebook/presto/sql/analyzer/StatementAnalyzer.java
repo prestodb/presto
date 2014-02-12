@@ -450,6 +450,7 @@ class StatementAnalyzer
                 break;
             }
         }
+
         String queryPlan = getQueryPlan(node, planType, planFormat);
 
         Query query = new Query(
@@ -479,6 +480,9 @@ class StatementAnalyzer
                 return queryExplainer.get().getGraphvizPlan(node.getStatement(), planType);
             case TEXT:
                 return queryExplainer.get().getPlan(node.getStatement(), planType);
+            case JSON:
+                // ignore planType if planFormat is JSON
+                return queryExplainer.get().getJsonPlan(node.getStatement());
         }
         throw new IllegalArgumentException("Invalid Explain Format: " + planFormat.toString());
     }

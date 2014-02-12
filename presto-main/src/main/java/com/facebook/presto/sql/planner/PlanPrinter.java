@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.sql.planner;
 
+import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.TupleDomain;
 import com.facebook.presto.sql.analyzer.Type;
@@ -46,6 +47,7 @@ import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.QualifiedNameReference;
 import com.facebook.presto.util.GraphvizPrinter;
+import com.facebook.presto.util.JsonPlanPrinter;
 import com.google.common.base.Function;
 import com.google.common.base.Functions;
 import com.google.common.base.Joiner;
@@ -86,6 +88,11 @@ public class PlanPrinter
     public static String textLogicalPlan(PlanNode plan, Map<Symbol, Type> types)
     {
         return new PlanPrinter(plan, types, Optional.<Map<PlanFragmentId, PlanFragment>>absent()).toString();
+    }
+
+    public static String getJsonPlanSource(PlanNode plan, Metadata metadata)
+    {
+        return JsonPlanPrinter.getPlan(plan, metadata);
     }
 
     public static String textDistributedPlan(SubPlan plan)
