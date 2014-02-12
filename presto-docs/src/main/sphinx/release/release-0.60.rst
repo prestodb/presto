@@ -10,7 +10,7 @@ proper implementations of ``getTables``, ``getSchemas`` and ``getCatalogs``.
 
 The JDBC driver is now always packaged as a standalone jar without any
 dependencies.  Previously, this artifact was published with the Maven
-classifier ``standalone``, and the new build does not publish this artifact
+classifier ``standalone``. The new build does not publish this artifact
 anymore.
 
 USE CATALOG and USE SCHEMA
@@ -29,13 +29,14 @@ testing and bug reports. When generating bug reports, we encourage users to use
 this catalog since it eases the process of reproducing the issue. The data is
 generated dynamically for each query, so no disk space is used by this
 connector. To add the ``tpch`` catalog to your system, create the catalog
-property file ``etc/catalog/tpch.properties`` with the following contents:
+property file ``etc/catalog/tpch.properties`` on both the coordinator and workers
+with the following contents:
 
 .. code-block:: none
 
     connector.name=tpch
 
-and update the ``datasource`` property in the config properties file,
+Additionally, update the ``datasources`` property in the config properties file,
 ``etc/config.properties``, for the workers to include ``tpch``.
 
 SPI changes
