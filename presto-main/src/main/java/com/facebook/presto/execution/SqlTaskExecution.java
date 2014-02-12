@@ -563,12 +563,15 @@ public class SqlTaskExecution
         private DriverSplitRunner createDriverRunner(@Nullable ScheduledSplit partitionedSplit)
         {
             pendingCreation.incrementAndGet();
-            return new DriverSplitRunner(this, partitionedSplit);
+            // create driver context immediately so the driver existence is recorded in the stats
+            // the number of drivers is used to balance work across nodes
+            DriverContext driverContext = pipelineContext.addDriverContext();
+            return new DriverSplitRunner(this, driverContext, partitionedSplit);
         }
 
-        private Driver createDriver(@Nullable ScheduledSplit partitionedSplit)
+        private Driver createDriver(DriverContext driverContext, @Nullable ScheduledSplit partitionedSplit)
         {
-            Driver driver = driverFactory.createDriver(pipelineContext.addDriverContext());
+            Driver driver = driverFactory.createDriver(driverContext);
 
             // record driver so other threads add unpartitioned sources can see the driver
             // NOTE: this MUST be done before reading unpartitionedSources, so we see a consistent view of the unpartitioned sources
@@ -613,6 +616,7 @@ public class SqlTaskExecution
             implements SplitRunner
     {
         private final DriverSplitRunnerFactory driverSplitRunnerFactory;
+        private final DriverContext driverContext;
 
         @Nullable
         private final ScheduledSplit partitionedSplit;
@@ -620,9 +624,10 @@ public class SqlTaskExecution
         @GuardedBy("this")
         private Driver driver;
 
-        private DriverSplitRunner(DriverSplitRunnerFactory driverSplitRunnerFactory, @Nullable ScheduledSplit partitionedSplit)
+        private DriverSplitRunner(DriverSplitRunnerFactory driverSplitRunnerFactory, DriverContext driverContext, @Nullable ScheduledSplit partitionedSplit)
         {
             this.driverSplitRunnerFactory = checkNotNull(driverSplitRunnerFactory, "driverFactory is null");
+            this.driverContext = checkNotNull(driverContext, "driverContext is null");
             this.partitionedSplit = partitionedSplit;
         }
 
@@ -644,7 +649,7 @@ public class SqlTaskExecution
         public synchronized ListenableFuture<?> processFor(Duration duration)
         {
             if (driver == null) {
-                driver = driverSplitRunnerFactory.createDriver(partitionedSplit);
+                driver = driverSplitRunnerFactory.createDriver(driverContext, partitionedSplit);
             }
 
             return driver.processFor(duration);
