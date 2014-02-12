@@ -1,0 +1,128 @@
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>1.2. Discovery Service &mdash; Presto 0.60 Documentation</title>
+    
+    <link rel="stylesheet" href="../_static/presto.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '../',
+        VERSION:     '0.60',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="../_static/jquery.js"></script>
+    <script type="text/javascript" src="../_static/underscore.js"></script>
+    <script type="text/javascript" src="../_static/doctools.js"></script>
+    <link rel="top" title="Presto 0.60 Documentation" href="../index.html" />
+    <link rel="up" title="1. Installation" href="../installation.html" />
+    <link rel="next" title="1.3. Command Line Interface" href="cli.html" />
+    <link rel="prev" title="1.1. Deploying Presto" href="deployment.html" /> 
+  </head>
+  <body>
+<div class="header">
+    <h1 class="heading"><a href="../index.html">
+        <span>Presto 0.60 Documentation</span></a></h1>
+    <h2 class="heading"><span>1.2. Discovery Service</span></h2>
+</div>
+<div class="topnav">
+    
+<p class="nav">
+    <span class="left">
+        &laquo; <a href="deployment.html">1.1. Deploying Presto</a>
+    </span>
+    <span class="right">
+        <a href="cli.html">1.3. Command Line Interface</a> &raquo;
+    </span>
+</p>
+
+</div>
+<div class="content">
+    
+  <div class="section" id="discovery-service">
+<h1>1.2. Discovery Service</h1>
+<div class="section" id="installing-discovery">
+<h2>Installing Discovery</h2>
+<p>Presto uses the
+<a class="reference external" href="https://github.com/airlift/discovery">Discovery</a>
+service to find all the nodes in the cluster. Every Presto instance
+will register itself with the Discovery service on startup.</p>
+<p>Discovery is configured and run the same way as Presto. Download
+<a class="reference external" href="http://central.maven.org/maven2/io/airlift/discovery/discovery-server/1.16/discovery-server-1.16.tar.gz">discovery-server-1.16.tar.gz</a>, unpack it to create the <em>installation</em>
+directory, create the <em>data</em> directory, then configure it to run on a
+different port than Presto. The standard port for Discovery is <tt class="docutils literal"><span class="pre">8411</span></tt>.</p>
+</div>
+<div class="section" id="configuring-discovery">
+<h2>Configuring Discovery</h2>
+<p>As with Presto, create an <tt class="docutils literal"><span class="pre">etc</span></tt> directory inside the installation
+directory to hold the configuration files.</p>
+<div class="section" id="node-properties">
+<h3>Node Properties</h3>
+<p>Create the <a class="reference internal" href="deployment.html#presto-node-properties"><em>Node Properties</em></a> file the same way as for Presto,
+but make sure to use a unique value for <tt class="docutils literal"><span class="pre">node.id</span></tt>. For example:</p>
+<div class="highlight-none"><div class="highlight"><pre>node.environment=production
+node.id=ffffffff-ffff-ffff-ffff-ffffffffffff
+node.data-dir=/var/discovery/data
+</pre></div>
+</div>
+</div>
+<div class="section" id="jvm-config">
+<h3>JVM Config</h3>
+<p>Create the <a class="reference internal" href="deployment.html#presto-jvm-config"><em>JVM Config</em></a> file the same way as for Presto, but
+configure it to use fewer resources:</p>
+<div class="highlight-none"><div class="highlight"><pre>-server
+-Xmx1G
+-XX:+UseConcMarkSweepGC
+-XX:+ExplicitGCInvokesConcurrent
+-XX:+AggressiveOpts
+-XX:+HeapDumpOnOutOfMemoryError
+-XX:OnOutOfMemoryError=kill -9 %p
+</pre></div>
+</div>
+</div>
+<div class="section" id="config-properties">
+<h3>Config Properties</h3>
+<p>Create <tt class="docutils literal"><span class="pre">etc/config.properties</span></tt> with the following lone option:</p>
+<div class="highlight-none"><div class="highlight"><pre>http-server.http.port=8411
+</pre></div>
+</div>
+</div>
+</div>
+<div class="section" id="running-discovery">
+<h2>Running Discovery</h2>
+<p>Discovery is run the same way as Presto.
+See <a class="reference internal" href="deployment.html#running-presto"><em>Running Presto</em></a> for details.</p>
+</div>
+</div>
+
+
+</div>
+<div class="bottomnav">
+    
+<p class="nav">
+    <span class="left">
+        &laquo; <a href="deployment.html">1.1. Deploying Presto</a>
+    </span>
+    <span class="right">
+        <a href="cli.html">1.3. Command Line Interface</a> &raquo;
+    </span>
+</p>
+
+</div>
+
+    <div class="footer">
+        &copy; Copyright 2013, Facebook.
+      Created using <a href="http://sphinx.pocoo.org/">Sphinx</a> 1.1.3.
+    </div>
+  </body>
+</html>
