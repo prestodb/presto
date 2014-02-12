@@ -37,7 +37,6 @@ public class HandleJsonModule
         binder.bind(HandleResolver.class).in(Scopes.SINGLETON);
         MapBinder<String, ConnectorHandleResolver> connectorHandleResolverBinder = newMapBinder(binder, String.class, ConnectorHandleResolver.class);
         connectorHandleResolverBinder.addBinding("remote").to(RemoteSplitHandleResolver.class).in(Scopes.SINGLETON);
-        connectorHandleResolverBinder.addBinding("collocated").to(CollocatedSplitHandleResolver.class).in(Scopes.SINGLETON);
 
         binder.bind(OutputTableHandleResolver.class).in(Scopes.SINGLETON);
         newMapBinder(binder, String.class, ConnectorOutputHandleResolver.class);

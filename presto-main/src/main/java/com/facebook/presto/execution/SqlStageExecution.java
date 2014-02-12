@@ -25,7 +25,6 @@ import com.facebook.presto.spi.Split;
 import com.facebook.presto.spi.SplitSource;
 import com.facebook.presto.split.RemoteSplit;
 import com.facebook.presto.sql.analyzer.Session;
-import com.facebook.presto.sql.planner.OutputReceiver;
 import com.facebook.presto.sql.planner.PlanFragment;
 import com.facebook.presto.sql.planner.PlanFragment.OutputPartitioning;
 import com.facebook.presto.sql.planner.PlanFragment.PlanDistribution;
@@ -107,7 +106,6 @@ public class SqlStageExecution
     private final PlanFragment fragment;
     private final List<TupleInfo> tupleInfos;
     private final Map<PlanFragmentId, StageExecutionNode> subStages;
-    private final Map<PlanNodeId, OutputReceiver> outputReceivers;
 
     private final ConcurrentMap<Node, RemoteTask> tasks = new ConcurrentHashMap<>();
 
@@ -200,7 +198,6 @@ public class SqlStageExecution
             this.parent = parent;
             this.location = locationFactory.createStageLocation(stageId);
             this.fragment = plan.getFragment();
-            this.outputReceivers = plan.getOutputReceivers();
             this.dataSource = plan.getDataSource();
             this.remoteTaskFactory = remoteTaskFactory;
             this.session = session;
@@ -744,7 +741,6 @@ public class SqlStageExecution
                 node,
                 fragment,
                 initialSplits.build(),
-                outputReceivers,
                 currentOutputBuffers);
 
         task.addStateChangeListener(new StateChangeListener<TaskInfo>()

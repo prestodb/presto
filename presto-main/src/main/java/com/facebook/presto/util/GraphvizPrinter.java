@@ -24,7 +24,6 @@ import com.facebook.presto.sql.planner.plan.FilterNode;
 import com.facebook.presto.sql.planner.plan.JoinNode;
 import com.facebook.presto.sql.planner.plan.LimitNode;
 import com.facebook.presto.sql.planner.plan.MarkDistinctNode;
-import com.facebook.presto.sql.planner.plan.MaterializedViewWriterNode;
 import com.facebook.presto.sql.planner.plan.OutputNode;
 import com.facebook.presto.sql.planner.plan.PlanFragmentId;
 import com.facebook.presto.sql.planner.plan.PlanNode;
@@ -69,7 +68,6 @@ public final class GraphvizPrinter
         OUTPUT,
         LIMIT,
         TABLESCAN,
-        MATERIALIZED_VIEW_WRITER,
         JOIN,
         SINK,
         WINDOW,
@@ -88,7 +86,6 @@ public final class GraphvizPrinter
             .put(NodeType.OUTPUT, "white")
             .put(NodeType.LIMIT, "gray83")
             .put(NodeType.TABLESCAN, "deepskyblue")
-            .put(NodeType.MATERIALIZED_VIEW_WRITER, "lightslateblue")
             .put(NodeType.JOIN, "orange")
             .put(NodeType.SORT, "aliceblue")
             .put(NodeType.SINK, "indianred1")
@@ -214,13 +211,6 @@ public final class GraphvizPrinter
         public Void visitMarkDistinct(MarkDistinctNode node, Void context)
         {
             printNode(node, format("MarkDistinct[%s]", node.getMarkerSymbol()), format("%s => %s", node.getDistinctSymbols(), node.getMarkerSymbol()), NODE_COLORS.get(NodeType.MARK_DISTINCT));
-            return node.getSource().accept(this, context);
-        }
-
-        @Override
-        public Void visitMaterializedViewWriter(MaterializedViewWriterNode node, Void context)
-        {
-            printNode(node, format("MaterializedViewWriter[%s]", node.getTable()), format("output = %s", node.getOutput()), NODE_COLORS.get(NodeType.MATERIALIZED_VIEW_WRITER));
             return node.getSource().accept(this, context);
         }
 

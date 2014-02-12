@@ -381,24 +381,4 @@ public abstract class AstVisitor<R, C>
     {
         return visitNode(node, context);
     }
-
-    protected R visitCreateMaterializedView(CreateMaterializedView node, C context)
-    {
-        return visitNode(node, context);
-    }
-
-    protected R visitRefreshMaterializedView(RefreshMaterializedView node, C context)
-    {
-        return visitNode(node, context);
-    }
-
-    protected R visitCreateAlias(CreateAlias node, C context)
-    {
-        return visitNode(node, context);
-    }
-
-    protected R visitDropAlias(DropAlias node, C context)
-    {
-        return visitNode(node, context);
-    }
 }

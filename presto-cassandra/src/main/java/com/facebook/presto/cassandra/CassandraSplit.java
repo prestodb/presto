@@ -14,8 +14,7 @@
 package com.facebook.presto.cassandra;
 
 import com.facebook.presto.spi.HostAddress;
-import com.facebook.presto.spi.PartitionKey;
-import com.facebook.presto.spi.PartitionedSplit;
+import com.facebook.presto.spi.Split;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.base.Objects;
@@ -27,14 +26,13 @@ import java.util.List;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 public class CassandraSplit
-        implements PartitionedSplit
+        implements Split
 {
     private final String connectorId;
     private final String partitionId;
     private final List<HostAddress> addresses;
     private final String schema;
     private final String table;
-    private final boolean lastSplit;
     private final String splitCondition;
 
     @JsonCreator
@@ -44,7 +42,6 @@ public class CassandraSplit
             @JsonProperty("table") String table,
             @JsonProperty("partitionId") String partitionId,
             @JsonProperty("splitCondition") String splitCondition,
-            @JsonProperty("lastSplit") boolean lastSplit,
             @JsonProperty("addresses") List<HostAddress> addresses)
     {
         checkNotNull(connectorId, "connectorId is null");
@@ -58,7 +55,6 @@ public class CassandraSplit
         this.table = table;
         this.partitionId = partitionId;
         this.addresses = ImmutableList.copyOf(addresses);
-        this.lastSplit = lastSplit;
         this.splitCondition = splitCondition;
     }
 
@@ -87,24 +83,9 @@ public class CassandraSplit
     }
 
     @JsonProperty
-    @Override
     public String getPartitionId()
     {
         return partitionId;
-    }
-
-    @JsonProperty
-    @Override
-    public boolean isLastSplit()
-    {
-        return lastSplit;
-    }
-
-    @JsonProperty
-    @Override
-    public List<PartitionKey> getPartitionKeys()
-    {
-        return ImmutableList.of();
     }
 
     @JsonProperty

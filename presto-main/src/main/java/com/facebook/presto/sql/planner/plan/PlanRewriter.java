@@ -352,29 +352,6 @@ public final class PlanRewriter<C>
         }
 
         @Override
-        public PlanNode visitMaterializedViewWriter(MaterializedViewWriterNode node, Context<C> context)
-        {
-            if (!context.isDefaultRewrite()) {
-                PlanNode result = nodeRewriter.rewriteMaterializedViewWriter(node, context.get(), PlanRewriter.this);
-                if (result != null) {
-                    return result;
-                }
-            }
-
-            PlanNode source = rewrite(node.getSource(), context.get());
-
-            if (source != node.getSource()) {
-                return new MaterializedViewWriterNode(node.getId(),
-                        source,
-                        node.getTable(),
-                        node.getColumns(),
-                        node.getOutput());
-            }
-
-            return node;
-        }
-
-        @Override
         public PlanNode visitJoin(JoinNode node, Context<C> context)
         {
             if (!context.isDefaultRewrite()) {

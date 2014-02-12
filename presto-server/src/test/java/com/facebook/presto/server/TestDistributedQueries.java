@@ -200,25 +200,6 @@ public class TestDistributedQueries
         }
     }
 
-    @Test
-    public void testCreateMaterializedView()
-            throws Exception
-    {
-        // materialized view doesn't seem to work with native tables
-        assertQuery(
-                "CREATE MATERIALIZED VIEW test_mview_orders AS SELECT * FROM tpch.tiny.orders",
-                "SELECT count(*) FROM orders");
-
-        // Materialized views have a race condition between writing data to the
-        // native store and when the data is visible to be queried. This is a
-        // brain dead work around for this race condition that doesn't really
-        // fix the problem, but makes it very unlikely.
-        // TODO: remove this when the materialized view flow is fixed
-        MILLISECONDS.sleep(500);
-
-        assertQuery("SELECT * FROM test_mview_orders", "SELECT * FROM orders");
-    }
-
     @Override
     protected int getNodeCount()
     {

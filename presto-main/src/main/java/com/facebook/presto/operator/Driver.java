@@ -16,7 +16,6 @@ package com.facebook.presto.operator;
 import com.facebook.presto.ScheduledSplit;
 import com.facebook.presto.TaskSource;
 import com.facebook.presto.spi.Split;
-import com.facebook.presto.split.CollocatedSplit;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -27,7 +26,6 @@ import io.airlift.units.Duration;
 
 import java.util.List;
 import java.util.Map;
-import java.util.Map.Entry;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
@@ -152,18 +150,9 @@ public class Driver
         checkNotNull(sourceId, "sourceId is null");
         checkNotNull(split, "split is null");
 
-        if (split instanceof CollocatedSplit) {
-            CollocatedSplit collocatedSplit = (CollocatedSplit) split;
-            // unwind collocated splits
-            for (Entry<PlanNodeId, Split> entry : collocatedSplit.getSplits().entrySet()) {
-                addSplit(entry.getKey(), entry.getValue());
-            }
-        }
-        else {
-            SourceOperator sourceOperator = sourceOperators.get(sourceId);
-            if (sourceOperator != null) {
-                sourceOperator.addSplit(split);
-            }
+        SourceOperator sourceOperator = sourceOperators.get(sourceId);
+        if (sourceOperator != null) {
+            sourceOperator.addSplit(split);
         }
     }
 

@@ -13,8 +13,6 @@
  */
 package com.facebook.presto.server;
 
-import com.facebook.presto.execution.CreateAliasExecution;
-import com.facebook.presto.execution.DropAliasExecution;
 import com.facebook.presto.execution.DropTableExecution;
 import com.facebook.presto.execution.NodeScheduler;
 import com.facebook.presto.execution.NodeSchedulerConfig;
@@ -25,17 +23,8 @@ import com.facebook.presto.execution.QueryManagerConfig;
 import com.facebook.presto.execution.SqlQueryExecution;
 import com.facebook.presto.execution.SqlQueryManager;
 import com.facebook.presto.guice.AbstractConfigurationAwareModule;
-import com.facebook.presto.importer.DatabasePeriodicImportManager;
-import com.facebook.presto.importer.ForPeriodicImport;
-import com.facebook.presto.importer.JobStateFactory;
-import com.facebook.presto.importer.PeriodicImportConfig;
-import com.facebook.presto.importer.PeriodicImportController;
-import com.facebook.presto.importer.PeriodicImportManager;
-import com.facebook.presto.importer.PeriodicImportRunnable;
-import com.facebook.presto.metadata.AliasDao;
 import com.facebook.presto.metadata.DatabaseShardManager;
 import com.facebook.presto.metadata.DiscoveryNodeManager;
-import com.facebook.presto.metadata.ForMetadata;
 import com.facebook.presto.metadata.ForShardCleaner;
 import com.facebook.presto.metadata.InternalNodeManager;
 import com.facebook.presto.metadata.NativeConnectorId;
@@ -49,14 +38,10 @@ import com.facebook.presto.split.NativeDataStreamProvider;
 import com.facebook.presto.split.NativeSplitManager;
 import com.facebook.presto.split.SplitManager;
 import com.facebook.presto.sql.analyzer.AnalyzerConfig;
-import com.facebook.presto.sql.tree.CreateAlias;
-import com.facebook.presto.sql.tree.CreateMaterializedView;
 import com.facebook.presto.sql.tree.CreateTable;
-import com.facebook.presto.sql.tree.DropAlias;
 import com.facebook.presto.sql.tree.DropTable;
 import com.facebook.presto.sql.tree.Explain;
 import com.facebook.presto.sql.tree.Query;
-import com.facebook.presto.sql.tree.RefreshMaterializedView;
 import com.facebook.presto.sql.tree.ShowCatalogs;
 import com.facebook.presto.sql.tree.ShowColumns;
 import com.facebook.presto.sql.tree.ShowFunctions;
@@ -65,19 +50,12 @@ import com.facebook.presto.sql.tree.ShowSchemas;
 import com.facebook.presto.sql.tree.ShowTables;
 import com.facebook.presto.sql.tree.Statement;
 import com.facebook.presto.sql.tree.UseCollection;
-import com.facebook.presto.storage.DatabaseStorageManager;
-import com.facebook.presto.storage.StorageManager;
 import com.google.inject.Binder;
 import com.google.inject.Key;
-import com.google.inject.Provides;
 import com.google.inject.Scopes;
 import com.google.inject.TypeLiteral;
 import com.google.inject.multibindings.MapBinder;
-import org.skife.jdbi.v2.IDBI;
 
-import javax.inject.Singleton;
-
-import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.inject.multibindings.MapBinder.newMapBinder;
 import static io.airlift.configuration.ConfigurationModule.bindConfig;
 import static io.airlift.discovery.client.DiscoveryBinder.discoveryBinder;
@@ -132,19 +110,6 @@ public class CoordinatorModule
         httpClientBinder(binder).bindHttpClient("shard-cleaner", ForShardCleaner.class);
         binder.bind(ShardResource.class).in(Scopes.SINGLETON);
 
-        // storage manager
-        binder.bind(StorageManager.class).to(DatabaseStorageManager.class).in(Scopes.SINGLETON);
-
-        // periodic import
-        bindConfig(binder).to(PeriodicImportConfig.class);
-        binder.bind(PeriodicImportJobResource.class).in(Scopes.SINGLETON);
-        binder.bind(PeriodicImportManager.class).to(DatabasePeriodicImportManager.class).in(Scopes.SINGLETON);
-        binder.bind(PeriodicImportController.class).in(Scopes.SINGLETON);
-        binder.bind(JobStateFactory.class).in(Scopes.SINGLETON);
-        binder.bind(PeriodicImportRunnable.PeriodicImportRunnableFactory.class).in(Scopes.SINGLETON);
-        newExporter(binder).export(PeriodicImportController.class).as("com.facebook.presto:name=periodic-import");
-        httpClientBinder(binder).bindAsyncHttpClient("periodic-importer", ForPeriodicImport.class).withTracing();
-
         // query execution
         binder.bind(SqlQueryExecution.SqlQueryExecutionFactory.class).in(Scopes.SINGLETON);
         newExporter(binder).export(SqlQueryExecution.SqlQueryExecutionFactory.class).withGeneratedName();
@@ -158,14 +123,6 @@ public class CoordinatorModule
         executionBinder.addBinding(DropTable.class).to(DropTableExecution.DropTableExecutionFactory.class).in(Scopes.SINGLETON);
         newExporter(binder).export(DropTableExecution.DropTableExecutionFactory.class).withGeneratedName();
 
-        binder.bind(CreateAliasExecution.CreateAliasExecutionFactory.class).in(Scopes.SINGLETON);
-        executionBinder.addBinding(CreateAlias.class).to(CreateAliasExecution.CreateAliasExecutionFactory.class).in(Scopes.SINGLETON);
-        newExporter(binder).export(CreateAliasExecution.CreateAliasExecutionFactory.class).withGeneratedName();
-
-        binder.bind(DropAliasExecution.DropAliasExecutionFactory.class).in(Scopes.SINGLETON);
-        executionBinder.addBinding(DropAlias.class).to(DropAliasExecution.DropAliasExecutionFactory.class).in(Scopes.SINGLETON);
-        newExporter(binder).export(DropAliasExecution.DropAliasExecutionFactory.class).withGeneratedName();
-
         executionBinder.addBinding(Query.class).to(SqlQueryExecution.SqlQueryExecutionFactory.class).in(Scopes.SINGLETON);
         executionBinder.addBinding(Explain.class).to(SqlQueryExecution.SqlQueryExecutionFactory.class).in(Scopes.SINGLETON);
         executionBinder.addBinding(ShowColumns.class).to(SqlQueryExecution.SqlQueryExecutionFactory.class).in(Scopes.SINGLETON);
@@ -175,19 +132,6 @@ public class CoordinatorModule
         executionBinder.addBinding(ShowSchemas.class).to(SqlQueryExecution.SqlQueryExecutionFactory.class).in(Scopes.SINGLETON);
         executionBinder.addBinding(ShowCatalogs.class).to(SqlQueryExecution.SqlQueryExecutionFactory.class).in(Scopes.SINGLETON);
         executionBinder.addBinding(UseCollection.class).to(SqlQueryExecution.SqlQueryExecutionFactory.class).in(Scopes.SINGLETON);
-        executionBinder.addBinding(CreateMaterializedView.class).to(SqlQueryExecution.SqlQueryExecutionFactory.class).in(Scopes.SINGLETON);
-        executionBinder.addBinding(RefreshMaterializedView.class).to(SqlQueryExecution.SqlQueryExecutionFactory.class).in(Scopes.SINGLETON);
         executionBinder.addBinding(CreateTable.class).to(SqlQueryExecution.SqlQueryExecutionFactory.class).in(Scopes.SINGLETON);
-    }
-
-    @Provides
-    @Singleton
-    public AliasDao createAliasDao(@ForMetadata IDBI dbi)
-            throws InterruptedException
-    {
-        checkNotNull(dbi, "dbi is null");
-        AliasDao aliasDao = dbi.onDemand(AliasDao.class);
-        AliasDao.Utils.createTablesWithRetry(aliasDao);
-        return aliasDao;
     }
 }

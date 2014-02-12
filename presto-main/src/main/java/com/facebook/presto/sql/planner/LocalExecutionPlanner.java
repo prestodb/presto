@@ -64,7 +64,6 @@ import com.facebook.presto.sql.planner.plan.JoinNode;
 import com.facebook.presto.sql.planner.plan.LimitNode;
 import com.facebook.presto.sql.planner.plan.MarkDistinctNode;
 import com.facebook.presto.sql.planner.plan.MaterializeSampleNode;
-import com.facebook.presto.sql.planner.plan.MaterializedViewWriterNode;
 import com.facebook.presto.sql.planner.plan.OutputNode;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.PlanVisitor;
@@ -120,7 +119,6 @@ import java.util.List;
 import java.util.Map;
 
 import static com.facebook.presto.operator.DistinctLimitOperator.DistinctLimitOperatorFactory;
-import static com.facebook.presto.operator.MaterializedViewWriterOperator.MaterializedViewWriterOperatorFactory;
 import static com.facebook.presto.operator.TableCommitOperator.TableCommitOperatorFactory;
 import static com.facebook.presto.operator.TableCommitOperator.TableCommitter;
 import static com.facebook.presto.operator.TableWriterOperator.TableWriterOperatorFactory;
@@ -951,34 +949,6 @@ public class LocalExecutionPlanner
             Map<Symbol, Input> layout = ImmutableMap.of(node.getOutputSymbols().get(0), new Input(0));
 
             return new PhysicalOperation(operatorFactory, layout, source);
-        }
-
-        @Override
-        public PhysicalOperation visitMaterializedViewWriter(MaterializedViewWriterNode node, LocalExecutionPlanContext context)
-        {
-            PhysicalOperation query = node.getSource().accept(this, context);
-
-            ImmutableList.Builder<ColumnHandle> columns = ImmutableList.builder();
-            ImmutableList.Builder<Symbol> symbols = ImmutableList.builder();
-            for (Map.Entry<Symbol, ColumnHandle> entry : node.getColumns().entrySet()) {
-                symbols.add(entry.getKey());
-                columns.add(entry.getValue());
-            }
-
-            // introduce a projection to match the expected output
-            IdentityProjectionInfo mappings = computeIdentityMapping(symbols.build(), query.getLayout(), context.getTypes());
-            OperatorFactory sourceOperator = new FilterAndProjectOperatorFactory(context.getNextOperatorId(), FilterFunctions.TRUE_FUNCTION, mappings.getProjections());
-            PhysicalOperation source = new PhysicalOperation(sourceOperator, mappings.getOutputLayout(), query);
-
-            Symbol outputSymbol = Iterables.getOnlyElement(node.getOutputSymbols());
-            MaterializedViewWriterOperatorFactory operator = new MaterializedViewWriterOperatorFactory(
-                    context.getNextOperatorId(),
-                    node.getId(),
-                    storageManager,
-                    nodeInfo.getNodeId(),
-                    columns.build());
-
-            return new PhysicalOperation(operator, ImmutableMap.of(outputSymbol, new Input(0)), source);
         }
 
         @Override
