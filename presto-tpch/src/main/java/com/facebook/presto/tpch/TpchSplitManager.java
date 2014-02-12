@@ -32,6 +32,7 @@ import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Preconditions.checkState;
 
 public class TpchSplitManager
         implements ConnectorSplitManager
@@ -80,9 +81,7 @@ public class TpchSplitManager
         TpchTableHandle tableHandle = ((TpchPartition) partition).getTable();
 
         Set<Node> nodes = nodeManager.getActiveDatasourceNodes(connectorId);
-        if (nodes.isEmpty()) {
-            throw new IllegalStateException("No TPCH nodes available: Add 'tpch' to the datasources property of each worker node");
-        }
+        checkState(!nodes.isEmpty(), "No TPCH nodes available: Add '%s' to the datasources property of each worker node", connectorId);
 
         int totalParts = nodes.size() * splitsPerNode;
         int partNumber = 0;
