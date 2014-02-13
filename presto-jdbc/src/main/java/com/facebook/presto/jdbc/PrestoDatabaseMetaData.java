@@ -22,6 +22,7 @@ import java.sql.RowIdLifetime;
 import java.sql.SQLException;
 import java.sql.SQLFeatureNotSupportedException;
 import java.sql.Statement;
+import java.sql.Types;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -1011,7 +1012,82 @@ public class PrestoDatabaseMetaData
     public ResultSet getColumns(String catalog, String schemaPattern, String tableNamePattern, String columnNamePattern)
             throws SQLException
     {
-        throw new UnsupportedOperationException("getColumns");
+        StringBuilder query = new StringBuilder("" +
+                "SELECT " +
+                "  table_catalog TABLE_CAT " +
+                ", table_schema TABLE_SCHEM " +
+                ", table_name TABLE_NAME " +
+                ", column_name COLUMN_NAME " +
+                ", CASE data_type " +
+                "    WHEN 'bigint' THEN " + Types.BIGINT + " " +
+                "    WHEN 'double' THEN " + Types.DOUBLE + " " +
+                "    WHEN 'varchar' THEN " + Types.LONGNVARCHAR + " " +
+                "    WHEN 'boolean' THEN " + Types.BOOLEAN + " " +
+                "    ELSE " + Types.OTHER + " " +
+                "  END DATA_TYPE " +
+                ", data_type TYPE_NAME " +
+                ", CAST(NULL AS bigint) COLUMN_SIZE " +
+                ", 0 BUFFER_LENGTH " +
+                ", CAST(NULL AS bigint) DECIMAL_DIGITS " +
+                ", CASE data_type " +
+                "    WHEN 'bigint' THEN 10 " +
+                "    WHEN 'double' THEN 10 " +
+                "  END AS NUM_PREC_RADIX " +
+                ", CASE is_nullable " +
+                "    WHEN 'NO' THEN " + columnNoNulls + " " +
+                "    WHEN 'YES' THEN 1" + columnNullable + " " +
+                "    ELSE 2" + columnNullableUnknown + " " +
+                "  END NULLABLE " +
+                ", CAST(NULL AS varchar) REMARKS " +
+                ", column_default AS COLUMN_DEF " +
+                ", CAST(NULL AS bigint) AS SQL_DATA_TYPE " +
+                ", CAST(NULL AS bigint) AS SQL_DATETIME_SUB " +
+                ", CAST(NULL AS bigint) AS CHAR_OCTET_LENGTH " +
+                ", ordinal_position ORDINAL_POSITION " +
+                ", is_nullable IS_NULLABLE " +
+                ", CAST(NULL AS varchar) SCOPE_CATALOG " +
+                ", CAST(NULL AS varchar) SCOPE_SCHEMA " +
+                ", CAST(NULL AS varchar) SCOPE_TABLE " +
+                ", CAST(NULL AS bigint) SOURCE_DATA_TYPE " +
+                ", '' IS_AUTOINCREMENT " +
+                ", '' IS_GENERATEDCOLUMN " +
+                "FROM information_schema.columns ");
+
+        List<String> filters = new ArrayList<>(4);
+        if (catalog != null) {
+            if (catalog.isEmpty()) {
+                filters.add("table_catalog IS NULL");
+            }
+            else {
+                filters.add(stringColumnEquals("table_catalog", catalog));
+            }
+        }
+
+        if (schemaPattern != null) {
+            if (schemaPattern.isEmpty()) {
+                filters.add("table_schema IS NULL");
+            }
+            else {
+                filters.add(stringColumnLike("table_schema", schemaPattern));
+            }
+        }
+
+        if (tableNamePattern != null) {
+            filters.add(stringColumnLike("table_name", tableNamePattern));
+        }
+
+        if (columnNamePattern != null) {
+            filters.add(stringColumnLike("column_name", columnNamePattern));
+        }
+
+        if (!filters.isEmpty()) {
+            query.append(" WHERE ");
+            Joiner.on(" AND ").appendTo(query, filters);
+        }
+
+        query.append(" ORDER BY table_cat, table_schem, table_name, ordinal_position");
+
+        return select(query.toString());
     }
 
     @Override
