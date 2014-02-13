@@ -412,6 +412,21 @@ public class HiveClient
 
         // verify the target directory for the table
         Path targetPath = new Path(databasePath, tableName);
+
+        // when creating table in S3, no need to create temp files
+        // putObject in AWS S3 is idempotent
+        if (targetPath.toString().startsWith("s3n://") || targetPath.toString().startsWith("s3://")) {
+            return new HiveOutputTableHandle(
+                connectorId,
+                schemaName,
+                tableName,
+                columnNames.build(),
+                columnTypes.build(),
+                tableMetadata.getOwner(),
+                targetPath.toString(),
+                targetPath.toString());
+        }
+
         if (pathExists(targetPath)) {
             throw new RuntimeException(format("Target directory for table '%s' already exists: %s", table, targetPath));
         }
@@ -445,13 +460,20 @@ public class HiveClient
 
         // verify no one raced us to create the target directory
         Path targetPath = new Path(handle.getTargetPath());
-        if (pathExists(targetPath)) {
-            SchemaTableName table = new SchemaTableName(handle.getSchemaName(), handle.getTableName());
-            throw new RuntimeException(format("Unable to commit creation of table '%s': target directory already exists: %s", table, targetPath));
-        }
 
-        // rename the temporary directory to the target
-        rename(new Path(handle.getTemporaryPath()), targetPath);
+        // when creating table in S3, no need to rename
+        // putObject in AWS S3 is idempotent
+        if (handle.getTargetPath().startsWith("s3n://") || handle.getTargetPath().startsWith("s3://")) {
+            log.debug("no rename when creating table in S3");
+        }
+        else {
+            if (pathExists(targetPath)) {
+                SchemaTableName table = new SchemaTableName(handle.getSchemaName(), handle.getTableName());
+                throw new RuntimeException(format("Unable to commit creation of table '%s': target directory already exists: %s", table, targetPath));
+            }
+            // rename the temporary directory to the target
+            rename(new Path(handle.getTemporaryPath()), targetPath);
+        }
 
         // create the table in the metastore
         List<String> types = FluentIterable.from(handle.getColumnTypes())
