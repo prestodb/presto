@@ -50,12 +50,6 @@ public class DualMetadata
     public static final ColumnMetadata COLUMN_METADATA = new ColumnMetadata(COLUMN_NAME, STRING, 0, false);
 
     @Override
-    public boolean canHandle(ConnectorTableHandle tableHandle)
-    {
-        return tableHandle instanceof DualTableHandle;
-    }
-
-    @Override
     public List<String> listSchemaNames()
     {
         return ImmutableList.of();

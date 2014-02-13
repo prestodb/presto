@@ -49,12 +49,6 @@ public class ExampleMetadata
     }
 
     @Override
-    public boolean canHandle(ConnectorTableHandle tableHandle)
-    {
-        return tableHandle instanceof ExampleTableHandle && ((ExampleTableHandle) tableHandle).getConnectorId().equals(connectorId);
-    }
-
-    @Override
     public List<String> listSchemaNames()
     {
         return ImmutableList.copyOf(exampleClient.getSchemaNames());

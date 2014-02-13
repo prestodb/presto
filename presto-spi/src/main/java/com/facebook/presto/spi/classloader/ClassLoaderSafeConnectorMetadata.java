@@ -41,14 +41,6 @@ public class ClassLoaderSafeConnectorMetadata
     }
 
     @Override
-    public boolean canHandle(ConnectorTableHandle tableHandle)
-    {
-        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
-            return delegate.canHandle(tableHandle);
-        }
-    }
-
-    @Override
     public List<String> listSchemaNames()
     {
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
@@ -141,14 +133,6 @@ public class ClassLoaderSafeConnectorMetadata
     {
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
             delegate.dropTable(tableHandle);
-        }
-    }
-
-    @Override
-    public boolean canHandle(ConnectorOutputTableHandle tableHandle)
-    {
-        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
-            return delegate.canHandle(tableHandle);
         }
     }
 

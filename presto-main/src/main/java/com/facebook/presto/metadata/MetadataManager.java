@@ -39,7 +39,6 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
-import java.util.concurrent.CopyOnWriteArrayList;
 
 import static com.facebook.presto.metadata.ColumnHandle.fromConnectorHandle;
 import static com.facebook.presto.metadata.MetadataUtil.checkCatalogName;
@@ -54,15 +53,22 @@ import static com.google.common.collect.Iterables.transform;
 public class MetadataManager
         implements Metadata
 {
-    // Note this must be a list to assure dual is always checked first
-    private final CopyOnWriteArrayList<ConnectorMetadataEntry> internalSchemas = new CopyOnWriteArrayList<>();
-    private final ConcurrentMap<String, ConnectorMetadataEntry> connectors = new ConcurrentHashMap<>();
+    private final ConcurrentMap<String, ConnectorMetadata> internalSchemas = new ConcurrentHashMap<>();
+    private final ConcurrentMap<String, ConnectorMetadataEntry> connectorsByCatalog = new ConcurrentHashMap<>();
+    private final ConcurrentMap<String, ConnectorMetadata> connectorsById = new ConcurrentHashMap<>();
     private final FunctionRegistry functions = new FunctionRegistry();
 
     public void addConnectorMetadata(String connectorId, String catalogName, ConnectorMetadata connectorMetadata)
     {
         ConnectorMetadataEntry entry = new ConnectorMetadataEntry(connectorId, connectorMetadata);
-        checkState(connectors.putIfAbsent(catalogName, entry) == null, "Catalog '%s' is already registered", catalogName);
+
+        synchronized (this) {
+            checkArgument(!connectorsByCatalog.containsKey(catalogName), "Catalog '%s' is already registered", catalogName);
+            checkArgument(!connectorsById.containsKey(connectorId), "Connector '%s' is already registered", connectorId);
+
+            connectorsByCatalog.put(catalogName, entry);
+            connectorsById.put(connectorId, connectorMetadata);
+        }
     }
 
     public void addInternalSchemaMetadata(String connectorId, ConnectorMetadata connectorMetadata)
@@ -70,7 +76,7 @@ public class MetadataManager
         checkNotNull(connectorId, "connectorId is null");
         checkNotNull(connectorMetadata, "connectorMetadata is null");
 
-        internalSchemas.add(new ConnectorMetadataEntry(connectorId, connectorMetadata));
+        checkState(internalSchemas.putIfAbsent(connectorId, connectorMetadata) == null, "Internal schema metadata '%s' is already registered", connectorId);
     }
 
     @Override
@@ -200,7 +206,7 @@ public class MetadataManager
     @Override
     public boolean canCreateSampledTables(String catalogName)
     {
-        ConnectorMetadataEntry connectorMetadata = connectors.get(catalogName);
+        ConnectorMetadataEntry connectorMetadata = connectorsByCatalog.get(catalogName);
         checkArgument(connectorMetadata != null, "Catalog %s does not exist", catalogName);
         return connectorMetadata.getMetadata().canCreateSampledTables();
     }
@@ -225,7 +231,7 @@ public class MetadataManager
     @Override
     public TableHandle createTable(String catalogName, TableMetadata tableMetadata)
     {
-        ConnectorMetadataEntry connectorMetadata = connectors.get(catalogName);
+        ConnectorMetadataEntry connectorMetadata = connectorsByCatalog.get(catalogName);
         checkArgument(connectorMetadata != null, "Catalog %s does not exist", catalogName);
 
         ConnectorTableHandle handle = connectorMetadata.getMetadata().createTable(tableMetadata.getMetadata());
@@ -241,7 +247,7 @@ public class MetadataManager
     @Override
     public OutputTableHandle beginCreateTable(String catalogName, TableMetadata tableMetadata)
     {
-        ConnectorMetadataEntry connectorMetadata = connectors.get(catalogName);
+        ConnectorMetadataEntry connectorMetadata = connectorsByCatalog.get(catalogName);
         checkArgument(connectorMetadata != null, "Catalog %s does not exist", catalogName);
         ConnectorOutputTableHandle handle = connectorMetadata.getMetadata().beginCreateTable(tableMetadata.getMetadata());
         return new OutputTableHandle(connectorMetadata.getConnectorId(), handle);
@@ -250,16 +256,14 @@ public class MetadataManager
     @Override
     public void commitCreateTable(OutputTableHandle tableHandle, Collection<String> fragments)
     {
-        lookupConnectorFor(tableHandle)
-                .getMetadata()
-                .commitCreateTable(tableHandle.getConnectorHandle(), fragments);
+        lookupConnectorFor(tableHandle).commitCreateTable(tableHandle.getConnectorHandle(), fragments);
     }
 
     @Override
     public Map<String, String> getCatalogNames()
     {
         ImmutableMap.Builder<String, String> catalogsMap = ImmutableMap.builder();
-        for (Map.Entry<String, ConnectorMetadataEntry> entry : connectors.entrySet()) {
+        for (Map.Entry<String, ConnectorMetadataEntry> entry : connectorsByCatalog.entrySet()) {
             catalogsMap.put(entry.getKey(), entry.getValue().getConnectorId());
         }
         return catalogsMap.build();
@@ -268,11 +272,16 @@ public class MetadataManager
     private List<ConnectorMetadataEntry> allConnectorsFor(String catalogName)
     {
         ImmutableList.Builder<ConnectorMetadataEntry> builder = ImmutableList.builder();
-        builder.addAll(internalSchemas);
-        ConnectorMetadataEntry connector = connectors.get(catalogName);
+
+        for (Entry<String, ConnectorMetadata> entry : internalSchemas.entrySet()) {
+            builder.add(new ConnectorMetadataEntry(entry.getKey(), entry.getValue()));
+        }
+
+        ConnectorMetadataEntry connector = connectorsByCatalog.get(catalogName);
         if (connector != null) {
             builder.add(connector);
         }
+
         return builder.build();
     }
 
@@ -280,29 +289,24 @@ public class MetadataManager
     {
         checkNotNull(tableHandle, "tableHandle is null");
 
-        for (ConnectorMetadataEntry entry : internalSchemas) {
-            if (entry.getMetadata().canHandle(tableHandle.getConnectorHandle())) {
-                return entry.getMetadata();
-            }
+        String connectorId = tableHandle.getConnectorId();
+
+        ConnectorMetadata result = internalSchemas.get(connectorId);
+        if (result != null) {
+            return result;
         }
 
-        for (Entry<String, ConnectorMetadataEntry> entry : connectors.entrySet()) {
-            if (entry.getValue().getMetadata().canHandle(tableHandle.getConnectorHandle())) {
-                return entry.getValue().getMetadata();
-            }
-        }
+        result = connectorsById.get(connectorId);
+        checkArgument(result != null, "No connector for table handle: %s", tableHandle.getConnectorId());
 
-        throw new IllegalArgumentException("Table %s does not exist: " + tableHandle);
+        return result;
     }
 
-    private ConnectorMetadataEntry lookupConnectorFor(OutputTableHandle tableHandle)
+    private ConnectorMetadata lookupConnectorFor(OutputTableHandle tableHandle)
     {
-        for (Entry<String, ConnectorMetadataEntry> entry : connectors.entrySet()) {
-            if (entry.getValue().getMetadata().canHandle(tableHandle.getConnectorHandle())) {
-                return entry.getValue();
-            }
-        }
-        throw new IllegalArgumentException("No connector for output table handle: " + tableHandle);
+        ConnectorMetadata metadata = connectorsById.get(tableHandle.getConnectorId());
+        checkArgument(metadata != null, "No connector for output table handle: %s", tableHandle.getConnectorId());
+        return metadata;
     }
 
     private static class ConnectorMetadataEntry

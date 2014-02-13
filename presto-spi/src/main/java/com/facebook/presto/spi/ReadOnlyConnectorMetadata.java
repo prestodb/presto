@@ -31,12 +31,6 @@ public abstract class ReadOnlyConnectorMetadata
     }
 
     @Override
-    public boolean canHandle(ConnectorOutputTableHandle tableHandle)
-    {
-        return false;
-    }
-
-    @Override
     public final boolean canCreateSampledTables()
     {
         return false;
