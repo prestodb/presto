@@ -440,6 +440,132 @@ public class TestDriver
     }
 
     @Test
+    public void testGetColumns()
+            throws Exception
+    {
+        try (Connection connection = createConnection()) {
+            try (ResultSet rs = connection.getMetaData().getColumns(null, null, "tables", "column_name")) {
+                assertColumnMetadata(rs);
+            }
+        }
+
+        try (Connection connection = createConnection()) {
+            try (ResultSet rs = connection.getMetaData().getColumns("default", null, "tables", "column_name")) {
+                assertColumnMetadata(rs);
+            }
+        }
+
+        try (Connection connection = createConnection()) {
+            try (ResultSet rs = connection.getMetaData().getColumns(null, "information_schema", "tables", "column_name")) {
+                assertColumnMetadata(rs);
+            }
+        }
+
+        try (Connection connection = createConnection()) {
+            try (ResultSet rs = connection.getMetaData().getColumns("default", "information_schema", "tables", "column_name")) {
+                assertColumnMetadata(rs);
+            }
+        }
+
+        try (Connection connection = createConnection()) {
+            try (ResultSet rs = connection.getMetaData().getColumns("default", "inf%", "tables", "column_name")) {
+                assertColumnMetadata(rs);
+            }
+        }
+
+        try (Connection connection = createConnection()) {
+            try (ResultSet rs = connection.getMetaData().getColumns("default", "information_schema", "tab%", "column_name")) {
+                assertColumnMetadata(rs);
+            }
+        }
+
+        try (Connection connection = createConnection()) {
+            try (ResultSet rs = connection.getMetaData().getColumns("default", "information_schema", "tables", "col%")) {
+                assertColumnMetadata(rs);
+            }
+        }
+    }
+
+    private void assertColumnMetadata(ResultSet rs)
+            throws SQLException
+    {
+        ResultSetMetaData metadata = rs.getMetaData();
+        assertEquals(metadata.getColumnCount(), 24);
+
+        assertEquals(metadata.getColumnLabel(1), "TABLE_CAT");
+        assertEquals(metadata.getColumnType(1), Types.LONGNVARCHAR);
+
+        assertEquals(metadata.getColumnLabel(2), "TABLE_SCHEM");
+        assertEquals(metadata.getColumnType(2), Types.LONGNVARCHAR);
+
+        assertEquals(metadata.getColumnLabel(3), "TABLE_NAME");
+        assertEquals(metadata.getColumnType(3), Types.LONGNVARCHAR);
+
+        assertEquals(metadata.getColumnLabel(4), "COLUMN_NAME");
+        assertEquals(metadata.getColumnType(4), Types.LONGNVARCHAR);
+
+        assertEquals(metadata.getColumnLabel(5), "DATA_TYPE");
+        assertEquals(metadata.getColumnType(5), Types.BIGINT);
+
+        assertEquals(metadata.getColumnLabel(6), "TYPE_NAME");
+        assertEquals(metadata.getColumnType(6), Types.LONGNVARCHAR);
+
+        assertEquals(metadata.getColumnLabel(7), "COLUMN_SIZE");
+        assertEquals(metadata.getColumnType(7), Types.BIGINT);
+
+        assertEquals(metadata.getColumnLabel(8), "BUFFER_LENGTH");
+        assertEquals(metadata.getColumnType(8), Types.BIGINT);
+
+        assertEquals(metadata.getColumnLabel(9), "DECIMAL_DIGITS");
+        assertEquals(metadata.getColumnType(9), Types.BIGINT);
+
+        assertEquals(metadata.getColumnLabel(10), "NUM_PREC_RADIX");
+        assertEquals(metadata.getColumnType(10), Types.BIGINT);
+
+        assertEquals(metadata.getColumnLabel(11), "NULLABLE");
+        assertEquals(metadata.getColumnType(11), Types.BIGINT);
+
+        assertEquals(metadata.getColumnLabel(12), "REMARKS");
+        assertEquals(metadata.getColumnType(12), Types.LONGNVARCHAR);
+
+        assertEquals(metadata.getColumnLabel(13), "COLUMN_DEF");
+        assertEquals(metadata.getColumnType(13), Types.LONGNVARCHAR);
+
+        assertEquals(metadata.getColumnLabel(14), "SQL_DATA_TYPE");
+        assertEquals(metadata.getColumnType(14), Types.BIGINT);
+
+        assertEquals(metadata.getColumnLabel(15), "SQL_DATETIME_SUB");
+        assertEquals(metadata.getColumnType(15), Types.BIGINT);
+
+        assertEquals(metadata.getColumnLabel(16), "CHAR_OCTET_LENGTH");
+        assertEquals(metadata.getColumnType(16), Types.BIGINT);
+
+        assertEquals(metadata.getColumnLabel(17), "ORDINAL_POSITION");
+        assertEquals(metadata.getColumnType(17), Types.BIGINT);
+
+        assertEquals(metadata.getColumnLabel(18), "IS_NULLABLE");
+        assertEquals(metadata.getColumnType(18), Types.LONGNVARCHAR);
+
+        assertEquals(metadata.getColumnLabel(19), "SCOPE_CATALOG");
+        assertEquals(metadata.getColumnType(19), Types.LONGNVARCHAR);
+
+        assertEquals(metadata.getColumnLabel(20), "SCOPE_SCHEMA");
+        assertEquals(metadata.getColumnType(20), Types.LONGNVARCHAR);
+
+        assertEquals(metadata.getColumnLabel(21), "SCOPE_TABLE");
+        assertEquals(metadata.getColumnType(21), Types.LONGNVARCHAR);
+
+        assertEquals(metadata.getColumnLabel(22), "SOURCE_DATA_TYPE");
+        assertEquals(metadata.getColumnType(22), Types.BIGINT);
+
+        assertEquals(metadata.getColumnLabel(23), "IS_AUTOINCREMENT");
+        assertEquals(metadata.getColumnType(23), Types.LONGNVARCHAR);
+
+        assertEquals(metadata.getColumnLabel(24), "IS_GENERATEDCOLUMN");
+        assertEquals(metadata.getColumnType(24), Types.LONGNVARCHAR);
+    }
+
+    @Test
     public void testExecute()
             throws Exception
     {
