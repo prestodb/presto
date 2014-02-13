@@ -25,6 +25,7 @@ import org.apache.hadoop.net.SocksSocketFactory;
 import javax.inject.Inject;
 import javax.net.SocketFactory;
 
+import java.io.File;
 import java.util.List;
 
 import static com.google.common.base.Preconditions.checkArgument;
@@ -40,6 +41,11 @@ public class HdfsConfiguration
     private final String domainSocketPath;
     private final String s3AwsAccessKey;
     private final String s3AwsSecretKey;
+    private final boolean s3SslEnabled;
+    private final int s3MaxClientRetries;
+    private final int s3MaxErrorRetries;
+    private final Duration s3ConnectTimeout;
+    private final File s3StagingDirectory;
     private final List<String> resourcePaths;
 
     @SuppressWarnings("ThreadLocalNotStaticFinal")
@@ -65,6 +71,11 @@ public class HdfsConfiguration
         this.domainSocketPath = hiveClientConfig.getDomainSocketPath();
         this.s3AwsAccessKey = hiveClientConfig.getS3AwsAccessKey();
         this.s3AwsSecretKey = hiveClientConfig.getS3AwsSecretKey();
+        this.s3SslEnabled = hiveClientConfig.isS3SslEnabled();
+        this.s3MaxClientRetries = hiveClientConfig.getS3MaxClientRetries();
+        this.s3MaxErrorRetries = hiveClientConfig.getS3MaxErrorRetries();
+        this.s3ConnectTimeout = hiveClientConfig.getS3ConnectTimeout();
+        this.s3StagingDirectory = hiveClientConfig.getS3StagingDirectory();
         this.resourcePaths = hiveClientConfig.getResourceConfigFiles();
     }
 
@@ -121,6 +132,13 @@ public class HdfsConfiguration
                 config.set(format("fs.%s.awsSecretAccessKey", scheme), s3AwsSecretKey);
             }
         }
+
+        // set config for S3
+        config.setBoolean(PrestoS3FileSystem.S3_SSL_ENABLED, s3SslEnabled);
+        config.setInt(PrestoS3FileSystem.S3_MAX_CLIENT_RETRIES, s3MaxClientRetries);
+        config.setInt(PrestoS3FileSystem.S3_MAX_ERROR_RETRIES, s3MaxErrorRetries);
+        config.set(PrestoS3FileSystem.S3_CONNECT_TIMEOUT, s3ConnectTimeout.toString());
+        config.set(PrestoS3FileSystem.S3_STAGING_DIRECTORY, s3StagingDirectory.toString());
 
         updateConfiguration(config);
 
