@@ -177,12 +177,6 @@ public class CassandraMetadata
     }
 
     @Override
-    public boolean canHandle(ConnectorTableHandle tableHandle)
-    {
-        return tableHandle instanceof CassandraTableHandle && ((CassandraTableHandle) tableHandle).getConnectorId().equals(connectorId);
-    }
-
-    @Override
     public String toString()
     {
         return Objects.toStringHelper(this)

@@ -42,12 +42,6 @@ public class InMemoryMetadata
     private final ConcurrentMap<SchemaTableName, ConnectorTableMetadata> tables = new ConcurrentHashMap<>();
 
     @Override
-    public boolean canHandle(ConnectorTableHandle tableHandle)
-    {
-        return tableHandle instanceof InMemoryTableHandle;
-    }
-
-    @Override
     public List<String> listSchemaNames()
     {
         Set<String> schemaNames = new HashSet<>();
@@ -164,12 +158,6 @@ public class InMemoryMetadata
     public void dropTable(ConnectorTableHandle tableHandle)
     {
         tables.remove(getTableName(tableHandle));
-    }
-
-    @Override
-    public boolean canHandle(ConnectorOutputTableHandle tableHandle)
-    {
-        return false;
     }
 
     @Override

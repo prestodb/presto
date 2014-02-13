@@ -64,12 +64,6 @@ public class JmxMetadata
     }
 
     @Override
-    public boolean canHandle(ConnectorTableHandle tableHandle)
-    {
-        return tableHandle instanceof JmxTableHandle && ((JmxTableHandle) tableHandle).getConnectorId().equals(connectorId);
-    }
-
-    @Override
     public List<String> listSchemaNames()
     {
         return ImmutableList.of(SCHEMA_NAME);

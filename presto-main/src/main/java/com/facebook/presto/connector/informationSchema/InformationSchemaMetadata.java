@@ -97,17 +97,6 @@ public class InformationSchemaMetadata
         this.catalogName = catalogName;
     }
 
-    @Override
-    public boolean canHandle(ConnectorTableHandle tableHandle)
-    {
-        if (!(tableHandle instanceof InformationSchemaTableHandle)) {
-            return false;
-        }
-
-        InformationSchemaTableHandle handle = (InformationSchemaTableHandle) tableHandle;
-        return handle.getCatalogName().equals(catalogName) && TABLES.containsKey(handle.getSchemaTableName());
-    }
-
     private InformationSchemaTableHandle checkTableHandle(ConnectorTableHandle tableHandle)
     {
         checkNotNull(tableHandle, "tableHandle is null");

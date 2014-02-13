@@ -31,10 +31,8 @@ import static com.facebook.presto.example.MetadataUtil.CATALOG_CODEC;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertNull;
-import static org.testng.Assert.assertTrue;
 import static org.testng.Assert.fail;
 
 @Test(singleThreaded = true)
@@ -54,13 +52,6 @@ public class TestExampleMetadata
         metadataUri = metadataUrl.toURI();
         ExampleClient client = new ExampleClient(new ExampleConfig().setMetadata(metadataUri), CATALOG_CODEC);
         metadata = new ExampleMetadata(new ExampleConnectorId(CONNECTOR_ID), client);
-    }
-
-    @Test
-    public void testCanHandle()
-    {
-        assertTrue(metadata.canHandle(new ExampleTableHandle(CONNECTOR_ID, "schema", "table")));
-        assertFalse(metadata.canHandle(new ExampleTableHandle("unknown", "schema", "table")));
     }
 
     @Test
