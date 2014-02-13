@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.connector;
 
+import com.facebook.presto.connector.informationSchema.InformationSchemaMetadata;
 import com.facebook.presto.metadata.HandleResolver;
 import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.metadata.OutputTableHandleResolver;
@@ -44,6 +45,8 @@ import static com.google.common.base.Preconditions.checkState;
 
 public class ConnectorManager
 {
+    public static final String INFORMATION_SCHEMA_CONNECTOR_PREFIX = "$info_schema@";
+
     private final MetadataManager metadataManager;
     private final SplitManager splitManager;
     private final DataStreamManager dataStreamManager;
@@ -166,6 +169,7 @@ public class ConnectorManager
 
         if (catalogName != null) {
             metadataManager.addConnectorMetadata(connectorId, catalogName, connectorMetadata);
+            metadataManager.addInternalSchemaMetadata(makeInformationSchemaConnectorId(connectorId), new InformationSchemaMetadata(catalogName));
         }
         else {
             metadataManager.addInternalSchemaMetadata(connectorId, connectorMetadata);
@@ -182,5 +186,10 @@ public class ConnectorManager
         if (connectorOutputHandleResolver != null) {
             outputTableHandleResolver.addHandleResolver(connectorId, connectorOutputHandleResolver);
         }
+    }
+
+    private static String makeInformationSchemaConnectorId(String connectorId)
+    {
+        return INFORMATION_SCHEMA_CONNECTOR_PREFIX + connectorId;
     }
 }

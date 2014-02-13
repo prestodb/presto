@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.metadata;
 
-import com.facebook.presto.connector.informationSchema.InformationSchemaMetadata;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorColumnHandle;
 import com.facebook.presto.spi.ConnectorMetadata;
@@ -55,20 +54,15 @@ import static com.google.common.collect.Iterables.transform;
 public class MetadataManager
         implements Metadata
 {
-    public static final String INTERNAL_CONNECTOR_ID = "$internal";
-
     // Note this must be a list to assure dual is always checked first
     private final CopyOnWriteArrayList<ConnectorMetadataEntry> internalSchemas = new CopyOnWriteArrayList<>();
     private final ConcurrentMap<String, ConnectorMetadataEntry> connectors = new ConcurrentHashMap<>();
-    private final ConcurrentMap<String, ConnectorMetadataEntry> informationSchemas = new ConcurrentHashMap<>();
     private final FunctionRegistry functions = new FunctionRegistry();
 
     public void addConnectorMetadata(String connectorId, String catalogName, ConnectorMetadata connectorMetadata)
     {
         ConnectorMetadataEntry entry = new ConnectorMetadataEntry(connectorId, connectorMetadata);
         checkState(connectors.putIfAbsent(catalogName, entry) == null, "Catalog '%s' is already registered", catalogName);
-
-        informationSchemas.put(catalogName, new ConnectorMetadataEntry(INTERNAL_CONNECTOR_ID, new InformationSchemaMetadata(catalogName)));
     }
 
     public void addInternalSchemaMetadata(String connectorId, ConnectorMetadata connectorMetadata)
@@ -279,22 +273,12 @@ public class MetadataManager
         if (connector != null) {
             builder.add(connector);
         }
-        ConnectorMetadataEntry informationSchema = informationSchemas.get(catalogName);
-        if (informationSchema != null) {
-            builder.add(informationSchema);
-        }
         return builder.build();
     }
 
     private ConnectorMetadata lookupConnectorFor(TableHandle tableHandle)
     {
         checkNotNull(tableHandle, "tableHandle is null");
-
-        for (Entry<String, ConnectorMetadataEntry> entry : informationSchemas.entrySet()) {
-            if (entry.getValue().getMetadata().canHandle(tableHandle.getConnectorHandle())) {
-                return entry.getValue().getMetadata();
-            }
-        }
 
         for (ConnectorMetadataEntry entry : internalSchemas) {
             if (entry.getMetadata().canHandle(tableHandle.getConnectorHandle())) {
