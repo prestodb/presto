@@ -75,12 +75,6 @@ public class NativeMetadata
     }
 
     @Override
-    public boolean canHandle(ConnectorTableHandle tableHandle)
-    {
-        return tableHandle instanceof NativeTableHandle;
-    }
-
-    @Override
     public List<String> listSchemaNames()
     {
         return dao.listSchemaNames(connectorId);
@@ -276,12 +270,6 @@ public class NativeMetadata
                 MetadataDaoUtils.dropTable(dao, tableId);
             }
         });
-    }
-
-    @Override
-    public boolean canHandle(ConnectorOutputTableHandle tableHandle)
-    {
-        return tableHandle instanceof NativeOutputTableHandle;
     }
 
     @Override

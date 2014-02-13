@@ -20,11 +20,6 @@ import java.util.Map;
 public interface ConnectorMetadata
 {
     /**
-     * Can this connector handler operations for the specified table handle.
-     */
-    boolean canHandle(ConnectorTableHandle tableHandle);
-
-    /**
      * Returns the schemas provided by this connector.
      */
     List<String> listSchemaNames();
@@ -96,11 +91,6 @@ public interface ConnectorMetadata
      * @throws RuntimeException if the table can not be dropped or table handle is no longer valid
      */
     void dropTable(ConnectorTableHandle tableHandle);
-
-    /**
-     * Can this connector handler operations for the specified output table handle.
-     */
-    boolean canHandle(ConnectorOutputTableHandle tableHandle);
 
     /**
      * Begin the atomic creation of a table with data.

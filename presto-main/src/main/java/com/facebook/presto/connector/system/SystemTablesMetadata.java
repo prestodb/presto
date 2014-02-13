@@ -50,12 +50,6 @@ public class SystemTablesMetadata
         checkArgument(tables.putIfAbsent(tableMetadata.getTable(), tableMetadata) == null, "Table %s is already registered", tableMetadata.getTable());
     }
 
-    @Override
-    public boolean canHandle(ConnectorTableHandle tableHandle)
-    {
-        return tableHandle instanceof SystemTableHandle && tables.containsKey(((SystemTableHandle) tableHandle).getSchemaTableName());
-    }
-
     private SystemTableHandle checkTableHandle(ConnectorTableHandle tableHandle)
     {
         checkNotNull(tableHandle, "tableHandle is null");
