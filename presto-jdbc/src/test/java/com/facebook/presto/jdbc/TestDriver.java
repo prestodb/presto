@@ -444,24 +444,44 @@ public class TestDriver
             throws Exception
     {
         try (Connection connection = createConnection()) {
-            try (ResultSet rs = connection.getMetaData().getColumns(null, null, null, null)) {
+            try (ResultSet rs = connection.getMetaData().getColumns(null, null, "tables", "column_name")) {
                 assertColumnMetadata(rs);
-
-                Set<List<Object>> rows = ImmutableSet.copyOf(readRows(rs));
-                assertTrue(rows.contains(ImmutableList.of("default", "information_schema", "columns", "table_catalog", "12", "varchar", "0", "0", "0", "0", "1", "null", "null", "null", "null", "0", "1", "YES", "null", "null", "null", "null", "", "", "")));
-                assertTrue(rows.contains(ImmutableList.of("default", "information_schema", "columns", "table_schema", "12", "varchar", "0", "0", "0", "0", "1", "null", "null", "null", "null", "0", "2", "YES", "null", "null", "null", "null", "", "", "")));
-                assertTrue(rows.contains(ImmutableList.of("default", "information_schema", "columns", "table_name", "12", "varchar", "0", "0", "0", "0", "1", "null", "null", "null", "null", "0", "3", "YES", "null", "null", "null", "null", "", "", "")));
             }
         }
 
         try (Connection connection = createConnection()) {
-            try (ResultSet rs = connection.getMetaData().getColumns("default", null, null, null)) {
+            try (ResultSet rs = connection.getMetaData().getColumns("default", null, "tables", "column_name")) {
                 assertColumnMetadata(rs);
+            }
+        }
 
-                Set<List<Object>> rows = ImmutableSet.copyOf(readRows(rs));
-                assertTrue(rows.contains(ImmutableList.of("default", "information_schema", "columns", "table_catalog", "12", "varchar", "0", "0", "0", "0", "1", "null", "null", "null", "null", "0", "1", "YES", "null", "null", "null", "null", "", "", "")));
-                assertTrue(rows.contains(ImmutableList.of("default", "information_schema", "columns", "table_schema", "12", "varchar", "0", "0", "0", "0", "1", "null", "null", "null", "null", "0", "2", "YES", "null", "null", "null", "null", "", "", "")));
-                assertTrue(rows.contains(ImmutableList.of("default", "information_schema", "columns", "table_name", "12", "varchar", "0", "0", "0", "0", "1", "null", "null", "null", "null", "0", "3", "YES", "null", "null", "null", "null", "", "", "")));
+        try (Connection connection = createConnection()) {
+            try (ResultSet rs = connection.getMetaData().getColumns(null, "information_schema", "tables", "column_name")) {
+                assertColumnMetadata(rs);
+            }
+        }
+
+        try (Connection connection = createConnection()) {
+            try (ResultSet rs = connection.getMetaData().getColumns("default", "information_schema", "tables", "column_name")) {
+                assertColumnMetadata(rs);
+            }
+        }
+
+        try (Connection connection = createConnection()) {
+            try (ResultSet rs = connection.getMetaData().getColumns("default", "inf%", "tables", "column_name")) {
+                assertColumnMetadata(rs);
+            }
+        }
+
+        try (Connection connection = createConnection()) {
+            try (ResultSet rs = connection.getMetaData().getColumns("default", "information_schema", "tab%", "column_name")) {
+                assertColumnMetadata(rs);
+            }
+        }
+
+        try (Connection connection = createConnection()) {
+            try (ResultSet rs = connection.getMetaData().getColumns("default", "information_schema", "tables", "col%")) {
+                assertColumnMetadata(rs);
             }
         }
     }
