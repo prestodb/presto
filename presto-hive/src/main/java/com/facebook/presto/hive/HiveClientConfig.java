@@ -14,9 +14,11 @@
 package com.facebook.presto.hive;
 
 import com.google.common.base.Splitter;
+import com.google.common.base.StandardSystemProperty;
 import com.google.common.collect.ImmutableList;
 import com.google.common.net.HostAndPort;
 import io.airlift.configuration.Config;
+import io.airlift.configuration.ConfigDescription;
 import io.airlift.units.DataSize;
 import io.airlift.units.DataSize.Unit;
 import io.airlift.units.Duration;
@@ -25,6 +27,7 @@ import io.airlift.units.MinDuration;
 import javax.validation.constraints.Min;
 import javax.validation.constraints.NotNull;
 
+import java.io.File;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 
@@ -53,6 +56,11 @@ public class HiveClientConfig
 
     private String s3AwsAccessKey;
     private String s3AwsSecretKey;
+    private boolean s3SslEnabled = true;
+    private int s3MaxClientRetries = 3;
+    private int s3MaxErrorRetries = 10;
+    private Duration s3ConnectTimeout = new Duration(5, TimeUnit.SECONDS);
+    private File s3StagingDirectory = new File(StandardSystemProperty.JAVA_IO_TMPDIR.value());
 
     private List<String> resourceConfigFiles;
 
@@ -303,6 +311,72 @@ public class HiveClientConfig
     public HiveClientConfig setS3AwsSecretKey(String s3AwsSecretKey)
     {
         this.s3AwsSecretKey = s3AwsSecretKey;
+        return this;
+    }
+
+    public boolean isS3SslEnabled()
+    {
+        return s3SslEnabled;
+    }
+
+    @Config("hive.s3.ssl.enabled")
+    public HiveClientConfig setS3SslEnabled(boolean s3SslEnabled)
+    {
+        this.s3SslEnabled = s3SslEnabled;
+        return this;
+    }
+
+    @Min(0)
+    public int getS3MaxClientRetries()
+    {
+        return s3MaxClientRetries;
+    }
+
+    @Config("hive.s3.max-client-retries")
+    public HiveClientConfig setS3MaxClientRetries(int s3MaxClientRetries)
+    {
+        this.s3MaxClientRetries = s3MaxClientRetries;
+        return this;
+    }
+
+    @Min(0)
+    public int getS3MaxErrorRetries()
+    {
+        return s3MaxErrorRetries;
+    }
+
+    @Config("hive.s3.max-error-retries")
+    public HiveClientConfig setS3MaxErrorRetries(int s3MaxErrorRetries)
+    {
+        this.s3MaxErrorRetries = s3MaxErrorRetries;
+        return this;
+    }
+
+    @MinDuration("1ms")
+    @NotNull
+    public Duration getS3ConnectTimeout()
+    {
+        return s3ConnectTimeout;
+    }
+
+    @Config("hive.s3.connect-timeout")
+    public HiveClientConfig setS3ConnectTimeout(Duration s3ConnectTimeout)
+    {
+        this.s3ConnectTimeout = s3ConnectTimeout;
+        return this;
+    }
+
+    @NotNull
+    public File getS3StagingDirectory()
+    {
+        return s3StagingDirectory;
+    }
+
+    @Config("hive.s3.staging-directory")
+    @ConfigDescription("Temporary directory for staging files before uploading to S3")
+    public HiveClientConfig setS3StagingDirectory(File s3StagingDirectory)
+    {
+        this.s3StagingDirectory = s3StagingDirectory;
         return this;
     }
 }

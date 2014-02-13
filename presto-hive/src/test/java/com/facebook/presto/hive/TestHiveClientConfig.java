@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.hive;
 
+import com.google.common.base.StandardSystemProperty;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.net.HostAndPort;
@@ -22,6 +23,7 @@ import io.airlift.units.DataSize.Unit;
 import io.airlift.units.Duration;
 import org.testng.annotations.Test;
 
+import java.io.File;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
@@ -49,7 +51,12 @@ public class TestHiveClientConfig
                 .setResourceConfigFiles((String) null)
                 .setDomainSocketPath(null)
                 .setS3AwsAccessKey(null)
-                .setS3AwsSecretKey(null));
+                .setS3AwsSecretKey(null)
+                .setS3SslEnabled(true)
+                .setS3MaxClientRetries(3)
+                .setS3MaxErrorRetries(10)
+                .setS3ConnectTimeout(new Duration(5, TimeUnit.SECONDS))
+                .setS3StagingDirectory(new File(StandardSystemProperty.JAVA_IO_TMPDIR.value())));
     }
 
     @Test
@@ -75,6 +82,11 @@ public class TestHiveClientConfig
                 .put("dfs.domain-socket-path", "/foo")
                 .put("hive.s3.aws-access-key", "abc123")
                 .put("hive.s3.aws-secret-key", "secret")
+                .put("hive.s3.ssl.enabled", "false")
+                .put("hive.s3.max-client-retries", "9")
+                .put("hive.s3.max-error-retries", "8")
+                .put("hive.s3.connect-timeout", "8s")
+                .put("hive.s3.staging-directory", "/s3-staging")
                 .build();
 
         HiveClientConfig expected = new HiveClientConfig()
@@ -96,7 +108,12 @@ public class TestHiveClientConfig
                 .setResourceConfigFiles(ImmutableList.of("/foo.xml", "/bar.xml"))
                 .setDomainSocketPath("/foo")
                 .setS3AwsAccessKey("abc123")
-                .setS3AwsSecretKey("secret");
+                .setS3AwsSecretKey("secret")
+                .setS3SslEnabled(false)
+                .setS3MaxClientRetries(9)
+                .setS3MaxErrorRetries(8)
+                .setS3ConnectTimeout(new Duration(8, TimeUnit.SECONDS))
+                .setS3StagingDirectory(new File("/s3-staging"));
 
         ConfigAssertions.assertFullMapping(properties, expected);
     }

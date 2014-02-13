@@ -439,6 +439,18 @@ public class HiveClient
             throw new RuntimeException(format("Target directory for table '%s' already exists: %s", table, targetPath));
         }
 
+        if (!useTemporaryDirectory(targetPath)) {
+            return new HiveOutputTableHandle(
+                connectorId,
+                schemaName,
+                tableName,
+                columnNames.build(),
+                columnTypes.build(),
+                tableMetadata.getOwner(),
+                targetPath.toString(),
+                targetPath.toString());
+        }
+
         // use a per-user temporary directory to avoid permission problems
         // TODO: this should use Hadoop UserGroupInformation
         String temporaryPrefix = "/tmp/presto-" + StandardSystemProperty.USER_NAME.value();
@@ -468,13 +480,16 @@ public class HiveClient
 
         // verify no one raced us to create the target directory
         Path targetPath = new Path(handle.getTargetPath());
-        if (pathExists(targetPath)) {
-            SchemaTableName table = new SchemaTableName(handle.getSchemaName(), handle.getTableName());
-            throw new RuntimeException(format("Unable to commit creation of table '%s': target directory already exists: %s", table, targetPath));
-        }
 
-        // rename the temporary directory to the target
-        rename(new Path(handle.getTemporaryPath()), targetPath);
+        // rename if using a temporary directory
+        if (handle.hasTemporaryPath()) {
+            if (pathExists(targetPath)) {
+                SchemaTableName table = new SchemaTableName(handle.getSchemaName(), handle.getTableName());
+                throw new RuntimeException(format("Unable to commit creation of table '%s': target directory already exists: %s", table, targetPath));
+            }
+            // rename the temporary directory to the target
+            rename(new Path(handle.getTemporaryPath()), targetPath);
+        }
 
         // create the table in the metastore
         List<String> types = FluentIterable.from(handle.getColumnTypes())
@@ -542,6 +557,17 @@ public class HiveClient
         }
         catch (NoSuchObjectException e) {
             throw new SchemaNotFoundException(database);
+        }
+    }
+
+    private boolean useTemporaryDirectory(Path path)
+    {
+        try {
+            // skip using temporary directory for S3
+            return !(getFileSystem(path) instanceof PrestoS3FileSystem);
+        }
+        catch (IOException e) {
+            throw new RuntimeException("Failed checking path: " + path, e);
         }
     }
 

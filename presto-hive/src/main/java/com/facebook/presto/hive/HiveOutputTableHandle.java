@@ -114,4 +114,9 @@ public class HiveOutputTableHandle
     {
         return "hive:" + schemaName + "." + tableName;
     }
+
+    public boolean hasTemporaryPath()
+    {
+        return !temporaryPath.equals(targetPath);
+    }
 }
