@@ -59,12 +59,6 @@ public class JmxDataStreamProvider
     }
 
     @Override
-    public boolean canHandle(ConnectorSplit split)
-    {
-        return split instanceof JmxSplit && ((JmxSplit) split).getTableHandle().getConnectorId().equals(connectorId);
-    }
-
-    @Override
     public Operator createNewDataStream(OperatorContext operatorContext, ConnectorSplit split, List<ConnectorColumnHandle> columns)
     {
         return new RecordProjectOperator(operatorContext, createRecordSet(split, columns));

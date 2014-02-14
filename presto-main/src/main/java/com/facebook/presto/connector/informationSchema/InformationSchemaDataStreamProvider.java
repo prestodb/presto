@@ -66,12 +66,6 @@ public class InformationSchemaDataStreamProvider
     }
 
     @Override
-    public boolean canHandle(ConnectorSplit split)
-    {
-        return split instanceof InformationSchemaSplit;
-    }
-
-    @Override
     public Operator createNewDataStream(OperatorContext operatorContext, ConnectorSplit split, List<ConnectorColumnHandle> columns)
     {
         List<BlockIterable> channels = createChannels(split, columns);

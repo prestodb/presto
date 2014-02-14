@@ -53,12 +53,6 @@ public class DualSplitManager
     }
 
     @Override
-    public boolean canHandle(ConnectorTableHandle handle)
-    {
-        return handle instanceof DualTableHandle;
-    }
-
-    @Override
     public ConnectorPartitionResult getPartitions(ConnectorTableHandle table, TupleDomain<ConnectorColumnHandle> tupleDomain)
     {
         checkNotNull(table, "table is null");

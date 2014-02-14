@@ -24,7 +24,6 @@ import com.facebook.presto.operator.aggregation.CustomSum;
 import com.facebook.presto.operator.scalar.CustomAdd;
 import com.facebook.presto.operator.window.CustomRank;
 import com.facebook.presto.spi.ColumnMetadata;
-import com.facebook.presto.spi.ConnectorSplitManager;
 import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.RecordCursor;
 import com.facebook.presto.spi.RecordSet;
@@ -3320,7 +3319,8 @@ public abstract class AbstractTestQueries
     {
         MetadataManager metadata = new MetadataManager();
         metadata.addInternalSchemaMetadata(DualConnector.CONNECTOR_ID, new DualMetadata());
-        SplitManager splitManager = new SplitManager(ImmutableSet.<ConnectorSplitManager>of(new DualSplitManager(new InMemoryNodeManager())));
+        SplitManager splitManager = new SplitManager();
+        splitManager.addConnectorSplitManager(DualConnector.CONNECTOR_ID, new DualSplitManager(new InMemoryNodeManager()));
         AnalyzerConfig analyzerConfig = new AnalyzerConfig().setExperimentalSyntaxEnabled(true);
         List<PlanOptimizer> optimizers = new PlanOptimizersFactory(metadata, splitManager, analyzerConfig).get();
         return new QueryExplainer(session, optimizers, metadata, analyzerConfig.isExperimentalSyntaxEnabled());
