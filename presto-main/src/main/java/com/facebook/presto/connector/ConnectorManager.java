@@ -206,7 +206,7 @@ public class ConnectorManager
         dataStreamManager.addConnectorDataStreamProvider(connectorId, connectorDataStreamProvider);
 
         if (connectorRecordSinkProvider != null) {
-            recordSinkManager.addConnectorRecordSinkProvider(connectorRecordSinkProvider);
+            recordSinkManager.addConnectorRecordSinkProvider(connectorId, connectorRecordSinkProvider);
         }
 
         if (connectorOutputHandleResolver != null) {
