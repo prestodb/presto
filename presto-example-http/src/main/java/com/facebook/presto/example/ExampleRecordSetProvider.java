@@ -38,12 +38,6 @@ public class ExampleRecordSetProvider
     }
 
     @Override
-    public boolean canHandle(ConnectorSplit split)
-    {
-        return split instanceof ExampleSplit && ((ExampleSplit) split).getConnectorId().equals(connectorId);
-    }
-
-    @Override
     public RecordSet getRecordSet(ConnectorSplit split, List<? extends ConnectorColumnHandle> columns)
     {
         checkNotNull(split, "partitionChunk is null");

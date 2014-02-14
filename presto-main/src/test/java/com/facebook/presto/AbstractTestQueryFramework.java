@@ -19,7 +19,6 @@ import com.facebook.presto.connector.dual.DualSplitManager;
 import com.facebook.presto.index.IndexManager;
 import com.facebook.presto.metadata.InMemoryNodeManager;
 import com.facebook.presto.metadata.MetadataManager;
-import com.facebook.presto.spi.ConnectorSplitManager;
 import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.RecordCursor;
 import com.facebook.presto.spi.RecordSet;
@@ -41,7 +40,6 @@ import com.facebook.presto.util.MaterializedRow;
 import com.google.common.base.Function;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableMultiset;
-import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import io.airlift.log.Logger;
 import io.airlift.log.Logging;
@@ -393,7 +391,8 @@ public abstract class AbstractTestQueryFramework
     {
         MetadataManager metadata = new MetadataManager(new FeaturesConfig().setExperimentalSyntaxEnabled(true), new TypeRegistry());
         metadata.addInternalSchemaMetadata(DualConnector.CONNECTOR_ID, new DualMetadata());
-        SplitManager splitManager = new SplitManager(ImmutableSet.<ConnectorSplitManager>of(new DualSplitManager(new InMemoryNodeManager())));
+        SplitManager splitManager = new SplitManager();
+        splitManager.addConnectorSplitManager(DualConnector.CONNECTOR_ID, new DualSplitManager(new InMemoryNodeManager()));
         IndexManager indexManager = new IndexManager();
         FeaturesConfig featuresConfig = new FeaturesConfig().setExperimentalSyntaxEnabled(true);
         List<PlanOptimizer> optimizers = new PlanOptimizersFactory(metadata, splitManager, indexManager, featuresConfig).get();

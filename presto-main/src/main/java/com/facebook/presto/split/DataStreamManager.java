@@ -18,15 +18,13 @@ import com.facebook.presto.metadata.Split;
 import com.facebook.presto.operator.Operator;
 import com.facebook.presto.operator.OperatorContext;
 import com.facebook.presto.spi.ConnectorColumnHandle;
-import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Lists;
-import com.google.common.collect.Sets;
 
 import javax.inject.Inject;
 
 import java.util.List;
-import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
 
 import static com.facebook.presto.metadata.ColumnHandle.connectorHandleGetter;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -35,22 +33,16 @@ import static com.google.common.base.Preconditions.checkNotNull;
 public class DataStreamManager
         implements DataStreamProvider
 {
-    private final Set<ConnectorDataStreamProvider> dataStreamProviders = Sets.newSetFromMap(new ConcurrentHashMap<ConnectorDataStreamProvider, Boolean>());
-
-    public DataStreamManager(ConnectorDataStreamProvider... dataStreamProviders)
-    {
-        this(ImmutableSet.copyOf(dataStreamProviders));
-    }
+    private final ConcurrentMap<String, ConnectorDataStreamProvider> dataStreamProviders = new ConcurrentHashMap<>();
 
     @Inject
-    public DataStreamManager(Set<ConnectorDataStreamProvider> dataStreamProviders)
+    public DataStreamManager()
     {
-        this.dataStreamProviders.addAll(dataStreamProviders);
     }
 
-    public void addConnectorDataStreamProvider(ConnectorDataStreamProvider connectorDataStreamProvider)
+    public void addConnectorDataStreamProvider(String connectorId, ConnectorDataStreamProvider connectorDataStreamProvider)
     {
-        dataStreamProviders.add(connectorDataStreamProvider);
+        dataStreamProviders.put(connectorId, connectorDataStreamProvider);
     }
 
     @Override
@@ -68,11 +60,10 @@ public class DataStreamManager
 
     private ConnectorDataStreamProvider getDataStreamProvider(Split split)
     {
-        for (ConnectorDataStreamProvider dataStreamProvider : dataStreamProviders) {
-            if (dataStreamProvider.canHandle(split.getConnectorSplit())) {
-                return dataStreamProvider;
-            }
-        }
-        throw new IllegalArgumentException("No data stream provider for " + split);
+        ConnectorDataStreamProvider provider = dataStreamProviders.get(split.getConnectorId());
+
+        checkArgument(provider != null, "No data stream provider for '%s", split.getConnectorId());
+
+        return provider;
     }
 }

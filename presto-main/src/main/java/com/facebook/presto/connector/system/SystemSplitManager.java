@@ -67,12 +67,6 @@ public class SystemSplitManager
     }
 
     @Override
-    public boolean canHandle(ConnectorTableHandle handle)
-    {
-        return handle instanceof SystemTableHandle;
-    }
-
-    @Override
     public ConnectorPartitionResult getPartitions(ConnectorTableHandle table, TupleDomain<ConnectorColumnHandle> tupleDomain)
     {
         checkNotNull(table, "table is null");

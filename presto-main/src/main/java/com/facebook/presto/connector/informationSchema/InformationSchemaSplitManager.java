@@ -57,12 +57,6 @@ public class InformationSchemaSplitManager
     }
 
     @Override
-    public boolean canHandle(ConnectorTableHandle handle)
-    {
-        return handle instanceof InformationSchemaTableHandle;
-    }
-
-    @Override
     public ConnectorPartitionResult getPartitions(ConnectorTableHandle table, TupleDomain<ConnectorColumnHandle> tupleDomain)
     {
         checkNotNull(table, "table is null");

@@ -84,12 +84,6 @@ public class NativeSplitManager
     }
 
     @Override
-    public boolean canHandle(ConnectorTableHandle handle)
-    {
-        return handle instanceof NativeTableHandle;
-    }
-
-    @Override
     public ConnectorPartitionResult getPartitions(ConnectorTableHandle tableHandle, TupleDomain<ConnectorColumnHandle> tupleDomain)
     {
         Stopwatch partitionTimer = new Stopwatch();

@@ -118,10 +118,13 @@ public class TestSqlTaskManager
         split = Iterables.getOnlyElement(splitSource.getNextBatch(1));
         assertTrue(splitSource.isFinished());
 
+        DataStreamManager dataStreamProvider = new DataStreamManager();
+        dataStreamProvider.addConnectorDataStreamProvider(DualConnector.CONNECTOR_ID, new DualDataStreamProvider());
+
         planner = new LocalExecutionPlanner(
                 new NodeInfo("test"),
                 metadata,
-                new DataStreamManager(new DualDataStreamProvider()),
+                dataStreamProvider,
                 new IndexManager(),
                 new MockLocalStorageManager(new File("target/temp")),
                 new RecordSinkManager(),
