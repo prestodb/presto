@@ -32,14 +32,6 @@ public final class ClassLoaderSafeConnectorRecordSinkProvider
     }
 
     @Override
-    public boolean canHandle(ConnectorOutputTableHandle tableHandle)
-    {
-        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
-            return delegate.canHandle(tableHandle);
-        }
-    }
-
-    @Override
     public RecordSink getRecordSink(ConnectorOutputTableHandle tableHandle)
     {
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {

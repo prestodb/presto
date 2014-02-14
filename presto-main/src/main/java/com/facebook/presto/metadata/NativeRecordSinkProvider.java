@@ -47,12 +47,6 @@ public class NativeRecordSinkProvider
     }
 
     @Override
-    public boolean canHandle(ConnectorOutputTableHandle tableHandle)
-    {
-        return tableHandle instanceof NativeOutputTableHandle;
-    }
-
-    @Override
     public RecordSink getRecordSink(ConnectorOutputTableHandle tableHandle)
     {
         NativeOutputTableHandle handle = checkType(tableHandle, NativeOutputTableHandle.class, "tableHandle");
