@@ -49,12 +49,6 @@ public class SystemDataStreamProvider
     }
 
     @Override
-    public boolean canHandle(ConnectorSplit split)
-    {
-        return split instanceof SystemSplit && tables.containsKey(((SystemSplit) split).getTableHandle().getSchemaTableName());
-    }
-
-    @Override
     public Operator createNewDataStream(OperatorContext operatorContext, ConnectorSplit split, List<ConnectorColumnHandle> columns)
     {
         return new RecordProjectOperator(operatorContext, createRecordSet(split, columns));

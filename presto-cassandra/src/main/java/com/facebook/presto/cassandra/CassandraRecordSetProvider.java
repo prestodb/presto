@@ -67,12 +67,6 @@ public class CassandraRecordSetProvider
     }
 
     @Override
-    public boolean canHandle(ConnectorSplit split)
-    {
-        return split instanceof CassandraSplit && ((CassandraSplit) split).getConnectorId().equals(connectorId);
-    }
-
-    @Override
     public String toString()
     {
         return Objects.toStringHelper(this)

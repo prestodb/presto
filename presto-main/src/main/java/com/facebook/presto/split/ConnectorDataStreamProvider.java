@@ -22,7 +22,5 @@ import java.util.List;
 
 public interface ConnectorDataStreamProvider
 {
-    boolean canHandle(ConnectorSplit split);
-
     Operator createNewDataStream(OperatorContext operatorContext, ConnectorSplit split, List<ConnectorColumnHandle> columns);
 }

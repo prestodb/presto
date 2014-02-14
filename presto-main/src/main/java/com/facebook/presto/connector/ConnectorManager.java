@@ -14,7 +14,9 @@
 package com.facebook.presto.connector;
 
 import com.facebook.presto.index.IndexManager;
+import com.facebook.presto.connector.informationSchema.InformationSchemaDataStreamProvider;
 import com.facebook.presto.connector.informationSchema.InformationSchemaMetadata;
+import com.facebook.presto.connector.informationSchema.InformationSchemaSplitManager;
 import com.facebook.presto.metadata.HandleResolver;
 import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.metadata.OutputTableHandleResolver;
@@ -28,6 +30,7 @@ import com.facebook.presto.spi.ConnectorOutputHandleResolver;
 import com.facebook.presto.spi.ConnectorRecordSetProvider;
 import com.facebook.presto.spi.ConnectorRecordSinkProvider;
 import com.facebook.presto.spi.ConnectorSplitManager;
+import com.facebook.presto.spi.NodeManager;
 import com.facebook.presto.split.ConnectorDataStreamProvider;
 import com.facebook.presto.split.DataStreamManager;
 import com.facebook.presto.split.RecordSetDataStreamProvider;
@@ -57,6 +60,7 @@ public class ConnectorManager
     private final RecordSinkManager recordSinkManager;
     private final HandleResolver handleResolver;
     private final OutputTableHandleResolver outputTableHandleResolver;
+    private final NodeManager nodeManager;
 
     private final ConcurrentMap<String, ConnectorFactory> connectorFactories = new ConcurrentHashMap<>();
 
@@ -71,7 +75,8 @@ public class ConnectorManager
             HandleResolver handleResolver,
             OutputTableHandleResolver outputTableHandleResolver,
             Map<String, ConnectorFactory> connectorFactories,
-            Map<String, Connector> globalConnectors)
+            Map<String, Connector> globalConnectors,
+            NodeManager nodeManager)
     {
         this.metadataManager = metadataManager;
         this.splitManager = splitManager;
@@ -80,6 +85,7 @@ public class ConnectorManager
         this.recordSinkManager = recordSinkManager;
         this.handleResolver = handleResolver;
         this.outputTableHandleResolver = outputTableHandleResolver;
+        this.nodeManager = nodeManager;
         this.connectorFactories.putAll(connectorFactories);
 
         // add the global connectors
@@ -186,15 +192,18 @@ public class ConnectorManager
 
         if (catalogName != null) {
             metadataManager.addConnectorMetadata(connectorId, catalogName, connectorMetadata);
+
             metadataManager.addInternalSchemaMetadata(makeInformationSchemaConnectorId(connectorId), new InformationSchemaMetadata(catalogName));
+            splitManager.addConnectorSplitManager(makeInformationSchemaConnectorId(connectorId), new InformationSchemaSplitManager(nodeManager));
+            dataStreamManager.addConnectorDataStreamProvider(makeInformationSchemaConnectorId(connectorId), new InformationSchemaDataStreamProvider(metadataManager, splitManager));
         }
         else {
             metadataManager.addInternalSchemaMetadata(connectorId, connectorMetadata);
         }
 
+        splitManager.addConnectorSplitManager(connectorId, connectorSplitManager);
         handleResolver.addHandleResolver(connectorId, connectorHandleResolver);
-        splitManager.addConnectorSplitManager(connectorSplitManager);
-        dataStreamManager.addConnectorDataStreamProvider(connectorDataStreamProvider);
+        dataStreamManager.addConnectorDataStreamProvider(connectorId, connectorDataStreamProvider);
 
         if (connectorRecordSinkProvider != null) {
             recordSinkManager.addConnectorRecordSinkProvider(connectorRecordSinkProvider);

@@ -17,8 +17,6 @@ import com.facebook.presto.ScheduledSplit;
 import com.facebook.presto.TaskSource;
 import com.facebook.presto.connector.ConnectorManager;
 import com.facebook.presto.connector.dual.DualConnector;
-import com.facebook.presto.connector.informationSchema.InformationSchemaDataStreamProvider;
-import com.facebook.presto.connector.informationSchema.InformationSchemaSplitManager;
 import com.facebook.presto.connector.system.CatalogSystemTable;
 import com.facebook.presto.connector.system.NodesSystemTable;
 import com.facebook.presto.connector.system.SystemConnector;
@@ -54,7 +52,6 @@ import com.facebook.presto.operator.TaskContext;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.Connector;
 import com.facebook.presto.spi.ConnectorFactory;
-import com.facebook.presto.spi.ConnectorSplitManager;
 import com.facebook.presto.spi.SystemTable;
 import com.facebook.presto.spi.TupleDomain;
 import com.facebook.presto.split.DataStreamManager;
@@ -131,8 +128,8 @@ public class LocalQueryRunner
 
         this.nodeManager = new InMemoryNodeManager();
         this.typeRegistry = new TypeRegistry();
-        this.metadata = new MetadataManager(new FeaturesConfig().setExperimentalSyntaxEnabled(true), new TypeRegistry());
-        this.splitManager = new SplitManager(ImmutableSet.<ConnectorSplitManager>of());
+        this.metadata = new MetadataManager(new FeaturesConfig().setExperimentalSyntaxEnabled(true), typeRegistry);
+        this.splitManager = new SplitManager();
         this.dataStreamProvider = new DataStreamManager();
         this.indexManager = new IndexManager();
         this.recordSinkManager = new RecordSinkManager();
@@ -163,12 +160,8 @@ public class LocalQueryRunner
                 ImmutableMap.<String, ConnectorFactory>of(),
                 ImmutableMap.<String, Connector>of(
                         DualConnector.CONNECTOR_ID, new DualConnector(nodeManager),
-                        SystemConnector.CONNECTOR_ID, new SystemConnector(systemTablesMetadata, systemSplitManager, systemDataStreamProvider)
-                ));
-
-        // information schema
-        splitManager.addConnectorSplitManager(new InformationSchemaSplitManager(nodeManager));
-        dataStreamProvider.addConnectorDataStreamProvider(new InformationSchemaDataStreamProvider(metadata, splitManager));
+                        SystemConnector.CONNECTOR_ID, new SystemConnector(systemTablesMetadata, systemSplitManager, systemDataStreamProvider)),
+                nodeManager);
     }
 
     public InMemoryNodeManager getNodeManager()

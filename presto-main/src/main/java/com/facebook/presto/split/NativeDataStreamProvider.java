@@ -41,12 +41,6 @@ public class NativeDataStreamProvider
     }
 
     @Override
-    public boolean canHandle(ConnectorSplit split)
-    {
-        return split instanceof NativeSplit;
-    }
-
-    @Override
     public Operator createNewDataStream(OperatorContext operatorContext, ConnectorSplit split, List<ConnectorColumnHandle> columns)
     {
         return new AlignmentOperator(operatorContext, createChannels(split, columns));

@@ -57,12 +57,6 @@ public class TpchSplitManager
     }
 
     @Override
-    public boolean canHandle(ConnectorTableHandle handle)
-    {
-        return handle instanceof TpchTableHandle && ((TpchTableHandle) handle).getConnectorId().equals(connectorId);
-    }
-
-    @Override
     public ConnectorPartitionResult getPartitions(ConnectorTableHandle table, TupleDomain<ConnectorColumnHandle> tupleDomain)
     {
         ImmutableList<ConnectorPartition> partitions = ImmutableList.<ConnectorPartition>of(new TpchPartition((TpchTableHandle) table));

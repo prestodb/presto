@@ -35,14 +35,6 @@ public class ClassLoaderSafeConnectorRecordSetProvider
     }
 
     @Override
-    public boolean canHandle(ConnectorSplit split)
-    {
-        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
-            return delegate.canHandle(split);
-        }
-    }
-
-    @Override
     public RecordSet getRecordSet(ConnectorSplit split, List<? extends ConnectorColumnHandle> columns)
     {
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {

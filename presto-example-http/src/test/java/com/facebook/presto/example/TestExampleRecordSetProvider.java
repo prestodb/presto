@@ -29,22 +29,12 @@ import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.google.common.base.Charsets.UTF_8;
 import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNotNull;
-import static org.testng.Assert.assertTrue;
 
 public class TestExampleRecordSetProvider
 {
     private ExampleHttpServer exampleHttpServer;
     private URI dataUri;
-
-    @Test
-    public void testCanHandle()
-    {
-        ExampleRecordSetProvider recordSetProvider = new ExampleRecordSetProvider(new ExampleConnectorId("test"));
-        assertTrue(recordSetProvider.canHandle(new ExampleSplit("test", "schema", "table", URI.create("http://127.0.0.1/test.file"))));
-        assertFalse(recordSetProvider.canHandle(new ExampleSplit("unknown", "schema", "table", URI.create("http://127.0.0.1/test.file"))));
-    }
 
     @Test
     public void testGetRecordSet()

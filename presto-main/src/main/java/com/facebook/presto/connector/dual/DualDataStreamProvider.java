@@ -43,12 +43,6 @@ public class DualDataStreamProvider
     }
 
     @Override
-    public boolean canHandle(ConnectorSplit split)
-    {
-        return split instanceof DualSplit;
-    }
-
-    @Override
     public Operator createNewDataStream(OperatorContext operatorContext, ConnectorSplit split, List<ConnectorColumnHandle> columns)
     {
         return new AlignmentOperator(operatorContext, createChannels(split, columns));

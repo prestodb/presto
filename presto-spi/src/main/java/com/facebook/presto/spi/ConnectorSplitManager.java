@@ -23,11 +23,6 @@ public interface ConnectorSplitManager
     String getConnectorId();
 
     /**
-     * Returns true only if this ConnectorSplitManager can operate on the TableHandle
-     */
-    boolean canHandle(ConnectorTableHandle handle);
-
-    /**
      * Gets the Partitions for the specified table.
      *
      * The TupleDomain indicates the execution filters that will be directly applied to the

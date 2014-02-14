@@ -55,12 +55,6 @@ public class JmxSplitManager
     }
 
     @Override
-    public boolean canHandle(ConnectorTableHandle tableHandle)
-    {
-        return tableHandle instanceof JmxTableHandle && ((JmxTableHandle) tableHandle).getConnectorId().equals(connectorId);
-    }
-
-    @Override
     public ConnectorPartitionResult getPartitions(ConnectorTableHandle table, TupleDomain<ConnectorColumnHandle> tupleDomain)
     {
         checkNotNull(table, "table is null");

@@ -39,12 +39,6 @@ public class TpchRecordSetProvider
     }
 
     @Override
-    public boolean canHandle(ConnectorSplit split)
-    {
-        return split instanceof TpchSplit && ((TpchSplit) split).getTableHandle().getConnectorId().equals(connectorId);
-    }
-
-    @Override
     public RecordSet getRecordSet(ConnectorSplit split, List<? extends ConnectorColumnHandle> columns)
     {
         checkNotNull(split, "split is null");
