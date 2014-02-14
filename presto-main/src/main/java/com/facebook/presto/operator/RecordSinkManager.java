@@ -16,43 +16,30 @@ package com.facebook.presto.operator;
 import com.facebook.presto.metadata.OutputTableHandle;
 import com.facebook.presto.spi.ConnectorRecordSinkProvider;
 import com.facebook.presto.spi.RecordSink;
-import com.google.common.collect.ImmutableSet;
 
-import javax.inject.Inject;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
 
-import java.util.Set;
-
-import static com.google.common.collect.Sets.newConcurrentHashSet;
+import static com.google.common.base.Preconditions.checkArgument;
 
 public class RecordSinkManager
         implements RecordSinkProvider
 {
-    private final Set<ConnectorRecordSinkProvider> recordSinkProviders = newConcurrentHashSet();
+    private final ConcurrentMap<String, ConnectorRecordSinkProvider> recordSinkProviders = new ConcurrentHashMap<>();
 
-    public RecordSinkManager(ConnectorRecordSinkProvider... recordSinkProviders)
+    public void addConnectorRecordSinkProvider(String connectorId, ConnectorRecordSinkProvider recordSinkProvider)
     {
-        this(ImmutableSet.copyOf(recordSinkProviders));
-    }
-
-    @Inject
-    public RecordSinkManager(Set<ConnectorRecordSinkProvider> recordSinkProviders)
-    {
-        this.recordSinkProviders.addAll(recordSinkProviders);
-    }
-
-    public void addConnectorRecordSinkProvider(ConnectorRecordSinkProvider recordSinkProvider)
-    {
-        recordSinkProviders.add(recordSinkProvider);
+        ConnectorRecordSinkProvider previous = recordSinkProviders.putIfAbsent(connectorId, recordSinkProvider);
+        checkArgument(previous == null, "Record sink provider already registered for connector '%s'", connectorId);
     }
 
     @Override
     public RecordSink getRecordSink(OutputTableHandle tableHandle)
     {
-        for (ConnectorRecordSinkProvider provider : recordSinkProviders) {
-            if (provider.canHandle(tableHandle.getConnectorHandle())) {
-                return provider.getRecordSink(tableHandle.getConnectorHandle());
-            }
-        }
-        throw new IllegalArgumentException("No record sink for " + tableHandle);
+        ConnectorRecordSinkProvider provider = recordSinkProviders.get(tableHandle.getConnectorId());
+
+        checkArgument(provider != null, "No record sink for '%s'", tableHandle.getConnectorId());
+
+        return provider.getRecordSink(tableHandle.getConnectorHandle());
     }
 }
