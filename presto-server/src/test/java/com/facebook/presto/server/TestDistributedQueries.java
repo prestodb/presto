@@ -39,7 +39,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.http.client.AsyncHttpClient;
 import io.airlift.http.client.HttpClientConfig;
-import io.airlift.http.client.netty.StandaloneNettyAsyncHttpClient;
+import io.airlift.http.client.jetty.JettyHttpClient;
 import io.airlift.json.JsonCodec;
 import io.airlift.log.Logger;
 import io.airlift.testing.Closeables;
@@ -224,7 +224,7 @@ public class TestDistributedQueries
             throw e;
         }
 
-        this.httpClient = new StandaloneNettyAsyncHttpClient("test",
+        this.httpClient = new JettyHttpClient(
                 new HttpClientConfig()
                         .setConnectTimeout(new Duration(1, TimeUnit.DAYS))
                         .setReadTimeout(new Duration(10, TimeUnit.DAYS)));

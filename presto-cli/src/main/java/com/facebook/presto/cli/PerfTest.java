@@ -34,7 +34,7 @@ import io.airlift.http.client.AsyncHttpClient;
 import io.airlift.http.client.HttpClientConfig;
 import io.airlift.http.client.Request;
 import io.airlift.http.client.StatusResponseHandler.StatusResponse;
-import io.airlift.http.client.netty.StandaloneNettyAsyncHttpClient;
+import io.airlift.http.client.jetty.JettyHttpClient;
 import io.airlift.log.Logging;
 import io.airlift.log.LoggingConfiguration;
 import io.airlift.units.Duration;
@@ -227,8 +227,7 @@ public class PerfTest
             this.session = session;
             this.executor = executor;
 
-            httpClient = new StandaloneNettyAsyncHttpClient("cli",
-                    new HttpClientConfig().setConnectTimeout(new Duration(10, TimeUnit.SECONDS)));
+            httpClient = new JettyHttpClient(new HttpClientConfig().setConnectTimeout(new Duration(10, TimeUnit.SECONDS)));
         }
 
         public ListenableFuture<?> execute(final BlockingQueue<String> queue, final CountDownLatch remainingQueries)

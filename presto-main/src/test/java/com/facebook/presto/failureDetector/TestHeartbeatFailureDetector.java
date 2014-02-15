@@ -18,6 +18,7 @@ import com.google.inject.Binder;
 import com.google.inject.Injector;
 import com.google.inject.Key;
 import com.google.inject.Module;
+import com.google.inject.Scopes;
 import io.airlift.bootstrap.Bootstrap;
 import io.airlift.discovery.client.ServiceSelector;
 import io.airlift.discovery.client.testing.TestingDiscoveryModule;
@@ -28,6 +29,9 @@ import io.airlift.json.JsonModule;
 import io.airlift.node.testing.TestingNodeModule;
 import io.airlift.tracetoken.TraceTokenModule;
 import org.testng.annotations.Test;
+
+import javax.ws.rs.GET;
+import javax.ws.rs.Path;
 
 import static io.airlift.configuration.ConfigurationModule.bindConfig;
 import static io.airlift.discovery.client.DiscoveryBinder.discoveryBinder;
@@ -58,6 +62,10 @@ public class TestHeartbeatFailureDetector
                         bindConfig(binder).to(QueryManagerConfig.class);
                         discoveryBinder(binder).bindSelector("presto");
                         discoveryBinder(binder).bindHttpAnnouncement("presto");
+
+                        // Jersey with jetty 9 requires at least one resource
+                        // todo add a dummy resource to airlift jaxrs in this case
+                        binder.bind(FooResource.class).in(Scopes.SINGLETON);
                     }
                 });
 
@@ -76,5 +84,15 @@ public class TestHeartbeatFailureDetector
         assertEquals(detector.getActiveCount(), 0);
         assertEquals(detector.getFailedCount(), 0);
         assertTrue(detector.getFailed().isEmpty());
+    }
+
+    @Path("/foo")
+    public static class FooResource
+    {
+        @GET
+        public String hello()
+        {
+            return "hello";
+        }
     }
 }
