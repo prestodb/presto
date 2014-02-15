@@ -18,7 +18,7 @@ import com.facebook.presto.client.QueryResults;
 import com.facebook.presto.client.StatementClient;
 import io.airlift.http.client.AsyncHttpClient;
 import io.airlift.http.client.HttpClientConfig;
-import io.airlift.http.client.netty.StandaloneNettyAsyncHttpClient;
+import io.airlift.http.client.jetty.JettyHttpClient;
 import io.airlift.json.JsonCodec;
 import io.airlift.units.Duration;
 
@@ -39,8 +39,7 @@ public class QueryRunner
     {
         this.session = checkNotNull(session, "session is null");
         this.queryResultsCodec = checkNotNull(queryResultsCodec, "queryResultsCodec is null");
-        this.httpClient = new StandaloneNettyAsyncHttpClient("cli",
-                new HttpClientConfig().setConnectTimeout(new Duration(10, TimeUnit.SECONDS)));
+        this.httpClient = new JettyHttpClient(new HttpClientConfig().setConnectTimeout(new Duration(10, TimeUnit.SECONDS)));
     }
 
     public ClientSession getSession()

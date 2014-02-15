@@ -14,8 +14,8 @@
 package com.facebook.presto.server;
 
 import com.facebook.presto.server.testing.TestingPrestoServer;
-import io.airlift.http.client.ApacheHttpClient;
 import io.airlift.http.client.HttpClient;
+import io.airlift.http.client.jetty.JettyHttpClient;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
@@ -39,7 +39,7 @@ public class TestNodeResource
             throws Exception
     {
         server = new TestingPrestoServer();
-        client = new ApacheHttpClient();
+        client = new JettyHttpClient();
     }
 
     @AfterMethod

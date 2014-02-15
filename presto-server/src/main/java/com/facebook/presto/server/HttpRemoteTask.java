@@ -61,6 +61,7 @@ import org.joda.time.DateTime;
 
 import javax.annotation.concurrent.GuardedBy;
 
+import java.io.EOFException;
 import java.net.SocketException;
 import java.net.SocketTimeoutException;
 import java.net.URI;
@@ -479,8 +480,13 @@ public class HttpRemoteTask
             return;
         }
 
-        // log failure message
+        // if task is done, ignore the error
         TaskInfo taskInfo = getTaskInfo();
+        if (taskInfo.getState().isDone()) {
+            return;
+        }
+
+        // log failure message
         if (isSocketError(reason)) {
             // don't print a stack for a socket error
             log.warn("Error updating task %s: %s: %s", taskInfo.getTaskId(), reason.getMessage(), taskInfo.getSelf());
@@ -677,6 +683,8 @@ public class HttpRemoteTask
                     requestFailed(cause);
                 }
                 finally {
+                    // there is no back off here so we can get a lot of error messages when a server spins
+                    // down, but it typically goes away quickly because the queries get canceled
                     scheduleNextRequest();
                 }
             }
@@ -761,7 +769,8 @@ public class HttpRemoteTask
     private static boolean isSocketError(Throwable t)
     {
         while (t != null) {
-            if ((t instanceof SocketException) || (t instanceof SocketTimeoutException)) {
+            // in this case we consider an EOFException a socket error
+            if ((t instanceof SocketException) || (t instanceof SocketTimeoutException) || (t instanceof EOFException)) {
                 return true;
             }
             t = t.getCause();

@@ -45,19 +45,6 @@
                     <groupId>com.google.inject.extensions</groupId>
                     <artifactId>guice-multibindings</artifactId>
                 </exclusion>
-                <!-- the apache http client is not used -->
-                <exclusion>
-                    <groupId>org.apache.httpcomponents</groupId>
-                    <artifactId>httpclient</artifactId>
-                </exclusion>
-                <exclusion>
-                    <groupId>org.apache.httpcomponents</groupId>
-                    <artifactId>httpcore</artifactId>
-                </exclusion>
-                <exclusion>
-                    <groupId>org.slf4j</groupId>
-                    <artifactId>jcl-over-slf4j</artifactId>
-                </exclusion>
                 <!-- jmxutils is not used -->
                 <exclusion>
                     <groupId>org.weakref</groupId>
@@ -128,13 +115,6 @@
         <dependency>
             <groupId>io.airlift</groupId>
             <artifactId>log-manager</artifactId>
-            <scope>test</scope>
-        </dependency>
-
-        <!-- for TestingPrestoServer -->
-        <dependency>
-            <groupId>org.apache.httpcomponents</groupId>
-            <artifactId>httpclient</artifactId>
             <scope>test</scope>
         </dependency>
     </dependencies>

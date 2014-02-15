@@ -40,8 +40,11 @@
         <air.check.skip-license>false</air.check.skip-license>
 
         <dep.antlr.version>3.4</dep.antlr.version>
-        <dep.airlift.version>0.85</dep.airlift.version>
+        <dep.airlift.version>0.86-SNAPSHOT</dep.airlift.version>
         <dep.packaging.version>${dep.airlift.version}</dep.packaging.version>
+        <!-- remove this when airbase is updated -->
+        <dep.jetty.version>9.1.1.v20140108</dep.jetty.version>
+        <dep.javax-servlet.version>3.1.0</dep.javax-servlet.version>
 
         <cli.skip-execute>true</cli.skip-execute>
         <cli.main-class>None</cli.main-class>
@@ -450,24 +453,6 @@
                 <groupId>io.netty</groupId>
                 <artifactId>netty</artifactId>
                 <version>3.7.0.Final</version>
-            </dependency>
-
-            <dependency>
-                <groupId>org.apache.httpcomponents</groupId>
-                <artifactId>httpclient</artifactId>
-                <version>4.2.3</version>
-                <exclusions>
-                    <exclusion>
-                        <groupId>commons-logging</groupId>
-                        <artifactId>commons-logging</artifactId>
-                    </exclusion>
-                </exclusions>
-            </dependency>
-
-            <dependency>
-                <groupId>org.apache.httpcomponents</groupId>
-                <artifactId>httpcore</artifactId>
-                <version>4.2.3</version>
             </dependency>
 
             <dependency>
