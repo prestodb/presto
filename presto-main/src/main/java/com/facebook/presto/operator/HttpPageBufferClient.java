@@ -51,6 +51,7 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.net.HttpHeaders.CONTENT_TYPE;
 import static io.airlift.http.client.Request.Builder.prepareDelete;
 import static io.airlift.http.client.Request.Builder.prepareGet;
+import static io.airlift.http.client.ResponseHandlerUtils.propagate;
 import static io.airlift.http.client.StatusResponseHandler.createStatusResponseHandler;
 
 @ThreadSafe
@@ -289,7 +290,7 @@ public class HttpPageBufferClient
         @Override
         public PagesResponse handleException(Request request, Exception exception)
         {
-            throw Throwables.propagate(exception);
+            throw propagate(request, exception);
         }
 
         @Override
