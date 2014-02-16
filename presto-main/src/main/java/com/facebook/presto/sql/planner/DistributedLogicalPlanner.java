@@ -42,6 +42,7 @@ import com.facebook.presto.sql.planner.plan.TableScanNode;
 import com.facebook.presto.sql.planner.plan.TableWriterNode;
 import com.facebook.presto.sql.planner.plan.TopNNode;
 import com.facebook.presto.sql.planner.plan.UnionNode;
+import com.facebook.presto.sql.planner.plan.ValuesNode;
 import com.facebook.presto.sql.planner.plan.WindowNode;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.FunctionCall;
@@ -350,6 +351,12 @@ public class DistributedLogicalPlanner
         public SubPlanBuilder visitTableScan(TableScanNode node, Void context)
         {
             return createSourceDistributionPlan(node, node.getId());
+        }
+
+        @Override
+        public SubPlanBuilder visitValues(ValuesNode node, Void context)
+        {
+            return createSingleNodePlan(node);
         }
 
         @Override

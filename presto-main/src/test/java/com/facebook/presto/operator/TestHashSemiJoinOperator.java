@@ -62,8 +62,8 @@ public class TestHashSemiJoinOperator
         DriverContext driverContext = taskContext.addPipelineContext(true, true).addDriverContext();
 
         // build
-        OperatorContext operatorContext = driverContext.addOperatorContext(0, StaticOperator.class.getSimpleName());
-        Operator buildOperator = new StaticOperator(operatorContext, rowPagesBuilder(SINGLE_LONG)
+        OperatorContext operatorContext = driverContext.addOperatorContext(0, ValuesOperator.class.getSimpleName());
+        Operator buildOperator = new ValuesOperator(operatorContext, rowPagesBuilder(SINGLE_LONG)
                 .row(10)
                 .row(30)
                 .row(30)
@@ -115,8 +115,8 @@ public class TestHashSemiJoinOperator
         DriverContext driverContext = taskContext.addPipelineContext(true, true).addDriverContext();
 
         // build
-        OperatorContext operatorContext = driverContext.addOperatorContext(0, StaticOperator.class.getSimpleName());
-        Operator buildOperator = new StaticOperator(operatorContext, rowPagesBuilder(SINGLE_LONG)
+        OperatorContext operatorContext = driverContext.addOperatorContext(0, ValuesOperator.class.getSimpleName());
+        Operator buildOperator = new ValuesOperator(operatorContext, rowPagesBuilder(SINGLE_LONG)
                 .row(0)
                 .row(1)
                 .row(2)
@@ -161,8 +161,8 @@ public class TestHashSemiJoinOperator
         DriverContext driverContext = taskContext.addPipelineContext(true, true).addDriverContext();
 
         // build
-        OperatorContext operatorContext = driverContext.addOperatorContext(0, StaticOperator.class.getSimpleName());
-        Operator buildOperator = new StaticOperator(operatorContext, rowPagesBuilder(SINGLE_LONG)
+        OperatorContext operatorContext = driverContext.addOperatorContext(0, ValuesOperator.class.getSimpleName());
+        Operator buildOperator = new ValuesOperator(operatorContext, rowPagesBuilder(SINGLE_LONG)
                 .row(0)
                 .row(1)
                 .row(3)
@@ -207,8 +207,8 @@ public class TestHashSemiJoinOperator
         DriverContext driverContext = taskContext.addPipelineContext(true, true).addDriverContext();
 
         // build
-        OperatorContext operatorContext = driverContext.addOperatorContext(0, StaticOperator.class.getSimpleName());
-        Operator buildOperator = new StaticOperator(operatorContext, rowPagesBuilder(SINGLE_LONG)
+        OperatorContext operatorContext = driverContext.addOperatorContext(0, ValuesOperator.class.getSimpleName());
+        Operator buildOperator = new ValuesOperator(operatorContext, rowPagesBuilder(SINGLE_LONG)
                 .row(0)
                 .row(1)
                 .row((Object) null)
@@ -256,8 +256,8 @@ public class TestHashSemiJoinOperator
                 .addPipelineContext(true, true)
                 .addDriverContext();
 
-        OperatorContext operatorContext = driverContext.addOperatorContext(0, StaticOperator.class.getSimpleName());
-        Operator buildOperator = new StaticOperator(operatorContext, rowPagesBuilder(SINGLE_LONG)
+        OperatorContext operatorContext = driverContext.addOperatorContext(0, ValuesOperator.class.getSimpleName());
+        Operator buildOperator = new ValuesOperator(operatorContext, rowPagesBuilder(SINGLE_LONG)
                 .addSequencePage(1000, 20)
                 .build());
         SetBuilderOperatorFactory setBuilderOperatorFactory = new SetBuilderOperatorFactory(1, buildOperator.getTupleInfos(), 0, 10);

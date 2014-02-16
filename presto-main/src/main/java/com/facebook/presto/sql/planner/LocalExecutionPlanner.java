@@ -38,6 +38,7 @@ import com.facebook.presto.operator.MaterializeSampleOperator;
 import com.facebook.presto.operator.OperatorFactory;
 import com.facebook.presto.operator.OrderByOperator.OrderByOperatorFactory;
 import com.facebook.presto.operator.OutputFactory;
+import com.facebook.presto.operator.PageBuilder;
 import com.facebook.presto.operator.ProjectionFunction;
 import com.facebook.presto.operator.ProjectionFunctions;
 import com.facebook.presto.operator.RecordSinkManager;
@@ -49,6 +50,7 @@ import com.facebook.presto.operator.SortOrder;
 import com.facebook.presto.operator.SourceOperatorFactory;
 import com.facebook.presto.operator.TableScanOperator.TableScanOperatorFactory;
 import com.facebook.presto.operator.TopNOperator.TopNOperatorFactory;
+import com.facebook.presto.operator.ValuesOperator.ValuesOperatorFactory;
 import com.facebook.presto.operator.WindowOperator.WindowOperatorFactory;
 import com.facebook.presto.operator.window.WindowFunction;
 import com.facebook.presto.spi.ColumnHandle;
@@ -78,6 +80,7 @@ import com.facebook.presto.sql.planner.plan.TableScanNode;
 import com.facebook.presto.sql.planner.plan.TableWriterNode;
 import com.facebook.presto.sql.planner.plan.TopNNode;
 import com.facebook.presto.sql.planner.plan.UnionNode;
+import com.facebook.presto.sql.planner.plan.ValuesNode;
 import com.facebook.presto.sql.planner.plan.WindowNode;
 import com.facebook.presto.sql.tree.BooleanLiteral;
 import com.facebook.presto.sql.tree.Expression;
@@ -746,6 +749,36 @@ public class LocalExecutionPlanner
             List<TupleInfo> tupleInfos = getSourceOperatorTupleInfos(node, context.getTypes());
             OperatorFactory operatorFactory = new TableScanOperatorFactory(context.getNextOperatorId(), node.getId(), dataStreamProvider, tupleInfos, columns);
             return new PhysicalOperation(operatorFactory, outputMappings.build());
+        }
+
+        @Override
+        public PhysicalOperation visitValues(ValuesNode node, LocalExecutionPlanContext context)
+        {
+            Map<Symbol, Input> outputMappings = new LinkedHashMap<>();
+            List<TupleInfo> outputTypes = new ArrayList<>();
+
+            int channel = 0;
+            for (Symbol symbol : node.getOutputSymbols()) {
+                Input input = new Input(channel);
+                outputMappings.put(symbol, input);
+
+                Type type = checkNotNull(context.getTypes().get(symbol), "No type for symbol %s", symbol);
+                outputTypes.add(new TupleInfo(type.getRawType()));
+
+                channel++;
+            }
+
+            PageBuilder pageBuilder = new PageBuilder(outputTypes);
+            for (List<Expression> row : node.getRows()) {
+                for (int i = 0; i < row.size(); i++) {
+                    // evaluate the literal value
+                    Object result = ExpressionInterpreter.expressionInterpreter(row.get(i), metadata, context.getSession()).evaluate(new TupleReadable[0]);
+                    pageBuilder.getBlockBuilder(i).appendObject(result);
+                }
+            }
+
+            OperatorFactory operatorFactory = new ValuesOperatorFactory(context.getNextOperatorId(), ImmutableList.of(pageBuilder.build()));
+            return new PhysicalOperation(operatorFactory, outputMappings);
         }
 
         @Override

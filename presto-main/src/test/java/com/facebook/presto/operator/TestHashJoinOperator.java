@@ -64,8 +64,8 @@ public class TestHashJoinOperator
         DriverContext driverContext = taskContext.addPipelineContext(true, true).addDriverContext();
 
         // build
-        OperatorContext operatorContext = driverContext.addOperatorContext(0, StaticOperator.class.getSimpleName());
-        Operator buildOperator = new StaticOperator(operatorContext, rowPagesBuilder(SINGLE_VARBINARY, SINGLE_LONG, SINGLE_LONG)
+        OperatorContext operatorContext = driverContext.addOperatorContext(0, ValuesOperator.class.getSimpleName());
+        Operator buildOperator = new ValuesOperator(operatorContext, rowPagesBuilder(SINGLE_VARBINARY, SINGLE_LONG, SINGLE_LONG)
                 .addSequencePage(10, 20, 30, 40)
                 .build());
         HashBuilderOperatorFactory hashBuilderOperatorFactory = new HashBuilderOperatorFactory(1, buildOperator.getTupleInfos(), Ints.asList(0), 100);
@@ -117,8 +117,8 @@ public class TestHashJoinOperator
         DriverContext driverContext = taskContext.addPipelineContext(true, true).addDriverContext();
 
         // build
-        OperatorContext operatorContext = driverContext.addOperatorContext(0, StaticOperator.class.getSimpleName());
-        Operator buildOperator = new StaticOperator(operatorContext, rowPagesBuilder(SINGLE_VARBINARY)
+        OperatorContext operatorContext = driverContext.addOperatorContext(0, ValuesOperator.class.getSimpleName());
+        Operator buildOperator = new ValuesOperator(operatorContext, rowPagesBuilder(SINGLE_VARBINARY)
                 .row("a")
                 .row("b")
                 .row("c")
@@ -163,8 +163,8 @@ public class TestHashJoinOperator
         DriverContext driverContext = taskContext.addPipelineContext(true, true).addDriverContext();
 
         // build
-        OperatorContext operatorContext = driverContext.addOperatorContext(0, StaticOperator.class.getSimpleName());
-        Operator buildOperator = new StaticOperator(operatorContext, rowPagesBuilder(SINGLE_VARBINARY)
+        OperatorContext operatorContext = driverContext.addOperatorContext(0, ValuesOperator.class.getSimpleName());
+        Operator buildOperator = new ValuesOperator(operatorContext, rowPagesBuilder(SINGLE_VARBINARY)
                 .row("a")
                 .row((String) null)
                 .row((String) null)
@@ -209,8 +209,8 @@ public class TestHashJoinOperator
         DriverContext driverContext = taskContext.addPipelineContext(true, true).addDriverContext();
 
         // build
-        OperatorContext operatorContext = driverContext.addOperatorContext(0, StaticOperator.class.getSimpleName());
-        Operator buildOperator = new StaticOperator(operatorContext, rowPagesBuilder(SINGLE_VARBINARY)
+        OperatorContext operatorContext = driverContext.addOperatorContext(0, ValuesOperator.class.getSimpleName());
+        Operator buildOperator = new ValuesOperator(operatorContext, rowPagesBuilder(SINGLE_VARBINARY)
                 .row("a")
                 .row((String) null)
                 .row((String) null)
@@ -256,8 +256,8 @@ public class TestHashJoinOperator
         DriverContext driverContext = taskContext.addPipelineContext(true, true).addDriverContext();
 
         // build
-        OperatorContext operatorContext = driverContext.addOperatorContext(0, StaticOperator.class.getSimpleName());
-        Operator buildOperator = new StaticOperator(operatorContext, rowPagesBuilder(SINGLE_VARBINARY, SINGLE_LONG, SINGLE_LONG)
+        OperatorContext operatorContext = driverContext.addOperatorContext(0, ValuesOperator.class.getSimpleName());
+        Operator buildOperator = new ValuesOperator(operatorContext, rowPagesBuilder(SINGLE_VARBINARY, SINGLE_LONG, SINGLE_LONG)
                 .addSequencePage(10, 20, 30, 40)
                 .build());
 
@@ -315,8 +315,8 @@ public class TestHashJoinOperator
         DriverContext driverContext = taskContext.addPipelineContext(true, true).addDriverContext();
 
         // build
-        OperatorContext operatorContext = driverContext.addOperatorContext(0, StaticOperator.class.getSimpleName());
-        Operator buildOperator = new StaticOperator(operatorContext, rowPagesBuilder(SINGLE_VARBINARY)
+        OperatorContext operatorContext = driverContext.addOperatorContext(0, ValuesOperator.class.getSimpleName());
+        Operator buildOperator = new ValuesOperator(operatorContext, rowPagesBuilder(SINGLE_VARBINARY)
                 .row("a")
                 .row("b")
                 .row("c")
@@ -363,8 +363,8 @@ public class TestHashJoinOperator
         DriverContext driverContext = taskContext.addPipelineContext(true, true).addDriverContext();
 
         // build
-        OperatorContext operatorContext = driverContext.addOperatorContext(0, StaticOperator.class.getSimpleName());
-        Operator buildOperator = new StaticOperator(operatorContext, rowPagesBuilder(SINGLE_VARBINARY)
+        OperatorContext operatorContext = driverContext.addOperatorContext(0, ValuesOperator.class.getSimpleName());
+        Operator buildOperator = new ValuesOperator(operatorContext, rowPagesBuilder(SINGLE_VARBINARY)
                 .row("a")
                 .row((String) null)
                 .row((String) null)
@@ -410,8 +410,8 @@ public class TestHashJoinOperator
         DriverContext driverContext = taskContext.addPipelineContext(true, true).addDriverContext();
 
         // build
-        OperatorContext operatorContext = driverContext.addOperatorContext(0, StaticOperator.class.getSimpleName());
-        Operator buildOperator = new StaticOperator(operatorContext, rowPagesBuilder(SINGLE_VARBINARY)
+        OperatorContext operatorContext = driverContext.addOperatorContext(0, ValuesOperator.class.getSimpleName());
+        Operator buildOperator = new ValuesOperator(operatorContext, rowPagesBuilder(SINGLE_VARBINARY)
                 .row("a")
                 .row((String) null)
                 .row((String) null)
@@ -461,8 +461,8 @@ public class TestHashJoinOperator
                 .addPipelineContext(true, true)
                 .addDriverContext();
 
-        OperatorContext operatorContext = driverContext.addOperatorContext(0, StaticOperator.class.getSimpleName());
-        Operator buildOperator = new StaticOperator(operatorContext, rowPagesBuilder(SINGLE_VARBINARY, SINGLE_LONG, SINGLE_LONG)
+        OperatorContext operatorContext = driverContext.addOperatorContext(0, ValuesOperator.class.getSimpleName());
+        Operator buildOperator = new ValuesOperator(operatorContext, rowPagesBuilder(SINGLE_VARBINARY, SINGLE_LONG, SINGLE_LONG)
                 .addSequencePage(10, 20, 30, 40)
                 .build());
 

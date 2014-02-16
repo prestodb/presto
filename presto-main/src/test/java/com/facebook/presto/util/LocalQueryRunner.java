@@ -78,6 +78,7 @@ import com.facebook.presto.sql.planner.SubPlan;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.facebook.presto.sql.planner.plan.TableScanNode;
+import com.facebook.presto.sql.planner.plan.ValuesNode;
 import com.facebook.presto.sql.tree.Statement;
 import com.facebook.presto.tuple.TupleInfo;
 import com.google.common.base.Optional;
@@ -316,6 +317,10 @@ public class LocalQueryRunner
         List<TaskSource> sources = new ArrayList<>();
         long sequenceId = 0;
         for (PlanNode sourceNode : subplan.getFragment().getSources()) {
+            if (sourceNode instanceof ValuesNode) {
+                continue;
+            }
+
             TableScanNode tableScan = (TableScanNode) sourceNode;
 
             SplitSource splitSource = splitManager.getPartitionSplits(tableScan.getTable(), getPartitions(tableScan));

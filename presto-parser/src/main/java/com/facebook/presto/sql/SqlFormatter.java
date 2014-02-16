@@ -26,6 +26,7 @@ import com.facebook.presto.sql.tree.Node;
 import com.facebook.presto.sql.tree.Query;
 import com.facebook.presto.sql.tree.QuerySpecification;
 import com.facebook.presto.sql.tree.Relation;
+import com.facebook.presto.sql.tree.Row;
 import com.facebook.presto.sql.tree.SampledRelation;
 import com.facebook.presto.sql.tree.Select;
 import com.facebook.presto.sql.tree.SelectItem;
@@ -33,6 +34,7 @@ import com.facebook.presto.sql.tree.SingleColumn;
 import com.facebook.presto.sql.tree.SortItem;
 import com.facebook.presto.sql.tree.Table;
 import com.facebook.presto.sql.tree.TableSubquery;
+import com.facebook.presto.sql.tree.Values;
 import com.facebook.presto.sql.tree.With;
 import com.facebook.presto.sql.tree.WithQuery;
 import com.google.common.base.Function;
@@ -303,6 +305,34 @@ public final class SqlFormatter
                         .append(Joiner.on(",").join(node.getColumnsToStratifyOn().get()));
                 builder.append(')');
             }
+
+            return null;
+        }
+
+        @Override
+        protected Void visitValues(Values node, Integer indent)
+        {
+            builder.append(" VALUES ");
+
+            boolean first = true;
+            for (Row row : node.getRows()) {
+                builder.append("\n")
+                        .append(indentString(indent))
+                        .append(first ? "  " : ", ");
+
+                process(row, indent + 1);
+                first = false;
+            }
+
+            return null;
+        }
+
+        @Override
+        protected Void visitRow(Row node, Integer indent)
+        {
+            builder.append('(')
+                    .append(Joiner.on(", ").join(Iterables.transform(node.getItems(), expressionFormatterFunction())))
+                    .append(')');
 
             return null;
         }

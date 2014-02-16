@@ -46,6 +46,7 @@ import com.facebook.presto.sql.tree.QualifiedNameReference;
 import com.facebook.presto.sql.tree.Query;
 import com.facebook.presto.sql.tree.QuerySpecification;
 import com.facebook.presto.sql.tree.Relation;
+import com.facebook.presto.sql.tree.Row;
 import com.facebook.presto.sql.tree.SampledRelation;
 import com.facebook.presto.sql.tree.SelectItem;
 import com.facebook.presto.sql.tree.SingleColumn;
@@ -53,8 +54,10 @@ import com.facebook.presto.sql.tree.SortItem;
 import com.facebook.presto.sql.tree.Table;
 import com.facebook.presto.sql.tree.TableSubquery;
 import com.facebook.presto.sql.tree.Union;
+import com.facebook.presto.sql.tree.Values;
 import com.facebook.presto.sql.tree.Window;
 import com.google.common.base.Function;
+import com.google.common.base.Joiner;
 import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMultimap;
@@ -436,6 +439,42 @@ class TupleAnalyzer
 
         analysis.setOutputDescriptor(node, output);
         return output;
+    }
+
+    @Override
+    protected TupleDescriptor visitValues(Values node, AnalysisContext context)
+    {
+        checkState(node.getRows().size() >= 1);
+
+        TupleAnalyzer analyzer = new TupleAnalyzer(analysis, session, metadata, experimentalSyntaxEnabled);
+
+        // Use the first descriptor as the output descriptor for the VALUES
+        TupleDescriptor outputDescriptor = analyzer.process(node.getRows().get(0), context);
+        Iterable<Type> types = transform(outputDescriptor.getFields(), typeGetter());
+
+        for (Row row : Iterables.skip(node.getRows(), 1)) {
+            TupleDescriptor descriptor = analyzer.process(row, context);
+            Iterable<Type> rowTypes = transform(descriptor.getFields(), typeGetter());
+            if (!elementsEqual(types, rowTypes)) {
+                throw new SemanticException(MISMATCHED_SET_COLUMN_TYPES, node, "Values rows have mismatched types: " +
+                        "Expected: (" + Joiner.on(", ").join(types) + "), " +
+                        "Actual: (" + Joiner.on(", ").join(rowTypes) + ")");
+            }
+        }
+
+        analysis.setOutputDescriptor(node, outputDescriptor);
+        return outputDescriptor;
+    }
+
+    @Override
+    protected TupleDescriptor visitRow(Row node, AnalysisContext context)
+    {
+        ImmutableList.Builder<Field> outputFields = ImmutableList.builder();
+        for (Expression expression : node.getItems()) {
+            ExpressionAnalysis expressionAnalysis = Analyzer.analyzeExpression(session, metadata, new TupleDescriptor(), analysis, experimentalSyntaxEnabled, context, expression);
+            outputFields.add(Field.newUnqualified(Optional.<String>absent(), expressionAnalysis.getType()));
+        }
+        return new TupleDescriptor(outputFields.build());
     }
 
     private void analyzeWindowFunctions(QuerySpecification node, List<FieldOrExpression> outputExpressions, List<FieldOrExpression> orderByExpressions)

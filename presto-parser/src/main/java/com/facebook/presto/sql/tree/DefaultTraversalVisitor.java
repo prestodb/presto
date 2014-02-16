@@ -351,6 +351,24 @@ public abstract class DefaultTraversalVisitor<R, C>
     }
 
     @Override
+    protected R visitValues(Values node, C context)
+    {
+        for (Row row : node.getRows()) {
+            process(row, context);
+        }
+        return null;
+    }
+
+    @Override
+    protected R visitRow(Row node, C context)
+    {
+        for (Expression expression : node.getItems()) {
+            process(expression, context);
+        }
+        return null;
+    }
+
+    @Override
     protected R visitTableSubquery(TableSubquery node, C context)
     {
         return process(node.getQuery(), context);

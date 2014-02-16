@@ -314,6 +314,19 @@ public final class PlanRewriter<C>
         }
 
         @Override
+        public PlanNode visitValues(ValuesNode node, Context<C> context)
+        {
+            if (!context.isDefaultRewrite()) {
+                PlanNode result = nodeRewriter.rewriteValues(node, context.get(), PlanRewriter.this);
+                if (result != null) {
+                    return result;
+                }
+            }
+
+            return node;
+        }
+
+        @Override
         public PlanNode visitTableWriter(TableWriterNode node, Context<C> context)
         {
             if (!context.isDefaultRewrite()) {

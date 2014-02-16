@@ -30,6 +30,7 @@ import static com.google.common.base.Preconditions.checkNotNull;
         @JsonSubTypes.Type(value = OutputNode.class, name = "output"),
         @JsonSubTypes.Type(value = ProjectNode.class, name = "project"),
         @JsonSubTypes.Type(value = TableScanNode.class, name = "tablescan"),
+        @JsonSubTypes.Type(value = ValuesNode.class, name = "values"),
         @JsonSubTypes.Type(value = AggregationNode.class, name = "aggregation"),
         @JsonSubTypes.Type(value = MarkDistinctNode.class, name = "markDistinct"),
         @JsonSubTypes.Type(value = MaterializeSampleNode.class, name = "materializeSample"),

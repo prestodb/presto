@@ -34,6 +34,7 @@ import com.facebook.presto.sql.planner.plan.TableScanNode;
 import com.facebook.presto.sql.planner.plan.TableWriterNode;
 import com.facebook.presto.sql.planner.plan.TopNNode;
 import com.facebook.presto.sql.planner.plan.UnionNode;
+import com.facebook.presto.sql.planner.plan.ValuesNode;
 import com.facebook.presto.sql.planner.plan.WindowNode;
 import com.google.common.collect.ImmutableSet;
 
@@ -187,6 +188,14 @@ public final class SymbolExtractor
         public Void visitTableScan(TableScanNode node, Void context)
         {
             builder.addAll(node.getAssignments().keySet());
+
+            return null;
+        }
+
+        @Override
+        public Void visitValues(ValuesNode node, Void context)
+        {
+            builder.addAll(node.getOutputSymbols());
 
             return null;
         }

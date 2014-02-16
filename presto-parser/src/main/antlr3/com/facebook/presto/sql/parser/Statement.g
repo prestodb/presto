@@ -35,6 +35,8 @@ tokens {
     SELECT_ITEM;
     ALIASED_COLUMNS;
     TABLE_SUBQUERY;
+    TABLE_VALUE;
+    ROW_VALUE;
     EXPLAIN_OPTIONS;
     EXPLAIN_FORMAT;
     EXPLAIN_TYPE;
@@ -188,10 +190,19 @@ queryPrimary
     : simpleQuery -> ^(QUERY_SPEC simpleQuery)
     | tableSubquery
     | explicitTable
+    | tableValue
     ;
 
 explicitTable
     : TABLE table -> table
+    ;
+
+tableValue
+    : VALUES rowValue (',' rowValue)*  -> ^(TABLE_VALUE rowValue+)
+    ;
+
+rowValue
+    : '(' expr (',' expr)* ')' -> ^(ROW_VALUE expr+)
     ;
 
 simpleQuery
@@ -757,6 +768,7 @@ CURRENT: 'CURRENT';
 ROW: 'ROW';
 WITH: 'WITH';
 RECURSIVE: 'RECURSIVE';
+VALUES: 'VALUES';
 CREATE: 'CREATE';
 TABLE: 'TABLE';
 CHAR: 'CHAR';

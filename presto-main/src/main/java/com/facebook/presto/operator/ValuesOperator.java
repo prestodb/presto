@@ -24,26 +24,59 @@ import java.util.List;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Preconditions.checkState;
 
-public class StaticOperator
+public class ValuesOperator
         implements Operator
 {
+    public static class ValuesOperatorFactory
+            implements OperatorFactory
+    {
+        private final int operatorId;
+        private final List<TupleInfo> tupleInfos;
+        private final List<Page> pages;
+        private boolean closed;
+
+        public ValuesOperatorFactory(int operatorId, List<Page> pages)
+        {
+            this.operatorId = operatorId;
+            this.tupleInfos = extractTupleInfos(pages);
+            this.pages = pages;
+        }
+
+        @Override
+        public List<TupleInfo> getTupleInfos()
+        {
+            return tupleInfos;
+        }
+
+        @Override
+        public Operator createOperator(DriverContext driverContext)
+        {
+            checkState(!closed, "Factory is already closed");
+            OperatorContext operatorContext = driverContext.addOperatorContext(operatorId, ValuesOperator.class.getSimpleName());
+            return new ValuesOperator(operatorContext, pages);
+        }
+
+        @Override
+        public void close()
+        {
+            closed = true;
+        }
+    }
+
     private final OperatorContext operatorContext;
     private final ImmutableList<TupleInfo> tupleInfos;
     private final Iterator<Page> pages;
 
-    public StaticOperator(OperatorContext operatorContext, List<Page> pages)
+    public ValuesOperator(OperatorContext operatorContext, List<Page> pages)
     {
         this.operatorContext = checkNotNull(operatorContext, "operatorContext is null");
 
         checkNotNull(pages, "pages is null");
         checkArgument(!pages.isEmpty(), "pages is empty");
 
-        ImmutableList.Builder<TupleInfo> tupleInfos = ImmutableList.builder();
-        for (Block block : pages.get(0).getBlocks()) {
-            tupleInfos.add(block.getTupleInfo());
-        }
-        this.tupleInfos = tupleInfos.build();
+        tupleInfos = extractTupleInfos(pages);
         this.pages = ImmutableList.copyOf(pages).iterator();
     }
 
@@ -100,5 +133,14 @@ public class StaticOperator
             operatorContext.recordGeneratedInput(page.getDataSize(), page.getPositionCount());
         }
         return page;
+    }
+
+    private static ImmutableList<TupleInfo> extractTupleInfos(List<Page> pages)
+    {
+        ImmutableList.Builder<TupleInfo> tupleInfos = ImmutableList.builder();
+        for (Block block : pages.get(0).getBlocks()) {
+            tupleInfos.add(block.getTupleInfo());
+        }
+        return tupleInfos.build();
     }
 }
