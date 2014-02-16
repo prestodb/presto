@@ -39,6 +39,7 @@ import com.facebook.presto.sql.planner.plan.TableCommitNode;
 import com.facebook.presto.sql.planner.plan.TableScanNode;
 import com.facebook.presto.sql.planner.plan.TableWriterNode;
 import com.facebook.presto.sql.planner.plan.TopNNode;
+import com.facebook.presto.sql.planner.plan.ValuesNode;
 import com.facebook.presto.sql.planner.plan.WindowNode;
 import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
@@ -127,6 +128,13 @@ public class DistributedExecutionPlanner
         public Optional<SplitSource> visitExchange(ExchangeNode node, Void context)
         {
             // exchange node does not have splits
+            return Optional.absent();
+        }
+
+        @Override
+        public Optional<SplitSource> visitValues(ValuesNode node, Void context)
+        {
+            // values node does not have splits
             return Optional.absent();
         }
 

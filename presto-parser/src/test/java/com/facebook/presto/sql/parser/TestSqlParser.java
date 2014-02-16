@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.sql.parser;
 
+import com.facebook.presto.sql.tree.AllColumns;
 import com.facebook.presto.sql.tree.Approximate;
 import com.facebook.presto.sql.tree.CurrentTime;
 import com.facebook.presto.sql.tree.DateLiteral;
@@ -20,13 +21,19 @@ import com.facebook.presto.sql.tree.DoubleLiteral;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.IntervalLiteral;
 import com.facebook.presto.sql.tree.IntervalLiteral.Sign;
+import com.facebook.presto.sql.tree.LongLiteral;
 import com.facebook.presto.sql.tree.Node;
 import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.sql.tree.Query;
 import com.facebook.presto.sql.tree.QuerySpecification;
+import com.facebook.presto.sql.tree.Relation;
+import com.facebook.presto.sql.tree.Row;
 import com.facebook.presto.sql.tree.SortItem;
 import com.facebook.presto.sql.tree.Statement;
+import com.facebook.presto.sql.tree.StringLiteral;
+import com.facebook.presto.sql.tree.TableSubquery;
 import com.facebook.presto.sql.tree.TimeLiteral;
+import com.facebook.presto.sql.tree.Values;
 import com.facebook.presto.sql.tree.With;
 import com.google.common.base.Joiner;
 import com.google.common.base.Optional;
@@ -83,6 +90,62 @@ public class TestSqlParser
                         new QuerySpecification(
                                 selectList(new DoubleLiteral("123.456E7")),
                                 table(QualifiedName.of("DUAL")),
+                                Optional.<Expression>absent(),
+                                ImmutableList.<Expression>of(),
+                                Optional.<Expression>absent(),
+                                ImmutableList.<SortItem>of(),
+                                Optional.<String>absent()),
+                        ImmutableList.<SortItem>of(),
+                        Optional.<String>absent(),
+                        Optional.<Approximate>absent()));
+    }
+
+    @Test
+    public void testValues()
+    {
+        assertStatement("VALUES ('a', 1, 2.2), ('b', 2, 3.3)",
+                new Query(
+                        Optional.<With>absent(),
+                        new Values(ImmutableList.of(
+                                new Row(ImmutableList.<Expression>of(
+                                        new StringLiteral("a"),
+                                        new LongLiteral("1"),
+                                        new DoubleLiteral("2.2")
+                                )),
+                                new Row(ImmutableList.<Expression>of(
+                                        new StringLiteral("b"),
+                                        new LongLiteral("2"),
+                                        new DoubleLiteral("3.3")
+                                ))
+                        )),
+                        ImmutableList.<SortItem>of(),
+                        Optional.<String>absent(),
+                        Optional.<Approximate>absent()));
+
+        assertStatement("SELECT * FROM (VALUES ('a', 1, 2.2), ('b', 2, 3.3))",
+                new Query(
+                        Optional.<With>absent(),
+                        new QuerySpecification(
+                                selectList(new AllColumns()),
+                                ImmutableList.<Relation>of(new TableSubquery(
+                                        new Query(
+                                                Optional.<With>absent(),
+                                                new Values(ImmutableList.of(
+                                                        new Row(ImmutableList.<Expression>of(
+                                                                new StringLiteral("a"),
+                                                                new LongLiteral("1"),
+                                                                new DoubleLiteral("2.2")
+                                                        )),
+                                                        new Row(ImmutableList.<Expression>of(
+                                                                new StringLiteral("b"),
+                                                                new LongLiteral("2"),
+                                                                new DoubleLiteral("3.3")
+                                                        ))
+                                                )),
+                                                ImmutableList.<SortItem>of(),
+                                                Optional.<String>absent(),
+                                                Optional.<Approximate>absent()))
+                                ),
                                 Optional.<Expression>absent(),
                                 ImmutableList.<Expression>of(),
                                 Optional.<Expression>absent(),

@@ -35,6 +35,7 @@ import com.facebook.presto.sql.planner.plan.SortNode;
 import com.facebook.presto.sql.planner.plan.TableScanNode;
 import com.facebook.presto.sql.planner.plan.TopNNode;
 import com.facebook.presto.sql.planner.plan.UnionNode;
+import com.facebook.presto.sql.planner.plan.ValuesNode;
 import com.facebook.presto.sql.planner.plan.WindowNode;
 import com.facebook.presto.sql.tree.ComparisonExpression;
 import com.facebook.presto.sql.tree.Expression;
@@ -68,6 +69,7 @@ public final class GraphvizPrinter
         OUTPUT,
         LIMIT,
         TABLESCAN,
+        VALUES,
         JOIN,
         SINK,
         WINDOW,
@@ -86,6 +88,7 @@ public final class GraphvizPrinter
             .put(NodeType.OUTPUT, "white")
             .put(NodeType.LIMIT, "gray83")
             .put(NodeType.TABLESCAN, "deepskyblue")
+            .put(NodeType.VALUES, "deepskyblue")
             .put(NodeType.JOIN, "orange")
             .put(NodeType.SORT, "aliceblue")
             .put(NodeType.SINK, "indianred1")
@@ -329,6 +332,13 @@ public final class GraphvizPrinter
         public Void visitTableScan(TableScanNode node, Void context)
         {
             printNode(node, format("TableScan[%s]", node.getTable()), format("original constraint=%s", node.getOriginalConstraint()), NODE_COLORS.get(NodeType.TABLESCAN));
+            return null;
+        }
+
+        @Override
+        public Void visitValues(ValuesNode node, Void context)
+        {
+            printNode(node, "Values", NODE_COLORS.get(NodeType.TABLESCAN));
             return null;
         }
 
