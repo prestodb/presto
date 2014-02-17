@@ -14,6 +14,7 @@
 package com.facebook.presto.serde;
 
 import com.facebook.presto.block.BlockEncodingManager;
+import com.facebook.presto.block.BlockEncodingSerde;
 import com.facebook.presto.block.dictionary.DictionaryBlockEncoding;
 import com.facebook.presto.block.rle.RunLengthBlockEncoding;
 import com.facebook.presto.block.snappy.SnappyBlockEncoding;
@@ -30,7 +31,7 @@ public final class TestingBlockEncodingManager
     {
     }
 
-    public static BlockEncodingManager createTestingBlockEncodingManager()
+    public static BlockEncodingSerde createTestingBlockEncodingManager()
     {
         return new BlockEncodingManager(
                 new TypeRegistry(),
