@@ -31,6 +31,7 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 
 public class BlockEncodingManager
+        implements BlockEncodingSerde
 {
     private final TypeManager typeManager;
     private final ConcurrentMap<String, BlockEncodingFactory<?>> blockEncodings = new ConcurrentHashMap<>();
@@ -56,6 +57,7 @@ public class BlockEncodingManager
         checkArgument(existingEntry == null, "Encoding %s is already registered", blockEncoding.getName());
     }
 
+    @Override
     public BlockEncoding readBlockEncoding(SliceInput input)
     {
         // read the encoding name
@@ -69,6 +71,7 @@ public class BlockEncodingManager
         return blockEncoding.readEncoding(typeManager, this, input);
     }
 
+    @Override
     public <T extends BlockEncoding> void writeBlockEncoding(SliceOutput output, T encoding)
     {
         // get the encoding name

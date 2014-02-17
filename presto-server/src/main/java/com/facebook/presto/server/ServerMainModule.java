@@ -15,6 +15,7 @@ package com.facebook.presto.server;
 
 import com.facebook.presto.block.BlockEncoding.BlockEncodingFactory;
 import com.facebook.presto.block.BlockEncodingManager;
+import com.facebook.presto.block.BlockEncodingSerde;
 import com.facebook.presto.block.dictionary.DictionaryBlockEncoding;
 import com.facebook.presto.block.rle.RunLengthBlockEncoding;
 import com.facebook.presto.block.snappy.SnappyBlockEncoding;
@@ -272,7 +273,7 @@ public class ServerMainModule
         binder.bind(new TypeLiteral<List<PlanOptimizer>>() {}).toProvider(PlanOptimizersFactory.class).in(Scopes.SINGLETON);
 
         // block encodings
-        binder.bind(BlockEncodingManager.class).in(Scopes.SINGLETON);
+        binder.bind(BlockEncodingSerde.class).to(BlockEncodingManager.class).in(Scopes.SINGLETON);
         Multibinder<BlockEncodingFactory<?>> blockEncodingFactoryBinder = newSetBinder(binder, new TypeLiteral<BlockEncodingFactory<?>>() {});
         blockEncodingFactoryBinder.addBinding().toInstance(NullType.BLOCK_ENCODING_FACTORY);
         blockEncodingFactoryBinder.addBinding().toInstance(BooleanType.BLOCK_ENCODING_FACTORY);

@@ -15,7 +15,7 @@ package com.facebook.presto.block.uncompressed;
 
 import com.facebook.presto.block.Block;
 import com.facebook.presto.block.BlockEncoding;
-import com.facebook.presto.block.BlockEncodingManager;
+import com.facebook.presto.block.BlockEncodingSerde;
 import com.facebook.presto.serde.TypeSerde;
 import com.facebook.presto.type.Type;
 import com.facebook.presto.type.TypeManager;
@@ -104,14 +104,14 @@ public class VariableWidthBlockEncoding
         }
 
         @Override
-        public VariableWidthBlockEncoding readEncoding(TypeManager typeManager, BlockEncodingManager blockEncodingManager, SliceInput input)
+        public VariableWidthBlockEncoding readEncoding(TypeManager typeManager, BlockEncodingSerde blockEncodingSerde, SliceInput input)
         {
             Type type = TypeSerde.readType(typeManager, input);
             return new VariableWidthBlockEncoding(type);
         }
 
         @Override
-        public void writeEncoding(BlockEncodingManager blockEncodingManager, SliceOutput output, VariableWidthBlockEncoding blockEncoding)
+        public void writeEncoding(BlockEncodingSerde blockEncodingSerde, SliceOutput output, VariableWidthBlockEncoding blockEncoding)
         {
             TypeSerde.writeInfo(output, blockEncoding.getType());
         }
