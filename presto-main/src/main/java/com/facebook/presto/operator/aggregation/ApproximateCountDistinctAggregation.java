@@ -28,7 +28,7 @@ import io.airlift.slice.Slices;
 import java.util.ArrayList;
 import java.util.List;
 
-import static com.facebook.presto.block.BlockBuilder.DEFAULT_MAX_BLOCK_SIZE;
+import static com.facebook.presto.block.BlockBuilderStatus.DEFAULT_MAX_BLOCK_SIZE_IN_BYTES;
 import static com.facebook.presto.type.BigintType.BIGINT;
 import static com.facebook.presto.type.DoubleType.DOUBLE;
 import static com.facebook.presto.type.VarcharType.VARCHAR;
@@ -42,7 +42,7 @@ public class ApproximateCountDistinctAggregation
     // 1 byte for null flag. We use the null flag to propagate a "null" field as intermediate
     // and thereby avoid sending a full list of buckets when no value has been added (just an optimization)
     private static final int ENTRY_SIZE = SizeOf.SIZE_OF_BYTE + ESTIMATOR.getSizeInBytes();
-    private static final int SLICE_SIZE = Math.max(ENTRY_SIZE, Ints.checkedCast((DEFAULT_MAX_BLOCK_SIZE.toBytes() / ENTRY_SIZE) * ENTRY_SIZE));
+    private static final int SLICE_SIZE = Math.max(ENTRY_SIZE, Ints.checkedCast((DEFAULT_MAX_BLOCK_SIZE_IN_BYTES / ENTRY_SIZE) * ENTRY_SIZE));
     private static final int ENTRIES_PER_SLICE = SLICE_SIZE / ENTRY_SIZE;
 
     private final Type parameterType;

@@ -22,8 +22,6 @@ import com.facebook.presto.type.VariableWidthType;
 import com.google.common.base.Objects;
 import com.google.common.base.Preconditions;
 import io.airlift.slice.Slice;
-import io.airlift.units.DataSize;
-import io.airlift.units.DataSize.Unit;
 
 public class VariableWidthBlock
         implements Block
@@ -59,9 +57,9 @@ public class VariableWidthBlock
     }
 
     @Override
-    public DataSize getDataSize()
+    public int getSizeInBytes()
     {
-        return new DataSize(slice.length(), Unit.BYTE);
+        return slice.length();
     }
 
     @Override

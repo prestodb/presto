@@ -21,7 +21,6 @@ import com.facebook.presto.block.RandomAccessBlock;
 import com.facebook.presto.type.Type;
 import com.google.common.primitives.Longs;
 import io.airlift.slice.Slice;
-import io.airlift.units.DataSize;
 import org.apache.commons.math3.random.RandomDataGenerator;
 
 import static com.facebook.presto.type.BigintType.BIGINT;
@@ -53,9 +52,9 @@ class PoissonizedBlock
     }
 
     @Override
-    public DataSize getDataSize()
+    public int getSizeInBytes()
     {
-        return delegate.getDataSize();
+        return delegate.getSizeInBytes();
     }
 
     @Override

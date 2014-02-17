@@ -13,13 +13,13 @@
  */
 package com.facebook.presto.block;
 
-import com.facebook.presto.operator.PageBuilder;
 import com.google.common.base.Objects;
-import com.google.common.primitives.Ints;
-import io.airlift.units.DataSize;
 
 public class BlockBuilderStatus
 {
+    public static final int DEFAULT_MAX_PAGE_SIZE_IN_BYTES = 1024 * 1024;
+    public static final int DEFAULT_MAX_BLOCK_SIZE_IN_BYTES = 64 * 1024;
+
     private final int maxPageSizeInBytes;
     private final int maxBlockSizeInBytes;
 
@@ -28,13 +28,13 @@ public class BlockBuilderStatus
 
     public BlockBuilderStatus()
     {
-        this(PageBuilder.DEFAULT_MAX_PAGE_SIZE, BlockBuilder.DEFAULT_MAX_BLOCK_SIZE);
+        this(DEFAULT_MAX_PAGE_SIZE_IN_BYTES, DEFAULT_MAX_BLOCK_SIZE_IN_BYTES);
     }
 
-    public BlockBuilderStatus(DataSize maxPageSize, DataSize maxBlockSize)
+    public BlockBuilderStatus(int maxPageSizeInBytes, int maxBlockSizeInBytes)
     {
-        this.maxPageSizeInBytes = Ints.checkedCast(maxPageSize.toBytes());
-        this.maxBlockSizeInBytes = Ints.checkedCast(maxBlockSize.toBytes());
+        this.maxPageSizeInBytes = maxPageSizeInBytes;
+        this.maxBlockSizeInBytes = maxBlockSizeInBytes;
     }
 
     public BlockBuilderStatus(BlockBuilderStatus blockBuilderStatus)
