@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.operator.aggregation;
 
-import com.facebook.presto.block.BlockEncodingManager;
+import com.facebook.presto.block.BlockEncodingSerde;
 import com.facebook.presto.operator.PageBuilder;
 import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
@@ -81,7 +81,7 @@ public class TestBootstrappedAggregation
     private static class DeterministicBootstrappedAggregation
             extends BootstrappedAggregation
     {
-        public DeterministicBootstrappedAggregation(BlockEncodingManager blockEncodingManager, AggregationFunction function)
+        public DeterministicBootstrappedAggregation(BlockEncodingSerde blockEncodingManager, AggregationFunction function)
         {
             super(blockEncodingManager, function);
         }

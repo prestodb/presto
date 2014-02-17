@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.server;
 
+import com.facebook.presto.block.BlockEncodingSerde;
 import com.facebook.presto.operator.Page;
-import com.facebook.presto.block.BlockEncodingManager;
 import com.facebook.presto.serde.PagesSerde;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
@@ -59,12 +59,12 @@ public class PagesMapper
         }
     }
 
-    private BlockEncodingManager blockEncodingManager;
+    private BlockEncodingSerde blockEncodingSerde;
 
     @Inject
-    public PagesMapper(BlockEncodingManager blockEncodingManager)
+    public PagesMapper(BlockEncodingSerde blockEncodingSerde)
     {
-        this.blockEncodingManager = blockEncodingManager;
+        this.blockEncodingSerde = blockEncodingSerde;
     }
 
     @Override
@@ -84,7 +84,7 @@ public class PagesMapper
             InputStream input)
             throws IOException, WebApplicationException
     {
-        return ImmutableList.copyOf(PagesSerde.readPages(blockEncodingManager, new InputStreamSliceInput(input)));
+        return ImmutableList.copyOf(PagesSerde.readPages(blockEncodingSerde, new InputStreamSliceInput(input)));
     }
 
     @Override
@@ -111,6 +111,6 @@ public class PagesMapper
             OutputStream output)
             throws IOException, WebApplicationException
     {
-        PagesSerde.writePages(blockEncodingManager, new OutputStreamSliceOutput(output), pages);
+        PagesSerde.writePages(blockEncodingSerde, new OutputStreamSliceOutput(output), pages);
     }
 }

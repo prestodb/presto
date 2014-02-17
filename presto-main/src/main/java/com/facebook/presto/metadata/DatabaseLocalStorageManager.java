@@ -14,6 +14,7 @@
 package com.facebook.presto.metadata;
 
 import com.facebook.presto.block.Block;
+import com.facebook.presto.block.BlockEncodingSerde;
 import com.facebook.presto.block.BlockIterable;
 import com.facebook.presto.block.BlockUtils;
 import com.facebook.presto.execution.TaskId;
@@ -21,7 +22,6 @@ import com.facebook.presto.operator.AlignmentOperator;
 import com.facebook.presto.operator.OperatorContext;
 import com.facebook.presto.operator.Page;
 import com.facebook.presto.operator.TaskContext;
-import com.facebook.presto.block.BlockEncodingManager;
 import com.facebook.presto.serde.BlocksFileEncoding;
 import com.facebook.presto.serde.BlocksFileReader;
 import com.facebook.presto.serde.BlocksFileStats;
@@ -81,7 +81,7 @@ public class DatabaseLocalStorageManager
     private final KeyBoundedExecutor<UUID> shardBoundedExecutor;
 
     private final IDBI dbi;
-    private final BlockEncodingManager blockEncodingManager;
+    private final BlockEncodingSerde blockEncodingSerde;
     private final File baseStorageDir;
     private final File baseStagingDir;
     private final StorageManagerDao dao;
@@ -103,10 +103,10 @@ public class DatabaseLocalStorageManager
     private final BlocksFileEncoding defaultEncoding;
 
     @Inject
-    public DatabaseLocalStorageManager(@ForLocalStorageManager IDBI dbi, BlockEncodingManager blockEncodingManager, DatabaseLocalStorageManagerConfig config)
+    public DatabaseLocalStorageManager(@ForLocalStorageManager IDBI dbi, BlockEncodingSerde blockEncodingSerde, DatabaseLocalStorageManagerConfig config)
             throws IOException
     {
-        this.blockEncodingManager = checkNotNull(blockEncodingManager, "blockEncodingManager is null");
+        this.blockEncodingSerde = checkNotNull(blockEncodingSerde, "blockEncodingManager is null");
 
         checkNotNull(config, "config is null");
         File baseDataDir = checkNotNull(config.getDataDirectory(), "dataDirectory is null");
@@ -148,7 +148,7 @@ public class DatabaseLocalStorageManager
     {
         File shardPath = getShardPath(baseStagingDir, shardUuid);
 
-        ColumnFileHandle.Builder builder = ColumnFileHandle.builder(shardUuid, blockEncodingManager);
+        ColumnFileHandle.Builder builder = ColumnFileHandle.builder(shardUuid, blockEncodingSerde);
 
         for (ColumnHandle columnHandle : columnHandles) {
             File file = getColumnFile(shardPath, columnHandle, defaultEncoding);
@@ -184,7 +184,7 @@ public class DatabaseLocalStorageManager
         File shardPath = getShardPath(baseStorageDir, shardUuid);
 
         ImmutableList.Builder<BlockIterable> sourcesBuilder = ImmutableList.builder();
-        ColumnFileHandle.Builder builder = ColumnFileHandle.builder(shardUuid, blockEncodingManager);
+        ColumnFileHandle.Builder builder = ColumnFileHandle.builder(shardUuid, blockEncodingSerde);
 
         for (Map.Entry<ColumnHandle, File> entry : columnFileHandle.getFiles().entrySet()) {
             File file = entry.getValue();
@@ -194,7 +194,7 @@ public class DatabaseLocalStorageManager
                 Slice slice = mappedFileCache.getUnchecked(file.getAbsoluteFile());
                 checkState(file.length() == slice.length(), "File %s, length %s was mapped to Slice length %s", file.getAbsolutePath(), file.length(), slice.length());
                 // Compute optimal encoding from stats
-                BlocksFileReader blocks = BlocksFileReader.readBlocks(blockEncodingManager, slice);
+                BlocksFileReader blocks = BlocksFileReader.readBlocks(blockEncodingSerde, slice);
                 BlocksFileStats stats = blocks.getStats();
                 boolean rleEncode = stats.getAvgRunLength() > RUN_LENGTH_AVERAGE_CUTOFF;
                 boolean dicEncode = stats.getUniqueCount() < DICTIONARY_CARDINALITY_CUTOFF;
@@ -365,7 +365,7 @@ public class DatabaseLocalStorageManager
             public Iterable<? extends Block> apply(File file)
             {
                 Slice slice = mappedFileCache.getUnchecked(file.getAbsoluteFile());
-                return BlocksFileReader.readBlocks(blockEncodingManager, slice);
+                return BlocksFileReader.readBlocks(blockEncodingSerde, slice);
             }
         }));
 

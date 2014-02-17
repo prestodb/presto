@@ -15,7 +15,7 @@ package com.facebook.presto.block.snappy;
 
 import com.facebook.presto.block.Block;
 import com.facebook.presto.block.BlockEncoding;
-import com.facebook.presto.block.BlockEncodingManager;
+import com.facebook.presto.block.BlockEncodingSerde;
 import com.facebook.presto.serde.TypeSerde;
 import com.facebook.presto.type.Type;
 import com.facebook.presto.type.TypeManager;
@@ -85,18 +85,18 @@ public class SnappyBlockEncoding
         }
 
         @Override
-        public SnappyBlockEncoding readEncoding(TypeManager typeManager, BlockEncodingManager blockEncodingManager, SliceInput input)
+        public SnappyBlockEncoding readEncoding(TypeManager typeManager, BlockEncodingSerde blockEncodingSerde, SliceInput input)
         {
             Type type = TypeSerde.readType(typeManager, input);
-            BlockEncoding valueBlockEncoding = blockEncodingManager.readBlockEncoding(input);
+            BlockEncoding valueBlockEncoding = blockEncodingSerde.readBlockEncoding(input);
             return new SnappyBlockEncoding(type, valueBlockEncoding);
         }
 
         @Override
-        public void writeEncoding(BlockEncodingManager blockEncodingManager, SliceOutput output, SnappyBlockEncoding blockEncoding)
+        public void writeEncoding(BlockEncodingSerde blockEncodingSerde, SliceOutput output, SnappyBlockEncoding blockEncoding)
         {
             TypeSerde.writeInfo(output, blockEncoding.type);
-            blockEncodingManager.writeBlockEncoding(output, blockEncoding.uncompressedBlockEncoding);
+            blockEncodingSerde.writeBlockEncoding(output, blockEncoding.uncompressedBlockEncoding);
         }
     }
 }

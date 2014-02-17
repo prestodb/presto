@@ -15,7 +15,7 @@ package com.facebook.presto.block.rle;
 
 import com.facebook.presto.block.Block;
 import com.facebook.presto.block.BlockEncoding;
-import com.facebook.presto.block.BlockEncodingManager;
+import com.facebook.presto.block.BlockEncodingSerde;
 import com.facebook.presto.block.RandomAccessBlock;
 import com.facebook.presto.type.Type;
 import com.facebook.presto.type.TypeManager;
@@ -88,16 +88,16 @@ public class RunLengthBlockEncoding
         }
 
         @Override
-        public RunLengthBlockEncoding readEncoding(TypeManager typeManager, BlockEncodingManager blockEncodingManager, SliceInput input)
+        public RunLengthBlockEncoding readEncoding(TypeManager typeManager, BlockEncodingSerde blockEncodingSerde, SliceInput input)
         {
-            BlockEncoding valueBlockEncoding = blockEncodingManager.readBlockEncoding(input);
+            BlockEncoding valueBlockEncoding = blockEncodingSerde.readBlockEncoding(input);
             return new RunLengthBlockEncoding(valueBlockEncoding);
         }
 
         @Override
-        public void writeEncoding(BlockEncodingManager blockEncodingManager, SliceOutput output, RunLengthBlockEncoding blockEncoding)
+        public void writeEncoding(BlockEncodingSerde blockEncodingSerde, SliceOutput output, RunLengthBlockEncoding blockEncoding)
         {
-            blockEncodingManager.writeBlockEncoding(output, blockEncoding.getValueBlockEncoding());
+            blockEncodingSerde.writeBlockEncoding(output, blockEncoding.getValueBlockEncoding());
         }
     }
 }
