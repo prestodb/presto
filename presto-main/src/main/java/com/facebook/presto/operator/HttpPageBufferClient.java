@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.operator;
 
-import com.facebook.presto.block.BlockEncodingManager;
+import com.facebook.presto.block.BlockEncodingSerde;
 import com.facebook.presto.serde.PagesSerde;
 import com.google.common.base.Objects;
 import com.google.common.base.Throwables;
@@ -82,7 +82,7 @@ public class HttpPageBufferClient
     private final DataSize maxResponseSize;
     private final URI location;
     private final ClientCallback clientCallback;
-    private final BlockEncodingManager blockEncodingManager;
+    private final BlockEncodingSerde blockEncodingSerde;
     private final Executor executor;
     @GuardedBy("this")
     private boolean closed;
@@ -102,14 +102,14 @@ public class HttpPageBufferClient
             DataSize maxResponseSize,
             URI location,
             ClientCallback clientCallback,
-            BlockEncodingManager blockEncodingManager,
+            BlockEncodingSerde blockEncodingSerde,
             Executor executor)
     {
         this.httpClient = checkNotNull(httpClient, "httpClient is null");
         this.maxResponseSize = checkNotNull(maxResponseSize, "maxResponseSize is null");
         this.location = checkNotNull(location, "location is null");
         this.clientCallback = checkNotNull(clientCallback, "clientCallback is null");
-        this.blockEncodingManager = checkNotNull(blockEncodingManager, "blockEncodingManager is null");
+        this.blockEncodingSerde = checkNotNull(blockEncodingSerde, "blockEncodingManager is null");
         this.executor = checkNotNull(executor, "executor is null");
     }
 
@@ -178,7 +178,7 @@ public class HttpPageBufferClient
                 prepareGet()
                         .setHeader(PRESTO_MAX_SIZE, maxResponseSize.toString())
                         .setUri(uri).build(),
-                new PageResponseHandler(blockEncodingManager));
+                new PageResponseHandler(blockEncodingSerde));
 
         Futures.addCallback(future, new FutureCallback<PagesResponse>()
         {
@@ -297,11 +297,11 @@ public class HttpPageBufferClient
     public static class PageResponseHandler
             implements ResponseHandler<PagesResponse, RuntimeException>
     {
-        private final BlockEncodingManager blockEncodingManager;
+        private final BlockEncodingSerde blockEncodingSerde;
 
-        public PageResponseHandler(BlockEncodingManager blockEncodingManager)
+        public PageResponseHandler(BlockEncodingSerde blockEncodingSerde)
         {
-            this.blockEncodingManager = blockEncodingManager;
+            this.blockEncodingSerde = blockEncodingSerde;
         }
 
         @Override
@@ -350,7 +350,7 @@ public class HttpPageBufferClient
 
             try {
                 InputStreamSliceInput sliceInput = new InputStreamSliceInput(response.getInputStream());
-                return PagesResponse.createPagesResponse(token, nextToken, ImmutableList.copyOf(PagesSerde.readPages(blockEncodingManager, sliceInput)));
+                return PagesResponse.createPagesResponse(token, nextToken, ImmutableList.copyOf(PagesSerde.readPages(blockEncodingSerde, sliceInput)));
             }
             catch (IOException e) {
                 throw Throwables.propagate(e);

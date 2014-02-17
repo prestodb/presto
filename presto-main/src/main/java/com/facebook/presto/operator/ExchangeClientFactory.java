@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.operator;
 
-import com.facebook.presto.block.BlockEncodingManager;
+import com.facebook.presto.block.BlockEncodingSerde;
 import com.google.common.base.Supplier;
 import io.airlift.http.client.AsyncHttpClient;
 import io.airlift.units.DataSize;
@@ -29,7 +29,7 @@ import static com.google.common.base.Preconditions.checkNotNull;
 public class ExchangeClientFactory
         implements Supplier<ExchangeClient>
 {
-    private final BlockEncodingManager blockEncodingManager;
+    private final BlockEncodingSerde blockEncodingSerde;
     private final DataSize maxBufferedBytes;
     private final int concurrentRequestMultiplier;
     private final AsyncHttpClient httpClient;
@@ -37,12 +37,12 @@ public class ExchangeClientFactory
     private final Executor executor;
 
     @Inject
-    public ExchangeClientFactory(BlockEncodingManager blockEncodingManager,
+    public ExchangeClientFactory(BlockEncodingSerde blockEncodingSerde,
             ExchangeClientConfig config,
             @ForExchange AsyncHttpClient httpClient,
             @ForExchange Executor executor)
     {
-        this(blockEncodingManager,
+        this(blockEncodingSerde,
                 config.getExchangeMaxBufferSize(),
                 new DataSize(10, Unit.MEGABYTE),
                 config.getExchangeConcurrentRequestMultiplier(),
@@ -51,14 +51,14 @@ public class ExchangeClientFactory
     }
 
     public ExchangeClientFactory(
-            BlockEncodingManager blockEncodingManager,
+            BlockEncodingSerde blockEncodingSerde,
             DataSize maxBufferedBytes,
             DataSize maxResponseSize,
             int concurrentRequestMultiplier,
             AsyncHttpClient httpClient,
             Executor executor)
     {
-        this.blockEncodingManager = blockEncodingManager;
+        this.blockEncodingSerde = blockEncodingSerde;
         this.maxBufferedBytes = checkNotNull(maxBufferedBytes, "maxBufferedBytes is null");
         this.concurrentRequestMultiplier = concurrentRequestMultiplier;
         this.httpClient = checkNotNull(httpClient, "httpClient is null");
@@ -73,6 +73,6 @@ public class ExchangeClientFactory
     @Override
     public ExchangeClient get()
     {
-        return new ExchangeClient(blockEncodingManager, maxBufferedBytes, maxResponseSize, concurrentRequestMultiplier, httpClient, executor);
+        return new ExchangeClient(blockEncodingSerde, maxBufferedBytes, maxResponseSize, concurrentRequestMultiplier, httpClient, executor);
     }
 }

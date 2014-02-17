@@ -15,7 +15,7 @@ package com.facebook.presto.block.uncompressed;
 
 import com.facebook.presto.block.Block;
 import com.facebook.presto.block.BlockEncoding;
-import com.facebook.presto.block.BlockEncodingManager;
+import com.facebook.presto.block.BlockEncodingSerde;
 import com.facebook.presto.type.FixedWidthType;
 import com.facebook.presto.type.Type;
 import com.facebook.presto.type.TypeManager;
@@ -93,13 +93,13 @@ public class FixedWidthBlockEncoding
         }
 
         @Override
-        public BlockEncoding readEncoding(TypeManager typeManager, BlockEncodingManager blockEncodingManager, SliceInput input)
+        public BlockEncoding readEncoding(TypeManager typeManager, BlockEncodingSerde blockEncodingSerde, SliceInput input)
         {
             return new FixedWidthBlockEncoding(type);
         }
 
         @Override
-        public void writeEncoding(BlockEncodingManager blockEncodingManager, SliceOutput output, BlockEncoding blockEncoding)
+        public void writeEncoding(BlockEncodingSerde blockEncodingSerde, SliceOutput output, BlockEncoding blockEncoding)
         {
         }
     }

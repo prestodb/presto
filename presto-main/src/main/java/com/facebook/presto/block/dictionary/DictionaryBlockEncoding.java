@@ -15,7 +15,7 @@ package com.facebook.presto.block.dictionary;
 
 import com.facebook.presto.block.Block;
 import com.facebook.presto.block.BlockEncoding;
-import com.facebook.presto.block.BlockEncodingManager;
+import com.facebook.presto.block.BlockEncodingSerde;
 import com.facebook.presto.block.RandomAccessBlock;
 import com.facebook.presto.type.Type;
 import com.facebook.presto.type.TypeManager;
@@ -77,27 +77,27 @@ public class DictionaryBlockEncoding
         }
 
         @Override
-        public DictionaryBlockEncoding readEncoding(TypeManager typeManager, BlockEncodingManager blockEncodingManager, SliceInput input)
+        public DictionaryBlockEncoding readEncoding(TypeManager typeManager, BlockEncodingSerde blockEncodingSerde, SliceInput input)
         {
             // read the dictionary
-            BlockEncoding dictionaryEncoding = blockEncodingManager.readBlockEncoding(input);
+            BlockEncoding dictionaryEncoding = blockEncodingSerde.readBlockEncoding(input);
             RandomAccessBlock dictionary = dictionaryEncoding.readBlock(input).toRandomAccessBlock();
 
             // read the id block encoding
-            BlockEncoding idBlockEncoding = blockEncodingManager.readBlockEncoding(input);
+            BlockEncoding idBlockEncoding = blockEncodingSerde.readBlockEncoding(input);
             return new DictionaryBlockEncoding(dictionary, idBlockEncoding);
         }
 
         @Override
-        public void writeEncoding(BlockEncodingManager blockEncodingManager, SliceOutput output, DictionaryBlockEncoding blockEncoding)
+        public void writeEncoding(BlockEncodingSerde blockEncodingSerde, SliceOutput output, DictionaryBlockEncoding blockEncoding)
         {
             // write the dictionary
             BlockEncoding dictionaryBlockEncoding = blockEncoding.dictionary.getEncoding();
-            blockEncodingManager.writeBlockEncoding(output, dictionaryBlockEncoding);
+            blockEncodingSerde.writeBlockEncoding(output, dictionaryBlockEncoding);
             dictionaryBlockEncoding.writeBlock(output, blockEncoding.dictionary);
 
             // write the id block encoding
-            blockEncodingManager.writeBlockEncoding(output, blockEncoding.idBlockEncoding);
+            blockEncodingSerde.writeBlockEncoding(output, blockEncoding.idBlockEncoding);
         }
     }
 }

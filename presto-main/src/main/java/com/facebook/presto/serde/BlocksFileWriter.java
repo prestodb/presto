@@ -16,7 +16,7 @@ package com.facebook.presto.serde;
 import com.facebook.presto.block.Block;
 import com.facebook.presto.block.BlockCursor;
 import com.facebook.presto.block.BlockEncoding;
-import com.facebook.presto.block.BlockEncodingManager;
+import com.facebook.presto.block.BlockEncodingSerde;
 import com.facebook.presto.block.RandomAccessBlock;
 import com.google.common.base.Throwables;
 import com.google.common.io.OutputSupplier;
@@ -33,7 +33,7 @@ import static com.google.common.base.Preconditions.checkState;
 public class BlocksFileWriter
         implements Closeable
 {
-    private final BlockEncodingManager blockEncodingManager;
+    private final BlockEncodingSerde blockEncodingSerde;
     private final BlocksFileEncoding encoding;
     private final OutputSupplier<? extends OutputStream> outputSupplier;
     private final StatsBuilder statsBuilder = new StatsBuilder();
@@ -41,9 +41,9 @@ public class BlocksFileWriter
     private SliceOutput sliceOutput;
     private boolean closed;
 
-    public BlocksFileWriter(BlockEncodingManager blockEncodingManager, BlocksFileEncoding encoding, OutputSupplier<? extends OutputStream> outputSupplier)
+    public BlocksFileWriter(BlockEncodingSerde blockEncodingSerde, BlocksFileEncoding encoding, OutputSupplier<? extends OutputStream> outputSupplier)
     {
-        this.blockEncodingManager = checkNotNull(blockEncodingManager, "blockEncodingManager is null");
+        this.blockEncodingSerde = checkNotNull(blockEncodingSerde, "blockEncodingManager is null");
         this.encoding = checkNotNull(encoding, "encoding is null");
         this.outputSupplier = checkNotNull(outputSupplier, "outputSupplier is null");
     }
@@ -97,7 +97,7 @@ public class BlocksFileWriter
         int startingIndex = sliceOutput.size();
 
         // write file encoding
-        blockEncodingManager.writeBlockEncoding(sliceOutput, blockEncoding);
+        blockEncodingSerde.writeBlockEncoding(sliceOutput, blockEncoding);
 
         // write stats
         BlocksFileStats.serialize(statsBuilder.build(), sliceOutput);
