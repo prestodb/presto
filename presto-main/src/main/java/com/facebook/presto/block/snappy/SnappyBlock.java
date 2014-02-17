@@ -65,7 +65,7 @@ public class SnappyBlock
         uncompressedBlock = block;
         uncompressedBlockEncoding = block.getEncoding();
 
-        DynamicSliceOutput sliceOutput = new DynamicSliceOutput(Ints.checkedCast(uncompressedBlock.getDataSize().toBytes() + ENCODING_BUFFER_OVERHEAD.toBytes()));
+        DynamicSliceOutput sliceOutput = new DynamicSliceOutput(Ints.checkedCast(uncompressedBlock.getSizeInBytes() + ENCODING_BUFFER_OVERHEAD.toBytes()));
         uncompressedBlockEncoding.writeBlock(sliceOutput, uncompressedBlock);
         Slice uncompressedSlice = sliceOutput.slice();
 
@@ -107,9 +107,9 @@ public class SnappyBlock
     }
 
     @Override
-    public DataSize getDataSize()
+    public int getSizeInBytes()
     {
-        return getUncompressedBlock().getDataSize();
+        return getUncompressedBlock().getSizeInBytes();
     }
 
     @Override

@@ -15,14 +15,10 @@ package com.facebook.presto.block;
 
 import com.facebook.presto.type.Type;
 import io.airlift.slice.Slice;
-import io.airlift.units.DataSize;
-import io.airlift.units.DataSize.Unit;
 
 public interface BlockBuilder
         extends RandomAccessBlock
 {
-    DataSize DEFAULT_MAX_BLOCK_SIZE = new DataSize(64, Unit.KILOBYTE);
-
     BlockBuilder append(boolean value);
 
     BlockBuilder append(long value);

@@ -22,8 +22,6 @@ import com.facebook.presto.type.Type;
 import com.facebook.presto.type.VariableWidthType;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
-import io.airlift.units.DataSize;
-import io.airlift.units.DataSize.Unit;
 
 import static com.google.common.base.Preconditions.checkPositionIndexes;
 import static com.google.common.base.Preconditions.checkState;
@@ -49,9 +47,9 @@ public abstract class AbstractVariableWidthRandomAccessBlock
     }
 
     @Override
-    public DataSize getDataSize()
+    public int getSizeInBytes()
     {
-        return new DataSize(getRawSlice().length(), Unit.BYTE);
+        return getRawSlice().length();
     }
 
     @Override

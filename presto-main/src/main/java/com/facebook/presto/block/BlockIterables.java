@@ -67,7 +67,7 @@ public final class BlockIterables
             long dataSize = 0;
             for (Block block : this.blocks) {
                 positionCount += block.getPositionCount();
-                dataSize += block.getDataSize().toBytes();
+                dataSize += block.getSizeInBytes();
             }
             this.positionCount = Ints.checkedCast(positionCount);
             this.dataSize = new DataSize(dataSize, BYTE);
