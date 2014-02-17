@@ -268,7 +268,7 @@ public class GroupByHash
         {
             long memorySize = 0;
             for (BlockBuilder channel : channels) {
-                memorySize += channel.getDataSize().toBytes();
+                memorySize += channel.getSizeInBytes();
             }
             return memorySize;
         }

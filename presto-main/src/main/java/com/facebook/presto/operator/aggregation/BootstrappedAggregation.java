@@ -239,7 +239,7 @@ public class BootstrappedAggregation
             int sizeEstimate = 64 * accumulators.size();
             for (int i = 0; i < accumulators.size(); i++) {
                 blocks[i] = accumulators.get(i).evaluateIntermediate();
-                sizeEstimate += blocks[i].getDataSize().toBytes();
+                sizeEstimate += blocks[i].getSizeInBytes();
             }
 
             SliceOutput output = new DynamicSliceOutput(sizeEstimate);
@@ -340,7 +340,7 @@ public class BootstrappedAggregation
                 BlockBuilder builder = accumulators.get(i).getIntermediateType().createBlockBuilder(new BlockBuilderStatus());
                 accumulators.get(i).evaluateIntermediate(groupId, builder);
                 blocks[i] = builder.build();
-                sizeEstimate += blocks[i].getDataSize().toBytes();
+                sizeEstimate += blocks[i].getSizeInBytes();
             }
 
             SliceOutput sliceOutput = new DynamicSliceOutput(sizeEstimate);

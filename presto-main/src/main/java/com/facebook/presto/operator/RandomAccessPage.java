@@ -54,7 +54,7 @@ public class RandomAccessPage
     {
         long dataSize = 0;
         for (Block block : blocks) {
-            dataSize += block.getDataSize().toBytes();
+            dataSize += block.getSizeInBytes();
         }
         return new DataSize(dataSize, Unit.BYTE);
     }

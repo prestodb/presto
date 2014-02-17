@@ -340,7 +340,7 @@ public class TopNOperator
         {
             long size = OVERHEAD_PER_VALUE.toBytes();
             for (RandomAccessBlock value : row) {
-                size += value.getDataSize().toBytes();
+                size += value.getSizeInBytes();
             }
             return size;
         }

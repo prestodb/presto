@@ -21,8 +21,6 @@ import com.facebook.presto.operator.SortOrder;
 import com.facebook.presto.type.FixedWidthType;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
-import io.airlift.units.DataSize;
-import io.airlift.units.DataSize.Unit;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkPositionIndexes;
@@ -50,9 +48,9 @@ public abstract class AbstractFixedWidthBlock
     }
 
     @Override
-    public DataSize getDataSize()
+    public int getSizeInBytes()
     {
-        return new DataSize(getRawSlice().length(), Unit.BYTE);
+        return getRawSlice().length();
     }
 
     @Override

@@ -109,7 +109,7 @@ public class PagesIndex
         for (int i = 0; i < channels.length; i++) {
             RandomAccessBlock block = randomAccessPage.getBlock(i);
             channels[i].add(block);
-            pagesMemorySize += block.getDataSize().toBytes();
+            pagesMemorySize += block.getSizeInBytes();
         }
 
         for (int position = 0; position < page.getPositionCount(); position++) {

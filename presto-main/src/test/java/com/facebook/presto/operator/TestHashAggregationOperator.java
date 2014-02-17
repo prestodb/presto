@@ -259,7 +259,7 @@ public class TestHashAggregationOperator
     {
         // estimate the number of entries required to create 1.5 pages of results
         int fixedWidthSize = SIZE_OF_LONG + SIZE_OF_DOUBLE + SIZE_OF_DOUBLE;
-        int multiSlicePositionCount = (int) (1.5 * PageBuilder.DEFAULT_MAX_PAGE_SIZE.toBytes() / fixedWidthSize);
+        int multiSlicePositionCount = (int) (1.5 * BlockBuilderStatus.DEFAULT_MAX_PAGE_SIZE_IN_BYTES / fixedWidthSize);
 
         List<Page> input = rowPagesBuilder(BIGINT, BIGINT)
                 .addSequencePage(multiSlicePositionCount, 0, 0)

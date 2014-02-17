@@ -20,7 +20,6 @@ import com.facebook.presto.operator.SortOrder;
 import com.facebook.presto.type.Type;
 import com.google.common.base.Objects;
 import io.airlift.slice.Slice;
-import io.airlift.units.DataSize;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
@@ -57,9 +56,9 @@ public class RunLengthEncodedBlock
     }
 
     @Override
-    public DataSize getDataSize()
+    public int getSizeInBytes()
     {
-        return value.getDataSize();
+        return value.getSizeInBytes();
     }
 
     @Override

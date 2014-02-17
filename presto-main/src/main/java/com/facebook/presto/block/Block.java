@@ -14,7 +14,6 @@
 package com.facebook.presto.block;
 
 import com.facebook.presto.type.Type;
-import io.airlift.units.DataSize;
 
 public interface Block
 {
@@ -31,7 +30,7 @@ public interface Block
     /**
      * Returns the size of this block in memory.
      */
-    DataSize getDataSize();
+    int getSizeInBytes();
 
     /**
      * Gets a cursor over the block

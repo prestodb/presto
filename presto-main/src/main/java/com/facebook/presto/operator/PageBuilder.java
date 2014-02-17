@@ -17,36 +17,27 @@ import com.facebook.presto.block.Block;
 import com.facebook.presto.block.BlockBuilder;
 import com.facebook.presto.block.BlockBuilderStatus;
 import com.facebook.presto.type.Type;
-import io.airlift.units.DataSize;
-import io.airlift.units.DataSize.Unit;
 
 import java.util.List;
 
-import static io.airlift.units.DataSize.Unit.BYTE;
+import static com.facebook.presto.block.BlockBuilderStatus.DEFAULT_MAX_PAGE_SIZE_IN_BYTES;
 
 public class PageBuilder
 {
-    public static final DataSize DEFAULT_MAX_PAGE_SIZE = new DataSize(1, Unit.MEGABYTE);
-
     private final BlockBuilder[] blockBuilders;
     private BlockBuilderStatus blockBuilderStatus;
     private int declaredPositions;
 
     public PageBuilder(List<? extends Type> types)
     {
-        this(types, DEFAULT_MAX_PAGE_SIZE);
-    }
-
-    public PageBuilder(List<? extends Type> types, DataSize maxPageSize)
-    {
-        DataSize maxBlockSize;
+        int maxBlockSizeInBytes;
         if (!types.isEmpty()) {
-            maxBlockSize = new DataSize((int) (maxPageSize.toBytes() / types.size()), BYTE);
+            maxBlockSizeInBytes = (int) (1.0 * DEFAULT_MAX_PAGE_SIZE_IN_BYTES / types.size());
         }
         else {
-            maxBlockSize = new DataSize(0, BYTE);
+            maxBlockSizeInBytes = 0;
         }
-        blockBuilderStatus = new BlockBuilderStatus(maxPageSize, maxBlockSize);
+        blockBuilderStatus = new BlockBuilderStatus(DEFAULT_MAX_PAGE_SIZE_IN_BYTES, maxBlockSizeInBytes);
 
         blockBuilders = new BlockBuilder[types.size()];
         for (int i = 0; i < blockBuilders.length; i++) {

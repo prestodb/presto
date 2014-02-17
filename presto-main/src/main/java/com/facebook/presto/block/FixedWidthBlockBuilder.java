@@ -22,10 +22,8 @@ import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceOutput;
 import io.airlift.slice.Slices;
-import io.airlift.units.DataSize;
 
 import static io.airlift.slice.SizeOf.SIZE_OF_BYTE;
-import static io.airlift.units.DataSize.Unit.BYTE;
 
 public class FixedWidthBlockBuilder
         extends AbstractFixedWidthBlock
@@ -50,8 +48,7 @@ public class FixedWidthBlockBuilder
         int entrySize = type.getFixedSize() + SIZE_OF_BYTE;
         Slice slice = Slices.allocate(entrySize * positionCount);
 
-        DataSize maxSize = new DataSize(slice.length(), BYTE);
-        this.blockBuilderStatus = new BlockBuilderStatus(maxSize, maxSize);
+        this.blockBuilderStatus = new BlockBuilderStatus(slice.length(), slice.length());
         this.sliceOutput = slice.getOutput();
     }
 

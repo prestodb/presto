@@ -79,7 +79,7 @@ public class TestSnappyBlockSerde
         Block expectedBlock = expectedBlockBuilder.build();
 
         BlockEncoding snappyEncoding = encoder.finish();
-        assertTrue(encoderOutput.size() < expectedBlock.getDataSize().toBytes());
+        assertTrue(encoderOutput.size() < expectedBlock.getSizeInBytes());
 
         Block actualBlock = snappyEncoding.readBlock(encoderOutput.slice().getInput());
 

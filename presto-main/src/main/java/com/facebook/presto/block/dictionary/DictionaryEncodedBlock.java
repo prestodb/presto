@@ -21,8 +21,6 @@ import com.facebook.presto.operator.SortOrder;
 import com.facebook.presto.type.Type;
 import com.google.common.primitives.Ints;
 import io.airlift.slice.Slice;
-import io.airlift.units.DataSize;
-import io.airlift.units.DataSize.Unit;
 
 import static com.facebook.presto.type.BigintType.BIGINT;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -64,9 +62,9 @@ public class DictionaryEncodedBlock
     }
 
     @Override
-    public DataSize getDataSize()
+    public int getSizeInBytes()
     {
-        return new DataSize(dictionary.getDataSize().toBytes() + idBlock.getDataSize().toBytes(), Unit.BYTE);
+        return Ints.checkedCast(dictionary.getSizeInBytes() + idBlock.getSizeInBytes());
     }
 
     @Override
