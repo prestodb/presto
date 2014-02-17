@@ -13,8 +13,6 @@
  */
 package com.facebook.presto.block;
 
-import com.google.common.base.Objects;
-
 public class BlockBuilderStatus
 {
     public static final int DEFAULT_MAX_PAGE_SIZE_IN_BYTES = 1024 * 1024;
@@ -71,10 +69,11 @@ public class BlockBuilderStatus
     @Override
     public String toString()
     {
-        return Objects.toStringHelper(this)
-                .add("maxSizeInBytes", maxPageSizeInBytes)
-                .add("full", full)
-                .add("currentSize", currentSize)
-                .toString();
+        StringBuffer buffer = new StringBuffer("BlockBuilderStatus{");
+        buffer.append("maxSizeInBytes=").append(maxPageSizeInBytes);
+        buffer.append(", full=").append(full);
+        buffer.append(", currentSize=").append(currentSize);
+        buffer.append('}');
+        return buffer.toString();
     }
 }
