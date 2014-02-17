@@ -144,7 +144,7 @@ public class ChannelSet
                 if (!addressValueSet.contains(CURRENT_VALUE_ADDRESS)) {
                     if (openBlockBuilder.isFull()) {
                         // record the memory usage for the open block
-                        blocksMemorySize += openBlockBuilder.getDataSize().toBytes();
+                        blocksMemorySize += openBlockBuilder.getSizeInBytes();
 
                         // create a new block builder (there is no need to actually "build" the block)
                         openBlockBuilder = type.createBlockBuilder(new BlockBuilderStatus());

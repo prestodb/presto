@@ -20,7 +20,6 @@ import com.facebook.presto.block.RandomAccessBlock;
 import com.facebook.presto.type.Type;
 import com.google.common.base.Objects;
 import io.airlift.slice.Slice;
-import io.airlift.units.DataSize;
 
 public class GroupByIdBlock
         implements RandomAccessBlock
@@ -153,9 +152,9 @@ public class GroupByIdBlock
     }
 
     @Override
-    public DataSize getDataSize()
+    public int getSizeInBytes()
     {
-        return block.getDataSize();
+        return block.getSizeInBytes();
     }
 
     @Override
