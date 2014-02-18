@@ -157,14 +157,7 @@ public class BootstrappedAggregation
 
         protected Block resampleWeightBlock(Block block)
         {
-            // TODO: Instead of building a block here, we could just return a custom Block class that generated the samples in the cursor
-            BlockBuilder builder = new BlockBuilder(SINGLE_LONG);
-            BlockCursor cursor = block.cursor();
-            while (cursor.advanceNextPosition()) {
-                builder.append(rand.nextPoisson(cursor.getLong()));
-            }
-
-            return builder.build();
+            return new PoissonizedBlock(block, rand.nextLong(0, Long.MAX_VALUE - 1));
         }
 
         protected static double getNumeric(BlockCursor cursor)
