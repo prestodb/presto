@@ -124,6 +124,7 @@ public final class DoubleType
         sliceOutput.writeBytes(value, offset, length);
     }
 
+    @Override
     public boolean equals(Slice leftSlice, int leftOffset, Slice rightSlice, int rightOffset)
     {
         long leftValue = leftSlice.getLong(leftOffset);
@@ -131,6 +132,7 @@ public final class DoubleType
         return leftValue == rightValue;
     }
 
+    @Override
     public boolean equals(Slice leftSlice, int leftOffset, BlockCursor rightCursor)
     {
         long leftValue = leftSlice.getLong(leftOffset);
@@ -138,11 +140,13 @@ public final class DoubleType
         return leftValue == rightValue;
     }
 
+    @Override
     public int hashCode(Slice slice, int offset)
     {
         return Longs.hashCode(slice.getLong(offset));
     }
 
+    @Override
     public int compareTo(Slice leftSlice, int leftOffset, Slice rightSlice, int rightOffset)
     {
         double leftValue = leftSlice.getDouble(leftOffset);
@@ -150,6 +154,7 @@ public final class DoubleType
         return Double.compare(leftValue, rightValue);
     }
 
+    @Override
     public void appendTo(Slice slice, int offset, BlockBuilder blockBuilder)
     {
         double value = slice.getDouble(offset);

@@ -18,7 +18,7 @@ import com.facebook.presto.block.BlockBuilder;
 import com.facebook.presto.block.BlockCursor;
 import com.facebook.presto.block.RandomAccessBlock;
 import com.facebook.presto.type.Type;
-import com.facebook.presto.type.VarcharType;
+import com.facebook.presto.type.VariableWidthType;
 import com.google.common.base.Preconditions;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
@@ -30,7 +30,7 @@ import static io.airlift.slice.SizeOf.SIZE_OF_BYTE;
 public class VariableWidthBlockCursor
         implements BlockCursor
 {
-    private final VarcharType type;
+    private final VariableWidthType type;
     private final int positionCount;
     private final Slice slice;
 
@@ -39,7 +39,7 @@ public class VariableWidthBlockCursor
     private int entrySize;
     private boolean isNull;
 
-    public VariableWidthBlockCursor(VarcharType type, int positionCount, Slice slice)
+    public VariableWidthBlockCursor(VariableWidthType type, int positionCount, Slice slice)
     {
         this.type = checkNotNull(type, "type is null");
         this.slice = checkNotNull(slice, "slice is null");
