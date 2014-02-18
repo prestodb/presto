@@ -34,6 +34,7 @@ import com.facebook.presto.spi.StandardErrorCode;
 import com.facebook.presto.sql.analyzer.Session;
 import com.facebook.presto.sql.gen.FunctionBinder;
 import com.facebook.presto.sql.tree.QualifiedName;
+import com.facebook.presto.type.SqlType;
 import com.facebook.presto.type.Type;
 import com.facebook.presto.util.IterableTransformer;
 import com.google.common.base.Joiner;
@@ -54,6 +55,7 @@ import io.airlift.slice.Slice;
 import javax.annotation.Nullable;
 import javax.annotation.concurrent.ThreadSafe;
 
+import java.lang.annotation.Annotation;
 import java.lang.invoke.MethodHandle;
 import java.lang.reflect.AnnotatedElement;
 import java.lang.reflect.Constructor;
@@ -273,11 +275,27 @@ public class FunctionRegistry
         return functions.get(signature);
     }
 
-    private static List<Type> types(MethodHandle handle)
+    private static List<Type> parameterTypes(Method method)
     {
+        Annotation[][] parameterAnnotations = method.getParameterAnnotations();
+
         ImmutableList.Builder<Type> types = ImmutableList.builder();
-        for (Class<?> parameter : getParameterTypes(handle.type().parameterArray())) {
-            types.add(type(parameter));
+        for (int i = 0; i < method.getParameterTypes().length; i++) {
+            Class<?> clazz = method.getParameterTypes()[i];
+            // skip session parameters
+            if (clazz == Session.class) {
+                continue;
+            }
+
+            // find the explicit type annotation if present
+            SqlType explicitType = null;
+            for (Annotation annotation : parameterAnnotations[i]) {
+                if (annotation instanceof SqlType) {
+                    explicitType = (SqlType) annotation;
+                    break;
+                }
+            }
+            types.add(type(explicitType, clazz));
         }
         return types.build();
     }
@@ -289,6 +307,19 @@ public class FunctionRegistry
             parameterTypes = parameterTypes.subList(1, parameterTypes.size());
         }
         return parameterTypes;
+    }
+
+    private static Type type(SqlType explicitType, Class<?> clazz)
+    {
+        if (explicitType == null) {
+            return type(clazz);
+        }
+        try {
+            return (Type) explicitType.value().getMethod("getInstance").invoke(null);
+        }
+        catch (Exception e) {
+            throw Throwables.propagate(e);
+        }
     }
 
     private static Type type(Class<?> clazz)
@@ -342,13 +373,9 @@ public class FunctionRegistry
             return this;
         }
 
-        public FunctionListBuilder scalar(String name, MethodHandle function, boolean deterministic, FunctionBinder functionBinder, String description)
+        public FunctionListBuilder scalar(Signature signature, MethodHandle function, boolean deterministic, FunctionBinder functionBinder, String description)
         {
-            name = name.toLowerCase();
-
-            Type returnType = type(function.type().returnType());
-            List<Type> argumentTypes = types(function);
-            functions.add(new FunctionInfo(new Signature(name, returnType, argumentTypes, false), description, function, deterministic, functionBinder));
+            functions.add(new FunctionInfo(signature, description, function, deterministic, functionBinder));
             return this;
         }
 
@@ -367,11 +394,14 @@ public class FunctionRegistry
                     if (name.isEmpty()) {
                         name = camelToSnake(method.getName());
                     }
-                    String description = getDescription(method);
+                    Type returnType = type(method.getAnnotation(SqlType.class), method.getReturnType());
+                    Signature signature = new Signature(name.toLowerCase(), returnType, parameterTypes(method), false);
+
                     FunctionBinder functionBinder = createFunctionBinder(method, scalarFunction);
-                    scalar(name, methodHandle, scalarFunction.deterministic(), functionBinder, description);
+
+                    scalar(signature, methodHandle, scalarFunction.deterministic(), functionBinder, getDescription(method));
                     for (String alias : scalarFunction.alias()) {
-                        scalar(alias, methodHandle, scalarFunction.deterministic(), functionBinder, description);
+                        scalar(signature.withAlias(alias.toLowerCase()), methodHandle, scalarFunction.deterministic(), functionBinder, getDescription(method));
                     }
                     foundOne = true;
                 }
