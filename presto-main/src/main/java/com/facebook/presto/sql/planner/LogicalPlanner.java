@@ -22,7 +22,6 @@ import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.sql.analyzer.Analysis;
 import com.facebook.presto.sql.analyzer.Field;
 import com.facebook.presto.sql.analyzer.Session;
-import com.facebook.presto.sql.analyzer.Type;
 import com.facebook.presto.sql.planner.optimizations.PlanOptimizer;
 import com.facebook.presto.sql.planner.plan.OutputNode;
 import com.facebook.presto.sql.planner.plan.PlanNode;
@@ -33,6 +32,9 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
+
+import static com.facebook.presto.type.BigintType.BIGINT;
+import static com.facebook.presto.type.VarcharType.VARCHAR;
 
 public class LogicalPlanner
 {
@@ -95,8 +97,8 @@ public class LogicalPlanner
         TableMetadata tableMetadata = createTableMetadata(destination, getTableColumns(plan));
 
         ImmutableList<Symbol> writerOutputs = ImmutableList.of(
-                symbolAllocator.newSymbol("partialrows", Type.BIGINT),
-                symbolAllocator.newSymbol("fragment", Type.VARCHAR));
+                symbolAllocator.newSymbol("partialrows", BIGINT),
+                symbolAllocator.newSymbol("fragment", VARCHAR));
 
         TableWriterNode writerNode = new TableWriterNode(
                 idAllocator.getNextId(),
@@ -110,7 +112,7 @@ public class LogicalPlanner
                 tableMetadata,
                 metadata.canCreateSampledTables(destination.getCatalogName()));
 
-        List<Symbol> outputs = ImmutableList.of(symbolAllocator.newSymbol("rows", Type.BIGINT));
+        List<Symbol> outputs = ImmutableList.of(symbolAllocator.newSymbol("rows", BIGINT));
 
         TableCommitNode commitNode = new TableCommitNode(
                 idAllocator.getNextId(),
@@ -152,7 +154,7 @@ public class LogicalPlanner
         for (int i = 0; i < fields.size(); i++) {
             Field field = fields.get(i);
             String name = field.getName().get();
-            ColumnType type = field.getType().getColumnType();
+            ColumnType type = field.getType().toColumnType();
             columns.add(new ColumnMetadata(name, type, i, false));
         }
         return columns.build();

@@ -27,15 +27,19 @@ import io.airlift.slice.Slice;
 
 import java.util.Map;
 
+import static com.facebook.presto.type.BigintType.BIGINT;
+import static com.facebook.presto.type.BooleanType.BOOLEAN;
+import static com.facebook.presto.type.DoubleType.DOUBLE;
+import static com.facebook.presto.type.VarcharType.VARCHAR;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 public class InterpretedProjectionFunction
         implements ProjectionFunction
 {
-    private final com.facebook.presto.sql.analyzer.Type type;
+    private final Type type;
     private final ExpressionInterpreter evaluator;
 
-    public InterpretedProjectionFunction(com.facebook.presto.sql.analyzer.Type type, Expression expression, Map<Symbol, Input> symbolToInputMapping, Metadata metadata, Session session)
+    public InterpretedProjectionFunction(Type type, Expression expression, Map<Symbol, Input> symbolToInputMapping, Metadata metadata, Session session)
     {
         this.type = checkNotNull(type, "type is null");
 
@@ -48,7 +52,7 @@ public class InterpretedProjectionFunction
     @Override
     public Type getType()
     {
-        return type.getRawType();
+        return type;
     }
 
     @Override
@@ -70,23 +74,20 @@ public class InterpretedProjectionFunction
         if (value == null) {
             output.appendNull();
         }
+        else if (type.equals(BOOLEAN)) {
+            output.append((Boolean) value);
+        }
+        else if (type.equals(BIGINT)) {
+            output.append((Long) value);
+        }
+        else if (type.equals(DOUBLE)) {
+            output.append((Double) value);
+        }
+        else if (type.equals(VARCHAR)) {
+            output.append((Slice) value);
+        }
         else {
-            switch (type) {
-                case BOOLEAN:
-                    output.append((Boolean) value);
-                    break;
-                case BIGINT:
-                    output.append((Long) value);
-                    break;
-                case DOUBLE:
-                    output.append((Double) value);
-                    break;
-                case VARCHAR:
-                    output.append((Slice) value);
-                    break;
-                default:
-                    throw new UnsupportedOperationException("not yet implemented: " + type);
-            }
+            throw new UnsupportedOperationException("not yet implemented: " + type);
         }
     }
 }

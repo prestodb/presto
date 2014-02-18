@@ -36,7 +36,6 @@ import com.facebook.presto.spi.TupleDomain;
 import com.facebook.presto.split.DataStreamManager;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.sql.analyzer.Session;
-import com.facebook.presto.sql.analyzer.Type;
 import com.facebook.presto.sql.gen.ExpressionCompiler;
 import com.facebook.presto.sql.planner.LocalExecutionPlanner;
 import com.facebook.presto.sql.planner.PlanFragment;
@@ -46,6 +45,7 @@ import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.plan.PlanFragmentId;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.facebook.presto.sql.planner.plan.TableScanNode;
+import com.facebook.presto.type.VarcharType;
 import com.google.common.base.Optional;
 import com.google.common.base.Supplier;
 import com.google.common.collect.ImmutableList;
@@ -141,7 +141,7 @@ public class TestSqlTaskManager
                         ImmutableMap.of(symbol, columnHandle),
                         null,
                         Optional.<GeneratedPartitions>absent()),
-                ImmutableMap.<Symbol, Type>of(symbol, Type.VARCHAR),
+                ImmutableMap.of(symbol, VarcharType.VARCHAR),
                 PlanDistribution.SOURCE,
                 tableScanNodeId,
                 OutputPartitioning.NONE,
@@ -176,7 +176,7 @@ public class TestSqlTaskManager
         taskInfo = sqlTaskManager.updateTask(session,
                 taskId,
                 testFragment,
-                ImmutableList.<TaskSource>of(new TaskSource(tableScanNodeId, ImmutableSet.<ScheduledSplit>of(), true)),
+                ImmutableList.of(new TaskSource(tableScanNodeId, ImmutableSet.<ScheduledSplit>of(), true)),
                 INITIAL_EMPTY_OUTPUT_BUFFERS.withNoMoreBufferIds());
         assertEquals(taskInfo.getState(), TaskState.FINISHED);
 
@@ -191,7 +191,7 @@ public class TestSqlTaskManager
         TaskInfo taskInfo = sqlTaskManager.updateTask(session,
                 taskId,
                 testFragment,
-                ImmutableList.<TaskSource>of(new TaskSource(tableScanNodeId, ImmutableSet.of(new ScheduledSplit(0, split)), true)),
+                ImmutableList.of(new TaskSource(tableScanNodeId, ImmutableSet.of(new ScheduledSplit(0, split)), true)),
                 INITIAL_EMPTY_OUTPUT_BUFFERS.withBuffer("out", new UnpartitionedPagePartitionFunction()).withNoMoreBufferIds());
         assertEquals(taskInfo.getState(), TaskState.RUNNING);
 
@@ -247,7 +247,7 @@ public class TestSqlTaskManager
         TaskInfo taskInfo = sqlTaskManager.updateTask(session,
                 taskId,
                 testFragment,
-                ImmutableList.<TaskSource>of(new TaskSource(tableScanNodeId, ImmutableSet.of(new ScheduledSplit(0, split)), true)),
+                ImmutableList.of(new TaskSource(tableScanNodeId, ImmutableSet.of(new ScheduledSplit(0, split)), true)),
                 INITIAL_EMPTY_OUTPUT_BUFFERS.withBuffer("out", new UnpartitionedPagePartitionFunction()).withNoMoreBufferIds());
         assertEquals(taskInfo.getState(), TaskState.RUNNING);
 

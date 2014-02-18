@@ -16,7 +16,6 @@ package com.facebook.presto.sql.planner.optimizations;
 import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.sql.analyzer.Session;
-import com.facebook.presto.sql.analyzer.Type;
 import com.facebook.presto.sql.planner.DependencyExtractor;
 import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
 import com.facebook.presto.sql.planner.Symbol;
@@ -42,6 +41,8 @@ import com.facebook.presto.sql.planner.plan.UnionNode;
 import com.facebook.presto.sql.planner.plan.WindowNode;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.FunctionCall;
+import com.facebook.presto.type.Type;
+import com.facebook.presto.type.Types;
 import com.google.common.base.Predicates;
 import com.google.common.collect.FluentIterable;
 import com.google.common.collect.ImmutableList;
@@ -206,7 +207,7 @@ public class PruneUnreferencedOutputs
                     .toSet();
             if (requiredTableScanOutputs.isEmpty()) {
                 for (Symbol symbol : node.getOutputSymbols()) {
-                    if (Type.isNumeric(types.get(symbol))) {
+                    if (Types.isNumeric(types.get(symbol))) {
                         requiredTableScanOutputs = ImmutableSet.of(symbol);
                         break;
                     }

@@ -56,6 +56,8 @@ import com.facebook.presto.sql.tree.TableSubquery;
 import com.facebook.presto.sql.tree.Union;
 import com.facebook.presto.sql.tree.Values;
 import com.facebook.presto.sql.tree.Window;
+import com.facebook.presto.type.NullType;
+import com.facebook.presto.type.Type;
 import com.google.common.base.Function;
 import com.google.common.base.Joiner;
 import com.google.common.base.Optional;
@@ -91,6 +93,8 @@ import static com.facebook.presto.sql.analyzer.SemanticErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.ORDER_BY_MUST_BE_IN_SELECT;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.TYPE_MISMATCH;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.WILDCARD_WITHOUT_FROM;
+import static com.facebook.presto.type.BooleanType.BOOLEAN;
+import static com.facebook.presto.type.Types.fromColumnType;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.Iterables.elementsEqual;
@@ -158,7 +162,7 @@ class TupleAnalyzer
         // TODO: discover columns lazily based on where they are needed (to support datasources that can't enumerate all tables)
         ImmutableList.Builder<Field> fields = ImmutableList.builder();
         for (ColumnMetadata column : tableMetadata.getColumns()) {
-            Field field = Field.newQualified(table.getName(), Optional.of(column.getName()), Type.fromRaw(column.getType()));
+            Field field = Field.newQualified(table.getName(), Optional.of(column.getName()), fromColumnType(column.getType()));
             fields.add(field);
             analysis.setColumn(field, columns.get(column.getName()));
         }
@@ -549,7 +553,7 @@ class TupleAnalyzer
             ExpressionAnalysis expressionAnalysis = Analyzer.analyzeExpression(session, metadata, tupleDescriptor, analysis, experimentalSyntaxEnabled, context, predicate);
             analysis.addInPredicates(node, expressionAnalysis.getSubqueryInPredicates());
 
-            if (expressionAnalysis.getType() != Type.BOOLEAN && expressionAnalysis.getType() != Type.NULL) {
+            if (!expressionAnalysis.getType().equals(BOOLEAN) && !expressionAnalysis.getType().equals(NullType.NULL)) {
                 throw new SemanticException(TYPE_MISMATCH, predicate, "HAVING clause must evaluate to a boolean: actual type %s", expressionAnalysis.getType());
             }
 
@@ -745,7 +749,7 @@ class TupleAnalyzer
             ExpressionAnalysis expressionAnalysis = Analyzer.analyzeExpression(session, metadata, tupleDescriptor, analysis, experimentalSyntaxEnabled, context, predicate);
             analysis.addInPredicates(node, expressionAnalysis.getSubqueryInPredicates());
 
-            if (expressionAnalysis.getType() != Type.BOOLEAN && expressionAnalysis.getType() != Type.NULL) {
+            if (!expressionAnalysis.getType().equals(BOOLEAN) && !expressionAnalysis.getType().equals(NullType.NULL)) {
                 throw new SemanticException(TYPE_MISMATCH, predicate, "WHERE clause must evaluate to a boolean: actual type %s", expressionAnalysis.getType());
             }
 

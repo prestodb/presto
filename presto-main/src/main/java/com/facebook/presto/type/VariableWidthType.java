@@ -27,8 +27,6 @@ public interface VariableWidthType
 
     int setSlice(SliceOutput sliceOutput, Slice value, int offset, int length);
 
-    Object getObjectValue(Slice slice, int offset);
-
     boolean equals(Slice leftSlice, int leftOffset, Slice rightSlice, int rightOffset);
 
     boolean equals(Slice leftSlice, int leftOffset, BlockCursor rightCursor);

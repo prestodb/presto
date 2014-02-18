@@ -83,6 +83,8 @@ import static com.facebook.presto.sql.tree.QueryUtil.selectList;
 import static com.facebook.presto.sql.tree.QueryUtil.subquery;
 import static com.facebook.presto.sql.tree.QueryUtil.table;
 import static com.facebook.presto.sql.tree.QueryUtil.unaliasedName;
+import static com.facebook.presto.type.BigintType.BIGINT;
+import static com.facebook.presto.type.Types.fromColumnType;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 
@@ -274,7 +276,7 @@ class StatementAnalyzer
             }
             Expression key = equal(nameReference("partition_key"), new StringLiteral(column.getName()));
             Expression value = caseWhen(key, nameReference("partition_value"));
-            value = new Cast(value, Type.fromRaw(column.getType()).getName());
+            value = new Cast(value, fromColumnType(column.getType()).getName());
             Expression function = functionCall("max", value);
             selectList.add(new SingleColumn(function, column.getName()));
             wrappedList.add(unaliasedName(column.getName()));
@@ -375,7 +377,7 @@ class StatementAnalyzer
             }
         }
 
-        return new TupleDescriptor(Field.newUnqualified("rows", Type.BIGINT));
+        return new TupleDescriptor(Field.newUnqualified("rows", BIGINT));
     }
 
     @Override
