@@ -27,10 +27,6 @@ import io.airlift.slice.Slice;
 
 import java.util.Map;
 
-import static com.facebook.presto.type.BigintType.BIGINT;
-import static com.facebook.presto.type.BooleanType.BOOLEAN;
-import static com.facebook.presto.type.DoubleType.DOUBLE;
-import static com.facebook.presto.type.VarcharType.VARCHAR;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 public class InterpretedProjectionFunction
@@ -73,17 +69,20 @@ public class InterpretedProjectionFunction
     {
         if (value == null) {
             output.appendNull();
+            return;
         }
-        else if (type.equals(BOOLEAN)) {
+
+        Class<?> javaType = type.getJavaType();
+        if (javaType == boolean.class) {
             output.append((Boolean) value);
         }
-        else if (type.equals(BIGINT)) {
+        else if (javaType == long.class) {
             output.append((Long) value);
         }
-        else if (type.equals(DOUBLE)) {
+        else if (javaType == double.class) {
             output.append((Double) value);
         }
-        else if (type.equals(VARCHAR)) {
+        else if (javaType == Slice.class) {
             output.append((Slice) value);
         }
         else {
