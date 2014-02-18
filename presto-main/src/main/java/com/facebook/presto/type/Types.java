@@ -19,6 +19,7 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import static com.facebook.presto.type.BigintType.BIGINT;
 import static com.facebook.presto.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.type.DoubleType.DOUBLE;
+import static com.facebook.presto.type.NullType.NULL;
 import static com.facebook.presto.type.VarcharType.VARCHAR;
 import static com.google.common.base.Preconditions.checkNotNull;
 
@@ -39,6 +40,8 @@ public final class Types
                 return BIGINT;
             case STRING:
                 return VARCHAR;
+            case NULL:
+                return NULL;
             default:
                 throw new IllegalStateException("Unknown type " + type);
         }
@@ -57,6 +60,8 @@ public final class Types
                 return DOUBLE;
             case "boolean":
                 return BOOLEAN;
+            case "null":
+                return NULL;
             default:
                 throw new IllegalAccessError("Unsupported type " + name);
         }

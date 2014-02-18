@@ -17,12 +17,12 @@ import com.facebook.presto.spi.ColumnType;
 import com.facebook.presto.type.BigintType;
 import com.facebook.presto.type.BooleanType;
 import com.facebook.presto.type.DoubleType;
+import com.facebook.presto.type.NullType;
 import com.facebook.presto.type.VarcharType;
 import com.google.common.base.Function;
 
-import javax.annotation.Nullable;
-
 import static com.facebook.presto.type.Types.fromColumnType;
+import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 
 public enum Type
@@ -31,16 +31,15 @@ public enum Type
     DOUBLE(DoubleType.DOUBLE),
     VARCHAR(VarcharType.VARCHAR),
     BOOLEAN(BooleanType.BOOLEAN),
-    NULL(null);
+    NULL(NullType.NULL);
 
     private final com.facebook.presto.type.Type rawType;
 
-    Type(@Nullable com.facebook.presto.type.Type rawType)
+    Type(com.facebook.presto.type.Type rawType)
     {
-        this.rawType = rawType;
+        this.rawType = checkNotNull(rawType, "rawType is null");
     }
 
-    @Nullable
     public com.facebook.presto.type.Type getRawType()
     {
         return rawType;

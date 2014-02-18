@@ -20,7 +20,8 @@ public enum ColumnType
     BOOLEAN(Boolean.class),
     LONG(Long.class),
     DOUBLE(Double.class),
-    STRING(String.class);
+    STRING(String.class),
+    NULL(void.class);
 
     private final Class<?> nativeType;
 
