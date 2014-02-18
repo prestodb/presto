@@ -13,12 +13,15 @@
  */
 package com.facebook.presto.metadata;
 
+import com.facebook.presto.type.Type;
 import com.facebook.presto.type.Types;
 import org.skife.jdbi.v2.StatementContext;
 import org.skife.jdbi.v2.tweak.ResultSetMapper;
 
 import java.sql.ResultSet;
 import java.sql.SQLException;
+
+import static com.google.common.base.Preconditions.checkArgument;
 
 public class TableColumnMapper
         implements ResultSetMapper<TableColumn>
@@ -31,10 +34,14 @@ public class TableColumnMapper
                 r.getString("schema_name"),
                 r.getString("table_name"));
 
+        String typeName = r.getString("data_type");
+        Type type = Types.fromName(typeName);
+        checkArgument(type != null, "Unknown type %s", typeName);
+
         return new TableColumn(table,
                 r.getString("column_name"),
                 r.getInt("ordinal_position"),
-                Types.fromName(r.getString("data_type")),
+                type,
                 r.getLong("column_id"));
     }
 }
