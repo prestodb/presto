@@ -53,11 +53,11 @@ import com.facebook.presto.operator.WindowOperator.WindowOperatorFactory;
 import com.facebook.presto.operator.window.WindowFunction;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.RecordSink;
+import com.facebook.presto.spi.Session;
 import com.facebook.presto.spi.block.BlockCursor;
 import com.facebook.presto.spi.block.SortOrder;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.split.DataStreamProvider;
-import com.facebook.presto.spi.Session;
 import com.facebook.presto.sql.gen.ExpressionCompiler;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.planner.plan.DistinctLimitNode;
@@ -170,7 +170,7 @@ public class LocalExecutionPlanner
     {
         LocalExecutionPlanContext context = new LocalExecutionPlanContext(session, types);
 
-        PhysicalOperation physicalOperation = plan.accept(new Visitor(), context);
+        PhysicalOperation physicalOperation = plan.accept(new Visitor(session), context);
         DriverFactory driverFactory = new DriverFactory(
                 context.isInputDriver(),
                 true,
@@ -264,6 +264,13 @@ public class LocalExecutionPlanner
     private class Visitor
             extends PlanVisitor<LocalExecutionPlanContext, PhysicalOperation>
     {
+        private final Session session;
+
+        private Visitor(Session session)
+        {
+            this.session = session;
+        }
+
         @Override
         public PhysicalOperation visitExchange(ExchangeNode node, LocalExecutionPlanContext context)
         {
@@ -639,7 +646,8 @@ public class LocalExecutionPlanner
                             columns,
                             rewrittenFilter,
                             rewrittenProjections,
-                            expressionTypes);
+                            expressionTypes,
+                            session.getTimeZoneKey());
 
                     return new PhysicalOperation(operatorFactory, outputMappings);
                 }
@@ -648,7 +656,8 @@ public class LocalExecutionPlanner
                             context.getNextOperatorId(),
                             rewrittenFilter,
                             rewrittenProjections,
-                            expressionTypes);
+                            expressionTypes,
+                            session.getTimeZoneKey());
                     return new PhysicalOperation(operatorFactory, outputMappings, source);
                 }
             }

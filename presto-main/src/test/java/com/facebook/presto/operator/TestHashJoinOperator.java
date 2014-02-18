@@ -27,12 +27,12 @@ import org.testng.annotations.Test;
 
 import java.util.List;
 import java.util.Locale;
-import java.util.TimeZone;
 import java.util.concurrent.ExecutorService;
 
 import static com.facebook.presto.operator.OperatorAssertion.assertOperatorEquals;
 import static com.facebook.presto.operator.RowPagesBuilder.rowPagesBuilder;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
+import static com.facebook.presto.spi.type.TimeZoneKey.UTC_KEY;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.util.Threads.daemonThreadsNamed;
 import static io.airlift.units.DataSize.Unit.BYTE;
@@ -48,7 +48,7 @@ public class TestHashJoinOperator
     public void setUp()
     {
         executor = newCachedThreadPool(daemonThreadsNamed("test"));
-        Session session = new Session("user", "source", "catalog", "schema", TimeZone.getTimeZone("UTC"), Locale.ENGLISH, "address", "agent");
+        Session session = new Session("user", "source", "catalog", "schema", UTC_KEY, Locale.ENGLISH, "address", "agent");
         taskContext = new TaskContext(new TaskId("query", "stage", "task"), executor, session);
     }
 
@@ -90,7 +90,7 @@ public class TestHashJoinOperator
         Operator joinOperator = joinOperatorFactory.createOperator(taskContext.addPipelineContext(true, true).addDriverContext());
 
         // expected
-        MaterializedResult expected = MaterializedResult.resultBuilder(VARCHAR, BIGINT, BIGINT, VARCHAR, BIGINT, BIGINT)
+        MaterializedResult expected = MaterializedResult.resultBuilder(taskContext.getSession(), VARCHAR, BIGINT, BIGINT, VARCHAR, BIGINT, BIGINT)
                 .row("20", 1020, 2020, "20", 30, 40)
                 .row("21", 1021, 2021, "21", 31, 41)
                 .row("22", 1022, 2022, "22", 32, 42)
@@ -143,7 +143,7 @@ public class TestHashJoinOperator
         Operator joinOperator = joinOperatorFactory.createOperator(taskContext.addPipelineContext(true, true).addDriverContext());
 
         // expected
-        MaterializedResult expected = MaterializedResult.resultBuilder(VARCHAR, VARCHAR)
+        MaterializedResult expected = MaterializedResult.resultBuilder(taskContext.getSession(), VARCHAR, VARCHAR)
                 .row("a", "a")
                 .row("a", "a")
                 .row("b", "b")
@@ -189,7 +189,7 @@ public class TestHashJoinOperator
         Operator joinOperator = joinOperatorFactory.createOperator(taskContext.addPipelineContext(true, true).addDriverContext());
 
         // expected
-        MaterializedResult expected = MaterializedResult.resultBuilder(VARCHAR, VARCHAR)
+        MaterializedResult expected = MaterializedResult.resultBuilder(taskContext.getSession(), VARCHAR, VARCHAR)
                 .row("a", "a")
                 .row("a", "a")
                 .row("b", "b")
@@ -236,7 +236,7 @@ public class TestHashJoinOperator
         Operator joinOperator = joinOperatorFactory.createOperator(taskContext.addPipelineContext(true, true).addDriverContext());
 
         // expected
-        MaterializedResult expected = MaterializedResult.resultBuilder(VARCHAR, VARCHAR)
+        MaterializedResult expected = MaterializedResult.resultBuilder(taskContext.getSession(), VARCHAR, VARCHAR)
                 .row("a", "a")
                 .row("a", "a")
                 .row("b", "b")
@@ -278,7 +278,7 @@ public class TestHashJoinOperator
 
         // expected
         // expected
-        MaterializedResult expected = MaterializedResult.resultBuilder(VARCHAR, BIGINT, BIGINT, VARCHAR, BIGINT, BIGINT)
+        MaterializedResult expected = MaterializedResult.resultBuilder(taskContext.getSession(), VARCHAR, BIGINT, BIGINT, VARCHAR, BIGINT, BIGINT)
                 .row("20", 1020, 2020, "20", 30, 40)
                 .row("21", 1021, 2021, "21", 31, 41)
                 .row("22", 1022, 2022, "22", 32, 42)
@@ -336,7 +336,7 @@ public class TestHashJoinOperator
         Operator joinOperator = joinOperatorFactory.createOperator(taskContext.addPipelineContext(true, true).addDriverContext());
 
         // expected
-        MaterializedResult expected = MaterializedResult.resultBuilder(VARCHAR, VARCHAR)
+        MaterializedResult expected = MaterializedResult.resultBuilder(taskContext.getSession(), VARCHAR, VARCHAR)
                 .row("a", "a")
                 .row(null, null)
                 .row(null, null)
@@ -384,7 +384,7 @@ public class TestHashJoinOperator
         Operator joinOperator = joinOperatorFactory.createOperator(taskContext.addPipelineContext(true, true).addDriverContext());
 
         // expected
-        MaterializedResult expected = MaterializedResult.resultBuilder(VARCHAR, VARCHAR)
+        MaterializedResult expected = MaterializedResult.resultBuilder(taskContext.getSession(), VARCHAR, VARCHAR)
                 .row("a", "a")
                 .row("a", "a")
                 .row("b", "b")
@@ -432,7 +432,7 @@ public class TestHashJoinOperator
         Operator joinOperator = joinOperatorFactory.createOperator(taskContext.addPipelineContext(true, true).addDriverContext());
 
         // expected
-        MaterializedResult expected = MaterializedResult.resultBuilder(VARCHAR, VARCHAR)
+        MaterializedResult expected = MaterializedResult.resultBuilder(taskContext.getSession(), VARCHAR, VARCHAR)
                 .row("a", "a")
                 .row("a", "a")
                 .row("b", "b")
@@ -447,7 +447,7 @@ public class TestHashJoinOperator
     public void testMemoryLimit()
             throws Exception
     {
-        Session session = new Session("user", "source", "catalog", "schema", TimeZone.getTimeZone("UTC"), Locale.ENGLISH, "address", "agent");
+        Session session = new Session("user", "source", "catalog", "schema", UTC_KEY, Locale.ENGLISH, "address", "agent");
         DriverContext driverContext = new TaskContext(new TaskId("query", "stage", "task"), executor, session, new DataSize(100, BYTE))
                 .addPipelineContext(true, true)
                 .addDriverContext();

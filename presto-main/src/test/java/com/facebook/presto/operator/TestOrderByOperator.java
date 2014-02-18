@@ -27,7 +27,6 @@ import org.testng.annotations.Test;
 
 import java.util.List;
 import java.util.Locale;
-import java.util.TimeZone;
 import java.util.concurrent.ExecutorService;
 
 import static com.facebook.presto.operator.OperatorAssertion.assertOperatorEquals;
@@ -37,6 +36,7 @@ import static com.facebook.presto.spi.block.SortOrder.ASC_NULLS_LAST;
 import static com.facebook.presto.spi.block.SortOrder.DESC_NULLS_LAST;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
+import static com.facebook.presto.spi.type.TimeZoneKey.UTC_KEY;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.util.MaterializedResult.resultBuilder;
 import static com.facebook.presto.util.Threads.daemonThreadsNamed;
@@ -52,7 +52,7 @@ public class TestOrderByOperator
     public void setUp()
     {
         executor = newCachedThreadPool(daemonThreadsNamed("test"));
-        Session session = new Session("user", "source", "catalog", "schema", TimeZone.getTimeZone("UTC"), Locale.ENGLISH, "address", "agent");
+        Session session = new Session("user", "source", "catalog", "schema", UTC_KEY, Locale.ENGLISH, "address", "agent");
         driverContext = new TaskContext(new TaskId("query", "stage", "task"), executor, session)
                 .addPipelineContext(true, true)
                 .addDriverContext();
@@ -86,7 +86,7 @@ public class TestOrderByOperator
 
         Operator operator = operatorFactory.createOperator(driverContext);
 
-        MaterializedResult expected = resultBuilder(DOUBLE)
+        MaterializedResult expected = resultBuilder(driverContext.getSession(), DOUBLE)
                 .row(-0.1)
                 .row(0.1)
                 .row(0.2)
@@ -118,7 +118,7 @@ public class TestOrderByOperator
 
         Operator operator = operatorFactory.createOperator(driverContext);
 
-        MaterializedResult expected = MaterializedResult.resultBuilder(VARCHAR, BIGINT)
+        MaterializedResult expected = MaterializedResult.resultBuilder(driverContext.getSession(), VARCHAR, BIGINT)
                 .row("a", 4)
                 .row("a", 1)
                 .row("b", 3)
@@ -150,7 +150,7 @@ public class TestOrderByOperator
 
         Operator operator = operatorFactory.createOperator(driverContext);
 
-        MaterializedResult expected = resultBuilder(BIGINT)
+        MaterializedResult expected = resultBuilder(driverContext.getSession(), BIGINT)
                 .row(4)
                 .row(2)
                 .row(1)
@@ -172,7 +172,7 @@ public class TestOrderByOperator
                 .row(4, 0.4)
                 .build();
 
-        Session session = new Session("user", "source", "catalog", "schema", TimeZone.getTimeZone("UTC"), Locale.ENGLISH, "address", "agent");
+        Session session = new Session("user", "source", "catalog", "schema", UTC_KEY, Locale.ENGLISH, "address", "agent");
         DriverContext driverContext = new TaskContext(new TaskId("query", "stage", "task"), executor, session, new DataSize(10, Unit.BYTE))
                 .addPipelineContext(true, true)
                 .addDriverContext();

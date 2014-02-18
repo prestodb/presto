@@ -153,7 +153,7 @@ public class PerfTest
 
             ImmutableList.Builder<QueryRunner> runners = ImmutableList.builder();
             for (int i = 0; i < maxParallelism; i++) {
-                ClientSession session = new ClientSession(server, "test-" + i, "presto-perf", catalog, schema, TimeZone.getDefault(), Locale.getDefault(), debug);
+                ClientSession session = new ClientSession(server, "test-" + i, "presto-perf", catalog, schema, TimeZone.getDefault().getID(), Locale.getDefault(), debug);
                 runners.add(new QueryRunner(session, executor));
             }
             this.runners = runners.build();
@@ -274,6 +274,7 @@ public class PerfTest
             if (session.getSchema() != null) {
                 builder.setHeader(PrestoHeaders.PRESTO_SCHEMA, session.getSchema());
             }
+            builder.setHeader(PrestoHeaders.PRESTO_SCHEMA, session.getTimeZoneId());
             builder.setHeader(USER_AGENT, USER_AGENT_VALUE);
 
             return builder.build();

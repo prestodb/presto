@@ -18,6 +18,8 @@ import com.facebook.presto.execution.QueryInfo;
 import com.facebook.presto.execution.QueryManager;
 import com.facebook.presto.execution.StageId;
 import com.facebook.presto.spi.Session;
+import com.facebook.presto.spi.type.TimeZoneKey;
+import com.facebook.presto.spi.type.TimeZoneNotSupported;
 import com.google.common.collect.ImmutableList;
 
 import javax.inject.Inject;
@@ -105,7 +107,7 @@ public class QueryResource
             @HeaderParam(PRESTO_SOURCE) String source,
             @HeaderParam(PRESTO_CATALOG) @DefaultValue(DEFAULT_CATALOG) String catalog,
             @HeaderParam(PRESTO_SCHEMA) @DefaultValue(DEFAULT_SCHEMA) String schema,
-            @HeaderParam(PRESTO_TIME_ZONE) String timeZoneString,
+            @HeaderParam(PRESTO_TIME_ZONE) String timeZoneId,
             @HeaderParam(USER_AGENT) String userAgent,
             @Context HttpServletRequest requestContext,
             @Context UriInfo uriInfo)
@@ -115,16 +117,21 @@ public class QueryResource
         checkNotNull(catalog, "catalog is null");
         checkNotNull(schema, "schema is null");
 
-        TimeZone timeZone;
-        if (timeZoneString == null) {
-            timeZone = TimeZone.getDefault();
-        }
-        else {
-            timeZone = TimeZone.getTimeZone(timeZoneString);
+        if (timeZoneId == null) {
+            timeZoneId = TimeZone.getDefault().getID();
         }
 
         String remoteUserAddress = requestContext.getRemoteAddr();
-        QueryInfo queryInfo = queryManager.createQuery(new Session(user, source, catalog, schema, timeZone, requestContext.getLocale(), remoteUserAddress, userAgent), query);
+
+        Session session;
+        try {
+            session = new Session(user, source, catalog, schema, TimeZoneKey.getTimeZoneKey(timeZoneId), requestContext.getLocale(), remoteUserAddress, userAgent);
+        }
+        catch (TimeZoneNotSupported e) {
+            return Response.status(Status.BAD_REQUEST).entity(e.getMessage()).build();
+        }
+
+        QueryInfo queryInfo = queryManager.createQuery(session, query);
         URI pagesUri = uriBuilderFrom(uriInfo.getRequestUri()).appendPath(queryInfo.getQueryId().toString()).build();
         return Response.created(pagesUri).entity(queryInfo).build();
     }

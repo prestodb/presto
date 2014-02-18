@@ -81,7 +81,7 @@ public class ExecuteResource
             @HeaderParam(PRESTO_SOURCE) String source,
             @HeaderParam(PRESTO_CATALOG) String catalog,
             @HeaderParam(PRESTO_SCHEMA) String schema,
-            @HeaderParam(PRESTO_TIME_ZONE) String timeZoneString,
+            @HeaderParam(PRESTO_TIME_ZONE) String timeZoneId,
             @Context HttpServletRequest requestContext)
     {
         assertRequest(!isNullOrEmpty(query), "SQL query is empty");
@@ -89,15 +89,10 @@ public class ExecuteResource
         assertRequest(!isNullOrEmpty(catalog), "Catalog (%s) is empty", PRESTO_CATALOG);
         assertRequest(!isNullOrEmpty(schema), "Schema (%s) is empty", PRESTO_SCHEMA);
 
-        TimeZone timeZone;
-        if (timeZoneString == null) {
-            timeZone = TimeZone.getDefault();
+        if (timeZoneId == null) {
+            timeZoneId = TimeZone.getDefault().getID();
         }
-        else {
-            timeZone = TimeZone.getTimeZone(timeZoneString);
-        }
-
-        ClientSession session = new ClientSession(serverUri(), user, source, catalog, schema, timeZone, requestContext.getLocale(), false);
+        ClientSession session = new ClientSession(serverUri(), user, source, catalog, schema, timeZoneId, requestContext.getLocale(), false);
 
         StatementClient client = new StatementClient(httpClient, queryResultsCodec, session, query);
 

@@ -24,9 +24,9 @@ import org.intellij.lang.annotations.Language;
 import org.testng.annotations.AfterClass;
 
 import java.util.Locale;
-import java.util.TimeZone;
 import java.util.concurrent.ExecutorService;
 
+import static com.facebook.presto.spi.type.TimeZoneKey.UTC_KEY;
 import static com.facebook.presto.util.Threads.daemonThreadsNamed;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 
@@ -62,7 +62,7 @@ public class TestLocalQueries
     @Override
     protected Session setUpQueryFramework()
     {
-        Session session = new Session("user", "test", "local", TpchMetadata.TINY_SCHEMA_NAME, TimeZone.getTimeZone("UTC"), Locale.ENGLISH, null, null);
+        Session session = new Session("user", "test", "local", TpchMetadata.TINY_SCHEMA_NAME, UTC_KEY, Locale.ENGLISH, null, null);
         localQueryRunner = new LocalQueryRunner(session, getExecutor());
         localSampledQueryRunner = new LocalQueryRunner(session, getExecutor());
 

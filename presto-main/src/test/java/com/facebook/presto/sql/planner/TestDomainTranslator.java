@@ -50,12 +50,12 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
-import java.util.TimeZone;
 
 import static com.facebook.presto.spi.TupleDomain.withColumnDomains;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
+import static com.facebook.presto.spi.type.TimeZoneKey.UTC_KEY;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.sql.ExpressionUtils.and;
 import static com.facebook.presto.sql.ExpressionUtils.or;
@@ -74,7 +74,7 @@ import static com.facebook.presto.sql.tree.ComparisonExpression.Type.NOT_EQUAL;
 public class TestDomainTranslator
 {
     private static final Metadata MANAGER = new MetadataManager();
-    private static final Session SESSION = new Session("user", "source", "catalog", "schema", TimeZone.getTimeZone("UTC"), Locale.ENGLISH, "address", "agent");
+    private static final Session SESSION = new Session("user", "source", "catalog", "schema", UTC_KEY, Locale.ENGLISH, "address", "agent");
 
     private static final Symbol A = new Symbol("a");
     private static final ColumnHandle ACH = new TestingColumnHandle(A);

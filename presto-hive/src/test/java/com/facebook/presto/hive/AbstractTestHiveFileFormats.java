@@ -14,6 +14,7 @@
 package com.facebook.presto.hive;
 
 import com.facebook.presto.spi.RecordCursor;
+import com.facebook.presto.spi.type.TimestampType;
 import com.facebook.presto.spi.type.Type;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -180,7 +181,7 @@ public abstract class AbstractTestHiveFileFormats
                 Pair.<Object, Object>of(5.1f, 5.1),
                 Pair.<Object, Object>of(6.2, 6.2),
                 Pair.<Object, Object>of(true, true),
-                Pair.<Object, Object>of(new Timestamp(TIMESTAMP), TIMESTAMP / 1000),
+                Pair.<Object, Object>of(new Timestamp(TIMESTAMP), TIMESTAMP),
                 Pair.<Object, Object>of("test2".getBytes(Charsets.UTF_8), "test2".getBytes(Charsets.UTF_8)),
                 Pair.<Object, Object>of(ImmutableMap.of("test", "test"), "{\"test\":\"test\"}"),
                 Pair.<Object, Object>of(ImmutableMap.of((byte) 1, (byte) 1), "{\"1\":1}"),
@@ -190,7 +191,7 @@ public abstract class AbstractTestHiveFileFormats
                 Pair.<Object, Object>of(ImmutableMap.of(5.0f, 5.0f), "{\"5.0\":5.0}"),
                 Pair.<Object, Object>of(ImmutableMap.of(6.0, 6.0), "{\"6.0\":6.0}"),
                 Pair.<Object, Object>of(ImmutableMap.of(true, true), "{\"true\":true}"),
-                Pair.<Object, Object>of(ImmutableMap.of(new Timestamp(TIMESTAMP), new Timestamp(TIMESTAMP)), String.format("{\"%d\":%d}", TIMESTAMP / 1000, TIMESTAMP / 1000)),
+                Pair.<Object, Object>of(ImmutableMap.of(new Timestamp(TIMESTAMP), new Timestamp(TIMESTAMP)), String.format("{\"%d\":%d}", TIMESTAMP, TIMESTAMP)),
                 Pair.<Object, Object>of(ImmutableList.of("test"), "[\"test\"]"),
                 Pair.<Object, Object>of(ImmutableList.of((byte) 1), "[1]"),
                 Pair.<Object, Object>of(ImmutableList.of((short) 2), "[2]"),
@@ -199,7 +200,7 @@ public abstract class AbstractTestHiveFileFormats
                 Pair.<Object, Object>of(ImmutableList.of(5.0f), "[5.0]"),
                 Pair.<Object, Object>of(ImmutableList.of(6.0), "[6.0]"),
                 Pair.<Object, Object>of(ImmutableList.of(true), "[true]"),
-                Pair.<Object, Object>of(ImmutableList.of(new Timestamp(TIMESTAMP)), String.format("[%d]", TIMESTAMP / 1000)),
+                Pair.<Object, Object>of(ImmutableList.of(new Timestamp(TIMESTAMP)), String.format("[%d]", TIMESTAMP)),
                 Pair.<Object, Object>of(ImmutableMap.of("test", ImmutableList.<Object>of(new Integer[] {1})), "{\"test\":[{\"s_int\":1}]}")
         );
 
@@ -291,6 +292,9 @@ public abstract class AbstractTestHiveFileFormats
                 else if (VARCHAR.equals(type)) {
                     fieldFromCursor = cursor.getString(i);
                 }
+                else if (TimestampType.TIMESTAMP.equals(type)) {
+                    fieldFromCursor = cursor.getLong(i);
+                }
                 else {
                     throw new RuntimeException("unknown type");
                 }
@@ -306,7 +310,9 @@ public abstract class AbstractTestHiveFileFormats
                     ObjectMapper mapper = new ObjectMapper();
                     JsonNode expected = mapper.readTree((String) TEST_VALUES.get(i).getValue());
                     JsonNode actual = mapper.readTree((byte[]) fieldFromCursor);
-                    assertEquals(actual, expected, String.format("Wrong value for column %s", COLUMN_NAMES.get(i)));
+                    if (!expected.equals(actual)) {
+                        assertEquals(actual, expected, String.format("Wrong value for column %s", COLUMN_NAMES.get(i)));
+                    }
                 }
             }
         }

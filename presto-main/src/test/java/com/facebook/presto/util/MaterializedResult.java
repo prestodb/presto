@@ -13,9 +13,10 @@
  */
 package com.facebook.presto.util;
 
+import com.facebook.presto.operator.Page;
+import com.facebook.presto.spi.Session;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockCursor;
-import com.facebook.presto.operator.Page;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.base.Objects;
 import com.google.common.collect.ImmutableList;
@@ -79,23 +80,25 @@ public class MaterializedResult
                 .toString();
     }
 
-    public static Builder resultBuilder(Type... types)
+    public static Builder resultBuilder(Session session, Type... types)
     {
-        return resultBuilder(ImmutableList.copyOf(types));
+        return resultBuilder(session, ImmutableList.copyOf(types));
     }
 
-    public static Builder resultBuilder(List<Type> types)
+    public static Builder resultBuilder(Session session, List<Type> types)
     {
-        return new Builder(ImmutableList.copyOf(types));
+        return new Builder(session, ImmutableList.copyOf(types));
     }
 
     public static class Builder
     {
+        private final Session session;
         private final List<Type> types;
         private final ImmutableList.Builder<MaterializedRow> rows = ImmutableList.builder();
 
-        Builder(List<Type> types)
+        Builder(Session session, List<Type> types)
         {
+            this.session = session;
             this.types = ImmutableList.copyOf(types);
         }
 
@@ -128,7 +131,7 @@ public class MaterializedResult
                 List<Object> values = new ArrayList<>(types.size());
                 for (BlockCursor cursor : cursors) {
                     if (cursor.advanceNextPosition()) {
-                        values.add(cursor.getObjectValue());
+                        values.add(cursor.getObjectValue(session));
                     }
                     else {
                         checkState(values.isEmpty(), "unaligned cursors");

@@ -64,10 +64,10 @@ import java.io.File;
 import java.net.URI;
 import java.util.Locale;
 import java.util.NoSuchElementException;
-import java.util.TimeZone;
 import java.util.concurrent.TimeUnit;
 
 import static com.facebook.presto.OutputBuffers.INITIAL_EMPTY_OUTPUT_BUFFERS;
+import static com.facebook.presto.spi.type.TimeZoneKey.UTC_KEY;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.sql.planner.plan.TableScanNode.GeneratedPartitions;
 import static org.testng.Assert.assertEquals;
@@ -149,7 +149,7 @@ public class TestSqlTaskManager
                 ImmutableList.<Symbol>of());
 
         taskId = new TaskId("query", "stage", "task");
-        session = new Session("user", "test", "default", "default", TimeZone.getTimeZone("UTC"), Locale.ENGLISH, "test", "test");
+        session = new Session("user", "test", "default", "default", UTC_KEY, Locale.ENGLISH, "test", "test");
     }
 
     @AfterMethod

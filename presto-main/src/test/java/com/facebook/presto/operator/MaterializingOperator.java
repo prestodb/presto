@@ -67,7 +67,7 @@ public class MaterializingOperator
     public MaterializingOperator(OperatorContext operatorContext, List<Type> sourceTypes)
     {
         this.operatorContext = checkNotNull(operatorContext, "operatorContext is null");
-        resultBuilder = MaterializedResult.resultBuilder(sourceTypes);
+        resultBuilder = MaterializedResult.resultBuilder(operatorContext.getSession(), sourceTypes);
     }
 
     public MaterializedResult getMaterializedResult()

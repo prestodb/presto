@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.spi.block;
 
+import com.facebook.presto.spi.Session;
 import io.airlift.slice.Slice;
 
 public interface RandomAccessBlock
@@ -51,7 +52,7 @@ public interface RandomAccessBlock
      *
      * @throws IllegalArgumentException if this position is not valid
      */
-    Object getObjectValue(int position);
+    Object getObjectValue(Session session, int position);
 
     /**
      * Gets the value at the specified position as a Slice.

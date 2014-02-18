@@ -39,8 +39,16 @@ import com.facebook.presto.sql.gen.FunctionBinder;
 import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.type.BigintOperators;
 import com.facebook.presto.type.BooleanOperators;
+import com.facebook.presto.type.DateOperators;
+import com.facebook.presto.type.DateTimeOperators;
 import com.facebook.presto.type.DoubleOperators;
+import com.facebook.presto.type.IntervalDayTimeOperators;
+import com.facebook.presto.type.IntervalYearMonthOperators;
 import com.facebook.presto.type.SqlType;
+import com.facebook.presto.type.TimeOperators;
+import com.facebook.presto.type.TimeWithTimeZoneOperators;
+import com.facebook.presto.type.TimestampOperators;
+import com.facebook.presto.type.TimestampWithTimeZoneOperators;
 import com.facebook.presto.type.VarcharOperators;
 import com.facebook.presto.util.IterableTransformer;
 import com.google.common.base.Joiner;
@@ -120,6 +128,10 @@ import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.NullType.NULL;
+import static com.facebook.presto.spi.type.TimeType.TIME;
+import static com.facebook.presto.spi.type.TimeWithTimeZoneType.TIME_WITH_TIME_ZONE;
+import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
+import static com.facebook.presto.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.google.common.base.CaseFormat.LOWER_CAMEL;
 import static com.google.common.base.CaseFormat.LOWER_UNDERSCORE;
@@ -191,7 +203,15 @@ public class FunctionRegistry
                 .scalar(BooleanOperators.class)
                 .scalar(BigintOperators.class)
                 .scalar(DoubleOperators.class)
-                .scalar(VarcharOperators.class);
+                .scalar(VarcharOperators.class)
+                .scalar(DateOperators.class)
+                .scalar(TimeOperators.class)
+                .scalar(TimestampOperators.class)
+                .scalar(IntervalDayTimeOperators.class)
+                .scalar(IntervalYearMonthOperators.class)
+                .scalar(TimeWithTimeZoneOperators.class)
+                .scalar(TimestampWithTimeZoneOperators.class)
+                .scalar(DateTimeOperators.class);
 
         if (experimentalSyntaxEnabled) {
             builder.approximateAggregate("avg", VARCHAR, ImmutableList.of(BIGINT), VARCHAR, LONG_APPROXIMATE_AVERAGE_AGGREGATION)
@@ -307,7 +327,7 @@ public class FunctionRegistry
         throw new OperatorNotFoundException(operatorType, argumentTypes, returnType);
     }
 
-    private static boolean canCoerce(List<? extends Type> actualTypes, List<Type> expectedTypes)
+    public static boolean canCoerce(List<? extends Type> actualTypes, List<Type> expectedTypes)
     {
         if (actualTypes.size() != expectedTypes.size()) {
             return false;
@@ -315,11 +335,36 @@ public class FunctionRegistry
         for (int i = 0; i < expectedTypes.size(); i++) {
             Type expectedType = expectedTypes.get(i);
             Type actualType = actualTypes.get(i);
-            if (!expectedType.equals(actualType) && !actualType.equals(NULL) && !(actualType.equals(BIGINT) && expectedType.equals(DOUBLE))) {
+            if (!canCoerce(actualType, expectedType)) {
                 return false;
             }
         }
         return true;
+    }
+
+    public static boolean canCoerce(Type actualType, Type expectedType)
+    {
+        // are types the same
+        if (expectedType.equals(actualType)) {
+            return true;
+        }
+        // null can be cast to anything
+        if (actualType.equals(NULL)) {
+            return true;
+        }
+        // widen bigint to double
+        if (actualType.equals(BIGINT) && expectedType.equals(DOUBLE)) {
+            return true;
+        }
+        // widen time to time with time zone
+        if (actualType.equals(TIME) && expectedType.equals(TIME_WITH_TIME_ZONE)) {
+            return true;
+        }
+        // widen timestamp to timestamp with time zone
+        if (actualType.equals(TIMESTAMP) && expectedType.equals(TIMESTAMP_WITH_TIME_ZONE)) {
+            return true;
+        }
+        return false;
     }
 
     private static List<Type> parameterTypes(Method method)

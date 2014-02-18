@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.spi.block;
 
+import com.facebook.presto.spi.Session;
 import com.facebook.presto.spi.type.FixedWidthType;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
@@ -96,13 +97,13 @@ public abstract class AbstractFixedWidthBlock
     }
 
     @Override
-    public Object getObjectValue(int position)
+    public Object getObjectValue(Session session, int position)
     {
         checkReadablePosition(position);
         if (isNull(position)) {
             return null;
         }
-        return type.getObjectValue(getRawSlice(), (position * entrySize) + SIZE_OF_BYTE);
+        return type.getObjectValue(session, getRawSlice(), (position * entrySize) + SIZE_OF_BYTE);
     }
 
     @Override
