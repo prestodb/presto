@@ -17,6 +17,7 @@ import com.fasterxml.jackson.core.Base64Variants;
 import com.fasterxml.jackson.core.JsonFactory;
 import com.fasterxml.jackson.core.JsonGenerator;
 import com.google.common.base.Throwables;
+import org.apache.hadoop.hive.serde2.io.TimestampWritable;
 import org.apache.hadoop.hive.serde2.objectinspector.ListObjectInspector;
 import org.apache.hadoop.hive.serde2.objectinspector.MapObjectInspector;
 import org.apache.hadoop.hive.serde2.objectinspector.ObjectInspector;
@@ -85,7 +86,7 @@ public final class SerDeUtils
             case STRING:
                 return ((StringObjectInspector) objectInspector).getPrimitiveJavaObject(object);
             case TIMESTAMP:
-                return String.valueOf(((TimestampObjectInspector) objectInspector).getPrimitiveWritableObject(object).getSeconds());
+                return String.valueOf(getTimestampMillis(object, (TimestampObjectInspector) objectInspector));
             case BINARY:
                 // Using same Base64 encoder which Jackson uses in JsonGenerator.writeBinary().
                 BytesWritable writable = ((BinaryObjectInspector) objectInspector).getPrimitiveWritableObject(object);
@@ -131,7 +132,7 @@ public final class SerDeUtils
                         generator.writeString(((StringObjectInspector) primitiveObjectInspector).getPrimitiveJavaObject(object));
                         break;
                     case TIMESTAMP:
-                        generator.writeNumber(((TimestampObjectInspector) primitiveObjectInspector).getPrimitiveWritableObject(object).getSeconds());
+                        generator.writeNumber(getTimestampMillis(object, (TimestampObjectInspector) objectInspector));
                         break;
                     case BINARY:
                         generator.writeBinary(((BinaryObjectInspector) objectInspector).getPrimitiveJavaObject(object));
@@ -208,5 +209,13 @@ public final class SerDeUtils
             default:
                 throw new RuntimeException("Unknown type in ObjectInspector!" + objectInspector.getCategory());
         }
+    }
+
+    private static long getTimestampMillis(Object object, TimestampObjectInspector objectInspector)
+    {
+        TimestampWritable timestampWritable = objectInspector.getPrimitiveWritableObject(object);
+        long seconds = timestampWritable.getSeconds();
+        long nanos = timestampWritable.getNanos();
+        return (seconds * 1000) + (nanos / 1_000_000);
     }
 }

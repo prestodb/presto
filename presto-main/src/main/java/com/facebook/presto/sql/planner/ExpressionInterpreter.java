@@ -211,7 +211,7 @@ public class ExpressionInterpreter
         @Override
         protected Object visitLiteral(Literal node, Object context)
         {
-            return LiteralInterpreter.evaluate(session, node, metadata);
+            return LiteralInterpreter.evaluate(metadata, session, node);
         }
 
         @Override
@@ -427,7 +427,8 @@ public class ExpressionInterpreter
             }
 
             if (hasUnresolvedValue(left, right)) {
-                return new ArithmeticExpression(node.getType(), toExpression(left, expressionTypes.get(node.getLeft())), toExpression(right, expressionTypes.get(node.getRight())));
+                return new ArithmeticExpression(node.getType(), toExpression(left, expressionTypes.get(node.getLeft())
+                ), toExpression(right, expressionTypes.get(node.getRight())));
             }
 
             return invokeOperator(OperatorType.valueOf(node.getType().name()), types(node.getLeft(), node.getRight()), ImmutableList.of(left, right));
@@ -457,7 +458,8 @@ public class ExpressionInterpreter
             }
 
             if (hasUnresolvedValue(left, right)) {
-                return new ComparisonExpression(type, toExpression(left, expressionTypes.get(node.getLeft())), toExpression(right, expressionTypes.get(node.getRight())));
+                return new ComparisonExpression(type, toExpression(left, expressionTypes.get(node.getLeft())), toExpression(right, expressionTypes.get(node.getRight())
+                ));
             }
 
             if (type == ComparisonExpression.Type.IS_DISTINCT_FROM) {

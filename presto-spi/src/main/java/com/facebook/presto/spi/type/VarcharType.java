@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.spi.type;
 
+import com.facebook.presto.spi.Session;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.block.BlockCursor;
@@ -51,7 +52,7 @@ public class VarcharType
     }
 
     @Override
-    public Object getObjectValue(Slice slice, int offset)
+    public Object getObjectValue(Session session, Slice slice, int offset)
     {
         return slice.toString(offset + SIZE_OF_INT, getValueSize(slice, offset), UTF_8);
     }

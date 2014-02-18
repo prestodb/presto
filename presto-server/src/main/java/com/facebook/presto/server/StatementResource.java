@@ -32,6 +32,8 @@ import com.facebook.presto.operator.ExchangeClient;
 import com.facebook.presto.operator.Page;
 import com.facebook.presto.spi.Session;
 import com.facebook.presto.spi.block.BlockCursor;
+import com.facebook.presto.spi.type.TimeZoneKey;
+import com.facebook.presto.spi.type.TimeZoneNotSupported;
 import com.facebook.presto.util.IterableTransformer;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Predicate;
@@ -139,7 +141,7 @@ public class StatementResource
             @HeaderParam(PRESTO_SOURCE) String source,
             @HeaderParam(PRESTO_CATALOG) String catalog,
             @HeaderParam(PRESTO_SCHEMA) String schema,
-            @HeaderParam(PRESTO_TIME_ZONE) String timeZoneString,
+            @HeaderParam(PRESTO_TIME_ZONE) String timeZoneId,
             @HeaderParam(USER_AGENT) String userAgent,
             @Context HttpServletRequest requestContext,
             @Context UriInfo uriInfo)
@@ -150,17 +152,20 @@ public class StatementResource
         assertRequest(!isNullOrEmpty(catalog), "Catalog (%s) is empty", PRESTO_CATALOG);
         assertRequest(!isNullOrEmpty(schema), "Schema (%s) is empty", PRESTO_SCHEMA);
 
+        if (timeZoneId == null) {
+            timeZoneId = TimeZone.getDefault().getID();
+        }
+
         String remoteUserAddress = requestContext.getRemoteAddr();
 
-        TimeZone timeZone;
-        if (timeZoneString == null) {
-            timeZone = TimeZone.getDefault();
+        Session session;
+        try {
+            session = new Session(user, source, catalog, schema, TimeZoneKey.getTimeZoneKey(timeZoneId), requestContext.getLocale(), remoteUserAddress, userAgent);
         }
-        else {
-            timeZone = TimeZone.getTimeZone(timeZoneString);
+        catch (TimeZoneNotSupported e) {
+            return Response.status(Status.BAD_REQUEST).entity(e.getMessage()).build();
         }
 
-        Session session = new Session(user, source, catalog, schema, timeZone, requestContext.getLocale(), remoteUserAddress, userAgent);
         ExchangeClient exchangeClient = exchangeClientSupplier.get();
         Query query = new Query(session, statement, queryManager, exchangeClient);
         queries.put(query.getQueryId(), query);
@@ -221,6 +226,7 @@ public class StatementResource
         private final ExchangeClient exchangeClient;
 
         private final AtomicLong resultId = new AtomicLong();
+        private final Session session;
 
         @GuardedBy("this")
         private QueryResults lastResult;
@@ -241,6 +247,7 @@ public class StatementResource
             checkNotNull(queryManager, "queryManager is null");
             checkNotNull(exchangeClient, "exchangeClient is null");
 
+            this.session = session;
             this.queryManager = queryManager;
 
             QueryInfo queryInfo = queryManager.createQuery(session, query);
@@ -376,7 +383,7 @@ public class StatementResource
                     break;
                 }
                 bytes += page.getDataSize().toBytes();
-                pages.add(new RowIterable(page));
+                pages.add(new RowIterable(session, page));
 
                 // only wait on first call
                 maxWait = new Duration(0, TimeUnit.MILLISECONDS);
@@ -592,27 +599,31 @@ public class StatementResource
         private static class RowIterable
                 implements Iterable<List<Object>>
         {
+            private final Session session;
             private final Page page;
 
-            private RowIterable(Page page)
+            private RowIterable(Session session, Page page)
             {
+                this.session = session;
                 this.page = checkNotNull(page, "page is null");
             }
 
             @Override
             public Iterator<List<Object>> iterator()
             {
-                return new RowIterator(page);
+                return new RowIterator(session, page);
             }
         }
 
         private static class RowIterator
                 extends AbstractIterator<List<Object>>
         {
+            private final Session session;
             private final BlockCursor[] cursors;
 
-            private RowIterator(Page page)
+            private RowIterator(Session session, Page page)
             {
+                this.session = session;
                 cursors = new BlockCursor[page.getChannelCount()];
                 for (int channel = 0; channel < cursors.length; channel++) {
                     cursors[channel] = page.getBlock(channel).cursor();
@@ -629,7 +640,7 @@ public class StatementResource
                         return endOfData();
                     }
 
-                    row.add(cursor.getObjectValue());
+                    row.add(cursor.getObjectValue(session));
                 }
                 return row;
             }

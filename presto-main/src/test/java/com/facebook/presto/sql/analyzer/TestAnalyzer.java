@@ -30,9 +30,9 @@ import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
 import java.util.Locale;
-import java.util.TimeZone;
 
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
+import static com.facebook.presto.spi.type.TimeZoneKey.UTC_KEY;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.AMBIGUOUS_ATTRIBUTE;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.CANNOT_HAVE_AGGREGATIONS_OR_WINDOWS;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.DUPLICATE_RELATION;
@@ -580,8 +580,8 @@ public class TestAnalyzer
                         new ColumnMetadata("a", BIGINT, 0, false),
                         new ColumnMetadata("b", BIGINT, 1, false)))));
 
-        analyzer = new Analyzer(new Session("user", "test", "tpch", "default", TimeZone.getTimeZone("UTC"), Locale.ENGLISH, null, null), metadata, Optional.<QueryExplainer>absent(), true);
-        approximateDisabledAnalyzer = new Analyzer(new Session("user", "test", "tpch", "default", TimeZone.getTimeZone("UTC"), Locale.ENGLISH, null, null), metadata, Optional.<QueryExplainer>absent(), false);
+        analyzer = new Analyzer(new Session("user", "test", "tpch", "default", UTC_KEY, Locale.ENGLISH, null, null), metadata, Optional.<QueryExplainer>absent(), true);
+        approximateDisabledAnalyzer = new Analyzer(new Session("user", "test", "tpch", "default", UTC_KEY, Locale.ENGLISH, null, null), metadata, Optional.<QueryExplainer>absent(), false);
     }
 
     private void analyze(@Language("SQL") String query)

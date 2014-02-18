@@ -13,12 +13,12 @@
  */
 package com.facebook.presto.operator;
 
-import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.block.BlockCursor;
 import com.facebook.presto.execution.TaskId;
 import com.facebook.presto.operator.FilterAndProjectOperator.FilterAndProjectOperatorFactory;
 import com.facebook.presto.spi.RecordCursor;
 import com.facebook.presto.spi.Session;
+import com.facebook.presto.spi.block.BlockBuilder;
+import com.facebook.presto.spi.block.BlockCursor;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.util.MaterializedResult;
 import com.google.common.collect.ImmutableList;
@@ -28,13 +28,13 @@ import org.testng.annotations.Test;
 
 import java.util.List;
 import java.util.Locale;
-import java.util.TimeZone;
 import java.util.concurrent.ExecutorService;
 
 import static com.facebook.presto.operator.OperatorAssertion.assertOperatorEquals;
 import static com.facebook.presto.operator.ProjectionFunctions.singleColumn;
 import static com.facebook.presto.operator.RowPagesBuilder.rowPagesBuilder;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
+import static com.facebook.presto.spi.type.TimeZoneKey.UTC_KEY;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.util.Threads.daemonThreadsNamed;
 import static java.util.concurrent.Executors.newCachedThreadPool;
@@ -49,7 +49,7 @@ public class TestFilterAndProjectOperator
     public void setUp()
     {
         executor = newCachedThreadPool(daemonThreadsNamed("test"));
-        Session session = new Session("user", "source", "catalog", "schema", TimeZone.getTimeZone("UTC"), Locale.ENGLISH, "address", "agent");
+        Session session = new Session("user", "source", "catalog", "schema", UTC_KEY, Locale.ENGLISH, "address", "agent");
         driverContext = new TaskContext(new TaskId("query", "stage", "task"), executor, session)
                 .addPipelineContext(true, true)
                 .addDriverContext();
@@ -91,7 +91,7 @@ public class TestFilterAndProjectOperator
 
         Operator operator = operatorFactory.createOperator(driverContext);
 
-        MaterializedResult expected = MaterializedResult.resultBuilder(VARCHAR, BIGINT)
+        MaterializedResult expected = MaterializedResult.resultBuilder(driverContext.getSession(), VARCHAR, BIGINT)
                 .row("10", 15)
                 .row("11", 16)
                 .row("12", 17)

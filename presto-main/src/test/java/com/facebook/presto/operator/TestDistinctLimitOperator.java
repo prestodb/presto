@@ -23,11 +23,11 @@ import org.testng.annotations.Test;
 
 import java.util.List;
 import java.util.Locale;
-import java.util.TimeZone;
 import java.util.concurrent.ExecutorService;
 
 import static com.facebook.presto.operator.RowPagesBuilder.rowPagesBuilder;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
+import static com.facebook.presto.spi.type.TimeZoneKey.UTC_KEY;
 import static com.facebook.presto.util.MaterializedResult.resultBuilder;
 import static com.facebook.presto.util.Threads.daemonThreadsNamed;
 import static java.util.concurrent.Executors.newCachedThreadPool;
@@ -42,7 +42,7 @@ public class TestDistinctLimitOperator
     public void setUp()
     {
         executor = newCachedThreadPool(daemonThreadsNamed("test"));
-        Session session = new Session("user", "source", "catalog", "schema", TimeZone.getTimeZone("UTC"), Locale.ENGLISH, "address", "agent");
+        Session session = new Session("user", "source", "catalog", "schema", UTC_KEY, Locale.ENGLISH, "address", "agent");
         driverContext = new TaskContext(new TaskId("query", "stage", "task"), executor, session)
                 .addPipelineContext(true, true)
                 .addDriverContext();
@@ -66,7 +66,7 @@ public class TestDistinctLimitOperator
         OperatorFactory operatorFactory = new DistinctLimitOperator.DistinctLimitOperatorFactory(0, ImmutableList.of(BIGINT), 5);
         Operator operator = operatorFactory.createOperator(driverContext);
 
-        MaterializedResult expected = resultBuilder(BIGINT)
+        MaterializedResult expected = resultBuilder(driverContext.getSession(), BIGINT)
                 .row(1)
                 .row(2)
                 .row(3)
@@ -89,7 +89,7 @@ public class TestDistinctLimitOperator
         OperatorFactory operatorFactory = new DistinctLimitOperator.DistinctLimitOperatorFactory(0, ImmutableList.of(BIGINT), 3);
         Operator operator = operatorFactory.createOperator(driverContext);
 
-        MaterializedResult expected = resultBuilder(BIGINT)
+        MaterializedResult expected = resultBuilder(driverContext.getSession(), BIGINT)
                 .row(1)
                 .row(2)
                 .row(3)
@@ -110,7 +110,7 @@ public class TestDistinctLimitOperator
         OperatorFactory operatorFactory = new DistinctLimitOperator.DistinctLimitOperatorFactory(0, ImmutableList.of(BIGINT), 5);
         Operator operator = operatorFactory.createOperator(driverContext);
 
-        MaterializedResult expected = resultBuilder(BIGINT)
+        MaterializedResult expected = resultBuilder(driverContext.getSession(), BIGINT)
                 .row(1)
                 .row(2)
                 .row(3)

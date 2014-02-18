@@ -50,7 +50,6 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.Maps.uniqueIndex;
 import static java.lang.Math.max;
 import static java.lang.Math.min;
-import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 class GenericHiveRecordCursor<K, V extends Writable>
         extends HiveRecordCursor
@@ -307,7 +306,7 @@ class GenericHiveRecordCursor<K, V extends Writable>
     private static long getLongOrTimestamp(Object value)
     {
         if (value instanceof Timestamp) {
-            return MILLISECONDS.toSeconds(((Timestamp) value).getTime());
+            return ((Timestamp) value).getTime();
         }
         return ((Number) value).longValue();
     }

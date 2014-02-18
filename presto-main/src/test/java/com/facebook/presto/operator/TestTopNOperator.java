@@ -25,7 +25,6 @@ import org.testng.annotations.Test;
 
 import java.util.List;
 import java.util.Locale;
-import java.util.TimeZone;
 import java.util.concurrent.ExecutorService;
 
 import static com.facebook.presto.operator.OperatorAssertion.appendSampleWeight;
@@ -35,6 +34,7 @@ import static com.facebook.presto.spi.block.SortOrder.ASC_NULLS_LAST;
 import static com.facebook.presto.spi.block.SortOrder.DESC_NULLS_LAST;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
+import static com.facebook.presto.spi.type.TimeZoneKey.UTC_KEY;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.util.MaterializedResult.resultBuilder;
 import static com.facebook.presto.util.Threads.daemonThreadsNamed;
@@ -50,7 +50,7 @@ public class TestTopNOperator
     public void setUp()
     {
         executor = newCachedThreadPool(daemonThreadsNamed("test"));
-        Session session = new Session("user", "source", "catalog", "schema", TimeZone.getTimeZone("UTC"), Locale.ENGLISH, "address", "agent");
+        Session session = new Session("user", "source", "catalog", "schema", UTC_KEY, Locale.ENGLISH, "address", "agent");
         driverContext = new TaskContext(new TaskId("query", "stage", "task"), executor, session)
                 .addPipelineContext(true, true)
                 .addDriverContext();
@@ -92,7 +92,7 @@ public class TestTopNOperator
 
         Operator operator = factory.createOperator(driverContext);
 
-        MaterializedResult expected = resultBuilder(BIGINT, DOUBLE, BIGINT)
+        MaterializedResult expected = resultBuilder(driverContext.getSession(), BIGINT, DOUBLE, BIGINT)
                 .row(6, 0.6, 2)
                 .row(5, 0.5, 1)
                 .row(5, 0.5, 2)
@@ -129,7 +129,7 @@ public class TestTopNOperator
 
         Operator operator = factory.createOperator(driverContext);
 
-        MaterializedResult expected = resultBuilder(BIGINT, DOUBLE)
+        MaterializedResult expected = resultBuilder(driverContext.getSession(), BIGINT, DOUBLE)
                 .row(6, 0.6)
                 .row(5, 0.5)
                 .build();
@@ -164,7 +164,7 @@ public class TestTopNOperator
 
         Operator operator = operatorFactory.createOperator(driverContext);
 
-        MaterializedResult expected = MaterializedResult.resultBuilder(VARCHAR, BIGINT)
+        MaterializedResult expected = MaterializedResult.resultBuilder(driverContext.getSession(), VARCHAR, BIGINT)
                 .row("f", 3)
                 .row("e", 6)
                 .row("d", 7)
@@ -201,7 +201,7 @@ public class TestTopNOperator
 
         Operator operator = operatorFactory.createOperator(driverContext);
 
-        MaterializedResult expected = resultBuilder(BIGINT, DOUBLE)
+        MaterializedResult expected = resultBuilder(driverContext.getSession(), BIGINT, DOUBLE)
                 .row(-1, -0.1)
                 .row(1, 0.1)
                 .build();

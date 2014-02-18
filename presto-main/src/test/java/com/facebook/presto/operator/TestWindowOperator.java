@@ -18,8 +18,8 @@ import com.facebook.presto.execution.TaskId;
 import com.facebook.presto.operator.WindowOperator.WindowOperatorFactory;
 import com.facebook.presto.operator.window.RowNumberFunction;
 import com.facebook.presto.operator.window.WindowFunction;
-import com.facebook.presto.spi.block.SortOrder;
 import com.facebook.presto.spi.Session;
+import com.facebook.presto.spi.block.SortOrder;
 import com.facebook.presto.util.MaterializedResult;
 import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Ints;
@@ -31,7 +31,6 @@ import org.testng.annotations.Test;
 
 import java.util.List;
 import java.util.Locale;
-import java.util.TimeZone;
 import java.util.concurrent.ExecutorService;
 
 import static com.facebook.presto.operator.OperatorAssertion.assertOperatorEquals;
@@ -40,6 +39,7 @@ import static com.facebook.presto.operator.RowPagesBuilder.rowPagesBuilder;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
+import static com.facebook.presto.spi.type.TimeZoneKey.UTC_KEY;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.util.MaterializedResult.resultBuilder;
 import static com.facebook.presto.util.Threads.daemonThreadsNamed;
@@ -57,7 +57,7 @@ public class TestWindowOperator
     public void setUp()
     {
         executor = newCachedThreadPool(daemonThreadsNamed("test"));
-        Session session = new Session("user", "source", "catalog", "schema", TimeZone.getTimeZone("UTC"), Locale.ENGLISH, "address", "agent");
+        Session session = new Session("user", "source", "catalog", "schema", UTC_KEY, Locale.ENGLISH, "address", "agent");
         driverContext = new TaskContext(new TaskId("query", "stage", "task"), executor, session)
                 .addPipelineContext(true, true)
                 .addDriverContext();
@@ -94,7 +94,7 @@ public class TestWindowOperator
 
         Operator operator = operatorFactory.createOperator(driverContext);
 
-        MaterializedResult expected = resultBuilder(DOUBLE, BIGINT, BIGINT)
+        MaterializedResult expected = resultBuilder(driverContext.getSession(), DOUBLE, BIGINT, BIGINT)
                 .row(-0.1, -1, 1)
                 .row(0.3, 2, 2)
                 .row(0.2, 4, 3)
@@ -130,7 +130,7 @@ public class TestWindowOperator
 
         Operator operator = operatorFactory.createOperator(driverContext);
 
-        MaterializedResult expected = resultBuilder(VARCHAR, BIGINT, DOUBLE, BOOLEAN, BIGINT)
+        MaterializedResult expected = resultBuilder(driverContext.getSession(), VARCHAR, BIGINT, DOUBLE, BOOLEAN, BIGINT)
                 .row("a", 2, 0.3, false, 1)
                 .row("a", 4, 0.2, true, 2)
                 .row("a", 6, 0.1, true, 3)
@@ -168,7 +168,7 @@ public class TestWindowOperator
                 10);
         Operator operator = operatorFactory.createOperator(driverContext);
 
-        MaterializedResult expected = resultBuilder(BIGINT, BIGINT)
+        MaterializedResult expected = resultBuilder(driverContext.getSession(), BIGINT, BIGINT)
                 .row(1, 1)
                 .row(3, 2)
                 .row(5, 3)
@@ -194,7 +194,7 @@ public class TestWindowOperator
                 .row(4, 0.4)
                 .build();
 
-        Session session = new Session("user", "source", "catalog", "schema", TimeZone.getTimeZone("UTC"), Locale.ENGLISH, "address", "agent");
+        Session session = new Session("user", "source", "catalog", "schema", UTC_KEY, Locale.ENGLISH, "address", "agent");
         DriverContext driverContext = new TaskContext(new TaskId("query", "stage", "task"), executor, session, new DataSize(10, Unit.BYTE))
                 .addPipelineContext(true, true)
                 .addDriverContext();

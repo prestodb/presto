@@ -20,8 +20,13 @@ import com.facebook.presto.block.snappy.SnappyBlockEncoding;
 import com.facebook.presto.spi.block.BlockEncodingSerde;
 import com.facebook.presto.spi.type.BigintType;
 import com.facebook.presto.spi.type.BooleanType;
+import com.facebook.presto.spi.type.DateType;
 import com.facebook.presto.spi.type.DoubleType;
 import com.facebook.presto.spi.type.NullType;
+import com.facebook.presto.spi.type.TimeType;
+import com.facebook.presto.spi.type.TimeWithTimeZoneType;
+import com.facebook.presto.spi.type.TimestampType;
+import com.facebook.presto.spi.type.TimestampWithTimeZoneType;
 import com.facebook.presto.spi.type.VarcharType;
 import com.facebook.presto.type.TypeRegistry;
 
@@ -40,6 +45,11 @@ public final class TestingBlockEncodingManager
                 BigintType.BLOCK_ENCODING_FACTORY,
                 DoubleType.BLOCK_ENCODING_FACTORY,
                 VarcharType.BLOCK_ENCODING_FACTORY,
+                DateType.BLOCK_ENCODING_FACTORY,
+                TimeType.BLOCK_ENCODING_FACTORY,
+                TimeWithTimeZoneType.BLOCK_ENCODING_FACTORY,
+                TimestampType.BLOCK_ENCODING_FACTORY,
+                TimestampWithTimeZoneType.BLOCK_ENCODING_FACTORY,
                 RunLengthBlockEncoding.FACTORY,
                 DictionaryBlockEncoding.FACTORY,
                 SnappyBlockEncoding.FACTORY);

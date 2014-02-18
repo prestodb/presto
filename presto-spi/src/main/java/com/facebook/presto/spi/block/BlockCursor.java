@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.spi.block;
 
+import com.facebook.presto.spi.Session;
 import com.facebook.presto.spi.type.Type;
 import io.airlift.slice.Slice;
 
@@ -126,8 +127,9 @@ public interface BlockCursor
      * Gets the current value as an Object.
      *
      * @throws IllegalStateException if this cursor is not at a valid position
+     * @param session
      */
-    Object getObjectValue();
+    Object getObjectValue(Session session);
 
     /**
      * Is the current value null.
