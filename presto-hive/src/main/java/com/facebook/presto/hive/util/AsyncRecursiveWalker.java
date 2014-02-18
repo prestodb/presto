@@ -15,12 +15,14 @@ package com.facebook.presto.hive.util;
 
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
+import io.airlift.stats.TimeStat;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.LocatedFileStatus;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.fs.RemoteIterator;
 
 import java.io.FileNotFoundException;
+import java.io.IOException;
 import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicLong;
 
@@ -32,11 +34,13 @@ public class AsyncRecursiveWalker
 {
     private final FileSystem fileSystem;
     private final Executor executor;
+    private final HadoopApiStats hadoopApiStats;
 
-    public AsyncRecursiveWalker(FileSystem fileSystem, Executor executor)
+    public AsyncRecursiveWalker(FileSystem fileSystem, Executor executor, HadoopApiStats hadoopApiStats)
     {
         this.fileSystem = checkNotNull(fileSystem, "fileSystem is null");
         this.executor = checkNotNull(executor, "executor is null");
+        this.hadoopApiStats = checkNotNull(hadoopApiStats, "hadoopApiStats is null");
     }
 
     public ListenableFuture<Void> beginWalk(Path path, FileStatusCallback callback)
@@ -67,9 +71,11 @@ public class AsyncRecursiveWalker
     private void doWalk(Path path, FileStatusCallback callback, AtomicLong taskCount, SettableFuture<Void> future)
     {
         try {
-            RemoteIterator<LocatedFileStatus> iterator = listLocatedStatus(fileSystem, path);
+            RemoteIterator<LocatedFileStatus> iterator = getLocatedFileStatusRemoteIterator(path);
+
             while (iterator.hasNext()) {
-                LocatedFileStatus status = iterator.next();
+                LocatedFileStatus status = getLocatedFileStatus(iterator);
+
                 // ignore hidden files. Hive ignores files starting with _ and . as well.
                 String fileName = status.getPath().getName();
                 if (fileName.startsWith("_") || fileName.startsWith(".")) {
@@ -96,6 +102,30 @@ public class AsyncRecursiveWalker
             if (taskCount.decrementAndGet() == 0) {
                 future.set(null);
             }
+        }
+    }
+
+    private RemoteIterator<LocatedFileStatus> getLocatedFileStatusRemoteIterator(Path path)
+            throws IOException
+    {
+        try (TimeStat.BlockTimer timer = hadoopApiStats.getListLocatedStatus().time()) {
+            return listLocatedStatus(fileSystem, path);
+        }
+        catch (IOException | RuntimeException e) {
+            hadoopApiStats.getListLocatedStatus().recordException(e);
+            throw e;
+        }
+    }
+
+    private LocatedFileStatus getLocatedFileStatus(RemoteIterator<LocatedFileStatus> iterator)
+            throws IOException
+    {
+        try (TimeStat.BlockTimer timer = hadoopApiStats.getRemoteIteratorNext().time()) {
+            return iterator.next();
+        }
+        catch (IOException | RuntimeException e) {
+            hadoopApiStats.getRemoteIteratorNext().recordException(e);
+            throw e;
         }
     }
 }

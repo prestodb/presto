@@ -16,6 +16,7 @@ package com.facebook.presto.hive;
 import com.facebook.presto.hive.util.AsyncRecursiveWalker;
 import com.facebook.presto.hive.util.BoundedExecutor;
 import com.facebook.presto.hive.util.FileStatusCallback;
+import com.facebook.presto.hive.util.HadoopApiStats;
 import com.facebook.presto.hive.util.SuspendingExecutor;
 import com.facebook.presto.spi.HostAddress;
 import com.facebook.presto.spi.Split;
@@ -102,6 +103,7 @@ class HiveSplitSourceProvider
     private final int maxOutstandingSplits;
     private final int maxThreads;
     private final HdfsEnvironment hdfsEnvironment;
+    private final HadoopApiStats hadoopApiStats;
     private final Executor executor;
     private final ClassLoader classLoader;
     private final DataSize maxSplitSize;
@@ -116,6 +118,7 @@ class HiveSplitSourceProvider
             int maxOutstandingSplits,
             int maxThreads,
             HdfsEnvironment hdfsEnvironment,
+            HadoopApiStats hadoopApiStats,
             Executor executor,
             int maxPartitionBatchSize)
     {
@@ -129,6 +132,7 @@ class HiveSplitSourceProvider
         this.maxOutstandingSplits = maxOutstandingSplits;
         this.maxThreads = maxThreads;
         this.hdfsEnvironment = hdfsEnvironment;
+        this.hadoopApiStats = hadoopApiStats;
         this.executor = executor;
         this.classLoader = Thread.currentThread().getContextClassLoader();
     }
@@ -215,7 +219,7 @@ class HiveSplitSourceProvider
                 // callback to release it. Otherwise, we will need a try-finally block around this section.
                 semaphore.acquire();
 
-                ListenableFuture<Void> partitionFuture = new AsyncRecursiveWalker(fs, suspendingExecutor).beginWalk(path, new FileStatusCallback()
+                ListenableFuture<Void> partitionFuture = new AsyncRecursiveWalker(fs, suspendingExecutor, hadoopApiStats).beginWalk(path, new FileStatusCallback()
                 {
                     @Override
                     public void process(FileStatus file, BlockLocation[] blockLocations)

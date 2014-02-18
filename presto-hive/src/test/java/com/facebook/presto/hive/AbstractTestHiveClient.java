@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.hive;
 
+import com.facebook.presto.hive.util.HadoopApiStats;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ColumnType;
@@ -183,6 +184,7 @@ public abstract class AbstractTestHiveClient
         HiveClient client = new HiveClient(
                 new HiveConnectorId(connectorName),
                 metastoreClient,
+                new HadoopApiStats(),
                 new HdfsEnvironment(new HdfsConfiguration(hiveClientConfig)),
                 sameThreadExecutor(),
                 hiveClientConfig.getMaxSplitSize(),

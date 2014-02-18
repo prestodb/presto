@@ -51,7 +51,7 @@ public class TestAsyncRecursiveWalker
                 .put("/a", ImmutableList.of(fileStatus("/a/file2", false), fileStatus("/a/file3", false)))
                 .build();
 
-        AsyncRecursiveWalker walker = new AsyncRecursiveWalker(createMockFileSystem(paths), MoreExecutors.sameThreadExecutor());
+        AsyncRecursiveWalker walker = new AsyncRecursiveWalker(createMockFileSystem(paths), MoreExecutors.sameThreadExecutor(), new HadoopApiStats());
 
         MockFileStatusCallback callback = new MockFileStatusCallback();
         ListenableFuture<Void> listenableFuture = walker.beginWalk(new Path("/"), callback);
@@ -71,7 +71,7 @@ public class TestAsyncRecursiveWalker
                 .put("/", ImmutableList.<FileStatus>of())
                 .build();
 
-        AsyncRecursiveWalker walker = new AsyncRecursiveWalker(createMockFileSystem(paths), MoreExecutors.sameThreadExecutor());
+        AsyncRecursiveWalker walker = new AsyncRecursiveWalker(createMockFileSystem(paths), MoreExecutors.sameThreadExecutor(), new HadoopApiStats());
 
         MockFileStatusCallback callback = new MockFileStatusCallback();
         ListenableFuture<Void> listenableFuture = walker.beginWalk(new Path("/"), callback);
@@ -94,7 +94,7 @@ public class TestAsyncRecursiveWalker
                 .put("/c", ImmutableList.of(fileStatus("/c/file8", false), fileStatus("/c/.file9", false), fileStatus("/c/_file10", false)))
                 .build();
 
-        AsyncRecursiveWalker walker = new AsyncRecursiveWalker(createMockFileSystem(paths), MoreExecutors.sameThreadExecutor());
+        AsyncRecursiveWalker walker = new AsyncRecursiveWalker(createMockFileSystem(paths), MoreExecutors.sameThreadExecutor(), new HadoopApiStats());
 
         MockFileStatusCallback callback = new MockFileStatusCallback();
         ListenableFuture<Void> listenableFuture = walker.beginWalk(new Path("/"), callback);
@@ -118,7 +118,7 @@ public class TestAsyncRecursiveWalker
             {
                 throw new IOException();
             }
-        }, MoreExecutors.sameThreadExecutor());
+        }, MoreExecutors.sameThreadExecutor(), new HadoopApiStats());
 
         MockFileStatusCallback callback = new MockFileStatusCallback();
         ListenableFuture<Void> listenableFuture1 = walker.beginWalk(new Path("/"), callback);

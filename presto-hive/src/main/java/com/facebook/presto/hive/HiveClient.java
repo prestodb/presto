@@ -16,6 +16,7 @@ package com.facebook.presto.hive;
 import com.facebook.presto.hadoop.HadoopFileSystemCache;
 import com.facebook.presto.hadoop.HadoopNative;
 import com.facebook.presto.hive.util.BoundedExecutor;
+import com.facebook.presto.hive.util.HadoopApiStats;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ColumnType;
@@ -136,6 +137,7 @@ public class HiveClient
     private final int minPartitionBatchSize;
     private final int maxPartitionBatchSize;
     private final CachingHiveMetastore metastore;
+    private final HadoopApiStats hadoopApiStats;
     private final HdfsEnvironment hdfsEnvironment;
     private final Executor executor;
     private final DataSize maxSplitSize;
@@ -144,11 +146,13 @@ public class HiveClient
     public HiveClient(HiveConnectorId connectorId,
             HiveClientConfig hiveClientConfig,
             CachingHiveMetastore metastore,
+            HadoopApiStats hadoopApiStats,
             HdfsEnvironment hdfsEnvironment,
             @ForHiveClient ExecutorService executorService)
     {
         this(connectorId,
                 metastore,
+                hadoopApiStats,
                 hdfsEnvironment,
                 new BoundedExecutor(executorService, hiveClientConfig.getMaxGlobalSplitIteratorThreads()),
                 hiveClientConfig.getMaxSplitSize(),
@@ -160,6 +164,7 @@ public class HiveClient
 
     public HiveClient(HiveConnectorId connectorId,
             CachingHiveMetastore metastore,
+            HadoopApiStats hadoopApiStats,
             HdfsEnvironment hdfsEnvironment,
             Executor executor,
             DataSize maxSplitSize,
@@ -179,6 +184,7 @@ public class HiveClient
 
         this.metastore = checkNotNull(metastore, "metastore is null");
         this.hdfsEnvironment = checkNotNull(hdfsEnvironment, "hdfsEnvironment is null");
+        this.hadoopApiStats = checkNotNull(hadoopApiStats, "hadoopApiStats is null");
 
         this.executor = checkNotNull(executor, "executor is null");
     }
@@ -679,6 +685,7 @@ public class HiveClient
                 maxOutstandingSplits,
                 maxSplitIteratorThreads,
                 hdfsEnvironment,
+                hadoopApiStats,
                 executor,
                 maxPartitionBatchSize).get();
     }
