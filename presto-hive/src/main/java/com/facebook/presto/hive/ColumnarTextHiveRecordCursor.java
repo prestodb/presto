@@ -45,6 +45,7 @@ import static com.facebook.presto.hive.NumberParser.parseLong;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
+import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
@@ -313,7 +314,11 @@ class ColumnarTextHiveRecordCursor<K>
     {
         checkState(!closed, "Cursor is closed");
 
-        validateType(fieldId, BIGINT);
+        if (!types[fieldId].equals(BIGINT) && !types[fieldId].equals(TIMESTAMP)) {
+            // we don't use Preconditions.checkArgument because it requires boxing fieldId, which affects inner loop performance
+            throw new IllegalArgumentException(String.format("Expected field to be %s or %s , actual %s (field %s)", BIGINT, TIMESTAMP, types[fieldId], fieldId));
+        }
+
         if (!loaded[fieldId]) {
             parseLongColumn(fieldId);
         }

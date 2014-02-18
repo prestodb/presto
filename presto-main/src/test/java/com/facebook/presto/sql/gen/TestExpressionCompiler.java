@@ -19,6 +19,8 @@ import com.facebook.presto.operator.scalar.MathFunctions;
 import com.facebook.presto.operator.scalar.RegexpFunctions;
 import com.facebook.presto.operator.scalar.StringFunctions;
 import com.facebook.presto.operator.scalar.UnixTimeFunctions;
+import com.facebook.presto.spi.Session;
+import com.facebook.presto.spi.type.TimestampWithTimeZone;
 import com.facebook.presto.sql.planner.LikeUtils;
 import com.facebook.presto.sql.tree.Extract.Field;
 import com.google.common.base.Function;
@@ -41,7 +43,6 @@ import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import io.airlift.units.Duration;
 import org.joda.time.DateTime;
-import org.joda.time.DateTimeZone;
 import org.joni.Regex;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.AfterSuite;
@@ -58,13 +59,14 @@ import java.util.Set;
 import java.util.concurrent.Callable;
 
 import static com.facebook.presto.operator.scalar.FunctionAssertions.SESSION;
+import static com.facebook.presto.spi.type.DateTimeEncoding.packDateTimeWithZone;
 import static com.google.common.base.Charsets.UTF_8;
 import static com.google.common.collect.Iterables.transform;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static java.lang.Math.cos;
 import static java.lang.Runtime.getRuntime;
 import static java.util.concurrent.Executors.newFixedThreadPool;
-import static java.util.concurrent.TimeUnit.MILLISECONDS;
+import static org.joda.time.DateTimeZone.UTC;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
 
@@ -81,6 +83,13 @@ public class TestExpressionCompiler
     private static final Double[] doubleMiddle = {9.0, -3.1, 88.0, null};
     private static final String[] stringLefts = {"hello", "foo", "mellow", "fellow", "", null};
     private static final String[] stringRights = {"hello", "foo", "bar", "baz", "", null};
+
+    private static final DateTime[] dateTimeValues = {
+            new DateTime(2001, 1, 22, 3, 4, 5, 321, UTC),
+            new DateTime(1960, 1, 22, 3, 4, 5, 321, UTC),
+            new DateTime(1970, 1, 1, 0, 0, 0, 0, UTC),
+            null
+    };
 
     private static final String[] jsonValues = {
             "{}",
@@ -144,7 +153,7 @@ public class TestExpressionCompiler
     }
 
     @Test
-    public void smokeTest()
+    public void smokedTest()
             throws Exception
     {
         assertExecute("cast(true as boolean)", true);
@@ -158,7 +167,7 @@ public class TestExpressionCompiler
         assertExecute("bound_string", "hello");
         assertExecute("bound_double", 12.34);
         assertExecute("bound_boolean", true);
-        assertExecute("bound_timestamp", MILLISECONDS.toSeconds(new DateTime(2001, 8, 22, 3, 4, 5, 321, DateTimeZone.UTC).getMillis()));
+        assertExecute("bound_timestamp", new DateTime(2001, 8, 22, 3, 4, 5, 321, UTC).getMillis());
         assertExecute("bound_pattern", "%el%");
         assertExecute("bound_null_string", null);
 
@@ -928,8 +937,8 @@ public class TestExpressionCompiler
     public void testFunctionWithSessionCall()
             throws Exception
     {
-        assertExecute("now()", MILLISECONDS.toSeconds(SESSION.getStartTime()));
-        assertExecute("current_timestamp", MILLISECONDS.toSeconds(SESSION.getStartTime()));
+        assertExecute("now()", new TimestampWithTimeZone(SESSION.getStartTime(), SESSION.getTimeZoneKey()));
+        assertExecute("current_timestamp", new TimestampWithTimeZone(SESSION.getStartTime(), SESSION.getTimeZoneKey()));
 
         Futures.allAsList(futures).get();
     }
@@ -938,13 +947,15 @@ public class TestExpressionCompiler
     public void testExtract()
             throws Exception
     {
-        for (Long left : longLefts) {
+        for (DateTime left : dateTimeValues) {
             for (Field field : Field.values()) {
                 Long expected = null;
+                Long millis = null;
                 if (left != null) {
-                    expected = callExtractFunction(left, field);
+                    millis = left.getMillis();
+                    expected = callExtractFunction(SESSION, millis, field);
                 }
-                assertExecute(generateExpression("extract(" + field.toString() + " from %s)", left), expected);
+                assertExecute(generateExpression("extract(" + field.toString() + " from from_unixtime(%s / 1000.0, 0, 0))", millis), expected);
             }
         }
 
@@ -952,38 +963,38 @@ public class TestExpressionCompiler
     }
 
     @SuppressWarnings("fallthrough")
-    private static long callExtractFunction(long value, Field field)
+    private static long callExtractFunction(Session session, long value, Field field)
     {
         switch (field) {
             case CENTURY:
-                return UnixTimeFunctions.century(value);
+                return UnixTimeFunctions.centuryFromTimestamp(session, value);
             case YEAR:
-                return UnixTimeFunctions.year(value);
+                return UnixTimeFunctions.yearFromTimestamp(session, value);
             case QUARTER:
-                return UnixTimeFunctions.quarter(value);
+                return UnixTimeFunctions.quarterFromTimestamp(session, value);
             case MONTH:
-                return UnixTimeFunctions.month(value);
+                return UnixTimeFunctions.monthFromTimestamp(session, value);
             case WEEK:
-                return UnixTimeFunctions.week(value);
+                return UnixTimeFunctions.weekFromTimestamp(session, value);
             case DAY:
             case DAY_OF_MONTH:
-                return UnixTimeFunctions.day(value);
+                return UnixTimeFunctions.dayFromTimestamp(session, value);
             case DAY_OF_WEEK:
             case DOW:
-                return UnixTimeFunctions.dayOfWeek(value);
+                return UnixTimeFunctions.dayOfWeekFromTimestamp(session, value);
             case DAY_OF_YEAR:
             case DOY:
-                return UnixTimeFunctions.dayOfYear(value);
+                return UnixTimeFunctions.dayOfYearFromTimestamp(session, value);
             case HOUR:
-                return UnixTimeFunctions.hour(value);
+                return UnixTimeFunctions.hourFromTimestamp(session, value);
             case MINUTE:
-                return UnixTimeFunctions.minute(value);
+                return UnixTimeFunctions.minuteFromTimestamp(session, value);
             case SECOND:
-                return UnixTimeFunctions.second(value);
-            case TIMEZONE_HOUR:
+                return UnixTimeFunctions.secondFromTimestamp(value);
             case TIMEZONE_MINUTE:
-                // TODO: we assume all times are UTC for now
-                return 0;
+                return UnixTimeFunctions.timeZoneMinuteFromTimestampWithTimeZone(packDateTimeWithZone(value, session.getTimeZoneKey()));
+            case TIMEZONE_HOUR:
+                return UnixTimeFunctions.timeZoneHourFromTimestampWithTimeZone(packDateTimeWithZone(value, session.getTimeZoneKey()));
         }
         throw new AssertionError("Unhandled field: " + field);
     }

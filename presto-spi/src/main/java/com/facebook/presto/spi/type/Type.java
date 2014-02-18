@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.spi.type;
 
+import com.facebook.presto.spi.Session;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.fasterxml.jackson.annotation.JsonValue;
@@ -25,7 +26,7 @@ public interface Type
 
     Class<?> getJavaType();
 
-    Object getObjectValue(Slice slice, int offset);
+    Object getObjectValue(Session session, Slice slice, int offset);
 
     BlockBuilder createBlockBuilder(BlockBuilderStatus blockBuilderStatus);
 }

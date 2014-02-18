@@ -20,6 +20,7 @@ import com.facebook.presto.client.QueryError;
 import com.facebook.presto.client.QueryResults;
 import com.facebook.presto.client.StatementClient;
 import com.facebook.presto.metadata.AllNodes;
+import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.QualifiedTableName;
 import com.facebook.presto.metadata.QualifiedTablePrefix;
 import com.facebook.presto.server.testing.TestingPrestoServer;
@@ -45,14 +46,17 @@ import io.airlift.log.Logger;
 import io.airlift.testing.Closeables;
 import io.airlift.units.Duration;
 import org.intellij.lang.annotations.Language;
+import org.joda.time.format.ISODateTimeFormat;
 import org.testng.annotations.Test;
 
 import java.net.URI;
+import java.sql.Date;
+import java.sql.Time;
+import java.sql.Timestamp;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
-import java.util.TimeZone;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 
@@ -60,7 +64,11 @@ import static com.facebook.presto.spi.Session.DEFAULT_CATALOG;
 import static com.facebook.presto.spi.Session.DEFAULT_SCHEMA;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
+import static com.facebook.presto.spi.type.DateType.DATE;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
+import static com.facebook.presto.spi.type.TimeType.TIME;
+import static com.facebook.presto.spi.type.TimeZoneKey.UTC_KEY;
+import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.util.MaterializedResult.DEFAULT_PRECISION;
 import static com.facebook.presto.util.Types.checkType;
@@ -79,7 +87,7 @@ import static org.testng.Assert.assertTrue;
 public class TestDistributedQueries
         extends AbstractTestSampledQueries
 {
-    private static final Session SESSION = new Session("user", "test", DEFAULT_CATALOG, "test", TimeZone.getTimeZone("UTC"), Locale.ENGLISH, null, null);
+    private static final Session SESSION = new Session("user", "test", DEFAULT_CATALOG, "test", UTC_KEY, Locale.ENGLISH, null, null);
 
     private static final String ENVIRONMENT = "testing";
     private static final Logger log = Logger.get(TestDistributedQueries.class.getSimpleName());
@@ -301,7 +309,7 @@ public class TestDistributedQueries
                 SESSION.getSource(),
                 SESSION.getCatalog(),
                 SESSION.getSchema(),
-                SESSION.getTimeZone(),
+                SESSION.getTimeZoneKey().getTimeZoneId(),
                 SESSION.getLocale(),
                 true);
     }
@@ -314,7 +322,7 @@ public class TestDistributedQueries
                 SESSION.getSource(),
                 SESSION.getCatalog(),
                 "sampled",
-                SESSION.getTimeZone(),
+                SESSION.getTimeZoneKey().getTimeZoneId(),
                 SESSION.getLocale(),
                 true);
     }
@@ -345,7 +353,7 @@ public class TestDistributedQueries
                 }
 
                 if ((types == null) && (results.getColumns() != null)) {
-                    types = getTypes(results.getColumns());
+                    types = getTypes(coordinator.getMetadata(), results.getColumns());
                 }
                 if (results.getData() != null) {
                     rows.addAll(transform(results.getData(), dataToRow(types)));
@@ -371,30 +379,24 @@ public class TestDistributedQueries
         }
     }
 
-    private static List<Type> getTypes(List<Column> columns)
+    private static List<Type> getTypes(Metadata metadata, List<Column> columns)
     {
-        return ImmutableList.copyOf(transform(columns, columnTypeGetter()));
+        return ImmutableList.copyOf(transform(columns, columnTypeGetter(metadata)));
     }
 
-    private static Function<Column, Type> columnTypeGetter()
+    private static Function<Column, Type> columnTypeGetter(final Metadata metadata)
     {
         return new Function<Column, Type>()
         {
             @Override
             public Type apply(Column column)
             {
-                String type = column.getType();
-                switch (type) {
-                    case "boolean":
-                        return BOOLEAN;
-                    case "bigint":
-                        return BIGINT;
-                    case "double":
-                        return DOUBLE;
-                    case "varchar":
-                        return VARCHAR;
+                String typeName = column.getType();
+                Type type = metadata.getType(typeName);
+                if (type == null) {
+                    throw new AssertionError("Unhandled type: " + typeName);
                 }
-                throw new AssertionError("Unhandled type: " + type);
+                return type;
             }
         };
     }
@@ -415,15 +417,27 @@ public class TestDistributedQueries
                         continue;
                     }
 
-                    Class<?> javaType = types.get(i).getJavaType();
-                    if (javaType == long.class) {
+                    Type type = types.get(i);
+                    if (BOOLEAN.equals(type)) {
+                        row.add(value);
+                    }
+                    else if (BIGINT.equals(type)) {
                         row.add(((Number) value).longValue());
                     }
-                    else if (javaType == double.class) {
+                    else if (DOUBLE.equals(type)) {
                         row.add(((Number) value).doubleValue());
                     }
-                    else {
+                    else if (VARCHAR.equals(type)) {
                         row.add(value);
+                    }
+                    else if (DATE.equals(type)) {
+                        row.add(new Date(ISODateTimeFormat.dateParser().withZoneUTC().parseMillis((String) value)));
+                    }
+                    else if (TIME.equals(type)) {
+                        row.add(new Time(ISODateTimeFormat.timeParser().withZoneUTC().parseMillis((String) value)));
+                    }
+                    else if (TIMESTAMP.equals(type)) {
+                        row.add(new Timestamp(ISODateTimeFormat.dateTimeParser().withZoneUTC().parseMillis((String) value)));
                     }
                 }
                 return new MaterializedRow(DEFAULT_PRECISION, row);

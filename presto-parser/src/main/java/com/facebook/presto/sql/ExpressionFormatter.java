@@ -22,7 +22,6 @@ import com.facebook.presto.sql.tree.Cast;
 import com.facebook.presto.sql.tree.CoalesceExpression;
 import com.facebook.presto.sql.tree.ComparisonExpression;
 import com.facebook.presto.sql.tree.CurrentTime;
-import com.facebook.presto.sql.tree.DateLiteral;
 import com.facebook.presto.sql.tree.DoubleLiteral;
 import com.facebook.presto.sql.tree.ExistsPredicate;
 import com.facebook.presto.sql.tree.Expression;
@@ -184,16 +183,19 @@ public final class ExpressionFormatter
         }
 
         @Override
-        protected String visitDateLiteral(DateLiteral node, Void context)
-        {
-            return "DATE '" + node.getValue() + "'";
-        }
-
-        @Override
         protected String visitIntervalLiteral(IntervalLiteral node, Void context)
         {
             String sign = (node.getSign() == IntervalLiteral.Sign.NEGATIVE) ? "- " : "";
-            return "INTERVAL " + sign + "'" + node.getValue() + "' " + node.getType();
+            StringBuilder builder = new StringBuilder()
+                    .append("INTERVAL ")
+                    .append(sign)
+                    .append(" '").append(node.getValue()).append("' ")
+                    .append(node.getStartField());
+
+            if (node.getEndField() != null)  {
+                builder.append(" TO ").append(node.getEndField());
+            }
+            return builder.toString();
         }
 
         @Override

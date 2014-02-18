@@ -35,6 +35,7 @@ import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.HostAddress;
 import com.facebook.presto.spi.InMemoryRecordSet;
 import com.facebook.presto.spi.RecordSet;
+import com.facebook.presto.spi.Session;
 import com.facebook.presto.spi.Split;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockCursor;
@@ -42,7 +43,6 @@ import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.split.DataStreamProvider;
 import com.facebook.presto.sql.analyzer.ExpressionAnalysis;
 import com.facebook.presto.sql.analyzer.SemanticException;
-import com.facebook.presto.spi.Session;
 import com.facebook.presto.sql.gen.ExpressionCompiler;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.InterpretedFilterFunction;
@@ -75,7 +75,6 @@ import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
-import java.util.TimeZone;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -89,6 +88,7 @@ import static com.facebook.presto.operator.scalar.FunctionAssertions.TestSplit.c
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
+import static com.facebook.presto.spi.type.TimeZoneKey.UTC_KEY;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.sql.analyzer.ExpressionAnalyzer.analyzeExpressionsWithSymbols;
 import static com.facebook.presto.sql.analyzer.ExpressionAnalyzer.getExpressionTypesFromInput;
@@ -96,7 +96,6 @@ import static com.facebook.presto.sql.planner.optimizations.CanonicalizeExpressi
 import static com.facebook.presto.sql.tree.BooleanLiteral.TRUE_LITERAL;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static io.airlift.testing.Assertions.assertInstanceOf;
-import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertNull;
@@ -104,7 +103,7 @@ import static org.testng.Assert.assertTrue;
 
 public final class FunctionAssertions
 {
-    public static final Session SESSION = new Session("user", "source", "catalog", "schema", TimeZone.getTimeZone("UTC"), Locale.ENGLISH, "address", "agent");
+    public static final Session SESSION = new Session("user", "source", "catalog", "schema", UTC_KEY, Locale.ENGLISH, "address", "agent");
 
     private static final ExecutorService EXECUTOR = Executors.newCachedThreadPool(Threads.daemonThreadsNamed("test-%s"));
 
@@ -113,7 +112,7 @@ public final class FunctionAssertions
             createStringsBlock("hello"),
             createDoublesBlock(12.34),
             createBooleansBlock(true),
-            createLongsBlock(MILLISECONDS.toSeconds(new DateTime(2001, 8, 22, 3, 4, 5, 321, DateTimeZone.UTC).getMillis())),
+            createLongsBlock(new DateTime(2001, 8, 22, 3, 4, 5, 321, DateTimeZone.UTC).getMillis()),
             createStringsBlock("%el%"),
             createStringsBlock((String) null));
 
@@ -154,8 +153,17 @@ public final class FunctionAssertions
 
     private final MetadataManager metadataManager = new MetadataManager();
     private final ExpressionCompiler compiler = new ExpressionCompiler(metadataManager);
+    private final Session session;
 
-    public FunctionAssertions() {}
+    public FunctionAssertions()
+    {
+        this(SESSION);
+    }
+
+    public FunctionAssertions(Session session)
+    {
+        this.session = session;
+    }
 
     public FunctionAssertions addFunctions(List<FunctionInfo> functionInfos)
     {
@@ -177,7 +185,8 @@ public final class FunctionAssertions
         else if (expected instanceof Slice) {
             expected = ((Slice) expected).toString(Charsets.UTF_8);
         }
-        assertEquals(selectSingleValue(projection), expected);
+        Object actual = selectSingleValue(projection);
+        assertEquals(actual, expected);
     }
 
     public void assertFunctionNull(String projection)
@@ -187,7 +196,7 @@ public final class FunctionAssertions
 
     public Object selectSingleValue(String projection)
     {
-        return selectSingleValue(projection, SESSION);
+        return selectSingleValue(projection, session);
     }
 
     public Object selectSingleValue(String projection, Session session)
@@ -208,6 +217,22 @@ public final class FunctionAssertions
         Expression projectionExpression = createExpression(projection, metadataManager, SYMBOL_TYPES);
 
         List<Object> results = new ArrayList<>();
+
+        //
+        // If the projection does not need bound values, execute query using full engine
+        if (!needsBoundValue(projectionExpression)) {
+            try {
+                LocalQueryRunner runner = new LocalQueryRunner(session, EXECUTOR);
+                MaterializedResult result = runner.execute("SELECT " + projection + " FROM dual");
+                assertEquals(result.getTypes().size(), 1);
+                assertEquals(result.getMaterializedRows().size(), 1);
+                Object queryResult = Iterables.getOnlyElement(result.getMaterializedRows()).getField(0);
+                results.add(queryResult);
+            }
+            catch (RuntimeException e) {
+                // todo remove this when analyzer supports null types and full numeric type promotion
+            }
+        }
 
         // execute as standalone operator
         OperatorFactory operatorFactory = compileFilterProject(TRUE_LITERAL, projectionExpression);
@@ -246,13 +271,13 @@ public final class FunctionAssertions
         return results;
     }
 
-    public static Object selectSingleValue(OperatorFactory operatorFactory, Session session)
+    public Object selectSingleValue(OperatorFactory operatorFactory, Session session)
     {
         Operator operator = operatorFactory.createOperator(createDriverContext(session));
         return selectSingleValue(operator);
     }
 
-    public static Object selectSingleValue(SourceOperatorFactory operatorFactory, Split split, Session session)
+    public Object selectSingleValue(SourceOperatorFactory operatorFactory, Split split, Session session)
     {
         SourceOperator operator = operatorFactory.createOperator(createDriverContext(session));
         operator.addSplit(split);
@@ -260,7 +285,7 @@ public final class FunctionAssertions
         return selectSingleValue(operator);
     }
 
-    public static Object selectSingleValue(Operator operator)
+    public Object selectSingleValue(Operator operator)
     {
         Page output = getAtMostOnePage(operator, SOURCE_PAGE);
 
@@ -277,7 +302,7 @@ public final class FunctionAssertions
             return null;
         }
         else {
-            return cursor.getObjectValue();
+            return cursor.getObjectValue(session);
         }
     }
 
@@ -472,7 +497,7 @@ public final class FunctionAssertions
         IdentityHashMap<Expression, Type> expressionTypes = getExpressionTypesFromInput(SESSION, metadataManager, INPUT_TYPES, ImmutableList.of(filter));
 
         try {
-            return compiler.compileFilterAndProjectOperator(0, filter, ImmutableList.<Expression>of(), expressionTypes);
+            return compiler.compileFilterAndProjectOperator(0, filter, ImmutableList.<Expression>of(), expressionTypes, session.getTimeZoneKey());
         }
         catch (Throwable e) {
             if (e instanceof UncheckedExecutionException) {
@@ -490,7 +515,7 @@ public final class FunctionAssertions
         IdentityHashMap<Expression, Type> expressionTypes = getExpressionTypesFromInput(SESSION, metadataManager, INPUT_TYPES, ImmutableList.of(filter, projection));
 
         try {
-            return compiler.compileFilterAndProjectOperator(0, filter, ImmutableList.of(projection), expressionTypes);
+            return compiler.compileFilterAndProjectOperator(0, filter, ImmutableList.of(projection), expressionTypes, session.getTimeZoneKey());
         }
         catch (Throwable e) {
             if (e instanceof UncheckedExecutionException) {
@@ -515,7 +540,8 @@ public final class FunctionAssertions
                     ImmutableList.<ColumnHandle>of(),
                     filter,
                     ImmutableList.of(projection),
-                    expressionTypes);
+                    expressionTypes,
+                    session.getTimeZoneKey());
         }
         catch (Throwable e) {
             if (e instanceof UncheckedExecutionException) {
@@ -574,7 +600,7 @@ public final class FunctionAssertions
                         "hello",
                         12.34,
                         true,
-                        MILLISECONDS.toSeconds(new DateTime(2001, 8, 22, 3, 4, 5, 321, DateTimeZone.UTC).getMillis()),
+                        new DateTime(2001, 8, 22, 3, 4, 5, 321, DateTimeZone.UTC).getMillis(),
                         "%el%",
                         null
                 ).build();

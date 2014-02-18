@@ -13,8 +13,6 @@
  */
 package com.facebook.presto.sql.gen;
 
-import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.block.BlockCursor;
 import com.facebook.presto.byteCode.Block;
 import com.facebook.presto.byteCode.ByteCodeNode;
 import com.facebook.presto.byteCode.ClassDefinition;
@@ -45,12 +43,15 @@ import com.facebook.presto.operator.SourceOperator;
 import com.facebook.presto.operator.SourceOperatorFactory;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.RecordCursor;
-import com.facebook.presto.split.DataStreamProvider;
 import com.facebook.presto.spi.Session;
+import com.facebook.presto.spi.block.BlockBuilder;
+import com.facebook.presto.spi.block.BlockCursor;
+import com.facebook.presto.spi.type.TimeZoneKey;
+import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.split.DataStreamProvider;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.InputReference;
-import com.facebook.presto.spi.type.Type;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Objects;
 import com.google.common.base.Preconditions;
@@ -125,7 +126,7 @@ public class ExpressionCompiler
                 public FilterAndProjectOperatorFactoryFactory load(OperatorCacheKey key)
                         throws Exception
                 {
-                    return internalCompileFilterAndProjectOperator(key.getFilter(), key.getProjections(), key.getExpressionTypes());
+                    return internalCompileFilterAndProjectOperator(key.getFilter(), key.getProjections(), key.getExpressionTypes(), key.getTimeZoneKey());
                 }
             });
 
@@ -136,7 +137,7 @@ public class ExpressionCompiler
                 public ScanFilterAndProjectOperatorFactoryFactory load(OperatorCacheKey key)
                         throws Exception
                 {
-                    return internalCompileScanFilterAndProjectOperator(key.getSourceId(), key.getFilter(), key.getProjections(), key.getExpressionTypes());
+                    return internalCompileScanFilterAndProjectOperator(key.getSourceId(), key.getFilter(), key.getProjections(), key.getExpressionTypes(), key.getTimeZoneKey());
                 }
             });
 
@@ -216,9 +217,10 @@ public class ExpressionCompiler
     public OperatorFactory compileFilterAndProjectOperator(int operatorId,
             Expression filter,
             List<Expression> projections,
-            IdentityHashMap<Expression, Type> expressionTypes)
+            IdentityHashMap<Expression, Type> expressionTypes,
+            TimeZoneKey timeZoneKey)
     {
-        return operatorFactories.getUnchecked(new OperatorCacheKey(filter, projections, expressionTypes, null)).create(operatorId);
+        return operatorFactories.getUnchecked(new OperatorCacheKey(filter, projections, expressionTypes, null, timeZoneKey)).create(operatorId);
     }
 
     private DynamicClassLoader createClassLoader()
@@ -227,12 +229,16 @@ public class ExpressionCompiler
     }
 
     @VisibleForTesting
-    public FilterAndProjectOperatorFactoryFactory internalCompileFilterAndProjectOperator(Expression filter, List<Expression> projections, IdentityHashMap<Expression, Type> expressionTypes)
+    public FilterAndProjectOperatorFactoryFactory internalCompileFilterAndProjectOperator(
+            Expression filter,
+            List<Expression> projections,
+            IdentityHashMap<Expression, Type> expressionTypes,
+            TimeZoneKey timeZoneKey)
     {
         DynamicClassLoader classLoader = createClassLoader();
 
         // create filter and project page iterator class
-        TypedOperatorClass typedOperatorClass = compileFilterAndProjectOperator(filter, projections, expressionTypes, classLoader);
+        TypedOperatorClass typedOperatorClass = compileFilterAndProjectOperator(filter, projections, expressionTypes, classLoader, timeZoneKey);
 
         Constructor<? extends Operator> constructor;
         try {
@@ -250,7 +256,8 @@ public class ExpressionCompiler
             Expression filter,
             List<Expression> projections,
             IdentityHashMap<Expression, Type> expressionTypes,
-            DynamicClassLoader classLoader)
+            DynamicClassLoader classLoader,
+            TimeZoneKey timeZoneKey)
     {
         ClassDefinition classDefinition = new ClassDefinition(new CompilerContext(bootstrapMethod),
                 a(PUBLIC, FINAL),
@@ -283,8 +290,8 @@ public class ExpressionCompiler
         //
         // filter method
         //
-        generateFilterMethod(classDefinition, filter, expressionTypes, true);
-        generateFilterMethod(classDefinition, filter, expressionTypes, false);
+        generateFilterMethod(classDefinition, filter, expressionTypes, true, timeZoneKey);
+        generateFilterMethod(classDefinition, filter, expressionTypes, false, timeZoneKey);
 
         //
         // project methods
@@ -292,8 +299,8 @@ public class ExpressionCompiler
         List<Type> types = new ArrayList<>();
         int projectionIndex = 0;
         for (Expression projection : projections) {
-            generateProjectMethod(classDefinition, "project_" + projectionIndex, projection, expressionTypes, true);
-            generateProjectMethod(classDefinition, "project_" + projectionIndex, projection, expressionTypes, false);
+            generateProjectMethod(classDefinition, "project_" + projectionIndex, projection, expressionTypes, true, timeZoneKey);
+            generateProjectMethod(classDefinition, "project_" + projectionIndex, projection, expressionTypes, false, timeZoneKey);
             types.add(expressionTypes.get(projection));
             projectionIndex++;
         }
@@ -320,9 +327,11 @@ public class ExpressionCompiler
             List<ColumnHandle> columns,
             Expression filter,
             List<Expression> projections,
-            IdentityHashMap<Expression, Type> expressionTypes)
+            IdentityHashMap<Expression, Type> expressionTypes,
+            TimeZoneKey timeZoneKey)
     {
-        return sourceOperatorFactories.getUnchecked(new OperatorCacheKey(filter, projections, expressionTypes, sourceId)).create(operatorId, dataStreamProvider, columns);
+        OperatorCacheKey cacheKey = new OperatorCacheKey(filter, projections, expressionTypes, sourceId, timeZoneKey);
+        return sourceOperatorFactories.getUnchecked(cacheKey).create(operatorId, dataStreamProvider, columns);
     }
 
     @VisibleForTesting
@@ -330,12 +339,13 @@ public class ExpressionCompiler
             PlanNodeId sourceId,
             Expression filter,
             List<Expression> projections,
-            IdentityHashMap<Expression, Type> expressionTypes)
+            IdentityHashMap<Expression, Type> expressionTypes,
+            TimeZoneKey timeZoneKey)
     {
         DynamicClassLoader classLoader = createClassLoader();
 
         // create filter and project page iterator class
-        TypedOperatorClass typedOperatorClass = compileScanFilterAndProjectOperator(filter, projections, expressionTypes, classLoader);
+        TypedOperatorClass typedOperatorClass = compileScanFilterAndProjectOperator(filter, projections, expressionTypes, classLoader, timeZoneKey);
 
         Constructor<? extends SourceOperator> constructor;
         try {
@@ -362,7 +372,8 @@ public class ExpressionCompiler
             Expression filter,
             List<Expression> projections,
             IdentityHashMap<Expression, Type> expressionTypes,
-            DynamicClassLoader classLoader)
+            DynamicClassLoader classLoader,
+            TimeZoneKey timeZoneKey)
     {
         ClassDefinition classDefinition = new ClassDefinition(new CompilerContext(bootstrapMethod),
                 a(PUBLIC, FINAL),
@@ -402,8 +413,8 @@ public class ExpressionCompiler
         //
         // filter method
         //
-        generateFilterMethod(classDefinition, filter, expressionTypes, true);
-        generateFilterMethod(classDefinition, filter, expressionTypes, false);
+        generateFilterMethod(classDefinition, filter, expressionTypes, true, timeZoneKey);
+        generateFilterMethod(classDefinition, filter, expressionTypes, false, timeZoneKey);
 
         //
         // project methods
@@ -411,8 +422,8 @@ public class ExpressionCompiler
         List<Type> types = new ArrayList<>();
         int projectionIndex = 0;
         for (Expression projection : projections) {
-            generateProjectMethod(classDefinition, "project_" + projectionIndex, projection, expressionTypes, true);
-            generateProjectMethod(classDefinition, "project_" + projectionIndex, projection, expressionTypes, false);
+            generateProjectMethod(classDefinition, "project_" + projectionIndex, projection, expressionTypes, true, timeZoneKey);
+            generateProjectMethod(classDefinition, "project_" + projectionIndex, projection, expressionTypes, false, timeZoneKey);
             types.add(expressionTypes.get(projection));
             projectionIndex++;
         }
@@ -646,7 +657,8 @@ public class ExpressionCompiler
     private void generateFilterMethod(ClassDefinition classDefinition,
             Expression filter,
             IdentityHashMap<Expression, Type> expressionTypes,
-            boolean sourceIsCursor)
+            boolean sourceIsCursor,
+            TimeZoneKey timeZoneKey)
     {
         MethodDefinition filterMethod;
         if (sourceIsCursor) {
@@ -668,7 +680,7 @@ public class ExpressionCompiler
 
         filterMethod.getCompilerContext().declareVariable(type(boolean.class), "wasNull");
         Block getSessionByteCode = new Block(filterMethod.getCompilerContext()).pushThis().getField(classDefinition.getType(), "session", type(Session.class));
-        ByteCodeExpressionVisitor visitor = new ByteCodeExpressionVisitor(metadata, bootstrapFunctionBinder, expressionTypes, getSessionByteCode, sourceIsCursor);
+        ByteCodeExpressionVisitor visitor = new ByteCodeExpressionVisitor(metadata, bootstrapFunctionBinder, expressionTypes, getSessionByteCode, sourceIsCursor, timeZoneKey);
         ByteCodeNode body = visitor.process(filter, filterMethod.getCompilerContext());
 
         LabelNode end = new LabelNode("end");
@@ -689,7 +701,8 @@ public class ExpressionCompiler
             String methodName,
             Expression projection,
             IdentityHashMap<Expression, Type> expressionTypes,
-            boolean sourceIsCursor)
+            boolean sourceIsCursor,
+            TimeZoneKey timeZoneKey)
     {
         MethodDefinition projectionMethod;
         if (sourceIsCursor) {
@@ -718,7 +731,7 @@ public class ExpressionCompiler
         CompilerContext context = projectionMethod.getCompilerContext();
         context.declareVariable(type(boolean.class), "wasNull");
         Block getSessionByteCode = new Block(context).pushThis().getField(classDefinition.getType(), "session", type(Session.class));
-        ByteCodeExpressionVisitor visitor = new ByteCodeExpressionVisitor(metadata, bootstrapFunctionBinder, expressionTypes, getSessionByteCode, sourceIsCursor);
+        ByteCodeExpressionVisitor visitor = new ByteCodeExpressionVisitor(metadata, bootstrapFunctionBinder, expressionTypes, getSessionByteCode, sourceIsCursor, timeZoneKey);
         ByteCodeNode body = visitor.process(projection, context);
 
         projectionMethod
@@ -875,13 +888,15 @@ public class ExpressionCompiler
         private final List<Expression> projections;
         private final IdentityHashMap<Expression, Type> expressionTypes;
         private final PlanNodeId sourceId;
+        private final TimeZoneKey timeZoneKey;
 
-        private OperatorCacheKey(Expression expression, List<Expression> projections, IdentityHashMap<Expression, Type> expressionTypes, PlanNodeId sourceId)
+        private OperatorCacheKey(Expression expression, List<Expression> projections, IdentityHashMap<Expression, Type> expressionTypes, PlanNodeId sourceId, TimeZoneKey timeZoneKey)
         {
             this.filter = expression;
             this.projections = ImmutableList.copyOf(projections);
             this.expressionTypes = expressionTypes;
             this.sourceId = sourceId;
+            this.timeZoneKey = timeZoneKey;
         }
 
         private Expression getFilter()
@@ -904,10 +919,15 @@ public class ExpressionCompiler
             return sourceId;
         }
 
+        public TimeZoneKey getTimeZoneKey()
+        {
+            return timeZoneKey;
+        }
+
         @Override
         public int hashCode()
         {
-            return Objects.hashCode(filter, projections, expressionTypes, sourceId);
+            return Objects.hashCode(filter, projections, expressionTypes, sourceId, timeZoneKey);
         }
 
         @Override
@@ -923,7 +943,8 @@ public class ExpressionCompiler
             return Objects.equal(this.filter, other.filter) &&
                     Objects.equal(this.projections, other.projections) &&
                     Objects.equal(this.expressionTypes, other.expressionTypes) &&
-                    Objects.equal(this.sourceId, other.sourceId);
+                    Objects.equal(this.sourceId, other.sourceId) &&
+                    Objects.equal(this.timeZoneKey, other.timeZoneKey);
         }
 
         @Override
@@ -934,6 +955,7 @@ public class ExpressionCompiler
                     .add("projections", projections)
                     .add("expressionTypes", expressionTypes)
                     .add("sourceId", sourceId)
+                    .add("timeZoneKey", timeZoneKey)
                     .toString();
         }
     }

@@ -58,7 +58,7 @@ public class PrestoConnection
     private final AtomicBoolean closed = new AtomicBoolean();
     private final AtomicReference<String> catalog = new AtomicReference<>();
     private final AtomicReference<String> schema = new AtomicReference<>();
-    private final AtomicReference<TimeZone> timeZone = new AtomicReference<>();
+    private final AtomicReference<String> timeZoneId = new AtomicReference<>();
     private final AtomicReference<Locale> locale = new AtomicReference<>();
     private final URI uri;
     private final HostAndPort address;
@@ -75,7 +75,7 @@ public class PrestoConnection
         this.queryExecutor = checkNotNull(queryExecutor, "queryExecutor is null");
         catalog.set("default");
         schema.set("default");
-        timeZone.set(TimeZone.getDefault());
+        timeZoneId.set(TimeZone.getDefault().getID());
         locale.set(Locale.getDefault());
 
         if (!isNullOrEmpty(uri.getPath())) {
@@ -405,7 +405,7 @@ public class PrestoConnection
             clientInfo.put(name, value);
         }
         else {
-            clientInfo.remove(value);
+            clientInfo.remove(name);
         }
     }
 
@@ -462,14 +462,15 @@ public class PrestoConnection
         return schema.get();
     }
 
-    public TimeZone getTimeZone()
+    public String getTimeZoneId()
     {
-        return timeZone.get();
+        return timeZoneId.get();
     }
 
-    public void setTimeZone(TimeZone timeZone)
+    public void setTimeZoneId(String timeZoneId)
     {
-        this.timeZone.set(timeZone);
+        checkNotNull(timeZoneId, "timeZoneId is null");
+        this.timeZoneId.set(timeZoneId);
     }
 
     public Locale getLocale()
@@ -536,7 +537,7 @@ public class PrestoConnection
         URI uri = createHttpUri(address);
 
         String source = Objects.firstNonNull(clientInfo.get("ApplicationName"), "presto-jdbc");
-        ClientSession session = new ClientSession(uri, user, source, catalog.get(), schema.get(), timeZone.get(), locale.get(), false);
+        ClientSession session = new ClientSession(uri, user, source, catalog.get(), schema.get(), timeZoneId.get(), locale.get(), false);
         return queryExecutor.startQuery(session, sql);
     }
 

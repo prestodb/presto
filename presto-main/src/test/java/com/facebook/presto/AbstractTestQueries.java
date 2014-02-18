@@ -58,8 +58,6 @@ import io.airlift.tpch.TpchTable;
 import io.airlift.units.Duration;
 import org.apache.commons.math3.stat.descriptive.DescriptiveStatistics;
 import org.intellij.lang.annotations.Language;
-import org.joda.time.DateTime;
-import org.joda.time.DateTimeZone;
 import org.skife.jdbi.v2.DBI;
 import org.skife.jdbi.v2.Handle;
 import org.skife.jdbi.v2.PreparedBatch;
@@ -70,19 +68,24 @@ import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
+import java.sql.Date;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.sql.Time;
+import java.sql.Timestamp;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
-import java.util.concurrent.TimeUnit;
 
 import static com.facebook.presto.connector.informationSchema.InformationSchemaMetadata.INFORMATION_SCHEMA;
 import static com.facebook.presto.metadata.FunctionRegistry.supplier;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
+import static com.facebook.presto.spi.type.DateType.DATE;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.NullType.NULL;
+import static com.facebook.presto.spi.type.TimeType.TIME;
+import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.sql.tree.ExplainType.Type.DISTRIBUTED;
 import static com.facebook.presto.sql.tree.ExplainType.Type.LOGICAL;
@@ -98,7 +101,6 @@ import static io.airlift.tpch.TpchTable.ORDERS;
 import static io.airlift.tpch.TpchTable.tableNameGetter;
 import static java.lang.String.format;
 import static java.util.Collections.nCopies;
-import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertTrue;
@@ -215,7 +217,7 @@ public abstract class AbstractTestQueries
                 "ORDER BY orderkey DESC\n" +
                 "LIMIT 3");
 
-        MaterializedResult expected = resultBuilder(BIGINT, BIGINT)
+        MaterializedResult expected = resultBuilder(session, BIGINT, BIGINT)
                 .row(7, 5)
                 .row(6, 4)
                 .row(5, 3)
@@ -247,7 +249,7 @@ public abstract class AbstractTestQueries
     {
         MaterializedResult actual = computeActual("SELECT approx_distinct(custkey) FROM orders");
 
-        MaterializedResult expected = resultBuilder(BIGINT)
+        MaterializedResult expected = resultBuilder(session, BIGINT)
                 .row(971)
                 .build();
 
@@ -259,7 +261,7 @@ public abstract class AbstractTestQueries
             throws Exception
     {
         MaterializedResult actual = computeActual("SELECT orderstatus, approx_distinct(custkey) FROM orders GROUP BY orderstatus");
-        MaterializedResult expected = resultBuilder(actual.getTypes())
+        MaterializedResult expected = resultBuilder(session, actual.getTypes())
                 .row("O", 969)
                 .row("F", 964)
                 .row("P", 301)
@@ -393,7 +395,7 @@ public abstract class AbstractTestQueries
                 "GROUP BY orderdate, custkey " +
                 "ORDER BY rnk " +
                 "LIMIT 1");
-        MaterializedResult expected = resultBuilder(BIGINT).row(1).build();
+        MaterializedResult expected = resultBuilder(session, BIGINT).row(1).build();
         assertEquals(actual, expected);
     }
 
@@ -1701,7 +1703,7 @@ public abstract class AbstractTestQueries
                 "FROM (SELECT * FROM orders ORDER BY orderkey LIMIT 10) x\n" +
                 "ORDER BY orderkey LIMIT 5");
 
-        MaterializedResult expected = resultBuilder(BIGINT, VARCHAR, BIGINT)
+        MaterializedResult expected = resultBuilder(session, BIGINT, VARCHAR, BIGINT)
                 .row(1, "O", (1 * 10) + 100)
                 .row(2, "O", (2 * 9) + 100)
                 .row(3, "F", (3 * 8) + 100)
@@ -1729,7 +1731,7 @@ public abstract class AbstractTestQueries
                 "WHERE rnk <= 2\n" +
                 "ORDER BY orderstatus, rnk");
 
-        MaterializedResult expected = resultBuilder(VARCHAR, VARCHAR, DOUBLE, BIGINT)
+        MaterializedResult expected = resultBuilder(session, VARCHAR, VARCHAR, DOUBLE, BIGINT)
                 .row("F", "Clerk#000000090", 2784836.61, 1)
                 .row("F", "Clerk#000000084", 2674447.15, 2)
                 .row("O", "Clerk#000000500", 2569878.29, 1)
@@ -1751,7 +1753,7 @@ public abstract class AbstractTestQueries
                 "ORDER BY 2 DESC\n" +
                 "LIMIT 5");
 
-        MaterializedResult expected = resultBuilder(BIGINT, BIGINT)
+        MaterializedResult expected = resultBuilder(session, BIGINT, BIGINT)
                 .row(34, 10)
                 .row(33, 9)
                 .row(32, 8)
@@ -1776,7 +1778,7 @@ public abstract class AbstractTestQueries
                 "ORDER BY 2 ASC\n" +
                 "LIMIT 5");
 
-        expected = resultBuilder(BIGINT, BIGINT)
+        expected = resultBuilder(session, BIGINT, BIGINT)
                 .row(3, 1)
                 .row(1, 2)
                 .row(2, 3)
@@ -1793,7 +1795,7 @@ public abstract class AbstractTestQueries
                 "ORDER BY 2 DESC\n" +
                 "LIMIT 5");
 
-        expected = resultBuilder(BIGINT, BIGINT)
+        expected = resultBuilder(session, BIGINT, BIGINT)
                 .row(3, 10)
                 .row(34, 9)
                 .row(33, 8)
@@ -2281,7 +2283,7 @@ public abstract class AbstractTestQueries
     {
         MaterializedResult actual = computeActual("SHOW COLUMNS FROM orders");
 
-        MaterializedResult expected = resultBuilder(VARCHAR, VARCHAR, BOOLEAN, BOOLEAN)
+        MaterializedResult expected = resultBuilder(session, VARCHAR, VARCHAR, BOOLEAN, BOOLEAN)
                 .row("orderkey", "bigint", true, false)
                 .row("custkey", "bigint", true, false)
                 .row("orderstatus", "varchar", true, false)
@@ -3005,13 +3007,7 @@ public abstract class AbstractTestQueries
     public void testTimeLiterals()
             throws Exception
     {
-        assertQuery(
-                "SELECT TIME '3:04', TIMESTAMP '1960-01-22 3:04', DATE '2013-03-22', INTERVAL '123' DAY\n",
-                "SELECT " +
-                        MILLISECONDS.toSeconds(new DateTime(1970, 1, 1, 3, 4, 0, 0, DateTimeZone.UTC).getMillis()) + ",  " +
-                        MILLISECONDS.toSeconds(new DateTime(1960, 1, 22, 3, 4, 0, 0, DateTimeZone.UTC).getMillis()) + ",  " +
-                        MILLISECONDS.toSeconds(new DateTime(2013, 3, 22, 0, 0, 0, 0, DateTimeZone.UTC).getMillis()) + ",  " +
-                        TimeUnit.DAYS.toSeconds(123));
+        assertQuery("SELECT TIME '3:04:05', TIMESTAMP '1960-01-22 3:04:05', DATE '2013-03-22'");
     }
 
     @Test
@@ -3246,6 +3242,33 @@ public abstract class AbstractTestQueries
                         }
                         else {
                             row.add(stringValue);
+                        }
+                    }
+                    else if (DATE.equals(type)) {
+                        Date dateValue = resultSet.getDate(i);
+                        if (resultSet.wasNull()) {
+                            row.add(null);
+                        }
+                        else {
+                            row.add(dateValue);
+                        }
+                    }
+                    else if (TIME.equals(type)) {
+                        Time timeValue = resultSet.getTime(i);
+                        if (resultSet.wasNull()) {
+                            row.add(null);
+                        }
+                        else {
+                            row.add(timeValue);
+                        }
+                    }
+                    else if (TIMESTAMP.equals(type)) {
+                        Timestamp timestampValue = resultSet.getTimestamp(i);
+                        if (resultSet.wasNull()) {
+                            row.add(null);
+                        }
+                        else {
+                            row.add(timestampValue);
                         }
                     }
                     else if (NULL.equals(type)) {

@@ -318,7 +318,7 @@ public final class DomainTranslator
             Symbol symbol = Symbol.fromQualifiedName(((QualifiedNameReference) node.getLeft()).getName());
             Type columnType = checkedTypeLookup(symbol);
             ColumnHandle columnHandle = checkedColumnHandleLookup(symbol);
-            Object value = LiteralInterpreter.evaluate(session, node.getRight(), metadata);
+            Object value = LiteralInterpreter.evaluate(metadata, session, node.getRight());
 
             // Handle the cases where implicit coercions can happen in comparisons
             // TODO: how to abstract this out

@@ -26,7 +26,12 @@ import java.util.concurrent.ConcurrentMap;
 
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
+import static com.facebook.presto.spi.type.DateType.DATE;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
+import static com.facebook.presto.spi.type.TimeType.TIME;
+import static com.facebook.presto.spi.type.TimeWithTimeZoneType.TIME_WITH_TIME_ZONE;
+import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
+import static com.facebook.presto.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
@@ -52,6 +57,11 @@ public class TypeRegistry
         addType(BIGINT);
         addType(DOUBLE);
         addType(VARCHAR);
+        addType(DATE);
+        addType(TIME);
+        addType(TIME_WITH_TIME_ZONE);
+        addType(TIMESTAMP);
+        addType(TIMESTAMP_WITH_TIME_ZONE);
 
         for (Type type : types) {
             addType(type);

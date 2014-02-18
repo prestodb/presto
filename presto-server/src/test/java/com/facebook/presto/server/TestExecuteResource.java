@@ -77,7 +77,7 @@ public class TestExecuteResource
                 .setHeader(PrestoHeaders.PRESTO_USER, "test")
                 .setHeader(PrestoHeaders.PRESTO_CATALOG, Session.DEFAULT_CATALOG)
                 .setHeader(PrestoHeaders.PRESTO_SCHEMA, Session.DEFAULT_SCHEMA)
-                .setHeader(PrestoHeaders.PRESTO_TIME_ZONE, "EN-US")
+                .setHeader(PrestoHeaders.PRESTO_TIME_ZONE, "UTC")
                 .setBodyGenerator(createStaticBodyGenerator(query, Charsets.UTF_8))
                 .build();
         return client.execute(request, createStringResponseHandler());

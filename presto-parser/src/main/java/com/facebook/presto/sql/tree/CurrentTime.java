@@ -25,7 +25,9 @@ public class CurrentTime
     {
         TIME("current_time"),
         DATE("current_date"),
-        TIMESTAMP("current_timestamp");
+        TIMESTAMP("current_timestamp"),
+        LOCALTIME("localtime"),
+        LOCALTIMESTAMP("localtimestamp");
 
         private final String name;
 

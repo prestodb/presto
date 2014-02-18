@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.sql.gen;
 
-import com.facebook.presto.spi.block.BlockCursor;
 import com.facebook.presto.byteCode.Block;
 import com.facebook.presto.byteCode.ByteCodeNode;
 import com.facebook.presto.byteCode.CompilerContext;
@@ -27,6 +26,9 @@ import com.facebook.presto.byteCode.instruction.VariableInstruction;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.OperatorInfo.OperatorType;
 import com.facebook.presto.spi.RecordCursor;
+import com.facebook.presto.spi.block.BlockCursor;
+import com.facebook.presto.spi.type.TimeZoneKey;
+import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.tree.ArithmeticExpression;
 import com.facebook.presto.sql.tree.AstVisitor;
 import com.facebook.presto.sql.tree.BetweenPredicate;
@@ -42,6 +44,7 @@ import com.facebook.presto.sql.tree.InListExpression;
 import com.facebook.presto.sql.tree.InPredicate;
 import com.facebook.presto.sql.tree.Input;
 import com.facebook.presto.sql.tree.InputReference;
+import com.facebook.presto.sql.tree.IntervalLiteral;
 import com.facebook.presto.sql.tree.IsNullPredicate;
 import com.facebook.presto.sql.tree.LikePredicate;
 import com.facebook.presto.sql.tree.LogicalBinaryExpression;
@@ -53,8 +56,9 @@ import com.facebook.presto.sql.tree.NullLiteral;
 import com.facebook.presto.sql.tree.SearchedCaseExpression;
 import com.facebook.presto.sql.tree.SimpleCaseExpression;
 import com.facebook.presto.sql.tree.StringLiteral;
+import com.facebook.presto.sql.tree.TimeLiteral;
+import com.facebook.presto.sql.tree.TimestampLiteral;
 import com.facebook.presto.sql.tree.WhenClause;
-import com.facebook.presto.spi.type.Type;
 import com.google.common.base.Function;
 import com.google.common.base.Functions;
 import com.google.common.base.Joiner;
@@ -86,6 +90,14 @@ import static com.facebook.presto.byteCode.instruction.JumpInstruction.jump;
 import static com.facebook.presto.spi.type.NullType.NULL;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.sql.gen.SliceConstant.sliceConstant;
+import static com.facebook.presto.spi.type.TimeWithTimeZoneType.TIME_WITH_TIME_ZONE;
+import static com.facebook.presto.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
+import static com.facebook.presto.util.DateTimeUtils.parseDayTimeInterval;
+import static com.facebook.presto.util.DateTimeUtils.parseTimeWithTimeZone;
+import static com.facebook.presto.util.DateTimeUtils.parseTimeWithoutTimeZone;
+import static com.facebook.presto.util.DateTimeUtils.parseTimestampWithTimeZone;
+import static com.facebook.presto.util.DateTimeUtils.parseTimestampWithoutTimeZone;
+import static com.facebook.presto.util.DateTimeUtils.parseYearMonthInterval;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.Iterables.transform;
 import static java.lang.String.format;
@@ -99,19 +111,22 @@ public class ByteCodeExpressionVisitor
     private final Map<Expression, Type> expressionTypes;
     private final ByteCodeNode getSessionByteCode;
     private final boolean sourceIsCursor;
+    private final TimeZoneKey timeZoneKey;
 
     public ByteCodeExpressionVisitor(
             Metadata metadata,
             BootstrapFunctionBinder bootstrapFunctionBinder,
             Map<Expression, Type> expressionTypes,
             ByteCodeNode getSessionByteCode,
-            boolean sourceIsCursor)
+            boolean sourceIsCursor,
+            TimeZoneKey timeZoneKey)
     {
         this.metadata = metadata;
         this.bootstrapFunctionBinder = bootstrapFunctionBinder;
         this.expressionTypes = expressionTypes;
         this.getSessionByteCode = getSessionByteCode;
         this.sourceIsCursor = sourceIsCursor;
+        this.timeZoneKey = timeZoneKey;
     }
 
     @Override
@@ -162,6 +177,45 @@ public class ByteCodeExpressionVisitor
         return visitFunctionBinding(context, functionBinding, node.toString());
     }
 
+    protected ByteCodeNode visitTimestampLiteral(TimestampLiteral node, CompilerContext context)
+    {
+        long value;
+        if (expressionTypes.get(node).equals(TIMESTAMP_WITH_TIME_ZONE)) {
+            value = parseTimestampWithTimeZone(node.getValue());
+        }
+        else {
+            // parse in time zone of client
+            value = parseTimestampWithoutTimeZone(timeZoneKey, node.getValue());
+        }
+        return loadLong(value);
+    }
+
+    @Override
+    protected ByteCodeNode visitTimeLiteral(TimeLiteral node, CompilerContext context)
+    {
+        long value;
+        if (expressionTypes.get(node).equals(TIME_WITH_TIME_ZONE)) {
+            value = parseTimeWithTimeZone(node.getValue());
+        }
+        else {
+            // parse in time zone of client
+            value = parseTimeWithoutTimeZone(timeZoneKey, node.getValue());
+        }
+        return loadLong(value);
+    }
+
+    @Override
+    protected ByteCodeNode visitIntervalLiteral(IntervalLiteral node, CompilerContext context)
+    {
+        if (node.isYearToMonth()) {
+            return loadLong(node.getSign().multiplier() * parseYearMonthInterval(node.getValue(), node.getStartField(), node.getEndField()));
+        }
+        else {
+            return loadLong(node.getSign().multiplier() * parseDayTimeInterval(node.getValue(), node.getStartField(), node.getEndField()));
+        }
+    }
+
+    @Override
     public ByteCodeNode visitInputReference(InputReference node, CompilerContext context)
     {
         Input input = node.getInput();

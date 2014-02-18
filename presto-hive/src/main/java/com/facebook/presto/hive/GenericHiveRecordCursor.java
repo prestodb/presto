@@ -51,7 +51,6 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.Maps.uniqueIndex;
 import static java.lang.Math.max;
 import static java.lang.Math.min;
-import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 class GenericHiveRecordCursor<K, V extends Writable>
         extends HiveRecordCursor
@@ -332,7 +331,7 @@ class GenericHiveRecordCursor<K, V extends Writable>
             // convert to UTC using the real time zone for the underlying data
             long utcMillis = hiveTimeZone.convertLocalToUTC(hiveMillis, false);
 
-            return MILLISECONDS.toSeconds(utcMillis);
+            return utcMillis;
         }
         return ((Number) value).longValue();
     }

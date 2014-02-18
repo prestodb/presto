@@ -38,7 +38,6 @@ import java.io.File;
 import java.io.IOException;
 import java.util.List;
 import java.util.Locale;
-import java.util.TimeZone;
 import java.util.UUID;
 import java.util.concurrent.ExecutorService;
 
@@ -47,6 +46,7 @@ import static com.facebook.presto.operator.OperatorAssertion.toMaterializedResul
 import static com.facebook.presto.operator.RowPagesBuilder.rowPagesBuilder;
 import static com.facebook.presto.serde.TestingBlockEncodingManager.createTestingBlockEncodingManager;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
+import static com.facebook.presto.spi.type.TimeZoneKey.UTC_KEY;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.util.Threads.daemonThreadsNamed;
 import static java.util.concurrent.Executors.newCachedThreadPool;
@@ -73,7 +73,7 @@ public class TestDatabaseLocalStorageManager
         DatabaseLocalStorageManagerConfig config = new DatabaseLocalStorageManagerConfig().setDataDirectory(dataDir);
         storageManager = new DatabaseLocalStorageManager(dbi, createTestingBlockEncodingManager(), config);
         executor = newCachedThreadPool(daemonThreadsNamed("test"));
-        Session session = new Session("user", "source", "catalog", "schema", TimeZone.getTimeZone("UTC"), Locale.ENGLISH, "address", "agent");
+        Session session = new Session("user", "source", "catalog", "schema", UTC_KEY, Locale.ENGLISH, "address", "agent");
         driverContext = new TaskContext(new TaskId("query", "stage", "task"), executor, session)
                 .addPipelineContext(true, true)
                 .addDriverContext();
@@ -127,7 +127,7 @@ public class TestDatabaseLocalStorageManager
         Operator operator = factory.createOperator(driverContext);
 
         // materialize pages to force comparision only on contents and not page boundaries
-        MaterializedResult expected = toMaterializedResult(operator.getTypes(), pages);
+        MaterializedResult expected = toMaterializedResult(operator.getOperatorContext().getSession(), operator.getTypes(), pages);
 
         OperatorAssertion.assertOperatorEquals(operator, expected);
     }

@@ -16,8 +16,8 @@ package com.facebook.presto.sql;
 import com.facebook.presto.operator.scalar.FunctionAssertions;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.RecordCursor;
-import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.Session;
+import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.planner.ExpressionInterpreter;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.SymbolResolver;
@@ -31,53 +31,61 @@ import io.airlift.slice.Slices;
 import org.intellij.lang.annotations.Language;
 import org.joda.time.DateTime;
 import org.joda.time.DateTimeZone;
+import org.joda.time.LocalDate;
+import org.joda.time.LocalTime;
 import org.testng.Assert;
 import org.testng.annotations.Test;
 
 import java.util.IdentityHashMap;
 import java.util.Locale;
 import java.util.Map;
-import java.util.TimeZone;
 import java.util.concurrent.TimeUnit;
 
 import static com.facebook.presto.connector.dual.DualMetadata.DUAL_METADATA_MANAGER;
+import static com.facebook.presto.spi.Session.DEFAULT_CATALOG;
+import static com.facebook.presto.spi.Session.DEFAULT_SCHEMA;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
+import static com.facebook.presto.spi.type.DateType.DATE;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
+import static com.facebook.presto.spi.type.TimeType.TIME;
+import static com.facebook.presto.spi.type.TimeZoneKey.UTC_KEY;
+import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.sql.ExpressionFormatter.formatExpression;
 import static com.facebook.presto.sql.analyzer.ExpressionAnalyzer.getExpressionTypes;
-import static com.facebook.presto.spi.Session.DEFAULT_CATALOG;
-import static com.facebook.presto.spi.Session.DEFAULT_SCHEMA;
 import static com.facebook.presto.sql.parser.SqlParser.createExpression;
 import static com.facebook.presto.sql.planner.ExpressionInterpreter.expressionInterpreter;
 import static com.facebook.presto.sql.planner.ExpressionInterpreter.expressionOptimizer;
 import static com.google.common.base.Charsets.UTF_8;
 import static java.util.concurrent.TimeUnit.DAYS;
 import static java.util.concurrent.TimeUnit.HOURS;
-import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.MINUTES;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.testng.Assert.assertEquals;
 
 public class TestExpressionInterpreter
 {
-    private static final Session SESSION = new Session("user", "test", DEFAULT_CATALOG, DEFAULT_SCHEMA, TimeZone.getTimeZone("UTC"), Locale.ENGLISH, null, null);
+    private static final Session SESSION = new Session("user", "test", DEFAULT_CATALOG, DEFAULT_SCHEMA, UTC_KEY, Locale.ENGLISH, null, null);
     private static final Map<Symbol, Type> SYMBOL_TYPES = ImmutableMap.<Symbol, Type>builder()
             .put(new Symbol("bound_long"), BIGINT)
             .put(new Symbol("bound_string"), VARCHAR)
             .put(new Symbol("bound_double"), DOUBLE)
             .put(new Symbol("bound_boolean"), BOOLEAN)
-            .put(new Symbol("bound_timestamp"), BIGINT)
+            .put(new Symbol("bound_date"), DATE)
+            .put(new Symbol("bound_time"), TIME)
+            .put(new Symbol("bound_timestamp"), TIMESTAMP)
             .put(new Symbol("bound_pattern"), VARCHAR)
             .put(new Symbol("bound_null_string"), VARCHAR)
-            .put(new Symbol("time"), BIGINT)
+            .put(new Symbol("time"), BIGINT) // for testing reserved identifiers
             .put(new Symbol("unbound_long"), BIGINT)
             .put(new Symbol("unbound_long2"), BIGINT)
             .put(new Symbol("unbound_string"), VARCHAR)
             .put(new Symbol("unbound_double"), DOUBLE)
             .put(new Symbol("unbound_boolean"), BOOLEAN)
-            .put(new Symbol("unbound_timestamp"), BIGINT)
+            .put(new Symbol("unbound_date"), DATE)
+            .put(new Symbol("unbound_time"), TIME)
+            .put(new Symbol("unbound_timestamp"), TIMESTAMP)
             .put(new Symbol("unbound_pattern"), VARCHAR)
             .put(new Symbol("unbound_null_string"), VARCHAR)
             .build();
@@ -295,23 +303,23 @@ public class TestExpressionInterpreter
     public void testExtract()
     {
         DateTime dateTime = new DateTime(2001, 8, 22, 3, 4, 5, 321, DateTimeZone.UTC);
-        long seconds = MILLISECONDS.toSeconds(dateTime.getMillis());
+        double seconds = dateTime.getMillis() / 1000.0;
 
-        assertOptimizedEquals("extract (CENTURY from " + seconds + ")", "20");
-        assertOptimizedEquals("extract (YEAR from " + seconds + ")", "2001");
-        assertOptimizedEquals("extract (QUARTER from " + seconds + ")", "3");
-        assertOptimizedEquals("extract (MONTH from " + seconds + ")", "8");
-        assertOptimizedEquals("extract (WEEK from " + seconds + ")", "34");
-        assertOptimizedEquals("extract (DOW from " + seconds + ")", "3");
-        assertOptimizedEquals("extract (DOY from " + seconds + ")", "234");
-        assertOptimizedEquals("extract (DAY from " + seconds + ")", "22");
-        assertOptimizedEquals("extract (HOUR from " + seconds + ")", "3");
-        assertOptimizedEquals("extract (MINUTE from " + seconds + ")", "4");
-        assertOptimizedEquals("extract (SECOND from " + seconds + ")", "5");
-        assertOptimizedEquals("extract (TIMEZONE_HOUR from " + seconds + ")", "0");
-        assertOptimizedEquals("extract (TIMEZONE_MINUTE from " + seconds + ")", "0");
+        assertOptimizedEquals("extract (CENTURY from from_unixtime(" + seconds + "))", "21");
+        assertOptimizedEquals("extract (YEAR from from_unixtime(" + seconds + "))", "2001");
+        assertOptimizedEquals("extract (QUARTER from from_unixtime(" + seconds + "))", "3");
+        assertOptimizedEquals("extract (MONTH from from_unixtime(" + seconds + "))", "8");
+        assertOptimizedEquals("extract (WEEK from from_unixtime(" + seconds + "))", "34");
+        assertOptimizedEquals("extract (DOW from from_unixtime(" + seconds + "))", "3");
+        assertOptimizedEquals("extract (DOY from from_unixtime(" + seconds + "))", "234");
+        assertOptimizedEquals("extract (DAY from from_unixtime(" + seconds + "))", "22");
+        assertOptimizedEquals("extract (HOUR from from_unixtime(" + seconds + "))", "3");
+        assertOptimizedEquals("extract (MINUTE from from_unixtime(" + seconds + "))", "4");
+        assertOptimizedEquals("extract (SECOND from from_unixtime(" + seconds + "))", "5");
+        assertOptimizedEquals("extract (TIMEZONE_HOUR from from_unixtime(" + seconds + ", 7, 9))", "7");
+        assertOptimizedEquals("extract (TIMEZONE_MINUTE from from_unixtime(" + seconds + ", 7, 9))", "9");
 
-        assertOptimizedEquals("extract (CENTURY from bound_timestamp)", "20");
+        assertOptimizedEquals("extract (CENTURY from bound_timestamp)", "21");
         assertOptimizedEquals("extract (YEAR from bound_timestamp)", "2001");
         assertOptimizedEquals("extract (QUARTER from bound_timestamp)", "3");
         assertOptimizedEquals("extract (MONTH from bound_timestamp)", "8");
@@ -322,11 +330,13 @@ public class TestExpressionInterpreter
         assertOptimizedEquals("extract (HOUR from bound_timestamp)", "3");
         assertOptimizedEquals("extract (MINUTE from bound_timestamp)", "4");
         assertOptimizedEquals("extract (SECOND from bound_timestamp)", "5");
-        assertOptimizedEquals("extract (TIMEZONE_HOUR from bound_timestamp)", "0");
-        assertOptimizedEquals("extract (TIMEZONE_MINUTE from bound_timestamp)", "0");
+        // todo reenable when cast as timestamp with time zone is implemented
+        // todo add bound timestamp with time zone
+        //assertOptimizedEquals("extract (TIMEZONE_HOUR from bound_timestamp)", "0");
+        //assertOptimizedEquals("extract (TIMEZONE_MINUTE from bound_timestamp)", "0");
 
         assertOptimizedEquals("extract (YEAR from unbound_timestamp)", "extract (YEAR from unbound_timestamp)");
-        assertOptimizedEquals("extract (SECOND from bound_timestamp + 3)", "8");
+        assertOptimizedEquals("extract (SECOND from bound_timestamp + INTERVAL '3' SECOND)", "8");
     }
 
     @Test
@@ -366,9 +376,10 @@ public class TestExpressionInterpreter
     public void testCurrentTimestamp()
             throws Exception
     {
-        long current = MILLISECONDS.toSeconds(SESSION.getStartTime());
-        assertOptimizedEquals("current_timestamp = " + current, "true");
-        assertOptimizedEquals("current_timestamp > " + current + TimeUnit.MINUTES.toSeconds(1), "false");
+        double current = SESSION.getStartTime() / 1000.0;
+        assertOptimizedEquals("current_timestamp = from_unixtime(" + current + ")", "true");
+        double future = current + TimeUnit.MINUTES.toSeconds(1);
+        assertOptimizedEquals("current_timestamp > from_unixtime(" + future + ")", "false");
     }
 
     @Test
@@ -733,64 +744,62 @@ public class TestExpressionInterpreter
     {
         DateTimeZone timeZone = DateTimeZone.forOffsetHours(5);
 
-        assertOptimizedEquals("timestamp '1960-01-22 03:04:05.321'", getSeconds(new DateTime(1960, 1, 22, 3, 4, 5, 321, DateTimeZone.UTC)));
-        assertOptimizedEquals("timestamp '1960-01-22 03:04:05'", getSeconds(new DateTime(1960, 1, 22, 3, 4, 5, 0, DateTimeZone.UTC)));
-        assertOptimizedEquals("timestamp '1960-01-22 03:04'", getSeconds(new DateTime(1960, 1, 22, 3, 4, 0, 0, DateTimeZone.UTC)));
-        assertOptimizedEquals("timestamp '1960-01-22'", getSeconds(new DateTime(1960, 1, 22, 0, 0, 0, 0, DateTimeZone.UTC)));
+        assertOptimizedEquals("timestamp '1960-01-22 03:04:05.321'", getTimestamp(new DateTime(1960, 1, 22, 3, 4, 5, 321, DateTimeZone.UTC)));
+        assertOptimizedEquals("timestamp '1960-01-22 03:04:05'", getTimestamp(new DateTime(1960, 1, 22, 3, 4, 5, 0, DateTimeZone.UTC)));
+        assertOptimizedEquals("timestamp '1960-01-22 03:04'", getTimestamp(new DateTime(1960, 1, 22, 3, 4, 0, 0, DateTimeZone.UTC)));
+        assertOptimizedEquals("timestamp '1960-01-22'", getTimestamp(new DateTime(1960, 1, 22, 0, 0, 0, 0, DateTimeZone.UTC)));
 
-        assertOptimizedEquals("timestamp '1960-01-22 03:04:05.321Z'", getSeconds(new DateTime(1960, 1, 22, 3, 4, 5, 321, DateTimeZone.UTC)));
-        assertOptimizedEquals("timestamp '1960-01-22 03:04:05Z'", getSeconds(new DateTime(1960, 1, 22, 3, 4, 5, 0, DateTimeZone.UTC)));
-        assertOptimizedEquals("timestamp '1960-01-22 03:04Z'", getSeconds(new DateTime(1960, 1, 22, 3, 4, 0, 0, DateTimeZone.UTC)));
+        assertOptimizedEquals("timestamp '1980-01-22 03:04:05.321Z'", getTimestampWithTimeZone(new DateTime(1980, 1, 22, 3, 4, 5, 321, DateTimeZone.UTC)));
+        assertOptimizedEquals("timestamp '1980-01-22 03:04:05Z'", getTimestampWithTimeZone(new DateTime(1980, 1, 22, 3, 4, 5, 0, DateTimeZone.UTC)));
+        assertOptimizedEquals("timestamp '1980-01-22 03:04Z'", getTimestampWithTimeZone(new DateTime(1980, 1, 22, 3, 4, 0, 0, DateTimeZone.UTC)));
+        assertOptimizedEquals("timestamp '1980-01-22 Z'", getTimestampWithTimeZone(new DateTime(1980, 1, 22, 0, 0, 0, 0, DateTimeZone.UTC)));
 
-        assertOptimizedEquals("timestamp '1960-01-22 03:04:05.321+05:00'", getSeconds(new DateTime(1960, 1, 22, 3, 4, 5, 321, timeZone)));
-        assertOptimizedEquals("timestamp '1960-01-22 03:04:05+05:00'", getSeconds(new DateTime(1960, 1, 22, 3, 4, 5, 0, timeZone)));
-        assertOptimizedEquals("timestamp '1960-01-22 03:04+05:00'", getSeconds(new DateTime(1960, 1, 22, 3, 4, 0, 0, timeZone)));
+        assertOptimizedEquals("timestamp '1980-01-22 03:04:05.321+05:00'", getTimestampWithTimeZone(new DateTime(1980, 1, 22, 3, 4, 5, 321, timeZone)));
+        assertOptimizedEquals("timestamp '1980-01-22 03:04:05+05:00'", getTimestampWithTimeZone(new DateTime(1980, 1, 22, 3, 4, 5, 0, timeZone)));
+        assertOptimizedEquals("timestamp '1980-01-22 03:04+05:00'", getTimestampWithTimeZone(new DateTime(1980, 1, 22, 3, 4, 0, 0, timeZone)));
+        assertOptimizedEquals("timestamp '1980-01-22 +05:00'", getTimestampWithTimeZone(new DateTime(1980, 1, 22, 0, 0, 0, 0, timeZone)));
 
-        assertOptimizedEquals("timestamp '1960-01-22 03:04:05.321+05'", getSeconds(new DateTime(1960, 1, 22, 3, 4, 5, 321, timeZone)));
-        assertOptimizedEquals("timestamp '1960-01-22 03:04:05+05'", getSeconds(new DateTime(1960, 1, 22, 3, 4, 5, 0, timeZone)));
-        assertOptimizedEquals("timestamp '1960-01-22 03:04+05'", getSeconds(new DateTime(1960, 1, 22, 3, 4, 0, 0, timeZone)));
-
-        assertOptimizedEquals("timestamp '1960-01-22 03:04:05.321 Asia/Oral'", getSeconds(new DateTime(1960, 1, 22, 3, 4, 5, 321, timeZone)));
-        assertOptimizedEquals("timestamp '1960-01-22 03:04:05 Asia/Oral'", getSeconds(new DateTime(1960, 1, 22, 3, 4, 5, 0, timeZone)));
-        assertOptimizedEquals("timestamp '1960-01-22 03:04 Asia/Oral'", getSeconds(new DateTime(1960, 1, 22, 3, 4, 0, 0, timeZone)));
+        assertOptimizedEquals("timestamp '1960-01-22 03:04:05.321+05'", getTimestampWithTimeZone(new DateTime(1960, 1, 22, 3, 4, 5, 321, timeZone)));
+        assertOptimizedEquals("timestamp '1960-01-22 03:04:05+05'", getTimestampWithTimeZone(new DateTime(1960, 1, 22, 3, 4, 5, 0, timeZone)));
+        assertOptimizedEquals("timestamp '1960-01-22 03:04+05'", getTimestampWithTimeZone(new DateTime(1960, 1, 22, 3, 4, 0, 0, timeZone)));
     }
 
     @Test
     public void testIntervalLiteral()
     {
-        assertOptimizedEquals("INTERVAL '123' DAY", String.valueOf(DAYS.toSeconds(123)));
-        assertOptimizedEquals("INTERVAL + '123' DAY", String.valueOf(DAYS.toSeconds(123)));
-        assertOptimizedEquals("INTERVAL - '123' DAY", String.valueOf(-DAYS.toSeconds(123)));
+        assertOptimizedEquals("INTERVAL '123' DAY", String.valueOf(DAYS.toMillis(123)));
+        assertOptimizedEquals("INTERVAL + '123' DAY", String.valueOf(DAYS.toMillis(123)));
+        assertOptimizedEquals("INTERVAL - '123' DAY", String.valueOf(-DAYS.toMillis(123)));
 
-        // assertOptimizedEquals("INTERVAL '123 23:58:53.456' DAY TO SECOND",
-        //        String.valueOf(DAYS.toSeconds(123) + HOURS.toSeconds(23) + MINUTES.toSeconds(59) + SECONDS.toSeconds(53)));
+        assertOptimizedEquals("INTERVAL '123 23:58:53.456' DAY TO SECOND",
+                String.valueOf(DAYS.toMillis(123) + HOURS.toMillis(23) + MINUTES.toMillis(58) + SECONDS.toMillis(53) + 456));
 
-        assertOptimizedEquals("INTERVAL '123' HOUR", String.valueOf(HOURS.toSeconds(123)));
-        assertOptimizedEquals("INTERVAL + '123' HOUR", String.valueOf(HOURS.toSeconds(123)));
-        assertOptimizedEquals("INTERVAL - '123' HOUR", String.valueOf(-HOURS.toSeconds(123)));
+        assertOptimizedEquals("INTERVAL '123' HOUR", String.valueOf(HOURS.toMillis(123)));
+        assertOptimizedEquals("INTERVAL + '123' HOUR", String.valueOf(HOURS.toMillis(123)));
+        assertOptimizedEquals("INTERVAL - '123' HOUR", String.valueOf(-HOURS.toMillis(123)));
 
-        // assertOptimizedEquals("INTERVAL '23:59' HOUR TO MINUTE", String.valueOf(HOURS.toSeconds(23) + MINUTES.toSeconds(59)));
+        assertOptimizedEquals("INTERVAL '23:59' HOUR TO MINUTE", String.valueOf(HOURS.toMillis(23) + MINUTES.toMillis(59)));
 
-        assertOptimizedEquals("INTERVAL '123' MINUTE", String.valueOf(MINUTES.toSeconds(123)));
-        assertOptimizedEquals("INTERVAL + '123' MINUTE", String.valueOf(MINUTES.toSeconds(123)));
-        assertOptimizedEquals("INTERVAL - '123' MINUTE", String.valueOf(-MINUTES.toSeconds(123)));
+        assertOptimizedEquals("INTERVAL '123' MINUTE", String.valueOf(MINUTES.toMillis(123)));
+        assertOptimizedEquals("INTERVAL + '123' MINUTE", String.valueOf(MINUTES.toMillis(123)));
+        assertOptimizedEquals("INTERVAL - '123' MINUTE", String.valueOf(-MINUTES.toMillis(123)));
 
-        assertOptimizedEquals("INTERVAL '123' SECOND", String.valueOf(SECONDS.toSeconds(123)));
-        assertOptimizedEquals("INTERVAL + '123' SECOND", String.valueOf(SECONDS.toSeconds(123)));
-        assertOptimizedEquals("INTERVAL - '123' SECOND", String.valueOf(-SECONDS.toSeconds(123)));
+        assertOptimizedEquals("INTERVAL '123' SECOND", String.valueOf(SECONDS.toMillis(123)));
+        assertOptimizedEquals("INTERVAL + '123' SECOND", String.valueOf(SECONDS.toMillis(123)));
+        assertOptimizedEquals("INTERVAL - '123' SECOND", String.valueOf(-SECONDS.toMillis(123)));
     }
 
     @Test
     public void testIntervalMath()
     {
-        assertOptimizedEquals("timestamp '1960-01-22 03:04:05.321' - interval '7' day", getSeconds(new DateTime(1960, 1, 15, 3, 4, 5, 321, DateTimeZone.UTC)));
+        assertOptimizedEquals("timestamp '1960-01-22 03:04:05.321' - interval '7' day", getTimestamp(new DateTime(1960, 1, 15, 3, 4, 5, 321, DateTimeZone.UTC)));
     }
 
     @Test
     public void testDateLiteral()
     {
-        assertOptimizedEquals("DATE '1960-01-22'", getSeconds(new DateTime(1960, 1, 22, 0, 0, 0, 0, DateTimeZone.UTC)));
-        assertOptimizedEquals("DATE '2013-03-22'", getSeconds(new DateTime(2013, 3, 22, 0, 0, 0, 0, DateTimeZone.UTC)));
+        assertOptimizedEquals("DATE '1960-01-22'", getTimestamp(new DateTime(1960, 1, 22, 0, 0, 0, 0, DateTimeZone.UTC)));
+        assertOptimizedEquals("DATE '2013-03-22'", getTimestamp(new DateTime(2013, 3, 22, 0, 0, 0, 0, DateTimeZone.UTC)));
     }
 
     @Test
@@ -798,25 +807,21 @@ public class TestExpressionInterpreter
     {
         DateTimeZone timeZone = DateTimeZone.forOffsetHours(5);
 
-        assertOptimizedEquals("time '03:04:05.321'", getSeconds(new DateTime(1970, 1, 1, 3, 4, 5, 321, DateTimeZone.UTC)));
-        assertOptimizedEquals("time '03:04:05'", getSeconds(new DateTime(1970, 1, 1, 3, 4, 5, 0, DateTimeZone.UTC)));
-        assertOptimizedEquals("time '03:04'", getSeconds(new DateTime(1970, 1, 1, 3, 4, 0, 0, DateTimeZone.UTC)));
+        assertOptimizedEquals("time '03:04:05.321'", getTimestamp(new DateTime(1970, 1, 1, 3, 4, 5, 321, DateTimeZone.UTC)));
+        assertOptimizedEquals("time '03:04:05'", getTimestamp(new DateTime(1970, 1, 1, 3, 4, 5, 0, DateTimeZone.UTC)));
+        assertOptimizedEquals("time '03:04'", getTimestamp(new DateTime(1970, 1, 1, 3, 4, 0, 0, DateTimeZone.UTC)));
 
-        assertOptimizedEquals("time '03:04:05.321Z'", getSeconds(new DateTime(1970, 1, 1, 3, 4, 5, 321, DateTimeZone.UTC)));
-        assertOptimizedEquals("time '03:04:05Z'", getSeconds(new DateTime(1970, 1, 1, 3, 4, 5, 0, DateTimeZone.UTC)));
-        assertOptimizedEquals("time '03:04Z'", getSeconds(new DateTime(1970, 1, 1, 3, 4, 0, 0, DateTimeZone.UTC)));
+        assertOptimizedEquals("time '03:04:05.321Z'", getTimeWithTimeZone(new DateTime(1970, 1, 1, 3, 4, 5, 321, DateTimeZone.UTC)));
+        assertOptimizedEquals("time '03:04:05Z'", getTimeWithTimeZone(new DateTime(1970, 1, 1, 3, 4, 5, 0, DateTimeZone.UTC)));
+        assertOptimizedEquals("time '03:04Z'", getTimeWithTimeZone(new DateTime(1970, 1, 1, 3, 4, 0, 0, DateTimeZone.UTC)));
 
-        assertOptimizedEquals("time '03:04:05.321+05:00'", getSeconds(new DateTime(1970, 1, 1, 3, 4, 5, 321, timeZone)));
-        assertOptimizedEquals("time '03:04:05+05:00'", getSeconds(new DateTime(1970, 1, 1, 3, 4, 5, 0, timeZone)));
-        assertOptimizedEquals("time '03:04+05:00'", getSeconds(new DateTime(1970, 1, 1, 3, 4, 0, 0, timeZone)));
+        assertOptimizedEquals("time '03:04:05.321+05:00'", getTimeWithTimeZone(new DateTime(1970, 1, 1, 3, 4, 5, 321, timeZone)));
+        assertOptimizedEquals("time '03:04:05+05:00'",     getTimeWithTimeZone(new DateTime(1970, 1, 1, 3, 4, 5, 0, timeZone)));
+        assertOptimizedEquals("time '03:04+05:00'",        getTimeWithTimeZone(new DateTime(1970, 1, 1, 3, 4, 0, 0, timeZone)));
 
-        assertOptimizedEquals("time '03:04:05.321+05'", getSeconds(new DateTime(1970, 1, 1, 3, 4, 5, 321, timeZone)));
-        assertOptimizedEquals("time '03:04:05+05'", getSeconds(new DateTime(1970, 1, 1, 3, 4, 5, 0, timeZone)));
-        assertOptimizedEquals("time '03:04+05'", getSeconds(new DateTime(1970, 1, 1, 3, 4, 0, 0, timeZone)));
-
-        assertOptimizedEquals("time '03:04:05.321 Asia/Oral'", getSeconds(new DateTime(1970, 1, 1, 3, 4, 5, 321, timeZone)));
-        assertOptimizedEquals("time '03:04:05 Asia/Oral'", getSeconds(new DateTime(1970, 1, 1, 3, 4, 5, 0, timeZone)));
-        assertOptimizedEquals("time '03:04 Asia/Oral'", getSeconds(new DateTime(1970, 1, 1, 3, 4, 0, 0, timeZone)));
+        assertOptimizedEquals("time '03:04:05.321+05'", getTimeWithTimeZone(new DateTime(1970, 1, 1, 3, 4, 5, 321, timeZone)));
+        assertOptimizedEquals("time '03:04:05+05'", getTimeWithTimeZone(new DateTime(1970, 1, 1, 3, 4, 5, 0, timeZone)));
+        assertOptimizedEquals("time '03:04+05'", getTimeWithTimeZone(new DateTime(1970, 1, 1, 3, 4, 0, 0, timeZone)));
     }
 
     @Test
@@ -883,9 +888,26 @@ public class TestExpressionInterpreter
         };
     }
 
-    private static String getSeconds(DateTime dateTime)
+    private static String getTime(DateTime dateTime)
     {
-        return String.valueOf(MILLISECONDS.toSeconds(dateTime.getMillis()));
+        return "millis_to_time(" + dateTime.getMillis() + ")";
+    }
+
+    private static String getTimeWithTimeZone(DateTime dateTime)
+    {
+        int offsetMinutes = dateTime.getZone().getOffset(dateTime) / 60 / 1000;
+        return "millis_to_time(" + dateTime.getMillis() + "," + offsetMinutes / 60 + "," + offsetMinutes % 60 + ")";
+    }
+
+    private static String getTimestamp(DateTime dateTime)
+    {
+        return "from_unixtime(" + (dateTime.getMillis() / 1000.0) + ")";
+    }
+
+    private static String getTimestampWithTimeZone(DateTime dateTime)
+    {
+        int offsetMinutes = dateTime.getZone().getOffset(dateTime) / 60 / 1000;
+        return "from_unixtime(" + (dateTime.getMillis() / 1000.0) + "," + offsetMinutes / 60 + "," + offsetMinutes % 60 + ")";
     }
 
     private static void assertOptimizedEquals(@Language("SQL") String actual, @Language("SQL") String expected)
@@ -918,9 +940,12 @@ public class TestExpressionInterpreter
                         return Slices.wrappedBuffer("hello".getBytes(UTF_8));
                     case "bound_double":
                         return 12.34;
+                    case "bound_date":
+                        return new LocalDate(2001, 8, 22).toDateMidnight(DateTimeZone.UTC).getMillis();
+                    case "bound_time":
+                        return new LocalTime(3, 4, 5, 321).toDateTime(new DateTime(0, DateTimeZone.UTC)).getMillis();
                     case "bound_timestamp":
-                        DateTime dateTime = new DateTime(2001, 8, 22, 3, 4, 5, 321, DateTimeZone.UTC);
-                        return MILLISECONDS.toSeconds(dateTime.getMillis());
+                        return new DateTime(2001, 8, 22, 3, 4, 5, 321, DateTimeZone.UTC).getMillis();
                     case "bound_pattern":
                         return Slices.wrappedBuffer("%el%".getBytes(UTF_8));
                 }

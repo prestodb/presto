@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.block.rle;
 
+import com.facebook.presto.spi.Session;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockCursor;
@@ -145,10 +146,10 @@ public final class RunLengthEncodedBlockCursor
     }
 
     @Override
-    public Object getObjectValue()
+    public Object getObjectValue(Session session)
     {
         checkReadablePosition();
-        return value.getObjectValue(0);
+        return value.getObjectValue(session, 0);
     }
 
     @Override

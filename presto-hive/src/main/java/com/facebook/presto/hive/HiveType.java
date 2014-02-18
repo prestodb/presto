@@ -16,6 +16,7 @@ package com.facebook.presto.hive;
 import com.facebook.presto.spi.type.BigintType;
 import com.facebook.presto.spi.type.BooleanType;
 import com.facebook.presto.spi.type.DoubleType;
+import com.facebook.presto.spi.type.TimestampType;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.VarcharType;
 import com.google.common.base.Function;
@@ -51,7 +52,7 @@ public enum HiveType
     FLOAT(DoubleType.DOUBLE),
     DOUBLE(DoubleType.DOUBLE),
     STRING(VarcharType.VARCHAR),
-    TIMESTAMP(BigintType.BIGINT),
+    TIMESTAMP(TimestampType.TIMESTAMP),
     BINARY(VarcharType.VARCHAR),
     LIST(VarcharType.VARCHAR),
     MAP(VarcharType.VARCHAR),

@@ -63,11 +63,11 @@ import org.testng.annotations.Test;
 import java.io.File;
 import java.net.URI;
 import java.util.Locale;
-import java.util.TimeZone;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 
+import static com.facebook.presto.spi.type.TimeZoneKey.UTC_KEY;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.util.Threads.threadsNamed;
 import static org.testng.Assert.assertEquals;
@@ -136,7 +136,7 @@ public class TestSqlTaskExecution
                 ImmutableList.<Symbol>of());
 
         TaskId taskId = new TaskId("query", "stage", "task");
-        Session session = new Session("user", "test", "default", "default", TimeZone.getTimeZone("UTC"), Locale.ENGLISH, "test", "test");
+        Session session = new Session("user", "test", "default", "default", UTC_KEY, Locale.ENGLISH, "test", "test");
 
         taskNotificationExecutor = Executors.newCachedThreadPool(threadsNamed("task-notification-%d"));
 

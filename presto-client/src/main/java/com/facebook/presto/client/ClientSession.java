@@ -17,7 +17,6 @@ import com.google.common.base.Objects;
 
 import java.net.URI;
 import java.util.Locale;
-import java.util.TimeZone;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 
@@ -28,7 +27,7 @@ public class ClientSession
     private final String source;
     private final String catalog;
     private final String schema;
-    private final TimeZone timeZone;
+    private final String timeZoneId;
     private final Locale locale;
     private final boolean debug;
 
@@ -40,7 +39,7 @@ public class ClientSession
                 session.getSource(),
                 catalog,
                 session.getSchema(),
-                session.getTimeZone(),
+                session.getTimeZoneId(),
                 session.getLocale(),
                 session.isDebug());
     }
@@ -53,20 +52,20 @@ public class ClientSession
                 session.getSource(),
                 session.getCatalog(),
                 schema,
-                session.getTimeZone(),
+                session.getTimeZoneId(),
                 session.getLocale(),
                 session.isDebug());
     }
 
-    public ClientSession(URI server, String user, String source, String catalog, String schema, TimeZone timeZone, Locale locale, boolean debug)
+    public ClientSession(URI server, String user, String source, String catalog, String schema, String timeZoneId, Locale locale, boolean debug)
     {
-        this.timeZone = timeZone;
-        this.locale = locale;
         this.server = checkNotNull(server, "server is null");
         this.user = user;
         this.source = source;
         this.catalog = catalog;
         this.schema = schema;
+        this.locale = locale;
+        this.timeZoneId = timeZoneId;
         this.debug = debug;
     }
 
@@ -95,9 +94,9 @@ public class ClientSession
         return schema;
     }
 
-    public TimeZone getTimeZone()
+    public String getTimeZoneId()
     {
-        return timeZone;
+        return timeZoneId;
     }
 
     public Locale getLocale()
@@ -118,7 +117,7 @@ public class ClientSession
                 .add("user", user)
                 .add("catalog", catalog)
                 .add("schema", schema)
-                .add("timeZone", timeZone)
+                .add("timeZone", timeZoneId)
                 .add("locale", locale)
                 .add("debug", debug)
                 .toString();

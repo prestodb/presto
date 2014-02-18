@@ -13,15 +13,18 @@
  */
 package com.facebook.presto.block;
 
+import com.facebook.presto.spi.Session;
 import com.facebook.presto.spi.block.BlockCursor;
 import com.facebook.presto.spi.type.Type;
 
+import java.util.Locale;
 import java.util.SortedMap;
 import java.util.TreeMap;
 
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
+import static com.facebook.presto.spi.type.TimeZoneKey.UTC_KEY;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static java.util.Collections.unmodifiableSortedMap;
 import static org.testng.Assert.assertEquals;
@@ -30,6 +33,8 @@ import static org.testng.Assert.fail;
 
 public final class BlockCursorAssertions
 {
+    public static final Session SESSION = new Session("user", "source", "catalog", "schema", UTC_KEY, Locale.ENGLISH, "address", "agent");
+
     private BlockCursorAssertions() {}
 
     public static void assertAdvanceNextPosition(BlockCursor cursor)
@@ -51,8 +56,8 @@ public final class BlockCursorAssertions
     public static void assertCurrentValue(BlockCursor cursor, int position, Object value)
     {
         assertEquals(cursor.getPosition(), position);
-        assertEquals(cursor.getObjectValue(), value);
-        assertEquals(cursor.getObjectValue(), value);
+        assertEquals(cursor.getObjectValue(SESSION), value);
+        assertEquals(cursor.getObjectValue(SESSION), value);
 
         assertEquals(cursor.isNull(), value == null);
         if (cursor.isNull()) {
@@ -138,7 +143,7 @@ public final class BlockCursorAssertions
     {
         SortedMap<Integer, Object> values = new TreeMap<>();
         while (cursor.advanceNextPosition()) {
-            values.put(cursor.getPosition(), cursor.getObjectValue());
+            values.put(cursor.getPosition(), cursor.getObjectValue(SESSION));
         }
         return unmodifiableSortedMap(values);
     }

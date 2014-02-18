@@ -186,7 +186,8 @@ public class QueryResults
                 return Boolean.class.cast(value);
             case "varchar":
                 return String.class.cast(value);
+            default:
+                return value;
         }
-        throw new AssertionError("unimplemented type: " + type);
     }
 }

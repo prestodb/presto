@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.spi.block;
 
+import com.facebook.presto.spi.Session;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.VariableWidthType;
 import io.airlift.slice.Slice;
@@ -94,14 +95,14 @@ public abstract class AbstractVariableWidthRandomAccessBlock
     }
 
     @Override
-    public Object getObjectValue(int position)
+    public Object getObjectValue(Session session, int position)
     {
         checkReadablePosition(position);
         if (isNull(position)) {
             return null;
         }
         int offset = getPositionOffset(position);
-        return type.getObjectValue(getRawSlice(), offset + SIZE_OF_BYTE);
+        return type.getObjectValue(session, getRawSlice(), offset + SIZE_OF_BYTE);
     }
 
     @Override

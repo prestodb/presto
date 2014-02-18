@@ -313,32 +313,31 @@ singleExpression returns [Expression value]
     ;
 
 expr returns [Expression value]
-    : NULL                  { $value = new NullLiteral(); }
-    | qname                 { $value = new QualifiedNameReference($qname.value); }
-    | functionCall          { $value = $functionCall.value; }
-    | arithmeticExpression  { $value = $arithmeticExpression.value; }
-    | comparisonExpression  { $value = $comparisonExpression.value; }
-    | ^(AND a=expr b=expr)  { $value = LogicalBinaryExpression.and($a.value, $b.value); }
-    | ^(OR a=expr b=expr)   { $value = LogicalBinaryExpression.or($a.value, $b.value); }
-    | ^(NOT e=expr)         { $value = new NotExpression($e.value); }
+    : NULL                    { $value = new NullLiteral(); }
+    | qname                   { $value = new QualifiedNameReference($qname.value); }
+    | functionCall            { $value = $functionCall.value; }
+    | arithmeticExpression    { $value = $arithmeticExpression.value; }
+    | comparisonExpression    { $value = $comparisonExpression.value; }
+    | ^(AND a=expr b=expr)    { $value = LogicalBinaryExpression.and($a.value, $b.value); }
+    | ^(OR a=expr b=expr)     { $value = LogicalBinaryExpression.or($a.value, $b.value); }
+    | ^(NOT e=expr)           { $value = new NotExpression($e.value); }
     | ^(LITERAL ident string) { $value = new GenericLiteral($ident.value, $string.value); }
-    | ^(DATE string)        { $value = new DateLiteral($string.value); }
-    | ^(TIME string)        { $value = new TimeLiteral($string.value); }
-    | ^(TIMESTAMP string)   { $value = new TimestampLiteral($string.value); }
-    | string                { $value = new StringLiteral($string.value); }
-    | integer               { $value = new LongLiteral($integer.value); }
-    | decimal               { $value = new DoubleLiteral($decimal.value); }
-    | TRUE                  { $value = BooleanLiteral.TRUE_LITERAL; }
-    | FALSE                 { $value = BooleanLiteral.FALSE_LITERAL; }
-    | intervalValue         { $value = $intervalValue.value; }
-    | predicate             { $value = $predicate.value; }
-    | ^(IN_LIST exprList)   { $value = new InListExpression($exprList.value); }
-    | ^(NEGATIVE e=expr)    { $value = new NegativeExpression($e.value); }
-    | caseExpression        { $value = $caseExpression.value; }
-    | query                 { $value = new SubqueryExpression($query.value); }
-    | extract               { $value = $extract.value; }
-    | current_time          { $value = $current_time.value; }
-    | cast                  { $value = $cast.value; }
+    | ^(TIME string)          { $value = new TimeLiteral($string.value); }
+    | ^(TIMESTAMP string)     { $value = new TimestampLiteral($string.value); }
+    | string                  { $value = new StringLiteral($string.value); }
+    | integer                 { $value = new LongLiteral($integer.value); }
+    | decimal                 { $value = new DoubleLiteral($decimal.value); }
+    | TRUE                    { $value = BooleanLiteral.TRUE_LITERAL; }
+    | FALSE                   { $value = BooleanLiteral.FALSE_LITERAL; }
+    | intervalValue           { $value = $intervalValue.value; }
+    | predicate               { $value = $predicate.value; }
+    | ^(IN_LIST exprList)     { $value = new InListExpression($exprList.value); }
+    | ^(NEGATIVE e=expr)      { $value = new NegativeExpression($e.value); }
+    | caseExpression          { $value = $caseExpression.value; }
+    | query                   { $value = new SubqueryExpression($query.value); }
+    | extract                 { $value = $extract.value; }
+    | current_time            { $value = $current_time.value; }
+    | cast                    { $value = $cast.value; }
     ;
 
 exprList returns [List<Expression> value = new ArrayList<>()]
@@ -412,8 +411,12 @@ current_time returns [CurrentTime value]
     : CURRENT_DATE                   { $value = new CurrentTime(CurrentTime.Type.DATE); }
     | CURRENT_TIME                   { $value = new CurrentTime(CurrentTime.Type.TIME); }
     | CURRENT_TIMESTAMP              { $value = new CurrentTime(CurrentTime.Type.TIMESTAMP); }
+    | LOCALTIME                      { $value = new CurrentTime(CurrentTime.Type.LOCALTIME); }
+    | LOCALTIMESTAMP                 { $value = new CurrentTime(CurrentTime.Type.LOCALTIMESTAMP); }
     | ^(CURRENT_TIME integer)        { $value = new CurrentTime(CurrentTime.Type.TIME, Integer.valueOf($integer.value)); }
     | ^(CURRENT_TIMESTAMP integer)   { $value = new CurrentTime(CurrentTime.Type.TIMESTAMP, Integer.valueOf($integer.value)); }
+    | ^(LOCALTIME integer)           { $value = new CurrentTime(CurrentTime.Type.LOCALTIME, Integer.valueOf($integer.value)); }
+    | ^(LOCALTIMESTAMP integer)      { $value = new CurrentTime(CurrentTime.Type.LOCALTIMESTAMP, Integer.valueOf($integer.value)); }
     ;
 
 arithmeticExpression returns [ArithmeticExpression value]
@@ -443,25 +446,21 @@ comparisonType returns [ComparisonExpression.Type value]
     ;
 
 intervalValue returns [IntervalLiteral value]
-    : ^(INTERVAL s=string q=intervalQualifier g=intervalSign) { $value = new IntervalLiteral($s.value, $q.value, $g.value); }
-    ;
-
-// TODO: this needs to be structured data
-intervalQualifier returns [String value]
-    : t=nonSecond                   { $value = $t.value; }
-    | ^(t=nonSecond p=integer)      { $value = String.format("\%s (\%s)", $t.value, $p.value); }
-    | SECOND                        { $value = "SECOND"; }
-    | ^(SECOND p=integer)           { $value = String.format("SECOND (\%s)", $p.value); }
-    | ^(SECOND p=integer s=integer) { $value = String.format("SECOND (\%s, \%s)", $p.value, $s.value); }
-    ;
-
-nonSecond returns [String value]
-    : t=(YEAR | MONTH | DAY | HOUR | MINUTE) { $value = $t.text; }
+    : ^(INTERVAL v=string g=intervalSign s=intervalField e=intervalField? ) { $value = new IntervalLiteral($v.value, $g.value, $s.value, $e.value); }
     ;
 
 intervalSign returns [IntervalLiteral.Sign value]
     : NEGATIVE { $value = IntervalLiteral.Sign.NEGATIVE; }
     |          { $value = IntervalLiteral.Sign.POSITIVE; }
+    ;
+
+intervalField returns [IntervalLiteral.IntervalField value]
+    : YEAR          { $value = IntervalLiteral.IntervalField.YEAR; }
+    | MONTH         { $value = IntervalLiteral.IntervalField.MONTH; }
+    | DAY           { $value = IntervalLiteral.IntervalField.DAY; }
+    | HOUR          { $value = IntervalLiteral.IntervalField.HOUR; }
+    | MINUTE        { $value = IntervalLiteral.IntervalField.MINUTE; }
+    | SECOND        { $value = IntervalLiteral.IntervalField.SECOND; }
     ;
 
 predicate returns [Expression value]

@@ -27,12 +27,12 @@ import org.testng.annotations.Test;
 
 import java.util.List;
 import java.util.Locale;
-import java.util.TimeZone;
 import java.util.concurrent.ExecutorService;
 
 import static com.facebook.presto.operator.RowPagesBuilder.rowPagesBuilder;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
+import static com.facebook.presto.spi.type.TimeZoneKey.UTC_KEY;
 import static com.facebook.presto.util.MaterializedResult.resultBuilder;
 import static com.facebook.presto.util.Threads.daemonThreadsNamed;
 import static io.airlift.units.DataSize.Unit.BYTE;
@@ -48,7 +48,7 @@ public class TestHashSemiJoinOperator
     public void setUp()
     {
         executor = newCachedThreadPool(daemonThreadsNamed("test"));
-        Session session = new Session("user", "source", "catalog", "schema", TimeZone.getTimeZone("UTC"), Locale.ENGLISH, "address", "agent");
+        Session session = new Session("user", "source", "catalog", "schema", UTC_KEY, Locale.ENGLISH, "address", "agent");
         taskContext = new TaskContext(new TaskId("query", "stage", "task"), executor, session);
     }
 
@@ -95,7 +95,7 @@ public class TestHashSemiJoinOperator
         Operator joinOperator = joinOperatorFactory.createOperator(driverContext);
 
         // expected
-        MaterializedResult expected = resultBuilder(BIGINT, BIGINT, BOOLEAN)
+        MaterializedResult expected = resultBuilder(driverContext.getSession(), BIGINT, BIGINT, BOOLEAN)
                 .row(30, 0, true)
                 .row(31, 1, false)
                 .row(32, 2, false)
@@ -147,7 +147,7 @@ public class TestHashSemiJoinOperator
         Operator joinOperator = joinOperatorFactory.createOperator(driverContext);
 
         // expected
-        MaterializedResult expected = resultBuilder(BIGINT, BOOLEAN)
+        MaterializedResult expected = resultBuilder(driverContext.getSession(), BIGINT, BOOLEAN)
                 .row(1, true)
                 .row(2, true)
                 .row(3, true)
@@ -193,7 +193,7 @@ public class TestHashSemiJoinOperator
         Operator joinOperator = joinOperatorFactory.createOperator(driverContext);
 
         // expected
-        MaterializedResult expected = resultBuilder(BIGINT, BOOLEAN)
+        MaterializedResult expected = resultBuilder(driverContext.getSession(), BIGINT, BOOLEAN)
                 .row(0, true)
                 .row(null, null)
                 .row(1, true)
@@ -240,7 +240,7 @@ public class TestHashSemiJoinOperator
         Operator joinOperator = joinOperatorFactory.createOperator(driverContext);
 
         // expected
-        MaterializedResult expected = resultBuilder(BIGINT, BOOLEAN)
+        MaterializedResult expected = resultBuilder(driverContext.getSession(), BIGINT, BOOLEAN)
                 .row(0, true)
                 .row(null, null)
                 .row(1, true)
@@ -254,7 +254,7 @@ public class TestHashSemiJoinOperator
     public void testMemoryLimit()
             throws Exception
     {
-        Session session = new Session("user", "source", "catalog", "schema", TimeZone.getTimeZone("UTC"), Locale.ENGLISH, "address", "agent");
+        Session session = new Session("user", "source", "catalog", "schema", UTC_KEY, Locale.ENGLISH, "address", "agent");
         DriverContext driverContext = new TaskContext(new TaskId("query", "stage", "task"), executor, session, new DataSize(100, BYTE))
                 .addPipelineContext(true, true)
                 .addDriverContext();

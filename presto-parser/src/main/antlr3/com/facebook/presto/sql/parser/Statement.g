@@ -57,6 +57,7 @@ tokens {
     SEARCHED_CASE;
     FUNCTION_CALL;
     LITERAL;
+    TIME_ZONE_CONVERSION;
     WINDOW;
     PARTITION_BY;
     UNBOUNDED_PRECEDING;
@@ -399,13 +400,21 @@ numericTerm
     ;
 
 numericFactor
-    : '+'? exprPrimary -> exprPrimary
-    | '-' exprPrimary  -> ^(NEGATIVE exprPrimary)
+    : '+'? exprWithTimeZone -> exprWithTimeZone
+    | '-' exprWithTimeZone  -> ^(NEGATIVE exprWithTimeZone)
+    ;
+
+exprWithTimeZone
+    : (exprPrimary -> exprPrimary)
+      (
+        // todo this should have a full tree node to preserve the syntax
+        AT TIME ZONE STRING           -> ^(FUNCTION_CALL ^(QNAME IDENT["at_time_zone"]) $exprWithTimeZone STRING)
+      | AT TIME ZONE intervalLiteral    -> ^(FUNCTION_CALL ^(QNAME IDENT["at_time_zone"]) $exprWithTimeZone intervalLiteral)
+      )?
     ;
 
 exprPrimary
     : NULL
-    | (intervalValue) => intervalValue
     | (literal) => literal
     | qnameOrFunction
     | specialFunction
@@ -457,14 +466,15 @@ literal
     | (BIGINT) => BIGINT STRING       -> ^(LITERAL IDENT["BIGINT"] STRING)
     | (DOUBLE) => DOUBLE STRING       -> ^(LITERAL IDENT["DOUBLE"] STRING)
     | (BOOLEAN) => BOOLEAN STRING     -> ^(LITERAL IDENT["BOOLEAN"] STRING)
-    | (DATE) => DATE STRING           -> ^(DATE STRING)
+    | (DATE) => DATE STRING           -> ^(LITERAL IDENT["DATE"] STRING)
     | (TIME) => TIME STRING           -> ^(TIME STRING)
     | (TIMESTAMP) => TIMESTAMP STRING -> ^(TIMESTAMP STRING)
+    | (INTERVAL) => intervalLiteral
     | ident STRING                    -> ^(LITERAL ident STRING)
     ;
 
-intervalValue
-    : INTERVAL intervalSign? STRING intervalQualifier -> ^(INTERVAL STRING intervalQualifier intervalSign?)
+intervalLiteral
+    : INTERVAL intervalSign? STRING s=intervalField ( TO e=intervalField )? -> ^(INTERVAL STRING intervalSign? $s $e?)
     ;
 
 intervalSign
@@ -472,30 +482,30 @@ intervalSign
     | '-' -> NEGATIVE
     ;
 
-intervalQualifier
-    : nonSecond ('(' integer ')')?                 -> ^(nonSecond integer?)
-    | SECOND ('(' p=integer (',' s=integer)? ')')? -> ^(SECOND $p? $s?)
-    ;
-
-nonSecond
-    : YEAR | MONTH | DAY | HOUR | MINUTE
+intervalField
+    : YEAR | MONTH | DAY | HOUR | MINUTE | SECOND
     ;
 
 specialFunction
     : CURRENT_DATE
     | CURRENT_TIME ('(' integer ')')?              -> ^(CURRENT_TIME integer?)
     | CURRENT_TIMESTAMP ('(' integer ')')?         -> ^(CURRENT_TIMESTAMP integer?)
+    | LOCALTIME ('(' integer ')')?                 -> ^(LOCALTIME integer?)
+    | LOCALTIMESTAMP ('(' integer ')')?            -> ^(LOCALTIMESTAMP integer?)
     | SUBSTRING '(' expr FROM expr (FOR expr)? ')' -> ^(FUNCTION_CALL ^(QNAME IDENT["substr"]) expr expr expr?)
     | EXTRACT '(' ident FROM expr ')'              -> ^(EXTRACT ident expr)
-    | CAST '(' expr AS type ')'                    -> ^(CAST expr IDENT[$type.text])
+    | CAST '(' expr AS type ')'                    -> ^(CAST expr type)
     ;
 
 // TODO: this should be 'dataType', which supports arbitrary type specifications. For now we constrain to simple types
 type
-    : VARCHAR
-    | BIGINT
-    | DOUBLE
-    | BOOLEAN
+    : VARCHAR                    -> IDENT["VARCHAR"]
+    | BIGINT                     -> IDENT["BIGINT"]
+    | DOUBLE                     -> IDENT["DOUBLE"]
+    | BOOLEAN                    -> IDENT["BOOLEAN"]
+    | TIME WITH TIME ZONE        -> IDENT["TIME WITH TIME ZONE"]
+    | TIMESTAMP WITH TIME ZONE   -> IDENT["TIMESTAMP WITH TIME ZONE"]
+    | ident
     ;
 
 caseExpression
@@ -694,7 +704,7 @@ nonReserved
     | DATE | TIME | TIMESTAMP | INTERVAL
     | YEAR | MONTH | DAY | HOUR | MINUTE | SECOND
     | EXPLAIN | FORMAT | TYPE | TEXT | GRAPHVIZ | LOGICAL | DISTRIBUTED
-    | TABLESAMPLE | SYSTEM | BERNOULLI | POISSONIZED | USE | SCHEMA | CATALOG | JSON
+    | TABLESAMPLE | SYSTEM | BERNOULLI | POISSONIZED | USE | SCHEMA | CATALOG | JSON | TO
     | RESCALED | APPROXIMATE | AT | CONFIDENCE
     ;
 
@@ -741,9 +751,12 @@ DAY: 'DAY';
 HOUR: 'HOUR';
 MINUTE: 'MINUTE';
 SECOND: 'SECOND';
+ZONE: 'ZONE';
 CURRENT_DATE: 'CURRENT_DATE';
 CURRENT_TIME: 'CURRENT_TIME';
 CURRENT_TIMESTAMP: 'CURRENT_TIMESTAMP';
+LOCALTIME: 'LOCALTIME';
+LOCALTIMESTAMP: 'LOCALTIMESTAMP';
 EXTRACT: 'EXTRACT';
 COALESCE: 'COALESCE';
 NULLIF: 'NULLIF';
@@ -815,6 +828,7 @@ DROP: 'DROP';
 UNION: 'UNION';
 EXCEPT: 'EXCEPT';
 INTERSECT: 'INTERSECT';
+TO: 'TO';
 SYSTEM: 'SYSTEM';
 BERNOULLI: 'BERNOULLI';
 POISSONIZED: 'POISSONIZED';

@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.spi.block;
 
+import com.facebook.presto.spi.Session;
 import com.facebook.presto.spi.type.FixedWidthType;
 import com.facebook.presto.spi.type.Type;
 import io.airlift.slice.Slice;
@@ -175,13 +176,13 @@ public class FixedWidthBlockCursor
     }
 
     @Override
-    public Object getObjectValue()
+    public Object getObjectValue(Session session)
     {
         checkReadablePosition();
         if (isNull()) {
             return null;
         }
-        return type.getObjectValue(slice, offset + SIZE_OF_BYTE);
+        return type.getObjectValue(session, slice, offset + SIZE_OF_BYTE);
     }
 
     @Override
