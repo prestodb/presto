@@ -14,7 +14,6 @@
 package com.facebook.presto.sql.planner.optimizations;
 
 import com.facebook.presto.sql.analyzer.Session;
-import com.facebook.presto.sql.analyzer.Type;
 import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.SymbolAllocator;
@@ -23,6 +22,7 @@ import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.PlanNodeRewriter;
 import com.facebook.presto.sql.planner.plan.PlanRewriter;
 import com.facebook.presto.sql.planner.plan.UnionNode;
+import com.facebook.presto.type.Type;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.Iterables;

@@ -42,6 +42,12 @@ public class VarcharType
     }
 
     @Override
+    public Class<?> getJavaType()
+    {
+        return Slice.class;
+    }
+
+    @Override
     public ColumnType toColumnType()
     {
         return ColumnType.STRING;

@@ -22,7 +22,6 @@ import com.facebook.presto.spi.RecordCursor;
 import com.facebook.presto.spi.StandardErrorCode;
 import com.facebook.presto.sql.Casts;
 import com.facebook.presto.sql.analyzer.Session;
-import com.facebook.presto.sql.analyzer.Type;
 import com.facebook.presto.sql.tree.ArithmeticExpression;
 import com.facebook.presto.sql.tree.AstVisitor;
 import com.facebook.presto.sql.tree.BetweenPredicate;
@@ -54,6 +53,7 @@ import com.facebook.presto.sql.tree.SearchedCaseExpression;
 import com.facebook.presto.sql.tree.SimpleCaseExpression;
 import com.facebook.presto.sql.tree.StringLiteral;
 import com.facebook.presto.sql.tree.WhenClause;
+import com.facebook.presto.type.Type;
 import com.google.common.base.Charsets;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Predicate;
@@ -74,6 +74,10 @@ import java.util.Set;
 
 import static com.facebook.presto.sql.planner.LiteralInterpreter.toExpression;
 import static com.facebook.presto.sql.planner.LiteralInterpreter.toExpressions;
+import static com.facebook.presto.type.BigintType.BIGINT;
+import static com.facebook.presto.type.BooleanType.BOOLEAN;
+import static com.facebook.presto.type.DoubleType.DOUBLE;
+import static com.facebook.presto.type.VarcharType.VARCHAR;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 
@@ -750,16 +754,16 @@ public class ExpressionInterpreter
                 }
                 Type type;
                 if (value instanceof Double) {
-                    type = Type.DOUBLE;
+                    type = DOUBLE;
                 }
                 else if (value instanceof Long) {
-                    type = Type.BIGINT;
+                    type = BIGINT;
                 }
                 else if (value instanceof Slice) {
-                    type = Type.VARCHAR;
+                    type = VARCHAR;
                 }
                 else if (value instanceof Boolean) {
-                    type = Type.BOOLEAN;
+                    type = BOOLEAN;
                 }
                 else if (value instanceof Expression) {
                     // TODO when we know the type of this expression, construct new FunctionCall node with optimized arguments

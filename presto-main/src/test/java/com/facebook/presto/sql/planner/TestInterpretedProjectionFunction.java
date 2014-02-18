@@ -31,11 +31,12 @@ import javax.annotation.Nullable;
 import java.util.Map;
 
 import static com.facebook.presto.connector.dual.DualMetadata.DUAL_METADATA_MANAGER;
-import static com.facebook.presto.sql.analyzer.Type.BIGINT;
-import static com.facebook.presto.sql.analyzer.Type.BOOLEAN;
-import static com.facebook.presto.sql.analyzer.Type.DOUBLE;
-import static com.facebook.presto.sql.analyzer.Type.VARCHAR;
 import static com.facebook.presto.sql.parser.SqlParser.createExpression;
+import static com.facebook.presto.type.BigintType.BIGINT;
+import static com.facebook.presto.type.BooleanType.BOOLEAN;
+import static com.facebook.presto.type.DoubleType.DOUBLE;
+import static com.facebook.presto.type.Types.fromColumnType;
+import static com.facebook.presto.type.VarcharType.VARCHAR;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
 
@@ -148,21 +149,21 @@ public class TestInterpretedProjectionFunction
         assertProjection(VARCHAR, createExpression("symbol"), null, ImmutableMap.of(new Symbol("symbol"), new Input(0)), createCursor(VARCHAR, null));
     }
 
-    public static void assertProjection(com.facebook.presto.sql.analyzer.Type outputType, String expression, @Nullable Object expectedValue)
+    public static void assertProjection(Type outputType, String expression, @Nullable Object expectedValue)
     {
         assertProjection(outputType, createExpression(expression), expectedValue, ImmutableMap.<Symbol, Input>of());
     }
 
-    private static void assertProjection(com.facebook.presto.sql.analyzer.Type outputType,
+    private static void assertProjection(Type outputType,
             Expression expression,
             @Nullable Object expectedValue,
             Map<Symbol, Input> symbolToInputMappings,
             BlockCursor... channels)
     {
-        Builder<Input, com.facebook.presto.sql.analyzer.Type> inputTypes = ImmutableMap.builder();
+        Builder<Input, Type> inputTypes = ImmutableMap.builder();
         for (Input input : symbolToInputMappings.values()) {
             Type type = channels[input.getChannel()].getType();
-            inputTypes.put(input, com.facebook.presto.sql.analyzer.Type.fromRaw(type.toColumnType()));
+            inputTypes.put(input, fromColumnType(type.toColumnType()));
         }
         InterpretedProjectionFunction projectionFunction = new InterpretedProjectionFunction(outputType,
                 expression,
@@ -172,7 +173,7 @@ public class TestInterpretedProjectionFunction
         );
 
         // create output
-        BlockBuilder builder = outputType.getRawType().createBlockBuilder(new BlockBuilderStatus());
+        BlockBuilder builder = outputType.createBlockBuilder(new BlockBuilderStatus());
 
         // project
         projectionFunction.project(channels, builder);
@@ -182,9 +183,9 @@ public class TestInterpretedProjectionFunction
         assertEquals(actualValue, expectedValue);
     }
 
-    private static BlockCursor createCursor(com.facebook.presto.sql.analyzer.Type type, Object value)
+    private static BlockCursor createCursor(Type type, Object value)
     {
-        BlockCursor cursor = type.getRawType().createBlockBuilder(new BlockBuilderStatus()).appendObject(value).build().cursor();
+        BlockCursor cursor = type.createBlockBuilder(new BlockBuilderStatus()).appendObject(value).build().cursor();
         assertTrue(cursor.advanceNextPosition());
         return cursor;
     }

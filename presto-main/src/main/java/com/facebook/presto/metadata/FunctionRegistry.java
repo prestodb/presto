@@ -32,9 +32,9 @@ import com.facebook.presto.operator.window.WindowFunction;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.StandardErrorCode;
 import com.facebook.presto.sql.analyzer.Session;
-import com.facebook.presto.sql.analyzer.Type;
 import com.facebook.presto.sql.gen.FunctionBinder;
 import com.facebook.presto.sql.tree.QualifiedName;
+import com.facebook.presto.type.Type;
 import com.facebook.presto.util.IterableTransformer;
 import com.google.common.base.Joiner;
 import com.google.common.base.Predicate;
@@ -108,10 +108,10 @@ import static com.facebook.presto.operator.aggregation.VarianceAggregations.LONG
 import static com.facebook.presto.operator.aggregation.VarianceAggregations.LONG_STDDEV_POP_INSTANCE;
 import static com.facebook.presto.operator.aggregation.VarianceAggregations.LONG_VARIANCE_INSTANCE;
 import static com.facebook.presto.operator.aggregation.VarianceAggregations.LONG_VARIANCE_POP_INSTANCE;
-import static com.facebook.presto.sql.analyzer.Type.BIGINT;
-import static com.facebook.presto.sql.analyzer.Type.BOOLEAN;
-import static com.facebook.presto.sql.analyzer.Type.DOUBLE;
-import static com.facebook.presto.sql.analyzer.Type.VARCHAR;
+import static com.facebook.presto.type.BigintType.BIGINT;
+import static com.facebook.presto.type.BooleanType.BOOLEAN;
+import static com.facebook.presto.type.DoubleType.DOUBLE;
+import static com.facebook.presto.type.VarcharType.VARCHAR;
 import static com.google.common.base.CaseFormat.LOWER_CAMEL;
 import static com.google.common.base.CaseFormat.LOWER_UNDERSCORE;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -133,11 +133,11 @@ public class FunctionRegistry
                 .window("percent_rank", DOUBLE, ImmutableList.<Type>of(), supplier(PercentRankFunction.class))
                 .window("cume_dist", DOUBLE, ImmutableList.<Type>of(), supplier(CumulativeDistributionFunction.class))
                 .aggregate("count", BIGINT, ImmutableList.<Type>of(), BIGINT, COUNT)
-                .aggregate("count", BIGINT, ImmutableList.<Type>of(BOOLEAN), BIGINT, COUNT_BOOLEAN_COLUMN)
-                .aggregate("count", BIGINT, ImmutableList.<Type>of(BIGINT), BIGINT, COUNT_LONG_COLUMN)
-                .aggregate("count", BIGINT, ImmutableList.<Type>of(DOUBLE), BIGINT, COUNT_DOUBLE_COLUMN)
-                .aggregate("count", BIGINT, ImmutableList.<Type>of(VARCHAR), BIGINT, COUNT_STRING_COLUMN)
-                .aggregate("count_if", BIGINT, ImmutableList.<Type>of(BOOLEAN), BIGINT, COUNT_IF)
+                .aggregate("count", BIGINT, ImmutableList.of(BOOLEAN), BIGINT, COUNT_BOOLEAN_COLUMN)
+                .aggregate("count", BIGINT, ImmutableList.of(BIGINT), BIGINT, COUNT_LONG_COLUMN)
+                .aggregate("count", BIGINT, ImmutableList.of(DOUBLE), BIGINT, COUNT_DOUBLE_COLUMN)
+                .aggregate("count", BIGINT, ImmutableList.of(VARCHAR), BIGINT, COUNT_STRING_COLUMN)
+                .aggregate("count_if", BIGINT, ImmutableList.of(BOOLEAN), BIGINT, COUNT_IF)
                 .aggregate("sum", BIGINT, ImmutableList.of(BIGINT), BIGINT, LONG_SUM)
                 .aggregate("sum", DOUBLE, ImmutableList.of(DOUBLE), DOUBLE, DOUBLE_SUM)
                 .aggregate("avg", DOUBLE, ImmutableList.of(DOUBLE), VARCHAR, DOUBLE_AVERAGE)
@@ -215,7 +215,7 @@ public class FunctionRegistry
         return Iterables.any(functions.get(name), isAggregationPredicate());
     }
 
-    public FunctionInfo get(QualifiedName name, List<Type> parameterTypes, final boolean approximate)
+    public FunctionInfo get(QualifiedName name, List<? extends Type> parameterTypes, final boolean approximate)
     {
         List<FunctionInfo> candidates = IterableTransformer.on(functions.get(name)).select(new Predicate<FunctionInfo>() {
             @Override
@@ -252,7 +252,7 @@ public class FunctionRegistry
         throw new PrestoException(StandardErrorCode.FUNCTION_NOT_FOUND.toErrorCode(), message);
     }
 
-    private static boolean canCoerce(List<Type> parameterTypes, FunctionInfo functionInfo)
+    private static boolean canCoerce(List<? extends Type> parameterTypes, FunctionInfo functionInfo)
     {
         List<Type> functionArguments = functionInfo.getArgumentTypes();
         if (parameterTypes.size() != functionArguments.size()) {
@@ -313,31 +313,32 @@ public class FunctionRegistry
     {
         private final List<FunctionInfo> functions = new ArrayList<>();
 
-        public FunctionListBuilder window(String name, Type returnType, List<Type> argumentTypes, Supplier<WindowFunction> function)
+        public FunctionListBuilder window(String name, Type returnType, List<? extends Type> argumentTypes, Supplier<WindowFunction> function)
         {
             name = name.toLowerCase();
 
             String description = getDescription(function.getClass());
-            functions.add(new FunctionInfo(new Signature(name, returnType, argumentTypes, false), description, function));
+            functions.add(new FunctionInfo(new Signature(name, returnType, ImmutableList.copyOf(argumentTypes), false), description, function));
             return this;
         }
 
-        public FunctionListBuilder approximateAggregate(String name, Type returnType, List<Type> argumentTypes, Type intermediateType, AggregationFunction function)
+        public FunctionListBuilder approximateAggregate(String name, Type returnType, List<? extends Type> argumentTypes, Type intermediateType, AggregationFunction function)
         {
             return aggregate(name, returnType, argumentTypes, true, intermediateType, function);
         }
 
-        public FunctionListBuilder aggregate(String name, Type returnType, List<Type> argumentTypes, Type intermediateType, AggregationFunction function)
+        public FunctionListBuilder aggregate(String name, Type returnType, List<? extends Type> argumentTypes, Type intermediateType, AggregationFunction function)
         {
             return aggregate(name, returnType, argumentTypes, false, intermediateType, function);
         }
 
-        private FunctionListBuilder aggregate(String name, Type returnType, List<Type> argumentTypes, boolean approximate, Type intermediateType, AggregationFunction function)
+        private FunctionListBuilder aggregate(String name, Type returnType, List<? extends Type> argumentTypes, boolean approximate, Type intermediateType,
+                AggregationFunction function)
         {
             name = name.toLowerCase();
 
             String description = getDescription(function.getClass());
-            functions.add(new FunctionInfo(new Signature(name, returnType, argumentTypes, approximate), description, intermediateType, function));
+            functions.add(new FunctionInfo(new Signature(name, returnType, ImmutableList.copyOf(argumentTypes), approximate), description, intermediateType, function));
             return this;
         }
 

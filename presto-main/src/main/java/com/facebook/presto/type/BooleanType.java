@@ -46,6 +46,12 @@ public final class BooleanType
     }
 
     @Override
+    public Class<?> getJavaType()
+    {
+        return boolean.class;
+    }
+
+    @Override
     public int getFixedSize()
     {
         return (int) SIZE_OF_BYTE;

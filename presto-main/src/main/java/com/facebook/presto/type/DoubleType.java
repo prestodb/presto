@@ -46,6 +46,12 @@ public final class DoubleType
     }
 
     @Override
+    public Class<?> getJavaType()
+    {
+        return double.class;
+    }
+
+    @Override
     public int getFixedSize()
     {
         return (int) SIZE_OF_DOUBLE;

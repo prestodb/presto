@@ -106,11 +106,11 @@ public abstract class AbstractTestQueries
 {
     protected static final List<FunctionInfo> CUSTOM_FUNCTIONS = new FunctionRegistry.FunctionListBuilder()
             .aggregate("custom_sum",
-                    com.facebook.presto.sql.analyzer.Type.BIGINT,
-                    ImmutableList.of(com.facebook.presto.sql.analyzer.Type.BIGINT),
-                    com.facebook.presto.sql.analyzer.Type.BIGINT,
+                    BIGINT,
+                    ImmutableList.of(BIGINT),
+                    BIGINT,
                     new CustomSum())
-            .window("custom_rank", com.facebook.presto.sql.analyzer.Type.BIGINT, ImmutableList.<com.facebook.presto.sql.analyzer.Type>of(), supplier(CustomRank.class))
+            .window("custom_rank", BIGINT, ImmutableList.<Type>of(), supplier(CustomRank.class))
             .scalar(CustomAdd.class)
             .build();
 

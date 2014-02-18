@@ -25,7 +25,6 @@ import com.facebook.presto.sql.analyzer.FieldOrExpression;
 import com.facebook.presto.sql.analyzer.SemanticException;
 import com.facebook.presto.sql.analyzer.Session;
 import com.facebook.presto.sql.analyzer.TupleDescriptor;
-import com.facebook.presto.sql.analyzer.Type;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.planner.plan.JoinNode;
 import com.facebook.presto.sql.planner.plan.MaterializeSampleNode;
@@ -54,6 +53,7 @@ import com.facebook.presto.sql.tree.Table;
 import com.facebook.presto.sql.tree.TableSubquery;
 import com.facebook.presto.sql.tree.Union;
 import com.facebook.presto.sql.tree.Values;
+import com.facebook.presto.type.BigintType;
 import com.google.common.base.Optional;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
@@ -69,6 +69,7 @@ import static com.facebook.presto.sql.analyzer.EquiJoinClause.leftGetter;
 import static com.facebook.presto.sql.analyzer.EquiJoinClause.rightGetter;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.EXPRESSION_NOT_CONSTANT;
 import static com.facebook.presto.sql.planner.plan.TableScanNode.GeneratedPartitions;
+import static com.facebook.presto.type.BooleanType.BOOLEAN;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 
@@ -124,7 +125,7 @@ class RelationPlanner
         Optional<ColumnHandle> sampleWeightColumn = metadata.getSampleWeightColumnHandle(handle);
         Symbol sampleWeightSymbol = null;
         if (sampleWeightColumn.isPresent()) {
-            sampleWeightSymbol = symbolAllocator.newSymbol("$sampleWeight", Type.BIGINT);
+            sampleWeightSymbol = symbolAllocator.newSymbol("$sampleWeight", BigintType.BIGINT);
             outputSymbolsBuilder.add(sampleWeightSymbol);
             columns.put(sampleWeightSymbol, sampleWeightColumn.get());
         }
@@ -160,7 +161,7 @@ class RelationPlanner
         double ratio = analysis.getSampleRatio(node);
         Symbol sampleWeightSymbol = null;
         if (node.getType() == SampledRelation.Type.POISSONIZED) {
-            sampleWeightSymbol = symbolAllocator.newSymbol("$sampleWeight", Type.BIGINT);
+            sampleWeightSymbol = symbolAllocator.newSymbol("$sampleWeight", BigintType.BIGINT);
         }
         PlanNode planNode = new SampleNode(idAllocator.getNextId(), subPlan.getRoot(), ratio, SampleNode.Type.fromType(node.getType()), node.isRescaled(), Optional.fromNullable(sampleWeightSymbol));
         if (sampleWeightSymbol != null) {
@@ -397,7 +398,7 @@ class RelationPlanner
         RelationPlan valueListRelation = relationPlanner.process(subqueryExpression.getQuery(), null);
         Symbol filteringSourceJoinSymbol = Iterables.getOnlyElement(valueListRelation.getRoot().getOutputSymbols());
 
-        Symbol semiJoinOutputSymbol = symbolAllocator.newSymbol("semijoinresult", Type.BOOLEAN);
+        Symbol semiJoinOutputSymbol = symbolAllocator.newSymbol("semijoinresult", BOOLEAN);
 
         translations.put(inPredicate, semiJoinOutputSymbol);
 

@@ -47,6 +47,12 @@ public final class BigintType
     }
 
     @Override
+    public Class<?> getJavaType()
+    {
+        return long.class;
+    }
+
+    @Override
     public int getFixedSize()
     {
         return (int) SIZE_OF_LONG;

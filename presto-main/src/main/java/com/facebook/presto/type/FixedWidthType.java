@@ -25,8 +25,6 @@ public interface FixedWidthType
 
     BlockBuilder createFixedSizeBlockBuilder(int positionCount);
 
-    Object getObjectValue(Slice slice, int offset);
-
     boolean getBoolean(Slice slice, int offset);
 
     void setBoolean(SliceOutput sliceOutput, boolean value);

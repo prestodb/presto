@@ -16,10 +16,20 @@ package com.facebook.presto.type;
 import com.facebook.presto.block.BlockBuilder;
 import com.facebook.presto.block.BlockBuilderStatus;
 import com.facebook.presto.spi.ColumnType;
+import com.facebook.presto.type.TypeJacksonModule.TypeDeserializer;
+import com.fasterxml.jackson.annotation.JsonValue;
+import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
+import io.airlift.slice.Slice;
 
+@JsonDeserialize(using = TypeDeserializer.class)
 public interface Type
 {
+    @JsonValue
     String getName();
+
+    Class<?> getJavaType();
+
+    Object getObjectValue(Slice slice, int offset);
 
     BlockBuilder createBlockBuilder(BlockBuilderStatus blockBuilderStatus);
 

@@ -32,7 +32,7 @@ import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.spi.TupleDomain;
 import com.facebook.presto.split.ConnectorDataStreamProvider;
 import com.facebook.presto.split.SplitManager;
-import com.facebook.presto.sql.analyzer.Type;
+import com.facebook.presto.type.Types;
 import com.google.common.base.Joiner;
 import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableBiMap;
@@ -173,7 +173,7 @@ public class InformationSchemaDataStreamProvider
                 continue;
             }
 
-            Iterable<String> arguments = transform(function.getArgumentTypes(), Type.nameGetter());
+            Iterable<String> arguments = transform(function.getArgumentTypes(), Types.nameGetter());
 
             String functionType;
             if (function.isAggregate()) {

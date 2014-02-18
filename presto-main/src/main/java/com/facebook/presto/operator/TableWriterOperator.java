@@ -25,6 +25,8 @@ import com.google.common.util.concurrent.ListenableFuture;
 import java.util.List;
 
 import static com.facebook.presto.type.BigintType.BIGINT;
+import static com.facebook.presto.type.BooleanType.BOOLEAN;
+import static com.facebook.presto.type.DoubleType.DOUBLE;
 import static com.facebook.presto.type.VarcharType.VARCHAR;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
@@ -41,7 +43,7 @@ public class TableWriterOperator
         private final int operatorId;
         private final RecordSink recordSink;
         private final List<Integer> inputChannels;
-        private final List<com.facebook.presto.sql.analyzer.Type> recordTypes;
+        private final List<Type> recordTypes;
         private final Optional<Integer> sampleWeightChannel;
         private boolean closed;
 
@@ -52,11 +54,11 @@ public class TableWriterOperator
             this.recordSink = checkNotNull(recordSink, "recordSink is null");
 
             checkNotNull(recordTypes, "types is null");
-            this.recordTypes = ImmutableList.copyOf(Iterables.transform(recordTypes, new Function<Type, com.facebook.presto.sql.analyzer.Type>()
+            this.recordTypes = ImmutableList.copyOf(Iterables.transform(recordTypes, new Function<Type, Type>()
             {
-                public com.facebook.presto.sql.analyzer.Type apply(Type type)
+                public Type apply(Type type)
                 {
-                    return com.facebook.presto.sql.analyzer.Type.fromRaw(type);
+                    return type;
                 }
             }));
 
@@ -92,7 +94,7 @@ public class TableWriterOperator
     private final OperatorContext operatorContext;
     private final RecordSink recordSink;
     private final Optional<Integer> sampleWeightChannel;
-    private final List<com.facebook.presto.sql.analyzer.Type> recordTypes;
+    private final List<Type> recordTypes;
     private final List<Integer> inputChannels;
 
     private State state = State.RUNNING;
@@ -100,7 +102,7 @@ public class TableWriterOperator
 
     public TableWriterOperator(OperatorContext operatorContext,
             RecordSink recordSink,
-            List<com.facebook.presto.sql.analyzer.Type> recordTypes,
+            List<Type> recordTypes,
             List<Integer> inputChannels,
             Optional<Integer> sampleWeightChannel)
     {
@@ -191,28 +193,27 @@ public class TableWriterOperator
         }
     }
 
-    private void writeField(BlockCursor cursor, com.facebook.presto.sql.analyzer.Type type)
+    private void writeField(BlockCursor cursor, Type type)
     {
         if (cursor.isNull()) {
             recordSink.appendNull();
             return;
         }
 
-        switch (type) {
-            case BOOLEAN:
-                recordSink.appendBoolean(cursor.getBoolean());
-                break;
-            case BIGINT:
-                recordSink.appendLong(cursor.getLong());
-                break;
-            case DOUBLE:
-                recordSink.appendDouble(cursor.getDouble());
-                break;
-            case VARCHAR:
-                recordSink.appendString(cursor.getSlice().getBytes());
-                break;
-            default:
-                throw new AssertionError("unimplemented type: " + type);
+        if (type.equals(BOOLEAN)) {
+            recordSink.appendBoolean(cursor.getBoolean());
+        }
+        else if (type.equals(BIGINT)) {
+            recordSink.appendLong(cursor.getLong());
+        }
+        else if (type.equals(DOUBLE)) {
+            recordSink.appendDouble(cursor.getDouble());
+        }
+        else if (type.equals(VARCHAR)) {
+            recordSink.appendString(cursor.getSlice().getBytes());
+        }
+        else {
+            throw new AssertionError("unimplemented type: " + type);
         }
     }
 

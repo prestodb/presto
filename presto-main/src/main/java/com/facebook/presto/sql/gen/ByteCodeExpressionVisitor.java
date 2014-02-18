@@ -24,7 +24,6 @@ import com.facebook.presto.byteCode.control.LookupSwitch.LookupSwitchBuilder;
 import com.facebook.presto.byteCode.instruction.Constant;
 import com.facebook.presto.byteCode.instruction.LabelNode;
 import com.facebook.presto.spi.RecordCursor;
-import com.facebook.presto.sql.analyzer.Type;
 import com.facebook.presto.sql.tree.ArithmeticExpression;
 import com.facebook.presto.sql.tree.AstVisitor;
 import com.facebook.presto.sql.tree.BetweenPredicate;
@@ -56,6 +55,7 @@ import com.facebook.presto.sql.tree.SearchedCaseExpression;
 import com.facebook.presto.sql.tree.SimpleCaseExpression;
 import com.facebook.presto.sql.tree.StringLiteral;
 import com.facebook.presto.sql.tree.WhenClause;
+import com.facebook.presto.type.Type;
 import com.facebook.presto.util.IterableTransformer;
 import com.google.common.base.Function;
 import com.google.common.base.Joiner;
@@ -91,6 +91,10 @@ import static com.facebook.presto.byteCode.instruction.Constant.loadLong;
 import static com.facebook.presto.byteCode.instruction.JumpInstruction.jump;
 import static com.facebook.presto.sql.gen.SliceConstant.sliceConstant;
 import static com.facebook.presto.sql.gen.TypedByteCodeNode.typedByteCodeNode;
+import static com.facebook.presto.type.BigintType.BIGINT;
+import static com.facebook.presto.type.BooleanType.BOOLEAN;
+import static com.facebook.presto.type.DoubleType.DOUBLE;
+import static com.facebook.presto.type.VarcharType.VARCHAR;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Predicates.not;
@@ -160,58 +164,49 @@ public class ByteCodeExpressionVisitor
                     .push(channel)
                     .invokeInterface(RecordCursor.class, "isNull", boolean.class, int.class);
 
-            switch (type) {
-                case BOOLEAN: {
-                    Block isNull = new Block(context)
-                            .putVariable("wasNull", true)
-                            .pushJavaDefault(boolean.class);
-
-                    Block isNotNull = new Block(context)
-                            .getVariable("cursor")
-                            .push(channel)
-                            .invokeInterface(RecordCursor.class, "getBoolean", boolean.class, int.class);
-
-                    return typedByteCodeNode(new IfStatement(context, isNullCheck, isNull, isNotNull), boolean.class);
-                }
-                case BIGINT: {
-                    Block isNull = new Block(context)
-                            .putVariable("wasNull", true)
-                            .pushJavaDefault(long.class);
-
-                    Block isNotNull = new Block(context)
-                            .getVariable("cursor")
-                            .push(channel)
-                            .invokeInterface(RecordCursor.class, "getLong", long.class, int.class);
-
-                    return typedByteCodeNode(new IfStatement(context, isNullCheck, isNull, isNotNull), long.class);
-                }
-                case DOUBLE: {
-                    Block isNull = new Block(context)
-                            .putVariable("wasNull", true)
-                            .pushJavaDefault(double.class);
-
-                    Block isNotNull = new Block(context)
-                            .getVariable("cursor")
-                            .push(channel)
-                            .invokeInterface(RecordCursor.class, "getDouble", double.class, int.class);
-
-                    return typedByteCodeNode(new IfStatement(context, isNullCheck, isNull, isNotNull), double.class);
-                }
-                case VARCHAR: {
-                    Block isNull = new Block(context)
-                            .putVariable("wasNull", true)
-                            .pushJavaDefault(Slice.class);
-
-                    Block isNotNull = new Block(context)
-                            .getVariable("cursor")
-                            .push(channel)
-                            .invokeInterface(RecordCursor.class, "getString", byte[].class, int.class)
-                            .invokeStatic(Slices.class, "wrappedBuffer", Slice.class, byte[].class);
-
-                    return typedByteCodeNode(new IfStatement(context, isNullCheck, isNull, isNotNull), Slice.class);
-                }
-                default:
-                    throw new UnsupportedOperationException("not yet implemented: " + type);
+            if (type.equals(BOOLEAN)) {
+                Block isNull = new Block(context)
+                        .putVariable("wasNull", true)
+                        .pushJavaDefault(boolean.class);
+                Block isNotNull = new Block(context)
+                        .getVariable("cursor")
+                        .push(channel)
+                        .invokeInterface(RecordCursor.class, "getBoolean", boolean.class, int.class);
+                return typedByteCodeNode(new IfStatement(context, isNullCheck, isNull, isNotNull), boolean.class);
+            }
+            else if (type.equals(BIGINT)) {
+                Block isNull = new Block(context)
+                        .putVariable("wasNull", true)
+                        .pushJavaDefault(long.class);
+                Block isNotNull = new Block(context)
+                        .getVariable("cursor")
+                        .push(channel)
+                        .invokeInterface(RecordCursor.class, "getLong", long.class, int.class);
+                return typedByteCodeNode(new IfStatement(context, isNullCheck, isNull, isNotNull), long.class);
+            }
+            else if (type.equals(DOUBLE)) {
+                Block isNull = new Block(context)
+                        .putVariable("wasNull", true)
+                        .pushJavaDefault(double.class);
+                Block isNotNull = new Block(context)
+                        .getVariable("cursor")
+                        .push(channel)
+                        .invokeInterface(RecordCursor.class, "getDouble", double.class, int.class);
+                return typedByteCodeNode(new IfStatement(context, isNullCheck, isNull, isNotNull), double.class);
+            }
+            else if (type.equals(VARCHAR)) {
+                Block isNull = new Block(context)
+                        .putVariable("wasNull", true)
+                        .pushJavaDefault(Slice.class);
+                Block isNotNull = new Block(context)
+                        .getVariable("cursor")
+                        .push(channel)
+                        .invokeInterface(RecordCursor.class, "getString", byte[].class, int.class)
+                        .invokeStatic(Slices.class, "wrappedBuffer", Slice.class, byte[].class);
+                return typedByteCodeNode(new IfStatement(context, isNullCheck, isNull, isNotNull), Slice.class);
+            }
+            else {
+                throw new UnsupportedOperationException("not yet implemented: " + type);
             }
         }
         else {
@@ -220,53 +215,44 @@ public class ByteCodeExpressionVisitor
                     .getVariable("channel_" + channel)
                     .invokeInterface(BlockCursor.class, "isNull", boolean.class);
 
-            switch (type) {
-                case BOOLEAN: {
-                    Block isNull = new Block(context)
-                            .putVariable("wasNull", true)
-                            .pushJavaDefault(boolean.class);
-
-                    Block isNotNull = new Block(context)
-                            .getVariable("channel_" + channel)
-                            .invokeInterface(BlockCursor.class, "getBoolean", boolean.class);
-
-                    return typedByteCodeNode(new IfStatement(context, isNullCheck, isNull, isNotNull), boolean.class);
-                }
-                case BIGINT: {
-                    Block isNull = new Block(context)
-                            .putVariable("wasNull", true)
-                            .pushJavaDefault(long.class);
-
-                    Block isNotNull = new Block(context)
-                            .getVariable("channel_" + channel)
-                            .invokeInterface(BlockCursor.class, "getLong", long.class);
-
-                    return typedByteCodeNode(new IfStatement(context, isNullCheck, isNull, isNotNull), long.class);
-                }
-                case DOUBLE: {
-                    Block isNull = new Block(context)
-                            .putVariable("wasNull", true)
-                            .pushJavaDefault(double.class);
-
-                    Block isNotNull = new Block(context)
-                            .getVariable("channel_" + channel)
-                            .invokeInterface(BlockCursor.class, "getDouble", double.class);
-
-                    return typedByteCodeNode(new IfStatement(context, isNullCheck, isNull, isNotNull), double.class);
-                }
-                case VARCHAR: {
-                    Block isNull = new Block(context)
-                            .putVariable("wasNull", true)
-                            .pushJavaDefault(Slice.class);
-
-                    Block isNotNull = new Block(context)
-                            .getVariable("channel_" + channel)
-                            .invokeInterface(BlockCursor.class, "getSlice", Slice.class);
-
-                    return typedByteCodeNode(new IfStatement(context, isNullCheck, isNull, isNotNull), Slice.class);
-                }
-                default:
-                    throw new UnsupportedOperationException("not yet implemented: " + type);
+            if (type.equals(BOOLEAN)) {
+                Block isNull = new Block(context)
+                        .putVariable("wasNull", true)
+                        .pushJavaDefault(boolean.class);
+                Block isNotNull = new Block(context)
+                        .getVariable("channel_" + channel)
+                        .invokeInterface(BlockCursor.class, "getBoolean", boolean.class);
+                return typedByteCodeNode(new IfStatement(context, isNullCheck, isNull, isNotNull), boolean.class);
+            }
+            else if (type.equals(BIGINT)) {
+                Block isNull = new Block(context)
+                        .putVariable("wasNull", true)
+                        .pushJavaDefault(long.class);
+                Block isNotNull = new Block(context)
+                        .getVariable("channel_" + channel)
+                        .invokeInterface(BlockCursor.class, "getLong", long.class);
+                return typedByteCodeNode(new IfStatement(context, isNullCheck, isNull, isNotNull), long.class);
+            }
+            else if (type.equals(DOUBLE)) {
+                Block isNull = new Block(context)
+                        .putVariable("wasNull", true)
+                        .pushJavaDefault(double.class);
+                Block isNotNull = new Block(context)
+                        .getVariable("channel_" + channel)
+                        .invokeInterface(BlockCursor.class, "getDouble", double.class);
+                return typedByteCodeNode(new IfStatement(context, isNullCheck, isNull, isNotNull), double.class);
+            }
+            else if (type.equals(VARCHAR)) {
+                Block isNull = new Block(context)
+                        .putVariable("wasNull", true)
+                        .pushJavaDefault(Slice.class);
+                Block isNotNull = new Block(context)
+                        .getVariable("channel_" + channel)
+                        .invokeInterface(BlockCursor.class, "getSlice", Slice.class);
+                return typedByteCodeNode(new IfStatement(context, isNullCheck, isNull, isNotNull), Slice.class);
+            }
+            else {
+                throw new UnsupportedOperationException("not yet implemented: " + type);
             }
         }
     }
