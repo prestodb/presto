@@ -17,6 +17,7 @@ import com.facebook.presto.spi.ColumnType;
 import com.facebook.presto.type.BigintType;
 import com.facebook.presto.type.BooleanType;
 import com.facebook.presto.type.DoubleType;
+import com.facebook.presto.type.NullType;
 import com.facebook.presto.type.VarcharType;
 import com.google.common.base.Function;
 
@@ -31,7 +32,7 @@ public enum Type
     DOUBLE(DoubleType.DOUBLE),
     VARCHAR(VarcharType.VARCHAR),
     BOOLEAN(BooleanType.BOOLEAN),
-    NULL(null);
+    NULL(NullType.NULL);
 
     private final com.facebook.presto.type.Type rawType;
 
