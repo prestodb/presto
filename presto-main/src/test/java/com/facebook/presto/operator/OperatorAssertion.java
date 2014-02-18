@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.operator;
 
+import com.facebook.presto.spi.Session;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
@@ -125,10 +126,10 @@ public final class OperatorAssertion
         assertEquals(operator.getOutput(), null);
     }
 
-    public static MaterializedResult toMaterializedResult(List<Type> types, List<Page> pages)
+    public static MaterializedResult toMaterializedResult(Session session, List<Type> types, List<Page> pages)
     {
         // materialize pages
-        MaterializedResult.Builder resultBuilder = MaterializedResult.resultBuilder(types);
+        MaterializedResult.Builder resultBuilder = MaterializedResult.resultBuilder(session, types);
         for (Page outputPage : pages) {
             resultBuilder.page(outputPage);
         }
@@ -156,21 +157,21 @@ public final class OperatorAssertion
     public static void assertOperatorEquals(Operator operator, MaterializedResult expected)
     {
         List<Page> pages = toPages(operator);
-        MaterializedResult actual = toMaterializedResult(operator.getTypes(), pages);
+        MaterializedResult actual = toMaterializedResult(operator.getOperatorContext().getSession(), operator.getTypes(), pages);
         assertEquals(actual, expected);
     }
 
     public static void assertOperatorEquals(Operator operator, List<Page> input, MaterializedResult expected)
     {
         List<Page> pages = toPages(operator, input);
-        MaterializedResult actual = toMaterializedResult(operator.getTypes(), pages);
+        MaterializedResult actual = toMaterializedResult(operator.getOperatorContext().getSession(), operator.getTypes(), pages);
         assertEquals(actual, expected);
     }
 
     public static void assertOperatorEqualsIgnoreOrder(Operator operator, List<Page> input, MaterializedResult expected)
     {
         List<Page> pages = toPages(operator, input);
-        MaterializedResult actual = toMaterializedResult(operator.getTypes(), pages);
+        MaterializedResult actual = toMaterializedResult(operator.getOperatorContext().getSession(), operator.getTypes(), pages);
 
         assertEquals(actual.getTypes(), expected.getTypes());
         assertEqualsIgnoreOrder(actual.getMaterializedRows(), expected.getMaterializedRows());

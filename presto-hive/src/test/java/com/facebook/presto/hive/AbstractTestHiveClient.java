@@ -72,7 +72,6 @@ import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.airlift.testing.Assertions.assertInstanceOf;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.concurrent.Executors.newCachedThreadPool;
-import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNotNull;
@@ -664,8 +663,8 @@ public abstract class AbstractTestHiveClient
                         assertTrue(cursor.isNull(columnIndex.get("t_timestamp")));
                     }
                     else {
-                        long seconds = MILLISECONDS.toSeconds(new DateTime(2011, 5, 6, 7, 8, 9, 123, timeZone).getMillis());
-                        assertEquals(cursor.getLong(columnIndex.get("t_timestamp")), seconds, (fileType + " test"));
+                        long millis = new DateTime(2011, 5, 6, 7, 8, 9, 123, timeZone).getMillis();
+                        assertEquals(cursor.getLong(columnIndex.get("t_timestamp")), millis, (fileType + " test"));
                     }
 
                     if (rowNumber % 23 == 0) {

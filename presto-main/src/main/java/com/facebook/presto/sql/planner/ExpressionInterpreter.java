@@ -211,7 +211,7 @@ public class ExpressionInterpreter
         @Override
         protected Object visitLiteral(Literal node, Object context)
         {
-            return LiteralInterpreter.evaluate(session, node, metadata);
+            return LiteralInterpreter.evaluate(metadata, session, node);
         }
 
         @Override

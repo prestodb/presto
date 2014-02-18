@@ -14,6 +14,7 @@
 package com.facebook.presto.sql.analyzer;
 
 import com.facebook.presto.metadata.FunctionInfo;
+import com.facebook.presto.metadata.FunctionRegistry;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.OperatorInfo;
 import com.facebook.presto.metadata.OperatorInfo.OperatorType;
@@ -30,7 +31,6 @@ import com.facebook.presto.sql.tree.Cast;
 import com.facebook.presto.sql.tree.CoalesceExpression;
 import com.facebook.presto.sql.tree.ComparisonExpression;
 import com.facebook.presto.sql.tree.CurrentTime;
-import com.facebook.presto.sql.tree.DateLiteral;
 import com.facebook.presto.sql.tree.DoubleLiteral;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.Extract;
@@ -81,15 +81,26 @@ import java.util.Set;
 
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
+import static com.facebook.presto.spi.type.DateType.DATE;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
+import static com.facebook.presto.spi.type.IntervalDayTimeType.INTERVAL_DAY_TIME;
+import static com.facebook.presto.spi.type.IntervalYearMonthType.INTERVAL_YEAR_MONTH;
 import static com.facebook.presto.spi.type.NullType.NULL;
+import static com.facebook.presto.spi.type.TimeType.TIME;
+import static com.facebook.presto.spi.type.TimeWithTimeZoneType.TIME_WITH_TIME_ZONE;
+import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
+import static com.facebook.presto.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.AMBIGUOUS_ATTRIBUTE;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MISSING_ATTRIBUTE;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MULTIPLE_FIELDS_FROM_SCALAR_SUBQUERY;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.TYPE_MISMATCH;
+import static com.facebook.presto.sql.tree.Extract.Field.TIMEZONE_HOUR;
+import static com.facebook.presto.sql.tree.Extract.Field.TIMEZONE_MINUTE;
 import static com.facebook.presto.type.Types.isNumeric;
+import static com.facebook.presto.util.DateTimeUtils.timeHasTimeZone;
+import static com.facebook.presto.util.DateTimeUtils.timestampHasTimeZone;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 
@@ -179,16 +190,33 @@ public class ExpressionAnalyzer
         @Override
         protected Type visitCurrentTime(CurrentTime node, AnalysisContext context)
         {
-            if (node.getType() != CurrentTime.Type.TIMESTAMP) {
-                throw new SemanticException(NOT_SUPPORTED, node, "%s not yet supported", node.getType().getName());
-            }
-
             if (node.getPrecision() != null) {
                 throw new SemanticException(NOT_SUPPORTED, node, "non-default precision not yet supported");
             }
 
-            expressionTypes.put(node, BIGINT);
-            return BIGINT;
+            Type type;
+            switch (node.getType()) {
+                case DATE:
+                    type = DATE;
+                    break;
+                case TIME:
+                    type = TIME_WITH_TIME_ZONE;
+                    break;
+                case LOCALTIME:
+                    type = TIME;
+                    break;
+                case TIMESTAMP:
+                    type = TIMESTAMP_WITH_TIME_ZONE;
+                    break;
+                case LOCALTIMESTAMP:
+                    type = TIMESTAMP;
+                    break;
+                default:
+                    throw new SemanticException(NOT_SUPPORTED, node, "%s not yet supported", node.getType().getName());
+            }
+
+            expressionTypes.put(node, type);
+            return type;
         }
 
         @Override
@@ -392,13 +420,6 @@ public class ExpressionAnalyzer
         }
 
         @Override
-        protected Type visitDateLiteral(DateLiteral node, AnalysisContext context)
-        {
-            expressionTypes.put(node, BIGINT);
-            return BIGINT;
-        }
-
-        @Override
         protected Type visitGenericLiteral(GenericLiteral node, AnalysisContext context)
         {
             Type type = metadata.getType(node.getType());
@@ -421,22 +442,43 @@ public class ExpressionAnalyzer
         @Override
         protected Type visitTimeLiteral(TimeLiteral node, AnalysisContext context)
         {
-            expressionTypes.put(node, BIGINT);
-            return BIGINT;
+            Type type;
+            if (timeHasTimeZone(node.getValue())) {
+                type = TIME_WITH_TIME_ZONE;
+            }
+            else {
+                type = TIME;
+            }
+            expressionTypes.put(node, type);
+            return type;
         }
 
         @Override
         protected Type visitTimestampLiteral(TimestampLiteral node, AnalysisContext context)
         {
-            expressionTypes.put(node, BIGINT);
-            return BIGINT;
+            Type type;
+            if (timestampHasTimeZone(node.getValue())) {
+                type = TIMESTAMP_WITH_TIME_ZONE;
+            }
+            else {
+                type = TIMESTAMP;
+            }
+            expressionTypes.put(node, type);
+            return type;
         }
 
         @Override
         protected Type visitIntervalLiteral(IntervalLiteral node, AnalysisContext context)
         {
-            expressionTypes.put(node, BIGINT);
-            return BIGINT;
+            Type type;
+            if (node.isYearToMonth()) {
+                type = INTERVAL_YEAR_MONTH;
+            }
+            else {
+                type = INTERVAL_DAY_TIME;
+            }
+            expressionTypes.put(node, type);
+            return type;
         }
 
         @Override
@@ -480,10 +522,28 @@ public class ExpressionAnalyzer
         @Override
         protected Type visitExtract(Extract node, AnalysisContext context)
         {
-            coerceType(context, node.getExpression(), BIGINT, "Type of argument to extract");
+            Type type = process(node.getExpression(), context);
+            if (!isDateTimeType(type)) {
+                throw new SemanticException(TYPE_MISMATCH, node.getExpression(), "Type of argument to extract must be DATE, TIME, TIMESTAMP, or INTERVAL (actual %s)", type);
+            }
+            Extract.Field field = node.getField();
+            if ((field == TIMEZONE_HOUR || field == TIMEZONE_MINUTE) && !(type == TIME_WITH_TIME_ZONE || type == TIMESTAMP_WITH_TIME_ZONE)) {
+                throw new SemanticException(TYPE_MISMATCH, node.getExpression(), "Type of argument to extract time zone field must have a time zone (actual %s)", type);
+            }
 
             expressionTypes.put(node, BIGINT);
             return BIGINT;
+        }
+
+        private boolean isDateTimeType(Type type)
+        {
+            return type == DATE ||
+                    type == TIME ||
+                    type == TIME_WITH_TIME_ZONE ||
+                    type == TIMESTAMP ||
+                    type == TIMESTAMP_WITH_TIME_ZONE ||
+                    type == INTERVAL_DAY_TIME ||
+                    type == INTERVAL_YEAR_MONTH;
         }
 
         @Override
@@ -608,14 +668,14 @@ public class ExpressionAnalyzer
 
         private Type coerceType(AnalysisContext context, Expression expression, Type expectedType, String message)
         {
-            Type type = process(expression, context);
-            if (!type.equals(expectedType)) {
-                if (!type.equals(NULL) && !(type.equals(BIGINT) && expectedType.equals(DOUBLE))) {
-                    throw new SemanticException(TYPE_MISMATCH, expression, message + " must evaluate to a %s (actual: %s)", expectedType, type);
+            Type actualType = process(expression, context);
+            if (!actualType.equals(expectedType)) {
+                if (!FunctionRegistry.canCoerce(actualType, expectedType)) {
+                    throw new SemanticException(TYPE_MISMATCH, expression, message + " must evaluate to a %s (actual: %s)", expectedType, actualType);
                 }
                 expressionCoercions.put(expression, expectedType);
             }
-            return type;
+            return actualType;
         }
 
         private Type coerceToSingleType(AnalysisContext context, Node node, String message, Expression first, Expression second)

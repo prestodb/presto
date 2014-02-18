@@ -13,11 +13,11 @@
  */
 package com.facebook.presto.spi;
 
+import com.facebook.presto.spi.type.TimeZoneKey;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
 import java.util.Locale;
-import java.util.TimeZone;
 
 import static java.util.Objects.requireNonNull;
 
@@ -28,7 +28,7 @@ public class Session
 
     private final String user;
     private final String source;
-    private final TimeZone timeZone;
+    private final TimeZoneKey timeZoneKey;
     private final Locale locale;
     private final String remoteUserAddress;
     private final String userAgent;
@@ -36,9 +36,9 @@ public class Session
     private final String schema;
     private final long startTime;
 
-    public Session(String user, String source, String catalog, String schema, TimeZone timeZone, Locale locale, String remoteUserAddress, String userAgent)
+    public Session(String user, String source, String catalog, String schema, TimeZoneKey timeZoneKey, Locale locale, String remoteUserAddress, String userAgent)
     {
-        this(user, source, catalog, schema, timeZone, locale, remoteUserAddress, userAgent, System.currentTimeMillis());
+        this(user, source, catalog, schema, timeZoneKey, locale, remoteUserAddress, userAgent, System.currentTimeMillis());
     }
 
     @JsonCreator
@@ -47,7 +47,7 @@ public class Session
             @JsonProperty("source") String source,
             @JsonProperty("catalog") String catalog,
             @JsonProperty("schema") String schema,
-            @JsonProperty("timeZone") TimeZone timeZone,
+            @JsonProperty("timeZoneKey") TimeZoneKey timeZoneKey,
             @JsonProperty("locale") Locale locale,
             @JsonProperty("remoteUserAddress") String remoteUserAddress,
             @JsonProperty("userAgent") String userAgent,
@@ -55,7 +55,7 @@ public class Session
     {
         this.user = user;
         this.source = source;
-        this.timeZone = timeZone;
+        this.timeZoneKey = requireNonNull(timeZoneKey, "timeZoneKey is null");
         this.locale = locale;
         this.catalog = requireNonNull(catalog, "catalog is null");
         this.schema = requireNonNull(schema, "schema is null");
@@ -89,9 +89,9 @@ public class Session
     }
 
     @JsonProperty
-    public TimeZone getTimeZone()
+    public TimeZoneKey getTimeZoneKey()
     {
-        return timeZone;
+        return timeZoneKey;
     }
 
     @JsonProperty
@@ -128,7 +128,7 @@ public class Session
         builder.append(", userAgent='").append(userAgent).append('\'');
         builder.append(", catalog='").append(catalog).append('\'');
         builder.append(", schema='").append(schema).append('\'');
-        builder.append(", timeZone=").append(timeZone);
+        builder.append(", timeZoneKey=").append(timeZoneKey);
         builder.append(", locale=").append(locale);
         builder.append(", startTime=").append(startTime);
         builder.append('}');

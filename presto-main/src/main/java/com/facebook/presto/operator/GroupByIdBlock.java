@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.operator;
 
+import com.facebook.presto.spi.Session;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockCursor;
 import com.facebook.presto.spi.block.BlockEncoding;
@@ -69,9 +70,9 @@ public class GroupByIdBlock
     }
 
     @Override
-    public Object getObjectValue(int position)
+    public Object getObjectValue(Session session, int position)
     {
-        return block.getObjectValue(position);
+        return block.getObjectValue(session, position);
     }
 
     @Override

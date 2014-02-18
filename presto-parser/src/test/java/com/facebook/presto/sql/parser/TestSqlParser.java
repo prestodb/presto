@@ -15,12 +15,13 @@ package com.facebook.presto.sql.parser;
 
 import com.facebook.presto.sql.tree.AllColumns;
 import com.facebook.presto.sql.tree.Approximate;
+import com.facebook.presto.sql.tree.Cast;
 import com.facebook.presto.sql.tree.CurrentTime;
-import com.facebook.presto.sql.tree.DateLiteral;
 import com.facebook.presto.sql.tree.DoubleLiteral;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.GenericLiteral;
 import com.facebook.presto.sql.tree.IntervalLiteral;
+import com.facebook.presto.sql.tree.IntervalLiteral.IntervalField;
 import com.facebook.presto.sql.tree.IntervalLiteral.Sign;
 import com.facebook.presto.sql.tree.LongLiteral;
 import com.facebook.presto.sql.tree.Node;
@@ -34,6 +35,7 @@ import com.facebook.presto.sql.tree.Statement;
 import com.facebook.presto.sql.tree.StringLiteral;
 import com.facebook.presto.sql.tree.TableSubquery;
 import com.facebook.presto.sql.tree.TimeLiteral;
+import com.facebook.presto.sql.tree.TimestampLiteral;
 import com.facebook.presto.sql.tree.Values;
 import com.facebook.presto.sql.tree.With;
 import com.google.common.base.Joiner;
@@ -66,12 +68,23 @@ public class TestSqlParser
         assertGenericLiteral("BIGINT");
         assertGenericLiteral("DOUBLE");
         assertGenericLiteral("BOOLEAN");
+        assertGenericLiteral("DATE");
         assertGenericLiteral("foo");
     }
 
     public void assertGenericLiteral(String type)
     {
         assertExpression(type + " 'abc'", new GenericLiteral(type, "abc"));
+    }
+
+    @Test
+    public void testLiterals()
+            throws Exception
+    {
+        assertExpression("TIME" + " 'abc'", new TimeLiteral("abc"));
+        assertExpression("TIMESTAMP" + " 'abc'", new TimestampLiteral("abc"));
+        assertExpression("INTERVAL '33' day", new IntervalLiteral("33", Sign.POSITIVE, IntervalField.DAY, null));
+        assertExpression("INTERVAL '33' day to second", new IntervalLiteral("33", Sign.POSITIVE, IntervalField.DAY, IntervalField.SECOND));
     }
 
     @Test
@@ -96,6 +109,27 @@ public class TestSqlParser
         assertExpression(".4E42", new DoubleLiteral(".4E42"));
         assertExpression(".4E+42", new DoubleLiteral(".4E42"));
         assertExpression(".4E-42", new DoubleLiteral(".4E-42"));
+    }
+
+    @Test
+    public void testCast()
+        throws Exception
+    {
+        assertCast("varchar");
+        assertCast("bigint");
+        assertCast("double");
+        assertCast("boolean");
+        assertCast("date");
+        assertCast("time");
+        assertCast("timestamp");
+        assertCast("time with time zone");
+        assertCast("timestamp with time zone");
+        assertCast("foo");
+    }
+
+    public void assertCast(String type)
+    {
+        assertExpression("cast(123 as " + type + ")", new Cast(new LongLiteral("123"), type));
     }
 
     @Test
@@ -300,22 +334,15 @@ public class TestSqlParser
     public void testInterval()
             throws Exception
     {
-        assertExpression("INTERVAL '123' YEAR", new IntervalLiteral("123", "YEAR", Sign.POSITIVE));
-        // assertExpression("INTERVAL '123-3' YEAR TO MONTH", new IntervalLiteral("123-3", "YEAR TO MONTH", Sign.POSITIVE));
-        assertExpression("INTERVAL '123' MONTH", new IntervalLiteral("123", "MONTH", Sign.POSITIVE));
-        assertExpression("INTERVAL '123' DAY", new IntervalLiteral("123", "DAY", Sign.POSITIVE));
-        // assertExpression("INTERVAL '123 23:58:53.456' DAY TO SECOND", new IntervalLiteral("123 23:58:53.456", "DAY TO SECOND", Sign.POSITIVE));
-        assertExpression("INTERVAL '123' HOUR", new IntervalLiteral("123", "HOUR", Sign.POSITIVE));
-        // assertExpression("INTERVAL '23:59' HOUR TO MINUTE", new IntervalLiteral("23:58", "HOUR TO MINUTE", Sign.POSITIVE));
-        assertExpression("INTERVAL '123' MINUTE", new IntervalLiteral("123", "MINUTE", Sign.POSITIVE));
-        assertExpression("INTERVAL '123' SECOND", new IntervalLiteral("123", "SECOND", Sign.POSITIVE));
-    }
-
-    @Test
-    public void testDate()
-            throws Exception
-    {
-        assertExpression("DATE '2012-03-22'", new DateLiteral("2012-03-22"));
+        assertExpression("INTERVAL '123' YEAR", new IntervalLiteral("123", Sign.POSITIVE, IntervalField.YEAR));
+        assertExpression("INTERVAL '123-3' YEAR TO MONTH", new IntervalLiteral("123-3", Sign.POSITIVE, IntervalField.YEAR, IntervalField.MONTH));
+        assertExpression("INTERVAL '123' MONTH", new IntervalLiteral("123", Sign.POSITIVE, IntervalField.MONTH));
+        assertExpression("INTERVAL '123' DAY", new IntervalLiteral("123", Sign.POSITIVE, IntervalField.DAY));
+        assertExpression("INTERVAL '123 23:58:53.456' DAY TO SECOND", new IntervalLiteral("123 23:58:53.456", Sign.POSITIVE, IntervalField.DAY, IntervalField.SECOND));
+        assertExpression("INTERVAL '123' HOUR", new IntervalLiteral("123", Sign.POSITIVE, IntervalField.HOUR));
+        assertExpression("INTERVAL '23:59' HOUR TO MINUTE", new IntervalLiteral("23:59", Sign.POSITIVE, IntervalField.HOUR, IntervalField.MINUTE));
+        assertExpression("INTERVAL '123' MINUTE", new IntervalLiteral("123", Sign.POSITIVE, IntervalField.MINUTE));
+        assertExpression("INTERVAL '123' SECOND", new IntervalLiteral("123", Sign.POSITIVE, IntervalField.SECOND));
     }
 
     @Test

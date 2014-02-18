@@ -14,6 +14,7 @@
 package com.facebook.presto.sql.planner.optimizations;
 
 import com.facebook.presto.spi.Session;
+import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.SymbolAllocator;
@@ -33,12 +34,10 @@ import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.IfExpression;
 import com.facebook.presto.sql.tree.IsNotNullPredicate;
 import com.facebook.presto.sql.tree.IsNullPredicate;
-import com.facebook.presto.sql.tree.LongLiteral;
 import com.facebook.presto.sql.tree.NotExpression;
 import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.sql.tree.SearchedCaseExpression;
 import com.facebook.presto.sql.tree.WhenClause;
-import com.facebook.presto.spi.type.Type;
 import com.google.common.base.Function;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -141,14 +140,24 @@ public class CanonicalizeExpressions
         @Override
         public Expression rewriteCurrentTime(CurrentTime node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
         {
-            if (node.getType() != CurrentTime.Type.TIMESTAMP) {
-                throw new UnsupportedOperationException("not yet implemented: " + node.getType());
-            }
-            else if (node.getPrecision() != null) {
+            if (node.getPrecision() != null) {
                 throw new UnsupportedOperationException("not yet implemented: non-default precision");
             }
 
-            return new FunctionCall(new QualifiedName("now"), ImmutableList.<Expression>of());
+            switch (node.getType()) {
+                case DATE:
+                    return new FunctionCall(new QualifiedName("current_date"), ImmutableList.<Expression>of());
+                case TIME:
+                    return new FunctionCall(new QualifiedName("current_time"), ImmutableList.<Expression>of());
+                case LOCALTIME:
+                    return new FunctionCall(new QualifiedName("localtime"), ImmutableList.<Expression>of());
+                case TIMESTAMP:
+                    return new FunctionCall(new QualifiedName("now"), ImmutableList.<Expression>of());
+                case LOCALTIMESTAMP:
+                    return new FunctionCall(new QualifiedName("localtimestamp"), ImmutableList.<Expression>of());
+                default:
+                    throw new UnsupportedOperationException("not yet implemented: " + node.getType());
+            }
         }
 
         @Override
@@ -182,12 +191,10 @@ public class CanonicalizeExpressions
                     return new FunctionCall(new QualifiedName("minute"), ImmutableList.of(value));
                 case SECOND:
                     return new FunctionCall(new QualifiedName("second"), ImmutableList.of(value));
-                case TIMEZONE_HOUR:
                 case TIMEZONE_MINUTE:
-                    // we assume all times are UTC for now
-                    // TODO add real timezone functions
-                    // CASE WHEN NOT(value IS NULL) THEN 0 END
-                return new SearchedCaseExpression(ImmutableList.of(new WhenClause(new NotExpression(new IsNullPredicate(value)), new LongLiteral("0"))), null);
+                    return new FunctionCall(new QualifiedName("timezone_minute"), ImmutableList.of(value));
+                case TIMEZONE_HOUR:
+                    return new FunctionCall(new QualifiedName("timezone_hour"), ImmutableList.of(value));
             }
 
             throw new UnsupportedOperationException("not yet implemented: " + node.getField());

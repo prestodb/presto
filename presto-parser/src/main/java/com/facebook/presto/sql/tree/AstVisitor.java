@@ -67,11 +67,6 @@ public abstract class AstVisitor<R, C>
         return visitExpression(node, context);
     }
 
-    protected R visitDateLiteral(DateLiteral node, C context)
-    {
-        return visitLiteral(node, context);
-    }
-
     protected R visitDoubleLiteral(DoubleLiteral node, C context)
     {
         return visitLiteral(node, context);

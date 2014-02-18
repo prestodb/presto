@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.spi.block;
 
+import com.facebook.presto.spi.Session;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.VariableWidthType;
 import io.airlift.slice.Slice;
@@ -190,13 +191,13 @@ public class VariableWidthBlockCursor
     }
 
     @Override
-    public Object getObjectValue()
+    public Object getObjectValue(Session session)
     {
         checkReadablePosition();
         if (isNull) {
             return null;
         }
-        return type.getObjectValue(slice, entryOffset + SIZE_OF_BYTE);
+        return type.getObjectValue(session, slice, entryOffset + SIZE_OF_BYTE);
     }
 
     @Override

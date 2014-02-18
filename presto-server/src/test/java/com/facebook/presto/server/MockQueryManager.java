@@ -42,12 +42,12 @@ import java.net.URI;
 import java.util.List;
 import java.util.Locale;
 import java.util.NoSuchElementException;
-import java.util.TimeZone;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import static com.facebook.presto.OutputBuffers.INITIAL_EMPTY_OUTPUT_BUFFERS;
+import static com.facebook.presto.spi.type.TimeZoneKey.UTC_KEY;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.google.common.collect.Iterables.filter;
 import static com.google.common.collect.Iterables.transform;
@@ -177,7 +177,7 @@ public class MockQueryManager
                     throw new IllegalStateException("Unknown task state " + outputTask.getState());
             }
             return new QueryInfo(outputTaskId.getQueryId(),
-                    new Session("user", "test", "test_catalog", "test_schema", TimeZone.getTimeZone("UTC"), Locale.ENGLISH, null, null),
+                    new Session("user", "test", "test_catalog", "test_schema", UTC_KEY, Locale.ENGLISH, null, null),
                     state,
                     self,
                     ImmutableList.of("out"),

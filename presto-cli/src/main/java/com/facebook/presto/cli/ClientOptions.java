@@ -63,7 +63,7 @@ public class ClientOptions
 
     public ClientSession toClientSession()
     {
-        return new ClientSession(parseServer(server), user, source, catalog, schema, TimeZone.getDefault(), Locale.getDefault(), debug);
+        return new ClientSession(parseServer(server), user, source, catalog, schema, TimeZone.getDefault().getID(), Locale.getDefault(), debug);
     }
 
     public static URI parseServer(String server)

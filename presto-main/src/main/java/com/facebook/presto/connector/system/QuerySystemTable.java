@@ -37,7 +37,6 @@ import static com.facebook.presto.metadata.MetadataUtil.columnTypeGetter;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.google.common.collect.Iterables.transform;
-import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 public class QuerySystemTable
         implements SystemTable
@@ -127,6 +126,6 @@ public class QuerySystemTable
         if (dateTime == null) {
             return null;
         }
-        return MILLISECONDS.toSeconds(dateTime.getMillis());
+        return dateTime.getMillis();
     }
 }

@@ -25,13 +25,13 @@ import org.testng.annotations.Test;
 
 import java.util.List;
 import java.util.Locale;
-import java.util.TimeZone;
 import java.util.concurrent.ExecutorService;
 
 import static com.facebook.presto.operator.OperatorAssertion.appendSampleWeight;
 import static com.facebook.presto.operator.RowPagesBuilder.rowPagesBuilder;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
+import static com.facebook.presto.spi.type.TimeZoneKey.UTC_KEY;
 import static com.facebook.presto.util.MaterializedResult.resultBuilder;
 import static com.facebook.presto.util.Threads.daemonThreadsNamed;
 import static java.util.concurrent.Executors.newCachedThreadPool;
@@ -46,7 +46,7 @@ public class TestMarkDistinctOperator
     public void setUp()
     {
         executor = newCachedThreadPool(daemonThreadsNamed("test"));
-        Session session = new Session("user", "source", "catalog", "schema", TimeZone.getTimeZone("UTC"), Locale.ENGLISH, "address", "agent");
+        Session session = new Session("user", "source", "catalog", "schema", UTC_KEY, Locale.ENGLISH, "address", "agent");
         driverContext = new TaskContext(new TaskId("query", "stage", "task"), executor, session)
                 .addPipelineContext(true, true)
                 .addDriverContext();
@@ -71,7 +71,7 @@ public class TestMarkDistinctOperator
         OperatorFactory operatorFactory = new MarkDistinctOperatorFactory(0, ImmutableList.of(BIGINT, BIGINT), ImmutableList.of(0), Optional.of(1));
         Operator operator = operatorFactory.createOperator(driverContext);
 
-        MaterializedResult.Builder expected = resultBuilder(BIGINT, BIGINT, BOOLEAN);
+        MaterializedResult.Builder expected = resultBuilder(driverContext.getSession(), BIGINT, BIGINT, BOOLEAN);
         for (int i = 0; i < 100; i++) {
             expected.row(i, 1, true);
             expected.row(i, 1, false);
@@ -93,7 +93,7 @@ public class TestMarkDistinctOperator
         OperatorFactory operatorFactory = new MarkDistinctOperatorFactory(0, ImmutableList.of(BIGINT), ImmutableList.of(0), Optional.<Integer>absent());
         Operator operator = operatorFactory.createOperator(driverContext);
 
-        MaterializedResult.Builder expected = resultBuilder(BIGINT, BOOLEAN);
+        MaterializedResult.Builder expected = resultBuilder(driverContext.getSession(), BIGINT, BOOLEAN);
         for (int i = 0; i < 100; i++) {
             expected.row(i, true);
             expected.row(i, false);
