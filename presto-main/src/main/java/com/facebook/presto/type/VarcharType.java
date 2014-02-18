@@ -26,7 +26,7 @@ import io.airlift.slice.SliceOutput;
 import static io.airlift.slice.SizeOf.SIZE_OF_INT;
 
 public class VarcharType
-        implements Type
+        implements VariableWidthType
 {
     public static final Type VARCHAR = new VarcharType();
 
@@ -53,6 +53,7 @@ public class VarcharType
         return slice.toString(offset + SIZE_OF_INT, getValueSize(slice, offset), Charsets.UTF_8);
     }
 
+    @Override
     public int getLength(Slice slice, int offset)
     {
         return getValueSize(slice, offset) + SIZE_OF_INT;
@@ -63,11 +64,13 @@ public class VarcharType
         return slice.getInt(offset);
     }
 
+    @Override
     public Slice getSlice(Slice slice, int offset)
     {
         return slice.slice(offset + SIZE_OF_INT, getValueSize(slice, offset));
     }
 
+    @Override
     public int setSlice(SliceOutput sliceOutput, Slice value, int offset, int length)
     {
         sliceOutput.writeInt(length);

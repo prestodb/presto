@@ -41,7 +41,6 @@ public final class BigintType
     }
 
     @Override
-
     public String getName()
     {
         return "bigint";
@@ -126,6 +125,7 @@ public final class BigintType
         sliceOutput.writeBytes(value, offset, length);
     }
 
+    @Override
     public boolean equals(Slice leftSlice, int leftOffset, Slice rightSlice, int rightOffset)
     {
         long leftValue = leftSlice.getLong(leftOffset);
@@ -133,6 +133,7 @@ public final class BigintType
         return leftValue == rightValue;
     }
 
+    @Override
     public boolean equals(Slice leftSlice, int leftOffset, BlockCursor rightCursor)
     {
         long leftValue = leftSlice.getLong(leftOffset);
@@ -140,11 +141,13 @@ public final class BigintType
         return leftValue == rightValue;
     }
 
+    @Override
     public int hashCode(Slice slice, int offset)
     {
         return Longs.hashCode(slice.getLong(offset));
     }
 
+    @Override
     public int compareTo(Slice leftSlice, int leftOffset, Slice rightSlice, int rightOffset)
     {
         long leftValue = leftSlice.getLong(leftOffset);
@@ -152,6 +155,7 @@ public final class BigintType
         return Long.compare(leftValue, rightValue);
     }
 
+    @Override
     public void appendTo(Slice slice, int offset, BlockBuilder blockBuilder)
     {
         long value = slice.getLong(offset);

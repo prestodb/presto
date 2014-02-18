@@ -15,30 +15,13 @@ package com.facebook.presto.type;
 
 import com.facebook.presto.block.BlockBuilder;
 import com.facebook.presto.block.BlockBuilderStatus;
-import com.facebook.presto.block.BlockCursor;
 import com.facebook.presto.spi.ColumnType;
-import io.airlift.slice.Slice;
-import io.airlift.slice.SliceOutput;
 
 public interface Type
 {
     String getName();
 
-    Object getObjectValue(Slice slice, int offset);
-
     BlockBuilder createBlockBuilder(BlockBuilderStatus blockBuilderStatus);
-
-    boolean equals(Slice leftSlice, int leftOffset, Slice rightSlice, int rightOffset);
-
-    boolean equals(Slice leftSlice, int leftOffset, BlockCursor rightCursor);
-
-    int hashCode(Slice slice, int offset);
-
-    int compareTo(Slice leftSlice, int leftOffset, Slice rightSlice, int rightOffset);
-
-    void appendTo(Slice slice, int offset, BlockBuilder blockBuilder);
-
-    void appendTo(Slice slice, int offset, SliceOutput sliceOutput);
 
     ColumnType toColumnType();
 }

@@ -18,30 +18,16 @@ import com.facebook.presto.block.BlockCursor;
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceOutput;
 
-public interface FixedWidthType
+public interface VariableWidthType
         extends Type
 {
-    int getFixedSize();
-
-    BlockBuilder createFixedSizeBlockBuilder(int positionCount);
-
-    Object getObjectValue(Slice slice, int offset);
-
-    boolean getBoolean(Slice slice, int offset);
-
-    void setBoolean(SliceOutput sliceOutput, boolean value);
-
-    long getLong(Slice slice, int offset);
-
-    void setLong(SliceOutput sliceOutput, long value);
-
-    double getDouble(Slice slice, int offset);
-
-    void setDouble(SliceOutput sliceOutput, double value);
+    int getLength(Slice slice, int offset);
 
     Slice getSlice(Slice slice, int offset);
 
-    void setSlice(SliceOutput sliceOutput, Slice value, int offset, int length);
+    int setSlice(SliceOutput sliceOutput, Slice value, int offset, int length);
+
+    Object getObjectValue(Slice slice, int offset);
 
     boolean equals(Slice leftSlice, int leftOffset, Slice rightSlice, int rightOffset);
 

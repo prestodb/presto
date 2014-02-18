@@ -124,6 +124,7 @@ public final class BooleanType
         sliceOutput.writeBytes(value, offset, length);
     }
 
+    @Override
     public boolean equals(Slice leftSlice, int leftOffset, Slice rightSlice, int rightOffset)
     {
         boolean leftValue = leftSlice.getByte(leftOffset) != 0;
@@ -131,6 +132,7 @@ public final class BooleanType
         return leftValue == rightValue;
     }
 
+    @Override
     public boolean equals(Slice leftSlice, int leftOffset, BlockCursor rightCursor)
     {
         boolean leftValue = leftSlice.getByte(leftOffset) != 0;
@@ -138,11 +140,13 @@ public final class BooleanType
         return leftValue == rightValue;
     }
 
+    @Override
     public int hashCode(Slice slice, int offset)
     {
         return Booleans.hashCode(slice.getByte(offset) != 0);
     }
 
+    @Override
     public int compareTo(Slice leftSlice, int leftOffset, Slice rightSlice, int rightOffset)
     {
         boolean leftValue = leftSlice.getByte(leftOffset) != 0;
@@ -150,6 +154,7 @@ public final class BooleanType
         return Boolean.compare(leftValue, rightValue);
     }
 
+    @Override
     public void appendTo(Slice slice, int offset, BlockBuilder blockBuilder)
     {
         boolean value = slice.getByte(offset) != 0;
