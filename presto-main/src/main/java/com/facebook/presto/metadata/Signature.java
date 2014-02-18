@@ -78,6 +78,11 @@ public final class Signature
         return Objects.hash(name, returnType, argumentTypes, approximate);
     }
 
+    Signature withAlias(String name)
+    {
+        return new Signature(name, returnType, argumentTypes, approximate);
+    }
+
     @Override
     public boolean equals(Object obj)
     {
