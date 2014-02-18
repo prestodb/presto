@@ -15,17 +15,16 @@ package com.facebook.presto.block.uncompressed;
 
 import com.facebook.presto.block.BlockBuilder;
 import com.facebook.presto.block.BlockCursor;
+import com.facebook.presto.block.BlockEncoding;
 import com.facebook.presto.block.RandomAccessBlock;
 import com.facebook.presto.operator.SortOrder;
-import com.facebook.presto.block.BlockEncoding;
 import com.facebook.presto.type.Type;
-import com.facebook.presto.type.VarcharType;
+import com.facebook.presto.type.VariableWidthType;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import io.airlift.units.DataSize;
 import io.airlift.units.DataSize.Unit;
 
-import static com.facebook.presto.type.VarcharType.VARCHAR;
 import static com.google.common.base.Preconditions.checkPositionIndexes;
 import static com.google.common.base.Preconditions.checkState;
 import static io.airlift.slice.SizeOf.SIZE_OF_BYTE;
@@ -33,9 +32,9 @@ import static io.airlift.slice.SizeOf.SIZE_OF_BYTE;
 public abstract class AbstractVariableWidthRandomAccessBlock
         implements RandomAccessBlock
 {
-    protected final VarcharType type;
+    protected final VariableWidthType type;
 
-    protected AbstractVariableWidthRandomAccessBlock(VarcharType type)
+    protected AbstractVariableWidthRandomAccessBlock(VariableWidthType type)
     {
         this.type = type;
     }
@@ -64,7 +63,7 @@ public abstract class AbstractVariableWidthRandomAccessBlock
     @Override
     public BlockEncoding getEncoding()
     {
-        return new VariableWidthBlockEncoding(VARCHAR);
+        return new VariableWidthBlockEncoding(type);
     }
 
     @Override
