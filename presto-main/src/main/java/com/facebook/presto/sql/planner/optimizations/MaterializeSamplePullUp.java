@@ -16,7 +16,6 @@ package com.facebook.presto.sql.planner.optimizations;
 import com.facebook.presto.metadata.TableMetadata;
 import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.sql.analyzer.Session;
-import com.facebook.presto.sql.analyzer.Type;
 import com.facebook.presto.sql.planner.DeterminismEvaluator;
 import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
 import com.facebook.presto.sql.planner.Symbol;
@@ -42,6 +41,7 @@ import com.facebook.presto.sql.tree.CoalesceExpression;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.LongLiteral;
 import com.facebook.presto.sql.tree.QualifiedNameReference;
+import com.facebook.presto.type.Type;
 import com.facebook.presto.util.IterableTransformer;
 import com.google.common.base.Function;
 import com.google.common.base.Optional;
@@ -54,6 +54,7 @@ import com.google.common.collect.Iterables;
 import java.util.List;
 import java.util.Map;
 
+import static com.facebook.presto.type.BigintType.BIGINT;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Predicates.equalTo;
@@ -303,7 +304,7 @@ public class MaterializeSamplePullUp
                         default:
                             throw new AssertionError(String.format("Unknown join type: %s", node.getType()));
                     }
-                    outputSampleWeight = symbolAllocator.newSymbol(sampleWeightExpr, Type.BIGINT);
+                    outputSampleWeight = symbolAllocator.newSymbol(sampleWeightExpr, BIGINT);
                     projections.put(outputSampleWeight, sampleWeightExpr);
                     for (Symbol symbol : Iterables.filter(node.getOutputSymbols(), not(in(ImmutableSet.of(leftSampleWeight, rightSampleWeight))))) {
                         Expression expression = new QualifiedNameReference(symbol.toQualifiedName());
@@ -321,7 +322,7 @@ public class MaterializeSamplePullUp
                             projections.put(symbol, expression);
                         }
                         Expression sampleWeightExpr = oneIfNull(outputSampleWeight);
-                        outputSampleWeight = symbolAllocator.newSymbol(sampleWeightExpr, Type.BIGINT);
+                        outputSampleWeight = symbolAllocator.newSymbol(sampleWeightExpr, BIGINT);
                         projections.put(outputSampleWeight, sampleWeightExpr);
                         joinNode = new ProjectNode(idAllocator.getNextId(), joinNode, projections.build());
                     }
@@ -355,7 +356,7 @@ public class MaterializeSamplePullUp
             // Add sample weight to any sources that don't have it, and pull MaterializeSample through the UNION
             ImmutableListMultimap.Builder<Symbol, Symbol> symbolMapping = ImmutableListMultimap.<Symbol, Symbol>builder().putAll(node.getSymbolMapping());
             ImmutableList.Builder<PlanNode> sources = ImmutableList.builder();
-            Symbol outputSymbol = symbolAllocator.newSymbol("$sampleWeight", Type.BIGINT);
+            Symbol outputSymbol = symbolAllocator.newSymbol("$sampleWeight", BIGINT);
 
             for (PlanNode source : rewrittenSources) {
                 if (source instanceof MaterializeSampleNode) {
@@ -363,7 +364,7 @@ public class MaterializeSamplePullUp
                     sources.add(((MaterializeSampleNode) source).getSource());
                 }
                 else {
-                    Symbol symbol = symbolAllocator.newSymbol("$sampleWeight", Type.BIGINT);
+                    Symbol symbol = symbolAllocator.newSymbol("$sampleWeight", BIGINT);
                     symbolMapping.put(outputSymbol, symbol);
                     sources.add(addSampleWeight(source, symbol));
                 }

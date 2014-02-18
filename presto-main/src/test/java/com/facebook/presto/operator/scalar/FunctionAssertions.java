@@ -46,7 +46,6 @@ import com.facebook.presto.sql.analyzer.Field;
 import com.facebook.presto.sql.analyzer.SemanticException;
 import com.facebook.presto.sql.analyzer.Session;
 import com.facebook.presto.sql.analyzer.TupleDescriptor;
-import com.facebook.presto.sql.analyzer.Type;
 import com.facebook.presto.sql.gen.ExpressionCompiler;
 import com.facebook.presto.sql.planner.InterpretedFilterFunction;
 import com.facebook.presto.sql.planner.InterpretedProjectionFunction;
@@ -58,6 +57,11 @@ import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.ExpressionTreeRewriter;
 import com.facebook.presto.sql.tree.Input;
 import com.facebook.presto.sql.tree.QualifiedNameReference;
+import com.facebook.presto.type.BigintType;
+import com.facebook.presto.type.BooleanType;
+import com.facebook.presto.type.DoubleType;
+import com.facebook.presto.type.Type;
+import com.facebook.presto.type.VarcharType;
 import com.facebook.presto.util.LocalQueryRunner;
 import com.facebook.presto.util.MaterializedResult;
 import com.facebook.presto.util.Threads;
@@ -119,13 +123,13 @@ public final class FunctionAssertions
     private static final Page ZERO_CHANNEL_PAGE = new Page(1);
 
     private static final Map<Input, Type> INPUT_TYPES = ImmutableMap.<Input, Type>builder()
-            .put(new Input(0), Type.BIGINT)
-            .put(new Input(1), Type.VARCHAR)
-            .put(new Input(2), Type.DOUBLE)
-            .put(new Input(3), Type.BOOLEAN)
-            .put(new Input(4), Type.BIGINT)
-            .put(new Input(5), Type.VARCHAR)
-            .put(new Input(6), Type.VARCHAR)
+            .put(new Input(0), BigintType.BIGINT)
+            .put(new Input(1), VarcharType.VARCHAR)
+            .put(new Input(2), DoubleType.DOUBLE)
+            .put(new Input(3), BooleanType.BOOLEAN)
+            .put(new Input(4), BigintType.BIGINT)
+            .put(new Input(5), VarcharType.VARCHAR)
+            .put(new Input(6), VarcharType.VARCHAR)
             .build();
 
     private static final Map<Symbol, Input> INPUT_MAPPING = ImmutableMap.<Symbol, Input>builder()
@@ -209,7 +213,7 @@ public final class FunctionAssertions
 
         // execute as standalone operator
         OperatorFactory operatorFactory = compileFilterProject(TRUE_LITERAL, projectionExpression);
-        Type expressionType = Type.fromRaw(operatorFactory.getTypes().get(0));
+        Type expressionType = operatorFactory.getTypes().get(0);
         Object directOperatorValue = selectSingleValue(operatorFactory, session);
         results.add(directOperatorValue);
 
@@ -301,7 +305,7 @@ public final class FunctionAssertions
 
         // execute as standalone operator
         OperatorFactory operatorFactory = compileFilterProject(filterExpression, TRUE_LITERAL);
-        Type expressionType = Type.fromRaw(operatorFactory.getTypes().get(0));
+        Type expressionType = operatorFactory.getTypes().get(0);
         results.add(executeFilter(operatorFactory, session));
 
         if (executeWithNoInputColumns) {

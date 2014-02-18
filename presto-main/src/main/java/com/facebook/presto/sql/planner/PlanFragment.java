@@ -56,7 +56,7 @@ public class PlanFragment
 
     private final PlanFragmentId id;
     private final PlanNode root;
-    private final Map<Symbol, com.facebook.presto.sql.analyzer.Type> symbols;
+    private final Map<Symbol, Type> symbols;
     private final PlanDistribution distribution;
     private final PlanNodeId partitionedSource;
     private final List<Type> types;
@@ -69,7 +69,7 @@ public class PlanFragment
     public PlanFragment(
             @JsonProperty("id") PlanFragmentId id,
             @JsonProperty("root") PlanNode root,
-            @JsonProperty("symbols") Map<Symbol, com.facebook.presto.sql.analyzer.Type> symbols,
+            @JsonProperty("symbols") Map<Symbol, Type> symbols,
             @JsonProperty("distribution") PlanDistribution distribution,
             @JsonProperty("partitionedSource") PlanNodeId partitionedSource,
             @JsonProperty("outputPartitioning") OutputPartitioning outputPartitioning,
@@ -84,7 +84,6 @@ public class PlanFragment
 
         types = ImmutableList.copyOf(IterableTransformer.on(root.getOutputSymbols())
                 .transform(Functions.forMap(symbols))
-                .transform(com.facebook.presto.sql.analyzer.Type.toRaw())
                 .list());
 
         ImmutableList.Builder<PlanNode> sources = ImmutableList.builder();
@@ -116,7 +115,7 @@ public class PlanFragment
     }
 
     @JsonProperty
-    public Map<Symbol, com.facebook.presto.sql.analyzer.Type> getSymbols()
+    public Map<Symbol, Type> getSymbols()
     {
         return symbols;
     }

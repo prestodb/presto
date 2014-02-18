@@ -22,8 +22,8 @@ import com.facebook.presto.spi.OutputTableHandle;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
-import com.facebook.presto.sql.analyzer.Type;
 import com.facebook.presto.sql.tree.QualifiedName;
+import com.facebook.presto.type.Type;
 import com.google.common.base.Optional;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
@@ -86,7 +86,7 @@ public class MetadataManager
     }
 
     @Override
-    public FunctionInfo getFunction(QualifiedName name, List<Type> parameterTypes, boolean approximate)
+    public FunctionInfo getFunction(QualifiedName name, List<? extends Type> parameterTypes, boolean approximate)
     {
         return functions.get(name, parameterTypes, approximate);
     }

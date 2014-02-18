@@ -13,7 +13,10 @@
  */
 package com.facebook.presto.metadata;
 
-import com.facebook.presto.sql.analyzer.Type;
+import com.facebook.presto.type.BigintType;
+import com.facebook.presto.type.BooleanType;
+import com.facebook.presto.type.DoubleType;
+import com.facebook.presto.type.VarcharType;
 import com.google.common.collect.ImmutableList;
 import io.airlift.json.JsonCodec;
 import org.testng.annotations.Test;
@@ -27,7 +30,7 @@ public class TestSignature
     @Test
     public void testRoundTrip()
     {
-        Signature expected = new Signature("function", Type.BIGINT, ImmutableList.of(Type.BOOLEAN, Type.DOUBLE, Type.VARCHAR), false);
+        Signature expected = new Signature("function", BigintType.BIGINT, ImmutableList.of(BooleanType.BOOLEAN, DoubleType.DOUBLE, VarcharType.VARCHAR), false);
 
         String json = codec.toJson(expected);
         Signature actual = codec.fromJson(json);

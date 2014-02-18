@@ -15,6 +15,9 @@ package com.facebook.presto.type;
 
 import com.facebook.presto.spi.ColumnType;
 import com.fasterxml.jackson.annotation.JsonCreator;
+import com.google.common.base.Function;
+
+import javax.annotation.Nullable;
 
 import static com.facebook.presto.type.BigintType.BIGINT;
 import static com.facebook.presto.type.BooleanType.BOOLEAN;
@@ -48,6 +51,7 @@ public final class Types
     }
 
     @JsonCreator
+    @Nullable
     public static Type fromName(String name)
     {
         checkNotNull(name, "name is null");
@@ -63,7 +67,24 @@ public final class Types
             case "null":
                 return NULL;
             default:
-                throw new IllegalAccessError("Unsupported type " + name);
+                return null;
         }
+    }
+
+    public static boolean isNumeric(Type type)
+    {
+        return type.equals(BIGINT) || type.equals(DOUBLE);
+    }
+
+    public static Function<Type, String> nameGetter()
+    {
+        return new Function<Type, String>()
+        {
+            @Override
+            public String apply(Type type)
+            {
+                return type.getName();
+            }
+        };
     }
 }

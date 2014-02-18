@@ -49,6 +49,7 @@ import com.facebook.presto.sql.analyzer.Session;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.Input;
+import com.facebook.presto.type.NullType;
 import com.facebook.presto.type.Type;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Objects;
@@ -217,8 +218,8 @@ public class ExpressionCompiler
             int operatorId,
             Expression filter,
             List<Expression> projections,
-            Map<Input, com.facebook.presto.sql.analyzer.Type> inputTypes,
-            List<com.facebook.presto.sql.analyzer.Type> outputTypes)
+            Map<Input, Type> inputTypes,
+            List<Type> outputTypes)
     {
         return operatorFactories.getUnchecked(new OperatorCacheKey(filter, projections, inputTypes, outputTypes, null)).create(operatorId);
     }
@@ -232,8 +233,8 @@ public class ExpressionCompiler
     public FilterAndProjectOperatorFactoryFactory internalCompileFilterAndProjectOperator(
             Expression filter,
             List<Expression> projections,
-            Map<Input, com.facebook.presto.sql.analyzer.Type> inputTypes,
-            List<com.facebook.presto.sql.analyzer.Type> outputTypes)
+            Map<Input, Type> inputTypes,
+            List<Type> outputTypes)
     {
         DynamicClassLoader classLoader = createClassLoader();
 
@@ -255,8 +256,8 @@ public class ExpressionCompiler
     private TypedOperatorClass compileFilterAndProjectOperator(
             Expression filter,
             List<Expression> projections,
-            Map<Input, com.facebook.presto.sql.analyzer.Type> inputTypes,
-            List<com.facebook.presto.sql.analyzer.Type> outputTypes,
+            Map<Input, Type> inputTypes,
+            List<Type> outputTypes,
             DynamicClassLoader classLoader)
     {
         ClassDefinition classDefinition = new ClassDefinition(new CompilerContext(bootstrapMethod),
@@ -299,33 +300,16 @@ public class ExpressionCompiler
         List<Type> types = new ArrayList<>();
         int projectionIndex = 0;
         for (int i = 0; i < projections.size(); i++) {
-            com.facebook.presto.sql.analyzer.Type outputType = outputTypes.get(i);
-            checkArgument(outputType != com.facebook.presto.sql.analyzer.Type.NULL, "NULL output type is not supported");
-            types.add(outputType.getRawType());
+            Type outputType = outputTypes.get(i);
+            checkArgument(!outputType.equals(NullType.NULL), "NULL output type is not supported");
+            types.add(outputType);
 
             // verify the compiled projection has the correct type
             Expression projection = projections.get(i);
 
-            Class<?> type = generateProjectMethod(classDefinition, "project_" + projectionIndex, projection, inputTypes, true);
+            Class<?> returnType = generateProjectMethod(classDefinition, "project_" + projectionIndex, projection, inputTypes, true);
             generateProjectMethod(classDefinition, "project_" + projectionIndex, projection, inputTypes, false);
-            if (type == boolean.class) {
-                checkState(outputType == com.facebook.presto.sql.analyzer.Type.BOOLEAN);
-            }
-            else if (type == long.class) {
-                checkState(outputType == com.facebook.presto.sql.analyzer.Type.BIGINT);
-            }
-            else if (type == double.class) {
-                checkState(outputType == com.facebook.presto.sql.analyzer.Type.DOUBLE);
-            }
-            else if (type == Slice.class) {
-                checkState(outputType == com.facebook.presto.sql.analyzer.Type.VARCHAR);
-            }
-            else if (type == void.class) {
-                // void type is a null literal so it can be any type
-            }
-            else {
-                throw new IllegalStateException("Type " + type.getName() + "can be output");
-            }
+            checkState(returnType == outputType.getJavaType(), "Expected compiled method return type to be %s, but is %s", outputType.getJavaType().getName(), returnType.getName());
             projectionIndex++;
         }
 
@@ -351,8 +335,8 @@ public class ExpressionCompiler
             List<ColumnHandle> columns,
             Expression filter,
             List<Expression> projections,
-            Map<Input, com.facebook.presto.sql.analyzer.Type> inputTypes,
-            List<com.facebook.presto.sql.analyzer.Type> outputTypes)
+            Map<Input, Type> inputTypes,
+            List<Type> outputTypes)
     {
         return sourceOperatorFactories.getUnchecked(new OperatorCacheKey(filter, projections, inputTypes, outputTypes, sourceId)).create(operatorId, dataStreamProvider, columns);
     }
@@ -362,8 +346,8 @@ public class ExpressionCompiler
             PlanNodeId sourceId,
             Expression filter,
             List<Expression> projections,
-            Map<Input, com.facebook.presto.sql.analyzer.Type> inputTypes,
-            List<com.facebook.presto.sql.analyzer.Type> outputTypes)
+            Map<Input, Type> inputTypes,
+            List<Type> outputTypes)
     {
         DynamicClassLoader classLoader = createClassLoader();
 
@@ -394,8 +378,8 @@ public class ExpressionCompiler
     private TypedOperatorClass compileScanFilterAndProjectOperator(
             Expression filter,
             List<Expression> projections,
-            Map<Input, com.facebook.presto.sql.analyzer.Type> inputTypes,
-            List<com.facebook.presto.sql.analyzer.Type> outputTypes,
+            Map<Input, Type> inputTypes,
+            List<Type> outputTypes,
             DynamicClassLoader classLoader)
     {
         ClassDefinition classDefinition = new ClassDefinition(new CompilerContext(bootstrapMethod),
@@ -445,33 +429,16 @@ public class ExpressionCompiler
         List<Type> types = new ArrayList<>();
         int projectionIndex = 0;
         for (int i = 0; i < projections.size(); i++) {
-            com.facebook.presto.sql.analyzer.Type outputType = outputTypes.get(i);
-            checkArgument(outputType != com.facebook.presto.sql.analyzer.Type.NULL, "NULL output type is not supported");
-            types.add(outputType.getRawType());
+            Type outputType = outputTypes.get(i);
+            checkArgument(!outputType.equals(NullType.NULL), "NULL output type is not supported");
+            types.add(outputType);
 
             // verify the compiled projection has the correct type
             Expression projection = projections.get(i);
 
-            Class<?> type = generateProjectMethod(classDefinition, "project_" + projectionIndex, projection, inputTypes, true);
+            Class<?> returnType = generateProjectMethod(classDefinition, "project_" + projectionIndex, projection, inputTypes, true);
             generateProjectMethod(classDefinition, "project_" + projectionIndex, projection, inputTypes, false);
-            if (type == boolean.class) {
-                checkState(outputType == com.facebook.presto.sql.analyzer.Type.BOOLEAN);
-            }
-            else if (type == long.class) {
-                checkState(outputType == com.facebook.presto.sql.analyzer.Type.BIGINT);
-            }
-            else if (type == double.class) {
-                checkState(outputType == com.facebook.presto.sql.analyzer.Type.DOUBLE);
-            }
-            else if (type == Slice.class) {
-                checkState(outputType == com.facebook.presto.sql.analyzer.Type.VARCHAR);
-            }
-            else if (type == void.class) {
-                // void type is a null literal so it can be any type
-            }
-            else {
-                throw new IllegalStateException("Type " + type.getName() + "can be output");
-            }
+            checkState(returnType == outputType.getJavaType(), "Expected compiled method return type to be %s, but is %s", outputType.getJavaType().getName(), returnType.getName());
             projectionIndex++;
         }
 
@@ -492,7 +459,7 @@ public class ExpressionCompiler
 
     private void generateFilterAndProjectRowOriented(ClassDefinition classDefinition,
             List<Expression> projections,
-            Map<Input, com.facebook.presto.sql.analyzer.Type> inputTypes)
+            Map<Input, Type> inputTypes)
     {
         MethodDefinition filterAndProjectMethod = classDefinition.declareMethod(new CompilerContext(bootstrapMethod),
                 a(PUBLIC),
@@ -703,7 +670,7 @@ public class ExpressionCompiler
 
     private void generateFilterMethod(ClassDefinition classDefinition,
             Expression filter,
-            Map<Input, com.facebook.presto.sql.analyzer.Type> inputTypes,
+            Map<Input, Type> inputTypes,
             boolean sourceIsCursor)
     {
         MethodDefinition filterMethod;
@@ -753,7 +720,7 @@ public class ExpressionCompiler
     private Class<?> generateProjectMethod(ClassDefinition classDefinition,
             String methodName,
             Expression projection,
-            Map<Input, com.facebook.presto.sql.analyzer.Type> inputTypes,
+            Map<Input, Type> inputTypes,
             boolean sourceIsCursor)
     {
         MethodDefinition projectionMethod;
@@ -867,7 +834,7 @@ public class ExpressionCompiler
         }
     }
 
-    private List<NamedParameterDefinition> toBlockCursorParameters(Map<Input, com.facebook.presto.sql.analyzer.Type> inputTypes)
+    private List<NamedParameterDefinition> toBlockCursorParameters(Map<Input, Type> inputTypes)
     {
         ImmutableList.Builder<NamedParameterDefinition> parameters = ImmutableList.builder();
         int channels = inputTypes.isEmpty() ? 0 : Ordering.natural().max(transform(inputTypes.keySet(), Input.channelGetter())) + 1;
@@ -935,14 +902,14 @@ public class ExpressionCompiler
     {
         private final Expression filter;
         private final List<Expression> projections;
-        private final Map<Input, com.facebook.presto.sql.analyzer.Type> inputTypes;
-        private final List<com.facebook.presto.sql.analyzer.Type> outputTypes;
+        private final Map<Input, Type> inputTypes;
+        private final List<Type> outputTypes;
         private final PlanNodeId sourceId;
 
         private OperatorCacheKey(Expression expression,
                 List<Expression> projections,
-                Map<Input, com.facebook.presto.sql.analyzer.Type> inputTypes,
-                List<com.facebook.presto.sql.analyzer.Type> outputTypes,
+                Map<Input, Type> inputTypes,
+                List<Type> outputTypes,
                 PlanNodeId sourceId)
         {
             this.filter = expression;
@@ -962,12 +929,12 @@ public class ExpressionCompiler
             return projections;
         }
 
-        private Map<Input, com.facebook.presto.sql.analyzer.Type> getInputTypes()
+        private Map<Input, Type> getInputTypes()
         {
             return inputTypes;
         }
 
-        public List<com.facebook.presto.sql.analyzer.Type> getOutputTypes()
+        public List<Type> getOutputTypes()
         {
             return outputTypes;
         }
