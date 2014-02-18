@@ -18,7 +18,6 @@ import com.facebook.presto.spi.Domain;
 import com.facebook.presto.spi.Range;
 import com.facebook.presto.spi.SortedRangeSet;
 import com.facebook.presto.spi.TupleDomain;
-import com.facebook.presto.sql.analyzer.Type;
 import com.facebook.presto.sql.tree.BetweenPredicate;
 import com.facebook.presto.sql.tree.ComparisonExpression;
 import com.facebook.presto.sql.tree.DoubleLiteral;
@@ -34,6 +33,11 @@ import com.facebook.presto.sql.tree.NullLiteral;
 import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.sql.tree.QualifiedNameReference;
 import com.facebook.presto.sql.tree.StringLiteral;
+import com.facebook.presto.type.BigintType;
+import com.facebook.presto.type.BooleanType;
+import com.facebook.presto.type.DoubleType;
+import com.facebook.presto.type.Type;
+import com.facebook.presto.type.VarcharType;
 import com.google.common.collect.BiMap;
 import com.google.common.collect.ImmutableBiMap;
 import com.google.common.collect.ImmutableList;
@@ -79,13 +83,13 @@ public class TestDomainTranslator
     private static final ColumnHandle GCH = new TestingColumnHandle(G);
 
     private static final Map<Symbol, Type> TYPES = ImmutableMap.<Symbol, Type>builder()
-            .put(A, Type.BIGINT)
-            .put(B, Type.DOUBLE)
-            .put(C, Type.VARCHAR)
-            .put(D, Type.BOOLEAN)
-            .put(E, Type.BIGINT)
-            .put(F, Type.DOUBLE)
-            .put(G, Type.VARCHAR)
+            .put(A, BigintType.BIGINT)
+            .put(B, DoubleType.DOUBLE)
+            .put(C, VarcharType.VARCHAR)
+            .put(D, BooleanType.BOOLEAN)
+            .put(E, BigintType.BIGINT)
+            .put(F, DoubleType.DOUBLE)
+            .put(G, VarcharType.VARCHAR)
             .build();
 
     private static final BiMap<Symbol, ColumnHandle> COLUMN_HANDLES = ImmutableBiMap.<Symbol, ColumnHandle>builder()

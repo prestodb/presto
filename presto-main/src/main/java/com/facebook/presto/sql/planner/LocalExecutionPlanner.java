@@ -160,7 +160,7 @@ public class LocalExecutionPlanner
 
     public LocalExecutionPlan plan(Session session,
             PlanNode plan,
-            Map<Symbol, com.facebook.presto.sql.analyzer.Type> types,
+            Map<Symbol, Type> types,
             OutputFactory outputOperatorFactory)
     {
         LocalExecutionPlanContext context = new LocalExecutionPlanContext(session, types);
@@ -181,19 +181,19 @@ public class LocalExecutionPlanner
     private static class LocalExecutionPlanContext
     {
         private final Session session;
-        private final Map<Symbol, com.facebook.presto.sql.analyzer.Type> types;
+        private final Map<Symbol, Type> types;
 
         private final List<DriverFactory> driverFactories;
 
         private int nextOperatorId;
         private boolean inputDriver = true;
 
-        public LocalExecutionPlanContext(Session session, Map<Symbol, com.facebook.presto.sql.analyzer.Type> types)
+        public LocalExecutionPlanContext(Session session, Map<Symbol, Type> types)
         {
             this(session, types, new ArrayList<DriverFactory>());
         }
 
-        private LocalExecutionPlanContext(Session session, Map<Symbol, com.facebook.presto.sql.analyzer.Type> types, List<DriverFactory> driverFactories)
+        private LocalExecutionPlanContext(Session session, Map<Symbol, Type> types, List<DriverFactory> driverFactories)
         {
             this.session = session;
             this.types = types;
@@ -215,7 +215,7 @@ public class LocalExecutionPlanner
             return session;
         }
 
-        public Map<Symbol, com.facebook.presto.sql.analyzer.Type> getTypes()
+        public Map<Symbol, Type> getTypes()
         {
             return types;
         }
@@ -569,7 +569,7 @@ public class LocalExecutionPlanner
             // if source is a table scan we fold it directly into the filter and project
             // otherwise we plan it as a normal operator
             Map<Symbol, Input> sourceLayout;
-            Map<Input, com.facebook.presto.sql.analyzer.Type> sourceTypes;
+            Map<Input, Type> sourceTypes;
             List<ColumnHandle> columns = null;
             PhysicalOperation source = null;
             if (sourceNode instanceof TableScanNode) {
@@ -586,7 +586,7 @@ public class LocalExecutionPlanner
                     Input input = new Input(channel);
                     sourceLayout.put(symbol, input);
 
-                    com.facebook.presto.sql.analyzer.Type type = checkNotNull(context.getTypes().get(symbol), "No type for symbol %s", symbol);
+                    Type type = checkNotNull(context.getTypes().get(symbol), "No type for symbol %s", symbol);
                     sourceTypes.put(input, type);
 
                     channel++;
@@ -613,7 +613,7 @@ public class LocalExecutionPlanner
                 Expression rewrittenFilter = ExpressionTreeRewriter.rewriteWith(symbolToInputRewriter, filterExpression);
 
                 List<Expression> rewrittenProjections = new ArrayList<>();
-                List<com.facebook.presto.sql.analyzer.Type> outputTypes = new ArrayList<>();
+                List<Type> outputTypes = new ArrayList<>();
                 for (int i = 0; i < projectionExpressions.size(); i++) {
                     Expression projection = projectionExpressions.get(i);
                     rewrittenProjections.add(ExpressionTreeRewriter.rewriteWith(symbolToInputRewriter, projection));
@@ -665,7 +665,7 @@ public class LocalExecutionPlanner
                 if (expression instanceof QualifiedNameReference) {
                     // fast path when we know it's a direct symbol reference
                     Symbol reference = Symbol.fromQualifiedName(((QualifiedNameReference) expression).getName());
-                    function = ProjectionFunctions.singleColumn(context.getTypes().get(reference).getRawType(), sourceLayout.get(reference));
+                    function = ProjectionFunctions.singleColumn(context.getTypes().get(reference), sourceLayout.get(reference));
                 }
                 else {
                     function = new InterpretedProjectionFunction(
@@ -696,12 +696,12 @@ public class LocalExecutionPlanner
             }
         }
 
-        private Map<Input, com.facebook.presto.sql.analyzer.Type> getInputTypes(Map<Symbol, Input> layout, List<Type> types)
+        private Map<Input, Type> getInputTypes(Map<Symbol, Input> layout, List<Type> types)
         {
-            Builder<Input, com.facebook.presto.sql.analyzer.Type> inputTypes = ImmutableMap.builder();
+            Builder<Input, Type> inputTypes = ImmutableMap.builder();
             for (Input input : ImmutableSet.copyOf(layout.values())) {
                 Type type = types.get(input.getChannel());
-                inputTypes.put(input, com.facebook.presto.sql.analyzer.Type.fromRaw(type));
+                inputTypes.put(input, type);
             }
             return inputTypes.build();
         }
@@ -736,8 +736,8 @@ public class LocalExecutionPlanner
                 Input input = new Input(channel);
                 outputMappings.put(symbol, input);
 
-                com.facebook.presto.sql.analyzer.Type type = checkNotNull(context.getTypes().get(symbol), "No type for symbol %s", symbol);
-                outputTypes.add(type.getRawType());
+                Type type = checkNotNull(context.getTypes().get(symbol), "No type for symbol %s", symbol);
+                outputTypes.add(type);
 
                 channel++;
             }
@@ -908,7 +908,6 @@ public class LocalExecutionPlanner
 
             List<Type> types = IterableTransformer.on(node.getColumns())
                     .transform(Functions.forMap(context.getTypes()))
-                    .transform(com.facebook.presto.sql.analyzer.Type.toRaw())
                     .list();
 
             List<Integer> inputChannels = IterableTransformer.on(node.getColumns())
@@ -1019,16 +1018,15 @@ public class LocalExecutionPlanner
             throw new UnsupportedOperationException("not yet implemented");
         }
 
-        private List<Type> getSourceOperatorTypes(PlanNode node, Map<Symbol, com.facebook.presto.sql.analyzer.Type> types)
+        private List<Type> getSourceOperatorTypes(PlanNode node, Map<Symbol, Type> types)
         {
             return getSymbolTypes(node.getOutputSymbols(), types);
         }
 
-        private List<Type> getSymbolTypes(List<Symbol> symbols, Map<Symbol, com.facebook.presto.sql.analyzer.Type> types)
+        private List<Type> getSymbolTypes(List<Symbol> symbols, Map<Symbol, Type> types)
         {
             return ImmutableList.copyOf(IterableTransformer.on(symbols)
                     .transform(Functions.forMap(types))
-                    .transform(com.facebook.presto.sql.analyzer.Type.toRaw())
                     .list());
         }
 
@@ -1131,14 +1129,14 @@ public class LocalExecutionPlanner
         };
     }
 
-    private static IdentityProjectionInfo computeIdentityMapping(List<Symbol> symbols, Map<Symbol, Input> inputLayout, Map<Symbol, com.facebook.presto.sql.analyzer.Type> types)
+    private static IdentityProjectionInfo computeIdentityMapping(List<Symbol> symbols, Map<Symbol, Input> inputLayout, Map<Symbol, Type> types)
     {
         Map<Symbol, Input> outputMappings = new HashMap<>();
         List<ProjectionFunction> projections = new ArrayList<>();
 
         int channel = 0;
         for (Symbol symbol : symbols) {
-            ProjectionFunction function = ProjectionFunctions.singleColumn(types.get(symbol).getRawType(), inputLayout.get(symbol));
+            ProjectionFunction function = ProjectionFunctions.singleColumn(types.get(symbol), inputLayout.get(symbol));
             projections.add(function);
             if (!outputMappings.containsKey(symbol)) {
                 outputMappings.put(symbol, new Input(channel));

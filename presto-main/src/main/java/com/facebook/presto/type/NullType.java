@@ -43,6 +43,12 @@ public final class NullType
     }
 
     @Override
+    public Class<?> getJavaType()
+    {
+        return Void.class;
+    }
+
+    @Override
     public int getFixedSize()
     {
         return 0;

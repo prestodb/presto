@@ -16,8 +16,8 @@ package com.facebook.presto.sql.gen;
 import com.facebook.presto.byteCode.ByteCodeNode;
 import com.facebook.presto.metadata.FunctionInfo;
 import com.facebook.presto.metadata.Metadata;
-import com.facebook.presto.sql.analyzer.Type;
 import com.facebook.presto.sql.tree.QualifiedName;
+import com.facebook.presto.type.Type;
 import com.google.common.base.Function;
 import com.google.common.collect.Lists;
 import io.airlift.slice.Slice;
@@ -29,6 +29,10 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.atomic.AtomicLong;
 
+import static com.facebook.presto.type.BigintType.BIGINT;
+import static com.facebook.presto.type.BooleanType.BOOLEAN;
+import static com.facebook.presto.type.DoubleType.DOUBLE;
+import static com.facebook.presto.type.VarcharType.VARCHAR;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 
@@ -84,19 +88,19 @@ public class BootstrapFunctionBinder
             {
                 Class<?> type = node.getType();
                 if (type == boolean.class) {
-                    return Type.BOOLEAN;
+                    return BOOLEAN;
                 }
                 if (type == long.class) {
-                    return Type.BIGINT;
+                    return BIGINT;
                 }
                 if (type == double.class) {
-                    return Type.DOUBLE;
+                    return DOUBLE;
                 }
                 if (type == String.class) {
-                    return Type.VARCHAR;
+                    return VARCHAR;
                 }
                 if (type == Slice.class) {
-                    return Type.VARCHAR;
+                    return VARCHAR;
                 }
                 throw new UnsupportedOperationException("Unsupported function type " + type);
             }
