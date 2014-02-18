@@ -55,7 +55,7 @@ public final class Types
     public static Type fromName(String name)
     {
         checkNotNull(name, "name is null");
-        switch (name) {
+        switch (name.toLowerCase()) {
             case "bigint":
                 return BIGINT;
             case "varchar":

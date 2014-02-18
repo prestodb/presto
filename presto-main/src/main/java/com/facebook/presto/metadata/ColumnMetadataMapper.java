@@ -22,6 +22,8 @@ import org.skife.jdbi.v2.tweak.ResultSetMapper;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 
+import static com.google.common.base.Preconditions.checkArgument;
+
 public class ColumnMetadataMapper
         implements ResultSetMapper<ColumnMetadata>
 {
@@ -29,7 +31,9 @@ public class ColumnMetadataMapper
             throws SQLException
     {
         String name = r.getString("column_name");
-        Type type = Types.fromName(r.getString("data_type"));
+        String typeName = r.getString("data_type");
+        Type type = Types.fromName(typeName);
+        checkArgument(type != null, "Unknown type %s", typeName);
         int ordinalPosition = r.getInt("ordinal_position");
         return new ColumnMetadata(name, type.toColumnType(), ordinalPosition, false);
     }

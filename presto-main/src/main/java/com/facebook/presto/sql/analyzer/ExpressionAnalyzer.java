@@ -530,22 +530,9 @@ public class ExpressionAnalyzer
         {
             process(node.getExpression(), context);
 
-            Type type;
-            switch (node.getType()) {
-                case "BOOLEAN":
-                    type = BOOLEAN;
-                    break;
-                case "DOUBLE":
-                    type = DOUBLE;
-                    break;
-                case "BIGINT":
-                    type = BIGINT;
-                    break;
-                case "VARCHAR":
-                    type = VARCHAR;
-                    break;
-                default:
-                    throw new SemanticException(TYPE_MISMATCH, node, "Cannot cast to type: " + node.getType());
+            Type type = Types.fromName(node.getType());
+            if (type == null) {
+                throw new SemanticException(TYPE_MISMATCH, node, "Cannot cast to type: " + node.getType());
             }
             subExpressionTypes.put(node, type);
             return type;

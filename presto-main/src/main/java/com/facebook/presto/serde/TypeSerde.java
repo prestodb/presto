@@ -19,6 +19,7 @@ import com.google.common.base.Charsets;
 import io.airlift.slice.SliceInput;
 import io.airlift.slice.SliceOutput;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 public final class TypeSerde
@@ -40,7 +41,9 @@ public final class TypeSerde
         checkNotNull(sliceInput, "sliceInput is null");
 
         String name = readLengthPrefixedString(sliceInput);
-        return Types.fromName(name);
+        Type type = Types.fromName(name);
+        checkArgument(type != null, "Unknown type %s", name);
+        return type;
     }
 
     private static String readLengthPrefixedString(SliceInput input)
