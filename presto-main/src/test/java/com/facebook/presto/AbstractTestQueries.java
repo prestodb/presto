@@ -1633,6 +1633,16 @@ public abstract class AbstractTestQueries
     }
 
     @Test
+    public void testJoinEffectivePredicateWithNoRanges()
+            throws Exception
+    {
+        assertQuery("" +
+                "SELECT * FROM orders a " +
+                "   JOIN (SELECT * FROM orders WHERE orderkey IS NULL) b " +
+                "   ON a.orderkey = b.orderkey");
+    }
+
+    @Test
     public void testColumnAliases()
             throws Exception
     {
