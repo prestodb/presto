@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.hive;
 
+import com.facebook.presto.hive.util.HadoopApiStats;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.PartitionResult;
 import com.facebook.presto.spi.RecordCursor;
@@ -71,6 +72,7 @@ public abstract class AbstractTestHiveClientS3
                 new HiveConnectorId("hive-test"),
                 hiveClientConfig,
                 new CachingHiveMetastore(hiveCluster, executor, hiveClientConfig),
+                new HadoopApiStats(),
                 new HdfsEnvironment(new HdfsConfiguration(hiveClientConfig)),
                 sameThreadExecutor());
 
