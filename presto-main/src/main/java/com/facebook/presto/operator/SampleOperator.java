@@ -17,7 +17,7 @@ import com.facebook.presto.block.BlockCursor;
 import com.facebook.presto.tuple.TupleInfo;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListenableFuture;
-import org.apache.commons.math3.distribution.PoissonDistribution;
+import org.apache.commons.math3.random.RandomDataGenerator;
 
 import java.util.List;
 
@@ -33,14 +33,16 @@ public class SampleOperator
     {
         private final int operatorId;
         private final double sampleRatio;
+        private final boolean rescaled;
 
         private final List<TupleInfo> tupleInfos;
         private boolean closed;
 
-        public SampleOperatorFactory(int operatorId, double sampleRatio, List<TupleInfo> sourceTupleInfos)
+        public SampleOperatorFactory(int operatorId, double sampleRatio, boolean rescaled, List<TupleInfo> sourceTupleInfos)
         {
             this.operatorId = operatorId;
             this.sampleRatio = sampleRatio;
+            this.rescaled = rescaled;
             this.tupleInfos = ImmutableList.<TupleInfo>builder()
                     .addAll(checkNotNull(sourceTupleInfos, "sourceTupleInfos is null"))
                     .add(TupleInfo.SINGLE_LONG)
@@ -58,7 +60,7 @@ public class SampleOperator
         {
             checkState(!closed, "Factory is already closed");
             OperatorContext operatorContext = driverContext.addOperatorContext(operatorId, SampleOperator.class.getSimpleName());
-            return new SampleOperator(operatorContext, sampleRatio, tupleInfos);
+            return new SampleOperator(operatorContext, sampleRatio, rescaled, tupleInfos);
         }
 
         @Override
@@ -72,12 +74,14 @@ public class SampleOperator
     private final List<TupleInfo> tupleInfos;
     private final PageBuilder pageBuilder;
     private final BlockCursor[] cursors;
-    private final PoissonDistribution poisson;
+    private final RandomDataGenerator rand = new RandomDataGenerator();
+    private final double sampleRatio;
+    private final boolean rescaled;
     private final int sampleWeightChannel;
     private boolean finishing;
     private int remainingPositions;
 
-    public SampleOperator(OperatorContext operatorContext, double sampleRatio, List<TupleInfo> tupleInfos)
+    public SampleOperator(OperatorContext operatorContext, double sampleRatio, boolean rescaled, List<TupleInfo> tupleInfos)
     {
         //Note: Poissonized Samples can be larger than the original dataset if desired
         checkArgument(sampleRatio > 0, "sample ratio must be strictly positive");
@@ -86,8 +90,9 @@ public class SampleOperator
         this.tupleInfos = ImmutableList.copyOf(tupleInfos);
         this.pageBuilder = new PageBuilder(tupleInfos);
         this.cursors = new BlockCursor[tupleInfos.size() - 1];
-        this.poisson = new PoissonDistribution(sampleRatio);
         this.sampleWeightChannel = tupleInfos.size() - 1;
+        this.sampleRatio = sampleRatio;
+        this.rescaled = rescaled;
     }
 
     @Override
@@ -148,7 +153,11 @@ public class SampleOperator
                 checkState(cursor.advanceNextPosition());
             }
 
-            int repeats = poisson.sample();
+            long repeats = rand.nextPoisson(sampleRatio);
+            if (rescaled && repeats > 0) {
+                repeats *= rand.nextPoisson(1.0 / sampleRatio);
+            }
+
             if (repeats > 0) {
                 for (int i = 0; i < cursors.length; i++) {
                     cursors[i].appendTupleTo(pageBuilder.getBlockBuilder(i));

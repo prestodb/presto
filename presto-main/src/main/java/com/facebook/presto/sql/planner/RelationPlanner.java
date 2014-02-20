@@ -154,7 +154,7 @@ class RelationPlanner
         if (node.getType() == SampledRelation.Type.POISSONIZED) {
             sampleWeightSymbol = symbolAllocator.newSymbol("$sampleWeight", Type.BIGINT);
         }
-        PlanNode planNode = new SampleNode(idAllocator.getNextId(), subPlan.getRoot(), ratio, SampleNode.Type.fromType(node.getType()), Optional.fromNullable(sampleWeightSymbol));
+        PlanNode planNode = new SampleNode(idAllocator.getNextId(), subPlan.getRoot(), ratio, SampleNode.Type.fromType(node.getType()), node.isRescaled(), Optional.fromNullable(sampleWeightSymbol));
         if (sampleWeightSymbol != null) {
             planNode = new MaterializeSampleNode(idAllocator.getNextId(), planNode, sampleWeightSymbol);
         }

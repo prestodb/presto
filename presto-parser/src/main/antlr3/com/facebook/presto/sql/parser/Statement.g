@@ -290,7 +290,7 @@ stratifyOn
 
 tableFactor
     : ( tablePrimary -> tablePrimary )
-      ( TABLESAMPLE sampleType '(' expr ')' stratifyOn? -> ^(SAMPLED_RELATION $tableFactor sampleType expr stratifyOn?) )?
+      ( TABLESAMPLE sampleType '(' expr ')' RESCALED? stratifyOn? -> ^(SAMPLED_RELATION $tableFactor sampleType expr RESCALED? stratifyOn?) )?
     ;
 
 tablePrimary
@@ -678,7 +678,7 @@ nonReserved
     | YEAR | MONTH | DAY | HOUR | MINUTE | SECOND
     | EXPLAIN | FORMAT | TYPE | TEXT | GRAPHVIZ | LOGICAL | DISTRIBUTED
     | TABLESAMPLE | SYSTEM | BERNOULLI | POISSONIZED | USE | SCHEMA | CATALOG | JSON
-    | APPROXIMATE | AT | CONFIDENCE
+    | RESCALED | APPROXIMATE | AT | CONFIDENCE
     ;
 
 SELECT: 'SELECT';
@@ -801,6 +801,7 @@ SYSTEM: 'SYSTEM';
 BERNOULLI: 'BERNOULLI';
 POISSONIZED: 'POISSONIZED';
 TABLESAMPLE: 'TABLESAMPLE';
+RESCALED: 'RESCALED';
 STRATIFY: 'STRATIFY';
 
 EQ  : '=';
