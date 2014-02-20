@@ -227,8 +227,12 @@ class TupleAnalyzer
         if (samplePercentageValue < 0.0) {
             throw new SemanticException(SemanticErrorCode.SAMPLE_PERCENTAGE_OUT_OF_RANGE, relation.getSamplePercentage(), "Sample percentage must be greater than or equal to 0");
         }
-        else if ((samplePercentageValue > 100.0) && (relation.getType() != SampledRelation.Type.POISSONIZED)) {
+        else if ((samplePercentageValue > 100.0) && (relation.getType() != SampledRelation.Type.POISSONIZED || relation.isRescaled())) {
             throw new SemanticException(SemanticErrorCode.SAMPLE_PERCENTAGE_OUT_OF_RANGE, relation.getSamplePercentage(), "Sample percentage must be less than or equal to 100");
+        }
+
+        if (relation.isRescaled() && !approximateQueriesEnabled) {
+            throw new SemanticException(NOT_SUPPORTED, relation, "Rescaling is not enabled");
         }
 
         TupleDescriptor descriptor = process(relation.getRelation(), context);

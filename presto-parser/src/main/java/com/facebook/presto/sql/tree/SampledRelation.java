@@ -34,13 +34,15 @@ public class SampledRelation
     private final Relation relation;
     private final Type type;
     private final Expression samplePercentage;
+    private final boolean rescaled;
     private final Optional<List<Expression>> columnsToStratifyOn;
 
-    public SampledRelation(Relation relation, Type type, Expression samplePercentage, Optional<List<Expression>> columnsToStratifyOn)
+    public SampledRelation(Relation relation, Type type, Expression samplePercentage, boolean rescaled, Optional<List<Expression>> columnsToStratifyOn)
     {
         this.relation = checkNotNull(relation, "relation is null");
         this.type = checkNotNull(type, "type is null");
         this.samplePercentage = checkNotNull(samplePercentage, "samplePercentage is null");
+        this.rescaled = rescaled;
 
         if (columnsToStratifyOn.isPresent()) {
             this.columnsToStratifyOn = Optional.<List<Expression>>of(ImmutableList.copyOf(columnsToStratifyOn.get()));
@@ -63,6 +65,11 @@ public class SampledRelation
     public Expression getSamplePercentage()
     {
         return samplePercentage;
+    }
+
+    public boolean isRescaled()
+    {
+        return rescaled;
     }
 
     public Optional<List<Expression>> getColumnsToStratifyOn()

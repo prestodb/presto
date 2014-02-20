@@ -34,6 +34,7 @@ public class SampleNode
     private final PlanNode source;
     private final double sampleRatio;
     private final Type sampleType;
+    private final boolean rescaled;
     private final Optional<Symbol> sampleWeightSymbol;
 
     public enum Type
@@ -63,6 +64,7 @@ public class SampleNode
             @JsonProperty("source") PlanNode source,
             @JsonProperty("sampleRatio") double sampleRatio,
             @JsonProperty("sampleType") Type sampleType,
+            @JsonProperty("rescaled") boolean rescaled,
             @JsonProperty("sampleWeightSymbol") Optional<Symbol> sampleWeightSymbol)
     {
         super(id);
@@ -73,6 +75,8 @@ public class SampleNode
         this.sampleType = checkNotNull(sampleType, "sample type is null");
         this.source = checkNotNull(source, "source is null");
         this.sampleRatio = checkNotNull(sampleRatio, "sample ratio is null");
+        this.rescaled = rescaled;
+        checkArgument(!rescaled || sampleType == Type.POISSONIZED);
         this.sampleWeightSymbol = checkNotNull(sampleWeightSymbol, "sample weight symbol is null");
         checkArgument(sampleWeightSymbol.isPresent() == (sampleType == Type.POISSONIZED), "sample weight symbol must be used with POISSONIZED sampling");
     }
@@ -81,6 +85,12 @@ public class SampleNode
     public List<PlanNode> getSources()
     {
         return ImmutableList.of(source);
+    }
+
+    @JsonProperty
+    public boolean isRescaled()
+    {
+        return rescaled;
     }
 
     @JsonProperty
