@@ -181,11 +181,12 @@ public abstract class AbstractTestHiveClient
 
         metastoreClient = new CachingHiveMetastore(hiveCluster, executor, Duration.valueOf("1m"), Duration.valueOf("15s"));
 
+        HiveConnectorId hiveConnectorId = new HiveConnectorId(connectorName);
         HiveClient client = new HiveClient(
-                new HiveConnectorId(connectorName),
+                hiveConnectorId,
                 metastoreClient,
                 new HadoopApiStats(),
-                new HdfsEnvironment(new HdfsConfiguration(hiveClientConfig)),
+                new HdfsEnvironment(new HdfsConfiguration(hiveClientConfig, hiveConnectorId)),
                 sameThreadExecutor(),
                 hiveClientConfig.getMaxSplitSize(),
                 maxOutstandingSplits,

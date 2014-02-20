@@ -17,6 +17,7 @@ import com.facebook.presto.hive.util.AsyncRecursiveWalker;
 import com.facebook.presto.hive.util.BoundedExecutor;
 import com.facebook.presto.hive.util.FileStatusCallback;
 import com.facebook.presto.hive.util.HadoopApiStats;
+import com.facebook.presto.hive.util.SecurityUtils;
 import com.facebook.presto.hive.util.SuspendingExecutor;
 import com.facebook.presto.spi.HostAddress;
 import com.facebook.presto.spi.Split;
@@ -47,6 +48,7 @@ import org.apache.hadoop.mapred.InputSplit;
 import org.apache.hadoop.mapred.JobConf;
 
 import java.io.IOException;
+import java.security.PrivilegedExceptionAction;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
@@ -158,12 +160,12 @@ class HiveSplitSourceProvider
         return hiveSplitSource;
     }
 
-    private void loadPartitionSplits(final HiveSplitSource hiveSplitSource, SuspendingExecutor suspendingExecutor)
+    private void loadPartitionSplits(final HiveSplitSource hiveSplitSource, final SuspendingExecutor suspendingExecutor)
             throws InterruptedException
     {
         final Semaphore semaphore = new Semaphore(maxPartitionBatchSize);
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
-            ImmutableList.Builder<ListenableFuture<Void>> futureBuilder = ImmutableList.builder();
+            final ImmutableList.Builder<ListenableFuture<Void>> futureBuilder = ImmutableList.builder();
 
             Iterator<String> nameIterator = partitionNames.iterator();
             for (Partition partition : partitions) {
@@ -172,86 +174,92 @@ class HiveSplitSourceProvider
                 final Properties schema = getPartitionSchema(table, partition);
                 final List<HivePartitionKey> partitionKeys = getPartitionKeys(table, partition);
 
-                Path path = new Path(getPartitionLocation(table, partition));
+                final Path path = new Path(getPartitionLocation(table, partition));
                 final Configuration configuration = hdfsEnvironment.getConfiguration(path);
                 final InputFormat<?, ?> inputFormat = getInputFormat(configuration, schema, false);
+                SecurityUtils.doAs(HdfsConfiguration.getUserGroupInformation(), new PrivilegedExceptionAction<Object>() {
 
-                FileSystem fs = path.getFileSystem(configuration);
-
-                if (inputFormat instanceof SymlinkTextInputFormat) {
-                    JobConf jobConf = new JobConf(configuration);
-                    FileInputFormat.setInputPaths(jobConf, path);
-                    InputSplit[] splits = inputFormat.getSplits(jobConf, 0);
-                    for (InputSplit rawSplit : splits) {
-                        FileSplit split = ((SymlinkTextInputFormat.SymlinkTextInputSplit) rawSplit).getTargetSplit();
-
-                        // get the filesystem for the target path -- it may be a different hdfs instance
-                        FileSystem targetFilesystem = split.getPath().getFileSystem(configuration);
-                        FileStatus fileStatus = targetFilesystem.getFileStatus(split.getPath());
-                        hiveSplitSource.addToQueue(createHiveSplits(
-                                partitionName,
-                                fileStatus,
-                                targetFilesystem.getFileBlockLocations(fileStatus, split.getStart(), split.getLength()),
-                                split.getStart(),
-                                split.getLength(),
-                                schema,
-                                partitionKeys,
-                                false));
-                    }
-                    continue;
-                }
-
-                // TODO: this is currently serial across all partitions and should be done in suspendingExecutor
-                if (bucket.isPresent()) {
-                    Optional<FileStatus> bucketFile = getBucketFile(bucket.get(), fs, path);
-                    if (bucketFile.isPresent()) {
-                        FileStatus file = bucketFile.get();
-                        BlockLocation[] blockLocations = fs.getFileBlockLocations(file, 0, file.getLen());
-                        boolean splittable = isSplittable(inputFormat, fs, file.getPath());
-
-                        hiveSplitSource.addToQueue(createHiveSplits(partitionName, file, blockLocations, 0, file.getLen(), schema, partitionKeys, splittable));
-                        continue;
-                    }
-                }
-
-                // Acquire semaphore so that we only have a fixed number of outstanding partitions being processed asynchronously
-                // NOTE: there must not be any calls that throw in the space between acquiring the semaphore and setting the Future
-                // callback to release it. Otherwise, we will need a try-finally block around this section.
-                semaphore.acquire();
-
-                ListenableFuture<Void> partitionFuture = new AsyncRecursiveWalker(fs, suspendingExecutor, hadoopApiStats).beginWalk(path, new FileStatusCallback()
-                {
                     @Override
-                    public void process(FileStatus file, BlockLocation[] blockLocations)
-                    {
-                        try {
-                            boolean splittable = isSplittable(inputFormat, file.getPath().getFileSystem(configuration), file.getPath());
+                    public Object run() throws Exception {
+                        FileSystem fs = path.getFileSystem(configuration);
 
-                            hiveSplitSource.addToQueue(createHiveSplits(partitionName, file, blockLocations, 0, file.getLen(), schema, partitionKeys, splittable));
+                        if (inputFormat instanceof SymlinkTextInputFormat) {
+                            JobConf jobConf = new JobConf(configuration);
+                            FileInputFormat.setInputPaths(jobConf, path);
+                            InputSplit[] splits = inputFormat.getSplits(jobConf, 0);
+                            for (InputSplit rawSplit : splits) {
+                                FileSplit split = ((SymlinkTextInputFormat.SymlinkTextInputSplit) rawSplit).getTargetSplit();
+
+                                // get the filesystem for the target path -- it may be a different hdfs instance
+                                FileSystem targetFilesystem = split.getPath().getFileSystem(configuration);
+                                FileStatus fileStatus = targetFilesystem.getFileStatus(split.getPath());
+                                hiveSplitSource.addToQueue(createHiveSplits(
+                                        partitionName,
+                                        fileStatus,
+                                        targetFilesystem.getFileBlockLocations(fileStatus, split.getStart(), split.getLength()),
+                                        split.getStart(),
+                                        split.getLength(),
+                                        schema,
+                                        partitionKeys,
+                                        false));
+                            }
+                            return null;
                         }
-                        catch (IOException e) {
-                            hiveSplitSource.fail(e);
+
+                        // TODO: this is currently serial across all partitions and should be done in suspendingExecutor
+                        if (bucket.isPresent()) {
+                            Optional<FileStatus> bucketFile = getBucketFile(bucket.get(), fs, path);
+                            if (bucketFile.isPresent()) {
+                                FileStatus file = bucketFile.get();
+                                BlockLocation[] blockLocations = fs.getFileBlockLocations(file, 0, file.getLen());
+                                boolean splittable = isSplittable(inputFormat, fs, file.getPath());
+
+                                hiveSplitSource.addToQueue(createHiveSplits(partitionName, file, blockLocations, 0, file.getLen(), schema, partitionKeys, splittable));
+                                return null;
+                            }
                         }
+
+                        // Acquire semaphore so that we only have a fixed number of outstanding partitions being processed asynchronously
+                        // NOTE: there must not be any calls that throw in the space between acquiring the semaphore and setting the Future
+                        // callback to release it. Otherwise, we will need a try-finally block around this section.
+                        semaphore.acquire();
+
+                        ListenableFuture<Void> partitionFuture = new AsyncRecursiveWalker(fs, suspendingExecutor, hadoopApiStats).beginWalk(path, new FileStatusCallback()
+                        {
+                            @Override
+                            public void process(FileStatus file, BlockLocation[] blockLocations)
+                            {
+                                try {
+                                    boolean splittable = isSplittable(inputFormat, file.getPath().getFileSystem(configuration), file.getPath());
+
+                                    hiveSplitSource.addToQueue(createHiveSplits(partitionName, file, blockLocations, 0, file.getLen(), schema, partitionKeys, splittable));
+                                }
+                                catch (IOException e) {
+                                    hiveSplitSource.fail(e);
+                                }
+                            }
+                        });
+
+                        // release the semaphore when the partition finishes
+                        Futures.addCallback(partitionFuture, new FutureCallback<Void>()
+                        {
+                            @Override
+                            public void onSuccess(Void result)
+                            {
+                                semaphore.release();
+                            }
+
+                            @Override
+                            public void onFailure(Throwable t)
+                            {
+                                semaphore.release();
+                            }
+                        });
+
+                        futureBuilder.add(partitionFuture);
+                        return null;
                     }
                 });
-
-                // release the semaphore when the partition finishes
-                Futures.addCallback(partitionFuture, new FutureCallback<Void>()
-                {
-                    @Override
-                    public void onSuccess(Void result)
-                    {
-                        semaphore.release();
-                    }
-
-                    @Override
-                    public void onFailure(Throwable t)
-                    {
-                        semaphore.release();
-                    }
-                });
-
-                futureBuilder.add(partitionFuture);
             }
 
             // when all partitions finish, mark the queue as finished
