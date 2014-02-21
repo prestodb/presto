@@ -128,7 +128,7 @@ public class LocalQueryRunner
         this.executor = checkNotNull(executor, "executor is null");
 
         this.nodeManager = new InMemoryNodeManager();
-        this.metadata = new MetadataManager();
+        this.metadata = new MetadataManager(new FeaturesConfig().setExperimentalSyntaxEnabled(true));
         this.splitManager = new SplitManager(ImmutableSet.<ConnectorSplitManager>of());
         this.dataStreamProvider = new DataStreamManager();
         this.recordSinkManager = new RecordSinkManager();

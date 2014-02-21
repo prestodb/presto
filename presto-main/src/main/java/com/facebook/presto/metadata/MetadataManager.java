@@ -21,6 +21,7 @@ import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.OutputTableHandle;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.TableHandle;
+import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.sql.analyzer.Type;
 import com.facebook.presto.sql.tree.QualifiedName;
 import com.google.common.base.Optional;
@@ -28,6 +29,7 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.inject.Inject;
 
 import javax.inject.Singleton;
 
@@ -59,7 +61,13 @@ public class MetadataManager
     private final CopyOnWriteArrayList<ConnectorMetadataEntry> internalSchemas = new CopyOnWriteArrayList<>();
     private final ConcurrentMap<String, ConnectorMetadataEntry> connectors = new ConcurrentHashMap<>();
     private final ConcurrentMap<String, ConnectorMetadataEntry> informationSchemas = new ConcurrentHashMap<>();
-    private final FunctionRegistry functions = new FunctionRegistry();
+    private final FunctionRegistry functions;
+
+    @Inject
+    public MetadataManager(FeaturesConfig featuresConfig)
+    {
+        functions = new FunctionRegistry(featuresConfig.isExperimentalSyntaxEnabled());
+    }
 
     public void addConnectorMetadata(String connectorId, String catalogName, ConnectorMetadata connectorMetadata)
     {

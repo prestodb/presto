@@ -34,6 +34,7 @@ import com.facebook.presto.spi.SplitSource;
 import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.spi.TupleDomain;
 import com.facebook.presto.split.DataStreamManager;
+import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.sql.analyzer.Session;
 import com.facebook.presto.sql.analyzer.Type;
 import com.facebook.presto.sql.gen.ExpressionCompiler;
@@ -101,7 +102,7 @@ public class TestSqlTaskManager
         assertNotNull(columnHandle, "columnHandle is null");
         symbol = new Symbol(DualMetadata.COLUMN_NAME);
 
-        MetadataManager metadata = new MetadataManager();
+        MetadataManager metadata = new MetadataManager(new FeaturesConfig());
         metadata.addInternalSchemaMetadata(MetadataManager.INTERNAL_CONNECTOR_ID, dualMetadata);
 
         DualSplitManager dualSplitManager = new DualSplitManager(new InMemoryNodeManager());

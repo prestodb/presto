@@ -21,6 +21,7 @@ import com.facebook.presto.spi.ReadOnlyConnectorMetadata;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.SchemaTablePrefix;
 import com.facebook.presto.spi.TableHandle;
+import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -39,7 +40,7 @@ public class DualMetadata
     public static final MetadataManager DUAL_METADATA_MANAGER;
 
     static {
-        DUAL_METADATA_MANAGER = new MetadataManager();
+        DUAL_METADATA_MANAGER = new MetadataManager(new FeaturesConfig());
         DUAL_METADATA_MANAGER.addInternalSchemaMetadata(MetadataManager.INTERNAL_CONNECTOR_ID, new DualMetadata());
     }
 

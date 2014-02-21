@@ -556,7 +556,7 @@ public class TestAnalyzer
     public void setup()
             throws Exception
     {
-        MetadataManager metadata = new MetadataManager();
+        MetadataManager metadata = new MetadataManager(new FeaturesConfig().setExperimentalSyntaxEnabled(true));
         metadata.addConnectorMetadata("tpch", "tpch", new InMemoryMetadata());
 
         SchemaTableName table1 = new SchemaTableName("default", "t1");
