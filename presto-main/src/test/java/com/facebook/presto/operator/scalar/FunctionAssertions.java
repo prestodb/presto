@@ -77,6 +77,7 @@ import org.joda.time.DateTimeZone;
 
 import java.util.ArrayList;
 import java.util.HashSet;
+import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -94,6 +95,7 @@ import static com.facebook.presto.spi.ColumnType.BOOLEAN;
 import static com.facebook.presto.spi.ColumnType.DOUBLE;
 import static com.facebook.presto.spi.ColumnType.LONG;
 import static com.facebook.presto.spi.ColumnType.STRING;
+import static com.facebook.presto.sql.analyzer.ExpressionAnalyzer.getExpressionTypesFromInput;
 import static com.facebook.presto.sql.parser.SqlParser.createExpression;
 import static com.facebook.presto.sql.tree.BooleanLiteral.TRUE_LITERAL;
 import static com.google.common.base.Preconditions.checkNotNull;
@@ -150,6 +152,16 @@ public final class FunctionAssertions
             return Field.newUnqualified(entry.getKey().getName(), INPUT_TYPES.get(entry.getValue()));
         }
     })));
+
+    private static final Map<Symbol, Type> SYMBOL_TYPES = ImmutableMap.<Symbol, Type>builder()
+            .put(new Symbol("bound_long"), BigintType.BIGINT)
+            .put(new Symbol("bound_string"), VarcharType.VARCHAR)
+            .put(new Symbol("bound_double"), DoubleType.DOUBLE)
+            .put(new Symbol("bound_boolean"), BooleanType.BOOLEAN)
+            .put(new Symbol("bound_timestamp"), BigintType.BIGINT)
+            .put(new Symbol("bound_pattern"), VarcharType.VARCHAR)
+            .put(new Symbol("bound_null_string"), VarcharType.VARCHAR)
+            .build();
 
     private static final DataStreamProvider DATA_STREAM_PROVIDER = new TestDataStreamProvider();
     private static final PlanNodeId SOURCE_ID = new PlanNodeId("scan");
@@ -213,12 +225,11 @@ public final class FunctionAssertions
 
         // execute as standalone operator
         OperatorFactory operatorFactory = compileFilterProject(TRUE_LITERAL, projectionExpression);
-        Type expressionType = operatorFactory.getTypes().get(0);
         Object directOperatorValue = selectSingleValue(operatorFactory, session);
         results.add(directOperatorValue);
 
         // interpret
-        Object interpretedValue = selectSingleValue(interpretedFilterProject(TRUE_LITERAL, projectionExpression, expressionType, session));
+        Object interpretedValue = selectSingleValue(interpretedFilterProject(TRUE_LITERAL, projectionExpression, session));
         results.add(interpretedValue);
 
         // execute over normal operator
@@ -305,7 +316,6 @@ public final class FunctionAssertions
 
         // execute as standalone operator
         OperatorFactory operatorFactory = compileFilterProject(filterExpression, TRUE_LITERAL);
-        Type expressionType = operatorFactory.getTypes().get(0);
         results.add(executeFilter(operatorFactory, session));
 
         if (executeWithNoInputColumns) {
@@ -315,7 +325,7 @@ public final class FunctionAssertions
         }
 
         // interpret
-        boolean interpretedValue = executeFilter(interpretedFilterProject(filterExpression, TRUE_LITERAL, expressionType, session));
+        boolean interpretedValue = executeFilter(interpretedFilterProject(filterExpression, TRUE_LITERAL, session));
         results.add(interpretedValue);
 
         // execute over normal operator
@@ -422,18 +432,19 @@ public final class FunctionAssertions
         return hasQualifiedNameReference.get();
     }
 
-    private Operator interpretedFilterProject(Expression filter, Expression projection, Type expressionType, Session session)
+    private Operator interpretedFilterProject(Expression filter, Expression projection, Session session)
     {
         FilterFunction filterFunction = new InterpretedFilterFunction(
                 filter,
+                SYMBOL_TYPES,
                 INPUT_MAPPING,
                 metadataManager,
                 session
         );
 
         ProjectionFunction projectionFunction = new InterpretedProjectionFunction(
-                expressionType,
                 projection,
+                SYMBOL_TYPES,
                 INPUT_MAPPING,
                 metadataManager,
                 session
@@ -447,8 +458,10 @@ public final class FunctionAssertions
     {
         filter = ExpressionTreeRewriter.rewriteWith(new SymbolToInputRewriter(ImmutableMap.<Symbol, Input>of()), filter);
 
+        IdentityHashMap<Expression, Type> expressionTypes = getExpressionTypesFromInput(SESSION, metadataManager, INPUT_TYPES, ImmutableList.of(filter));
+
         try {
-            return compiler.compileFilterAndProjectOperator(0, filter, ImmutableList.<Expression>of(), ImmutableMap.<Input, Type>of(), ImmutableList.<Type>of());
+            return compiler.compileFilterAndProjectOperator(0, filter, ImmutableList.<Expression>of(), expressionTypes);
         }
         catch (Throwable e) {
             if (e instanceof UncheckedExecutionException) {
@@ -460,13 +473,13 @@ public final class FunctionAssertions
 
     private OperatorFactory compileFilterProject(Expression filter, Expression projection)
     {
-        Type projectionType = getExpressionType(projection);
-
         filter = ExpressionTreeRewriter.rewriteWith(new SymbolToInputRewriter(INPUT_MAPPING), filter);
         projection = ExpressionTreeRewriter.rewriteWith(new SymbolToInputRewriter(INPUT_MAPPING), projection);
 
+        IdentityHashMap<Expression, Type> expressionTypes = getExpressionTypesFromInput(SESSION, metadataManager, INPUT_TYPES, ImmutableList.of(filter, projection));
+
         try {
-            return compiler.compileFilterAndProjectOperator(0, filter, ImmutableList.of(projection), INPUT_TYPES, ImmutableList.of(projectionType));
+            return compiler.compileFilterAndProjectOperator(0, filter, ImmutableList.of(projection), expressionTypes);
         }
         catch (Throwable e) {
             if (e instanceof UncheckedExecutionException) {
@@ -478,10 +491,10 @@ public final class FunctionAssertions
 
     private SourceOperatorFactory compileScanFilterProject(Expression filter, Expression projection)
     {
-        Type projectionType = getExpressionType(projection);
-
         filter = ExpressionTreeRewriter.rewriteWith(new SymbolToInputRewriter(INPUT_MAPPING), filter);
         projection = ExpressionTreeRewriter.rewriteWith(new SymbolToInputRewriter(INPUT_MAPPING), projection);
+
+        IdentityHashMap<Expression, Type> expressionTypes = getExpressionTypesFromInput(SESSION, metadataManager, INPUT_TYPES, ImmutableList.of(filter, projection));
 
         try {
             return compiler.compileScanFilterAndProjectOperator(
@@ -491,8 +504,7 @@ public final class FunctionAssertions
                     ImmutableList.<ColumnHandle>of(),
                     filter,
                     ImmutableList.of(projection),
-                    INPUT_TYPES,
-                    ImmutableList.of(projectionType));
+                    expressionTypes);
         }
         catch (Throwable e) {
             if (e instanceof UncheckedExecutionException) {

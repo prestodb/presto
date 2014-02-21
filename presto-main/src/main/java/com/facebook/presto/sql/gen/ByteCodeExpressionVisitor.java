@@ -102,14 +102,14 @@ public class ByteCodeExpressionVisitor
         extends AstVisitor<TypedByteCodeNode, CompilerContext>
 {
     private final BootstrapFunctionBinder bootstrapFunctionBinder;
-    private final Map<Input, Type> inputTypes;
+    private final Map<Expression, Type> expressionTypes;
     private final ByteCodeNode getSessionByteCode;
     private final boolean sourceIsCursor;
 
-    public ByteCodeExpressionVisitor(BootstrapFunctionBinder bootstrapFunctionBinder, Map<Input, Type> inputTypes, ByteCodeNode getSessionByteCode, boolean sourceIsCursor)
+    public ByteCodeExpressionVisitor(BootstrapFunctionBinder bootstrapFunctionBinder, Map<Expression, Type> expressionTypes, ByteCodeNode getSessionByteCode, boolean sourceIsCursor)
     {
         this.bootstrapFunctionBinder = bootstrapFunctionBinder;
-        this.inputTypes = inputTypes;
+        this.expressionTypes = expressionTypes;
         this.getSessionByteCode = getSessionByteCode;
         this.sourceIsCursor = sourceIsCursor;
     }
@@ -150,7 +150,7 @@ public class ByteCodeExpressionVisitor
     {
         Input input = node.getInput();
         int channel = input.getChannel();
-        Type type = inputTypes.get(input);
+        Type type = expressionTypes.get(node);
         checkState(type != null, "No type for input %s", input);
 
         if (sourceIsCursor) {
@@ -247,15 +247,17 @@ public class ByteCodeExpressionVisitor
     protected TypedByteCodeNode visitFunctionCall(FunctionCall node, CompilerContext context)
     {
         List<TypedByteCodeNode> arguments = new ArrayList<>();
+        List<Type> argumentTypes = new ArrayList<>();
         for (Expression argument : node.getArguments()) {
             TypedByteCodeNode typedByteCodeNode = process(argument, context);
             if (typedByteCodeNode.getType() == void.class) {
                 return typedByteCodeNode;
             }
             arguments.add(typedByteCodeNode);
+            argumentTypes.add(expressionTypes.get(argument));
         }
 
-        FunctionBinding functionBinding = bootstrapFunctionBinder.bindFunction(node.getName(), getSessionByteCode, arguments);
+        FunctionBinding functionBinding = bootstrapFunctionBinder.bindFunction(node.getName(), getSessionByteCode, arguments, argumentTypes);
         return visitFunctionBinding(context, functionBinding, node.toString());
     }
 
@@ -273,7 +275,11 @@ public class ByteCodeExpressionVisitor
         }
 
         QualifiedName functionName = QualifiedName.of(node.getField().name().toLowerCase());
-        FunctionBinding functionBinding = bootstrapFunctionBinder.bindFunction(functionName, getSessionByteCode, ImmutableList.of(expression));
+        FunctionBinding functionBinding = bootstrapFunctionBinder.bindFunction(
+                functionName,
+                getSessionByteCode,
+                ImmutableList.of(expression),
+                ImmutableList.of(expressionTypes.get(node.getExpression())));
         return visitFunctionBinding(context, functionBinding, node.toString());
     }
 

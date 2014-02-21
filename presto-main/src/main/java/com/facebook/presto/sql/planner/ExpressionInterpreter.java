@@ -74,10 +74,6 @@ import java.util.Set;
 
 import static com.facebook.presto.sql.planner.LiteralInterpreter.toExpression;
 import static com.facebook.presto.sql.planner.LiteralInterpreter.toExpressions;
-import static com.facebook.presto.type.BigintType.BIGINT;
-import static com.facebook.presto.type.BooleanType.BOOLEAN;
-import static com.facebook.presto.type.DoubleType.DOUBLE;
-import static com.facebook.presto.type.VarcharType.VARCHAR;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 
@@ -87,6 +83,7 @@ public class ExpressionInterpreter
     private final Metadata metadata;
     private final Session session;
     private final boolean optimize;
+    private final IdentityHashMap<Expression, Type> expressionTypes;
 
     private final Visitor visitor;
 
@@ -94,29 +91,30 @@ public class ExpressionInterpreter
     private final IdentityHashMap<LikePredicate, Regex> likePatternCache = new IdentityHashMap<>();
     private final IdentityHashMap<InListExpression, Set<Object>> inListCache = new IdentityHashMap<>();
 
-    public static ExpressionInterpreter expressionInterpreter(Expression expression, Metadata metadata, Session session)
+    public static ExpressionInterpreter expressionInterpreter(Expression expression, Metadata metadata, Session session, IdentityHashMap<Expression, Type> expressionTypes)
     {
         checkNotNull(expression, "expression is null");
         checkNotNull(metadata, "metadata is null");
         checkNotNull(session, "session is null");
 
-        return new ExpressionInterpreter(expression, metadata, session, false);
+        return new ExpressionInterpreter(expression, metadata, session, expressionTypes, false);
     }
 
-    public static ExpressionInterpreter expressionOptimizer(Expression expression, Metadata metadata, Session session)
+    public static ExpressionInterpreter expressionOptimizer(Expression expression, Metadata metadata, Session session, IdentityHashMap<Expression, Type> expressionTypes)
     {
         checkNotNull(expression, "expression is null");
         checkNotNull(metadata, "metadata is null");
         checkNotNull(session, "session is null");
 
-        return new ExpressionInterpreter(expression, metadata, session, true);
+        return new ExpressionInterpreter(expression, metadata, session, expressionTypes, true);
     }
 
-    private ExpressionInterpreter(Expression expression, Metadata metadata, Session session, boolean optimize)
+    private ExpressionInterpreter(Expression expression, Metadata metadata, Session session, IdentityHashMap<Expression, Type> expressionTypes, boolean optimize)
     {
         this.expression = expression;
         this.metadata = metadata;
         this.session = session;
+        this.expressionTypes = expressionTypes;
         this.optimize = optimize;
 
         this.visitor = new Visitor();
@@ -229,7 +227,7 @@ public class ExpressionInterpreter
             Object value = process(node.getValue(), context);
 
             if (value instanceof Expression) {
-                return new IsNullPredicate(toExpression(value));
+                return new IsNullPredicate(toExpression(value, expressionTypes.get(node.getValue())));
             }
 
             return value == null;
@@ -241,7 +239,7 @@ public class ExpressionInterpreter
             Object value = process(node.getValue(), context);
 
             if (value instanceof Expression) {
-                return new IsNotNullPredicate(toExpression(value));
+                return new IsNotNullPredicate(toExpression(value, expressionTypes.get(node.getValue())));
             }
 
             return value != null;
@@ -385,11 +383,13 @@ public class ExpressionInterpreter
             boolean hasNullValue = false;
             boolean found = false;
             List<Object> values = new ArrayList<>(valueList.getValues().size());
+            List<Type> types = new ArrayList<>(valueList.getValues().size());
             for (Expression expression : valueList.getValues()) {
                 Object inValue = process(expression, context);
                 if (value instanceof Expression || inValue instanceof Expression) {
                     hasUnresolvedValue = true;
                     values.add(inValue);
+                    types.add(expressionTypes.get(expression));
                     continue;
                 }
 
@@ -406,7 +406,8 @@ public class ExpressionInterpreter
             }
 
             if (hasUnresolvedValue) {
-                return new InPredicate(toExpression(value), new InListExpression(toExpressions(values)));
+                Type type = expressionTypes.get(node.getValue());
+                return new InPredicate(toExpression(value, type), new InListExpression(toExpressions(values, types)));
             }
             if (hasNullValue) {
                 return null;
@@ -422,7 +423,7 @@ public class ExpressionInterpreter
                 return null;
             }
             if (value instanceof Expression) {
-                return new NegativeExpression(toExpression(value));
+                return new NegativeExpression(toExpression(value, expressionTypes.get(node.getValue())));
             }
 
             if (value instanceof Long) {
@@ -444,7 +445,7 @@ public class ExpressionInterpreter
             }
 
             if (left instanceof Expression || right instanceof Expression) {
-                return new ArithmeticExpression(node.getType(), toExpression(left), toExpression(right));
+                return new ArithmeticExpression(node.getType(), toExpression(left, expressionTypes.get(node.getLeft())), toExpression(right, expressionTypes.get(node.getRight())));
             }
 
             Number leftNumber = (Number) left;
@@ -526,7 +527,7 @@ public class ExpressionInterpreter
                     return !left.equals(right);
                 }
 
-                return new ComparisonExpression(node.getType(), toExpression(left), toExpression(right));
+                return new ComparisonExpression(node.getType(), toExpression(left, expressionTypes.get(node.getLeft())), toExpression(right, expressionTypes.get(node.getRight())));
             }
 
             Object left = process(node.getLeft(), context);
@@ -602,7 +603,7 @@ public class ExpressionInterpreter
                 throw new UnsupportedOperationException("unhandled type: " + node.getType());
             }
 
-            return new ComparisonExpression(node.getType(), toExpression(left), toExpression(right));
+            return new ComparisonExpression(node.getType(), toExpression(left, expressionTypes.get(node.getLeft())), toExpression(right, expressionTypes.get(node.getRight())));
         }
 
         @Override
@@ -628,7 +629,10 @@ public class ExpressionInterpreter
                 return ((Slice) min).compareTo((Slice) value) <= 0 && ((Slice) value).compareTo((Slice) max) <= 0;
             }
 
-            return new BetweenPredicate(toExpression(value), toExpression(min), toExpression(max));
+            return new BetweenPredicate(
+                    toExpression(value, expressionTypes.get(node.getValue())),
+                    toExpression(min, expressionTypes.get(node.getMin())),
+                    toExpression(max, expressionTypes.get(node.getMax())));
         }
 
         @Override
@@ -656,7 +660,7 @@ public class ExpressionInterpreter
                 return first.equals(second) ? null : first;
             }
 
-            return new NullIfExpression(toExpression(first), toExpression(second));
+            return new NullIfExpression(toExpression(first, expressionTypes.get(node.getFirst())), toExpression(second, expressionTypes.get(node.getSecond())));
         }
 
         @Override
@@ -681,7 +685,10 @@ public class ExpressionInterpreter
                 falseValue = optimize(node.getFalseValue().get(), context);
             }
 
-            return new IfExpression(toExpression(condition), toExpression(trueValue), toExpression(falseValue));
+            return new IfExpression(
+                    toExpression(condition, expressionTypes.get(node.getCondition())),
+                    toExpression(trueValue, expressionTypes.get(node.getTrueValue())),
+                    node.getFalseValue().isPresent() ? toExpression(falseValue, expressionTypes.get(node.getFalseValue().get())) : null);
         }
 
         @Override
@@ -693,7 +700,7 @@ public class ExpressionInterpreter
             }
 
             if (value instanceof Expression) {
-                return new NotExpression(toExpression(value));
+                return new NotExpression(toExpression(value, expressionTypes.get(node.getValue())));
             }
 
             return !(Boolean) value;
@@ -732,7 +739,9 @@ public class ExpressionInterpreter
                 return null;
             }
 
-            return new LogicalBinaryExpression(node.getType(), toExpression(left), toExpression(right));
+            return new LogicalBinaryExpression(node.getType(),
+                    toExpression(left, expressionTypes.get(node.getLeft())),
+                    toExpression(right, expressionTypes.get(node.getRight())));
         }
 
         @Override
@@ -744,7 +753,6 @@ public class ExpressionInterpreter
         @Override
         protected Object visitFunctionCall(FunctionCall node, Object context)
         {
-            // TODO: remove this huge hack
             List<Type> argumentTypes = new ArrayList<>();
             List<Object> argumentValues = new ArrayList<>();
             for (Expression expression : node.getArguments()) {
@@ -752,25 +760,10 @@ public class ExpressionInterpreter
                 if (value == null) {
                     return null;
                 }
-                Type type;
-                if (value instanceof Double) {
-                    type = DOUBLE;
-                }
-                else if (value instanceof Long) {
-                    type = BIGINT;
-                }
-                else if (value instanceof Slice) {
-                    type = VARCHAR;
-                }
-                else if (value instanceof Boolean) {
-                    type = BOOLEAN;
-                }
-                else if (value instanceof Expression) {
+                Type type = expressionTypes.get(expression);
+                if (value instanceof Expression) {
                     // TODO when we know the type of this expression, construct new FunctionCall node with optimized arguments
                     return node;
-                }
-                else {
-                    throw new UnsupportedOperationException("Unhandled value type: " + value.getClass().getName());
                 }
                 argumentValues.add(value);
                 argumentTypes.add(type);
@@ -778,7 +771,7 @@ public class ExpressionInterpreter
             FunctionInfo function = metadata.getFunction(node.getName(), argumentTypes, false);
             // do not optimize non-deterministic functions
             if (optimize && !function.isDeterministic()) {
-                return new FunctionCall(node.getName(), node.getWindow().orNull(), node.isDistinct(), toExpressions(argumentValues));
+                return new FunctionCall(node.getName(), node.getWindow().orNull(), node.isDistinct(), toExpressions(argumentValues, argumentTypes));
             }
             MethodHandle handle = function.getScalarFunction();
             if (handle.type().parameterCount() > 0 && handle.type().parameterType(0) == Session.class) {
@@ -837,16 +830,21 @@ public class ExpressionInterpreter
             if (pattern instanceof Slice && escape == null) {
                 String stringPattern = ((Slice) pattern).toString(Charsets.UTF_8);
                 if (!stringPattern.contains("%") && !stringPattern.contains("_")) {
-                    return new ComparisonExpression(ComparisonExpression.Type.EQUAL, toExpression(value), toExpression(pattern));
+                    return new ComparisonExpression(ComparisonExpression.Type.EQUAL,
+                            toExpression(value, expressionTypes.get(node.getValue())),
+                            toExpression(pattern, expressionTypes.get(node.getPattern())));
                 }
             }
 
             Expression optimizedEscape = null;
             if (node.getEscape() != null) {
-                optimizedEscape = toExpression(escape);
+                optimizedEscape = toExpression(escape, expressionTypes.get(node.getEscape()));
             }
 
-            return new LikePredicate(toExpression(value), toExpression(pattern), optimizedEscape);
+            return new LikePredicate(
+                    toExpression(value, expressionTypes.get(node.getValue())),
+                    toExpression(pattern, expressionTypes.get(node.getPattern())),
+                    optimizedEscape);
         }
 
         private Regex getConstantPattern(LikePredicate node)
@@ -875,7 +873,7 @@ public class ExpressionInterpreter
             }
 
             if (value instanceof Expression) {
-                return new Extract(toExpression(value), node.getField());
+                return new Extract(toExpression(value, expressionTypes.get(node.getExpression())), node.getField());
             }
 
             long time = (long) value;
