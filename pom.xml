@@ -371,6 +371,12 @@
             </dependency>
 
             <dependency>
+                <groupId>tw.edu.ntu.csie</groupId>
+                <artifactId>libsvm</artifactId>
+                <version>3.17</version>
+            </dependency>
+
+            <dependency>
                 <groupId>org.jruby.jcodings</groupId>
                 <artifactId>jcodings</artifactId>
                 <version>1.0.8</version>
