@@ -48,8 +48,7 @@ import com.facebook.presto.split.DataStreamProvider;
 import com.facebook.presto.sql.analyzer.Session;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.facebook.presto.sql.tree.Expression;
-import com.facebook.presto.sql.tree.Input;
-import com.facebook.presto.type.NullType;
+import com.facebook.presto.sql.tree.InputReference;
 import com.facebook.presto.type.Type;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Objects;
@@ -59,8 +58,6 @@ import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.Ordering;
 import com.google.common.io.Files;
 import io.airlift.log.Logger;
 import io.airlift.slice.Slice;
@@ -82,6 +79,7 @@ import java.lang.reflect.Constructor;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.util.ArrayList;
+import java.util.IdentityHashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -100,10 +98,8 @@ import static com.facebook.presto.byteCode.ParameterizedType.type;
 import static com.facebook.presto.byteCode.ParameterizedType.typeFromPathName;
 import static com.facebook.presto.byteCode.control.ForLoop.forLoopBuilder;
 import static com.google.common.base.Objects.toStringHelper;
-import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
-import static com.google.common.collect.Iterables.transform;
 import static java.util.Collections.nCopies;
 
 public class ExpressionCompiler
@@ -119,6 +115,7 @@ public class ExpressionCompiler
 
     private final Method bootstrapMethod;
     private final BootstrapFunctionBinder bootstrapFunctionBinder;
+    private final Metadata metadata;
 
     private final LoadingCache<OperatorCacheKey, FilterAndProjectOperatorFactoryFactory> operatorFactories = CacheBuilder.newBuilder().maximumSize(1000).build(
             new CacheLoader<OperatorCacheKey, FilterAndProjectOperatorFactoryFactory>()
@@ -127,7 +124,7 @@ public class ExpressionCompiler
                 public FilterAndProjectOperatorFactoryFactory load(OperatorCacheKey key)
                         throws Exception
                 {
-                    return internalCompileFilterAndProjectOperator(key.getFilter(), key.getProjections(), key.getInputTypes(), key.getOutputTypes());
+                    return internalCompileFilterAndProjectOperator(key.getFilter(), key.getProjections(), key.getExpressionTypes());
                 }
             });
 
@@ -138,7 +135,7 @@ public class ExpressionCompiler
                 public ScanFilterAndProjectOperatorFactoryFactory load(OperatorCacheKey key)
                         throws Exception
                 {
-                    return internalCompileScanFilterAndProjectOperator(key.getSourceId(), key.getFilter(), key.getProjections(), key.getInputTypes(), key.getOutputTypes());
+                    return internalCompileScanFilterAndProjectOperator(key.getSourceId(), key.getFilter(), key.getProjections(), key.getExpressionTypes());
                 }
             });
 
@@ -147,6 +144,7 @@ public class ExpressionCompiler
     @Inject
     public ExpressionCompiler(Metadata metadata)
     {
+        this.metadata = metadata;
         this.bootstrapFunctionBinder = new BootstrapFunctionBinder(checkNotNull(metadata, "metadata is null"));
 
         // code gen a bootstrap class
@@ -214,14 +212,12 @@ public class ExpressionCompiler
         return sourceOperatorFactories.size();
     }
 
-    public OperatorFactory compileFilterAndProjectOperator(
-            int operatorId,
+    public OperatorFactory compileFilterAndProjectOperator(int operatorId,
             Expression filter,
             List<Expression> projections,
-            Map<Input, Type> inputTypes,
-            List<Type> outputTypes)
+            IdentityHashMap<Expression, Type> expressionTypes)
     {
-        return operatorFactories.getUnchecked(new OperatorCacheKey(filter, projections, inputTypes, outputTypes, null)).create(operatorId);
+        return operatorFactories.getUnchecked(new OperatorCacheKey(filter, projections, expressionTypes, null)).create(operatorId);
     }
 
     private DynamicClassLoader createClassLoader()
@@ -230,16 +226,12 @@ public class ExpressionCompiler
     }
 
     @VisibleForTesting
-    public FilterAndProjectOperatorFactoryFactory internalCompileFilterAndProjectOperator(
-            Expression filter,
-            List<Expression> projections,
-            Map<Input, Type> inputTypes,
-            List<Type> outputTypes)
+    public FilterAndProjectOperatorFactoryFactory internalCompileFilterAndProjectOperator(Expression filter, List<Expression> projections, IdentityHashMap<Expression, Type> expressionTypes)
     {
         DynamicClassLoader classLoader = createClassLoader();
 
         // create filter and project page iterator class
-        TypedOperatorClass typedOperatorClass = compileFilterAndProjectOperator(filter, projections, inputTypes, outputTypes, classLoader);
+        TypedOperatorClass typedOperatorClass = compileFilterAndProjectOperator(filter, projections, expressionTypes, classLoader);
 
         Constructor<? extends Operator> constructor;
         try {
@@ -256,8 +248,7 @@ public class ExpressionCompiler
     private TypedOperatorClass compileFilterAndProjectOperator(
             Expression filter,
             List<Expression> projections,
-            Map<Input, Type> inputTypes,
-            List<Type> outputTypes,
+            IdentityHashMap<Expression, Type> expressionTypes,
             DynamicClassLoader classLoader)
     {
         ClassDefinition classDefinition = new ClassDefinition(new CompilerContext(bootstrapMethod),
@@ -286,30 +277,23 @@ public class ExpressionCompiler
                 .putField(sessionField)
                 .ret();
 
-        generateFilterAndProjectRowOriented(classDefinition, projections, inputTypes);
+        generateFilterAndProjectRowOriented(classDefinition, projections, expressionTypes);
 
         //
         // filter method
         //
-        generateFilterMethod(classDefinition, filter, inputTypes, true);
-        generateFilterMethod(classDefinition, filter, inputTypes, false);
+        generateFilterMethod(classDefinition, filter, expressionTypes, true);
+        generateFilterMethod(classDefinition, filter, expressionTypes, false);
 
         //
         // project methods
         //
         List<Type> types = new ArrayList<>();
         int projectionIndex = 0;
-        for (int i = 0; i < projections.size(); i++) {
-            Type outputType = outputTypes.get(i);
-            checkArgument(!outputType.equals(NullType.NULL), "NULL output type is not supported");
-            types.add(outputType);
-
-            // verify the compiled projection has the correct type
-            Expression projection = projections.get(i);
-
-            Class<?> returnType = generateProjectMethod(classDefinition, "project_" + projectionIndex, projection, inputTypes, true);
-            generateProjectMethod(classDefinition, "project_" + projectionIndex, projection, inputTypes, false);
-            checkState(returnType == outputType.getJavaType(), "Expected compiled method return type to be %s, but is %s", outputType.getJavaType().getName(), returnType.getName());
+        for (Expression projection : projections) {
+            generateProjectMethod(classDefinition, "project_" + projectionIndex, projection, expressionTypes, true);
+            generateProjectMethod(classDefinition, "project_" + projectionIndex, projection, expressionTypes, false);
+            types.add(expressionTypes.get(projection));
             projectionIndex++;
         }
 
@@ -335,10 +319,9 @@ public class ExpressionCompiler
             List<ColumnHandle> columns,
             Expression filter,
             List<Expression> projections,
-            Map<Input, Type> inputTypes,
-            List<Type> outputTypes)
+            IdentityHashMap<Expression, Type> expressionTypes)
     {
-        return sourceOperatorFactories.getUnchecked(new OperatorCacheKey(filter, projections, inputTypes, outputTypes, sourceId)).create(operatorId, dataStreamProvider, columns);
+        return sourceOperatorFactories.getUnchecked(new OperatorCacheKey(filter, projections, expressionTypes, sourceId)).create(operatorId, dataStreamProvider, columns);
     }
 
     @VisibleForTesting
@@ -346,13 +329,12 @@ public class ExpressionCompiler
             PlanNodeId sourceId,
             Expression filter,
             List<Expression> projections,
-            Map<Input, Type> inputTypes,
-            List<Type> outputTypes)
+            IdentityHashMap<Expression, Type> expressionTypes)
     {
         DynamicClassLoader classLoader = createClassLoader();
 
         // create filter and project page iterator class
-        TypedOperatorClass typedOperatorClass = compileScanFilterAndProjectOperator(filter, projections, inputTypes, outputTypes, classLoader);
+        TypedOperatorClass typedOperatorClass = compileScanFilterAndProjectOperator(filter, projections, expressionTypes, classLoader);
 
         Constructor<? extends SourceOperator> constructor;
         try {
@@ -378,8 +360,7 @@ public class ExpressionCompiler
     private TypedOperatorClass compileScanFilterAndProjectOperator(
             Expression filter,
             List<Expression> projections,
-            Map<Input, Type> inputTypes,
-            List<Type> outputTypes,
+            IdentityHashMap<Expression, Type> expressionTypes,
             DynamicClassLoader classLoader)
     {
         ClassDefinition classDefinition = new ClassDefinition(new CompilerContext(bootstrapMethod),
@@ -414,31 +395,24 @@ public class ExpressionCompiler
                 .putField(sessionField)
                 .ret();
 
-        generateFilterAndProjectRowOriented(classDefinition, projections, inputTypes);
+        generateFilterAndProjectRowOriented(classDefinition, projections, expressionTypes);
         generateFilterAndProjectCursorMethod(classDefinition, projections);
 
         //
         // filter method
         //
-        generateFilterMethod(classDefinition, filter, inputTypes, true);
-        generateFilterMethod(classDefinition, filter, inputTypes, false);
+        generateFilterMethod(classDefinition, filter, expressionTypes, true);
+        generateFilterMethod(classDefinition, filter, expressionTypes, false);
 
         //
         // project methods
         //
         List<Type> types = new ArrayList<>();
         int projectionIndex = 0;
-        for (int i = 0; i < projections.size(); i++) {
-            Type outputType = outputTypes.get(i);
-            checkArgument(!outputType.equals(NullType.NULL), "NULL output type is not supported");
-            types.add(outputType);
-
-            // verify the compiled projection has the correct type
-            Expression projection = projections.get(i);
-
-            Class<?> returnType = generateProjectMethod(classDefinition, "project_" + projectionIndex, projection, inputTypes, true);
-            generateProjectMethod(classDefinition, "project_" + projectionIndex, projection, inputTypes, false);
-            checkState(returnType == outputType.getJavaType(), "Expected compiled method return type to be %s, but is %s", outputType.getJavaType().getName(), returnType.getName());
+        for (Expression projection : projections) {
+            generateProjectMethod(classDefinition, "project_" + projectionIndex, projection, expressionTypes, true);
+            generateProjectMethod(classDefinition, "project_" + projectionIndex, projection, expressionTypes, false);
+            types.add(expressionTypes.get(projection));
             projectionIndex++;
         }
 
@@ -459,7 +433,7 @@ public class ExpressionCompiler
 
     private void generateFilterAndProjectRowOriented(ClassDefinition classDefinition,
             List<Expression> projections,
-            Map<Input, Type> inputTypes)
+            IdentityHashMap<Expression, Type> expressionTypes)
     {
         MethodDefinition filterAndProjectMethod = classDefinition.declareMethod(new CompilerContext(bootstrapMethod),
                 a(PUBLIC),
@@ -480,7 +454,7 @@ public class ExpressionCompiler
                 .putVariable(rowsVariable);
 
         List<LocalVariableDefinition> cursorVariables = new ArrayList<>();
-        int channels = inputTypes.isEmpty() ? 0 : Ordering.natural().max(transform(inputTypes.keySet(), Input.channelGetter())) + 1;
+        int channels = getMaxInputChannel(expressionTypes) + 1;
         for (int i = 0; i < channels; i++) {
             LocalVariableDefinition cursorVariable = compilerContext.declareVariable(BlockCursor.class, "cursor_" + i);
             cursorVariables.add(cursorVariable);
@@ -670,7 +644,7 @@ public class ExpressionCompiler
 
     private void generateFilterMethod(ClassDefinition classDefinition,
             Expression filter,
-            Map<Input, Type> inputTypes,
+            IdentityHashMap<Expression, Type> expressionTypes,
             boolean sourceIsCursor)
     {
         MethodDefinition filterMethod;
@@ -686,14 +660,14 @@ public class ExpressionCompiler
                     a(PUBLIC),
                     "filter",
                     type(boolean.class),
-                    toBlockCursorParameters(inputTypes));
+                    toBlockCursorParameters(expressionTypes));
         }
 
         filterMethod.comment("Filter: %s", filter.toString());
 
         filterMethod.getCompilerContext().declareVariable(type(boolean.class), "wasNull");
         Block getSessionByteCode = new Block(filterMethod.getCompilerContext()).pushThis().getField(classDefinition.getType(), "session", type(Session.class));
-        TypedByteCodeNode body = new ByteCodeExpressionVisitor(bootstrapFunctionBinder, inputTypes, getSessionByteCode, sourceIsCursor).process(filter, filterMethod.getCompilerContext());
+        TypedByteCodeNode body = new ByteCodeExpressionVisitor(bootstrapFunctionBinder, expressionTypes, getSessionByteCode, sourceIsCursor).process(filter, filterMethod.getCompilerContext());
 
         if (body.getType() == void.class) {
             filterMethod
@@ -720,7 +694,7 @@ public class ExpressionCompiler
     private Class<?> generateProjectMethod(ClassDefinition classDefinition,
             String methodName,
             Expression projection,
-            Map<Input, Type> inputTypes,
+            IdentityHashMap<Expression, Type> expressionTypes,
             boolean sourceIsCursor)
     {
         MethodDefinition projectionMethod;
@@ -734,7 +708,7 @@ public class ExpressionCompiler
         }
         else {
             ImmutableList.Builder<NamedParameterDefinition> parameters = ImmutableList.builder();
-            parameters.addAll(toBlockCursorParameters(inputTypes));
+            parameters.addAll(toBlockCursorParameters(expressionTypes));
             parameters.add(arg("output", BlockBuilder.class));
 
             projectionMethod = classDefinition.declareMethod(new CompilerContext(bootstrapMethod),
@@ -750,7 +724,7 @@ public class ExpressionCompiler
         CompilerContext context = projectionMethod.getCompilerContext();
         context.declareVariable(type(boolean.class), "wasNull");
         Block getSessionByteCode = new Block(context).pushThis().getField(classDefinition.getType(), "session", type(Session.class));
-        TypedByteCodeNode body = new ByteCodeExpressionVisitor(bootstrapFunctionBinder, inputTypes, getSessionByteCode, sourceIsCursor).process(projection, context);
+        TypedByteCodeNode body = new ByteCodeExpressionVisitor(bootstrapFunctionBinder, expressionTypes, getSessionByteCode, sourceIsCursor).process(projection, context);
 
         if (body.getType() != void.class) {
             projectionMethod
@@ -812,6 +786,17 @@ public class ExpressionCompiler
         return body.getType();
     }
 
+    private Integer getMaxInputChannel(IdentityHashMap<Expression, Type> expressionTypes)
+    {
+        int maxInputChannel = -1;
+        for (Expression expression : expressionTypes.keySet()) {
+            if (expression instanceof InputReference) {
+                maxInputChannel = Math.max(maxInputChannel, ((InputReference) expression).getInput().getChannel());
+            }
+        }
+        return maxInputChannel;
+    }
+
     private static class TypedOperatorClass
     {
         private final Class<? extends Operator> operatorClass;
@@ -834,10 +819,10 @@ public class ExpressionCompiler
         }
     }
 
-    private List<NamedParameterDefinition> toBlockCursorParameters(Map<Input, Type> inputTypes)
+    private List<NamedParameterDefinition> toBlockCursorParameters(IdentityHashMap<Expression, Type> expressionTypes)
     {
         ImmutableList.Builder<NamedParameterDefinition> parameters = ImmutableList.builder();
-        int channels = inputTypes.isEmpty() ? 0 : Ordering.natural().max(transform(inputTypes.keySet(), Input.channelGetter())) + 1;
+        int channels = getMaxInputChannel(expressionTypes) + 1;
         for (int i = 0; i < channels; i++) {
             parameters.add(arg("channel_" + i, BlockCursor.class));
         }
@@ -902,20 +887,14 @@ public class ExpressionCompiler
     {
         private final Expression filter;
         private final List<Expression> projections;
-        private final Map<Input, Type> inputTypes;
-        private final List<Type> outputTypes;
+        private final IdentityHashMap<Expression, Type> expressionTypes;
         private final PlanNodeId sourceId;
 
-        private OperatorCacheKey(Expression expression,
-                List<Expression> projections,
-                Map<Input, Type> inputTypes,
-                List<Type> outputTypes,
-                PlanNodeId sourceId)
+        private OperatorCacheKey(Expression expression, List<Expression> projections, IdentityHashMap<Expression, Type> expressionTypes, PlanNodeId sourceId)
         {
             this.filter = expression;
             this.projections = ImmutableList.copyOf(projections);
-            this.inputTypes = ImmutableMap.copyOf(inputTypes);
-            this.outputTypes = ImmutableList.copyOf(outputTypes);
+            this.expressionTypes = expressionTypes;
             this.sourceId = sourceId;
         }
 
@@ -929,14 +908,9 @@ public class ExpressionCompiler
             return projections;
         }
 
-        private Map<Input, Type> getInputTypes()
+        private IdentityHashMap<Expression, Type> getExpressionTypes()
         {
-            return inputTypes;
-        }
-
-        public List<Type> getOutputTypes()
-        {
-            return outputTypes;
+            return expressionTypes;
         }
 
         private PlanNodeId getSourceId()
@@ -947,7 +921,7 @@ public class ExpressionCompiler
         @Override
         public int hashCode()
         {
-            return Objects.hashCode(filter, projections, inputTypes, sourceId);
+            return Objects.hashCode(filter, projections, expressionTypes, sourceId);
         }
 
         @Override
@@ -962,8 +936,7 @@ public class ExpressionCompiler
             OperatorCacheKey other = (OperatorCacheKey) obj;
             return Objects.equal(this.filter, other.filter) &&
                     Objects.equal(this.projections, other.projections) &&
-                    Objects.equal(this.inputTypes, other.inputTypes) &&
-                    Objects.equal(this.outputTypes, other.outputTypes) &&
+                    Objects.equal(this.expressionTypes, other.expressionTypes) &&
                     Objects.equal(this.sourceId, other.sourceId);
         }
 
@@ -973,8 +946,7 @@ public class ExpressionCompiler
             return toStringHelper(this)
                     .add("filter", filter)
                     .add("projections", projections)
-                    .add("inputTypes", inputTypes)
-                    .add("outputTypes", outputTypes)
+                    .add("expressionTypes", expressionTypes)
                     .add("sourceId", sourceId)
                     .toString();
         }

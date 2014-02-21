@@ -90,6 +90,7 @@ import static com.facebook.presto.type.VarcharType.VARCHAR;
 import static com.facebook.presto.util.MaterializedResult.resultBuilder;
 import static com.google.common.base.Charsets.UTF_8;
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.Iterables.transform;
 import static io.airlift.tpch.TpchTable.LINE_ITEM;
 import static io.airlift.tpch.TpchTable.ORDERS;
@@ -3237,13 +3238,18 @@ public abstract class AbstractTestQueries
                             }
                             break;
                         case STRING:
-                            String value = resultSet.getString(i);
+                            String stringValue = resultSet.getString(i);
                             if (resultSet.wasNull()) {
                                 row.add(null);
                             }
                             else {
-                                row.add(value);
+                                row.add(stringValue);
                             }
+                            break;
+                        case NULL:
+                            Object objectValue = resultSet.getObject(i);
+                            checkState(resultSet.wasNull(), "Expected a null value, but got %s", objectValue);
+                            row.add(null);
                             break;
                         default:
                             throw new AssertionError("unhandled type: " + type);
