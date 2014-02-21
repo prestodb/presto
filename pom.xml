@@ -63,6 +63,7 @@
         <module>presto-client</module>
         <module>presto-parser</module>
         <module>presto-main</module>
+        <module>presto-ml</module>
         <module>presto-jdbc</module>
         <module>presto-cli</module>
         <module>presto-server</module>
@@ -364,6 +365,12 @@
                 <groupId>org.jruby.joni</groupId>
                 <artifactId>joni</artifactId>
                 <version>2.0.0</version>
+            </dependency>
+
+            <dependency>
+                <groupId>tw.edu.ntu.csie</groupId>
+                <artifactId>libsvm</artifactId>
+                <version>3.17</version>
             </dependency>
 
             <dependency>
