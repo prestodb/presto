@@ -118,7 +118,7 @@ public class TestSerDeUtils
 
         // timestamp
         Timestamp timestamp = new Timestamp(2008 - 1900, 10 - 1, 28, 16, 7, 15, 0);
-        String expectedTimestamp = "\"2008-10-28 16:07:15\"";
+        String expectedTimestamp = String.format("%d", timestamp.getTime() / 1000);
         String actualTimestamp = toUtf8String(SerDeUtils.getJsonBytes(timestamp, getInspector(Timestamp.class)));
         assertEquals(actualTimestamp, expectedTimestamp);
 

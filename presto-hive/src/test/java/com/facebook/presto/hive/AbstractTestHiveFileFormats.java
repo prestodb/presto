@@ -264,7 +264,7 @@ public abstract class AbstractTestHiveFileFormats
         return new FileSplit(path, 0, file.length(), new String[0]);
     }
 
-    protected void checkCursor(RecordCursor cursor, boolean primitivesOnly)
+    protected void checkCursor(RecordCursor cursor)
             throws IOException
     {
         for (int row = 0; row < NUM_ROWS; row++) {
@@ -296,7 +296,7 @@ public abstract class AbstractTestHiveFileFormats
                 else if (FIELD_INSPECTORS.get(i).getCategory() == ObjectInspector.Category.PRIMITIVE) {
                     assertEquals(fieldFromCursor, TEST_VALUES.get(i).getValue(), String.format("Wrong value for column %d", i));
                 }
-                else if (!primitivesOnly) {
+                else {
                     ObjectMapper mapper = new ObjectMapper();
                     JsonNode expected = mapper.readTree((String) TEST_VALUES.get(i).getValue());
                     JsonNode actual = mapper.readTree((byte[]) fieldFromCursor);
