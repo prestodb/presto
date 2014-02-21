@@ -34,8 +34,10 @@ import com.google.common.base.Function;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Maps;
 
+import java.util.IdentityHashMap;
 import java.util.Map;
 
+import static com.facebook.presto.sql.analyzer.ExpressionAnalyzer.getExpressionTypes;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 public class SimplifyExpressions
@@ -57,7 +59,7 @@ public class SimplifyExpressions
         checkNotNull(symbolAllocator, "symbolAllocator is null");
         checkNotNull(idAllocator, "idAllocator is null");
 
-        return PlanRewriter.rewriteWith(new Rewriter(metadata, session), plan);
+        return PlanRewriter.rewriteWith(new Rewriter(metadata, session, types), plan);
     }
 
     private static class Rewriter
@@ -65,11 +67,13 @@ public class SimplifyExpressions
     {
         private final Metadata metadata;
         private final Session session;
+        private final Map<Symbol, Type> types;
 
-        public Rewriter(Metadata metadata, Session session)
+        public Rewriter(Metadata metadata, Session session, Map<Symbol, Type> types)
         {
             this.metadata = metadata;
             this.session = session;
+            this.types = types;
         }
 
         @Override
@@ -115,8 +119,9 @@ public class SimplifyExpressions
 
         private Expression simplifyExpression(Expression input)
         {
-            ExpressionInterpreter interpreter = ExpressionInterpreter.expressionOptimizer(input, metadata, session);
-            return LiteralInterpreter.toExpression(interpreter.optimize(NoOpSymbolResolver.INSTANCE));
+            IdentityHashMap<Expression, Type> expressionTypes = getExpressionTypes(session, metadata, types, input);
+            ExpressionInterpreter interpreter = ExpressionInterpreter.expressionOptimizer(input, metadata, session, expressionTypes);
+            return LiteralInterpreter.toExpression(interpreter.optimize(NoOpSymbolResolver.INSTANCE), expressionTypes.get(input));
         }
     }
 }

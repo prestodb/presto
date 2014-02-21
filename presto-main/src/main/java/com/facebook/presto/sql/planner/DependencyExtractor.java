@@ -32,6 +32,15 @@ public final class DependencyExtractor
         return ImmutableSet.copyOf(extractAll(expression));
     }
 
+    public static Set<Symbol> extractUnique(Iterable<? extends Expression> expressions)
+    {
+        ImmutableSet.Builder<Symbol> unique = ImmutableSet.builder();
+        for (Expression expression : expressions) {
+            unique.addAll(extractAll(expression));
+        }
+        return unique.build();
+    }
+
     public static List<Symbol> extractAll(Expression expression)
     {
         ImmutableList.Builder<Symbol> builder = ImmutableList.builder();

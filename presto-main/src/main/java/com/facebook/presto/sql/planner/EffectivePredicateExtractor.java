@@ -36,6 +36,7 @@ import com.facebook.presto.sql.tree.ComparisonExpression;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.ExpressionTreeRewriter;
 import com.facebook.presto.sql.tree.QualifiedNameReference;
+import com.facebook.presto.type.Type;
 import com.google.common.base.Function;
 import com.google.common.base.Predicate;
 import com.google.common.collect.ImmutableBiMap;
@@ -68,9 +69,16 @@ import static com.google.common.collect.Iterables.transform;
 public class EffectivePredicateExtractor
         extends PlanVisitor<Void, Expression>
 {
-    public static Expression extract(PlanNode node)
+    public static Expression extract(PlanNode node, Map<Symbol, Type> symbolTypes)
     {
-        return node.accept(new EffectivePredicateExtractor(), null);
+        return node.accept(new EffectivePredicateExtractor(symbolTypes), null);
+    }
+
+    private final Map<Symbol, Type> symbolTypes;
+
+    public EffectivePredicateExtractor(Map<Symbol, Type> symbolTypes)
+    {
+        this.symbolTypes = symbolTypes;
     }
 
     @Override
@@ -176,7 +184,7 @@ public class EffectivePredicateExtractor
         // In the future, we can do further optimizations here that will simplify the TupleDomain, but still improve the specificity compared to just a simple span (e.g. range clustering).
         tupleDomain = spanTupleDomain(tupleDomain);
 
-        Expression partitionPredicate = DomainTranslator.toPredicate(tupleDomain, ImmutableBiMap.copyOf(node.getAssignments()).inverse());
+        Expression partitionPredicate = DomainTranslator.toPredicate(tupleDomain, ImmutableBiMap.copyOf(node.getAssignments()).inverse(), symbolTypes);
         return pullExpressionThroughSymbols(partitionPredicate, node.getOutputSymbols());
     }
 

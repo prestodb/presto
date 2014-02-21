@@ -18,9 +18,6 @@ import com.facebook.presto.metadata.FunctionInfo;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.type.Type;
-import com.google.common.base.Function;
-import com.google.common.collect.Lists;
-import io.airlift.slice.Slice;
 
 import java.lang.invoke.CallSite;
 import java.lang.invoke.MethodType;
@@ -29,10 +26,6 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.atomic.AtomicLong;
 
-import static com.facebook.presto.type.BigintType.BIGINT;
-import static com.facebook.presto.type.BooleanType.BOOLEAN;
-import static com.facebook.presto.type.DoubleType.DOUBLE;
-import static com.facebook.presto.type.VarcharType.VARCHAR;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 
@@ -49,9 +42,8 @@ public class BootstrapFunctionBinder
         this.metadata = checkNotNull(metadata, "metadata is null");
     }
 
-    public FunctionBinding bindFunction(QualifiedName name, ByteCodeNode getSessionByteCode, List<TypedByteCodeNode> arguments)
+    public FunctionBinding bindFunction(QualifiedName name, ByteCodeNode getSessionByteCode, List<TypedByteCodeNode> arguments, List<Type> argumentTypes)
     {
-        List<Type> argumentTypes = Lists.transform(arguments, toType());
         FunctionInfo function = metadata.getFunction(name, argumentTypes, false);
         checkArgument(function != null, "Unknown function %s%s", name, argumentTypes);
 
@@ -77,33 +69,5 @@ public class BootstrapFunctionBinder
         checkArgument(functionBinding != null, "Binding %s for function %s%s not found", bindingId, name, type.parameterList());
 
         return functionBinding.getCallSite();
-    }
-
-    public static Function<TypedByteCodeNode, Type> toType()
-    {
-        return new Function<TypedByteCodeNode, Type>()
-        {
-            @Override
-            public Type apply(TypedByteCodeNode node)
-            {
-                Class<?> type = node.getType();
-                if (type == boolean.class) {
-                    return BOOLEAN;
-                }
-                if (type == long.class) {
-                    return BIGINT;
-                }
-                if (type == double.class) {
-                    return DOUBLE;
-                }
-                if (type == String.class) {
-                    return VARCHAR;
-                }
-                if (type == Slice.class) {
-                    return VARCHAR;
-                }
-                throw new UnsupportedOperationException("Unsupported function type " + type);
-            }
-        };
     }
 }

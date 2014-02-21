@@ -19,12 +19,7 @@ import com.facebook.presto.spi.Partition;
 import com.facebook.presto.spi.PartitionResult;
 import com.facebook.presto.spi.TupleDomain;
 import com.facebook.presto.split.SplitManager;
-import com.facebook.presto.sql.analyzer.Analysis;
-import com.facebook.presto.sql.analyzer.AnalysisContext;
-import com.facebook.presto.sql.analyzer.ExpressionAnalyzer;
-import com.facebook.presto.sql.analyzer.Field;
 import com.facebook.presto.sql.analyzer.Session;
-import com.facebook.presto.sql.analyzer.TupleDescriptor;
 import com.facebook.presto.sql.planner.DependencyExtractor;
 import com.facebook.presto.sql.planner.DeterminismEvaluator;
 import com.facebook.presto.sql.planner.DomainTranslator;
@@ -78,6 +73,7 @@ import io.airlift.log.Logger;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.EnumSet;
+import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -88,6 +84,7 @@ import static com.facebook.presto.sql.ExpressionUtils.expressionOrNullSymbols;
 import static com.facebook.presto.sql.ExpressionUtils.extractConjuncts;
 import static com.facebook.presto.sql.ExpressionUtils.stripNonDeterministicConjuncts;
 import static com.facebook.presto.sql.ExpressionUtils.symbolToQualifiedNameReference;
+import static com.facebook.presto.sql.analyzer.ExpressionAnalyzer.getExpressionTypes;
 import static com.facebook.presto.sql.planner.DeterminismEvaluator.deterministic;
 import static com.facebook.presto.sql.planner.DeterminismEvaluator.isDeterministic;
 import static com.facebook.presto.sql.planner.EqualityInference.createEqualityInference;
@@ -219,8 +216,8 @@ public class PredicatePushDown
             // See if we can rewrite outer joins in terms of a plain inner join
             node = tryNormalizeToInnerJoin(node, inheritedPredicate);
 
-            Expression leftEffectivePredicate = EffectivePredicateExtractor.extract(node.getLeft());
-            Expression rightEffectivePredicate = EffectivePredicateExtractor.extract(node.getRight());
+            Expression leftEffectivePredicate = EffectivePredicateExtractor.extract(node.getLeft(), symbolAllocator.getTypes());
+            Expression rightEffectivePredicate = EffectivePredicateExtractor.extract(node.getRight(), symbolAllocator.getTypes());
             Expression joinPredicate = extractJoinPredicate(node);
 
             Expression leftPredicate;
@@ -558,21 +555,9 @@ public class PredicatePushDown
                     new QualifiedNameReference(symbol2.toQualifiedName()));
         }
 
-        // TODO: temporary addition to infer result type from expression. fix this with the new planner refactoring (martint)
         private Type extractType(Expression expression)
         {
-            ExpressionAnalyzer expressionAnalyzer = new ExpressionAnalyzer(new Analysis(), session, metadata, experimentalSyntaxEnabled);
-            List<Field> fields = IterableTransformer.<Symbol>on(DependencyExtractor.extractUnique(expression))
-                    .transform(new Function<Symbol, Field>()
-                    {
-                        @Override
-                        public Field apply(Symbol symbol)
-                        {
-                            return Field.newUnqualified(symbol.getName(), symbolAllocator.getTypes().get(symbol));
-                        }
-                    })
-                    .list();
-            return expressionAnalyzer.analyze(expression, new TupleDescriptor(fields), new AnalysisContext());
+            return getExpressionTypes(session, metadata, symbolAllocator.getTypes(), expression).get(expression);
         }
 
         private JoinNode tryNormalizeToInnerJoin(JoinNode node, Expression inheritedPredicate)
@@ -617,8 +602,9 @@ public class PredicatePushDown
                 @Override
                 public Expression apply(Expression expression)
                 {
-                    ExpressionInterpreter optimizer = ExpressionInterpreter.expressionOptimizer(expression, metadata, session);
-                    return LiteralInterpreter.toExpression(optimizer.optimize(NoOpSymbolResolver.INSTANCE));
+                    IdentityHashMap<Expression, Type> expressionTypes = getExpressionTypes(session, metadata, symbolAllocator.getTypes(), expression);
+                    ExpressionInterpreter optimizer = ExpressionInterpreter.expressionOptimizer(expression, metadata, session, expressionTypes);
+                    return LiteralInterpreter.toExpression(optimizer.optimize(NoOpSymbolResolver.INSTANCE), expressionTypes.get(expression));
                 }
             };
         }
@@ -628,7 +614,8 @@ public class PredicatePushDown
          */
         private Object nullInputEvaluator(final Collection<Symbol> nullSymbols, Expression expression)
         {
-            return ExpressionInterpreter.expressionOptimizer(expression, metadata, session)
+            IdentityHashMap<Expression, Type> expressionTypes = getExpressionTypes(session, metadata, symbolAllocator.getTypes(), expression);
+            return ExpressionInterpreter.expressionOptimizer(expression, metadata, session, expressionTypes)
                     .optimize(new SymbolResolver()
                     {
                         @Override
@@ -664,7 +651,7 @@ public class PredicatePushDown
         @Override
         public PlanNode rewriteSemiJoin(SemiJoinNode node, Expression inheritedPredicate, PlanRewriter<Expression> planRewriter)
         {
-            Expression sourceEffectivePredicate = EffectivePredicateExtractor.extract(node.getSource());
+            Expression sourceEffectivePredicate = EffectivePredicateExtractor.extract(node.getSource(), symbolAllocator.getTypes());
 
             List<Expression> sourceConjuncts = new ArrayList<>();
             List<Expression> filteringSourceConjuncts = new ArrayList<>();
@@ -784,7 +771,10 @@ public class PredicatePushDown
             List<Partition> partitions = matchingPartitions.getPartitions();
             TupleDomain undeterminedTupleDomain = matchingPartitions.getUndeterminedTupleDomain();
 
-            Expression unevaluatedDomainPredicate = DomainTranslator.toPredicate(undeterminedTupleDomain, ImmutableBiMap.copyOf(node.getAssignments()).inverse());
+            Expression unevaluatedDomainPredicate = DomainTranslator.toPredicate(
+                    undeterminedTupleDomain,
+                    ImmutableBiMap.copyOf(node.getAssignments()).inverse(),
+                    symbolAllocator.getTypes());
 
             // Construct the post scan predicate. Add the unevaluated TupleDomain back first since those are generally cheaper to evaluate than anything we can't extract
             Expression postScanPredicate = combineConjuncts(unevaluatedDomainPredicate, extractionRemainingExpression);
@@ -820,7 +810,8 @@ public class PredicatePushDown
 
                     // If any conjuncts evaluate to FALSE or null, then the whole predicate will never be true and so the partition should be pruned
                     for (Expression expression : extractConjuncts(predicate)) {
-                        ExpressionInterpreter optimizer = ExpressionInterpreter.expressionOptimizer(expression, metadata, session);
+                        IdentityHashMap<Expression, Type> expressionTypes = getExpressionTypes(session, metadata, symbolAllocator.getTypes(), expression);
+                        ExpressionInterpreter optimizer = ExpressionInterpreter.expressionOptimizer(expression, metadata, session, expressionTypes);
                         Object optimized = optimizer.optimize(inputs);
                         if (Boolean.FALSE.equals(optimized) || optimized == null || optimized instanceof NullLiteral) {
                             return true;

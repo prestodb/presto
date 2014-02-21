@@ -106,6 +106,11 @@ public class Analysis
         return aggregates.get(query);
     }
 
+    public IdentityHashMap<Expression, Type> getTypes()
+    {
+        return new IdentityHashMap<>(types);
+    }
+
     public Type getType(Expression expression)
     {
         Preconditions.checkArgument(types.containsKey(expression), "Expression not analyzed: %s", expression);

@@ -21,9 +21,12 @@ import com.facebook.presto.sql.analyzer.Session;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.ExpressionTreeRewriter;
 import com.facebook.presto.sql.tree.Input;
+import com.facebook.presto.type.Type;
 
+import java.util.IdentityHashMap;
 import java.util.Map;
 
+import static com.facebook.presto.sql.analyzer.ExpressionAnalyzer.getExpressionTypes;
 import static java.lang.Boolean.TRUE;
 
 public class InterpretedFilterFunction
@@ -31,11 +34,14 @@ public class InterpretedFilterFunction
 {
     private final ExpressionInterpreter evaluator;
 
-    public InterpretedFilterFunction(Expression predicate, Map<Symbol, Input> symbolToInputMappings, Metadata metadata, Session session)
+    public InterpretedFilterFunction(Expression predicate, Map<Symbol, Type> symbolTypes, Map<Symbol, Input> symbolToInputMappings, Metadata metadata, Session session)
     {
+        // analyze expression so we can know the type of every expression in the tree
+        IdentityHashMap<Expression, Type> expressionTypes = getExpressionTypes(session, metadata, symbolTypes, predicate);
+
         // pre-compute symbol -> input mappings and replace the corresponding nodes in the tree
         Expression rewritten = ExpressionTreeRewriter.rewriteWith(new SymbolToInputRewriter(symbolToInputMappings), predicate);
-        evaluator = ExpressionInterpreter.expressionInterpreter(rewritten, metadata, session);
+        evaluator = ExpressionInterpreter.expressionInterpreter(rewritten, metadata, session, expressionTypes);
     }
 
     @Override

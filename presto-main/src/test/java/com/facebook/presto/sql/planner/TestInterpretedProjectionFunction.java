@@ -23,19 +23,18 @@ import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.Input;
 import com.facebook.presto.type.Type;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableMap.Builder;
 import org.testng.annotations.Test;
 
 import javax.annotation.Nullable;
 
 import java.util.Map;
+import java.util.Map.Entry;
 
 import static com.facebook.presto.connector.dual.DualMetadata.DUAL_METADATA_MANAGER;
 import static com.facebook.presto.sql.parser.SqlParser.createExpression;
 import static com.facebook.presto.type.BigintType.BIGINT;
 import static com.facebook.presto.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.type.DoubleType.DOUBLE;
-import static com.facebook.presto.type.Types.fromColumnType;
 import static com.facebook.presto.type.VarcharType.VARCHAR;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
@@ -160,13 +159,13 @@ public class TestInterpretedProjectionFunction
             Map<Symbol, Input> symbolToInputMappings,
             BlockCursor... channels)
     {
-        Builder<Input, Type> inputTypes = ImmutableMap.builder();
-        for (Input input : symbolToInputMappings.values()) {
-            Type type = channels[input.getChannel()].getType();
-            inputTypes.put(input, fromColumnType(type.toColumnType()));
+        ImmutableMap.Builder<Symbol, Type> symbolTypes = ImmutableMap.builder();
+        for (Entry<Symbol, Input> entry : symbolToInputMappings.entrySet()) {
+            symbolTypes.put(entry.getKey(), channels[entry.getValue().getChannel()].getType());
         }
-        InterpretedProjectionFunction projectionFunction = new InterpretedProjectionFunction(outputType,
+        InterpretedProjectionFunction projectionFunction = new InterpretedProjectionFunction(
                 expression,
+                symbolTypes.build(),
                 symbolToInputMappings,
                 DUAL_METADATA_MANAGER,
                 new Session("user", "test", Session.DEFAULT_CATALOG, Session.DEFAULT_SCHEMA, null, null)
