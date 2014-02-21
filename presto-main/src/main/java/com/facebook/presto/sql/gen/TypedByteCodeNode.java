@@ -14,12 +14,18 @@
 package com.facebook.presto.sql.gen;
 
 import com.facebook.presto.byteCode.ByteCodeNode;
+import com.facebook.presto.type.Type;
 
 public class TypedByteCodeNode
 {
     public static TypedByteCodeNode typedByteCodeNode(ByteCodeNode node, Class<?> type)
     {
         return new TypedByteCodeNode(node, type);
+    }
+
+    public static TypedByteCodeNode typedByteCodeNode(ByteCodeNode node, Type type)
+    {
+        return new TypedByteCodeNode(node, type.getJavaType());
     }
 
     private final ByteCodeNode node;

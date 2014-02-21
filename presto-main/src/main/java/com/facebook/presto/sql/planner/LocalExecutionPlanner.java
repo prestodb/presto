@@ -113,6 +113,7 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Comparator;
 import java.util.HashMap;
+import java.util.IdentityHashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -121,11 +122,15 @@ import static com.facebook.presto.operator.DistinctLimitOperator.DistinctLimitOp
 import static com.facebook.presto.operator.TableCommitOperator.TableCommitOperatorFactory;
 import static com.facebook.presto.operator.TableCommitOperator.TableCommitter;
 import static com.facebook.presto.operator.TableWriterOperator.TableWriterOperatorFactory;
+import static com.facebook.presto.sql.analyzer.ExpressionAnalyzer.getExpressionTypes;
+import static com.facebook.presto.sql.analyzer.ExpressionAnalyzer.getExpressionTypesFromInput;
 import static com.facebook.presto.sql.planner.plan.JoinNode.EquiJoinClause.leftGetter;
 import static com.facebook.presto.sql.planner.plan.JoinNode.EquiJoinClause.rightGetter;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.collect.Iterables.concat;
+import static java.util.Collections.singleton;
 
 public class LocalExecutionPlanner
 {
@@ -620,6 +625,12 @@ public class LocalExecutionPlanner
                     outputTypes.add(context.getTypes().get(outputSymbols.get(i)));
                 }
 
+                IdentityHashMap<Expression, Type> expressionTypes = getExpressionTypesFromInput(
+                        context.getSession(),
+                        metadata,
+                        sourceTypes,
+                        concat(singleton(rewrittenFilter), rewrittenProjections));
+
                 if (columns != null) {
                     SourceOperatorFactory operatorFactory = compiler.compileScanFilterAndProjectOperator(
                             context.getNextOperatorId(),
@@ -628,8 +639,7 @@ public class LocalExecutionPlanner
                             columns,
                             rewrittenFilter,
                             rewrittenProjections,
-                            sourceTypes,
-                            outputTypes);
+                            expressionTypes);
 
                     return new PhysicalOperation(operatorFactory, outputMappings);
                 }
@@ -638,8 +648,7 @@ public class LocalExecutionPlanner
                             context.getNextOperatorId(),
                             rewrittenFilter,
                             rewrittenProjections,
-                            sourceTypes,
-                            outputTypes);
+                            expressionTypes);
                     return new PhysicalOperation(operatorFactory, outputMappings, source);
                 }
             }
@@ -650,17 +659,14 @@ public class LocalExecutionPlanner
 
             FilterFunction filterFunction;
             if (filterExpression != BooleanLiteral.TRUE_LITERAL) {
-                filterFunction = new InterpretedFilterFunction(filterExpression, sourceLayout, metadata, context.getSession());
+                filterFunction = new InterpretedFilterFunction(filterExpression, context.getTypes(), sourceLayout, metadata, context.getSession());
             }
             else {
                 filterFunction = FilterFunctions.TRUE_FUNCTION;
             }
 
             List<ProjectionFunction> projectionFunctions = new ArrayList<>();
-            for (int i = 0; i < projectionExpressions.size(); i++) {
-                Symbol symbol = outputSymbols.get(i);
-                Expression expression = projectionExpressions.get(i);
-
+            for (Expression expression : projectionExpressions) {
                 ProjectionFunction function;
                 if (expression instanceof QualifiedNameReference) {
                     // fast path when we know it's a direct symbol reference
@@ -669,8 +675,8 @@ public class LocalExecutionPlanner
                 }
                 else {
                     function = new InterpretedProjectionFunction(
-                            context.getTypes().get(symbol),
                             expression,
+                            context.getTypes(),
                             sourceLayout,
                             metadata,
                             context.getSession()
@@ -744,9 +750,10 @@ public class LocalExecutionPlanner
 
             PageBuilder pageBuilder = new PageBuilder(outputTypes);
             for (List<Expression> row : node.getRows()) {
+                IdentityHashMap<Expression, Type> expressionTypes = getExpressionTypes(context.getSession(), metadata, ImmutableMap.<Symbol, Type>of(), ImmutableList.copyOf(row));
                 for (int i = 0; i < row.size(); i++) {
                     // evaluate the literal value
-                    Object result = ExpressionInterpreter.expressionInterpreter(row.get(i), metadata, context.getSession()).evaluate(new BlockCursor[0]);
+                    Object result = ExpressionInterpreter.expressionInterpreter(row.get(i), metadata, context.getSession(), expressionTypes).evaluate(new BlockCursor[0]);
                     pageBuilder.getBlockBuilder(i).appendObject(result);
                 }
             }

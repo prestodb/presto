@@ -46,6 +46,7 @@ import org.testng.Assert;
 import org.testng.annotations.Test;
 
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 
@@ -107,7 +108,7 @@ public class TestDomainTranslator
             throws Exception
     {
         TupleDomain tupleDomain = TupleDomain.none();
-        ExtractionResult result = fromPredicate(toPredicate(tupleDomain, COLUMN_HANDLES.inverse()), TYPES, COLUMN_HANDLES);
+        ExtractionResult result = fromPredicate(toPredicate(tupleDomain, COLUMN_HANDLES.inverse(), TYPES), TYPES, COLUMN_HANDLES);
         Assert.assertEquals(result.getRemainingExpression(), TRUE_LITERAL);
         Assert.assertEquals(result.getTupleDomain(), tupleDomain);
     }
@@ -117,7 +118,7 @@ public class TestDomainTranslator
             throws Exception
     {
         TupleDomain tupleDomain = TupleDomain.all();
-        ExtractionResult result = fromPredicate(toPredicate(tupleDomain, COLUMN_HANDLES.inverse()), TYPES, COLUMN_HANDLES);
+        ExtractionResult result = fromPredicate(toPredicate(tupleDomain, COLUMN_HANDLES.inverse(), TYPES), TYPES, COLUMN_HANDLES);
         Assert.assertEquals(result.getRemainingExpression(), TRUE_LITERAL);
         Assert.assertEquals(result.getTupleDomain(), tupleDomain);
     }
@@ -136,7 +137,7 @@ public class TestDomainTranslator
                 .put(GCH, Domain.create(SortedRangeSet.of(Range.lessThanOrEqual("2013-01-01"), Range.greaterThan("2013-10-01")), false))
                 .build());
 
-        ExtractionResult result = fromPredicate(toPredicate(tupleDomain, COLUMN_HANDLES.inverse()), TYPES, COLUMN_HANDLES);
+        ExtractionResult result = fromPredicate(toPredicate(tupleDomain, COLUMN_HANDLES.inverse(), TYPES), TYPES, COLUMN_HANDLES);
         Assert.assertEquals(result.getRemainingExpression(), TRUE_LITERAL);
         Assert.assertEquals(result.getTupleDomain(), tupleDomain);
     }
@@ -152,7 +153,7 @@ public class TestDomainTranslator
                 .put(DCH, Domain.none(Boolean.class))
                 .build());
 
-        Assert.assertEquals(toPredicate(tupleDomain, COLUMN_HANDLES.inverse()), FALSE_LITERAL);
+        Assert.assertEquals(toPredicate(tupleDomain, COLUMN_HANDLES.inverse(), TYPES), FALSE_LITERAL);
     }
 
     @Test
@@ -166,7 +167,7 @@ public class TestDomainTranslator
                 .put(DCH, Domain.all(Boolean.class))
                 .build());
 
-        ExtractionResult result = fromPredicate(toPredicate(tupleDomain, COLUMN_HANDLES.inverse()), TYPES, COLUMN_HANDLES);
+        ExtractionResult result = fromPredicate(toPredicate(tupleDomain, COLUMN_HANDLES.inverse(), TYPES), TYPES, COLUMN_HANDLES);
         Assert.assertEquals(result.getRemainingExpression(), TRUE_LITERAL);
         Assert.assertEquals(result.getTupleDomain(), withColumnDomains(ImmutableMap.<ColumnHandle, Domain>builder()
                 .put(ACH, Domain.singleValue(1L))
@@ -182,40 +183,40 @@ public class TestDomainTranslator
         TupleDomain tupleDomain;
 
         tupleDomain = withColumnDomains(ImmutableMap.<ColumnHandle, Domain>of(ACH, Domain.notNull(Long.class)));
-        Assert.assertEquals(toPredicate(tupleDomain, COLUMN_HANDLES.inverse()), isNotNull(A));
+        Assert.assertEquals(toPredicate(tupleDomain, COLUMN_HANDLES.inverse(), TYPES), isNotNull(A));
 
         tupleDomain = withColumnDomains(ImmutableMap.<ColumnHandle, Domain>of(ACH, Domain.onlyNull(Long.class)));
-        Assert.assertEquals(toPredicate(tupleDomain, COLUMN_HANDLES.inverse()), isNull(A));
+        Assert.assertEquals(toPredicate(tupleDomain, COLUMN_HANDLES.inverse(), TYPES), isNull(A));
 
         tupleDomain = withColumnDomains(ImmutableMap.<ColumnHandle, Domain>of(ACH, Domain.none(Long.class)));
-        Assert.assertEquals(toPredicate(tupleDomain, COLUMN_HANDLES.inverse()), FALSE_LITERAL);
+        Assert.assertEquals(toPredicate(tupleDomain, COLUMN_HANDLES.inverse(), TYPES), FALSE_LITERAL);
 
         tupleDomain = withColumnDomains(ImmutableMap.<ColumnHandle, Domain>of(ACH, Domain.all(Long.class)));
-        Assert.assertEquals(toPredicate(tupleDomain, COLUMN_HANDLES.inverse()), TRUE_LITERAL);
+        Assert.assertEquals(toPredicate(tupleDomain, COLUMN_HANDLES.inverse(), TYPES), TRUE_LITERAL);
 
         tupleDomain = withColumnDomains(ImmutableMap.<ColumnHandle, Domain>of(ACH, Domain.create(SortedRangeSet.of(Range.greaterThan(1L)), false)));
-        Assert.assertEquals(toPredicate(tupleDomain, COLUMN_HANDLES.inverse()), greaterThan(A, longLiteral(1L)));
+        Assert.assertEquals(toPredicate(tupleDomain, COLUMN_HANDLES.inverse(), TYPES), greaterThan(A, longLiteral(1L)));
 
         tupleDomain = withColumnDomains(ImmutableMap.<ColumnHandle, Domain>of(ACH, Domain.create(SortedRangeSet.of(Range.greaterThanOrEqual(1L)), false)));
-        Assert.assertEquals(toPredicate(tupleDomain, COLUMN_HANDLES.inverse()), greaterThanOrEqual(A, longLiteral(1L)));
+        Assert.assertEquals(toPredicate(tupleDomain, COLUMN_HANDLES.inverse(), TYPES), greaterThanOrEqual(A, longLiteral(1L)));
 
         tupleDomain = withColumnDomains(ImmutableMap.<ColumnHandle, Domain>of(ACH, Domain.create(SortedRangeSet.of(Range.lessThan(1L)), false)));
-        Assert.assertEquals(toPredicate(tupleDomain, COLUMN_HANDLES.inverse()), lessThan(A, longLiteral(1L)));
+        Assert.assertEquals(toPredicate(tupleDomain, COLUMN_HANDLES.inverse(), TYPES), lessThan(A, longLiteral(1L)));
 
         tupleDomain = withColumnDomains(ImmutableMap.<ColumnHandle, Domain>of(ACH, Domain.create(SortedRangeSet.of(Range.range(0L, false, 1L, true)), false)));
-        Assert.assertEquals(toPredicate(tupleDomain, COLUMN_HANDLES.inverse()), and(greaterThan(A, longLiteral(0L)), lessThanOrEqual(A, longLiteral(1L))));
+        Assert.assertEquals(toPredicate(tupleDomain, COLUMN_HANDLES.inverse(), TYPES), and(greaterThan(A, longLiteral(0L)), lessThanOrEqual(A, longLiteral(1L))));
 
         tupleDomain = withColumnDomains(ImmutableMap.<ColumnHandle, Domain>of(ACH, Domain.create(SortedRangeSet.of(Range.lessThanOrEqual(1L)), false)));
-        Assert.assertEquals(toPredicate(tupleDomain, COLUMN_HANDLES.inverse()), lessThanOrEqual(A, longLiteral(1L)));
+        Assert.assertEquals(toPredicate(tupleDomain, COLUMN_HANDLES.inverse(), TYPES), lessThanOrEqual(A, longLiteral(1L)));
 
         tupleDomain = withColumnDomains(ImmutableMap.<ColumnHandle, Domain>of(ACH, Domain.singleValue(1L)));
-        Assert.assertEquals(toPredicate(tupleDomain, COLUMN_HANDLES.inverse()), equal(A, longLiteral(1L)));
+        Assert.assertEquals(toPredicate(tupleDomain, COLUMN_HANDLES.inverse(), TYPES), equal(A, longLiteral(1L)));
 
         tupleDomain = withColumnDomains(ImmutableMap.<ColumnHandle, Domain>of(ACH, Domain.create(SortedRangeSet.of(Range.equal(1L), Range.equal(2L)), false)));
-        Assert.assertEquals(toPredicate(tupleDomain, COLUMN_HANDLES.inverse()), in(A, ImmutableList.of(1L, 2L)));
+        Assert.assertEquals(toPredicate(tupleDomain, COLUMN_HANDLES.inverse(), TYPES), in(A, ImmutableList.of(1L, 2L)));
 
         tupleDomain = withColumnDomains(ImmutableMap.<ColumnHandle, Domain>of(ACH, Domain.create(SortedRangeSet.of(Range.lessThan(1L)), true)));
-        Assert.assertEquals(toPredicate(tupleDomain, COLUMN_HANDLES.inverse()), or(lessThan(A, longLiteral(1L)), isNull(A)));
+        Assert.assertEquals(toPredicate(tupleDomain, COLUMN_HANDLES.inverse(), TYPES), or(lessThan(A, longLiteral(1L)), isNull(A)));
     }
 
     @Test
@@ -994,7 +995,8 @@ public class TestDomainTranslator
 
     private static InPredicate in(Symbol symbol, List<?> values)
     {
-        return new InPredicate(reference(symbol), new InListExpression(LiteralInterpreter.toExpressions(values)));
+        Type type = TYPES.get(symbol);
+        return new InPredicate(reference(symbol), new InListExpression(LiteralInterpreter.toExpressions(values, Collections.nCopies(values.size(), type))));
     }
 
     private static BetweenPredicate between(Symbol symbol, Expression min, Expression max)

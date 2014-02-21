@@ -25,8 +25,10 @@ import com.facebook.presto.sql.tree.Input;
 import com.facebook.presto.type.Type;
 import io.airlift.slice.Slice;
 
+import java.util.IdentityHashMap;
 import java.util.Map;
 
+import static com.facebook.presto.sql.analyzer.ExpressionAnalyzer.getExpressionTypes;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 public class InterpretedProjectionFunction
@@ -35,14 +37,20 @@ public class InterpretedProjectionFunction
     private final Type type;
     private final ExpressionInterpreter evaluator;
 
-    public InterpretedProjectionFunction(Type type, Expression expression, Map<Symbol, Input> symbolToInputMapping, Metadata metadata, Session session)
+    public InterpretedProjectionFunction(Expression expression,
+            Map<Symbol, Type> symbolTypes,
+            Map<Symbol, Input> symbolToInputMapping,
+            Metadata metadata,
+            Session session)
     {
-        this.type = checkNotNull(type, "type is null");
+        // analyze expression so we can know the type of every expression in the tree
+        IdentityHashMap<Expression, Type> expressionTypes = getExpressionTypes(session, metadata, symbolTypes, expression);
+        this.type = checkNotNull(expressionTypes.get(expression), "type is null");
 
         // pre-compute symbol -> input mappings and replace the corresponding nodes in the tree
         Expression rewritten = ExpressionTreeRewriter.rewriteWith(new SymbolToInputRewriter(symbolToInputMapping), expression);
 
-        evaluator = ExpressionInterpreter.expressionInterpreter(rewritten, metadata, session);
+        evaluator = ExpressionInterpreter.expressionInterpreter(rewritten, metadata, session, expressionTypes);
     }
 
     @Override

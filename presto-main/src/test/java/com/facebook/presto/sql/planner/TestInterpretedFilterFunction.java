@@ -18,6 +18,7 @@ import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.tree.ComparisonExpression;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.Input;
+import com.facebook.presto.type.Type;
 import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;
 
@@ -194,6 +195,7 @@ public class TestInterpretedFilterFunction
         Session session = new Session("user", "test", DEFAULT_CATALOG, DEFAULT_SCHEMA, null, null);
 
         InterpretedFilterFunction filterFunction = new InterpretedFilterFunction(parsed,
+                ImmutableMap.<Symbol, Type>of(),
                 ImmutableMap.<Symbol, Input>of(),
                 DUAL_METADATA_MANAGER,
                 session

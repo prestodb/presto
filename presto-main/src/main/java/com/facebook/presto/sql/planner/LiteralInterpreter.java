@@ -28,12 +28,13 @@ import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.sql.tree.StringLiteral;
 import com.facebook.presto.sql.tree.TimeLiteral;
 import com.facebook.presto.sql.tree.TimestampLiteral;
-import com.google.common.base.Function;
+import com.facebook.presto.type.BigintType;
+import com.facebook.presto.type.BooleanType;
+import com.facebook.presto.type.DoubleType;
+import com.facebook.presto.type.Type;
+import com.facebook.presto.type.VarcharType;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Lists;
 import io.airlift.slice.Slice;
-
-import javax.annotation.Nullable;
 
 import java.util.List;
 
@@ -51,28 +52,32 @@ public final class LiteralInterpreter
         return new LiteralVisitor().process(node, null);
     }
 
-    public static List<Expression> toExpressions(List<?> objects)
+    public static List<Expression> toExpressions(List<?> objects, List<? extends Type> types)
     {
-        return ImmutableList.copyOf(Lists.transform(objects, new Function<Object, Expression>()
-        {
-            public Expression apply(@Nullable Object value)
-            {
-                return toExpression(value);
-            }
-        }));
+        ImmutableList.Builder<Expression> expressions = ImmutableList.builder();
+        for (int i = 0; i < objects.size(); i++) {
+            Object object = objects.get(i);
+            Type type = types.get(i);
+            expressions.add(toExpression(object, type));
+        }
+        return expressions.build();
     }
 
-    public static Expression toExpression(Object object)
+    public static Expression toExpression(Object object, Type type)
     {
         if (object instanceof Expression) {
             return (Expression) object;
         }
 
-        if (object instanceof Long) {
+        if (object == null) {
+            return new NullLiteral();
+        }
+
+        if (type == BigintType.BIGINT) {
             return new LongLiteral(object.toString());
         }
 
-        if (object instanceof Double) {
+        if (type == DoubleType.DOUBLE) {
             Double value = (Double) object;
             if (value.isNaN()) {
                 return new FunctionCall(new QualifiedName("nan"), ImmutableList.<Expression>of());
@@ -88,20 +93,18 @@ public final class LiteralInterpreter
             }
         }
 
-        if (object instanceof Slice) {
-            return new StringLiteral(((Slice) object).toString(UTF_8));
+        if (type == VarcharType.VARCHAR) {
+            if (object instanceof Slice) {
+                return new StringLiteral(((Slice) object).toString(UTF_8));
+            }
+
+            if (object instanceof String) {
+                return new StringLiteral((String) object);
+            }
         }
 
-        if (object instanceof String) {
-            return new StringLiteral((String) object);
-        }
-
-        if (object instanceof Boolean) {
+        if (type == BooleanType.BOOLEAN) {
             return new BooleanLiteral(object.toString());
-        }
-
-        if (object == null) {
-            return new NullLiteral();
         }
 
         throw new UnsupportedOperationException("not yet implemented: " + object.getClass().getName());

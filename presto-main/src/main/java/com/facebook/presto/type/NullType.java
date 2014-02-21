@@ -45,7 +45,7 @@ public final class NullType
     @Override
     public Class<?> getJavaType()
     {
-        return Void.class;
+        return void.class;
     }
 
     @Override

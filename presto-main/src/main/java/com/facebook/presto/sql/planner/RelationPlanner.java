@@ -279,7 +279,7 @@ class RelationPlanner
     {
         try {
             // verify the expression is constant (has no inputs)
-            ExpressionInterpreter.expressionOptimizer(expression, metadata, session).optimize(new SymbolResolver() {
+            ExpressionInterpreter.expressionOptimizer(expression, metadata, session, analysis.getTypes()).optimize(new SymbolResolver() {
                 @Override
                 public Object getValue(Symbol symbol)
                 {
@@ -288,11 +288,11 @@ class RelationPlanner
             });
 
             // evaluate the expression
-            Object result = ExpressionInterpreter.expressionInterpreter(expression, metadata, session).evaluate(new BlockCursor[0]);
+            Object result = ExpressionInterpreter.expressionInterpreter(expression, metadata, session, analysis.getTypes()).evaluate(new BlockCursor[0]);
             checkState(!(result instanceof Expression), "Expression interpreter returned an unresolved expression");
 
             // convert result to a literal
-            return (Literal) LiteralInterpreter.toExpression(result);
+            return (Literal) LiteralInterpreter.toExpression(result, analysis.getType(expression));
         }
         catch (Exception e) {
             throw new SemanticException(EXPRESSION_NOT_CONSTANT, expression, "Error evaluating constant expression: %s", e.getMessage());
