@@ -3317,7 +3317,7 @@ public abstract class AbstractTestQueries
 
     private QueryExplainer getQueryExplainer()
     {
-        MetadataManager metadata = new MetadataManager();
+        MetadataManager metadata = new MetadataManager(new FeaturesConfig().setExperimentalSyntaxEnabled(true));
         metadata.addInternalSchemaMetadata(MetadataManager.INTERNAL_CONNECTOR_ID, new DualMetadata());
         SplitManager splitManager = new SplitManager(ImmutableSet.<ConnectorSplitManager>of(new DualSplitManager(new InMemoryNodeManager())));
         FeaturesConfig featuresConfig = new FeaturesConfig().setExperimentalSyntaxEnabled(true);
