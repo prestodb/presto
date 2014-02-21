@@ -287,9 +287,11 @@ public class EffectivePredicateExtractor
 
         ImmutableList.Builder<Expression> effectiveConjuncts = ImmutableList.builder();
         for (Expression conjunct : EqualityInference.nonInferrableConjuncts(expression)) {
-            Expression rewritten = equalityInference.rewriteExpression(conjunct, in(symbols));
-            if (rewritten != null) {
-                effectiveConjuncts.add(rewritten);
+            if (DeterminismEvaluator.isDeterministic(conjunct)) {
+                Expression rewritten = equalityInference.rewriteExpression(conjunct, in(symbols));
+                if (rewritten != null) {
+                    effectiveConjuncts.add(rewritten);
+                }
             }
         }
 

@@ -2479,6 +2479,16 @@ public abstract class AbstractTestQueries
     }
 
     @Test
+    public void testRandCrossJoins()
+            throws Exception
+    {
+        assertQuery("" +
+                "SELECT COUNT(*) " +
+                "FROM (SELECT * FROM orders ORDER BY rand() LIMIT 5) a " +
+                "CROSS JOIN (SELECT * FROM lineitem ORDER BY rand() LIMIT 5) b");
+    }
+
+    @Test
     public void testCrossJoins()
             throws Exception
     {
