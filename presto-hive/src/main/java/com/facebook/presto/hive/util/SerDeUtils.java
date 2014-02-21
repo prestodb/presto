@@ -83,7 +83,7 @@ public final class SerDeUtils
             case STRING:
                 return ((StringObjectInspector) objectInspector).getPrimitiveJavaObject(object);
             case TIMESTAMP:
-                return ((TimestampObjectInspector) objectInspector).getPrimitiveWritableObject(object).toString();
+                return String.valueOf(((TimestampObjectInspector) objectInspector).getPrimitiveWritableObject(object).getSeconds());
             case BINARY:
                 // Using same Base64 encoder which Jackson uses in JsonGenerator.writeBinary().
                 return Base64Variants.getDefaultVariant().encode(((BinaryObjectInspector) objectInspector).getPrimitiveWritableObject(object).getBytes());
@@ -128,7 +128,7 @@ public final class SerDeUtils
                         generator.writeString(((StringObjectInspector) primitiveObjectInspector).getPrimitiveJavaObject(object));
                         break;
                     case TIMESTAMP:
-                        generator.writeString(((TimestampObjectInspector) primitiveObjectInspector).getPrimitiveWritableObject(object).toString());
+                        generator.writeNumber(((TimestampObjectInspector) primitiveObjectInspector).getPrimitiveWritableObject(object).getSeconds());
                         break;
                     case BINARY:
                         generator.writeBinary(((BinaryObjectInspector) objectInspector).getPrimitiveJavaObject(object));

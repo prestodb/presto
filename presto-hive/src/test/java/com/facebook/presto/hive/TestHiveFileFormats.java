@@ -54,7 +54,7 @@ public class TestHiveFileFormats
             splitProperties.setProperty("columns.types", COLUMN_TYPES);
             RecordCursor cursor = new ColumnarTextHiveRecordCursor<>(recordReader, split.getLength(), splitProperties, new ArrayList<HivePartitionKey>(), getColumns());
 
-            checkCursor(cursor, true);
+            checkCursor(cursor);
         }
         finally {
             //noinspection ResultOfMethodCallIgnored
@@ -83,7 +83,7 @@ public class TestHiveFileFormats
             splitProperties.setProperty("columns.types", COLUMN_TYPES);
             RecordCursor cursor = new ColumnarBinaryHiveRecordCursor<>(recordReader, split.getLength(), splitProperties, new ArrayList<HivePartitionKey>(), getColumns());
 
-            checkCursor(cursor, true);
+            checkCursor(cursor);
         }
         finally {
             //noinspection ResultOfMethodCallIgnored
