@@ -13,199 +13,43 @@
  */
 package com.facebook.presto.block;
 
-import com.facebook.presto.block.uncompressed.UncompressedBlock;
-import com.facebook.presto.tuple.TupleInfo;
-import com.facebook.presto.tuple.TupleReadable;
-import com.google.common.base.Charsets;
-import io.airlift.slice.DynamicSliceOutput;
+import com.facebook.presto.type.Type;
 import io.airlift.slice.Slice;
-import io.airlift.slice.SliceOutput;
-import io.airlift.slice.Slices;
 import io.airlift.units.DataSize;
 import io.airlift.units.DataSize.Unit;
 
-import static com.google.common.base.Preconditions.checkNotNull;
-
-public class BlockBuilder
+public interface BlockBuilder
+        extends RandomAccessBlock
 {
-    public static final DataSize DEFAULT_MAX_BLOCK_SIZE = new DataSize(64, Unit.KILOBYTE);
-    public static final double DEFAULT_STORAGE_MULTIPLIER = 1.2;
+    DataSize DEFAULT_MAX_BLOCK_SIZE = new DataSize(64, Unit.KILOBYTE);
 
-    private final TupleInfo tupleInfo;
-    private final int maxBlockSize;
-    private final SliceOutput sliceOutput;
-    private int positionCount;
+    BlockBuilder append(boolean value);
 
-    private TupleInfo.Builder tupleBuilder;
+    BlockBuilder append(long value);
 
-    public BlockBuilder(TupleInfo tupleInfo)
-    {
-        this(tupleInfo, DEFAULT_MAX_BLOCK_SIZE, DEFAULT_STORAGE_MULTIPLIER);
-    }
+    BlockBuilder append(double value);
 
-    public BlockBuilder(TupleInfo tupleInfo, DataSize blockSize, double storageMultiplier)
-    {
-        // Use slightly larger storage size to minimize resizing when we just exceed full capacity
-        this(tupleInfo, (int) checkNotNull(blockSize, "blockSize is null").toBytes(), new DynamicSliceOutput((int) ((int) blockSize.toBytes() * storageMultiplier)));
-    }
+    BlockBuilder append(byte[] value);
 
-    public BlockBuilder(TupleInfo tupleInfo,
-            int maxBlockSize,
-            SliceOutput sliceOutput)
-    {
-        checkNotNull(maxBlockSize, "maxBlockSize is null");
-        checkNotNull(tupleInfo, "tupleInfo is null");
+    BlockBuilder append(String value);
 
-        this.tupleInfo = tupleInfo;
-        this.maxBlockSize = maxBlockSize;
-        this.sliceOutput = sliceOutput;
+    BlockBuilder append(Slice value);
 
-        tupleBuilder = tupleInfo.builder(this.sliceOutput);
-    }
+    BlockBuilder append(Slice value, int offset, int length);
 
-    public TupleInfo getTupleInfo()
-    {
-        return tupleInfo;
-    }
+    BlockBuilder appendNull();
 
-    public int getPositionCount()
-    {
-        return positionCount;
-    }
+    BlockBuilder appendObject(Object value);
 
-    public boolean isEmpty()
-    {
-        return positionCount == 0;
-    }
+    RandomAccessBlock build();
 
-    public boolean isFull()
-    {
-        return sliceOutput.size() > maxBlockSize;
-    }
+    int getPositionCount();
 
-    public int size()
-    {
-        return sliceOutput.size();
-    }
+    Type getType();
 
-    public int writableBytes()
-    {
-        return maxBlockSize - sliceOutput.size();
-    }
+    boolean isEmpty();
 
-    public BlockBuilder appendObject(Object value)
-    {
-        if (value == null) {
-            tupleBuilder.appendNull();
-        }
-        else if (value instanceof Boolean) {
-            tupleBuilder.append((Boolean) value);
-        }
-        else if (value instanceof Double || value instanceof Float) {
-            tupleBuilder.append(((Number) value).doubleValue());
-        }
-        else if (value instanceof Number) {
-            tupleBuilder.append(((Number) value).longValue());
-        }
-        else if (value instanceof byte[]) {
-            tupleBuilder.append(Slices.wrappedBuffer((byte[]) value));
-        }
-        else if (value instanceof String) {
-            tupleBuilder.append((String) value);
-        }
-        else if (value instanceof Slice) {
-            tupleBuilder.append((Slice) value);
-        }
-        else {
-            throw new IllegalArgumentException("Unsupported type: " + value.getClass());
-        }
-        positionCount++;
-        return this;
-    }
+    boolean isFull();
 
-    public BlockBuilder append(boolean value)
-    {
-        tupleBuilder.append(value);
-        positionCount++;
-        return this;
-    }
-
-    public BlockBuilder append(long value)
-    {
-        tupleBuilder.append(value);
-        positionCount++;
-        return this;
-    }
-
-    public BlockBuilder append(double value)
-    {
-        tupleBuilder.append(value);
-        positionCount++;
-        return this;
-    }
-
-    public BlockBuilder append(byte[] value)
-    {
-        return append(Slices.wrappedBuffer(value));
-    }
-
-    public BlockBuilder append(String value)
-    {
-        return append(Slices.copiedBuffer(value, Charsets.UTF_8));
-    }
-
-    public BlockBuilder append(Slice value)
-    {
-        tupleBuilder.append(value);
-        positionCount++;
-        return this;
-    }
-
-    public BlockBuilder appendNull()
-    {
-        tupleBuilder.appendNull();
-        positionCount++;
-        return this;
-    }
-
-    public BlockBuilder append(TupleReadable tuple)
-    {
-        tupleBuilder.append(tuple);
-        positionCount++;
-        return this;
-    }
-
-    public BlockBuilder appendTuple(Slice slice, int offset)
-    {
-        // read the tuple length
-        int length = tupleInfo.size(slice, offset);
-        return appendTuple(slice, offset, length);
-    }
-
-    public BlockBuilder appendTuple(Slice slice, int offset, int length)
-    {
-        // copy tuple to output
-        sliceOutput.writeBytes(slice, offset, length);
-        positionCount++;
-
-        return this;
-    }
-
-    public UncompressedBlock build()
-    {
-        return new UncompressedBlock(positionCount, tupleInfo, sliceOutput.slice());
-    }
-
-    @Override
-    public String toString()
-    {
-        final StringBuilder sb = new StringBuilder();
-        sb.append("BlockBuilder");
-        sb.append("{count=").append(positionCount);
-        sb.append(", size=").append(sliceOutput.size());
-        sb.append(", maxSize=").append(maxBlockSize);
-        sb.append(", tupleInfo=").append(tupleInfo);
-        sb.append('}');
-        return sb.toString();
-    }
+    int size();
 }

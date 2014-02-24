@@ -14,8 +14,9 @@
 package com.facebook.presto.serde;
 
 import com.facebook.presto.block.Block;
+import com.facebook.presto.block.BlockEncoding;
 import com.facebook.presto.block.BlockIterable;
-import com.facebook.presto.tuple.TupleInfo;
+import com.facebook.presto.type.Type;
 import com.google.common.base.Optional;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.AbstractIterator;
@@ -44,9 +45,9 @@ public class EncodedBlockIterable
     }
 
     @Override
-    public TupleInfo getTupleInfo()
+    public Type getType()
     {
-        return blockEncoding.getTupleInfo();
+        return blockEncoding.getType();
     }
 
     @Override

@@ -15,6 +15,7 @@ package com.facebook.presto.operator.aggregation;
 
 import com.facebook.presto.block.Block;
 import com.facebook.presto.block.BlockBuilder;
+import com.facebook.presto.block.BlockBuilderStatus;
 import org.testng.annotations.Test;
 
 import java.util.ArrayList;
@@ -22,7 +23,7 @@ import java.util.List;
 import java.util.Random;
 
 import static com.facebook.presto.operator.aggregation.ApproximateAverageAggregations.LONG_APPROXIMATE_AVERAGE_AGGREGATION;
-import static com.facebook.presto.tuple.TupleInfo.SINGLE_LONG;
+import static com.facebook.presto.type.BigintType.BIGINT;
 
 public class TestLongApproximateAverageAggregation
         extends AbstractTestApproximateAggregationFunction
@@ -30,7 +31,7 @@ public class TestLongApproximateAverageAggregation
     @Override
     public Block getSequenceBlock(int start, int length)
     {
-        BlockBuilder blockBuilder = new BlockBuilder(SINGLE_LONG);
+        BlockBuilder blockBuilder = BIGINT.createBlockBuilder(new BlockBuilderStatus());
         for (int i = start; i < start + length; i++) {
             blockBuilder.append(i);
         }
@@ -87,7 +88,7 @@ public class TestLongApproximateAverageAggregation
             list.add((long) distribution.nextGaussian() * 100);
         }
 
-        testCorrectnessOfErrorFunction(list, SINGLE_LONG);
+        testCorrectnessOfErrorFunction(list, BIGINT);
     }
 
     @Test
@@ -101,6 +102,6 @@ public class TestLongApproximateAverageAggregation
             list.add((long) distribution.nextDouble() * 100);
         }
 
-        testCorrectnessOfErrorFunction(list, SINGLE_LONG);
+        testCorrectnessOfErrorFunction(list, BIGINT);
     }
 }

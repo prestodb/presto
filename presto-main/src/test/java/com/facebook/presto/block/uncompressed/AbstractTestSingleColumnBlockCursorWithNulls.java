@@ -15,7 +15,6 @@ package com.facebook.presto.block.uncompressed;
 
 import com.facebook.presto.block.AbstractTestBlockCursor;
 import com.facebook.presto.block.BlockCursor;
-import com.facebook.presto.tuple.Tuple;
 import org.testng.annotations.Test;
 
 import java.util.Map.Entry;
@@ -32,10 +31,11 @@ public abstract class AbstractTestSingleColumnBlockCursorWithNulls
     {
         BlockCursor cursor = createTestCursor();
 
-        for (Entry<Integer, Tuple> entry : getExpectedValues().entrySet()) {
+        for (Entry<Integer, Object> entry : getExpectedValues().entrySet()) {
             assertNextPosition(cursor, entry.getKey(), entry.getValue());
             if (cursor.getPosition() % 2 == 0) {
                 assertTrue(cursor.isNull());
+                assertTrue(entry.getValue() == null);
             }
         }
 

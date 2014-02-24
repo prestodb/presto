@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.sql.planner;
 
+import com.facebook.presto.block.BlockCursor;
 import com.facebook.presto.metadata.FunctionInfo;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.operator.scalar.UnixTimeFunctions;
@@ -51,7 +52,6 @@ import com.facebook.presto.sql.tree.SearchedCaseExpression;
 import com.facebook.presto.sql.tree.SimpleCaseExpression;
 import com.facebook.presto.sql.tree.StringLiteral;
 import com.facebook.presto.sql.tree.WhenClause;
-import com.facebook.presto.tuple.TupleReadable;
 import com.google.common.base.Charsets;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Predicate;
@@ -122,9 +122,9 @@ public class ExpressionInterpreter
         return visitor.process(expression, inputs);
     }
 
-    public Object evaluate(TupleReadable[] inputs)
+    public Object evaluate(BlockCursor[] inputs)
     {
-        Preconditions.checkState(!optimize, "evaluate(TupleReadable[]) not allowed for optimizer");
+        Preconditions.checkState(!optimize, "evaluate(BlockCursor[]) not allowed for optimizer");
         return visitor.process(expression, inputs);
     }
 
@@ -156,23 +156,23 @@ public class ExpressionInterpreter
             Input input = node.getInput();
 
             int channel = input.getChannel();
-            if (context instanceof TupleReadable[]) {
-                TupleReadable[] inputs = (TupleReadable[]) context;
-                TupleReadable tuple = inputs[channel];
+            if (context instanceof BlockCursor[]) {
+                BlockCursor[] inputs = (BlockCursor[]) context;
+                BlockCursor cursor = inputs[channel];
 
-                if (tuple.isNull()) {
+                if (cursor.isNull()) {
                     return null;
                 }
 
-                switch (tuple.getTupleInfo().getType()) {
+                switch (cursor.getType().toColumnType()) {
                     case BOOLEAN:
-                        return tuple.getBoolean();
-                    case FIXED_INT_64:
-                        return tuple.getLong();
+                        return cursor.getBoolean();
+                    case LONG:
+                        return cursor.getLong();
                     case DOUBLE:
-                        return tuple.getDouble();
-                    case VARIABLE_BINARY:
-                        return tuple.getSlice();
+                        return cursor.getDouble();
+                    case STRING:
+                        return cursor.getSlice();
                     default:
                         throw new UnsupportedOperationException("not yet implemented");
                 }

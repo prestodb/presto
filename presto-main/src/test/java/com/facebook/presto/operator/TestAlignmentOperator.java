@@ -29,10 +29,8 @@ import static com.facebook.presto.operator.OperatorAssertion.assertOperatorEqual
 import static com.facebook.presto.operator.PageAssertions.assertPageEquals;
 import static com.facebook.presto.operator.RowPageBuilder.rowPageBuilder;
 import static com.facebook.presto.operator.RowPagesBuilder.rowPagesBuilder;
-import static com.facebook.presto.tuple.TupleInfo.SINGLE_LONG;
-import static com.facebook.presto.tuple.TupleInfo.SINGLE_VARBINARY;
-import static com.facebook.presto.tuple.TupleInfo.Type.FIXED_INT_64;
-import static com.facebook.presto.tuple.TupleInfo.Type.VARIABLE_BINARY;
+import static com.facebook.presto.type.BigintType.BIGINT;
+import static com.facebook.presto.type.VarcharType.VARCHAR;
 import static com.facebook.presto.util.Threads.daemonThreadsNamed;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static org.testng.Assert.assertEquals;
@@ -64,7 +62,7 @@ public class TestAlignmentOperator
     {
         Operator operator = createAlignmentOperator();
 
-        List<Page> expected = rowPagesBuilder(SINGLE_VARBINARY, SINGLE_LONG)
+        List<Page> expected = rowPagesBuilder(VARCHAR, BIGINT)
                 .row("alice", 0)
                 .row("bob", 1)
                 .row("charlie", 2)
@@ -95,7 +93,7 @@ public class TestAlignmentOperator
         assertEquals(operator.needsInput(), false);
 
         // read first page
-        assertPageEquals(operator.getOutput(), rowPageBuilder(SINGLE_VARBINARY, SINGLE_LONG)
+        assertPageEquals(operator.getOutput(), rowPageBuilder(VARCHAR, BIGINT)
                 .row("alice", 0)
                 .row("bob", 1)
                 .row("charlie", 2)
@@ -107,7 +105,7 @@ public class TestAlignmentOperator
         assertEquals(operator.needsInput(), false);
 
         // read second page
-        assertPageEquals(operator.getOutput(), rowPageBuilder(SINGLE_VARBINARY, SINGLE_LONG)
+        assertPageEquals(operator.getOutput(), rowPageBuilder(VARCHAR, BIGINT)
                 .row("alice", 4)
                 .row("bob", 5)
                 .row("charlie", 6)
@@ -129,7 +127,7 @@ public class TestAlignmentOperator
 
     private Operator createAlignmentOperator()
     {
-        BlockIterable channel0 = blockIterableBuilder(VARIABLE_BINARY)
+        BlockIterable channel0 = blockIterableBuilder(VARCHAR)
                 .append("alice")
                 .append("bob")
                 .append("charlie")
@@ -146,7 +144,7 @@ public class TestAlignmentOperator
                 .append("dave")
                 .build();
 
-        BlockIterable channel1 = blockIterableBuilder(FIXED_INT_64)
+        BlockIterable channel1 = blockIterableBuilder(BIGINT)
                 .append(0)
                 .append(1)
                 .append(2)

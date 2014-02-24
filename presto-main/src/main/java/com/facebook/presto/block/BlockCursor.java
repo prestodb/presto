@@ -13,9 +13,7 @@
  */
 package com.facebook.presto.block;
 
-import com.facebook.presto.tuple.Tuple;
-import com.facebook.presto.tuple.TupleInfo;
-import com.facebook.presto.tuple.TupleReadable;
+import com.facebook.presto.type.Type;
 import io.airlift.slice.Slice;
 
 /**
@@ -31,13 +29,11 @@ import io.airlift.slice.Slice;
  * }</pre>
  */
 public interface BlockCursor
-        extends TupleReadable
 {
     /**
-     * Gets the type of all tuples in this cursor
+     * Gets the type of this cursor
      */
-    @Override
-    TupleInfo getTupleInfo();
+    Type getType();
 
     /**
      * Gets the number of positions remaining in this cursor.
@@ -92,51 +88,52 @@ public interface BlockCursor
     Block getRegionAndAdvance(int length);
 
     /**
-     * Gets the current tuple.
+     * Gets the current value as a single element block.
      *
      * @throws IllegalStateException if this cursor is not at a valid position
      */
-    @Override
-    Tuple getTuple();
+    RandomAccessBlock getSingleValueBlock();
 
     /**
-     * Gets a boolean at the current position.
+     * Gets the current value as a boolean.
      *
      * @throws IllegalStateException if this cursor is not at a valid position
      */
-    @Override
     boolean getBoolean();
 
     /**
-     * Gets a long at the current position.
+     * Gets the current value as a long.
      *
      * @throws IllegalStateException if this cursor is not at a valid position
      */
-    @Override
     long getLong();
 
     /**
-     * Gets a double at the current position.
+     * Gets the current value as a double.
      *
      * @throws IllegalStateException if this cursor is not at a valid position
      */
-    @Override
     double getDouble();
 
     /**
-     * Gets a slice at the current position.
+     * Gets the current value as a Slice.
      *
      * @throws IllegalStateException if this cursor is not at a valid position
      */
-    @Override
     Slice getSlice();
 
     /**
-     * Is the current position null?
+     * Gets the current value as an Object.
      *
      * @throws IllegalStateException if this cursor is not at a valid position
      */
-    @Override
+    Object getObjectValue();
+
+    /**
+     * Is the current value null.
+     *
+     * @throws IllegalStateException if this cursor is not at a valid position
+     */
     boolean isNull();
 
     /**
@@ -146,16 +143,9 @@ public interface BlockCursor
      */
     int getPosition();
 
-    /**
-     * True if the next tuple equals the specified tuple.
-     *
-     * @throws IllegalStateException if this cursor is not at a valid position
-     */
-    boolean currentTupleEquals(Tuple value);
+    int compareTo(Slice slice, int offset);
 
-    int getRawOffset();
+    int calculateHashCode();
 
-    Slice getRawSlice();
-
-    void appendTupleTo(BlockBuilder blockBuilder);
+    void appendTo(BlockBuilder blockBuilder);
 }

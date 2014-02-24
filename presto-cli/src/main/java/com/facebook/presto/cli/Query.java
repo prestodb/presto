@@ -182,9 +182,9 @@ public class Query
     {
         switch (format) {
             case ALIGNED:
-                return new AlignedTuplePrinter(fieldNames, writer);
+                return new AlignedTablePrinter(fieldNames, writer);
             case VERTICAL:
-                return new VerticalTuplePrinter(fieldNames, writer);
+                return new VerticalRecordPrinter(fieldNames, writer);
             case CSV:
                 return new CsvPrinter(fieldNames, writer, false);
             case CSV_HEADER:

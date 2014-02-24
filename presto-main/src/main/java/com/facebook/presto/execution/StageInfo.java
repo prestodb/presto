@@ -15,7 +15,6 @@ package com.facebook.presto.execution;
 
 import com.facebook.presto.client.FailureInfo;
 import com.facebook.presto.sql.planner.PlanFragment;
-import com.facebook.presto.tuple.TupleInfo;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.base.Function;
@@ -36,7 +35,7 @@ public class StageInfo
     private final StageState state;
     private final URI self;
     private final PlanFragment plan;
-    private final List<TupleInfo> tupleInfos;
+    private final List<String> types;
     private final StageStats stageStats;
     private final List<TaskInfo> tasks;
     private final List<StageInfo> subStages;
@@ -48,7 +47,7 @@ public class StageInfo
             @JsonProperty("state") StageState state,
             @JsonProperty("self") URI self,
             @JsonProperty("plan") @Nullable PlanFragment plan,
-            @JsonProperty("tupleInfos") List<TupleInfo> tupleInfos,
+            @JsonProperty("types") List<String> types,
             @JsonProperty("stageStats") StageStats stageStats,
             @JsonProperty("tasks") List<TaskInfo> tasks,
             @JsonProperty("subStages") List<StageInfo> subStages,
@@ -66,7 +65,7 @@ public class StageInfo
         this.state = state;
         this.self = self;
         this.plan = plan;
-        this.tupleInfos = tupleInfos;
+        this.types = types;
         this.stageStats = stageStats;
         this.tasks = ImmutableList.copyOf(tasks);
         this.subStages = subStages;
@@ -99,9 +98,9 @@ public class StageInfo
     }
 
     @JsonProperty
-    public List<TupleInfo> getTupleInfos()
+    public List<String> getTypes()
     {
-        return tupleInfos;
+        return types;
     }
 
     @JsonProperty

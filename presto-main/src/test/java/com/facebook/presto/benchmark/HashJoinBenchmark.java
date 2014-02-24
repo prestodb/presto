@@ -18,8 +18,7 @@ import com.facebook.presto.operator.DriverContext;
 import com.facebook.presto.operator.DriverFactory;
 import com.facebook.presto.operator.HashBuilderOperator.HashBuilderOperatorFactory;
 import com.facebook.presto.operator.HashBuilderOperator.HashSupplier;
-import com.facebook.presto.operator.HashJoinOperator;
-import com.facebook.presto.operator.HashJoinOperator.HashJoinOperatorFactory;
+import com.facebook.presto.operator.HashJoinOperators;
 import com.facebook.presto.operator.NullOutputOperator.NullOutputOperatorFactory;
 import com.facebook.presto.operator.OperatorFactory;
 import com.facebook.presto.operator.TaskContext;
@@ -41,7 +40,7 @@ public class HashJoinBenchmark
 
     public HashJoinBenchmark(LocalQueryRunner localQueryRunner)
     {
-        super(localQueryRunner, "hash_join", 4, 5);
+        super(localQueryRunner, "hash_join", 4, 50);
     }
 
     /*
@@ -54,7 +53,7 @@ public class HashJoinBenchmark
     {
         if (hashSupplier == null) {
             OperatorFactory ordersTableScan = createTableScanOperator(0, "orders", "orderkey", "totalprice");
-            HashBuilderOperatorFactory hashBuilder = new HashBuilderOperatorFactory(1, ordersTableScan.getTupleInfos(), Ints.asList(0), 1_500_000);
+            HashBuilderOperatorFactory hashBuilder = new HashBuilderOperatorFactory(1, ordersTableScan.getTypes(), Ints.asList(0), 1_500_000);
 
             DriverContext driverContext = taskContext.addPipelineContext(false, false).addDriverContext();
             Driver driver = new DriverFactory(false, false, ordersTableScan, hashBuilder).createDriver(driverContext);
@@ -66,9 +65,9 @@ public class HashJoinBenchmark
 
         OperatorFactory lineItemTableScan = createTableScanOperator(0, "lineitem", "orderkey", "quantity");
 
-        HashJoinOperatorFactory joinOperator = HashJoinOperator.innerJoin(1, hashSupplier, lineItemTableScan.getTupleInfos(), Ints.asList(0));
+        OperatorFactory joinOperator = HashJoinOperators.innerJoin(1, hashSupplier, lineItemTableScan.getTypes(), Ints.asList(0));
 
-        NullOutputOperatorFactory output = new NullOutputOperatorFactory(2, joinOperator.getTupleInfos());
+        NullOutputOperatorFactory output = new NullOutputOperatorFactory(2, joinOperator.getTypes());
 
         DriverFactory driverFactory = new DriverFactory(true, true, lineItemTableScan, joinOperator, output);
         DriverContext driverContext = taskContext.addPipelineContext(true, true).addDriverContext();

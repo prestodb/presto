@@ -16,20 +16,19 @@ package com.facebook.presto.operator.aggregation;
 import com.facebook.presto.block.Block;
 import com.facebook.presto.block.BlockAssertions;
 import com.facebook.presto.block.BlockBuilder;
+import com.facebook.presto.block.BlockBuilderStatus;
+import com.facebook.presto.block.RandomAccessBlock;
 import com.facebook.presto.block.rle.RunLengthEncodedBlock;
-import com.facebook.presto.block.uncompressed.UncompressedBlock;
 import com.facebook.presto.operator.GroupByIdBlock;
 import com.facebook.presto.operator.Page;
-import com.facebook.presto.tuple.TupleInfo;
 import com.google.common.base.Optional;
 import com.google.common.primitives.Ints;
-import io.airlift.slice.Slices;
 
 import java.util.Arrays;
 import java.util.Collections;
 
-import static com.facebook.presto.tuple.TupleInfo.SINGLE_BOOLEAN;
-import static com.facebook.presto.tuple.Tuples.NULL_BOOLEAN_TUPLE;
+import static com.facebook.presto.type.BigintType.BIGINT;
+import static com.facebook.presto.type.BooleanType.BOOLEAN;
 import static org.testng.Assert.assertEquals;
 
 public final class AggregationTestUtils
@@ -77,14 +76,12 @@ public final class AggregationTestUtils
     }
 
     // Adds the mask as the last channel
-    private static Page[] maskPages(final boolean maskValue, Page... pages)
+    private static Page[] maskPages(boolean maskValue, Page... pages)
     {
         Page[] maskedPages = new Page[pages.length];
         for (int i = 0; i < pages.length; i++) {
             Page page = pages[i];
-            int positionCount = page.getPositionCount();
-            int blockSize = SINGLE_BOOLEAN.getFixedSize() * positionCount;
-            BlockBuilder blockBuilder = new BlockBuilder(SINGLE_BOOLEAN, blockSize, Slices.allocate(blockSize).getOutput());
+            BlockBuilder blockBuilder = BOOLEAN.createBlockBuilder(new BlockBuilderStatus());
             for (int j = 0; j < page.getPositionCount(); j++) {
                 blockBuilder.append(maskValue);
             }
@@ -227,9 +224,9 @@ public final class AggregationTestUtils
             partialAggregation.addInput(createGroupByIdBlock(0, page.getPositionCount()), page);
         }
 
-        BlockBuilder partialOut = new BlockBuilder(partialAggregation.getIntermediateTupleInfo());
+        BlockBuilder partialOut = partialAggregation.getIntermediateType().createBlockBuilder(new BlockBuilderStatus());
         partialAggregation.evaluateIntermediate(0, partialOut);
-        UncompressedBlock partialBlock = partialOut.build();
+        Block partialBlock = partialOut.build();
 
         GroupedAccumulator finalAggregation = function.createGroupedIntermediateAggregation(confidence);
         finalAggregation.addIntermediate(createGroupByIdBlock(0, partialBlock.getPositionCount()), partialBlock);
@@ -239,11 +236,7 @@ public final class AggregationTestUtils
 
     public static GroupByIdBlock createGroupByIdBlock(int groupId, int positions)
     {
-        if (positions == 0) {
-            return new GroupByIdBlock(groupId, new UncompressedBlock(0, TupleInfo.SINGLE_LONG, Slices.EMPTY_SLICE));
-        }
-
-        BlockBuilder blockBuilder = new BlockBuilder(TupleInfo.SINGLE_LONG);
+        BlockBuilder blockBuilder = BIGINT.createBlockBuilder(new BlockBuilderStatus());
         for (int i = 0; i < positions; i++) {
             blockBuilder.append(groupId);
         }
@@ -303,7 +296,7 @@ public final class AggregationTestUtils
             else {
                 Block[] newBlocks = new Block[page.getChannelCount() + offset];
                 for (int channel = 0; channel < offset; channel++) {
-                    newBlocks[channel] = new RunLengthEncodedBlock(NULL_BOOLEAN_TUPLE, page.getPositionCount());
+                    newBlocks[channel] = createNullRLEBlock(page.getPositionCount());
                 }
                 for (int channel = 0; channel < page.getBlocks().length; channel++) {
                     newBlocks[channel + offset] = page.getBlocks()[channel];
@@ -314,9 +307,19 @@ public final class AggregationTestUtils
         return newPages;
     }
 
+    private static RunLengthEncodedBlock createNullRLEBlock(int positionCount)
+    {
+        RandomAccessBlock value = BOOLEAN.createBlockBuilder(new BlockBuilderStatus())
+                .appendNull()
+                .build()
+                .toRandomAccessBlock();
+
+        return new RunLengthEncodedBlock(value, positionCount);
+    }
+
     private static Object getGroupValue(GroupedAccumulator groupedAggregation, int groupId)
     {
-        BlockBuilder out = new BlockBuilder(groupedAggregation.getFinalTupleInfo());
+        BlockBuilder out = groupedAggregation.getFinalType().createBlockBuilder(new BlockBuilderStatus());
         groupedAggregation.evaluateFinal(groupId, out);
         return BlockAssertions.getOnlyValue(out.build());
     }

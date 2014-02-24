@@ -13,38 +13,60 @@
  */
 package com.facebook.presto.block;
 
+import com.facebook.presto.operator.SortOrder;
 import io.airlift.slice.Slice;
 
 public interface RandomAccessBlock
         extends Block
 {
     /**
-     * Gets a position from the current tuple.
+     * Returns a block starting at the specified position and extends for the
+     * specified length.  The specified region must be entirely contained
+     * within this block.
+     */
+    RandomAccessBlock getRegion(int positionOffset, int length);
+
+    /**
+     * Gets the value at the specified position as a boolean.
      *
      * @throws IllegalArgumentException if this position is not valid
      */
     boolean getBoolean(int position);
 
     /**
-     * Gets a position from the current tuple.
+     * Gets the value at the specified position as a long.
      *
      * @throws IllegalArgumentException if this position is not valid
      */
     long getLong(int position);
 
     /**
-     * Gets a position from the current tuple.
+     * Gets the value at the specified position as a double.
      *
      * @throws IllegalArgumentException if this position is not valid
      */
     double getDouble(int position);
 
     /**
-     * Gets a position from the current tuple.
+     * Gets the value at the specified position as an Object.
+     *
+     * @throws IllegalArgumentException if this position is not valid
+     */
+    Object getObjectValue(int position);
+
+    /**
+     * Gets the value at the specified position as a Slice.
      *
      * @throws IllegalArgumentException if this position is not valid
      */
     Slice getSlice(int position);
+
+    /**
+     * Gets the value at the specified position as a single element block.
+     *
+     * @throws IllegalStateException if this cursor is not at a valid position
+     */
+    RandomAccessBlock getSingleValueBlock(int position);
 
     /**
      * Is the specified position null.
@@ -52,4 +74,16 @@ public interface RandomAccessBlock
      * @throws IllegalArgumentException if this position is not valid
      */
     boolean isNull(int position);
+
+    boolean equals(int position, RandomAccessBlock right, int rightPosition);
+    boolean equals(int position, BlockCursor cursor);
+    boolean equals(int rightPosition, Slice slice, int offset);
+
+    int hashCode(int position);
+
+    int compareTo(SortOrder sortOrder, int position, RandomAccessBlock right, int rightPosition);
+    int compareTo(SortOrder sortOrder, int position, BlockCursor cursor);
+    int compareTo(int position, Slice slice, int offset);
+
+    void appendTo(int position, BlockBuilder blockBuilder);
 }

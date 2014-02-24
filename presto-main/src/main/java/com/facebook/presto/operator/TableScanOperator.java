@@ -17,7 +17,7 @@ import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.Split;
 import com.facebook.presto.split.DataStreamProvider;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
-import com.facebook.presto.tuple.TupleInfo;
+import com.facebook.presto.type.Type;
 import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -38,7 +38,7 @@ public class TableScanOperator
         private final int operatorId;
         private final PlanNodeId sourceId;
         private final DataStreamProvider dataStreamProvider;
-        private final List<TupleInfo> tupleInfos;
+        private final List<Type> types;
         private final List<ColumnHandle> columns;
         private boolean closed;
 
@@ -46,12 +46,12 @@ public class TableScanOperator
                 int operatorId,
                 PlanNodeId sourceId,
                 DataStreamProvider dataStreamProvider,
-                List<TupleInfo> tupleInfos,
+                List<Type> types,
                 Iterable<ColumnHandle> columns)
         {
             this.operatorId = operatorId;
             this.sourceId = checkNotNull(sourceId, "sourceId is null");
-            this.tupleInfos = checkNotNull(tupleInfos, "tupleInfos is null");
+            this.types = checkNotNull(types, "types is null");
             this.dataStreamProvider = checkNotNull(dataStreamProvider, "dataStreamProvider is null");
             this.columns = ImmutableList.copyOf(checkNotNull(columns, "columns is null"));
         }
@@ -63,9 +63,9 @@ public class TableScanOperator
         }
 
         @Override
-        public List<TupleInfo> getTupleInfos()
+        public List<Type> getTypes()
         {
-            return tupleInfos;
+            return types;
         }
 
         @Override
@@ -77,7 +77,7 @@ public class TableScanOperator
                     operatorContext,
                     sourceId,
                     dataStreamProvider,
-                    tupleInfos,
+                    types,
                     columns);
         }
 
@@ -91,7 +91,7 @@ public class TableScanOperator
     private final OperatorContext operatorContext;
     private final PlanNodeId planNodeId;
     private final DataStreamProvider dataStreamProvider;
-    private final List<TupleInfo> tupleInfos;
+    private final List<Type> types;
     private final List<ColumnHandle> columns;
 
     @GuardedBy("this")
@@ -101,12 +101,12 @@ public class TableScanOperator
             OperatorContext operatorContext,
             PlanNodeId planNodeId,
             DataStreamProvider dataStreamProvider,
-            List<TupleInfo> tupleInfos,
+            List<Type> types,
             Iterable<ColumnHandle> columns)
     {
         this.operatorContext = checkNotNull(operatorContext, "operatorContext is null");
         this.planNodeId = checkNotNull(planNodeId, "planNodeId is null");
-        this.tupleInfos = checkNotNull(tupleInfos, "tupleInfos is null");
+        this.types = checkNotNull(types, "types is null");
         this.dataStreamProvider = checkNotNull(dataStreamProvider, "dataStreamProvider is null");
         this.columns = ImmutableList.copyOf(checkNotNull(columns, "columns is null"));
     }
@@ -141,7 +141,7 @@ public class TableScanOperator
     public synchronized void noMoreSplits()
     {
         if (source == null) {
-            source = new FinishedOperator(operatorContext, tupleInfos);
+            source = new FinishedOperator(operatorContext, types);
         }
     }
 
@@ -151,9 +151,9 @@ public class TableScanOperator
     }
 
     @Override
-    public List<TupleInfo> getTupleInfos()
+    public List<Type> getTypes()
     {
-        return tupleInfos;
+        return types;
     }
 
     @Override

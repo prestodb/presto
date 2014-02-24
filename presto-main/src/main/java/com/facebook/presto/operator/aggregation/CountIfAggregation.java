@@ -17,11 +17,11 @@ import com.facebook.presto.block.Block;
 import com.facebook.presto.block.BlockBuilder;
 import com.facebook.presto.block.BlockCursor;
 import com.facebook.presto.operator.GroupByIdBlock;
+import com.facebook.presto.type.BooleanType;
 import com.facebook.presto.util.array.LongBigArray;
 import com.google.common.base.Optional;
 
-import static com.facebook.presto.tuple.TupleInfo.SINGLE_LONG;
-import static com.facebook.presto.tuple.TupleInfo.Type.BOOLEAN;
+import static com.facebook.presto.type.BigintType.BIGINT;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 
@@ -32,7 +32,7 @@ public class CountIfAggregation
 
     public CountIfAggregation()
     {
-        super(SINGLE_LONG, SINGLE_LONG, BOOLEAN);
+        super(BIGINT, BIGINT, BooleanType.BOOLEAN);
     }
 
     @Override
@@ -49,7 +49,7 @@ public class CountIfAggregation
 
         public CountIfGroupedAccumulator(int valueChannel, Optional<Integer> maskChannel, Optional<Integer> sampleWeightChannel)
         {
-            super(valueChannel, SINGLE_LONG, SINGLE_LONG, maskChannel, sampleWeightChannel);
+            super(valueChannel, BIGINT, BIGINT, maskChannel, sampleWeightChannel);
             this.counts = new LongBigArray();
         }
 
@@ -128,7 +128,7 @@ public class CountIfAggregation
 
         public CountIfAccumulator(int valueChannel, Optional<Integer> maskChannel, Optional<Integer> sampleWeightChannel)
         {
-            super(valueChannel, SINGLE_LONG, SINGLE_LONG, maskChannel, sampleWeightChannel);
+            super(valueChannel, BIGINT, BIGINT, maskChannel, sampleWeightChannel);
         }
 
         @Override

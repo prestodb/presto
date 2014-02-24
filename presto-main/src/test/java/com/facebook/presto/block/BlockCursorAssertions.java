@@ -13,12 +13,16 @@
  */
 package com.facebook.presto.block;
 
-import com.facebook.presto.tuple.Tuple;
-import com.facebook.presto.tuple.TupleInfo;
-import com.google.common.collect.ImmutableSortedMap;
+import com.facebook.presto.type.Type;
 
 import java.util.SortedMap;
+import java.util.TreeMap;
 
+import static com.facebook.presto.type.BigintType.BIGINT;
+import static com.facebook.presto.type.BooleanType.BOOLEAN;
+import static com.facebook.presto.type.DoubleType.DOUBLE;
+import static com.facebook.presto.type.VarcharType.VARCHAR;
+import static java.util.Collections.unmodifiableSortedMap;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
 import static org.testng.Assert.fail;
@@ -37,92 +41,104 @@ public final class BlockCursorAssertions
         assertTrue(cursor.advanceToPosition(position));
     }
 
-    public static void assertNextPosition(BlockCursor cursor, int position, Tuple tuple)
+    public static void assertNextPosition(BlockCursor cursor, int position, Object value)
     {
         assertAdvanceNextPosition(cursor);
-        assertCurrentValue(cursor, position, tuple);
+        assertCurrentValue(cursor, position, value);
     }
 
-    public static void assertCurrentValue(BlockCursor cursor, int position, Tuple tuple)
+    public static void assertCurrentValue(BlockCursor cursor, int position, Object value)
     {
-        TupleInfo tupleInfo = tuple.getTupleInfo();
-        assertEquals(cursor.getTupleInfo(), tupleInfo);
-
-        assertEquals(cursor.getTuple(), tuple);
         assertEquals(cursor.getPosition(), position);
-        assertTrue(cursor.currentTupleEquals(tuple));
+        assertEquals(cursor.getObjectValue(), value);
+        assertEquals(cursor.getObjectValue(), value);
 
-        assertEquals(cursor.isNull(), tuple.isNull());
-        switch (tupleInfo.getType()) {
-            case BOOLEAN:
-                assertEquals(cursor.getBoolean(), tuple.getBoolean());
-                try {
-                    cursor.getSlice();
-                    fail("Expected IllegalStateException or UnsupportedOperationException");
-                }
-                catch (IllegalStateException | UnsupportedOperationException expected) {
-                }
-                try {
-                    cursor.getSlice();
-                    fail("Expected IllegalStateException or UnsupportedOperationException");
-                }
-                catch (IllegalStateException | UnsupportedOperationException expected) {
-                }
-                break;
-            case FIXED_INT_64:
-                assertEquals(cursor.getLong(), tuple.getLong());
-                try {
-                    cursor.getDouble();
-                    fail("Expected IllegalStateException or UnsupportedOperationException");
-                }
-                catch (IllegalStateException | UnsupportedOperationException expected) {
-                }
-                try {
-                    cursor.getSlice();
-                    fail("Expected IllegalStateException or UnsupportedOperationException");
-                }
-                catch (IllegalStateException | UnsupportedOperationException expected) {
-                }
-                break;
-            case VARIABLE_BINARY:
-                assertEquals(cursor.getSlice(), tuple.getSlice());
-                try {
-                    cursor.getDouble();
-                    fail("Expected IllegalStateException or UnsupportedOperationException");
-                }
-                catch (IllegalStateException | UnsupportedOperationException expected) {
-                }
-                try {
-                    cursor.getLong();
-                    fail("Expected IllegalStateException or UnsupportedOperationException");
-                }
-                catch (IllegalStateException | UnsupportedOperationException expected) {
-                }
-                break;
-            case DOUBLE:
-                assertEquals(cursor.getDouble(), tuple.getDouble());
-                try {
-                    cursor.getSlice();
-                    fail("Expected IllegalStateException or UnsupportedOperationException");
-                }
-                catch (IllegalStateException | UnsupportedOperationException expected) {
-                }
-                try {
-                    cursor.getSlice();
-                    fail("Expected IllegalStateException or UnsupportedOperationException");
-                }
-                catch (IllegalStateException | UnsupportedOperationException expected) {
-                }
-                break;
+        assertEquals(cursor.isNull(), value == null);
+        if (cursor.isNull()) {
+            return;
+        }
+
+        Type type = cursor.getType();
+        if (type == BOOLEAN) {
+            assertEquals(cursor.getBoolean(), value);
+            assertEquals(cursor.getSlice().getByte(0) != 0, value);
+            try {
+                cursor.getLong();
+                fail("Expected IllegalStateException or UnsupportedOperationException");
+            }
+            catch (IllegalStateException | UnsupportedOperationException expected) {
+            }
+            try {
+                cursor.getDouble();
+                fail("Expected IllegalStateException or UnsupportedOperationException");
+            }
+            catch (IllegalStateException | UnsupportedOperationException expected) {
+            }
+        }
+        else if (type == BIGINT) {
+            assertEquals(cursor.getLong(), value);
+            assertEquals(cursor.getSlice().getLong(0), value);
+            try {
+                cursor.getBoolean();
+                fail("Expected IllegalStateException or UnsupportedOperationException");
+            }
+            catch (IllegalStateException | UnsupportedOperationException expected) {
+            }
+            try {
+                cursor.getDouble();
+                fail("Expected IllegalStateException or UnsupportedOperationException");
+            }
+            catch (IllegalStateException | UnsupportedOperationException expected) {
+            }
+
+        }
+        else if (type == DOUBLE) {
+            assertEquals(cursor.getDouble(), value);
+            assertEquals(cursor.getSlice().getDouble(0), value);
+            try {
+                cursor.getBoolean();
+                fail("Expected IllegalStateException or UnsupportedOperationException");
+            }
+            catch (IllegalStateException | UnsupportedOperationException expected) {
+            }
+            try {
+                cursor.getLong();
+                fail("Expected IllegalStateException or UnsupportedOperationException");
+            }
+            catch (IllegalStateException | UnsupportedOperationException expected) {
+            }
+
+        }
+        else if (type == VARCHAR) {
+            assertEquals(cursor.getSlice().toStringUtf8(), value);
+            try {
+                cursor.getBoolean();
+                fail("Expected IllegalStateException or UnsupportedOperationException");
+            }
+            catch (IllegalStateException | UnsupportedOperationException expected) {
+            }
+            try {
+                cursor.getLong();
+                fail("Expected IllegalStateException or UnsupportedOperationException");
+            }
+            catch (IllegalStateException | UnsupportedOperationException expected) {
+            }
+            try {
+                cursor.getDouble();
+                fail("Expected IllegalStateException or UnsupportedOperationException");
+            }
+            catch (IllegalStateException | UnsupportedOperationException expected) {
+            }
+
         }
     }
 
-    public static SortedMap<Integer, Tuple> toTuplesMap(BlockCursor cursor)
+    public static SortedMap<Integer, Object> toValuesMap(BlockCursor cursor)
     {
-        ImmutableSortedMap.Builder<Integer, Tuple> tuples = ImmutableSortedMap.naturalOrder();
+        SortedMap<Integer, Object> values = new TreeMap<>();
         while (cursor.advanceNextPosition()) {
-            tuples.put(cursor.getPosition(), cursor.getTuple());
+            values.put(cursor.getPosition(), cursor.getObjectValue());
         }
-        return tuples.build();
+        return unmodifiableSortedMap(values);
     }
 }

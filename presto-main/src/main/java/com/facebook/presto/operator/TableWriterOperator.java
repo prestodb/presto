@@ -15,16 +15,17 @@ package com.facebook.presto.operator;
 
 import com.facebook.presto.block.BlockCursor;
 import com.facebook.presto.spi.RecordSink;
-import com.facebook.presto.tuple.TupleInfo;
 import com.google.common.base.Optional;
+import com.facebook.presto.type.Type;
+import com.google.common.base.Function;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Iterables;
 import com.google.common.util.concurrent.ListenableFuture;
 
 import java.util.List;
 
-import static com.facebook.presto.tuple.TupleInfo.SINGLE_LONG;
-import static com.facebook.presto.tuple.TupleInfo.SINGLE_VARBINARY;
-import static com.facebook.presto.tuple.TupleInfo.Type;
+import static com.facebook.presto.type.BigintType.BIGINT;
+import static com.facebook.presto.type.VarcharType.VARCHAR;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
@@ -32,29 +33,38 @@ import static com.google.common.base.Preconditions.checkState;
 public class TableWriterOperator
         implements Operator
 {
-    public static final List<TupleInfo> TUPLE_INFOS = ImmutableList.of(SINGLE_LONG, SINGLE_VARBINARY);
+    public static final List<Type> TYPES = ImmutableList.of(BIGINT, VARCHAR);
 
     public static class TableWriterOperatorFactory
             implements OperatorFactory
     {
         private final int operatorId;
         private final RecordSink recordSink;
-        private final List<Type> outputTypes;
+        private final List<com.facebook.presto.sql.analyzer.Type> recordTypes;
         private final Optional<Integer> sampleWeightChannel;
         private boolean closed;
 
-        public TableWriterOperatorFactory(int operatorId, RecordSink recordSink, List<Type> outputTypes, Optional<Integer> sampleWeightChannel)
+        public TableWriterOperatorFactory(int operatorId, RecordSink recordSink, List<Type> recordTypes, Optional<Integer> sampleWeightChannel)
         {
             this.operatorId = operatorId;
             this.recordSink = checkNotNull(recordSink, "recordSink is null");
-            this.outputTypes = checkNotNull(outputTypes, "outputTypes is null");
+
+            checkNotNull(recordTypes, "types is null");
+            this.recordTypes = ImmutableList.copyOf(Iterables.transform(recordTypes, new Function<Type, com.facebook.presto.sql.analyzer.Type>()
+            {
+                public com.facebook.presto.sql.analyzer.Type apply(Type type)
+                {
+                    return com.facebook.presto.sql.analyzer.Type.fromRaw(type);
+                }
+            }));
+
             this.sampleWeightChannel = checkNotNull(sampleWeightChannel, "sampleWeightChannel is null");
         }
 
         @Override
-        public List<TupleInfo> getTupleInfos()
+        public List<Type> getTypes()
         {
-            return TUPLE_INFOS;
+            return TYPES;
         }
 
         @Override
@@ -62,7 +72,7 @@ public class TableWriterOperator
         {
             checkState(!closed, "Factory is already closed");
             OperatorContext context = driverContext.addOperatorContext(operatorId, TableWriterOperator.class.getSimpleName());
-            return new TableWriterOperator(context, recordSink, outputTypes, sampleWeightChannel);
+            return new TableWriterOperator(context, recordSink, recordTypes, sampleWeightChannel);
         }
 
         @Override
@@ -80,20 +90,20 @@ public class TableWriterOperator
     private final OperatorContext operatorContext;
     private final RecordSink recordSink;
     private final Optional<Integer> sampleWeightChannel;
-    private final List<Type> outputTypes;
+    private final List<com.facebook.presto.sql.analyzer.Type> recordTypes;
     // Maps output channels to the corresponding input channel (identity mapping, unless sample weight channel is present)
     private final int[] inputChannels;
 
     private State state = State.RUNNING;
     private long rowCount;
 
-    public TableWriterOperator(OperatorContext operatorContext, RecordSink recordSink, List<Type> outputTypes, Optional<Integer> sampleWeightChannel)
+    public TableWriterOperator(OperatorContext operatorContext, RecordSink recordSink, List<com.facebook.presto.sql.analyzer.Type> recordTypes, Optional<Integer> sampleWeightChannel)
     {
         this.operatorContext = checkNotNull(operatorContext, "operatorContext is null");
         this.recordSink = checkNotNull(recordSink, "recordSink is null");
-        this.outputTypes = checkNotNull(outputTypes, "outputTypes is null");
+        this.recordTypes = recordTypes;
         this.sampleWeightChannel = checkNotNull(sampleWeightChannel, "sampleWeightChannel is null");
-        this.inputChannels = new int[outputTypes.size()];
+        this.inputChannels = new int[recordTypes.size()];
         for (int inputChannel = 0, outputChannel = 0; outputChannel < inputChannels.length; inputChannel++, outputChannel++) {
             if (sampleWeightChannel.isPresent() && inputChannel == sampleWeightChannel.get()) {
                 // Skip the sample weight channel in the input, since it's passed to the RecordSink out of band
@@ -110,9 +120,9 @@ public class TableWriterOperator
     }
 
     @Override
-    public List<TupleInfo> getTupleInfos()
+    public List<Type> getTypes()
     {
-        return TUPLE_INFOS;
+        return TYPES;
     }
 
     @Override
@@ -172,7 +182,7 @@ public class TableWriterOperator
             recordSink.beginRecord(sampleWeight);
             for (int i = 0; i < cursors.length; i++) {
                 checkArgument(cursors[i].advanceNextPosition());
-                writeField(cursors[i], outputTypes.get(i));
+                writeField(cursors[i], recordTypes.get(i));
             }
             recordSink.finishRecord();
         }
@@ -183,7 +193,7 @@ public class TableWriterOperator
         }
     }
 
-    private void writeField(BlockCursor cursor, Type type)
+    private void writeField(BlockCursor cursor, com.facebook.presto.sql.analyzer.Type type)
     {
         if (cursor.isNull()) {
             recordSink.appendNull();
@@ -194,13 +204,13 @@ public class TableWriterOperator
             case BOOLEAN:
                 recordSink.appendBoolean(cursor.getBoolean());
                 break;
-            case FIXED_INT_64:
+            case BIGINT:
                 recordSink.appendLong(cursor.getLong());
                 break;
             case DOUBLE:
                 recordSink.appendDouble(cursor.getDouble());
                 break;
-            case VARIABLE_BINARY:
+            case VARCHAR:
                 recordSink.appendString(cursor.getSlice().getBytes());
                 break;
             default:
@@ -218,7 +228,7 @@ public class TableWriterOperator
 
         String fragment = recordSink.commit();
 
-        PageBuilder page = new PageBuilder(getTupleInfos());
+        PageBuilder page = new PageBuilder(TYPES);
         page.getBlockBuilder(0).append(rowCount);
         page.getBlockBuilder(1).append(fragment);
         return page.build();
