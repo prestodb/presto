@@ -15,6 +15,7 @@ package com.facebook.presto.metadata;
 
 import com.facebook.presto.operator.Description;
 import com.facebook.presto.operator.aggregation.AggregationFunction;
+import com.facebook.presto.operator.aggregation.BootstrappedAggregation;
 import com.facebook.presto.operator.scalar.ColorFunctions;
 import com.facebook.presto.operator.scalar.JsonFunctions;
 import com.facebook.presto.operator.scalar.MathFunctions;
@@ -165,6 +166,13 @@ public class FunctionRegistry
                 .aggregate("approx_avg", VARCHAR, ImmutableList.of(DOUBLE), VARCHAR, DOUBLE_APPROXIMATE_AVERAGE_AGGREGATION)
                 .approximateAggregate("avg", VARCHAR, ImmutableList.of(BIGINT), VARCHAR, LONG_APPROXIMATE_AVERAGE_AGGREGATION)
                 .approximateAggregate("avg", VARCHAR, ImmutableList.of(DOUBLE), VARCHAR, DOUBLE_APPROXIMATE_AVERAGE_AGGREGATION)
+                .approximateAggregate("sum", VARCHAR, ImmutableList.of(BIGINT), VARCHAR, new BootstrappedAggregation(LONG_SUM))
+                .approximateAggregate("sum", VARCHAR, ImmutableList.of(DOUBLE), VARCHAR, new BootstrappedAggregation(DOUBLE_SUM))
+                .approximateAggregate("count", VARCHAR, ImmutableList.<Type>of(), VARCHAR, new BootstrappedAggregation(COUNT))
+                .approximateAggregate("count", VARCHAR, ImmutableList.of(BOOLEAN), VARCHAR, new BootstrappedAggregation(COUNT_BOOLEAN_COLUMN))
+                .approximateAggregate("count", VARCHAR, ImmutableList.of(BIGINT), VARCHAR, new BootstrappedAggregation(COUNT_LONG_COLUMN))
+                .approximateAggregate("count", VARCHAR, ImmutableList.of(DOUBLE), VARCHAR, new BootstrappedAggregation(COUNT_DOUBLE_COLUMN))
+                .approximateAggregate("count", VARCHAR, ImmutableList.of(VARCHAR), VARCHAR, new BootstrappedAggregation(COUNT_STRING_COLUMN))
                 .scalar(StringFunctions.class)
                 .scalar(RegexpFunctions.class)
                 .scalar(UrlFunctions.class)
