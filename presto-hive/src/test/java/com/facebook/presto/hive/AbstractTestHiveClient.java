@@ -188,6 +188,7 @@ public abstract class AbstractTestHiveClient
                 metastoreClient,
                 new NamenodeStats(),
                 new HdfsEnvironment(new HdfsConfiguration(hiveClientConfig)),
+                new HadoopDirectoryLister(),
                 sameThreadExecutor(),
                 hiveClientConfig.getMaxSplitSize(),
                 maxOutstandingSplits,

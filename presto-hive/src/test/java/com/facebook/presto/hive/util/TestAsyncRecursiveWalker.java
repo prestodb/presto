@@ -13,6 +13,8 @@
  */
 package com.facebook.presto.hive.util;
 
+import com.facebook.presto.hive.DirectoryLister;
+import com.facebook.presto.hive.HadoopDirectoryLister;
 import com.facebook.presto.hive.NamenodeStats;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -43,6 +45,8 @@ import java.util.Map;
 
 public class TestAsyncRecursiveWalker
 {
+    private static final DirectoryLister DIRECTORY_LISTER = new HadoopDirectoryLister();
+
     @Test
     public void testSanity()
             throws Exception
@@ -52,7 +56,7 @@ public class TestAsyncRecursiveWalker
                 .put("/a", ImmutableList.of(fileStatus("/a/file2", false), fileStatus("/a/file3", false)))
                 .build();
 
-        AsyncRecursiveWalker walker = new AsyncRecursiveWalker(createMockFileSystem(paths), MoreExecutors.sameThreadExecutor(), new NamenodeStats());
+        AsyncRecursiveWalker walker = new AsyncRecursiveWalker(createMockFileSystem(paths), MoreExecutors.sameThreadExecutor(), DIRECTORY_LISTER, new NamenodeStats());
 
         MockFileStatusCallback callback = new MockFileStatusCallback();
         ListenableFuture<Void> listenableFuture = walker.beginWalk(new Path("/"), callback);
@@ -72,7 +76,7 @@ public class TestAsyncRecursiveWalker
                 .put("/", ImmutableList.<FileStatus>of())
                 .build();
 
-        AsyncRecursiveWalker walker = new AsyncRecursiveWalker(createMockFileSystem(paths), MoreExecutors.sameThreadExecutor(), new NamenodeStats());
+        AsyncRecursiveWalker walker = new AsyncRecursiveWalker(createMockFileSystem(paths), MoreExecutors.sameThreadExecutor(), DIRECTORY_LISTER, new NamenodeStats());
 
         MockFileStatusCallback callback = new MockFileStatusCallback();
         ListenableFuture<Void> listenableFuture = walker.beginWalk(new Path("/"), callback);
@@ -95,7 +99,7 @@ public class TestAsyncRecursiveWalker
                 .put("/c", ImmutableList.of(fileStatus("/c/file8", false), fileStatus("/c/.file9", false), fileStatus("/c/_file10", false)))
                 .build();
 
-        AsyncRecursiveWalker walker = new AsyncRecursiveWalker(createMockFileSystem(paths), MoreExecutors.sameThreadExecutor(), new NamenodeStats());
+        AsyncRecursiveWalker walker = new AsyncRecursiveWalker(createMockFileSystem(paths), MoreExecutors.sameThreadExecutor(), DIRECTORY_LISTER, new NamenodeStats());
 
         MockFileStatusCallback callback = new MockFileStatusCallback();
         ListenableFuture<Void> listenableFuture = walker.beginWalk(new Path("/"), callback);
@@ -119,7 +123,7 @@ public class TestAsyncRecursiveWalker
             {
                 throw new IOException();
             }
-        }, MoreExecutors.sameThreadExecutor(), new NamenodeStats());
+        }, MoreExecutors.sameThreadExecutor(), DIRECTORY_LISTER, new NamenodeStats());
 
         MockFileStatusCallback callback = new MockFileStatusCallback();
         ListenableFuture<Void> listenableFuture1 = walker.beginWalk(new Path("/"), callback);

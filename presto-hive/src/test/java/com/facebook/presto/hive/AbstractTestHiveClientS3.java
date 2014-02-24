@@ -97,6 +97,7 @@ public abstract class AbstractTestHiveClientS3
                 metastoreClient,
                 new NamenodeStats(),
                 new HdfsEnvironment(new HdfsConfiguration(hiveClientConfig)),
+                new HadoopDirectoryLister(),
                 sameThreadExecutor());
     }
 
