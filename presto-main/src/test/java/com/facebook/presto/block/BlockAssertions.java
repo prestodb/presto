@@ -35,6 +35,7 @@ import java.util.List;
 
 import static com.facebook.presto.block.BlockIterables.createBlockIterable;
 import static com.google.common.base.Charsets.UTF_8;
+import static com.google.common.base.Preconditions.checkNotNull;
 import static io.airlift.testing.Assertions.assertEqualsIgnoreOrder;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
@@ -188,8 +189,10 @@ public final class BlockAssertions
         return Arrays.asList(values);
     }
 
-    public static Block createStringsBlock(@Nullable String... values)
+    public static Block createStringsBlock(String... values)
     {
+        checkNotNull(values, "varargs 'values' is null");
+
         return createStringsBlock(Arrays.asList(values));
     }
 
@@ -225,8 +228,10 @@ public final class BlockAssertions
         return builder.build();
     }
 
-    public static Block createBooleansBlock(@Nullable Boolean... values)
+    public static Block createBooleansBlock(Boolean... values)
     {
+        checkNotNull(values, "varargs 'values' is null");
+
         return createBooleansBlock(Arrays.asList(values));
     }
 
@@ -263,8 +268,10 @@ public final class BlockAssertions
         return builder.build();
     }
 
-    public static Block createLongsBlock(@Nullable Long... values)
+    public static Block createLongsBlock(Long... values)
     {
+        checkNotNull(values, "varargs 'values' is null");
+
         return createLongsBlock(Arrays.asList(values));
     }
 
@@ -316,8 +323,10 @@ public final class BlockAssertions
         return builder.build();
     }
 
-    public static Block createDoublesBlock(@Nullable Double... values)
+    public static Block createDoublesBlock(Double... values)
     {
+        checkNotNull(values, "varargs 'values' is null");
+
         return createDoublesBlock(Arrays.asList(values));
     }
 
