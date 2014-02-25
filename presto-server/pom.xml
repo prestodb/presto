@@ -215,8 +215,8 @@
 
         <!-- should be scope test but is needed transitively -->
         <dependency>
-            <groupId>commons-math</groupId>
-            <artifactId>commons-math</artifactId>
+            <groupId>org.apache.commons</groupId>
+            <artifactId>commons-math3</artifactId>
             <scope>runtime</scope>
         </dependency>
 

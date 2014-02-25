@@ -41,6 +41,7 @@ import com.facebook.presto.operator.OutputFactory;
 import com.facebook.presto.operator.ProjectionFunction;
 import com.facebook.presto.operator.ProjectionFunctions;
 import com.facebook.presto.operator.RecordSinkManager;
+import com.facebook.presto.operator.SampleOperator.SampleOperatorFactory;
 import com.facebook.presto.operator.ScanFilterAndProjectOperator.ScanFilterAndProjectOperatorFactory;
 import com.facebook.presto.operator.SetBuilderOperator.SetBuilderOperatorFactory;
 import com.facebook.presto.operator.SetBuilderOperator.SetSupplier;
@@ -126,6 +127,7 @@ import static com.facebook.presto.sql.planner.plan.JoinNode.EquiJoinClause.leftG
 import static com.facebook.presto.sql.planner.plan.JoinNode.EquiJoinClause.rightGetter;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Preconditions.checkState;
 
 public class LocalExecutionPlanner
 {
@@ -513,6 +515,15 @@ public class LocalExecutionPlanner
             if (node.getSampleType() == SampleNode.Type.SYSTEM) {
                 return node.getSource().accept(this, context);
             }
+
+            if (node.getSampleType() == SampleNode.Type.POISSONIZED) {
+                PhysicalOperation source = node.getSource().accept(this, context);
+                OperatorFactory operatorFactory = new SampleOperatorFactory(context.getNextOperatorId(), node.getSampleRatio(), node.isRescaled(), source.getTupleInfos());
+                checkState(node.getSampleWeightSymbol().isPresent(), "sample weight symbol missing");
+                Map<Symbol, Input> layout = ImmutableMap.<Symbol, Input>builder().putAll(source.getLayout()).put(node.getSampleWeightSymbol().get(), new Input(source.getTupleInfos().size())).build();
+                return new PhysicalOperation(operatorFactory, layout, source);
+            }
+
             throw new UnsupportedOperationException("not yet implemented: " + node);
         }
 

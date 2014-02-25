@@ -64,6 +64,9 @@ public class ImplementSampleAsFilter
                         new DoubleLiteral(Double.toString(node.getSampleRatio())));
                 return new FilterNode(node.getId(), rewrittenSource, expression);
             }
+            else if (node.getSampleType() == SampleNode.Type.POISSONIZED) {
+                return rewriteNode(node, context, planRewriter);
+            }
             else if (node.getSampleType() == SampleNode.Type.SYSTEM) {
                 return rewriteNode(node, context, planRewriter);
             }

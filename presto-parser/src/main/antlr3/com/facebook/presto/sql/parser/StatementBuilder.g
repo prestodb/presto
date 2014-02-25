@@ -224,6 +224,12 @@ limitClause returns [String value]
 sampleType returns [SampledRelation.Type value]
     : BERNOULLI { $value = SampledRelation.Type.BERNOULLI; }
     | SYSTEM    { $value = SampledRelation.Type.SYSTEM; }
+    | POISSONIZED    { $value = SampledRelation.Type.POISSONIZED; }
+    ;
+
+rescaled returns [boolean value]
+    : RESCALED  { $value = true; }
+    |           { $value = false; }
     ;
 
 stratifyOn returns [List<Expression> value]
@@ -265,7 +271,7 @@ aliasedRelation returns [AliasedRelation value]
     ;
 
 sampledRelation returns [SampledRelation value]
-    : ^(SAMPLED_RELATION r=relation t=sampleType p=expr st=stratifyOn?) { $value = new SampledRelation($r.value, $t.value, $p.value, Optional.fromNullable($st.value)); }
+    : ^(SAMPLED_RELATION r=relation t=sampleType p=expr s=rescaled st=stratifyOn?) { $value = new SampledRelation($r.value, $t.value, $p.value, $s.value, Optional.fromNullable($st.value)); }
     ;
 
 aliasedColumns returns [List<String> value]
