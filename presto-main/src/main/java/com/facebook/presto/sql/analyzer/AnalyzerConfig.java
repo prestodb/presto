@@ -17,17 +17,17 @@ import io.airlift.configuration.Config;
 
 public class AnalyzerConfig
 {
-    private boolean approximateQueriesEnabled;
+    private boolean experimentalSyntaxEnabled;
 
-    @Config("analyzer.approximate-queries-enabled")
-    public AnalyzerConfig setApproximateQueriesEnabled(boolean enabled)
+    @Config("analyzer.experimental-syntax-enabled")
+    public AnalyzerConfig setExperimentalSyntaxEnabled(boolean enabled)
     {
-        approximateQueriesEnabled = enabled;
+        experimentalSyntaxEnabled = enabled;
         return this;
     }
 
-    public boolean isApproximateQueriesEnabled()
+    public boolean isExperimentalSyntaxEnabled()
     {
-        return approximateQueriesEnabled;
+        return experimentalSyntaxEnabled;
     }
 }

@@ -82,7 +82,7 @@ public class TestingPrestoServer
                 .put("presto-metastore.db.type", "h2")
                 .put("presto-metastore.db.filename", baseDataDir.resolve("db/MetaStore").toString())
                 .put("presto.version", "testversion")
-                .put("analyzer.approximate-queries-enabled", "true");
+                .put("analyzer.experimental-syntax-enabled", "true");
 
         if (coordinator) {
             // TODO: enable failure detector

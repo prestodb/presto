@@ -28,18 +28,18 @@ public class TestAnalyzerConfig
     public void testDefaults()
     {
         assertRecordedDefaults(ConfigAssertions.recordDefaults(AnalyzerConfig.class)
-                .setApproximateQueriesEnabled(false));
+                .setExperimentalSyntaxEnabled(false));
     }
 
     @Test
     public void testExplicitPropertyMappings()
     {
         Map<String, String> properties = new ImmutableMap.Builder<String, String>()
-                .put("analyzer.approximate-queries-enabled", "true")
+                .put("analyzer.experimental-syntax-enabled", "true")
                 .build();
 
         AnalyzerConfig expected = new AnalyzerConfig()
-                .setApproximateQueriesEnabled(true);
+                .setExperimentalSyntaxEnabled(true);
 
         assertFullMapping(properties, expected);
     }

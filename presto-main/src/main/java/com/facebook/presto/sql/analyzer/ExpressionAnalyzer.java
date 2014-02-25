@@ -80,18 +80,18 @@ public class ExpressionAnalyzer
     private final Analysis analysis;
     private final Session session;
     private final Metadata metadata;
-    private final boolean approximateQueriesEnabled;
+    private final boolean experimentalSyntaxEnabled;
     private final Map<QualifiedName, Integer> resolvedNames = new HashMap<>();
     private final IdentityHashMap<FunctionCall, FunctionInfo> resolvedFunctions = new IdentityHashMap<>();
     private final IdentityHashMap<Expression, Type> subExpressionTypes = new IdentityHashMap<>();
     private final Set<InPredicate> subqueryInPredicates = Collections.newSetFromMap(new IdentityHashMap<InPredicate, Boolean>());
 
-    public ExpressionAnalyzer(Analysis analysis, Session session, Metadata metadata, boolean approximateQueriesEnabled)
+    public ExpressionAnalyzer(Analysis analysis, Session session, Metadata metadata, boolean experimentalSyntaxEnabled)
     {
         this.analysis = checkNotNull(analysis, "analysis is null");
         this.session = checkNotNull(session, "session is null");
         this.metadata = checkNotNull(metadata, "metadata is null");
-        this.approximateQueriesEnabled = approximateQueriesEnabled;
+        this.experimentalSyntaxEnabled = experimentalSyntaxEnabled;
     }
 
     public Map<QualifiedName, Integer> getResolvedNames()
@@ -583,7 +583,7 @@ public class ExpressionAnalyzer
         @Override
         protected Type visitSubqueryExpression(SubqueryExpression node, AnalysisContext context)
         {
-            StatementAnalyzer analyzer = new StatementAnalyzer(analysis, metadata, session, approximateQueriesEnabled, Optional.<QueryExplainer>absent());
+            StatementAnalyzer analyzer = new StatementAnalyzer(analysis, metadata, session, experimentalSyntaxEnabled, Optional.<QueryExplainer>absent());
             TupleDescriptor descriptor = analyzer.process(node.getQuery(), context);
 
             // Scalar subqueries should only produce one column

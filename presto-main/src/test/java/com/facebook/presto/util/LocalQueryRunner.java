@@ -279,11 +279,11 @@ public class LocalQueryRunner
         }
 
         PlanNodeIdAllocator idAllocator = new PlanNodeIdAllocator();
-        AnalyzerConfig analyzerConfig = new AnalyzerConfig().setApproximateQueriesEnabled(true);
+        AnalyzerConfig analyzerConfig = new AnalyzerConfig().setExperimentalSyntaxEnabled(true);
         PlanOptimizersFactory planOptimizersFactory = new PlanOptimizersFactory(metadata, splitManager, analyzerConfig);
 
-        QueryExplainer queryExplainer = new QueryExplainer(session, planOptimizersFactory.get(), metadata, analyzerConfig.isApproximateQueriesEnabled());
-        Analyzer analyzer = new Analyzer(session, metadata, Optional.of(queryExplainer), analyzerConfig.isApproximateQueriesEnabled());
+        QueryExplainer queryExplainer = new QueryExplainer(session, planOptimizersFactory.get(), metadata, analyzerConfig.isExperimentalSyntaxEnabled());
+        Analyzer analyzer = new Analyzer(session, metadata, Optional.of(queryExplainer), analyzerConfig.isExperimentalSyntaxEnabled());
 
         Analysis analysis = analyzer.analyze(statement);
 
