@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>Presto | FAQ</title>
+    <link rel="stylesheet" href="static/presto.css" type="text/css"/>
+
+    <meta name="viewport" content="width=device-width">
+    <meta property="og:type" content="website">
+    <meta property="og:title" content="Presto | FAQ">
+    <meta property="og:description" content="Distributed SQL Query Engine for Big Data">
+    <meta property="og:image" content="static/presto-og.png">
+
+    <script>
+    (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+    (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+    m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+    })(window,document,'script','//www.google-analytics.com/analytics.js','ga');
+    ga('create', 'UA-45503728-1', 'prestodb.io');
+    ga('send', 'pageview');
+    </script>
+</head>
+<body>
+
+<header class="topbar clearfix">
+    <nav class="width">
+        <a href="."><h1>Presto</h1></a>
+        <ul class="nav">
+            <li><a href="overview.html">Overview</a></li>
+            <li><a href="docs/current/">Docs</a></li>
+            <li><a href="faq.html">FAQ</a></li>
+            <li><a href="community.html">Community</a></li>
+            <li><a href="https://github.com/facebook/presto">GitHub</a>
+        </ul>
+    </nav>
+</header>
+
+<header class="hero clearfix">
+    <div class="width">
+        <h1>Presto FAQ</h1>
+    </div>
+</header>
+
+<div class="content homecontent width clearfix">
+    <div class="leftcol widecol">
+        <h2 id="running">Running Presto</h2>
+
+	<h3 id="memory-q1">
+	  Q: How much memory should I expect to give a Worker node?
+	</h3>
+
+	<p>
+	  The answer to this question will depend on the size of the
+	  data sets you are working with and the nature of the queries
+	  you are running, but Facebook typically runs Presto with a
+	  16 GB
+	  heap.
+	</p> 
+
+	<p>Source: <a href="https://groups.google.com/forum/#!topic/presto-users/E4JOmdq4Igk">
+	  Presto-user Google Group thread.</a>
+	</p>
+
+
+	<h2 id="compatibility">Compatibility and Support</h2>
+
+	<h3>
+	  Q: Does Presto work with Hadoop 2.2.0? Does Presto work with
+	  Amazon's Elastic MapReduce? Does Presto with with
+	  Hortonworks Sandbox?
+	</h3>
+
+	<p>
+	  At this time, no.  The Presto team has using the client
+	  version "2.0.0-cdh4.3.0" which is known to work with
+	  Cloudera's CDH4 distribution.
+	</p>
+
+	<p>
+	  Presto is not compatibile with Hadoop 2.2.0 or distributions
+	  such as Hortonworks Sandbox which are built on Hadoop
+	  2.2.0. Users who are interested in using Presto with
+	  unsupported Hadoop distributions are encouraged to report
+	  errors and contribute to the Presto open source project.
+	</p>
+
+	<h3>
+	  Q: Does Presto connect to HBase?
+	</h3>
+
+	<p>
+	  Not yet. A high-performance HBase connector is currently in
+	  the works.
+	</p>
+
+	<h3>
+	  Q: Does Presto connect to MongoDB? 
+	  Does Presto connect to Cassandra?
+	</h3>
+
+	<p>
+	  No one has developed a MongoDB or Cassandra connector yet.
+	  If you are interested in building a connector for either of
+	  these data sources, please take a look at this
+	  at <a href="https://github.com/facebook/presto/pull/846">simple
+	  example connector</a> as a starting point.
+	</p>
+
+	<p></p>
+
+	<h3>
+	  Q: Does Presto connect to MySQL?
+	  Does Presto connect to Postgresql?
+	  Does Presto connect to Oracle?
+        </h3>
+	
+	<p>
+	  Using Presto to query relational databases has been a
+	  popular request, and the Presto team expects this feature to
+	  be integrated into a future release, but there is currently
+	  no high-performance implementation available. For more
+	  information, please see the following branch
+	  for <a href="https://github.com/dain/presto/tree/jdbc-plugin">an
+	  experimental, unreleased JDBC plugin</a>.
+	</p>
+
+
+        <h2 id="errors">Common Presto Errors</h2>
+
+	<h3>
+	  Q: I get a "Failed on local exception: java.io.IOException:
+	  Response is null."  exception in Presto Server if I run a
+	  select query?
+	</h3>
+
+	<p>
+	  Even though Hadoop and Hive may be working without any
+	  issues, Presto may not be compatible with the version of
+	  Hadoop you are using.  Presto has been designed to work with
+	  CDH4 (specific version is Cloudera Hadoop version
+	  2.0.0-cdh4.3.0), and if you are running Presto with a
+	  version of Hadoop not compatible with this version you may
+	  experience this "Respose is null" error message.
+	</p>
+
+	<p>
+	  See the
+	  related <a href="https://groups.google.com/forum/#!topic/presto-users/lVLvMGP1sKE">Google
+	  Group</a> thread as well as several questions on
+	  Stackoverflow.
+	</p>
+
+	<h3>Q: Why is Hadoop failing with a "InvalidProtocolBufferException: Message missing required fields" exception message?</h3>
+
+	<p>
+	  You are attempting to use a distribution of Hadoop that is
+	  not currently supported by Presto.  This error message will
+	  occur if you attempt to query a Hadoop 2.2.0 distribution or
+	  a Hortonworks Sandbox distribution of Hadoop.
+	</p>
+
+	<h3>Q: Why is Presto telling me that it "Cannot connect to
+	discovery server for refresh"</h3>
+
+	<p>
+	  Answer from David Phillips
+	  on <a href="http://stackoverflow.com/questions/19867489/presto-server-on-aws-cannot-connect-to-discovery-server">this
+	  Stackoverflow question</a>: "I was wondering if someone
+	  would notice this in the logs :) It's actually not a
+	  problem. The error appears because the discovery client
+	  starts before the discovery server is ready. You'll see
+	  "succeeded for refresh" shortly after in the logs which
+	  shows that it's working. We will fix the log message
+	  eventually but it's purely a cosmetic issue."
+	</p>
+
+	<h3>
+	  Q: When I try to query data in Presto, I'm getting a
+	  OutOfMemoryError that suggests I'm running out of heap
+	  space. Why?
+	</h3>
+
+	<p>
+	  The amount of heap required by a worker node will vary
+	  depending on the size of the dataset you are querying and
+	  the nature of the SQL queries you are running.  Facebook
+	  usually runs worker nodes with a 16 GB heap.  Please see the
+	  answer to <a href="#memory-q1">a previous question about
+	  heap size</a>.
+	</p>
+
+    </div>
+
+    <div class="rightcol">
+        <h3>Presto FAQs</h3>
+        <ul>
+            <li><a href="#running">Running Presto</a></li>
+            <li><a href="#compatibility">Compatibility</a></li>
+            <li><a href="#errors">Common Errors</a></li>
+        </ul>
+    </div>
+
+
+
+</div>
+
+<div class="footer">&copy; Copyright 2013, Facebook</div>
+
+
+</body>
+</html>
