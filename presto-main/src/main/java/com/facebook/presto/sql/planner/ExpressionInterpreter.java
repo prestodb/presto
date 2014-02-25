@@ -76,6 +76,8 @@ import static com.facebook.presto.sql.planner.LiteralInterpreter.toExpression;
 import static com.facebook.presto.sql.planner.LiteralInterpreter.toExpressions;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.base.Predicates.instanceOf;
+import static com.google.common.collect.Iterables.any;
 
 public class ExpressionInterpreter
 {
@@ -761,16 +763,13 @@ public class ExpressionInterpreter
                     return null;
                 }
                 Type type = expressionTypes.get(expression);
-                if (value instanceof Expression) {
-                    // TODO when we know the type of this expression, construct new FunctionCall node with optimized arguments
-                    return node;
-                }
                 argumentValues.add(value);
                 argumentTypes.add(type);
             }
             FunctionInfo function = metadata.getFunction(node.getName(), argumentTypes, false);
+
             // do not optimize non-deterministic functions
-            if (optimize && !function.isDeterministic()) {
+            if (optimize && (!function.isDeterministic() || any(argumentValues, instanceOf(Expression.class)))) {
                 return new FunctionCall(node.getName(), node.getWindow().orNull(), node.isDistinct(), toExpressions(argumentValues, argumentTypes));
             }
             MethodHandle handle = function.getScalarFunction();
