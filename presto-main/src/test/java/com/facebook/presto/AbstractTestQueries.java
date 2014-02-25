@@ -3288,8 +3288,8 @@ public abstract class AbstractTestQueries
         MetadataManager metadata = new MetadataManager();
         metadata.addInternalSchemaMetadata(MetadataManager.INTERNAL_CONNECTOR_ID, new DualMetadata());
         SplitManager splitManager = new SplitManager(ImmutableSet.<ConnectorSplitManager>of(new DualSplitManager(new InMemoryNodeManager())));
-        AnalyzerConfig analyzerConfig = new AnalyzerConfig().setApproximateQueriesEnabled(true);
+        AnalyzerConfig analyzerConfig = new AnalyzerConfig().setExperimentalSyntaxEnabled(true);
         List<PlanOptimizer> optimizers = new PlanOptimizersFactory(metadata, splitManager, analyzerConfig).get();
-        return new QueryExplainer(session, optimizers, metadata, analyzerConfig.isApproximateQueriesEnabled());
+        return new QueryExplainer(session, optimizers, metadata, analyzerConfig.isExperimentalSyntaxEnabled());
     }
 }

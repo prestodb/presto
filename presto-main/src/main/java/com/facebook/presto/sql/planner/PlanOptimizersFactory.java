@@ -51,8 +51,8 @@ public class PlanOptimizersFactory
                 new SetFlatteningOptimizer(),
                 new MaterializeSamplePullUp(),
                 new LimitPushDown(), // Run the LimitPushDown after flattening set operators to make it easier to do the set flattening
-                new PredicatePushDown(metadata, splitManager, analyzerConfig.isApproximateQueriesEnabled()),
-                new PredicatePushDown(metadata, splitManager, analyzerConfig.isApproximateQueriesEnabled()), // Run predicate push down one more time in case we can leverage new information from generated partitions
+                new PredicatePushDown(metadata, splitManager, analyzerConfig.isExperimentalSyntaxEnabled()),
+                new PredicatePushDown(metadata, splitManager, analyzerConfig.isExperimentalSyntaxEnabled()), // Run predicate push down one more time in case we can leverage new information from generated partitions
                 new MergeProjections(),
                 new SimplifyExpressions(metadata), // Re-run the SimplifyExpressions to simplify any recomposed expressions from other optimizations
                 new UnaliasSymbolReferences(), // Run again because predicate pushdown might add more projections

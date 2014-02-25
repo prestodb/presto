@@ -35,20 +35,20 @@ public class Analyzer
     private final Metadata metadata;
     private final Session session;
     private final Optional<QueryExplainer> queryExplainer;
-    private final boolean approximateQueriesEnabled;
+    private final boolean experimentalSyntaxEnabled;
 
-    public Analyzer(Session session, Metadata metadata, Optional<QueryExplainer> queryExplainer, boolean approximateQueriesEnabled)
+    public Analyzer(Session session, Metadata metadata, Optional<QueryExplainer> queryExplainer, boolean experimentalSyntaxEnabled)
     {
         this.session = checkNotNull(session, "session is null");
         this.metadata = checkNotNull(metadata, "metadata is null");
         this.queryExplainer = checkNotNull(queryExplainer, "query explainer is null");
-        this.approximateQueriesEnabled = approximateQueriesEnabled;
+        this.experimentalSyntaxEnabled = experimentalSyntaxEnabled;
     }
 
     public Analysis analyze(Statement statement)
     {
         Analysis analysis = new Analysis();
-        StatementAnalyzer analyzer = new StatementAnalyzer(analysis, metadata, session, approximateQueriesEnabled, queryExplainer);
+        StatementAnalyzer analyzer = new StatementAnalyzer(analysis, metadata, session, experimentalSyntaxEnabled, queryExplainer);
         TupleDescriptor outputDescriptor = analyzer.process(statement, new AnalysisContext());
         analysis.setOutputDescriptor(outputDescriptor);
         return analysis;
@@ -69,9 +69,9 @@ public class Analyzer
         }
     }
 
-    static ExpressionAnalysis analyzeExpression(Session session, Metadata metadata, TupleDescriptor tupleDescriptor, Analysis analysis, boolean approximateQueriesEnabled, AnalysisContext context, Expression expression)
+    static ExpressionAnalysis analyzeExpression(Session session, Metadata metadata, TupleDescriptor tupleDescriptor, Analysis analysis, boolean experimentalSyntaxEnabled, AnalysisContext context, Expression expression)
     {
-        ExpressionAnalyzer analyzer = new ExpressionAnalyzer(analysis, session, metadata, approximateQueriesEnabled);
+        ExpressionAnalyzer analyzer = new ExpressionAnalyzer(analysis, session, metadata, experimentalSyntaxEnabled);
         Type type = analyzer.analyze(expression, tupleDescriptor, context);
 
         analysis.addFunctionInfos(analyzer.getResolvedFunctions());

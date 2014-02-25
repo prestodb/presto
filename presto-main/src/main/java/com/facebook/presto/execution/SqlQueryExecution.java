@@ -78,7 +78,7 @@ public class SqlQueryExecution
     private final int scheduleSplitBatchSize;
     private final int maxPendingSplitsPerNode;
     private final int initialHashPartitions;
-    private final boolean approximateQueriesEnabled;
+    private final boolean experimentalSyntaxEnabled;
     private final ExecutorService queryExecutor;
     private final ShardManager shardManager;
 
@@ -99,7 +99,7 @@ public class SqlQueryExecution
             int scheduleSplitBatchSize,
             int maxPendingSplitsPerNode,
             int initialHashPartitions,
-            boolean approximateQueriesEnabled,
+            boolean experimentalSyntaxEnabled,
             ExecutorService queryExecutor,
             ShardManager shardManager)
     {
@@ -113,7 +113,7 @@ public class SqlQueryExecution
             this.locationFactory = checkNotNull(locationFactory, "locationFactory is null");
             this.queryExecutor = checkNotNull(queryExecutor, "queryExecutor is null");
             this.shardManager = checkNotNull(shardManager, "shardManager is null");
-            this.approximateQueriesEnabled = approximateQueriesEnabled;
+            this.experimentalSyntaxEnabled = experimentalSyntaxEnabled;
 
             checkArgument(maxPendingSplitsPerNode > 0, "scheduleSplitBatchSize must be greater than 0");
             this.scheduleSplitBatchSize = scheduleSplitBatchSize;
@@ -130,7 +130,7 @@ public class SqlQueryExecution
             checkNotNull(self, "self is null");
             this.stateMachine = new QueryStateMachine(queryId, query, session, self, queryExecutor);
 
-            this.queryExplainer = new QueryExplainer(session, planOptimizers, metadata, approximateQueriesEnabled);
+            this.queryExplainer = new QueryExplainer(session, planOptimizers, metadata, experimentalSyntaxEnabled);
         }
     }
 
@@ -198,7 +198,7 @@ public class SqlQueryExecution
         long analysisStart = System.nanoTime();
 
         // analyze query
-        Analyzer analyzer = new Analyzer(stateMachine.getSession(), metadata, Optional.of(queryExplainer), approximateQueriesEnabled);
+        Analyzer analyzer = new Analyzer(stateMachine.getSession(), metadata, Optional.of(queryExplainer), experimentalSyntaxEnabled);
 
         Analysis analysis = analyzer.analyze(statement);
         PlanNodeIdAllocator idAllocator = new PlanNodeIdAllocator();
@@ -388,7 +388,7 @@ public class SqlQueryExecution
         private final int scheduleSplitBatchSize;
         private final int maxPendingSplitsPerNode;
         private final int initialHashPartitions;
-        private final boolean approximateQueriesEnabled;
+        private final boolean experimentalSyntaxEnabled;
         private final Metadata metadata;
         private final SplitManager splitManager;
         private final NodeScheduler nodeScheduler;
@@ -422,7 +422,7 @@ public class SqlQueryExecution
             this.planOptimizers = checkNotNull(planOptimizers, "planOptimizers is null");
             this.remoteTaskFactory = checkNotNull(remoteTaskFactory, "remoteTaskFactory is null");
             this.shardManager = checkNotNull(shardManager, "shardManager is null");
-            this.approximateQueriesEnabled = checkNotNull(analyzerConfig, "analyzerConfig is null").isApproximateQueriesEnabled();
+            this.experimentalSyntaxEnabled = checkNotNull(analyzerConfig, "analyzerConfig is null").isExperimentalSyntaxEnabled();
 
             this.executor = Executors.newCachedThreadPool(threadsNamed("query-scheduler-%d"));
             this.executorMBean = new ThreadPoolExecutorMBean((ThreadPoolExecutor) executor);
@@ -452,7 +452,7 @@ public class SqlQueryExecution
                     scheduleSplitBatchSize,
                     maxPendingSplitsPerNode,
                     initialHashPartitions,
-                    approximateQueriesEnabled,
+                    experimentalSyntaxEnabled,
                     executor,
                     shardManager);
 

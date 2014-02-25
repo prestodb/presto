@@ -93,14 +93,14 @@ class StatementAnalyzer
     private final Metadata metadata;
     private final Session session;
     private final Optional<QueryExplainer> queryExplainer;
-    private final boolean approximateQueriesEnabled;
+    private final boolean experimentalSyntaxEnabled;
 
-    public StatementAnalyzer(Analysis analysis, Metadata metadata, Session session, boolean approximateQueriesEnabled, Optional<QueryExplainer> queryExplainer)
+    public StatementAnalyzer(Analysis analysis, Metadata metadata, Session session, boolean experimentalSyntaxEnabled, Optional<QueryExplainer> queryExplainer)
     {
         this.analysis = checkNotNull(analysis, "analysis is null");
         this.metadata = checkNotNull(metadata, "metadata is null");
         this.session = checkNotNull(session, "session is null");
-        this.approximateQueriesEnabled = approximateQueriesEnabled;
+        this.experimentalSyntaxEnabled = experimentalSyntaxEnabled;
         this.queryExplainer = checkNotNull(queryExplainer, "queryExplainer is null");
     }
 
@@ -443,7 +443,7 @@ class StatementAnalyzer
         AnalysisContext context = new AnalysisContext(parentContext);
 
         if (node.getApproximate().isPresent()) {
-            if (!approximateQueriesEnabled) {
+            if (!experimentalSyntaxEnabled) {
                 throw new SemanticException(NOT_SUPPORTED, node, "approximate queries are not enabled");
             }
             context.setApproximate(true);
@@ -451,7 +451,7 @@ class StatementAnalyzer
 
         analyzeWith(node, context);
 
-        TupleAnalyzer analyzer = new TupleAnalyzer(analysis, session, metadata, approximateQueriesEnabled);
+        TupleAnalyzer analyzer = new TupleAnalyzer(analysis, session, metadata, experimentalSyntaxEnabled);
         TupleDescriptor descriptor = analyzer.process(node.getQueryBody(), context);
         analyzeOrderBy(node, descriptor, context);
 
@@ -525,7 +525,7 @@ class StatementAnalyzer
                 else {
                     // otherwise, just use the expression as is
                     orderByField = new FieldOrExpression(expression);
-                    ExpressionAnalysis expressionAnalysis = Analyzer.analyzeExpression(session, metadata, tupleDescriptor, analysis, approximateQueriesEnabled, context, orderByField.getExpression());
+                    ExpressionAnalysis expressionAnalysis = Analyzer.analyzeExpression(session, metadata, tupleDescriptor, analysis, experimentalSyntaxEnabled, context, orderByField.getExpression());
                     analysis.addInPredicates(node, expressionAnalysis.getSubqueryInPredicates());
                 }
 

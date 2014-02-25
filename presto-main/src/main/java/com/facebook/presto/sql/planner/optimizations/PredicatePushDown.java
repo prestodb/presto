@@ -114,13 +114,13 @@ public class PredicatePushDown
 
     private final Metadata metadata;
     private final SplitManager splitManager;
-    private final boolean approximateQueriesEnabled;
+    private final boolean experimentalSyntaxEnabled;
 
-    public PredicatePushDown(Metadata metadata, SplitManager splitManager, boolean approximateQueriesEnabled)
+    public PredicatePushDown(Metadata metadata, SplitManager splitManager, boolean experimentalSyntaxEnabled)
     {
         this.metadata = checkNotNull(metadata, "metadata is null");
         this.splitManager = checkNotNull(splitManager, "splitManager is null");
-        this.approximateQueriesEnabled = approximateQueriesEnabled;
+        this.experimentalSyntaxEnabled = experimentalSyntaxEnabled;
     }
 
     @Override
@@ -131,7 +131,7 @@ public class PredicatePushDown
         checkNotNull(types, "types is null");
         checkNotNull(idAllocator, "idAllocator is null");
 
-        return PlanRewriter.rewriteWith(new Rewriter(symbolAllocator, idAllocator, metadata, splitManager, session, approximateQueriesEnabled), plan, BooleanLiteral.TRUE_LITERAL);
+        return PlanRewriter.rewriteWith(new Rewriter(symbolAllocator, idAllocator, metadata, splitManager, session, experimentalSyntaxEnabled), plan, BooleanLiteral.TRUE_LITERAL);
     }
 
     private static class Rewriter
@@ -142,16 +142,16 @@ public class PredicatePushDown
         private final Metadata metadata;
         private final SplitManager splitManager;
         private final Session session;
-        private final boolean approximateQueriesEnabled;
+        private final boolean experimentalSyntaxEnabled;
 
-        private Rewriter(SymbolAllocator symbolAllocator, PlanNodeIdAllocator idAllocator, Metadata metadata, SplitManager splitManager, Session session, boolean approximateQueriesEnabled)
+        private Rewriter(SymbolAllocator symbolAllocator, PlanNodeIdAllocator idAllocator, Metadata metadata, SplitManager splitManager, Session session, boolean experimentalSyntaxEnabled)
         {
             this.symbolAllocator = checkNotNull(symbolAllocator, "symbolAllocator is null");
             this.idAllocator = checkNotNull(idAllocator, "idAllocator is null");
             this.metadata = checkNotNull(metadata, "metadata is null");
             this.splitManager = checkNotNull(splitManager, "splitManager is null");
             this.session = checkNotNull(session, "session is null");
-            this.approximateQueriesEnabled = approximateQueriesEnabled;
+            this.experimentalSyntaxEnabled = experimentalSyntaxEnabled;
         }
 
         @Override
@@ -563,7 +563,7 @@ public class PredicatePushDown
         // TODO: temporary addition to infer result type from expression. fix this with the new planner refactoring (martint)
         private Type extractType(Expression expression)
         {
-            ExpressionAnalyzer expressionAnalyzer = new ExpressionAnalyzer(new Analysis(), session, metadata, approximateQueriesEnabled);
+            ExpressionAnalyzer expressionAnalyzer = new ExpressionAnalyzer(new Analysis(), session, metadata, experimentalSyntaxEnabled);
             List<Field> fields = IterableTransformer.<Symbol>on(DependencyExtractor.extractUnique(expression))
                     .transform(new Function<Symbol, Field>()
                     {

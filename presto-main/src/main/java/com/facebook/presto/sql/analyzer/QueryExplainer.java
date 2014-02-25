@@ -34,17 +34,17 @@ public class QueryExplainer
     public final Session session;
     public final List<PlanOptimizer> planOptimizers;
     public final Metadata metadata;
-    public final boolean approximateQueriesEnabled;
+    public final boolean experimentalSyntaxEnabled;
 
     public QueryExplainer(Session session,
             List<PlanOptimizer> planOptimizers,
             Metadata metadata,
-            boolean approximateQueriesEnabled)
+            boolean experimentalSyntaxEnabled)
     {
         this.session = checkNotNull(session, "session is null");
         this.planOptimizers = checkNotNull(planOptimizers, "planOptimizers is null");
         this.metadata = checkNotNull(metadata, "metadata is null");
-        this.approximateQueriesEnabled = approximateQueriesEnabled;
+        this.experimentalSyntaxEnabled = experimentalSyntaxEnabled;
     }
 
     public String getPlan(Statement statement, ExplainType.Type planType)
@@ -82,7 +82,7 @@ public class QueryExplainer
     private Plan getLogicalPlan(Statement statement)
     {
         // analyze statement
-        Analyzer analyzer = new Analyzer(session, metadata, Optional.of(this), approximateQueriesEnabled);
+        Analyzer analyzer = new Analyzer(session, metadata, Optional.of(this), experimentalSyntaxEnabled);
 
         Analysis analysis = analyzer.analyze(statement);
         PlanNodeIdAllocator idAllocator = new PlanNodeIdAllocator();
@@ -95,7 +95,7 @@ public class QueryExplainer
     private SubPlan getDistributedPlan(Statement statement)
     {
         // analyze statement
-        Analyzer analyzer = new Analyzer(session, metadata, Optional.of(this), approximateQueriesEnabled);
+        Analyzer analyzer = new Analyzer(session, metadata, Optional.of(this), experimentalSyntaxEnabled);
 
         Analysis analysis = analyzer.analyze(statement);
         PlanNodeIdAllocator idAllocator = new PlanNodeIdAllocator();
