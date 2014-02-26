@@ -113,7 +113,7 @@ public abstract class AbstractTestQueries
                     new CustomSum())
             .window("custom_rank", BIGINT, ImmutableList.<Type>of(), supplier(CustomRank.class))
             .scalar(CustomAdd.class)
-            .build();
+            .getFunctions();
 
     private Handle handle;
     private Session session;
@@ -2994,7 +2994,7 @@ public abstract class AbstractTestQueries
         computeActual("SELECT length(1)");
     }
 
-    @Test(expectedExceptions = RuntimeException.class, expectedExceptionsMessageRegExp = "Types are not comparable with '<>': bigint vs varchar")
+    @Test(expectedExceptions = RuntimeException.class, expectedExceptionsMessageRegExp = "\\QOperator NOT_EQUAL(bigint, varchar) not registered\\E")
     public void testTypeMismatch()
     {
         computeActual("SELECT 1 <> 'x'");

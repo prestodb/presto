@@ -58,9 +58,9 @@ import java.util.Set;
 import java.util.concurrent.Callable;
 
 import static com.facebook.presto.operator.scalar.FunctionAssertions.SESSION;
-import static com.facebook.presto.util.Threads.daemonThreadsNamed;
 import static com.google.common.base.Charsets.UTF_8;
 import static com.google.common.collect.Iterables.transform;
+import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static java.lang.Math.cos;
 import static java.lang.Runtime.getRuntime;
 import static java.util.concurrent.Executors.newFixedThreadPool;
@@ -110,7 +110,12 @@ public class TestExpressionCompiler
     public void setupClass()
     {
         Logging.initialize();
-        executor = MoreExecutors.listeningDecorator(newFixedThreadPool(getRuntime().availableProcessors() * 2, daemonThreadsNamed("completer-%d")));
+        if (PARALLEL) {
+            executor = MoreExecutors.listeningDecorator(newFixedThreadPool(getRuntime().availableProcessors() * 2, daemonThreadsNamed("completer-%d")));
+        }
+        else {
+            executor = MoreExecutors.listeningDecorator(MoreExecutors.sameThreadExecutor());
+        }
         functionAssertions = new FunctionAssertions();
     }
 
@@ -231,6 +236,7 @@ public class TestExpressionCompiler
     public void testBinaryOperatorsBoolean()
             throws Exception
     {
+        assertExecute("nullif(cast(null as boolean), true)", null);
         for (Boolean left : booleanValues) {
             for (Boolean right : booleanValues) {
                 assertExecute(generateExpression("%s = %s", left, right), left == null || right == null ? null : left == right);

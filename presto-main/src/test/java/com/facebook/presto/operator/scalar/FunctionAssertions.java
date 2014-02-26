@@ -168,7 +168,7 @@ public final class FunctionAssertions
 
     public FunctionAssertions addScalarFunctions(Class<?> clazz)
     {
-        metadataManager.addFunctions(new FunctionListBuilder().scalar(clazz).build());
+        metadataManager.addFunctions(new FunctionListBuilder().scalar(clazz).getFunctions());
         return this;
     }
 

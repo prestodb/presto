@@ -16,6 +16,7 @@ package com.facebook.presto.sql.gen;
 import com.facebook.presto.block.BlockBuilder;
 import com.facebook.presto.block.BlockCursor;
 import com.facebook.presto.byteCode.Block;
+import com.facebook.presto.byteCode.ByteCodeNode;
 import com.facebook.presto.byteCode.ClassDefinition;
 import com.facebook.presto.byteCode.ClassInfoLoader;
 import com.facebook.presto.byteCode.CompilerContext;
@@ -478,7 +479,7 @@ public class ExpressionCompiler
                 .condition(new Block(compilerContext)
                         .getVariable(positionVariable)
                         .getVariable(rowsVariable)
-                        .invokeStatic(Operations.class, "lessThan", boolean.class, int.class, int.class))
+                        .invokeStatic(CompilerOperations.class, "lessThan", boolean.class, int.class, int.class))
                 .update(new Block(compilerContext).incrementVariable(positionVariable, (byte) 1));
 
         Block forLoopBody = new Block(compilerContext);
@@ -545,7 +546,7 @@ public class ExpressionCompiler
                     .comment("checkState(not(%s.advanceNextPosition))", cursorVariable.getName())
                     .getVariable(cursorVariable)
                     .invokeInterface(BlockCursor.class, "advanceNextPosition", boolean.class)
-                    .invokeStatic(Operations.class, "not", boolean.class, boolean.class)
+                    .invokeStatic(CompilerOperations.class, "not", boolean.class, boolean.class)
                     .invokeStatic(Preconditions.class, "checkState", void.class, boolean.class);
         }
 
@@ -578,7 +579,7 @@ public class ExpressionCompiler
                         .comment("completedPositions < 16384")
                         .getVariable(completedPositionsVariable)
                         .push(16384)
-                        .invokeStatic(Operations.class, "lessThan", boolean.class, int.class, int.class)
+                        .invokeStatic(CompilerOperations.class, "lessThan", boolean.class, int.class, int.class)
                 )
                 .update(new Block(compilerContext)
                         .comment("completedPositions++")
@@ -667,28 +668,20 @@ public class ExpressionCompiler
 
         filterMethod.getCompilerContext().declareVariable(type(boolean.class), "wasNull");
         Block getSessionByteCode = new Block(filterMethod.getCompilerContext()).pushThis().getField(classDefinition.getType(), "session", type(Session.class));
-        TypedByteCodeNode body = new ByteCodeExpressionVisitor(bootstrapFunctionBinder, expressionTypes, getSessionByteCode, sourceIsCursor).process(filter, filterMethod.getCompilerContext());
+        ByteCodeNode body = new ByteCodeExpressionVisitor(bootstrapFunctionBinder, expressionTypes, getSessionByteCode, sourceIsCursor).process(filter, filterMethod.getCompilerContext());
 
-        if (body.getType() == void.class) {
-            filterMethod
-                    .getBody()
-                    .push(false)
-                    .retBoolean();
-        }
-        else {
-            LabelNode end = new LabelNode("end");
-            filterMethod
-                    .getBody()
-                    .comment("boolean wasNull = false;")
-                    .putVariable("wasNull", false)
-                    .append(body.getNode())
-                    .getVariable("wasNull")
-                    .ifFalseGoto(end)
-                    .pop(boolean.class)
-                    .push(false)
-                    .visitLabel(end)
-                    .retBoolean();
-        }
+        LabelNode end = new LabelNode("end");
+        filterMethod
+                .getBody()
+                .comment("boolean wasNull = false;")
+                .putVariable("wasNull", false)
+                .append(body)
+                .getVariable("wasNull")
+                .ifFalseGoto(end)
+                .pop(boolean.class)
+                .push(false)
+                .visitLabel(end)
+                .retBoolean();
     }
 
     private Class<?> generateProjectMethod(ClassDefinition classDefinition,
@@ -724,66 +717,57 @@ public class ExpressionCompiler
         CompilerContext context = projectionMethod.getCompilerContext();
         context.declareVariable(type(boolean.class), "wasNull");
         Block getSessionByteCode = new Block(context).pushThis().getField(classDefinition.getType(), "session", type(Session.class));
-        TypedByteCodeNode body = new ByteCodeExpressionVisitor(bootstrapFunctionBinder, expressionTypes, getSessionByteCode, sourceIsCursor).process(projection, context);
+        ByteCodeNode body = new ByteCodeExpressionVisitor(bootstrapFunctionBinder, expressionTypes, getSessionByteCode, sourceIsCursor).process(projection, context);
 
-        if (body.getType() != void.class) {
-            projectionMethod
-                    .getBody()
-                    .comment("boolean wasNull = false;")
-                    .putVariable("wasNull", false)
-                    .getVariable("output")
-                    .append(body.getNode());
+        projectionMethod
+                .getBody()
+                .comment("boolean wasNull = false;")
+                .putVariable("wasNull", false)
+                .getVariable("output")
+                .append(body);
 
-            Block notNullBlock = new Block(context);
-            if (body.getType() == boolean.class) {
-                notNullBlock
-                        .comment("output.append(<booleanStackValue>);")
-                        .invokeInterface(BlockBuilder.class, "append", BlockBuilder.class, boolean.class)
-                        .pop();
-            }
-            else if (body.getType() == long.class) {
-                notNullBlock
-                        .comment("output.append(<longStackValue>);")
-                        .invokeInterface(BlockBuilder.class, "append", BlockBuilder.class, long.class)
-                        .pop();
-            }
-            else if (body.getType() == double.class) {
-                notNullBlock
-                        .comment("output.append(<doubleStackValue>);")
-                        .invokeInterface(BlockBuilder.class, "append", BlockBuilder.class, double.class)
-                        .pop();
-            }
-            else if (body.getType() == Slice.class) {
-                notNullBlock
-                        .comment("output.append(<sliceStackValue>);")
-                        .invokeInterface(BlockBuilder.class, "append", BlockBuilder.class, Slice.class)
-                        .pop();
-            }
-            else {
-                throw new UnsupportedOperationException("Type " + body.getType() + " can not be output yet");
-            }
-
-            Block nullBlock = new Block(context)
-                    .comment("output.appendNull();")
-                    .pop(body.getType())
-                    .invokeInterface(BlockBuilder.class, "appendNull", BlockBuilder.class)
+        Type projectionType = expressionTypes.get(projection);
+        Block notNullBlock = new Block(context);
+        if (projectionType.getJavaType() == boolean.class) {
+            notNullBlock
+                    .comment("output.append(<booleanStackValue>);")
+                    .invokeInterface(BlockBuilder.class, "append", BlockBuilder.class, boolean.class)
                     .pop();
-
-            projectionMethod.getBody()
-                    .comment("if the result was null, appendNull; otherwise append the value")
-                    .append(new IfStatement(context, new Block(context).getVariable("wasNull"), nullBlock, notNullBlock))
-                    .ret();
+        }
+        else if (projectionType.getJavaType() == long.class) {
+            notNullBlock
+                    .comment("output.append(<longStackValue>);")
+                    .invokeInterface(BlockBuilder.class, "append", BlockBuilder.class, long.class)
+                    .pop();
+        }
+        else if (projectionType.getJavaType() == double.class) {
+            notNullBlock
+                    .comment("output.append(<doubleStackValue>);")
+                    .invokeInterface(BlockBuilder.class, "append", BlockBuilder.class, double.class)
+                    .pop();
+        }
+        else if (projectionType.getJavaType() == Slice.class) {
+            notNullBlock
+                    .comment("output.append(<sliceStackValue>);")
+                    .invokeInterface(BlockBuilder.class, "append", BlockBuilder.class, Slice.class)
+                    .pop();
         }
         else {
-            projectionMethod
-                    .getBody()
-                    .comment("output.appendNull();")
-                    .getVariable("output")
-                    .invokeInterface(BlockBuilder.class, "appendNull", BlockBuilder.class)
-                    .pop()
-                    .ret();
+            throw new UnsupportedOperationException("Type " + projectionType + " can not be output yet");
         }
-        return body.getType();
+
+        Block nullBlock = new Block(context)
+                .comment("output.appendNull();")
+                .pop(projectionType.getJavaType())
+                .invokeInterface(BlockBuilder.class, "appendNull", BlockBuilder.class)
+                .pop();
+
+        projectionMethod.getBody()
+                .comment("if the result was null, appendNull; otherwise append the value")
+                .append(new IfStatement(context, new Block(context).getVariable("wasNull"), nullBlock, notNullBlock))
+                .ret();
+
+        return projectionType.getJavaType();
     }
 
     private Integer getMaxInputChannel(IdentityHashMap<Expression, Type> expressionTypes)

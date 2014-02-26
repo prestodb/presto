@@ -21,7 +21,6 @@ import com.facebook.presto.spi.StandardErrorCode;
 import com.facebook.presto.sql.gen.DefaultFunctionBinder;
 import com.facebook.presto.sql.gen.FunctionBinder;
 import com.facebook.presto.sql.gen.FunctionBinding;
-import com.facebook.presto.sql.gen.TypedByteCodeNode;
 import com.facebook.presto.util.ThreadLocalCache;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
@@ -155,12 +154,12 @@ public final class RegexpFunctions
             }
         }
 
-        public FunctionBinding bindFunction(long bindingId, String name, ByteCodeNode getSessionByteCode, List<TypedByteCodeNode> arguments)
+        public FunctionBinding bindFunction(long bindingId, String name, ByteCodeNode getSessionByteCode, List<ByteCodeNode> arguments)
         {
             MethodHandle methodHandle;
             boolean nullable = false;
-            TypedByteCodeNode patternNode = arguments.get(1);
-            if (patternNode.getNode() instanceof Constant) {
+            ByteCodeNode patternNode = arguments.get(1);
+            if (patternNode instanceof Constant) {
                 switch (name) {
                     case "regexp_like":
                         methodHandle = constantRegexpLike;
@@ -182,7 +181,7 @@ public final class RegexpFunctions
                         throw new IllegalArgumentException("Unsupported method " + name);
                 }
 
-                Slice patternSlice = (Slice) ((Constant) patternNode.getNode()).getValue();
+                Slice patternSlice = (Slice) ((Constant) patternNode).getValue();
 
                 Pattern pattern = Pattern.compile(patternSlice.toString(UTF_8));
 

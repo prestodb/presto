@@ -47,21 +47,21 @@ public class LikeFunctionBinder
         }
     }
 
-    public FunctionBinding bindFunction(long bindingId, String name, ByteCodeNode getSessionByteCode, List<TypedByteCodeNode> arguments)
+    public FunctionBinding bindFunction(long bindingId, String name, ByteCodeNode getSessionByteCode, List<ByteCodeNode> arguments)
     {
-        TypedByteCodeNode valueNode = arguments.get(0);
-        TypedByteCodeNode patternNode = arguments.get(1);
-        TypedByteCodeNode escapeNode = null;
+        ByteCodeNode valueNode = arguments.get(0);
+        ByteCodeNode patternNode = arguments.get(1);
+        ByteCodeNode escapeNode = null;
         if (arguments.size() == 3) {
             escapeNode = arguments.get(2);
         }
 
         MethodHandle methodHandle;
-        if (patternNode.getNode() instanceof Constant && (escapeNode == null || escapeNode.getNode() instanceof Constant)) {
-            Slice pattern = (Slice) ((Constant) patternNode.getNode()).getValue();
+        if (patternNode instanceof Constant && (escapeNode == null || escapeNode instanceof Constant)) {
+            Slice pattern = (Slice) ((Constant) patternNode).getValue();
             Slice escapeSlice = null;
             if (escapeNode != null) {
-                escapeSlice = (Slice) ((Constant) escapeNode.getNode()).getValue();
+                escapeSlice = (Slice) ((Constant) escapeNode).getValue();
             }
 
             Regex regex = LikeUtils.likeToPattern(pattern, escapeSlice);

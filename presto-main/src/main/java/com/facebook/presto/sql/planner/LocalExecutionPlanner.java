@@ -340,7 +340,7 @@ public class LocalExecutionPlanner
             for (Map.Entry<Symbol, FunctionCall> entry : node.getWindowFunctions().entrySet()) {
                 Symbol symbol = entry.getKey();
                 Signature signature = node.getSignatures().get(symbol);
-                windowFunctions.add(metadata.getFunction(signature).getWindowFunction().get());
+                windowFunctions.add(metadata.getExactFunction(signature).getWindowFunction().get());
                 windowFunctionOutputSymbols.add(symbol);
             }
 
@@ -1056,7 +1056,7 @@ public class LocalExecutionPlanner
                 sampleWeightInput = Optional.of(source.getLayout().get(sampleWeight.get()));
             }
 
-            return metadata.getFunction(function).bind(arguments, maskInput, sampleWeightInput, confidence);
+            return metadata.getExactFunction(function).bind(arguments, maskInput, sampleWeightInput, confidence);
         }
 
         private PhysicalOperation planGlobalAggregation(int operatorId, AggregationNode node, PhysicalOperation source)

@@ -23,6 +23,8 @@ import com.facebook.presto.byteCode.control.IfStatement.IfStatementBuilder;
 import com.facebook.presto.byteCode.control.LookupSwitch.LookupSwitchBuilder;
 import com.facebook.presto.byteCode.instruction.Constant;
 import com.facebook.presto.byteCode.instruction.LabelNode;
+import com.facebook.presto.byteCode.instruction.VariableInstruction;
+import com.facebook.presto.metadata.OperatorInfo.OperatorType;
 import com.facebook.presto.spi.RecordCursor;
 import com.facebook.presto.sql.tree.ArithmeticExpression;
 import com.facebook.presto.sql.tree.AstVisitor;
@@ -51,15 +53,14 @@ import com.facebook.presto.sql.tree.SimpleCaseExpression;
 import com.facebook.presto.sql.tree.StringLiteral;
 import com.facebook.presto.sql.tree.WhenClause;
 import com.facebook.presto.type.Type;
-import com.facebook.presto.util.IterableTransformer;
+import com.facebook.presto.type.Types;
 import com.google.common.base.Function;
+import com.google.common.base.Functions;
 import com.google.common.base.Joiner;
-import com.google.common.base.Predicates;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.common.primitives.Primitives;
 import io.airlift.slice.Slice;
@@ -73,7 +74,6 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
-import java.util.Set;
 
 import static com.facebook.presto.byteCode.OpCodes.NOP;
 import static com.facebook.presto.byteCode.control.IfStatement.ifStatementBuilder;
@@ -83,16 +83,14 @@ import static com.facebook.presto.byteCode.instruction.Constant.loadDouble;
 import static com.facebook.presto.byteCode.instruction.Constant.loadLong;
 import static com.facebook.presto.byteCode.instruction.JumpInstruction.jump;
 import static com.facebook.presto.sql.gen.SliceConstant.sliceConstant;
-import static com.facebook.presto.sql.gen.TypedByteCodeNode.typedByteCodeNode;
-import static com.google.common.base.Preconditions.checkArgument;
+import static com.facebook.presto.type.NullType.NULL;
 import static com.google.common.base.Preconditions.checkState;
-import static com.google.common.base.Predicates.not;
 import static com.google.common.collect.Iterables.transform;
 import static java.lang.String.format;
 import static java.lang.invoke.MethodHandles.lookup;
 
 public class ByteCodeExpressionVisitor
-        extends AstVisitor<TypedByteCodeNode, CompilerContext>
+        extends AstVisitor<ByteCodeNode, CompilerContext>
 {
     private final BootstrapFunctionBinder bootstrapFunctionBinder;
     private final Map<Expression, Type> expressionTypes;
@@ -108,43 +106,44 @@ public class ByteCodeExpressionVisitor
     }
 
     @Override
-    protected TypedByteCodeNode visitBooleanLiteral(BooleanLiteral node, CompilerContext context)
+    protected ByteCodeNode visitBooleanLiteral(BooleanLiteral node, CompilerContext context)
     {
-        return typedByteCodeNode(loadBoolean(node.getValue()), boolean.class);
+        return loadBoolean(node.getValue());
     }
 
     @Override
-    protected TypedByteCodeNode visitLongLiteral(LongLiteral node, CompilerContext context)
+    protected ByteCodeNode visitLongLiteral(LongLiteral node, CompilerContext context)
     {
-        return typedByteCodeNode(loadLong(node.getValue()), long.class);
+        return loadLong(node.getValue());
     }
 
     @Override
-    protected TypedByteCodeNode visitDoubleLiteral(DoubleLiteral node, CompilerContext context)
+    protected ByteCodeNode visitDoubleLiteral(DoubleLiteral node, CompilerContext context)
     {
-        return typedByteCodeNode(loadDouble(node.getValue()), double.class);
+        return loadDouble(node.getValue());
     }
 
     @Override
-    protected TypedByteCodeNode visitStringLiteral(StringLiteral node, CompilerContext context)
+    protected ByteCodeNode visitStringLiteral(StringLiteral node, CompilerContext context)
     {
-        return typedByteCodeNode(sliceConstant(node.getSlice()), Slice.class);
+        return sliceConstant(node.getSlice());
     }
 
     @Override
-    protected TypedByteCodeNode visitNullLiteral(NullLiteral node, CompilerContext context)
+    protected ByteCodeNode visitNullLiteral(NullLiteral node, CompilerContext context)
     {
-        // todo this should be the real type of the expression
-        return typedByteCodeNode(new Block(context).putVariable("wasNull", true), void.class);
+        return new Block(context).putVariable("wasNull", true);
     }
 
     @Override
-    public TypedByteCodeNode visitInputReference(InputReference node, CompilerContext context)
+    public ByteCodeNode visitInputReference(InputReference node, CompilerContext context)
     {
         Input input = node.getInput();
         int channel = input.getChannel();
+
         Type type = expressionTypes.get(node);
         checkState(type != null, "No type for input %s", input);
+        Class<?> javaType = type.getJavaType();
 
         if (sourceIsCursor) {
             Block isNullCheck = new Block(context)
@@ -153,7 +152,6 @@ public class ByteCodeExpressionVisitor
                     .push(channel)
                     .invokeInterface(RecordCursor.class, "isNull", boolean.class, int.class);
 
-            Class<?> javaType = type.getJavaType();
             Block isNull = new Block(context)
                     .putVariable("wasNull", true)
                     .pushJavaDefault(javaType);
@@ -162,21 +160,21 @@ public class ByteCodeExpressionVisitor
                         .getVariable("cursor")
                         .push(channel)
                         .invokeInterface(RecordCursor.class, "getBoolean", boolean.class, int.class);
-                return typedByteCodeNode(new IfStatement(context, isNullCheck, isNull, isNotNull), boolean.class);
+                return new IfStatement(context, isNullCheck, isNull, isNotNull);
             }
             else if (javaType == long.class) {
                 Block isNotNull = new Block(context)
                         .getVariable("cursor")
                         .push(channel)
                         .invokeInterface(RecordCursor.class, "getLong", long.class, int.class);
-                return typedByteCodeNode(new IfStatement(context, isNullCheck, isNull, isNotNull), long.class);
+                return new IfStatement(context, isNullCheck, isNull, isNotNull);
             }
             else if (javaType == double.class) {
                 Block isNotNull = new Block(context)
                         .getVariable("cursor")
                         .push(channel)
                         .invokeInterface(RecordCursor.class, "getDouble", double.class, int.class);
-                return typedByteCodeNode(new IfStatement(context, isNullCheck, isNull, isNotNull), double.class);
+                return new IfStatement(context, isNullCheck, isNull, isNotNull);
             }
             else if (javaType == Slice.class) {
                 Block isNotNull = new Block(context)
@@ -184,7 +182,7 @@ public class ByteCodeExpressionVisitor
                         .push(channel)
                         .invokeInterface(RecordCursor.class, "getString", byte[].class, int.class)
                         .invokeStatic(Slices.class, "wrappedBuffer", Slice.class, byte[].class);
-                return typedByteCodeNode(new IfStatement(context, isNullCheck, isNull, isNotNull), Slice.class);
+                return new IfStatement(context, isNullCheck, isNull, isNotNull);
             }
             else {
                 throw new UnsupportedOperationException("not yet implemented: " + type);
@@ -196,7 +194,6 @@ public class ByteCodeExpressionVisitor
                     .getVariable("channel_" + channel)
                     .invokeInterface(BlockCursor.class, "isNull", boolean.class);
 
-            Class<?> javaType = type.getJavaType();
             Block isNull = new Block(context)
                     .putVariable("wasNull", true)
                     .pushJavaDefault(javaType);
@@ -204,25 +201,25 @@ public class ByteCodeExpressionVisitor
                 Block isNotNull = new Block(context)
                         .getVariable("channel_" + channel)
                         .invokeInterface(BlockCursor.class, "getBoolean", boolean.class);
-                return typedByteCodeNode(new IfStatement(context, isNullCheck, isNull, isNotNull), boolean.class);
+                return new IfStatement(context, isNullCheck, isNull, isNotNull);
             }
             else if (javaType == long.class) {
                 Block isNotNull = new Block(context)
                         .getVariable("channel_" + channel)
                         .invokeInterface(BlockCursor.class, "getLong", long.class);
-                return typedByteCodeNode(new IfStatement(context, isNullCheck, isNull, isNotNull), long.class);
+                return new IfStatement(context, isNullCheck, isNull, isNotNull);
             }
             else if (javaType == double.class) {
                 Block isNotNull = new Block(context)
                         .getVariable("channel_" + channel)
                         .invokeInterface(BlockCursor.class, "getDouble", double.class);
-                return typedByteCodeNode(new IfStatement(context, isNullCheck, isNull, isNotNull), double.class);
+                return new IfStatement(context, isNullCheck, isNull, isNotNull);
             }
             else if (javaType == Slice.class) {
                 Block isNotNull = new Block(context)
                         .getVariable("channel_" + channel)
                         .invokeInterface(BlockCursor.class, "getSlice", Slice.class);
-                return typedByteCodeNode(new IfStatement(context, isNullCheck, isNull, isNotNull), Slice.class);
+                return new IfStatement(context, isNullCheck, isNull, isNotNull);
             }
             else {
                 throw new UnsupportedOperationException("not yet implemented: " + type);
@@ -231,16 +228,12 @@ public class ByteCodeExpressionVisitor
     }
 
     @Override
-    protected TypedByteCodeNode visitFunctionCall(FunctionCall node, CompilerContext context)
+    protected ByteCodeNode visitFunctionCall(FunctionCall node, CompilerContext context)
     {
-        List<TypedByteCodeNode> arguments = new ArrayList<>();
+        List<ByteCodeNode> arguments = new ArrayList<>();
         List<Type> argumentTypes = new ArrayList<>();
         for (Expression argument : node.getArguments()) {
-            TypedByteCodeNode typedByteCodeNode = process(argument, context);
-            if (typedByteCodeNode.getType() == void.class) {
-                return typedByteCodeNode;
-            }
-            arguments.add(typedByteCodeNode);
+            arguments.add(process(argument, context));
             argumentTypes.add(expressionTypes.get(argument));
         }
 
@@ -249,7 +242,7 @@ public class ByteCodeExpressionVisitor
     }
 
     @Override
-    protected TypedByteCodeNode visitLikePredicate(LikePredicate node, CompilerContext context)
+    protected ByteCodeNode visitLikePredicate(LikePredicate node, CompilerContext context)
     {
         ImmutableList<Expression> expressions;
         if (node.getEscape() != null) {
@@ -259,22 +252,18 @@ public class ByteCodeExpressionVisitor
             expressions = ImmutableList.of(node.getValue(), node.getPattern());
         }
 
-        List<TypedByteCodeNode> arguments = new ArrayList<>();
+        List<ByteCodeNode> arguments = new ArrayList<>();
         for (Expression argument : expressions) {
-            TypedByteCodeNode typedByteCodeNode = process(argument, context);
-            if (typedByteCodeNode.getType() == void.class) {
-                return typedByteCodeNode;
-            }
-            arguments.add(typedByteCodeNode);
+            arguments.add(process(argument, context));
         }
 
         FunctionBinding functionBinding = bootstrapFunctionBinder.bindFunction("like", getSessionByteCode, arguments, new LikeFunctionBinder());
         return visitFunctionBinding(context, functionBinding, node.toString());
     }
 
-    private TypedByteCodeNode visitFunctionBinding(CompilerContext context, FunctionBinding functionBinding, String comment)
+    private ByteCodeNode visitFunctionBinding(CompilerContext context, FunctionBinding functionBinding, String comment)
     {
-        List<TypedByteCodeNode> arguments = functionBinding.getArguments();
+        List<ByteCodeNode> arguments = functionBinding.getArguments();
         MethodType methodType = functionBinding.getCallSite().type();
         Class<?> unboxedReturnType = Primitives.unwrap(methodType.returnType());
 
@@ -283,9 +272,9 @@ public class ByteCodeExpressionVisitor
                 .setDescription("invoke")
                 .comment(comment);
         ArrayList<Class<?>> stackTypes = new ArrayList<>();
-        for (TypedByteCodeNode argument : arguments) {
-            block.append(argument.getNode());
-            stackTypes.add(argument.getType());
+        for (int i = 0; i < arguments.size(); i++) {
+            block.append(arguments.get(i));
+            stackTypes.add(methodType.parameterType(i));
             block.append(ifWasNullPopAndGoto(context, end, unboxedReturnType, Lists.reverse(stackTypes)));
         }
         block.invokeDynamic(functionBinding.getName(), methodType, functionBinding.getBindingId());
@@ -311,7 +300,7 @@ public class ByteCodeExpressionVisitor
         }
         block.visitLabel(end);
 
-        return typedByteCodeNode(block, unboxedReturnType);
+        return block;
     }
 
     private static ByteCodeNode unboxPrimitive(CompilerContext context, Class<?> unboxedType)
@@ -330,148 +319,81 @@ public class ByteCodeExpressionVisitor
     }
 
     @Override
-    public TypedByteCodeNode visitCast(Cast node, CompilerContext context)
+    public ByteCodeNode visitCast(Cast node, CompilerContext context)
     {
-        TypedByteCodeNode value = process(node.getExpression(), context);
-
-        Block block = new Block(context).comment(node.toString());
-        block.append(value.getNode());
-
-        if (value.getType() == void.class) {
-            switch (node.getType()) {
-                case "BOOLEAN":
-                    block.pushJavaDefault(boolean.class);
-                    return typedByteCodeNode(block, boolean.class);
-                case "BIGINT":
-                    block.pushJavaDefault(long.class);
-                    return typedByteCodeNode(block, long.class);
-                case "DOUBLE":
-                    block.pushJavaDefault(double.class);
-                    return typedByteCodeNode(block, double.class);
-                case "VARCHAR":
-                    block.pushJavaDefault(Slice.class);
-                    return typedByteCodeNode(block, Slice.class);
-            }
+        Type type = Types.fromName(node.getType());
+        if (type == null) {
+            throw new IllegalArgumentException("Unsupported type: " + node.getType());
         }
-        else {
-            LabelNode end = new LabelNode("end");
-            switch (node.getType()) {
-                case "BOOLEAN":
-                    block.append(ifWasNullPopAndGoto(context, end, boolean.class, value.getType()));
-                    block.invokeStatic(Operations.class, "castToBoolean", boolean.class, value.getType());
-                    return typedByteCodeNode(block.visitLabel(end), boolean.class);
-                case "BIGINT":
-                    block.append(ifWasNullPopAndGoto(context, end, long.class, value.getType()));
-                    block.invokeStatic(Operations.class, "castToLong", long.class, value.getType());
-                    return typedByteCodeNode(block.visitLabel(end), long.class);
-                case "DOUBLE":
-                    block.append(ifWasNullPopAndGoto(context, end, double.class, value.getType()));
-                    block.invokeStatic(Operations.class, "castToDouble", double.class, value.getType());
-                    return typedByteCodeNode(block.visitLabel(end), double.class);
-                case "VARCHAR":
-                    block.append(ifWasNullPopAndGoto(context, end, Slice.class, value.getType()));
-                    block.invokeStatic(Operations.class, "castToSlice", Slice.class, value.getType());
-                    return typedByteCodeNode(block.visitLabel(end), Slice.class);
-            }
+
+        if (expressionTypes.get(node.getExpression()).equals(NULL)) {
+            // set was null and push java default
+            return new Block(context).putVariable("wasNull", true).pushJavaDefault(type.getJavaType());
         }
-        throw new UnsupportedOperationException("Unsupported type: " + node.getType());
+
+        ByteCodeNode value = process(node.getExpression(), context);
+        FunctionBinding functionBinding = bootstrapFunctionBinder.bindCastOperator(
+                getSessionByteCode,
+                value,
+                expressionTypes.get(node.getExpression()),
+                type);
+
+        return visitFunctionBinding(context, functionBinding, node.toString());
     }
 
     @Override
-    protected TypedByteCodeNode visitArithmeticExpression(ArithmeticExpression node, CompilerContext context)
+    protected ByteCodeNode visitArithmeticExpression(ArithmeticExpression node, CompilerContext context)
     {
-        TypedByteCodeNode left = process(node.getLeft(), context);
-        if (left.getType() == void.class) {
-            return left;
-        }
+        ByteCodeNode left = process(node.getLeft(), context);
+        ByteCodeNode right = process(node.getRight(), context);
 
-        TypedByteCodeNode right = process(node.getRight(), context);
-        if (right.getType() == void.class) {
-            return right;
-        }
+        FunctionBinding functionBinding = bootstrapFunctionBinder.bindOperator(
+                OperatorType.valueOf(node.getType().name()),
+                getSessionByteCode,
+                ImmutableList.of(left, right),
+                types(node.getLeft(), node.getRight()));
 
-        Class<?> type = getType(left, right);
-        if (!isNumber(type)) {
-            throw new UnsupportedOperationException(format("not yet implemented: %s(%s, %s)", node.getType(), left.getType(), right.getType()));
-        }
-
-        Block block = new Block(context).comment(node.toString());
-        LabelNode end = new LabelNode("end");
-
-        block.append(left.getNode());
-        block.append(ifWasNullPopAndGoto(context, end, type, left.getType()));
-
-        block.append(right.getNode());
-        block.append(ifWasNullPopAndGoto(context, end, type, type, right.getType()));
-
-        switch (node.getType()) {
-            case ADD:
-                block.invokeStatic(Operations.class, "add", type, type, type);
-                break;
-            case SUBTRACT:
-                block.invokeStatic(Operations.class, "subtract", type, type, type);
-                break;
-            case MULTIPLY:
-                block.invokeStatic(Operations.class, "multiply", type, type, type);
-                break;
-            case DIVIDE:
-                block.invokeStatic(Operations.class, "divide", type, type, type);
-                break;
-            case MODULUS:
-                block.invokeStatic(Operations.class, "modulus", type, type, type);
-                break;
-            default:
-                throw new UnsupportedOperationException(format("not yet implemented: %s(%s, %s)", node.getType(), left.getType(), right.getType()));
-        }
-        return typedByteCodeNode(block.visitLabel(end), type);
+        return visitFunctionBinding(context, functionBinding, node.toString());
     }
 
     @Override
-    protected TypedByteCodeNode visitNegativeExpression(NegativeExpression node, CompilerContext context)
+    protected ByteCodeNode visitNegativeExpression(NegativeExpression node, CompilerContext context)
     {
-        TypedByteCodeNode value = process(node.getValue(), context);
-        if (value.getType() == void.class) {
-            return value;
-        }
+        ByteCodeNode value = process(node.getValue(), context);
 
-        if (!isNumber(value.getType())) {
-            throw new UnsupportedOperationException(format("not yet implemented: negate(%s)", value.getType()));
-        }
+        FunctionBinding functionBinding = bootstrapFunctionBinder.bindOperator(
+                OperatorType.NEGATION,
+                getSessionByteCode,
+                ImmutableList.of(value),
+                types(node.getValue()));
 
-        // simple single op so there is no reason to do a null check
-        Block block = new Block(context)
-                .comment(node.toString())
-                .append(value.getNode())
-                .invokeStatic(Operations.class, "negate", value.getType(), value.getType());
-
-        return typedByteCodeNode(block, value.getType());
+        return visitFunctionBinding(context, functionBinding, node.toString());
     }
 
     @Override
-    protected TypedByteCodeNode visitLogicalBinaryExpression(LogicalBinaryExpression node, CompilerContext context)
+    protected ByteCodeNode visitLogicalBinaryExpression(LogicalBinaryExpression node, CompilerContext context)
     {
-        TypedByteCodeNode left = process(node.getLeft(), context);
-        checkState(left.getType() == boolean.class, "Expected logical binary expression left value to be a boolean but is a %s: %s", left.getType().getName(), node);
-
-        TypedByteCodeNode right = process(node.getRight(), context);
-        checkState(right.getType() == boolean.class, "Expected logical binary expression right value to be a boolean but is a %s: %s", right.getType().getName(), node);
+        ByteCodeNode left = process(node.getLeft(), context);
+        Type leftType = expressionTypes.get(node.getLeft());
+        ByteCodeNode right = process(node.getRight(), context);
+        Type rightType = expressionTypes.get(node.getRight());
 
         switch (node.getType()) {
             case AND:
-                return visitAnd(context, left, right, node.toString());
+                return visitAnd(context, left, leftType, right, rightType, node.toString());
             case OR:
-                return visitOr(context, left, right, node.toString());
+                return visitOr(context, left, leftType, right, rightType, node.toString());
         }
-        throw new UnsupportedOperationException(format("not yet implemented: %s(%s, %s)", node.getType(), left.getType(), right.getType()));
+        throw new UnsupportedOperationException(format("not yet implemented: %s(%s, %s)", node.getType(), leftType, rightType));
     }
 
-    private TypedByteCodeNode visitAnd(CompilerContext context, TypedByteCodeNode left, TypedByteCodeNode right, String comment)
+    private ByteCodeNode visitAnd(CompilerContext context, ByteCodeNode left, Type leftType, ByteCodeNode right, Type rightType, String comment)
     {
         Block block = new Block(context)
                 .comment(comment)
                 .setDescription("AND");
 
-        block.append(left.getNode());
+        block.append(left);
 
         IfStatementBuilder ifLeftIsNull = ifStatementBuilder(context)
                 .comment("if left wasNull...")
@@ -481,7 +403,7 @@ public class ByteCodeExpressionVisitor
         ifLeftIsNull.ifTrue(new Block(context)
                 .comment("clear the null flag, pop left value off stack, and push left null flag on the stack (true)")
                 .putVariable("wasNull", false)
-                .pop(left.getType()) // discard left value
+                .pop(leftType.getJavaType()) // discard left value
                 .push(true));
 
         LabelNode leftIsTrue = new LabelNode("leftIsTrue");
@@ -500,7 +422,7 @@ public class ByteCodeExpressionVisitor
         // value for this expression which indicates if the left value was NULL.
 
         // eval right!
-        block.append(right.getNode());
+        block.append(right);
 
         IfStatementBuilder ifRightIsNull = ifStatementBuilder(context)
                 .comment("if right wasNull...")
@@ -509,7 +431,7 @@ public class ByteCodeExpressionVisitor
         // this leaves a single boolean on the stack which is ignored since the value in NULL
         ifRightIsNull.ifTrue(new Block(context)
                 .comment("right was null, pop the right value off the stack; wasNull flag remains set to TRUE")
-                .pop(right.getType()));
+                .pop(rightType.getJavaType()));
 
         LabelNode rightIsTrue = new LabelNode("rightIsTrue");
         ifRightIsNull.ifFalse(new Block(context)
@@ -526,16 +448,16 @@ public class ByteCodeExpressionVisitor
         block.append(ifRightIsNull.build())
                 .visitLabel(end);
 
-        return typedByteCodeNode(block, boolean.class);
+        return block;
     }
 
-    private TypedByteCodeNode visitOr(CompilerContext context, TypedByteCodeNode left, TypedByteCodeNode right, String comment)
+    private ByteCodeNode visitOr(CompilerContext context, ByteCodeNode left, Type leftType, ByteCodeNode right, Type rightType, String comment)
     {
         Block block = new Block(context)
                 .comment(comment)
                 .setDescription("OR");
 
-        block.append(left.getNode());
+        block.append(left);
 
         IfStatementBuilder ifLeftIsNull = ifStatementBuilder(context)
                 .comment("if left wasNull...")
@@ -545,7 +467,7 @@ public class ByteCodeExpressionVisitor
         ifLeftIsNull.ifTrue(new Block(context)
                 .comment("clear the null flag, pop left value off stack, and push left null flag on the stack (true)")
                 .putVariable("wasNull", false)
-                .pop(left.getType()) // discard left value
+                .pop(leftType.getJavaType()) // discard left value
                 .push(true));
 
         LabelNode leftIsFalse = new LabelNode("leftIsFalse");
@@ -564,7 +486,7 @@ public class ByteCodeExpressionVisitor
         // value for this expression which indicates if the left value was NULL.
 
         // eval right!
-        block.append(right.getNode());
+        block.append(right);
 
         IfStatementBuilder ifRightIsNull = ifStatementBuilder(context)
                 .comment("if right wasNull...")
@@ -573,7 +495,7 @@ public class ByteCodeExpressionVisitor
         // this leaves a single boolean on the stack which is ignored since the value in NULL
         ifRightIsNull.ifTrue(new Block(context)
                 .comment("right was null, pop the right value off the stack; wasNull flag remains set to TRUE")
-                .pop(right.getType()));
+                .pop(rightType.getJavaType()));
 
         LabelNode rightIsTrue = new LabelNode("rightIsTrue");
         ifRightIsNull.ifFalse(new Block(context)
@@ -590,178 +512,130 @@ public class ByteCodeExpressionVisitor
         block.append(ifRightIsNull.build())
                 .visitLabel(end);
 
-        return typedByteCodeNode(block, boolean.class);
+        return block;
     }
 
     @Override
-    protected TypedByteCodeNode visitNotExpression(NotExpression node, CompilerContext context)
+    protected ByteCodeNode visitNotExpression(NotExpression node, CompilerContext context)
     {
-        TypedByteCodeNode value = process(node.getValue(), context);
-        if (value.getType() == void.class) {
-            return value;
-        }
+        ByteCodeNode value = process(node.getValue(), context);
 
-        checkState(value.getType() == boolean.class);
         // simple single op so there is no reason to do a null check
-        return typedByteCodeNode(new Block(context)
+        return new Block(context)
                 .comment(node.toString())
-                .append(value.getNode())
-                .invokeStatic(Operations.class, "not", boolean.class, boolean.class), boolean.class);
+                .append(value)
+                .invokeStatic(CompilerOperations.class, "not", boolean.class, boolean.class);
     }
 
     @Override
-    protected TypedByteCodeNode visitComparisonExpression(ComparisonExpression node, CompilerContext context)
+    protected ByteCodeNode visitComparisonExpression(ComparisonExpression node, CompilerContext context)
     {
         // distinct requires special null handling rules
         if (node.getType() == ComparisonExpression.Type.IS_DISTINCT_FROM) {
             return visitIsDistinctFrom(node, context);
         }
 
-        TypedByteCodeNode left = process(node.getLeft(), context);
-        if (left.getType() == void.class) {
-            return left;
-        }
+        ByteCodeNode left = process(node.getLeft(), context);
+        ByteCodeNode right = process(node.getRight(), context);
 
-        TypedByteCodeNode right = process(node.getRight(), context);
-        if (right.getType() == void.class) {
-            return right;
-        }
+        FunctionBinding functionBinding = bootstrapFunctionBinder.bindOperator(
+                OperatorType.valueOf(node.getType().name()),
+                getSessionByteCode,
+                ImmutableList.of(left, right),
+                types(node.getLeft(), node.getRight()));
 
-        Class<?> type = getType(left, right);
-
-        String function;
-        switch (node.getType()) {
-            case EQUAL:
-                function = "equal";
-                break;
-            case NOT_EQUAL:
-                function = "notEqual";
-                break;
-            case LESS_THAN:
-                checkArgument(type != boolean.class, "not yet implemented: %s(%s, %s)", node.getType(), left.getType(), right.getType());
-                function = "lessThan";
-                break;
-            case LESS_THAN_OR_EQUAL:
-                checkArgument(type != boolean.class, "not yet implemented: %s(%s, %s)", node.getType(), left.getType(), right.getType());
-                function = "lessThanOrEqual";
-                break;
-            case GREATER_THAN:
-                checkArgument(type != boolean.class, "not yet implemented: %s(%s, %s)", node.getType(), left.getType(), right.getType());
-                function = "greaterThan";
-                break;
-            case GREATER_THAN_OR_EQUAL:
-                checkArgument(type != boolean.class, "not yet implemented: %s(%s, %s)", node.getType(), left.getType(), right.getType());
-                function = "greaterThanOrEqual";
-                break;
-            default:
-                throw new UnsupportedOperationException(format("not yet implemented: %s(%s, %s)", node.getType(), left.getType(), right.getType()));
-        }
-
-        LabelNode end = new LabelNode("end");
-        Block block = new Block(context)
-                .comment(node.toString());
-
-        block.append(left.getNode());
-        block.append(ifWasNullPopAndGoto(context, end, boolean.class, left.getType()));
-
-        block.append(right.getNode());
-        block.append(ifWasNullPopAndGoto(context, end, boolean.class, type, right.getType()));
-
-        block.invokeStatic(Operations.class, function, boolean.class, type, type);
-        return typedByteCodeNode(block.visitLabel(end), boolean.class);
+        return visitFunctionBinding(context, functionBinding, node.toString());
     }
 
-    private TypedByteCodeNode visitIsDistinctFrom(ComparisonExpression node, CompilerContext context)
+    private ByteCodeNode visitIsDistinctFrom(ComparisonExpression node, CompilerContext context)
     {
-        TypedByteCodeNode left = process(node.getLeft(), context);
-        TypedByteCodeNode right = process(node.getRight(), context);
+        Type leftType = expressionTypes.get(node.getLeft());
+        Type rightType = expressionTypes.get(node.getRight());
 
-        Class<?> type = getType(left, right);
-        if (type == void.class) {
-            // both left and right are literal nulls, which are not "distinct from" each other
-            return typedByteCodeNode(loadBoolean(false), boolean.class);
-        }
+        FunctionBinding functionBinding = bootstrapFunctionBinder.bindOperator(
+                OperatorType.EQUAL,
+                getSessionByteCode,
+                ImmutableList.<ByteCodeNode>of(NOP, NOP),
+                ImmutableList.of(leftType, rightType));
+
+        ByteCodeNode equalsCall = new Block(context).comment("equals(%s, %s)", leftType, rightType)
+                .invokeDynamic(functionBinding.getName(), functionBinding.getCallSite().type(), functionBinding.getBindingId());
 
         Block block = new Block(context)
                 .comment(node.toString())
                 .comment("left")
-                .append(left.getNode())
-                .getVariable("wasNull")
-                .comment("clear was null")
-                .putVariable("wasNull", false)
-                .comment("right")
-                .append(right.getNode())
-                .getVariable("wasNull")
-                .comment("clear was null")
-                .putVariable("wasNull", false)
-                .invokeStatic(Operations.class, "isDistinctFrom", boolean.class, type, boolean.class, type, boolean.class);
+                .append(process(node.getLeft(), context))
+                .append(new IfStatement(context,
+                        new Block(context).getVariable("wasNull"),
+                        new Block(context)
+                                .pop(leftType.getJavaType())
+                                .putVariable("wasNull", false)
+                                .comment("right is not null")
+                                .append(process(node.getRight(), context))
+                                .pop(rightType.getJavaType())
+                                .getVariable("wasNull")
+                                .invokeStatic(CompilerOperations.class, "not", boolean.class, boolean.class),
+                        new Block(context)
+                                .comment("right")
+                                .append(process(node.getRight(), context))
+                                .append(new IfStatement(context,
+                                        new Block(context).getVariable("wasNull"),
+                                        new Block(context)
+                                                .pop(leftType.getJavaType())
+                                                .pop(rightType.getJavaType())
+                                                .push(true),
+                                        new Block(context)
+                                                .append(equalsCall)
+                                                .invokeStatic(CompilerOperations.class, "not", boolean.class, boolean.class)))))
+                .putVariable("wasNull", false);
 
-        return typedByteCodeNode(block, boolean.class);
+        return block;
     }
 
     @Override
-    protected TypedByteCodeNode visitBetweenPredicate(BetweenPredicate node, CompilerContext context)
+    protected ByteCodeNode visitBetweenPredicate(BetweenPredicate node, CompilerContext context)
     {
-        TypedByteCodeNode value = process(node.getValue(), context);
-        if (value.getType() == void.class) {
-            return value;
-        }
+        ByteCodeNode value = process(node.getValue(), context);
+        ByteCodeNode min = process(node.getMin(), context);
+        ByteCodeNode max = process(node.getMax(), context);
 
-        TypedByteCodeNode min = process(node.getMin(), context);
-        if (min.getType() == void.class) {
-            return min;
-        }
+        FunctionBinding functionBinding = bootstrapFunctionBinder.bindOperator(
+                OperatorType.BETWEEN,
+                getSessionByteCode,
+                ImmutableList.of(value, min, max),
+                types(node.getValue(), node.getMin(), node.getMax()));
 
-        TypedByteCodeNode max = process(node.getMax(), context);
-        if (max.getType() == void.class) {
-            return max;
-        }
-
-        Class<?> type = getType(value, min, max);
-
-        LabelNode end = new LabelNode("end");
-        Block block = new Block(context)
-                .comment(node.toString());
-
-        block.append(value.getNode());
-        block.append(ifWasNullPopAndGoto(context, end, boolean.class, type));
-
-        block.append(min.getNode());
-        block.append(ifWasNullPopAndGoto(context, end, boolean.class, type, type));
-
-        block.append(max.getNode());
-        block.append(ifWasNullPopAndGoto(context, end, boolean.class, type, type, type));
-
-        block.invokeStatic(Operations.class, "between", boolean.class, type, type, type);
-        return typedByteCodeNode(block.visitLabel(end), boolean.class);
+        return visitFunctionBinding(context, functionBinding, node.toString());
     }
 
     @Override
-    protected TypedByteCodeNode visitIsNullPredicate(IsNullPredicate node, CompilerContext context)
+    protected ByteCodeNode visitIsNullPredicate(IsNullPredicate node, CompilerContext context)
     {
-        TypedByteCodeNode value = process(node.getValue(), context);
-        if (value.getType() == void.class) {
-            return typedByteCodeNode(loadBoolean(true), boolean.class);
+        Type valueType = expressionTypes.get(node.getValue());
+        if (valueType.equals(NULL)) {
+            return loadBoolean(true);
         }
+
+        ByteCodeNode value = process(node.getValue(), context);
 
         // evaluate the expression, pop the produced value, and load the null flag
         Block block = new Block(context)
                 .comment(node.toString())
-                .append(value.getNode())
-                .pop(value.getType())
+                .append(value)
+                .pop(valueType.getJavaType())
                 .getVariable("wasNull");
 
         // clear the null flag
         block.putVariable("wasNull", false);
 
-        return typedByteCodeNode(block, boolean.class);
+        return block;
     }
 
     @Override
-    protected TypedByteCodeNode visitSearchedCaseExpression(SearchedCaseExpression node, final CompilerContext context)
+    protected ByteCodeNode visitSearchedCaseExpression(SearchedCaseExpression node, final CompilerContext context)
     {
         Type type = expressionTypes.get(node);
-        TypedByteCodeNode elseValue;
+        ByteCodeNode elseValue;
         if (node.getDefaultValue() != null) {
             elseValue = process(node.getDefaultValue(), context);
         }
@@ -780,33 +654,28 @@ public class ByteCodeExpressionVisitor
 
         // reverse list because current if statement builder doesn't support if/else so we need to build the if statements bottom up
         for (TypedWhenClause whenClause : Lists.reverse(new ArrayList<>(whenClauses))) {
-            if (whenClause.condition.getType() == void.class) {
-                continue;
-            }
-            checkState(whenClause.condition.getType() == boolean.class);
-
             // if conditionValue and conditionValue was not null
             Block condition = new Block(context)
-                    .append(whenClause.condition.getNode())
+                    .append(whenClause.operandBlock)
                     .comment("... and condition value was not null")
                     .getVariable("wasNull")
-                    .invokeStatic(Operations.class, "not", boolean.class, boolean.class)
-                    .invokeStatic(Operations.class, "and", boolean.class, boolean.class, boolean.class)
+                    .invokeStatic(CompilerOperations.class, "not", boolean.class, boolean.class)
+                    .invokeStatic(CompilerOperations.class, "and", boolean.class, boolean.class, boolean.class)
                     .putVariable("wasNull", false);
 
-            elseValue = typedByteCodeNode(new IfStatement(context, condition, whenClause.value.getNode(), elseValue.getNode()), type);
+            elseValue = new IfStatement(context, condition, whenClause.valueBlock, elseValue);
         }
 
         return elseValue;
     }
 
     @Override
-    protected TypedByteCodeNode visitSimpleCaseExpression(SimpleCaseExpression node, final CompilerContext context)
+    protected ByteCodeNode visitSimpleCaseExpression(SimpleCaseExpression node, final CompilerContext context)
     {
         // process value, else, and all when clauses
-        TypedByteCodeNode value = process(node.getOperand(), context);
+        ByteCodeNode value = process(node.getOperand(), context);
         Type type = expressionTypes.get(node);
-        TypedByteCodeNode elseValue;
+        ByteCodeNode elseValue;
         if (node.getDefaultValue() != null) {
             elseValue = process(node.getDefaultValue(), context);
         }
@@ -824,155 +693,157 @@ public class ByteCodeExpressionVisitor
         }));
 
         // determine the type of the value and result
-        Class<?> valueType = getType(ImmutableList.<TypedByteCodeNode>builder().addAll(transform(whenClauses, whenConditionGetter())).add(value).build());
-        Class<?> resultType = getType(ImmutableList.<TypedByteCodeNode>builder().addAll(transform(whenClauses, whenValueGetter())).add(elseValue).build());
-
-        if (value.getType() == void.class) {
-            return elseValue;
-        }
+        Class<?> valueType = expressionTypes.get(node.getOperand()).getJavaType();
 
         // evaluate the value and store it in a variable
         LabelNode nullValue = new LabelNode("nullCondition");
         Variable tempVariable = context.createTempVariable(valueType);
         Block block = new Block(context)
-                .append(value.getNode())
+                .append(value)
                 .append(ifWasNullClearPopAndGoto(context, nullValue, void.class, valueType))
                 .putVariable(tempVariable.getLocalVariableDefinition());
 
+        ByteCodeNode getTempVariableNode = VariableInstruction.loadVariable(tempVariable.getLocalVariableDefinition());
+
         // build the statements
-        elseValue = typedByteCodeNode(new Block(context).visitLabel(nullValue).append(elseValue.getNode()), resultType);
+        elseValue = new Block(context).visitLabel(nullValue).append(elseValue);
         // reverse list because current if statement builder doesn't support if/else so we need to build the if statements bottom up
         for (TypedWhenClause whenClause : Lists.reverse(new ArrayList<>(whenClauses))) {
-            LabelNode nullCondition = new LabelNode("nullCondition");
+            FunctionBinding functionBinding = bootstrapFunctionBinder.bindOperator(
+                    OperatorType.EQUAL,
+                    getSessionByteCode,
+                    ImmutableList.of(whenClause.operandBlock, getTempVariableNode),
+                    types(whenClause.operand, node.getOperand()));
+            ByteCodeNode equalsCall = visitFunctionBinding(context, functionBinding, whenClause.operand.toString());
+
             Block condition = new Block(context)
-                    .append(whenClause.condition.getNode())
-                    .append(ifWasNullPopAndGoto(context, nullCondition, boolean.class, valueType))
-                    .getVariable(tempVariable.getLocalVariableDefinition())
-                    .invokeStatic(Operations.class, "equal", boolean.class, valueType, valueType)
-                    .visitLabel(nullCondition)
+                    .append(equalsCall)
                     .putVariable("wasNull", false);
 
-            elseValue = typedByteCodeNode(new IfStatement(context,
-                    format("when %s", whenClause),
+            elseValue = new IfStatement(context,
+                    format("when %s", whenClause.operand),
                     condition,
-                    whenClause.value.getNode(),
-                    elseValue.getNode()), resultType);
+                    whenClause.valueBlock,
+                    elseValue);
         }
 
-        return typedByteCodeNode(block.append(elseValue.getNode()), resultType);
+        return block.append(elseValue);
     }
 
     @Override
-    protected TypedByteCodeNode visitNullIfExpression(NullIfExpression node, CompilerContext context)
+    protected ByteCodeNode visitNullIfExpression(NullIfExpression node, CompilerContext context)
     {
-        TypedByteCodeNode first = process(node.getFirst(), context);
-        TypedByteCodeNode second = process(node.getSecond(), context);
-        if (first.getType() == void.class) {
-            return first;
-        }
-
-        Class<?> comparisonType = getType(first, second);
+        ByteCodeNode first = process(node.getFirst(), context);
+        Type firstType = expressionTypes.get(node.getFirst());
+        ByteCodeNode second = process(node.getSecond(), context);
 
         LabelNode notMatch = new LabelNode("notMatch");
+
+        // push first arg on the stack
         Block block = new Block(context)
                 .comment(node.toString())
-                .append(first.getNode())
-                .append(ifWasNullPopAndGoto(context, notMatch, void.class))
-                .append(typedByteCodeNode(new Block(context).dup(first.getType()), first.getType()).getNode())
-                .append(second.getNode())
-                .append(ifWasNullClearPopAndGoto(context, notMatch, void.class, comparisonType, comparisonType));
+                .append(first)
+                .append(ifWasNullPopAndGoto(context, notMatch, void.class));
+
+        // if (equal(dupe(first), second)
+        FunctionBinding functionBinding = bootstrapFunctionBinder.bindOperator(
+                OperatorType.EQUAL,
+                getSessionByteCode,
+                ImmutableList.of(new Block(context).dup(firstType.getJavaType()), second),
+                types(node.getFirst(), node.getSecond()));
+        ByteCodeNode equalsCall = visitFunctionBinding(context, functionBinding, "equal");
 
         Block conditionBlock = new Block(context)
-                .invokeStatic(Operations.class, "equal", boolean.class, comparisonType, comparisonType);
+                .append(equalsCall)
+                .append(ifWasNullClearPopAndGoto(context, notMatch, void.class, boolean.class));
 
+        // if first and second are equal, return null
         Block trueBlock = new Block(context)
                 .putVariable("wasNull", true)
-                .pop(first.getType())
-                .pushJavaDefault(first.getType());
+                .pop(firstType.getJavaType())
+                .pushJavaDefault(firstType.getJavaType());
 
+        // else return first (which is still on the stack
         block.append(new IfStatement(context, conditionBlock, trueBlock, notMatch));
 
-        return typedByteCodeNode(block, first.getType());
+        return block;
     }
 
     @Override
-    protected TypedByteCodeNode visitCoalesceExpression(CoalesceExpression node, CompilerContext context)
+    protected ByteCodeNode visitCoalesceExpression(CoalesceExpression node, CompilerContext context)
     {
-        List<TypedByteCodeNode> operands = new ArrayList<>();
+        List<ByteCodeNode> operands = new ArrayList<>();
         for (Expression expression : node.getOperands()) {
             operands.add(process(expression, context));
         }
 
-        Class<?> type = getType(operands);
+        Class<?> type = expressionTypes.get(node).getJavaType();
 
-        TypedByteCodeNode nullValue = typedNull(context, type);
+        ByteCodeNode nullValue = typedNull(context, type);
         // reverse list because current if statement builder doesn't support if/else so we need to build the if statements bottom up
-        for (TypedByteCodeNode operand : Lists.reverse(operands)) {
+        for (ByteCodeNode operand : Lists.reverse(operands)) {
             Block condition = new Block(context)
-                    .append(operand.getNode())
+                    .append(operand)
                     .getVariable("wasNull");
 
             // if value was null, pop the null value, clear the null flag, and process the next operand
             Block nullBlock = new Block(context)
                     .pop(type)
                     .putVariable("wasNull", false)
-                    .append(nullValue.getNode());
+                    .append(nullValue);
 
-            nullValue = typedByteCodeNode(new IfStatement(context, condition, nullBlock, NOP), type);
+            nullValue = new IfStatement(context, condition, nullBlock, NOP);
         }
 
-        return typedByteCodeNode(nullValue.getNode(), type);
+        return nullValue;
     }
 
     @Override
-    protected TypedByteCodeNode visitInPredicate(InPredicate node, CompilerContext context)
+    protected ByteCodeNode visitInPredicate(InPredicate node, CompilerContext context)
     {
         Expression valueListExpression = node.getValueList();
         if (!(valueListExpression instanceof InListExpression)) {
             throw new UnsupportedOperationException("Compilation of IN subquery is not supported yet");
         }
 
-        TypedByteCodeNode value = process(node.getValue(), context);
-        if (value.getType() == void.class) {
-            return value;
-        }
+        ByteCodeNode value = process(node.getValue(), context);
 
-        ImmutableList.Builder<TypedByteCodeNode> values = ImmutableList.builder();
+        ImmutableList.Builder<ByteCodeNode> values = ImmutableList.builder();
         InListExpression valueList = (InListExpression) valueListExpression;
         for (Expression test : valueList.getValues()) {
-            TypedByteCodeNode testNode = process(test, context);
+            ByteCodeNode testNode = process(test, context);
             values.add(testNode);
         }
 
-        Class<?> type = getType(ImmutableList.<TypedByteCodeNode>builder()
-                .add(value)
-                .addAll(values.build()).build());
+        Type type = expressionTypes.get(node.getValue());
+        Class<?> javaType = type.getJavaType();
 
-        ImmutableListMultimap.Builder<Integer, TypedByteCodeNode> hashBucketsBuilder = ImmutableListMultimap.builder();
-        ImmutableList.Builder<TypedByteCodeNode> defaultBucket = ImmutableList.builder();
+        FunctionBinding hashCodeFunction = bootstrapFunctionBinder.bindOperator(
+                OperatorType.HASH_CODE,
+                getSessionByteCode,
+                ImmutableList.<ByteCodeNode>of(NOP),
+                ImmutableList.of(type));
+
+        ImmutableListMultimap.Builder<Integer, ByteCodeNode> hashBucketsBuilder = ImmutableListMultimap.builder();
+        ImmutableList.Builder<ByteCodeNode> defaultBucket = ImmutableList.builder();
         ImmutableSet.Builder<Object> constantValuesBuilder = ImmutableSet.builder();
-        for (TypedByteCodeNode testNode : values.build()) {
-            if (testNode.getNode() instanceof Constant) {
-                Constant constant = (Constant) testNode.getNode();
+        for (ByteCodeNode testNode : values.build()) {
+            if (testNode instanceof Constant) {
+                Constant constant = (Constant) testNode;
                 Object testValue = constant.getValue();
                 constantValuesBuilder.add(testValue);
-                int hashCode;
-                if (type == boolean.class) {
+
+                if (javaType == boolean.class) {
                     // boolean constant is actually an integer type
-                    hashCode = Operations.hashCode(((Number) testValue).intValue() != 0);
+                    testValue = ((Number) testValue).intValue() != 0;
                 }
-                else if (type == long.class) {
-                    hashCode = Operations.hashCode((long) testValue);
+
+                int hashCode;
+                try {
+                    hashCode = (int) hashCodeFunction.getCallSite().dynamicInvoker().invoke(testValue);
                 }
-                else if (type == double.class) {
-                    hashCode = Operations.hashCode(((Number) testValue).doubleValue());
-                }
-                else if (type == Slice.class) {
-                    hashCode = Operations.hashCode((Slice) testValue);
-                }
-                else {
-                    // SQL nulls are not currently encoded as constants, if they are one day, this code will need to be modified
-                    throw new IllegalStateException("Error processing in statement: unsupported type " + testValue.getClass().getSimpleName());
+                catch (Throwable throwable) {
+                    throw new IllegalArgumentException("Error processing IN statement: error calculating hash code for " + testValue, throwable);
                 }
 
                 hashBucketsBuilder.put(hashCode, testNode);
@@ -981,7 +852,7 @@ public class ByteCodeExpressionVisitor
                 defaultBucket.add(testNode);
             }
         }
-        ImmutableListMultimap<Integer, TypedByteCodeNode> hashBuckets = hashBucketsBuilder.build();
+        ImmutableListMultimap<Integer, ByteCodeNode> hashBuckets = hashBucketsBuilder.build();
         ImmutableSet<Object> constantValues = constantValuesBuilder.build();
 
         LabelNode end = new LabelNode("end");
@@ -994,10 +865,10 @@ public class ByteCodeExpressionVisitor
         if (constantValues.size() < 1000) {
             Block switchCaseBlocks = new Block(context);
             LookupSwitchBuilder switchBuilder = lookupSwitchBuilder();
-            for (Entry<Integer, Collection<TypedByteCodeNode>> bucket : hashBuckets.asMap().entrySet()) {
+            for (Entry<Integer, Collection<ByteCodeNode>> bucket : hashBuckets.asMap().entrySet()) {
                 LabelNode label = new LabelNode("inHash" + bucket.getKey());
                 switchBuilder.addCase(bucket.getKey(), label);
-                Collection<TypedByteCodeNode> testValues = bucket.getValue();
+                Collection<ByteCodeNode> testValues = bucket.getValue();
 
                 Block caseBlock = buildInCase(context, type, label, match, defaultLabel, testValues, false);
                 switchCaseBlocks
@@ -1007,8 +878,8 @@ public class ByteCodeExpressionVisitor
 
             switchBlock = new Block(context)
                     .comment("lookupSwitch(hashCode(<stackValue>))")
-                    .dup(type)
-                    .invokeStatic(Operations.class, "hashCode", int.class, type)
+                    .dup(javaType)
+                    .invokeDynamic(hashCodeFunction.getName(), hashCodeFunction.getCallSite().type(), hashCodeFunction.getBindingId())
                     .append(switchBuilder.build())
                     .append(switchCaseBlocks);
         }
@@ -1017,13 +888,13 @@ public class ByteCodeExpressionVisitor
             FunctionBinding functionBinding = bootstrapFunctionBinder.bindFunction(
                     "in",
                     getSessionByteCode,
-                    ImmutableList.<TypedByteCodeNode>of(),
-                    new InFunctionBinder(type, constantValues));
+                    ImmutableList.<ByteCodeNode>of(),
+                    new InFunctionBinder(javaType, constantValues));
 
             switchBlock = new Block(context)
                     .comment("inListSet.contains(<stackValue>)")
                     .append(new IfStatement(context,
-                            new Block(context).dup(type).invokeDynamic(functionBinding.getName(), functionBinding.getCallSite().type(), functionBinding.getBindingId()),
+                            new Block(context).dup(javaType).invokeDynamic(functionBinding.getName(), functionBinding.getCallSite().type(), functionBinding.getBindingId()),
                             jump(match),
                             NOP));
         }
@@ -1032,15 +903,15 @@ public class ByteCodeExpressionVisitor
 
         Block block = new Block(context)
                 .comment(node.toString())
-                .append(value.getNode())
-                .append(ifWasNullPopAndGoto(context, end, boolean.class, type))
+                .append(value)
+                .append(ifWasNullPopAndGoto(context, end, boolean.class, javaType))
                 .append(switchBlock)
                 .append(defaultCaseBlock);
 
         Block matchBlock = new Block(context)
                 .setDescription("match")
                 .visitLabel(match)
-                .pop(type)
+                .pop(javaType)
                 .putVariable("wasNull", false)
                 .push(true)
                 .gotoLabel(end);
@@ -1049,22 +920,22 @@ public class ByteCodeExpressionVisitor
         Block noMatchBlock = new Block(context)
                 .setDescription("noMatch")
                 .visitLabel(noMatch)
-                .pop(type)
+                .pop(javaType)
                 .push(false)
                 .gotoLabel(end);
         block.append(noMatchBlock);
 
         block.visitLabel(end);
 
-        return typedByteCodeNode(block, boolean.class);
+        return block;
     }
 
     private Block buildInCase(CompilerContext context,
-            Class<?> type,
+            Type type,
             LabelNode caseLabel,
             LabelNode matchLabel,
             LabelNode noMatchLabel,
-            Collection<TypedByteCodeNode> testValues,
+            Collection<ByteCodeNode> testValues,
             boolean checkForNulls)
     {
         Variable caseWasNull = null;
@@ -1090,22 +961,28 @@ public class ByteCodeExpressionVisitor
 
         elseBlock.gotoLabel(noMatchLabel);
 
+        FunctionBinding equalsFunction = bootstrapFunctionBinder.bindOperator(
+                OperatorType.EQUAL,
+                getSessionByteCode,
+                ImmutableList.<ByteCodeNode>of(NOP, NOP),
+                ImmutableList.of(type, type));
+
         ByteCodeNode elseNode = elseBlock;
-        for (TypedByteCodeNode testNode : testValues) {
+        for (ByteCodeNode testNode : testValues) {
             LabelNode testLabel = new LabelNode("test");
             IfStatementBuilder test = ifStatementBuilder(context);
 
             Block condition = new Block(context)
                     .visitLabel(testLabel)
-                    .dup(type)
-                    .append(testNode.getNode());
+                    .dup(type.getJavaType())
+                    .append(testNode);
 
             if (checkForNulls) {
                 condition.getVariable("wasNull")
                         .putVariable(caseWasNull.getLocalVariableDefinition())
-                        .append(ifWasNullPopAndGoto(context, elseLabel, void.class, type, type));
+                        .append(ifWasNullPopAndGoto(context, elseLabel, void.class, type.getJavaType(), type.getJavaType()));
             }
-            condition.invokeStatic(Operations.class, "equal", boolean.class, type, type);
+            condition.invokeDynamic(equalsFunction.getName(), equalsFunction.getCallSite().type(), equalsFunction.getBindingId());
             test.condition(condition);
 
             test.ifTrue(new Block(context).gotoLabel(matchLabel));
@@ -1119,7 +996,7 @@ public class ByteCodeExpressionVisitor
     }
 
     @Override
-    protected TypedByteCodeNode visitExpression(Expression node, CompilerContext context)
+    protected ByteCodeNode visitExpression(Expression node, CompilerContext context)
     {
         throw new UnsupportedOperationException(format("Compilation of %s not supported yet", node.getClass().getSimpleName()));
     }
@@ -1177,72 +1054,14 @@ public class ByteCodeExpressionVisitor
         return new IfStatement(context, comment, nullCheck, isNull, NOP);
     }
 
-    private TypedByteCodeNode typedNull(CompilerContext context, Class<?> type)
+    private ByteCodeNode typedNull(CompilerContext context, Class<?> type)
     {
-        return typedByteCodeNode(new Block(context).putVariable("wasNull", true).pushJavaDefault(type), type);
+        return new Block(context).putVariable("wasNull", true).pushJavaDefault(type);
     }
 
-    private Class<?> getType(TypedByteCodeNode... nodes)
+    private List<Type> types(Expression... types)
     {
-        return getType(ImmutableList.copyOf(nodes));
-    }
-
-    private Class<?> getType(Iterable<TypedByteCodeNode> nodes)
-    {
-        Set<Class<?>> types = IterableTransformer.on(nodes)
-                .transform(nodeTypeGetter())
-                .select(not(Predicates.<Class<?>>equalTo(void.class)))
-                .set();
-
-        if (types.isEmpty()) {
-            return void.class;
-        }
-        if (types.equals(ImmutableSet.of(double.class, long.class))) {
-            return double.class;
-        }
-        checkState(types.size() == 1, "Expected only one type but found %s", types);
-        return Iterables.getOnlyElement(types);
-    }
-
-    private static boolean isNumber(Class<?> type)
-    {
-        return type == long.class || type == double.class;
-    }
-
-    private static Function<TypedByteCodeNode, Class<?>> nodeTypeGetter()
-    {
-        return new Function<TypedByteCodeNode, Class<?>>()
-        {
-            @Override
-            public Class<?> apply(TypedByteCodeNode node)
-            {
-                return node.getType();
-            }
-        };
-    }
-
-    private static Function<TypedWhenClause, TypedByteCodeNode> whenConditionGetter()
-    {
-        return new Function<TypedWhenClause, TypedByteCodeNode>()
-        {
-            @Override
-            public TypedByteCodeNode apply(TypedWhenClause when)
-            {
-                return when.condition;
-            }
-        };
-    }
-
-    private static Function<TypedWhenClause, TypedByteCodeNode> whenValueGetter()
-    {
-        return new Function<TypedWhenClause, TypedByteCodeNode>()
-        {
-            @Override
-            public TypedByteCodeNode apply(TypedWhenClause when)
-            {
-                return when.value;
-            }
-        };
+        return ImmutableList.copyOf(transform(ImmutableList.copyOf(types), Functions.forMap(expressionTypes)));
     }
 
     public static class InFunctionBinder
@@ -1269,7 +1088,7 @@ public class ByteCodeExpressionVisitor
         }
 
         @Override
-        public FunctionBinding bindFunction(long bindingId, String name, ByteCodeNode getSessionByteCode, List<TypedByteCodeNode> arguments)
+        public FunctionBinding bindFunction(long bindingId, String name, ByteCodeNode getSessionByteCode, List<ByteCodeNode> arguments)
         {
             MethodHandle methodHandle = inMethod.bindTo(constantValues);
             methodHandle = methodHandle.asType(MethodType.methodType(boolean.class, valueType));
@@ -1284,13 +1103,17 @@ public class ByteCodeExpressionVisitor
 
     private class TypedWhenClause
     {
-        private final TypedByteCodeNode condition;
-        private final TypedByteCodeNode value;
+        private final Expression operand;
+        private final ByteCodeNode operandBlock;
+        private final Expression result;
+        private final ByteCodeNode valueBlock;
 
         private TypedWhenClause(CompilerContext context, WhenClause whenClause)
         {
-            this.condition = process(whenClause.getOperand(), context);
-            this.value = process(whenClause.getResult(), context);
+            operand = whenClause.getOperand();
+            this.operandBlock = process(operand, context);
+            result = whenClause.getResult();
+            this.valueBlock = process(result, context);
         }
     }
 }

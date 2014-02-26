@@ -39,28 +39,28 @@ public class DefaultFunctionBinder
         this.nullable = nullable;
     }
 
-    public FunctionBinding bindFunction(long bindingId, String name, ByteCodeNode getSessionByteCode, List<TypedByteCodeNode> arguments)
+    public FunctionBinding bindFunction(long bindingId, String name, ByteCodeNode getSessionByteCode, List<ByteCodeNode> arguments)
     {
         return bindConstantArguments(bindingId, name, getSessionByteCode, arguments, this.methodHandle, nullable);
     }
 
-    public static FunctionBinding bindConstantArguments(long bindingId, String name, ByteCodeNode getSessionByteCode, List<TypedByteCodeNode> arguments, MethodHandle methodHandle, boolean nullable)
+    public static FunctionBinding bindConstantArguments(long bindingId, String name, ByteCodeNode getSessionByteCode, List<ByteCodeNode> arguments, MethodHandle methodHandle, boolean nullable)
     {
-        Builder<TypedByteCodeNode> unboundArguments = ImmutableList.builder();
+        Builder<ByteCodeNode> unboundArguments = ImmutableList.builder();
 
         int argIndex = 0;
 
         // bind session
         if (methodHandle.type().parameterCount() > 0 && methodHandle.type().parameterType(0) == Session.class) {
-            unboundArguments.add(TypedByteCodeNode.typedByteCodeNode(getSessionByteCode, Session.class));
+            unboundArguments.add(getSessionByteCode);
             argIndex++;
         }
 
-        for (TypedByteCodeNode argument : arguments) {
-            ByteCodeNode node = argument.getNode();
+        for (ByteCodeNode argument : arguments) {
+            ByteCodeNode node = argument;
             if (node instanceof Constant) {
                 Object value = ((Constant) node).getValue();
-                if (argument.getType() == boolean.class) {
+                if (methodHandle.type().parameterType(argIndex) == boolean.class) {
                     checkArgument(value instanceof Integer, "boolean should be represented as an integer");
                     value = (((Integer) value) != 0);
                 }
