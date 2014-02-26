@@ -22,11 +22,13 @@ import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.ExpressionTreeRewriter;
 import com.facebook.presto.sql.tree.Input;
 import com.facebook.presto.type.Type;
+import com.google.common.collect.ImmutableMap;
 
 import java.util.IdentityHashMap;
 import java.util.Map;
+import java.util.Map.Entry;
 
-import static com.facebook.presto.sql.analyzer.ExpressionAnalyzer.getExpressionTypes;
+import static com.facebook.presto.sql.analyzer.ExpressionAnalyzer.getExpressionTypesFromInput;
 import static java.lang.Boolean.TRUE;
 
 public class InterpretedFilterFunction
@@ -36,11 +38,16 @@ public class InterpretedFilterFunction
 
     public InterpretedFilterFunction(Expression predicate, Map<Symbol, Type> symbolTypes, Map<Symbol, Input> symbolToInputMappings, Metadata metadata, Session session)
     {
-        // analyze expression so we can know the type of every expression in the tree
-        IdentityHashMap<Expression, Type> expressionTypes = getExpressionTypes(session, metadata, symbolTypes, predicate);
-
         // pre-compute symbol -> input mappings and replace the corresponding nodes in the tree
         Expression rewritten = ExpressionTreeRewriter.rewriteWith(new SymbolToInputRewriter(symbolToInputMappings), predicate);
+
+        // analyze expression so we can know the type of every expression in the tree
+        ImmutableMap.Builder<Input, Type> inputTypes = ImmutableMap.builder();
+        for (Entry<Symbol, Type> entry : symbolTypes.entrySet()) {
+            inputTypes.put(symbolToInputMappings.get(entry.getKey()), entry.getValue());
+        }
+        IdentityHashMap<Expression, Type> expressionTypes = getExpressionTypesFromInput(session, metadata, inputTypes.build(), rewritten);
+
         evaluator = ExpressionInterpreter.expressionInterpreter(rewritten, metadata, session, expressionTypes);
     }
 

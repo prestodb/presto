@@ -16,10 +16,9 @@ package com.facebook.presto.sql.planner;
 import com.facebook.presto.block.BlockCursor;
 import com.facebook.presto.metadata.FunctionInfo;
 import com.facebook.presto.metadata.Metadata;
-import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.metadata.OperatorInfo;
+import com.facebook.presto.metadata.OperatorInfo.OperatorType;
 import com.facebook.presto.spi.RecordCursor;
-import com.facebook.presto.spi.StandardErrorCode;
-import com.facebook.presto.sql.Casts;
 import com.facebook.presto.sql.analyzer.Session;
 import com.facebook.presto.sql.tree.ArithmeticExpression;
 import com.facebook.presto.sql.tree.AstVisitor;
@@ -49,9 +48,12 @@ import com.facebook.presto.sql.tree.SimpleCaseExpression;
 import com.facebook.presto.sql.tree.StringLiteral;
 import com.facebook.presto.sql.tree.WhenClause;
 import com.facebook.presto.type.Type;
+import com.facebook.presto.type.Types;
 import com.google.common.base.Charsets;
+import com.google.common.base.Functions;
 import com.google.common.base.Predicate;
 import com.google.common.base.Throwables;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
@@ -258,24 +260,15 @@ public class ExpressionInterpreter
             if (operand != null) {
                 for (WhenClause whenClause : node.getWhenClauses()) {
                     Object value = process(whenClause.getOperand(), context);
+                    if (value == null) {
+                        continue;
+                    }
                     if (value instanceof Expression) {
                         // TODO: optimize this case
                         return node;
                     }
 
-                    if (operand instanceof Long && value instanceof Long) {
-                        if (((Long) operand).longValue() == ((Long) value).longValue()) {
-                            resultClause = whenClause.getResult();
-                            break;
-                        }
-                    }
-                    else if (operand instanceof Double && value instanceof Double) {
-                        if (((Double) operand).doubleValue() == ((Double) value).doubleValue()) {
-                            resultClause = whenClause.getResult();
-                            break;
-                        }
-                    }
-                    else if (operand.equals(value)) {
+                    if ((Boolean) invokeOperator(OperatorType.EQUAL, types(node.getOperand(), whenClause.getOperand()), ImmutableList.of(operand, value))) {
                         resultClause = whenClause.getResult();
                         break;
                     }
@@ -368,7 +361,7 @@ public class ExpressionInterpreter
                 if (inValue == null) {
                     hasNullValue = true;
                 }
-                else if (!found && value.equals(inValue)) {
+                else if (!found && (Boolean) invokeOperator(OperatorType.EQUAL, types(node.getValue(), expression), ImmutableList.of(value, inValue))) {
                     // in does not short-circuit so we must evaluate all value in the list
                     found = true;
                 }
@@ -398,10 +391,20 @@ public class ExpressionInterpreter
                 return new NegativeExpression(toExpression(value, expressionTypes.get(node.getValue())));
             }
 
-            if (value instanceof Long) {
-                return -((long) value);
+            OperatorInfo operatorInfo = metadata.resolveOperator(OperatorType.NEGATION, types(node.getValue()));
+
+            MethodHandle handle = operatorInfo.getMethodHandle();
+            if (handle.type().parameterCount() > 0 && handle.type().parameterType(0) == Session.class) {
+                handle = handle.bindTo(session);
             }
-            return -((double) value);
+            try {
+                return handle.invokeWithArguments(value);
+            }
+            catch (Throwable throwable) {
+                Throwables.propagateIfInstanceOf(throwable, RuntimeException.class);
+                Throwables.propagateIfInstanceOf(throwable, Error.class);
+                throw new RuntimeException(throwable.getMessage(), throwable);
+            }
         }
 
         @Override
@@ -416,163 +419,45 @@ public class ExpressionInterpreter
                 return null;
             }
 
-            if (left instanceof Expression || right instanceof Expression) {
+            if (hasUnresolvedValue(left, right)) {
                 return new ArithmeticExpression(node.getType(), toExpression(left, expressionTypes.get(node.getLeft())), toExpression(right, expressionTypes.get(node.getRight())));
             }
 
-            switch (node.getType()) {
-                case ADD:
-                    if (left instanceof Long && right instanceof Long) {
-                        return ((Long) left) + ((Long) right);
-                    }
-                    else if (left instanceof Double && right instanceof Double) {
-                        return ((Double) left) + ((Double) right);
-                    }
-                case SUBTRACT:
-                    if (left instanceof Long && right instanceof Long) {
-                        return ((Long) left) - ((Long) right);
-                    }
-                    else if (left instanceof Double && right instanceof Double) {
-                        return ((Double) left) - ((Double) right);
-                    }
-                case DIVIDE:
-                    if (left instanceof Long && right instanceof Long) {
-                        try {
-                            return ((Long) left) / ((Long) right);
-                        }
-                        catch (ArithmeticException e) {
-                            throw new PrestoException(StandardErrorCode.DIVISION_BY_ZERO.toErrorCode(), e);
-                        }
-                    }
-                    else if (left instanceof Double && right instanceof Double) {
-                        return ((Double) left) / ((Double) right);
-                    }
-                case MULTIPLY:
-                    if (left instanceof Long && right instanceof Long) {
-                        return ((Long) left) * ((Long) right);
-                    }
-                    else if (left instanceof Double && right instanceof Double) {
-                        return ((Double) left) * ((Double) right);
-                    }
-                case MODULUS:
-                    if (left instanceof Long && right instanceof Long) {
-                        try {
-                            return ((Long) left) % ((Long) right);
-                        }
-                        catch (ArithmeticException e) {
-                            throw new PrestoException(StandardErrorCode.DIVISION_BY_ZERO.toErrorCode(), e);
-                        }
-                    }
-                    else if (left instanceof Double && right instanceof Double) {
-                        return (Double) left % ((Double) right);
-                    }
-            }
-            throw new UnsupportedOperationException("not yet implemented: " + node.getType());
+            return invokeOperator(OperatorType.valueOf(node.getType().name()), types(node.getLeft(), node.getRight()), ImmutableList.of(left, right));
         }
 
         @Override
         protected Object visitComparisonExpression(ComparisonExpression node, Object context)
         {
-            if (node.getType() == ComparisonExpression.Type.IS_DISTINCT_FROM) {
-                Object left = process(node.getLeft(), context);
-                Object right = process(node.getRight(), context);
+            ComparisonExpression.Type type = node.getType();
 
+            Object left = process(node.getLeft(), context);
+            if (left == null && !(type == ComparisonExpression.Type.IS_DISTINCT_FROM)) {
+                return null;
+            }
+
+            Object right = process(node.getRight(), context);
+            if (type == ComparisonExpression.Type.IS_DISTINCT_FROM) {
                 if (left == null && right == null) {
                     return false;
                 }
                 else if (left == null || right == null) {
                     return true;
                 }
-                else if (left instanceof Long && right instanceof Long) {
-                    return ((Long) left).longValue() != ((Long) right).longValue();
-                }
-                else if (left instanceof Double && right instanceof Double) {
-                    return ((Double) left).doubleValue() != ((Double) right).doubleValue();
-                }
-                else if (left instanceof Boolean && right instanceof Boolean) {
-                    return !left.equals(right);
-                }
-                else if (left instanceof Slice && right instanceof Slice) {
-                    return !left.equals(right);
-                }
-
-                return new ComparisonExpression(node.getType(), toExpression(left, expressionTypes.get(node.getLeft())), toExpression(right, expressionTypes.get(node.getRight())));
             }
-
-            Object left = process(node.getLeft(), context);
-            if (left == null) {
-                return null;
-            }
-            Object right = process(node.getRight(), context);
-            if (right == null) {
+            else if (right == null) {
                 return null;
             }
 
-            if (left instanceof Long && right instanceof Long) {
-                switch (node.getType()) {
-                    case EQUAL:
-                        return ((Long) left).longValue() == ((Long) right).longValue();
-                    case NOT_EQUAL:
-                        return ((Long) left).longValue() != ((Long) right).longValue();
-                    case LESS_THAN:
-                        return ((Long) left) < ((Long) right);
-                    case LESS_THAN_OR_EQUAL:
-                        return ((Long) left) <= ((Long) right);
-                    case GREATER_THAN:
-                        return ((Long) left) > ((Long) right);
-                    case GREATER_THAN_OR_EQUAL:
-                        return ((Long) left) >= ((Long) right);
-                }
-                throw new UnsupportedOperationException("unhandled type: " + node.getType());
+            if (hasUnresolvedValue(left, right)) {
+                return new ComparisonExpression(type, toExpression(left, expressionTypes.get(node.getLeft())), toExpression(right, expressionTypes.get(node.getRight())));
             }
 
-            if (left instanceof Double && right instanceof Double) {
-                switch (node.getType()) {
-                    case EQUAL:
-                        return ((Double) left).doubleValue() == ((Double) right).doubleValue();
-                    case NOT_EQUAL:
-                        return ((Double) left).doubleValue() != ((Double) right).doubleValue();
-                    case LESS_THAN:
-                        return ((Double) left) < ((Double) right);
-                    case LESS_THAN_OR_EQUAL:
-                        return ((Double) left) <= ((Double) right);
-                    case GREATER_THAN:
-                        return ((Double) left) > ((Double) right);
-                    case GREATER_THAN_OR_EQUAL:
-                        return ((Double) left) >= ((Double) right);
-                }
-                throw new UnsupportedOperationException("unhandled type: " + node.getType());
+            if (type == ComparisonExpression.Type.IS_DISTINCT_FROM) {
+                type = ComparisonExpression.Type.NOT_EQUAL;
             }
 
-            if (left instanceof Slice && right instanceof Slice) {
-                switch (node.getType()) {
-                    case EQUAL:
-                        return left.equals(right);
-                    case NOT_EQUAL:
-                        return !left.equals(right);
-                    case LESS_THAN:
-                        return ((Slice) left).compareTo((Slice) right) < 0;
-                    case LESS_THAN_OR_EQUAL:
-                        return ((Slice) left).compareTo((Slice) right) <= 0;
-                    case GREATER_THAN:
-                        return ((Slice) left).compareTo((Slice) right) > 0;
-                    case GREATER_THAN_OR_EQUAL:
-                        return ((Slice) left).compareTo((Slice) right) >= 0;
-                }
-                throw new UnsupportedOperationException("unhandled type: " + node.getType());
-            }
-
-            if (left instanceof Boolean && right instanceof Boolean) {
-                switch (node.getType()) {
-                    case EQUAL:
-                        return left.equals(right);
-                    case NOT_EQUAL:
-                        return !left.equals(right);
-                }
-                throw new UnsupportedOperationException("unhandled type: " + node.getType());
-            }
-
-            return new ComparisonExpression(node.getType(), toExpression(left, expressionTypes.get(node.getLeft())), toExpression(right, expressionTypes.get(node.getRight())));
+            return invokeOperator(OperatorType.valueOf(type.name()), types(node.getLeft(), node.getRight()), ImmutableList.of(left, right));
         }
 
         @Override
@@ -591,20 +476,14 @@ public class ExpressionInterpreter
                 return null;
             }
 
-            if (value instanceof Long && min instanceof Long && max instanceof Long) {
-                return ((Long) min) <= ((Long) value) && ((Long) value) <= ((Long) max);
-            }
-            else if (value instanceof Double && min instanceof Double && max instanceof Double) {
-                return ((Double) min) <= ((Double) value) && ((Double) value) <= ((Double) max);
-            }
-            else if (value instanceof Slice && min instanceof Slice && max instanceof Slice) {
-                return ((Slice) min).compareTo((Slice) value) <= 0 && ((Slice) value).compareTo((Slice) max) <= 0;
+            if (hasUnresolvedValue(value, min, max)) {
+                return new BetweenPredicate(
+                        toExpression(value, expressionTypes.get(node.getValue())),
+                        toExpression(min, expressionTypes.get(node.getMin())),
+                        toExpression(max, expressionTypes.get(node.getMax())));
             }
 
-            return new BetweenPredicate(
-                    toExpression(value, expressionTypes.get(node.getValue())),
-                    toExpression(min, expressionTypes.get(node.getMin())),
-                    toExpression(max, expressionTypes.get(node.getMax())));
+            return invokeOperator(OperatorType.BETWEEN, types(node.getValue(), node.getMin(), node.getMax()), ImmutableList.of(value, min, max));
         }
 
         @Override
@@ -619,20 +498,16 @@ public class ExpressionInterpreter
                 return first;
             }
 
-            if (first instanceof Long && second instanceof Long) {
-                return ((Long) first).longValue() == ((Long) second).longValue() ? null : first;
-            }
-            else if (first instanceof Double && second instanceof Double) {
-                return ((Double) first).doubleValue() == ((Double) second).doubleValue() ? null : first;
-            }
-            else if (first instanceof Boolean && second instanceof Boolean) {
-                return first.equals(second) ? null : first;
-            }
-            else if (first instanceof Slice && second instanceof Slice) {
-                return first.equals(second) ? null : first;
+            if (hasUnresolvedValue(first, second)) {
+                return new NullIfExpression(toExpression(first, expressionTypes.get(node.getFirst())), toExpression(second, expressionTypes.get(node.getSecond())));
             }
 
-            return new NullIfExpression(toExpression(first, expressionTypes.get(node.getFirst())), toExpression(second, expressionTypes.get(node.getSecond())));
+            if ((Boolean) invokeOperator(OperatorType.EQUAL, types(node.getFirst(), node.getSecond()), ImmutableList.of(first, second))) {
+                return null;
+            }
+            else {
+                return first;
+            }
         }
 
         @Override
@@ -708,24 +583,13 @@ public class ExpressionInterpreter
                 argumentValues.add(value);
                 argumentTypes.add(type);
             }
-            FunctionInfo function = metadata.getFunction(node.getName(), argumentTypes, false);
+            FunctionInfo function = metadata.resolveFunction(node.getName(), argumentTypes, false);
 
             // do not optimize non-deterministic functions
-            if (optimize && (!function.isDeterministic() || any(argumentValues, instanceOf(Expression.class)))) {
+            if (optimize && (!function.isDeterministic() || hasUnresolvedValue(argumentValues))) {
                 return new FunctionCall(node.getName(), node.getWindow().orNull(), node.isDistinct(), toExpressions(argumentValues, argumentTypes));
             }
-            MethodHandle handle = function.getScalarFunction();
-            if (handle.type().parameterCount() > 0 && handle.type().parameterType(0) == Session.class) {
-                handle = handle.bindTo(session);
-            }
-            try {
-                return handle.invokeWithArguments(argumentValues);
-            }
-            catch (Throwable throwable) {
-                Throwables.propagateIfInstanceOf(throwable, RuntimeException.class);
-                Throwables.propagateIfInstanceOf(throwable, Error.class);
-                throw new RuntimeException(throwable.getMessage(), throwable);
-            }
+            return invoke(function.getScalarFunction(), argumentValues);
         }
 
         @Override
@@ -817,18 +681,13 @@ public class ExpressionInterpreter
                 return null;
             }
 
-            switch (node.getType()) {
-                case "BOOLEAN":
-                    return Casts.toBoolean(value);
-                case "VARCHAR":
-                    return Casts.toSlice(value);
-                case "DOUBLE":
-                    return Casts.toDouble(value);
-                case "BIGINT":
-                    return Casts.toLong(value);
+            Type type = Types.fromName(node.getType());
+            if (type == null) {
+                throw new IllegalArgumentException("Unsupported type: " + node.getType());
             }
 
-            throw new UnsupportedOperationException("Unsupported type: " + node.getType());
+            OperatorInfo operatorInfo = metadata.getExactOperator(OperatorType.CAST, type, types(node.getExpression()));
+            return invoke(operatorInfo.getMethodHandle(), ImmutableList.of(value));
         }
 
         @Override
@@ -841,6 +700,42 @@ public class ExpressionInterpreter
         protected Object visitNode(Node node, Object context)
         {
             throw new UnsupportedOperationException("Evaluator visitor can only handle Expression nodes");
+        }
+
+        private List<Type> types(Expression... types)
+        {
+            return ImmutableList.copyOf(Iterables.transform(ImmutableList.copyOf(types), Functions.forMap(expressionTypes)));
+        }
+
+        private boolean hasUnresolvedValue(Object... values)
+        {
+            return hasUnresolvedValue(ImmutableList.copyOf(values));
+        }
+
+        private boolean hasUnresolvedValue(List<Object> values)
+        {
+            return any(values, instanceOf(Expression.class));
+        }
+
+        private Object invokeOperator(OperatorType operatorType, List<? extends Type> argumentTypes, List<Object> argumentValues)
+        {
+            OperatorInfo operatorInfo = metadata.resolveOperator(operatorType, argumentTypes);
+            return invoke(operatorInfo.getMethodHandle(), argumentValues);
+        }
+
+        private Object invoke(MethodHandle handle, List<Object> argumentValues)
+        {
+            if (handle.type().parameterCount() > 0 && handle.type().parameterType(0) == Session.class) {
+                handle = handle.bindTo(session);
+            }
+            try {
+                return handle.invokeWithArguments(argumentValues);
+            }
+            catch (Throwable throwable) {
+                Throwables.propagateIfInstanceOf(throwable, RuntimeException.class);
+                Throwables.propagateIfInstanceOf(throwable, Error.class);
+                throw new RuntimeException(throwable.getMessage(), throwable);
+            }
         }
 
         private Object optimize(Node node, Object context)

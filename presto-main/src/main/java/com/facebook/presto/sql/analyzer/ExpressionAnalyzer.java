@@ -15,6 +15,9 @@ package com.facebook.presto.sql.analyzer;
 
 import com.facebook.presto.metadata.FunctionInfo;
 import com.facebook.presto.metadata.Metadata;
+import com.facebook.presto.metadata.OperatorInfo;
+import com.facebook.presto.metadata.OperatorInfo.OperatorType;
+import com.facebook.presto.metadata.OperatorNotFoundException;
 import com.facebook.presto.sql.planner.DependencyExtractor;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.tree.ArithmeticExpression;
@@ -97,6 +100,7 @@ public class ExpressionAnalyzer
     private final Session session;
     private final Map<QualifiedName, Integer> resolvedNames = new HashMap<>();
     private final IdentityHashMap<FunctionCall, FunctionInfo> resolvedFunctions = new IdentityHashMap<>();
+    private final IdentityHashMap<Expression, OperatorInfo> resolvedOperators = new IdentityHashMap<>();
     private final IdentityHashMap<Expression, Type> expressionTypes = new IdentityHashMap<>();
     private final IdentityHashMap<Expression, Type> expressionCoercions = new IdentityHashMap<>();
     private final Set<InPredicate> subqueryInPredicates = Collections.newSetFromMap(new IdentityHashMap<InPredicate, Boolean>());
@@ -117,6 +121,11 @@ public class ExpressionAnalyzer
     public IdentityHashMap<FunctionCall, FunctionInfo> getResolvedFunctions()
     {
         return resolvedFunctions;
+    }
+
+    public IdentityHashMap<Expression, OperatorInfo> getResolvedOperators()
+    {
+        return resolvedOperators;
     }
 
     public IdentityHashMap<Expression, Type> getExpressionTypes()
@@ -203,7 +212,7 @@ public class ExpressionAnalyzer
         @Override
         protected Type visitNotExpression(NotExpression node, AnalysisContext context)
         {
-            checkType(context, node.getValue(), BOOLEAN, "Value of logical NOT expression");
+            coerceType(context, node.getValue(), BOOLEAN, "Value of logical NOT expression");
 
             expressionTypes.put(node, BOOLEAN);
             return BOOLEAN;
@@ -212,8 +221,8 @@ public class ExpressionAnalyzer
         @Override
         protected Type visitLogicalBinaryExpression(LogicalBinaryExpression node, AnalysisContext context)
         {
-            checkType(context, node.getLeft(), BOOLEAN, "Left side of logical expression");
-            checkType(context, node.getRight(), BOOLEAN, "Right side of logical expression");
+            coerceType(context, node.getLeft(), BOOLEAN, "Left side of logical expression");
+            coerceType(context, node.getRight(), BOOLEAN, "Right side of logical expression");
 
             expressionTypes.put(node, BOOLEAN);
             return BOOLEAN;
@@ -222,10 +231,14 @@ public class ExpressionAnalyzer
         @Override
         protected Type visitComparisonExpression(ComparisonExpression node, AnalysisContext context)
         {
-            checkSameType(context, node, "Types are not comparable with '" + node.getType().getValue() + "': %s vs %s", node.getLeft(), node.getRight());
-
-            expressionTypes.put(node, BOOLEAN);
-            return BOOLEAN;
+            OperatorType operatorType;
+            if (node.getType() == ComparisonExpression.Type.IS_DISTINCT_FROM) {
+                operatorType = OperatorType.EQUAL;
+            }
+            else {
+                operatorType = OperatorType.valueOf(node.getType().name());
+            }
+            return getOperator(context, node, operatorType, node.getLeft(), node.getRight());
         }
 
         @Override
@@ -249,7 +262,7 @@ public class ExpressionAnalyzer
         @Override
         protected Type visitNullIfExpression(NullIfExpression node, AnalysisContext context)
         {
-            Type type = checkSameType(context, node, "Types are not comparable with NULLIF: %s vs %s", node.getFirst(), node.getSecond());
+            Type type = coerceToSingleType(context, node, "Types are not comparable with NULLIF: %s vs %s", node.getFirst(), node.getSecond());
 
             // todo NULLIF should be type of first argument, but that is difficult in current AST based expressions tree
             expressionTypes.put(node, type);
@@ -259,11 +272,11 @@ public class ExpressionAnalyzer
         @Override
         protected Type visitIfExpression(IfExpression node, AnalysisContext context)
         {
-            checkType(context, node.getCondition(), BOOLEAN, "IF condition");
+            coerceType(context, node.getCondition(), BOOLEAN, "IF condition");
 
             Type type;
             if (node.getFalseValue().isPresent()) {
-                type = checkSameType(context, node, "Result types for IF must be the same: %s vs %s", node.getTrueValue(), node.getFalseValue().get());
+                type = coerceToSingleType(context, node, "Result types for IF must be the same: %s vs %s", node.getTrueValue(), node.getFalseValue().get());
             }
             else {
                 type = process(node.getTrueValue(), context);
@@ -277,10 +290,10 @@ public class ExpressionAnalyzer
         protected Type visitSearchedCaseExpression(SearchedCaseExpression node, AnalysisContext context)
         {
             for (WhenClause whenClause : node.getWhenClauses()) {
-                checkType(context, whenClause.getOperand(), BOOLEAN, "CASE WHEN clause");
+                coerceType(context, whenClause.getOperand(), BOOLEAN, "CASE WHEN clause");
             }
 
-            Type type = checkSameType(context,
+            Type type = coerceToSingleType(context,
                     "All CASE results must be the same type: %s",
                     getCaseResultExpressions(node.getWhenClauses(), node.getDefaultValue()));
             expressionTypes.put(node, type);
@@ -292,10 +305,10 @@ public class ExpressionAnalyzer
         protected Type visitSimpleCaseExpression(SimpleCaseExpression node, AnalysisContext context)
         {
             for (WhenClause whenClause : node.getWhenClauses()) {
-                checkSameType(context, node, "CASE operand type does not match WHEN clause operand type: %s vs %s", node.getOperand(), whenClause.getOperand());
+                coerceToSingleType(context, node, "CASE operand type does not match WHEN clause operand type: %s vs %s", node.getOperand(), whenClause.getOperand());
             }
 
-            Type type = checkSameType(context,
+            Type type = coerceToSingleType(context,
                     "All CASE results must be the same type: %s",
                     getCaseResultExpressions(node.getWhenClauses(), node.getDefaultValue()));
             expressionTypes.put(node, type);
@@ -318,7 +331,7 @@ public class ExpressionAnalyzer
         @Override
         protected Type visitCoalesceExpression(CoalesceExpression node, AnalysisContext context)
         {
-            Type type = checkSameType(context, "All COALESCE operands must be the same type: %s", node.getOperands());
+            Type type = coerceToSingleType(context, "All COALESCE operands must be the same type: %s", node.getOperands());
 
             expressionTypes.put(node, type);
             return type;
@@ -327,31 +340,22 @@ public class ExpressionAnalyzer
         @Override
         protected Type visitNegativeExpression(NegativeExpression node, AnalysisContext context)
         {
-            Type type = process(node.getValue(), context);
-            if (!isNumericOrNull(type)) {
-                throw new SemanticException(TYPE_MISMATCH, node.getValue(), "Value of negative operator must be numeric (actual: %s)", type);
-            }
-
-            expressionTypes.put(node, type);
-            return type;
+            return getOperator(context, node, OperatorType.NEGATION, node.getValue());
         }
 
         @Override
         protected Type visitArithmeticExpression(ArithmeticExpression node, AnalysisContext context)
         {
-            Type type = checkSameType(context, node, "Operator %s '" + node.getType().getValue() + "' %s does not exist", node.getLeft(), node.getRight());
-
-            expressionTypes.put(node, type);
-            return type;
+            return getOperator(context, node, OperatorType.valueOf(node.getType().name()), node.getLeft(), node.getRight());
         }
 
         @Override
         protected Type visitLikePredicate(LikePredicate node, AnalysisContext context)
         {
-            checkType(context, node.getValue(), VARCHAR, "Left side of LIKE expression");
-            checkType(context, node.getPattern(), VARCHAR, "Pattern for LIKE expression");
+            coerceType(context, node.getValue(), VARCHAR, "Left side of LIKE expression");
+            coerceType(context, node.getPattern(), VARCHAR, "Pattern for LIKE expression");
             if (node.getEscape() != null) {
-                checkType(context, node.getEscape(), VARCHAR, "Escape for LIKE expression");
+                coerceType(context, node.getEscape(), VARCHAR, "Escape for LIKE expression");
             }
 
             expressionTypes.put(node, BOOLEAN);
@@ -439,11 +443,11 @@ public class ExpressionAnalyzer
                 argumentTypes.add(process(expression, context));
             }
 
-            FunctionInfo function = metadata.getFunction(node.getName(), argumentTypes.build(), context.isApproximate());
+            FunctionInfo function = metadata.resolveFunction(node.getName(), argumentTypes.build(), context.isApproximate());
             for (int i = 0; i < node.getArguments().size(); i++) {
                 Expression expression = node.getArguments().get(i);
                 Type type = function.getArgumentTypes().get(i);
-                checkType(context, expression, type, String.format("Function %s argument %d", function.getHandle(), i));
+                coerceType(context, expression, type, String.format("Function %s argument %d", function.getHandle(), i));
             }
             resolvedFunctions.put(node, function);
 
@@ -455,7 +459,7 @@ public class ExpressionAnalyzer
         @Override
         protected Type visitExtract(Extract node, AnalysisContext context)
         {
-            checkType(context, node.getExpression(), BIGINT, "Type of argument to extract");
+            coerceType(context, node.getExpression(), BIGINT, "Type of argument to extract");
 
             expressionTypes.put(node, BIGINT);
             return BIGINT;
@@ -464,20 +468,28 @@ public class ExpressionAnalyzer
         @Override
         protected Type visitBetweenPredicate(BetweenPredicate node, AnalysisContext context)
         {
-            checkSameType(context, "BETWEEN operands must be the same type: %s", ImmutableList.of(node.getValue(), node.getMin(), node.getMax()));
-            expressionTypes.put(node, BOOLEAN);
-            return BOOLEAN;
+            return getOperator(context, node, OperatorType.BETWEEN, node.getValue(), node.getMin(), node.getMax());
         }
 
         @Override
         public Type visitCast(Cast node, AnalysisContext context)
         {
-            process(node.getExpression(), context);
-
             Type type = Types.fromName(node.getType());
             if (type == null) {
                 throw new SemanticException(TYPE_MISMATCH, node, "Cannot cast to type: " + node.getType());
             }
+
+            Type value = process(node.getExpression(), context);
+            if (value != NULL) {
+                try {
+                    OperatorInfo operator = metadata.getExactOperator(OperatorType.CAST, type, ImmutableList.of(value));
+                    resolvedOperators.put(node, operator);
+                }
+                catch (OperatorNotFoundException e) {
+                    throw new SemanticException(TYPE_MISMATCH, node, "Cannot cast %s to %s", value, type);
+                }
+            }
+
             expressionTypes.put(node, type);
             return type;
         }
@@ -494,7 +506,7 @@ public class ExpressionAnalyzer
             if (valueList instanceof InListExpression) {
                 InListExpression inListExpression = (InListExpression) valueList;
 
-                checkSameType(context,
+                coerceToSingleType(context,
                         "IN value and list items must be the same type: %s",
                         ImmutableList.<Expression>builder().add(value).addAll(inListExpression.getValues()).build());
             }
@@ -509,7 +521,7 @@ public class ExpressionAnalyzer
         @Override
         protected Type visitInListExpression(InListExpression node, AnalysisContext context)
         {
-            Type type = checkSameType(context, "All IN list values must be the same type: %s", node.getValues());
+            Type type = coerceToSingleType(context, "All IN list values must be the same type: %s", node.getValues());
 
             expressionTypes.put(node, type);
             return type; // TODO: this really should a be relation type
@@ -546,7 +558,34 @@ public class ExpressionAnalyzer
             throw new UnsupportedOperationException("not yet implemented: " + node.getClass().getName());
         }
 
-        private Type checkType(AnalysisContext context, Expression expression, Type expectedType, String message)
+        private Type getOperator(AnalysisContext context, Expression node, OperatorType operatorType, Expression... arguments)
+        {
+            ImmutableList.Builder<Type> argumentTypes = ImmutableList.builder();
+            for (Expression expression : arguments) {
+                argumentTypes.add(process(expression, context));
+            }
+
+            OperatorInfo operatorInfo;
+            try {
+                operatorInfo = metadata.resolveOperator(operatorType, argumentTypes.build());
+            }
+            catch (OperatorNotFoundException e) {
+                throw new SemanticException(TYPE_MISMATCH, node, e.getMessage());
+            }
+
+            for (int i = 0; i < arguments.length; i++) {
+                Expression expression = arguments[i];
+                Type type = operatorInfo.getArgumentTypes().get(i);
+                coerceType(context, expression, type, String.format("Operator %s argument %d", operatorInfo, i));
+            }
+            resolvedOperators.put(node, operatorInfo);
+
+            expressionTypes.put(node, operatorInfo.getReturnType());
+
+            return operatorInfo.getReturnType();
+        }
+
+        private Type coerceType(AnalysisContext context, Expression expression, Type expectedType, String message)
         {
             Type type = process(expression, context);
             if (!type.equals(expectedType)) {
@@ -558,7 +597,7 @@ public class ExpressionAnalyzer
             return type;
         }
 
-        private Type checkSameType(AnalysisContext context, Node node, String message, Expression first, Expression second)
+        private Type coerceToSingleType(AnalysisContext context, Node node, String message, Expression first, Expression second)
         {
             Type firstType = null;
             if (first != null) {
@@ -591,7 +630,7 @@ public class ExpressionAnalyzer
             throw new SemanticException(TYPE_MISMATCH, node, message, firstType, secondType);
         }
 
-        private Type checkSameType(AnalysisContext context, String message, List<Expression> expressions)
+        private Type coerceToSingleType(AnalysisContext context, String message, List<Expression> expressions)
         {
             // determine super type
             Type superType = NULL;
@@ -622,11 +661,6 @@ public class ExpressionAnalyzer
 
             return superType;
         }
-    }
-
-    public static boolean isNumericOrNull(Type type)
-    {
-        return isNumeric(type) || type.equals(NULL);
     }
 
     public static IdentityHashMap<Expression, Type> getExpressionTypes(Session session, Metadata metadata, Map<Symbol, Type> types, Expression expression)

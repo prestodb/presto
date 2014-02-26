@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.metadata;
 
+import com.facebook.presto.metadata.OperatorInfo.OperatorType;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.OutputTableHandle;
@@ -29,10 +30,10 @@ import java.util.Map;
 
 public interface Metadata
 {
-    FunctionInfo getFunction(QualifiedName name, List<? extends Type> parameterTypes, boolean approximate);
+    FunctionInfo resolveFunction(QualifiedName name, List<? extends Type> parameterTypes, boolean approximate);
 
     @NotNull
-    FunctionInfo getFunction(Signature handle);
+    FunctionInfo getExactFunction(Signature handle);
 
     boolean isAggregationFunction(QualifiedName name);
 
@@ -40,6 +41,12 @@ public interface Metadata
     List<FunctionInfo> listFunctions();
 
     void addFunctions(List<FunctionInfo> functions);
+
+    OperatorInfo resolveOperator(OperatorType operatorType, List<? extends Type> argumentTypes)
+            throws OperatorNotFoundException;
+
+    OperatorInfo getExactOperator(OperatorType operatorType, Type returnType, List<? extends Type> argumentTypes)
+            throws OperatorNotFoundException;
 
     @NotNull
     List<String> listSchemaNames(String catalogName);

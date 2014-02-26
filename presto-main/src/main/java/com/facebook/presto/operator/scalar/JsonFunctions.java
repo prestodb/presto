@@ -20,7 +20,6 @@ import com.facebook.presto.operator.scalar.JsonExtract.JsonExtractor;
 import com.facebook.presto.sql.gen.DefaultFunctionBinder;
 import com.facebook.presto.sql.gen.FunctionBinder;
 import com.facebook.presto.sql.gen.FunctionBinding;
-import com.facebook.presto.sql.gen.TypedByteCodeNode;
 import com.facebook.presto.util.ThreadLocalCache;
 import com.fasterxml.jackson.core.JsonFactory;
 import com.fasterxml.jackson.core.JsonParser;
@@ -310,13 +309,13 @@ public final class JsonFunctions
         }
 
         @Override
-        public FunctionBinding bindFunction(long bindingId, String name, ByteCodeNode getSessionByteCode, List<TypedByteCodeNode> arguments)
+        public FunctionBinding bindFunction(long bindingId, String name, ByteCodeNode getSessionByteCode, List<ByteCodeNode> arguments)
         {
-            TypedByteCodeNode patternNode = arguments.get(1);
+            ByteCodeNode patternNode = arguments.get(1);
 
             MethodHandle methodHandle;
-            if (patternNode.getNode() instanceof Constant) {
-                Slice patternSlice = (Slice) ((Constant) patternNode.getNode()).getValue();
+            if (patternNode instanceof Constant) {
+                Slice patternSlice = (Slice) ((Constant) patternNode).getValue();
                 String pattern = patternSlice.toString(Charsets.UTF_8);
 
                 JsonExtractor jsonExtractor;
