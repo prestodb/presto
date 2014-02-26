@@ -14,6 +14,7 @@
 package com.facebook.presto.metadata;
 
 import com.facebook.presto.connector.informationSchema.InformationSchemaMetadata;
+import com.facebook.presto.metadata.OperatorInfo.OperatorType;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorMetadata;
@@ -86,15 +87,15 @@ public class MetadataManager
     }
 
     @Override
-    public FunctionInfo getFunction(QualifiedName name, List<? extends Type> parameterTypes, boolean approximate)
+    public FunctionInfo resolveFunction(QualifiedName name, List<? extends Type> parameterTypes, boolean approximate)
     {
-        return functions.get(name, parameterTypes, approximate);
+        return functions.resolveFunction(name, parameterTypes, approximate);
     }
 
     @Override
     public FunctionInfo getFunction(Signature handle)
     {
-        return functions.get(handle);
+        return functions.getFunction(handle);
     }
 
     @Override
@@ -112,7 +113,19 @@ public class MetadataManager
     @Override
     public void addFunctions(List<FunctionInfo> functionInfos)
     {
-        functions.addFunctions(functionInfos);
+        functions.addFunctions(functionInfos, ImmutableList.<OperatorInfo>of());
+    }
+
+    @Override
+    public OperatorInfo resolveOperator(OperatorType operatorType, List<? extends Type> argumentTypes)
+    {
+        return functions.resolveOperator(operatorType, argumentTypes);
+    }
+
+    @Override
+    public OperatorInfo getOperator(OperatorType operatorType, Type returnType, List<? extends Type> argumentTypes)
+    {
+        return functions.getOperator(operatorType, argumentTypes, returnType);
     }
 
     @Override

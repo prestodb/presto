@@ -15,6 +15,8 @@ package com.facebook.presto.sql.analyzer;
 
 import com.facebook.presto.metadata.FunctionInfo;
 import com.facebook.presto.metadata.Metadata;
+import com.facebook.presto.metadata.OperatorInfo;
+import com.facebook.presto.metadata.OperatorInfo.OperatorType;
 import com.facebook.presto.sql.planner.DependencyExtractor;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.tree.ArithmeticExpression;
@@ -98,6 +100,7 @@ public class ExpressionAnalyzer
     private final Session session;
     private final Map<QualifiedName, Integer> resolvedNames = new HashMap<>();
     private final IdentityHashMap<FunctionCall, FunctionInfo> resolvedFunctions = new IdentityHashMap<>();
+    private final IdentityHashMap<Expression, OperatorInfo> resolvedOperators = new IdentityHashMap<>();
     private final IdentityHashMap<Expression, Type> expressionTypes = new IdentityHashMap<>();
     private final IdentityHashMap<Expression, Type> expressionCoercions = new IdentityHashMap<>();
     private final Set<InPredicate> subqueryInPredicates = Collections.newSetFromMap(new IdentityHashMap<InPredicate, Boolean>());
@@ -118,6 +121,11 @@ public class ExpressionAnalyzer
     public IdentityHashMap<FunctionCall, FunctionInfo> getResolvedFunctions()
     {
         return resolvedFunctions;
+    }
+
+    public IdentityHashMap<Expression, OperatorInfo> getResolvedOperators()
+    {
+        return resolvedOperators;
     }
 
     public IdentityHashMap<Expression, Type> getExpressionTypes()
@@ -223,10 +231,14 @@ public class ExpressionAnalyzer
         @Override
         protected Type visitComparisonExpression(ComparisonExpression node, AnalysisContext context)
         {
-            checkSameType(context, node, "Types are not comparable with '" + node.getType().getValue() + "': %s vs %s", node.getLeft(), node.getRight());
-
-            expressionTypes.put(node, BOOLEAN);
-            return BOOLEAN;
+            OperatorType operatorType;
+            if (node.getType() == ComparisonExpression.Type.IS_DISTINCT_FROM) {
+                operatorType = OperatorType.EQUAL;
+            }
+            else {
+                operatorType = OperatorType.valueOf(node.getType().name());
+            }
+            return getOperator(context, node, operatorType, node.getLeft(), node.getRight());
         }
 
         @Override
@@ -328,22 +340,13 @@ public class ExpressionAnalyzer
         @Override
         protected Type visitNegativeExpression(NegativeExpression node, AnalysisContext context)
         {
-            Type type = process(node.getValue(), context);
-            if (!isNumericOrNull(type)) {
-                throw new SemanticException(TYPE_MISMATCH, node.getValue(), "Value of negative operator must be numeric (actual: %s)", type);
-            }
-
-            expressionTypes.put(node, type);
-            return type;
+            return getOperator(context, node, OperatorType.NEGATION, node.getValue());
         }
 
         @Override
         protected Type visitArithmeticExpression(ArithmeticExpression node, AnalysisContext context)
         {
-            Type type = checkSameType(context, node, "Operator %s '" + node.getType().getValue() + "' %s does not exist", node.getLeft(), node.getRight());
-
-            expressionTypes.put(node, type);
-            return type;
+            return getOperator(context, node, OperatorType.valueOf(node.getType().name()), node.getLeft(), node.getRight());
         }
 
         @Override
@@ -440,7 +443,7 @@ public class ExpressionAnalyzer
                 argumentTypes.add(process(expression, context));
             }
 
-            FunctionInfo function = metadata.getFunction(node.getName(), argumentTypes.build(), context.isApproximate());
+            FunctionInfo function = metadata.resolveFunction(node.getName(), argumentTypes.build(), context.isApproximate());
             for (int i = 0; i < node.getArguments().size(); i++) {
                 Expression expression = node.getArguments().get(i);
                 Type type = function.getArgumentTypes().get(i);
@@ -465,20 +468,28 @@ public class ExpressionAnalyzer
         @Override
         protected Type visitBetweenPredicate(BetweenPredicate node, AnalysisContext context)
         {
-            checkSameType(context, "BETWEEN operands must be the same type: %s", ImmutableList.of(node.getValue(), node.getMin(), node.getMax()));
-            expressionTypes.put(node, BOOLEAN);
-            return BOOLEAN;
+            return getOperator(context, node, OperatorType.BETWEEN, node.getValue(), node.getMin(), node.getMax());
         }
 
         @Override
         public Type visitCast(Cast node, AnalysisContext context)
         {
-            process(node.getExpression(), context);
-
             Type type = Types.fromName(node.getType());
             if (type == null) {
                 throw new SemanticException(TYPE_MISMATCH, node, "Cannot cast to type: " + node.getType());
             }
+
+            Type value = process(node.getExpression(), context);
+            if (value != NULL) {
+                try {
+                    OperatorInfo operator = metadata.getOperator(OperatorType.CAST, type, ImmutableList.of(value));
+                    resolvedOperators.put(node, operator);
+                }
+                catch (IllegalArgumentException e) {
+                    throw new SemanticException(TYPE_MISMATCH, node, "Cannot cast %s to %s", value, type);
+                }
+            }
+
             expressionTypes.put(node, type);
             return type;
         }
@@ -546,6 +557,34 @@ public class ExpressionAnalyzer
         protected Type visitExpression(Expression node, AnalysisContext context)
         {
             throw new UnsupportedOperationException("not yet implemented: " + node.getClass().getName());
+        }
+
+        private Type getOperator(AnalysisContext context, Expression node, OperatorType operatorType, Expression... arguments)
+        {
+            ImmutableList.Builder<Type> argumentTypes = ImmutableList.builder();
+            for (Expression expression : arguments) {
+                argumentTypes.add(process(expression, context));
+            }
+
+            OperatorInfo operatorInfo;
+            try {
+                operatorInfo = metadata.resolveOperator(operatorType, argumentTypes.build());
+            }
+            catch (IllegalArgumentException e) {
+                // todo not correct
+                throw new SemanticException(TYPE_MISMATCH, node, e.getMessage());
+            }
+
+            for (int i = 0; i < arguments.length; i++) {
+                Expression expression = arguments[i];
+                Type type = operatorInfo.getArgumentTypes().get(i);
+                checkType(context, expression, type, String.format("Operator %s argument %d", operatorInfo, i));
+            }
+            resolvedOperators.put(node, operatorInfo);
+
+            expressionTypes.put(node, operatorInfo.getReturnType());
+
+            return operatorInfo.getReturnType();
         }
 
         private Type checkType(AnalysisContext context, Expression expression, Type expectedType, String message)
@@ -624,11 +663,6 @@ public class ExpressionAnalyzer
 
             return superType;
         }
-    }
-
-    public static boolean isNumericOrNull(Type type)
-    {
-        return isNumeric(type) || type.equals(NULL);
     }
 
     public static IdentityHashMap<Expression, Type> getExpressionTypes(Session session, Metadata metadata, Map<Symbol, Type> types, Expression expression)

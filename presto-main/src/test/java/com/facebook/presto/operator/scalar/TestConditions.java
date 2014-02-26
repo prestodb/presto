@@ -157,6 +157,12 @@ public class TestConditions
     public void testSimpleCase()
     {
         assertFunction("case true " +
+                "when true then cast(null as varchar) " +
+                "else 'foo' " +
+                "end",
+                null);
+
+        assertFunction("case true " +
                 "when true then 33 " +
                 "end",
                 33L);
