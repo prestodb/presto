@@ -24,15 +24,18 @@ import com.facebook.presto.spi.Domain;
 import com.facebook.presto.spi.TupleDomain;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
+import com.facebook.presto.sql.planner.plan.DistinctLimitNode;
 import com.facebook.presto.sql.planner.plan.ExchangeNode;
 import com.facebook.presto.sql.planner.plan.FilterNode;
 import com.facebook.presto.sql.planner.plan.JoinNode;
 import com.facebook.presto.sql.planner.plan.LimitNode;
 import com.facebook.presto.sql.planner.plan.MarkDistinctNode;
+import com.facebook.presto.sql.planner.plan.MaterializeSampleNode;
 import com.facebook.presto.sql.planner.plan.OutputNode;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.PlanVisitor;
 import com.facebook.presto.sql.planner.plan.ProjectNode;
+import com.facebook.presto.sql.planner.plan.SampleNode;
 import com.facebook.presto.sql.planner.plan.SemiJoinNode;
 import com.facebook.presto.sql.planner.plan.SinkNode;
 import com.facebook.presto.sql.planner.plan.SortNode;
@@ -104,6 +107,18 @@ public final class JsonPlanPrinter
 
         @Override
         public Void visitLimit(LimitNode node, Void context)
+        {
+            return processChildren(node);
+        }
+
+        @Override
+        public Void visitDistinctLimit(DistinctLimitNode node, Void context)
+        {
+            return processChildren(node);
+        }
+
+        @Override
+        public Void visitSample(SampleNode node, Void context)
         {
             return processChildren(node);
         }
@@ -214,6 +229,12 @@ public final class JsonPlanPrinter
 
         @Override
         public Void visitTableCommit(TableCommitNode node, Void context)
+        {
+            return processChildren(node);
+        }
+
+        @Override
+        public Void visitMaterializeSample(MaterializeSampleNode node, Void context)
         {
             return processChildren(node);
         }
