@@ -23,6 +23,7 @@ import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.Domain;
 import com.facebook.presto.spi.SortedRangeSet;
 import com.facebook.presto.spi.TupleDomain;
+import com.facebook.presto.sql.planner.DependencyExtractor;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.planner.plan.DistinctLimitNode;
@@ -183,19 +184,22 @@ public final class JsonPlanPrinter
             ImmutableList.Builder<Column> columnBuilder = ImmutableList.builder();
 
             for (Map.Entry<Symbol, ColumnHandle> entry : node.getAssignments().entrySet()) {
-                ColumnMetadata columnMetadata = metadata.getColumnMetadata(node.getTable(), entry.getValue());
-                Domain domain = null;
-                if (!tupleDomain.isNone() && tupleDomain.getDomains().keySet().contains(entry.getValue())) {
-                    domain = tupleDomain.getDomains().get(entry.getValue());
+                if (node.getOutputSymbols().contains(entry.getKey())
+                        || DependencyExtractor.extractUnique(node.getOriginalConstraint()).contains(entry.getKey())) {
+                    ColumnMetadata columnMetadata = metadata.getColumnMetadata(node.getTable(), entry.getValue());
+                    Domain domain = null;
+                    if (!tupleDomain.isNone() && tupleDomain.getDomains().keySet().contains(entry.getValue())) {
+                        domain = tupleDomain.getDomains().get(entry.getValue());
+                    }
+                    else if (tupleDomain.isNone()) {
+                        domain = Domain.none(columnMetadata.getType().getNativeType());
+                    }
+                    Column column = new Column(
+                            columnMetadata.getName(),
+                            columnMetadata.getType().toString(),
+                            Optional.fromNullable(SimpleDomain.fromDomain(domain)));
+                    columnBuilder.add(column);
                 }
-                else if (tupleDomain.isNone()) {
-                    domain = Domain.none(columnMetadata.getType().getNativeType());
-                }
-                Column column = new Column(
-                        columnMetadata.getName(),
-                        columnMetadata.getType().toString(),
-                        Optional.fromNullable(SimpleDomain.fromDomain(domain)));
-                columnBuilder.add(column);
             }
             Input input = new Input(
                     tableMetadata.getConnectorId(),
