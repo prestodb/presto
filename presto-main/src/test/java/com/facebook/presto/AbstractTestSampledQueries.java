@@ -61,7 +61,7 @@ public abstract class AbstractTestSampledQueries
             throws Exception
     {
         assertSampledQuery("SELECT COUNT(*) FROM orders a RIGHT OUTER JOIN orders b ON a.custkey = b.orderkey",
-                "SELECT COUNT(*) FROM (SELECT * FROM orders UNION ALL SELECT * FROM orders) a LEFT OUTER JOIN (SELECT * FROM orders UNION ALL SELECT * FROM orders) b ON a.orderkey = b.custkey");
+                "SELECT COUNT(*) FROM (SELECT * FROM orders UNION ALL SELECT * FROM orders) a RIGHT OUTER JOIN (SELECT * FROM orders UNION ALL SELECT * FROM orders) b ON a.custkey = b.orderkey");
     }
 
     @Test
