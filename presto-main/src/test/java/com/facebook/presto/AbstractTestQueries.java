@@ -3045,6 +3045,7 @@ public abstract class AbstractTestQueries
                 "  shippriority BIGINT NOT NULL,\n" +
                 "  comment VARCHAR(79) NOT NULL\n" +
                 ")");
+        handle.execute("CREATE INDEX custkey_index ON orders (custkey)");
         TpchTableHandle ordersHandle = tpchMetadata.getTableHandle(new SchemaTableName(TINY_SCHEMA_NAME, ORDERS.getTableName()));
         insertRows(tpchMetadata.getTableMetadata(ordersHandle), handle, createTpchRecordSet(ORDERS, ordersHandle.getScaleFactor()));
 
@@ -3124,9 +3125,9 @@ public abstract class AbstractTestQueries
     {
         long start = System.nanoTime();
         MaterializedResult actualResults = computeActual(actual);
-        log.info("FINISHED in %s", Duration.nanosSince(start));
 
         MaterializedResult expectedResults = computeExpected(expected, actualResults.getTupleInfos());
+        log.info("FINISHED in %s", Duration.nanosSince(start));
 
         if (ensureOrdering) {
             assertEquals(actualResults.getMaterializedTuples(), expectedResults.getMaterializedTuples());

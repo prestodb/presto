@@ -61,7 +61,7 @@ public abstract class AbstractTestSampledQueries
             throws Exception
     {
         assertSampledQuery("SELECT COUNT(*) FROM orders a RIGHT OUTER JOIN orders b ON a.custkey = b.orderkey",
-                "SELECT COUNT(*) FROM (SELECT * FROM orders UNION ALL SELECT * FROM orders) a LEFT OUTER JOIN (SELECT * FROM orders UNION ALL SELECT * FROM orders) b ON a.orderkey = b.custkey");
+                "SELECT COUNT(*) FROM (SELECT * FROM orders UNION ALL SELECT * FROM orders) a RIGHT OUTER JOIN (SELECT * FROM orders UNION ALL SELECT * FROM orders) b ON a.custkey = b.orderkey");
     }
 
     @Test
@@ -231,9 +231,9 @@ public abstract class AbstractTestSampledQueries
     {
         long start = System.nanoTime();
         MaterializedResult actualResults = computeActualSampled(actual);
-        log.info("FINISHED in %s", Duration.nanosSince(start));
 
         MaterializedResult expectedResults = computeExpected(expected, actualResults.getTupleInfos());
+        log.info("FINISHED in %s", Duration.nanosSince(start));
 
         if (ensureOrdering) {
             assertEquals(actualResults.getMaterializedTuples(), expectedResults.getMaterializedTuples());
