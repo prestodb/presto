@@ -3124,9 +3124,9 @@ public abstract class AbstractTestQueries
     {
         long start = System.nanoTime();
         MaterializedResult actualResults = computeActual(actual);
-        log.info("FINISHED in %s", Duration.nanosSince(start));
 
         MaterializedResult expectedResults = computeExpected(expected, actualResults.getTupleInfos());
+        log.info("FINISHED in %s", Duration.nanosSince(start));
 
         if (ensureOrdering) {
             assertEquals(actualResults.getMaterializedTuples(), expectedResults.getMaterializedTuples());
