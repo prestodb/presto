@@ -1011,7 +1011,87 @@ public class PrestoDatabaseMetaData
     public ResultSet getColumns(String catalog, String schemaPattern, String tableNamePattern, String columnNamePattern)
             throws SQLException
     {
-        throw new UnsupportedOperationException("getColumns");
+        StringBuilder query = new StringBuilder(1024);
+        query.append("SELECT");
+        query.append(" table_catalog AS TABLE_CAT");
+        query.append(", table_schema AS TABLE_SCHEM");
+        query.append(", table_name AS TABLE_NAME");
+        query.append(", column_name AS COLUMN_NAME");
+        query.append(", CASE data_type");
+        query.append("    WHEN 'bigint' THEN -5");
+        query.append("    WHEN 'double' THEN 8");
+        query.append("    WHEN 'varchar' THEN 12");
+        query.append("    WHEN 'boolean' THEN 16");
+        query.append("    ELSE 0");
+        query.append(" END AS DATA_TYPE");
+        query.append(", data_type AS TYPE_NAME");
+        query.append(", CASE data_type");
+        query.append("    WHEN 'varchar' THEN 0");
+        query.append("    ELSE -1");
+        query.append(" END AS COLUMN_SIZE");
+        query.append(", 0 AS BUFFER_LENGTH");
+        query.append(", 0 AS DECIMAL_DIGITS");
+        query.append(", CASE data_type");
+        query.append("    WHEN 'bigint' THEN 10");
+        query.append("    WHEN 'double' THEN 10");
+        query.append("    WHEN 'boolean' THEN 2");
+        query.append("    ELSE 0");
+        query.append(" END AS NUM_PREC_RADIX");
+        query.append(", CASE is_nullable");
+        query.append("    WHEN 'YES' THEN 1");
+        query.append("    WHEN 'NO' THEN 0");
+        query.append("    ELSE 2");
+        query.append(" END AS NULLABLE");
+        query.append(", CAST(NULL AS VARCHAR) AS REMARKS");
+        query.append(", column_default AS COLUMN_DEF");
+        query.append(", CAST(NULL AS BIGINT) AS SQL_DATA_TYPE");
+        query.append(", CAST(NULL AS BIGINT) AS SQL_DATETIME_SUB");
+        query.append(", 0 AS CHAR_OCTET_LENGTH");
+        query.append(", ordinal_position AS ORDINAL_POSITION");
+        query.append(", is_nullable AS IS_NULLABLE");
+        query.append(", CAST(NULL AS VARCHAR) AS SCOPE_CATALOG");
+        query.append(", CAST(NULL AS VARCHAR) AS SCOPE_SCHEMA");
+        query.append(", CAST(NULL AS VARCHAR) AS SCOPE_TABLE");
+        query.append(", CAST(NULL AS BIGINT) AS SOURCE_DATA_TYPE");
+        query.append(", '' AS IS_AUTOINCREMENT");
+        query.append(", '' AS IS_GENERATEDCOLUMN");
+        query.append(" FROM information_schema.columns ");
+
+        List<String> filters = new ArrayList<>(4);
+        if (catalog != null) {
+            if (catalog.length() == 0) {
+                filters.add("table_catalog IS NULL");
+            }
+            else {
+                filters.add(stringColumnEquals("table_catalog", catalog));
+            }
+        }
+
+        if (schemaPattern != null) {
+            if (schemaPattern.length() == 0) {
+                filters.add("table_schema IS NULL");
+            }
+            else {
+                filters.add(stringColumnLike("table_schema", schemaPattern));
+            }
+        }
+
+        if (tableNamePattern != null) {
+            filters.add(stringColumnLike("table_name", tableNamePattern));
+        }
+
+        if (columnNamePattern != null) {
+            filters.add(stringColumnLike("column_name", columnNamePattern));
+        }
+
+        if (filters.size() > 0) {
+            query.append(" WHERE ");
+            Joiner.on(" AND ").appendTo(query, filters);
+        }
+
+        query.append(" ORDER BY TABLE_CAT, TABLE_SCHEM, TABLE_NAME, ORDINAL_POSITION");
+
+        return select(query.toString());
     }
 
     @Override
