@@ -13,11 +13,31 @@
  */
 package com.facebook.presto.sql.gen;
 
-import com.facebook.presto.byteCode.ByteCodeNode;
-
-import java.util.List;
-
-public interface FunctionBinder
+// This methods are statically bound by the compiler
+@SuppressWarnings("UnusedDeclaration")
+public final class CompilerOperations
 {
-    FunctionBinding bindFunction(long bindingId, String name, ByteCodeNode getSessionByteCode, List<ByteCodeNode> arguments);
+    private CompilerOperations()
+    {
+    }
+
+    public static boolean and(boolean left, boolean right)
+    {
+        return left && right;
+    }
+
+    public static boolean or(boolean left, boolean right)
+    {
+        return left || right;
+    }
+
+    public static boolean not(boolean value)
+    {
+        return !value;
+    }
+
+    public static boolean lessThan(int left, int right)
+    {
+        return left < right;
+    }
 }

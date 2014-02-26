@@ -571,7 +571,7 @@ class TupleAnalyzer
                 }
             });
 
-            FunctionInfo info = metadata.getFunction(windowFunction.getName(), argumentTypes, false);
+            FunctionInfo info = metadata.resolveFunction(windowFunction.getName(), argumentTypes, false);
             if (!info.isWindow()) {
                 throw new SemanticException(MUST_BE_WINDOW_FUNCTION, node, "Not a window function: %s", windowFunction.getName());
             }
