@@ -70,6 +70,9 @@ public final class SimpleDomain
         }
         ImmutableList.Builder<SimpleRange> rangeBuilder = ImmutableList.builder();
         for (Range range : domain.getRanges()) {
+            if (range.getLow().isLowerUnbounded() && range.getHigh().isUpperUnbounded()) {
+                return null;
+            }
             rangeBuilder.add(SimpleRange.fromRange(range));
         }
         return rangeBuilder.build();
@@ -77,10 +80,10 @@ public final class SimpleDomain
 
     public static SimpleDomain fromDomain(Domain domain)
     {
-        if (domain == null) {
+        if (domain == null || domain.isAll()) {
             return null;
         }
-        return new SimpleDomain(domain.isNullAllowed(), Optional.of(getSimpleRangeList(domain)));
+        return new SimpleDomain(domain.isNullAllowed(), Optional.fromNullable(getSimpleRangeList(domain)));
     }
 
     @Override

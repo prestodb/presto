@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.execution;
 
-import com.facebook.presto.spi.SerializableNativeValue;
 import com.google.common.base.Optional;
 import io.airlift.json.JsonCodec;
 import org.testng.annotations.Test;
@@ -27,8 +26,8 @@ public class TestSimpleRange
     @Test
     public void testRoundTrip()
     {
-        SimpleMarker low = new SimpleMarker(true, new SerializableNativeValue(Long.class, new Long(10)));
-        SimpleMarker high = new SimpleMarker(false, new SerializableNativeValue(Long.class, new Long(100)));
+        SimpleMarker low = new SimpleMarker(true, 10L);
+        SimpleMarker high = new SimpleMarker(false, 100L);
 
         SimpleRange expected = new SimpleRange(Optional.fromNullable(low), Optional.fromNullable(high));
 
