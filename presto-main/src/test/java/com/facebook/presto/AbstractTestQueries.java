@@ -117,6 +117,25 @@ public abstract class AbstractTestQueries
     private Session session;
 
     @Test
+    public void testValues()
+            throws Exception
+    {
+        assertQuery("VALUES (1.1, 2, 'foo'), (sin(3.3), 2+2, 'bar')");
+        assertQuery("VALUES (1.1, 2), (sin(3.3), 2+2) ORDER BY 1", "VALUES (sin(3.3), 2+2), (1.1, 2)");
+        assertQuery("VALUES (1.1, 2), (sin(3.3), 2+2) LIMIT 1", "VALUES (1.1, 2)");
+        assertQuery("SELECT * FROM (VALUES (1.1, 2), (sin(3.3), 2+2))");
+        assertQuery(
+                "SELECT * FROM (VALUES (1.1, 2), (sin(3.3), 2+2)) x (a, b) LEFT JOIN (VALUES (1.1, 2), (1.1, 2+2)) y (a, b) USING (a)",
+                "VALUES (1.1, 2, 1.1, 4), (1.1, 2, 1.1, 2), (sin(3.3), 4, NULL, NULL)");
+        assertQuery("SELECT 1.1 in (VALUES (1.1), (2.2))", "VALUES (TRUE)");
+
+        assertQuery("" +
+                "WITH a AS (VALUES (1.1, 2), (sin(3.3), 2+2)) " +
+                "SELECT * FROM a",
+                "VALUES (1.1, 2), (sin(3.3), 2+2)");
+    }
+
+    @Test
     public void testSpecialFloatingPointValues()
             throws Exception
     {

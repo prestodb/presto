@@ -244,6 +244,26 @@ public class TreePrinter
             }
 
             @Override
+            protected Void visitValues(Values node, Integer indentLevel)
+            {
+                print(indentLevel, "Values");
+
+                super.visitValues(node, indentLevel + 1);
+
+                return null;
+            }
+
+            @Override
+            protected Void visitRow(Row node, Integer indentLevel)
+            {
+                print(indentLevel, "Row");
+
+                super.visitRow(node, indentLevel + 1);
+
+                return null;
+            }
+
+            @Override
             protected Void visitAliasedRelation(AliasedRelation node, Integer indentLevel)
             {
                 print(indentLevel, "Alias[" + node.getAlias() + "]");

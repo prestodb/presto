@@ -93,6 +93,7 @@ queryBody returns [QueryBody value]
     | setOperation          { $value = $setOperation.value; }
     | tableSubquery         { $value = $tableSubquery.value; }
     | namedTable            { $value = $namedTable.value; }
+    | tableValue            { $value = $tableValue.value; }
     ;
 
 querySpec returns [QuerySpecification value]
@@ -293,6 +294,18 @@ joinCriteria returns [JoinCriteria value]
 
 tableSubquery returns [TableSubquery value]
     : ^(TABLE_SUBQUERY query) { $value = new TableSubquery($query.value); }
+    ;
+
+tableValue returns [Values value]
+    :  ^(TABLE_VALUE rowList) { $value = new Values($rowList.value); }
+    ;
+
+rowList returns [List<Row> value = new ArrayList<>()]
+    :  ( rowValue { $value.add($rowValue.value); } )+
+    ;
+
+rowValue returns [Row value]
+    : ^(ROW_VALUE exprList) { $value = new Row($exprList.value); }
     ;
 
 singleExpression returns [Expression value]

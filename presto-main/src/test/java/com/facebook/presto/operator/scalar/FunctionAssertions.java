@@ -30,7 +30,7 @@ import com.facebook.presto.operator.ProjectionFunction;
 import com.facebook.presto.operator.RecordProjectOperator;
 import com.facebook.presto.operator.SourceOperator;
 import com.facebook.presto.operator.SourceOperatorFactory;
-import com.facebook.presto.operator.StaticOperator;
+import com.facebook.presto.operator.ValuesOperator;
 import com.facebook.presto.operator.TaskContext;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.HostAddress;
@@ -558,7 +558,7 @@ public final class FunctionAssertions
                 return new RecordProjectOperator(operatorContext, records);
             }
             else {
-                return new StaticOperator(operatorContext, ImmutableList.of(SOURCE_PAGE));
+                return new ValuesOperator(operatorContext, ImmutableList.of(SOURCE_PAGE));
             }
         }
     }

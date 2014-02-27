@@ -93,6 +93,8 @@ public class TestStatementBuilder
         printStatement("select * from foo tablesample poissonized (100)");
 
         printStatement("create table foo as select * from abc");
+
+        printStatement("values ('a', 1, 2.2), ('b', 2, 3.3)");
     }
 
     @Test
