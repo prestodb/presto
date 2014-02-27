@@ -135,7 +135,7 @@ public class TestCassandraConnector
             throws Exception
     {
         List<String> databases = metadata.listSchemaNames();
-        assertTrue(databases.contains(database));
+        assertTrue(databases.contains(database.toLowerCase()));
     }
 
     @Test
@@ -294,8 +294,8 @@ public class TestCassandraConnector
         Keyspace keyspace = HFactory.createKeyspace("beautifulKeyspaceName", cluster);
         assertNotNull(keyspace);
 
-        String keyspaceName = "presto_database";
-        String columnFamilyName = "presto_test";
+        String keyspaceName = "Presto_Database";
+        String columnFamilyName = "Presto_Test";
         List<ColumnFamilyDefinition> columnFamilyDefinitions = createColumnFamilyDefinitions(keyspaceName, columnFamilyName);
         KeyspaceDefinition keyspaceDefinition = HFactory.createKeyspaceDefinition(
                 keyspaceName,

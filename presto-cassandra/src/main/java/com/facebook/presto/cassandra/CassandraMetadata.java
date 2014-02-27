@@ -60,7 +60,7 @@ public class CassandraMetadata
     {
         checkNotNull(tableName, "tableName is null");
         try {
-            CassandraTableHandle tableHandle = new CassandraTableHandle(connectorId, tableName.getSchemaName(), tableName.getTableName());
+            CassandraTableHandle tableHandle = schemaProvider.getTableHandle(tableName);
             schemaProvider.getTable(tableHandle);
             return tableHandle;
         }
@@ -86,7 +86,7 @@ public class CassandraMetadata
 
     private ConnectorTableMetadata getTableMetadata(SchemaTableName tableName)
     {
-        CassandraTableHandle tableHandle = new CassandraTableHandle(connectorId, tableName.getSchemaName(), tableName.getTableName());
+        CassandraTableHandle tableHandle = schemaProvider.getTableHandle(tableName);
         CassandraTable table = schemaProvider.getTable(tableHandle);
         List<ColumnMetadata> columns = ImmutableList.copyOf(transform(table.getColumns(), columnMetadataGetter()));
         return new ConnectorTableMetadata(tableName, columns);
@@ -137,7 +137,7 @@ public class CassandraMetadata
         CassandraTable table = schemaProvider.getTable((CassandraTableHandle) tableHandle);
         ImmutableMap.Builder<String, ColumnHandle> columnHandles = ImmutableMap.builder();
         for (CassandraColumnHandle columnHandle : table.getColumns()) {
-            columnHandles.put(CassandraCqlUtils.cqlNameToSqlName(columnHandle.getName()), columnHandle);
+            columnHandles.put(CassandraCqlUtils.cqlNameToSqlName(columnHandle.getName()).toLowerCase(), columnHandle);
         }
         return columnHandles.build();
     }

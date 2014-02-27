@@ -53,10 +53,6 @@ public final class CassandraCqlUtils
 
     public static String validTableName(String identifier)
     {
-        if (!identifier.equals(identifier.toLowerCase())) {
-            return quoteIdentifier(identifier);
-        }
-
         return validIdentifier(identifier);
     }
 
@@ -71,10 +67,14 @@ public final class CassandraCqlUtils
 
     private static String validIdentifier(String identifier)
     {
+        if (!identifier.equals(identifier.toLowerCase())) {
+            return quoteIdentifier(identifier);
+        }
+
         if (keywords.contains(identifier.toUpperCase())) {
             return quoteIdentifier(identifier);
         }
-        return identifier.toLowerCase();
+        return identifier;
     }
 
     private static String quoteIdentifier(String identifier)
