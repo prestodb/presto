@@ -59,7 +59,7 @@ public class CassandraTableHandle
 
     public SchemaTableName getSchemaTableName()
     {
-        return new SchemaTableName(schemaName.toLowerCase(), tableName.toLowerCase());
+        return new SchemaTableName(schemaName, tableName);
     }
 
     @Override

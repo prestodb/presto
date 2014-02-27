@@ -17,11 +17,13 @@ import com.facebook.presto.spi.NotFoundException;
 import com.facebook.presto.spi.SchemaNotFoundException;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.TableNotFoundException;
+import com.google.common.base.Function;
 import com.google.common.base.Objects;
 import com.google.common.base.Throwables;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.LoadingCache;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Maps;
 import com.google.common.util.concurrent.ListeningExecutorService;
 import com.google.common.util.concurrent.MoreExecutors;
 import com.google.common.util.concurrent.UncheckedExecutionException;
@@ -32,6 +34,7 @@ import javax.annotation.concurrent.ThreadSafe;
 import javax.inject.Inject;
 
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
@@ -47,11 +50,19 @@ import static java.util.concurrent.TimeUnit.MILLISECONDS;
 public class CachingCassandraSchemaProvider
 {
     private final CassandraSession session;
-    private final LoadingCache<String, List<String>> schemaNamesCache;
-    private final LoadingCache<String, List<String>> tableNamesCache;
+    // map lower case name to itself
+    private final LoadingCache<String, Map<String, String>> schemaNamesCache;
+    private final LoadingCache<String, Map<String, String>> tableNamesCache;
     private final LoadingCache<PartitionListKey, List<CassandraPartition>> partitionsCache;
     private final LoadingCache<PartitionListKey, List<CassandraPartition>> partitionsCacheFull;
     private final LoadingCache<SchemaTableName, CassandraTable> tableCache;
+    private final Function<String, String> toLowerCase = new Function<String, String>()
+    {
+        public String apply(String str)
+        {
+            return str.toLowerCase();
+        }
+    };
 
     @Inject
     public CachingCassandraSchemaProvider(CassandraSession session, @ForCassandraSchema ExecutorService executor, CassandraClientConfig cassandraClientConfig)
@@ -76,10 +87,10 @@ public class CachingCassandraSchemaProvider
         schemaNamesCache = CacheBuilder.newBuilder()
                 .expireAfterWrite(expiresAfterWriteMillis, MILLISECONDS)
                 .refreshAfterWrite(refreshMills, MILLISECONDS)
-                .build(new BackgroundCacheLoader<String, List<String>>(listeningExecutor)
+                .build(new BackgroundCacheLoader<String, Map<String, String>>(listeningExecutor)
                 {
                     @Override
-                    public List<String> load(String key)
+                    public Map<String, String> load(String key)
                             throws Exception
                     {
                         return loadAllSchemas();
@@ -89,10 +100,10 @@ public class CachingCassandraSchemaProvider
         tableNamesCache = CacheBuilder.newBuilder()
                 .expireAfterWrite(expiresAfterWriteMillis, MILLISECONDS)
                 .refreshAfterWrite(refreshMills, MILLISECONDS)
-                .build(new BackgroundCacheLoader<String, List<String>>(listeningExecutor)
+                .build(new BackgroundCacheLoader<String, Map<String, String>>(listeningExecutor)
                 {
                     @Override
-                    public List<String> load(String databaseName)
+                    public Map<String, String> load(String databaseName)
                             throws Exception
                     {
                         return loadAllTables(databaseName);
@@ -150,46 +161,62 @@ public class CachingCassandraSchemaProvider
         tableCache.invalidateAll();
     }
 
-    public List<String> getAllSchemas()
+    public String getCassandraTableName(String tableName, String schemaName)
+    {
+        return getAllTables(schemaName).get(tableName.toLowerCase());
+    }
+
+    public String getCassandraSchemaName(String schemaName)
+    {
+        return getAllSchemas().get(schemaName.toLowerCase());
+    }
+
+    public Map<String, String> getAllSchemas()
     {
         return getCacheValue(schemaNamesCache, "", RuntimeException.class);
     }
 
-    private List<String> loadAllSchemas()
+    private Map<String, String> loadAllSchemas()
             throws Exception
     {
-        return retry().stopOnIllegalExceptions().run("getAllSchemas", new Callable<List<String>>()
+        return retry().stopOnIllegalExceptions().run("getAllSchemas", new Callable<Map<String, String>>()
         {
             @Override
-            public List<String> call()
+            public Map<String, String> call()
             {
-                return session.getAllSchemas();
+                return Maps.uniqueIndex(session.getAllSchemas(), toLowerCase);
             }
         });
     }
 
-    public List<String> getAllTables(String databaseName)
+    public Map<String, String> getAllTables(String databaseName)
             throws SchemaNotFoundException
     {
         return getCacheValue(tableNamesCache, databaseName, SchemaNotFoundException.class);
     }
 
-    private List<String> loadAllTables(final String databaseName)
+    private Map<String, String> loadAllTables(final String databaseName)
             throws Exception
     {
         return retry().stopOn(NotFoundException.class).stopOnIllegalExceptions()
-                .run("getAllTables", new Callable<List<String>>()
+                .run("getAllTables", new Callable<Map<String, String>>()
                 {
                     @Override
-                    public List<String> call()
+                    public Map<String, String> call()
                             throws SchemaNotFoundException
                     {
-                        List<String> tables = session.getAllTables(databaseName);
+                        String caseSensitiveDatabaseName = getAllSchemas().get(databaseName);
+                        if (caseSensitiveDatabaseName == null) {
+                            caseSensitiveDatabaseName  = databaseName;
+                        }
+                        List<String> tables = session.getAllTables(caseSensitiveDatabaseName);
+                        Map<String, String> nameMap = Maps.uniqueIndex(tables, toLowerCase);
+
                         if (tables.isEmpty()) {
                             // Check to see if the database exists
                             session.getSchema(databaseName);
                         }
-                        return tables;
+                        return nameMap;
                     }
                 });
     }
