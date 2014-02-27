@@ -5,7 +5,7 @@
     <parent>
         <groupId>io.airlift</groupId>
         <artifactId>airbase</artifactId>
-        <version>15</version>
+        <version>16</version>
     </parent>
 
     <groupId>com.facebook.presto</groupId>
@@ -42,9 +42,6 @@
         <dep.antlr.version>3.4</dep.antlr.version>
         <dep.airlift.version>0.86-SNAPSHOT</dep.airlift.version>
         <dep.packaging.version>${dep.airlift.version}</dep.packaging.version>
-        <!-- remove this when airbase is updated -->
-        <dep.jetty.version>9.1.1.v20140108</dep.jetty.version>
-        <dep.javax-servlet.version>3.1.0</dep.javax-servlet.version>
 
         <cli.skip-execute>true</cli.skip-execute>
         <cli.main-class>None</cli.main-class>
