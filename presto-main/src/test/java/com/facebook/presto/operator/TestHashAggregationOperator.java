@@ -54,6 +54,7 @@ import static com.facebook.presto.util.Threads.daemonThreadsNamed;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static org.testng.Assert.assertEquals;
 
+@Test(singleThreaded = true)
 public class TestHashAggregationOperator
 {
     private ExecutorService executor;

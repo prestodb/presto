@@ -70,6 +70,7 @@ import static com.facebook.presto.sql.ExpressionUtils.combineConjuncts;
 import static com.facebook.presto.sql.ExpressionUtils.or;
 import static com.facebook.presto.sql.planner.plan.TableScanNode.GeneratedPartitions;
 
+@Test(singleThreaded = true)
 public class TestEffectivePredicateExtractor
 {
     private static final Symbol A = new Symbol("a");

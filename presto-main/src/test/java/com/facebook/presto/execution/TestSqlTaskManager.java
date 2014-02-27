@@ -74,6 +74,7 @@ import static org.testng.Assert.assertNull;
 import static org.testng.Assert.assertTrue;
 import static org.testng.Assert.fail;
 
+@Test(singleThreaded = true)
 public class TestSqlTaskManager
 {
     private SqlTaskManager sqlTaskManager;

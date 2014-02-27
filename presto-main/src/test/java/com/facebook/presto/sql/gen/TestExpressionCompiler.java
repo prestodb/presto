@@ -68,6 +68,7 @@ import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
 
+@Test(singleThreaded = true)
 public class TestExpressionCompiler
 {
     private static final Boolean[] booleanValues = {true, false, null};
