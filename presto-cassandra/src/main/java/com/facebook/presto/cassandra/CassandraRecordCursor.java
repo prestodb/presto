@@ -76,6 +76,8 @@ public class CassandraRecordCursor
                 return currentRow.getDouble(i);
             case FLOAT:
                 return currentRow.getFloat(i);
+            case DECIMAL:
+                return currentRow.getDecimal(i).doubleValue();
             default:
                 throw new IllegalStateException("Cannot retrieve double for " + getCassandraType(i));
         }
