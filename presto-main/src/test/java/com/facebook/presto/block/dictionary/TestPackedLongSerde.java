@@ -24,6 +24,7 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 
+@Test(singleThreaded = true)
 public class TestPackedLongSerde
 {
     private SliceOutput sliceOutput;
