@@ -231,9 +231,11 @@ public abstract class AbstractTestSampledQueries
     {
         long start = System.nanoTime();
         MaterializedResult actualResults = computeActualSampled(actual);
+        Duration actualTime = Duration.nanosSince(start);
 
+        long expectedStart = System.nanoTime();
         MaterializedResult expectedResults = computeExpected(expected, actualResults.getTupleInfos());
-        log.info("FINISHED in %s", Duration.nanosSince(start));
+        log.info("FINISHED in presto: %s, h2: %s, total: %s", actualTime, Duration.nanosSince(expectedStart), Duration.nanosSince(start));
 
         if (ensureOrdering) {
             assertEquals(actualResults.getMaterializedTuples(), expectedResults.getMaterializedTuples());
