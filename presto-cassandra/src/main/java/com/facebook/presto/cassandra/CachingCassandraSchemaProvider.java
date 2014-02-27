@@ -17,11 +17,13 @@ import com.facebook.presto.spi.NotFoundException;
 import com.facebook.presto.spi.SchemaNotFoundException;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.TableNotFoundException;
+import com.google.common.base.Function;
 import com.google.common.base.Objects;
 import com.google.common.base.Throwables;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.LoadingCache;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Maps;
 import com.google.common.util.concurrent.ListeningExecutorService;
 import com.google.common.util.concurrent.MoreExecutors;
 import com.google.common.util.concurrent.UncheckedExecutionException;
@@ -32,6 +34,7 @@ import javax.annotation.concurrent.ThreadSafe;
 import javax.inject.Inject;
 
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
@@ -46,24 +49,46 @@ import static java.util.concurrent.TimeUnit.MILLISECONDS;
 @ThreadSafe
 public class CachingCassandraSchemaProvider
 {
+    private final String connectorId;
     private final CassandraSession session;
-    private final LoadingCache<String, List<String>> schemaNamesCache;
-    private final LoadingCache<String, List<String>> tableNamesCache;
+
+    /**
+     * Mapping from an empty string to all schema names.  Each schema name is a
+     * mapping from the lower case schema name to the case sensitive schema name.
+     * This mapping is necessary because Presto currently does not properly handle
+     * case sensitive names.
+     */
+    private final LoadingCache<String, Map<String, String>> schemaNamesCache;
+
+    /**
+     * Mapping from lower case schema name to all tables in that schema.  Each
+     * table name is a mapping from the lower case table name to the case
+     * sensitive table name. This mapping is necessary because Presto currently
+     * does not properly handle case sensitive names.
+     */
+    private final LoadingCache<String, Map<String, String>> tableNamesCache;
+
     private final LoadingCache<PartitionListKey, List<CassandraPartition>> partitionsCache;
     private final LoadingCache<PartitionListKey, List<CassandraPartition>> partitionsCacheFull;
     private final LoadingCache<SchemaTableName, CassandraTable> tableCache;
 
     @Inject
-    public CachingCassandraSchemaProvider(CassandraSession session, @ForCassandraSchema ExecutorService executor, CassandraClientConfig cassandraClientConfig)
+    public CachingCassandraSchemaProvider(
+            CassandraConnectorId connectorId,
+            CassandraSession session,
+            @ForCassandraSchema ExecutorService executor,
+            CassandraClientConfig cassandraClientConfig)
     {
-        this(session,
+        this(checkNotNull(connectorId, "connectorId is null").toString(),
+                session,
                 executor,
                 checkNotNull(cassandraClientConfig, "cassandraClientConfig is null").getSchemaCacheTtl(),
                 cassandraClientConfig.getSchemaRefreshInterval());
     }
 
-    public CachingCassandraSchemaProvider(CassandraSession session, ExecutorService executor, Duration cacheTtl, Duration refreshInterval)
+    public CachingCassandraSchemaProvider(String connectorId, CassandraSession session, ExecutorService executor, Duration cacheTtl, Duration refreshInterval)
     {
+        this.connectorId = checkNotNull(connectorId, "connectorId is null");
         this.session = checkNotNull(session, "cassandraSession is null");
 
         checkNotNull(executor, "executor is null");
@@ -76,10 +101,10 @@ public class CachingCassandraSchemaProvider
         schemaNamesCache = CacheBuilder.newBuilder()
                 .expireAfterWrite(expiresAfterWriteMillis, MILLISECONDS)
                 .refreshAfterWrite(refreshMills, MILLISECONDS)
-                .build(new BackgroundCacheLoader<String, List<String>>(listeningExecutor)
+                .build(new BackgroundCacheLoader<String, Map<String, String>>(listeningExecutor)
                 {
                     @Override
-                    public List<String> load(String key)
+                    public Map<String, String> load(String key)
                             throws Exception
                     {
                         return loadAllSchemas();
@@ -89,10 +114,10 @@ public class CachingCassandraSchemaProvider
         tableNamesCache = CacheBuilder.newBuilder()
                 .expireAfterWrite(expiresAfterWriteMillis, MILLISECONDS)
                 .refreshAfterWrite(refreshMills, MILLISECONDS)
-                .build(new BackgroundCacheLoader<String, List<String>>(listeningExecutor)
+                .build(new BackgroundCacheLoader<String, Map<String, String>>(listeningExecutor)
                 {
                     @Override
-                    public List<String> load(String databaseName)
+                    public Map<String, String> load(String databaseName)
                             throws Exception
                     {
                         return loadAllTables(databaseName);
@@ -152,18 +177,18 @@ public class CachingCassandraSchemaProvider
 
     public List<String> getAllSchemas()
     {
-        return getCacheValue(schemaNamesCache, "", RuntimeException.class);
+        return ImmutableList.copyOf(getCacheValue(schemaNamesCache, "", RuntimeException.class).keySet());
     }
 
-    private List<String> loadAllSchemas()
+    private Map<String, String> loadAllSchemas()
             throws Exception
     {
-        return retry().stopOnIllegalExceptions().run("getAllSchemas", new Callable<List<String>>()
+        return retry().stopOnIllegalExceptions().run("getAllSchemas", new Callable<Map<String, String>>()
         {
             @Override
-            public List<String> call()
+            public Map<String, String> call()
             {
-                return session.getAllSchemas();
+                return Maps.uniqueIndex(session.getAllSchemas(), toLowerCase());
             }
         });
     }
@@ -171,27 +196,52 @@ public class CachingCassandraSchemaProvider
     public List<String> getAllTables(String databaseName)
             throws SchemaNotFoundException
     {
-        return getCacheValue(tableNamesCache, databaseName, SchemaNotFoundException.class);
+        return ImmutableList.copyOf(getCacheValue(tableNamesCache, databaseName, SchemaNotFoundException.class).keySet());
     }
 
-    private List<String> loadAllTables(final String databaseName)
+    private Map<String, String> loadAllTables(final String databaseName)
             throws Exception
     {
         return retry().stopOn(NotFoundException.class).stopOnIllegalExceptions()
-                .run("getAllTables", new Callable<List<String>>()
+                .run("getAllTables", new Callable<Map<String, String>>()
                 {
                     @Override
-                    public List<String> call()
+                    public Map<String, String> call()
                             throws SchemaNotFoundException
                     {
-                        List<String> tables = session.getAllTables(databaseName);
+                        String caseSensitiveDatabaseName = getCaseSensitiveSchemaName(databaseName);
+                        if (caseSensitiveDatabaseName == null) {
+                            caseSensitiveDatabaseName = databaseName;
+                        }
+                        List<String> tables = session.getAllTables(caseSensitiveDatabaseName);
+                        Map<String, String> nameMap = Maps.uniqueIndex(tables, toLowerCase());
+
                         if (tables.isEmpty()) {
                             // Check to see if the database exists
                             session.getSchema(databaseName);
                         }
-                        return tables;
+                        return nameMap;
                     }
                 });
+    }
+
+    public CassandraTableHandle getTableHandle(SchemaTableName schemaTableName)
+    {
+        checkNotNull(schemaTableName, "schemaTableName is null");
+        String schemaName = getCaseSensitiveSchemaName(schemaTableName.getSchemaName());
+        String tableName = getCaseSensitiveTableName(schemaTableName);
+        CassandraTableHandle tableHandle = new CassandraTableHandle(connectorId, schemaName, tableName);
+        return tableHandle;
+    }
+
+    private String getCaseSensitiveSchemaName(String caseInsensitiveName)
+    {
+        return getCacheValue(schemaNamesCache, "", RuntimeException.class).get(caseInsensitiveName.toLowerCase());
+    }
+
+    private String getCaseSensitiveTableName(SchemaTableName schemaTableName)
+    {
+        return getCacheValue(tableNamesCache, schemaTableName.getSchemaName(), SchemaNotFoundException.class).get(schemaTableName.getTableName().toLowerCase());
     }
 
     public CassandraTable getTable(CassandraTableHandle tableHandle)
@@ -254,6 +304,17 @@ public class CachingCassandraSchemaProvider
             Throwables.propagateIfInstanceOf(t, exceptionClass);
             throw Throwables.propagate(t);
         }
+    }
+
+    private static Function<String, String> toLowerCase()
+    {
+        return new Function<String, String>()
+        {
+            public String apply(String str)
+            {
+                return str.toLowerCase();
+            }
+        };
     }
 
     private static final class PartitionListKey
