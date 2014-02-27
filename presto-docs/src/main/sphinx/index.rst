@@ -10,4 +10,5 @@ Presto Documentation
     functions
     types
     sql
+    migration
     release
