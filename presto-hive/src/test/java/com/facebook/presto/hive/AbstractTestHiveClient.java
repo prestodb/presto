@@ -94,6 +94,7 @@ public abstract class AbstractTestHiveClient
     protected SchemaTableName tableBucketedDoubleFloat;
 
     protected SchemaTableName temporaryCreateTable;
+    protected SchemaTableName temporaryCreateSampledTable;
     protected String tableOwner;
 
     protected TableHandle invalidTableHandle;
@@ -130,6 +131,8 @@ public abstract class AbstractTestHiveClient
 
         String random = UUID.randomUUID().toString().toLowerCase().replace("-", "");
         temporaryCreateTable = new SchemaTableName(database, "tmp_presto_test_create_" + random);
+        random = UUID.randomUUID().toString().toLowerCase().replace("-", "");
+        temporaryCreateSampledTable = new SchemaTableName(database, "tmp_presto_test_create_" + random);
         tableOwner = "presto_test";
 
         invalidTableHandle = new HiveTableHandle("hive", database, "totally_invalid_table_name");
@@ -812,6 +815,92 @@ public abstract class AbstractTestHiveClient
         }
         finally {
             dropTable(temporaryCreateTable);
+        }
+    }
+
+    @Test
+    public void testSampledTableCreation()
+            throws Exception
+    {
+        try {
+            doCreateSampledTable();
+        }
+        finally {
+            dropTable(temporaryCreateSampledTable);
+        }
+    }
+
+    private void doCreateSampledTable()
+            throws InterruptedException
+    {
+        // begin creating the table
+        List<ColumnMetadata> columns = ImmutableList.<ColumnMetadata>builder()
+                .add(new ColumnMetadata("sales", ColumnType.LONG, 1, false))
+                .build();
+
+        ConnectorTableMetadata tableMetadata = new ConnectorTableMetadata(temporaryCreateSampledTable, columns, tableOwner, true);
+        OutputTableHandle outputHandle = metadata.beginCreateTable(tableMetadata);
+
+        // write the records
+        RecordSink sink = recordSinkProvider.getRecordSink(outputHandle);
+
+        sink.beginRecord(8);
+        sink.appendLong(2);
+        sink.finishRecord();
+
+        sink.beginRecord(5);
+        sink.appendLong(3);
+        sink.finishRecord();
+
+        sink.beginRecord(7);
+        sink.appendLong(4);
+        sink.finishRecord();
+
+        String fragment = sink.commit();
+
+        // commit the table
+        metadata.commitCreateTable(outputHandle, ImmutableList.of(fragment));
+
+        // load the new table
+        TableHandle tableHandle = getTableHandle(temporaryCreateSampledTable);
+        List<ColumnHandle> columnHandles = ImmutableList.<ColumnHandle>builder()
+                .addAll(metadata.getColumnHandles(tableHandle).values())
+                .add(metadata.getSampleWeightColumnHandle(tableHandle))
+                .build();
+        assertEquals(columnHandles.size(), 2);
+
+        // verify the metadata
+        tableMetadata = metadata.getTableMetadata(getTableHandle(temporaryCreateSampledTable));
+        assertEquals(tableMetadata.getOwner(), tableOwner);
+
+        Map<String, ColumnMetadata> columnMap = uniqueIndex(tableMetadata.getColumns(), columnNameGetter());
+        assertEquals(columnMap.size(), 1);
+
+        assertPrimitiveField(columnMap, 0, "sales", ColumnType.LONG, false);
+
+        // verify the data
+        PartitionResult partitionResult = splitManager.getPartitions(tableHandle, TupleDomain.all());
+        assertEquals(partitionResult.getPartitions().size(), 1);
+        SplitSource splitSource = splitManager.getPartitionSplits(tableHandle, partitionResult.getPartitions());
+        Split split = getOnlyElement(splitSource.getNextBatch(1000));
+        assertTrue(splitSource.isFinished());
+
+        try (RecordCursor cursor = recordSetProvider.getRecordSet(split, columnHandles).cursor()) {
+            assertRecordCursorType(cursor, "rcfile-binary");
+
+            assertTrue(cursor.advanceNextPosition());
+            assertEquals(cursor.getLong(0), 2);
+            assertEquals(cursor.getLong(1), 8);
+
+            assertTrue(cursor.advanceNextPosition());
+            assertEquals(cursor.getLong(0), 3);
+            assertEquals(cursor.getLong(1), 5);
+
+            assertTrue(cursor.advanceNextPosition());
+            assertEquals(cursor.getLong(0), 4);
+            assertEquals(cursor.getLong(1), 7);
+
+            assertFalse(cursor.advanceNextPosition());
         }
     }
 

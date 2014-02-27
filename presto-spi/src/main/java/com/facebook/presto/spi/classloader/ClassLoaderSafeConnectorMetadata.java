@@ -99,7 +99,9 @@ public class ClassLoaderSafeConnectorMetadata
     @Override
     public boolean canCreateSampledTables()
     {
-        return false;
+        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
+            return delegate.canCreateSampledTables();
+        }
     }
 
     @Override
