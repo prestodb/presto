@@ -27,6 +27,7 @@ import java.util.Collection;
 import java.util.Date;
 import java.util.List;
 import java.util.Map;
+import sun.misc.FloatingDecimal;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
@@ -180,7 +181,7 @@ public enum CassandraType
                 case DOUBLE:
                     return row.getDouble(i);
                 case FLOAT:
-                    return (double) row.getFloat(i);
+                    return new FloatingDecimal(row.getFloat(i)).doubleValue();
                 case DECIMAL:
                     return row.getDecimal(i).doubleValue();
                 case UUID:
