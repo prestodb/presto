@@ -162,7 +162,7 @@ public class CassandraColumnHandle
                 .add("ordinalPosition", ordinalPosition)
                 .add("cassandraType", cassandraType);
 
-        if (!typeArguments.isEmpty()) {
+        if (typeArguments != null && !typeArguments.isEmpty()) {
             helper.add("typeArguments", typeArguments);
         }
 
