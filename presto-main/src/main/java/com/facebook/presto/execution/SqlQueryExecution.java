@@ -17,7 +17,6 @@ import com.facebook.presto.OutputBuffers;
 import com.facebook.presto.UnpartitionedPagePartitionFunction;
 import com.facebook.presto.execution.StateMachine.StateChangeListener;
 import com.facebook.presto.metadata.Metadata;
-import com.facebook.presto.metadata.ShardManager;
 import com.facebook.presto.split.SplitManager;
 import com.facebook.presto.sql.analyzer.Analysis;
 import com.facebook.presto.sql.analyzer.Analyzer;
@@ -80,7 +79,6 @@ public class SqlQueryExecution
     private final int initialHashPartitions;
     private final boolean experimentalSyntaxEnabled;
     private final ExecutorService queryExecutor;
-    private final ShardManager shardManager;
 
     private final QueryExplainer queryExplainer;
     private final AtomicReference<SqlStageExecution> outputStage = new AtomicReference<>();
@@ -100,8 +98,7 @@ public class SqlQueryExecution
             int maxPendingSplitsPerNode,
             int initialHashPartitions,
             boolean experimentalSyntaxEnabled,
-            ExecutorService queryExecutor,
-            ShardManager shardManager)
+            ExecutorService queryExecutor)
     {
         try (SetThreadName setThreadName = new SetThreadName("Query-%s", queryId)) {
             this.statement = checkNotNull(statement, "statement is null");
@@ -112,7 +109,6 @@ public class SqlQueryExecution
             this.remoteTaskFactory = checkNotNull(remoteTaskFactory, "remoteTaskFactory is null");
             this.locationFactory = checkNotNull(locationFactory, "locationFactory is null");
             this.queryExecutor = checkNotNull(queryExecutor, "queryExecutor is null");
-            this.shardManager = checkNotNull(shardManager, "shardManager is null");
             this.experimentalSyntaxEnabled = experimentalSyntaxEnabled;
 
             checkArgument(maxPendingSplitsPerNode > 0, "scheduleSplitBatchSize must be greater than 0");
@@ -395,7 +391,6 @@ public class SqlQueryExecution
         private final List<PlanOptimizer> planOptimizers;
         private final RemoteTaskFactory remoteTaskFactory;
         private final LocationFactory locationFactory;
-        private final ShardManager shardManager;
 
         private final ExecutorService executor;
         private final ThreadPoolExecutorMBean executorMBean;
@@ -408,8 +403,7 @@ public class SqlQueryExecution
                 SplitManager splitManager,
                 NodeScheduler nodeScheduler,
                 List<PlanOptimizer> planOptimizers,
-                RemoteTaskFactory remoteTaskFactory,
-                ShardManager shardManager)
+                RemoteTaskFactory remoteTaskFactory)
         {
             checkNotNull(config, "config is null");
             this.scheduleSplitBatchSize = config.getScheduleSplitBatchSize();
@@ -421,7 +415,6 @@ public class SqlQueryExecution
             this.nodeScheduler = checkNotNull(nodeScheduler, "nodeScheduler is null");
             this.planOptimizers = checkNotNull(planOptimizers, "planOptimizers is null");
             this.remoteTaskFactory = checkNotNull(remoteTaskFactory, "remoteTaskFactory is null");
-            this.shardManager = checkNotNull(shardManager, "shardManager is null");
             this.experimentalSyntaxEnabled = checkNotNull(analyzerConfig, "analyzerConfig is null").isExperimentalSyntaxEnabled();
 
             this.executor = Executors.newCachedThreadPool(threadsNamed("query-scheduler-%d"));
@@ -453,8 +446,7 @@ public class SqlQueryExecution
                     maxPendingSplitsPerNode,
                     initialHashPartitions,
                     experimentalSyntaxEnabled,
-                    executor,
-                    shardManager);
+                    executor);
 
             return queryExecution;
         }
