@@ -91,6 +91,7 @@ import com.google.inject.multibindings.MapBinder;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
 import io.airlift.discovery.client.ServiceDescriptor;
 import io.airlift.slice.Slice;
+import io.airlift.units.Duration;
 
 import javax.inject.Singleton;
 
@@ -112,6 +113,7 @@ import static io.airlift.jaxrs.JaxrsBinder.jaxrsBinder;
 import static io.airlift.json.JsonBinder.jsonBinder;
 import static io.airlift.json.JsonCodecBinder.jsonCodecBinder;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
+import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.weakref.jmx.guice.ExportBinder.newExporter;
 
 public class ServerMainModule
@@ -170,7 +172,14 @@ public class ServerMainModule
 
         // exchange client
         binder.bind(new TypeLiteral<Supplier<ExchangeClient>>() {}).to(ExchangeClientFactory.class).in(Scopes.SINGLETON);
-        httpClientBinder(binder).bindHttpClient("exchange", ForExchange.class).withTracing();
+        httpClientBinder(binder).bindHttpClient("exchange", ForExchange.class)
+                .withTracing()
+                .withConfigDefaults(config -> {
+                    config.setIdleTimeout(new Duration(2, SECONDS));
+                    config.setRequestTimeout(new Duration(10, SECONDS));
+                    config.setMaxConnectionsPerServer(250);
+                });
+
         configBinder(binder).bindConfig(ExchangeClientConfig.class);
         binder.bind(ExchangeExecutionMBean.class).in(Scopes.SINGLETON);
         newExporter(binder).export(ExchangeExecutionMBean.class).withGeneratedName();
@@ -179,11 +188,23 @@ public class ServerMainModule
         binder.bind(LocationFactory.class).to(HttpLocationFactory.class).in(Scopes.SINGLETON);
         binder.bind(RemoteTaskFactory.class).to(HttpRemoteTaskFactory.class).in(Scopes.SINGLETON);
         newExporter(binder).export(RemoteTaskFactory.class).withGeneratedName();
-        httpClientBinder(binder).bindHttpClient("scheduler", ForScheduler.class).withTracing();
+        httpClientBinder(binder).bindHttpClient("scheduler", ForScheduler.class)
+                .withTracing()
+                .withConfigDefaults(config -> {
+                    config.setIdleTimeout(new Duration(2, SECONDS));
+                    config.setRequestTimeout(new Duration(10, SECONDS));
+                    config.setMaxConnectionsPerServer(250);
+                });
 
         // memory manager
         jaxrsBinder(binder).bind(MemoryResource.class);
-        httpClientBinder(binder).bindHttpClient("memoryManager", ForMemoryManager.class).withTracing();
+        httpClientBinder(binder).bindHttpClient("memoryManager", ForMemoryManager.class)
+                .withTracing()
+                .withConfigDefaults(config -> {
+                    config.setIdleTimeout(new Duration(2, SECONDS));
+                    config.setRequestTimeout(new Duration(10, SECONDS));
+                });
+
         jsonCodecBinder(binder).bindJsonCodec(MemoryInfo.class);
 
         // data stream provider
@@ -266,7 +287,12 @@ public class ServerMainModule
 
         // execute resource
         jaxrsBinder(binder).bind(ExecuteResource.class);
-        httpClientBinder(binder).bindHttpClient("execute", ForExecute.class);
+        httpClientBinder(binder).bindHttpClient("execute", ForExecute.class)
+                .withTracing()
+                .withConfigDefaults(config -> {
+                    config.setIdleTimeout(new Duration(2, SECONDS));
+                    config.setRequestTimeout(new Duration(10, SECONDS));
+                });
 
         // plugin manager
         binder.bind(PluginManager.class).in(Scopes.SINGLETON);
