@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.sql;
 
+import com.facebook.presto.operator.scalar.FunctionAssertions;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.RecordCursor;
 import com.facebook.presto.sql.analyzer.Session;
@@ -42,6 +43,7 @@ import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
 import static com.facebook.presto.connector.dual.DualMetadata.DUAL_METADATA_MANAGER;
+import static com.facebook.presto.sql.ExpressionFormatter.formatExpression;
 import static com.facebook.presto.sql.analyzer.ExpressionAnalyzer.getExpressionTypes;
 import static com.facebook.presto.sql.analyzer.Session.DEFAULT_CATALOG;
 import static com.facebook.presto.sql.analyzer.Session.DEFAULT_SCHEMA;
@@ -895,11 +897,9 @@ public class TestExpressionInterpreter
 
     private static Object optimize(@Language("SQL") String expression)
     {
-        Expression parsedExpression = createExpression(expression);
+        assertRoundTrip(expression);
 
-        // verify roundtrip
-        Expression roundtrip = createExpression(ExpressionFormatter.formatExpression(parsedExpression));
-        assertEquals(parsedExpression, roundtrip);
+        Expression parsedExpression = FunctionAssertions.createExpression(expression, DUAL_METADATA_MANAGER, SYMBOL_TYPES);
 
         IdentityHashMap<Expression, Type> expressionTypes = getExpressionTypes(SESSION, DUAL_METADATA_MANAGER, SYMBOL_TYPES, parsedExpression);
         ExpressionInterpreter interpreter = expressionOptimizer(parsedExpression, DUAL_METADATA_MANAGER, SESSION, expressionTypes);
@@ -929,13 +929,16 @@ public class TestExpressionInterpreter
 
     private static Object evaluate(String expression)
     {
-        Expression parsedExpression = createExpression(expression);
+        assertRoundTrip(expression);
 
-        // verify roundtrip
-        Expression roundtrip = createExpression(ExpressionFormatter.formatExpression(parsedExpression));
-        assertEquals(parsedExpression, roundtrip);
+        Expression parsedExpression = FunctionAssertions.createExpression(expression, DUAL_METADATA_MANAGER, SYMBOL_TYPES);
 
         return evaluate(parsedExpression);
+    }
+
+    private static void assertRoundTrip(String expression)
+    {
+        assertEquals(createExpression(expression), createExpression(formatExpression(createExpression(expression))));
     }
 
     private static Object evaluate(Expression expression)

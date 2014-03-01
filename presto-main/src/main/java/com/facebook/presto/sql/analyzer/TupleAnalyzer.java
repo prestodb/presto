@@ -77,7 +77,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-import static com.facebook.presto.sql.analyzer.Analyzer.ExpressionAnalysis;
 import static com.facebook.presto.sql.analyzer.ExpressionAnalyzer.getExpressionTypes;
 import static com.facebook.presto.sql.analyzer.Field.typeGetter;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.AMBIGUOUS_ATTRIBUTE;
@@ -374,8 +373,20 @@ class TupleAnalyzer
                 Expression leftExpression = new QualifiedNameReference(QualifiedName.of(column));
                 Expression rightExpression = new QualifiedNameReference(QualifiedName.of(column));
 
-                ExpressionAnalysis leftExpressionAnalysis = Analyzer.analyzeExpression(session, metadata, left, analysis, experimentalSyntaxEnabled, context, leftExpression);
-                ExpressionAnalysis rightExpressionAnalysis = Analyzer.analyzeExpression(session, metadata, right, analysis, experimentalSyntaxEnabled, context, rightExpression);
+                ExpressionAnalysis leftExpressionAnalysis = ExpressionAnalyzer.analyzeExpression(session,
+                        metadata,
+                        left,
+                        analysis,
+                        experimentalSyntaxEnabled,
+                        context,
+                        leftExpression);
+                ExpressionAnalysis rightExpressionAnalysis = ExpressionAnalyzer.analyzeExpression(session,
+                        metadata,
+                        right,
+                        analysis,
+                        experimentalSyntaxEnabled,
+                        context,
+                        rightExpression);
                 checkState(leftExpressionAnalysis.getSubqueryInPredicates().isEmpty(), "INVARIANT");
                 checkState(rightExpressionAnalysis.getSubqueryInPredicates().isEmpty(), "INVARIANT");
 
@@ -394,7 +405,7 @@ class TupleAnalyzer
 
             Analyzer.verifyNoAggregatesOrWindowFunctions(metadata, expression, "JOIN");
 
-            Object optimizedExpression = expressionOptimizer(expression, metadata, session, analyzer.getSubExpressionTypes()).optimize(NoOpSymbolResolver.INSTANCE);
+            Object optimizedExpression = expressionOptimizer(expression, metadata, session, analyzer.getExpressionTypes()).optimize(NoOpSymbolResolver.INSTANCE);
 
             if (!(optimizedExpression instanceof Expression) && optimizedExpression instanceof Boolean) {
                 // If the JoinOn clause evaluates to a boolean expression, simulate a cross join by adding the relevant redundant expression
@@ -440,8 +451,20 @@ class TupleAnalyzer
                 }
 
                 // analyze the clauses to record the types of all subexpressions and resolve names against the left/right underlying tuples
-                ExpressionAnalysis leftExpressionAnalysis = Analyzer.analyzeExpression(session, metadata, left, analysis, experimentalSyntaxEnabled, context, leftExpression);
-                ExpressionAnalysis rightExpressionAnalysis = Analyzer.analyzeExpression(session, metadata, right, analysis, experimentalSyntaxEnabled, context, rightExpression);
+                ExpressionAnalysis leftExpressionAnalysis = ExpressionAnalyzer.analyzeExpression(session,
+                        metadata,
+                        left,
+                        analysis,
+                        experimentalSyntaxEnabled,
+                        context,
+                        leftExpression);
+                ExpressionAnalysis rightExpressionAnalysis = ExpressionAnalyzer.analyzeExpression(session,
+                        metadata,
+                        right,
+                        analysis,
+                        experimentalSyntaxEnabled,
+                        context,
+                        rightExpression);
                 analysis.addJoinInPredicates(node, new Analysis.JoinInPredicates(leftExpressionAnalysis.getSubqueryInPredicates(), rightExpressionAnalysis.getSubqueryInPredicates()));
 
                 clauses.add(new EquiJoinClause(leftExpression, rightExpression));
@@ -487,8 +510,14 @@ class TupleAnalyzer
     {
         ImmutableList.Builder<Field> outputFields = ImmutableList.builder();
         for (Expression expression : node.getItems()) {
-            ExpressionAnalysis expressionAnalysis = Analyzer.analyzeExpression(session, metadata, new TupleDescriptor(), analysis, experimentalSyntaxEnabled, context, expression);
-            outputFields.add(Field.newUnqualified(Optional.<String>absent(), expressionAnalysis.getType()));
+            ExpressionAnalysis expressionAnalysis = ExpressionAnalyzer.analyzeExpression(session,
+                    metadata,
+                    new TupleDescriptor(),
+                    analysis,
+                    experimentalSyntaxEnabled,
+                    context,
+                    expression);
+            outputFields.add(Field.newUnqualified(Optional.<String>absent(), expressionAnalysis.getType(expression)));
         }
         return new TupleDescriptor(outputFields.build());
     }
@@ -562,11 +591,17 @@ class TupleAnalyzer
         if (node.getHaving().isPresent()) {
             Expression predicate = node.getHaving().get();
 
-            ExpressionAnalysis expressionAnalysis = Analyzer.analyzeExpression(session, metadata, tupleDescriptor, analysis, experimentalSyntaxEnabled, context, predicate);
+            ExpressionAnalysis expressionAnalysis = ExpressionAnalyzer.analyzeExpression(session,
+                    metadata,
+                    tupleDescriptor,
+                    analysis,
+                    experimentalSyntaxEnabled,
+                    context,
+                    predicate);
             analysis.addInPredicates(node, expressionAnalysis.getSubqueryInPredicates());
 
-            if (expressionAnalysis.getType() != BOOLEAN && expressionAnalysis.getType() != NullType.NULL) {
-                throw new SemanticException(TYPE_MISMATCH, predicate, "HAVING clause must evaluate to a boolean: actual type %s", expressionAnalysis.getType());
+            if (expressionAnalysis.getType(predicate) != BOOLEAN && expressionAnalysis.getType(predicate) != NullType.NULL) {
+                throw new SemanticException(TYPE_MISMATCH, predicate, "HAVING clause must evaluate to a boolean: actual type %s", expressionAnalysis.getType(predicate));
             }
 
             analysis.setHaving(node, predicate);
@@ -627,7 +662,13 @@ class TupleAnalyzer
                 }
 
                 if (orderByExpression.isExpression()) {
-                    ExpressionAnalysis expressionAnalysis = Analyzer.analyzeExpression(session, metadata, tupleDescriptor, analysis, experimentalSyntaxEnabled, context, orderByExpression.getExpression());
+                    ExpressionAnalysis expressionAnalysis = ExpressionAnalyzer.analyzeExpression(session,
+                            metadata,
+                            tupleDescriptor,
+                            analysis,
+                            experimentalSyntaxEnabled,
+                            context,
+                            orderByExpression.getExpression());
                     analysis.addInPredicates(node, expressionAnalysis.getSubqueryInPredicates());
                 }
 
@@ -662,7 +703,13 @@ class TupleAnalyzer
                     groupByExpression = outputExpressions.get((int) (ordinal - 1));
                 }
                 else {
-                    ExpressionAnalysis expressionAnalysis = Analyzer.analyzeExpression(session, metadata, tupleDescriptor, analysis, experimentalSyntaxEnabled, context, expression);
+                    ExpressionAnalysis expressionAnalysis = ExpressionAnalyzer.analyzeExpression(session,
+                            metadata,
+                            tupleDescriptor,
+                            analysis,
+                            experimentalSyntaxEnabled,
+                            context,
+                            expression);
                     analysis.addInPredicates(node, expressionAnalysis.getSubqueryInPredicates());
                     groupByExpression = new FieldOrExpression(expression);
                 }
@@ -736,7 +783,13 @@ class TupleAnalyzer
             }
             else if (item instanceof SingleColumn) {
                 SingleColumn column = (SingleColumn) item;
-                ExpressionAnalysis expressionAnalysis = Analyzer.analyzeExpression(session, metadata, tupleDescriptor, analysis, experimentalSyntaxEnabled, context, column.getExpression());
+                ExpressionAnalysis expressionAnalysis = ExpressionAnalyzer.analyzeExpression(session,
+                        metadata,
+                        tupleDescriptor,
+                        analysis,
+                        experimentalSyntaxEnabled,
+                        context,
+                        column.getExpression());
                 analysis.addInPredicates(node, expressionAnalysis.getSubqueryInPredicates());
                 outputExpressionBuilder.add(new FieldOrExpression(column.getExpression()));
             }
@@ -758,11 +811,17 @@ class TupleAnalyzer
 
             Analyzer.verifyNoAggregatesOrWindowFunctions(metadata, predicate, "WHERE");
 
-            ExpressionAnalysis expressionAnalysis = Analyzer.analyzeExpression(session, metadata, tupleDescriptor, analysis, experimentalSyntaxEnabled, context, predicate);
+            ExpressionAnalysis expressionAnalysis = ExpressionAnalyzer.analyzeExpression(session,
+                    metadata,
+                    tupleDescriptor,
+                    analysis,
+                    experimentalSyntaxEnabled,
+                    context,
+                    predicate);
             analysis.addInPredicates(node, expressionAnalysis.getSubqueryInPredicates());
 
-            if (expressionAnalysis.getType() != BOOLEAN && expressionAnalysis.getType() != NullType.NULL) {
-                throw new SemanticException(TYPE_MISMATCH, predicate, "WHERE clause must evaluate to a boolean: actual type %s", expressionAnalysis.getType());
+            if (expressionAnalysis.getType(predicate) != BOOLEAN && expressionAnalysis.getType(predicate) != NullType.NULL) {
+                throw new SemanticException(TYPE_MISMATCH, predicate, "WHERE clause must evaluate to a boolean: actual type %s", expressionAnalysis.getType(predicate));
             }
 
             analysis.setWhere(node, predicate);
