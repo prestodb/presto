@@ -16,6 +16,7 @@ package com.facebook.presto.operator;
 import com.facebook.presto.block.BlockBuilder;
 import com.facebook.presto.block.BlockCursor;
 import com.facebook.presto.block.uncompressed.UncompressedBlock;
+import com.facebook.presto.operator.HashAggregationOperator.HashMemoryManager;
 import com.facebook.presto.tuple.TupleInfo;
 import com.facebook.presto.tuple.TupleInfo.Type;
 import com.google.common.collect.ImmutableList;
@@ -64,7 +65,14 @@ public class GroupByHash
 
     private int nextGroupId;
 
+    private final HashMemoryManager memoryManager;
+
     public GroupByHash(List<Type> types, int[] channels, int expectedSize)
+    {
+        this(types, channels, expectedSize, null);
+    }
+
+    public GroupByHash(List<Type> types, int[] channels, int expectedSize, HashMemoryManager memoryManager)
     {
         this.types = checkNotNull(types, "types is null");
         this.channels = checkNotNull(channels, "channels is null").clone();
@@ -77,6 +85,8 @@ public class GroupByHash
         this.hashStrategy = new PageBuilderHashStrategy();
         this.pagePositionToGroupId = new PagePositionToGroupId(expectedSize, hashStrategy);
         this.pagePositionToGroupId.defaultReturnValue(-1);
+
+        this.memoryManager = memoryManager;
     }
 
     public long getEstimatedSize()
@@ -131,8 +141,11 @@ public class GroupByHash
             allPages.add(activePage);
             pageIndex++;
 
-            // TODO make the page builder allocation guarantee enough space to hold at least the first row.
-            checkState(activePage.append(row), "Could not add row to empty page builder");
+            while (!activePage.append(row)) {
+                checkState(memoryManager == null || !memoryManager.canUse(getEstimatedSize()),
+                                "Could not add row to empty page builder");
+                activePage.resizeChannels();
+            }
         }
 
         // record group id in hash
@@ -230,9 +243,10 @@ public class GroupByHash
 
     private static class GroupByPageBuilder
     {
-        private final List<ChannelBuilder> channels;
+        private List<ChannelBuilder> channels;
         private int positionCount;
         private boolean full;
+        private int insufficientChannel;
 
         public GroupByPageBuilder(List<Type> types)
         {
@@ -241,6 +255,7 @@ public class GroupByHash
                 builder.add(new ChannelBuilder(type));
             }
             channels = builder.build();
+            insufficientChannel = -1;
         }
 
         public int getPositionCount()
@@ -267,6 +282,10 @@ public class GroupByHash
             // append to each channel
             for (int channel = 0; channel < row.length; channel++) {
                 if (!channels.get(channel).append(row[channel])) {
+                    if (positionCount == 0) {
+                        insufficientChannel = channel;
+                    }
+
                     // This early return will result in uneven channels, but this is not
                     // a problem since the position count is not incremented.  This means
                     // that although some channels have "garbage" on the end, these values
@@ -318,6 +337,25 @@ public class GroupByHash
             }
             return true;
         }
+
+        public void resizeChannels()
+        {
+            checkState(insufficientChannel >= 0, "No insufficient channel found");
+
+            ImmutableList.Builder<ChannelBuilder> builder = ImmutableList.builder();
+
+            for (int i = 0; i < channels.size(); i++) {
+                if (i == insufficientChannel) {
+                    builder.add(channels.get(i).createResizedBuilder());
+                }
+                else {
+                    builder.add(channels.get(i));
+                }
+            }
+            channels = builder.build();
+            insufficientChannel = -1;
+            full = false;
+        }
     }
 
     private static class ChannelBuilder
@@ -331,10 +369,20 @@ public class GroupByHash
 
         public ChannelBuilder(Type type)
         {
+            this(type, Ints.checkedCast(DEFAULT_MAX_BLOCK_SIZE.toBytes()));
+        }
+
+        public ChannelBuilder createResizedBuilder()
+        {
+            return new ChannelBuilder(type, slice.length() * 2);
+        }
+
+        private ChannelBuilder(Type type, int blockSize)
+        {
             checkNotNull(type, "type is null");
 
             this.type = type;
-            this.slice = Slices.allocate(Ints.checkedCast(DEFAULT_MAX_BLOCK_SIZE.toBytes()));
+            this.slice = Slices.allocate(blockSize);
             this.sliceOutput = slice.getOutput();
             this.positionOffsets = new IntArrayList(1024);
         }
