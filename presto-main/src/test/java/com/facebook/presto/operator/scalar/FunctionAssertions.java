@@ -18,6 +18,7 @@ import com.facebook.presto.block.BlockCursor;
 import com.facebook.presto.execution.TaskId;
 import com.facebook.presto.metadata.FunctionInfo;
 import com.facebook.presto.metadata.FunctionRegistry.FunctionListBuilder;
+import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.operator.DriverContext;
 import com.facebook.presto.operator.FilterAndProjectOperator.FilterAndProjectOperatorFactory;
@@ -30,30 +31,29 @@ import com.facebook.presto.operator.ProjectionFunction;
 import com.facebook.presto.operator.RecordProjectOperator;
 import com.facebook.presto.operator.SourceOperator;
 import com.facebook.presto.operator.SourceOperatorFactory;
-import com.facebook.presto.operator.ValuesOperator;
 import com.facebook.presto.operator.TaskContext;
+import com.facebook.presto.operator.ValuesOperator;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.HostAddress;
 import com.facebook.presto.spi.InMemoryRecordSet;
 import com.facebook.presto.spi.RecordSet;
 import com.facebook.presto.spi.Split;
 import com.facebook.presto.split.DataStreamProvider;
-import com.facebook.presto.sql.analyzer.Analysis;
-import com.facebook.presto.sql.analyzer.AnalysisContext;
+import com.facebook.presto.sql.analyzer.ExpressionAnalysis;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
-import com.facebook.presto.sql.analyzer.ExpressionAnalyzer;
-import com.facebook.presto.sql.analyzer.Field;
 import com.facebook.presto.sql.analyzer.SemanticException;
 import com.facebook.presto.sql.analyzer.Session;
-import com.facebook.presto.sql.analyzer.TupleDescriptor;
 import com.facebook.presto.sql.gen.ExpressionCompiler;
+import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.InterpretedFilterFunction;
 import com.facebook.presto.sql.planner.InterpretedProjectionFunction;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.SymbolToInputRewriter;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
+import com.facebook.presto.sql.tree.Cast;
 import com.facebook.presto.sql.tree.DefaultTraversalVisitor;
 import com.facebook.presto.sql.tree.Expression;
+import com.facebook.presto.sql.tree.ExpressionRewriter;
 import com.facebook.presto.sql.tree.ExpressionTreeRewriter;
 import com.facebook.presto.sql.tree.Input;
 import com.facebook.presto.sql.tree.QualifiedNameReference;
@@ -66,7 +66,6 @@ import com.facebook.presto.util.LocalQueryRunner;
 import com.facebook.presto.util.MaterializedResult;
 import com.facebook.presto.util.Threads;
 import com.google.common.base.Charsets;
-import com.google.common.base.Function;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
@@ -80,7 +79,6 @@ import java.util.HashSet;
 import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Map.Entry;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -95,11 +93,10 @@ import static com.facebook.presto.spi.ColumnType.BOOLEAN;
 import static com.facebook.presto.spi.ColumnType.DOUBLE;
 import static com.facebook.presto.spi.ColumnType.LONG;
 import static com.facebook.presto.spi.ColumnType.STRING;
+import static com.facebook.presto.sql.analyzer.ExpressionAnalyzer.analyzeExpressionsWithSymbols;
 import static com.facebook.presto.sql.analyzer.ExpressionAnalyzer.getExpressionTypesFromInput;
-import static com.facebook.presto.sql.parser.SqlParser.createExpression;
 import static com.facebook.presto.sql.tree.BooleanLiteral.TRUE_LITERAL;
 import static com.google.common.base.Preconditions.checkNotNull;
-import static com.google.common.collect.Iterables.transform;
 import static io.airlift.testing.Assertions.assertInstanceOf;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static org.testng.Assert.assertEquals;
@@ -143,15 +140,6 @@ public final class FunctionAssertions
             .put(new Symbol("bound_pattern"), new Input(5))
             .put(new Symbol("bound_null_string"), new Input(6))
             .build();
-
-    private static final TupleDescriptor TUPLE_DESCRIPTOR = new TupleDescriptor(ImmutableList.copyOf(transform(INPUT_MAPPING.entrySet(), new Function<Entry<Symbol, Input>, Field>()
-    {
-        @Override
-        public Field apply(Entry<Symbol, Input> entry)
-        {
-            return Field.newUnqualified(entry.getKey().getName(), INPUT_TYPES.get(entry.getValue()));
-        }
-    })));
 
     private static final Map<Symbol, Type> SYMBOL_TYPES = ImmutableMap.<Symbol, Type>builder()
             .put(new Symbol("bound_long"), BigintType.BIGINT)
@@ -219,7 +207,7 @@ public final class FunctionAssertions
     {
         checkNotNull(projection, "projection is null");
 
-        Expression projectionExpression = createExpression(projection);
+        Expression projectionExpression = createExpression(projection, metadataManager, SYMBOL_TYPES);
 
         List<Object> results = new ArrayList<>();
 
@@ -310,7 +298,7 @@ public final class FunctionAssertions
     {
         checkNotNull(filter, "filter is null");
 
-        Expression filterExpression = createExpression(filter);
+        Expression filterExpression = createExpression(filter, metadataManager, SYMBOL_TYPES);
 
         List<Boolean> results = new ArrayList<>();
 
@@ -361,6 +349,30 @@ public final class FunctionAssertions
         }
 
         return results;
+    }
+
+    public static Expression createExpression(String expression, Metadata metadata, Map<Symbol, Type> symbolTypes)
+    {
+        Expression parsedExpression = SqlParser.createExpression(expression);
+
+        final ExpressionAnalysis analysis = analyzeExpressionsWithSymbols(SESSION, metadata, symbolTypes, ImmutableList.of(parsedExpression));
+        Expression rewrittenExpression = ExpressionTreeRewriter.rewriteWith(new ExpressionRewriter<Void>()
+        {
+            @Override
+            public Expression rewriteExpression(Expression node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
+            {
+                Expression rewrittenExpression = treeRewriter.defaultRewrite(node, context);
+
+                // cast expression if coercion is registered
+                Type coercion = analysis.getCoercion(node);
+                if (coercion != null) {
+                    rewrittenExpression = new Cast(rewrittenExpression, coercion.getName());
+                }
+
+                return rewrittenExpression;
+            }
+        }, parsedExpression);
+        return rewrittenExpression;
     }
 
     private static boolean executeFilterWithNoInputColumns(OperatorFactory operatorFactory, Session session)
@@ -547,11 +559,6 @@ public final class FunctionAssertions
         return new TaskContext(new TaskId("query", "stage", "task"), EXECUTOR, session)
                 .addPipelineContext(true, true)
                 .addDriverContext();
-    }
-
-    private Type getExpressionType(Expression projection)
-    {
-        return new ExpressionAnalyzer(new Analysis(), SESSION, metadataManager, false).analyze(projection, TUPLE_DESCRIPTOR, new AnalysisContext());
     }
 
     private static class TestDataStreamProvider
