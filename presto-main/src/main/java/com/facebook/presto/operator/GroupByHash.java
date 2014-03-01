@@ -16,6 +16,9 @@ package com.facebook.presto.operator;
 import com.facebook.presto.block.BlockBuilder;
 import com.facebook.presto.block.BlockCursor;
 import com.facebook.presto.block.uncompressed.UncompressedBlock;
+import com.facebook.presto.operator.HashAggregationOperator.HashMemoryManager;
+import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.StandardErrorCode;
 import com.facebook.presto.tuple.TupleInfo;
 import com.facebook.presto.tuple.TupleInfo.Type;
 import com.google.common.collect.ImmutableList;
@@ -38,6 +41,7 @@ import static com.facebook.presto.operator.SyntheticAddress.decodePosition;
 import static com.facebook.presto.operator.SyntheticAddress.decodeSliceIndex;
 import static com.facebook.presto.operator.SyntheticAddress.encodeSyntheticAddress;
 import static com.facebook.presto.tuple.TupleInfo.SINGLE_LONG;
+import static com.facebook.presto.tuple.TupleInfo.SINGLE_VARBINARY;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
@@ -64,7 +68,9 @@ public class GroupByHash
 
     private int nextGroupId;
 
-    public GroupByHash(List<Type> types, int[] channels, int expectedSize)
+    private final HashMemoryManager memoryManager;
+
+    public GroupByHash(List<Type> types, int[] channels, int expectedSize, HashMemoryManager memoryManager)
     {
         this.types = checkNotNull(types, "types is null");
         this.channels = checkNotNull(channels, "channels is null").clone();
@@ -77,6 +83,8 @@ public class GroupByHash
         this.hashStrategy = new PageBuilderHashStrategy();
         this.pagePositionToGroupId = new PagePositionToGroupId(expectedSize, hashStrategy);
         this.pagePositionToGroupId.defaultReturnValue(-1);
+
+        this.memoryManager = memoryManager;
     }
 
     public long getEstimatedSize()
@@ -128,11 +136,15 @@ public class GroupByHash
             completedPagesMemorySize += activePage.getMemorySize();
 
             activePage = new GroupByPageBuilder(types);
+            if (!activePage.append(row)) {
+                if (memoryManager.canUse(getEstimatedSize() + GroupByPageBuilder.memoryRequiredFor(row))) {
+                    throw new PrestoException(StandardErrorCode.EXCEEDED_MEMORY_LIMIT.toErrorCode(), "Not enough memory to build group by hash");
+                }
+                activePage = new GroupByPageBuilder(types, row);
+                checkState(activePage.append(row), "Could not add row to empty page builder");
+            }
             allPages.add(activePage);
             pageIndex++;
-
-            // TODO make the page builder allocation guarantee enough space to hold at least the first row.
-            checkState(activePage.append(row), "Could not add row to empty page builder");
         }
 
         // record group id in hash
@@ -243,6 +255,43 @@ public class GroupByHash
             channels = builder.build();
         }
 
+        private GroupByPageBuilder(List<Type> types, BlockCursor... cursors)
+        {
+            checkArgument(types.size() == cursors.length, "types and cursors must have the same length");
+            ImmutableList.Builder<ChannelBuilder> builder = ImmutableList.builder();
+            for (int i = 0; i < types.size(); i++) {
+                builder.add(new ChannelBuilder(types.get(i), sizeOfFirstValue(cursors[i]) + 1));
+            }
+            channels = builder.build();
+        }
+
+        public static int memoryRequiredFor(BlockCursor... cursors)
+        {
+            int total = 0;
+            for (BlockCursor cursor : cursors) {
+                total += sizeOfFirstValue(cursor);
+            }
+            return total;
+        }
+
+        public static int sizeOfFirstValue(BlockCursor cursor)
+        {
+            boolean isNull = cursor.isNull();
+            if (isNull) {
+                return SIZE_OF_BYTE;
+            }
+            if (cursor.getTupleInfo().getType().isFixedSize()) {
+                return cursor.getTupleInfo().getType().getSize() + SIZE_OF_BYTE;
+            }
+            else if (cursor.getTupleInfo().equals(SINGLE_VARBINARY)) {
+                int sliceLength = getVariableBinaryLength(cursor.getRawSlice(), cursor.getRawOffset());
+                return SIZE_OF_INT + sliceLength + SIZE_OF_BYTE;
+            }
+            else {
+                throw new IllegalArgumentException("Unsupported type " + cursor.getTupleInfo());
+            }
+        }
+
         public int getPositionCount()
         {
             return positionCount;
@@ -331,10 +380,15 @@ public class GroupByHash
 
         public ChannelBuilder(Type type)
         {
+            this(type, Ints.checkedCast(DEFAULT_MAX_BLOCK_SIZE.toBytes()));
+        }
+
+        public ChannelBuilder(Type type, int blockSize)
+        {
             checkNotNull(type, "type is null");
 
             this.type = type;
-            this.slice = Slices.allocate(Ints.checkedCast(DEFAULT_MAX_BLOCK_SIZE.toBytes()));
+            this.slice = Slices.allocate(blockSize);
             this.sliceOutput = slice.getOutput();
             this.positionOffsets = new IntArrayList(1024);
         }

@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.operator;
 
+import com.facebook.presto.block.Block;
 import com.facebook.presto.tuple.TupleInfo;
 import com.google.common.collect.ImmutableList;
 
@@ -53,6 +54,12 @@ public class RowPagesBuilder
         pageBreak();
         Page page = SequencePageBuilder.createSequencePage(tupleInfos, length, initialValues);
         pages.add(page);
+        return this;
+    }
+
+    public RowPagesBuilder addBlocksPage(Block... blocks)
+    {
+        pages.add(new Page(blocks));
         return this;
     }
 

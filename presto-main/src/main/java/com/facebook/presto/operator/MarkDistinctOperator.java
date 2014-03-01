@@ -26,6 +26,7 @@ import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
 
+import static com.facebook.presto.operator.HashAggregationOperator.HashMemoryManager;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
@@ -103,7 +104,7 @@ public class MarkDistinctOperator
             types.add(tupleInfos.get(channel).getType());
         }
 
-        this.markDistinctHash = new MarkDistinctHash(types.build(), markDistinctChannels);
+        this.markDistinctHash = new MarkDistinctHash(types.build(), markDistinctChannels, new HashMemoryManager(operatorContext));
 
         this.tupleInfos = tupleInfos;
     }
@@ -209,7 +210,7 @@ class MarkDistinctSampledOperator
             types.add(tupleInfos.get(channel).getType());
         }
 
-        this.markDistinctHash = new MarkDistinctHash(types.build(), markDistinctChannels);
+        this.markDistinctHash = new MarkDistinctHash(types.build(), markDistinctChannels, new HashMemoryManager(operatorContext));
 
         this.tupleInfos = tupleInfos;
         this.pageBuilder = new PageBuilder(tupleInfos);
