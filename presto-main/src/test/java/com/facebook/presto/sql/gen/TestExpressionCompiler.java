@@ -21,10 +21,10 @@ import com.facebook.presto.operator.scalar.StringFunctions;
 import com.facebook.presto.operator.scalar.UnixTimeFunctions;
 import com.facebook.presto.sql.planner.LikeUtils;
 import com.facebook.presto.sql.tree.Extract.Field;
-import com.google.common.base.Charsets;
 import com.google.common.base.Function;
 import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
+import com.google.common.base.Throwables;
 import com.google.common.collect.ContiguousSet;
 import com.google.common.collect.DiscreteDomain;
 import com.google.common.collect.ImmutableList;
@@ -99,6 +99,8 @@ public class TestExpressionCompiler
     };
 
     private static final Logger log = Logger.get(TestExpressionCompiler.class);
+    private static final boolean PARALLEL = true;
+
     private long start;
     private ListeningExecutorService executor;
     private FunctionAssertions functionAssertions;
@@ -402,6 +404,7 @@ public class TestExpressionCompiler
             if (((Number) left).doubleValue() == ((Number) right).doubleValue()) {
                 return null;
             }
+            return ((Number) left).doubleValue();
         }
         else if (left.equals(right)) {
             return null;
@@ -543,12 +546,11 @@ public class TestExpressionCompiler
         assertExecute("cast(null as boolean) and false", false);
         assertExecute("cast(null as boolean) and cast(null as boolean)", null);
 
-        // todo enable when null output type is supported
-        //assertExecute("true and null", null);
-        //assertExecute("false and null", false);
-        //assertExecute("null and true", null);
-        //assertExecute("null and false", false);
-        //assertExecute("null and null", null);
+        assertExecute("true and null", null);
+        assertExecute("false and null", false);
+        assertExecute("null and true", null);
+        assertExecute("null and false", false);
+        assertExecute("null and null", null);
 
         Futures.allAsList(futures).get();
     }
@@ -568,12 +570,11 @@ public class TestExpressionCompiler
         assertExecute("cast(null as boolean) or false", null);
         assertExecute("cast(null as boolean) or cast(null as boolean)", null);
 
-        // todo enable when null output type is supported
-        //assertExecute("true or null", true);
-        //assertExecute("false or null", null);
-        //assertExecute("null or true", true);
-        //assertExecute("null or false", null);
-        //assertExecute("null or null", null);
+        assertExecute("true or null", true);
+        assertExecute("false or null", null);
+        assertExecute("null or true", true);
+        assertExecute("null or false", null);
+        assertExecute("null or null", null);
 
         Futures.allAsList(futures).get();
     }
@@ -587,8 +588,7 @@ public class TestExpressionCompiler
 
         assertExecute("not cast(null as boolean)", null);
 
-        // todo enable when null output type is supported
-        //assertExecute("not null", null);
+        assertExecute("not null", null);
 
         Futures.allAsList(futures).get();
     }
@@ -727,31 +727,30 @@ public class TestExpressionCompiler
     {
         for (Boolean value : booleanValues) {
             assertExecute(generateExpression("%s in (true)", value), value == null ? null : value == Boolean.TRUE);
-            //assertExecute(generateExpression("%s in (null, true)", value), value == null ? null : value == Boolean.TRUE ? true : null);
-            //assertExecute(generateExpression("%s in (true, null)", value), value == null ? null : value == Boolean.TRUE ? true : null);
+            assertExecute(generateExpression("%s in (null, true)", value), value == null ? null : value == Boolean.TRUE ? true : null);
+            assertExecute(generateExpression("%s in (true, null)", value), value == null ? null : value == Boolean.TRUE ? true : null);
             assertExecute(generateExpression("%s in (false)", value), value == null ? null : value == Boolean.FALSE);
-            //assertExecute(generateExpression("%s in (null, false)", value), value == null ? null : value == Boolean.FALSE ? true : null);
-            //assertExecute(generateExpression("%s in (null)", value), null);
+            assertExecute(generateExpression("%s in (null, false)", value), value == null ? null : value == Boolean.FALSE ? true : null);
+            assertExecute(generateExpression("%s in (null)", value), null);
         }
 
         for (Long value : longLefts) {
             List<Long> testValues = Arrays.asList(33L, 9L, -9L, -33L);
             assertExecute(generateExpression("%s in (33, 9, -9, -33)", value),
                     value == null ? null : testValues.contains(value));
-            //assertExecute(generateExpression("%s in (null, 33, 9, -9, -33)", value),
-            //        value == null ? null : testValues.contains(value) ? true : null);
+            assertExecute(generateExpression("%s in (null, 33, 9, -9, -33)", value),
+                    value == null ? null : testValues.contains(value) ? true : null);
 
-            //assertExecute(generateExpression("%s in (33, null, 9, -9, -33)", value),
-            //        value == null ? null : testValues.contains(value) ? true : null);
+            assertExecute(generateExpression("%s in (33, null, 9, -9, -33)", value),
+                    value == null ? null : testValues.contains(value) ? true : null);
 
-            // todo mixed types are not currently allowed
             // compare a long to in containing doubles
-            // assertExecute(generateExpression("%s in (33, 9.0, -9, -33)", value),
-            //         value == null ? null : testValues.contains(value));
-            // assertExecute(generateExpression("%s in (null, 33, 9.0, -9, -33)", value),
-            //         value == null ? null : testValues.contains(value) ? true : null);
-            // assertExecute(generateExpression("%s in (33.0, null, 9.0, -9, -33)", value),
-            //         value == null ? null : testValues.contains(value) ? true : null);
+            assertExecute(generateExpression("%s in (33, 9.0, -9, -33)", value),
+                     value == null ? null : testValues.contains(value));
+            assertExecute(generateExpression("%s in (null, 33, 9.0, -9, -33)", value),
+                     value == null ? null : testValues.contains(value) ? true : null);
+            assertExecute(generateExpression("%s in (33.0, null, 9.0, -9, -33)", value),
+                     value == null ? null : testValues.contains(value) ? true : null);
 
         }
 
@@ -759,36 +758,35 @@ public class TestExpressionCompiler
             List<Double> testValues = Arrays.asList(33.0, 9.0, -9.0, -33.0);
             assertExecute(generateExpression("%s in (33.0, 9.0, -9.0, -33.0)", value),
                     value == null ? null : testValues.contains(value));
-            //assertExecute(generateExpression("%s in (null, 33.0, 9.0, -9.0, -33.0)", value),
-            //        value == null ? null : testValues.contains(value) ? true : null);
-            //assertExecute(generateExpression("%s in (33.0, null, 9.0, -9.0, -33.0)", value),
-            //        value == null ? null : testValues.contains(value) ? true : null);
+            assertExecute(generateExpression("%s in (null, 33.0, 9.0, -9.0, -33.0)", value),
+                    value == null ? null : testValues.contains(value) ? true : null);
+            assertExecute(generateExpression("%s in (33.0, null, 9.0, -9.0, -33.0)", value),
+                    value == null ? null : testValues.contains(value) ? true : null);
 
-            // todo mixed types are not currently allowed
             // compare a double to in containing longs
-            // assertExecute(generateExpression("%s in (33.0, 9, -9, -33.0)", value),
-            //         value == null ? null : testValues.contains(value));
-            // assertExecute(generateExpression("%s in (null, 33.0, 9, -9, -33.0)", value),
-            //         value == null ? null : testValues.contains(value) ? true : null);
-            // assertExecute(generateExpression("%s in (33.0, null, 9, -9, -33.0)", value),
-            //         value == null ? null : testValues.contains(value) ? true : null);
+            assertExecute(generateExpression("%s in (33.0, 9, -9, -33.0)", value),
+                     value == null ? null : testValues.contains(value));
+            assertExecute(generateExpression("%s in (null, 33.0, 9, -9, -33.0)", value),
+                     value == null ? null : testValues.contains(value) ? true : null);
+            assertExecute(generateExpression("%s in (33.0, null, 9, -9, -33.0)", value),
+                     value == null ? null : testValues.contains(value) ? true : null);
 
             // compare to dynamically computed values
             testValues = Arrays.asList(33.0, cos(9.0), cos(-9.0), -33.0);
             assertExecute(generateExpression("cos(%s) in (33.0, cos(9.0), cos(-9.0), -33.0)", value),
                     value == null ? null : testValues.contains(cos(value)));
-            //assertExecute(generateExpression("cos(%s) in (null, 33.0, cos(9.0), cos(-9.0), -33.0)", value),
-            //        value == null ? null : testValues.contains(cos(value)) ? true : null);
+            assertExecute(generateExpression("cos(%s) in (null, 33.0, cos(9.0), cos(-9.0), -33.0)", value),
+                    value == null ? null : testValues.contains(cos(value)) ? true : null);
         }
 
         for (String value : stringLefts) {
             List<String> testValues = Arrays.asList("what?", "foo", "mellow", "end");
             assertExecute(generateExpression("%s in ('what?', 'foo', 'mellow', 'end')", value),
                     value == null ? null : testValues.contains(value));
-            //assertExecute(generateExpression("%s in (null, 'what?', 'foo', 'mellow', 'end')", value),
-            //        value == null ? null : testValues.contains(value) ? true : null);
-            //assertExecute(generateExpression("%s in ('what?', null, 'foo', 'mellow', 'end')", value),
-            //        value == null ? null : testValues.contains(value) ? true : null);
+            assertExecute(generateExpression("%s in (null, 'what?', 'foo', 'mellow', 'end')", value),
+                    value == null ? null : testValues.contains(value) ? true : null);
+            assertExecute(generateExpression("%s in ('what?', null, 'foo', 'mellow', 'end')", value),
+                    value == null ? null : testValues.contains(value) ? true : null);
         }
 
         Futures.allAsList(futures).get();
@@ -807,12 +805,6 @@ public class TestExpressionCompiler
             @Override
             public Object apply(Integer i)
             {
-                //if (i % 2 == 0) {
-                //    return i;
-                //}
-                //else {
-                //    return (double) i;
-                //}
                 return (double) i;
             }
         });
@@ -1012,39 +1004,39 @@ public class TestExpressionCompiler
             throws Exception
     {
         assertExecute("coalesce(9, 1)", 9L);
-        //assertExecute("coalesce(9, null)", 9L);
+        assertExecute("coalesce(9, null)", 9L);
         assertExecute("coalesce(9, cast(null as bigint))", 9L);
-        //assertExecute("coalesce(null, 9, 1)", 9L);
-        //assertExecute("coalesce(null, 9, null)", 9L);
-        //assertExecute("coalesce(null, 9, cast(null as bigint))", 9L);
+        assertExecute("coalesce(null, 9, 1)", 9L);
+        assertExecute("coalesce(null, 9, null)", 9L);
+        assertExecute("coalesce(null, 9, cast(null as bigint))", 9L);
         assertExecute("coalesce(cast(null as bigint), 9, 1)", 9L);
-        //assertExecute("coalesce(cast(null as bigint), 9, null)", 9L);
+        assertExecute("coalesce(cast(null as bigint), 9, null)", 9L);
         assertExecute("coalesce(cast(null as bigint), 9, cast(null as bigint))", 9L);
 
         assertExecute("coalesce(9.0, 1.0)", 9.0);
-        //assertExecute("coalesce(9.0, 1)", 9.0);
-        //assertExecute("coalesce(9.0, null)", 9.0);
+        assertExecute("coalesce(9.0, 1)", 9.0);
+        assertExecute("coalesce(9.0, null)", 9.0);
         assertExecute("coalesce(9.0, cast(null as double))", 9.0);
-        //assertExecute("coalesce(null, 9.0, 1)", 9.0);
-        //assertExecute("coalesce(null, 9.0, null)", 9.0);
+        assertExecute("coalesce(null, 9.0, 1)", 9.0);
+        assertExecute("coalesce(null, 9.0, null)", 9.0);
         assertExecute("coalesce(null, 9.0, cast(null as double))", 9.0);
-        //assertExecute("coalesce(null, 9.0, cast(null as bigint))", 9.0);
-        //assertExecute("coalesce(cast(null as bigint), 9.0, 1)", 9.0);
-        //assertExecute("coalesce(cast(null as bigint), 9.0, null)", 9.0);
-        //assertExecute("coalesce(cast(null as bigint), 9.0, cast(null as bigint))", 9.0);
+        assertExecute("coalesce(null, 9.0, cast(null as bigint))", 9.0);
+        assertExecute("coalesce(cast(null as bigint), 9.0, 1)", 9.0);
+        assertExecute("coalesce(cast(null as bigint), 9.0, null)", 9.0);
+        assertExecute("coalesce(cast(null as bigint), 9.0, cast(null as bigint))", 9.0);
         assertExecute("coalesce(cast(null as double), 9.0, cast(null as double))", 9.0);
 
         assertExecute("coalesce('foo', 'bar')", "foo");
-        //assertExecute("coalesce('foo', null)", "foo");
+        assertExecute("coalesce('foo', null)", "foo");
         assertExecute("coalesce('foo', cast(null as varchar))", "foo");
-        //assertExecute("coalesce(null, 'foo', 'bar')", "foo");
-        //assertExecute("coalesce(null, 'foo', null)", "foo");
-        //assertExecute("coalesce(null, 'foo', cast(null as varchar))", "foo");
+        assertExecute("coalesce(null, 'foo', 'bar')", "foo");
+        assertExecute("coalesce(null, 'foo', null)", "foo");
+        assertExecute("coalesce(null, 'foo', cast(null as varchar))", "foo");
         assertExecute("coalesce(cast(null as varchar), 'foo', 'bar')", "foo");
-        //assertExecute("coalesce(cast(null as varchar), 'foo', null)", "foo");
+        assertExecute("coalesce(cast(null as varchar), 'foo', null)", "foo");
         assertExecute("coalesce(cast(null as varchar), 'foo', cast(null as varchar))", "foo");
 
-        //assertExecute("coalesce(cast(null as bigint), null, cast(null as bigint))", null);
+        assertExecute("coalesce(cast(null as bigint), null, cast(null as bigint))", null);
 
         Futures.allAsList(futures).get();
     }
@@ -1194,16 +1186,31 @@ public class TestExpressionCompiler
 
     private void assertExecute(String expression, Object expected)
     {
-        futures.add(executor.submit(new AssertExecuteTask(functionAssertions, expression, expected)));
+        addCallable(new AssertExecuteTask(functionAssertions, expression, expected));
+    }
+
+    private void addCallable(Callable<Void> callable)
+    {
+        if (PARALLEL) {
+            futures.add(executor.submit(callable));
+        }
+        else {
+            try {
+                callable.call();
+            }
+            catch (Exception e) {
+                throw Throwables.propagate(e);
+            }
+        }
     }
 
     private void assertExecute(List<String> expressions, Object expected)
     {
         if (expected instanceof Slice) {
-            expected = ((Slice) expected).toString(Charsets.UTF_8);
+            expected = ((Slice) expected).toString(UTF_8);
         }
         for (String expression : expressions) {
-            futures.add(executor.submit(new AssertExecuteTask(functionAssertions, expression, expected)));
+            assertExecute(expression, expected);
         }
     }
 
@@ -1237,12 +1244,12 @@ public class TestExpressionCompiler
 
     private void assertFilterWithNoInputColumns(String filter, boolean expected)
     {
-        futures.add(executor.submit(new AssertFilterTask(functionAssertions, filter, expected, true)));
+        addCallable(new AssertFilterTask(functionAssertions, filter, expected, true));
     }
 
     private void assertFilter(String filter, boolean expected)
     {
-        futures.add(executor.submit(new AssertFilterTask(functionAssertions, filter, expected, false)));
+        addCallable(new AssertFilterTask(functionAssertions, filter, expected, false));
     }
 
     private static class AssertFilterTask

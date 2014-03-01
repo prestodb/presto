@@ -15,11 +15,13 @@ package com.facebook.presto.sql.planner;
 
 import com.facebook.presto.sql.analyzer.Analysis;
 import com.facebook.presto.sql.analyzer.FieldOrExpression;
+import com.facebook.presto.sql.tree.Cast;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.ExpressionRewriter;
 import com.facebook.presto.sql.tree.ExpressionTreeRewriter;
 import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.sql.tree.QualifiedNameReference;
+import com.facebook.presto.type.Type;
 import com.google.common.base.Preconditions;
 
 import java.util.HashMap;
@@ -85,12 +87,17 @@ class TranslationMap
             @Override
             public Expression rewriteExpression(Expression node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
             {
+                // convert expression to qualified name reference (containing a symbol) if rewrite registered
+                Expression rewrittenExpression;
                 Symbol symbol = expressionMappings.get(node);
                 if (symbol != null) {
-                    return new QualifiedNameReference(symbol.toQualifiedName());
+                    rewrittenExpression = new QualifiedNameReference(symbol.toQualifiedName());
+                }
+                else {
+                    rewrittenExpression = treeRewriter.defaultRewrite(node, context);
                 }
 
-                return treeRewriter.defaultRewrite(node, context);
+                return rewrittenExpression;
             }
         }, mapped);
     }
@@ -160,6 +167,20 @@ class TranslationMap
         return ExpressionTreeRewriter.rewriteWith(new ExpressionRewriter<Void>()
         {
             @Override
+            public Expression rewriteExpression(Expression node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
+            {
+                Expression rewrittenExpression = treeRewriter.defaultRewrite(node, context);
+
+                // cast expression if coercion is registered
+                Type coercion = analysis.getCoercion(node);
+                if (coercion != null) {
+                    rewrittenExpression = new Cast(rewrittenExpression, coercion.getName());
+                }
+
+                return rewrittenExpression;
+            }
+
+            @Override
             public Expression rewriteQualifiedNameReference(QualifiedNameReference node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
             {
                 QualifiedName name = node.getName();
@@ -170,7 +191,15 @@ class TranslationMap
                 Symbol symbol = rewriteBase.getSymbol(fieldIndex);
                 Preconditions.checkState(symbol != null, "No symbol mapping for name '%s' (%s)", name, fieldIndex);
 
-                return new QualifiedNameReference(symbol.toQualifiedName());
+                Expression rewrittenExpression = new QualifiedNameReference(symbol.toQualifiedName());
+
+                // cast expression if coercion is registered
+                Type coercion = analysis.getCoercion(node);
+                if (coercion != null) {
+                    rewrittenExpression = new Cast(rewrittenExpression, coercion.getName());
+                }
+
+                return rewrittenExpression;
             }
         }, expression);
     }

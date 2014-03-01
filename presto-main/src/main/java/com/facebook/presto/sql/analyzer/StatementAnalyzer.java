@@ -60,7 +60,7 @@ import static com.facebook.presto.connector.informationSchema.InformationSchemaM
 import static com.facebook.presto.connector.informationSchema.InformationSchemaMetadata.TABLE_SCHEMATA;
 import static com.facebook.presto.connector.informationSchema.InformationSchemaMetadata.TABLE_TABLES;
 import static com.facebook.presto.connector.system.CatalogSystemTable.CATALOG_TABLE_NAME;
-import static com.facebook.presto.sql.analyzer.Analyzer.ExpressionAnalysis;
+
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.COLUMN_NAME_NOT_SPECIFIED;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.DUPLICATE_COLUMN_NAME;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.DUPLICATE_RELATION;
@@ -527,7 +527,13 @@ class StatementAnalyzer
                 else {
                     // otherwise, just use the expression as is
                     orderByField = new FieldOrExpression(expression);
-                    ExpressionAnalysis expressionAnalysis = Analyzer.analyzeExpression(session, metadata, tupleDescriptor, analysis, experimentalSyntaxEnabled, context, orderByField.getExpression());
+                    ExpressionAnalysis expressionAnalysis = ExpressionAnalyzer.analyzeExpression(session,
+                            metadata,
+                            tupleDescriptor,
+                            analysis,
+                            experimentalSyntaxEnabled,
+                            context,
+                            orderByField.getExpression());
                     analysis.addInPredicates(node, expressionAnalysis.getSubqueryInPredicates());
                 }
 
