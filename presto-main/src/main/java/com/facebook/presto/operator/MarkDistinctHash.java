@@ -20,6 +20,7 @@ import io.airlift.slice.Slices;
 
 import java.util.List;
 
+import static com.facebook.presto.operator.HashAggregationOperator.HashMemoryManager;
 import static com.facebook.presto.tuple.TupleInfo.SINGLE_BOOLEAN;
 
 public class MarkDistinctHash
@@ -27,14 +28,14 @@ public class MarkDistinctHash
     private final GroupByHash groupByHash;
     private long nextDistinctId;
 
-    public MarkDistinctHash(List<TupleInfo.Type> types, int[] channels)
+    public MarkDistinctHash(List<TupleInfo.Type> types, int[] channels, HashMemoryManager memoryManager)
     {
-        this(types, channels, 10_000);
+        this(types, channels, memoryManager, 10_000);
     }
 
-    public MarkDistinctHash(List<TupleInfo.Type> types, int[] channels, int expectedDistinctValues)
+    public MarkDistinctHash(List<TupleInfo.Type> types, int[] channels, HashMemoryManager memoryManager, int expectedDistinctValues)
     {
-        this.groupByHash = new GroupByHash(types, channels, expectedDistinctValues);
+        this.groupByHash = new GroupByHash(types, channels, expectedDistinctValues, memoryManager);
     }
 
     public long getEstimatedSize()

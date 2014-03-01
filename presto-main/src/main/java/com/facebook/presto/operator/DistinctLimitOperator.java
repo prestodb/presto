@@ -22,6 +22,7 @@ import com.google.common.util.concurrent.ListenableFuture;
 import java.util.Arrays;
 import java.util.List;
 
+import static com.facebook.presto.operator.HashAggregationOperator.HashMemoryManager;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
@@ -92,7 +93,7 @@ public class DistinctLimitOperator
             distinctChannels.add(i);
         }
 
-        this.groupByHash = new GroupByHash(types.build(), Ints.toArray(distinctChannels.build()), 10_000);
+        this.groupByHash = new GroupByHash(types.build(), Ints.toArray(distinctChannels.build()), 10_000, new HashMemoryManager(operatorContext));
 
         this.cursors = new BlockCursor[tupleInfos.size()];
         this.pageBuilder = new PageBuilder(getTupleInfos());

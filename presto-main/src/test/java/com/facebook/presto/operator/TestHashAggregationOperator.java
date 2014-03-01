@@ -14,11 +14,14 @@
 package com.facebook.presto.operator;
 
 import com.facebook.presto.ExceededMemoryLimitException;
+import com.facebook.presto.block.BlockBuilder;
 import com.facebook.presto.execution.TaskId;
 import com.facebook.presto.operator.HashAggregationOperator.HashAggregationOperatorFactory;
+import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.sql.analyzer.Session;
 import com.facebook.presto.sql.planner.plan.AggregationNode.Step;
 import com.facebook.presto.sql.tree.Input;
+import com.facebook.presto.tuple.TupleInfo;
 import com.facebook.presto.util.MaterializedResult;
 import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
@@ -184,6 +187,67 @@ public class TestHashAggregationOperator
                         aggregation(LONG_SUM, ImmutableList.of(new Input(3)), Optional.<Input>absent(), Optional.<Input>absent(), 1.0),
                         aggregation(LONG_AVERAGE, ImmutableList.of(new Input(3)), Optional.<Input>absent(), Optional.<Input>absent(), 1.0),
                         aggregation(VAR_BINARY_MAX, ImmutableList.of(new Input(2)), Optional.<Input>absent(), Optional.<Input>absent(), 1.0)),
+                100_000);
+
+        Operator operator = operatorFactory.createOperator(driverContext);
+
+        toPages(operator, input);
+    }
+
+    public void testHashBuilderResize()
+    {
+        BlockBuilder builder = new BlockBuilder(TupleInfo.SINGLE_VARBINARY);
+        builder.append(new String(new byte[200_000])); // this must be larger than DEFAULT_MAX_BLOCK_SIZE, 64K
+        builder.build();
+
+        List<Page> input = rowPagesBuilder(SINGLE_VARBINARY)
+                .addSequencePage(10, 100)
+                .addBlocksPage(builder.build())
+                .addSequencePage(10, 100)
+                .build();
+
+        Session session = new Session("user", "source", "catalog", "schema", "address", "agent");
+        DriverContext driverContext = new TaskContext(new TaskId("query", "stage", "task"), executor, session, new DataSize(3, Unit.MEGABYTE))
+                .addPipelineContext(true, true)
+                .addDriverContext();
+
+        HashAggregationOperatorFactory operatorFactory = new HashAggregationOperatorFactory(
+                0,
+                ImmutableList.of(SINGLE_VARBINARY),
+                Ints.asList(0),
+                Step.SINGLE,
+                ImmutableList.of(aggregation(COUNT, ImmutableList.of(new Input(0)), Optional.<Input>absent(), Optional.<Input>absent(), 1.0)),
+                100_000);
+
+        Operator operator = operatorFactory.createOperator(driverContext);
+
+        toPages(operator, input);
+    }
+
+    @Test(expectedExceptions = PrestoException.class, expectedExceptionsMessageRegExp = "Not enough memory to build group by hash")
+    public void testHashBuilderResizeLimit()
+    {
+        BlockBuilder builder = new BlockBuilder(TupleInfo.SINGLE_VARBINARY);
+        builder.append(new String(new byte[5_000_000])); // this must be larger than DEFAULT_MAX_BLOCK_SIZE, 64K
+        builder.build();
+
+        List<Page> input = rowPagesBuilder(SINGLE_VARBINARY)
+                .addSequencePage(10, 100)
+                .addBlocksPage(builder.build())
+                .addSequencePage(10, 100)
+                .build();
+
+        Session session = new Session("user", "source", "catalog", "schema", "address", "agent");
+        DriverContext driverContext = new TaskContext(new TaskId("query", "stage", "task"), executor, session, new DataSize(3, Unit.MEGABYTE))
+                .addPipelineContext(true, true)
+                .addDriverContext();
+
+        HashAggregationOperatorFactory operatorFactory = new HashAggregationOperatorFactory(
+                0,
+                ImmutableList.of(SINGLE_VARBINARY),
+                Ints.asList(0),
+                Step.SINGLE,
+                ImmutableList.of(aggregation(COUNT, ImmutableList.of(new Input(0)), Optional.<Input>absent(), Optional.<Input>absent(), 1.0)),
                 100_000);
 
         Operator operator = operatorFactory.createOperator(driverContext);
