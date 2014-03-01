@@ -15,6 +15,7 @@ package com.facebook.presto.sql.planner;
 
 import com.facebook.presto.sql.tree.AstVisitor;
 import com.facebook.presto.sql.tree.BooleanLiteral;
+import com.facebook.presto.sql.tree.Cast;
 import com.facebook.presto.sql.tree.DateLiteral;
 import com.facebook.presto.sql.tree.DoubleLiteral;
 import com.facebook.presto.sql.tree.Expression;
@@ -76,7 +77,7 @@ public final class LiteralInterpreter
         }
 
         if (object == null) {
-            return new NullLiteral();
+            return new Cast(new NullLiteral(), type.getName());
         }
 
         if (type == BigintType.BIGINT) {

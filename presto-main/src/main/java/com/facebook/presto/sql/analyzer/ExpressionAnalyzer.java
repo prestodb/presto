@@ -61,10 +61,10 @@ import com.facebook.presto.type.Types;
 import com.facebook.presto.util.IterableTransformer;
 import com.google.common.base.Function;
 import com.google.common.base.Optional;
-import com.google.common.base.Predicate;
-import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
+
+import javax.annotation.Nullable;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -88,8 +88,6 @@ import static com.facebook.presto.type.Types.isNumeric;
 import static com.facebook.presto.type.VarcharType.VARCHAR;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
-import static com.google.common.base.Predicates.not;
-import static com.google.common.collect.Iterables.filter;
 
 public class ExpressionAnalyzer
 {
@@ -99,7 +97,8 @@ public class ExpressionAnalyzer
     private final Session session;
     private final Map<QualifiedName, Integer> resolvedNames = new HashMap<>();
     private final IdentityHashMap<FunctionCall, FunctionInfo> resolvedFunctions = new IdentityHashMap<>();
-    private final IdentityHashMap<Expression, Type> subExpressionTypes = new IdentityHashMap<>();
+    private final IdentityHashMap<Expression, Type> expressionTypes = new IdentityHashMap<>();
+    private final IdentityHashMap<Expression, Type> expressionCoercions = new IdentityHashMap<>();
     private final Set<InPredicate> subqueryInPredicates = Collections.newSetFromMap(new IdentityHashMap<InPredicate, Boolean>());
 
     public ExpressionAnalyzer(Analysis analysis, Session session, Metadata metadata, boolean experimentalSyntaxEnabled)
@@ -120,9 +119,14 @@ public class ExpressionAnalyzer
         return resolvedFunctions;
     }
 
-    public IdentityHashMap<Expression, Type> getSubExpressionTypes()
+    public IdentityHashMap<Expression, Type> getExpressionTypes()
     {
-        return subExpressionTypes;
+        return expressionTypes;
+    }
+
+    public IdentityHashMap<Expression, Type> getExpressionCoercions()
+    {
+        return expressionCoercions;
     }
 
     public Set<InPredicate> getSubqueryInPredicates()
@@ -152,6 +156,17 @@ public class ExpressionAnalyzer
         }
 
         @Override
+        public Type process(Node node, @Nullable AnalysisContext context)
+        {
+            // don't double processs a node
+            Type type = expressionTypes.get(node);
+            if (type != null) {
+                return type;
+            }
+            return super.process(node, context);
+        }
+
+        @Override
         protected Type visitCurrentTime(CurrentTime node, AnalysisContext context)
         {
             if (node.getType() != CurrentTime.Type.TIMESTAMP) {
@@ -162,7 +177,7 @@ public class ExpressionAnalyzer
                 throw new SemanticException(NOT_SUPPORTED, node, "non-default precision not yet supported");
             }
 
-            subExpressionTypes.put(node, BIGINT);
+            expressionTypes.put(node, BIGINT);
             return BIGINT;
         }
 
@@ -180,7 +195,7 @@ public class ExpressionAnalyzer
             int fieldIndex = Iterables.getOnlyElement(matches);
             Field field = tupleDescriptor.getFields().get(fieldIndex);
             resolvedNames.put(node.getName(), fieldIndex);
-            subExpressionTypes.put(node, field.getType());
+            expressionTypes.put(node, field.getType());
 
             return field.getType();
         }
@@ -188,42 +203,28 @@ public class ExpressionAnalyzer
         @Override
         protected Type visitNotExpression(NotExpression node, AnalysisContext context)
         {
-            Type value = process(node.getValue(), context);
-            if (!isBooleanOrNull(value)) {
-                throw new SemanticException(TYPE_MISMATCH, node.getValue(), "Value of logical NOT expression must evaluate to a BOOLEAN (actual: %s)", value);
-            }
+            checkType(context, node.getValue(), BOOLEAN, "Value of logical NOT expression");
 
-            subExpressionTypes.put(node, BOOLEAN);
+            expressionTypes.put(node, BOOLEAN);
             return BOOLEAN;
         }
 
         @Override
         protected Type visitLogicalBinaryExpression(LogicalBinaryExpression node, AnalysisContext context)
         {
-            Type left = process(node.getLeft(), context);
-            if (!isBooleanOrNull(left)) {
-                throw new SemanticException(TYPE_MISMATCH, node.getLeft(), "Left side of logical expression must evaluate to a BOOLEAN (actual: %s)", left);
-            }
-            Type right = process(node.getRight(), context);
-            if (!isBooleanOrNull(right)) {
-                throw new SemanticException(TYPE_MISMATCH, node.getRight(), "Right side of logical expression must evaluate to a BOOLEAN (actual: %s)", right);
-            }
+            checkType(context, node.getLeft(), BOOLEAN, "Left side of logical expression");
+            checkType(context, node.getRight(), BOOLEAN, "Right side of logical expression");
 
-            subExpressionTypes.put(node, BOOLEAN);
+            expressionTypes.put(node, BOOLEAN);
             return BOOLEAN;
         }
 
         @Override
         protected Type visitComparisonExpression(ComparisonExpression node, AnalysisContext context)
         {
-            Type left = process(node.getLeft(), context);
-            Type right = process(node.getRight(), context);
+            checkSameType(context, node, "Types are not comparable with '" + node.getType().getValue() + "': %s vs %s", node.getLeft(), node.getRight());
 
-            if (!sameType(left, right)) {
-                throw new SemanticException(TYPE_MISMATCH, node, "Types are not comparable with '%s': %s vs %s", node.getType().getValue(), left, right);
-            }
-
-            subExpressionTypes.put(node, BOOLEAN);
+            expressionTypes.put(node, BOOLEAN);
             return BOOLEAN;
         }
 
@@ -232,7 +233,7 @@ public class ExpressionAnalyzer
         {
             process(node.getValue(), context);
 
-            subExpressionTypes.put(node, BOOLEAN);
+            expressionTypes.put(node, BOOLEAN);
             return BOOLEAN;
         }
 
@@ -241,45 +242,34 @@ public class ExpressionAnalyzer
         {
             process(node.getValue(), context);
 
-            subExpressionTypes.put(node, BOOLEAN);
+            expressionTypes.put(node, BOOLEAN);
             return BOOLEAN;
         }
 
         @Override
         protected Type visitNullIfExpression(NullIfExpression node, AnalysisContext context)
         {
-            Type first = process(node.getFirst(), context);
-            Type second = process(node.getSecond(), context);
+            Type type = checkSameType(context, node, "Types are not comparable with NULLIF: %s vs %s", node.getFirst(), node.getSecond());
 
-            if (!sameType(first, second)) {
-                throw new SemanticException(TYPE_MISMATCH, node, "Types are not comparable with nullif: %s vs %s", first, second);
-            }
-
-            subExpressionTypes.put(node, first);
-            return first;
+            // todo NULLIF should be type of first argument, but that is difficult in current AST based expressions tree
+            expressionTypes.put(node, type);
+            return type;
         }
 
         @Override
         protected Type visitIfExpression(IfExpression node, AnalysisContext context)
         {
-            Type condition = process(node.getCondition(), context);
-            if (!isBooleanOrNull(condition)) {
-                throw new SemanticException(TYPE_MISMATCH, node, "IF condition must be a boolean type: %s", condition);
+            checkType(context, node.getCondition(), BOOLEAN, "IF condition");
+
+            Type type;
+            if (node.getFalseValue().isPresent()) {
+                type = checkSameType(context, node, "Result types for IF must be the same: %s vs %s", node.getTrueValue(), node.getFalseValue().get());
+            }
+            else {
+                type = process(node.getTrueValue(), context);
             }
 
-            Type first = process(node.getTrueValue(), context);
-            if (!node.getFalseValue().isPresent()) {
-                subExpressionTypes.put(node, first);
-                return first;
-            }
-
-            Type second = process(node.getFalseValue().get(), context);
-            if (!sameType(first, second)) {
-                throw new SemanticException(TYPE_MISMATCH, node, "Result types for IF must be the same: %s vs %s", first, second);
-            }
-
-            Type type = (!first.equals(NULL)) ? first : second;
-            subExpressionTypes.put(node, type);
+            expressionTypes.put(node, type);
             return type;
         }
 
@@ -287,22 +277,13 @@ public class ExpressionAnalyzer
         protected Type visitSearchedCaseExpression(SearchedCaseExpression node, AnalysisContext context)
         {
             for (WhenClause whenClause : node.getWhenClauses()) {
-                Type whenOperand = process(whenClause.getOperand(), context);
-                if (!isBooleanOrNull(whenOperand)) {
-                    throw new SemanticException(TYPE_MISMATCH, node, "WHEN clause must be a boolean type: %s", whenOperand);
-                }
+                checkType(context, whenClause.getOperand(), BOOLEAN, "CASE WHEN clause");
             }
 
-            List<Type> types = new ArrayList<>();
-            for (WhenClause whenClause : node.getWhenClauses()) {
-                types.add(process(whenClause.getResult(), context));
-            }
-            if (node.getDefaultValue() != null) {
-                types.add(process(node.getDefaultValue(), context));
-            }
-
-            Type type = getSingleType(node, "clauses", types);
-            subExpressionTypes.put(node, type);
+            Type type = checkSameType(context,
+                    "All CASE results must be the same type: %s",
+                    getCaseResultExpressions(node.getWhenClauses(), node.getDefaultValue()));
+            expressionTypes.put(node, type);
 
             return type;
         }
@@ -310,50 +291,37 @@ public class ExpressionAnalyzer
         @Override
         protected Type visitSimpleCaseExpression(SimpleCaseExpression node, AnalysisContext context)
         {
-            Type operand = process(node.getOperand(), context);
             for (WhenClause whenClause : node.getWhenClauses()) {
-                Type whenOperand = process(whenClause.getOperand(), context);
-                if (!sameType(operand, whenOperand)) {
-                    throw new SemanticException(TYPE_MISMATCH, node, "CASE operand type does not match WHEN clause operand type: %s vs %s", operand, whenOperand);
-                }
+                checkSameType(context, node, "CASE operand type does not match WHEN clause operand type: %s vs %s", node.getOperand(), whenClause.getOperand());
             }
 
-            List<Type> types = new ArrayList<>();
-            for (WhenClause whenClause : node.getWhenClauses()) {
-                types.add(process(whenClause.getResult(), context));
-            }
-            if (node.getDefaultValue() != null) {
-                types.add(process(node.getDefaultValue(), context));
-            }
-
-            Type type = getSingleType(node, "clauses", types);
-            subExpressionTypes.put(node, type);
+            Type type = checkSameType(context,
+                    "All CASE results must be the same type: %s",
+                    getCaseResultExpressions(node.getWhenClauses(), node.getDefaultValue()));
+            expressionTypes.put(node, type);
 
             return type;
+        }
+
+        private List<Expression> getCaseResultExpressions(List<WhenClause> whenClauses, Expression defaultValue)
+        {
+            List<Expression> resultExpressions = new ArrayList<>();
+            for (WhenClause whenClause : whenClauses) {
+                resultExpressions.add(whenClause.getResult());
+            }
+            if (defaultValue != null) {
+                resultExpressions.add(defaultValue);
+            }
+            return resultExpressions;
         }
 
         @Override
         protected Type visitCoalesceExpression(CoalesceExpression node, AnalysisContext context)
         {
-            List<Type> operandTypes = new ArrayList<>();
-            for (Expression expression : node.getOperands()) {
-                operandTypes.add(process(expression, context));
-            }
+            Type type = checkSameType(context, "All COALESCE operands must be the same type: %s", node.getOperands());
 
-            Type type = getSingleType(node, "operands", operandTypes);
-            subExpressionTypes.put(node, type);
-
+            expressionTypes.put(node, type);
             return type;
-        }
-
-        private Type getSingleType(Node node, String subTypeName, List<Type> subTypes)
-        {
-            subTypes = ImmutableList.copyOf(filter(subTypes, not(Predicates.<Type>equalTo(NULL))));
-            Type firstOperand = Iterables.get(subTypes, 0, NULL);
-            if (!Iterables.all(subTypes, sameTypePredicate(firstOperand))) {
-                throw new SemanticException(TYPE_MISMATCH, node, "All %s must be the same type: %s", subTypeName, subTypes);
-            }
-            return firstOperand;
         }
 
         @Override
@@ -364,116 +332,92 @@ public class ExpressionAnalyzer
                 throw new SemanticException(TYPE_MISMATCH, node.getValue(), "Value of negative operator must be numeric (actual: %s)", type);
             }
 
-            subExpressionTypes.put(node, type);
+            expressionTypes.put(node, type);
             return type;
         }
 
         @Override
         protected Type visitArithmeticExpression(ArithmeticExpression node, AnalysisContext context)
         {
-            Type left = process(node.getLeft(), context);
-            Type right = process(node.getRight(), context);
+            Type type = checkSameType(context, node, "Operator %s '" + node.getType().getValue() + "' %s does not exist", node.getLeft(), node.getRight());
 
-            if (!isNumericOrNull(left)) {
-                throw new SemanticException(TYPE_MISMATCH, node.getLeft(), "Left side of '%s' must be numeric (actual: %s)", node.getType().getValue(), left);
-            }
-            if (!isNumericOrNull(right)) {
-                throw new SemanticException(TYPE_MISMATCH, node.getRight(), "Right side of '%s' must be numeric (actual: %s)", node.getType().getValue(), right);
-            }
-
-            if (left.equals(BIGINT) && right.equals(BIGINT)) {
-                subExpressionTypes.put(node, BIGINT);
-                return BIGINT;
-            }
-
-            subExpressionTypes.put(node, DOUBLE);
-            return DOUBLE;
+            expressionTypes.put(node, type);
+            return type;
         }
 
         @Override
         protected Type visitLikePredicate(LikePredicate node, AnalysisContext context)
         {
-            Type value = process(node.getValue(), context);
-            if (!isStringTypeOrNull(value)) {
-                throw new SemanticException(TYPE_MISMATCH, node.getValue(), "Left side of LIKE expression must be a STRING (actual: %s)", value);
-            }
-
-            Type pattern = process(node.getPattern(), context);
-            if (!isStringTypeOrNull(pattern)) {
-                throw new SemanticException(TYPE_MISMATCH, node.getValue(), "Pattern for LIKE expression must be a STRING (actual: %s)", pattern);
-            }
-
+            checkType(context, node.getValue(), VARCHAR, "Left side of LIKE expression");
+            checkType(context, node.getPattern(), VARCHAR, "Pattern for LIKE expression");
             if (node.getEscape() != null) {
-                Type escape = process(node.getEscape(), context);
-                if (!isStringTypeOrNull(escape)) {
-                    throw new SemanticException(TYPE_MISMATCH, node.getValue(), "Escape for LIKE expression must be a STRING (actual: %s)", escape);
-                }
+                checkType(context, node.getEscape(), VARCHAR, "Escape for LIKE expression");
             }
 
-            subExpressionTypes.put(node, BOOLEAN);
+            expressionTypes.put(node, BOOLEAN);
             return BOOLEAN;
         }
 
         @Override
         protected Type visitStringLiteral(StringLiteral node, AnalysisContext context)
         {
-            subExpressionTypes.put(node, VARCHAR);
+            expressionTypes.put(node, VARCHAR);
             return VARCHAR;
         }
 
         @Override
         protected Type visitLongLiteral(LongLiteral node, AnalysisContext context)
         {
-            subExpressionTypes.put(node, BIGINT);
+            expressionTypes.put(node, BIGINT);
             return BIGINT;
         }
 
         @Override
         protected Type visitDoubleLiteral(DoubleLiteral node, AnalysisContext context)
         {
-            subExpressionTypes.put(node, DOUBLE);
+            expressionTypes.put(node, DOUBLE);
             return DOUBLE;
         }
 
         @Override
         protected Type visitBooleanLiteral(BooleanLiteral node, AnalysisContext context)
         {
-            subExpressionTypes.put(node, BOOLEAN);
+            expressionTypes.put(node, BOOLEAN);
             return BOOLEAN;
         }
 
         @Override
         protected Type visitDateLiteral(DateLiteral node, AnalysisContext context)
         {
-            subExpressionTypes.put(node, BIGINT);
+            expressionTypes.put(node, BIGINT);
             return BIGINT;
         }
 
         @Override
         protected Type visitTimeLiteral(TimeLiteral node, AnalysisContext context)
         {
-            subExpressionTypes.put(node, BIGINT);
+            expressionTypes.put(node, BIGINT);
             return BIGINT;
         }
 
         @Override
         protected Type visitTimestampLiteral(TimestampLiteral node, AnalysisContext context)
         {
-            subExpressionTypes.put(node, BIGINT);
+            expressionTypes.put(node, BIGINT);
             return BIGINT;
         }
 
         @Override
         protected Type visitIntervalLiteral(IntervalLiteral node, AnalysisContext context)
         {
-            subExpressionTypes.put(node, BIGINT);
+            expressionTypes.put(node, BIGINT);
             return BIGINT;
         }
 
         @Override
         protected Type visitNullLiteral(NullLiteral node, AnalysisContext context)
         {
-            subExpressionTypes.put(node, NULL);
+            expressionTypes.put(node, NULL);
             return NULL;
         }
 
@@ -499,7 +443,7 @@ public class ExpressionAnalyzer
 
             resolvedFunctions.put(node, function);
 
-            subExpressionTypes.put(node, function.getReturnType());
+            expressionTypes.put(node, function.getReturnType());
 
             return function.getReturnType();
         }
@@ -507,31 +451,18 @@ public class ExpressionAnalyzer
         @Override
         protected Type visitExtract(Extract node, AnalysisContext context)
         {
-            Type type = process(node.getExpression(), context);
-            if (!type.equals(BIGINT) && !type.equals(NULL)) {
-                throw new SemanticException(TYPE_MISMATCH, node.getExpression(), "Type of argument to extract must be LONG (actual %s)", type);
-            }
+            checkType(context, node.getExpression(), BIGINT, "Type of argument to extract");
 
-            subExpressionTypes.put(node, BIGINT);
+            expressionTypes.put(node, BIGINT);
             return BIGINT;
         }
 
         @Override
         protected Type visitBetweenPredicate(BetweenPredicate node, AnalysisContext context)
         {
-            Type value = process(node.getValue(), context);
-            Type min = process(node.getMin(), context);
-            Type max = process(node.getMax(), context);
-
-            if (isStringTypeOrNull(value) && isStringTypeOrNull(min) && isStringTypeOrNull(max)) {
-                subExpressionTypes.put(node, BOOLEAN);
-                return BOOLEAN;
-            }
-            if (isNumericOrNull(value) && isNumericOrNull(min) && isNumericOrNull(max)) {
-                subExpressionTypes.put(node, BOOLEAN);
-                return BOOLEAN;
-            }
-            throw new SemanticException(TYPE_MISMATCH, node.getValue(), "Between value, min and max must be the same type (value: %s, min: %s, max: %s)", value, min, max);
+            checkSameType(context, "BETWEEN operands must be the same type: %s", ImmutableList.of(node.getValue(), node.getMin(), node.getMax()));
+            expressionTypes.put(node, BOOLEAN);
+            return BOOLEAN;
         }
 
         @Override
@@ -543,43 +474,40 @@ public class ExpressionAnalyzer
             if (type == null) {
                 throw new SemanticException(TYPE_MISMATCH, node, "Cannot cast to type: " + node.getType());
             }
-            subExpressionTypes.put(node, type);
+            expressionTypes.put(node, type);
             return type;
         }
 
         @Override
         protected Type visitInPredicate(InPredicate node, AnalysisContext context)
         {
-            Type valueType = process(node.getValue(), context);
-            Type listType = process(node.getValueList(), context);
+            Expression value = node.getValue();
+            process(value, context);
 
-            if (node.getValueList() instanceof SubqueryExpression) {
+            Expression valueList = node.getValueList();
+            process(valueList, context);
+
+            if (valueList instanceof InListExpression) {
+                InListExpression inListExpression = (InListExpression) valueList;
+
+                checkSameType(context,
+                        "IN value and list items must be the same type: %s",
+                        ImmutableList.<Expression>builder().add(value).addAll(inListExpression.getValues()).build());
+            }
+            else if (valueList instanceof SubqueryExpression) {
                 subqueryInPredicates.add(node);
             }
 
-            if (valueType.equals(NULL)) {
-                subExpressionTypes.put(node, NULL);
-            }
-            else if (!sameType(valueType, listType)) {
-                throw new SemanticException(TYPE_MISMATCH, node, "Types are not comparable for 'IN': %s vs %s", valueType, listType);
-            }
-
-            subExpressionTypes.put(node, BOOLEAN);
+            expressionTypes.put(node, BOOLEAN);
             return BOOLEAN;
         }
 
         @Override
         protected Type visitInListExpression(InListExpression node, AnalysisContext context)
         {
-            List<Type> types = new ArrayList<>();
-            for (Expression value : node.getValues()) {
-                types.add(process(value, context));
-            }
+            Type type = checkSameType(context, "All IN list values must be the same type: %s", node.getValues());
 
-            // make sure all types are the same
-            Type type = getSingleType(node, "values", types);
-
-            subExpressionTypes.put(node, type);
+            expressionTypes.put(node, type);
             return type; // TODO: this really should a be relation type
         }
 
@@ -596,7 +524,7 @@ public class ExpressionAnalyzer
 
             Type type = Iterables.getOnlyElement(descriptor.getFields()).getType();
 
-            subExpressionTypes.put(node, type);
+            expressionTypes.put(node, type);
             return type;
         }
 
@@ -604,7 +532,7 @@ public class ExpressionAnalyzer
         public Type visitInputReference(InputReference node, AnalysisContext context)
         {
             Type type = tupleDescriptor.getFields().get(node.getInput().getChannel()).getType();
-            subExpressionTypes.put(node, type);
+            expressionTypes.put(node, type);
             return type;
         }
 
@@ -613,27 +541,83 @@ public class ExpressionAnalyzer
         {
             throw new UnsupportedOperationException("not yet implemented: " + node.getClass().getName());
         }
-    }
 
-    public static Predicate<Type> sameTypePredicate(final Type type)
-    {
-        return new Predicate<Type>()
+        private Type checkType(AnalysisContext context, Expression expression, Type expectedType, String message)
         {
-            public boolean apply(Type input)
-            {
-                return sameType(type, input);
+            Type type = process(expression, context);
+            if (!type.equals(expectedType)) {
+                if (!type.equals(NULL)) {
+                    throw new SemanticException(TYPE_MISMATCH, expression, message + " must evaluate to a %s (actual: %s)", expectedType, type);
+                }
+                expressionCoercions.put(expression, expectedType);
             }
-        };
-    }
+            return type;
+        }
 
-    public static boolean sameType(Type type1, Type type2)
-    {
-        return type1.equals(type2) || (isNumeric(type1) && isNumeric(type2)) || type1.equals(NULL) || type2.equals(NULL);
-    }
+        private Type checkSameType(AnalysisContext context, Node node, String message, Expression first, Expression second)
+        {
+            Type firstType = null;
+            if (first != null) {
+                firstType = process(first, context);
+            }
+            Type secondType = null;
+            if (second != null) {
+                secondType = process(second, context);
+            }
 
-    public static boolean isBooleanOrNull(Type type)
-    {
-        return type.equals(BOOLEAN) || type.equals(NULL);
+            if (first == null) {
+                return secondType;
+            }
+            if (second == null) {
+                return firstType;
+            }
+            if (firstType.equals(secondType)) {
+                return firstType;
+            }
+
+            // coerce types if possible
+            if (firstType.equals(NULL) || (firstType.equals(BIGINT) && secondType.equals(DOUBLE))) {
+                expressionCoercions.put(first, secondType);
+                return secondType;
+            }
+            if (secondType.equals(NULL) || (firstType.equals(DOUBLE) && secondType.equals(BIGINT))) {
+                expressionCoercions.put(second, firstType);
+                return firstType;
+            }
+            throw new SemanticException(TYPE_MISMATCH, node, message, firstType, secondType);
+        }
+
+        private Type checkSameType(AnalysisContext context, String message, List<Expression> expressions)
+        {
+            // determine super type
+            Type superType = NULL;
+            for (Expression expression : expressions) {
+                Type type = process(expression, context);
+                if (superType.equals(type) || type.equals(NULL)) {
+                    continue;
+                }
+
+                if (superType.equals(NULL)) {
+                    superType = type;
+                }
+                else if (isNumeric(superType) && isNumeric(type)) {
+                    superType = DOUBLE;
+                }
+            }
+
+            // verify all expressions can be coerced to the superType
+            for (Expression expression : expressions) {
+                Type type = process(expression, context);
+                if (!type.equals(superType)) {
+                    if (!type.equals(NULL) && !(superType.equals(DOUBLE) && type.equals(BIGINT))) {
+                        throw new SemanticException(TYPE_MISMATCH, expression, message, superType);
+                    }
+                    expressionCoercions.put(expression, superType);
+                }
+            }
+
+            return superType;
+        }
     }
 
     public static boolean isNumericOrNull(Type type)
@@ -641,23 +625,28 @@ public class ExpressionAnalyzer
         return isNumeric(type) || type.equals(NULL);
     }
 
-    public static boolean isStringTypeOrNull(Type type)
-    {
-        return type.equals(VARCHAR) || type.equals(NULL);
-    }
-
     public static IdentityHashMap<Expression, Type> getExpressionTypes(Session session, Metadata metadata, Map<Symbol, Type> types, Expression expression)
     {
         return getExpressionTypes(session, metadata, types, ImmutableList.of(expression));
     }
 
-    public static IdentityHashMap<Expression, Type> getExpressionTypes(
-            Session session,
-            Metadata metadata,
-            final Map<Symbol, Type> types,
-            Iterable<? extends Expression> expressions)
+    public static IdentityHashMap<Expression, Type> getExpressionTypes(Session session, Metadata metadata, Map<Symbol, Type> types, Iterable<? extends Expression> expressions)
     {
-        ExpressionAnalyzer expressionAnalyzer = new ExpressionAnalyzer(new Analysis(), session, metadata, false);
+        return analyzeExpressionsWithSymbols(session, metadata, types, expressions).getExpressionTypes();
+    }
+
+    public static IdentityHashMap<Expression, Type> getExpressionTypesFromInput(Session session, Metadata metadata, Map<Input, Type> types, Expression expression)
+    {
+        return getExpressionTypesFromInput(session, metadata, types, ImmutableList.of(expression));
+    }
+
+    public static IdentityHashMap<Expression, Type> getExpressionTypesFromInput(Session session, Metadata metadata, Map<Input, Type> types, Iterable<? extends Expression> expressions)
+    {
+        return analyzeExpressionsWithInputs(session, metadata, types, expressions).getExpressionTypes();
+    }
+
+    public static ExpressionAnalysis analyzeExpressionsWithSymbols(Session session, Metadata metadata, final Map<Symbol, Type> types, Iterable<? extends Expression> expressions)
+    {
         List<Field> fields = IterableTransformer.on(DependencyExtractor.extractUnique(expressions))
                 .transform(new Function<Symbol, Field>()
                 {
@@ -671,22 +660,10 @@ public class ExpressionAnalyzer
                 })
                 .list();
 
-        for (Expression expression : expressions) {
-            expressionAnalyzer.analyze(expression, new TupleDescriptor(fields), new AnalysisContext());
-        }
-        return expressionAnalyzer.getSubExpressionTypes();
+        return analyzeExpressions(session, metadata, new TupleDescriptor(fields), expressions);
     }
 
-    public static IdentityHashMap<Expression, Type> getExpressionTypesFromInput(Session session, Metadata metadata, Map<Input, Type> types, Expression expression)
-    {
-        return getExpressionTypesFromInput(session, metadata, types, ImmutableList.of(expression));
-    }
-
-    public static IdentityHashMap<Expression, Type> getExpressionTypesFromInput(
-            Session session,
-            Metadata metadata,
-            Map<Input, Type> types,
-            Iterable<? extends Expression> expressions)
+    public static ExpressionAnalysis analyzeExpressionsWithInputs(Session session, Metadata metadata, Map<Input, Type> types, Iterable<? extends Expression> expressions)
     {
         Field[] fields = new Field[types.size()];
         for (Entry<Input, Type> entry : types.entrySet()) {
@@ -694,10 +671,49 @@ public class ExpressionAnalyzer
         }
         TupleDescriptor tupleDescriptor = new TupleDescriptor(fields);
 
-        ExpressionAnalyzer expressionAnalyzer = new ExpressionAnalyzer(new Analysis(), session, metadata, false);
+        return analyzeExpressions(session, metadata, tupleDescriptor, expressions);
+    }
+
+    private static ExpressionAnalysis analyzeExpressions(Session session, Metadata metadata, TupleDescriptor tupleDescriptor, Iterable<? extends Expression> expressions)
+    {
+        ExpressionAnalyzer analyzer = new ExpressionAnalyzer(new Analysis(), session, metadata, false);
         for (Expression expression : expressions) {
-            expressionAnalyzer.analyze(expression, tupleDescriptor, new AnalysisContext());
+            analyzer.analyze(expression, tupleDescriptor, new AnalysisContext());
         }
-        return expressionAnalyzer.getSubExpressionTypes();
+
+        return new ExpressionAnalysis(
+                analyzer.getExpressionTypes(),
+                analyzer.getExpressionCoercions(),
+                analyzer.getResolvedFunctions(),
+                analyzer.getSubqueryInPredicates());
+    }
+
+    public static ExpressionAnalysis analyzeExpression(
+            Session session,
+            Metadata metadata,
+            TupleDescriptor tupleDescriptor,
+            Analysis analysis,
+            boolean approximateQueriesEnabled,
+            AnalysisContext context,
+            Expression expression)
+    {
+        ExpressionAnalyzer analyzer = new ExpressionAnalyzer(analysis, session, metadata, approximateQueriesEnabled);
+        analyzer.analyze(expression, tupleDescriptor, context);
+
+        IdentityHashMap<Expression, Type> expressionTypes = analyzer.getExpressionTypes();
+        IdentityHashMap<Expression, Type> expressionCoercions = analyzer.getExpressionCoercions();
+        IdentityHashMap<FunctionCall, FunctionInfo> resolvedFunctions = analyzer.getResolvedFunctions();
+
+        analysis.addTypes(expressionTypes);
+        analysis.addCoercions(expressionCoercions);
+        analysis.addFunctionInfos(resolvedFunctions);
+
+        for (Expression subExpression : expressionTypes.keySet()) {
+            analysis.addResolvedNames(subExpression, analyzer.getResolvedNames());
+        }
+
+        Set<InPredicate> subqueryInPredicates = analyzer.getSubqueryInPredicates();
+
+        return new ExpressionAnalysis(expressionTypes, expressionCoercions, resolvedFunctions, subqueryInPredicates);
     }
 }
