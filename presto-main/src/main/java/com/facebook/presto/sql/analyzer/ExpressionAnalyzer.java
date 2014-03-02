@@ -441,7 +441,11 @@ public class ExpressionAnalyzer
             }
 
             FunctionInfo function = metadata.getFunction(node.getName(), argumentTypes.build(), context.isApproximate());
-
+            for (int i = 0; i < node.getArguments().size(); i++) {
+                Expression expression = node.getArguments().get(i);
+                Type type = function.getArgumentTypes().get(i);
+                checkType(context, expression, type, String.format("Function %s argument %d", function.getHandle(), i));
+            }
             resolvedFunctions.put(node, function);
 
             expressionTypes.put(node, function.getReturnType());
@@ -547,8 +551,8 @@ public class ExpressionAnalyzer
         private Type checkType(AnalysisContext context, Expression expression, Type expectedType, String message)
         {
             Type type = process(expression, context);
-            if (type != expectedType) {
-                if (type != NULL) {
+            if (!type.equals(expectedType)) {
+                if (!type.equals(NULL) && !(type.equals(BIGINT) && expectedType.equals(DOUBLE))) {
                     throw new SemanticException(TYPE_MISMATCH, expression, message + " must evaluate to a %s (actual: %s)", expectedType, type);
                 }
                 expressionCoercions.put(expression, expectedType);
@@ -578,11 +582,11 @@ public class ExpressionAnalyzer
             }
 
             // coerce types if possible
-            if (firstType.equals(NULL) || (firstType.equals(BIGINT) && secondType.equals(DOUBLE))) {
+            if (firstType.equals(NULL) || (secondType.equals(DOUBLE) && firstType.equals(BIGINT))) {
                 expressionCoercions.put(first, secondType);
                 return secondType;
             }
-            if (secondType.equals(NULL) || (firstType.equals(DOUBLE) && secondType.equals(BIGINT))) {
+            if (secondType.equals(NULL) || (secondType.equals(BIGINT) && firstType.equals(DOUBLE))) {
                 expressionCoercions.put(second, firstType);
                 return firstType;
             }
@@ -610,8 +614,8 @@ public class ExpressionAnalyzer
             // verify all expressions can be coerced to the superType
             for (Expression expression : expressions) {
                 Type type = process(expression, context);
-                if (type != superType) {
-                    if (!type.equals(NULL) && !(superType.equals(DOUBLE) && type.equals(BIGINT))) {
+                if (!type.equals(superType)) {
+                    if (!type.equals(NULL) && !(type.equals(BIGINT) && superType.equals(DOUBLE))) {
                         throw new SemanticException(TYPE_MISMATCH, expression, message, superType);
                     }
                     expressionCoercions.put(expression, superType);
@@ -624,7 +628,7 @@ public class ExpressionAnalyzer
 
     public static boolean isNumericOrNull(Type type)
     {
-        return isNumeric(type) || type == NULL;
+        return isNumeric(type) || type.equals(NULL);
     }
 
     public static IdentityHashMap<Expression, Type> getExpressionTypes(Session session, Metadata metadata, Map<Symbol, Type> types, Expression expression)
