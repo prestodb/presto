@@ -17,30 +17,61 @@ import com.facebook.presto.tuple.TupleInfo;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
+import io.airlift.units.DataSize;
 
-import java.util.ArrayList;
+import javax.annotation.concurrent.GuardedBy;
+import javax.annotation.concurrent.ThreadSafe;
+
 import java.util.List;
 import java.util.Queue;
 import java.util.concurrent.ConcurrentLinkedQueue;
 
 import static com.facebook.presto.operator.Operator.NOT_BLOCKED;
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
+import static io.airlift.units.DataSize.Unit.MEGABYTE;
 
+@ThreadSafe
 public class InMemoryExchange
 {
     private final List<TupleInfo> tupleInfos;
     private final Queue<Page> buffer;
-    private final List<SettableFuture<?>> blockedCallers = new ArrayList<>();
+    private final long maxBufferedBytes;
+
+    @GuardedBy("this")
     private boolean finishing;
+
+    @GuardedBy("this")
     private boolean noMoreSinkFactories;
+
+    @GuardedBy("this")
     private int sinkFactories;
+
+    @GuardedBy("this")
     private int sinks;
+
+    @GuardedBy("this")
+    private long bufferBytes;
+
+    @GuardedBy("this")
+    private SettableFuture<?> readerFuture;
+
+    @GuardedBy("this")
+    private SettableFuture<?> writerFuture;
 
     public InMemoryExchange(List<TupleInfo> tupleInfos)
     {
+        this(tupleInfos, new DataSize(32, MEGABYTE));
+    }
+
+    public InMemoryExchange(List<TupleInfo> tupleInfos, DataSize maxBufferedBytes)
+    {
         this.tupleInfos = ImmutableList.copyOf(checkNotNull(tupleInfos, "tupleInfos is null"));
         this.buffer = new ConcurrentLinkedQueue<>();
+
+        checkArgument(maxBufferedBytes.toBytes() > 0, "maxBufferedBytes must be greater than zero");
+        this.maxBufferedBytes = maxBufferedBytes.toBytes();
     }
 
     public List<TupleInfo> getTupleInfos()
@@ -95,7 +126,8 @@ public class InMemoryExchange
     public synchronized void finish()
     {
         finishing = true;
-        notifyBlockedCallers();
+        notifyBlockedReaders();
+        notifyBlockedWriters();
     }
 
     public synchronized boolean isFinished()
@@ -109,30 +141,59 @@ public class InMemoryExchange
             return;
         }
         buffer.add(page);
-        notifyBlockedCallers();
+        bufferBytes += page.getDataSize().toBytes();
+        // TODO: record memory usage using OperatorContext.setMemoryReservation()
+        notifyBlockedReaders();
     }
 
-    private synchronized void notifyBlockedCallers()
+    private synchronized void notifyBlockedReaders()
     {
-        for (SettableFuture<?> blockedCaller : blockedCallers) {
-            blockedCaller.set(null);
+        if (readerFuture != null) {
+            readerFuture.set(null);
+            readerFuture = null;
         }
-        blockedCallers.clear();
     }
 
-    public synchronized ListenableFuture<?> waitForNotEmpty()
+    public synchronized ListenableFuture<?> waitForReading()
     {
         if (finishing || !buffer.isEmpty()) {
             return NOT_BLOCKED;
         }
-        SettableFuture<?> settableFuture = SettableFuture.create();
-        blockedCallers.add(settableFuture);
-        return settableFuture;
+        if (readerFuture == null) {
+            readerFuture = SettableFuture.create();
+        }
+        return readerFuture;
     }
 
     public synchronized Page removePage()
     {
-        return buffer.poll();
+        Page page = buffer.poll();
+        if (page != null) {
+            bufferBytes -= page.getDataSize().toBytes();
+        }
+        if (bufferBytes < maxBufferedBytes) {
+            notifyBlockedWriters();
+        }
+        return page;
+    }
+
+    private synchronized void notifyBlockedWriters()
+    {
+        if (writerFuture != null) {
+            writerFuture.set(null);
+            writerFuture = null;
+        }
+    }
+
+    public synchronized ListenableFuture<?> waitForWriting()
+    {
+        if (bufferBytes < maxBufferedBytes) {
+            return NOT_BLOCKED;
+        }
+        if (writerFuture == null) {
+            writerFuture = SettableFuture.create();
+        }
+        return writerFuture;
     }
 
     private class InMemoryExchangeSinkOperatorFactory
