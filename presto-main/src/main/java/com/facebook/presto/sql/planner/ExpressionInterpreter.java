@@ -55,7 +55,6 @@ import com.facebook.presto.sql.tree.StringLiteral;
 import com.facebook.presto.sql.tree.WhenClause;
 import com.facebook.presto.type.Type;
 import com.google.common.base.Charsets;
-import com.google.common.base.Preconditions;
 import com.google.common.base.Predicate;
 import com.google.common.base.Throwables;
 import com.google.common.collect.Iterables;
@@ -124,22 +123,23 @@ public class ExpressionInterpreter
 
     public Object evaluate(RecordCursor inputs)
     {
-        Preconditions.checkState(!optimize, "evaluate(RecordCursor) not allowed for optimizer");
+        checkState(!optimize, "evaluate(RecordCursor) not allowed for optimizer");
         return visitor.process(expression, inputs);
     }
 
     public Object evaluate(BlockCursor[] inputs)
     {
-        Preconditions.checkState(!optimize, "evaluate(BlockCursor[]) not allowed for optimizer");
+        checkState(!optimize, "evaluate(BlockCursor[]) not allowed for optimizer");
         return visitor.process(expression, inputs);
     }
 
     public Object optimize(SymbolResolver inputs)
     {
-        Preconditions.checkState(optimize, "evaluate(SymbolResolver) not allowed for interpreter");
+        checkState(optimize, "evaluate(SymbolResolver) not allowed for interpreter");
         return visitor.process(expression, inputs);
     }
 
+    @SuppressWarnings("FloatingPointEquality")
     private class Visitor
             extends AstVisitor<Object, Object>
     {
@@ -299,8 +299,8 @@ public class ExpressionInterpreter
                             break;
                         }
                     }
-                    else if (operand instanceof Number && value instanceof Number) {
-                        if (((Number) operand).doubleValue() == ((Number) value).doubleValue()) {
+                    else if (operand instanceof Double && value instanceof Double) {
+                        if (((Double) operand).doubleValue() == ((Double) value).doubleValue()) {
                             resultClause = whenClause.getResult();
                             break;
                         }
@@ -450,57 +450,54 @@ public class ExpressionInterpreter
                 return new ArithmeticExpression(node.getType(), toExpression(left, expressionTypes.get(node.getLeft())), toExpression(right, expressionTypes.get(node.getRight())));
             }
 
-            Number leftNumber = (Number) left;
-            Number rightNumber = (Number) right;
             switch (node.getType()) {
                 case ADD:
-                    if (leftNumber instanceof Long && rightNumber instanceof Long) {
-                        return leftNumber.longValue() + rightNumber.longValue();
+                    if (left instanceof Long && right instanceof Long) {
+                        return ((Long) left) + ((Long) right);
                     }
-                    else {
-                        return leftNumber.doubleValue() + rightNumber.doubleValue();
+                    else if (left instanceof Double && right instanceof Double) {
+                        return ((Double) left) + ((Double) right);
                     }
                 case SUBTRACT:
-                    if (leftNumber instanceof Long && rightNumber instanceof Long) {
-                        return leftNumber.longValue() - rightNumber.longValue();
+                    if (left instanceof Long && right instanceof Long) {
+                        return ((Long) left) - ((Long) right);
                     }
-                    else {
-                        return leftNumber.doubleValue() - rightNumber.doubleValue();
+                    else if (left instanceof Double && right instanceof Double) {
+                        return ((Double) left) - ((Double) right);
                     }
                 case DIVIDE:
-                    if (leftNumber instanceof Long && rightNumber instanceof Long) {
+                    if (left instanceof Long && right instanceof Long) {
                         try {
-                            return leftNumber.longValue() / rightNumber.longValue();
+                            return ((Long) left) / ((Long) right);
                         }
                         catch (ArithmeticException e) {
                             throw new PrestoException(StandardErrorCode.DIVISION_BY_ZERO.toErrorCode(), e);
                         }
                     }
-                    else {
-                        return leftNumber.doubleValue() / rightNumber.doubleValue();
+                    else if (left instanceof Double && right instanceof Double) {
+                        return ((Double) left) / ((Double) right);
                     }
                 case MULTIPLY:
-                    if (leftNumber instanceof Long && rightNumber instanceof Long) {
-                        return leftNumber.longValue() * rightNumber.longValue();
+                    if (left instanceof Long && right instanceof Long) {
+                        return ((Long) left) * ((Long) right);
                     }
-                    else {
-                        return leftNumber.doubleValue() * rightNumber.doubleValue();
+                    else if (left instanceof Double && right instanceof Double) {
+                        return ((Double) left) * ((Double) right);
                     }
                 case MODULUS:
-                    if (leftNumber instanceof Long && rightNumber instanceof Long) {
+                    if (left instanceof Long && right instanceof Long) {
                         try {
-                            return leftNumber.longValue() % rightNumber.longValue();
+                            return ((Long) left) % ((Long) right);
                         }
                         catch (ArithmeticException e) {
                             throw new PrestoException(StandardErrorCode.DIVISION_BY_ZERO.toErrorCode(), e);
                         }
                     }
-                    else {
-                        return leftNumber.doubleValue() % rightNumber.doubleValue();
+                    else if (left instanceof Double && right instanceof Double) {
+                        return (Double) left % ((Double) right);
                     }
-                default:
-                    throw new UnsupportedOperationException("not yet implemented: " + node.getType());
             }
+            throw new UnsupportedOperationException("not yet implemented: " + node.getType());
         }
 
         @Override
@@ -517,10 +514,10 @@ public class ExpressionInterpreter
                     return true;
                 }
                 else if (left instanceof Long && right instanceof Long) {
-                    return ((Number) left).longValue() != ((Number) right).longValue();
+                    return ((Long) left).longValue() != ((Long) right).longValue();
                 }
-                else if (left instanceof Number && right instanceof Number) {
-                    return ((Number) left).doubleValue() != ((Number) right).doubleValue();
+                else if (left instanceof Double && right instanceof Double) {
+                    return ((Double) left).doubleValue() != ((Double) right).doubleValue();
                 }
                 else if (left instanceof Boolean && right instanceof Boolean) {
                     return !left.equals(right);
@@ -544,35 +541,35 @@ public class ExpressionInterpreter
             if (left instanceof Long && right instanceof Long) {
                 switch (node.getType()) {
                     case EQUAL:
-                        return ((Number) left).longValue() == ((Number) right).longValue();
+                        return ((Long) left).longValue() == ((Long) right).longValue();
                     case NOT_EQUAL:
-                        return ((Number) left).longValue() != ((Number) right).longValue();
+                        return ((Long) left).longValue() != ((Long) right).longValue();
                     case LESS_THAN:
-                        return ((Number) left).longValue() < ((Number) right).longValue();
+                        return ((Long) left) < ((Long) right);
                     case LESS_THAN_OR_EQUAL:
-                        return ((Number) left).longValue() <= ((Number) right).longValue();
+                        return ((Long) left) <= ((Long) right);
                     case GREATER_THAN:
-                        return ((Number) left).longValue() > ((Number) right).longValue();
+                        return ((Long) left) > ((Long) right);
                     case GREATER_THAN_OR_EQUAL:
-                        return ((Number) left).longValue() >= ((Number) right).longValue();
+                        return ((Long) left) >= ((Long) right);
                 }
                 throw new UnsupportedOperationException("unhandled type: " + node.getType());
             }
 
-            if (left instanceof Number && right instanceof Number) {
+            if (left instanceof Double && right instanceof Double) {
                 switch (node.getType()) {
                     case EQUAL:
-                        return ((Number) left).doubleValue() == ((Number) right).doubleValue();
+                        return ((Double) left).doubleValue() == ((Double) right).doubleValue();
                     case NOT_EQUAL:
-                        return ((Number) left).doubleValue() != ((Number) right).doubleValue();
+                        return ((Double) left).doubleValue() != ((Double) right).doubleValue();
                     case LESS_THAN:
-                        return ((Number) left).doubleValue() < ((Number) right).doubleValue();
+                        return ((Double) left) < ((Double) right);
                     case LESS_THAN_OR_EQUAL:
-                        return ((Number) left).doubleValue() <= ((Number) right).doubleValue();
+                        return ((Double) left) <= ((Double) right);
                     case GREATER_THAN:
-                        return ((Number) left).doubleValue() > ((Number) right).doubleValue();
+                        return ((Double) left) > ((Double) right);
                     case GREATER_THAN_OR_EQUAL:
-                        return ((Number) left).doubleValue() >= ((Number) right).doubleValue();
+                        return ((Double) left) >= ((Double) right);
                 }
                 throw new UnsupportedOperationException("unhandled type: " + node.getType());
             }
@@ -624,8 +621,11 @@ public class ExpressionInterpreter
                 return null;
             }
 
-            if (value instanceof Number && min instanceof Number && max instanceof Number) {
-                return ((Number) min).doubleValue() <= ((Number) value).doubleValue() && ((Number) value).doubleValue() <= ((Number) max).doubleValue();
+            if (value instanceof Long && min instanceof Long && max instanceof Long) {
+                return ((Long) min) <= ((Long) value) && ((Long) value) <= ((Long) max);
+            }
+            else if (value instanceof Double && min instanceof Double && max instanceof Double) {
+                return ((Double) min) <= ((Double) value) && ((Double) value) <= ((Double) max);
             }
             else if (value instanceof Slice && min instanceof Slice && max instanceof Slice) {
                 return ((Slice) min).compareTo((Slice) value) <= 0 && ((Slice) value).compareTo((Slice) max) <= 0;
@@ -652,8 +652,8 @@ public class ExpressionInterpreter
             if (first instanceof Long && second instanceof Long) {
                 return ((Long) first).longValue() == ((Long) second).longValue() ? null : first;
             }
-            else if (first instanceof Number && second instanceof Number) {
-                return ((Number) first).doubleValue() == ((Number) second).doubleValue() ? null : first;
+            else if (first instanceof Double && second instanceof Double) {
+                return ((Double) first).doubleValue() == ((Double) second).doubleValue() ? null : first;
             }
             else if (first instanceof Boolean && second instanceof Boolean) {
                 return first.equals(second) ? null : first;
