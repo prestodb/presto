@@ -67,13 +67,17 @@ public class InMemoryExchangeSinkOperator
     @Override
     public ListenableFuture<?> isBlocked()
     {
-        return NOT_BLOCKED;
+        ListenableFuture<?> blocked = inMemoryExchange.waitForWriting();
+        if (blocked.isDone()) {
+            return NOT_BLOCKED;
+        }
+        return blocked;
     }
 
     @Override
     public boolean needsInput()
     {
-        return !isFinished();
+        return !isFinished() && isBlocked().isDone();
     }
 
     @Override
