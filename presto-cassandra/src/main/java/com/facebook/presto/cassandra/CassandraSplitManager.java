@@ -281,7 +281,7 @@ public class CassandraSplitManager
                 }
             }
         }
-        return builder.build();    
+        return builder.build(); 
     }
 
     @Override
