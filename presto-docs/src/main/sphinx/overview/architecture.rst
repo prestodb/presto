@@ -5,9 +5,6 @@ Architecture
 This section outlines general guidelines of the architecture of Presto
 and defines several architectural patterns you will notice in Presto.
 
-For an overview of the concepts in the Presto architecture, read the
-concepts section.
-
 -------------------------
 Primary Goal: Performance
 -------------------------
