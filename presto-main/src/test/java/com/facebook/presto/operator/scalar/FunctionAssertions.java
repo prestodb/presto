@@ -49,6 +49,7 @@ import com.facebook.presto.sql.planner.InterpretedFilterFunction;
 import com.facebook.presto.sql.planner.InterpretedProjectionFunction;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.SymbolToInputRewriter;
+import com.facebook.presto.sql.planner.optimizations.CanonicalizeExpressions;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.facebook.presto.sql.tree.Cast;
 import com.facebook.presto.sql.tree.DefaultTraversalVisitor;
@@ -372,6 +373,8 @@ public final class FunctionAssertions
                 return rewrittenExpression;
             }
         }, parsedExpression);
+
+        rewrittenExpression = CanonicalizeExpressions.canonicalizeExpression(rewrittenExpression);
         return rewrittenExpression;
     }
 
