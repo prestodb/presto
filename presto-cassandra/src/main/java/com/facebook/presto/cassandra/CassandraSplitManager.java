@@ -31,14 +31,18 @@ import com.google.common.base.Objects;
 import com.google.common.base.Predicate;
 import com.google.common.collect.FluentIterable;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.ImmutableSet.Builder;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
+import com.google.common.collect.Sets;
 import com.google.inject.Inject;
 import io.airlift.log.Logger;
 
 import java.math.BigInteger;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 import static com.facebook.presto.cassandra.util.Types.checkType;
@@ -56,6 +60,7 @@ public class CassandraSplitManager
     private final CassandraSession cassandraSession;
     private final CachingCassandraSchemaProvider schemaProvider;
     private final int unpartitionedSplits;
+    private final int partitionSizeForBatchSelect;
 
     @Inject
     public CassandraSplitManager(CassandraConnectorId connectorId,
@@ -67,6 +72,7 @@ public class CassandraSplitManager
         this.schemaProvider = checkNotNull(schemaProvider, "schemaProvider is null");
         this.cassandraSession = checkNotNull(cassandraSession, "cassandraSession is null");
         this.unpartitionedSplits = cassandraClientConfig.getUnpartitionedSplits();
+        this.partitionSizeForBatchSelect = cassandraClientConfig.getPartitionSizeForBatchSelect();
     }
 
     @Override
@@ -190,12 +196,74 @@ public class CassandraSplitManager
         String table = cassTableHandle.getTableName();
         HostAddressFactory hostAddressFactory = new HostAddressFactory();
         ImmutableList.Builder<ConnectorSplit> builder = ImmutableList.builder();
+
+        // For single partition key column table, we can merge multiple partitions into a single split
+        // by using IN CLAUSE in a single select query if the partitions have the same host list.
+        // For multiple partition key columns table, we can't merge them into a single select query, so
+        // keep them in a separate split.
+        boolean singlePartitionKeyColumn = true;
+        String partitionKeyColumnName = null;
+        if (!partitions.isEmpty()) {
+            singlePartitionKeyColumn = partitions.get(0).getTupleDomain().getNullableColumnDomains().size() == 1;
+            if (singlePartitionKeyColumn) {
+                String partitionId = partitions.get(0).getPartitionId();
+                partitionKeyColumnName = partitionId.substring(0, partitionId.lastIndexOf("=") - 1);
+            }
+        }
+        Map<Set<String>, Set<String>> hostsToPartitionKeys = Maps.newHashMap();
+        Map<Set<String>, List<HostAddress>> hostMap = Maps.newHashMap();
+
         for (ConnectorPartition partition : partitions) {
             CassandraPartition cassandraPartition = checkType(partition, CassandraPartition.class, "partition");
             Set<Host> hosts = cassandraSession.getReplicas(schema, cassandraPartition.getKeyAsByteBuffer());
             List<HostAddress> addresses = hostAddressFactory.toHostAddressList(hosts);
-            CassandraSplit split = new CassandraSplit(connectorId, schema, table, cassandraPartition.getPartitionId(), null, addresses);
-            builder.add(split);
+            if (singlePartitionKeyColumn) {
+                // host ip addresses
+                ImmutableSet.Builder<String> sb = ImmutableSet.builder();
+                for (HostAddress address : addresses) {
+                    sb.add(address.getHostText());
+                }
+                Set<String> hostAddresses = sb.build();
+                // partition key values
+                Set<String> values = hostsToPartitionKeys.get(hostAddresses);
+                if (values == null) {
+                    values = Sets.newHashSet();
+                }
+                String partitionId = cassandraPartition.getPartitionId();
+                values.add(partitionId.substring(partitionId.lastIndexOf("=") + 2));
+                hostsToPartitionKeys.put(hostAddresses, values);
+                hostMap.put(hostAddresses, addresses);
+            }
+            else {
+                CassandraSplit split = new CassandraSplit(connectorId, schema, table, cassandraPartition.getPartitionId(), null, addresses);
+                builder.add(split);
+            }
+        }
+        if (singlePartitionKeyColumn) {
+            for (Map.Entry<Set<String>, Set<String>> entry : hostsToPartitionKeys.entrySet()) {
+                StringBuilder sb = new StringBuilder(partitionSizeForBatchSelect);
+                int size = 0;
+                for (String value : entry.getValue()) {
+                    if (size > 0) {
+                        sb.append(",");
+                    }
+                    sb.append(value);
+                    size++;
+                    if (size > partitionSizeForBatchSelect) {
+                        String partitionId = String.format("%s in (%s)", partitionKeyColumnName, sb.toString());
+                        CassandraSplit split = new CassandraSplit(connectorId, schema, table, partitionId, null, hostMap.get(entry.getKey()));
+                        builder.add(split);
+                        size = 0;
+                        sb.setLength(0);
+                        sb.trimToSize();
+                    }
+                }
+                if (size > 0) {
+                    String partitionId = String.format("%s in (%s)", partitionKeyColumnName, sb.toString());
+                    CassandraSplit split = new CassandraSplit(connectorId, schema, table, partitionId, null, hostMap.get(entry.getKey()));
+                    builder.add(split);
+                }
+            }
         }
         return builder.build();
     }
