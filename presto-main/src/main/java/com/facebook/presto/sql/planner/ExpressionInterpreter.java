@@ -16,7 +16,6 @@ package com.facebook.presto.sql.planner;
 import com.facebook.presto.block.BlockCursor;
 import com.facebook.presto.metadata.FunctionInfo;
 import com.facebook.presto.metadata.Metadata;
-import com.facebook.presto.operator.scalar.UnixTimeFunctions;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.RecordCursor;
 import com.facebook.presto.spi.StandardErrorCode;
@@ -29,16 +28,12 @@ import com.facebook.presto.sql.tree.BooleanLiteral;
 import com.facebook.presto.sql.tree.Cast;
 import com.facebook.presto.sql.tree.CoalesceExpression;
 import com.facebook.presto.sql.tree.ComparisonExpression;
-import com.facebook.presto.sql.tree.CurrentTime;
 import com.facebook.presto.sql.tree.Expression;
-import com.facebook.presto.sql.tree.Extract;
 import com.facebook.presto.sql.tree.FunctionCall;
-import com.facebook.presto.sql.tree.IfExpression;
 import com.facebook.presto.sql.tree.InListExpression;
 import com.facebook.presto.sql.tree.InPredicate;
 import com.facebook.presto.sql.tree.Input;
 import com.facebook.presto.sql.tree.InputReference;
-import com.facebook.presto.sql.tree.IsNotNullPredicate;
 import com.facebook.presto.sql.tree.IsNullPredicate;
 import com.facebook.presto.sql.tree.LikePredicate;
 import com.facebook.presto.sql.tree.Literal;
@@ -144,19 +139,6 @@ public class ExpressionInterpreter
             extends AstVisitor<Object, Object>
     {
         @Override
-        protected Object visitCurrentTime(CurrentTime node, Object context)
-        {
-            if (node.getType() != CurrentTime.Type.TIMESTAMP) {
-                throw new UnsupportedOperationException("not yet implemented: " + node.getType());
-            }
-            else if (node.getPrecision() != null) {
-                throw new UnsupportedOperationException("not yet implemented: non-default precision");
-            }
-
-            return UnixTimeFunctions.currentTimestamp(session);
-        }
-
-        @Override
         public Object visitInputReference(InputReference node, Object context)
         {
             Input input = node.getInput();
@@ -233,18 +215,6 @@ public class ExpressionInterpreter
             }
 
             return value == null;
-        }
-
-        @Override
-        protected Object visitIsNotNullPredicate(IsNotNullPredicate node, Object context)
-        {
-            Object value = process(node.getValue(), context);
-
-            if (value instanceof Expression) {
-                return new IsNotNullPredicate(toExpression(value, expressionTypes.get(node.getValue())));
-            }
-
-            return value != null;
         }
 
         @Override
@@ -666,34 +636,6 @@ public class ExpressionInterpreter
         }
 
         @Override
-        protected Object visitIfExpression(IfExpression node, Object context)
-        {
-            Object condition = process(node.getCondition(), context);
-
-            if (Boolean.TRUE.equals(condition)) {
-                return process(node.getTrueValue(), context);
-            }
-
-            if ((condition == null) || (Boolean.FALSE.equals(condition))) {
-                if (node.getFalseValue().isPresent()) {
-                    return process(node.getFalseValue().get(), context);
-                }
-                return null;
-            }
-
-            Object trueValue = optimize(node.getTrueValue(), context);
-            Object falseValue = null;
-            if (node.getFalseValue().isPresent()) {
-                falseValue = optimize(node.getFalseValue().get(), context);
-            }
-
-            return new IfExpression(
-                    toExpression(condition, expressionTypes.get(node.getCondition())),
-                    toExpression(trueValue, expressionTypes.get(node.getTrueValue())),
-                    node.getFalseValue().isPresent() ? toExpression(falseValue, expressionTypes.get(node.getFalseValue().get())) : null);
-        }
-
-        @Override
         protected Object visitNotExpression(NotExpression node, Object context)
         {
             Object value = process(node.getValue(), context);
@@ -860,54 +802,6 @@ public class ExpressionInterpreter
             }
 
             return result;
-        }
-
-        @Override
-        @SuppressWarnings("fallthrough")
-        protected Object visitExtract(Extract node, Object context)
-        {
-            Object value = process(node.getExpression(), context);
-            if (value == null) {
-                return null;
-            }
-
-            if (value instanceof Expression) {
-                return new Extract(toExpression(value, expressionTypes.get(node.getExpression())), node.getField());
-            }
-
-            long time = (long) value;
-            switch (node.getField()) {
-                case CENTURY:
-                    return UnixTimeFunctions.century(time);
-                case YEAR:
-                    return UnixTimeFunctions.year(time);
-                case QUARTER:
-                    return UnixTimeFunctions.quarter(time);
-                case MONTH:
-                    return UnixTimeFunctions.month(time);
-                case WEEK:
-                    return UnixTimeFunctions.week(time);
-                case DAY:
-                case DAY_OF_MONTH:
-                    return UnixTimeFunctions.day(time);
-                case DAY_OF_WEEK:
-                case DOW:
-                    return UnixTimeFunctions.dayOfWeek(time);
-                case DAY_OF_YEAR:
-                case DOY:
-                    return UnixTimeFunctions.dayOfYear(time);
-                case HOUR:
-                    return UnixTimeFunctions.hour(time);
-                case MINUTE:
-                    return UnixTimeFunctions.minute(time);
-                case SECOND:
-                    return UnixTimeFunctions.second(time);
-                case TIMEZONE_HOUR:
-                case TIMEZONE_MINUTE:
-                    return 0L; // we assume all times are UTC for now  TODO
-            }
-
-            throw new UnsupportedOperationException("not yet implemented: " + node.getField());
         }
 
         @Override
