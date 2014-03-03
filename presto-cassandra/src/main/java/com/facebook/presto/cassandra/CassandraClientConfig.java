@@ -41,6 +41,7 @@ public class CassandraClientConfig
     private int fetchSize = 5_000;
     private List<String> contactPoints = ImmutableList.of();
     private int nativeProtocolPort = 9042;
+    private int partitionSizeForBatchSelect = 100;
 
     @Min(0)
     public int getLimitForPartitionKeySelect()
@@ -176,6 +177,19 @@ public class CassandraClientConfig
     public CassandraClientConfig setFetchSizeForPartitionKeySelect(int fetchSizeForPartitionKeySelect)
     {
         this.fetchSizeForPartitionKeySelect = fetchSizeForPartitionKeySelect;
+        return this;
+    }
+
+    @Min(1)
+    public int getPartitionSizeForBatchSelect()
+    {
+        return partitionSizeForBatchSelect;
+    }
+
+    @Config("cassandra.partition-size-for-batch-select")
+    public CassandraClientConfig setPartitionSizeForBatchSelect(int partitionSizeForBatchSelect)
+    {
+        this.partitionSizeForBatchSelect = partitionSizeForBatchSelect;
         return this;
     }
 }
