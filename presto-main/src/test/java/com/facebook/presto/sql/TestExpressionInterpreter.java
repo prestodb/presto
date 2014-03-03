@@ -636,7 +636,8 @@ public class TestExpressionInterpreter
         assertOptimizedEquals("IF(true, 'foo', 'bar')", "'foo'");
         assertOptimizedEquals("IF(false, 'foo', 'bar')", "'bar'");
 
-        assertOptimizedEquals("IF(unbound_boolean, 1 + 2, 3 + 4)", "IF(unbound_boolean, 3, 7)");
+        // todo optimize case statement
+        assertOptimizedEquals("IF(unbound_boolean, 1 + 2, 3 + 4)", "CASE WHEN unbound_boolean THEN (1 + 2) ELSE (3 + 4) END");
     }
 
     @Test
@@ -820,8 +821,8 @@ public class TestExpressionInterpreter
     public void testFailedExpressionOptimization()
             throws Exception
     {
-        assertOptimizedEqualsSelf("if(unbound_boolean, 1, 0 / 0)");
-        assertOptimizedEqualsSelf("if(unbound_boolean, 0 / 0, 1)");
+        assertOptimizedEquals("if(unbound_boolean, 1, 0 / 0)", "CASE WHEN unbound_boolean THEN 1 ELSE 0 / 0 END");
+        assertOptimizedEquals("if(unbound_boolean, 0 / 0, 1)", "CASE WHEN unbound_boolean THEN 0 / 0 ELSE 1 END");
         assertOptimizedEqualsSelf("case unbound_long when 1 then 1 when 0 / 0 then 2 end");
         assertOptimizedEqualsSelf("case unbound_boolean when true then 1 else 0 / 0 end");
         assertOptimizedEqualsSelf("case unbound_boolean when true then 0 / 0 else 1 end");

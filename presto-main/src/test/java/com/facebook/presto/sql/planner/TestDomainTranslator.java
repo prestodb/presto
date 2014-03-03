@@ -25,7 +25,6 @@ import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.InListExpression;
 import com.facebook.presto.sql.tree.InPredicate;
-import com.facebook.presto.sql.tree.IsNotNullPredicate;
 import com.facebook.presto.sql.tree.IsNullPredicate;
 import com.facebook.presto.sql.tree.LongLiteral;
 import com.facebook.presto.sql.tree.NotExpression;
@@ -983,9 +982,9 @@ public class TestDomainTranslator
         return comparison(IS_DISTINCT_FROM, reference(symbol), expression);
     }
 
-    private static IsNotNullPredicate isNotNull(Symbol symbol)
+    private static Expression isNotNull(Symbol symbol)
     {
-        return new IsNotNullPredicate(reference(symbol));
+        return new NotExpression(new IsNullPredicate(reference(symbol)));
     }
 
     private static IsNullPredicate isNull(Symbol symbol)

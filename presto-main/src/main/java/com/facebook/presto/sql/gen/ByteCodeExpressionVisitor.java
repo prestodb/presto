@@ -31,17 +31,13 @@ import com.facebook.presto.sql.tree.BooleanLiteral;
 import com.facebook.presto.sql.tree.Cast;
 import com.facebook.presto.sql.tree.CoalesceExpression;
 import com.facebook.presto.sql.tree.ComparisonExpression;
-import com.facebook.presto.sql.tree.CurrentTime;
 import com.facebook.presto.sql.tree.DoubleLiteral;
 import com.facebook.presto.sql.tree.Expression;
-import com.facebook.presto.sql.tree.Extract;
 import com.facebook.presto.sql.tree.FunctionCall;
-import com.facebook.presto.sql.tree.IfExpression;
 import com.facebook.presto.sql.tree.InListExpression;
 import com.facebook.presto.sql.tree.InPredicate;
 import com.facebook.presto.sql.tree.Input;
 import com.facebook.presto.sql.tree.InputReference;
-import com.facebook.presto.sql.tree.IsNotNullPredicate;
 import com.facebook.presto.sql.tree.IsNullPredicate;
 import com.facebook.presto.sql.tree.LikePredicate;
 import com.facebook.presto.sql.tree.LogicalBinaryExpression;
@@ -50,7 +46,6 @@ import com.facebook.presto.sql.tree.NegativeExpression;
 import com.facebook.presto.sql.tree.NotExpression;
 import com.facebook.presto.sql.tree.NullIfExpression;
 import com.facebook.presto.sql.tree.NullLiteral;
-import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.sql.tree.SearchedCaseExpression;
 import com.facebook.presto.sql.tree.SimpleCaseExpression;
 import com.facebook.presto.sql.tree.StringLiteral;
@@ -236,12 +231,6 @@ public class ByteCodeExpressionVisitor
     }
 
     @Override
-    protected TypedByteCodeNode visitCurrentTime(CurrentTime node, CompilerContext context)
-    {
-        return visitFunctionCall(new FunctionCall(new QualifiedName("now"), ImmutableList.<Expression>of()), context);
-    }
-
-    @Override
     protected TypedByteCodeNode visitFunctionCall(FunctionCall node, CompilerContext context)
     {
         List<TypedByteCodeNode> arguments = new ArrayList<>();
@@ -256,28 +245,6 @@ public class ByteCodeExpressionVisitor
         }
 
         FunctionBinding functionBinding = bootstrapFunctionBinder.bindFunction(node.getName(), getSessionByteCode, arguments, argumentTypes);
-        return visitFunctionBinding(context, functionBinding, node.toString());
-    }
-
-    @Override
-    protected TypedByteCodeNode visitExtract(Extract node, CompilerContext context)
-    {
-        TypedByteCodeNode expression = process(node.getExpression(), context);
-        if (expression.getType() == void.class) {
-            return expression;
-        }
-
-        if (node.getField() == Extract.Field.TIMEZONE_HOUR || node.getField() == Extract.Field.TIMEZONE_MINUTE) {
-            // TODO: we assume all times are UTC for now
-            return typedByteCodeNode(new Block(context).append(expression.getNode()).pop(long.class).push(0L), long.class);
-        }
-
-        QualifiedName functionName = QualifiedName.of(node.getField().name().toLowerCase());
-        FunctionBinding functionBinding = bootstrapFunctionBinder.bindFunction(
-                functionName,
-                getSessionByteCode,
-                ImmutableList.of(expression),
-                ImmutableList.of(expressionTypes.get(node.getExpression())));
         return visitFunctionBinding(context, functionBinding, node.toString());
     }
 
@@ -770,28 +737,6 @@ public class ByteCodeExpressionVisitor
     }
 
     @Override
-    protected TypedByteCodeNode visitIsNotNullPredicate(IsNotNullPredicate node, CompilerContext context)
-    {
-        TypedByteCodeNode value = process(node.getValue(), context);
-        if (value.getType() == void.class) {
-            return typedByteCodeNode(loadBoolean(false), boolean.class);
-        }
-
-        // evaluate the expression, pop the produced value, load the null flag, and invert it
-        Block block = new Block(context)
-                .comment(node.toString())
-                .append(value.getNode())
-                .pop(value.getType())
-                .getVariable("wasNull")
-                .invokeStatic(Operations.class, "not", boolean.class, boolean.class);
-
-        // clear the null flag
-        block.putVariable("wasNull", false);
-
-        return typedByteCodeNode(block, boolean.class);
-    }
-
-    @Override
     protected TypedByteCodeNode visitIsNullPredicate(IsNullPredicate node, CompilerContext context)
     {
         TypedByteCodeNode value = process(node.getValue(), context);
@@ -810,39 +755,6 @@ public class ByteCodeExpressionVisitor
         block.putVariable("wasNull", false);
 
         return typedByteCodeNode(block, boolean.class);
-    }
-
-    @Override
-    protected TypedByteCodeNode visitIfExpression(IfExpression node, CompilerContext context)
-    {
-        Type type = expressionTypes.get(node);
-
-        TypedByteCodeNode conditionValue = process(node.getCondition(), context);
-        TypedByteCodeNode trueValue = process(node.getTrueValue(), context);
-        TypedByteCodeNode falseValue;
-        if (node.getFalseValue().isPresent()) {
-            falseValue = process(node.getFalseValue().get(), context);
-        }
-        else {
-            falseValue = typedNull(context, type.getJavaType());
-        }
-
-        if (conditionValue.getType() == void.class) {
-            return falseValue;
-        }
-        checkState(conditionValue.getType() == boolean.class);
-
-        // if conditionValue and conditionValue was not null
-        Block condition = new Block(context)
-                .comment(node.toString())
-                .append(conditionValue.getNode())
-                .comment("... and condition value was not null")
-                .getVariable("wasNull")
-                .invokeStatic(Operations.class, "not", boolean.class, boolean.class)
-                .invokeStatic(Operations.class, "and", boolean.class, boolean.class, boolean.class)
-                .putVariable("wasNull", false);
-
-        return typedByteCodeNode(new IfStatement(context, condition, trueValue.getNode(), falseValue.getNode()), type);
     }
 
     @Override

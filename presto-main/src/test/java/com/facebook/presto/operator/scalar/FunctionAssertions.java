@@ -95,6 +95,7 @@ import static com.facebook.presto.spi.ColumnType.LONG;
 import static com.facebook.presto.spi.ColumnType.STRING;
 import static com.facebook.presto.sql.analyzer.ExpressionAnalyzer.analyzeExpressionsWithSymbols;
 import static com.facebook.presto.sql.analyzer.ExpressionAnalyzer.getExpressionTypesFromInput;
+import static com.facebook.presto.sql.planner.optimizations.CanonicalizeExpressions.canonicalizeExpression;
 import static com.facebook.presto.sql.tree.BooleanLiteral.TRUE_LITERAL;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static io.airlift.testing.Assertions.assertInstanceOf;
@@ -372,7 +373,8 @@ public final class FunctionAssertions
                 return rewrittenExpression;
             }
         }, parsedExpression);
-        return rewrittenExpression;
+
+        return canonicalizeExpression(rewrittenExpression);
     }
 
     private static boolean executeFilterWithNoInputColumns(OperatorFactory operatorFactory, Session session)

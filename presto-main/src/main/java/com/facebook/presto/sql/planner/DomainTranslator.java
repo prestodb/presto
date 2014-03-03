@@ -97,7 +97,7 @@ public final class DomainTranslator
         }
 
         if (domain.getRanges().isAll()) {
-            return domain.isNullAllowed() ? TRUE_LITERAL : new IsNotNullPredicate(reference);
+            return domain.isNullAllowed() ? TRUE_LITERAL : new NotExpression(new IsNullPredicate(reference));
         }
 
         // Add disjuncts for ranges

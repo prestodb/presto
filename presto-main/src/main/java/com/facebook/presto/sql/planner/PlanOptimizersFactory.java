@@ -16,6 +16,7 @@ package com.facebook.presto.sql.planner;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.split.SplitManager;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
+import com.facebook.presto.sql.planner.optimizations.CanonicalizeExpressions;
 import com.facebook.presto.sql.planner.optimizations.ImplementSampleAsFilter;
 import com.facebook.presto.sql.planner.optimizations.LimitPushDown;
 import com.facebook.presto.sql.planner.optimizations.MaterializeSamplePullUp;
@@ -45,6 +46,7 @@ public class PlanOptimizersFactory
         ImmutableList.Builder<PlanOptimizer> builder = ImmutableList.builder();
 
         builder.add(new ImplementSampleAsFilter(),
+                new CanonicalizeExpressions(),
                 new SimplifyExpressions(metadata),
                 new UnaliasSymbolReferences(),
                 new PruneRedundantProjections(),
