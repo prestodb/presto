@@ -820,8 +820,12 @@ class TupleAnalyzer
                     predicate);
             analysis.addInPredicates(node, expressionAnalysis.getSubqueryInPredicates());
 
-            if (expressionAnalysis.getType(predicate) != BOOLEAN && expressionAnalysis.getType(predicate) != NullType.NULL) {
-                throw new SemanticException(TYPE_MISMATCH, predicate, "WHERE clause must evaluate to a boolean: actual type %s", expressionAnalysis.getType(predicate));
+            if (expressionAnalysis.getType(predicate) != BOOLEAN) {
+                if (expressionAnalysis.getType(predicate) != NullType.NULL) {
+                    throw new SemanticException(TYPE_MISMATCH, predicate, "WHERE clause must evaluate to a boolean: actual type %s", expressionAnalysis.getType(predicate));
+                }
+                // coerce null to boolean
+                analysis.addCoercion(predicate, BOOLEAN);
             }
 
             analysis.setWhere(node, predicate);

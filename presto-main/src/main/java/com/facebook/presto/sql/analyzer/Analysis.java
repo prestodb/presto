@@ -269,6 +269,11 @@ public class Analysis
         this.types.putAll(types);
     }
 
+    public void addCoercion(Expression expression, Type type)
+    {
+        this.coercions.put(expression, type);
+    }
+
     public void addCoercions(IdentityHashMap<Expression, Type> coercions)
     {
         this.coercions.putAll(coercions);

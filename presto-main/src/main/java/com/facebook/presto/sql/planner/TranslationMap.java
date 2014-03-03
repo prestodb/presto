@@ -97,12 +97,6 @@ class TranslationMap
                     rewrittenExpression = treeRewriter.defaultRewrite(node, context);
                 }
 
-                // cast expression if coercion is registered
-                Type coercion = analysis.getCoercion(node);
-                if (coercion != null) {
-                    rewrittenExpression = new Cast(rewrittenExpression, coercion.getName());
-                }
-
                 return rewrittenExpression;
             }
         }, mapped);
@@ -173,6 +167,20 @@ class TranslationMap
         return ExpressionTreeRewriter.rewriteWith(new ExpressionRewriter<Void>()
         {
             @Override
+            public Expression rewriteExpression(Expression node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
+            {
+                Expression rewrittenExpression = treeRewriter.defaultRewrite(node, context);
+
+                // cast expression if coercion is registered
+                Type coercion = analysis.getCoercion(node);
+                if (coercion != null) {
+                    rewrittenExpression = new Cast(rewrittenExpression, coercion.getName());
+                }
+
+                return rewrittenExpression;
+            }
+
+            @Override
             public Expression rewriteQualifiedNameReference(QualifiedNameReference node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
             {
                 QualifiedName name = node.getName();
@@ -183,7 +191,15 @@ class TranslationMap
                 Symbol symbol = rewriteBase.getSymbol(fieldIndex);
                 Preconditions.checkState(symbol != null, "No symbol mapping for name '%s' (%s)", name, fieldIndex);
 
-                return new QualifiedNameReference(symbol.toQualifiedName());
+                Expression rewrittenExpression = new QualifiedNameReference(symbol.toQualifiedName());
+
+                // cast expression if coercion is registered
+                Type coercion = analysis.getCoercion(node);
+                if (coercion != null) {
+                    rewrittenExpression = new Cast(rewrittenExpression, coercion.getName());
+                }
+
+                return rewrittenExpression;
             }
         }, expression);
     }
