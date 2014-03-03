@@ -43,7 +43,7 @@ cassandra.native-protocol-port=9142
 # Limit of rows to read for finding all partition keys.
 # If a Cassandra table has more rows than this value, splits based on token ranges are used instead.
 # Note that for larger values you may need to adjust read timeout for Cassandra 
-cassandra.limit-for-partition-key-select=100000
+cassandra.limit-for-partition-key-select=200
 
 # number of splits generated if partition keys are unknown
 cassandra.unpartitioned-splits=1000
