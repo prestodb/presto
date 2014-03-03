@@ -59,7 +59,6 @@ import com.facebook.presto.type.Type;
 import com.facebook.presto.util.IterableTransformer;
 import com.google.common.base.Function;
 import com.google.common.base.Joiner;
-import com.google.common.base.Preconditions;
 import com.google.common.base.Predicates;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
@@ -81,7 +80,6 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
 
-import static com.facebook.presto.byteCode.OpCodes.L2D;
 import static com.facebook.presto.byteCode.OpCodes.NOP;
 import static com.facebook.presto.byteCode.control.IfStatement.ifStatementBuilder;
 import static com.facebook.presto.byteCode.control.LookupSwitch.lookupSwitchBuilder;
@@ -318,11 +316,8 @@ public class ByteCodeExpressionVisitor
                 .setDescription("invoke")
                 .comment(comment);
         ArrayList<Class<?>> stackTypes = new ArrayList<>();
-        for (int i = 0; i < arguments.size(); i++) {
-            TypedByteCodeNode argument = arguments.get(i);
-            Class<?> argumentType = methodType.parameterList().get(i);
-            block.append(coerceToType(context, argument, argumentType).getNode());
-
+        for (TypedByteCodeNode argument : arguments) {
+            block.append(argument.getNode());
             stackTypes.add(argument.getType());
             block.append(ifWasNullPopAndGoto(context, end, unboxedReturnType, Lists.reverse(stackTypes)));
         }
@@ -436,10 +431,10 @@ public class ByteCodeExpressionVisitor
         Block block = new Block(context).comment(node.toString());
         LabelNode end = new LabelNode("end");
 
-        block.append(coerceToType(context, left, type).getNode());
+        block.append(left.getNode());
         block.append(ifWasNullPopAndGoto(context, end, type, left.getType()));
 
-        block.append(coerceToType(context, right, type).getNode());
+        block.append(right.getNode());
         block.append(ifWasNullPopAndGoto(context, end, type, type, right.getType()));
 
         switch (node.getType()) {
@@ -489,16 +484,10 @@ public class ByteCodeExpressionVisitor
     protected TypedByteCodeNode visitLogicalBinaryExpression(LogicalBinaryExpression node, CompilerContext context)
     {
         TypedByteCodeNode left = process(node.getLeft(), context);
-        if (left.getType() == void.class) {
-            left = coerceToType(context, left, boolean.class);
-        }
-        Preconditions.checkState(left.getType() == boolean.class, "Expected logical binary expression left value to be a boolean but is a %s: %s", left.getType().getName(), node);
+        checkState(left.getType() == boolean.class, "Expected logical binary expression left value to be a boolean but is a %s: %s", left.getType().getName(), node);
 
         TypedByteCodeNode right = process(node.getRight(), context);
-        if (right.getType() == void.class) {
-            right = coerceToType(context, right, boolean.class);
-        }
-        Preconditions.checkState(right.getType() == boolean.class, "Expected logical binary expression right value to be a boolean but is a %s: %s", right.getType().getName(), node);
+        checkState(right.getType() == boolean.class, "Expected logical binary expression right value to be a boolean but is a %s: %s", right.getType().getName(), node);
 
         switch (node.getType()) {
             case AND:
@@ -645,7 +634,7 @@ public class ByteCodeExpressionVisitor
             return value;
         }
 
-        Preconditions.checkState(value.getType() == boolean.class);
+        checkState(value.getType() == boolean.class);
         // simple single op so there is no reason to do a null check
         return typedByteCodeNode(new Block(context)
                 .comment(node.toString())
@@ -705,10 +694,10 @@ public class ByteCodeExpressionVisitor
         Block block = new Block(context)
                 .comment(node.toString());
 
-        block.append(coerceToType(context, left, type).getNode());
+        block.append(left.getNode());
         block.append(ifWasNullPopAndGoto(context, end, boolean.class, left.getType()));
 
-        block.append(coerceToType(context, right, type).getNode());
+        block.append(right.getNode());
         block.append(ifWasNullPopAndGoto(context, end, boolean.class, type, right.getType()));
 
         block.invokeStatic(Operations.class, function, boolean.class, type, type);
@@ -729,12 +718,12 @@ public class ByteCodeExpressionVisitor
         Block block = new Block(context)
                 .comment(node.toString())
                 .comment("left")
-                .append(coerceToType(context, left, type).getNode())
+                .append(left.getNode())
                 .getVariable("wasNull")
                 .comment("clear was null")
                 .putVariable("wasNull", false)
                 .comment("right")
-                .append(coerceToType(context, right, type).getNode())
+                .append(right.getNode())
                 .getVariable("wasNull")
                 .comment("clear was null")
                 .putVariable("wasNull", false)
@@ -767,13 +756,13 @@ public class ByteCodeExpressionVisitor
         Block block = new Block(context)
                 .comment(node.toString());
 
-        block.append(coerceToType(context, value, type).getNode());
+        block.append(value.getNode());
         block.append(ifWasNullPopAndGoto(context, end, boolean.class, type));
 
-        block.append(coerceToType(context, min, type).getNode());
+        block.append(min.getNode());
         block.append(ifWasNullPopAndGoto(context, end, boolean.class, type, type));
 
-        block.append(coerceToType(context, max, type).getNode());
+        block.append(max.getNode());
         block.append(ifWasNullPopAndGoto(context, end, boolean.class, type, type, type));
 
         block.invokeStatic(Operations.class, "between", boolean.class, type, type, type);
@@ -826,14 +815,22 @@ public class ByteCodeExpressionVisitor
     @Override
     protected TypedByteCodeNode visitIfExpression(IfExpression node, CompilerContext context)
     {
+        Type type = expressionTypes.get(node);
+
         TypedByteCodeNode conditionValue = process(node.getCondition(), context);
         TypedByteCodeNode trueValue = process(node.getTrueValue(), context);
-        TypedByteCodeNode falseValue = process(node.getFalseValue().or(new NullLiteral()), context);
+        TypedByteCodeNode falseValue;
+        if (node.getFalseValue().isPresent()) {
+            falseValue = process(node.getFalseValue().get(), context);
+        }
+        else {
+            falseValue = typedNull(context, type.getJavaType());
+        }
 
         if (conditionValue.getType() == void.class) {
             return falseValue;
         }
-        Preconditions.checkState(conditionValue.getType() == boolean.class);
+        checkState(conditionValue.getType() == boolean.class);
 
         // if conditionValue and conditionValue was not null
         Block condition = new Block(context)
@@ -845,27 +842,19 @@ public class ByteCodeExpressionVisitor
                 .invokeStatic(Operations.class, "and", boolean.class, boolean.class, boolean.class)
                 .putVariable("wasNull", false);
 
-        Class<?> type = getType(trueValue, falseValue);
-        if (type == void.class) {
-            // both true and false are null literal
-            return trueValue;
-        }
-
-        trueValue = coerceToType(context, trueValue, type);
-        falseValue = coerceToType(context, falseValue, type);
-
         return typedByteCodeNode(new IfStatement(context, condition, trueValue.getNode(), falseValue.getNode()), type);
     }
 
     @Override
     protected TypedByteCodeNode visitSearchedCaseExpression(SearchedCaseExpression node, final CompilerContext context)
     {
+        Type type = expressionTypes.get(node);
         TypedByteCodeNode elseValue;
         if (node.getDefaultValue() != null) {
             elseValue = process(node.getDefaultValue(), context);
         }
         else {
-            elseValue = process(new NullLiteral(), context);
+            elseValue = typedNull(context, type.getJavaType());
         }
 
         List<TypedWhenClause> whenClauses = ImmutableList.copyOf(transform(node.getWhenClauses(), new Function<WhenClause, TypedWhenClause>()
@@ -877,15 +866,12 @@ public class ByteCodeExpressionVisitor
             }
         }));
 
-        Class<?> type = getType(ImmutableList.<TypedByteCodeNode>builder().addAll(transform(whenClauses, whenValueGetter())).add(elseValue).build());
-
-        elseValue = coerceToType(context, elseValue, type);
         // reverse list because current if statement builder doesn't support if/else so we need to build the if statements bottom up
         for (TypedWhenClause whenClause : Lists.reverse(new ArrayList<>(whenClauses))) {
             if (whenClause.condition.getType() == void.class) {
                 continue;
             }
-            Preconditions.checkState(whenClause.condition.getType() == boolean.class);
+            checkState(whenClause.condition.getType() == boolean.class);
 
             // if conditionValue and conditionValue was not null
             Block condition = new Block(context)
@@ -896,7 +882,7 @@ public class ByteCodeExpressionVisitor
                     .invokeStatic(Operations.class, "and", boolean.class, boolean.class, boolean.class)
                     .putVariable("wasNull", false);
 
-            elseValue = typedByteCodeNode(new IfStatement(context, condition, coerceToType(context, whenClause.value, type).getNode(), elseValue.getNode()), type);
+            elseValue = typedByteCodeNode(new IfStatement(context, condition, whenClause.value.getNode(), elseValue.getNode()), type);
         }
 
         return elseValue;
@@ -907,13 +893,15 @@ public class ByteCodeExpressionVisitor
     {
         // process value, else, and all when clauses
         TypedByteCodeNode value = process(node.getOperand(), context);
+        Type type = expressionTypes.get(node);
         TypedByteCodeNode elseValue;
         if (node.getDefaultValue() != null) {
             elseValue = process(node.getDefaultValue(), context);
         }
         else {
-            elseValue = process(new NullLiteral(), context);
+            elseValue = typedNull(context, type.getJavaType());
         }
+
         List<TypedWhenClause> whenClauses = ImmutableList.copyOf(transform(node.getWhenClauses(), new Function<WhenClause, TypedWhenClause>()
         {
             @Override
@@ -928,24 +916,24 @@ public class ByteCodeExpressionVisitor
         Class<?> resultType = getType(ImmutableList.<TypedByteCodeNode>builder().addAll(transform(whenClauses, whenValueGetter())).add(elseValue).build());
 
         if (value.getType() == void.class) {
-            return coerceToType(context, elseValue, resultType);
+            return elseValue;
         }
 
         // evaluate the value and store it in a variable
         LabelNode nullValue = new LabelNode("nullCondition");
         Variable tempVariable = context.createTempVariable(valueType);
         Block block = new Block(context)
-                .append(coerceToType(context, value, valueType).getNode())
+                .append(value.getNode())
                 .append(ifWasNullClearPopAndGoto(context, nullValue, void.class, valueType))
                 .putVariable(tempVariable.getLocalVariableDefinition());
 
         // build the statements
-        elseValue = typedByteCodeNode(new Block(context).visitLabel(nullValue).append(coerceToType(context, elseValue, resultType).getNode()), resultType);
+        elseValue = typedByteCodeNode(new Block(context).visitLabel(nullValue).append(elseValue.getNode()), resultType);
         // reverse list because current if statement builder doesn't support if/else so we need to build the if statements bottom up
         for (TypedWhenClause whenClause : Lists.reverse(new ArrayList<>(whenClauses))) {
             LabelNode nullCondition = new LabelNode("nullCondition");
             Block condition = new Block(context)
-                    .append(coerceToType(context, whenClause.condition, valueType).getNode())
+                    .append(whenClause.condition.getNode())
                     .append(ifWasNullPopAndGoto(context, nullCondition, boolean.class, valueType))
                     .getVariable(tempVariable.getLocalVariableDefinition())
                     .invokeStatic(Operations.class, "equal", boolean.class, valueType, valueType)
@@ -955,7 +943,7 @@ public class ByteCodeExpressionVisitor
             elseValue = typedByteCodeNode(new IfStatement(context,
                     format("when %s", whenClause),
                     condition,
-                    coerceToType(context, whenClause.value, resultType).getNode(),
+                    whenClause.value.getNode(),
                     elseValue.getNode()), resultType);
         }
 
@@ -978,8 +966,8 @@ public class ByteCodeExpressionVisitor
                 .comment(node.toString())
                 .append(first.getNode())
                 .append(ifWasNullPopAndGoto(context, notMatch, void.class))
-                .append(coerceToType(context, typedByteCodeNode(new Block(context).dup(first.getType()), first.getType()), comparisonType).getNode())
-                .append(coerceToType(context, second, comparisonType).getNode())
+                .append(typedByteCodeNode(new Block(context).dup(first.getType()), first.getType()).getNode())
+                .append(second.getNode())
                 .append(ifWasNullClearPopAndGoto(context, notMatch, void.class, comparisonType, comparisonType));
 
         Block conditionBlock = new Block(context)
@@ -1005,11 +993,11 @@ public class ByteCodeExpressionVisitor
 
         Class<?> type = getType(operands);
 
-        TypedByteCodeNode nullValue = coerceToType(context, process(new NullLiteral(), context), type);
+        TypedByteCodeNode nullValue = typedNull(context, type);
         // reverse list because current if statement builder doesn't support if/else so we need to build the if statements bottom up
         for (TypedByteCodeNode operand : Lists.reverse(operands)) {
             Block condition = new Block(context)
-                    .append(coerceToType(context, operand, type).getNode())
+                    .append(operand.getNode())
                     .getVariable("wasNull");
 
             // if value was null, pop the null value, clear the null flag, and process the next operand
@@ -1075,10 +1063,10 @@ public class ByteCodeExpressionVisitor
                     throw new IllegalStateException("Error processing in statement: unsupported type " + testValue.getClass().getSimpleName());
                 }
 
-                hashBucketsBuilder.put(hashCode, coerceToType(context, testNode, type));
+                hashBucketsBuilder.put(hashCode, testNode);
             }
             else {
-                defaultBucket.add(coerceToType(context, testNode, type));
+                defaultBucket.add(testNode);
             }
         }
         ImmutableListMultimap<Integer, TypedByteCodeNode> hashBuckets = hashBucketsBuilder.build();
@@ -1132,7 +1120,7 @@ public class ByteCodeExpressionVisitor
 
         Block block = new Block(context)
                 .comment(node.toString())
-                .append(coerceToType(context, value, type).getNode())
+                .append(value.getNode())
                 .append(ifWasNullPopAndGoto(context, end, boolean.class, type))
                 .append(switchBlock)
                 .append(defaultCaseBlock);
@@ -1198,7 +1186,7 @@ public class ByteCodeExpressionVisitor
             Block condition = new Block(context)
                     .visitLabel(testLabel)
                     .dup(type)
-                    .append(coerceToType(context, testNode, type).getNode());
+                    .append(testNode.getNode());
 
             if (checkForNulls) {
                 condition.getVariable("wasNull")
@@ -1277,15 +1265,9 @@ public class ByteCodeExpressionVisitor
         return new IfStatement(context, comment, nullCheck, isNull, NOP);
     }
 
-    private TypedByteCodeNode coerceToType(CompilerContext context, TypedByteCodeNode node, Class<?> type)
+    private TypedByteCodeNode typedNull(CompilerContext context, Class<?> type)
     {
-        if (node.getType() == void.class) {
-            return typedByteCodeNode(new Block(context).append(node.getNode()).pushJavaDefault(type), type);
-        }
-        if (node.getType() == long.class && type == double.class) {
-            return typedByteCodeNode(new Block(context).append(node.getNode()).append(L2D), type);
-        }
-        return node;
+        return typedByteCodeNode(new Block(context).putVariable("wasNull", true).pushJavaDefault(type), type);
     }
 
     private Class<?> getType(TypedByteCodeNode... nodes)
