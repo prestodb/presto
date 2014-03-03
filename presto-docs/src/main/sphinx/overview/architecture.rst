@@ -4,8 +4,7 @@ Architecture
 
 This section outlines general guidelines of the architecture of Presto
 and defines several architectural patterns you will notice in
-Presto. While Presto's primary concern is performance, the following
-sections outline several architectural patterns found in Presto.
+Presto. 
 
 ------------------
 Parallel Execution
