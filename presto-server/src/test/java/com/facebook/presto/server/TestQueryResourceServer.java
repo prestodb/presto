@@ -67,6 +67,7 @@ import static io.airlift.http.client.StatusResponseHandler.createStatusResponseH
 import static io.airlift.json.JsonCodec.jsonCodec;
 import static org.testng.Assert.assertEquals;
 
+@Test(singleThreaded = true)
 public class TestQueryResourceServer
 {
     private HttpClient client;

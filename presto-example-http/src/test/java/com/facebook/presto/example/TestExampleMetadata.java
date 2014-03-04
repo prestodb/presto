@@ -42,6 +42,7 @@ import static org.testng.Assert.assertNull;
 import static org.testng.Assert.assertTrue;
 import static org.testng.Assert.fail;
 
+@Test(singleThreaded = true)
 public class TestExampleMetadata
 {
     private static final JsonCodec<Map<String, List<ExampleTable>>> CATALOG_CODEC = mapJsonCodec(String.class, listJsonCodec(ExampleTable.class));

@@ -33,6 +33,7 @@ import static io.airlift.http.client.StringResponseHandler.StringResponse;
 import static io.airlift.http.client.StringResponseHandler.createStringResponseHandler;
 import static org.testng.Assert.assertEquals;
 
+@Test(singleThreaded = true)
 public class TestExecuteResource
 {
     private TestingPrestoServer server;
