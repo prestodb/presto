@@ -25,7 +25,6 @@ import com.facebook.presto.spi.TupleDomain;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.net.HostAndPort;
-import io.airlift.log.Logging;
 import org.testng.annotations.Test;
 
 import java.util.List;
@@ -75,9 +74,6 @@ public abstract class AbstractTestHiveClientS3
                 new HadoopApiStats(),
                 new HdfsEnvironment(new HdfsConfiguration(hiveClientConfig)),
                 sameThreadExecutor());
-
-        Logging logging = Logging.initialize();
-        logging.setLevel("com.amazonaws.request", Logging.Level.DEBUG);
     }
 
     @Test

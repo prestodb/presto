@@ -142,6 +142,7 @@
         <dependency>
             <groupId>io.airlift</groupId>
             <artifactId>log-manager</artifactId>
+            <scope>runtime</scope>
             <exclusions>
                 <exclusion>
                     <groupId>org.slf4j</groupId>
