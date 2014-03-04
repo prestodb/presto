@@ -51,27 +51,31 @@ public final class AggregationTestUtils
         }
     }
 
-    public static void assertApproximateAggregation(BootstrappedAggregation function, int sampleWeightChannel, double confidence, double expectedValue, int seed, Page... pages)
+    public static void assertApproximateAggregation(AggregationFunction function, int sampleWeightChannel, double confidence, Double expectedValue, Page... pages)
     {
-        assertTrue(approximateAggregationWithinErrorBound(function, sampleWeightChannel, confidence, expectedValue, seed, pages));
-        assertTrue(partialApproximateAggregationWithinErrorBound(function, sampleWeightChannel, confidence, expectedValue, seed, pages));
-        assertTrue(groupedApproximateAggregationWithinErrorBound(function, sampleWeightChannel, confidence, expectedValue, seed, pages));
+        assertTrue(approximateAggregationWithinErrorBound(function, sampleWeightChannel, confidence, expectedValue, pages));
+        assertTrue(partialApproximateAggregationWithinErrorBound(function, sampleWeightChannel, confidence, expectedValue, pages));
+        assertTrue(groupedApproximateAggregationWithinErrorBound(function, sampleWeightChannel, confidence, expectedValue, pages));
     }
 
-    public static boolean approximateAggregationWithinErrorBound(BootstrappedAggregation function, int sampleWeightChannel, double confidence, double expectedValue, int seed, Page... pages)
+    public static boolean approximateAggregationWithinErrorBound(AggregationFunction function, int sampleWeightChannel, double confidence, Double expectedValue, Page... pages)
     {
-        Accumulator accumulator = function.createDeterministicAggregation(Optional.<Integer>absent(), sampleWeightChannel, confidence, seed, 0);
+        Accumulator accumulator = function.createAggregation(Optional.<Integer>absent(), Optional.of(sampleWeightChannel), confidence, 0);
         for (Page page : pages) {
             accumulator.addInput(page);
         }
         Block result = accumulator.evaluateFinal();
 
+        if (expectedValue == null) {
+            return BlockAssertions.toValues(result).get(0) == null;
+        }
+
         return withinErrorBound(BlockAssertions.toValues(result).get(0).toString(), expectedValue);
     }
 
-    public static boolean partialApproximateAggregationWithinErrorBound(BootstrappedAggregation function, int sampleWeightChannel, double confidence, double expectedValue, int seed, Page... pages)
+    public static boolean partialApproximateAggregationWithinErrorBound(AggregationFunction function, int sampleWeightChannel, double confidence, Double expectedValue, Page... pages)
     {
-        Accumulator partialAccumulator = function.createDeterministicAggregation(Optional.<Integer>absent(), sampleWeightChannel, confidence, seed, 0);
+        Accumulator partialAccumulator = function.createAggregation(Optional.<Integer>absent(), Optional.of(sampleWeightChannel), confidence, 0);
         for (Page page : pages) {
             if (page.getPositionCount() > 0) {
                 partialAccumulator.addInput(page);
@@ -80,21 +84,29 @@ public final class AggregationTestUtils
 
         Block partialBlock = partialAccumulator.evaluateIntermediate();
 
-        Accumulator finalAggregation = function.createDeterministicIntermediateAggregation(confidence, 0);
+        Accumulator finalAggregation = function.createIntermediateAggregation(confidence);
         finalAggregation.addIntermediate(partialBlock);
 
         Block finalBlock = finalAggregation.evaluateFinal();
 
+        if (expectedValue == null) {
+            return BlockAssertions.toValues(finalBlock).get(0) == null;
+        }
+
         return withinErrorBound(BlockAssertions.toValues(finalBlock).get(0).toString(), expectedValue);
     }
 
-    public static boolean groupedApproximateAggregationWithinErrorBound(BootstrappedAggregation function, int sampleWeightChannel, double confidence, double expectedValue, int seed, Page... pages)
+    public static boolean groupedApproximateAggregationWithinErrorBound(AggregationFunction function, int sampleWeightChannel, double confidence, Double expectedValue, Page... pages)
     {
-        GroupedAccumulator groupedAggregation = function.createDeterministicGroupedAggregation(Optional.<Integer>absent(), sampleWeightChannel, confidence, seed, 0);
+        GroupedAccumulator groupedAggregation = function.createGroupedAggregation(Optional.<Integer>absent(), Optional.of(sampleWeightChannel), confidence, 0);
         for (Page page : pages) {
             groupedAggregation.addInput(createGroupByIdBlock(0, page.getPositionCount()), page);
         }
         Object groupValue = getGroupValue(groupedAggregation, 0);
+
+        if (expectedValue == null) {
+            return groupValue == null;
+        }
 
         return withinErrorBound(groupValue.toString(), expectedValue);
     }
@@ -137,7 +149,7 @@ public final class AggregationTestUtils
     }
 
     // Adds the mask as the last channel
-    private static Page[] maskPages(final boolean maskValue, Page... pages)
+    private static Page[] maskPages(boolean maskValue, Page... pages)
     {
         Page[] maskedPages = new Page[pages.length];
         for (int i = 0; i < pages.length; i++) {

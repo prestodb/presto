@@ -15,6 +15,7 @@ package com.facebook.presto.operator.aggregation;
 
 import com.facebook.presto.operator.PageBuilder;
 import com.facebook.presto.tuple.TupleInfo;
+import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
 import org.apache.commons.math3.distribution.BinomialDistribution;
 import org.testng.annotations.Test;
@@ -44,9 +45,9 @@ public class TestBootstrappedAggregation
             }
         }
 
-        BootstrappedAggregation function = new BootstrappedAggregation(LONG_SUM);
+        AggregationFunction function = new DeterministicBootstrappedAggregation(LONG_SUM);
 
-        assertApproximateAggregation(function, 1, 0.99, sum, 0, builder.build());
+        assertApproximateAggregation(function, 1, 0.99, (double) sum, builder.build());
     }
 
     @Test
@@ -69,12 +70,45 @@ public class TestBootstrappedAggregation
                 }
             }
 
-            BootstrappedAggregation function = new BootstrappedAggregation(LONG_SUM);
+            AggregationFunction function = new DeterministicBootstrappedAggregation(LONG_SUM);
 
-            successes += approximateAggregationWithinErrorBound(function, 1, 0.5, sum, 0, builder.build()) ? 1 : 0;
+            successes += approximateAggregationWithinErrorBound(function, 1, 0.5, (double) sum, builder.build()) ? 1 : 0;
         }
 
         // Since we used a confidence of 0.5, successes should have a binomial distribution B(n=20, p=0.5)
         assertTrue(binomial.inverseCumulativeProbability(0.01) < successes && successes < binomial.inverseCumulativeProbability(0.99));
+    }
+
+    private static class DeterministicBootstrappedAggregation
+            extends BootstrappedAggregation
+    {
+        public DeterministicBootstrappedAggregation(AggregationFunction function)
+        {
+            super(function);
+        }
+
+        @Override
+        public Accumulator createAggregation(Optional<Integer> maskChannel, Optional<Integer> sampleWeightChannel, double confidence, int... argumentChannels)
+        {
+            return createDeterministicAggregation(maskChannel, sampleWeightChannel.get(), confidence, 0, argumentChannels);
+        }
+
+        @Override
+        public Accumulator createIntermediateAggregation(double confidence)
+        {
+            return createDeterministicIntermediateAggregation(confidence, 0);
+        }
+
+        @Override
+        public GroupedAccumulator createGroupedAggregation(Optional<Integer> maskChannel, Optional<Integer> sampleWeightChannel, double confidence, int... argumentChannels)
+        {
+            return createDeterministicGroupedAggregation(maskChannel, sampleWeightChannel.get(), confidence, 0, argumentChannels);
+        }
+
+        @Override
+        public GroupedAccumulator createGroupedIntermediateAggregation(double confidence)
+        {
+            return createDeterministicGroupedIntermediateAggregation(confidence, 0);
+        }
     }
 }
