@@ -50,6 +50,7 @@ import static com.facebook.presto.sql.analyzer.SemanticErrorCode.WILDCARD_WITHOU
 import static java.lang.String.format;
 import static org.testng.Assert.fail;
 
+@Test(singleThreaded = true)
 public class TestAnalyzer
 {
     private Analyzer analyzer;
