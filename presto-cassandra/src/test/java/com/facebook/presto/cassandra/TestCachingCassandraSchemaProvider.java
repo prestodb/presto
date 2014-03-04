@@ -33,6 +33,7 @@ import static java.util.concurrent.Executors.newCachedThreadPool;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotNull;
 
+@Test(singleThreaded = true)
 public class TestCachingCassandraSchemaProvider
 {
     private static final String CONNECTOR_ID = "test-cassandra";

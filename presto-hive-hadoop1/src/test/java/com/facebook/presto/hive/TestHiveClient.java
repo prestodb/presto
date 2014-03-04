@@ -15,7 +15,9 @@ package com.facebook.presto.hive;
 
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Parameters;
+import org.testng.annotations.Test;
 
+@Test(singleThreaded = true)
 public class TestHiveClient
         extends AbstractTestHiveClient
 {

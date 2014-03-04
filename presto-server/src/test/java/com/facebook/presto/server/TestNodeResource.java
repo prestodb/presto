@@ -29,6 +29,7 @@ import static io.airlift.json.JsonCodec.listJsonCodec;
 import static io.airlift.testing.Closeables.closeQuietly;
 import static org.testng.Assert.assertTrue;
 
+@Test(singleThreaded = true)
 public class TestNodeResource
 {
     private TestingPrestoServer server;
