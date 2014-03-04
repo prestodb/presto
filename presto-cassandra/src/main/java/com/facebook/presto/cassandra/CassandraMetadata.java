@@ -28,6 +28,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.inject.Inject;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
@@ -52,7 +53,7 @@ public class CassandraMetadata
     @Override
     public List<String> listSchemaNames()
     {
-        return schemaProvider.getAllSchemas();
+        return new ArrayList<String>(schemaProvider.getAllSchemas().keySet());
     }
 
     @Override
@@ -60,7 +61,7 @@ public class CassandraMetadata
     {
         checkNotNull(tableName, "tableName is null");
         try {
-            CassandraTableHandle tableHandle = new CassandraTableHandle(connectorId, tableName.getSchemaName(), tableName.getTableName());
+            CassandraTableHandle tableHandle = new CassandraTableHandle(connectorId, schemaProvider.getCassandraSchemaName(tableName.getSchemaName()), schemaProvider.getCassandraTableName(tableName.getTableName(), tableName.getSchemaName()));
             schemaProvider.getTable(tableHandle);
             return tableHandle;
         }
@@ -86,7 +87,7 @@ public class CassandraMetadata
 
     private ConnectorTableMetadata getTableMetadata(SchemaTableName tableName)
     {
-        CassandraTableHandle tableHandle = new CassandraTableHandle(connectorId, tableName.getSchemaName(), tableName.getTableName());
+        CassandraTableHandle tableHandle = new CassandraTableHandle(connectorId, schemaProvider.getCassandraSchemaName(tableName.getSchemaName()), schemaProvider.getCassandraTableName(tableName.getTableName(), tableName.getSchemaName()));
         CassandraTable table = schemaProvider.getTable(tableHandle);
         List<ColumnMetadata> columns = ImmutableList.copyOf(transform(table.getColumns(), columnMetadataGetter()));
         return new ConnectorTableMetadata(tableName, columns);
@@ -98,7 +99,7 @@ public class CassandraMetadata
         ImmutableList.Builder<SchemaTableName> tableNames = ImmutableList.builder();
         for (String schemaName : listSchemas(schemaNameOrNull)) {
             try {
-                for (String tableName : schemaProvider.getAllTables(schemaName)) {
+                for (String tableName : schemaProvider.getAllTables(schemaName).keySet()) {
                     tableNames.add(new SchemaTableName(schemaName, tableName.toLowerCase()));
                 }
             }
@@ -137,7 +138,7 @@ public class CassandraMetadata
         CassandraTable table = schemaProvider.getTable((CassandraTableHandle) tableHandle);
         ImmutableMap.Builder<String, ColumnHandle> columnHandles = ImmutableMap.builder();
         for (CassandraColumnHandle columnHandle : table.getColumns()) {
-            columnHandles.put(CassandraCqlUtils.cqlNameToSqlName(columnHandle.getName()), columnHandle);
+            columnHandles.put(CassandraCqlUtils.cqlNameToSqlName(columnHandle.getName()).toLowerCase(), columnHandle);
         }
         return columnHandles.build();
     }
