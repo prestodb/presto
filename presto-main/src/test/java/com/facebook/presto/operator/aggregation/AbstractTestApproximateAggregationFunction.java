@@ -16,73 +16,163 @@ package com.facebook.presto.operator.aggregation;
 import com.facebook.presto.block.Block;
 import com.facebook.presto.block.BlockAssertions;
 import com.facebook.presto.block.BlockBuilder;
+import com.facebook.presto.operator.OperatorAssertion;
 import com.facebook.presto.operator.Page;
 import com.facebook.presto.tuple.TupleInfo;
 import com.google.common.base.Optional;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
-import org.apache.commons.math3.distribution.NormalDistribution;
+import org.testng.annotations.Test;
 
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Random;
 
+import static com.facebook.presto.operator.aggregation.AggregationTestUtils.assertApproximateAggregation;
+import static com.facebook.presto.tuple.TupleInfo.SINGLE_DOUBLE;
+import static com.facebook.presto.tuple.TupleInfo.SINGLE_LONG;
 import static org.testng.Assert.assertTrue;
 
 public abstract class AbstractTestApproximateAggregationFunction
         extends AbstractTestAggregationFunction
 {
-    /**
-     * This method tests the correctness of the closed-form error estimates for
-     * average function on given data. We first calculate the true average: actualAvg
-     * and then create 1,000 samples from original data (samplingRatio = 0.1) and compute
-     * the approxAvg (with error bars) on each. The test passes if at least 99% of all
-     * runs contain the true answer within the range [ApproxAvg - error, ApproxAvg + error]
-     * @param inputList
-     * @throws Exception
-     */
-    public void testCorrectnessOfErrorFunction(List<Number> inputList, TupleInfo type)
-            throws Exception
+    protected abstract TupleInfo getTupleInfo();
+
+    // values may contain nulls
+    protected abstract Double getExpectedValue(List<Number> values);
+
+    @Override
+    public double getConfidence()
     {
-        //Compute Actual Value using list
-        double actualSum = 0;
-        for (Number value : inputList) {
-            actualSum += value.doubleValue();
+        return 0.99;
+    }
+
+    @Override
+    public Block getSequenceBlock(int start, int length)
+    {
+        BlockBuilder blockBuilder = new BlockBuilder(getTupleInfo());
+        for (int i = start; i < start + length; i++) {
+            if (getTupleInfo() == SINGLE_LONG) {
+                blockBuilder.append((long) i);
+            }
+            else {
+                blockBuilder.append((double) i);
+            }
+        }
+        return blockBuilder.build();
+    }
+
+    @Override
+    public Double getExpectedValue(int start, int length)
+    {
+        List<Number> values = new ArrayList<>();
+        for (int i = 0; i < length; i++) {
+            // Insert twice since we use a sample weight of two
+            if (getTupleInfo() == SINGLE_LONG) {
+                values.add((long) start + i);
+                values.add((long) start + i);
+            }
+            else {
+                values.add((double) start + i);
+                values.add((double) start + i);
+            }
         }
 
-        double actualAvg = actualSum / inputList.size();
+        return getExpectedValue(values);
+    }
 
+    @Override
+    public Double getExpectedValueIncludingNulls(int start, int length, int lengthIncludingNulls)
+    {
+        List<Number> values = new ArrayList<>();
+        for (int i = 0; i < length; i++) {
+            // Insert twice since we use a sample weight of two
+            if (getTupleInfo() == SINGLE_LONG) {
+                values.add((long) start + i);
+                values.add((long) start + i);
+            }
+            else {
+                values.add((double) start + i);
+                values.add((double) start + i);
+            }
+        }
+        for (int i = length; i < lengthIncludingNulls; i++) {
+            // Insert twice since we use a sample weight of two
+            values.add(null);
+            values.add(null);
+        }
+
+        return getExpectedValue(values);
+    }
+
+    @Test
+    public void testCorrectnessOnGaussianData()
+            throws Exception
+    {
+        int originalDataSize = 100;
+        Random distribution = new Random(0);
+        List<Number> list = new ArrayList<>();
+        for (int i = 0; i < originalDataSize; i++) {
+            list.add(distribution.nextGaussian() * 100);
+        }
+
+        testCorrectnessOfErrorFunction(list);
+    }
+
+    @Test
+    public void testCorrectnessOnUniformData()
+            throws Exception
+    {
+        int originalDataSize = 100;
+        Random distribution = new Random(0);
+        List<Number> list = new ArrayList<>();
+        for (int i = 0; i < originalDataSize; i++) {
+            list.add(distribution.nextDouble() * 1000);
+        }
+
+        testCorrectnessOfErrorFunction(list);
+    }
+
+    private void testCorrectnessOfErrorFunction(List<Number> inputList)
+            throws Exception
+    {
         int inRange = 0;
         int numberOfRuns = 1000;
         double sampleRatio = 0.1;
 
         for (int i = 0; i < numberOfRuns; i++) {
             //Compute Sampled Value using sampledList (numberOfRuns times)
-            Iterable<Number> sampledList = Iterables.limit(shuffle(inputList), (int) (inputList.size() * sampleRatio));
+            Iterable<Number> sampledList = Iterables.limit(shuffle(inputList, i), (int) (inputList.size() * sampleRatio));
+            // Duplicate every element in the list, since we're going to use a sample weight of two
+            double actual = getExpectedValue(ImmutableList.<Number>builder().addAll(sampledList).addAll(sampledList).build());
 
-            BlockBuilder builder = new BlockBuilder(type);
+            BlockBuilder builder = new BlockBuilder(getTupleInfo());
             for (Number sample : sampledList) {
-                if (sample instanceof Double) {
-                    builder.append(sample.doubleValue());
-                }
-                else if (sample instanceof Long) {
+                if (getTupleInfo() == SINGLE_LONG) {
                     builder.append(sample.longValue());
+                }
+                else if (getTupleInfo() == SINGLE_DOUBLE) {
+                    builder.append(sample.doubleValue());
                 }
                 else {
                     throw new AssertionError("Can only handle longs and doubles");
                 }
             }
-            Accumulator accumulator = getFunction().createAggregation(Optional.<Integer>absent(), Optional.<Integer>absent(), getConfidence(), 0);
+            Page page = new Page(builder.build());
+            page = OperatorAssertion.appendSampleWeight(ImmutableList.of(page), 2).get(0);
+            Accumulator accumulator = getFunction().createAggregation(Optional.<Integer>absent(), Optional.of(page.getChannelCount() - 1), getConfidence(), 0);
 
-            accumulator.addInput(new Page(builder.build()));
+            accumulator.addInput(page);
             Block result = accumulator.evaluateFinal();
 
             String approxValue = BlockAssertions.toValues(result).get(0).toString();
-            double approxAvg = Double.parseDouble(approxValue.split(" ")[0]);
+            double approx = Double.parseDouble(approxValue.split(" ")[0]);
             double error = Double.parseDouble(approxValue.split(" ")[2]);
 
             //Check if actual answer lies within [approxAnswer - error, approxAnswer + error]
-            if ((approxAvg - error <= actualAvg) && (approxAvg + error >= actualAvg)) {
+            if (Math.abs(approx - actual) <= error) {
                 inRange++;
             }
         }
@@ -90,16 +180,17 @@ public abstract class AbstractTestApproximateAggregationFunction
         assertTrue(inRange >= getConfidence() * numberOfRuns);
     }
 
-    protected static List<Number> shuffle(Iterable<Number> iterable)
+    @Override
+    protected void testAggregation(Object expectedValue, Block block)
     {
-        List<Number> list = Lists.newArrayList(iterable);
-        Collections.shuffle(list, new Random(1));
-        return list;
+        Page page = OperatorAssertion.appendSampleWeight(ImmutableList.of(new Page(block)), 2).get(0);
+        assertApproximateAggregation(getFunction(), page.getChannelCount() - 1, getConfidence(), (Double) expectedValue, page);
     }
 
-    protected static double zScore(double p)
+    private static List<Number> shuffle(Iterable<Number> iterable, long seed)
     {
-        NormalDistribution norm = new NormalDistribution();
-        return norm.inverseCumulativeProbability((1 + p) / 2);
+        List<Number> list = Lists.newArrayList(iterable);
+        Collections.shuffle(list, new Random(seed));
+        return list;
     }
 }

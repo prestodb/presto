@@ -43,19 +43,19 @@ public abstract class AbstractTestAggregationFunction
     @Test
     public void testNoPositions()
     {
-        assertAggregation(getFunction(), getConfidence(), getExpectedValue(0, 0), 0);
+        testAggregation(getExpectedValue(0, 0), getSequenceBlock(0, 0));
     }
 
     @Test
     public void testSinglePosition()
     {
-        assertAggregation(getFunction(), getConfidence(), getExpectedValue(0, 1), 1, getSequenceBlock(0, 1));
+        testAggregation(getExpectedValue(0, 1), getSequenceBlock(0, 1));
     }
 
     @Test
     public void testMultiplePositions()
     {
-        assertAggregation(getFunction(), getConfidence(), getExpectedValue(0, 5), 5, getSequenceBlock(0, 5));
+        testAggregation(getExpectedValue(0, 5), getSequenceBlock(0, 5));
     }
 
     @Test
@@ -63,26 +63,26 @@ public abstract class AbstractTestAggregationFunction
             throws Exception
     {
         Block block = new RunLengthEncodedBlock(nullTuple(getSequenceBlock(0, 10).getTupleInfo()), 10);
-        assertAggregation(getFunction(), getConfidence(), getExpectedValueIncludingNulls(0, 0, 10), 10, block);
+        testAggregation(getExpectedValueIncludingNulls(0, 0, 10), block);
     }
 
     @Test
     public void testMixedNullAndNonNullPositions()
     {
         Block alternatingNullsBlock = createAlternatingNullsBlock(getSequenceBlock(0, 10));
-        assertAggregation(getFunction(), getConfidence(), getExpectedValueIncludingNulls(0, 10, 20), 20, alternatingNullsBlock);
+        testAggregation(getExpectedValueIncludingNulls(0, 10, 20), alternatingNullsBlock);
     }
 
     @Test
     public void testNegativeOnlyValues()
     {
-        assertAggregation(getFunction(), getConfidence(), getExpectedValue(-10, 5), 5, getSequenceBlock(-10, 5));
+        testAggregation(getExpectedValue(-10, 5), getSequenceBlock(-10, 5));
     }
 
     @Test
     public void testPositiveOnlyValues()
     {
-        assertAggregation(getFunction(), getConfidence(), getExpectedValue(2, 4), 4, getSequenceBlock(2, 4));
+        testAggregation(getExpectedValue(2, 4), getSequenceBlock(2, 4));
     }
 
     public Block createAlternatingNullsBlock(Block sequenceBlock)
@@ -93,5 +93,10 @@ public abstract class AbstractTestAggregationFunction
             blockBuilder.appendNull().append(cursor.getTuple());
         }
         return blockBuilder.build();
+    }
+
+    protected void testAggregation(Object expectedValue, Block block)
+    {
+        assertAggregation(getFunction(), getConfidence(), expectedValue, block.getPositionCount(), block);
     }
 }
