@@ -45,9 +45,6 @@ cassandra.native-protocol-port=9142
 # Note that for larger values you may need to adjust read timeout for Cassandra 
 cassandra.limit-for-partition-key-select=200
 
-# number of splits generated if partition keys are unknown
-cassandra.unpartitioned-splits=1000
-
 # maximum number of schema cache refresh threads, i.e. maximum number of parallel requests
 cassandra.max-schema-refresh-threads=10
 
@@ -68,6 +65,26 @@ cassandra.fetch-size=5000
 # fetch size used for partition key select query
 # (advanced)
 cassandra.fetch-size-for-partition-key-select=20000
+
+# thrift transport factory class
+# (advanced)
+cassandra.thrift-connection-factory-class=org.apache.cassandra.thrift.TFramedTransportFactory
+
+# thrift transport factory options separated by commas
+# (advanced)
+cassandra.transport-factory-options=
+
+# partitioner class name
+# (advanced)
+cassandra.partitioner=Murmur3Partitioner
+
+# token split size
+# (advanced)
+cassandra.split-size=1024
+
+# thrift port
+# (advanced)
+cassandra.thrift-port=9160
 
 ```
 

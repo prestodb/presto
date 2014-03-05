@@ -39,7 +39,7 @@ import com.google.common.collect.Sets;
 import com.google.inject.Inject;
 import io.airlift.log.Logger;
 
-import java.math.BigInteger;
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -59,20 +59,21 @@ public class CassandraSplitManager
     private final String connectorId;
     private final CassandraSession cassandraSession;
     private final CachingCassandraSchemaProvider schemaProvider;
-    private final int unpartitionedSplits;
     private final int partitionSizeForBatchSelect;
+    private final CassandraTokenSplitManager tokenSplitMgr;
 
     @Inject
     public CassandraSplitManager(CassandraConnectorId connectorId,
             CassandraClientConfig cassandraClientConfig,
             CassandraSession cassandraSession,
-            CachingCassandraSchemaProvider schemaProvider)
+            CachingCassandraSchemaProvider schemaProvider,
+            CassandraTokenSplitManager tokenSplitMgr)
     {
         this.connectorId = checkNotNull(connectorId, "connectorId is null").toString();
         this.schemaProvider = checkNotNull(schemaProvider, "schemaProvider is null");
         this.cassandraSession = checkNotNull(cassandraSession, "cassandraSession is null");
-        this.unpartitionedSplits = cassandraClientConfig.getUnpartitionedSplits();
         this.partitionSizeForBatchSelect = cassandraClientConfig.getPartitionSizeForBatchSelect();
+        this.tokenSplitMgr = tokenSplitMgr;
     }
 
     @Override
@@ -157,37 +158,27 @@ public class CassandraSplitManager
         String tableName = table.getTableHandle().getTableName();
         String tokenExpression = table.getTokenExpression();
 
-        List<HostAddress> addresses = new HostAddressFactory().toHostAddressList(cassandraSession.getAllHosts());
-
-        BigInteger start = BigInteger.valueOf(Long.MIN_VALUE);
-        BigInteger end = BigInteger.valueOf(Long.MAX_VALUE);
-        BigInteger one = BigInteger.valueOf(1);
-        BigInteger splits = BigInteger.valueOf(unpartitionedSplits);
-        long delta = end.subtract(start).subtract(one).divide(splits).longValue();
-        long startToken = start.longValue();
-
         ImmutableList.Builder<ConnectorSplit> builder = ImmutableList.builder();
-        for (int i = 0; i < unpartitionedSplits - 1; i++) {
-            long endToken = startToken + delta;
-            String condition = buildTokenCondition(tokenExpression, startToken, endToken);
-
+        List<CassandraTokenSplitManager.TokenSplit> tokenSplits;
+        try {
+            tokenSplits = tokenSplitMgr.getSplits(schema, tableName);
+        }
+        catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+        for (CassandraTokenSplitManager.TokenSplit tokenSplit : tokenSplits) {
+            String condition = buildTokenCondition(tokenExpression, tokenSplit.getStartToken(), tokenSplit.getEndToken());
+            List<HostAddress> addresses = new HostAddressFactory().AddressNamesToHostAddressList(tokenSplit.getHosts());
             CassandraSplit split = new CassandraSplit(connectorId, schema, tableName, partitionId, condition, addresses);
             builder.add(split);
-
-            startToken = endToken + 1;
         }
-
-        // special handling for last split
-        String condition = buildTokenCondition(tokenExpression, startToken, end.longValue());
-        CassandraSplit split = new CassandraSplit(connectorId, schema, tableName, partitionId, condition, addresses);
-        builder.add(split);
 
         return builder.build();
     }
 
-    private static String buildTokenCondition(String tokenExpression, long startToken, long endToken)
+    private static String buildTokenCondition(String tokenExpression, String startToken, String endToken)
     {
-        return tokenExpression + " >= " + startToken + " AND " + tokenExpression + " <= " + endToken;
+        return tokenExpression + " > " + startToken + " AND " + tokenExpression + " <= " + endToken;
     }
 
     private List<ConnectorSplit> getSplitsForPartitions(CassandraTableHandle cassTableHandle, List<ConnectorPartition> partitions)

@@ -18,6 +18,7 @@ import com.google.inject.Binder;
 import com.google.inject.Module;
 import com.google.inject.Provides;
 import com.google.inject.Scopes;
+import org.apache.cassandra.thrift.Cassandra;
 
 import javax.inject.Singleton;
 
@@ -45,6 +46,7 @@ public class CassandraClientModule
         binder.bind(CassandraConnector.class).in(Scopes.SINGLETON);
         binder.bind(CassandraMetadata.class).in(Scopes.SINGLETON);
         binder.bind(CassandraSplitManager.class).in(Scopes.SINGLETON);
+        binder.bind(CassandraTokenSplitManager.class).in(Scopes.SINGLETON);
         binder.bind(CassandraRecordSetProvider.class).in(Scopes.SINGLETON);
         binder.bind(CassandraHandleResolver.class).in(Scopes.SINGLETON);
 
@@ -56,22 +58,30 @@ public class CassandraClientModule
         binder.bind(CassandraSessionFactory.class).in(Scopes.SINGLETON);
     }
 
-    @ForCassandraSchema
+    @ForCassandra
     @Singleton
     @Provides
-    public ExecutorService createCachingCassandraSchemaExecutor(CassandraConnectorId clientId, CassandraClientConfig cassandraClientConfig)
+    public static ExecutorService createCachingCassandraSchemaExecutor(CassandraConnectorId clientId, CassandraClientConfig cassandraClientConfig)
     {
         return Executors.newFixedThreadPool(
                 cassandraClientConfig.getMaxSchemaRefreshThreads(),
                 new ThreadFactoryBuilder().setDaemon(true)
-                        .setNameFormat("cassandra-schema-" + clientId + "-%d").build());
+                        .setNameFormat("cassandra-" + clientId + "-%d").build());
     }
 
     @Singleton
     @Provides
-    public CassandraSession createCassandraSession(CassandraConnectorId connectorId, CassandraClientConfig config)
+    public static CassandraSession createCassandraSession(CassandraConnectorId connectorId, CassandraClientConfig config)
     {
         CassandraSessionFactory factory = new CassandraSessionFactory(connectorId, config);
+        return factory.create();
+    }
+
+    @Singleton
+    @Provides
+    public static Cassandra.Client createCassandraThriftConnection(CassandraClientConfig config)
+    {
+        CassandraThriftConnectionFactory factory = new CassandraThriftConnectionFactory(config);
         return factory.create();
     }
 }
