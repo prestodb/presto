@@ -63,6 +63,18 @@ public final class ApproximateUtils
         return conservativeError(error, p, samples);
     }
 
+    public static double sumError(long samples, long count, double sum, double variance)
+    {
+        if (count == 0) {
+            return Double.POSITIVE_INFINITY;
+        }
+
+        double p = samples / (double) count;
+        double mean = sum / (double) count;
+        double error = 1 / p * Math.sqrt(variance / count + (1 - p) * mean * mean);
+        return conservativeError(error, p, samples);
+    }
+
     private static double conservativeError(double error, double p, double samples)
     {
         // Heuristic to determine that the sample is too small
