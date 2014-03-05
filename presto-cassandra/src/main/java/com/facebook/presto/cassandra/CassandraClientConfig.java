@@ -23,8 +23,12 @@ import javax.validation.constraints.Min;
 import javax.validation.constraints.NotNull;
 import javax.validation.constraints.Size;
 
+import org.weakref.jmx.com.google.common.collect.Maps;
+
 import java.util.Arrays;
+import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
 public class CassandraClientConfig
@@ -36,11 +40,15 @@ public class CassandraClientConfig
     private int maxSchemaRefreshThreads = 10;
     private int limitForPartitionKeySelect = 100_000;
     private int fetchSizeForPartitionKeySelect = 20_000;
-    private int unpartitionedSplits = 1_000;
     private ConsistencyLevel consistencyLevel = ConsistencyLevel.ONE;
     private int fetchSize = 5_000;
     private List<String> contactPoints = ImmutableList.of();
     private int nativeProtocolPort = 9042;
+    private int splitSize = 1_024;
+    private String partitioner = "Murmur3Partitioner";
+    private int thriftPort = 9160;
+    private String thriftConnectionFactoryClassName = "org.apache.cassandra.thrift.TFramedTransportFactory";
+    private Map<String, String> transportFactoryOptions = Maps.newHashMap();
 
     @Min(0)
     public int getLimitForPartitionKeySelect()
@@ -52,19 +60,6 @@ public class CassandraClientConfig
     public CassandraClientConfig setLimitForPartitionKeySelect(int limitForPartitionKeySelect)
     {
         this.limitForPartitionKeySelect = limitForPartitionKeySelect;
-        return this;
-    }
-
-    @Min(1)
-    public int getUnpartitionedSplits()
-    {
-        return unpartitionedSplits;
-    }
-
-    @Config("cassandra.unpartitioned-splits")
-    public CassandraClientConfig setUnpartitionedSplits(int unpartitionedSplits)
-    {
-        this.unpartitionedSplits = unpartitionedSplits;
         return this;
     }
 
@@ -176,6 +171,78 @@ public class CassandraClientConfig
     public CassandraClientConfig setFetchSizeForPartitionKeySelect(int fetchSizeForPartitionKeySelect)
     {
         this.fetchSizeForPartitionKeySelect = fetchSizeForPartitionKeySelect;
+        return this;
+    }
+
+    @Min(1)
+    public int getThriftPort()
+    {
+        return thriftPort;
+    }
+
+    @Config(("cassandra.thrift-port"))
+    public CassandraClientConfig setThriftPort(int thriftPort)
+    {
+        this.thriftPort = thriftPort;
+        return this;
+    }
+
+    @Min(1)
+    public int getSplitSize()
+    {
+        return splitSize;
+    }
+
+    @Config("cassandra.split-size")
+    public CassandraClientConfig setSplitSize(int splitSize)
+    {
+        this.splitSize = splitSize;
+        return this;
+    }
+
+    public String getPartitioner()
+    {
+        return partitioner;
+    }
+
+    @Config("cassandra.partitioner")
+    public CassandraClientConfig setPartitioner(String partitioner)
+    {
+        this.partitioner = partitioner;
+        return this;
+    }
+
+    public String getThriftConnectionFactoryClassName()
+    {
+        return thriftConnectionFactoryClassName;
+    }
+
+    @Config("cassandra.thrift-connection-factory-class")
+    public CassandraClientConfig setThriftConnectionFactoryClassName(String thriftConnectionFactoryClassName)
+    {
+        this.thriftConnectionFactoryClassName = thriftConnectionFactoryClassName;
+        return this;
+    }
+
+    public Map<String, String> getTransportFactoryOptions()
+    {
+        return transportFactoryOptions;
+    }
+
+    @Config("cassandra.transport-factory-options")
+    public CassandraClientConfig setTransportFactoryOptions(String transportFactoryOptions)
+    {
+        Map<String, String> tfOptions = Maps.newHashMap();
+        if (transportFactoryOptions != null) {
+            Iterator<String> options = Splitter.on(',').split(transportFactoryOptions).iterator();
+            while (options.hasNext()) {
+                String[] option = options.next().split("=");
+                if (option.length == 2) {
+                    tfOptions.put(option[0], option[1]);
+                }
+            }
+            this.transportFactoryOptions = tfOptions;
+        }
         return this;
     }
 }
