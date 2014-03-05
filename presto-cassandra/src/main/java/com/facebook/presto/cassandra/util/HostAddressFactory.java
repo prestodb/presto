@@ -28,7 +28,20 @@ public class HostAddressFactory
 
     public HostAddress toHostAddress(Host host)
     {
-        String hostAddressName = host.getAddress().getHostAddress();
+        return toHostAddress(host.getAddress().getHostAddress());
+    }
+
+    public List<HostAddress> toHostAddressList(Collection<Host> hosts)
+    {
+        ArrayList<HostAddress> list = new ArrayList<>(hosts.size());
+        for (Host host : hosts) {
+            list.add(toHostAddress(host));
+        }
+        return list;
+    }
+
+    public HostAddress toHostAddress(String hostAddressName)
+    {
         HostAddress address = hostMap.get(hostAddressName);
         if (address == null) {
             address = HostAddress.fromString(hostAddressName);
@@ -37,10 +50,10 @@ public class HostAddressFactory
         return address;
     }
 
-    public List<HostAddress> toHostAddressList(Collection<Host> hosts)
+    public List<HostAddress> AddressNamesToHostAddressList(Collection<String> hosts)
     {
         ArrayList<HostAddress> list = new ArrayList<>(hosts.size());
-        for (Host host : hosts) {
+        for (String host : hosts) {
             list.add(toHostAddress(host));
         }
         return list;

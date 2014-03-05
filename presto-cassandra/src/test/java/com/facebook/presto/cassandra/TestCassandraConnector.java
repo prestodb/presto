@@ -297,7 +297,7 @@ public class TestCassandraConnector
     public static void createTestData()
     {
         String clusterName = "TestCluster";
-        String host = "localhost:9171";
+        String host = "localhost:9160";
 
         Cluster cluster = HFactory.getOrCreateCluster(clusterName, host);
         Keyspace keyspace = HFactory.createKeyspace("beautifulKeyspaceName", cluster);

@@ -76,7 +76,7 @@ public class CachingCassandraSchemaProvider
     public CachingCassandraSchemaProvider(
             CassandraConnectorId connectorId,
             CassandraSession session,
-            @ForCassandraSchema ExecutorService executor,
+            @ForCassandra ExecutorService executor,
             CassandraClientConfig cassandraClientConfig)
     {
         this(checkNotNull(connectorId, "connectorId is null").toString(),
