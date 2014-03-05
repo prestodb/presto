@@ -15,7 +15,6 @@ package com.facebook.presto.metadata;
 
 import com.facebook.presto.operator.Description;
 import com.facebook.presto.operator.aggregation.AggregationFunction;
-import com.facebook.presto.operator.aggregation.BootstrappedAggregation;
 import com.facebook.presto.operator.scalar.ColorFunctions;
 import com.facebook.presto.operator.scalar.JsonFunctions;
 import com.facebook.presto.operator.scalar.MathFunctions;
@@ -77,6 +76,8 @@ import static com.facebook.presto.operator.aggregation.ApproximateCountColumnAgg
 import static com.facebook.presto.operator.aggregation.ApproximateCountDistinctAggregations.DOUBLE_APPROXIMATE_COUNT_DISTINCT_AGGREGATIONS;
 import static com.facebook.presto.operator.aggregation.ApproximateCountDistinctAggregations.LONG_APPROXIMATE_COUNT_DISTINCT_AGGREGATIONS;
 import static com.facebook.presto.operator.aggregation.ApproximateCountDistinctAggregations.VARBINARY_APPROXIMATE_COUNT_DISTINCT_AGGREGATIONS;
+import static com.facebook.presto.operator.aggregation.ApproximateDoubleSumAggregation.DOUBLE_APPROXIMATE_SUM_AGGREGATION;
+import static com.facebook.presto.operator.aggregation.ApproximateLongSumAggregation.LONG_APPROXIMATE_SUM_AGGREGATION;
 import static com.facebook.presto.operator.aggregation.ApproximatePercentileAggregations.DOUBLE_APPROXIMATE_PERCENTILE_AGGREGATION;
 import static com.facebook.presto.operator.aggregation.ApproximatePercentileAggregations.LONG_APPROXIMATE_PERCENTILE_AGGREGATION;
 import static com.facebook.presto.operator.aggregation.ApproximatePercentileWeightedAggregations.DOUBLE_APPROXIMATE_PERCENTILE_WEIGHTED_AGGREGATION;
@@ -173,8 +174,8 @@ public class FunctionRegistry
                 .aggregate("approx_avg", VARCHAR, ImmutableList.of(DOUBLE), VARCHAR, DOUBLE_APPROXIMATE_AVERAGE_AGGREGATION)
                 .approximateAggregate("avg", VARCHAR, ImmutableList.of(BIGINT), VARCHAR, LONG_APPROXIMATE_AVERAGE_AGGREGATION)
                 .approximateAggregate("avg", VARCHAR, ImmutableList.of(DOUBLE), VARCHAR, DOUBLE_APPROXIMATE_AVERAGE_AGGREGATION)
-                .approximateAggregate("sum", VARCHAR, ImmutableList.of(BIGINT), VARCHAR, new BootstrappedAggregation(LONG_SUM))
-                .approximateAggregate("sum", VARCHAR, ImmutableList.of(DOUBLE), VARCHAR, new BootstrappedAggregation(DOUBLE_SUM))
+                .approximateAggregate("sum", VARCHAR, ImmutableList.of(BIGINT), VARCHAR, LONG_APPROXIMATE_SUM_AGGREGATION)
+                .approximateAggregate("sum", VARCHAR, ImmutableList.of(DOUBLE), VARCHAR, DOUBLE_APPROXIMATE_SUM_AGGREGATION)
                 .approximateAggregate("count", VARCHAR, ImmutableList.<Type>of(), VARCHAR, APPROXIMATE_COUNT_AGGREGATION)
                 .approximateAggregate("count", VARCHAR, ImmutableList.of(BOOLEAN), VARCHAR, BOOLEAN_APPROXIMATE_COUNT_AGGREGATION)
                 .approximateAggregate("count", VARCHAR, ImmutableList.of(BIGINT), VARCHAR, LONG_APPROXIMATE_COUNT_AGGREGATION)
