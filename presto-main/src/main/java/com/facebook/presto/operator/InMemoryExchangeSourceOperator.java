@@ -94,7 +94,7 @@ public class InMemoryExchangeSourceOperator
     @Override
     public ListenableFuture<?> isBlocked()
     {
-        ListenableFuture<?> blocked = exchange.waitForNotEmpty();
+        ListenableFuture<?> blocked = exchange.waitForReading();
         if (blocked.isDone()) {
             return NOT_BLOCKED;
         }
