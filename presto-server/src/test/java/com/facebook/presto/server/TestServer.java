@@ -27,6 +27,7 @@ import static io.airlift.http.client.StatusResponseHandler.createStatusResponseH
 import static javax.ws.rs.core.Response.Status.OK;
 import static org.testng.Assert.assertEquals;
 
+@Test(singleThreaded = true)
 public class TestServer
 {
     private TestingPrestoServer server;
