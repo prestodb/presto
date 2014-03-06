@@ -172,7 +172,6 @@ public class CassandraSplitManager
             tokenSplits = tokenSplitMgr.getSplits(schema, tableName);
         }
         catch (IOException e) {
-            e.printStackTrace();
             throw new RuntimeException(e);
         }
         for (CassandraTokenSplitManager.TokenSplit tokenSplit : tokenSplits) {

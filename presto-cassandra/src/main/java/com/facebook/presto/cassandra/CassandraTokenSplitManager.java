@@ -189,8 +189,6 @@ public class CassandraTokenSplitManager
                 List<Range<Token>> ranges = range.isWrapAround() ? range.unwrap() : ImmutableList.of(range);
                 for (Range<Token> subrange : ranges) {
                     TokenSplit split = new TokenSplit(factory.toString(subrange.left), factory.toString(subrange.right), endpoints);
-
-                    //logger.debug("adding " + split);
                     splits.add(split);
                 }
             }
