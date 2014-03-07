@@ -22,7 +22,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.net.MediaType;
 import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
-import io.airlift.http.client.AsyncHttpClient;
+import io.airlift.http.client.HttpClient;
 import io.airlift.http.client.HttpClient.HttpResponseFuture;
 import io.airlift.http.client.HttpStatus;
 import io.airlift.http.client.HttpUriBuilder;
@@ -94,7 +94,7 @@ public final class HttpPageBufferClient
         void clientFailed(HttpPageBufferClient client, Throwable cause);
     }
 
-    private final AsyncHttpClient httpClient;
+    private final HttpClient httpClient;
     private final DataSize maxResponseSize;
     private final Duration minErrorDuration;
     private final URI location;
@@ -125,7 +125,7 @@ public final class HttpPageBufferClient
     private final AtomicInteger requestsFailed = new AtomicInteger();
 
     public HttpPageBufferClient(
-            AsyncHttpClient httpClient,
+            HttpClient httpClient,
             DataSize maxResponseSize,
             Duration minErrorDuration,
             URI location,
@@ -137,7 +137,7 @@ public final class HttpPageBufferClient
     }
 
     public HttpPageBufferClient(
-            AsyncHttpClient httpClient,
+            HttpClient httpClient,
             DataSize maxResponseSize,
             Duration minErrorDuration,
             URI location,

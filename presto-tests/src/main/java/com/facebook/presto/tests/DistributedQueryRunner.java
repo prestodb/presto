@@ -38,7 +38,7 @@ import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.inject.Module;
-import io.airlift.http.client.AsyncHttpClient;
+import io.airlift.http.client.HttpClient;
 import io.airlift.http.client.HttpClientConfig;
 import io.airlift.http.client.jetty.JettyHttpClient;
 import io.airlift.json.JsonCodec;
@@ -94,7 +94,7 @@ public class DistributedQueryRunner
     private final TestingDiscoveryServer discoveryServer;
     private final TestingPrestoServer coordinator;
     private final List<TestingPrestoServer> servers;
-    private final AsyncHttpClient httpClient;
+    private final HttpClient httpClient;
     private final ConnectorSession session;
 
     public DistributedQueryRunner(ConnectorSession defaultSession, int workersCount)

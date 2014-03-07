@@ -22,7 +22,7 @@ import com.google.common.collect.ImmutableMap;
 import io.airlift.discovery.client.ServiceDescriptor;
 import io.airlift.discovery.client.ServiceSelector;
 import io.airlift.discovery.client.ServiceType;
-import io.airlift.http.client.AsyncHttpClient;
+import io.airlift.http.client.HttpClient;
 import io.airlift.http.client.Request;
 import io.airlift.http.client.Response;
 import io.airlift.http.client.ResponseHandler;
@@ -70,7 +70,7 @@ public class HeartbeatFailureDetector
     private static final Logger log = Logger.get(HeartbeatFailureDetector.class);
 
     private final ServiceSelector selector;
-    private final AsyncHttpClient httpClient;
+    private final HttpClient httpClient;
     private final NodeInfo nodeInfo;
 
     private final ScheduledExecutorService executor = Executors.newSingleThreadScheduledExecutor(daemonThreadsNamed("failure-detector"));
@@ -89,7 +89,7 @@ public class HeartbeatFailureDetector
     @Inject
     public HeartbeatFailureDetector(
             @ServiceType("presto") ServiceSelector selector,
-            @ForFailureDetector AsyncHttpClient httpClient,
+            @ForFailureDetector HttpClient httpClient,
             FailureDetectorConfig config,
             NodeInfo nodeInfo)
     {

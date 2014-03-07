@@ -31,7 +31,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableListMultimap.Builder;
 import com.google.common.collect.Iterables;
-import io.airlift.http.client.AsyncHttpClient;
+import io.airlift.http.client.HttpClient;
 import io.airlift.http.client.HttpStatus;
 import io.airlift.http.client.Request;
 import io.airlift.http.client.Response;
@@ -89,7 +89,7 @@ public class TestExchangeOperator
     });
 
     private ScheduledExecutorService executor;
-    private AsyncHttpClient httpClient;
+    private HttpClient httpClient;
     private Supplier<ExchangeClient> exchangeClientSupplier;
 
     @BeforeClass
