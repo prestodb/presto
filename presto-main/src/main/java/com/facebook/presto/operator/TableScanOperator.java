@@ -176,6 +176,7 @@ public class TableScanOperator
     @Override
     public ListenableFuture<?> isBlocked()
     {
+        // todo should be blocked until split is added
         return NOT_BLOCKED;
     }
 
