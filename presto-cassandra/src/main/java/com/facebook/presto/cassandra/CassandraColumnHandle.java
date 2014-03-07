@@ -40,6 +40,7 @@ public class CassandraColumnHandle
     private final List<CassandraType> typeArguments;
     private final boolean partitionKey;
     private final boolean clusteringKey;
+    private final boolean indexed;
 
     @JsonCreator
     public CassandraColumnHandle(
@@ -49,7 +50,8 @@ public class CassandraColumnHandle
             @JsonProperty("cassandraType") CassandraType cassandraType,
             @Nullable @JsonProperty("typeArguments") List<CassandraType> typeArguments,
             @JsonProperty("partitionKey") boolean partitionKey,
-            @JsonProperty("clusteringKey") boolean clusteringKey)
+            @JsonProperty("clusteringKey") boolean clusteringKey,
+            @JsonProperty("indexed") boolean indexed)
     {
         this.connectorId = checkNotNull(connectorId, "connectorId is null");
         this.name = checkNotNull(name, "name is null");
@@ -67,6 +69,7 @@ public class CassandraColumnHandle
         }
         this.partitionKey = partitionKey;
         this.clusteringKey = clusteringKey;
+        this.indexed = indexed;
     }
 
     @JsonProperty
@@ -111,6 +114,12 @@ public class CassandraColumnHandle
         return clusteringKey;
     }
 
+    @JsonProperty
+    public boolean isIndexed()
+    {
+        return indexed;
+    }
+
     public ColumnMetadata getColumnMetadata()
     {
         return new ColumnMetadata(CassandraCqlUtils.cqlNameToSqlName(name), cassandraType.getNativeType(), ordinalPosition, partitionKey);
@@ -131,7 +140,8 @@ public class CassandraColumnHandle
                 cassandraType,
                 typeArguments,
                 partitionKey,
-                clusteringKey);
+                clusteringKey,
+                indexed);
     }
 
     @Override
@@ -150,7 +160,8 @@ public class CassandraColumnHandle
                 && Objects.equal(this.cassandraType, other.cassandraType)
                 && Objects.equal(this.typeArguments, other.typeArguments)
                 && Objects.equal(this.partitionKey, other.partitionKey)
-                && Objects.equal(this.clusteringKey, other.clusteringKey);
+                && Objects.equal(this.clusteringKey, other.clusteringKey)
+                && Objects.equal(this.indexed, other.indexed);
     }
 
     @Override
@@ -167,7 +178,8 @@ public class CassandraColumnHandle
         }
 
         helper.add("partitionKey", partitionKey)
-                .add("clusteringKey", clusteringKey);
+                .add("clusteringKey", clusteringKey)
+                .add("indexed", indexed);
 
         return helper.toString();
     }
