@@ -23,6 +23,7 @@ import com.facebook.presto.spi.type.DoubleType;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.VarcharType;
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.net.InetAddresses;
 
 import java.math.BigDecimal;
 import java.math.BigInteger;
@@ -35,6 +36,7 @@ import java.util.Map;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.net.InetAddresses.toAddrString;
 
 public enum CassandraType
         implements FullCassandraType
@@ -194,7 +196,7 @@ public enum CassandraType
                 case TIMESTAMP:
                     return row.getDate(i).getTime();
                 case INET:
-                    return row.getInet(i).toString();
+                    return toAddrString(row.getInet(i));
                 case VARINT:
                     return row.getVarint(i).toString();
                 case BLOB:
@@ -296,7 +298,7 @@ public enum CassandraType
                 case TIMESTAMP:
                     return Long.toString(row.getDate(i).getTime());
                 case INET:
-                    return row.getInet(i).toString();
+                    return CassandraCqlUtils.quoteStringLiteral(toAddrString(row.getInet(i)));
                 case VARINT:
                     return row.getVarint(i).toString();
                 case BLOB:
@@ -372,9 +374,10 @@ public enum CassandraType
             case BIGINT:
             case BOOLEAN:
             case DOUBLE:
-            case INET:
             case COUNTER:
                 return comparable;
+            case INET:
+                return InetAddresses.forString((String) comparable);
             case INT:
                 return ((Long) comparable).intValue();
             case FLOAT:
@@ -382,7 +385,9 @@ public enum CassandraType
                 return ((Double) comparable).floatValue();
             case DECIMAL:
                 // conversion can result in precision lost
-                return new BigDecimal((Double) comparable);
+                // Presto uses double for decimal, so to keep the floating point precision, convert it to string.
+                // Otherwise partition id doesn't match
+                return new BigDecimal(comparable.toString());
             case TIMESTAMP:
                 return new Date((Long) comparable);
             case UUID:
