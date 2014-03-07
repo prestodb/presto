@@ -72,9 +72,9 @@ public class TestCassandraCqlUtils
     public void testAppendSelectColumns()
     {
         List<CassandraColumnHandle> columns = ImmutableList.of(
-                new CassandraColumnHandle("", "foo", 0, CassandraType.VARCHAR, null, false, false),
-                new CassandraColumnHandle("", "bar", 0, CassandraType.VARCHAR, null, false, false),
-                new CassandraColumnHandle("", "table", 0, CassandraType.VARCHAR, null, false, false));
+                new CassandraColumnHandle("", "foo", 0, CassandraType.VARCHAR, null, false, false, false),
+                new CassandraColumnHandle("", "bar", 0, CassandraType.VARCHAR, null, false, false, false),
+                new CassandraColumnHandle("", "table", 0, CassandraType.VARCHAR, null, false, false, false));
 
         StringBuilder sb = new StringBuilder();
         CassandraCqlUtils.appendSelectColumns(sb, columns);
