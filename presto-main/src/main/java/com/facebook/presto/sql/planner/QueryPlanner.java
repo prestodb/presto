@@ -281,7 +281,7 @@ class QueryPlanner
         // Map from aggregate function arguments to marker symbols, so that we can reuse the markers, if two aggregates have the same argument
         Map<Set<Expression>, Symbol> argumentMarkers = new HashMap<>();
         // Map from aggregate functions to marker symbols
-        ImmutableMap.Builder<Symbol, Symbol> masks = ImmutableMap.builder();
+        Map<Symbol, Symbol> masks = new HashMap<>();
         for (FunctionCall aggregate : Iterables.filter(analysis.getAggregates(node), distinctPredicate())) {
             Set<Expression> args = ImmutableSet.copyOf(aggregate.getArguments());
             Symbol marker = argumentMarkers.get(args);
@@ -318,7 +318,7 @@ class QueryPlanner
             confidence = Double.valueOf(analysis.getQuery().getApproximate().get().getConfidence()) / 100.0;
         }
 
-        return new PlanBuilder(translations, new AggregationNode(idAllocator.getNextId(), subPlan.getRoot(), ImmutableList.copyOf(groupBySymbols), aggregationAssignments.build(), functions.build(), masks.build(), Optional.<Symbol>absent(), confidence));
+        return new PlanBuilder(translations, new AggregationNode(idAllocator.getNextId(), subPlan.getRoot(), ImmutableList.copyOf(groupBySymbols), aggregationAssignments.build(), functions.build(), new ImmutableMap.Builder<Symbol, Symbol>().putAll(masks).build(), Optional.<Symbol>absent(), confidence));
     }
 
     private PlanBuilder window(PlanBuilder subPlan, QuerySpecification node)
