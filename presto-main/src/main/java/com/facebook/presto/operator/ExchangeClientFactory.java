@@ -15,7 +15,7 @@ package com.facebook.presto.operator;
 
 import com.facebook.presto.spi.block.BlockEncodingSerde;
 import com.google.common.base.Supplier;
-import io.airlift.http.client.AsyncHttpClient;
+import io.airlift.http.client.HttpClient;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 
@@ -33,14 +33,14 @@ public class ExchangeClientFactory
     private final DataSize maxBufferedBytes;
     private final int concurrentRequestMultiplier;
     private final Duration minErrorDuration;
-    private final AsyncHttpClient httpClient;
+    private final HttpClient httpClient;
     private final DataSize maxResponseSize;
     private final ScheduledExecutorService executor;
 
     @Inject
     public ExchangeClientFactory(BlockEncodingSerde blockEncodingSerde,
             ExchangeClientConfig config,
-            @ForExchange AsyncHttpClient httpClient,
+            @ForExchange HttpClient httpClient,
             @ForExchange ScheduledExecutorService executor)
     {
         this(blockEncodingSerde,
@@ -58,7 +58,7 @@ public class ExchangeClientFactory
             DataSize maxResponseSize,
             int concurrentRequestMultiplier,
             Duration minErrorDuration,
-            AsyncHttpClient httpClient,
+            HttpClient httpClient,
             ScheduledExecutorService executor)
     {
         this.blockEncodingSerde = blockEncodingSerde;

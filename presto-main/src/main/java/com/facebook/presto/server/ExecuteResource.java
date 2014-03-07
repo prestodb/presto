@@ -20,7 +20,7 @@ import com.facebook.presto.client.StatementClient;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.base.Function;
 import com.google.common.collect.AbstractIterator;
-import io.airlift.http.client.AsyncHttpClient;
+import io.airlift.http.client.HttpClient;
 import io.airlift.http.server.HttpServerInfo;
 import io.airlift.json.JsonCodec;
 
@@ -61,13 +61,13 @@ import static javax.ws.rs.core.Response.status;
 public class ExecuteResource
 {
     private final HttpServerInfo serverInfo;
-    private final AsyncHttpClient httpClient;
+    private final HttpClient httpClient;
     private final JsonCodec<QueryResults> queryResultsCodec;
 
     @Inject
     public ExecuteResource(
             HttpServerInfo serverInfo,
-            @ForExecute AsyncHttpClient httpClient,
+            @ForExecute HttpClient httpClient,
             JsonCodec<QueryResults> queryResultsCodec)
     {
         this.serverInfo = checkNotNull(serverInfo, "serverInfo is null");

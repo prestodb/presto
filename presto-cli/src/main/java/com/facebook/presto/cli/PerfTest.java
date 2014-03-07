@@ -30,7 +30,7 @@ import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import io.airlift.command.Command;
 import io.airlift.command.HelpOption;
 import io.airlift.command.Option;
-import io.airlift.http.client.AsyncHttpClient;
+import io.airlift.http.client.HttpClient;
 import io.airlift.http.client.HttpClientConfig;
 import io.airlift.http.client.Request;
 import io.airlift.http.client.StatusResponseHandler.StatusResponse;
@@ -222,7 +222,7 @@ public class PerfTest
     {
         private final ClientSession session;
         private final ListeningExecutorService executor;
-        private final AsyncHttpClient httpClient;
+        private final HttpClient httpClient;
 
         public QueryRunner(ClientSession session, ListeningExecutorService executor)
         {

@@ -15,8 +15,8 @@ package com.facebook.presto.client;
 
 import com.google.common.base.Charsets;
 import com.google.common.base.Objects;
-import io.airlift.http.client.AsyncHttpClient;
 import io.airlift.http.client.FullJsonResponseHandler;
+import io.airlift.http.client.HttpClient;
 import io.airlift.http.client.HttpStatus;
 import io.airlift.http.client.Request;
 import io.airlift.json.JsonCodec;
@@ -55,7 +55,7 @@ public class StatementClient
             "/" +
             Objects.firstNonNull(StatementClient.class.getPackage().getImplementationVersion(), "unknown");
 
-    private final AsyncHttpClient httpClient;
+    private final HttpClient httpClient;
     private final FullJsonResponseHandler<QueryResults> responseHandler;
     private final boolean debug;
     private final String query;
@@ -65,7 +65,7 @@ public class StatementClient
     private final AtomicBoolean valid = new AtomicBoolean(true);
     private final String timeZoneId;
 
-    public StatementClient(AsyncHttpClient httpClient, JsonCodec<QueryResults> queryResultsCodec, ClientSession session, String query)
+    public StatementClient(HttpClient httpClient, JsonCodec<QueryResults> queryResultsCodec, ClientSession session, String query)
     {
         checkNotNull(httpClient, "httpClient is null");
         checkNotNull(queryResultsCodec, "queryResultsCodec is null");
