@@ -21,12 +21,17 @@ import io.airlift.units.DataSize;
 import io.airlift.units.DataSize.Unit;
 import io.airlift.units.Duration;
 import io.airlift.units.MinDuration;
+import org.apache.hadoop.hdfs.DFSConfigKeys;
+import org.apache.hadoop.security.UserGroupInformation;
 
 import javax.validation.constraints.Min;
 import javax.validation.constraints.NotNull;
 
 import java.util.List;
 import java.util.concurrent.TimeUnit;
+
+import static org.apache.hadoop.fs.CommonConfigurationKeysPublic.HADOOP_SECURITY_AUTHENTICATION;
+import static org.apache.hadoop.fs.CommonConfigurationKeysPublic.HADOOP_SECURITY_AUTHORIZATION;
 
 public class HiveClientConfig
 {
@@ -53,6 +58,16 @@ public class HiveClientConfig
 
     private String s3AwsAccessKey;
     private String s3AwsSecretKey;
+
+    private Boolean hadoopSecurityAuthorization = Boolean.FALSE;
+    private UserGroupInformation.AuthenticationMethod hadoopSecurityAuthentication =
+            UserGroupInformation.AuthenticationMethod.SIMPLE;
+    private String dfsNamenodeKerberosPrincipal;
+    private String dfsNamenodeKeytabFile;
+    private String dfsDatanodeKerberosPrincipal;
+    private String dfsDatanodeKeytabFile;
+    private String prestoKeytabFile;
+    private String prestoKerberosPrincipal;
 
     private List<String> resourceConfigFiles;
 
@@ -304,5 +319,79 @@ public class HiveClientConfig
     {
         this.s3AwsSecretKey = s3AwsSecretKey;
         return this;
+    }
+
+    public Boolean getHadoopSecurityAuthorization() {
+        return hadoopSecurityAuthorization;
+    }
+
+    @Config(HADOOP_SECURITY_AUTHORIZATION)
+    public HiveClientConfig setHadoopSecurityAuthorization(boolean hadoopSecurityAuthorization) {
+        this.hadoopSecurityAuthorization = hadoopSecurityAuthorization;
+        return this;
+    }
+
+    public UserGroupInformation.AuthenticationMethod getHadoopSecurityAuthentication() {
+        return hadoopSecurityAuthentication;
+    }
+
+    @Config(HADOOP_SECURITY_AUTHENTICATION)
+    public HiveClientConfig setHadoopSecurityAuthentication(String name) {
+        this.hadoopSecurityAuthentication = UserGroupInformation.AuthenticationMethod.valueOf(name);
+        return this;
+    }
+
+    public String getDfsDatanodeKeytabFile() {
+        return dfsDatanodeKeytabFile;
+    }
+
+    @Config(DFSConfigKeys.DFS_DATANODE_KEYTAB_FILE_KEY)
+    public void setDfsDatanodeKeytabFile(String dfsDatanodeKeytabFile) {
+        this.dfsDatanodeKeytabFile = dfsDatanodeKeytabFile;
+    }
+
+    public String getDfsNamenodeKerberosPrincipal() {
+        return dfsNamenodeKerberosPrincipal;
+    }
+
+    @Config(DFSConfigKeys.DFS_NAMENODE_USER_NAME_KEY)
+    public void setDfsNamenodeKerberosPrincipal(String dfsNamenodeKerberosPrincipal) {
+        this.dfsNamenodeKerberosPrincipal = dfsNamenodeKerberosPrincipal;
+    }
+
+    public String getDfsNamenodeKeytabFile() {
+        return dfsNamenodeKeytabFile;
+    }
+
+    @Config(DFSConfigKeys.DFS_NAMENODE_KEYTAB_FILE_KEY)
+    public void setDfsNamenodeKeytabFile(String dfsNamenodeKeytabFile) {
+        this.dfsNamenodeKeytabFile = dfsNamenodeKeytabFile;
+    }
+
+    public String getDfsDatanodeKerberosPrincipal() {
+        return dfsDatanodeKerberosPrincipal;
+    }
+
+    @Config(DFSConfigKeys.DFS_DATANODE_USER_NAME_KEY)
+    public void setDfsDatanodeKerberosPrincipal(String dfsDatanodeKerberosPrincipal) {
+        this.dfsDatanodeKerberosPrincipal = dfsDatanodeKerberosPrincipal;
+    }
+
+    public String getPrestoKeytabFile() {
+        return prestoKeytabFile;
+    }
+
+    @Config("presto.keytab.file")
+    public void setPrestoKeytabFile(String prestoKeytabFile) {
+        this.prestoKeytabFile = prestoKeytabFile;
+    }
+
+    public String getPrestoKerberosPrincipal() {
+        return prestoKerberosPrincipal;
+    }
+
+    @Config("presto.kerberos.principal")
+    public void setPrestoKerberosPrincipal(String prestoKerberosPrincipal) {
+        this.prestoKerberosPrincipal = prestoKerberosPrincipal;
     }
 }

@@ -15,6 +15,7 @@ package com.facebook.presto.hive;
 
 import com.facebook.presto.hadoop.HadoopFileSystemCache;
 import com.facebook.presto.hadoop.HadoopNative;
+import com.facebook.presto.hive.util.SecurityUtils;
 import com.facebook.presto.spi.ColumnType;
 import com.facebook.presto.spi.RecordCursor;
 import com.facebook.presto.spi.RecordSet;
@@ -37,6 +38,8 @@ import org.apache.hadoop.mapred.RecordReader;
 import org.apache.hadoop.mapred.Reporter;
 
 import java.io.IOException;
+import java.security.PrivilegedAction;
+import java.security.PrivilegedExceptionAction;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Properties;
@@ -109,15 +112,23 @@ public class HiveRecordSet
         // Tell hive the columns we would like to read, this lets hive optimize reading column oriented files
         ColumnProjectionUtils.setReadColumnIDs(configuration, readHiveColumnIndexes);
 
-        RecordReader<?, ?> recordReader = createRecordReader(split, configuration, wrappedPath);
+        RecordCursor cursor = SecurityUtils.doAs(HdfsConfiguration.getUserGroupInformation(), new PrivilegedAction<RecordCursor>() {
+            @Override
+            public RecordCursor run() {
+                RecordReader<?, ?> recordReader = createRecordReader(split, configuration, wrappedPath);
 
-        for (HiveRecordCursorProvider provider : cursorProviders) {
-            Optional<RecordCursor> cursor = provider.createHiveRecordCursor(split, recordReader, columns);
-            if (cursor.isPresent()) {
-                return cursor.get();
+                for (HiveRecordCursorProvider provider : cursorProviders) {
+                    Optional<RecordCursor> cursor = provider.createHiveRecordCursor(split, recordReader, columns);
+                    if (cursor.isPresent()) {
+                        return cursor.get();
+                    }
+                }
+                return null;
             }
+        });
+        if (cursor != null) {
+            return cursor;
         }
-
         throw new RuntimeException("Configured cursor providers did not provide a cursor");
     }
 
