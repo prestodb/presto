@@ -371,6 +371,16 @@ public abstract class AbstractTestQueries
     }
 
     @Test
+    public void testDistinctHaving()
+            throws Exception
+    {
+        assertQuery("SELECT COUNT(DISTINCT clerk) AS count " +
+                "FROM orders " +
+                "GROUP BY orderdate " +
+                "HAVING COUNT(DISTINCT clerk) > 1");
+    }
+
+    @Test
     public void testDistinctWindow()
             throws Exception
     {
