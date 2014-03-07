@@ -113,8 +113,8 @@ public class MockCassandraSession
             return new CassandraTable(
                     new CassandraTableHandle(connectorId, TEST_SCHEMA, TEST_TABLE),
                     ImmutableList.of(
-                            new CassandraColumnHandle(connectorId, TEST_COLUMN1, 0, CassandraType.VARCHAR, null, true, false),
-                            new CassandraColumnHandle(connectorId, TEST_COLUMN2, 0, CassandraType.INT, null, false, false)));
+                            new CassandraColumnHandle(connectorId, TEST_COLUMN1, 0, CassandraType.VARCHAR, null, true, false, false),
+                            new CassandraColumnHandle(connectorId, TEST_COLUMN2, 0, CassandraType.INT, null, false, false, false)));
         }
         throw new TableNotFoundException(tableName);
     }
