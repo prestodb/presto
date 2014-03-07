@@ -22,6 +22,7 @@ import com.facebook.presto.spi.ColumnType;
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.net.InetAddress;
+import java.net.UnknownHostException;
 import java.nio.ByteBuffer;
 import java.util.Collection;
 import java.util.Date;
@@ -291,7 +292,8 @@ public enum CassandraType
                 case TIMESTAMP:
                     return Long.toString(row.getDate(i).getTime());
                 case INET:
-                    return row.getInet(i).toString();
+                    // remove '/' in the string. e.g. /127.0.0.1
+                   return CassandraCqlUtils.quoteStringLiteral(row.getInet(i).toString().substring(1));
                 case VARINT:
                     return row.getVarint(i).toString();
                 case BLOB:
@@ -367,9 +369,16 @@ public enum CassandraType
             case BIGINT:
             case BOOLEAN:
             case DOUBLE:
-            case INET:
             case COUNTER:
                 return comparable;
+            case INET:
+                try {
+                    // remove '/' in the string. e.g. /127.0.0.1
+                    return InetAddress.getByName(((String) comparable).substring(1));
+                }
+                catch (UnknownHostException e) {
+                    throw new RuntimeException(e);
+                }
             case INT:
                 return ((Long) comparable).intValue();
             case FLOAT:
@@ -377,7 +386,9 @@ public enum CassandraType
                 return ((Double) comparable).floatValue();
             case DECIMAL:
                 // conversion can result in precision lost
-                return new BigDecimal((Double) comparable);
+                // Presto uses double for decimal, so to keep the floating point precision, convert it to string.
+                // Otherwise partition id doesn't match
+                return new BigDecimal(comparable.toString());
             case TIMESTAMP:
                 return new Date((Long) comparable);
             case UUID:
