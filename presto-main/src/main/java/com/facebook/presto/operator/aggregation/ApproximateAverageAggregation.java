@@ -169,14 +169,16 @@ public class ApproximateAverageAggregation
                     double currentM2 = m2s.get(groupId);
 
                     // Use numerically stable variant
-                    long newCount = currentCount + inputCount;
-                    double newMean = ((currentCount * currentMean) + (inputCount * inputMean)) / newCount;
-                    double delta = inputMean - currentMean;
-                    double newM2 = currentM2 + inputM2 + ((delta * delta) * (currentCount * inputCount)) / newCount;
+                    if (inputCount > 0) {
+                        long newCount = currentCount + inputCount;
+                        double newMean = ((currentCount * currentMean) + (inputCount * inputMean)) / newCount;
+                        double delta = inputMean - currentMean;
+                        double newM2 = currentM2 + inputM2 + ((delta * delta) * (currentCount * inputCount)) / newCount;
 
-                    counts.set(groupId, newCount);
-                    means.set(groupId, newMean);
-                    m2s.set(groupId, newM2);
+                        counts.set(groupId, newCount);
+                        means.set(groupId, newMean);
+                        m2s.set(groupId, newM2);
+                    }
                 }
             }
             checkState(!values.advanceNextPosition());
@@ -290,14 +292,16 @@ public class ApproximateAverageAggregation
                     double inputM2 = getM2(slice);
 
                     // Use numerically stable variant
-                    long newCount = currentCount + inputCount;
-                    double newMean = ((currentCount * currentMean) + (inputCount * inputMean)) / newCount;
-                    double delta = inputMean - currentMean;
-                    double newM2 = currentM2 + inputM2 + ((delta * delta) * (currentCount * inputCount)) / newCount;
+                    if (inputCount > 0) {
+                        long newCount = currentCount + inputCount;
+                        double newMean = ((currentCount * currentMean) + (inputCount * inputMean)) / newCount;
+                        double delta = inputMean - currentMean;
+                        double newM2 = currentM2 + inputM2 + ((delta * delta) * (currentCount * inputCount)) / newCount;
 
-                    currentCount = newCount;
-                    currentMean = newMean;
-                    currentM2 = newM2;
+                        currentCount = newCount;
+                        currentMean = newMean;
+                        currentM2 = newM2;
+                    }
                 }
             }
             checkState(!values.advanceNextPosition());
