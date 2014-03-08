@@ -14,7 +14,7 @@
 package com.facebook.presto.serde;
 
 import com.facebook.presto.type.Type;
-import com.facebook.presto.type.Types;
+import com.facebook.presto.type.TypeManager;
 import com.google.common.base.Charsets;
 import io.airlift.slice.SliceInput;
 import io.airlift.slice.SliceOutput;
@@ -36,12 +36,12 @@ public final class TypeSerde
         writeLengthPrefixedString(sliceOutput, type.getName());
     }
 
-    public static Type readType(SliceInput sliceInput)
+    public static Type readType(TypeManager typeManager, SliceInput sliceInput)
     {
         checkNotNull(sliceInput, "sliceInput is null");
 
         String name = readLengthPrefixedString(sliceInput);
-        Type type = Types.fromName(name);
+        Type type = typeManager.getType(name);
         checkArgument(type != null, "Unknown type %s", name);
         return type;
     }

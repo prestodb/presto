@@ -18,6 +18,7 @@ import com.facebook.presto.block.BlockEncoding;
 import com.facebook.presto.block.BlockEncodingManager;
 import com.facebook.presto.serde.TypeSerde;
 import com.facebook.presto.type.Type;
+import com.facebook.presto.type.TypeManager;
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceInput;
 import io.airlift.slice.SliceOutput;
@@ -84,9 +85,9 @@ public class SnappyBlockEncoding
         }
 
         @Override
-        public SnappyBlockEncoding readEncoding(BlockEncodingManager blockEncodingManager, SliceInput input)
+        public SnappyBlockEncoding readEncoding(TypeManager typeManager, BlockEncodingManager blockEncodingManager, SliceInput input)
         {
-            Type type = TypeSerde.readType(input);
+            Type type = TypeSerde.readType(typeManager, input);
             BlockEncoding valueBlockEncoding = blockEncodingManager.readBlockEncoding(input);
             return new SnappyBlockEncoding(type, valueBlockEncoding);
         }

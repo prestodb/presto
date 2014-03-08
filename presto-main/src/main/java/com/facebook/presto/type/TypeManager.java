@@ -13,22 +13,7 @@
  */
 package com.facebook.presto.type;
 
-import com.facebook.presto.block.BlockBuilder;
-import com.facebook.presto.block.BlockBuilderStatus;
-import com.facebook.presto.spi.ColumnType;
-import com.fasterxml.jackson.annotation.JsonValue;
-import io.airlift.slice.Slice;
-
-public interface Type
+public interface TypeManager
 {
-    @JsonValue
-    String getName();
-
-    Class<?> getJavaType();
-
-    Object getObjectValue(Slice slice, int offset);
-
-    BlockBuilder createBlockBuilder(BlockBuilderStatus blockBuilderStatus);
-
-    ColumnType toColumnType();
+    Type getType(String typeName);
 }

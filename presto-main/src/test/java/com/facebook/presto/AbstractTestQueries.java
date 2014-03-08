@@ -39,6 +39,7 @@ import com.facebook.presto.sql.tree.ExplainType;
 import com.facebook.presto.tpch.TpchMetadata;
 import com.facebook.presto.tpch.TpchTableHandle;
 import com.facebook.presto.type.Type;
+import com.facebook.presto.type.TypeRegistry;
 import com.facebook.presto.util.MaterializedResult;
 import com.facebook.presto.util.MaterializedRow;
 import com.google.common.base.Function;
@@ -3324,7 +3325,7 @@ public abstract class AbstractTestQueries
 
     private QueryExplainer getQueryExplainer()
     {
-        MetadataManager metadata = new MetadataManager(new FeaturesConfig().setExperimentalSyntaxEnabled(true));
+        MetadataManager metadata = new MetadataManager(new FeaturesConfig().setExperimentalSyntaxEnabled(true), new TypeRegistry());
         metadata.addInternalSchemaMetadata(MetadataManager.INTERNAL_CONNECTOR_ID, new DualMetadata());
         SplitManager splitManager = new SplitManager(ImmutableSet.<ConnectorSplitManager>of(new DualSplitManager(new InMemoryNodeManager())));
         FeaturesConfig featuresConfig = new FeaturesConfig().setExperimentalSyntaxEnabled(true);

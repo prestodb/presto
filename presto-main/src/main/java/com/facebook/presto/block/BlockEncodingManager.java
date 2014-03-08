@@ -14,6 +14,7 @@
 package com.facebook.presto.block;
 
 import com.facebook.presto.block.BlockEncoding.BlockEncodingFactory;
+import com.facebook.presto.type.TypeManager;
 import com.google.common.base.Charsets;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.slice.SliceInput;
@@ -31,21 +32,19 @@ import static com.google.common.base.Preconditions.checkState;
 
 public class BlockEncodingManager
 {
+    private final TypeManager typeManager;
     private final ConcurrentMap<String, BlockEncodingFactory<?>> blockEncodings = new ConcurrentHashMap<>();
 
-    public BlockEncodingManager()
+    public BlockEncodingManager(TypeManager typeManager, BlockEncodingFactory<?>... blockEncodingFactories)
     {
-    }
-
-    public BlockEncodingManager(BlockEncodingFactory<?>... blockEncodingFactories)
-    {
-        this(ImmutableSet.copyOf(blockEncodingFactories));
+        this(typeManager, ImmutableSet.copyOf(blockEncodingFactories));
     }
 
     @Inject
-    public BlockEncodingManager(Set<BlockEncodingFactory<?>> blockEncodingFactories)
+    public BlockEncodingManager(TypeManager typeManager, Set<BlockEncodingFactory<?>> blockEncodingFactories)
     {
-        for (BlockEncodingFactory<?> blockEncodingFactory : blockEncodingFactories) {
+        this.typeManager = checkNotNull(typeManager, "typeManager is null");
+        for (BlockEncodingFactory<?> blockEncodingFactory : checkNotNull(blockEncodingFactories, "blockEncodingFactories is null")) {
             addBlockEncodingFactory(blockEncodingFactory);
         }
     }
@@ -67,7 +66,7 @@ public class BlockEncodingManager
         checkState(blockEncoding != null, "Unknown block encoding %s", encodingName);
 
         // load read the encoding factory from the output stream
-        return blockEncoding.readEncoding(this, input);
+        return blockEncoding.readEncoding(typeManager, this, input);
     }
 
     public <T extends BlockEncoding> void writeBlockEncoding(SliceOutput output, T encoding)

@@ -81,6 +81,7 @@ import com.facebook.presto.sql.planner.plan.TableScanNode;
 import com.facebook.presto.sql.planner.plan.ValuesNode;
 import com.facebook.presto.sql.tree.Statement;
 import com.facebook.presto.type.Type;
+import com.facebook.presto.type.TypeRegistry;
 import com.google.common.base.Optional;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
@@ -111,6 +112,7 @@ public class LocalQueryRunner
     private final ExecutorService executor;
 
     private final InMemoryNodeManager nodeManager;
+    private final TypeRegistry typeRegistry;
     private final MetadataManager metadata;
     private final SplitManager splitManager;
     private final DataStreamManager dataStreamProvider;
@@ -128,7 +130,8 @@ public class LocalQueryRunner
         this.executor = checkNotNull(executor, "executor is null");
 
         this.nodeManager = new InMemoryNodeManager();
-        this.metadata = new MetadataManager(new FeaturesConfig().setExperimentalSyntaxEnabled(true));
+        this.typeRegistry = new TypeRegistry();
+        this.metadata = new MetadataManager(new FeaturesConfig().setExperimentalSyntaxEnabled(true), new TypeRegistry());
         this.splitManager = new SplitManager(ImmutableSet.<ConnectorSplitManager>of());
         this.dataStreamProvider = new DataStreamManager();
         this.recordSinkManager = new RecordSinkManager();
@@ -177,6 +180,11 @@ public class LocalQueryRunner
     public InMemoryNodeManager getNodeManager()
     {
         return nodeManager;
+    }
+
+    public TypeRegistry getTypeManager()
+    {
+        return typeRegistry;
     }
 
     public MetadataManager getMetadata()

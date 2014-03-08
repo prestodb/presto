@@ -16,20 +16,29 @@ package com.facebook.presto.metadata;
 import com.facebook.presto.type.BigintType;
 import com.facebook.presto.type.BooleanType;
 import com.facebook.presto.type.DoubleType;
+import com.facebook.presto.type.Type;
+import com.facebook.presto.type.TypeDeserializer;
+import com.facebook.presto.type.TypeRegistry;
 import com.facebook.presto.type.VarcharType;
+import com.fasterxml.jackson.databind.JsonDeserializer;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import io.airlift.json.JsonCodec;
+import io.airlift.json.JsonCodecFactory;
+import io.airlift.json.ObjectMapperProvider;
 import org.testng.annotations.Test;
 
 import static org.testng.Assert.assertEquals;
 
 public class TestSignature
 {
-    private final JsonCodec<Signature> codec = JsonCodec.jsonCodec(Signature.class);
-
     @Test
     public void testRoundTrip()
     {
+        ObjectMapperProvider objectMapperProvider = new ObjectMapperProvider();
+        objectMapperProvider.setJsonDeserializers(ImmutableMap.<Class<?>, JsonDeserializer<?>>of(Type.class, new TypeDeserializer(new TypeRegistry())));
+        JsonCodec<Signature> codec = new JsonCodecFactory(objectMapperProvider, true).jsonCodec(Signature.class);
+
         Signature expected = new Signature("function", BigintType.BIGINT, ImmutableList.of(BooleanType.BOOLEAN, DoubleType.DOUBLE, VarcharType.VARCHAR), false);
 
         String json = codec.toJson(expected);
