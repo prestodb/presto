@@ -40,7 +40,6 @@ import com.facebook.presto.spi.RecordSet;
 import com.facebook.presto.spi.Split;
 import com.facebook.presto.split.DataStreamProvider;
 import com.facebook.presto.sql.analyzer.ExpressionAnalysis;
-import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.sql.analyzer.SemanticException;
 import com.facebook.presto.sql.analyzer.Session;
 import com.facebook.presto.sql.gen.ExpressionCompiler;
@@ -155,7 +154,7 @@ public final class FunctionAssertions
     private static final DataStreamProvider DATA_STREAM_PROVIDER = new TestDataStreamProvider();
     private static final PlanNodeId SOURCE_ID = new PlanNodeId("scan");
 
-    private final MetadataManager metadataManager = new MetadataManager(new FeaturesConfig());
+    private final MetadataManager metadataManager = new MetadataManager();
     private final ExpressionCompiler compiler = new ExpressionCompiler(metadataManager);
 
     public FunctionAssertions() {}

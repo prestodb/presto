@@ -48,7 +48,6 @@ import com.facebook.presto.sql.tree.SimpleCaseExpression;
 import com.facebook.presto.sql.tree.StringLiteral;
 import com.facebook.presto.sql.tree.WhenClause;
 import com.facebook.presto.type.Type;
-import com.facebook.presto.type.Types;
 import com.google.common.base.Charsets;
 import com.google.common.base.Functions;
 import com.google.common.base.Predicate;
@@ -681,7 +680,7 @@ public class ExpressionInterpreter
                 return null;
             }
 
-            Type type = Types.fromName(node.getType());
+            Type type = metadata.getType(node.getType());
             if (type == null) {
                 throw new IllegalArgumentException("Unsupported type: " + node.getType());
             }

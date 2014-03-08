@@ -14,6 +14,7 @@
 package com.facebook.presto.serde;
 
 import com.facebook.presto.type.Type;
+import com.facebook.presto.type.TypeRegistry;
 import io.airlift.slice.DynamicSliceOutput;
 import org.testng.annotations.Test;
 
@@ -29,7 +30,7 @@ public class TestTypeSerde
     {
         DynamicSliceOutput sliceOutput = new DynamicSliceOutput(1024);
         writeInfo(sliceOutput, BOOLEAN);
-        Type actualType = readType(sliceOutput.slice().getInput());
+        Type actualType = readType(new TypeRegistry(), sliceOutput.slice().getInput());
         assertEquals(actualType, BOOLEAN);
     }
 }

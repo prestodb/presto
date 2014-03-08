@@ -699,7 +699,8 @@ public class ExpressionCompiler
 
         filterMethod.getCompilerContext().declareVariable(type(boolean.class), "wasNull");
         Block getSessionByteCode = new Block(filterMethod.getCompilerContext()).pushThis().getField(classDefinition.getType(), "session", type(Session.class));
-        ByteCodeNode body = new ByteCodeExpressionVisitor(bootstrapFunctionBinder, expressionTypes, getSessionByteCode, sourceIsCursor).process(filter, filterMethod.getCompilerContext());
+        ByteCodeExpressionVisitor visitor = new ByteCodeExpressionVisitor(metadata, bootstrapFunctionBinder, expressionTypes, getSessionByteCode, sourceIsCursor);
+        ByteCodeNode body = visitor.process(filter, filterMethod.getCompilerContext());
 
         LabelNode end = new LabelNode("end");
         filterMethod
@@ -748,7 +749,8 @@ public class ExpressionCompiler
         CompilerContext context = projectionMethod.getCompilerContext();
         context.declareVariable(type(boolean.class), "wasNull");
         Block getSessionByteCode = new Block(context).pushThis().getField(classDefinition.getType(), "session", type(Session.class));
-        ByteCodeNode body = new ByteCodeExpressionVisitor(bootstrapFunctionBinder, expressionTypes, getSessionByteCode, sourceIsCursor).process(projection, context);
+        ByteCodeExpressionVisitor visitor = new ByteCodeExpressionVisitor(metadata, bootstrapFunctionBinder, expressionTypes, getSessionByteCode, sourceIsCursor);
+        ByteCodeNode body = visitor.process(projection, context);
 
         projectionMethod
                 .getBody()

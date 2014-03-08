@@ -18,6 +18,7 @@ import com.facebook.presto.block.BlockEncoding;
 import com.facebook.presto.block.BlockEncodingManager;
 import com.facebook.presto.type.FixedWidthType;
 import com.facebook.presto.type.Type;
+import com.facebook.presto.type.TypeManager;
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceInput;
 import io.airlift.slice.SliceOutput;
@@ -92,7 +93,7 @@ public class FixedWidthBlockEncoding
         }
 
         @Override
-        public BlockEncoding readEncoding(BlockEncodingManager blockEncodingManager, SliceInput input)
+        public BlockEncoding readEncoding(TypeManager typeManager, BlockEncodingManager blockEncodingManager, SliceInput input)
         {
             return new FixedWidthBlockEncoding(type);
         }
