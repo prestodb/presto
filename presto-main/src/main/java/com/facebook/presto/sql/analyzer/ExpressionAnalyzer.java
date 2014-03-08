@@ -60,7 +60,6 @@ import com.facebook.presto.sql.tree.TimeLiteral;
 import com.facebook.presto.sql.tree.TimestampLiteral;
 import com.facebook.presto.sql.tree.WhenClause;
 import com.facebook.presto.type.Type;
-import com.facebook.presto.type.Types;
 import com.facebook.presto.util.IterableTransformer;
 import com.google.common.base.Function;
 import com.google.common.base.Optional;
@@ -474,9 +473,9 @@ public class ExpressionAnalyzer
         @Override
         public Type visitCast(Cast node, AnalysisContext context)
         {
-            Type type = Types.fromName(node.getType());
+            Type type = metadata.getType(node.getType());
             if (type == null) {
-                throw new SemanticException(TYPE_MISMATCH, node, "Cannot cast to type: " + node.getType());
+                throw new SemanticException(TYPE_MISMATCH, node, "Unknown type: " + node.getType());
             }
 
             Type value = process(node.getExpression(), context);

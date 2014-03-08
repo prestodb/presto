@@ -43,6 +43,7 @@ import com.facebook.presto.failureDetector.FailureDetectorModule;
 import com.facebook.presto.guice.AbstractConfigurationAwareModule;
 import com.facebook.presto.metadata.CatalogManager;
 import com.facebook.presto.metadata.CatalogManagerConfig;
+import com.facebook.presto.metadata.ColumnMetadataMapper;
 import com.facebook.presto.metadata.DatabaseLocalStorageManager;
 import com.facebook.presto.metadata.DatabaseLocalStorageManagerConfig;
 import com.facebook.presto.metadata.ForLocalStorageManager;
@@ -53,6 +54,7 @@ import com.facebook.presto.metadata.LocalStorageManager;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.metadata.NodeVersion;
+import com.facebook.presto.metadata.TableColumnMapper;
 import com.facebook.presto.operator.ExchangeClient;
 import com.facebook.presto.operator.ExchangeClientConfig;
 import com.facebook.presto.operator.ExchangeClientFactory;
@@ -79,6 +81,10 @@ import com.facebook.presto.type.BigintType;
 import com.facebook.presto.type.BooleanType;
 import com.facebook.presto.type.DoubleType;
 import com.facebook.presto.type.NullType;
+import com.facebook.presto.type.Type;
+import com.facebook.presto.type.TypeDeserializer;
+import com.facebook.presto.type.TypeManager;
+import com.facebook.presto.type.TypeRegistry;
 import com.facebook.presto.util.Threads;
 import com.google.common.base.Supplier;
 import com.google.common.collect.ImmutableSet;
@@ -97,6 +103,7 @@ import io.airlift.discovery.client.ServiceDescriptor;
 import io.airlift.units.Duration;
 import org.skife.jdbi.v2.DBI;
 import org.skife.jdbi.v2.IDBI;
+import org.skife.jdbi.v2.tweak.ResultSetMapper;
 
 import javax.inject.Singleton;
 
@@ -183,6 +190,12 @@ public class ServerMainModule
         binder.bind(MetadataManager.class).in(Scopes.SINGLETON);
         binder.bind(Metadata.class).to(MetadataManager.class).in(Scopes.SINGLETON);
 
+        // type
+        binder.bind(TypeRegistry.class).in(Scopes.SINGLETON);
+        binder.bind(TypeManager.class).to(TypeRegistry.class).in(Scopes.SINGLETON);
+        jsonBinder(binder).addDeserializerBinding(Type.class).to(TypeDeserializer.class);
+        newSetBinder(binder, Type.class);
+
         // handle resolver
         binder.install(new HandleJsonModule());
 
@@ -237,6 +250,9 @@ public class ServerMainModule
         }
 
         bindDataSource(binder, "presto-metastore", ForMetadata.class, ForShardManager.class);
+        Multibinder<ResultSetMapper<?>> resultSetMapperBinder = newSetBinder(binder, new TypeLiteral<ResultSetMapper<?>>() {}, ForMetadata.class);
+        resultSetMapperBinder.addBinding().to(TableColumnMapper.class).in(Scopes.SINGLETON);
+        resultSetMapperBinder.addBinding().to(ColumnMetadataMapper.class).in(Scopes.SINGLETON);
 
         // statement resource
         jsonCodecBinder(binder).bindJsonCodec(QueryInfo.class);

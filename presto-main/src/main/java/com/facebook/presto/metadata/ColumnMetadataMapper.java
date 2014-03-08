@@ -15,24 +15,35 @@ package com.facebook.presto.metadata;
 
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.type.Type;
-import com.facebook.presto.type.Types;
+import com.facebook.presto.type.TypeManager;
 import org.skife.jdbi.v2.StatementContext;
 import org.skife.jdbi.v2.tweak.ResultSetMapper;
+
+import javax.inject.Inject;
 
 import java.sql.ResultSet;
 import java.sql.SQLException;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkNotNull;
 
 public class ColumnMetadataMapper
         implements ResultSetMapper<ColumnMetadata>
 {
+    private final TypeManager typeManager;
+
+    @Inject
+    public ColumnMetadataMapper(TypeManager typeManager)
+    {
+        this.typeManager = checkNotNull(typeManager, "typeManager is null");
+    }
+
     public ColumnMetadata map(int index, ResultSet r, StatementContext ctx)
             throws SQLException
     {
         String name = r.getString("column_name");
         String typeName = r.getString("data_type");
-        Type type = Types.fromName(typeName);
+        Type type = typeManager.getType(typeName);
         checkArgument(type != null, "Unknown type %s", typeName);
         int ordinalPosition = r.getInt("ordinal_position");
         return new ColumnMetadata(name, type.toColumnType(), ordinalPosition, false);
