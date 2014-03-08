@@ -147,6 +147,7 @@ public class TestExpressionCompiler
     public void smokeTest()
             throws Exception
     {
+        assertExecute("cast(true as boolean)", true);
         assertExecute("true", true);
         assertExecute("false", false);
         assertExecute("42", 42L);

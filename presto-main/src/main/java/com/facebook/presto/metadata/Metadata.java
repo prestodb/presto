@@ -30,6 +30,8 @@ import java.util.Map;
 
 public interface Metadata
 {
+    Type getType(String typeName);
+
     FunctionInfo resolveFunction(QualifiedName name, List<? extends Type> parameterTypes, boolean approximate);
 
     @NotNull

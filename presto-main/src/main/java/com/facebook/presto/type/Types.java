@@ -14,17 +14,13 @@
 package com.facebook.presto.type;
 
 import com.facebook.presto.spi.ColumnType;
-import com.fasterxml.jackson.annotation.JsonCreator;
 import com.google.common.base.Function;
-
-import javax.annotation.Nullable;
 
 import static com.facebook.presto.type.BigintType.BIGINT;
 import static com.facebook.presto.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.type.DoubleType.DOUBLE;
 import static com.facebook.presto.type.NullType.NULL;
 import static com.facebook.presto.type.VarcharType.VARCHAR;
-import static com.google.common.base.Preconditions.checkNotNull;
 
 public final class Types
 {
@@ -47,27 +43,6 @@ public final class Types
                 return NULL;
             default:
                 throw new IllegalStateException("Unknown type " + type);
-        }
-    }
-
-    @JsonCreator
-    @Nullable
-    public static Type fromName(String name)
-    {
-        checkNotNull(name, "name is null");
-        switch (name.toLowerCase()) {
-            case "bigint":
-                return BIGINT;
-            case "varchar":
-                return VARCHAR;
-            case "double":
-                return DOUBLE;
-            case "boolean":
-                return BOOLEAN;
-            case "null":
-                return NULL;
-            default:
-                return null;
         }
     }
 

@@ -18,6 +18,7 @@ import com.facebook.presto.block.BlockEncoding;
 import com.facebook.presto.block.BlockEncodingManager;
 import com.facebook.presto.serde.TypeSerde;
 import com.facebook.presto.type.Type;
+import com.facebook.presto.type.TypeManager;
 import com.facebook.presto.type.VarcharType;
 import com.facebook.presto.type.VariableWidthType;
 import io.airlift.slice.Slice;
@@ -103,9 +104,9 @@ public class VariableWidthBlockEncoding
         }
 
         @Override
-        public VariableWidthBlockEncoding readEncoding(BlockEncodingManager blockEncodingManager, SliceInput input)
+        public VariableWidthBlockEncoding readEncoding(TypeManager typeManager, BlockEncodingManager blockEncodingManager, SliceInput input)
         {
-            Type type = TypeSerde.readType(input);
+            Type type = TypeSerde.readType(typeManager, input);
             return new VariableWidthBlockEncoding(type);
         }
 

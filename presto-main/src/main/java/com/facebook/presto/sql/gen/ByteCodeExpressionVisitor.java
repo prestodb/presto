@@ -24,6 +24,7 @@ import com.facebook.presto.byteCode.control.LookupSwitch.LookupSwitchBuilder;
 import com.facebook.presto.byteCode.instruction.Constant;
 import com.facebook.presto.byteCode.instruction.LabelNode;
 import com.facebook.presto.byteCode.instruction.VariableInstruction;
+import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.OperatorInfo.OperatorType;
 import com.facebook.presto.spi.RecordCursor;
 import com.facebook.presto.sql.tree.ArithmeticExpression;
@@ -53,7 +54,6 @@ import com.facebook.presto.sql.tree.SimpleCaseExpression;
 import com.facebook.presto.sql.tree.StringLiteral;
 import com.facebook.presto.sql.tree.WhenClause;
 import com.facebook.presto.type.Type;
-import com.facebook.presto.type.Types;
 import com.google.common.base.Function;
 import com.google.common.base.Functions;
 import com.google.common.base.Joiner;
@@ -92,13 +92,20 @@ import static java.lang.invoke.MethodHandles.lookup;
 public class ByteCodeExpressionVisitor
         extends AstVisitor<ByteCodeNode, CompilerContext>
 {
+    private final Metadata metadata;
     private final BootstrapFunctionBinder bootstrapFunctionBinder;
     private final Map<Expression, Type> expressionTypes;
     private final ByteCodeNode getSessionByteCode;
     private final boolean sourceIsCursor;
 
-    public ByteCodeExpressionVisitor(BootstrapFunctionBinder bootstrapFunctionBinder, Map<Expression, Type> expressionTypes, ByteCodeNode getSessionByteCode, boolean sourceIsCursor)
+    public ByteCodeExpressionVisitor(
+            Metadata metadata,
+            BootstrapFunctionBinder bootstrapFunctionBinder,
+            Map<Expression, Type> expressionTypes,
+            ByteCodeNode getSessionByteCode,
+            boolean sourceIsCursor)
     {
+        this.metadata = metadata;
         this.bootstrapFunctionBinder = bootstrapFunctionBinder;
         this.expressionTypes = expressionTypes;
         this.getSessionByteCode = getSessionByteCode;
@@ -321,7 +328,7 @@ public class ByteCodeExpressionVisitor
     @Override
     public ByteCodeNode visitCast(Cast node, CompilerContext context)
     {
-        Type type = Types.fromName(node.getType());
+        Type type = metadata.getType(node.getType());
         if (type == null) {
             throw new IllegalArgumentException("Unsupported type: " + node.getType());
         }

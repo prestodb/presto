@@ -13,14 +13,16 @@
  */
 package com.facebook.presto.split;
 
+import com.facebook.presto.metadata.ColumnMetadataMapper;
 import com.facebook.presto.metadata.DatabaseShardManager;
 import com.facebook.presto.metadata.InMemoryNodeManager;
 import com.facebook.presto.metadata.MetadataUtil.TableMetadataBuilder;
 import com.facebook.presto.metadata.NativeConnectorId;
 import com.facebook.presto.metadata.NativeMetadata;
-import com.facebook.presto.metadata.PrestoNode;
 import com.facebook.presto.metadata.NodeVersion;
+import com.facebook.presto.metadata.PrestoNode;
 import com.facebook.presto.metadata.ShardManager;
+import com.facebook.presto.metadata.TableColumnMapper;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.Domain;
@@ -32,13 +34,13 @@ import com.facebook.presto.spi.SortedRangeSet;
 import com.facebook.presto.spi.SplitSource;
 import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.spi.TupleDomain;
+import com.facebook.presto.type.TypeRegistry;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.io.Files;
 import io.airlift.testing.FileUtils;
 import org.skife.jdbi.v2.DBI;
 import org.skife.jdbi.v2.Handle;
-import org.skife.jdbi.v2.IDBI;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
@@ -72,7 +74,10 @@ public class TestNativeSplitManager
     public void setup()
             throws Exception
     {
-        IDBI dbi = new DBI("jdbc:h2:mem:test" + System.nanoTime());
+        TypeRegistry typeRegistry = new TypeRegistry();
+        DBI dbi = new DBI("jdbc:h2:mem:test" + System.nanoTime());
+        dbi.registerMapper(new TableColumnMapper(typeRegistry));
+        dbi.registerMapper(new ColumnMetadataMapper(typeRegistry));
         dummyHandle = dbi.open();
         dataDir = Files.createTempDir();
         ShardManager shardManager = new DatabaseShardManager(dbi);

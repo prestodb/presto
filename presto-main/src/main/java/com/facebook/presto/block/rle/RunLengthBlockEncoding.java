@@ -18,6 +18,7 @@ import com.facebook.presto.block.BlockEncoding;
 import com.facebook.presto.block.BlockEncodingManager;
 import com.facebook.presto.block.RandomAccessBlock;
 import com.facebook.presto.type.Type;
+import com.facebook.presto.type.TypeManager;
 import io.airlift.slice.SliceInput;
 import io.airlift.slice.SliceOutput;
 
@@ -87,7 +88,7 @@ public class RunLengthBlockEncoding
         }
 
         @Override
-        public RunLengthBlockEncoding readEncoding(BlockEncodingManager blockEncodingManager, SliceInput input)
+        public RunLengthBlockEncoding readEncoding(TypeManager typeManager, BlockEncodingManager blockEncodingManager, SliceInput input)
         {
             BlockEncoding valueBlockEncoding = blockEncodingManager.readBlockEncoding(input);
             return new RunLengthBlockEncoding(valueBlockEncoding);

@@ -22,6 +22,7 @@ import com.facebook.presto.type.BigintType;
 import com.facebook.presto.type.BooleanType;
 import com.facebook.presto.type.DoubleType;
 import com.facebook.presto.type.NullType;
+import com.facebook.presto.type.TypeRegistry;
 
 public final class TestingBlockEncodingManager
 {
@@ -32,6 +33,7 @@ public final class TestingBlockEncodingManager
     public static BlockEncodingManager createTestingBlockEncodingManager()
     {
         return new BlockEncodingManager(
+                new TypeRegistry(),
                 NullType.BLOCK_ENCODING_FACTORY,
                 BooleanType.BLOCK_ENCODING_FACTORY,
                 BigintType.BLOCK_ENCODING_FACTORY,

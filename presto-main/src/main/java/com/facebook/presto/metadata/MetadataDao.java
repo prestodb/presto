@@ -68,7 +68,6 @@ public interface MetadataDao
             "FROM columns\n" +
             "WHERE table_id = :tableId\n" +
             "  AND column_id = :columnId")
-    @Mapper(ColumnMetadataMapper.class)
     ColumnMetadata getColumnMetadata(
             @Bind("tableId") long tableId,
             @Bind("columnId") long columnId);
@@ -77,7 +76,6 @@ public interface MetadataDao
             "FROM columns\n" +
             "WHERE table_id = :tableId\n" +
             "ORDER BY ordinal_position")
-    @Mapper(ColumnMetadataMapper.class)
     List<ColumnMetadata> getTableColumnMetaData(@Bind("tableId") long tableId);
 
     @SqlQuery("SELECT column_id\n" +
@@ -106,7 +104,6 @@ public interface MetadataDao
             "  AND (schema_name = :schemaName OR :schemaName IS NULL)\n" +
             "  AND (table_name = :tableName OR :tableName IS NULL)\n" +
             "ORDER BY schema_name, table_name, ordinal_position")
-    @Mapper(TableColumnMapper.class)
     List<TableColumn> listTableColumns(
             @Bind("catalogName") String catalogName,
             @Bind("schemaName") String schemaName,
@@ -117,7 +114,6 @@ public interface MetadataDao
             "FROM tables t\n" +
             "JOIN columns c ON (t.table_id = c.table_id)\n" +
             "WHERE t.table_id = :tableId")
-    @Mapper(TableColumnMapper.class)
     List<TableColumn> listTableColumns(@Bind("tableId") long tableId);
 
     @SqlUpdate("INSERT INTO tables (catalog_name, schema_name, table_name)\n" +

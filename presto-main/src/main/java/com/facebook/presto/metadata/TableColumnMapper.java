@@ -14,18 +14,29 @@
 package com.facebook.presto.metadata;
 
 import com.facebook.presto.type.Type;
-import com.facebook.presto.type.Types;
+import com.facebook.presto.type.TypeManager;
 import org.skife.jdbi.v2.StatementContext;
 import org.skife.jdbi.v2.tweak.ResultSetMapper;
+
+import javax.inject.Inject;
 
 import java.sql.ResultSet;
 import java.sql.SQLException;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkNotNull;
 
 public class TableColumnMapper
         implements ResultSetMapper<TableColumn>
 {
+    private final TypeManager typeManager;
+
+    @Inject
+    public TableColumnMapper(TypeManager typeManager)
+    {
+        this.typeManager = checkNotNull(typeManager, "typeManager is null");
+    }
+
     @Override
     public TableColumn map(int index, ResultSet r, StatementContext ctx)
             throws SQLException
@@ -35,7 +46,7 @@ public class TableColumnMapper
                 r.getString("table_name"));
 
         String typeName = r.getString("data_type");
-        Type type = Types.fromName(typeName);
+        Type type = typeManager.getType(typeName);
         checkArgument(type != null, "Unknown type %s", typeName);
 
         return new TableColumn(table,

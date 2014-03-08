@@ -14,6 +14,7 @@
 package com.facebook.presto.block;
 
 import com.facebook.presto.type.Type;
+import com.facebook.presto.type.TypeManager;
 import io.airlift.slice.SliceInput;
 import io.airlift.slice.SliceOutput;
 
@@ -50,7 +51,7 @@ public interface BlockEncoding
         /**
          * Reads the encoding from the specified input.
          */
-        T readEncoding(BlockEncodingManager blockEncodingManager, SliceInput input);
+        T readEncoding(TypeManager typeManager, BlockEncodingManager blockEncodingManager, SliceInput input);
 
         /**
          * Writes this encoding to the output stream.

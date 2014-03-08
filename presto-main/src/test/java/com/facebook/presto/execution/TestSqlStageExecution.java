@@ -46,6 +46,7 @@ import com.facebook.presto.sql.planner.plan.JoinNode.EquiJoinClause;
 import com.facebook.presto.sql.planner.plan.PlanFragmentId;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.facebook.presto.sql.planner.plan.TableScanNode;
+import com.facebook.presto.type.TypeRegistry;
 import com.facebook.presto.type.VarcharType;
 import com.facebook.presto.util.Threads;
 import com.google.common.base.Optional;
@@ -96,7 +97,7 @@ public class TestSqlStageExecution
     public void setUp()
             throws Exception
     {
-        metadata = new MetadataManager(new FeaturesConfig());
+        metadata = new MetadataManager(new FeaturesConfig(), new TypeRegistry());
         metadata.addInternalSchemaMetadata(MetadataManager.INTERNAL_CONNECTOR_ID, new DualMetadata());
 
     }
@@ -203,7 +204,7 @@ public class TestSqlStageExecution
         ExecutorService executor = Executors.newCachedThreadPool(Threads.daemonThreadsNamed("test"));
         SqlStageExecution stageExecution = null;
         try {
-            MetadataManager metadata = new MetadataManager(new FeaturesConfig());
+            MetadataManager metadata = new MetadataManager(new FeaturesConfig(), new TypeRegistry());
             metadata.addInternalSchemaMetadata(MetadataManager.INTERNAL_CONNECTOR_ID, new DualMetadata());
 
             StageExecutionPlan joinPlan = createJoinPlan("A", metadata);

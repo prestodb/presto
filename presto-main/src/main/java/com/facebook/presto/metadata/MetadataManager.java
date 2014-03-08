@@ -25,13 +25,15 @@ import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.type.Type;
+import com.facebook.presto.type.TypeManager;
+import com.facebook.presto.type.TypeRegistry;
 import com.google.common.base.Optional;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.inject.Inject;
 
+import javax.inject.Inject;
 import javax.inject.Singleton;
 
 import java.util.Collection;
@@ -63,11 +65,18 @@ public class MetadataManager
     private final ConcurrentMap<String, ConnectorMetadataEntry> connectors = new ConcurrentHashMap<>();
     private final ConcurrentMap<String, ConnectorMetadataEntry> informationSchemas = new ConcurrentHashMap<>();
     private final FunctionRegistry functions;
+    private final TypeManager typeManager;
+
+    public MetadataManager()
+    {
+        this(new FeaturesConfig(), new TypeRegistry());
+    }
 
     @Inject
-    public MetadataManager(FeaturesConfig featuresConfig)
+    public MetadataManager(FeaturesConfig featuresConfig, TypeManager typeManager)
     {
         functions = new FunctionRegistry(featuresConfig.isExperimentalSyntaxEnabled());
+        this.typeManager = checkNotNull(typeManager, "types is null");
     }
 
     public void addConnectorMetadata(String connectorId, String catalogName, ConnectorMetadata connectorMetadata)
@@ -84,6 +93,12 @@ public class MetadataManager
         checkNotNull(connectorMetadata, "connectorMetadata is null");
 
         internalSchemas.add(new ConnectorMetadataEntry(connectorId, connectorMetadata));
+    }
+
+    @Override
+    public Type getType(String typeName)
+    {
+        return typeManager.getType(typeName);
     }
 
     @Override
