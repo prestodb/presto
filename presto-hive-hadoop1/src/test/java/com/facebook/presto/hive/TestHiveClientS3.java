@@ -27,11 +27,12 @@ public class TestHiveClientS3
             "hive.hadoop1.databaseName",
             "hive.hadoop1.s3.awsAccessKey",
             "hive.hadoop1.s3.awsSecretKey",
+            "hive.hadoop1.s3.writableBucket",
     })
     @BeforeMethod
     @Override
-    public void setup(String host, int port, String databaseName, String awsAccessKey, String awsSecretKey)
+    public void setup(String host, int port, String databaseName, String awsAccessKey, String awsSecretKey, String writableBucket)
     {
-        super.setup(host, port, databaseName, awsAccessKey, awsSecretKey);
+        super.setup(host, port, databaseName, awsAccessKey, awsSecretKey, writableBucket);
     }
 }
