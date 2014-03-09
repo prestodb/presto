@@ -19,13 +19,11 @@ import com.facebook.presto.spi.block.BlockCursor;
 import com.facebook.presto.spi.block.RandomAccessBlock;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.type.VariableWidthType;
-import com.google.common.base.Preconditions;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 
-import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkNotNull;
 import static io.airlift.slice.SizeOf.SIZE_OF_BYTE;
+import static java.util.Objects.requireNonNull;
 
 public class VariableWidthBlockCursor
         implements BlockCursor
@@ -41,9 +39,11 @@ public class VariableWidthBlockCursor
 
     public VariableWidthBlockCursor(VariableWidthType type, int positionCount, Slice slice)
     {
-        this.type = checkNotNull(type, "type is null");
-        this.slice = checkNotNull(slice, "slice is null");
-        checkArgument(positionCount >= 0, "positionCount is negative");
+        this.type = requireNonNull(type, "type is null");
+        this.slice = requireNonNull(slice, "slice is null");
+        if (positionCount < 0) {
+            throw new IllegalArgumentException("positionCount is negative");
+        }
         this.positionCount = positionCount;
 
         entryOffset = 0;
@@ -85,7 +85,9 @@ public class VariableWidthBlockCursor
 
     private void checkReadablePosition()
     {
-        Preconditions.checkState(isValid(), "cursor is not valid");
+        if (!isValid()) {
+            throw new IllegalStateException("cursor is not valid");
+        }
     }
 
     @Override
@@ -108,7 +110,9 @@ public class VariableWidthBlockCursor
             return false;
         }
 
-        checkArgument(newPosition >= this.position, "Can't advance backwards");
+        if (newPosition < position) {
+            throw new IllegalArgumentException("Can't advance backwards");
+        }
 
         // advance to specified position
         while (position < newPosition) {

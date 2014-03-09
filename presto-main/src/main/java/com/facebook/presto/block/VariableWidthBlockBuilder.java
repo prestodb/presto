@@ -20,16 +20,16 @@ import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.block.RandomAccessBlock;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.type.VarcharType;
-import com.google.common.base.Charsets;
-import com.google.common.base.Objects;
 import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceOutput;
 import io.airlift.slice.Slices;
-import it.unimi.dsi.fastutil.ints.IntArrayList;
 
-import static com.google.common.base.Preconditions.checkNotNull;
+import java.util.Arrays;
+import java.util.Objects;
+
 import static io.airlift.slice.SizeOf.SIZE_OF_BYTE;
+import static java.nio.charset.StandardCharsets.UTF_8;
 
 public class VariableWidthBlockBuilder
         extends AbstractVariableWidthRandomAccessBlock
@@ -37,20 +37,25 @@ public class VariableWidthBlockBuilder
 {
     private final BlockBuilderStatus blockBuilderStatus;
     private final SliceOutput sliceOutput;
-    private final IntArrayList offsets = new IntArrayList(1024);
+
+    private int positions;
+    private int[] offsets = new int[1024];
 
     public VariableWidthBlockBuilder(VarcharType type, BlockBuilderStatus blockBuilderStatus)
     {
         super(type);
 
-        this.blockBuilderStatus = checkNotNull(blockBuilderStatus, "blockBuilderStatus is null");
+        this.blockBuilderStatus = Objects.requireNonNull(blockBuilderStatus, "blockBuilderStatus is null");
         this.sliceOutput = new DynamicSliceOutput((int) (blockBuilderStatus.getMaxBlockSizeInBytes() * 1.2));
     }
 
     @Override
     protected int getPositionOffset(int position)
     {
-        return offsets.getInt(position);
+        if (position >= positions) {
+            throw new IllegalArgumentException("position " + position + " must be less than position count " + positions);
+        }
+        return offsets[position];
     }
 
     protected Slice getRawSlice()
@@ -67,13 +72,13 @@ public class VariableWidthBlockBuilder
     @Override
     public int getPositionCount()
     {
-        return offsets.size();
+        return positions;
     }
 
     @Override
     public boolean isEmpty()
     {
-        return offsets.isEmpty();
+        return positions == 0;
     }
 
     @Override
@@ -145,7 +150,7 @@ public class VariableWidthBlockBuilder
     @Override
     public BlockBuilder append(String value)
     {
-        return append(Slices.copiedBuffer(value, Charsets.UTF_8));
+        return append(Slices.copiedBuffer(value, UTF_8));
     }
 
     @Override
@@ -157,7 +162,7 @@ public class VariableWidthBlockBuilder
     @Override
     public BlockBuilder append(Slice value, int offset, int length)
     {
-        offsets.add(sliceOutput.size());
+        recordNewPosition();
 
         sliceOutput.writeByte(0);
 
@@ -174,7 +179,7 @@ public class VariableWidthBlockBuilder
     @Override
     public BlockBuilder appendNull()
     {
-        offsets.add(sliceOutput.size());
+        recordNewPosition();
         sliceOutput.writeByte(1);
         blockBuilderStatus.addBytes(SIZE_OF_BYTE);
         if (sliceOutput.size() > blockBuilderStatus.getMaxBlockSizeInBytes()) {
@@ -183,19 +188,30 @@ public class VariableWidthBlockBuilder
         return this;
     }
 
+    private void recordNewPosition()
+    {
+        if (positions == offsets.length) {
+            offsets = Arrays.copyOf(offsets, offsets.length * 2);
+        }
+
+        offsets[positions] = sliceOutput.size();
+        positions++;
+    }
+
     @Override
     public RandomAccessBlock build()
     {
-        return new VariableWidthRandomAccessBlock(type, sliceOutput.getUnderlyingSlice(), offsets.toIntArray());
+        return new VariableWidthRandomAccessBlock(type, sliceOutput.getUnderlyingSlice(), Arrays.copyOf(offsets, positions));
     }
 
     @Override
     public String toString()
     {
-        return Objects.toStringHelper(this)
-                .add("positionCount", offsets.size())
-                .add("size", sliceOutput.size())
-                .add("type", type)
-                .toString();
+        StringBuilder sb = new StringBuilder("VariableWidthBlockBuilder{");
+        sb.append("positionCount=").append(positions);
+        sb.append(", size=").append(sliceOutput.size());
+        sb.append(", type=").append(type);
+        sb.append('}');
+        return sb.toString();
     }
 }

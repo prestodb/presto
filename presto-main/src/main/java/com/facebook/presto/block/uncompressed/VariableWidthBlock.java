@@ -19,9 +19,9 @@ import com.facebook.presto.spi.block.BlockEncoding;
 import com.facebook.presto.spi.block.RandomAccessBlock;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.type.VariableWidthType;
-import com.google.common.base.Objects;
-import com.google.common.base.Preconditions;
 import io.airlift.slice.Slice;
+
+import static java.util.Objects.requireNonNull;
 
 public class VariableWidthBlock
         implements Block
@@ -32,13 +32,14 @@ public class VariableWidthBlock
 
     public VariableWidthBlock(VariableWidthType type, int positionCount, Slice slice)
     {
-        Preconditions.checkArgument(positionCount >= 0, "positionCount is negative");
-        Preconditions.checkNotNull(type, "type is null");
-        Preconditions.checkNotNull(slice, "data is null");
+        this.type = requireNonNull(type, "type is null");
 
-        this.type = type;
-        this.slice = slice;
+        if (positionCount < 0) {
+            throw new IllegalArgumentException("positionCount is negative");
+        }
         this.positionCount = positionCount;
+
+        this.slice = requireNonNull(slice, "data is null");
     }
 
     public Type getType()
@@ -77,7 +78,9 @@ public class VariableWidthBlock
     @Override
     public Block getRegion(int positionOffset, int length)
     {
-        Preconditions.checkPositionIndexes(positionOffset, positionOffset + length, positionCount);
+        if (positionOffset < 0 || length < 0 || positionOffset + length > positionCount) {
+            throw new IndexOutOfBoundsException("Invalid position " + positionOffset + " in block with " + positionCount + " positions");
+        }
         return cursor().getRegionAndAdvance(length);
     }
 
@@ -90,10 +93,11 @@ public class VariableWidthBlock
     @Override
     public String toString()
     {
-        return Objects.toStringHelper(this)
-                .add("positionCount", positionCount)
-                .add("type", type)
-                .add("slice", slice)
-                .toString();
+        StringBuilder sb = new StringBuilder("VariableWidthBlock{");
+        sb.append("positionCount=").append(positionCount);
+        sb.append(", type=").append(type);
+        sb.append(", slice=").append(slice);
+        sb.append('}');
+        return sb.toString();
     }
 }

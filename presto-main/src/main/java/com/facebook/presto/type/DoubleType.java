@@ -13,18 +13,16 @@
  */
 package com.facebook.presto.type;
 
+import com.facebook.presto.block.FixedWidthBlockUtil.FixedWidthBlockBuilderFactory;
+import com.facebook.presto.spi.ColumnType;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.block.BlockCursor;
 import com.facebook.presto.spi.block.BlockEncoding.BlockEncodingFactory;
-import com.facebook.presto.block.FixedWidthBlockUtil.FixedWidthBlockBuilderFactory;
-import com.facebook.presto.spi.ColumnType;
-import com.google.common.primitives.Longs;
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceOutput;
 
 import static com.facebook.presto.block.FixedWidthBlockUtil.createIsolatedFixedWidthBlockBuilderFactory;
-import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.slice.SizeOf.SIZE_OF_DOUBLE;
 
 public final class DoubleType
@@ -124,10 +122,9 @@ public final class DoubleType
     }
 
     @Override
-    public void setSlice(SliceOutput sliceOutput, Slice value, int offset, int length)
+    public void setSlice(SliceOutput sliceOutput, Slice value, int offset)
     {
-        checkArgument(length == (int) SIZE_OF_DOUBLE);
-        sliceOutput.writeBytes(value, offset, length);
+        sliceOutput.writeBytes(value, offset, SIZE_OF_DOUBLE);
     }
 
     @Override
@@ -149,7 +146,8 @@ public final class DoubleType
     @Override
     public int hashCode(Slice slice, int offset)
     {
-        return Longs.hashCode(slice.getLong(offset));
+        long value = slice.getLong(offset);
+        return (int) (value ^ (value >>> 32));
     }
 
     @Override

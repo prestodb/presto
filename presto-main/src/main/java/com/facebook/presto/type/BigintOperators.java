@@ -16,7 +16,6 @@ package com.facebook.presto.type;
 import com.facebook.presto.operator.scalar.ScalarOperator;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.StandardErrorCode;
-import com.google.common.primitives.Longs;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 
@@ -35,7 +34,7 @@ import static com.facebook.presto.metadata.OperatorInfo.OperatorType.MULTIPLY;
 import static com.facebook.presto.metadata.OperatorInfo.OperatorType.NEGATION;
 import static com.facebook.presto.metadata.OperatorInfo.OperatorType.NOT_EQUAL;
 import static com.facebook.presto.metadata.OperatorInfo.OperatorType.SUBTRACT;
-import static com.google.common.base.Charsets.UTF_8;
+import static java.nio.charset.StandardCharsets.UTF_8;
 
 public final class BigintOperators
 {
@@ -159,6 +158,6 @@ public final class BigintOperators
     @ScalarOperator(HASH_CODE)
     public static int hashCode(long value)
     {
-        return Longs.hashCode(value);
+        return (int) (value ^ (value >>> 32));
     }
 }

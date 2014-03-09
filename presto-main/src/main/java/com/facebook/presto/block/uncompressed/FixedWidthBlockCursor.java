@@ -17,15 +17,13 @@ import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockCursor;
 import com.facebook.presto.spi.block.RandomAccessBlock;
-import com.facebook.presto.type.FixedWidthType;
 import com.facebook.presto.spi.type.Type;
-import com.google.common.base.Preconditions;
+import com.facebook.presto.type.FixedWidthType;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 
-import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkNotNull;
 import static io.airlift.slice.SizeOf.SIZE_OF_BYTE;
+import static java.util.Objects.requireNonNull;
 
 public class FixedWidthBlockCursor
         implements BlockCursor
@@ -40,13 +38,15 @@ public class FixedWidthBlockCursor
 
     public FixedWidthBlockCursor(FixedWidthType type, int positionCount, Slice slice)
     {
-        this.type = checkNotNull(type, "type is null");
+        this.type = requireNonNull(type, "type is null");
         this.entrySize = type.getFixedSize() + SIZE_OF_BYTE;
 
-        checkArgument(positionCount >= 0, "positionCount is negative");
+        if (positionCount < 0) {
+            throw new IllegalArgumentException("positionCount is negative");
+        }
         this.positionCount = positionCount;
 
-        this.slice = checkNotNull(slice, "slice is null");
+        this.slice = requireNonNull(slice, "slice is null");
 
         // start one position before the start
         position = -1;
@@ -79,7 +79,9 @@ public class FixedWidthBlockCursor
 
     private void checkReadablePosition()
     {
-        Preconditions.checkState(isValid(), "cursor is not valid");
+        if (!isValid()) {
+            throw new IllegalStateException("cursor is not valid");
+        }
     }
 
     @Override
@@ -104,7 +106,9 @@ public class FixedWidthBlockCursor
             return false;
         }
 
-        Preconditions.checkArgument(newPosition >= this.position, "Can't advance backwards");
+        if (!(newPosition >= position)) {
+            throw new IllegalArgumentException("Can't advance backwards");
+        }
 
         offset += (newPosition - position) * entrySize;
         position = newPosition;
