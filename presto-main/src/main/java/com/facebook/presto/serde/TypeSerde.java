@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.serde;
 
-import com.facebook.presto.type.Type;
-import com.facebook.presto.type.TypeManager;
+import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.spi.type.TypeManager;
 import com.google.common.base.Charsets;
 import io.airlift.slice.SliceInput;
 import io.airlift.slice.SliceOutput;

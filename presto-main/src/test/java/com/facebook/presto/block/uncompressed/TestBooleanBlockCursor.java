@@ -14,7 +14,7 @@
 package com.facebook.presto.block.uncompressed;
 
 import com.facebook.presto.block.AbstractTestBlockCursor;
-import com.facebook.presto.block.Block;
+import com.facebook.presto.spi.block.Block;
 import org.testng.annotations.Test;
 
 import static com.facebook.presto.block.BlockAssertions.createBooleansBlock;

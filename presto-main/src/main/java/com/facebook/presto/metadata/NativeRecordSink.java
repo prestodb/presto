@@ -13,11 +13,11 @@
  */
 package com.facebook.presto.metadata;
 
-import com.facebook.presto.block.BlockBuilder;
+import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.operator.PageBuilder;
 import com.facebook.presto.spi.ColumnType;
 import com.facebook.presto.spi.RecordSink;
-import com.facebook.presto.type.Type;
+import com.facebook.presto.spi.type.Type;
 import com.google.common.base.Joiner;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;

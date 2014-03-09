@@ -28,7 +28,7 @@ import com.facebook.presto.sql.analyzer.Session;
 import com.facebook.presto.tpch.SampledTpchPlugin;
 import com.facebook.presto.tpch.TpchMetadata;
 import com.facebook.presto.tpch.TpchPlugin;
-import com.facebook.presto.type.Type;
+import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.util.MaterializedResult;
 import com.facebook.presto.util.MaterializedRow;
 import com.google.common.base.Function;

@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.operator.aggregation;
 
-import com.facebook.presto.block.BlockEncodingSerde;
 import com.facebook.presto.operator.PageBuilder;
+import com.facebook.presto.spi.block.BlockEncodingSerde;
 import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
 import org.apache.commons.math3.distribution.BinomialDistribution;

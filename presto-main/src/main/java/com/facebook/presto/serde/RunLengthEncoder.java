@@ -13,10 +13,10 @@
  */
 package com.facebook.presto.serde;
 
-import com.facebook.presto.block.Block;
-import com.facebook.presto.block.BlockCursor;
-import com.facebook.presto.block.BlockEncoding;
-import com.facebook.presto.block.RandomAccessBlock;
+import com.facebook.presto.spi.block.Block;
+import com.facebook.presto.spi.block.BlockCursor;
+import com.facebook.presto.spi.block.BlockEncoding;
+import com.facebook.presto.spi.block.RandomAccessBlock;
 import com.facebook.presto.block.rle.RunLengthBlockEncoding;
 import com.facebook.presto.block.rle.RunLengthEncodedBlock;
 import io.airlift.slice.SliceOutput;
