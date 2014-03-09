@@ -13,12 +13,12 @@
  */
 package com.facebook.presto.operator;
 
-import com.facebook.presto.block.BlockCursor;
+import com.facebook.presto.spi.block.BlockCursor;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.RecordCursor;
 import com.facebook.presto.split.DataStreamProvider;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
-import com.facebook.presto.type.Type;
+import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;

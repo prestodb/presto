@@ -18,7 +18,7 @@ import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.SymbolAllocator;
 import com.facebook.presto.sql.planner.plan.PlanNode;
-import com.facebook.presto.type.Type;
+import com.facebook.presto.spi.type.Type;
 
 import java.util.Map;
 

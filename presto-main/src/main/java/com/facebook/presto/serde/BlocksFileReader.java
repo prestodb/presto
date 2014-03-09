@@ -13,11 +13,11 @@
  */
 package com.facebook.presto.serde;
 
-import com.facebook.presto.block.Block;
-import com.facebook.presto.block.BlockEncoding;
-import com.facebook.presto.block.BlockEncodingSerde;
+import com.facebook.presto.spi.block.Block;
+import com.facebook.presto.spi.block.BlockEncoding;
+import com.facebook.presto.spi.block.BlockEncodingSerde;
 import com.facebook.presto.block.BlockIterable;
-import com.facebook.presto.type.Type;
+import com.facebook.presto.spi.type.Type;
 import com.google.common.base.Optional;
 import com.google.common.base.Preconditions;
 import com.google.common.primitives.Ints;

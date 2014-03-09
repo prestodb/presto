@@ -14,7 +14,7 @@
 package com.facebook.presto.block.uncompressed;
 
 import com.facebook.presto.block.AbstractTestBlockCursor;
-import com.facebook.presto.block.BlockCursor;
+import com.facebook.presto.spi.block.BlockCursor;
 import org.testng.annotations.Test;
 
 import java.util.Map.Entry;

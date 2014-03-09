@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.sql.gen;
 
-import com.facebook.presto.block.BlockBuilder;
-import com.facebook.presto.block.BlockCursor;
+import com.facebook.presto.spi.block.BlockBuilder;
+import com.facebook.presto.spi.block.BlockCursor;
 import com.facebook.presto.byteCode.Block;
 import com.facebook.presto.byteCode.ByteCodeNode;
 import com.facebook.presto.byteCode.ClassDefinition;
@@ -50,7 +50,7 @@ import com.facebook.presto.sql.analyzer.Session;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.InputReference;
-import com.facebook.presto.type.Type;
+import com.facebook.presto.spi.type.Type;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Objects;
 import com.google.common.base.Preconditions;
@@ -463,8 +463,8 @@ public class ExpressionCompiler
                     .comment("BlockCursor %s = page.getBlock(%s).cursor();", cursorVariable.getName(), i)
                     .getVariable("page")
                     .push(i)
-                    .invokeVirtual(com.facebook.presto.operator.Page.class, "getBlock", com.facebook.presto.block.Block.class, int.class)
-                    .invokeInterface(com.facebook.presto.block.Block.class, "cursor", BlockCursor.class)
+                    .invokeVirtual(com.facebook.presto.operator.Page.class, "getBlock", com.facebook.presto.spi.block.Block.class, int.class)
+                    .invokeInterface(com.facebook.presto.spi.block.Block.class, "cursor", BlockCursor.class)
                     .putVariable(cursorVariable);
         }
 

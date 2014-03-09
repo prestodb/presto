@@ -13,12 +13,12 @@
  */
 package com.facebook.presto.operator.aggregation;
 
-import com.facebook.presto.block.Block;
-import com.facebook.presto.block.BlockBuilder;
-import com.facebook.presto.block.BlockCursor;
-import com.facebook.presto.block.BlockEncoding;
-import com.facebook.presto.block.RandomAccessBlock;
-import com.facebook.presto.type.Type;
+import com.facebook.presto.spi.block.Block;
+import com.facebook.presto.spi.block.BlockBuilder;
+import com.facebook.presto.spi.block.BlockCursor;
+import com.facebook.presto.spi.block.BlockEncoding;
+import com.facebook.presto.spi.block.RandomAccessBlock;
+import com.facebook.presto.spi.type.Type;
 import com.google.common.primitives.Longs;
 import io.airlift.slice.Slice;
 import org.apache.commons.math3.random.RandomDataGenerator;

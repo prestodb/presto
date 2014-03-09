@@ -40,7 +40,7 @@ import com.facebook.presto.type.BigintOperators;
 import com.facebook.presto.type.BooleanOperators;
 import com.facebook.presto.type.DoubleOperators;
 import com.facebook.presto.type.SqlType;
-import com.facebook.presto.type.Type;
+import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.type.VarcharOperators;
 import com.facebook.presto.util.IterableTransformer;
 import com.google.common.base.Joiner;

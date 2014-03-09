@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.serde;
 
-import com.facebook.presto.type.Type;
+import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.type.TypeRegistry;
 import io.airlift.slice.DynamicSliceOutput;
 import org.testng.annotations.Test;

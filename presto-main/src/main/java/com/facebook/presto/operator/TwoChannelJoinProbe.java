@@ -26,7 +26,7 @@
  */
 package com.facebook.presto.operator;
 
-import com.facebook.presto.block.BlockCursor;
+import com.facebook.presto.spi.block.BlockCursor;
 
 import static com.google.common.base.Preconditions.checkState;
 

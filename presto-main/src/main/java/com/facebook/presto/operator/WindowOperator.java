@@ -14,7 +14,8 @@
 package com.facebook.presto.operator;
 
 import com.facebook.presto.operator.window.WindowFunction;
-import com.facebook.presto.type.Type;
+import com.facebook.presto.spi.block.SortOrder;
+import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.common.primitives.Ints;
@@ -24,7 +25,7 @@ import it.unimi.dsi.fastutil.ints.IntComparator;
 import java.util.Collections;
 import java.util.List;
 
-import static com.facebook.presto.operator.SortOrder.ASC_NULLS_LAST;
+import static com.facebook.presto.spi.block.SortOrder.ASC_NULLS_LAST;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 

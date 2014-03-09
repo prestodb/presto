@@ -16,7 +16,7 @@ package com.facebook.presto.operator;
 import com.facebook.presto.spi.Split;
 import com.facebook.presto.split.RemoteSplit;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
-import com.facebook.presto.type.Type;
+import com.facebook.presto.spi.type.Type;
 import com.google.common.base.Supplier;
 import com.google.common.util.concurrent.ListenableFuture;
 

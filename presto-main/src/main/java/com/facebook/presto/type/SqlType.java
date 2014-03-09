@@ -13,6 +13,8 @@
  */
 package com.facebook.presto.type;
 
+import com.facebook.presto.spi.type.Type;
+
 import java.lang.annotation.ElementType;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;

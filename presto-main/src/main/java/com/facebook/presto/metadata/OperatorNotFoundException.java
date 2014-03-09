@@ -16,7 +16,7 @@ package com.facebook.presto.metadata;
 import com.facebook.presto.metadata.OperatorInfo.OperatorType;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.StandardErrorCode;
-import com.facebook.presto.type.Type;
+import com.facebook.presto.spi.type.Type;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 

@@ -11,14 +11,24 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.block;
+package com.facebook.presto.spi.type;
 
-import io.airlift.slice.SliceInput;
-import io.airlift.slice.SliceOutput;
+import com.facebook.presto.spi.ColumnType;
+import com.facebook.presto.spi.block.BlockBuilder;
+import com.facebook.presto.spi.block.BlockBuilderStatus;
+import com.fasterxml.jackson.annotation.JsonValue;
+import io.airlift.slice.Slice;
 
-public interface BlockEncodingSerde
+public interface Type
 {
-    BlockEncoding readBlockEncoding(SliceInput input);
+    @JsonValue
+    String getName();
 
-    <T extends BlockEncoding> void writeBlockEncoding(SliceOutput output, T encoding);
+    Class<?> getJavaType();
+
+    Object getObjectValue(Slice slice, int offset);
+
+    BlockBuilder createBlockBuilder(BlockBuilderStatus blockBuilderStatus);
+
+    ColumnType toColumnType();
 }

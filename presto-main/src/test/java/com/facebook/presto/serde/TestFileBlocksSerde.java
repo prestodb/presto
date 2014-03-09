@@ -13,9 +13,9 @@
  */
 package com.facebook.presto.serde;
 
-import com.facebook.presto.block.Block;
+import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.block.BlockAssertions;
-import com.facebook.presto.block.BlockBuilderStatus;
+import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.google.common.collect.ImmutableList;
 import com.google.common.io.OutputSupplier;
 import io.airlift.slice.DynamicSliceOutput;
