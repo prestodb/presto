@@ -33,8 +33,8 @@ import com.google.common.collect.ImmutableList;
 
 import java.util.List;
 
-import static com.facebook.presto.type.BigintType.BIGINT;
-import static com.facebook.presto.type.VarcharType.VARCHAR;
+import static com.facebook.presto.spi.type.BigintType.BIGINT;
+import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 
 public class LogicalPlanner
 {

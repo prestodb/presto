@@ -25,8 +25,8 @@ import io.airlift.slice.Slices;
 
 import static com.facebook.presto.operator.aggregation.ApproximateUtils.formatApproximateResult;
 import static com.facebook.presto.operator.aggregation.ApproximateUtils.sumError;
-import static com.facebook.presto.type.DoubleType.DOUBLE;
-import static com.facebook.presto.type.VarcharType.VARCHAR;
+import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
+import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static io.airlift.slice.SizeOf.SIZE_OF_DOUBLE;

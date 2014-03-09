@@ -29,8 +29,8 @@ import static com.facebook.presto.operator.OperatorAssertion.assertOperatorEqual
 import static com.facebook.presto.operator.PageAssertions.assertPageEquals;
 import static com.facebook.presto.operator.RowPageBuilder.rowPageBuilder;
 import static com.facebook.presto.operator.RowPagesBuilder.rowPagesBuilder;
-import static com.facebook.presto.type.BigintType.BIGINT;
-import static com.facebook.presto.type.VarcharType.VARCHAR;
+import static com.facebook.presto.spi.type.BigintType.BIGINT;
+import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.util.Threads.daemonThreadsNamed;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static org.testng.Assert.assertEquals;

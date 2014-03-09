@@ -11,16 +11,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.block;
+package com.facebook.presto.spi.block;
 
-import com.facebook.presto.block.uncompressed.AbstractFixedWidthBlock;
-import com.facebook.presto.block.uncompressed.FixedWidthBlock;
-import com.facebook.presto.block.uncompressed.FixedWidthBlockCursor;
-import com.facebook.presto.block.uncompressed.FixedWidthBlockEncoding;
-import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.block.BlockEncoding.BlockEncodingFactory;
-import com.facebook.presto.type.FixedWidthType;
+import com.facebook.presto.spi.type.FixedWidthType;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;

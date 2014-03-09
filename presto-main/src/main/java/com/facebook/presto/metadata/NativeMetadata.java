@@ -46,7 +46,7 @@ import java.util.UUID;
 import java.util.concurrent.Callable;
 
 import static com.facebook.presto.metadata.MetadataDaoUtils.createMetadataTablesWithRetry;
-import static com.facebook.presto.type.BigintType.BIGINT;
+import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.type.Types.fromColumnType;
 import static com.facebook.presto.util.SqlUtils.runIgnoringConstraintViolation;
 import static com.facebook.presto.util.Types.checkType;

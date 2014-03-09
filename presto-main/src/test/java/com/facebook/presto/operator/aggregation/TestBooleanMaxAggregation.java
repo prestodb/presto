@@ -18,7 +18,7 @@ import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
 
 import static com.facebook.presto.operator.aggregation.BooleanMaxAggregation.BOOLEAN_MAX;
-import static com.facebook.presto.type.BooleanType.BOOLEAN;
+import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static java.lang.Boolean.FALSE;
 import static java.lang.Boolean.TRUE;
 

@@ -18,7 +18,7 @@ import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
 
 import static com.facebook.presto.operator.aggregation.DoubleMaxAggregation.DOUBLE_MAX;
-import static com.facebook.presto.type.DoubleType.DOUBLE;
+import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 
 public class TestDoubleMaxAggregation
         extends AbstractTestAggregationFunction

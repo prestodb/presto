@@ -116,11 +116,11 @@ import static com.facebook.presto.operator.aggregation.VarianceAggregations.LONG
 import static com.facebook.presto.operator.aggregation.VarianceAggregations.LONG_STDDEV_POP_INSTANCE;
 import static com.facebook.presto.operator.aggregation.VarianceAggregations.LONG_VARIANCE_INSTANCE;
 import static com.facebook.presto.operator.aggregation.VarianceAggregations.LONG_VARIANCE_POP_INSTANCE;
-import static com.facebook.presto.type.BigintType.BIGINT;
-import static com.facebook.presto.type.BooleanType.BOOLEAN;
-import static com.facebook.presto.type.DoubleType.DOUBLE;
-import static com.facebook.presto.type.NullType.NULL;
-import static com.facebook.presto.type.VarcharType.VARCHAR;
+import static com.facebook.presto.spi.type.BigintType.BIGINT;
+import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
+import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
+import static com.facebook.presto.spi.type.NullType.NULL;
+import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.google.common.base.CaseFormat.LOWER_CAMEL;
 import static com.google.common.base.CaseFormat.LOWER_UNDERSCORE;
 import static com.google.common.base.Preconditions.checkArgument;

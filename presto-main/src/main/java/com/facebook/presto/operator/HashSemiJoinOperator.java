@@ -23,7 +23,7 @@ import com.google.common.util.concurrent.ListenableFuture;
 
 import java.util.List;
 
-import static com.facebook.presto.type.BooleanType.BOOLEAN;
+import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.util.MoreFutures.tryGetUnchecked;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;

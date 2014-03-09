@@ -11,29 +11,25 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.block.uncompressed;
+package com.facebook.presto.spi.block;
 
-import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.block.BlockEncoding;
-import com.facebook.presto.spi.block.BlockEncodingSerde;
+import com.facebook.presto.spi.type.FixedWidthType;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
-import com.facebook.presto.type.VariableWidthType;
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceInput;
 import io.airlift.slice.SliceOutput;
 
-import static com.google.common.base.Preconditions.checkNotNull;
 import static java.util.Objects.requireNonNull;
 
-public class VariableWidthBlockEncoding
+public class FixedWidthBlockEncoding
         implements BlockEncoding
 {
-    private final VariableWidthType type;
+    private final FixedWidthType type;
 
-    public VariableWidthBlockEncoding(Type type)
+    public FixedWidthBlockEncoding(Type type)
     {
-        this.type = (VariableWidthType) requireNonNull(type, "type is null");
+        this.type = (FixedWidthType) requireNonNull(type, "type is null");
     }
 
     @Override
@@ -51,26 +47,13 @@ public class VariableWidthBlockEncoding
     @Override
     public void writeBlock(SliceOutput sliceOutput, Block block)
     {
+        AbstractFixedWidthBlock fixedWidthBlock = (AbstractFixedWidthBlock) block;
         if (!block.getType().equals(type)) {
             throw new IllegalArgumentException("Invalid block");
         }
-
-        Slice rawSlice;
-        if (block instanceof AbstractVariableWidthRandomAccessBlock) {
-            AbstractVariableWidthRandomAccessBlock uncompressedBlock = (AbstractVariableWidthRandomAccessBlock) block;
-            rawSlice = uncompressedBlock.getRawSlice();
-        }
-        else if (block instanceof VariableWidthBlock) {
-            VariableWidthBlock variableWidthBlock = (VariableWidthBlock) block;
-            rawSlice = variableWidthBlock.getRawSlice();
-        }
-        else {
-            throw new IllegalArgumentException("Unsupported block type " + block.getClass().getName());
-        }
-
         writeUncompressedBlock(sliceOutput,
-                block.getPositionCount(),
-                rawSlice);
+                fixedWidthBlock.getPositionCount(),
+                fixedWidthBlock.getRawSlice());
     }
 
     @Override
@@ -80,7 +63,7 @@ public class VariableWidthBlockEncoding
         int positionCount = sliceInput.readInt();
 
         Slice slice = sliceInput.readSlice(blockSize);
-        return new VariableWidthBlock(type, positionCount, slice);
+        return new FixedWidthBlock(type, positionCount, slice);
     }
 
     private static void writeUncompressedBlock(SliceOutput destination, int positionCount, Slice slice)
@@ -91,14 +74,14 @@ public class VariableWidthBlockEncoding
                 .writeBytes(slice);
     }
 
-    public static class VariableWidthBlockEncodingFactory
-            implements BlockEncodingFactory<VariableWidthBlockEncoding>
+    public static class FixedWidthBlockEncodingFactory
+            implements BlockEncodingFactory<BlockEncoding>
     {
         private final Type type;
 
-        public VariableWidthBlockEncodingFactory(Type type)
+        public FixedWidthBlockEncodingFactory(Type type)
         {
-            this.type = checkNotNull(type, "type is null");
+            this.type = type;
         }
 
         @Override
@@ -108,13 +91,13 @@ public class VariableWidthBlockEncoding
         }
 
         @Override
-        public VariableWidthBlockEncoding readEncoding(TypeManager typeManager, BlockEncodingSerde blockEncodingSerde, SliceInput input)
+        public BlockEncoding readEncoding(TypeManager typeManager, BlockEncodingSerde blockEncodingSerde, SliceInput input)
         {
-            return new VariableWidthBlockEncoding(type);
+            return new FixedWidthBlockEncoding(type);
         }
 
         @Override
-        public void writeEncoding(BlockEncodingSerde blockEncodingSerde, SliceOutput output, VariableWidthBlockEncoding blockEncoding)
+        public void writeEncoding(BlockEncodingSerde blockEncodingSerde, SliceOutput output, BlockEncoding blockEncoding)
         {
         }
     }

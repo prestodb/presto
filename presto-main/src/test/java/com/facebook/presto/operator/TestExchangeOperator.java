@@ -56,7 +56,7 @@ import static com.facebook.presto.client.PrestoHeaders.PRESTO_PAGE_TOKEN;
 import static com.facebook.presto.operator.PageAssertions.assertPageEquals;
 import static com.facebook.presto.operator.SequencePageBuilder.createSequencePage;
 import static com.facebook.presto.serde.TestingBlockEncodingManager.createTestingBlockEncodingManager;
-import static com.facebook.presto.type.VarcharType.VARCHAR;
+import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.util.Threads.daemonThreadsNamed;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static java.util.concurrent.Executors.newCachedThreadPool;

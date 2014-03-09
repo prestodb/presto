@@ -23,7 +23,7 @@ import io.airlift.units.DataSize.Unit;
 
 import java.util.Iterator;
 
-import static com.facebook.presto.type.BigintType.BIGINT;
+import static com.facebook.presto.spi.type.BigintType.BIGINT;
 
 public final class BlockUtils
 {

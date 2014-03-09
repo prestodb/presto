@@ -19,7 +19,7 @@ import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.block.RandomAccessBlock;
 
 import static com.facebook.presto.block.BlockAssertions.createStringsBlock;
-import static com.facebook.presto.type.VarcharType.VARCHAR;
+import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 
 public class TestRunLengthEncodedBlockCursorWithNull
         extends AbstractTestBlockCursor

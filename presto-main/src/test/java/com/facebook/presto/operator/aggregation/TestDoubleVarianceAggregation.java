@@ -19,7 +19,7 @@ import com.facebook.presto.spi.block.BlockBuilderStatus;
 import org.apache.commons.math3.stat.descriptive.moment.Variance;
 
 import static com.facebook.presto.operator.aggregation.VarianceAggregations.DOUBLE_VARIANCE_INSTANCE;
-import static com.facebook.presto.type.DoubleType.DOUBLE;
+import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 
 public class TestDoubleVarianceAggregation
         extends AbstractTestAggregationFunction
