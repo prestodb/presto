@@ -23,8 +23,6 @@ import com.facebook.presto.type.VariableWidthType;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 
-import static com.google.common.base.Preconditions.checkPositionIndexes;
-import static com.google.common.base.Preconditions.checkState;
 import static io.airlift.slice.SizeOf.SIZE_OF_BYTE;
 
 public abstract class AbstractVariableWidthRandomAccessBlock
@@ -38,6 +36,7 @@ public abstract class AbstractVariableWidthRandomAccessBlock
     }
 
     protected abstract Slice getRawSlice();
+
     protected abstract int getPositionOffset(int position);
 
     @Override
@@ -67,7 +66,10 @@ public abstract class AbstractVariableWidthRandomAccessBlock
     @Override
     public RandomAccessBlock getRegion(int positionOffset, int length)
     {
-        checkPositionIndexes(positionOffset, positionOffset + length, getPositionCount());
+        int positionCount = getPositionCount();
+        if (positionOffset < 0 || length < 0 || positionOffset + length > positionCount) {
+            throw new IndexOutOfBoundsException("Invalid position " + positionOffset + " in block with " + positionCount + " positions");
+        }
         // todo add VariableWidthRandomAccessCursor
         return cursor().getRegionAndAdvance(length).toRandomAccessBlock();
     }
@@ -110,7 +112,9 @@ public abstract class AbstractVariableWidthRandomAccessBlock
     @Override
     public Slice getSlice(int position)
     {
-        checkState(!isNull(position));
+        if (isNull(position)) {
+            throw new IllegalStateException("position is null");
+        }
         int offset = getPositionOffset(position);
         return type.getSlice(getRawSlice(), offset + SIZE_OF_BYTE);
     }
@@ -276,6 +280,8 @@ public abstract class AbstractVariableWidthRandomAccessBlock
 
     private void checkReadablePosition(int position)
     {
-        checkState(position >= 0 && position < getPositionCount(), "position is not valid");
+        if (position < 0 || position >= getPositionCount()) {
+            throw new IllegalStateException("position is not valid");
+        }
     }
 }

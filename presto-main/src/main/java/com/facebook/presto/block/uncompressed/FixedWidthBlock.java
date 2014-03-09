@@ -14,11 +14,9 @@
 package com.facebook.presto.block.uncompressed;
 
 import com.facebook.presto.type.FixedWidthType;
-import com.google.common.base.Objects;
 import io.airlift.slice.Slice;
 
-import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkNotNull;
+import java.util.Objects;
 
 public class FixedWidthBlock
         extends AbstractFixedWidthBlock
@@ -30,10 +28,12 @@ public class FixedWidthBlock
     {
         super(type);
 
-        checkArgument(positionCount >= 0, "positionCount is negative");
+        if (positionCount < 0) {
+            throw new IllegalArgumentException("positionCount is negative");
+        }
         this.positionCount = positionCount;
 
-        this.slice = checkNotNull(slice, "slice is null");
+        this.slice = Objects.requireNonNull(slice, "slice is null");
     }
 
     @Override
@@ -51,9 +51,10 @@ public class FixedWidthBlock
     @Override
     public String toString()
     {
-        return Objects.toStringHelper(this)
-                .add("positionCount", positionCount)
-                .add("slice", slice)
-                .toString();
+        StringBuilder sb = new StringBuilder("FixedWidthBlock{");
+        sb.append("positionCount=").append(positionCount);
+        sb.append(", slice=").append(slice);
+        sb.append('}');
+        return sb.toString();
     }
 }

@@ -122,7 +122,7 @@ public final class NullType
     }
 
     @Override
-    public void setSlice(SliceOutput sliceOutput, Slice value, int offset, int length)
+    public void setSlice(SliceOutput sliceOutput, Slice value, int offset)
     {
         throw new UnsupportedOperationException();
     }

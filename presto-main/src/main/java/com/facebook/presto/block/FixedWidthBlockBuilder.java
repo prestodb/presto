@@ -19,14 +19,14 @@ import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.block.RandomAccessBlock;
 import com.facebook.presto.type.FixedWidthType;
-import com.google.common.base.Charsets;
-import com.google.common.base.Objects;
 import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceOutput;
 import io.airlift.slice.Slices;
 
 import static io.airlift.slice.SizeOf.SIZE_OF_BYTE;
+import static io.airlift.slice.SizeOf.SIZE_OF_LONG;
+import static java.nio.charset.StandardCharsets.UTF_8;
 
 public class FixedWidthBlockBuilder
         extends AbstractFixedWidthBlock
@@ -150,7 +150,7 @@ public class FixedWidthBlockBuilder
     @Override
     public BlockBuilder append(String value)
     {
-        return append(Slices.copiedBuffer(value, Charsets.UTF_8));
+        return append(Slices.copiedBuffer(value, UTF_8));
     }
 
     @Override
@@ -162,9 +162,13 @@ public class FixedWidthBlockBuilder
     @Override
     public BlockBuilder append(Slice value, int offset, int length)
     {
+        if (length != (int) SIZE_OF_LONG) {
+            throw new IllegalArgumentException("length must be " + type.getFixedSize() + " but is " + length);
+        }
+
         sliceOutput.writeByte(0);
 
-        type.setSlice(sliceOutput, value, offset, length);
+        type.setSlice(sliceOutput, value, offset);
 
         entryAdded();
 
@@ -202,10 +206,11 @@ public class FixedWidthBlockBuilder
     @Override
     public String toString()
     {
-        return Objects.toStringHelper(this)
-                .add("positionCount", positionCount)
-                .add("size", sliceOutput.size())
-                .add("type", type)
-                .toString();
+        StringBuilder sb = new StringBuilder("FixedWidthBlockBuilder{");
+        sb.append("positionCount=").append(positionCount);
+        sb.append(", size=").append(sliceOutput.size());
+        sb.append(", type=").append(type);
+        sb.append('}');
+        return sb.toString();
     }
 }

@@ -13,18 +13,16 @@
  */
 package com.facebook.presto.type;
 
+import com.facebook.presto.block.FixedWidthBlockUtil.FixedWidthBlockBuilderFactory;
+import com.facebook.presto.spi.ColumnType;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.block.BlockCursor;
 import com.facebook.presto.spi.block.BlockEncoding.BlockEncodingFactory;
-import com.facebook.presto.block.FixedWidthBlockUtil.FixedWidthBlockBuilderFactory;
-import com.facebook.presto.spi.ColumnType;
-import com.google.common.primitives.Booleans;
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceOutput;
 
 import static com.facebook.presto.block.FixedWidthBlockUtil.createIsolatedFixedWidthBlockBuilderFactory;
-import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.slice.SizeOf.SIZE_OF_BYTE;
 
 public final class BooleanType
@@ -124,10 +122,9 @@ public final class BooleanType
     }
 
     @Override
-    public void setSlice(SliceOutput sliceOutput, Slice value, int offset, int length)
+    public void setSlice(SliceOutput sliceOutput, Slice value, int offset)
     {
-        checkArgument(length == (int) SIZE_OF_BYTE);
-        sliceOutput.writeBytes(value, offset, length);
+        sliceOutput.writeBytes(value, offset, SIZE_OF_BYTE);
     }
 
     @Override
@@ -149,7 +146,7 @@ public final class BooleanType
     @Override
     public int hashCode(Slice slice, int offset)
     {
-        return Booleans.hashCode(slice.getByte(offset) != 0);
+        return slice.getByte(offset) != 0 ? 1231 : 1237;
     }
 
     @Override

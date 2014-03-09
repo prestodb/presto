@@ -14,10 +14,7 @@
 package com.facebook.presto.block.uncompressed;
 
 import com.facebook.presto.type.VariableWidthType;
-import com.google.common.base.Objects;
 import io.airlift.slice.Slice;
-
-import static com.google.common.base.Preconditions.checkState;
 
 public class VariableWidthRandomAccessBlock
         extends AbstractVariableWidthRandomAccessBlock
@@ -42,7 +39,9 @@ public class VariableWidthRandomAccessBlock
 
         VariableWidthBlockCursor cursor = new VariableWidthBlockCursor(type, getPositionCount(), slice);
         for (int position = 0; position < positionCount; position++) {
-            checkState(cursor.advanceNextPosition());
+            if (!cursor.advanceNextPosition()) {
+                throw new IllegalStateException();
+            }
             offsets[position] = cursor.getRawOffset();
         }
     }
@@ -66,9 +65,10 @@ public class VariableWidthRandomAccessBlock
     @Override
     public String toString()
     {
-        return Objects.toStringHelper(this)
-                .add("positionCount", getPositionCount())
-                .add("slice", getRawSlice())
-                .toString();
+        StringBuilder sb = new StringBuilder("VariableWidthRandomAccessBlock{");
+        sb.append("positionCount=").append(getPositionCount());
+        sb.append(", slice=").append(getRawSlice());
+        sb.append('}');
+        return sb.toString();
     }
 }

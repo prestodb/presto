@@ -13,10 +13,10 @@
  */
 package com.facebook.presto.block.uncompressed;
 
+import com.facebook.presto.serde.TypeSerde;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockEncoding;
 import com.facebook.presto.spi.block.BlockEncodingSerde;
-import com.facebook.presto.serde.TypeSerde;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.type.VarcharType;
@@ -25,8 +25,7 @@ import io.airlift.slice.Slice;
 import io.airlift.slice.SliceInput;
 import io.airlift.slice.SliceOutput;
 
-import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 
 public class VariableWidthBlockEncoding
         implements BlockEncoding
@@ -38,7 +37,7 @@ public class VariableWidthBlockEncoding
 
     public VariableWidthBlockEncoding(Type type)
     {
-        this.type = (VarcharType) checkNotNull(type, "type is null");
+        this.type = (VarcharType) requireNonNull(type, "type is null");
     }
 
     @Override
@@ -56,7 +55,9 @@ public class VariableWidthBlockEncoding
     @Override
     public void writeBlock(SliceOutput sliceOutput, Block block)
     {
-        checkArgument(block.getType().equals(type), "Invalid block");
+        if (!block.getType().equals(type)) {
+            throw new IllegalArgumentException("Invalid block");
+        }
 
         Slice rawSlice;
         if (block instanceof AbstractVariableWidthRandomAccessBlock) {
