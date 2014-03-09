@@ -20,7 +20,7 @@ import com.facebook.presto.operator.GroupByIdBlock;
 import com.facebook.presto.util.array.ByteBigArray;
 import com.google.common.base.Optional;
 
-import static com.facebook.presto.type.BooleanType.BOOLEAN;
+import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 

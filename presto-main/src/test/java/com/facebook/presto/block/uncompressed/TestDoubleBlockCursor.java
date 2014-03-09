@@ -18,7 +18,7 @@ import com.facebook.presto.spi.block.Block;
 import org.testng.annotations.Test;
 
 import static com.facebook.presto.block.BlockAssertions.createDoublesBlock;
-import static com.facebook.presto.type.DoubleType.DOUBLE;
+import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static org.testng.Assert.assertEquals;
 
 public class TestDoubleBlockCursor

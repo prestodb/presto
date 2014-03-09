@@ -11,61 +11,60 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.type;
+package com.facebook.presto.spi.type;
 
-import com.facebook.presto.block.FixedWidthBlockUtil.FixedWidthBlockBuilderFactory;
 import com.facebook.presto.spi.ColumnType;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.block.BlockCursor;
 import com.facebook.presto.spi.block.BlockEncoding.BlockEncodingFactory;
+import com.facebook.presto.spi.block.FixedWidthBlockUtil.FixedWidthBlockBuilderFactory;
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceOutput;
 
-import static com.facebook.presto.block.FixedWidthBlockUtil.createIsolatedFixedWidthBlockBuilderFactory;
-import static com.facebook.presto.spi.ColumnType.LONG;
-import static io.airlift.slice.SizeOf.SIZE_OF_LONG;
+import static com.facebook.presto.spi.block.FixedWidthBlockUtil.createIsolatedFixedWidthBlockBuilderFactory;
+import static io.airlift.slice.SizeOf.SIZE_OF_DOUBLE;
 
-public final class BigintType
+public final class DoubleType
         implements FixedWidthType
 {
-    public static final BigintType BIGINT = new BigintType();
+    public static final DoubleType DOUBLE = new DoubleType();
 
-    private static final FixedWidthBlockBuilderFactory BLOCK_BUILDER_FACTORY = createIsolatedFixedWidthBlockBuilderFactory(BIGINT);
+    private static final FixedWidthBlockBuilderFactory BLOCK_BUILDER_FACTORY = createIsolatedFixedWidthBlockBuilderFactory(DOUBLE);
     public static final BlockEncodingFactory<?> BLOCK_ENCODING_FACTORY = BLOCK_BUILDER_FACTORY.getBlockEncodingFactory();
 
-    private BigintType()
+    private DoubleType()
     {
     }
 
     @Override
     public String getName()
     {
-        return "bigint";
+        return "double";
     }
 
     @Override
     public Class<?> getJavaType()
     {
-        return long.class;
+        return double.class;
     }
 
     @Override
     public int getFixedSize()
     {
-        return (int) SIZE_OF_LONG;
+        return (int) SIZE_OF_DOUBLE;
     }
 
     @Override
     public ColumnType toColumnType()
     {
-        return LONG;
+        return ColumnType.DOUBLE;
     }
 
     @Override
     public Object getObjectValue(Slice slice, int offset)
     {
-        return slice.getLong(offset);
+        return slice.getDouble(offset);
     }
 
     @Override
@@ -95,25 +94,25 @@ public final class BigintType
     @Override
     public long getLong(Slice slice, int offset)
     {
-        return slice.getLong(offset);
+        throw new UnsupportedOperationException();
     }
 
     @Override
     public void setLong(SliceOutput sliceOutput, long value)
     {
-        sliceOutput.writeLong(value);
+        throw new UnsupportedOperationException();
     }
 
     @Override
     public double getDouble(Slice slice, int offset)
     {
-        throw new UnsupportedOperationException();
+        return slice.getDouble(offset);
     }
 
     @Override
     public void setDouble(SliceOutput sliceOutput, double value)
     {
-        throw new UnsupportedOperationException();
+        sliceOutput.writeDouble(value);
     }
 
     @Override
@@ -125,7 +124,7 @@ public final class BigintType
     @Override
     public void setSlice(SliceOutput sliceOutput, Slice value, int offset)
     {
-        sliceOutput.writeBytes(value, offset, SIZE_OF_LONG);
+        sliceOutput.writeBytes(value, offset, SIZE_OF_DOUBLE);
     }
 
     @Override
@@ -140,7 +139,7 @@ public final class BigintType
     public boolean equals(Slice leftSlice, int leftOffset, BlockCursor rightCursor)
     {
         long leftValue = leftSlice.getLong(leftOffset);
-        long rightValue = rightCursor.getLong();
+        long rightValue = Double.doubleToLongBits(rightCursor.getDouble());
         return leftValue == rightValue;
     }
 
@@ -154,22 +153,22 @@ public final class BigintType
     @Override
     public int compareTo(Slice leftSlice, int leftOffset, Slice rightSlice, int rightOffset)
     {
-        long leftValue = leftSlice.getLong(leftOffset);
-        long rightValue = rightSlice.getLong(rightOffset);
-        return Long.compare(leftValue, rightValue);
+        double leftValue = leftSlice.getDouble(leftOffset);
+        double rightValue = rightSlice.getDouble(rightOffset);
+        return Double.compare(leftValue, rightValue);
     }
 
     @Override
     public void appendTo(Slice slice, int offset, BlockBuilder blockBuilder)
     {
-        long value = slice.getLong(offset);
+        double value = slice.getDouble(offset);
         blockBuilder.append(value);
     }
 
     @Override
     public void appendTo(Slice slice, int offset, SliceOutput sliceOutput)
     {
-        sliceOutput.writeBytes(slice, offset, (int) SIZE_OF_LONG);
+        sliceOutput.writeBytes(slice, offset, (int) SIZE_OF_DOUBLE);
     }
 
     @Override

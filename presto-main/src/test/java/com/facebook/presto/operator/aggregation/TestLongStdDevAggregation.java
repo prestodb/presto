@@ -19,7 +19,7 @@ import com.facebook.presto.spi.block.BlockBuilderStatus;
 import org.apache.commons.math3.stat.descriptive.moment.StandardDeviation;
 
 import static com.facebook.presto.operator.aggregation.VarianceAggregations.LONG_STDDEV_INSTANCE;
-import static com.facebook.presto.type.BigintType.BIGINT;
+import static com.facebook.presto.spi.type.BigintType.BIGINT;
 
 public class TestLongStdDevAggregation
         extends AbstractTestAggregationFunction

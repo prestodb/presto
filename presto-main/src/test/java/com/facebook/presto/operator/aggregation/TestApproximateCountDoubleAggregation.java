@@ -20,7 +20,7 @@ import com.google.common.base.Predicates;
 import java.util.List;
 
 import static com.facebook.presto.operator.aggregation.ApproximateCountColumnAggregations.DOUBLE_APPROXIMATE_COUNT_AGGREGATION;
-import static com.facebook.presto.type.BigintType.BIGINT;
+import static com.facebook.presto.spi.type.BigintType.BIGINT;
 
 public class TestApproximateCountDoubleAggregation
         extends AbstractTestApproximateAggregationFunction

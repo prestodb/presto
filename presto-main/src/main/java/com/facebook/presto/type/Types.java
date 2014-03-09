@@ -14,14 +14,15 @@
 package com.facebook.presto.type;
 
 import com.facebook.presto.spi.ColumnType;
+import com.facebook.presto.spi.type.NullType;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.base.Function;
 
-import static com.facebook.presto.type.BigintType.BIGINT;
-import static com.facebook.presto.type.BooleanType.BOOLEAN;
-import static com.facebook.presto.type.DoubleType.DOUBLE;
-import static com.facebook.presto.type.NullType.NULL;
-import static com.facebook.presto.type.VarcharType.VARCHAR;
+import static com.facebook.presto.spi.type.BigintType.BIGINT;
+import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
+import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
+import static com.facebook.presto.spi.type.NullType.NULL;
+import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 
 public final class Types
 {

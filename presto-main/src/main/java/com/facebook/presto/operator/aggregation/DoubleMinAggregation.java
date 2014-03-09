@@ -21,7 +21,7 @@ import com.facebook.presto.util.array.BooleanBigArray;
 import com.facebook.presto.util.array.DoubleBigArray;
 import com.google.common.base.Optional;
 
-import static com.facebook.presto.type.DoubleType.DOUBLE;
+import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 

@@ -14,9 +14,9 @@
 package com.facebook.presto.metadata;
 
 import com.facebook.presto.sql.gen.FunctionBinder;
-import com.facebook.presto.type.BigintType;
-import com.facebook.presto.type.BooleanType;
-import com.facebook.presto.type.NullType;
+import com.facebook.presto.spi.type.BigintType;
+import com.facebook.presto.spi.type.BooleanType;
+import com.facebook.presto.spi.type.NullType;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.base.Function;
 import com.google.common.base.Joiner;
