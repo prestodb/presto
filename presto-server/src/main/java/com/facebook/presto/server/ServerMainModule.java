@@ -13,13 +13,10 @@
  */
 package com.facebook.presto.server;
 
-import com.facebook.presto.spi.block.BlockEncoding.BlockEncodingFactory;
 import com.facebook.presto.block.BlockEncodingManager;
-import com.facebook.presto.spi.block.BlockEncodingSerde;
 import com.facebook.presto.block.dictionary.DictionaryBlockEncoding;
 import com.facebook.presto.block.rle.RunLengthBlockEncoding;
 import com.facebook.presto.block.snappy.SnappyBlockEncoding;
-import com.facebook.presto.block.uncompressed.VariableWidthBlockEncoding;
 import com.facebook.presto.client.QueryResults;
 import com.facebook.presto.connector.ConnectorManager;
 import com.facebook.presto.connector.NativeConnectorFactory;
@@ -66,6 +63,10 @@ import com.facebook.presto.operator.RecordSinkProvider;
 import com.facebook.presto.spi.ConnectorFactory;
 import com.facebook.presto.spi.ConnectorRecordSinkProvider;
 import com.facebook.presto.spi.Split;
+import com.facebook.presto.spi.block.BlockEncoding.BlockEncodingFactory;
+import com.facebook.presto.spi.block.BlockEncodingSerde;
+import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.split.ConnectorDataStreamProvider;
 import com.facebook.presto.split.DataStreamManager;
 import com.facebook.presto.split.DataStreamProvider;
@@ -82,10 +83,9 @@ import com.facebook.presto.type.BigintType;
 import com.facebook.presto.type.BooleanType;
 import com.facebook.presto.type.DoubleType;
 import com.facebook.presto.type.NullType;
-import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.type.TypeDeserializer;
-import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.type.TypeRegistry;
+import com.facebook.presto.type.VarcharType;
 import com.facebook.presto.util.Threads;
 import com.google.common.base.Supplier;
 import com.google.common.collect.ImmutableSet;
@@ -279,7 +279,7 @@ public class ServerMainModule
         blockEncodingFactoryBinder.addBinding().toInstance(BooleanType.BLOCK_ENCODING_FACTORY);
         blockEncodingFactoryBinder.addBinding().toInstance(BigintType.BLOCK_ENCODING_FACTORY);
         blockEncodingFactoryBinder.addBinding().toInstance(DoubleType.BLOCK_ENCODING_FACTORY);
-        blockEncodingFactoryBinder.addBinding().toInstance(VariableWidthBlockEncoding.FACTORY);
+        blockEncodingFactoryBinder.addBinding().toInstance(VarcharType.BLOCK_ENCODING_FACTORY);
         blockEncodingFactoryBinder.addBinding().toInstance(RunLengthBlockEncoding.FACTORY);
         blockEncodingFactoryBinder.addBinding().toInstance(DictionaryBlockEncoding.FACTORY);
         blockEncodingFactoryBinder.addBinding().toInstance(SnappyBlockEncoding.FACTORY);

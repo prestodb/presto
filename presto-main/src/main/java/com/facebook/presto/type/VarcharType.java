@@ -14,10 +14,12 @@
 package com.facebook.presto.type;
 
 import com.facebook.presto.block.VariableWidthBlockBuilder;
+import com.facebook.presto.block.uncompressed.VariableWidthBlockEncoding.VariableWidthBlockEncodingFactory;
 import com.facebook.presto.spi.ColumnType;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.block.BlockCursor;
+import com.facebook.presto.spi.block.BlockEncoding.BlockEncodingFactory;
 import com.facebook.presto.spi.type.Type;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import io.airlift.slice.Slice;
@@ -30,6 +32,8 @@ public class VarcharType
         implements VariableWidthType
 {
     public static final Type VARCHAR = new VarcharType();
+
+    public static final BlockEncodingFactory<?> BLOCK_ENCODING_FACTORY = new VariableWidthBlockEncodingFactory(VARCHAR);
 
     @JsonCreator
     public VarcharType()
