@@ -18,7 +18,7 @@ import com.facebook.presto.spi.type.Type;
 import java.util.List;
 
 import static com.facebook.presto.operator.aggregation.ApproximateAverageAggregations.DOUBLE_APPROXIMATE_AVERAGE_AGGREGATION;
-import static com.facebook.presto.type.DoubleType.DOUBLE;
+import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 
 public class TestDoubleApproximateAverageAggregation
         extends AbstractTestApproximateAggregationFunction

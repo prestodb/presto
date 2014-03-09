@@ -25,7 +25,7 @@ import static com.facebook.presto.operator.PageAssertions.assertPageEquals;
 import static com.facebook.presto.serde.PagesSerde.readPages;
 import static com.facebook.presto.serde.PagesSerde.writePages;
 import static com.facebook.presto.serde.TestingBlockEncodingManager.createTestingBlockEncodingManager;
-import static com.facebook.presto.type.VarcharType.VARCHAR;
+import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static org.testng.Assert.assertFalse;
 
 public class TestPagesSerde

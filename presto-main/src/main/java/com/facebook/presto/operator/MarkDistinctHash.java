@@ -20,7 +20,7 @@ import com.facebook.presto.spi.type.Type;
 
 import java.util.List;
 
-import static com.facebook.presto.type.BooleanType.BOOLEAN;
+import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 
 public class MarkDistinctHash
 {

@@ -47,7 +47,7 @@ import com.facebook.presto.sql.planner.plan.PlanFragmentId;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.facebook.presto.sql.planner.plan.TableScanNode;
 import com.facebook.presto.type.TypeRegistry;
-import com.facebook.presto.type.VarcharType;
+import com.facebook.presto.spi.type.VarcharType;
 import com.facebook.presto.util.Threads;
 import com.google.common.base.Optional;
 import com.google.common.collect.HashMultimap;

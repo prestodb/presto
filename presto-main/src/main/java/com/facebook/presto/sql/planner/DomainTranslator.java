@@ -59,7 +59,7 @@ import static com.facebook.presto.sql.tree.ComparisonExpression.Type.GREATER_THA
 import static com.facebook.presto.sql.tree.ComparisonExpression.Type.LESS_THAN;
 import static com.facebook.presto.sql.tree.ComparisonExpression.Type.LESS_THAN_OR_EQUAL;
 import static com.facebook.presto.sql.tree.ComparisonExpression.Type.NOT_EQUAL;
-import static com.facebook.presto.type.BigintType.BIGINT;
+import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;

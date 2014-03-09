@@ -72,7 +72,7 @@ import static com.facebook.presto.sql.planner.plan.TableScanNode.GeneratedPartit
 import static com.facebook.presto.sql.tree.FunctionCall.argumentsGetter;
 import static com.facebook.presto.sql.tree.FunctionCall.distinctPredicate;
 import static com.facebook.presto.sql.tree.SortItem.sortKeyGetter;
-import static com.facebook.presto.type.BooleanType.BOOLEAN;
+import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.type.Types.fromColumnType;
 import static com.google.common.base.Preconditions.checkState;
 

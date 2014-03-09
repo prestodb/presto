@@ -20,7 +20,7 @@ import io.airlift.slice.DynamicSliceOutput;
 import org.testng.annotations.Test;
 
 import static com.facebook.presto.block.BlockAssertions.assertBlockEquals;
-import static com.facebook.presto.type.VarcharType.VARCHAR;
+import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 
 public class TestDictionaryEncodedBlockSerde
 {

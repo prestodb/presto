@@ -56,7 +56,7 @@ import com.facebook.presto.sql.tree.TableSubquery;
 import com.facebook.presto.sql.tree.Union;
 import com.facebook.presto.sql.tree.Values;
 import com.facebook.presto.sql.tree.Window;
-import com.facebook.presto.type.NullType;
+import com.facebook.presto.spi.type.NullType;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.base.Function;
 import com.google.common.base.Joiner;
@@ -96,7 +96,7 @@ import static com.facebook.presto.sql.analyzer.SemanticErrorCode.ORDER_BY_MUST_B
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.TYPE_MISMATCH;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.WILDCARD_WITHOUT_FROM;
 import static com.facebook.presto.sql.planner.ExpressionInterpreter.expressionOptimizer;
-import static com.facebook.presto.type.BooleanType.BOOLEAN;
+import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.type.Types.fromColumnType;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;

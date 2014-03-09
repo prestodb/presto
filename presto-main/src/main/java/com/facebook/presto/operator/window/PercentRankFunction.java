@@ -16,7 +16,7 @@ package com.facebook.presto.operator.window;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.type.Type;
 
-import static com.facebook.presto.type.DoubleType.DOUBLE;
+import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 
 public class PercentRankFunction
         implements WindowFunction

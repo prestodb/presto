@@ -11,52 +11,42 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.block.uncompressed;
+package com.facebook.presto.spi.block;
 
-import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.block.BlockCursor;
-import com.facebook.presto.spi.block.RandomAccessBlock;
+import com.facebook.presto.spi.type.FixedWidthType;
 import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.type.VariableWidthType;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 
 import static io.airlift.slice.SizeOf.SIZE_OF_BYTE;
 import static java.util.Objects.requireNonNull;
 
-public class VariableWidthBlockCursor
+public class FixedWidthBlockCursor
         implements BlockCursor
 {
-    private final VariableWidthType type;
-    private final int positionCount;
+    private final FixedWidthType type;
+    private final int entrySize;
     private final Slice slice;
+    private final int positionCount;
 
     private int position;
-    private int entryOffset;
-    private int entrySize;
-    private boolean isNull;
+    private int offset;
 
-    public VariableWidthBlockCursor(VariableWidthType type, int positionCount, Slice slice)
+    public FixedWidthBlockCursor(FixedWidthType type, int positionCount, Slice slice)
     {
         this.type = requireNonNull(type, "type is null");
-        this.slice = requireNonNull(slice, "slice is null");
+        this.entrySize = type.getFixedSize() + SIZE_OF_BYTE;
+
         if (!(positionCount >= 0)) {
             throw new IllegalArgumentException(String.valueOf("positionCount is negative"));
         }
         this.positionCount = positionCount;
 
-        entryOffset = 0;
-        entrySize = 0;
+        this.slice = requireNonNull(slice, "slice is null");
 
         // start one position before the start
         position = -1;
-    }
-
-    // Accessible for VariableWidthRandomAccessBlock
-    int getRawOffset()
-    {
-        return entryOffset;
+        offset = -entrySize;
     }
 
     @Override
@@ -98,26 +88,27 @@ public class VariableWidthBlockCursor
             return false;
         }
 
-        nextPosition();
+        position++;
+        offset += entrySize;
         return true;
     }
 
     @Override
     public boolean advanceToPosition(int newPosition)
     {
+        // if new position is out of range, return false
         if (newPosition >= positionCount) {
             position = positionCount;
             return false;
         }
 
-        if (!(newPosition >= this.position)) {
+        if (!(newPosition >= position)) {
             throw new IllegalArgumentException(String.valueOf("Can't advance backwards"));
         }
 
-        // advance to specified position
-        while (position < newPosition) {
-            nextPosition();
-        }
+        offset += (newPosition - position) * entrySize;
+        position = newPosition;
+
         return true;
     }
 
@@ -125,29 +116,15 @@ public class VariableWidthBlockCursor
     public Block getRegionAndAdvance(int length)
     {
         // view port starts at next position
-        int startOffset = entryOffset + entrySize;
+        int startOffset = offset + entrySize;
         length = Math.min(length, getRemainingPositions());
 
         // advance to end of view port
-        for (int i = 0; i < length; i++) {
-            nextPosition();
-        }
+        offset += length * entrySize;
+        position += length;
 
-        Slice newSlice = slice.slice(startOffset, entryOffset + entrySize - startOffset);
-        return new VariableWidthBlock(type, length, newSlice);
-    }
-
-    private void nextPosition()
-    {
-        position++;
-        entryOffset += entrySize;
-        isNull = slice.getByte(entryOffset) != 0;
-        if (isNull) {
-            entrySize = SIZE_OF_BYTE;
-        }
-        else {
-            entrySize = type.getLength(slice, entryOffset + SIZE_OF_BYTE) + SIZE_OF_BYTE;
-        }
+        Slice newSlice = slice.slice(startOffset, length * entrySize);
+        return new FixedWidthBlock(type, length, newSlice);
     }
 
     @Override
@@ -162,86 +139,84 @@ public class VariableWidthBlockCursor
     {
         checkReadablePosition();
 
+        // TODO: add Slices.copyOf() to airlift
         Slice copy = Slices.allocate(entrySize);
-        copy.setBytes(0, slice, entryOffset, entrySize);
+        copy.setBytes(0, slice, offset, entrySize);
 
-        return new VariableWidthRandomAccessBlock(type, 1, copy);
+        return new FixedWidthBlock(type, 1, copy);
     }
 
     @Override
     public boolean getBoolean()
     {
-        throw new UnsupportedOperationException();
+        checkReadablePosition();
+        return type.getBoolean(slice, offset + SIZE_OF_BYTE);
     }
 
     @Override
     public long getLong()
     {
-        throw new UnsupportedOperationException();
+        checkReadablePosition();
+        return type.getLong(slice, offset + SIZE_OF_BYTE);
     }
 
     @Override
     public double getDouble()
     {
-        throw new UnsupportedOperationException();
+        checkReadablePosition();
+        return type.getDouble(slice, offset + SIZE_OF_BYTE);
     }
 
     @Override
     public Slice getSlice()
     {
         checkReadablePosition();
-        return type.getSlice(slice, entryOffset + SIZE_OF_BYTE);
+        return type.getSlice(slice, offset + SIZE_OF_BYTE);
     }
 
     @Override
     public Object getObjectValue()
     {
         checkReadablePosition();
-        if (isNull) {
+        if (isNull()) {
             return null;
         }
-        return type.getObjectValue(slice, entryOffset + SIZE_OF_BYTE);
+        return type.getObjectValue(slice, offset + SIZE_OF_BYTE);
     }
 
     @Override
     public boolean isNull()
     {
         checkReadablePosition();
-        return isNull;
+        return slice.getByte(offset) != 0;
     }
 
     @Override
     public int compareTo(Slice rightSlice, int rightOffset)
     {
         checkReadablePosition();
-        return type.compareTo(slice, entryOffset + SIZE_OF_BYTE, rightSlice, rightOffset);
-    }
-
-    public boolean equalTo(Slice rightSlice, int rightOffset)
-    {
-        checkReadablePosition();
-        return type.equals(slice, entryOffset + SIZE_OF_BYTE, rightSlice, rightOffset);
+        return type.compareTo(slice, offset + SIZE_OF_BYTE, rightSlice, rightOffset);
     }
 
     @Override
     public int calculateHashCode()
     {
         checkReadablePosition();
-        if (isNull) {
+        if (slice.getByte(offset) != 0) {
             return 0;
         }
-        return type.hashCode(slice, entryOffset + SIZE_OF_BYTE);
+        return type.hashCode(slice, offset + SIZE_OF_BYTE);
     }
 
     @Override
     public void appendTo(BlockBuilder blockBuilder)
     {
         checkReadablePosition();
-        if (isNull) {
+        if (slice.getByte(offset) != 0) {
             blockBuilder.appendNull();
         }
         else {
-            type.appendTo(slice, entryOffset + SIZE_OF_BYTE, blockBuilder);
+            type.appendTo(slice, offset + SIZE_OF_BYTE, blockBuilder);
         }
     }
 }

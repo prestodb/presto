@@ -69,8 +69,8 @@ import static com.facebook.presto.sql.ExpressionUtils.and;
 import static com.facebook.presto.sql.ExpressionUtils.combineConjuncts;
 import static com.facebook.presto.sql.ExpressionUtils.or;
 import static com.facebook.presto.sql.planner.plan.TableScanNode.GeneratedPartitions;
-import static com.facebook.presto.type.BigintType.BIGINT;
-import static com.facebook.presto.type.NullType.NULL;
+import static com.facebook.presto.spi.type.BigintType.BIGINT;
+import static com.facebook.presto.spi.type.NullType.NULL;
 
 @Test(singleThreaded = true)
 public class TestEffectivePredicateExtractor

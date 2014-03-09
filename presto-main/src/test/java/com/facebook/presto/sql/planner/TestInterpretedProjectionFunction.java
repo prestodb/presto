@@ -31,10 +31,10 @@ import java.util.Map.Entry;
 
 import static com.facebook.presto.connector.dual.DualMetadata.DUAL_METADATA_MANAGER;
 import static com.facebook.presto.operator.scalar.FunctionAssertions.createExpression;
-import static com.facebook.presto.type.BigintType.BIGINT;
-import static com.facebook.presto.type.BooleanType.BOOLEAN;
-import static com.facebook.presto.type.DoubleType.DOUBLE;
-import static com.facebook.presto.type.VarcharType.VARCHAR;
+import static com.facebook.presto.spi.type.BigintType.BIGINT;
+import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
+import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
+import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
 

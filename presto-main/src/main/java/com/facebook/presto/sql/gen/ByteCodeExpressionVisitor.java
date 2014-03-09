@@ -83,7 +83,7 @@ import static com.facebook.presto.byteCode.instruction.Constant.loadDouble;
 import static com.facebook.presto.byteCode.instruction.Constant.loadLong;
 import static com.facebook.presto.byteCode.instruction.JumpInstruction.jump;
 import static com.facebook.presto.sql.gen.SliceConstant.sliceConstant;
-import static com.facebook.presto.type.NullType.NULL;
+import static com.facebook.presto.spi.type.NullType.NULL;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.Iterables.transform;
 import static java.lang.String.format;

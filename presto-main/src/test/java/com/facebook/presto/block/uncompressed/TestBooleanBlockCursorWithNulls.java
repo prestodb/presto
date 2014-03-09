@@ -17,7 +17,7 @@ import com.facebook.presto.spi.block.Block;
 import org.testng.annotations.Test;
 
 import static com.facebook.presto.block.BlockAssertions.createBooleansBlock;
-import static com.facebook.presto.type.BooleanType.BOOLEAN;
+import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static org.testng.Assert.assertEquals;
 
 public class TestBooleanBlockCursorWithNulls

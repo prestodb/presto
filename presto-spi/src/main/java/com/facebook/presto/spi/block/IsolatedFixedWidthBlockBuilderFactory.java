@@ -11,14 +11,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.block;
+package com.facebook.presto.spi.block;
 
-import com.facebook.presto.block.FixedWidthBlockUtil.FixedWidthBlockBuilderFactory;
-import com.facebook.presto.block.uncompressed.FixedWidthBlockEncoding.FixedWidthBlockEncodingFactory;
-import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.block.BlockBuilderStatus;
+import com.facebook.presto.spi.block.FixedWidthBlockUtil.FixedWidthBlockBuilderFactory;
+import com.facebook.presto.spi.block.FixedWidthBlockEncoding.FixedWidthBlockEncodingFactory;
 import com.facebook.presto.spi.block.BlockEncoding.BlockEncodingFactory;
-import com.facebook.presto.type.FixedWidthType;
+import com.facebook.presto.spi.type.FixedWidthType;
 
 import static java.util.Objects.requireNonNull;
 
