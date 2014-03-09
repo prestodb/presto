@@ -13,14 +13,14 @@
  */
 package com.facebook.presto.block;
 
+import com.facebook.presto.block.FixedWidthBlockUtil.FixedWidthBlockBuilderFactory;
+import com.facebook.presto.block.uncompressed.FixedWidthBlockEncoding.FixedWidthBlockEncodingFactory;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.block.BlockEncoding.BlockEncodingFactory;
-import com.facebook.presto.block.FixedWidthBlockUtil.FixedWidthBlockBuilderFactory;
-import com.facebook.presto.block.uncompressed.FixedWidthBlockEncoding.FixedWidthBlockEncodingFactory;
 import com.facebook.presto.type.FixedWidthType;
 
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 
 public class IsolatedFixedWidthBlockBuilderFactory
         implements FixedWidthBlockBuilderFactory
@@ -30,7 +30,7 @@ public class IsolatedFixedWidthBlockBuilderFactory
 
     public IsolatedFixedWidthBlockBuilderFactory(FixedWidthType type)
     {
-        this.type = checkNotNull(type, "type is null");
+        this.type = requireNonNull(type, "type is null");
         blockEncodingFactory = new FixedWidthBlockEncodingFactory(type);
     }
 

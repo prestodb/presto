@@ -25,7 +25,7 @@ import static com.facebook.presto.metadata.OperatorInfo.OperatorType.HASH_CODE;
 import static com.facebook.presto.metadata.OperatorInfo.OperatorType.LESS_THAN;
 import static com.facebook.presto.metadata.OperatorInfo.OperatorType.LESS_THAN_OR_EQUAL;
 import static com.facebook.presto.metadata.OperatorInfo.OperatorType.NOT_EQUAL;
-import static com.google.common.base.Charsets.UTF_8;
+import static java.nio.charset.StandardCharsets.UTF_8;
 
 public final class VarcharOperators
 {

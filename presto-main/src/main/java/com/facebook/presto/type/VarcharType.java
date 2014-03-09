@@ -13,18 +13,18 @@
  */
 package com.facebook.presto.type;
 
+import com.facebook.presto.block.VariableWidthBlockBuilder;
+import com.facebook.presto.spi.ColumnType;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.block.BlockCursor;
-import com.facebook.presto.block.VariableWidthBlockBuilder;
-import com.facebook.presto.spi.ColumnType;
 import com.facebook.presto.spi.type.Type;
 import com.fasterxml.jackson.annotation.JsonCreator;
-import com.google.common.base.Charsets;
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceOutput;
 
 import static io.airlift.slice.SizeOf.SIZE_OF_INT;
+import static java.nio.charset.StandardCharsets.UTF_8;
 
 public class VarcharType
         implements VariableWidthType
@@ -57,7 +57,7 @@ public class VarcharType
     @Override
     public Object getObjectValue(Slice slice, int offset)
     {
-        return slice.toString(offset + SIZE_OF_INT, getValueSize(slice, offset), Charsets.UTF_8);
+        return slice.toString(offset + SIZE_OF_INT, getValueSize(slice, offset), UTF_8);
     }
 
     @Override
