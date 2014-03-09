@@ -13,7 +13,9 @@
  */
 package com.facebook.presto.block;
 
-import com.facebook.presto.block.BlockEncoding.BlockEncodingFactory;
+import com.facebook.presto.spi.block.BlockBuilder;
+import com.facebook.presto.spi.block.BlockBuilderStatus;
+import com.facebook.presto.spi.block.BlockEncoding.BlockEncodingFactory;
 import com.facebook.presto.block.uncompressed.AbstractFixedWidthBlock;
 import com.facebook.presto.block.uncompressed.FixedWidthBlock;
 import com.facebook.presto.block.uncompressed.FixedWidthBlockCursor;

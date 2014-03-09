@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.operator;
 
-import com.facebook.presto.block.BlockEncodingSerde;
+import com.facebook.presto.spi.block.BlockEncodingSerde;
 import com.facebook.presto.operator.HttpPageBufferClient.ClientCallback;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Sets;

@@ -13,11 +13,12 @@
  */
 package com.facebook.presto.type;
 
-import com.facebook.presto.block.BlockBuilder;
-import com.facebook.presto.block.BlockBuilderStatus;
-import com.facebook.presto.block.BlockCursor;
+import com.facebook.presto.spi.block.BlockBuilder;
+import com.facebook.presto.spi.block.BlockBuilderStatus;
+import com.facebook.presto.spi.block.BlockCursor;
 import com.facebook.presto.block.VariableWidthBlockBuilder;
 import com.facebook.presto.spi.ColumnType;
+import com.facebook.presto.spi.type.Type;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.google.common.base.Charsets;
 import io.airlift.slice.Slice;

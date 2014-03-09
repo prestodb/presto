@@ -21,7 +21,7 @@ import com.facebook.presto.sql.tree.ExpressionRewriter;
 import com.facebook.presto.sql.tree.ExpressionTreeRewriter;
 import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.sql.tree.QualifiedNameReference;
-import com.facebook.presto.type.Type;
+import com.facebook.presto.spi.type.Type;
 import com.google.common.base.Preconditions;
 
 import java.util.HashMap;

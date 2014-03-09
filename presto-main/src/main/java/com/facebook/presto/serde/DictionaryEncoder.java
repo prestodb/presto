@@ -13,13 +13,13 @@
  */
 package com.facebook.presto.serde;
 
-import com.facebook.presto.block.Block;
-import com.facebook.presto.block.BlockBuilder;
-import com.facebook.presto.block.BlockBuilderStatus;
-import com.facebook.presto.block.BlockCursor;
-import com.facebook.presto.block.BlockEncoding;
+import com.facebook.presto.spi.block.Block;
+import com.facebook.presto.spi.block.BlockBuilder;
+import com.facebook.presto.spi.block.BlockBuilderStatus;
+import com.facebook.presto.spi.block.BlockCursor;
+import com.facebook.presto.spi.block.BlockEncoding;
 import com.facebook.presto.block.dictionary.DictionaryBlockEncoding;
-import com.facebook.presto.type.Type;
+import com.facebook.presto.spi.type.Type;
 
 import static com.facebook.presto.type.BigintType.BIGINT;
 import static com.google.common.base.Preconditions.checkNotNull;

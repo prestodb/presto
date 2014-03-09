@@ -14,10 +14,10 @@
 package com.facebook.presto.block.dictionary;
 
 import com.facebook.presto.block.AbstractTestBlockCursor;
-import com.facebook.presto.block.Block;
-import com.facebook.presto.block.BlockBuilderStatus;
-import com.facebook.presto.block.BlockCursor;
-import com.facebook.presto.block.RandomAccessBlock;
+import com.facebook.presto.spi.block.Block;
+import com.facebook.presto.spi.block.BlockBuilderStatus;
+import com.facebook.presto.spi.block.BlockCursor;
+import com.facebook.presto.spi.block.RandomAccessBlock;
 import org.testng.annotations.Test;
 
 import static com.facebook.presto.block.BlockAssertions.createLongsBlock;

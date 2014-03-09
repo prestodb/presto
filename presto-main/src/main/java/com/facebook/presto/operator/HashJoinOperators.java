@@ -15,7 +15,7 @@ package com.facebook.presto.operator;
 
 import com.facebook.presto.operator.HashBuilderOperator.HashSupplier;
 import com.facebook.presto.sql.gen.JoinProbeCompiler;
-import com.facebook.presto.type.Type;
+import com.facebook.presto.spi.type.Type;
 
 import java.util.List;
 

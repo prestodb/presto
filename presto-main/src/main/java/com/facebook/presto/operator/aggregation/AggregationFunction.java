@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.operator.aggregation;
 
-import com.facebook.presto.type.Type;
+import com.facebook.presto.spi.type.Type;
 import com.google.common.base.Optional;
 
 import java.util.List;

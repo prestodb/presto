@@ -13,9 +13,8 @@
  */
 package com.facebook.presto.server;
 
-import com.facebook.presto.block.BlockCursor;
-import com.facebook.presto.client.FailureInfo;
 import com.facebook.presto.client.Column;
+import com.facebook.presto.client.FailureInfo;
 import com.facebook.presto.client.QueryError;
 import com.facebook.presto.client.QueryResults;
 import com.facebook.presto.client.StageStats;
@@ -31,6 +30,7 @@ import com.facebook.presto.execution.StageState;
 import com.facebook.presto.execution.TaskInfo;
 import com.facebook.presto.operator.ExchangeClient;
 import com.facebook.presto.operator.Page;
+import com.facebook.presto.spi.block.BlockCursor;
 import com.facebook.presto.sql.analyzer.Session;
 import com.facebook.presto.util.IterableTransformer;
 import com.google.common.base.Preconditions;

@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.operator;
 
-import com.facebook.presto.type.Type;
+import com.facebook.presto.spi.type.Type;
 
 import java.io.Closeable;
 import java.util.List;

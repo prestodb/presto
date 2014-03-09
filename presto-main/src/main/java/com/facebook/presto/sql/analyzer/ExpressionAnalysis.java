@@ -17,7 +17,7 @@ import com.facebook.presto.metadata.FunctionInfo;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.InPredicate;
-import com.facebook.presto.type.Type;
+import com.facebook.presto.spi.type.Type;
 
 import java.util.IdentityHashMap;
 import java.util.Set;

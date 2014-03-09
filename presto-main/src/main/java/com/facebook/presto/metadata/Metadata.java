@@ -19,7 +19,7 @@ import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.OutputTableHandle;
 import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.sql.tree.QualifiedName;
-import com.facebook.presto.type.Type;
+import com.facebook.presto.spi.type.Type;
 import com.google.common.base.Optional;
 
 import javax.validation.constraints.NotNull;

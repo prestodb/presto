@@ -18,6 +18,7 @@ import com.facebook.presto.execution.TaskId;
 import com.facebook.presto.operator.WindowOperator.WindowOperatorFactory;
 import com.facebook.presto.operator.window.RowNumberFunction;
 import com.facebook.presto.operator.window.WindowFunction;
+import com.facebook.presto.spi.block.SortOrder;
 import com.facebook.presto.sql.analyzer.Session;
 import com.facebook.presto.util.MaterializedResult;
 import com.google.common.collect.ImmutableList;

@@ -13,12 +13,12 @@
  */
 package com.facebook.presto.block.dictionary;
 
-import com.facebook.presto.block.Block;
-import com.facebook.presto.block.BlockEncoding;
-import com.facebook.presto.block.BlockEncodingSerde;
-import com.facebook.presto.block.RandomAccessBlock;
-import com.facebook.presto.type.Type;
-import com.facebook.presto.type.TypeManager;
+import com.facebook.presto.spi.block.Block;
+import com.facebook.presto.spi.block.BlockEncoding;
+import com.facebook.presto.spi.block.BlockEncodingSerde;
+import com.facebook.presto.spi.block.RandomAccessBlock;
+import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.spi.type.TypeManager;
 import com.google.common.base.Preconditions;
 import io.airlift.slice.SliceInput;
 import io.airlift.slice.SliceOutput;

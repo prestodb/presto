@@ -13,10 +13,10 @@
  */
 package com.facebook.presto.operator;
 
-import com.facebook.presto.block.BlockBuilder;
-import com.facebook.presto.block.BlockCursor;
+import com.facebook.presto.spi.block.BlockBuilder;
+import com.facebook.presto.spi.block.BlockCursor;
 import com.facebook.presto.spi.RecordCursor;
-import com.facebook.presto.type.Type;
+import com.facebook.presto.spi.type.Type;
 
 public interface ProjectionFunction
 {

@@ -18,7 +18,7 @@ import com.facebook.presto.spi.RecordCursor;
 import com.facebook.presto.spi.Split;
 import com.facebook.presto.split.DataStreamProvider;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
-import com.facebook.presto.type.Type;
+import com.facebook.presto.spi.type.Type;
 import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListenableFuture;

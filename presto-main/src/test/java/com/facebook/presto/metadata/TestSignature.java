@@ -16,7 +16,7 @@ package com.facebook.presto.metadata;
 import com.facebook.presto.type.BigintType;
 import com.facebook.presto.type.BooleanType;
 import com.facebook.presto.type.DoubleType;
-import com.facebook.presto.type.Type;
+import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.type.TypeDeserializer;
 import com.facebook.presto.type.TypeRegistry;
 import com.facebook.presto.type.VarcharType;
