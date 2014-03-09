@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.block.uncompressed;
 
-import com.facebook.presto.serde.TypeSerde;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockEncoding;
 import com.facebook.presto.spi.block.BlockEncodingSerde;
@@ -30,9 +29,6 @@ import static java.util.Objects.requireNonNull;
 public class VariableWidthBlockEncoding
         implements BlockEncoding
 {
-    public static final BlockEncodingFactory<VariableWidthBlockEncoding> FACTORY = new VariableWidthBlockEncodingFactory();
-    private static final String NAME = "VARIABLE_WIDTH";
-
     private final VariableWidthType type;
 
     public VariableWidthBlockEncoding(Type type)
@@ -43,7 +39,7 @@ public class VariableWidthBlockEncoding
     @Override
     public String getName()
     {
-        return NAME;
+        return type.getName();
     }
 
     @Override
@@ -95,26 +91,31 @@ public class VariableWidthBlockEncoding
                 .writeBytes(slice);
     }
 
-    private static class VariableWidthBlockEncodingFactory
+    public static class VariableWidthBlockEncodingFactory
             implements BlockEncodingFactory<VariableWidthBlockEncoding>
     {
+        private final Type type;
+
+        public VariableWidthBlockEncodingFactory(Type type)
+        {
+            this.type = type;
+        }
+
         @Override
         public String getName()
         {
-            return NAME;
+            return type.getName();
         }
 
         @Override
         public VariableWidthBlockEncoding readEncoding(TypeManager typeManager, BlockEncodingSerde blockEncodingSerde, SliceInput input)
         {
-            Type type = TypeSerde.readType(typeManager, input);
             return new VariableWidthBlockEncoding(type);
         }
 
         @Override
         public void writeEncoding(BlockEncodingSerde blockEncodingSerde, SliceOutput output, VariableWidthBlockEncoding blockEncoding)
         {
-            TypeSerde.writeInfo(output, blockEncoding.getType());
         }
     }
 }
