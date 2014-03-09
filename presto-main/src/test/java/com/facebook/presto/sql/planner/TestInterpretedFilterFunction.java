@@ -17,7 +17,7 @@ import com.facebook.presto.sql.analyzer.Session;
 import com.facebook.presto.sql.tree.ComparisonExpression;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.Input;
-import com.facebook.presto.type.Type;
+import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;
 

@@ -32,7 +32,7 @@ import com.facebook.presto.sql.tree.TimestampLiteral;
 import com.facebook.presto.type.BigintType;
 import com.facebook.presto.type.BooleanType;
 import com.facebook.presto.type.DoubleType;
-import com.facebook.presto.type.Type;
+import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.type.VarcharType;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;

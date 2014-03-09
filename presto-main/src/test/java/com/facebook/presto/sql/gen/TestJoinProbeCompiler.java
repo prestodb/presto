@@ -14,8 +14,8 @@
 package com.facebook.presto.sql.gen;
 
 import com.facebook.presto.block.BlockAssertions;
-import com.facebook.presto.block.BlockCursor;
-import com.facebook.presto.block.RandomAccessBlock;
+import com.facebook.presto.spi.block.BlockCursor;
+import com.facebook.presto.spi.block.RandomAccessBlock;
 import com.facebook.presto.execution.TaskId;
 import com.facebook.presto.operator.DriverContext;
 import com.facebook.presto.operator.JoinHash;

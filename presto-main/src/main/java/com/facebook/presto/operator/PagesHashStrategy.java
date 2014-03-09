@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.operator;
 
-import com.facebook.presto.block.BlockCursor;
+import com.facebook.presto.spi.block.BlockCursor;
 
 public interface PagesHashStrategy
 {

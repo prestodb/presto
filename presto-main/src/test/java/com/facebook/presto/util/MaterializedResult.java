@@ -13,10 +13,10 @@
  */
 package com.facebook.presto.util;
 
-import com.facebook.presto.block.Block;
-import com.facebook.presto.block.BlockCursor;
+import com.facebook.presto.spi.block.Block;
+import com.facebook.presto.spi.block.BlockCursor;
 import com.facebook.presto.operator.Page;
-import com.facebook.presto.type.Type;
+import com.facebook.presto.spi.type.Type;
 import com.google.common.base.Objects;
 import com.google.common.collect.ImmutableList;
 

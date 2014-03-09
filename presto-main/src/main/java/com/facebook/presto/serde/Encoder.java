@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.serde;
 
-import com.facebook.presto.block.Block;
-import com.facebook.presto.block.BlockEncoding;
+import com.facebook.presto.spi.block.Block;
+import com.facebook.presto.spi.block.BlockEncoding;
 
 public interface Encoder
 {

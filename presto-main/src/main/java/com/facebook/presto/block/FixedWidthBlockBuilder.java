@@ -15,6 +15,9 @@ package com.facebook.presto.block;
 
 import com.facebook.presto.block.uncompressed.AbstractFixedWidthBlock;
 import com.facebook.presto.block.uncompressed.FixedWidthBlock;
+import com.facebook.presto.spi.block.BlockBuilder;
+import com.facebook.presto.spi.block.BlockBuilderStatus;
+import com.facebook.presto.spi.block.RandomAccessBlock;
 import com.facebook.presto.type.FixedWidthType;
 import com.google.common.base.Charsets;
 import com.google.common.base.Objects;

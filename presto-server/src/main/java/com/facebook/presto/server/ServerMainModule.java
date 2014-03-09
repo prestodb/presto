@@ -13,9 +13,9 @@
  */
 package com.facebook.presto.server;
 
-import com.facebook.presto.block.BlockEncoding.BlockEncodingFactory;
+import com.facebook.presto.spi.block.BlockEncoding.BlockEncodingFactory;
 import com.facebook.presto.block.BlockEncodingManager;
-import com.facebook.presto.block.BlockEncodingSerde;
+import com.facebook.presto.spi.block.BlockEncodingSerde;
 import com.facebook.presto.block.dictionary.DictionaryBlockEncoding;
 import com.facebook.presto.block.rle.RunLengthBlockEncoding;
 import com.facebook.presto.block.snappy.SnappyBlockEncoding;
@@ -82,9 +82,9 @@ import com.facebook.presto.type.BigintType;
 import com.facebook.presto.type.BooleanType;
 import com.facebook.presto.type.DoubleType;
 import com.facebook.presto.type.NullType;
-import com.facebook.presto.type.Type;
+import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.type.TypeDeserializer;
-import com.facebook.presto.type.TypeManager;
+import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.type.TypeRegistry;
 import com.facebook.presto.util.Threads;
 import com.google.common.base.Supplier;

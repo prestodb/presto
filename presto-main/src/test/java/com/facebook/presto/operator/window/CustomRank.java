@@ -13,9 +13,9 @@
  */
 package com.facebook.presto.operator.window;
 
-import com.facebook.presto.block.BlockBuilder;
+import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.type.BigintType;
-import com.facebook.presto.type.Type;
+import com.facebook.presto.spi.type.Type;
 
 public class CustomRank
         implements WindowFunction

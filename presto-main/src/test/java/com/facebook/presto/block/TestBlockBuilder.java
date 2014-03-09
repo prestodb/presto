@@ -13,6 +13,8 @@
  */
 package com.facebook.presto.block;
 
+import com.facebook.presto.spi.block.BlockBuilderStatus;
+import com.facebook.presto.spi.block.BlockCursor;
 import org.testng.annotations.Test;
 
 import static com.facebook.presto.type.BigintType.BIGINT;

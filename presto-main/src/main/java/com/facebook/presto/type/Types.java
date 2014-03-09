@@ -14,6 +14,7 @@
 package com.facebook.presto.type;
 
 import com.facebook.presto.spi.ColumnType;
+import com.facebook.presto.spi.type.Type;
 import com.google.common.base.Function;
 
 import static com.facebook.presto.type.BigintType.BIGINT;

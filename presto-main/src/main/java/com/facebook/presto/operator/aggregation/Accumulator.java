@@ -13,9 +13,9 @@
  */
 package com.facebook.presto.operator.aggregation;
 
-import com.facebook.presto.block.Block;
+import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.operator.Page;
-import com.facebook.presto.type.Type;
+import com.facebook.presto.spi.type.Type;
 
 public interface Accumulator
 {

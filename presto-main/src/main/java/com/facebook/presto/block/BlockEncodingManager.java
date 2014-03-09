@@ -13,8 +13,10 @@
  */
 package com.facebook.presto.block;
 
-import com.facebook.presto.block.BlockEncoding.BlockEncodingFactory;
-import com.facebook.presto.type.TypeManager;
+import com.facebook.presto.spi.block.BlockEncoding;
+import com.facebook.presto.spi.block.BlockEncoding.BlockEncodingFactory;
+import com.facebook.presto.spi.block.BlockEncodingSerde;
+import com.facebook.presto.spi.type.TypeManager;
 import com.google.common.base.Charsets;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.slice.SliceInput;

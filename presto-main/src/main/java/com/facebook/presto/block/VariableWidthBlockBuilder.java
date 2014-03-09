@@ -15,7 +15,10 @@ package com.facebook.presto.block;
 
 import com.facebook.presto.block.uncompressed.AbstractVariableWidthRandomAccessBlock;
 import com.facebook.presto.block.uncompressed.VariableWidthRandomAccessBlock;
-import com.facebook.presto.type.Type;
+import com.facebook.presto.spi.block.BlockBuilder;
+import com.facebook.presto.spi.block.BlockBuilderStatus;
+import com.facebook.presto.spi.block.RandomAccessBlock;
+import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.type.VarcharType;
 import com.google.common.base.Charsets;
 import com.google.common.base.Objects;

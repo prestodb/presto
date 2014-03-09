@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.sql.gen;
 
-import com.facebook.presto.block.BlockBuilder;
-import com.facebook.presto.block.BlockCursor;
+import com.facebook.presto.spi.block.BlockBuilder;
+import com.facebook.presto.spi.block.BlockCursor;
 import com.facebook.presto.byteCode.Block;
 import com.facebook.presto.byteCode.ClassDefinition;
 import com.facebook.presto.byteCode.ClassInfoLoader;
@@ -37,7 +37,7 @@ import com.facebook.presto.operator.OperatorFactory;
 import com.facebook.presto.operator.Page;
 import com.facebook.presto.operator.PageBuilder;
 import com.facebook.presto.operator.aggregation.IsolatedClass;
-import com.facebook.presto.type.Type;
+import com.facebook.presto.spi.type.Type;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Objects;
 import com.google.common.base.Throwables;
@@ -237,8 +237,8 @@ public class JoinProbeCompiler
                     .pushThis()
                     .getVariable("page")
                     .push(index)
-                    .invokeVirtual(Page.class, "getBlock", com.facebook.presto.block.Block.class, int.class)
-                    .invokeInterface(com.facebook.presto.block.Block.class, "cursor", BlockCursor.class)
+                    .invokeVirtual(Page.class, "getBlock", com.facebook.presto.spi.block.Block.class, int.class)
+                    .invokeInterface(com.facebook.presto.spi.block.Block.class, "cursor", BlockCursor.class)
                     .putField(cursorFields.get(index));
         }
 

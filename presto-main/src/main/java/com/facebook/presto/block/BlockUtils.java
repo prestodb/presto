@@ -13,7 +13,8 @@
  */
 package com.facebook.presto.block;
 
-import com.facebook.presto.type.Type;
+import com.facebook.presto.spi.block.Block;
+import com.facebook.presto.spi.type.Type;
 import com.google.common.base.Optional;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Iterators;

@@ -17,7 +17,7 @@ import com.facebook.presto.operator.aggregation.ApproximateCountDistinctAggregat
 import com.facebook.presto.operator.aggregation.ApproximateCountDistinctAggregation.ApproximateCountDistinctGroupedAccumulator;
 import com.facebook.presto.operator.aggregation.SimpleAggregationFunction.SimpleAccumulator;
 import com.facebook.presto.operator.aggregation.SimpleAggregationFunction.SimpleGroupedAccumulator;
-import com.facebook.presto.type.Type;
+import com.facebook.presto.spi.type.Type;
 import com.google.common.base.Throwables;
 
 import static com.facebook.presto.type.BigintType.BIGINT;

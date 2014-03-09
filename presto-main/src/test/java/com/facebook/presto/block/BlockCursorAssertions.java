@@ -13,7 +13,8 @@
  */
 package com.facebook.presto.block;
 
-import com.facebook.presto.type.Type;
+import com.facebook.presto.spi.block.BlockCursor;
+import com.facebook.presto.spi.type.Type;
 
 import java.util.SortedMap;
 import java.util.TreeMap;

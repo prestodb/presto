@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.metadata;
 
-import com.facebook.presto.block.Block;
-import com.facebook.presto.block.BlockEncodingSerde;
+import com.facebook.presto.spi.block.Block;
+import com.facebook.presto.spi.block.BlockEncodingSerde;
 import com.facebook.presto.block.BlockIterable;
 import com.facebook.presto.block.BlockUtils;
 import com.facebook.presto.execution.TaskId;

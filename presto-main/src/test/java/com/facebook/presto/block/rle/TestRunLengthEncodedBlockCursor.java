@@ -14,9 +14,9 @@
 package com.facebook.presto.block.rle;
 
 import com.facebook.presto.block.AbstractTestBlockCursor;
-import com.facebook.presto.block.Block;
-import com.facebook.presto.block.BlockBuilderStatus;
-import com.facebook.presto.block.RandomAccessBlock;
+import com.facebook.presto.spi.block.Block;
+import com.facebook.presto.spi.block.BlockBuilderStatus;
+import com.facebook.presto.spi.block.RandomAccessBlock;
 
 import static com.facebook.presto.block.BlockAssertions.createStringsBlock;
 import static com.facebook.presto.type.VarcharType.VARCHAR;

@@ -13,7 +13,8 @@
  */
 package com.facebook.presto.operator;
 
-import com.facebook.presto.block.RandomAccessBlock;
+import com.facebook.presto.spi.block.RandomAccessBlock;
+import com.facebook.presto.spi.block.SortOrder;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;

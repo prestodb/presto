@@ -13,11 +13,11 @@
  */
 package com.facebook.presto.block.snappy;
 
-import com.facebook.presto.block.Block;
-import com.facebook.presto.block.BlockCursor;
-import com.facebook.presto.block.RandomAccessBlock;
-import com.facebook.presto.block.BlockEncoding;
-import com.facebook.presto.type.Type;
+import com.facebook.presto.spi.block.Block;
+import com.facebook.presto.spi.block.BlockCursor;
+import com.facebook.presto.spi.block.RandomAccessBlock;
+import com.facebook.presto.spi.block.BlockEncoding;
+import com.facebook.presto.spi.type.Type;
 import com.google.common.base.Objects;
 import com.google.common.base.Preconditions;
 import com.google.common.primitives.Ints;

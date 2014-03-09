@@ -18,7 +18,7 @@ import com.facebook.presto.operator.aggregation.ApproximatePercentileWeightedAgg
 import com.facebook.presto.operator.aggregation.ApproximatePercentileWeightedAggregation.DigestAndPercentile;
 import com.facebook.presto.operator.aggregation.SimpleAggregationFunction.SimpleAccumulator;
 import com.facebook.presto.operator.aggregation.SimpleAggregationFunction.SimpleGroupedAccumulator;
-import com.facebook.presto.type.Type;
+import com.facebook.presto.spi.type.Type;
 import com.google.common.base.Throwables;
 
 import static com.facebook.presto.type.BigintType.BIGINT;

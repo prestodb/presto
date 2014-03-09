@@ -27,7 +27,7 @@ import com.facebook.presto.sql.tree.StringLiteral;
 import com.facebook.presto.type.BigintType;
 import com.facebook.presto.type.BooleanType;
 import com.facebook.presto.type.DoubleType;
-import com.facebook.presto.type.Type;
+import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.type.VarcharType;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.Slice;

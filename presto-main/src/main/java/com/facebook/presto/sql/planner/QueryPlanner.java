@@ -18,7 +18,7 @@ import com.facebook.presto.metadata.MetadataUtil;
 import com.facebook.presto.metadata.QualifiedTableName;
 import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.metadata.TableMetadata;
-import com.facebook.presto.operator.SortOrder;
+import com.facebook.presto.spi.block.SortOrder;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.TableHandle;

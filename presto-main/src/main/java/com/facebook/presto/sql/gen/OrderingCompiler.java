@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.sql.gen;
 
-import com.facebook.presto.block.RandomAccessBlock;
+import com.facebook.presto.spi.block.RandomAccessBlock;
 import com.facebook.presto.byteCode.Block;
 import com.facebook.presto.byteCode.ClassDefinition;
 import com.facebook.presto.byteCode.ClassInfoLoader;
@@ -29,7 +29,7 @@ import com.facebook.presto.operator.PagesIndex;
 import com.facebook.presto.operator.PagesIndexComparator;
 import com.facebook.presto.operator.PagesIndexOrdering;
 import com.facebook.presto.operator.SimplePagesIndexComparator;
-import com.facebook.presto.operator.SortOrder;
+import com.facebook.presto.spi.block.SortOrder;
 import com.facebook.presto.operator.SyntheticAddress;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Objects;

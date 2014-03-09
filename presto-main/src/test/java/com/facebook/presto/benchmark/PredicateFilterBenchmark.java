@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.benchmark;
 
-import com.facebook.presto.block.BlockCursor;
+import com.facebook.presto.spi.block.BlockCursor;
 import com.facebook.presto.operator.FilterAndProjectOperator.FilterAndProjectOperatorFactory;
 import com.facebook.presto.operator.FilterFunction;
 import com.facebook.presto.operator.OperatorFactory;

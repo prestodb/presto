@@ -13,9 +13,9 @@
  */
 package com.facebook.presto.serde;
 
-import com.facebook.presto.block.Block;
-import com.facebook.presto.block.BlockEncoding;
-import com.facebook.presto.block.BlockEncodingSerde;
+import com.facebook.presto.spi.block.Block;
+import com.facebook.presto.spi.block.BlockEncoding;
+import com.facebook.presto.spi.block.BlockEncodingSerde;
 import com.facebook.presto.operator.Page;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.AbstractIterator;

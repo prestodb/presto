@@ -13,11 +13,11 @@
  */
 package com.facebook.presto.operator.aggregation;
 
-import com.facebook.presto.block.Block;
-import com.facebook.presto.block.BlockBuilder;
-import com.facebook.presto.block.BlockCursor;
+import com.facebook.presto.spi.block.Block;
+import com.facebook.presto.spi.block.BlockBuilder;
+import com.facebook.presto.spi.block.BlockCursor;
 import com.facebook.presto.operator.GroupByIdBlock;
-import com.facebook.presto.type.Type;
+import com.facebook.presto.spi.type.Type;
 import com.google.common.base.Optional;
 import com.google.common.primitives.Ints;
 import io.airlift.slice.Murmur3;
@@ -28,7 +28,7 @@ import io.airlift.slice.Slices;
 import java.util.ArrayList;
 import java.util.List;
 
-import static com.facebook.presto.block.BlockBuilderStatus.DEFAULT_MAX_BLOCK_SIZE_IN_BYTES;
+import static com.facebook.presto.spi.block.BlockBuilderStatus.DEFAULT_MAX_BLOCK_SIZE_IN_BYTES;
 import static com.facebook.presto.type.BigintType.BIGINT;
 import static com.facebook.presto.type.DoubleType.DOUBLE;
 import static com.facebook.presto.type.VarcharType.VARCHAR;
