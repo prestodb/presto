@@ -13,19 +13,17 @@
  */
 package com.facebook.presto.type;
 
+import com.facebook.presto.block.FixedWidthBlockUtil.FixedWidthBlockBuilderFactory;
+import com.facebook.presto.spi.ColumnType;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.block.BlockCursor;
 import com.facebook.presto.spi.block.BlockEncoding.BlockEncodingFactory;
-import com.facebook.presto.block.FixedWidthBlockUtil.FixedWidthBlockBuilderFactory;
-import com.facebook.presto.spi.ColumnType;
-import com.google.common.primitives.Longs;
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceOutput;
 
 import static com.facebook.presto.block.FixedWidthBlockUtil.createIsolatedFixedWidthBlockBuilderFactory;
 import static com.facebook.presto.spi.ColumnType.LONG;
-import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.slice.SizeOf.SIZE_OF_LONG;
 
 public final class BigintType
@@ -125,10 +123,9 @@ public final class BigintType
     }
 
     @Override
-    public void setSlice(SliceOutput sliceOutput, Slice value, int offset, int length)
+    public void setSlice(SliceOutput sliceOutput, Slice value, int offset)
     {
-        checkArgument(length == (int) SIZE_OF_LONG);
-        sliceOutput.writeBytes(value, offset, length);
+        sliceOutput.writeBytes(value, offset, SIZE_OF_LONG);
     }
 
     @Override
@@ -150,7 +147,8 @@ public final class BigintType
     @Override
     public int hashCode(Slice slice, int offset)
     {
-        return Longs.hashCode(slice.getLong(offset));
+        long value = slice.getLong(offset);
+        return (int) (value ^ (value >>> 32));
     }
 
     @Override

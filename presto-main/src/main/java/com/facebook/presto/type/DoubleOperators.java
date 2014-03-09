@@ -35,8 +35,8 @@ import static com.facebook.presto.metadata.OperatorInfo.OperatorType.MULTIPLY;
 import static com.facebook.presto.metadata.OperatorInfo.OperatorType.NEGATION;
 import static com.facebook.presto.metadata.OperatorInfo.OperatorType.NOT_EQUAL;
 import static com.facebook.presto.metadata.OperatorInfo.OperatorType.SUBTRACT;
-import static com.google.common.base.Charsets.UTF_8;
 import static java.lang.Double.doubleToLongBits;
+import static java.nio.charset.StandardCharsets.UTF_8;
 
 public final class DoubleOperators
 {

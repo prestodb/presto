@@ -16,15 +16,14 @@ package com.facebook.presto.block.uncompressed;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockEncoding;
 import com.facebook.presto.spi.block.BlockEncodingSerde;
-import com.facebook.presto.type.FixedWidthType;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
+import com.facebook.presto.type.FixedWidthType;
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceInput;
 import io.airlift.slice.SliceOutput;
 
-import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 
 public class FixedWidthBlockEncoding
         implements BlockEncoding
@@ -33,7 +32,7 @@ public class FixedWidthBlockEncoding
 
     public FixedWidthBlockEncoding(Type type)
     {
-        this.type = (FixedWidthType) checkNotNull(type, "type is null");
+        this.type = (FixedWidthType) requireNonNull(type, "type is null");
     }
 
     @Override
@@ -52,7 +51,9 @@ public class FixedWidthBlockEncoding
     public void writeBlock(SliceOutput sliceOutput, Block block)
     {
         AbstractFixedWidthBlock fixedWidthBlock = (AbstractFixedWidthBlock) block;
-        checkArgument(block.getType().equals(type), "Invalid block");
+        if (!block.getType().equals(type)) {
+            throw new IllegalArgumentException("Invalid block");
+        }
         writeUncompressedBlock(sliceOutput,
                 fixedWidthBlock.getPositionCount(),
                 fixedWidthBlock.getRawSlice());

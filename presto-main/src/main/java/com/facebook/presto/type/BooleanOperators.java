@@ -14,7 +14,6 @@
 package com.facebook.presto.type;
 
 import com.facebook.presto.operator.scalar.ScalarOperator;
-import com.google.common.primitives.Booleans;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 
@@ -27,7 +26,7 @@ import static com.facebook.presto.metadata.OperatorInfo.OperatorType.HASH_CODE;
 import static com.facebook.presto.metadata.OperatorInfo.OperatorType.LESS_THAN;
 import static com.facebook.presto.metadata.OperatorInfo.OperatorType.LESS_THAN_OR_EQUAL;
 import static com.facebook.presto.metadata.OperatorInfo.OperatorType.NOT_EQUAL;
-import static com.google.common.base.Charsets.US_ASCII;
+import static java.nio.charset.StandardCharsets.US_ASCII;
 
 public final class BooleanOperators
 {
@@ -107,6 +106,6 @@ public final class BooleanOperators
     @ScalarOperator(HASH_CODE)
     public static int hashCode(boolean value)
     {
-        return Booleans.hashCode(value);
+        return value ? 1231 : 1237;
     }
 }

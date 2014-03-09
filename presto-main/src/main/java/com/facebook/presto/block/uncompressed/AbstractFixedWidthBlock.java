@@ -22,10 +22,8 @@ import com.facebook.presto.type.FixedWidthType;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 
-import static com.google.common.base.Preconditions.checkNotNull;
-import static com.google.common.base.Preconditions.checkPositionIndexes;
-import static com.google.common.base.Preconditions.checkState;
 import static io.airlift.slice.SizeOf.SIZE_OF_BYTE;
+import static java.util.Objects.requireNonNull;
 
 public abstract class AbstractFixedWidthBlock
         implements RandomAccessBlock
@@ -35,7 +33,7 @@ public abstract class AbstractFixedWidthBlock
 
     protected AbstractFixedWidthBlock(FixedWidthType type)
     {
-        this.type = checkNotNull(type, "type is null");
+        this.type = requireNonNull(type, "type is null");
         this.entrySize = type.getFixedSize() + SIZE_OF_BYTE;
     }
 
@@ -68,7 +66,10 @@ public abstract class AbstractFixedWidthBlock
     @Override
     public RandomAccessBlock getRegion(int positionOffset, int length)
     {
-        checkPositionIndexes(positionOffset, positionOffset + length, getPositionCount());
+        int positionCount = getPositionCount();
+        if (positionOffset < 0 || length < 0 || positionOffset + length > positionCount) {
+            throw new IndexOutOfBoundsException("Invalid position " + positionOffset + " in block with " + positionCount + " positions");
+        }
         return (RandomAccessBlock) cursor().getRegionAndAdvance(length);
     }
 
@@ -267,6 +268,8 @@ public abstract class AbstractFixedWidthBlock
 
     private void checkReadablePosition(int position)
     {
-        checkState(position >= 0 && position < getPositionCount(), "position is not valid");
+        if (position < 0 || position >= getPositionCount()) {
+            throw new IllegalStateException("position is not valid");
+        }
     }
 }

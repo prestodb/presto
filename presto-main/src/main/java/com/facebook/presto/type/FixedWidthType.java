@@ -40,7 +40,7 @@ public interface FixedWidthType
 
     Slice getSlice(Slice slice, int offset);
 
-    void setSlice(SliceOutput sliceOutput, Slice value, int offset, int length);
+    void setSlice(SliceOutput sliceOutput, Slice value, int offset);
 
     boolean equals(Slice leftSlice, int leftOffset, Slice rightSlice, int rightOffset);
 
