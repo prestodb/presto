@@ -11,15 +11,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.block;
+package com.facebook.presto.spi.block;
 
-import com.facebook.presto.block.uncompressed.AbstractVariableWidthRandomAccessBlock;
-import com.facebook.presto.block.uncompressed.VariableWidthRandomAccessBlock;
-import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.block.BlockBuilderStatus;
-import com.facebook.presto.spi.block.RandomAccessBlock;
 import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.type.VarcharType;
+import com.facebook.presto.spi.type.VarcharType;
 import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceOutput;

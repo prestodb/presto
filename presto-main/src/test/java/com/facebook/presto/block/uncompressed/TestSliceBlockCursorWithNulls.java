@@ -14,6 +14,7 @@
 package com.facebook.presto.block.uncompressed;
 
 import com.facebook.presto.spi.block.Block;
+import com.facebook.presto.spi.block.VariableWidthBlockCursor;
 import org.testng.annotations.Test;
 
 import static com.facebook.presto.block.BlockAssertions.createStringsBlock;

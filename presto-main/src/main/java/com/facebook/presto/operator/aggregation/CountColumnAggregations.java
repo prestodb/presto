@@ -20,10 +20,10 @@ import com.facebook.presto.operator.aggregation.SimpleAggregationFunction.Simple
 import com.facebook.presto.spi.type.Type;
 import com.google.common.base.Throwables;
 
-import static com.facebook.presto.type.BigintType.BIGINT;
-import static com.facebook.presto.type.BooleanType.BOOLEAN;
-import static com.facebook.presto.type.DoubleType.DOUBLE;
-import static com.facebook.presto.type.VarcharType.VARCHAR;
+import static com.facebook.presto.spi.type.BigintType.BIGINT;
+import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
+import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
+import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 
 public final class CountColumnAggregations
 {

@@ -20,7 +20,7 @@ import org.testng.annotations.Test;
 
 import static com.facebook.presto.serde.TypeSerde.readType;
 import static com.facebook.presto.serde.TypeSerde.writeInfo;
-import static com.facebook.presto.type.BooleanType.BOOLEAN;
+import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static org.testng.Assert.assertEquals;
 
 public class TestTypeSerde

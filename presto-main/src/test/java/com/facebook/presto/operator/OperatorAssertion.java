@@ -25,7 +25,7 @@ import com.google.common.collect.ImmutableList;
 import java.util.List;
 
 import static com.facebook.presto.operator.PageAssertions.assertPageEquals;
-import static com.facebook.presto.type.BigintType.BIGINT;
+import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static io.airlift.testing.Assertions.assertEqualsIgnoreOrder;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotNull;

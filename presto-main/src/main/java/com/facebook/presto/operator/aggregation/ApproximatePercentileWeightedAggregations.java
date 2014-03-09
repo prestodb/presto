@@ -21,8 +21,8 @@ import com.facebook.presto.operator.aggregation.SimpleAggregationFunction.Simple
 import com.facebook.presto.spi.type.Type;
 import com.google.common.base.Throwables;
 
-import static com.facebook.presto.type.BigintType.BIGINT;
-import static com.facebook.presto.type.DoubleType.DOUBLE;
+import static com.facebook.presto.spi.type.BigintType.BIGINT;
+import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 
 public final class ApproximatePercentileWeightedAggregations
 {

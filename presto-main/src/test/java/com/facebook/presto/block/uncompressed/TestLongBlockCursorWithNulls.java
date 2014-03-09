@@ -17,7 +17,7 @@ import com.facebook.presto.spi.block.Block;
 import org.testng.annotations.Test;
 
 import static com.facebook.presto.block.BlockAssertions.createLongsBlock;
-import static com.facebook.presto.type.BigintType.BIGINT;
+import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static org.testng.Assert.assertEquals;
 
 public class TestLongBlockCursorWithNulls

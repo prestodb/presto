@@ -30,8 +30,8 @@ import java.util.List;
 import java.util.Random;
 
 import static com.facebook.presto.operator.aggregation.AggregationTestUtils.assertApproximateAggregation;
-import static com.facebook.presto.type.BigintType.BIGINT;
-import static com.facebook.presto.type.DoubleType.DOUBLE;
+import static com.facebook.presto.spi.type.BigintType.BIGINT;
+import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static org.testng.Assert.assertTrue;
 
 public abstract class AbstractTestApproximateAggregationFunction

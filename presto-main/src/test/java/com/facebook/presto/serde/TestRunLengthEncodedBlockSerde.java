@@ -20,12 +20,12 @@ import com.facebook.presto.spi.block.BlockEncoding;
 import com.facebook.presto.spi.block.RandomAccessBlock;
 import com.facebook.presto.block.rle.RunLengthBlockEncoding;
 import com.facebook.presto.block.rle.RunLengthEncodedBlock;
-import com.facebook.presto.block.uncompressed.VariableWidthBlockEncoding;
+import com.facebook.presto.spi.block.VariableWidthBlockEncoding;
 import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.SliceInput;
 import org.testng.annotations.Test;
 
-import static com.facebook.presto.type.VarcharType.VARCHAR;
+import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static io.airlift.testing.Assertions.assertInstanceOf;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;

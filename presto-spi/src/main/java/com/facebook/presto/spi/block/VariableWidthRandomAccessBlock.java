@@ -11,9 +11,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.block.uncompressed;
+package com.facebook.presto.spi.block;
 
-import com.facebook.presto.type.VariableWidthType;
+import com.facebook.presto.spi.type.VariableWidthType;
 import io.airlift.slice.Slice;
 
 public class VariableWidthRandomAccessBlock

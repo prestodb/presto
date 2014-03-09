@@ -24,7 +24,7 @@ import org.testng.annotations.Test;
 
 import java.util.concurrent.ThreadLocalRandom;
 
-import static com.facebook.presto.type.VarcharType.VARCHAR;
+import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static org.testng.Assert.assertTrue;
 
 public class TestSnappyBlockSerde

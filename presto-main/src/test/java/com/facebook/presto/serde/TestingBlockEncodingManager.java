@@ -18,12 +18,12 @@ import com.facebook.presto.block.dictionary.DictionaryBlockEncoding;
 import com.facebook.presto.block.rle.RunLengthBlockEncoding;
 import com.facebook.presto.block.snappy.SnappyBlockEncoding;
 import com.facebook.presto.spi.block.BlockEncodingSerde;
-import com.facebook.presto.type.BigintType;
-import com.facebook.presto.type.BooleanType;
-import com.facebook.presto.type.DoubleType;
-import com.facebook.presto.type.NullType;
+import com.facebook.presto.spi.type.BigintType;
+import com.facebook.presto.spi.type.BooleanType;
+import com.facebook.presto.spi.type.DoubleType;
+import com.facebook.presto.spi.type.NullType;
+import com.facebook.presto.spi.type.VarcharType;
 import com.facebook.presto.type.TypeRegistry;
-import com.facebook.presto.type.VarcharType;
 
 public final class TestingBlockEncodingManager
 {

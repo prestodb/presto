@@ -16,7 +16,7 @@ package com.facebook.presto.operator.window;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.type.Type;
 
-import static com.facebook.presto.type.BigintType.BIGINT;
+import static com.facebook.presto.spi.type.BigintType.BIGINT;
 
 public class DenseRankFunction
         implements WindowFunction

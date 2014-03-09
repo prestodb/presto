@@ -21,7 +21,7 @@ import com.facebook.presto.util.array.ObjectBigArray;
 import com.google.common.base.Optional;
 import io.airlift.slice.Slice;
 
-import static com.facebook.presto.type.VarcharType.VARCHAR;
+import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 

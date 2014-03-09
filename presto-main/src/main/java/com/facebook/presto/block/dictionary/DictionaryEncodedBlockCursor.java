@@ -21,7 +21,7 @@ import com.facebook.presto.spi.type.Type;
 import com.google.common.primitives.Ints;
 import io.airlift.slice.Slice;
 
-import static com.facebook.presto.type.BigintType.BIGINT;
+import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkPositionIndex;

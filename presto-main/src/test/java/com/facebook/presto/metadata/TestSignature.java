@@ -13,13 +13,13 @@
  */
 package com.facebook.presto.metadata;
 
-import com.facebook.presto.type.BigintType;
-import com.facebook.presto.type.BooleanType;
-import com.facebook.presto.type.DoubleType;
+import com.facebook.presto.spi.type.BigintType;
+import com.facebook.presto.spi.type.BooleanType;
+import com.facebook.presto.spi.type.DoubleType;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.type.TypeDeserializer;
 import com.facebook.presto.type.TypeRegistry;
-import com.facebook.presto.type.VarcharType;
+import com.facebook.presto.spi.type.VarcharType;
 import com.fasterxml.jackson.databind.JsonDeserializer;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
