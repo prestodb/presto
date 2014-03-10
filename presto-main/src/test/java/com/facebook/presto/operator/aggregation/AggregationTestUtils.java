@@ -221,6 +221,9 @@ public final class AggregationTestUtils
         Block partialBlock = partialAggregation.evaluateIntermediate();
 
         Accumulator finalAggregation = function.createIntermediateAggregation(confidence);
+        // Test handling of empty intermediate blocks
+        Block emptyBlock = function.createAggregation(Optional.<Integer>absent(), Optional.<Integer>absent(), confidence, args).evaluateIntermediate();
+        finalAggregation.addIntermediate(emptyBlock);
         finalAggregation.addIntermediate(partialBlock);
 
         Block finalBlock = finalAggregation.evaluateFinal();
@@ -292,6 +295,13 @@ public final class AggregationTestUtils
         UncompressedBlock partialBlock = partialOut.build();
 
         GroupedAccumulator finalAggregation = function.createGroupedIntermediateAggregation(confidence);
+        // Add an empty block to test the handling of empty intermediates
+        GroupedAccumulator emptyAggregation = function.createGroupedAggregation(Optional.<Integer>absent(), Optional.<Integer>absent(), confidence, args);
+        BlockBuilder emptyOut = new BlockBuilder(emptyAggregation.getIntermediateTupleInfo());
+        emptyAggregation.evaluateIntermediate(0, emptyOut);
+        UncompressedBlock emptyBlock = emptyOut.build();
+        finalAggregation.addIntermediate(createGroupByIdBlock(0, emptyBlock.getPositionCount()), emptyBlock);
+
         finalAggregation.addIntermediate(createGroupByIdBlock(0, partialBlock.getPositionCount()), partialBlock);
 
         return getGroupValue(finalAggregation, 0);
