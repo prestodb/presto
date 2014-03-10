@@ -15,7 +15,6 @@ package com.facebook.presto.hive;
 
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
-import com.facebook.presto.spi.ColumnType;
 import com.facebook.presto.spi.ConnectorMetadata;
 import com.facebook.presto.spi.ConnectorRecordSetProvider;
 import com.facebook.presto.spi.ConnectorRecordSinkProvider;
@@ -36,6 +35,7 @@ import com.facebook.presto.spi.SplitSource;
 import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.spi.TableNotFoundException;
 import com.facebook.presto.spi.TupleDomain;
+import com.facebook.presto.spi.type.Type;
 import com.google.common.base.Charsets;
 import com.google.common.base.Function;
 import com.google.common.base.Optional;
@@ -60,6 +60,10 @@ import java.util.concurrent.ExecutorService;
 
 import static com.facebook.presto.hive.HiveBucketing.HiveBucket;
 import static com.facebook.presto.hive.HiveUtil.partitionIdGetter;
+import static com.facebook.presto.spi.type.BigintType.BIGINT;
+import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
+import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
+import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.collect.Maps.uniqueIndex;
@@ -322,22 +326,22 @@ public abstract class AbstractTestHiveClient
         Map<String, ColumnMetadata> map = uniqueIndex(tableMetadata.getColumns(), columnNameGetter());
 
         int i = 0;
-        assertPrimitiveField(map, i++, "t_string", ColumnType.STRING, false);
-        assertPrimitiveField(map, i++, "t_tinyint", ColumnType.LONG, false);
-        assertPrimitiveField(map, i++, "t_smallint", ColumnType.LONG, false);
-        assertPrimitiveField(map, i++, "t_int", ColumnType.LONG, false);
-        assertPrimitiveField(map, i++, "t_bigint", ColumnType.LONG, false);
-        assertPrimitiveField(map, i++, "t_float", ColumnType.DOUBLE, false);
-        assertPrimitiveField(map, i++, "t_double", ColumnType.DOUBLE, false);
-        assertPrimitiveField(map, i++, "t_map", ColumnType.STRING, false); // Currently mapped as a string
-        assertPrimitiveField(map, i++, "t_boolean", ColumnType.BOOLEAN, false);
-        assertPrimitiveField(map, i++, "t_timestamp", ColumnType.LONG, false);
-        assertPrimitiveField(map, i++, "t_binary", ColumnType.STRING, false);
-        assertPrimitiveField(map, i++, "t_array_string", ColumnType.STRING, false); // Currently mapped as a string
-        assertPrimitiveField(map, i++, "t_complex", ColumnType.STRING, false); // Currently mapped as a string
-        assertPrimitiveField(map, i++, "ds", ColumnType.STRING, true);
-        assertPrimitiveField(map, i++, "file_format", ColumnType.STRING, true);
-        assertPrimitiveField(map, i++, "dummy", ColumnType.LONG, true);
+        assertPrimitiveField(map, i++, "t_string", VARCHAR, false);
+        assertPrimitiveField(map, i++, "t_tinyint", BIGINT, false);
+        assertPrimitiveField(map, i++, "t_smallint", BIGINT, false);
+        assertPrimitiveField(map, i++, "t_int", BIGINT, false);
+        assertPrimitiveField(map, i++, "t_bigint", BIGINT, false);
+        assertPrimitiveField(map, i++, "t_float", DOUBLE, false);
+        assertPrimitiveField(map, i++, "t_double", DOUBLE, false);
+        assertPrimitiveField(map, i++, "t_map", VARCHAR, false); // Currently mapped as a string
+        assertPrimitiveField(map, i++, "t_boolean", BOOLEAN, false);
+        assertPrimitiveField(map, i++, "t_timestamp", BIGINT, false);
+        assertPrimitiveField(map, i++, "t_binary", VARCHAR, false);
+        assertPrimitiveField(map, i++, "t_array_string", VARCHAR, false); // Currently mapped as a string
+        assertPrimitiveField(map, i++, "t_complex", VARCHAR, false); // Currently mapped as a string
+        assertPrimitiveField(map, i++, "ds", VARCHAR, true);
+        assertPrimitiveField(map, i++, "file_format", VARCHAR, true);
+        assertPrimitiveField(map, i++, "dummy", BIGINT, true);
     }
 
     @Test
@@ -348,8 +352,8 @@ public abstract class AbstractTestHiveClient
         ConnectorTableMetadata tableMetadata = metadata.getTableMetadata(tableHandle);
         Map<String, ColumnMetadata> map = uniqueIndex(tableMetadata.getColumns(), columnNameGetter());
 
-        assertPrimitiveField(map, 0, "t_string", ColumnType.STRING, false);
-        assertPrimitiveField(map, 1, "t_tinyint", ColumnType.LONG, false);
+        assertPrimitiveField(map, 0, "t_string", VARCHAR, false);
+        assertPrimitiveField(map, 1, "t_tinyint", BIGINT, false);
     }
 
     @Test
@@ -360,7 +364,7 @@ public abstract class AbstractTestHiveClient
         ConnectorTableMetadata tableMetadata = metadata.getTableMetadata(tableHandle);
         Map<String, ColumnMetadata> map = uniqueIndex(tableMetadata.getColumns(), columnNameGetter());
 
-        assertPrimitiveField(map, 0, "t_string", ColumnType.STRING, false);
+        assertPrimitiveField(map, 0, "t_string", VARCHAR, false);
     }
 
     @Test
@@ -371,7 +375,7 @@ public abstract class AbstractTestHiveClient
         ConnectorTableMetadata tableMetadata = metadata.getTableMetadata(tableHandle);
         Map<String, ColumnMetadata> map = uniqueIndex(tableMetadata.getColumns(), columnNameGetter());
 
-        assertPrimitiveField(map, 0, "t_string", ColumnType.STRING, false);
+        assertPrimitiveField(map, 0, "t_string", VARCHAR, false);
     }
 
     @Test
@@ -842,7 +846,7 @@ public abstract class AbstractTestHiveClient
     {
         // begin creating the table
         List<ColumnMetadata> columns = ImmutableList.<ColumnMetadata>builder()
-                .add(new ColumnMetadata("sales", ColumnType.LONG, 1, false))
+                .add(new ColumnMetadata("sales", BIGINT, 1, false))
                 .build();
 
         ConnectorTableMetadata tableMetadata = new ConnectorTableMetadata(temporaryCreateSampledTable, columns, tableOwner, true);
@@ -883,7 +887,7 @@ public abstract class AbstractTestHiveClient
         Map<String, ColumnMetadata> columnMap = uniqueIndex(tableMetadata.getColumns(), columnNameGetter());
         assertEquals(columnMap.size(), 1);
 
-        assertPrimitiveField(columnMap, 0, "sales", ColumnType.LONG, false);
+        assertPrimitiveField(columnMap, 0, "sales", BIGINT, false);
 
         // verify the data
         PartitionResult partitionResult = splitManager.getPartitions(tableHandle, TupleDomain.all());
@@ -915,11 +919,11 @@ public abstract class AbstractTestHiveClient
     {
         // begin creating the table
         List<ColumnMetadata> columns = ImmutableList.<ColumnMetadata>builder()
-                .add(new ColumnMetadata("id", ColumnType.LONG, 1, false))
-                .add(new ColumnMetadata("t_string", ColumnType.STRING, 2, false))
-                .add(new ColumnMetadata("t_bigint", ColumnType.LONG, 3, false))
-                .add(new ColumnMetadata("t_double", ColumnType.DOUBLE, 4, false))
-                .add(new ColumnMetadata("t_boolean", ColumnType.BOOLEAN, 5, false))
+                .add(new ColumnMetadata("id", BIGINT, 1, false))
+                .add(new ColumnMetadata("t_string", VARCHAR, 2, false))
+                .add(new ColumnMetadata("t_bigint", BIGINT, 3, false))
+                .add(new ColumnMetadata("t_double", DOUBLE, 4, false))
+                .add(new ColumnMetadata("t_boolean", BOOLEAN, 5, false))
                 .build();
 
         ConnectorTableMetadata tableMetadata = new ConnectorTableMetadata(temporaryCreateTable, columns, tableOwner);
@@ -967,11 +971,11 @@ public abstract class AbstractTestHiveClient
 
         Map<String, ColumnMetadata> columnMap = uniqueIndex(tableMetadata.getColumns(), columnNameGetter());
 
-        assertPrimitiveField(columnMap, 0, "id", ColumnType.LONG, false);
-        assertPrimitiveField(columnMap, 1, "t_string", ColumnType.STRING, false);
-        assertPrimitiveField(columnMap, 2, "t_bigint", ColumnType.LONG, false);
-        assertPrimitiveField(columnMap, 3, "t_double", ColumnType.DOUBLE, false);
-        assertPrimitiveField(columnMap, 4, "t_boolean", ColumnType.BOOLEAN, false);
+        assertPrimitiveField(columnMap, 0, "id", BIGINT, false);
+        assertPrimitiveField(columnMap, 1, "t_string", VARCHAR, false);
+        assertPrimitiveField(columnMap, 2, "t_bigint", BIGINT, false);
+        assertPrimitiveField(columnMap, 3, "t_double", DOUBLE, false);
+        assertPrimitiveField(columnMap, 4, "t_boolean", BOOLEAN, false);
 
         // verify the data
         PartitionResult partitionResult = splitManager.getPartitions(tableHandle, TupleDomain.all());
@@ -1080,32 +1084,31 @@ public abstract class AbstractTestHiveClient
         for (int columnIndex = 0; columnIndex < schema.size(); columnIndex++) {
             ColumnMetadata column = schema.get(columnIndex);
             if (!cursor.isNull(columnIndex)) {
-                switch (column.getType()) {
-                    case BOOLEAN:
-                        cursor.getBoolean(columnIndex);
-                        break;
-                    case LONG:
-                        cursor.getLong(columnIndex);
-                        break;
-                    case DOUBLE:
-                        cursor.getDouble(columnIndex);
-                        break;
-                    case STRING:
-                        try {
-                            cursor.getString(columnIndex);
-                        }
-                        catch (RuntimeException e) {
-                            throw new RuntimeException("column " + column, e);
-                        }
-                        break;
-                    default:
-                        fail("Unknown primitive type " + columnIndex);
+                if (BOOLEAN.equals(column.getType())) {
+                    cursor.getBoolean(columnIndex);
+                }
+                else if (BIGINT.equals(column.getType())) {
+                    cursor.getLong(columnIndex);
+                }
+                else if (DOUBLE.equals(column.getType())) {
+                    cursor.getDouble(columnIndex);
+                }
+                else if (VARCHAR.equals(column.getType())) {
+                    try {
+                        cursor.getString(columnIndex);
+                    }
+                    catch (RuntimeException e) {
+                        throw new RuntimeException("column " + column, e);
+                    }
+                }
+                else {
+                    fail("Unknown primitive type " + columnIndex);
                 }
             }
         }
     }
 
-    private static void assertPrimitiveField(Map<String, ColumnMetadata> map, int position, String name, ColumnType type, boolean partitionKey)
+    private static void assertPrimitiveField(Map<String, ColumnMetadata> map, int position, String name, Type type, boolean partitionKey)
     {
         assertTrue(map.containsKey(name));
         ColumnMetadata column = map.get(name);

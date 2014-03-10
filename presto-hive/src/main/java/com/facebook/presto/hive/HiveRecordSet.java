@@ -15,9 +15,9 @@ package com.facebook.presto.hive;
 
 import com.facebook.presto.hadoop.HadoopFileSystemCache;
 import com.facebook.presto.hadoop.HadoopNative;
-import com.facebook.presto.spi.ColumnType;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.RecordSet;
+import com.facebook.presto.spi.type.Type;
 import com.google.common.base.Optional;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
@@ -67,7 +67,7 @@ public class HiveRecordSet
 
     private final HiveSplit split;
     private final List<HiveColumnHandle> columns;
-    private final List<ColumnType> columnTypes;
+    private final List<Type> columnTypes;
     private final List<Integer> readHiveColumnIndexes;
     private final Configuration configuration;
     private final Path wrappedPath;
@@ -101,7 +101,7 @@ public class HiveRecordSet
     }
 
     @Override
-    public List<ColumnType> getColumnTypes()
+    public List<Type> getColumnTypes()
     {
         return columnTypes;
     }

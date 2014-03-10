@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.spi.type;
 
-import com.facebook.presto.spi.ColumnType;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.block.BlockCursor;
@@ -53,12 +52,6 @@ public final class DoubleType
     public int getFixedSize()
     {
         return (int) SIZE_OF_DOUBLE;
-    }
-
-    @Override
-    public ColumnType toColumnType()
-    {
-        return ColumnType.DOUBLE;
     }
 
     @Override

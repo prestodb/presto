@@ -16,7 +16,6 @@ package com.facebook.presto.hive;
 import com.facebook.presto.hive.shaded.org.apache.thrift.TException;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
-import com.facebook.presto.spi.ColumnType;
 import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.PartitionResult;
 import com.facebook.presto.spi.RecordCursor;
@@ -44,6 +43,7 @@ import java.util.UUID;
 import java.util.concurrent.ExecutorService;
 
 import static com.facebook.presto.hadoop.HadoopFileStatus.isDirectory;
+import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.util.concurrent.MoreExecutors.sameThreadExecutor;
@@ -156,7 +156,7 @@ public abstract class AbstractTestHiveClientS3
     {
         // begin creating the table
         List<ColumnMetadata> columns = ImmutableList.<ColumnMetadata>builder()
-                .add(new ColumnMetadata("id", ColumnType.LONG, 1, false))
+                .add(new ColumnMetadata("id", BIGINT, 1, false))
                 .build();
 
         ConnectorTableMetadata tableMetadata = new ConnectorTableMetadata(tableName, columns, tableOwner);

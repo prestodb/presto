@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.spi.type;
 
-import com.facebook.presto.spi.ColumnType;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.block.BlockCursor;
@@ -49,12 +48,6 @@ public class VarcharType
     public Class<?> getJavaType()
     {
         return Slice.class;
-    }
-
-    @Override
-    public ColumnType toColumnType()
-    {
-        return ColumnType.STRING;
     }
 
     @Override

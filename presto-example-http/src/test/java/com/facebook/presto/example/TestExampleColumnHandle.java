@@ -13,25 +13,23 @@
  */
 package com.facebook.presto.example;
 
-import io.airlift.json.JsonCodec;
 import io.airlift.testing.EquivalenceTester;
 import org.testng.annotations.Test;
 
-import static com.facebook.presto.spi.ColumnType.LONG;
-import static com.facebook.presto.spi.ColumnType.STRING;
-import static io.airlift.json.JsonCodec.jsonCodec;
+import static com.facebook.presto.example.MetadataUtil.COLUMN_CODEC;
+import static com.facebook.presto.spi.type.BigintType.BIGINT;
+import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static org.testng.Assert.assertEquals;
 
 public class TestExampleColumnHandle
 {
-    private final ExampleColumnHandle columnHandle = new ExampleColumnHandle("connectorId", "columnName", STRING, 0);
+    private final ExampleColumnHandle columnHandle = new ExampleColumnHandle("connectorId", "columnName", VARCHAR, 0);
 
     @Test
     public void testJsonRoundTrip()
     {
-        JsonCodec<ExampleColumnHandle> codec = jsonCodec(ExampleColumnHandle.class);
-        String json = codec.toJson(columnHandle);
-        ExampleColumnHandle copy = codec.fromJson(json);
+        String json = COLUMN_CODEC.toJson(columnHandle);
+        ExampleColumnHandle copy = COLUMN_CODEC.fromJson(json);
         assertEquals(copy, columnHandle);
     }
 
@@ -40,20 +38,20 @@ public class TestExampleColumnHandle
     {
         EquivalenceTester.equivalenceTester()
                 .addEquivalentGroup(
-                        new ExampleColumnHandle("connectorId", "columnName", STRING, 0),
-                        new ExampleColumnHandle("connectorId", "columnName", STRING, 0),
-                        new ExampleColumnHandle("connectorId", "columnName", LONG, 0),
-                        new ExampleColumnHandle("connectorId", "columnName", STRING, 1))
+                        new ExampleColumnHandle("connectorId", "columnName", VARCHAR, 0),
+                        new ExampleColumnHandle("connectorId", "columnName", VARCHAR, 0),
+                        new ExampleColumnHandle("connectorId", "columnName", BIGINT, 0),
+                        new ExampleColumnHandle("connectorId", "columnName", VARCHAR, 1))
                 .addEquivalentGroup(
-                        new ExampleColumnHandle("connectorIdX", "columnName", STRING, 0),
-                        new ExampleColumnHandle("connectorIdX", "columnName", STRING, 0),
-                        new ExampleColumnHandle("connectorIdX", "columnName", LONG, 0),
-                        new ExampleColumnHandle("connectorIdX", "columnName", STRING, 1))
+                        new ExampleColumnHandle("connectorIdX", "columnName", VARCHAR, 0),
+                        new ExampleColumnHandle("connectorIdX", "columnName", VARCHAR, 0),
+                        new ExampleColumnHandle("connectorIdX", "columnName", BIGINT, 0),
+                        new ExampleColumnHandle("connectorIdX", "columnName", VARCHAR, 1))
                 .addEquivalentGroup(
-                        new ExampleColumnHandle("connectorId", "columnNameX", STRING, 0),
-                        new ExampleColumnHandle("connectorId", "columnNameX", STRING, 0),
-                        new ExampleColumnHandle("connectorId", "columnNameX", LONG, 0),
-                        new ExampleColumnHandle("connectorId", "columnNameX", STRING, 1))
+                        new ExampleColumnHandle("connectorId", "columnNameX", VARCHAR, 0),
+                        new ExampleColumnHandle("connectorId", "columnNameX", VARCHAR, 0),
+                        new ExampleColumnHandle("connectorId", "columnNameX", BIGINT, 0),
+                        new ExampleColumnHandle("connectorId", "columnNameX", VARCHAR, 1))
                 .check();
     }
 }

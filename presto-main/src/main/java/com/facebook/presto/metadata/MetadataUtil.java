@@ -14,9 +14,9 @@
 package com.facebook.presto.metadata;
 
 import com.facebook.presto.spi.ColumnMetadata;
-import com.facebook.presto.spi.ColumnType;
 import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.SchemaTableName;
+import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.analyzer.Session;
 import com.facebook.presto.sql.tree.QualifiedName;
 import com.google.common.base.Function;
@@ -115,12 +115,12 @@ public final class MetadataUtil
         return null;
     }
 
-    public static Function<ColumnMetadata, ColumnType> columnTypeGetter()
+    public static Function<ColumnMetadata, Type> columnTypeGetter()
     {
-        return new Function<ColumnMetadata, ColumnType>()
+        return new Function<ColumnMetadata, Type>()
         {
             @Override
-            public ColumnType apply(ColumnMetadata columnMetadata)
+            public Type apply(ColumnMetadata columnMetadata)
             {
                 return columnMetadata.getType();
             }
@@ -219,13 +219,13 @@ public final class MetadataUtil
             this.tableName = tableName;
         }
 
-        public TableMetadataBuilder column(String columnName, ColumnType type)
+        public TableMetadataBuilder column(String columnName, Type type)
         {
             columns.add(new ColumnMetadata(columnName, type, ordinalPosition++, false));
             return this;
         }
 
-        public TableMetadataBuilder partitionKeyColumn(String columnName, ColumnType type)
+        public TableMetadataBuilder partitionKeyColumn(String columnName, Type type)
         {
             columns.add(new ColumnMetadata(columnName, type, ordinalPosition++, true));
             return this;

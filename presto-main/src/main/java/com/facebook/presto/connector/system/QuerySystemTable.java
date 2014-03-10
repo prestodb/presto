@@ -16,13 +16,13 @@ package com.facebook.presto.connector.system;
 import com.facebook.presto.execution.QueryInfo;
 import com.facebook.presto.execution.QueryManager;
 import com.facebook.presto.execution.QueryStats;
-import com.facebook.presto.spi.ColumnType;
 import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.InMemoryRecordSet;
 import com.facebook.presto.spi.InMemoryRecordSet.Builder;
 import com.facebook.presto.spi.RecordCursor;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.SystemTable;
+import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableList;
 import io.airlift.node.NodeInfo;
 import io.airlift.units.Duration;
@@ -34,8 +34,8 @@ import java.util.List;
 
 import static com.facebook.presto.metadata.MetadataUtil.TableMetadataBuilder.tableMetadataBuilder;
 import static com.facebook.presto.metadata.MetadataUtil.columnTypeGetter;
-import static com.facebook.presto.spi.ColumnType.LONG;
-import static com.facebook.presto.spi.ColumnType.STRING;
+import static com.facebook.presto.spi.type.BigintType.BIGINT;
+import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.google.common.collect.Iterables.transform;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
@@ -45,20 +45,20 @@ public class QuerySystemTable
     public static final SchemaTableName QUERY_TABLE_NAME = new SchemaTableName("sys", "query");
 
     public static final ConnectorTableMetadata QUERY_TABLE = tableMetadataBuilder(QUERY_TABLE_NAME)
-            .column("node_id", STRING)
-            .column("query_id", STRING)
-            .column("state", STRING)
-            .column("user", STRING)
-            .column("query", STRING)
+            .column("node_id", VARCHAR)
+            .column("query_id", VARCHAR)
+            .column("state", VARCHAR)
+            .column("user", VARCHAR)
+            .column("query", VARCHAR)
 
-            .column("queued_time_ms", LONG)
-            .column("analysis_time_ms", LONG)
-            .column("distributed_planning_time_ms", LONG)
+            .column("queued_time_ms", BIGINT)
+            .column("analysis_time_ms", BIGINT)
+            .column("distributed_planning_time_ms", BIGINT)
 
-            .column("created", LONG)
-            .column("started", LONG)
-            .column("last_heartbeat", LONG)
-            .column("end", LONG)
+            .column("created", BIGINT)
+            .column("started", BIGINT)
+            .column("last_heartbeat", BIGINT)
+            .column("end", BIGINT)
             .build();
 
     private final QueryManager queryManager;
@@ -84,7 +84,7 @@ public class QuerySystemTable
     }
 
     @Override
-    public List<ColumnType> getColumnTypes()
+    public List<Type> getColumnTypes()
     {
         return ImmutableList.copyOf(transform(QUERY_TABLE.getColumns(), columnTypeGetter()));
     }
