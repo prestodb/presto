@@ -16,25 +16,19 @@ package com.facebook.presto.example;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.io.Resources;
-import io.airlift.json.JsonCodec;
 import org.testng.annotations.Test;
 
 import java.net.URI;
 import java.net.URL;
-import java.util.List;
-import java.util.Map;
 
-import static com.facebook.presto.spi.ColumnType.LONG;
-import static com.facebook.presto.spi.ColumnType.STRING;
-import static io.airlift.json.JsonCodec.listJsonCodec;
-import static io.airlift.json.JsonCodec.mapJsonCodec;
+import static com.facebook.presto.example.MetadataUtil.CATALOG_CODEC;
+import static com.facebook.presto.spi.type.BigintType.BIGINT;
+import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotNull;
 
 public class TestExampleClient
 {
-    private static final JsonCodec<Map<String, List<ExampleTable>>> CATALOG_CODEC = mapJsonCodec(String.class, listJsonCodec(ExampleTable.class));
-
     @Test
     public void testMetadata()
             throws Exception
@@ -50,7 +44,7 @@ public class TestExampleClient
         ExampleTable table = client.getTable("example", "numbers");
         assertNotNull(table, "table is null");
         assertEquals(table.getName(), "numbers");
-        assertEquals(table.getColumns(), ImmutableList.of(new ExampleColumn("text", STRING), new ExampleColumn("value", LONG)));
+        assertEquals(table.getColumns(), ImmutableList.of(new ExampleColumn("text", VARCHAR), new ExampleColumn("value", BIGINT)));
         assertEquals(table.getSources(), ImmutableList.of(metadata.resolve("numbers-1.csv"), metadata.resolve("numbers-2.csv")));
     }
 }

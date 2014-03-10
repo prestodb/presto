@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.example;
 
-import com.facebook.presto.spi.ColumnType;
 import com.facebook.presto.spi.RecordCursor;
 import com.facebook.presto.spi.RecordSet;
 import com.google.common.collect.ImmutableList;
@@ -26,6 +25,8 @@ import java.net.URI;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
+import static com.facebook.presto.spi.type.BigintType.BIGINT;
+import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.google.common.base.Charsets.UTF_8;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
@@ -51,8 +52,8 @@ public class TestExampleRecordSetProvider
     {
         ExampleRecordSetProvider recordSetProvider = new ExampleRecordSetProvider(new ExampleConnectorId("test"));
         RecordSet recordSet = recordSetProvider.getRecordSet(new ExampleSplit("test", "schema", "table", dataUri), ImmutableList.of(
-                new ExampleColumnHandle("test", "text", ColumnType.STRING, 0),
-                new ExampleColumnHandle("test", "value", ColumnType.LONG, 1)));
+                new ExampleColumnHandle("test", "text", VARCHAR, 0),
+                new ExampleColumnHandle("test", "value", BIGINT, 1)));
         assertNotNull(recordSet, "recordSet is null");
 
         RecordCursor cursor = recordSet.cursor();

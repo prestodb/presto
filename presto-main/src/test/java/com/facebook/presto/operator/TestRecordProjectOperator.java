@@ -26,8 +26,6 @@ import org.testng.annotations.Test;
 import java.util.List;
 import java.util.concurrent.ExecutorService;
 
-import static com.facebook.presto.spi.ColumnType.LONG;
-import static com.facebook.presto.spi.ColumnType.STRING;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.util.MaterializedResult.resultBuilder;
@@ -63,7 +61,7 @@ public class TestRecordProjectOperator
     public void testSingleColumn()
             throws Exception
     {
-        InMemoryRecordSet records = new InMemoryRecordSet(ImmutableList.of(STRING), ImmutableList.copyOf(new List<?>[] {ImmutableList.of("abc"), ImmutableList.of("def"),
+        InMemoryRecordSet records = new InMemoryRecordSet(ImmutableList.of(VARCHAR), ImmutableList.copyOf(new List<?>[] {ImmutableList.of("abc"), ImmutableList.of("def"),
                                                                                                                         ImmutableList.of("g")}));
 
         OperatorContext operatorContext = driverContext.addOperatorContext(0, RecordProjectOperator.class.getSimpleName());
@@ -82,7 +80,7 @@ public class TestRecordProjectOperator
     public void testMultiColumn()
             throws Exception
     {
-        InMemoryRecordSet records = new InMemoryRecordSet(ImmutableList.of(STRING, LONG), ImmutableList.of(
+        InMemoryRecordSet records = new InMemoryRecordSet(ImmutableList.of(VARCHAR, BIGINT), ImmutableList.of(
                 ImmutableList.of("abc", 1L),
                 ImmutableList.of("def", 2L),
                 ImmutableList.of("g", 0L)));
@@ -103,7 +101,7 @@ public class TestRecordProjectOperator
     public void testFinish()
             throws Exception
     {
-        InfiniteRecordSet records = new InfiniteRecordSet(ImmutableList.of(STRING, LONG), ImmutableList.of("abc", 1L));
+        InfiniteRecordSet records = new InfiniteRecordSet(ImmutableList.of(VARCHAR, BIGINT), ImmutableList.of("abc", 1L));
 
         OperatorContext operatorContext = driverContext.addOperatorContext(0, RecordProjectOperator.class.getSimpleName());
         Operator operator = new RecordProjectOperator(operatorContext, records);

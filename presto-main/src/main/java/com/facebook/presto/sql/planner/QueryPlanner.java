@@ -73,7 +73,6 @@ import static com.facebook.presto.sql.tree.FunctionCall.argumentsGetter;
 import static com.facebook.presto.sql.tree.FunctionCall.distinctPredicate;
 import static com.facebook.presto.sql.tree.SortItem.sortKeyGetter;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
-import static com.facebook.presto.type.Types.fromColumnType;
 import static com.google.common.base.Preconditions.checkState;
 
 class QueryPlanner
@@ -193,7 +192,7 @@ class QueryPlanner
 
         ImmutableMap.Builder<Symbol, ColumnHandle> columns = ImmutableMap.builder();
         for (ColumnMetadata column : tableMetadata.getColumns()) {
-            Symbol symbol = symbolAllocator.newSymbol(column.getName(), fromColumnType(column.getType()));
+            Symbol symbol = symbolAllocator.newSymbol(column.getName(), column.getType());
             columns.put(symbol, columnHandles.get(column.getName()));
         }
 

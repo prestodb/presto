@@ -14,7 +14,7 @@
 package com.facebook.presto.hive;
 
 import com.facebook.presto.hive.util.SerDeUtils;
-import com.facebook.presto.spi.ColumnType;
+import com.facebook.presto.spi.type.Type;
 import com.google.common.base.Charsets;
 import com.google.common.base.Throwables;
 import org.apache.hadoop.hive.metastore.api.MetaException;
@@ -44,6 +44,10 @@ import static com.facebook.presto.hive.HiveBooleanParser.isTrue;
 import static com.facebook.presto.hive.HiveUtil.getTableObjectInspector;
 import static com.facebook.presto.hive.NumberParser.parseDouble;
 import static com.facebook.presto.hive.NumberParser.parseLong;
+import static com.facebook.presto.spi.type.BigintType.BIGINT;
+import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
+import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
+import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
@@ -61,7 +65,7 @@ class ColumnarBinaryHiveRecordCursor<K>
 
     @SuppressWarnings("FieldCanBeLocal") // include names for debugging
     private final String[] names;
-    private final ColumnType[] types;
+    private final Type[] types;
     private final HiveType[] hiveTypes;
 
     private final ObjectInspector[] fieldInspectors; // DON'T USE THESE UNLESS EXTRACTION WILL BE SLOW ANYWAY
@@ -133,7 +137,7 @@ class ColumnarBinaryHiveRecordCursor<K>
         int size = columns.size();
 
         this.names = new String[size];
-        this.types = new ColumnType[size];
+        this.types = new Type[size];
         this.hiveTypes = new HiveType[size];
 
         this.fieldInspectors = new ObjectInspector[size];
@@ -182,36 +186,36 @@ class ColumnarBinaryHiveRecordCursor<K>
 
                 byte[] bytes = partitionKey.getValue().getBytes(Charsets.UTF_8);
 
-                switch (types[columnIndex]) {
-                    case BOOLEAN:
-                        if (isTrue(bytes, 0, bytes.length)) {
-                            booleans[columnIndex] = true;
-                        }
-                        else if (isFalse(bytes, 0, bytes.length)) {
-                            booleans[columnIndex] = false;
-                        }
-                        else {
-                            String valueString = new String(bytes, Charsets.UTF_8);
-                            throw new IllegalArgumentException(String.format("Invalid partition value '%s' for BOOLEAN partition key %s", valueString, names[columnIndex]));
-                        }
-                        break;
-                    case LONG:
-                        if (bytes.length == 0) {
-                            throw new IllegalArgumentException(String.format("Invalid partition value '' for BIGINT partition key %s", names[columnIndex]));
-                        }
-                        longs[columnIndex] = parseLong(bytes, 0, bytes.length);
-                        break;
-                    case DOUBLE:
-                        if (bytes.length == 0) {
-                            throw new IllegalArgumentException(String.format("Invalid partition value '' for DOUBLE partition key %s", names[columnIndex]));
-                        }
-                        doubles[columnIndex] = parseDouble(bytes, 0, bytes.length);
-                        break;
-                    case STRING:
-                        strings[columnIndex] = Arrays.copyOf(bytes, bytes.length);
-                        break;
-                    default:
-                        throw new UnsupportedOperationException("Unsupported column type: " + types[columnIndex]);
+                Type type = types[columnIndex];
+                if (BOOLEAN.equals(type)) {
+                    if (isTrue(bytes, 0, bytes.length)) {
+                        booleans[columnIndex] = true;
+                    }
+                    else if (isFalse(bytes, 0, bytes.length)) {
+                        booleans[columnIndex] = false;
+                    }
+                    else {
+                        String valueString = new String(bytes, Charsets.UTF_8);
+                        throw new IllegalArgumentException(String.format("Invalid partition value '%s' for BOOLEAN partition key %s", valueString, names[columnIndex]));
+                    }
+                }
+                else if (BIGINT.equals(type)) {
+                    if (bytes.length == 0) {
+                        throw new IllegalArgumentException(String.format("Invalid partition value '' for BIGINT partition key %s", names[columnIndex]));
+                    }
+                    longs[columnIndex] = parseLong(bytes, 0, bytes.length);
+                }
+                else if (DOUBLE.equals(type)) {
+                    if (bytes.length == 0) {
+                        throw new IllegalArgumentException(String.format("Invalid partition value '' for DOUBLE partition key %s", names[columnIndex]));
+                    }
+                    doubles[columnIndex] = parseDouble(bytes, 0, bytes.length);
+                }
+                else if (VARCHAR.equals(type)) {
+                    strings[columnIndex] = Arrays.copyOf(bytes, bytes.length);
+                }
+                else {
+                    throw new UnsupportedOperationException("Unsupported column type: " + type);
                 }
             }
         }
@@ -243,7 +247,7 @@ class ColumnarBinaryHiveRecordCursor<K>
     }
 
     @Override
-    public ColumnType getType(int field)
+    public Type getType(int field)
     {
         return types[field];
     }
@@ -278,7 +282,7 @@ class ColumnarBinaryHiveRecordCursor<K>
     {
         checkState(!closed, "Cursor is closed");
 
-        validateType(fieldId, ColumnType.BOOLEAN);
+        validateType(fieldId, BOOLEAN);
         if (!loaded[fieldId]) {
             parseBooleanColumn(fieldId);
         }
@@ -331,7 +335,7 @@ class ColumnarBinaryHiveRecordCursor<K>
     {
         checkState(!closed, "Cursor is closed");
 
-        validateType(fieldId, ColumnType.LONG);
+        validateType(fieldId, BIGINT);
         if (!loaded[fieldId]) {
             parseLongColumn(fieldId);
         }
@@ -427,7 +431,7 @@ class ColumnarBinaryHiveRecordCursor<K>
     {
         checkState(!closed, "Cursor is closed");
 
-        validateType(fieldId, ColumnType.DOUBLE);
+        validateType(fieldId, DOUBLE);
         if (!loaded[fieldId]) {
             parseDoubleColumn(fieldId);
         }
@@ -493,7 +497,7 @@ class ColumnarBinaryHiveRecordCursor<K>
     {
         checkState(!closed, "Cursor is closed");
 
-        validateType(fieldId, ColumnType.STRING);
+        validateType(fieldId, VARCHAR);
         if (!loaded[fieldId]) {
             parseStringColumn(fieldId);
         }
@@ -572,27 +576,27 @@ class ColumnarBinaryHiveRecordCursor<K>
 
     private void parseColumn(int column)
     {
-        switch (types[column]) {
-            case BOOLEAN:
-                parseBooleanColumn(column);
-                break;
-            case LONG:
-                parseLongColumn(column);
-                break;
-            case DOUBLE:
-                parseDoubleColumn(column);
-                break;
-            case STRING:
-                parseStringColumn(column);
-                break;
-            default:
-                throw new UnsupportedOperationException("Unsupported column type: " + types[column]);
+        Type type = types[column];
+        if (BOOLEAN.equals(type)) {
+            parseBooleanColumn(column);
+        }
+        else if (BIGINT.equals(type)) {
+            parseLongColumn(column);
+        }
+        else if (DOUBLE.equals(type)) {
+            parseDoubleColumn(column);
+        }
+        else if (VARCHAR.equals(type)) {
+            parseStringColumn(column);
+        }
+        else {
+            throw new UnsupportedOperationException("Unsupported column type: " + type);
         }
     }
 
-    private void validateType(int fieldId, ColumnType type)
+    private void validateType(int fieldId, Type type)
     {
-        if (types[fieldId] != type) {
+        if (!types[fieldId].equals(type)) {
             // we don't use Preconditions.checkArgument because it requires boxing fieldId, which affects inner loop performance
             throw new IllegalArgumentException(String.format("Expected field to be %s, actual %s (field %s)", type, types[fieldId], fieldId));
         }

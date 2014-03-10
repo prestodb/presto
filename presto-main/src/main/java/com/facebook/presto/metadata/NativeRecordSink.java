@@ -15,7 +15,6 @@ package com.facebook.presto.metadata;
 
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.operator.PageBuilder;
-import com.facebook.presto.spi.ColumnType;
 import com.facebook.presto.spi.RecordSink;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.base.Joiner;
@@ -25,7 +24,6 @@ import com.google.common.collect.ImmutableList;
 import java.io.IOException;
 import java.util.List;
 
-import static com.facebook.presto.type.Types.fromColumnType;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
@@ -41,7 +39,7 @@ public class NativeRecordSink
 
     private int field = -1;
 
-    public NativeRecordSink(String nodeId, ColumnFileHandle fileHandle, LocalStorageManager storageManager, List<ColumnType> columnTypes, NativeColumnHandle sampleWeightColumnHandle)
+    public NativeRecordSink(String nodeId, ColumnFileHandle fileHandle, LocalStorageManager storageManager, List<Type> columnTypes, NativeColumnHandle sampleWeightColumnHandle)
     {
         this.nodeId = checkNotNull(nodeId, "nodeId is null");
         this.fileHandle = checkNotNull(fileHandle, "fileHandle is null");
@@ -144,11 +142,11 @@ public class NativeRecordSink
         return builder;
     }
 
-    private static List<Type> toTypes(List<ColumnType> columnTypes)
+    private static List<Type> toTypes(List<Type> columnTypes)
     {
         ImmutableList.Builder<Type> types = ImmutableList.builder();
-        for (ColumnType columnType : columnTypes) {
-            types.add(fromColumnType(columnType));
+        for (Type columnType : columnTypes) {
+            types.add(columnType);
         }
         return types.build();
     }

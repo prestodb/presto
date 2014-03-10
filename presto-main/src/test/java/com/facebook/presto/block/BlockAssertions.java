@@ -18,7 +18,6 @@ import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.block.BlockCursor;
 import com.facebook.presto.spi.block.RandomAccessBlock;
-import com.facebook.presto.spi.type.BooleanType;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.base.Function;
 import com.google.common.collect.ContiguousSet;
@@ -38,6 +37,7 @@ import java.util.List;
 
 import static com.facebook.presto.block.BlockIterables.createBlockIterable;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
+import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.google.common.base.Charsets.UTF_8;
@@ -230,7 +230,7 @@ public final class BlockAssertions
 
     public static Block createBooleansBlock(Iterable<Boolean> values)
     {
-        BlockBuilder builder = BooleanType.BOOLEAN.createBlockBuilder(new BlockBuilderStatus());
+        BlockBuilder builder = BOOLEAN.createBlockBuilder(new BlockBuilderStatus());
 
         for (Boolean value : values) {
             if (value == null) {
@@ -302,7 +302,7 @@ public final class BlockAssertions
 
     public static Block createBooleanSequenceBlock(int start, int end)
     {
-        BlockBuilder builder = BooleanType.BOOLEAN.createBlockBuilder(new BlockBuilderStatus());
+        BlockBuilder builder = BOOLEAN.createBlockBuilder(new BlockBuilderStatus());
 
         for (int i = start; i < end; i++) {
             builder.append(i % 2 == 0);

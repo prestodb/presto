@@ -13,6 +13,8 @@
  */
 package com.facebook.presto.spi;
 
+import com.facebook.presto.spi.type.Type;
+
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -21,14 +23,19 @@ import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
 
+import static com.facebook.presto.spi.type.BigintType.BIGINT;
+import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
+import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
+import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
+
 public class InMemoryRecordSet
         implements RecordSet
 {
-    private final List<ColumnType> types;
+    private final List<Type> types;
     private final Iterable<? extends List<?>> records;
     private final long totalBytes;
 
-    public InMemoryRecordSet(Collection<ColumnType> types, Collection<? extends List<?>> records)
+    public InMemoryRecordSet(Collection<Type> types, Collection<? extends List<?>> records)
     {
         this.types = Collections.unmodifiableList(new ArrayList<>(types));
         this.records = records;
@@ -41,7 +48,7 @@ public class InMemoryRecordSet
     }
 
     @Override
-    public List<ColumnType> getColumnTypes()
+    public List<Type> getColumnTypes()
     {
         return types;
     }
@@ -55,13 +62,13 @@ public class InMemoryRecordSet
     private static class InMemoryRecordCursor
             implements RecordCursor
     {
-        private final List<ColumnType> types;
+        private final List<Type> types;
         private final Iterator<? extends List<?>> records;
         private final long totalBytes;
         private List<?> record;
         private long completedBytes;
 
-        private InMemoryRecordCursor(List<ColumnType> types, Iterator<? extends List<?>> records, long totalBytes)
+        private InMemoryRecordCursor(List<Type> types, Iterator<? extends List<?>> records, long totalBytes)
         {
             this.types = types;
 
@@ -89,7 +96,7 @@ public class InMemoryRecordSet
         }
 
         @Override
-        public ColumnType getType(int field)
+        public Type getType(int field)
         {
             return types.get(field);
         }
@@ -166,24 +173,24 @@ public class InMemoryRecordSet
 
     public static Builder builder(List<ColumnMetadata> columns)
     {
-        List<ColumnType> columnTypes = new ArrayList<>();
+        List<Type> columnTypes = new ArrayList<>();
         for (ColumnMetadata column : columns) {
             columnTypes.add(column.getType());
         }
         return builder(columnTypes);
     }
 
-    public static Builder builder(Collection<ColumnType> columnsTypes)
+    public static Builder builder(Collection<Type> columnsTypes)
     {
         return new Builder(columnsTypes);
     }
 
     public static class Builder
     {
-        private final List<ColumnType> types;
+        private final List<Type> types;
         private final List<List<Object>> records = new ArrayList<>();
 
-        private Builder(Collection<ColumnType> types)
+        private Builder(Collection<Type> types)
         {
             checkNotNull(types, "types is null");
             this.types = Collections.unmodifiableList(new ArrayList<>(types));
@@ -199,22 +206,23 @@ public class InMemoryRecordSet
                 if (value == null) {
                     continue;
                 }
-                switch (types.get(i)) {
-                    case BOOLEAN:
-                        checkArgument(value instanceof Boolean, "Expected value %d to be an instance of Boolean, but is a %s", i, value.getClass().getSimpleName());
-                        break;
-                    case LONG:
-                        checkArgument(value instanceof Long, "Expected value %d to be an instance of Long, but is a %s", i, value.getClass().getSimpleName());
-                        break;
-                    case DOUBLE:
-                        checkArgument(value instanceof Double, "Expected value %d to be an instance of Double, but is a %s", i, value.getClass().getSimpleName());
-                        break;
-                    case STRING:
-                        checkArgument(value instanceof String || value instanceof byte[],
-                                "Expected value %d to be an instance of String or byte[], but is a %s", i, value.getClass().getSimpleName());
-                        break;
-                    default:
-                        throw new IllegalStateException("Unsupported column type " + types.get(i));
+
+                Type type = types.get(i);
+                if (BOOLEAN.equals(type)) {
+                    checkArgument(value instanceof Boolean, "Expected value %d to be an instance of Boolean, but is a %s", i, value.getClass().getSimpleName());
+                }
+                else if (BIGINT.equals(type)) {
+                    checkArgument(value instanceof Long, "Expected value %d to be an instance of Long, but is a %s", i, value.getClass().getSimpleName());
+                }
+                else if (DOUBLE.equals(type)) {
+                    checkArgument(value instanceof Double, "Expected value %d to be an instance of Double, but is a %s", i, value.getClass().getSimpleName());
+                }
+                else if (VARCHAR.equals(type)) {
+                    checkArgument(value instanceof String || value instanceof byte[],
+                            "Expected value %d to be an instance of String or byte[], but is a %s", i, value.getClass().getSimpleName());
+                }
+                else {
+                    throw new IllegalStateException("Unsupported column type " + types.get(i));
                 }
             }
             // Immutable list does not allow nulls

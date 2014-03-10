@@ -42,6 +42,9 @@ public final class Domain
     {
         this.ranges = Objects.requireNonNull(ranges, "ranges is null");
         this.nullAllowed = nullAllowed;
+        if (ranges.getType().isPrimitive()) {
+            throw new IllegalArgumentException("Primitive types not supported: " + ranges.getType());
+        }
     }
 
     public static Domain create(SortedRangeSet ranges, boolean nullAllowed)

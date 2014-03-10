@@ -15,8 +15,8 @@ package com.facebook.presto.cassandra;
 
 import com.datastax.driver.core.ResultSet;
 import com.datastax.driver.core.Row;
-import com.facebook.presto.spi.ColumnType;
 import com.facebook.presto.spi.RecordCursor;
+import com.facebook.presto.spi.type.Type;
 import com.google.common.base.Charsets;
 
 import java.util.List;
@@ -124,7 +124,7 @@ public class CassandraRecordCursor
     }
 
     @Override
-    public ColumnType getType(int i)
+    public Type getType(int i)
     {
         return getCassandraType(i).getNativeType();
     }

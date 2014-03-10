@@ -13,39 +13,16 @@
  */
 package com.facebook.presto.type;
 
-import com.facebook.presto.spi.ColumnType;
-import com.facebook.presto.spi.type.NullType;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.base.Function;
 
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
-import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
-import static com.facebook.presto.spi.type.NullType.NULL;
-import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 
 public final class Types
 {
     private Types()
     {
-    }
-
-    public static Type fromColumnType(ColumnType type)
-    {
-        switch (type) {
-            case BOOLEAN:
-                return BOOLEAN;
-            case DOUBLE:
-                return DOUBLE;
-            case LONG:
-                return BIGINT;
-            case STRING:
-                return VARCHAR;
-            case NULL:
-                return NULL;
-            default:
-                throw new IllegalStateException("Unknown type " + type);
-        }
     }
 
     public static boolean isNumeric(Type type)

@@ -13,11 +13,8 @@
  */
 package com.facebook.presto.metadata;
 
-import com.facebook.presto.sql.gen.FunctionBinder;
-import com.facebook.presto.spi.type.BigintType;
-import com.facebook.presto.spi.type.BooleanType;
-import com.facebook.presto.spi.type.NullType;
 import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.sql.gen.FunctionBinder;
 import com.google.common.base.Function;
 import com.google.common.base.Joiner;
 import com.google.common.base.Objects;
@@ -26,6 +23,9 @@ import com.google.common.collect.ImmutableList;
 import java.lang.invoke.MethodHandle;
 import java.util.List;
 
+import static com.facebook.presto.spi.type.BigintType.BIGINT;
+import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
+import static com.facebook.presto.spi.type.NullType.NULL;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 
@@ -164,7 +164,7 @@ public final class OperatorInfo
                     void validateSignature(Type returnType, List<Type> argumentTypes)
                     {
                         validateOperatorSignature(this, returnType, argumentTypes, 1);
-                        checkArgument(returnType.equals(BigintType.BIGINT), "%s operator must return a BIGINT: %s", this, formatSignature(this, returnType, argumentTypes));
+                        checkArgument(returnType.equals(BIGINT), "%s operator must return a BIGINT: %s", this, formatSignature(this, returnType, argumentTypes));
                     }
                 };
 
@@ -185,14 +185,14 @@ public final class OperatorInfo
         private static void validateOperatorSignature(OperatorType operatorType, Type returnType, List<Type> argumentTypes, int expectedArgumentCount)
         {
             String signature = formatSignature(operatorType, returnType, argumentTypes);
-            checkArgument(!returnType.equals(NullType.NULL), "%s operator return type can not be NULL: %s", operatorType, signature);
+            checkArgument(!returnType.equals(NULL), "%s operator return type can not be NULL: %s", operatorType, signature);
             checkArgument(argumentTypes.size() == expectedArgumentCount, "%s operator must have exactly %s argument: %s", operatorType, expectedArgumentCount, signature);
         }
 
         private static void validateComparisonOperatorSignature(OperatorType operatorType, Type returnType, List<Type> argumentTypes, int expectedArgumentCount)
         {
             validateOperatorSignature(operatorType, returnType, argumentTypes, expectedArgumentCount);
-            checkArgument(returnType.equals(BooleanType.BOOLEAN), "%s operator must return a BOOLEAN: %s", operatorType, formatSignature(operatorType, returnType, argumentTypes));
+            checkArgument(returnType.equals(BOOLEAN), "%s operator must return a BOOLEAN: %s", operatorType, formatSignature(operatorType, returnType, argumentTypes));
         }
     }
 

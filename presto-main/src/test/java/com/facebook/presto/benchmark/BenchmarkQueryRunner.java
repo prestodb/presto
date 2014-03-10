@@ -28,6 +28,7 @@ import com.facebook.presto.metadata.QualifiedTableName;
 import com.facebook.presto.metadata.TableColumnMapper;
 import com.facebook.presto.spi.NodeManager;
 import com.facebook.presto.split.NativeDataStreamProvider;
+import com.facebook.presto.split.NativePartitionKey;
 import com.facebook.presto.split.NativeSplitManager;
 import com.facebook.presto.sql.analyzer.Session;
 import com.facebook.presto.tpch.SampledTpchConnectorFactory;
@@ -148,6 +149,7 @@ public final class BenchmarkQueryRunner
 
         dbi.registerMapper(new TableColumnMapper(typeRegistry));
         dbi.registerMapper(new ColumnMetadataMapper(typeRegistry));
+        dbi.registerMapper(new NativePartitionKey.Mapper(typeRegistry));
         return dbi;
     }
 }

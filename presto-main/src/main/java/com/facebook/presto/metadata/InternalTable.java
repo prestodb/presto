@@ -29,7 +29,6 @@ import java.util.Set;
 
 import static com.facebook.presto.block.BlockIterables.createBlockIterable;
 import static com.facebook.presto.block.BlockUtils.emptyBlockIterable;
-import static com.facebook.presto.type.Types.fromColumnType;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 
@@ -72,7 +71,7 @@ public class InternalTable
         ImmutableList.Builder<Type> types = ImmutableList.builder();
         for (ColumnMetadata column : columns) {
             names.add(column.getName());
-            types.add(fromColumnType(column.getType()));
+            types.add(column.getType());
         }
         return new Builder(types.build(), names.build());
     }

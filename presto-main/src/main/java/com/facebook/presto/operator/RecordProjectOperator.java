@@ -13,19 +13,18 @@
  */
 package com.facebook.presto.operator;
 
-import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.ColumnType;
 import com.facebook.presto.spi.RecordCursor;
 import com.facebook.presto.spi.RecordSet;
+import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListenableFuture;
+import io.airlift.slice.Slice;
 import io.airlift.units.DataSize;
 
 import java.io.Closeable;
 import java.util.List;
 
-import static com.facebook.presto.type.Types.fromColumnType;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static io.airlift.units.DataSize.Unit.BYTE;
 
@@ -46,14 +45,14 @@ public class RecordProjectOperator
         this(operatorContext, recordSet.getColumnTypes(), recordSet.cursor());
     }
 
-    public RecordProjectOperator(OperatorContext operatorContext, List<ColumnType> columnTypes, RecordCursor cursor)
+    public RecordProjectOperator(OperatorContext operatorContext, List<Type> columnTypes, RecordCursor cursor)
     {
         this.operatorContext = checkNotNull(operatorContext, "operatorContext is null");
         this.cursor = checkNotNull(cursor, "cursor is null");
 
         ImmutableList.Builder<Type> types = ImmutableList.builder();
-        for (ColumnType columnType : columnTypes) {
-            types.add(fromColumnType(columnType));
+        for (Type columnType : columnTypes) {
+            types.add(columnType);
         }
         this.types = types.build();
 
@@ -136,21 +135,21 @@ public class RecordProjectOperator
                     }
                     else {
                         Type type = getTypes().get(column);
-                        switch (type.toColumnType()) {
-                            case BOOLEAN:
-                                output.append(cursor.getBoolean(column));
-                                break;
-                            case LONG:
-                                output.append(cursor.getLong(column));
-                                break;
-                            case DOUBLE:
-                                output.append(cursor.getDouble(column));
-                                break;
-                            case STRING:
-                                output.append(cursor.getString(column));
-                                break;
-                            default:
-                                throw new AssertionError("unimplemented type: " + type);
+                        Class<?> javaType = type.getJavaType();
+                        if (javaType == boolean.class) {
+                            output.append(cursor.getBoolean(column));
+                        }
+                        else if (javaType == long.class) {
+                            output.append(cursor.getLong(column));
+                        }
+                        else if (javaType == double.class) {
+                            output.append(cursor.getDouble(column));
+                        }
+                        else if (javaType == Slice.class) {
+                            output.append(cursor.getString(column));
+                        }
+                        else {
+                            throw new AssertionError("Unimplemented type: " + javaType.getName());
                         }
                     }
                 }

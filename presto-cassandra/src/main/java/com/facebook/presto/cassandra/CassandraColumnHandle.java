@@ -16,7 +16,7 @@ package com.facebook.presto.cassandra;
 import com.facebook.presto.cassandra.util.CassandraCqlUtils;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
-import com.facebook.presto.spi.ColumnType;
+import com.facebook.presto.spi.type.Type;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.base.Function;
@@ -116,7 +116,7 @@ public class CassandraColumnHandle
         return new ColumnMetadata(CassandraCqlUtils.cqlNameToSqlName(name), cassandraType.getNativeType(), ordinalPosition, partitionKey);
     }
 
-    public ColumnType getType()
+    public Type getType()
     {
         return cassandraType.getNativeType();
     }
@@ -199,12 +199,12 @@ public class CassandraColumnHandle
         };
     }
 
-    public static Function<CassandraColumnHandle, ColumnType> nativeTypeGetter()
+    public static Function<CassandraColumnHandle, Type> nativeTypeGetter()
     {
-        return new Function<CassandraColumnHandle, ColumnType>()
+        return new Function<CassandraColumnHandle, Type>()
         {
             @Override
-            public ColumnType apply(CassandraColumnHandle input)
+            public Type apply(CassandraColumnHandle input)
             {
                 return input.getType();
             }

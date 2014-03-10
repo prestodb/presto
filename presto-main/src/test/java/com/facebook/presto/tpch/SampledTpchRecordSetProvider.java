@@ -14,16 +14,17 @@
 package com.facebook.presto.tpch;
 
 import com.facebook.presto.spi.ColumnHandle;
-import com.facebook.presto.spi.ColumnType;
 import com.facebook.presto.spi.RecordCursor;
 import com.facebook.presto.spi.RecordSet;
 import com.facebook.presto.spi.Split;
+import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 
 import java.util.ArrayList;
 import java.util.List;
 
+import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 public class SampledTpchRecordSetProvider
@@ -82,7 +83,7 @@ public class SampledTpchRecordSetProvider
         }
 
         @Override
-        public List<ColumnType> getColumnTypes()
+        public List<Type> getColumnTypes()
         {
             return ImmutableList.of();
         }
@@ -123,7 +124,7 @@ public class SampledTpchRecordSetProvider
         }
 
         @Override
-        public ColumnType getType(int field)
+        public Type getType(int field)
         {
             throw new RuntimeException("record cursor is empty");
         }
@@ -185,11 +186,11 @@ public class SampledTpchRecordSetProvider
         }
 
         @Override
-        public List<ColumnType> getColumnTypes()
+        public List<Type> getColumnTypes()
         {
-            List<ColumnType> types = new ArrayList<>();
+            List<Type> types = new ArrayList<>();
             types.addAll(delegate.getColumnTypes());
-            types.add(sampleWeightField, ColumnType.LONG);
+            types.add(sampleWeightField, BIGINT);
             return ImmutableList.copyOf(types);
         }
 
@@ -273,10 +274,10 @@ public class SampledTpchRecordSetProvider
         }
 
         @Override
-        public ColumnType getType(int field)
+        public Type getType(int field)
         {
             if (field == sampleWeightField) {
-                return ColumnType.LONG;
+                return BIGINT;
             }
             else {
                 return delegate.getType(field);

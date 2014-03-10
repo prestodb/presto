@@ -130,7 +130,6 @@ public interface ShardManagerDao
     @SqlQuery("SELECT partition_name, key_name, key_type, key_value\n" +
             " FROM partition_keys\n" +
             " WHERE table_id = :tableId")
-    @Mapper(NativePartitionKey.Mapper.class)
     Set<NativePartitionKey> getPartitionKeys(@Bind("tableId") long tableId);
 
     @SqlQuery("SELECT partition_id, partition_name, table_id\n" +

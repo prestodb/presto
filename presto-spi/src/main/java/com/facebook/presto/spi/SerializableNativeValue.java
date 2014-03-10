@@ -75,22 +75,21 @@ public class SerializableNativeValue
         private static void writeValue(SerializableNativeValue value, JsonGenerator jsonGenerator)
                 throws IOException
         {
-            ColumnType columnType = ColumnType.fromNativeType(value.getType());
-            switch (columnType) {
-                case STRING:
-                    jsonGenerator.writeString((String) value.getValue());
-                    break;
-                case BOOLEAN:
-                    jsonGenerator.writeBoolean((Boolean) value.getValue());
-                    break;
-                case LONG:
-                    jsonGenerator.writeNumber((Long) value.getValue());
-                    break;
-                case DOUBLE:
-                    jsonGenerator.writeNumber((Double) value.getValue());
-                    break;
-                default:
-                    throw new AssertionError("Unknown type: " + columnType);
+            Class<?> type = value.getType();
+            if (type == String.class) {
+                jsonGenerator.writeString((String) value.getValue());
+            }
+            else if (type == Boolean.class) {
+                jsonGenerator.writeBoolean((Boolean) value.getValue());
+            }
+            else if (type == Long.class) {
+                jsonGenerator.writeNumber((Long) value.getValue());
+            }
+            else if (type == Double.class) {
+                jsonGenerator.writeNumber((Double) value.getValue());
+            }
+            else {
+                throw new AssertionError("Unknown type: " + type);
             }
         }
     }
@@ -106,7 +105,6 @@ public class SerializableNativeValue
 
             String typeString = jsonParser.nextTextValue();
             Class<?> type = extractClassType(typeString);
-            ColumnType.fromNativeType(type); // Make sure the null is a valid type
 
             checkJson(jsonParser.nextFieldName(new SerializedString("value")));
 
@@ -120,20 +118,22 @@ public class SerializableNativeValue
         private static Comparable<?> readValue(Class<?> type, JsonParser jsonParser)
                 throws IOException
         {
-            ColumnType columnType = ColumnType.fromNativeType(type);
-            switch (columnType) {
-                case STRING:
-                    String value = jsonParser.getValueAsString();
-                    checkJson(value != null);
-                    return value;
-                case BOOLEAN:
-                    return jsonParser.getBooleanValue();
-                case LONG:
-                    return jsonParser.getLongValue();
-                case DOUBLE:
-                    return jsonParser.getDoubleValue();
-                default:
-                    throw new AssertionError("Unknown type: " + columnType);
+            if (type == String.class) {
+                String value = jsonParser.getValueAsString();
+                checkJson(value != null);
+                return value;
+            }
+            else if (type == Boolean.class) {
+                return jsonParser.getBooleanValue();
+            }
+            else if (type == Long.class) {
+                return jsonParser.getLongValue();
+            }
+            else if (type.equals(Double.class)) {
+                return jsonParser.getDoubleValue();
+            }
+            else {
+                throw new AssertionError("Unknown type: " + type);
             }
         }
 

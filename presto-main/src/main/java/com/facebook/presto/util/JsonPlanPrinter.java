@@ -141,7 +141,7 @@ public final class JsonPlanPrinter
                     domain = partitionsDomainSummary.getDomains().get(entry.getValue());
                 }
                 else if (partitionsDomainSummary.isNone()) {
-                    domain = Domain.none(columnMetadata.getType().getNativeType());
+                    domain = Domain.none(columnMetadata.getType().getJavaType());
                 }
                 Column column = new Column(
                         columnMetadata.getName(),

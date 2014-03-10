@@ -23,6 +23,8 @@ import com.facebook.presto.split.NativeSplitManager.NativePartition;
 import com.google.common.base.Function;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Multimap;
+import io.airlift.slice.Slice;
+import io.airlift.slice.Slices;
 
 import java.util.Map;
 
@@ -53,34 +55,33 @@ public class PartitionFunction
             checkArgument(columnHandles != null, "Invalid partition key for column %s in partition %s", partitionKey.getName(), tablePartition.getPartitionName());
 
             String value = partitionKey.getValue();
-            switch (partitionKey.getType()) {
-                case BOOLEAN:
-                    if (value.length() == 0) {
-                        builder.put(columnHandle, Domain.singleValue(false));
-                    }
-                    else {
-                        builder.put(columnHandle, Domain.singleValue(Boolean.parseBoolean(value)));
-                    }
-                    break;
-                case LONG:
-                    if (value.length() == 0) {
-                        builder.put(columnHandle, Domain.singleValue(0L));
-                    }
-                    else {
-                        builder.put(columnHandle, Domain.singleValue(Long.parseLong(value)));
-                    }
-                    break;
-                case DOUBLE:
-                    if (value.length() == 0) {
-                        builder.put(columnHandle, Domain.singleValue(0.0));
-                    }
-                    else {
-                        builder.put(columnHandle, Domain.singleValue(Double.parseDouble(value)));
-                    }
-                    break;
-                case STRING:
-                    builder.put(columnHandle, Domain.singleValue(value));
-                    break;
+            Class<?> javaType = partitionKey.getType().getJavaType();
+            if (javaType == boolean.class) {
+                if (value.length() == 0) {
+                    builder.put(columnHandle, Domain.singleValue(false));
+                }
+                else {
+                    builder.put(columnHandle, Domain.singleValue(Boolean.parseBoolean(value)));
+                }
+            }
+            else if (javaType == long.class) {
+                if (value.length() == 0) {
+                    builder.put(columnHandle, Domain.singleValue(0L));
+                }
+                else {
+                    builder.put(columnHandle, Domain.singleValue(Long.parseLong(value)));
+                }
+            }
+            else if (javaType == double.class) {
+                if (value.length() == 0) {
+                    builder.put(columnHandle, Domain.singleValue(0.0));
+                }
+                else {
+                    builder.put(columnHandle, Domain.singleValue(Double.parseDouble(value)));
+                }
+            }
+            else if (javaType == Slice.class) {
+                builder.put(columnHandle, Domain.singleValue(Slices.utf8Slice(value)));
             }
         }
 

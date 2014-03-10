@@ -17,7 +17,11 @@ import com.datastax.driver.core.DataType;
 import com.datastax.driver.core.Row;
 import com.datastax.driver.core.utils.Bytes;
 import com.facebook.presto.cassandra.util.CassandraCqlUtils;
-import com.facebook.presto.spi.ColumnType;
+import com.facebook.presto.spi.type.BigintType;
+import com.facebook.presto.spi.type.BooleanType;
+import com.facebook.presto.spi.type.DoubleType;
+import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.spi.type.VarcharType;
 
 import java.math.BigDecimal;
 import java.math.BigInteger;
@@ -34,37 +38,37 @@ import static com.google.common.base.Preconditions.checkNotNull;
 public enum CassandraType
         implements FullCassandraType
 {
-    ASCII(ColumnType.STRING, String.class),
-    BIGINT(ColumnType.LONG, Long.class),
-    BLOB(ColumnType.STRING, ByteBuffer.class),
-    CUSTOM(ColumnType.STRING, ByteBuffer.class),
-    BOOLEAN(ColumnType.BOOLEAN, Boolean.class),
-    COUNTER(ColumnType.LONG, Long.class),
-    DECIMAL(ColumnType.DOUBLE, BigDecimal.class),
-    DOUBLE(ColumnType.DOUBLE, Double.class),
-    FLOAT(ColumnType.DOUBLE, Float.class),
-    INET(ColumnType.STRING, InetAddress.class),
-    INT(ColumnType.LONG, Integer.class),
-    TEXT(ColumnType.STRING, String.class),
-    TIMESTAMP(ColumnType.LONG, Date.class),
-    UUID(ColumnType.STRING, java.util.UUID.class),
-    TIMEUUID(ColumnType.STRING, java.util.UUID.class),
-    VARCHAR(ColumnType.STRING, String.class),
-    VARINT(ColumnType.STRING, BigInteger.class),
-    LIST(ColumnType.STRING, null),
-    MAP(ColumnType.STRING, null),
-    SET(ColumnType.STRING, null);
+    ASCII(VarcharType.VARCHAR, String.class),
+    BIGINT(BigintType.BIGINT, Long.class),
+    BLOB(VarcharType.VARCHAR, ByteBuffer.class),
+    CUSTOM(VarcharType.VARCHAR, ByteBuffer.class),
+    BOOLEAN(BooleanType.BOOLEAN, Boolean.class),
+    COUNTER(BigintType.BIGINT, Long.class),
+    DECIMAL(DoubleType.DOUBLE, BigDecimal.class),
+    DOUBLE(DoubleType.DOUBLE, Double.class),
+    FLOAT(DoubleType.DOUBLE, Float.class),
+    INET(VarcharType.VARCHAR, InetAddress.class),
+    INT(BigintType.BIGINT, Integer.class),
+    TEXT(VarcharType.VARCHAR, String.class),
+    TIMESTAMP(BigintType.BIGINT, Date.class),
+    UUID(VarcharType.VARCHAR, java.util.UUID.class),
+    TIMEUUID(VarcharType.VARCHAR, java.util.UUID.class),
+    VARCHAR(VarcharType.VARCHAR, String.class),
+    VARINT(VarcharType.VARCHAR, BigInteger.class),
+    LIST(VarcharType.VARCHAR, null),
+    MAP(VarcharType.VARCHAR, null),
+    SET(VarcharType.VARCHAR, null);
 
-    private final ColumnType nativeType;
+    private final Type nativeType;
     private final Class<?> javaType;
 
-    CassandraType(ColumnType nativeType, Class<?> javaType)
+    CassandraType(Type nativeType, Class<?> javaType)
     {
         this.nativeType = checkNotNull(nativeType, "nativeType is null");
         this.javaType = javaType;
     }
 
-    public ColumnType getNativeType()
+    public Type getNativeType()
     {
         return nativeType;
     }

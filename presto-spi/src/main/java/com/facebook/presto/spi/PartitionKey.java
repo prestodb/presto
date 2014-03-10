@@ -13,11 +13,13 @@
  */
 package com.facebook.presto.spi;
 
+import com.facebook.presto.spi.type.Type;
+
 public interface PartitionKey
 {
     public String getName();
 
-    public ColumnType getType();
+    public Type getType();
 
     public String getValue();
 }

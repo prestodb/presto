@@ -13,7 +13,11 @@
  */
 package com.facebook.presto.hive;
 
-import com.facebook.presto.spi.ColumnType;
+import com.facebook.presto.spi.type.BigintType;
+import com.facebook.presto.spi.type.BooleanType;
+import com.facebook.presto.spi.type.DoubleType;
+import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.spi.type.VarcharType;
 import com.google.common.base.Function;
 import com.google.common.collect.BiMap;
 import com.google.common.collect.ImmutableBiMap;
@@ -39,28 +43,28 @@ import static org.apache.hadoop.hive.serde2.objectinspector.PrimitiveObjectInspe
 
 public enum HiveType
 {
-    BOOLEAN(ColumnType.BOOLEAN),
-    BYTE(ColumnType.LONG),
-    SHORT(ColumnType.LONG),
-    INT(ColumnType.LONG),
-    LONG(ColumnType.LONG),
-    FLOAT(ColumnType.DOUBLE),
-    DOUBLE(ColumnType.DOUBLE),
-    STRING(ColumnType.STRING),
-    TIMESTAMP(ColumnType.LONG),
-    BINARY(ColumnType.STRING),
-    LIST(ColumnType.STRING),
-    MAP(ColumnType.STRING),
-    STRUCT(ColumnType.STRING);
+    BOOLEAN(BooleanType.BOOLEAN),
+    BYTE(BigintType.BIGINT),
+    SHORT(BigintType.BIGINT),
+    INT(BigintType.BIGINT),
+    LONG(BigintType.BIGINT),
+    FLOAT(DoubleType.DOUBLE),
+    DOUBLE(DoubleType.DOUBLE),
+    STRING(VarcharType.VARCHAR),
+    TIMESTAMP(BigintType.BIGINT),
+    BINARY(VarcharType.VARCHAR),
+    LIST(VarcharType.VARCHAR),
+    MAP(VarcharType.VARCHAR),
+    STRUCT(VarcharType.VARCHAR);
 
-    private final ColumnType nativeType;
+    private final Type nativeType;
 
-    HiveType(ColumnType nativeType)
+    HiveType(Type nativeType)
     {
         this.nativeType = checkNotNull(nativeType, "nativeType is null");
     }
 
-    public ColumnType getNativeType()
+    public Type getNativeType()
     {
         return nativeType;
     }
@@ -156,27 +160,29 @@ public enum HiveType
         }
     }
 
-    public static HiveType toHiveType(ColumnType type)
+    public static HiveType toHiveType(Type type)
     {
-        switch (type) {
-            case BOOLEAN:
-                return BOOLEAN;
-            case LONG:
-                return LONG;
-            case DOUBLE:
-                return DOUBLE;
-            case STRING:
-                return STRING;
+        if (BooleanType.BOOLEAN.equals(type)) {
+            return BOOLEAN;
+        }
+        if (BigintType.BIGINT.equals(type)) {
+            return LONG;
+        }
+        if (DoubleType.DOUBLE.equals(type)) {
+            return DOUBLE;
+        }
+        if (VarcharType.VARCHAR.equals(type)) {
+            return STRING;
         }
         throw new IllegalArgumentException("unsupported type: " + type);
     }
 
-    public static Function<ColumnType, HiveType> columnTypeToHiveType()
+    public static Function<Type, HiveType> columnTypeToHiveType()
     {
-        return new Function<ColumnType, HiveType>()
+        return new Function<Type, HiveType>()
         {
             @Override
-            public HiveType apply(ColumnType type)
+            public HiveType apply(Type type)
             {
                 return toHiveType(type);
             }

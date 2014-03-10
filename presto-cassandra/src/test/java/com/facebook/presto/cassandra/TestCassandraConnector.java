@@ -30,6 +30,7 @@ import com.facebook.presto.spi.Split;
 import com.facebook.presto.spi.SplitSource;
 import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.spi.TupleDomain;
+import com.facebook.presto.spi.type.Type;
 import com.google.common.base.Charsets;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -61,6 +62,10 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
+import static com.facebook.presto.spi.type.BigintType.BIGINT;
+import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
+import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
+import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.testing.Assertions.assertInstanceOf;
 import static org.testng.Assert.assertEquals;
@@ -229,26 +234,26 @@ public class TestCassandraConnector
         for (int columnIndex = 0; columnIndex < schema.size(); columnIndex++) {
             ColumnMetadata column = schema.get(columnIndex);
             if (!cursor.isNull(columnIndex)) {
-                switch (column.getType()) {
-                    case BOOLEAN:
-                        cursor.getBoolean(columnIndex);
-                        break;
-                    case LONG:
-                        cursor.getLong(columnIndex);
-                        break;
-                    case DOUBLE:
-                        cursor.getDouble(columnIndex);
-                        break;
-                    case STRING:
-                        try {
-                            cursor.getString(columnIndex);
-                        }
-                        catch (RuntimeException e) {
-                            throw new RuntimeException("column " + column, e);
-                        }
-                        break;
-                    default:
-                        fail("Unknown primitive type " + columnIndex);
+                Type type = column.getType();
+                if (BOOLEAN.equals(type)) {
+                    cursor.getBoolean(columnIndex);
+                }
+                else if (BIGINT.equals(type)) {
+                    cursor.getLong(columnIndex);
+                }
+                else if (DOUBLE.equals(type)) {
+                    cursor.getDouble(columnIndex);
+                }
+                else if (VARCHAR.equals(type)) {
+                    try {
+                        cursor.getString(columnIndex);
+                    }
+                    catch (RuntimeException e) {
+                        throw new RuntimeException("column " + column, e);
+                    }
+                }
+                else {
+                    fail("Unknown primitive type " + columnIndex);
                 }
             }
         }

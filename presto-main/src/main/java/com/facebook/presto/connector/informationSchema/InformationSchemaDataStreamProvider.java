@@ -37,6 +37,7 @@ import com.google.common.base.Joiner;
 import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableBiMap;
 import com.google.common.collect.ImmutableList;
+import io.airlift.slice.Slice;
 
 import javax.inject.Inject;
 
@@ -44,7 +45,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 
-import static com.facebook.presto.type.Types.fromColumnType;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Strings.nullToEmpty;
@@ -135,7 +135,7 @@ public class InformationSchemaDataStreamProvider
                         column.getOrdinalPosition() + 1,
                         null,
                         "YES",
-                        fromColumnType(column.getType()).getName(),
+                        column.getType().getName(),
                         column.isPartitionKey() ? "YES" : "NO");
             }
         }
@@ -263,6 +263,9 @@ public class InformationSchemaDataStreamProvider
             if (entry.getKey().equals(columnName)) {
                 if (entry.getValue() instanceof String) {
                     return Optional.of((String) entry.getValue());
+                }
+                if (entry.getValue() instanceof Slice) {
+                    return Optional.of(((Slice) entry.getValue()).toStringUtf8());
                 }
                 break;
             }

@@ -75,6 +75,7 @@ import com.facebook.presto.spi.type.VarcharType;
 import com.facebook.presto.split.ConnectorDataStreamProvider;
 import com.facebook.presto.split.DataStreamManager;
 import com.facebook.presto.split.DataStreamProvider;
+import com.facebook.presto.split.NativePartitionKey;
 import com.facebook.presto.sql.gen.ExpressionCompiler;
 import com.facebook.presto.sql.planner.LocalExecutionPlanner;
 import com.facebook.presto.sql.planner.PlanOptimizersFactory;
@@ -101,6 +102,7 @@ import io.airlift.dbpool.H2EmbeddedDataSourceModule;
 import io.airlift.dbpool.MySqlDataSourceModule;
 import io.airlift.discovery.client.ServiceAnnouncement.ServiceAnnouncementBuilder;
 import io.airlift.discovery.client.ServiceDescriptor;
+import io.airlift.slice.Slice;
 import io.airlift.units.Duration;
 import org.skife.jdbi.v2.DBI;
 import org.skife.jdbi.v2.IDBI;
@@ -222,6 +224,8 @@ public class ServerMainModule
         // splits
         jsonCodecBinder(binder).bindJsonCodec(TaskUpdateRequest.class);
         jsonCodecBinder(binder).bindJsonCodec(Split.class);
+        jsonBinder(binder).addSerializerBinding(Slice.class).to(SliceSerializer.class);
+        jsonBinder(binder).addDeserializerBinding(Slice.class).to(SliceDeserializer.class);
         jsonBinder(binder).addSerializerBinding(Expression.class).to(ExpressionSerializer.class);
         jsonBinder(binder).addDeserializerBinding(Expression.class).to(ExpressionDeserializer.class);
         jsonBinder(binder).addDeserializerBinding(FunctionCall.class).to(FunctionCallDeserializer.class);
@@ -254,6 +258,7 @@ public class ServerMainModule
         Multibinder<ResultSetMapper<?>> resultSetMapperBinder = newSetBinder(binder, new TypeLiteral<ResultSetMapper<?>>() {}, ForMetadata.class);
         resultSetMapperBinder.addBinding().to(TableColumnMapper.class).in(Scopes.SINGLETON);
         resultSetMapperBinder.addBinding().to(ColumnMetadataMapper.class).in(Scopes.SINGLETON);
+        resultSetMapperBinder.addBinding().to(NativePartitionKey.Mapper.class).in(Scopes.SINGLETON);
 
         // statement resource
         jsonCodecBinder(binder).bindJsonCodec(QueryInfo.class);

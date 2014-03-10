@@ -22,7 +22,6 @@ import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.operator.aggregation.CustomSum;
 import com.facebook.presto.operator.scalar.CustomAdd;
 import com.facebook.presto.operator.window.CustomRank;
-import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorSplitManager;
 import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.RecordCursor;
@@ -80,14 +79,15 @@ import java.util.concurrent.TimeUnit;
 
 import static com.facebook.presto.connector.informationSchema.InformationSchemaMetadata.INFORMATION_SCHEMA;
 import static com.facebook.presto.metadata.FunctionRegistry.supplier;
+import static com.facebook.presto.spi.type.BigintType.BIGINT;
+import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
+import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
+import static com.facebook.presto.spi.type.NullType.NULL;
+import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.sql.tree.ExplainType.Type.DISTRIBUTED;
 import static com.facebook.presto.sql.tree.ExplainType.Type.LOGICAL;
 import static com.facebook.presto.tpch.TpchMetadata.TINY_SCHEMA_NAME;
 import static com.facebook.presto.tpch.TpchRecordSet.createTpchRecordSet;
-import static com.facebook.presto.spi.type.BigintType.BIGINT;
-import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
-import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
-import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.util.MaterializedResult.resultBuilder;
 import static com.google.common.base.Charsets.UTF_8;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -3111,7 +3111,9 @@ public abstract class AbstractTestQueries
             throws Exception
     {
         tearDownQueryFramework();
-        handle.close();
+        if (handle != null) {
+            handle.close();
+        }
     }
 
     protected abstract int getNodeCount();
@@ -3210,50 +3212,49 @@ public abstract class AbstractTestQueries
                 List<Object> row = new ArrayList<>(count);
                 for (int i = 1; i <= count; i++) {
                     Type type = types.get(i - 1);
-                    switch (type.toColumnType()) {
-                        case BOOLEAN:
-                            boolean booleanValue = resultSet.getBoolean(i);
-                            if (resultSet.wasNull()) {
-                                row.add(null);
-                            }
-                            else {
-                                row.add(booleanValue);
-                            }
-                            break;
-                        case LONG:
-                            long longValue = resultSet.getLong(i);
-                            if (resultSet.wasNull()) {
-                                row.add(null);
-                            }
-                            else {
-                                row.add(longValue);
-                            }
-                            break;
-                        case DOUBLE:
-                            double doubleValue = resultSet.getDouble(i);
-                            if (resultSet.wasNull()) {
-                                row.add(null);
-                            }
-                            else {
-                                row.add(doubleValue);
-                            }
-                            break;
-                        case STRING:
-                            String stringValue = resultSet.getString(i);
-                            if (resultSet.wasNull()) {
-                                row.add(null);
-                            }
-                            else {
-                                row.add(stringValue);
-                            }
-                            break;
-                        case NULL:
-                            Object objectValue = resultSet.getObject(i);
-                            checkState(resultSet.wasNull(), "Expected a null value, but got %s", objectValue);
+                    if (BOOLEAN.equals(type)) {
+                        boolean booleanValue = resultSet.getBoolean(i);
+                        if (resultSet.wasNull()) {
                             row.add(null);
-                            break;
-                        default:
-                            throw new AssertionError("unhandled type: " + type);
+                        }
+                        else {
+                            row.add(booleanValue);
+                        }
+                    }
+                    else if (BIGINT.equals(type)) {
+                        long longValue = resultSet.getLong(i);
+                        if (resultSet.wasNull()) {
+                            row.add(null);
+                        }
+                        else {
+                            row.add(longValue);
+                        }
+                    }
+                    else if (DOUBLE.equals(type)) {
+                        double doubleValue = resultSet.getDouble(i);
+                        if (resultSet.wasNull()) {
+                            row.add(null);
+                        }
+                        else {
+                            row.add(doubleValue);
+                        }
+                    }
+                    else if (VARCHAR.equals(type)) {
+                        String stringValue = resultSet.getString(i);
+                        if (resultSet.wasNull()) {
+                            row.add(null);
+                        }
+                        else {
+                            row.add(stringValue);
+                        }
+                    }
+                    else if (NULL.equals(type)) {
+                        Object objectValue = resultSet.getObject(i);
+                        checkState(resultSet.wasNull(), "Expected a null value, but got %s", objectValue);
+                        row.add(null);
+                    }
+                    else {
+                        throw new AssertionError("unhandled type: " + type);
                     }
                 }
                 return new MaterializedRow(MaterializedResult.DEFAULT_PRECISION, row);
@@ -3277,20 +3278,18 @@ public abstract class AbstractTestQueries
                 }
                 PreparedBatchPart part = batch.add();
                 for (int column = 0; column < tableMetadata.getColumns().size(); column++) {
-                    ColumnMetadata columnMetadata = tableMetadata.getColumns().get(column);
-                    switch (columnMetadata.getType()) {
-                        case BOOLEAN:
-                            part.bind(column, cursor.getBoolean(column));
-                            break;
-                        case LONG:
-                            part.bind(column, cursor.getLong(column));
-                            break;
-                        case DOUBLE:
-                            part.bind(column, cursor.getDouble(column));
-                            break;
-                        case STRING:
-                            part.bind(column, new String(cursor.getString(column), UTF_8));
-                            break;
+                    Type type = tableMetadata.getColumns().get(column).getType();
+                    if (BOOLEAN.equals(type)) {
+                        part.bind(column, cursor.getBoolean(column));
+                    }
+                    else if (BIGINT.equals(type)) {
+                        part.bind(column, cursor.getLong(column));
+                    }
+                    else if (DOUBLE.equals(type)) {
+                        part.bind(column, cursor.getDouble(column));
+                    }
+                    else if (VARCHAR.equals(type)) {
+                        part.bind(column, new String(cursor.getString(column), UTF_8));
                     }
                 }
             }

@@ -34,6 +34,7 @@ import com.facebook.presto.spi.SortedRangeSet;
 import com.facebook.presto.spi.SplitSource;
 import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.spi.TupleDomain;
+import com.facebook.presto.spi.type.BigintType;
 import com.facebook.presto.type.TypeRegistry;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -50,8 +51,8 @@ import java.net.URI;
 import java.util.List;
 import java.util.UUID;
 
-import static com.facebook.presto.spi.ColumnType.LONG;
-import static com.facebook.presto.spi.ColumnType.STRING;
+import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
+import static io.airlift.slice.Slices.utf8Slice;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
 
@@ -59,9 +60,9 @@ import static org.testng.Assert.assertTrue;
 public class TestNativeSplitManager
 {
     private static final ConnectorTableMetadata TEST_TABLE = TableMetadataBuilder.tableMetadataBuilder("demo", "test_table")
-            .partitionKeyColumn("ds", STRING)
-            .column("foo", STRING)
-            .column("bar", LONG)
+            .partitionKeyColumn("ds", VARCHAR)
+            .column("foo", VARCHAR)
+            .column("bar", BigintType.BIGINT)
             .build();
 
     private Handle dummyHandle;
@@ -78,6 +79,7 @@ public class TestNativeSplitManager
         DBI dbi = new DBI("jdbc:h2:mem:test" + System.nanoTime());
         dbi.registerMapper(new TableColumnMapper(typeRegistry));
         dbi.registerMapper(new ColumnMetadataMapper(typeRegistry));
+        dbi.registerMapper(new NativePartitionKey.Mapper(typeRegistry));
         dummyHandle = dbi.open();
         dataDir = Files.createTempDir();
         ShardManager shardManager = new DatabaseShardManager(dbi);
@@ -99,7 +101,7 @@ public class TestNativeSplitManager
         shardManager.commitPartition(
                 tableHandle,
                 "ds=1",
-                ImmutableList.<PartitionKey>of(new NativePartitionKey("ds=1", "ds", STRING, "1")),
+                ImmutableList.<PartitionKey>of(new NativePartitionKey("ds=1", "ds", VARCHAR, "1")),
                 ImmutableMap.<UUID, String>builder()
                         .put(shardUuid1, nodeName)
                         .put(shardUuid2, nodeName)
@@ -109,7 +111,7 @@ public class TestNativeSplitManager
         shardManager.commitPartition(
                 tableHandle,
                 "ds=2",
-                ImmutableList.<PartitionKey>of(new NativePartitionKey("ds=2", "ds", STRING, "2")),
+                ImmutableList.<PartitionKey>of(new NativePartitionKey("ds=2", "ds", VARCHAR, "2")),
                 ImmutableMap.<UUID, String>builder()
                         .put(shardUuid4, nodeName)
                         .build());
@@ -134,7 +136,8 @@ public class TestNativeSplitManager
 
         List<Partition> partitions = partitionResult.getPartitions();
         TupleDomain columnUnionedTupleDomain = TupleDomain.columnWiseUnion(partitions.get(0).getTupleDomain(), partitions.get(1).getTupleDomain());
-        assertEquals(columnUnionedTupleDomain, TupleDomain.withColumnDomains(ImmutableMap.of(dsColumnHandle, Domain.create(SortedRangeSet.of(Range.equal("1"), Range.equal("2")), false))));
+        assertEquals(columnUnionedTupleDomain, TupleDomain.withColumnDomains(
+                ImmutableMap.of(dsColumnHandle, Domain.create(SortedRangeSet.of(Range.equal(utf8Slice("1")), Range.equal(utf8Slice("2"))), false))));
 
         SplitSource splitSource = nativeSplitManager.getPartitionSplits(tableHandle, partitions);
         int splitCount = 0;

@@ -14,38 +14,36 @@
 package com.facebook.presto.example;
 
 import com.facebook.presto.spi.ColumnMetadata;
-import com.facebook.presto.spi.ColumnType;
 import com.google.common.collect.ImmutableList;
-import io.airlift.json.JsonCodec;
 import org.testng.annotations.Test;
 
 import java.net.URI;
 
-import static io.airlift.json.JsonCodec.jsonCodec;
+import static com.facebook.presto.example.MetadataUtil.TABLE_CODEC;
+import static com.facebook.presto.spi.type.BigintType.BIGINT;
+import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static org.testng.Assert.assertEquals;
 
 public class TestExampleTable
 {
     private final ExampleTable exampleTable = new ExampleTable("tableName",
-            ImmutableList.of(new ExampleColumn("a", ColumnType.STRING), new ExampleColumn("b", ColumnType.LONG)),
+            ImmutableList.of(new ExampleColumn("a", VARCHAR), new ExampleColumn("b", BIGINT)),
             ImmutableList.of(URI.create("file://table-1.json"), URI.create("file://table-2.json")));
 
     @Test
     public void testColumnMetadata()
     {
         assertEquals(exampleTable.getColumnsMetadata(), ImmutableList.of(
-                new ColumnMetadata("a", ColumnType.STRING, 0, false),
-                new ColumnMetadata("b", ColumnType.LONG, 1, false)));
+                new ColumnMetadata("a", VARCHAR, 0, false),
+                new ColumnMetadata("b", BIGINT, 1, false)));
     }
 
     @Test
     public void testRoundTrip()
             throws Exception
     {
-        JsonCodec<ExampleTable> codec = jsonCodec(ExampleTable.class);
-
-        String json = codec.toJson(exampleTable);
-        ExampleTable exampleTableCopy = codec.fromJson(json);
+        String json = TABLE_CODEC.toJson(exampleTable);
+        ExampleTable exampleTableCopy = TABLE_CODEC.fromJson(json);
 
         assertEquals(exampleTableCopy.getName(), exampleTable.getName());
         assertEquals(exampleTableCopy.getColumns(), exampleTable.getColumns());

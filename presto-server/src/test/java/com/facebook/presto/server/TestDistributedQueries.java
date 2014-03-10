@@ -396,22 +396,16 @@ public class TestDistributedQueries
                         row.add(null);
                         continue;
                     }
-                    Type type = types.get(i);
-                    switch (type.toColumnType()) {
-                        case BOOLEAN:
-                            row.add(value);
-                            break;
-                        case LONG:
-                            row.add(((Number) value).longValue());
-                            break;
-                        case DOUBLE:
-                            row.add(((Number) value).doubleValue());
-                            break;
-                        case STRING:
-                            row.add(value);
-                            break;
-                        default:
-                            throw new AssertionError("unhandled type: " + type);
+
+                    Class<?> javaType = types.get(i).getJavaType();
+                    if (javaType == long.class) {
+                        row.add(((Number) value).longValue());
+                    }
+                    else if (javaType == double.class) {
+                        row.add(((Number) value).doubleValue());
+                    }
+                    else {
+                        row.add(value);
                     }
                 }
                 return new MaterializedRow(DEFAULT_PRECISION, row);

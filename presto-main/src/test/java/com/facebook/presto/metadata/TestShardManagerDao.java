@@ -13,9 +13,9 @@
  */
 package com.facebook.presto.metadata;
 
-import com.facebook.presto.spi.ColumnType;
 import com.facebook.presto.spi.PartitionKey;
 import com.facebook.presto.split.NativePartitionKey;
+import com.facebook.presto.type.TypeRegistry;
 import com.google.common.collect.Collections2;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
@@ -33,6 +33,7 @@ import java.util.List;
 import java.util.Set;
 import java.util.UUID;
 
+import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotEquals;
 import static org.testng.Assert.assertNotNull;
@@ -51,6 +52,7 @@ public class TestShardManagerDao
         H2EmbeddedDataSourceConfig dataSourceConfig = new H2EmbeddedDataSourceConfig().setFilename("mem:");
         DataSource dataSource = new H2EmbeddedDataSource(dataSourceConfig);
         DBI h2Dbi = new DBI(dataSource);
+        h2Dbi.registerMapper(new NativePartitionKey.Mapper(new TypeRegistry()));
         handle = h2Dbi.open();
         dao = handle.attach(ShardManagerDao.class);
 
@@ -151,8 +153,8 @@ public class TestShardManagerDao
         dao.insertPartition(tableId0, partitionName0);
         dao.insertPartition(tableId1, partitionName1);
 
-        PartitionKey testKey0 = new NativePartitionKey(partitionName0, "ds", ColumnType.STRING, "2013-06-01");
-        PartitionKey testKey1 = new NativePartitionKey(partitionName1, "foo", ColumnType.STRING, "bar");
+        PartitionKey testKey0 = new NativePartitionKey(partitionName0, "ds", VARCHAR, "2013-06-01");
+        PartitionKey testKey1 = new NativePartitionKey(partitionName1, "foo", VARCHAR, "bar");
 
         long keyId0 = dao.insertPartitionKey(tableId0, partitionName0, testKey0.getName(), testKey0.getType().toString(), testKey0.getValue());
 

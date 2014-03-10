@@ -28,7 +28,7 @@ import com.google.common.collect.ImmutableMap;
 import java.util.List;
 import java.util.Map;
 
-import static com.facebook.presto.spi.ColumnType.STRING;
+import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 
@@ -47,7 +47,7 @@ public class DualMetadata
 
     public static final String COLUMN_NAME = "dummy";
 
-    public static final ColumnMetadata COLUMN_METADATA = new ColumnMetadata(COLUMN_NAME, STRING, 0, false);
+    public static final ColumnMetadata COLUMN_METADATA = new ColumnMetadata(COLUMN_NAME, VARCHAR, 0, false);
 
     @Override
     public boolean canHandle(TableHandle tableHandle)

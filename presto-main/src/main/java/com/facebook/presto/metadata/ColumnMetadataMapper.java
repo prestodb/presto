@@ -46,6 +46,6 @@ public class ColumnMetadataMapper
         Type type = typeManager.getType(typeName);
         checkArgument(type != null, "Unknown type %s", typeName);
         int ordinalPosition = r.getInt("ordinal_position");
-        return new ColumnMetadata(name, type.toColumnType(), ordinalPosition, false);
+        return new ColumnMetadata(name, type, ordinalPosition, false);
     }
 }

@@ -13,11 +13,13 @@
  */
 package com.facebook.presto.spi;
 
+import com.facebook.presto.spi.type.Type;
+
 import java.util.List;
 
 public interface RecordSet
 {
-    List<ColumnType> getColumnTypes();
+    List<Type> getColumnTypes();
 
     RecordCursor cursor();
 }

@@ -17,7 +17,6 @@ import com.facebook.presto.metadata.InMemoryMetadata;
 import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.metadata.TableMetadata;
 import com.facebook.presto.spi.ColumnMetadata;
-import com.facebook.presto.spi.ColumnType;
 import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.sql.parser.SqlParser;
@@ -29,6 +28,7 @@ import org.intellij.lang.annotations.Language;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
+import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.AMBIGUOUS_ATTRIBUTE;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.CANNOT_HAVE_AGGREGATIONS_OR_WINDOWS;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.DUPLICATE_RELATION;
@@ -563,22 +563,22 @@ public class TestAnalyzer
         SchemaTableName table1 = new SchemaTableName("default", "t1");
         metadata.createTable("tpch", new TableMetadata("tpch", new ConnectorTableMetadata(table1,
                 ImmutableList.<ColumnMetadata>of(
-                        new ColumnMetadata("a", ColumnType.LONG, 0, false),
-                        new ColumnMetadata("b", ColumnType.LONG, 1, false),
-                        new ColumnMetadata("c", ColumnType.LONG, 2, false),
-                        new ColumnMetadata("d", ColumnType.LONG, 3, false)))));
+                        new ColumnMetadata("a", BIGINT, 0, false),
+                        new ColumnMetadata("b", BIGINT, 1, false),
+                        new ColumnMetadata("c", BIGINT, 2, false),
+                        new ColumnMetadata("d", BIGINT, 3, false)))));
 
         SchemaTableName table2 = new SchemaTableName("default", "t2");
         metadata.createTable("tpch", new TableMetadata("tpch", new ConnectorTableMetadata(table2,
                 ImmutableList.<ColumnMetadata>of(
-                        new ColumnMetadata("a", ColumnType.LONG, 0, false),
-                        new ColumnMetadata("b", ColumnType.LONG, 1, false)))));
+                        new ColumnMetadata("a", BIGINT, 0, false),
+                        new ColumnMetadata("b", BIGINT, 1, false)))));
 
         SchemaTableName table3 = new SchemaTableName("default", "t3");
         metadata.createTable("tpch", new TableMetadata("tpch", new ConnectorTableMetadata(table3,
                 ImmutableList.<ColumnMetadata>of(
-                        new ColumnMetadata("a", ColumnType.LONG, 0, false),
-                        new ColumnMetadata("b", ColumnType.LONG, 1, false)))));
+                        new ColumnMetadata("a", BIGINT, 0, false),
+                        new ColumnMetadata("b", BIGINT, 1, false)))));
 
         analyzer = new Analyzer(new Session("user", "test", "tpch", "default", null, null), metadata, Optional.<QueryExplainer>absent(), true);
         approximateDisabledAnalyzer = new Analyzer(new Session("user", "test", "tpch", "default", null, null), metadata, Optional.<QueryExplainer>absent(), false);

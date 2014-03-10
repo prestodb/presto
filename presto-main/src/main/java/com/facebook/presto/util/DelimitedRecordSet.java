@@ -14,9 +14,9 @@
 package com.facebook.presto.util;
 
 import com.facebook.presto.spi.ColumnMetadata;
-import com.facebook.presto.spi.ColumnType;
 import com.facebook.presto.spi.RecordCursor;
 import com.facebook.presto.spi.RecordSet;
+import com.facebook.presto.spi.type.Type;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Splitter;
 import com.google.common.base.Throwables;
@@ -38,7 +38,7 @@ public class DelimitedRecordSet
     private final InputSupplier<? extends Reader> readerSupplier;
     private final Splitter columnSplitter;
     private final List<ColumnMetadata> columns;
-    private final List<ColumnType> columnTypes;
+    private final List<Type> columnTypes;
 
     public DelimitedRecordSet(InputSupplier<? extends Reader> readerSupplier, Splitter columnSplitter, ColumnMetadata... columns)
     {
@@ -58,7 +58,7 @@ public class DelimitedRecordSet
     }
 
     @Override
-    public List<ColumnType> getColumnTypes()
+    public List<Type> getColumnTypes()
     {
         return columnTypes;
     }
@@ -110,7 +110,7 @@ public class DelimitedRecordSet
         }
 
         @Override
-        public ColumnType getType(int field)
+        public Type getType(int field)
         {
             return columns.get(field).getType();
         }
