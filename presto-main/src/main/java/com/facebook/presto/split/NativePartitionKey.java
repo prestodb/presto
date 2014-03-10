@@ -13,14 +13,17 @@
  */
 package com.facebook.presto.split;
 
-import com.facebook.presto.spi.ColumnType;
 import com.facebook.presto.spi.PartitionKey;
+import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.type.TypeRegistry;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.base.Objects;
 import com.google.common.base.Predicate;
 import org.skife.jdbi.v2.StatementContext;
 import org.skife.jdbi.v2.tweak.ResultSetMapper;
+
+import javax.inject.Inject;
 
 import java.sql.ResultSet;
 import java.sql.SQLException;
@@ -32,14 +35,14 @@ public class NativePartitionKey
 {
     private final String partitionName;
     private final String name;
-    private final ColumnType type;
+    private final Type type;
     private final String value;
 
     @JsonCreator
     public NativePartitionKey(
             @JsonProperty("partitionName") String partitionName,
             @JsonProperty("name") String name,
-            @JsonProperty("type") ColumnType type,
+            @JsonProperty("type") Type type,
             @JsonProperty("value") String value)
     {
         checkNotNull(partitionName, "partitionName is null");
@@ -68,7 +71,7 @@ public class NativePartitionKey
 
     @Override
     @JsonProperty
-    public ColumnType getType()
+    public Type getType()
     {
         return type;
     }
@@ -116,13 +119,21 @@ public class NativePartitionKey
     public static class Mapper
             implements ResultSetMapper<NativePartitionKey>
     {
+        private final TypeRegistry typeRegistry;
+
+        @Inject
+        public Mapper(TypeRegistry typeRegistry)
+        {
+            this.typeRegistry = typeRegistry;
+        }
+
         @Override
         public NativePartitionKey map(int index, ResultSet r, StatementContext ctx)
                 throws SQLException
         {
             return new NativePartitionKey(r.getString("partition_name"),
                     r.getString("key_name"),
-                    ColumnType.valueOf(r.getString("key_type")),
+                    typeRegistry.getType(r.getString("key_type")),
                     r.getString("key_value"));
         }
     }

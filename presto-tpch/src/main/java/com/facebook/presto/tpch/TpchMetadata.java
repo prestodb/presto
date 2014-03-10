@@ -15,12 +15,12 @@ package com.facebook.presto.tpch;
 
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
-import com.facebook.presto.spi.ColumnType;
 import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.ReadOnlyConnectorMetadata;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.SchemaTablePrefix;
 import com.facebook.presto.spi.TableHandle;
+import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -32,6 +32,10 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+import static com.facebook.presto.spi.type.BigintType.BIGINT;
+import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
+import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
+import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 
@@ -101,7 +105,7 @@ public class TpchMetadata
         ImmutableList.Builder<ColumnMetadata> columns = ImmutableList.builder();
         int ordinalPosition = 0;
         for (TpchColumn<? extends TpchEntity> column : tpchTable.getColumns()) {
-            columns.add(new ColumnMetadata(column.getColumnName(), ColumnType.fromNativeType(column.getType()), ordinalPosition++, false));
+            columns.add(new ColumnMetadata(column.getColumnName(), getPrestoType(column.getType()), ordinalPosition++, false));
         }
 
         SchemaTableName tableName = new SchemaTableName(schemaName, tpchTable.getTableName());
@@ -208,5 +212,22 @@ public class TpchMetadata
         catch (Exception ignored) {
             return -1;
         }
+    }
+
+    public static Type getPrestoType(Class<?> javaType)
+    {
+        if (javaType == Boolean.class) {
+            return BOOLEAN;
+        }
+        if (javaType == Long.class) {
+            return BIGINT;
+        }
+        if (javaType == Double.class) {
+            return DOUBLE;
+        }
+        if (javaType == String.class) {
+            return VARCHAR;
+        }
+        throw new IllegalArgumentException("Unsupported type " + javaType.getName());
     }
 }

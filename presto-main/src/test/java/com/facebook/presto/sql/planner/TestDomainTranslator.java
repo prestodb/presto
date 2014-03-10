@@ -18,6 +18,7 @@ import com.facebook.presto.spi.Domain;
 import com.facebook.presto.spi.Range;
 import com.facebook.presto.spi.SortedRangeSet;
 import com.facebook.presto.spi.TupleDomain;
+import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.tree.BetweenPredicate;
 import com.facebook.presto.sql.tree.ComparisonExpression;
 import com.facebook.presto.sql.tree.DoubleLiteral;
@@ -32,15 +33,12 @@ import com.facebook.presto.sql.tree.NullLiteral;
 import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.sql.tree.QualifiedNameReference;
 import com.facebook.presto.sql.tree.StringLiteral;
-import com.facebook.presto.spi.type.BigintType;
-import com.facebook.presto.spi.type.BooleanType;
-import com.facebook.presto.spi.type.DoubleType;
-import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.spi.type.VarcharType;
 import com.google.common.collect.BiMap;
 import com.google.common.collect.ImmutableBiMap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import io.airlift.slice.Slice;
+import io.airlift.slice.Slices;
 import org.testng.Assert;
 import org.testng.annotations.Test;
 
@@ -49,6 +47,10 @@ import java.util.List;
 import java.util.Map;
 
 import static com.facebook.presto.spi.TupleDomain.withColumnDomains;
+import static com.facebook.presto.spi.type.BigintType.BIGINT;
+import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
+import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
+import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.sql.ExpressionUtils.and;
 import static com.facebook.presto.sql.ExpressionUtils.or;
 import static com.facebook.presto.sql.planner.DomainTranslator.ExtractionResult;
@@ -82,13 +84,13 @@ public class TestDomainTranslator
     private static final ColumnHandle GCH = new TestingColumnHandle(G);
 
     private static final Map<Symbol, Type> TYPES = ImmutableMap.<Symbol, Type>builder()
-            .put(A, BigintType.BIGINT)
-            .put(B, DoubleType.DOUBLE)
-            .put(C, VarcharType.VARCHAR)
-            .put(D, BooleanType.BOOLEAN)
-            .put(E, BigintType.BIGINT)
-            .put(F, DoubleType.DOUBLE)
-            .put(G, VarcharType.VARCHAR)
+            .put(A, BIGINT)
+            .put(B, DOUBLE)
+            .put(C, VARCHAR)
+            .put(D, BOOLEAN)
+            .put(E, BIGINT)
+            .put(F, DOUBLE)
+            .put(G, VARCHAR)
             .build();
 
     private static final BiMap<Symbol, ColumnHandle> COLUMN_HANDLES = ImmutableBiMap.<Symbol, ColumnHandle>builder()
@@ -128,11 +130,11 @@ public class TestDomainTranslator
         TupleDomain tupleDomain = withColumnDomains(ImmutableMap.<ColumnHandle, Domain>builder()
                 .put(ACH, Domain.singleValue(1L))
                 .put(BCH, Domain.onlyNull(Double.class))
-                .put(CCH, Domain.notNull(String.class))
+                .put(CCH, Domain.notNull(Slice.class))
                 .put(DCH, Domain.singleValue(true))
                 .put(ECH, Domain.singleValue(2L))
                 .put(FCH, Domain.create(SortedRangeSet.of(Range.lessThanOrEqual(1.1), Range.equal(2.0), Range.range(3.0, false, 3.5, true)), true))
-                .put(GCH, Domain.create(SortedRangeSet.of(Range.lessThanOrEqual("2013-01-01"), Range.greaterThan("2013-10-01")), false))
+                .put(GCH, Domain.create(SortedRangeSet.of(Range.lessThanOrEqual(Slices.utf8Slice("2013-01-01")), Range.greaterThan(Slices.utf8Slice("2013-10-01"))), false))
                 .build());
 
         ExtractionResult result = fromPredicate(toPredicate(tupleDomain, COLUMN_HANDLES.inverse(), TYPES), TYPES, COLUMN_HANDLES);
@@ -147,7 +149,7 @@ public class TestDomainTranslator
         TupleDomain tupleDomain = withColumnDomains(ImmutableMap.<ColumnHandle, Domain>builder()
                 .put(ACH, Domain.singleValue(1L))
                 .put(BCH, Domain.onlyNull(Double.class))
-                .put(CCH, Domain.notNull(String.class))
+                .put(CCH, Domain.notNull(Slice.class))
                 .put(DCH, Domain.none(Boolean.class))
                 .build());
 
@@ -161,7 +163,7 @@ public class TestDomainTranslator
         TupleDomain tupleDomain = withColumnDomains(ImmutableMap.<ColumnHandle, Domain>builder()
                 .put(ACH, Domain.singleValue(1L))
                 .put(BCH, Domain.onlyNull(Double.class))
-                .put(CCH, Domain.notNull(String.class))
+                .put(CCH, Domain.notNull(Slice.class))
                 .put(DCH, Domain.all(Boolean.class))
                 .build());
 
@@ -170,7 +172,7 @@ public class TestDomainTranslator
         Assert.assertEquals(result.getTupleDomain(), withColumnDomains(ImmutableMap.<ColumnHandle, Domain>builder()
                 .put(ACH, Domain.singleValue(1L))
                 .put(BCH, Domain.onlyNull(Double.class))
-                .put(CCH, Domain.notNull(String.class))
+                .put(CCH, Domain.notNull(Slice.class))
                 .build()));
     }
 
@@ -585,7 +587,7 @@ public class TestDomainTranslator
         originalExpression = greaterThan(C, stringLiteral("test"));
         result = fromPredicate(originalExpression, TYPES, COLUMN_HANDLES);
         Assert.assertEquals(result.getRemainingExpression(), TRUE_LITERAL);
-        Assert.assertEquals(result.getTupleDomain(), withColumnDomains(ImmutableMap.<ColumnHandle, Domain>of(CCH, Domain.create(SortedRangeSet.of(Range.greaterThan("test")), false))));
+        Assert.assertEquals(result.getTupleDomain(), withColumnDomains(ImmutableMap.of(CCH, Domain.create(SortedRangeSet.of(Range.greaterThan(Slices.utf8Slice("test"))), false))));
 
         // A is a long column. Check that it can be compared against doubles
         originalExpression = greaterThan(A, doubleLiteral(2.0));
@@ -670,7 +672,7 @@ public class TestDomainTranslator
         originalExpression = not(greaterThan(C, stringLiteral("test")));
         result = fromPredicate(originalExpression, TYPES, COLUMN_HANDLES);
         Assert.assertEquals(result.getRemainingExpression(), TRUE_LITERAL);
-        Assert.assertEquals(result.getTupleDomain(), withColumnDomains(ImmutableMap.<ColumnHandle, Domain>of(CCH, Domain.create(SortedRangeSet.of(Range.lessThanOrEqual("test")), false))));
+        Assert.assertEquals(result.getTupleDomain(), withColumnDomains(ImmutableMap.of(CCH, Domain.create(SortedRangeSet.of(Range.lessThanOrEqual(Slices.utf8Slice("test"))), false))));
 
         // A is a long column. Check that it can be compared against doubles
         originalExpression = not(greaterThan(A, doubleLiteral(2.0)));

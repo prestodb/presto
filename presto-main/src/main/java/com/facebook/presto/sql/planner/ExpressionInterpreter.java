@@ -153,17 +153,21 @@ public class ExpressionInterpreter
                     return null;
                 }
 
-                switch (cursor.getType().toColumnType()) {
-                    case BOOLEAN:
-                        return cursor.getBoolean();
-                    case LONG:
-                        return cursor.getLong();
-                    case DOUBLE:
-                        return cursor.getDouble();
-                    case STRING:
-                        return cursor.getSlice();
-                    default:
-                        throw new UnsupportedOperationException("not yet implemented");
+                Class<?> javaType = cursor.getType().getJavaType();
+                if (javaType == boolean.class) {
+                    return cursor.getBoolean();
+                }
+                else if (javaType == long.class) {
+                    return cursor.getLong();
+                }
+                else if (javaType == double.class) {
+                    return cursor.getDouble();
+                }
+                else if (javaType == Slice.class) {
+                    return cursor.getSlice();
+                }
+                else {
+                    throw new UnsupportedOperationException("not yet implemented");
                 }
             }
             else if (context instanceof RecordCursor) {
@@ -172,17 +176,21 @@ public class ExpressionInterpreter
                     return null;
                 }
 
-                switch (cursor.getType(input.getChannel())) {
-                    case BOOLEAN:
-                        return cursor.getBoolean(channel);
-                    case LONG:
-                        return cursor.getLong(channel);
-                    case DOUBLE:
-                        return cursor.getDouble(channel);
-                    case STRING:
-                        return Slices.wrappedBuffer(cursor.getString(channel));
-                    default:
-                        throw new UnsupportedOperationException("not yet implemented");
+                Class<?> javaType = cursor.getType(input.getChannel()).getJavaType();
+                if (javaType == boolean.class) {
+                    return cursor.getBoolean(channel);
+                }
+                else if (javaType == long.class) {
+                    return cursor.getLong(channel);
+                }
+                else if (javaType == double.class) {
+                    return cursor.getDouble(channel);
+                }
+                else if (javaType == Slice.class) {
+                    return Slices.wrappedBuffer(cursor.getString(channel));
+                }
+                else {
+                    throw new UnsupportedOperationException("not yet implemented");
                 }
             }
             throw new UnsupportedOperationException("Inputs or cursor myst be set");

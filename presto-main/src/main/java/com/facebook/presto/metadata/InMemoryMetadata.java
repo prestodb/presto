@@ -15,13 +15,13 @@ package com.facebook.presto.metadata;
 
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
-import com.facebook.presto.spi.ColumnType;
 import com.facebook.presto.spi.ConnectorMetadata;
 import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.OutputTableHandle;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.SchemaTablePrefix;
 import com.facebook.presto.spi.TableHandle;
+import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 
@@ -213,9 +213,9 @@ public class InMemoryMetadata
     {
         private final String name;
         private final int ordinalPosition;
-        private final ColumnType type;
+        private final Type type;
 
-        public InMemoryColumnHandle(String name, int ordinalPosition, ColumnType type)
+        public InMemoryColumnHandle(String name, int ordinalPosition, Type type)
         {
             this.name = name;
             this.ordinalPosition = ordinalPosition;
@@ -232,7 +232,7 @@ public class InMemoryMetadata
             return ordinalPosition;
         }
 
-        public ColumnType getType()
+        public Type getType()
         {
             return type;
         }

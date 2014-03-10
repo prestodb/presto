@@ -13,6 +13,10 @@
  */
 package com.facebook.presto.sql.planner;
 
+import com.facebook.presto.spi.type.BigintType;
+import com.facebook.presto.spi.type.BooleanType;
+import com.facebook.presto.spi.type.DoubleType;
+import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.tree.AstVisitor;
 import com.facebook.presto.sql.tree.BooleanLiteral;
 import com.facebook.presto.sql.tree.Cast;
@@ -29,16 +33,12 @@ import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.sql.tree.StringLiteral;
 import com.facebook.presto.sql.tree.TimeLiteral;
 import com.facebook.presto.sql.tree.TimestampLiteral;
-import com.facebook.presto.spi.type.BigintType;
-import com.facebook.presto.spi.type.BooleanType;
-import com.facebook.presto.spi.type.DoubleType;
-import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.spi.type.VarcharType;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
 
 import java.util.List;
 
+import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.google.common.base.Charsets.UTF_8;
 
 public final class LiteralInterpreter
@@ -94,7 +94,7 @@ public final class LiteralInterpreter
             }
         }
 
-        if (type == VarcharType.VARCHAR) {
+        if (type == VARCHAR) {
             if (object instanceof Slice) {
                 return new StringLiteral(((Slice) object).toString(UTF_8));
             }

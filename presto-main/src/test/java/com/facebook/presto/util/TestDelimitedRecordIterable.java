@@ -14,11 +14,11 @@
 package com.facebook.presto.util;
 
 import com.facebook.presto.spi.ColumnMetadata;
-import com.facebook.presto.spi.ColumnType;
 import com.facebook.presto.spi.RecordCursor;
 import com.google.common.base.Splitter;
 import org.testng.annotations.Test;
 
+import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.google.common.base.Charsets.UTF_8;
 import static com.google.common.io.CharStreams.newReaderSupplier;
 import static org.testng.Assert.assertEquals;
@@ -34,9 +34,9 @@ public class TestDelimitedRecordIterable
         DelimitedRecordSet recordIterable = new DelimitedRecordSet(
                 newReaderSupplier("apple,fuu,123\nbanana,bar,456"),
                 Splitter.on(','),
-                new ColumnMetadata("fruit", ColumnType.STRING, 0, false),
-                new ColumnMetadata("foo", ColumnType.STRING, 1, false),
-                new ColumnMetadata("value", ColumnType.STRING, 2, false));
+                new ColumnMetadata("fruit", VARCHAR, 0, false),
+                new ColumnMetadata("foo", VARCHAR, 1, false),
+                new ColumnMetadata("value", VARCHAR, 2, false));
 
         RecordCursor cursor = recordIterable.cursor();
         assertTrue(cursor.advanceNextPosition());

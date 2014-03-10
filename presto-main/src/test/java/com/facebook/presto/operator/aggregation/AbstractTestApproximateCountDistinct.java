@@ -160,21 +160,21 @@ public abstract class AbstractTestApproximateCountDistinct
                 blockBuilder.appendNull();
             }
             else {
-                switch (getValueType().toColumnType()) {
-                    case BOOLEAN:
-                        blockBuilder.append((Boolean) value);
-                        break;
-                    case LONG:
-                        blockBuilder.append((Long) value);
-                        break;
-                    case DOUBLE:
-                        blockBuilder.append((Double) value);
-                        break;
-                    case STRING:
-                        blockBuilder.append((Slice) value);
-                        break;
-                    default:
-                        throw new UnsupportedOperationException("not yet implemented");
+                Class<?> javaType = getValueType().getJavaType();
+                if (javaType == boolean.class) {
+                    blockBuilder.append((Boolean) value);
+                }
+                else if (javaType == long.class) {
+                    blockBuilder.append((Long) value);
+                }
+                else if (javaType == double.class) {
+                    blockBuilder.append((Double) value);
+                }
+                else if (javaType == Slice.class) {
+                    blockBuilder.append((Slice) value);
+                }
+                else {
+                    throw new UnsupportedOperationException("not yet implemented");
                 }
             }
         }

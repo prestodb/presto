@@ -15,7 +15,7 @@ package com.facebook.presto.connector.jmx;
 
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
-import com.facebook.presto.spi.ColumnType;
+import com.facebook.presto.spi.type.Type;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.base.Function;
@@ -26,14 +26,14 @@ public class JmxColumnHandle
 {
     private final String connectorId;
     private final String columnName;
-    private final ColumnType columnType;
+    private final Type columnType;
     private final int ordinalPosition;
 
     @JsonCreator
     public JmxColumnHandle(
             @JsonProperty("connectorId") String connectorId,
             @JsonProperty("columnName") String columnName,
-            @JsonProperty("columnType") ColumnType columnType,
+            @JsonProperty("columnType") Type columnType,
             @JsonProperty("ordinalPosition") int ordinalPosition)
     {
         this.connectorId = connectorId;
@@ -55,7 +55,7 @@ public class JmxColumnHandle
     }
 
     @JsonProperty
-    public ColumnType getColumnType()
+    public Type getColumnType()
     {
         return columnType;
     }

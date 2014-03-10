@@ -100,7 +100,6 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.atomic.AtomicReference;
 
 import static com.facebook.presto.sql.parser.TreeAssertions.assertFormattedSql;
-import static com.facebook.presto.type.Types.fromColumnType;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
@@ -397,7 +396,7 @@ public class LocalQueryRunner
             checkArgument(columnHandle != null, "Table %s does not have a column %s", tableName, columnName);
             columnHandlesBuilder.add(columnHandle);
             ColumnMetadata columnMetadata = metadata.getColumnMetadata(tableHandle, columnHandle);
-            columnTypesBuilder.add(fromColumnType(columnMetadata.getType()));
+            columnTypesBuilder.add(columnMetadata.getType());
         }
         final List<ColumnHandle> columnHandles = columnHandlesBuilder.build();
         final List<Type> columnTypes = columnTypesBuilder.build();

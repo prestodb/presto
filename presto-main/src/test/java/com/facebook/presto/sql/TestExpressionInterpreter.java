@@ -16,6 +16,7 @@ package com.facebook.presto.sql;
 import com.facebook.presto.operator.scalar.FunctionAssertions;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.RecordCursor;
+import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.analyzer.Session;
 import com.facebook.presto.sql.planner.ExpressionInterpreter;
 import com.facebook.presto.sql.planner.Symbol;
@@ -24,11 +25,6 @@ import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.LikePredicate;
 import com.facebook.presto.sql.tree.QualifiedNameReference;
 import com.facebook.presto.sql.tree.StringLiteral;
-import com.facebook.presto.spi.type.BigintType;
-import com.facebook.presto.spi.type.BooleanType;
-import com.facebook.presto.spi.type.DoubleType;
-import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.spi.type.VarcharType;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
@@ -43,6 +39,10 @@ import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
 import static com.facebook.presto.connector.dual.DualMetadata.DUAL_METADATA_MANAGER;
+import static com.facebook.presto.spi.type.BigintType.BIGINT;
+import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
+import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
+import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.sql.ExpressionFormatter.formatExpression;
 import static com.facebook.presto.sql.analyzer.ExpressionAnalyzer.getExpressionTypes;
 import static com.facebook.presto.sql.analyzer.Session.DEFAULT_CATALOG;
@@ -62,22 +62,22 @@ public class TestExpressionInterpreter
 {
     private static final Session SESSION = new Session("user", "test", DEFAULT_CATALOG, DEFAULT_SCHEMA, null, null);
     private static final Map<Symbol, Type> SYMBOL_TYPES = ImmutableMap.<Symbol, Type>builder()
-            .put(new Symbol("bound_long"), BigintType.BIGINT)
-            .put(new Symbol("bound_string"), VarcharType.VARCHAR)
-            .put(new Symbol("bound_double"), DoubleType.DOUBLE)
-            .put(new Symbol("bound_boolean"), BooleanType.BOOLEAN)
-            .put(new Symbol("bound_timestamp"), BigintType.BIGINT)
-            .put(new Symbol("bound_pattern"), VarcharType.VARCHAR)
-            .put(new Symbol("bound_null_string"), VarcharType.VARCHAR)
-            .put(new Symbol("time"), BigintType.BIGINT)
-            .put(new Symbol("unbound_long"), BigintType.BIGINT)
-            .put(new Symbol("unbound_long2"), BigintType.BIGINT)
-            .put(new Symbol("unbound_string"), VarcharType.VARCHAR)
-            .put(new Symbol("unbound_double"), DoubleType.DOUBLE)
-            .put(new Symbol("unbound_boolean"), BooleanType.BOOLEAN)
-            .put(new Symbol("unbound_timestamp"), BigintType.BIGINT)
-            .put(new Symbol("unbound_pattern"), VarcharType.VARCHAR)
-            .put(new Symbol("unbound_null_string"), VarcharType.VARCHAR)
+            .put(new Symbol("bound_long"), BIGINT)
+            .put(new Symbol("bound_string"), VARCHAR)
+            .put(new Symbol("bound_double"), DOUBLE)
+            .put(new Symbol("bound_boolean"), BOOLEAN)
+            .put(new Symbol("bound_timestamp"), BIGINT)
+            .put(new Symbol("bound_pattern"), VARCHAR)
+            .put(new Symbol("bound_null_string"), VARCHAR)
+            .put(new Symbol("time"), BIGINT)
+            .put(new Symbol("unbound_long"), BIGINT)
+            .put(new Symbol("unbound_long2"), BIGINT)
+            .put(new Symbol("unbound_string"), VARCHAR)
+            .put(new Symbol("unbound_double"), DOUBLE)
+            .put(new Symbol("unbound_boolean"), BOOLEAN)
+            .put(new Symbol("unbound_timestamp"), BIGINT)
+            .put(new Symbol("unbound_pattern"), VARCHAR)
+            .put(new Symbol("unbound_null_string"), VARCHAR)
             .build();
 
     @Test

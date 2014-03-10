@@ -14,13 +14,13 @@
 package com.facebook.presto.connector.system;
 
 import com.facebook.presto.metadata.Metadata;
-import com.facebook.presto.spi.ColumnType;
 import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.InMemoryRecordSet;
 import com.facebook.presto.spi.InMemoryRecordSet.Builder;
 import com.facebook.presto.spi.RecordCursor;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.SystemTable;
+import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableList;
 import com.google.inject.Inject;
 
@@ -29,7 +29,7 @@ import java.util.Map;
 
 import static com.facebook.presto.metadata.MetadataUtil.TableMetadataBuilder.tableMetadataBuilder;
 import static com.facebook.presto.metadata.MetadataUtil.columnTypeGetter;
-import static com.facebook.presto.spi.ColumnType.STRING;
+import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.collect.Iterables.transform;
 
@@ -39,8 +39,8 @@ public class CatalogSystemTable
     public static final SchemaTableName CATALOG_TABLE_NAME = new SchemaTableName("sys", "catalog");
 
     public static final ConnectorTableMetadata CATALOG_TABLE = tableMetadataBuilder(CATALOG_TABLE_NAME)
-            .column("catalog_name", STRING)
-            .column("connector_id", STRING)
+            .column("catalog_name", VARCHAR)
+            .column("connector_id", VARCHAR)
             .build();
     private final Metadata metadata;
 
@@ -63,7 +63,7 @@ public class CatalogSystemTable
     }
 
     @Override
-    public List<ColumnType> getColumnTypes()
+    public List<Type> getColumnTypes()
     {
         return ImmutableList.copyOf(transform(CATALOG_TABLE.getColumns(), columnTypeGetter()));
     }
