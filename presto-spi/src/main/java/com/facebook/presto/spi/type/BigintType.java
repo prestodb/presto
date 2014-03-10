@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.spi.type;
 
-import com.facebook.presto.spi.ColumnType;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.block.BlockCursor;
@@ -22,7 +21,6 @@ import com.facebook.presto.spi.block.FixedWidthBlockUtil.FixedWidthBlockBuilderF
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceOutput;
 
-import static com.facebook.presto.spi.ColumnType.LONG;
 import static com.facebook.presto.spi.block.FixedWidthBlockUtil.createIsolatedFixedWidthBlockBuilderFactory;
 import static io.airlift.slice.SizeOf.SIZE_OF_LONG;
 
@@ -54,12 +52,6 @@ public final class BigintType
     public int getFixedSize()
     {
         return (int) SIZE_OF_LONG;
-    }
-
-    @Override
-    public ColumnType toColumnType()
-    {
-        return LONG;
     }
 
     @Override

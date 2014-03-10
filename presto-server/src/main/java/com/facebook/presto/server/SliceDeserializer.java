@@ -11,21 +11,23 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.spi.type;
+package com.facebook.presto.server;
 
-import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.block.BlockBuilderStatus;
-import com.fasterxml.jackson.annotation.JsonValue;
+import com.fasterxml.jackson.core.JsonParser;
+import com.fasterxml.jackson.databind.DeserializationContext;
+import com.fasterxml.jackson.databind.JsonDeserializer;
 import io.airlift.slice.Slice;
+import io.airlift.slice.Slices;
 
-public interface Type
+import java.io.IOException;
+
+public class SliceDeserializer
+        extends JsonDeserializer<Slice>
 {
-    @JsonValue
-    String getName();
-
-    Class<?> getJavaType();
-
-    Object getObjectValue(Slice slice, int offset);
-
-    BlockBuilder createBlockBuilder(BlockBuilderStatus blockBuilderStatus);
+    @Override
+    public Slice deserialize(JsonParser jsonParser, DeserializationContext deserializationContext)
+            throws IOException
+    {
+        return Slices.utf8Slice(jsonParser.readValueAs(String.class));
+    }
 }

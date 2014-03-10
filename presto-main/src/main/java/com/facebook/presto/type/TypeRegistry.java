@@ -13,10 +13,6 @@
  */
 package com.facebook.presto.type;
 
-import com.facebook.presto.spi.type.BigintType;
-import com.facebook.presto.spi.type.BooleanType;
-import com.facebook.presto.spi.type.DoubleType;
-import com.facebook.presto.spi.type.VarcharType;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
 import com.google.common.collect.ImmutableSet;
@@ -28,6 +24,10 @@ import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 
+import static com.facebook.presto.spi.type.BigintType.BIGINT;
+import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
+import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
+import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 
@@ -48,10 +48,10 @@ public class TypeRegistry
         checkNotNull(types, "types is null");
 
         // always add the built-in types; Presto will not function without these
-        addType(BooleanType.BOOLEAN);
-        addType(BigintType.BIGINT);
-        addType(DoubleType.DOUBLE);
-        addType(VarcharType.VARCHAR);
+        addType(BOOLEAN);
+        addType(BIGINT);
+        addType(DOUBLE);
+        addType(VARCHAR);
 
         for (Type type : types) {
             addType(type);

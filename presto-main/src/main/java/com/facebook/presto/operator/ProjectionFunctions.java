@@ -13,12 +13,13 @@
  */
 package com.facebook.presto.operator;
 
+import com.facebook.presto.spi.RecordCursor;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockCursor;
-import com.facebook.presto.spi.RecordCursor;
-import com.facebook.presto.sql.tree.Input;
 import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.sql.tree.Input;
 import com.google.common.base.Preconditions;
+import io.airlift.slice.Slice;
 
 public final class ProjectionFunctions
 {
@@ -74,19 +75,18 @@ public final class ProjectionFunctions
                 output.appendNull();
             }
             else {
-                switch (columnType.toColumnType()) {
-                    case BOOLEAN:
-                        output.append(cursor.getBoolean(channelIndex));
-                        break;
-                    case LONG:
-                        output.append(cursor.getLong(channelIndex));
-                        break;
-                    case STRING:
-                        output.append(cursor.getString(channelIndex));
-                        break;
-                    case DOUBLE:
-                        output.append(cursor.getDouble(channelIndex));
-                        break;
+                Class<?> javaType = columnType.getJavaType();
+                if (javaType == boolean.class) {
+                    output.append(cursor.getBoolean(channelIndex));
+                }
+                else if (javaType == long.class) {
+                    output.append(cursor.getLong(channelIndex));
+                }
+                else if (javaType == double.class) {
+                    output.append(cursor.getDouble(channelIndex));
+                }
+                else if (javaType == Slice.class) {
+                    output.append(cursor.getString(channelIndex));
                 }
             }
         }

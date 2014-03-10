@@ -14,12 +14,13 @@
 package com.facebook.presto.sql.planner;
 
 import com.facebook.presto.spi.ColumnHandle;
-import com.facebook.presto.spi.ColumnType;
 import com.facebook.presto.spi.Domain;
 import com.facebook.presto.spi.Marker;
 import com.facebook.presto.spi.Range;
 import com.facebook.presto.spi.SortedRangeSet;
 import com.facebook.presto.spi.TupleDomain;
+import com.facebook.presto.spi.type.DoubleType;
+import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.tree.AstVisitor;
 import com.facebook.presto.sql.tree.BetweenPredicate;
 import com.facebook.presto.sql.tree.BooleanLiteral;
@@ -36,16 +37,15 @@ import com.facebook.presto.sql.tree.LongLiteral;
 import com.facebook.presto.sql.tree.NotExpression;
 import com.facebook.presto.sql.tree.NullLiteral;
 import com.facebook.presto.sql.tree.QualifiedNameReference;
-import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.math.DoubleMath;
-import io.airlift.slice.Slice;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
+import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.sql.ExpressionUtils.and;
 import static com.facebook.presto.sql.ExpressionUtils.combineConjuncts;
 import static com.facebook.presto.sql.ExpressionUtils.combineDisjunctsWithDefault;
@@ -59,11 +59,11 @@ import static com.facebook.presto.sql.tree.ComparisonExpression.Type.GREATER_THA
 import static com.facebook.presto.sql.tree.ComparisonExpression.Type.LESS_THAN;
 import static com.facebook.presto.sql.tree.ComparisonExpression.Type.LESS_THAN_OR_EQUAL;
 import static com.facebook.presto.sql.tree.ComparisonExpression.Type.NOT_EQUAL;
-import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.Iterables.getOnlyElement;
+import static com.google.common.primitives.Primitives.wrap;
 import static java.math.RoundingMode.CEILING;
 import static java.math.RoundingMode.FLOOR;
 
@@ -194,11 +194,11 @@ public final class DomainTranslator
             this.columnHandles = ImmutableMap.copyOf(checkNotNull(columnHandles, "columnHandles is null"));
         }
 
-        private ColumnType checkedTypeLookup(Symbol symbol)
+        private Type checkedTypeLookup(Symbol symbol)
         {
             Type type = types.get(symbol);
             checkArgument(type != null, "Types is missing info for symbol: %s", symbol);
-            return type.toColumnType();
+            return type;
         }
 
         private ColumnHandle checkedColumnHandleLookup(Symbol symbol)
@@ -305,27 +305,23 @@ public final class DomainTranslator
             node = normalizeSimpleComparison(node);
 
             Symbol symbol = Symbol.fromQualifiedName(((QualifiedNameReference) node.getLeft()).getName());
-            ColumnType columnType = checkedTypeLookup(symbol);
+            Type columnType = checkedTypeLookup(symbol);
             ColumnHandle columnHandle = checkedColumnHandleLookup(symbol);
             Object value = LiteralInterpreter.evaluate(node.getRight());
 
             // Handle the cases where implicit coercions can happen in comparisons
             // TODO: how to abstract this out
-            if (value instanceof Double && columnType == ColumnType.LONG) {
+            if (value instanceof Double && columnType.equals(BIGINT)) {
                 return process(coerceDoubleToLongComparison(node), complement);
             }
-            if (value instanceof Long && columnType == ColumnType.DOUBLE) {
+            if (value instanceof Long && columnType.equals(DoubleType.DOUBLE)) {
                 value = ((Long) value).doubleValue();
-            }
-            if (value instanceof Slice) {
-                // String is the expected SPI type for Slice objects
-                value = ((Slice) value).toStringUtf8();
             }
             verifyType(columnType, value);
             return createComparisonExtractionResult(node.getType(), columnHandle, columnType, objectToComparable(value), complement);
         }
 
-        private ExtractionResult createComparisonExtractionResult(ComparisonExpression.Type comparisonType, ColumnHandle columnHandle, ColumnType columnType, Comparable<?> value, boolean complement)
+        private ExtractionResult createComparisonExtractionResult(ComparisonExpression.Type comparisonType, ColumnHandle columnHandle, Type columnType, Comparable<?> value, boolean complement)
         {
             if (value == null) {
                 switch (comparisonType) {
@@ -338,7 +334,7 @@ public final class DomainTranslator
                         return new ExtractionResult(TupleDomain.none(), TRUE_LITERAL);
 
                     case IS_DISTINCT_FROM:
-                        Domain domain = complementIfNecessary(Domain.notNull(columnType.getNativeType()), complement);
+                        Domain domain = complementIfNecessary(Domain.notNull(wrap(columnType.getJavaType())), complement);
                         return new ExtractionResult(
                                 TupleDomain.withColumnDomains(ImmutableMap.<ColumnHandle, Domain>of(columnHandle, domain)),
                                 TRUE_LITERAL);
@@ -381,9 +377,9 @@ public final class DomainTranslator
                     TRUE_LITERAL);
         }
 
-        private static void verifyType(ColumnType type, Object value)
+        private static void verifyType(Type type, Object value)
         {
-            checkState(value == null || type.getNativeType().isInstance(value), "Value %s is not of expected type %s", value, type);
+            checkState(value == null || wrap(type.getJavaType()).isInstance(value), "Value %s is not of expected type %s", value, type);
         }
 
         private static Comparable<?> objectToComparable(Object value)
@@ -425,10 +421,10 @@ public final class DomainTranslator
             }
 
             Symbol symbol = Symbol.fromQualifiedName(((QualifiedNameReference) node.getValue()).getName());
-            ColumnType columnType = checkedTypeLookup(symbol);
+            Type columnType = checkedTypeLookup(symbol);
             ColumnHandle columnHandle = checkedColumnHandleLookup(symbol);
 
-            Domain domain = complementIfNecessary(Domain.onlyNull(columnType.getNativeType()), complement);
+            Domain domain = complementIfNecessary(Domain.onlyNull(wrap(columnType.getJavaType())), complement);
             return new ExtractionResult(
                     TupleDomain.withColumnDomains(ImmutableMap.<ColumnHandle, Domain>of(columnHandle, domain)),
                     TRUE_LITERAL);
@@ -442,10 +438,10 @@ public final class DomainTranslator
             }
 
             Symbol symbol = Symbol.fromQualifiedName(((QualifiedNameReference) node.getValue()).getName());
-            ColumnType columnType = checkedTypeLookup(symbol);
+            Type columnType = checkedTypeLookup(symbol);
             ColumnHandle columnHandle = checkedColumnHandleLookup(symbol);
 
-            Domain domain = complementIfNecessary(Domain.notNull(columnType.getNativeType()), complement);
+            Domain domain = complementIfNecessary(Domain.notNull(wrap(columnType.getJavaType())), complement);
             return new ExtractionResult(
                     TupleDomain.withColumnDomains(ImmutableMap.<ColumnHandle, Domain>of(columnHandle, domain)),
                     TRUE_LITERAL);

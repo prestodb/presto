@@ -17,7 +17,6 @@ import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.QualifiedTableName;
 import com.facebook.presto.metadata.TableMetadata;
 import com.facebook.presto.spi.ColumnMetadata;
-import com.facebook.presto.spi.ColumnType;
 import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.sql.analyzer.Analysis;
 import com.facebook.presto.sql.analyzer.Field;
@@ -153,9 +152,7 @@ public class LogicalPlanner
         List<Field> fields = plan.getDescriptor().getFields();
         for (int i = 0; i < fields.size(); i++) {
             Field field = fields.get(i);
-            String name = field.getName().get();
-            ColumnType type = field.getType().toColumnType();
-            columns.add(new ColumnMetadata(name, type, i, false));
+            columns.add(new ColumnMetadata(field.getName().get(), field.getType(), i, false));
         }
         return columns.build();
     }

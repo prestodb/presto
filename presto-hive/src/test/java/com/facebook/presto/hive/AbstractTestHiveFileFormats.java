@@ -14,6 +14,7 @@
 package com.facebook.presto.hive;
 
 import com.facebook.presto.spi.RecordCursor;
+import com.facebook.presto.spi.type.Type;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.base.Charsets;
@@ -48,6 +49,10 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Properties;
 
+import static com.facebook.presto.spi.type.BigintType.BIGINT;
+import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
+import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
+import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.google.common.collect.Iterables.transform;
 import static org.apache.hadoop.hive.serde2.objectinspector.ObjectInspectorFactory.getStandardListObjectInspector;
 import static org.apache.hadoop.hive.serde2.objectinspector.ObjectInspectorFactory.getStandardMapObjectInspector;
@@ -272,23 +277,24 @@ public abstract class AbstractTestHiveFileFormats
             assertTrue(cursor.isNull(0));
             for (int i = 1; i < TEST_VALUES.size(); i++) {
                 Object fieldFromCursor;
-                HiveType type = HiveType.getHiveType(FIELD_INSPECTORS.get(i));
-                switch (type.getNativeType()) {
-                    case BOOLEAN:
-                        fieldFromCursor = cursor.getBoolean(i);
-                        break;
-                    case LONG:
-                        fieldFromCursor = cursor.getLong(i);
-                        break;
-                    case DOUBLE:
-                        fieldFromCursor = cursor.getDouble(i);
-                        break;
-                    case STRING:
-                        fieldFromCursor = cursor.getString(i);
-                        break;
-                    default:
-                        throw new RuntimeException("unknown type");
+
+                Type type = HiveType.getHiveType(FIELD_INSPECTORS.get(i)).getNativeType();
+                if (BOOLEAN.equals(type)) {
+                    fieldFromCursor = cursor.getBoolean(i);
                 }
+                else if (BIGINT.equals(type)) {
+                    fieldFromCursor = cursor.getLong(i);
+                }
+                else if (DOUBLE.equals(type)) {
+                    fieldFromCursor = cursor.getDouble(i);
+                }
+                else if (VARCHAR.equals(type)) {
+                    fieldFromCursor = cursor.getString(i);
+                }
+                else {
+                    throw new RuntimeException("unknown type");
+                }
+
                 if (FIELD_INSPECTORS.get(i).getTypeName().equals("float") ||
                         FIELD_INSPECTORS.get(i).getTypeName().equals("double")) {
                     assertEquals((double) fieldFromCursor, (double) TEST_VALUES.get(i).getValue(), EPSILON);

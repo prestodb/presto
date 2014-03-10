@@ -32,8 +32,8 @@ import static com.facebook.presto.metadata.MetadataUtil.SchemaMetadataBuilder.sc
 import static com.facebook.presto.metadata.MetadataUtil.TableMetadataBuilder.tableMetadataBuilder;
 import static com.facebook.presto.metadata.MetadataUtil.findColumnMetadata;
 import static com.facebook.presto.metadata.MetadataUtil.schemaNameGetter;
-import static com.facebook.presto.spi.ColumnType.LONG;
-import static com.facebook.presto.spi.ColumnType.STRING;
+import static com.facebook.presto.spi.type.BigintType.BIGINT;
+import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Predicates.compose;
@@ -53,40 +53,40 @@ public class InformationSchemaMetadata
 
     public static final Map<SchemaTableName, ConnectorTableMetadata> TABLES = schemaMetadataBuilder()
             .table(tableMetadataBuilder(TABLE_COLUMNS)
-                    .column("table_catalog", STRING)
-                    .column("table_schema", STRING)
-                    .column("table_name", STRING)
-                    .column("column_name", STRING)
-                    .column("ordinal_position", LONG)
-                    .column("column_default", STRING)
-                    .column("is_nullable", STRING)
-                    .column("data_type", STRING)
-                    .column("is_partition_key", STRING)
+                    .column("table_catalog", VARCHAR)
+                    .column("table_schema", VARCHAR)
+                    .column("table_name", VARCHAR)
+                    .column("column_name", VARCHAR)
+                    .column("ordinal_position", BIGINT)
+                    .column("column_default", VARCHAR)
+                    .column("is_nullable", VARCHAR)
+                    .column("data_type", VARCHAR)
+                    .column("is_partition_key", VARCHAR)
                     .build())
             .table(tableMetadataBuilder(TABLE_TABLES)
-                    .column("table_catalog", STRING)
-                    .column("table_schema", STRING)
-                    .column("table_name", STRING)
-                    .column("table_type", STRING)
+                    .column("table_catalog", VARCHAR)
+                    .column("table_schema", VARCHAR)
+                    .column("table_name", VARCHAR)
+                    .column("table_type", VARCHAR)
                     .build())
             .table(tableMetadataBuilder(TABLE_SCHEMATA)
-                    .column("catalog_name", STRING)
-                    .column("schema_name", STRING)
+                    .column("catalog_name", VARCHAR)
+                    .column("schema_name", VARCHAR)
                     .build())
             .table(tableMetadataBuilder(TABLE_INTERNAL_FUNCTIONS)
-                    .column("function_name", STRING)
-                    .column("argument_types", STRING)
-                    .column("return_type", STRING)
-                    .column("function_type", STRING)
-                    .column("description", STRING)
+                    .column("function_name", VARCHAR)
+                    .column("argument_types", VARCHAR)
+                    .column("return_type", VARCHAR)
+                    .column("function_type", VARCHAR)
+                    .column("description", VARCHAR)
                     .build())
             .table(tableMetadataBuilder(TABLE_INTERNAL_PARTITIONS)
-                    .column("table_catalog", STRING)
-                    .column("table_schema", STRING)
-                    .column("table_name", STRING)
-                    .column("partition_number", LONG)
-                    .column("partition_key", STRING)
-                    .column("partition_value", STRING)
+                    .column("table_catalog", VARCHAR)
+                    .column("table_schema", VARCHAR)
+                    .column("table_name", VARCHAR)
+                    .column("partition_number", BIGINT)
+                    .column("partition_key", VARCHAR)
+                    .column("partition_value", VARCHAR)
                     .build())
             .build();
 

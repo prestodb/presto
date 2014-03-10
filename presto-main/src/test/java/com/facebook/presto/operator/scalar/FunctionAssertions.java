@@ -13,8 +13,6 @@
  */
 package com.facebook.presto.operator.scalar;
 
-import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.block.BlockCursor;
 import com.facebook.presto.execution.TaskId;
 import com.facebook.presto.metadata.FunctionInfo;
 import com.facebook.presto.metadata.FunctionRegistry.FunctionListBuilder;
@@ -38,6 +36,9 @@ import com.facebook.presto.spi.HostAddress;
 import com.facebook.presto.spi.InMemoryRecordSet;
 import com.facebook.presto.spi.RecordSet;
 import com.facebook.presto.spi.Split;
+import com.facebook.presto.spi.block.Block;
+import com.facebook.presto.spi.block.BlockCursor;
+import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.split.DataStreamProvider;
 import com.facebook.presto.sql.analyzer.ExpressionAnalysis;
 import com.facebook.presto.sql.analyzer.SemanticException;
@@ -56,11 +57,6 @@ import com.facebook.presto.sql.tree.ExpressionRewriter;
 import com.facebook.presto.sql.tree.ExpressionTreeRewriter;
 import com.facebook.presto.sql.tree.Input;
 import com.facebook.presto.sql.tree.QualifiedNameReference;
-import com.facebook.presto.spi.type.BigintType;
-import com.facebook.presto.spi.type.BooleanType;
-import com.facebook.presto.spi.type.DoubleType;
-import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.spi.type.VarcharType;
 import com.facebook.presto.util.LocalQueryRunner;
 import com.facebook.presto.util.MaterializedResult;
 import com.facebook.presto.util.Threads;
@@ -88,10 +84,10 @@ import static com.facebook.presto.block.BlockAssertions.createLongsBlock;
 import static com.facebook.presto.block.BlockAssertions.createStringsBlock;
 import static com.facebook.presto.operator.scalar.FunctionAssertions.TestSplit.createNormalSplit;
 import static com.facebook.presto.operator.scalar.FunctionAssertions.TestSplit.createRecordSetSplit;
-import static com.facebook.presto.spi.ColumnType.BOOLEAN;
-import static com.facebook.presto.spi.ColumnType.DOUBLE;
-import static com.facebook.presto.spi.ColumnType.LONG;
-import static com.facebook.presto.spi.ColumnType.STRING;
+import static com.facebook.presto.spi.type.BigintType.BIGINT;
+import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
+import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
+import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.sql.analyzer.ExpressionAnalyzer.analyzeExpressionsWithSymbols;
 import static com.facebook.presto.sql.analyzer.ExpressionAnalyzer.getExpressionTypesFromInput;
 import static com.facebook.presto.sql.planner.optimizations.CanonicalizeExpressions.canonicalizeExpression;
@@ -122,13 +118,13 @@ public final class FunctionAssertions
     private static final Page ZERO_CHANNEL_PAGE = new Page(1);
 
     private static final Map<Input, Type> INPUT_TYPES = ImmutableMap.<Input, Type>builder()
-            .put(new Input(0), BigintType.BIGINT)
-            .put(new Input(1), VarcharType.VARCHAR)
-            .put(new Input(2), DoubleType.DOUBLE)
-            .put(new Input(3), BooleanType.BOOLEAN)
-            .put(new Input(4), BigintType.BIGINT)
-            .put(new Input(5), VarcharType.VARCHAR)
-            .put(new Input(6), VarcharType.VARCHAR)
+            .put(new Input(0), BIGINT)
+            .put(new Input(1), VARCHAR)
+            .put(new Input(2), DOUBLE)
+            .put(new Input(3), BOOLEAN)
+            .put(new Input(4), BIGINT)
+            .put(new Input(5), VARCHAR)
+            .put(new Input(6), VARCHAR)
             .build();
 
     private static final Map<Symbol, Input> INPUT_MAPPING = ImmutableMap.<Symbol, Input>builder()
@@ -142,13 +138,13 @@ public final class FunctionAssertions
             .build();
 
     private static final Map<Symbol, Type> SYMBOL_TYPES = ImmutableMap.<Symbol, Type>builder()
-            .put(new Symbol("bound_long"), BigintType.BIGINT)
-            .put(new Symbol("bound_string"), VarcharType.VARCHAR)
-            .put(new Symbol("bound_double"), DoubleType.DOUBLE)
-            .put(new Symbol("bound_boolean"), BooleanType.BOOLEAN)
-            .put(new Symbol("bound_timestamp"), BigintType.BIGINT)
-            .put(new Symbol("bound_pattern"), VarcharType.VARCHAR)
-            .put(new Symbol("bound_null_string"), VarcharType.VARCHAR)
+            .put(new Symbol("bound_long"), BIGINT)
+            .put(new Symbol("bound_string"), VARCHAR)
+            .put(new Symbol("bound_double"), DOUBLE)
+            .put(new Symbol("bound_boolean"), BOOLEAN)
+            .put(new Symbol("bound_timestamp"), BIGINT)
+            .put(new Symbol("bound_pattern"), VARCHAR)
+            .put(new Symbol("bound_null_string"), VARCHAR)
             .build();
 
     private static final DataStreamProvider DATA_STREAM_PROVIDER = new TestDataStreamProvider();
@@ -571,7 +567,7 @@ public final class FunctionAssertions
             assertInstanceOf(split, FunctionAssertions.TestSplit.class);
             FunctionAssertions.TestSplit testSplit = (FunctionAssertions.TestSplit) split;
             if (testSplit.isRecordSet()) {
-                RecordSet records = InMemoryRecordSet.builder(ImmutableList.of(LONG, STRING, DOUBLE, BOOLEAN, LONG, STRING, STRING)).addRow(
+                RecordSet records = InMemoryRecordSet.builder(ImmutableList.of(BIGINT, VARCHAR, DOUBLE, BOOLEAN, BIGINT, VARCHAR, VARCHAR)).addRow(
                         1234L,
                         "hello",
                         12.34,

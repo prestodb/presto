@@ -15,7 +15,7 @@ package com.facebook.presto.example;
 
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
-import com.facebook.presto.spi.ColumnType;
+import com.facebook.presto.spi.type.Type;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.base.Objects;
@@ -27,7 +27,7 @@ public final class ExampleColumnHandle
 {
     private final String connectorId;
     private final String columnName;
-    private final ColumnType columnType;
+    private final Type columnType;
     private final int ordinalPosition;
 
     public ExampleColumnHandle(String connectorId, ColumnMetadata columnMetadata)
@@ -39,7 +39,7 @@ public final class ExampleColumnHandle
     public ExampleColumnHandle(
             @JsonProperty("connectorId") String connectorId,
             @JsonProperty("columnName") String columnName,
-            @JsonProperty("columnType") ColumnType columnType,
+            @JsonProperty("columnType") Type columnType,
             @JsonProperty("ordinalPosition") int ordinalPosition)
     {
         this.connectorId = checkNotNull(connectorId, "connectorId is null");
@@ -61,7 +61,7 @@ public final class ExampleColumnHandle
     }
 
     @JsonProperty
-    public ColumnType getColumnType()
+    public Type getColumnType()
     {
         return columnType;
     }
