@@ -29,6 +29,7 @@ import com.facebook.presto.execution.TaskInfo;
 import com.facebook.presto.execution.TaskState;
 import com.facebook.presto.operator.TaskContext;
 import com.facebook.presto.operator.TaskStats;
+import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.Split;
 import com.facebook.presto.sql.analyzer.Session;
 import com.facebook.presto.sql.planner.PlanFragment;
@@ -80,6 +81,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 
+import static com.facebook.presto.spi.StandardErrorCode.TOO_MANY_REQUESTS_FAILED;
 import static com.facebook.presto.util.Failures.toFailure;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
@@ -91,6 +93,7 @@ import static io.airlift.http.client.Request.Builder.prepareDelete;
 import static io.airlift.http.client.Request.Builder.prepareGet;
 import static io.airlift.http.client.Request.Builder.preparePost;
 import static io.airlift.http.client.StatusResponseHandler.createStatusResponseHandler;
+import static java.lang.String.format;
 
 public class HttpRemoteTask
         implements RemoteTask
@@ -505,7 +508,7 @@ public class HttpRemoteTask
         Duration timeSinceLastSuccess = Duration.nanosSince(lastSuccessfulRequest.get());
         if (errorCount > maxConsecutiveErrorCount && timeSinceLastSuccess.compareTo(minErrorDuration) > 0) {
             // it is weird to mark the task failed locally and then cancel the remote task, but there is no way to tell a remote task that it is failed
-            RuntimeException exception = new RuntimeException(String.format("Too many requests to %s failed: %s failures: Time since last success %s",
+            PrestoException exception = new PrestoException(TOO_MANY_REQUESTS_FAILED, format("Too many requests to %s failed: %s failures: Time since last success %s",
                     taskInfo.getSelf(),
                     errorCount,
                     timeSinceLastSuccess));
@@ -731,10 +734,10 @@ public class HttpRemoteTask
                     Exception cause = response.getException();
                     if (cause == null) {
                         if (response.getStatusCode() == HttpStatus.OK.code()) {
-                            cause = new RuntimeException(String.format("Expected response from %s is empty", uri));
+                            cause = new RuntimeException(format("Expected response from %s is empty", uri));
                         }
                         else {
-                            cause = new RuntimeException(String.format("Expected response code from %s to be %s, but was %s: %s",
+                            cause = new RuntimeException(format("Expected response code from %s to be %s, but was %s: %s",
                                     uri,
                                     HttpStatus.OK.code(),
                                     response.getStatusCode(),

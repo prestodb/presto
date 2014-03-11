@@ -107,6 +107,7 @@ public class QueryMonitor
                             queryStats.getRawInputDataSize(),
                             queryStats.getRawInputPositions(),
                             queryStats.getTotalDrivers(),
+                            queryInfo.getErrorCode(),
                             failureType,
                             failureMessage,
                             objectMapper.writeValueAsString(queryInfo.getOutputStage()),

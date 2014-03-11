@@ -30,6 +30,8 @@ import com.facebook.presto.operator.window.PercentRankFunction;
 import com.facebook.presto.operator.window.RankFunction;
 import com.facebook.presto.operator.window.RowNumberFunction;
 import com.facebook.presto.operator.window.WindowFunction;
+import com.facebook.presto.spi.StandardErrorCode;
+import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.sql.analyzer.Session;
 import com.facebook.presto.sql.analyzer.Type;
 import com.facebook.presto.sql.gen.FunctionBinder;
@@ -239,7 +241,7 @@ public class FunctionRegistry
             String expected = Joiner.on(", ").join(expectedParameters);
             message = format("Unexpected parameters (%s) for function %s. Expected: %s", parameters, name, expected);
         }
-        throw new IllegalArgumentException(message);
+        throw new PrestoException(StandardErrorCode.FUNCTION_NOT_FOUND, message);
     }
 
     private static boolean canCoerce(List<Type> parameterTypes, FunctionInfo functionInfo)

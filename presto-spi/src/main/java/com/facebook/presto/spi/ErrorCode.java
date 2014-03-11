@@ -11,19 +11,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.execution;
+package com.facebook.presto.spi;
 
-import com.facebook.presto.spi.PrestoException;
-import org.joda.time.DateTime;
-
-import static com.facebook.presto.spi.StandardErrorCode.ABANDONED_QUERY;
-import static java.lang.String.format;
-
-public class AbandonedException
-        extends PrestoException
+public interface ErrorCode
 {
-    public AbandonedException(String name, DateTime lastHeartbeat, DateTime now)
-    {
-        super(ABANDONED_QUERY, format("%s has not been accessed since %s: currentTime %s", name, lastHeartbeat, now));
-    }
+    int getCode();
+    String getName();
 }
