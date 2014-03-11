@@ -1026,12 +1026,15 @@ public class PrestoDatabaseMetaData
                 "    ELSE " + Types.OTHER + " " +
                 "  END DATA_TYPE " +
                 ", data_type TYPE_NAME " +
-                ", CAST(NULL AS bigint) COLUMN_SIZE " +
+                ", 0 COLUMN_SIZE " +
                 ", 0 BUFFER_LENGTH " +
-                ", CAST(NULL AS bigint) DECIMAL_DIGITS " +
+                ", CASE data_type " +
+                "    WHEN 'bigint' THEN 0 " +
+                "  END DECIMAL_DIGITS " +
                 ", CASE data_type " +
                 "    WHEN 'bigint' THEN 10 " +
                 "    WHEN 'double' THEN 10 " +
+                "    ELSE 0 " +
                 "  END AS NUM_PREC_RADIX " +
                 ", CASE is_nullable " +
                 "    WHEN 'NO' THEN " + columnNoNulls + " " +
@@ -1042,7 +1045,7 @@ public class PrestoDatabaseMetaData
                 ", column_default AS COLUMN_DEF " +
                 ", CAST(NULL AS bigint) AS SQL_DATA_TYPE " +
                 ", CAST(NULL AS bigint) AS SQL_DATETIME_SUB " +
-                ", CAST(NULL AS bigint) AS CHAR_OCTET_LENGTH " +
+                ", 0 AS CHAR_OCTET_LENGTH " +
                 ", ordinal_position ORDINAL_POSITION " +
                 ", is_nullable IS_NULLABLE " +
                 ", CAST(NULL AS varchar) SCOPE_CATALOG " +
