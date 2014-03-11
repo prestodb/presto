@@ -62,7 +62,7 @@ import static java.util.concurrent.TimeUnit.MILLISECONDS;
 public class CachingHiveMetastore
 {
     private final CachingHiveMetastoreStats stats = new CachingHiveMetastoreStats();
-    private final HiveCluster clientProvider;
+    protected final HiveCluster clientProvider;
     private final LoadingCache<String, List<String>> databaseNamesCache;
     private final LoadingCache<String, Database> databaseCache;
     private final LoadingCache<String, List<String>> tableNamesCache;

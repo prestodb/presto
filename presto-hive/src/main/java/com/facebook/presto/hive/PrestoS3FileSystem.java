@@ -14,10 +14,13 @@
 package com.facebook.presto.hive;
 
 import com.amazonaws.AmazonClientException;
+import com.amazonaws.ClientConfiguration;
+import com.amazonaws.Protocol;
 import com.amazonaws.auth.AWSCredentials;
 import com.amazonaws.auth.BasicAWSCredentials;
 import com.amazonaws.services.s3.AmazonS3;
 import com.amazonaws.services.s3.AmazonS3Client;
+import com.amazonaws.services.s3.model.AmazonS3Exception;
 import com.amazonaws.services.s3.model.GetObjectRequest;
 import com.amazonaws.services.s3.model.ListObjectsRequest;
 import com.amazonaws.services.s3.model.ObjectListing;
@@ -28,7 +31,10 @@ import com.amazonaws.services.s3.model.S3ObjectSummary;
 import com.google.common.base.Function;
 import com.google.common.collect.AbstractSequentialIterator;
 import com.google.common.collect.Iterators;
+import com.google.common.primitives.Ints;
+import io.airlift.log.Logger;
 import io.airlift.units.DataSize;
+import io.airlift.units.Duration;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.BlockLocation;
 import org.apache.hadoop.fs.BufferedFSInputStream;
@@ -44,9 +50,15 @@ import org.apache.hadoop.fs.permission.FsPermission;
 import org.apache.hadoop.fs.s3.S3Credentials;
 import org.apache.hadoop.util.Progressable;
 
+import java.io.BufferedOutputStream;
+import java.io.File;
+import java.io.FileNotFoundException;
+import java.io.FileOutputStream;
+import java.io.FilterOutputStream;
 import java.io.IOException;
 import java.net.URI;
 import java.util.ArrayList;
+import java.util.Date;
 import java.util.Iterator;
 import java.util.List;
 
@@ -58,16 +70,28 @@ import static com.google.common.base.Throwables.propagate;
 import static com.google.common.collect.Iterables.toArray;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static java.lang.Math.max;
+import static java.nio.file.Files.createDirectories;
+import static java.nio.file.Files.createTempFile;
 
 public class PrestoS3FileSystem
         extends FileSystem
 {
+    public static final String S3_SSL_ENABLED = "presto.s3.ssl.enabled";
+    public static final String S3_MAX_ERROR_RETRIES = "presto.s3.max-error-retries";
+    public static final String S3_MAX_CLIENT_RETRIES = "presto.s3.max-client-retries";
+    public static final String S3_CONNECT_TIMEOUT = "presto.s3.connect-timeout";
+    public static final String S3_STAGING_DIRECTORY = "presto.s3.staging-directory";
+
+    private static final Logger log = Logger.get(PrestoS3FileSystem.class);
+
     private static final DataSize BLOCK_SIZE = new DataSize(32, MEGABYTE);
     private static final DataSize MAX_SKIP_SIZE = new DataSize(1, MEGABYTE);
 
     private URI uri;
     private Path workingDirectory;
     private AmazonS3 s3;
+    private File stagingDirectory;
+    private int maxClientRetries;
 
     @Override
     public void initialize(URI uri, Configuration conf)
@@ -78,7 +102,20 @@ public class PrestoS3FileSystem
 
         this.uri = URI.create(uri.getScheme() + "://" + uri.getAuthority());
         this.workingDirectory = new Path("/").makeQualified(this.uri, new Path("/"));
-        this.s3 = new AmazonS3Client(getAwsCredentials(uri, conf));
+
+        HiveClientConfig defaults = new HiveClientConfig();
+        this.stagingDirectory = new File(conf.get(S3_STAGING_DIRECTORY, defaults.getS3StagingDirectory().toString()));
+        this.maxClientRetries = conf.getInt(S3_MAX_CLIENT_RETRIES, defaults.getS3MaxClientRetries());
+        int maxErrorRetries = conf.getInt(S3_MAX_ERROR_RETRIES, defaults.getS3MaxErrorRetries());
+        boolean sslEnabled = conf.getBoolean(S3_SSL_ENABLED, defaults.isS3SslEnabled());
+        Duration connectTimeout = Duration.valueOf(conf.get(S3_CONNECT_TIMEOUT, defaults.getS3ConnectTimeout().toString()));
+
+        ClientConfiguration configuration = new ClientConfiguration();
+        configuration.setMaxErrorRetry(maxErrorRetries);
+        configuration.setProtocol(sslEnabled ? Protocol.HTTPS : Protocol.HTTP);
+        configuration.setConnectionTimeout(Ints.checkedCast(connectTimeout.toMillis()));
+
+        this.s3 = new AmazonS3Client(getAwsCredentials(uri, conf), configuration);
     }
 
     @Override
@@ -149,13 +186,31 @@ public class PrestoS3FileSystem
     public FileStatus getFileStatus(Path path)
             throws IOException
     {
+        if (path.getName().isEmpty()) {
+            // the bucket root requires special handling
+            if (getS3ObjectMetadata(path) != null) {
+                return new FileStatus(0, true, 1, 0, 0, qualifiedPath(path));
+            }
+            throw new FileNotFoundException("File does not exist: " + path);
+        }
+
         ObjectMetadata metadata = getS3ObjectMetadata(path);
+
+        if (metadata == null) {
+            // check if this path is a directory
+            Iterator<LocatedFileStatus> iterator = listPrefix(path);
+            if ((iterator != null) && iterator.hasNext()) {
+                return new FileStatus(0, true, 1, 0, 0, qualifiedPath(path));
+            }
+            throw new FileNotFoundException("File does not exist: " + path);
+        }
+
         return new FileStatus(
                 metadata.getContentLength(),
                 false,
                 1,
                 BLOCK_SIZE.toBytes(),
-                metadata.getLastModified().getTime(),
+                lastModifiedTime(metadata),
                 qualifiedPath(path));
     }
 
@@ -165,15 +220,25 @@ public class PrestoS3FileSystem
     {
         return new FSDataInputStream(
                 new BufferedFSInputStream(
-                        new PrestoS3InputStream(s3, uri.getHost(), path),
+                        new PrestoS3InputStream(s3, uri.getHost(), path, maxClientRetries),
                         bufferSize));
     }
 
     @Override
-    public FSDataOutputStream create(Path f, FsPermission permission, boolean overwrite, int bufferSize, short replication, long blockSize, Progressable progress)
+    public FSDataOutputStream create(Path path, FsPermission permission, boolean overwrite, int bufferSize, short replication, long blockSize, Progressable progress)
             throws IOException
     {
-        throw new UnsupportedOperationException("create");
+        if ((!overwrite) && exists(path)) {
+            throw new IOException("File already exists:" + path);
+        }
+
+        createDirectories(stagingDirectory.toPath());
+        File tempFile = createTempFile(stagingDirectory.toPath(), "presto-s3-", ".tmp").toFile();
+
+        String key = keyFromPath(qualifiedPath(path));
+        return new FSDataOutputStream(
+                new PrestoS3OutputStream(s3, uri.getHost(), key, tempFile),
+                statistics);
     }
 
     @Override
@@ -201,7 +266,8 @@ public class PrestoS3FileSystem
     public boolean mkdirs(Path f, FsPermission permission)
             throws IOException
     {
-        throw new UnsupportedOperationException("mkdirs");
+        // no need to do anything for S3
+        return true;
     }
 
     private Iterator<LocatedFileStatus> listPrefix(Path path)
@@ -250,7 +316,7 @@ public class PrestoS3FileSystem
         List<LocatedFileStatus> list = new ArrayList<>();
         for (String prefix : prefixes) {
             Path path = qualifiedPath(new Path("/" + prefix));
-            FileStatus status = new FileStatus(0, true, 1, BLOCK_SIZE.toBytes(), 0, path);
+            FileStatus status = new FileStatus(0, true, 1, 0, 0, path);
             list.add(createLocatedFileStatus(status));
         }
         return list.iterator();
@@ -280,6 +346,12 @@ public class PrestoS3FileSystem
         try {
             return s3.getObjectMetadata(uri.getHost(), keyFromPath(path));
         }
+        catch (AmazonS3Exception e) {
+            if (e.getStatusCode() == 404) {
+                return null;
+            }
+            throw new IOException(e);
+        }
         catch (AmazonClientException e) {
             throw new IOException(e);
         }
@@ -299,6 +371,12 @@ public class PrestoS3FileSystem
         catch (IOException e) {
             throw propagate(e);
         }
+    }
+
+    private static long lastModifiedTime(ObjectMetadata metadata)
+    {
+        Date date = metadata.getLastModified();
+        return (date != null) ? date.getTime() : 0;
     }
 
     private static String keyFromPath(Path path)
@@ -327,16 +405,20 @@ public class PrestoS3FileSystem
         private final AmazonS3 s3;
         private final String host;
         private final Path path;
+        private final int maxClientRetry;
 
         private boolean closed;
         private S3ObjectInputStream in;
         private long position;
 
-        public PrestoS3InputStream(AmazonS3 s3, String host, Path path)
+        public PrestoS3InputStream(AmazonS3 s3, String host, Path path, int maxClientRetry)
         {
             this.s3 = checkNotNull(s3, "s3 is null");
             this.host = checkNotNull(host, "host is null");
             this.path = checkNotNull(path, "path is null");
+
+            checkArgument(maxClientRetry >= 0, "maxClientRetries cannot be negative");
+            this.maxClientRetry = maxClientRetry;
         }
 
         @Override
@@ -344,10 +426,7 @@ public class PrestoS3FileSystem
                 throws IOException
         {
             closed = true;
-            if (in != null) {
-                in.abort();
-                in = null;
-            }
+            closeStream();
         }
 
         @Override
@@ -375,11 +454,9 @@ public class PrestoS3FileSystem
             }
 
             // close the stream and open at desired position
-            if (in != null) {
-                in.close();
-            }
-            in = getS3Object(path, pos).getObjectContent();
             position = pos;
+            closeStream();
+            openStream();
         }
 
         @Override
@@ -393,20 +470,46 @@ public class PrestoS3FileSystem
         public int read()
                 throws IOException
         {
-            int b = in.read();
-            if (b != -1) {
-                position++;
+            IOException exception = null;
+            for (int i = 0; i <= maxClientRetry; i++) {
+                try {
+                    openStream();
+                    int b = in.read();
+                    if (b != -1) {
+                        position++;
+                    }
+                    return b;
+                }
+                catch (IOException e) {
+                    log.debug("Failed reading from S3 on attempt %s: %s", i + 1, e.getMessage());
+                    exception = e;
+                    closeStream();
+                }
             }
-            return b;
+            throw exception;
         }
 
         @Override
         public int read(byte[] b, int off, int len)
                 throws IOException
         {
-            int n = in.read(b, off, len);
-            position += n;
-            return n;
+            IOException exception = null;
+            for (int i = 0; i <= maxClientRetry; i++) {
+                try {
+                    openStream();
+                    int n = in.read(b, off, len);
+                    if (n != -1) {
+                        position += n;
+                    }
+                    return n;
+                }
+                catch (IOException e) {
+                    log.debug("Failed reading from S3 on attempt %s: %s", i + 1, e.getMessage());
+                    exception = e;
+                    closeStream();
+                }
+            }
+            throw exception;
         }
 
         @Override
@@ -422,6 +525,84 @@ public class PrestoS3FileSystem
             try {
                 return s3.getObject(new GetObjectRequest(host, keyFromPath(path))
                         .withRange(start, Long.MAX_VALUE));
+            }
+            catch (AmazonClientException e) {
+                throw new IOException(e);
+            }
+        }
+
+        private void openStream()
+                throws IOException
+        {
+            if (in == null) {
+                in = getS3Object(path, position).getObjectContent();
+            }
+        }
+
+        private void closeStream()
+                throws IOException
+        {
+            if (in != null) {
+                try {
+                    in.abort();
+                }
+                catch (IOException ignored) {
+                }
+                in = null;
+            }
+        }
+    }
+
+    private static class PrestoS3OutputStream
+            extends FilterOutputStream
+    {
+        private final AmazonS3 s3;
+        private final String host;
+        private final String key;
+        private final File tempFile;
+
+        private boolean closed;
+
+        public PrestoS3OutputStream(AmazonS3 s3, String host, String key, File tempFile)
+                throws IOException
+        {
+            super(new BufferedOutputStream(new FileOutputStream(checkNotNull(tempFile, "tempFile is null"))));
+
+            this.s3 = checkNotNull(s3, "s3 is null");
+            this.host = checkNotNull(host, "host is null");
+            this.key = checkNotNull(key, "key is null");
+            this.tempFile = tempFile;
+
+            log.debug("OutputStream for key '%s' using file: %s", key, tempFile);
+        }
+
+        @Override
+        public void close()
+                throws IOException
+        {
+            if (closed) {
+                return;
+            }
+            closed = true;
+
+            try {
+                super.close();
+                uploadObject();
+            }
+            finally {
+                if (!tempFile.delete()) {
+                    log.warn("Could not delete temporary file: %s", tempFile);
+                }
+            }
+        }
+
+        private void uploadObject()
+                throws IOException
+        {
+            try {
+                log.debug("Starting upload for key: %s", key);
+                s3.putObject(host, key, tempFile);
+                log.debug("Completed upload for key: %s", key);
             }
             catch (AmazonClientException e) {
                 throw new IOException(e);
