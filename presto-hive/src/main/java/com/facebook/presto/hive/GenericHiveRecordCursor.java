@@ -15,6 +15,7 @@ package com.facebook.presto.hive;
 
 import com.facebook.presto.hive.util.SerDeUtils;
 import com.facebook.presto.spi.ColumnType;
+import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.RecordCursor;
 import com.google.common.base.Charsets;
 import com.google.common.base.Throwables;
@@ -232,7 +233,7 @@ class GenericHiveRecordCursor<K, V extends Writable>
         }
         catch (IOException | SerDeException | RuntimeException e) {
             close();
-            throw Throwables.propagate(e);
+            throw new PrestoException(HiveErrorCode.HIVE_CURSOR_ERROR, e);
         }
     }
 

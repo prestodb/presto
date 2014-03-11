@@ -13,6 +13,8 @@
  */
 package com.facebook.presto.hive;
 
+import com.facebook.presto.hive.shaded.org.apache.thrift.TException;
+import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SchemaTableName;
 import com.google.common.base.Function;
 import com.google.common.base.Objects;
@@ -241,17 +243,22 @@ public class CachingHiveMetastore
     private List<String> loadAllDatabases()
             throws Exception
     {
-        return retry().stopOnIllegalExceptions().run("getAllDatabases", stats.getGetAllDatabases().wrap(new Callable<List<String>>()
-        {
-            @Override
-            public List<String> call()
-                    throws Exception
+        try {
+            return retry().stopOnIllegalExceptions().run("getAllDatabases", stats.getGetAllDatabases().wrap(new Callable<List<String>>()
             {
-                try (HiveMetastoreClient client = clientProvider.createMetastoreClient()) {
-                    return client.get_all_databases();
+                @Override
+                public List<String> call()
+                        throws Exception
+                {
+                    try (HiveMetastoreClient client = clientProvider.createMetastoreClient()) {
+                        return client.get_all_databases();
+                    }
                 }
-            }
-        }));
+            }));
+        }
+        catch (TException e) {
+            throw new PrestoException(HiveErrorCode.HIVE_METASTORE_ERROR, e);
+        }
     }
 
     public Database getDatabase(String databaseName)
@@ -263,17 +270,25 @@ public class CachingHiveMetastore
     private Database loadDatabase(final String databaseName)
             throws Exception
     {
-        return retry().stopOn(NoSuchObjectException.class).stopOnIllegalExceptions().run("getDatabase", stats.getGetDatabase().wrap(new Callable<Database>()
-        {
-            @Override
-            public Database call()
-                    throws Exception
+        try {
+            return retry().stopOn(NoSuchObjectException.class).stopOnIllegalExceptions().run("getDatabase", stats.getGetDatabase().wrap(new Callable<Database>()
             {
-                try (HiveMetastoreClient client = clientProvider.createMetastoreClient()) {
-                    return client.get_database(databaseName);
+                @Override
+                public Database call()
+                        throws Exception
+                {
+                    try (HiveMetastoreClient client = clientProvider.createMetastoreClient()) {
+                        return client.get_database(databaseName);
+                    }
                 }
-            }
-        }));
+            }));
+        }
+        catch (NoSuchObjectException e) {
+            throw e;
+        }
+        catch (TException e) {
+            throw new PrestoException(HiveErrorCode.HIVE_METASTORE_ERROR, e);
+        }
     }
 
     public List<String> getAllTables(String databaseName)
@@ -285,7 +300,8 @@ public class CachingHiveMetastore
     private List<String> loadAllTables(final String databaseName)
             throws Exception
     {
-        final Callable<List<String>> getAllTables = stats.getGetAllTables().wrap(new Callable<List<String>>() {
+        final Callable<List<String>> getAllTables = stats.getGetAllTables().wrap(new Callable<List<String>>()
+        {
             @Override
             public List<String> call()
                     throws Exception
@@ -296,7 +312,8 @@ public class CachingHiveMetastore
             }
         });
 
-        final Callable<Void> getDatabase = stats.getGetDatabase().wrap(new Callable<Void>() {
+        final Callable<Void> getDatabase = stats.getGetDatabase().wrap(new Callable<Void>()
+        {
             @Override
             public Void call()
                     throws Exception
@@ -308,20 +325,28 @@ public class CachingHiveMetastore
             }
         });
 
-        return retry().stopOn(NoSuchObjectException.class).stopOnIllegalExceptions().run("getAllTables", new Callable<List<String>>()
-        {
-            @Override
-            public List<String> call()
-                    throws Exception
+        try {
+            return retry().stopOn(NoSuchObjectException.class).stopOnIllegalExceptions().run("getAllTables", new Callable<List<String>>()
             {
-                List<String> tables = getAllTables.call();
-                if (tables.isEmpty()) {
-                    // Check to see if the database exists
-                    getDatabase.call();
+                @Override
+                public List<String> call()
+                        throws Exception
+                {
+                    List<String> tables = getAllTables.call();
+                    if (tables.isEmpty()) {
+                        // Check to see if the database exists
+                        getDatabase.call();
+                    }
+                    return tables;
                 }
-                return tables;
-            }
-        });
+            });
+        }
+        catch (NoSuchObjectException e) {
+            throw e;
+        }
+        catch (TException e) {
+            throw new PrestoException(HiveErrorCode.HIVE_METASTORE_ERROR, e);
+        }
     }
 
     public Table getTable(String databaseName, String tableName)
@@ -352,6 +377,12 @@ public class CachingHiveMetastore
         catch (AlreadyExistsException e) {
             throw new TableAlreadyExistsException(new SchemaTableName(table.getDbName(), table.getTableName()));
         }
+        catch (InvalidObjectException | NoSuchObjectException | MetaException e) {
+            throw Throwables.propagate(e);
+        }
+        catch (TException e) {
+            throw new PrestoException(HiveErrorCode.HIVE_METASTORE_ERROR, e);
+        }
         catch (Exception e) {
             if (e instanceof InterruptedException) {
                 Thread.currentThread().interrupt();
@@ -376,6 +407,12 @@ public class CachingHiveMetastore
                 }
             }));
         }
+        catch (NoSuchObjectException e) {
+            throw Throwables.propagate(e);
+        }
+        catch (TException e) {
+            throw new PrestoException(HiveErrorCode.HIVE_METASTORE_ERROR, e);
+        }
         catch (Exception e) {
             if (e instanceof InterruptedException) {
                 Thread.currentThread().interrupt();
@@ -387,21 +424,29 @@ public class CachingHiveMetastore
     private Table loadTable(final HiveTableName hiveTableName)
             throws Exception
     {
-        return retry().stopOn(NoSuchObjectException.class, HiveViewNotSupportedException.class).stopOnIllegalExceptions().run("getTable", stats.getGetTable().wrap(new Callable<Table>()
-        {
-            @Override
-            public Table call()
-                    throws Exception
+        try {
+            return retry().stopOn(NoSuchObjectException.class, HiveViewNotSupportedException.class).stopOnIllegalExceptions().run("getTable", stats.getGetTable().wrap(new Callable<Table>()
             {
-                try (HiveMetastoreClient client = clientProvider.createMetastoreClient()) {
-                    Table table = client.get_table(hiveTableName.getDatabaseName(), hiveTableName.getTableName());
-                    if (table.getTableType().equals(TableType.VIRTUAL_VIEW.toString())) {
-                        throw new HiveViewNotSupportedException(new SchemaTableName(hiveTableName.getDatabaseName(), hiveTableName.getTableName()));
+                @Override
+                public Table call()
+                        throws Exception
+                {
+                    try (HiveMetastoreClient client = clientProvider.createMetastoreClient()) {
+                        Table table = client.get_table(hiveTableName.getDatabaseName(), hiveTableName.getTableName());
+                        if (table.getTableType().equals(TableType.VIRTUAL_VIEW.toString())) {
+                            throw new HiveViewNotSupportedException(new SchemaTableName(hiveTableName.getDatabaseName(), hiveTableName.getTableName()));
+                        }
+                        return table;
                     }
-                    return table;
                 }
-            }
-        }));
+            }));
+        }
+        catch (NoSuchObjectException | HiveViewNotSupportedException e) {
+            throw e;
+        }
+        catch (TException e) {
+            throw new PrestoException(HiveErrorCode.HIVE_METASTORE_ERROR, e);
+        }
     }
 
     public List<String> getPartitionNames(String databaseName, String tableName)
@@ -413,17 +458,25 @@ public class CachingHiveMetastore
     private List<String> loadPartitionNames(final HiveTableName hiveTableName)
             throws Exception
     {
-        return retry().stopOn(NoSuchObjectException.class).stopOnIllegalExceptions().run("getPartitionNames", stats.getGetPartitionNames().wrap(new Callable<List<String>>()
-        {
-            @Override
-            public List<String> call()
-                    throws Exception
+        try {
+            return retry().stopOn(NoSuchObjectException.class).stopOnIllegalExceptions().run("getPartitionNames", stats.getGetPartitionNames().wrap(new Callable<List<String>>()
             {
-                try (HiveMetastoreClient client = clientProvider.createMetastoreClient()) {
-                    return client.get_partition_names(hiveTableName.getDatabaseName(), hiveTableName.getTableName(), (short) 0);
+                @Override
+                public List<String> call()
+                        throws Exception
+                {
+                    try (HiveMetastoreClient client = clientProvider.createMetastoreClient()) {
+                        return client.get_partition_names(hiveTableName.getDatabaseName(), hiveTableName.getTableName(), (short) 0);
+                    }
                 }
-            }
-        }));
+            }));
+        }
+        catch (NoSuchObjectException e) {
+            throw e;
+        }
+        catch (TException e) {
+            throw new PrestoException(HiveErrorCode.HIVE_METASTORE_ERROR, e);
+        }
     }
 
     public List<String> getPartitionNamesByParts(String databaseName, String tableName, List<String> parts)
@@ -435,20 +488,28 @@ public class CachingHiveMetastore
     private List<String> loadPartitionNamesByParts(final PartitionFilter partitionFilter)
             throws Exception
     {
-        return retry().stopOn(NoSuchObjectException.class).stopOnIllegalExceptions().run("getPartitionNamesByParts", stats.getGetPartitionNamesPs().wrap(new Callable<List<String>>()
-        {
-            @Override
-            public List<String> call()
-                    throws Exception
+        try {
+            return retry().stopOn(NoSuchObjectException.class).stopOnIllegalExceptions().run("getPartitionNamesByParts", stats.getGetPartitionNamesPs().wrap(new Callable<List<String>>()
             {
-                try (HiveMetastoreClient client = clientProvider.createMetastoreClient()) {
-                    return client.get_partition_names_ps(partitionFilter.getHiveTableName().getDatabaseName(),
-                            partitionFilter.getHiveTableName().getTableName(),
-                            partitionFilter.getParts(),
-                            (short) -1);
+                @Override
+                public List<String> call()
+                        throws Exception
+                {
+                    try (HiveMetastoreClient client = clientProvider.createMetastoreClient()) {
+                        return client.get_partition_names_ps(partitionFilter.getHiveTableName().getDatabaseName(),
+                                partitionFilter.getHiveTableName().getTableName(),
+                                partitionFilter.getParts(),
+                                (short) -1);
+                    }
                 }
-            }
-        }));
+            }));
+        }
+        catch (NoSuchObjectException e) {
+            throw e;
+        }
+        catch (TException e) {
+            throw new PrestoException(HiveErrorCode.HIVE_METASTORE_ERROR, e);
+        }
     }
 
     /**
@@ -465,19 +526,27 @@ public class CachingHiveMetastore
             throws Exception
     {
         checkNotNull(partitionName, "partitionName is null");
-        return retry().stopOn(NoSuchObjectException.class).stopOnIllegalExceptions().run("getPartitionsByNames", stats.getGetPartitionByName().wrap(new Callable<Partition>()
-        {
-            @Override
-            public Partition call()
-                    throws Exception
+        try {
+            return retry().stopOn(NoSuchObjectException.class).stopOnIllegalExceptions().run("getPartitionsByNames", stats.getGetPartitionByName().wrap(new Callable<Partition>()
             {
-                try (HiveMetastoreClient client = clientProvider.createMetastoreClient()) {
-                    return client.get_partition_by_name(partitionName.getHiveTableName().getDatabaseName(),
-                            partitionName.getHiveTableName().getTableName(),
-                            partitionName.getPartitionName());
+                @Override
+                public Partition call()
+                        throws Exception
+                {
+                    try (HiveMetastoreClient client = clientProvider.createMetastoreClient()) {
+                        return client.get_partition_by_name(partitionName.getHiveTableName().getDatabaseName(),
+                                partitionName.getHiveTableName().getTableName(),
+                                partitionName.getPartitionName());
+                    }
                 }
-            }
-        }));
+            }));
+        }
+        catch (NoSuchObjectException e) {
+            throw e;
+        }
+        catch (TException e) {
+            throw new PrestoException(HiveErrorCode.HIVE_METASTORE_ERROR, e);
+        }
     }
 
     private Map<HivePartitionName, Partition> loadPartitionsByNames(Iterable<? extends HivePartitionName> partitionNames)
@@ -500,22 +569,30 @@ public class CachingHiveMetastore
 
         final List<String> partitionColumnNames = ImmutableList.copyOf(Warehouse.makeSpecFromName(firstPartition.getPartitionName()).keySet());
 
-        return retry().stopOn(NoSuchObjectException.class).stopOnIllegalExceptions().run("getPartitionsByNames", stats.getGetPartitionsByNames().wrap(new Callable<Map<HivePartitionName, Partition>>()
-        {
-            @Override
-            public Map<HivePartitionName, Partition> call()
-                    throws Exception
+        try {
+            return retry().stopOn(NoSuchObjectException.class).stopOnIllegalExceptions().run("getPartitionsByNames", stats.getGetPartitionsByNames().wrap(new Callable<Map<HivePartitionName, Partition>>()
             {
-                try (HiveMetastoreClient client = clientProvider.createMetastoreClient()) {
-                    ImmutableMap.Builder<HivePartitionName, Partition> partitions = ImmutableMap.builder();
-                    for (Partition partition : client.get_partitions_by_names(databaseName, tableName, partitionsToFetch)) {
-                        String partitionId = FileUtils.makePartName(partitionColumnNames, partition.getValues(), null);
-                        partitions.put(HivePartitionName.partition(databaseName, tableName, partitionId), partition);
+                @Override
+                public Map<HivePartitionName, Partition> call()
+                        throws Exception
+                {
+                    try (HiveMetastoreClient client = clientProvider.createMetastoreClient()) {
+                        ImmutableMap.Builder<HivePartitionName, Partition> partitions = ImmutableMap.builder();
+                        for (Partition partition : client.get_partitions_by_names(databaseName, tableName, partitionsToFetch)) {
+                            String partitionId = FileUtils.makePartName(partitionColumnNames, partition.getValues(), null);
+                            partitions.put(HivePartitionName.partition(databaseName, tableName, partitionId), partition);
+                        }
+                        return partitions.build();
                     }
-                    return partitions.build();
                 }
-            }
-        }));
+            }));
+        }
+        catch (NoSuchObjectException e) {
+            throw e;
+        }
+        catch (TException e) {
+            throw new PrestoException(HiveErrorCode.HIVE_METASTORE_ERROR, e);
+        }
     }
 
     private static Function<String, HivePartitionName> partitionNameCreator(final String databaseName, final String tableName)

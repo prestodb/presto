@@ -13,12 +13,13 @@
  */
 package com.facebook.presto.hive;
 
+import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SchemaTableName;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 
 public class TableOfflineException
-        extends RuntimeException
+        extends PrestoException
 {
     private final SchemaTableName tableName;
 
@@ -29,7 +30,7 @@ public class TableOfflineException
 
     public TableOfflineException(SchemaTableName tableName, String message)
     {
-        super(message);
+        super(HiveErrorCode.HIVE_TABLE_OFFLINE, message);
         this.tableName = checkNotNull(tableName, "tableName is null");
     }
 
