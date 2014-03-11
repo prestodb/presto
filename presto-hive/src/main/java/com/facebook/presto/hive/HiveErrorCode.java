@@ -11,19 +11,34 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.execution;
+package com.facebook.presto.hive;
 
-import com.facebook.presto.spi.PrestoException;
-import org.joda.time.DateTime;
+import com.facebook.presto.spi.ErrorCode;
 
-import static com.facebook.presto.spi.StandardErrorCode.ABANDONED_QUERY;
-import static java.lang.String.format;
-
-public class AbandonedException
-        extends PrestoException
+public enum HiveErrorCode
+        implements ErrorCode
 {
-    public AbandonedException(String name, DateTime lastHeartbeat, DateTime now)
+    // Connectors can use error codes starting at EXTERNAL
+    HIVE_METASTORE_ERROR(0x0100_0000),
+    HIVE_CURSOR_ERROR(0x0100_0001),
+    HIVE_TABLE_OFFLINE(0x0100_0002);
+
+    private final int code;
+
+    HiveErrorCode(int code)
     {
-        super(ABANDONED_QUERY, format("%s has not been accessed since %s: currentTime %s", name, lastHeartbeat, now));
+        this.code = code;
+    }
+
+    @Override
+    public int getCode()
+    {
+        return code;
+    }
+
+    @Override
+    public String getName()
+    {
+        return name();
     }
 }

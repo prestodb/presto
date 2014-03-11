@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.operator;
 
+import com.facebook.presto.ExceededMemoryLimitException;
 import com.facebook.presto.execution.TaskId;
 import com.facebook.presto.operator.HashAggregationOperator.HashAggregationOperatorFactory;
 import com.facebook.presto.sql.analyzer.Session;
@@ -160,7 +161,7 @@ public class TestHashAggregationOperator
         assertOperatorEqualsIgnoreOrder(operator, input, expected);
     }
 
-    @Test(expectedExceptions = IllegalStateException.class, expectedExceptionsMessageRegExp = "Task exceeded max memory size of 10B")
+    @Test(expectedExceptions = ExceededMemoryLimitException.class, expectedExceptionsMessageRegExp = "Task exceeded max memory size of 10B")
     public void testMemoryLimit()
     {
         List<Page> input = rowPagesBuilder(SINGLE_VARBINARY, SINGLE_VARBINARY, SINGLE_VARBINARY, SINGLE_LONG)

@@ -25,6 +25,7 @@ import com.google.common.collect.Multimaps;
 import com.google.common.collect.Multiset;
 import com.google.common.collect.Ordering;
 
+import java.util.Arrays;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Set;
@@ -41,6 +42,11 @@ public class IterableTransformer<E>
     public static <T> IterableTransformer<T> on(Iterable<T> iterable)
     {
         return new IterableTransformer<>(iterable);
+    }
+
+    public static <T> IterableTransformer<T> on(T[] array)
+    {
+        return new IterableTransformer<>(Arrays.asList(array));
     }
 
     public <T> IterableTransformer<T> transform(Function<? super E, T> function)
