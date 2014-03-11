@@ -14,6 +14,7 @@
 package com.facebook.presto.execution;
 
 import com.facebook.presto.client.FailureInfo;
+import com.facebook.presto.spi.ErrorCode;
 import com.facebook.presto.sql.analyzer.Session;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
@@ -42,6 +43,7 @@ public class QueryInfo
     private final QueryStats queryStats;
     private final StageInfo outputStage;
     private final FailureInfo failureInfo;
+    private final ErrorCode errorCode;
     private final Set<Input> inputs;
 
     @JsonCreator
@@ -55,6 +57,7 @@ public class QueryInfo
             @JsonProperty("queryStats") QueryStats queryStats,
             @JsonProperty("outputStage") StageInfo outputStage,
             @JsonProperty("failureInfo") FailureInfo failureInfo,
+            @JsonProperty("errorCode") ErrorCode errorCode,
             @JsonProperty("inputs") Set<Input> inputs)
     {
         Preconditions.checkNotNull(queryId, "queryId is null");
@@ -75,7 +78,14 @@ public class QueryInfo
         this.queryStats = queryStats;
         this.outputStage = outputStage;
         this.failureInfo = failureInfo;
+        this.errorCode = errorCode;
         this.inputs = ImmutableSet.copyOf(inputs);
+    }
+
+    @JsonProperty
+    public ErrorCode getErrorCode()
+    {
+        return errorCode;
     }
 
     @JsonProperty

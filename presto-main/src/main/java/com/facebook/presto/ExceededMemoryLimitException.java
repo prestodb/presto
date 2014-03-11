@@ -11,19 +11,17 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.execution;
+package com.facebook.presto;
 
 import com.facebook.presto.spi.PrestoException;
-import org.joda.time.DateTime;
+import com.facebook.presto.spi.StandardErrorCode;
+import io.airlift.units.DataSize;
 
-import static com.facebook.presto.spi.StandardErrorCode.ABANDONED_QUERY;
-import static java.lang.String.format;
-
-public class AbandonedException
+public class ExceededMemoryLimitException
         extends PrestoException
 {
-    public AbandonedException(String name, DateTime lastHeartbeat, DateTime now)
+    public ExceededMemoryLimitException(DataSize maxMemory)
     {
-        super(ABANDONED_QUERY, format("%s has not been accessed since %s: currentTime %s", name, lastHeartbeat, now));
+        super(StandardErrorCode.EXCEEDED_MEMORY_LIMIT, String.format("Task exceeded max memory size of %s", maxMemory));
     }
 }

@@ -352,6 +352,7 @@ public class SqlQueryManager
         queries.put(queryId, execution);
         queryMonitor.createdEvent(execution.getQueryInfo());
         queryMonitor.completionEvent(execution.getQueryInfo());
+        stats.queryFinished(execution.getQueryInfo());
 
         return execution.getQueryInfo();
     }

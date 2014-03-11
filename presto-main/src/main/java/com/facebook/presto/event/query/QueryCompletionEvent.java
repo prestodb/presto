@@ -15,6 +15,7 @@ package com.facebook.presto.event.query;
 
 import com.facebook.presto.execution.QueryId;
 import com.facebook.presto.execution.QueryState;
+import com.facebook.presto.spi.ErrorCode;
 import com.google.common.collect.ImmutableList;
 import io.airlift.event.client.EventField;
 import io.airlift.event.client.EventType;
@@ -59,6 +60,7 @@ public class QueryCompletionEvent
 
     private final Integer splits;
 
+    private final ErrorCode errorCode;
     private final String failureType;
     private final String failureMessage;
 
@@ -91,6 +93,7 @@ public class QueryCompletionEvent
             DataSize totalDataSize,
             Long totalRows,
             Integer splits,
+            ErrorCode errorCode,
             String failureType,
             String failureMessage,
             String outputStageJson,
@@ -107,6 +110,7 @@ public class QueryCompletionEvent
         this.userAgent = userAgent;
         this.queryState = queryState;
         this.uri = uri;
+        this.errorCode = errorCode;
         this.fieldNames = ImmutableList.copyOf(fieldNames);
         this.query = query;
         this.createTime = createTime;
@@ -328,6 +332,18 @@ public class QueryCompletionEvent
     public Integer getSplits()
     {
         return splits;
+    }
+
+    @EventField
+    public Integer getErrorCode()
+    {
+        return errorCode == null ? null : errorCode.getCode();
+    }
+
+    @EventField
+    public String getErrorCodeName()
+    {
+        return errorCode == null ? null : errorCode.getName();
     }
 
     @EventField

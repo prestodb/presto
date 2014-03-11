@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.execution;
 
+import com.facebook.presto.spi.StandardErrorCode;
 import io.airlift.stats.CounterStat;
 import io.airlift.stats.DistributionStat;
 import org.weakref.jmx.Managed;
@@ -22,6 +23,10 @@ public class SqlQueryManagerStats
 {
     private final CounterStat startedQueries = new CounterStat();
     private final CounterStat completedQueries = new CounterStat();
+    private final CounterStat userErrorFailures = new CounterStat();
+    private final CounterStat internalFailures = new CounterStat();
+    private final CounterStat externalFailures = new CounterStat();
+    private final CounterStat insufficientResourcesFailures = new CounterStat();
     private final DistributionStat executionTime = new DistributionStat();
 
     public void queryStarted()
@@ -33,6 +38,23 @@ public class SqlQueryManagerStats
     {
         completedQueries.update(1);
         executionTime.add(info.getQueryStats().getEndTime().getMillis() - info.getQueryStats().getCreateTime().getMillis());
+
+        if (info.getErrorCode() != null) {
+            switch (StandardErrorCode.toErrorType(info.getErrorCode().getCode())) {
+                case USER_ERROR:
+                    userErrorFailures.update(1);
+                    break;
+                case INTERNAL:
+                    internalFailures.update(1);
+                    break;
+                case INSUFFICIENT_RESOURCES:
+                    insufficientResourcesFailures.update(1);
+                    break;
+                case EXTERNAL:
+                    externalFailures.update(1);
+                    break;
+            }
+        }
     }
 
     @Managed
@@ -60,5 +82,33 @@ public class SqlQueryManagerStats
     public DistributionStat getExecutionTime()
     {
         return executionTime;
+    }
+
+    @Managed
+    @Nested
+    public CounterStat getUserErrorFailures()
+    {
+        return userErrorFailures;
+    }
+
+    @Managed
+    @Nested
+    public CounterStat getInternalFailures()
+    {
+        return internalFailures;
+    }
+
+    @Managed
+    @Nested
+    public CounterStat getExternalFailures()
+    {
+        return externalFailures;
+    }
+
+    @Managed
+    @Nested
+    public CounterStat getInsufficientResourcesFailures()
+    {
+        return insufficientResourcesFailures;
     }
 }

@@ -192,6 +192,7 @@ public class MockQueryManager
                             ImmutableList.<StageInfo>of(),
                             ImmutableList.<FailureInfo>of()),
                     null,
+                    null,
                     null);
         }
     }

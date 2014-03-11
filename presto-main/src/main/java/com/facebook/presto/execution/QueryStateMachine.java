@@ -13,6 +13,10 @@
  */
 package com.facebook.presto.execution;
 
+import com.facebook.presto.spi.ErrorCode;
+import com.facebook.presto.spi.StandardErrorCode;
+import com.facebook.presto.ErrorCodes;
+import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.client.FailureInfo;
 import com.facebook.presto.execution.StateMachine.StateChangeListener;
 import com.facebook.presto.sql.analyzer.Session;
@@ -133,8 +137,10 @@ public class QueryStateMachine
 
         // don't report failure info is query is marked as success
         FailureInfo failureInfo = null;
+        ErrorCode errorCode = null;
         if (state != FINISHED) {
             failureInfo = toFailure(failureCause);
+            errorCode = ErrorCodes.toErrorCode(failureCause);
         }
 
         int totalTasks = 0;
@@ -237,6 +243,7 @@ public class QueryStateMachine
                 queryStats,
                 rootStage,
                 failureInfo,
+                errorCode,
                 inputs);
     }
 
@@ -312,7 +319,7 @@ public class QueryStateMachine
         }
         synchronized (this) {
             if (failureCause == null) {
-                failureCause = new RuntimeException("Query was canceled");
+                failureCause = new PrestoException(StandardErrorCode.USER_CANCELED, "Query was canceled");
             }
         }
         return queryState.setIf(CANCELED, Predicates.not(inDoneState()));

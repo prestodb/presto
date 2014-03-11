@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.operator;
 
+import com.facebook.presto.ExceededMemoryLimitException;
 import com.facebook.presto.block.BlockBuilder;
 import com.facebook.presto.operator.aggregation.AggregationFunction;
 import com.facebook.presto.operator.aggregation.GroupedAccumulator;
@@ -26,6 +27,7 @@ import com.google.common.collect.AbstractIterator;
 import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Ints;
 import com.google.common.util.concurrent.ListenableFuture;
+import io.airlift.units.DataSize;
 import it.unimi.dsi.fastutil.longs.Long2IntMap.Entry;
 import it.unimi.dsi.fastutil.objects.ObjectIterator;
 
@@ -209,7 +211,9 @@ public class HashAggregationOperator
             }
 
             // Only partial aggregation can flush early. Also, check that we are not flushing tiny bits at a time
-            checkState(finishing || step == Step.PARTIAL, "Task exceeded max memory size of %s", memoryManager.getMaxMemorySize());
+            if (!finishing && step != Step.PARTIAL) {
+                throw new ExceededMemoryLimitException(memoryManager.getMaxMemorySize());
+            }
 
             outputIterator = aggregationBuilder.build();
             aggregationBuilder = null;
@@ -369,7 +373,7 @@ public class HashAggregationOperator
             return false;
         }
 
-        public Object getMaxMemorySize()
+        public DataSize getMaxMemorySize()
         {
             return operatorContext.getMaxMemorySize();
         }
