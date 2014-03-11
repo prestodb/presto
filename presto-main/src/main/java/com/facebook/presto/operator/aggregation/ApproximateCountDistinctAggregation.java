@@ -19,9 +19,8 @@ import com.facebook.presto.block.BlockCursor;
 import com.facebook.presto.operator.GroupByIdBlock;
 import com.facebook.presto.tuple.TupleInfo.Type;
 import com.google.common.base.Optional;
-import com.google.common.hash.HashFunction;
-import com.google.common.hash.Hashing;
 import com.google.common.primitives.Ints;
+import io.airlift.slice.Murmur3;
 import io.airlift.slice.SizeOf;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
@@ -44,8 +43,6 @@ public class ApproximateCountDistinctAggregation
     private static final int ENTRY_SIZE = SizeOf.SIZE_OF_BYTE + ESTIMATOR.getSizeInBytes();
     private static final int SLICE_SIZE = Math.max(ENTRY_SIZE, Ints.checkedCast((DEFAULT_MAX_BLOCK_SIZE.toBytes() / ENTRY_SIZE) * ENTRY_SIZE));
     private static final int ENTRIES_PER_SLICE = SLICE_SIZE / ENTRY_SIZE;
-
-    private static final HashFunction HASH = Hashing.murmur3_128();
 
     private final Type parameterType;
 
@@ -295,15 +292,14 @@ public class ApproximateCountDistinctAggregation
     {
         if (parameterType == Type.FIXED_INT_64) {
             long value = values.getLong();
-            return HASH.hashLong(value).asLong();
+            return Murmur3.hash64(value);
         }
         else if (parameterType == Type.DOUBLE) {
             double value = values.getDouble();
-            return HASH.hashLong(Double.doubleToLongBits(value)).asLong();
+            return Murmur3.hash64(Double.doubleToLongBits(value));
         }
         else if (parameterType == Type.VARIABLE_BINARY) {
-            Slice value = values.getSlice();
-            return HASH.hashBytes(value.getBytes()).asLong();
+            return Murmur3.hash64(values.getSlice());
         }
         else {
             throw new IllegalArgumentException("Expected parameter type to be FIXED_INT_64, DOUBLE, or VARIABLE_BINARY");
