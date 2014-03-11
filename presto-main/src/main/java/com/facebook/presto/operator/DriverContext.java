@@ -61,11 +61,13 @@ public class DriverContext
     private final AtomicLong memoryReservation = new AtomicLong();
 
     private final List<OperatorContext> operatorContexts = new CopyOnWriteArrayList<>();
+    private final boolean partitioned;
 
-    public DriverContext(PipelineContext pipelineContext, Executor executor)
+    public DriverContext(PipelineContext pipelineContext, Executor executor, boolean partitioned)
     {
         this.pipelineContext = checkNotNull(pipelineContext, "pipelineContext is null");
         this.executor = checkNotNull(executor, "executor is null");
+        this.partitioned = partitioned;
     }
 
     public TaskId getTaskId()
@@ -228,6 +230,7 @@ public class DriverContext
         long processedInputPositions;
         DataSize outputDataSize;
         long outputPositions;
+
         if (inputOperator != null) {
             rawInputDataSize = inputOperator.getInputDataSize();
             rawInputPositions = inputOperator.getInputPositions();
@@ -294,5 +297,10 @@ public class DriverContext
                 return driverContext.getDriverStats();
             }
         };
+    }
+
+    public boolean isPartitioned()
+    {
+        return partitioned;
     }
 }
