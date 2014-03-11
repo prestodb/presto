@@ -184,12 +184,12 @@ public class NodeScheduler
         public Multimap<Node, Split> computeAssignments(Set<Split> splits)
         {
             Multimap<Node, Split> assignment = HashMultimap.create();
+            Map<Node, Integer> splitsByNode = new HashMap<>();
 
             for (Split split : splits) {
                 List<Node> candidateNodes = selectCandidateNodes(nodeMap.get().get(), split);
                 checkState(!candidateNodes.isEmpty(), "No nodes available to run query");
 
-                Map<Node, Integer> splitsByNode = new HashMap<>();
                 Node chosen = null;
                 int min = Integer.MAX_VALUE;
 
