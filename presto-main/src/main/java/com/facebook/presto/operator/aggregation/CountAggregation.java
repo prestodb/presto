@@ -54,6 +54,12 @@ public class CountAggregation
     }
 
     @Override
+    public boolean isDecomposable()
+    {
+        return true;
+    }
+
+    @Override
     public CountGroupedAccumulator createGroupedAggregation(Optional<Integer> maskChannel, Optional<Integer> sampleWeightChannel, double confidence, int[] argumentChannels)
     {
         checkArgument(confidence == 1.0, "count does not support approximate queries");

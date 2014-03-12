@@ -62,6 +62,12 @@ public abstract class SimpleAggregationFunction
     }
 
     @Override
+    public boolean isDecomposable()
+    {
+        return true;
+    }
+
+    @Override
     public final GroupedAccumulator createGroupedAggregation(Optional<Integer> maskChannel, Optional<Integer> sampleWeightChannel, double confidence, int... argumentChannels)
     {
         checkArgument(argumentChannels.length == 1, "Expected one argument channel, but got %s", argumentChannels.length);

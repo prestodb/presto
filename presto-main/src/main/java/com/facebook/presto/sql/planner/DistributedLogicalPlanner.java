@@ -118,8 +118,19 @@ public class DistributedLogicalPlanner
             Map<Symbol, Symbol> masks = node.getMasks();
             List<Symbol> groupBy = node.getGroupBy();
 
+            boolean decomposable = true;
+            for (Signature function : functions.values()) {
+                if (!metadata.getFunction(function).getAggregationFunction().isDecomposable()) {
+                    decomposable = false;
+                    break;
+                }
+            }
+
             // else, we need to "close" the current fragment and create an unpartitioned fragment for the final aggregation
-            return addDistributedAggregation(current, aggregations, functions, masks, groupBy, node.getSampleWeight(), node.getConfidence());
+            if (decomposable) {
+                return addDistributedAggregation(current, aggregations, functions, masks, groupBy, node.getSampleWeight(), node.getConfidence());
+            }
+            return addSingleNodeAggregation(current, aggregations, functions, masks, groupBy, node.getSampleWeight(), node.getConfidence());
         }
 
         @Override
@@ -152,6 +163,18 @@ public class DistributedLogicalPlanner
                 return createFixedDistributionPlan(markNode)
                         .addChild(current.build());
             }
+        }
+
+        private SubPlanBuilder addSingleNodeAggregation(SubPlanBuilder plan, Map<Symbol, FunctionCall> aggregations, Map<Symbol, Signature> functions, Map<Symbol, Symbol> masks, List<Symbol> groupBy, Optional<Symbol> sampleWeight, double confidence)
+        {
+            plan.setRoot(new SinkNode(idAllocator.getNextId(), plan.getRoot(), plan.getRoot().getOutputSymbols()));
+
+            // create aggregation plan
+            ExchangeNode source = new ExchangeNode(idAllocator.getNextId(), plan.getId(), plan.getRoot().getOutputSymbols());
+            AggregationNode aggregation = new AggregationNode(idAllocator.getNextId(), source, groupBy, aggregations, functions, masks, SINGLE, sampleWeight, confidence);
+            plan = createSingleNodePlan(aggregation).addChild(plan.build());
+
+            return plan;
         }
 
         private SubPlanBuilder addDistributedAggregation(SubPlanBuilder plan, Map<Symbol, FunctionCall> aggregations, Map<Symbol, Signature> functions, Map<Symbol, Symbol> masks, List<Symbol> groupBy, Optional<Symbol> sampleWeight, double confidence)
