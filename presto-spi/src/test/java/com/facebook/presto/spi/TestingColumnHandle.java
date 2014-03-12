@@ -19,7 +19,7 @@ import com.google.common.base.Objects;
 import com.google.common.base.Preconditions;
 
 public class TestingColumnHandle
-    implements ColumnHandle
+    implements ConnectorColumnHandle
 {
     private final String name;
 

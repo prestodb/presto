@@ -14,9 +14,10 @@
 package com.facebook.presto.sql.planner;
 
 import com.facebook.presto.execution.SampledSplitSource;
-import com.facebook.presto.spi.Partition;
-import com.facebook.presto.spi.PartitionResult;
-import com.facebook.presto.spi.SplitSource;
+import com.facebook.presto.execution.SplitSource;
+import com.facebook.presto.metadata.ColumnHandle;
+import com.facebook.presto.metadata.Partition;
+import com.facebook.presto.metadata.PartitionResult;
 import com.facebook.presto.spi.TupleDomain;
 import com.facebook.presto.split.SplitManager;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
@@ -98,7 +99,7 @@ public class DistributedExecutionPlanner
                 return node.getGeneratedPartitions().get().getPartitions();
             }
 
-            PartitionResult allPartitions = splitManager.getPartitions(node.getTable(), Optional.<TupleDomain>absent());
+            PartitionResult allPartitions = splitManager.getPartitions(node.getTable(), Optional.<TupleDomain<ColumnHandle>>absent());
             return allPartitions.getPartitions();
         }
 

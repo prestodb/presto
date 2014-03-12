@@ -13,13 +13,13 @@
  */
 package com.facebook.presto.connector.system;
 
-import com.facebook.presto.spi.ColumnHandle;
+import com.facebook.presto.spi.ConnectorColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
+import com.facebook.presto.spi.ConnectorTableHandle;
 import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.ReadOnlyConnectorMetadata;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.SchemaTablePrefix;
-import com.facebook.presto.spi.TableHandle;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -50,13 +50,7 @@ public class SystemTablesMetadata
         checkArgument(tables.putIfAbsent(tableMetadata.getTable(), tableMetadata) == null, "Table %s is already registered", tableMetadata.getTable());
     }
 
-    @Override
-    public boolean canHandle(TableHandle tableHandle)
-    {
-        return tableHandle instanceof SystemTableHandle && tables.containsKey(((SystemTableHandle) tableHandle).getSchemaTableName());
-    }
-
-    private SystemTableHandle checkTableHandle(TableHandle tableHandle)
+    private SystemTableHandle checkTableHandle(ConnectorTableHandle tableHandle)
     {
         checkNotNull(tableHandle, "tableHandle is null");
         checkArgument(tableHandle instanceof SystemTableHandle, "tableHandle is not a system table handle");
@@ -74,7 +68,7 @@ public class SystemTablesMetadata
     }
 
     @Override
-    public TableHandle getTableHandle(SchemaTableName tableName)
+    public ConnectorTableHandle getTableHandle(SchemaTableName tableName)
     {
         if (!tables.containsKey(tableName)) {
             return null;
@@ -83,7 +77,7 @@ public class SystemTablesMetadata
     }
 
     @Override
-    public ConnectorTableMetadata getTableMetadata(TableHandle tableHandle)
+    public ConnectorTableMetadata getTableMetadata(ConnectorTableHandle tableHandle)
     {
         SystemTableHandle systemTableHandle = checkTableHandle(tableHandle);
         return tables.get(systemTableHandle.getSchemaTableName());
@@ -100,7 +94,7 @@ public class SystemTablesMetadata
     }
 
     @Override
-    public ColumnHandle getColumnHandle(TableHandle tableHandle, String columnName)
+    public ConnectorColumnHandle getColumnHandle(ConnectorTableHandle tableHandle, String columnName)
     {
         SystemTableHandle systemTableHandle = checkTableHandle(tableHandle);
         ConnectorTableMetadata tableMetadata = tables.get(systemTableHandle.getSchemaTableName());
@@ -112,13 +106,13 @@ public class SystemTablesMetadata
     }
 
     @Override
-    public ColumnHandle getSampleWeightColumnHandle(TableHandle tableHandle)
+    public ConnectorColumnHandle getSampleWeightColumnHandle(ConnectorTableHandle tableHandle)
     {
         return null;
     }
 
     @Override
-    public ColumnMetadata getColumnMetadata(TableHandle tableHandle, ColumnHandle columnHandle)
+    public ColumnMetadata getColumnMetadata(ConnectorTableHandle tableHandle, ConnectorColumnHandle columnHandle)
     {
         SystemTableHandle systemTableHandle = checkTableHandle(tableHandle);
         ConnectorTableMetadata tableMetadata = tables.get(systemTableHandle.getSchemaTableName());
@@ -132,7 +126,7 @@ public class SystemTablesMetadata
     }
 
     @Override
-    public Map<String, ColumnHandle> getColumnHandles(TableHandle tableHandle)
+    public Map<String, ConnectorColumnHandle> getColumnHandles(ConnectorTableHandle tableHandle)
     {
         SystemTableHandle systemTableHandle = checkTableHandle(tableHandle);
 

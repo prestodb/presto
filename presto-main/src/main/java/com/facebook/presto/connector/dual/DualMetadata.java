@@ -14,13 +14,13 @@
 package com.facebook.presto.connector.dual;
 
 import com.facebook.presto.metadata.MetadataManager;
-import com.facebook.presto.spi.ColumnHandle;
+import com.facebook.presto.spi.ConnectorColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
+import com.facebook.presto.spi.ConnectorTableHandle;
 import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.ReadOnlyConnectorMetadata;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.SchemaTablePrefix;
-import com.facebook.presto.spi.TableHandle;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -40,7 +40,7 @@ public class DualMetadata
 
     static {
         DUAL_METADATA_MANAGER = new MetadataManager();
-        DUAL_METADATA_MANAGER.addInternalSchemaMetadata(MetadataManager.INTERNAL_CONNECTOR_ID, new DualMetadata());
+        DUAL_METADATA_MANAGER.addInternalSchemaMetadata(DualConnector.CONNECTOR_ID, new DualMetadata());
     }
 
     public static final String NAME = "dual";
@@ -50,19 +50,13 @@ public class DualMetadata
     public static final ColumnMetadata COLUMN_METADATA = new ColumnMetadata(COLUMN_NAME, STRING, 0, false);
 
     @Override
-    public boolean canHandle(TableHandle tableHandle)
-    {
-        return tableHandle instanceof DualTableHandle;
-    }
-
-    @Override
     public List<String> listSchemaNames()
     {
         return ImmutableList.of();
     }
 
     @Override
-    public TableHandle getTableHandle(SchemaTableName table)
+    public ConnectorTableHandle getTableHandle(SchemaTableName table)
     {
         checkNotNull(table, "table is null");
         if (!table.getTableName().equals(NAME)) {
@@ -72,7 +66,7 @@ public class DualMetadata
     }
 
     @Override
-    public ConnectorTableMetadata getTableMetadata(TableHandle tableHandle)
+    public ConnectorTableMetadata getTableMetadata(ConnectorTableHandle tableHandle)
     {
         checkNotNull(tableHandle, "tableHandle is null");
         checkArgument(tableHandle instanceof DualTableHandle, "tableHandle is not a dual table handle");
@@ -89,7 +83,7 @@ public class DualMetadata
     }
 
     @Override
-    public ColumnHandle getColumnHandle(TableHandle tableHandle, String columnName)
+    public ConnectorColumnHandle getColumnHandle(ConnectorTableHandle tableHandle, String columnName)
     {
         checkNotNull(tableHandle, "tableHandle is null");
         checkArgument(tableHandle instanceof DualTableHandle, "tableHandle is not a dual table handle");
@@ -101,20 +95,20 @@ public class DualMetadata
     }
 
     @Override
-    public ColumnHandle getSampleWeightColumnHandle(TableHandle tableHandle)
+    public ConnectorColumnHandle getSampleWeightColumnHandle(ConnectorTableHandle tableHandle)
     {
         return null;
     }
 
-    public Map<String, ColumnHandle> getColumnHandles(TableHandle tableHandle)
+    public Map<String, ConnectorColumnHandle> getColumnHandles(ConnectorTableHandle tableHandle)
     {
         checkNotNull(tableHandle, "tableHandle is null");
         checkArgument(tableHandle instanceof DualTableHandle, "tableHandle is not a dual table handle");
-        return ImmutableMap.<String, ColumnHandle>of(COLUMN_NAME, new DualColumnHandle(COLUMN_NAME));
+        return ImmutableMap.<String, ConnectorColumnHandle>of(COLUMN_NAME, new DualColumnHandle(COLUMN_NAME));
     }
 
     @Override
-    public ColumnMetadata getColumnMetadata(TableHandle tableHandle, ColumnHandle columnHandle)
+    public ColumnMetadata getColumnMetadata(ConnectorTableHandle tableHandle, ConnectorColumnHandle columnHandle)
     {
         checkNotNull(tableHandle, "tableHandle is null");
         checkArgument(tableHandle instanceof DualTableHandle, "tableHandle is not a dual table handle");
@@ -142,7 +136,7 @@ public class DualMetadata
         return ImmutableMap.<SchemaTableName, List<ColumnMetadata>>of(tableName, ImmutableList.of(COLUMN_METADATA));
     }
 
-    public List<ColumnMetadata> listTableColumns(TableHandle tableHandle)
+    public List<ColumnMetadata> listTableColumns(ConnectorTableHandle tableHandle)
     {
         checkNotNull(tableHandle, "tableHandle is null");
         checkArgument(tableHandle instanceof DualTableHandle, "tableHandle is not a dual table handle");

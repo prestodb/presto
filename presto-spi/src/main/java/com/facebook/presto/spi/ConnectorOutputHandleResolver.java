@@ -15,7 +15,7 @@ package com.facebook.presto.spi;
 
 public interface ConnectorOutputHandleResolver
 {
-    boolean canHandle(OutputTableHandle tableHandle);
+    boolean canHandle(ConnectorOutputTableHandle tableHandle);
 
-    Class<? extends OutputTableHandle> getOutputTableHandleClass();
+    Class<? extends ConnectorOutputTableHandle> getOutputTableHandleClass();
 }

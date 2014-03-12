@@ -23,21 +23,16 @@ public interface ConnectorSplitManager
     String getConnectorId();
 
     /**
-     * Returns true only if this ConnectorSplitManager can operate on the TableHandle
-     */
-    boolean canHandle(TableHandle handle);
-
-    /**
      * Gets the Partitions for the specified table.
      *
      * The TupleDomain indicates the execution filters that will be directly applied to the
      * data stream produced by this connector. Connectors are encouraged to take advantage of
      * this information to perform connector-specific optimizations.
      */
-    PartitionResult getPartitions(TableHandle table, TupleDomain tupleDomain);
+    ConnectorPartitionResult getPartitions(ConnectorTableHandle table, TupleDomain<ConnectorColumnHandle> tupleDomain);
 
     /**
      * Gets the Splits for the specified Partitions in the indicated table.
      */
-    SplitSource getPartitionSplits(TableHandle table, List<Partition> partitions);
+    ConnectorSplitSource getPartitionSplits(ConnectorTableHandle table, List<ConnectorPartition> partitions);
 }

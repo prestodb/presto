@@ -13,10 +13,10 @@
  */
 package com.facebook.presto.sql.planner.optimizations;
 
+import com.facebook.presto.metadata.ColumnHandle;
 import com.facebook.presto.metadata.Metadata;
-import com.facebook.presto.spi.ColumnHandle;
-import com.facebook.presto.spi.Partition;
-import com.facebook.presto.spi.PartitionResult;
+import com.facebook.presto.metadata.Partition;
+import com.facebook.presto.metadata.PartitionResult;
 import com.facebook.presto.spi.TupleDomain;
 import com.facebook.presto.split.SplitManager;
 import com.facebook.presto.sql.analyzer.Analysis;
@@ -773,7 +773,7 @@ public class PredicatePushDown
         {
             DomainTranslator.ExtractionResult extractionResult = DomainTranslator.fromPredicate(inheritedPredicate, symbolAllocator.getTypes(), node.getAssignments());
             Expression extractionRemainingExpression = extractionResult.getRemainingExpression();
-            TupleDomain tupleDomain = extractionResult.getTupleDomain();
+            TupleDomain<ColumnHandle> tupleDomain = extractionResult.getTupleDomain();
 
             if (node.getGeneratedPartitions().isPresent()) {
                 // Add back in the TupleDomain that was used to generate the previous set of Partitions if present
@@ -783,9 +783,9 @@ public class PredicatePushDown
             }
 
             Stopwatch partitionTimer = Stopwatch.createStarted();
-            PartitionResult matchingPartitions = splitManager.getPartitions(node.getTable(), Optional.of(tupleDomain));
+            PartitionResult matchingPartitions = splitManager.getPartitions(node.getTable(), Optional.<TupleDomain<ColumnHandle>>of(tupleDomain));
             List<Partition> partitions = matchingPartitions.getPartitions();
-            TupleDomain undeterminedTupleDomain = matchingPartitions.getUndeterminedTupleDomain();
+            TupleDomain<ColumnHandle> undeterminedTupleDomain = matchingPartitions.getUndeterminedTupleDomain();
             log.debug("Partition retrieval, table %s (%d partitions): %dms", node.getTable(), partitions.size(), partitionTimer.elapsed(TimeUnit.MILLISECONDS));
 
             Expression unevaluatedDomainPredicate = DomainTranslator.toPredicate(undeterminedTupleDomain, ImmutableBiMap.copyOf(node.getAssignments()).inverse());

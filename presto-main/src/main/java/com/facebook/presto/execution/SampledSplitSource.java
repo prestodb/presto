@@ -13,8 +13,7 @@
  */
 package com.facebook.presto.execution;
 
-import com.facebook.presto.spi.Split;
-import com.facebook.presto.spi.SplitSource;
+import com.facebook.presto.metadata.Split;
 import com.google.common.base.Predicate;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;

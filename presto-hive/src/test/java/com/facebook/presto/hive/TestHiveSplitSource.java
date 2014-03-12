@@ -15,8 +15,8 @@ package com.facebook.presto.hive;
 
 import com.facebook.presto.hive.HiveSplitSourceProvider.HiveSplitSource;
 import com.facebook.presto.hive.util.SuspendingExecutor;
+import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.HostAddress;
-import com.facebook.presto.spi.Split;
 import com.google.common.util.concurrent.SettableFuture;
 import org.testng.annotations.Test;
 
@@ -151,7 +151,7 @@ public class TestHiveSplitSource
         SuspendingExecutor suspendingExecutor = createSuspendingExecutor();
         final HiveSplitSource hiveSplitSource = new HiveSplitSource("test", 10, suspendingExecutor);
 
-        final SettableFuture<Split> splits = SettableFuture.create();
+        final SettableFuture<ConnectorSplit> splits = SettableFuture.create();
 
         // create a thread that will get a split
         final CountDownLatch started = new CountDownLatch(1);
@@ -162,7 +162,7 @@ public class TestHiveSplitSource
             {
                 try {
                     started.countDown();
-                    List<Split> batch = hiveSplitSource.getNextBatch(1);
+                    List<ConnectorSplit> batch = hiveSplitSource.getNextBatch(1);
                     assertEquals(batch.size(), 1);
                     splits.set(batch.get(0));
                 }
@@ -185,7 +185,7 @@ public class TestHiveSplitSource
             hiveSplitSource.addToQueue(new TestSplit(33));
 
             // wait for thread to get the split
-            Split split = splits.get(200, TimeUnit.MILLISECONDS);
+            ConnectorSplit split = splits.get(200, TimeUnit.MILLISECONDS);
             assertSame(split.getInfo(), 33);
         }
         finally {
@@ -207,7 +207,7 @@ public class TestHiveSplitSource
     }
 
     private static class TestSplit
-            implements Split
+            implements ConnectorSplit
     {
         private final int id;
 

@@ -13,15 +13,15 @@
  */
 package com.facebook.presto.metadata;
 
-import com.facebook.presto.spi.ColumnHandle;
+import com.facebook.presto.spi.ConnectorColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ColumnType;
 import com.facebook.presto.spi.ConnectorMetadata;
+import com.facebook.presto.spi.ConnectorOutputTableHandle;
+import com.facebook.presto.spi.ConnectorTableHandle;
 import com.facebook.presto.spi.ConnectorTableMetadata;
-import com.facebook.presto.spi.OutputTableHandle;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.SchemaTablePrefix;
-import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.tuple.TupleInfo;
 import com.google.common.base.Predicate;
 import com.google.common.base.Splitter;
@@ -76,19 +76,13 @@ public class NativeMetadata
     }
 
     @Override
-    public boolean canHandle(TableHandle tableHandle)
-    {
-        return tableHandle instanceof NativeTableHandle;
-    }
-
-    @Override
     public List<String> listSchemaNames()
     {
         return dao.listSchemaNames(connectorId);
     }
 
     @Override
-    public TableHandle getTableHandle(SchemaTableName tableName)
+    public ConnectorTableHandle getTableHandle(SchemaTableName tableName)
     {
         checkNotNull(tableName, "tableName is null");
         Table table = dao.getTableInformation(connectorId, tableName.getSchemaName(), tableName.getTableName());
@@ -104,7 +98,7 @@ public class NativeMetadata
     }
 
     @Override
-    public ConnectorTableMetadata getTableMetadata(TableHandle tableHandle)
+    public ConnectorTableMetadata getTableMetadata(ConnectorTableHandle tableHandle)
     {
         checkNotNull(tableHandle, "tableHandle is null");
         checkArgument(tableHandle instanceof NativeTableHandle, "tableHandle is not an instance of NativeTableHandle");
@@ -135,13 +129,13 @@ public class NativeMetadata
     }
 
     @Override
-    public Map<String, ColumnHandle> getColumnHandles(TableHandle tableHandle)
+    public Map<String, ConnectorColumnHandle> getColumnHandles(ConnectorTableHandle tableHandle)
     {
         checkNotNull(tableHandle, "tableHandle is null");
         checkArgument(tableHandle instanceof NativeTableHandle, "tableHandle is not an instance of NativeTableHandle");
         NativeTableHandle nativeTableHandle = (NativeTableHandle) tableHandle;
 
-        ImmutableMap.Builder<String, ColumnHandle> builder = ImmutableMap.builder();
+        ImmutableMap.Builder<String, ConnectorColumnHandle> builder = ImmutableMap.builder();
         for (TableColumn tableColumn : dao.listTableColumns(nativeTableHandle.getTableId())) {
             if (tableColumn.getColumnName().equals(NativeColumnHandle.SAMPLE_WEIGHT_COLUMN_NAME)) {
                 continue;
@@ -152,7 +146,7 @@ public class NativeMetadata
     }
 
     @Override
-    public ColumnHandle getColumnHandle(TableHandle tableHandle, String columnName)
+    public ConnectorColumnHandle getColumnHandle(ConnectorTableHandle tableHandle, String columnName)
     {
         checkNotNull(tableHandle, "tableHandle is null");
         checkArgument(tableHandle instanceof NativeTableHandle, "tableHandle is not an instance of NativeTableHandle");
@@ -166,7 +160,7 @@ public class NativeMetadata
     }
 
     @Override
-    public ColumnHandle getSampleWeightColumnHandle(TableHandle tableHandle)
+    public ConnectorColumnHandle getSampleWeightColumnHandle(ConnectorTableHandle tableHandle)
     {
         checkArgument(tableHandle instanceof NativeTableHandle, "tableHandle is not an instance of NativeTableHandle");
         return ((NativeTableHandle) tableHandle).getSampleWeightColumnHandle();
@@ -179,7 +173,7 @@ public class NativeMetadata
     }
 
     @Override
-    public ColumnMetadata getColumnMetadata(TableHandle tableHandle, ColumnHandle columnHandle)
+    public ColumnMetadata getColumnMetadata(ConnectorTableHandle tableHandle, ConnectorColumnHandle columnHandle)
     {
         checkNotNull(tableHandle, "tableHandle is null");
         checkNotNull(columnHandle, "columnHandle is null");
@@ -210,7 +204,7 @@ public class NativeMetadata
         return Multimaps.asMap(columns.build());
     }
 
-    private SchemaTableName getTableName(TableHandle tableHandle)
+    private SchemaTableName getTableName(ConnectorTableHandle tableHandle)
     {
         checkNotNull(tableHandle, "tableHandle is null");
         checkArgument(tableHandle instanceof NativeTableHandle, "tableHandle is not an instance of NativeTableHandle");
@@ -223,7 +217,7 @@ public class NativeMetadata
     }
 
     @Override
-    public TableHandle createTable(final ConnectorTableMetadata tableMetadata)
+    public ConnectorTableHandle createTable(final ConnectorTableMetadata tableMetadata)
     {
         Long tableId = dbi.inTransaction(new TransactionCallback<Long>()
         {
@@ -263,7 +257,7 @@ public class NativeMetadata
     }
 
     @Override
-    public void dropTable(TableHandle tableHandle)
+    public void dropTable(ConnectorTableHandle tableHandle)
     {
         checkNotNull(tableHandle, "tableHandle is null");
         checkArgument(tableHandle instanceof NativeTableHandle, "tableHandle is not an instance of NativeTableHandle");
@@ -280,13 +274,7 @@ public class NativeMetadata
     }
 
     @Override
-    public boolean canHandle(OutputTableHandle tableHandle)
-    {
-        return tableHandle instanceof NativeOutputTableHandle;
-    }
-
-    @Override
-    public OutputTableHandle beginCreateTable(ConnectorTableMetadata tableMetadata)
+    public ConnectorOutputTableHandle beginCreateTable(ConnectorTableMetadata tableMetadata)
     {
         ImmutableList.Builder<NativeColumnHandle> columnHandles = ImmutableList.builder();
         ImmutableList.Builder<ColumnType> columnTypes = ImmutableList.builder();
@@ -313,7 +301,7 @@ public class NativeMetadata
     }
 
     @Override
-    public void commitCreateTable(OutputTableHandle outputTableHandle, Collection<String> fragments)
+    public void commitCreateTable(ConnectorOutputTableHandle outputTableHandle, Collection<String> fragments)
     {
         final NativeOutputTableHandle table = checkType(outputTableHandle, NativeOutputTableHandle.class, "outputTableHandle");
 
@@ -340,7 +328,7 @@ public class NativeMetadata
             shards.put(shardUuid, nodeId);
         }
 
-        TableHandle tableHandle = getTableHandle(new SchemaTableName(table.getSchemaName(), table.getTableName()));
+        ConnectorTableHandle tableHandle = getTableHandle(new SchemaTableName(table.getSchemaName(), table.getTableName()));
 
         shardManager.commitUnpartitionedTable(tableHandle, shards.build());
     }

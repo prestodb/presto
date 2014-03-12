@@ -14,21 +14,22 @@
 package com.facebook.presto.connector.informationSchema;
 
 import com.facebook.presto.block.BlockIterable;
+import com.facebook.presto.metadata.ColumnHandle;
 import com.facebook.presto.metadata.FunctionInfo;
 import com.facebook.presto.metadata.InternalTable;
 import com.facebook.presto.metadata.Metadata;
+import com.facebook.presto.metadata.Partition;
+import com.facebook.presto.metadata.PartitionResult;
 import com.facebook.presto.metadata.QualifiedTableName;
 import com.facebook.presto.metadata.QualifiedTablePrefix;
+import com.facebook.presto.metadata.TableHandle;
 import com.facebook.presto.operator.AlignmentOperator;
 import com.facebook.presto.operator.Operator;
 import com.facebook.presto.operator.OperatorContext;
-import com.facebook.presto.spi.ColumnHandle;
+import com.facebook.presto.spi.ConnectorColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
-import com.facebook.presto.spi.Partition;
-import com.facebook.presto.spi.PartitionResult;
+import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.SchemaTableName;
-import com.facebook.presto.spi.Split;
-import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.spi.TupleDomain;
 import com.facebook.presto.split.ConnectorDataStreamProvider;
 import com.facebook.presto.split.SplitManager;
@@ -65,19 +66,13 @@ public class InformationSchemaDataStreamProvider
     }
 
     @Override
-    public boolean canHandle(Split split)
-    {
-        return split instanceof InformationSchemaSplit;
-    }
-
-    @Override
-    public Operator createNewDataStream(OperatorContext operatorContext, Split split, List<ColumnHandle> columns)
+    public Operator createNewDataStream(OperatorContext operatorContext, ConnectorSplit split, List<ConnectorColumnHandle> columns)
     {
         List<BlockIterable> channels = createChannels(split, columns);
         return new AlignmentOperator(operatorContext, channels);
     }
 
-    private List<BlockIterable> createChannels(Split split, List<ColumnHandle> columns)
+    private List<BlockIterable> createChannels(ConnectorSplit split, List<ConnectorColumnHandle> columns)
     {
         checkNotNull(split, "split is null");
         checkArgument(split instanceof InformationSchemaSplit, "Split must be of type %s, not %s", InformationSchemaSplit.class.getName(), split.getClass().getName());
@@ -91,7 +86,7 @@ public class InformationSchemaDataStreamProvider
         InternalTable table = getInformationSchemaTable(handle.getCatalogName(), handle.getSchemaTableName(), filters);
 
         ImmutableList.Builder<BlockIterable> list = ImmutableList.builder();
-        for (ColumnHandle column : columns) {
+        for (ConnectorColumnHandle column : columns) {
             checkArgument(column instanceof InformationSchemaColumnHandle, "column must be of type %s, not %s", InformationSchemaColumnHandle.class.getName(), column.getClass().getName());
             InformationSchemaColumnHandle internalColumn = (InformationSchemaColumnHandle) column;
 
@@ -218,7 +213,7 @@ public class InformationSchemaDataStreamProvider
         Optional<TableHandle> tableHandle = metadata.getTableHandle(tableName);
         checkArgument(tableHandle.isPresent(), "Table %s does not exist", tableName);
         Map<ColumnHandle, String> columnHandles = ImmutableBiMap.copyOf(metadata.getColumnHandles(tableHandle.get())).inverse();
-        PartitionResult partitionResult = splitManager.getPartitions(tableHandle.get(), Optional.<TupleDomain>absent());
+        PartitionResult partitionResult = splitManager.getPartitions(tableHandle.get(), Optional.<TupleDomain<ColumnHandle>>absent());
 
         for (Partition partition : partitionResult.getPartitions()) {
             for (Entry<ColumnHandle, Comparable<?>> entry : partition.getTupleDomain().extractFixedValues().entrySet()) {

@@ -16,9 +16,9 @@ package com.facebook.presto.util;
 import com.facebook.presto.execution.Column;
 import com.facebook.presto.execution.Input;
 import com.facebook.presto.execution.SimpleDomain;
+import com.facebook.presto.metadata.ColumnHandle;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.TableMetadata;
-import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.Domain;
 import com.facebook.presto.spi.TupleDomain;
@@ -129,7 +129,7 @@ public final class JsonPlanPrinter
         @Override
         public Void visitTableScan(TableScanNode node, Void context)
         {
-            TupleDomain partitionsDomainSummary = node.getPartitionsDomainSummary();
+            TupleDomain<ColumnHandle> partitionsDomainSummary = node.getPartitionsDomainSummary();
             TableMetadata tableMetadata = metadata.getTableMetadata(node.getTable());
 
             ImmutableList.Builder<Column> columnBuilder = ImmutableList.builder();

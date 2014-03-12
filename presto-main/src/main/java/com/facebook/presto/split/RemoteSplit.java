@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.split;
 
+import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.HostAddress;
-import com.facebook.presto.spi.Split;
 import com.facebook.presto.tuple.TupleInfo;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
@@ -26,7 +26,7 @@ import java.net.URI;
 import java.util.List;
 
 public class RemoteSplit
-        implements Split
+        implements ConnectorSplit
 {
     private final URI location;
     private final List<TupleInfo> tupleInfos;

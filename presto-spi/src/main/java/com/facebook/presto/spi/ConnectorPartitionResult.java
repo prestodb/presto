@@ -25,23 +25,23 @@ import static java.util.Objects.requireNonNull;
  * 2) The TupleDomain that represents the values that the connector was not able to pre-evaluate
  * when generating the partitions and will need to be double-checked by the final execution plan.
  */
-public class PartitionResult
+public class ConnectorPartitionResult
 {
-    private final List<Partition> partitions;
-    private final TupleDomain undeterminedTupleDomain;
+    private final List<ConnectorPartition> partitions;
+    private final TupleDomain<ConnectorColumnHandle> undeterminedTupleDomain;
 
-    public PartitionResult(List<Partition> partitions, TupleDomain undeterminedTupleDomain)
+    public ConnectorPartitionResult(List<ConnectorPartition> partitions, TupleDomain<ConnectorColumnHandle> undeterminedTupleDomain)
     {
         this.partitions = requireNonNull(partitions, "partitions is null");
         this.undeterminedTupleDomain = requireNonNull(undeterminedTupleDomain, "undeterminedTupleDomain is null");
     }
 
-    public List<Partition> getPartitions()
+    public List<ConnectorPartition> getPartitions()
     {
         return partitions;
     }
 
-    public TupleDomain getUndeterminedTupleDomain()
+    public TupleDomain<ConnectorColumnHandle> getUndeterminedTupleDomain()
     {
         return undeterminedTupleDomain;
     }

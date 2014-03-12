@@ -13,9 +13,9 @@
  */
 package com.facebook.presto.sql.planner.plan;
 
-import com.facebook.presto.spi.ColumnHandle;
-import com.facebook.presto.spi.Partition;
-import com.facebook.presto.spi.TableHandle;
+import com.facebook.presto.metadata.ColumnHandle;
+import com.facebook.presto.metadata.Partition;
+import com.facebook.presto.metadata.TableHandle;
 import com.facebook.presto.spi.TupleDomain;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.tree.Expression;
@@ -48,7 +48,7 @@ public class TableScanNode
     private final Map<Symbol, ColumnHandle> assignments; // symbol -> column
     private final Optional<GeneratedPartitions> generatedPartitions;
     private final boolean partitionsDroppedBySerialization;
-    private final TupleDomain partitionDomainSummary;
+    private final TupleDomain<ColumnHandle> partitionDomainSummary;
 
     // HACK!
     //
@@ -129,18 +129,18 @@ public class TableScanNode
         return generatedPartitions;
     }
 
-    public TupleDomain getPartitionsDomainSummary()
+    public TupleDomain<ColumnHandle> getPartitionsDomainSummary()
     {
         return partitionDomainSummary;
     }
 
-    private static TupleDomain computePartitionsDomainSummary(Optional<GeneratedPartitions> generatedPartitions)
+    private static TupleDomain<ColumnHandle> computePartitionsDomainSummary(Optional<GeneratedPartitions> generatedPartitions)
     {
         if (!generatedPartitions.isPresent()) {
             return TupleDomain.all();
         }
 
-        TupleDomain tupleDomain = TupleDomain.none();
+        TupleDomain<ColumnHandle> tupleDomain = TupleDomain.none();
         for (Partition partition : generatedPartitions.get().getPartitions()) {
             tupleDomain = tupleDomain.columnWiseUnion(partition.getTupleDomain());
         }
@@ -178,16 +178,16 @@ public class TableScanNode
 
     public static final class GeneratedPartitions
     {
-        private final TupleDomain tupleDomainInput; // The TupleDomain used to generate the current list of Partitions
+        private final TupleDomain<ColumnHandle> tupleDomainInput; // The TupleDomain used to generate the current list of Partitions
         private final List<Partition> partitions;
 
-        public GeneratedPartitions(TupleDomain tupleDomainInput, List<Partition> partitions)
+        public GeneratedPartitions(TupleDomain<ColumnHandle> tupleDomainInput, List<Partition> partitions)
         {
             this.tupleDomainInput = checkNotNull(tupleDomainInput, "tupleDomainInput is null");
             this.partitions = ImmutableList.copyOf(checkNotNull(partitions, "partitions is null"));
         }
 
-        public TupleDomain getTupleDomainInput()
+        public TupleDomain<ColumnHandle> getTupleDomainInput()
         {
             return tupleDomainInput;
         }

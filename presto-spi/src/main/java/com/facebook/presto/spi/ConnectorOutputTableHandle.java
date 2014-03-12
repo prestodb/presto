@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.spi;
 
-public interface ColumnHandle
+@SuppressWarnings("MarkerInterface")
+public interface ConnectorOutputTableHandle
 {
 }

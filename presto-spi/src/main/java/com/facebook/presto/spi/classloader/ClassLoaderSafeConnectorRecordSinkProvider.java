@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.spi.classloader;
 
+import com.facebook.presto.spi.ConnectorOutputTableHandle;
 import com.facebook.presto.spi.ConnectorRecordSinkProvider;
-import com.facebook.presto.spi.OutputTableHandle;
 import com.facebook.presto.spi.RecordSink;
 
 import static java.util.Objects.requireNonNull;
@@ -32,15 +32,7 @@ public final class ClassLoaderSafeConnectorRecordSinkProvider
     }
 
     @Override
-    public boolean canHandle(OutputTableHandle tableHandle)
-    {
-        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
-            return delegate.canHandle(tableHandle);
-        }
-    }
-
-    @Override
-    public RecordSink getRecordSink(OutputTableHandle tableHandle)
+    public RecordSink getRecordSink(ConnectorOutputTableHandle tableHandle)
     {
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
             return delegate.getRecordSink(tableHandle);

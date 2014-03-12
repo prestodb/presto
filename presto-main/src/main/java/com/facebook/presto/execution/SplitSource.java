@@ -11,15 +11,18 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.spi;
+package com.facebook.presto.execution;
+
+import com.facebook.presto.metadata.Split;
 
 import java.util.List;
 
-public interface Split
+public interface SplitSource
 {
-    boolean isRemotelyAccessible();
+    String getDataSourceName();
 
-    List<HostAddress> getAddresses();
+    List<Split> getNextBatch(int maxSize)
+            throws InterruptedException;
 
-    Object getInfo();
+    boolean isFinished();
 }

@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.metadata;
 
-import com.facebook.presto.spi.ColumnHandle;
+import com.facebook.presto.spi.ConnectorColumnHandle;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
@@ -21,7 +21,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 public class NativeColumnHandle
-        implements ColumnHandle
+        implements ConnectorColumnHandle
 {
     // This is intentionally not named "$sampleWeight" because column names are lowercased and case insensitive
     public static final String SAMPLE_WEIGHT_COLUMN_NAME = "$sample_weight";

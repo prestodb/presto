@@ -14,6 +14,7 @@
 package com.facebook.presto.operator;
 
 import com.facebook.presto.execution.TaskId;
+import com.facebook.presto.metadata.Split;
 import com.facebook.presto.operator.ExchangeOperator.ExchangeOperatorFactory;
 import com.facebook.presto.serde.PagesSerde;
 import com.facebook.presto.split.RemoteSplit;
@@ -128,9 +129,9 @@ public class TestExchangeOperator
     {
         SourceOperator operator = createExchangeOperator();
 
-        operator.addSplit(new RemoteSplit(URI.create("http://localhost/" + TASK_1_ID), TUPLE_INFOS));
-        operator.addSplit(new RemoteSplit(URI.create("http://localhost/" + TASK_2_ID), TUPLE_INFOS));
-        operator.addSplit(new RemoteSplit(URI.create("http://localhost/" + TASK_3_ID), TUPLE_INFOS));
+        operator.addSplit(newRemoteSplit(TASK_1_ID));
+        operator.addSplit(newRemoteSplit(TASK_2_ID));
+        operator.addSplit(newRemoteSplit(TASK_3_ID));
         operator.noMoreSplits();
 
         // add pages and close the buffers
@@ -145,15 +146,20 @@ public class TestExchangeOperator
         waitForFinished(operator);
     }
 
+    private Split newRemoteSplit(String taskId)
+    {
+        return new Split("remote", new RemoteSplit(URI.create("http://localhost/" + taskId), TUPLE_INFOS));
+    }
+
     @Test
     public void testWaitForClose()
             throws Exception
     {
         SourceOperator operator = createExchangeOperator();
 
-        operator.addSplit(new RemoteSplit(URI.create("http://localhost/" + TASK_1_ID), TUPLE_INFOS));
-        operator.addSplit(new RemoteSplit(URI.create("http://localhost/" + TASK_2_ID), TUPLE_INFOS));
-        operator.addSplit(new RemoteSplit(URI.create("http://localhost/" + TASK_3_ID), TUPLE_INFOS));
+        operator.addSplit(newRemoteSplit(TASK_1_ID));
+        operator.addSplit(newRemoteSplit(TASK_2_ID));
+        operator.addSplit(newRemoteSplit(TASK_3_ID));
         operator.noMoreSplits();
 
         // add pages and leave buffers open
@@ -188,7 +194,7 @@ public class TestExchangeOperator
         SourceOperator operator = createExchangeOperator();
 
         // add a buffer location containing one page and close the buffer
-        operator.addSplit(new RemoteSplit(URI.create("http://localhost/" + TASK_1_ID), TUPLE_INFOS));
+        operator.addSplit(newRemoteSplit(TASK_1_ID));
         taskBuffers.getUnchecked(TASK_1_ID).addPages(1, true);
 
         // read page
@@ -200,7 +206,7 @@ public class TestExchangeOperator
         assertEquals(operator.getOutput(), null);
 
         // add a buffer location
-        operator.addSplit(new RemoteSplit(URI.create("http://localhost/" + TASK_2_ID), TUPLE_INFOS));
+        operator.addSplit(newRemoteSplit(TASK_2_ID));
         // set no more splits (buffer locations)
         operator.noMoreSplits();
         // add two pages and close the last buffer
@@ -219,9 +225,9 @@ public class TestExchangeOperator
     {
         SourceOperator operator = createExchangeOperator();
 
-        operator.addSplit(new RemoteSplit(URI.create("http://localhost/" + TASK_1_ID), TUPLE_INFOS));
-        operator.addSplit(new RemoteSplit(URI.create("http://localhost/" + TASK_2_ID), TUPLE_INFOS));
-        operator.addSplit(new RemoteSplit(URI.create("http://localhost/" + TASK_3_ID), TUPLE_INFOS));
+        operator.addSplit(newRemoteSplit(TASK_1_ID));
+        operator.addSplit(newRemoteSplit(TASK_2_ID));
+        operator.addSplit(newRemoteSplit(TASK_3_ID));
         operator.noMoreSplits();
 
         // add pages and leave buffers open

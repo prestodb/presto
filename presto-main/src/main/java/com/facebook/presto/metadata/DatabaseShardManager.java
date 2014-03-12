@@ -14,8 +14,8 @@
 package com.facebook.presto.metadata;
 
 import com.facebook.presto.metadata.ShardManagerDao.Utils;
+import com.facebook.presto.spi.ConnectorTableHandle;
 import com.facebook.presto.spi.PartitionKey;
-import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.split.NativePartitionKey;
 import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
@@ -59,7 +59,7 @@ public class DatabaseShardManager
     }
 
     @Override
-    public void commitPartition(TableHandle tableHandle, final String partition, final List<? extends PartitionKey> partitionKeys, final Map<UUID, String> shards)
+    public void commitPartition(ConnectorTableHandle tableHandle, final String partition, final List<? extends PartitionKey> partitionKeys, final Map<UUID, String> shards)
     {
         checkNotNull(tableHandle, "tableHandle is null");
         checkNotNull(partition, "partition is null");
@@ -93,7 +93,7 @@ public class DatabaseShardManager
     }
 
     @Override
-    public void commitUnpartitionedTable(TableHandle tableHandle, Map<UUID, String> shards)
+    public void commitUnpartitionedTable(ConnectorTableHandle tableHandle, Map<UUID, String> shards)
     {
         commitPartition(tableHandle, "<UNPARTITIONED>", ImmutableList.<PartitionKey>of(), shards);
     }
@@ -120,7 +120,7 @@ public class DatabaseShardManager
     }
 
     @Override
-    public Set<TablePartition> getPartitions(TableHandle tableHandle)
+    public Set<TablePartition> getPartitions(ConnectorTableHandle tableHandle)
     {
         checkNotNull(tableHandle, "tableHandle is null");
         checkState(tableHandle instanceof NativeTableHandle, "can only commit partitions for native tables");
@@ -129,7 +129,7 @@ public class DatabaseShardManager
     }
 
     @Override
-    public Multimap<String, ? extends PartitionKey> getAllPartitionKeys(TableHandle tableHandle)
+    public Multimap<String, ? extends PartitionKey> getAllPartitionKeys(ConnectorTableHandle tableHandle)
     {
         checkNotNull(tableHandle, "tableHandle is null");
         checkState(tableHandle instanceof NativeTableHandle, "can only commit partitions for native tables");
@@ -145,7 +145,7 @@ public class DatabaseShardManager
     }
 
     @Override
-    public Multimap<Long, Entry<UUID, String>> getShardNodesByPartition(TableHandle tableHandle)
+    public Multimap<Long, Entry<UUID, String>> getShardNodesByPartition(ConnectorTableHandle tableHandle)
     {
         checkNotNull(tableHandle, "tableHandle is null");
         checkState(tableHandle instanceof NativeTableHandle, "tableHandle not a native table");
@@ -159,7 +159,7 @@ public class DatabaseShardManager
     }
 
     @Override
-    public Set<String> getTableNodes(TableHandle tableHandle)
+    public Set<String> getTableNodes(ConnectorTableHandle tableHandle)
     {
         checkNotNull(tableHandle, "tableHandle is null");
         checkState(tableHandle instanceof NativeTableHandle, "tableHandle not a native table");
@@ -174,7 +174,7 @@ public class DatabaseShardManager
     }
 
     @Override
-    public void dropPartition(final TableHandle tableHandle, final String partitionName)
+    public void dropPartition(final ConnectorTableHandle tableHandle, final String partitionName)
     {
         checkNotNull(tableHandle, "tableHandle is null");
         checkState(tableHandle instanceof NativeTableHandle, "can only commit partitions for native tables");

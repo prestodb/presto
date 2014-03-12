@@ -13,41 +13,36 @@
  */
 package com.facebook.presto.split;
 
+import com.facebook.presto.metadata.ColumnHandle;
+import com.facebook.presto.metadata.Split;
 import com.facebook.presto.operator.Operator;
 import com.facebook.presto.operator.OperatorContext;
-import com.facebook.presto.spi.ColumnHandle;
-import com.facebook.presto.spi.Split;
-import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Sets;
+import com.facebook.presto.spi.ConnectorColumnHandle;
+import com.google.common.collect.Lists;
 
 import javax.inject.Inject;
 
 import java.util.List;
-import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
 
+import static com.facebook.presto.metadata.ColumnHandle.connectorHandleGetter;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 public class DataStreamManager
         implements DataStreamProvider
 {
-    private final Set<ConnectorDataStreamProvider> dataStreamProviders = Sets.newSetFromMap(new ConcurrentHashMap<ConnectorDataStreamProvider, Boolean>());
-
-    public DataStreamManager(ConnectorDataStreamProvider... dataStreamProviders)
-    {
-        this(ImmutableSet.copyOf(dataStreamProviders));
-    }
+    private final ConcurrentMap<String, ConnectorDataStreamProvider> dataStreamProviders = new ConcurrentHashMap<>();
 
     @Inject
-    public DataStreamManager(Set<ConnectorDataStreamProvider> dataStreamProviders)
+    public DataStreamManager()
     {
-        this.dataStreamProviders.addAll(dataStreamProviders);
     }
 
-    public void addConnectorDataStreamProvider(ConnectorDataStreamProvider connectorDataStreamProvider)
+    public void addConnectorDataStreamProvider(String connectorId, ConnectorDataStreamProvider connectorDataStreamProvider)
     {
-        dataStreamProviders.add(connectorDataStreamProvider);
+        dataStreamProviders.put(connectorId, connectorDataStreamProvider);
     }
 
     @Override
@@ -58,16 +53,17 @@ public class DataStreamManager
         checkNotNull(columns, "columns is null");
         checkArgument(!columns.isEmpty(), "no columns specified");
 
-        return getDataStreamProvider(split).createNewDataStream(operatorContext, split, columns);
+        List<ConnectorColumnHandle> handles = Lists.transform(columns, connectorHandleGetter());
+
+        return getDataStreamProvider(split).createNewDataStream(operatorContext, split.getConnectorSplit(), handles);
     }
 
     private ConnectorDataStreamProvider getDataStreamProvider(Split split)
     {
-        for (ConnectorDataStreamProvider dataStreamProvider : dataStreamProviders) {
-            if (dataStreamProvider.canHandle(split)) {
-                return dataStreamProvider;
-            }
-        }
-        throw new IllegalArgumentException("No data stream provider for " + split);
+        ConnectorDataStreamProvider provider = dataStreamProviders.get(split.getConnectorId());
+
+        checkArgument(provider != null, "No data stream provider for '%s", split.getConnectorId());
+
+        return provider;
     }
 }

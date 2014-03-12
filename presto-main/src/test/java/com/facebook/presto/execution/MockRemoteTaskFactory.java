@@ -15,9 +15,9 @@ package com.facebook.presto.execution;
 
 import com.facebook.presto.OutputBuffers;
 import com.facebook.presto.client.FailureInfo;
+import com.facebook.presto.metadata.Split;
 import com.facebook.presto.operator.TaskContext;
 import com.facebook.presto.spi.Node;
-import com.facebook.presto.spi.Split;
 import com.facebook.presto.sql.analyzer.Session;
 import com.facebook.presto.sql.planner.PlanFragment;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
@@ -127,7 +127,7 @@ public class MockRemoteTaskFactory
         }
 
         @Override
-        public void addSplits(PlanNodeId sourceId, Iterable<? extends Split> splits)
+        public void addSplits(PlanNodeId sourceId, Iterable<Split> splits)
         {
             checkNotNull(splits, "splits is null");
             for (Split split : splits) {

@@ -13,14 +13,14 @@
  */
 package com.facebook.presto.connector.jmx;
 
-import com.facebook.presto.spi.ColumnHandle;
+import com.facebook.presto.spi.ConnectorColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ColumnType;
+import com.facebook.presto.spi.ConnectorTableHandle;
 import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.ReadOnlyConnectorMetadata;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.SchemaTablePrefix;
-import com.facebook.presto.spi.TableHandle;
 import com.google.common.base.Function;
 import com.google.common.base.Predicate;
 import com.google.common.collect.ImmutableList;
@@ -60,12 +60,6 @@ public class JmxMetadata
     }
 
     @Override
-    public boolean canHandle(TableHandle tableHandle)
-    {
-        return tableHandle instanceof JmxTableHandle && ((JmxTableHandle) tableHandle).getConnectorId().equals(connectorId);
-    }
-
-    @Override
     public List<String> listSchemaNames()
     {
         return ImmutableList.of(SCHEMA_NAME);
@@ -100,7 +94,7 @@ public class JmxMetadata
     }
 
     @Override
-    public ConnectorTableMetadata getTableMetadata(TableHandle tableHandle)
+    public ConnectorTableMetadata getTableMetadata(ConnectorTableHandle tableHandle)
     {
         checkNotNull(tableHandle, "tableHandle is null");
         checkArgument(tableHandle instanceof JmxTableHandle, "tableHandle is not an instance of JmxTableHandle");
@@ -124,7 +118,7 @@ public class JmxMetadata
     }
 
     @Override
-    public ColumnHandle getColumnHandle(TableHandle tableHandle, String columnName)
+    public ConnectorColumnHandle getColumnHandle(ConnectorTableHandle tableHandle, String columnName)
     {
         checkNotNull(tableHandle, "tableHandle is null");
         checkArgument(tableHandle instanceof JmxTableHandle, "tableHandle is not an instance of JmxTableHandle");
@@ -139,19 +133,19 @@ public class JmxMetadata
     }
 
     @Override
-    public ColumnHandle getSampleWeightColumnHandle(TableHandle tableHandle)
+    public ConnectorColumnHandle getSampleWeightColumnHandle(ConnectorTableHandle tableHandle)
     {
         return null;
     }
 
     @Override
-    public Map<String, ColumnHandle> getColumnHandles(TableHandle tableHandle)
+    public Map<String, ConnectorColumnHandle> getColumnHandles(ConnectorTableHandle tableHandle)
     {
         checkNotNull(tableHandle, "tableHandle is null");
         checkArgument(tableHandle instanceof JmxTableHandle, "tableHandle is not an instance of JmxTableHandle");
         JmxTableHandle jmxTableHandle = (JmxTableHandle) tableHandle;
 
-        return ImmutableMap.<String, ColumnHandle>copyOf(Maps.uniqueIndex(jmxTableHandle.getColumns(), new Function<JmxColumnHandle, String>()
+        return ImmutableMap.<String, ConnectorColumnHandle>copyOf(Maps.uniqueIndex(jmxTableHandle.getColumns(), new Function<JmxColumnHandle, String>()
         {
             @Override
             public String apply(JmxColumnHandle input)
@@ -162,7 +156,7 @@ public class JmxMetadata
     }
 
     @Override
-    public ColumnMetadata getColumnMetadata(TableHandle tableHandle, ColumnHandle columnHandle)
+    public ColumnMetadata getColumnMetadata(ConnectorTableHandle tableHandle, ConnectorColumnHandle columnHandle)
     {
         checkNotNull(tableHandle, "tableHandle is null");
         checkArgument(tableHandle instanceof JmxTableHandle, "tableHandle is not an instance of JmxTableHandle");

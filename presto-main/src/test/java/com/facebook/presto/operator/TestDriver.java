@@ -16,9 +16,10 @@ package com.facebook.presto.operator;
 import com.facebook.presto.ScheduledSplit;
 import com.facebook.presto.TaskSource;
 import com.facebook.presto.execution.TaskId;
-import com.facebook.presto.spi.ColumnHandle;
+import com.facebook.presto.metadata.ColumnHandle;
+import com.facebook.presto.metadata.Split;
+import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.HostAddress;
-import com.facebook.presto.spi.Split;
 import com.facebook.presto.split.DataStreamProvider;
 import com.facebook.presto.sql.analyzer.Session;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
@@ -147,7 +148,7 @@ public class TestDriver
         assertTrue(driver.processFor(new Duration(1, TimeUnit.MILLISECONDS)).isDone());
         assertFalse(driver.isFinished());
 
-        driver.updateSource(new TaskSource(sourceId, ImmutableSet.of(new ScheduledSplit(0, new MockSplit())), true));
+        driver.updateSource(new TaskSource(sourceId, ImmutableSet.of(new ScheduledSplit(0, newMockSplit())), true));
 
         assertFalse(driver.isFinished());
         assertTrue(driver.processFor(new Duration(1, TimeUnit.SECONDS)).isDone());
@@ -262,7 +263,7 @@ public class TestDriver
         assertTrue(driver.processFor(new Duration(1, TimeUnit.MILLISECONDS)).isDone());
         assertFalse(driver.isFinished());
 
-        driver.updateSource(new TaskSource(sourceId, ImmutableSet.of(new ScheduledSplit(0, new MockSplit())), true));
+        driver.updateSource(new TaskSource(sourceId, ImmutableSet.of(new ScheduledSplit(0, newMockSplit())), true));
 
         assertFalse(driver.isFinished());
         assertTrue(driver.processFor(new Duration(1, TimeUnit.SECONDS)).isDone());
@@ -278,6 +279,11 @@ public class TestDriver
         catch (ExecutionException e) {
             checkArgument(getRootCause(e) instanceof InterruptedException, "Expected root cause exception to be an instance of InterruptedException");
         }
+    }
+
+    private Split newMockSplit()
+    {
+        return new Split("test", new MockSplit());
     }
 
     private MaterializingOperator createSinkOperator(Operator source)
@@ -402,7 +408,7 @@ public class TestDriver
     }
 
     private static class MockSplit
-            implements Split
+            implements ConnectorSplit
     {
         @Override
         public boolean isRemotelyAccessible()

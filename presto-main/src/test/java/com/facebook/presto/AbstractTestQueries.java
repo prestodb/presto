@@ -13,6 +13,7 @@
  */
 package com.facebook.presto;
 
+import com.facebook.presto.connector.dual.DualConnector;
 import com.facebook.presto.connector.dual.DualMetadata;
 import com.facebook.presto.connector.dual.DualSplitManager;
 import com.facebook.presto.metadata.FunctionInfo;
@@ -23,7 +24,6 @@ import com.facebook.presto.operator.aggregation.CustomSum;
 import com.facebook.presto.operator.scalar.CustomAdd;
 import com.facebook.presto.operator.window.CustomRank;
 import com.facebook.presto.spi.ColumnMetadata;
-import com.facebook.presto.spi.ConnectorSplitManager;
 import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.RecordCursor;
 import com.facebook.presto.spi.RecordSet;
@@ -3318,8 +3318,9 @@ public abstract class AbstractTestQueries
     private QueryExplainer getQueryExplainer()
     {
         MetadataManager metadata = new MetadataManager();
-        metadata.addInternalSchemaMetadata(MetadataManager.INTERNAL_CONNECTOR_ID, new DualMetadata());
-        SplitManager splitManager = new SplitManager(ImmutableSet.<ConnectorSplitManager>of(new DualSplitManager(new InMemoryNodeManager())));
+        metadata.addInternalSchemaMetadata(DualConnector.CONNECTOR_ID, new DualMetadata());
+        SplitManager splitManager = new SplitManager();
+        splitManager.addConnectorSplitManager(DualConnector.CONNECTOR_ID, new DualSplitManager(new InMemoryNodeManager()));
         AnalyzerConfig analyzerConfig = new AnalyzerConfig().setExperimentalSyntaxEnabled(true);
         List<PlanOptimizer> optimizers = new PlanOptimizersFactory(metadata, splitManager, analyzerConfig).get();
         return new QueryExplainer(session, optimizers, metadata, analyzerConfig.isExperimentalSyntaxEnabled());

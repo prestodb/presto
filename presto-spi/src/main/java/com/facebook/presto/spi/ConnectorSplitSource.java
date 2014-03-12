@@ -13,6 +13,14 @@
  */
 package com.facebook.presto.spi;
 
-public interface TableHandle
+import java.util.List;
+
+public interface ConnectorSplitSource
 {
+    String getDataSourceName();
+
+    List<ConnectorSplit> getNextBatch(int maxSize)
+            throws InterruptedException;
+
+    boolean isFinished();
 }

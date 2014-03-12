@@ -15,7 +15,5 @@ package com.facebook.presto.spi;
 
 public interface ConnectorRecordSinkProvider
 {
-    boolean canHandle(OutputTableHandle tableHandle);
-
-    RecordSink getRecordSink(OutputTableHandle tableHandle);
+    RecordSink getRecordSink(ConnectorOutputTableHandle tableHandle);
 }

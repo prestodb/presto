@@ -16,25 +16,28 @@ package com.facebook.presto.util;
 import com.facebook.presto.ScheduledSplit;
 import com.facebook.presto.TaskSource;
 import com.facebook.presto.connector.ConnectorManager;
-import com.facebook.presto.connector.dual.DualDataStreamProvider;
-import com.facebook.presto.connector.dual.DualMetadata;
-import com.facebook.presto.connector.dual.DualSplitManager;
-import com.facebook.presto.connector.informationSchema.InformationSchemaDataStreamProvider;
-import com.facebook.presto.connector.informationSchema.InformationSchemaSplitManager;
+import com.facebook.presto.connector.dual.DualConnector;
 import com.facebook.presto.connector.system.CatalogSystemTable;
 import com.facebook.presto.connector.system.NodesSystemTable;
+import com.facebook.presto.connector.system.SystemConnector;
 import com.facebook.presto.connector.system.SystemDataStreamProvider;
 import com.facebook.presto.connector.system.SystemSplitManager;
 import com.facebook.presto.connector.system.SystemTablesManager;
 import com.facebook.presto.connector.system.SystemTablesMetadata;
+import com.facebook.presto.execution.SplitSource;
 import com.facebook.presto.execution.TaskId;
+import com.facebook.presto.metadata.ColumnHandle;
 import com.facebook.presto.metadata.HandleResolver;
 import com.facebook.presto.metadata.InMemoryNodeManager;
 import com.facebook.presto.metadata.LocalStorageManager;
 import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.metadata.MockLocalStorageManager;
 import com.facebook.presto.metadata.OutputTableHandleResolver;
+import com.facebook.presto.metadata.Partition;
+import com.facebook.presto.metadata.PartitionResult;
 import com.facebook.presto.metadata.QualifiedTableName;
+import com.facebook.presto.metadata.Split;
+import com.facebook.presto.metadata.TableHandle;
 import com.facebook.presto.operator.Driver;
 import com.facebook.presto.operator.DriverContext;
 import com.facebook.presto.operator.DriverFactory;
@@ -45,17 +48,10 @@ import com.facebook.presto.operator.OperatorFactory;
 import com.facebook.presto.operator.OutputFactory;
 import com.facebook.presto.operator.RecordSinkManager;
 import com.facebook.presto.operator.TaskContext;
-import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.Connector;
 import com.facebook.presto.spi.ConnectorFactory;
-import com.facebook.presto.spi.ConnectorSplitManager;
-import com.facebook.presto.spi.Partition;
-import com.facebook.presto.spi.PartitionResult;
-import com.facebook.presto.spi.Split;
-import com.facebook.presto.spi.SplitSource;
 import com.facebook.presto.spi.SystemTable;
-import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.spi.TupleDomain;
 import com.facebook.presto.split.DataStreamManager;
 import com.facebook.presto.split.SplitManager;
@@ -129,12 +125,24 @@ public class LocalQueryRunner
 
         this.nodeManager = new InMemoryNodeManager();
         this.metadata = new MetadataManager();
-        this.splitManager = new SplitManager(ImmutableSet.<ConnectorSplitManager>of());
+        this.splitManager = new SplitManager();
         this.dataStreamProvider = new DataStreamManager();
         this.recordSinkManager = new RecordSinkManager();
         this.storageManager = MockLocalStorageManager.createMockLocalStorageManager();
 
         this.compiler = new ExpressionCompiler(metadata);
+
+        // sys schema
+        SystemTablesMetadata systemTablesMetadata = new SystemTablesMetadata();
+        SystemSplitManager systemSplitManager = new SystemSplitManager(nodeManager);
+        SystemDataStreamProvider systemDataStreamProvider = new SystemDataStreamProvider();
+        SystemTablesManager systemTablesManager = new SystemTablesManager(systemTablesMetadata, systemSplitManager, systemDataStreamProvider, ImmutableSet.<SystemTable>of());
+
+        // sys.node
+        systemTablesManager.addTable(new NodesSystemTable(nodeManager));
+
+        // sys.catalog
+        systemTablesManager.addTable(new CatalogSystemTable(metadata));
 
         this.connectorManager = new ConnectorManager(
                 metadata,
@@ -144,34 +152,10 @@ public class LocalQueryRunner
                 new HandleResolver(),
                 new OutputTableHandleResolver(),
                 ImmutableMap.<String, ConnectorFactory>of(),
-                ImmutableMap.<String, Connector>of());
-
-        // information schema
-        splitManager.addConnectorSplitManager(new InformationSchemaSplitManager(nodeManager));
-        dataStreamProvider.addConnectorDataStreamProvider(new InformationSchemaDataStreamProvider(metadata, splitManager));
-
-        // dual table
-        metadata.addInternalSchemaMetadata(MetadataManager.INTERNAL_CONNECTOR_ID, new DualMetadata());
-        splitManager.addConnectorSplitManager(new DualSplitManager(nodeManager));
-        dataStreamProvider.addConnectorDataStreamProvider(new DualDataStreamProvider());
-
-        // sys schema
-        SystemTablesMetadata systemTablesMetadata = new SystemTablesMetadata();
-        metadata.addInternalSchemaMetadata(MetadataManager.INTERNAL_CONNECTOR_ID, systemTablesMetadata);
-
-        SystemSplitManager systemSplitManager = new SystemSplitManager(nodeManager);
-        splitManager.addConnectorSplitManager(systemSplitManager);
-
-        SystemDataStreamProvider systemDataStreamProvider = new SystemDataStreamProvider();
-        dataStreamProvider.addConnectorDataStreamProvider(systemDataStreamProvider);
-
-        SystemTablesManager systemTablesManager = new SystemTablesManager(systemTablesMetadata, systemSplitManager, systemDataStreamProvider, ImmutableSet.<SystemTable>of());
-
-        // sys.node
-        systemTablesManager.addTable(new NodesSystemTable(nodeManager));
-
-        // sys.catalog
-        systemTablesManager.addTable(new CatalogSystemTable(metadata));
+                ImmutableMap.<String, Connector>of(
+                        DualConnector.CONNECTOR_ID, new DualConnector(nodeManager),
+                        SystemConnector.CONNECTOR_ID, new SystemConnector(systemTablesMetadata, systemSplitManager, systemDataStreamProvider)),
+                nodeManager);
     }
 
     public InMemoryNodeManager getNodeManager()
@@ -371,7 +355,7 @@ public class LocalQueryRunner
         }
 
         // Otherwise return all partitions
-        PartitionResult matchingPartitions = splitManager.getPartitions(node.getTable(), Optional.<TupleDomain>absent());
+        PartitionResult matchingPartitions = splitManager.getPartitions(node.getTable(), Optional.<TupleDomain<ColumnHandle>>absent());
         return matchingPartitions.getPartitions();
     }
 
@@ -422,7 +406,7 @@ public class LocalQueryRunner
     private Split getLocalQuerySplit(TableHandle tableHandle)
     {
         try {
-            List<Partition> partitions = splitManager.getPartitions(tableHandle, Optional.<TupleDomain>absent()).getPartitions();
+            List<Partition> partitions = splitManager.getPartitions(tableHandle, Optional.<TupleDomain<ColumnHandle>>absent()).getPartitions();
             SplitSource splitSource = splitManager.getPartitionSplits(tableHandle, partitions);
             Split split = Iterables.getOnlyElement(splitSource.getNextBatch(1000));
             checkState(splitSource.isFinished(), "Expected only one split for a local query");
