@@ -27,13 +27,22 @@ public class NodeTaskMap
 {
     private final ConcurrentMap<Node, NodeTasks> tasksByNode = new ConcurrentHashMap<>();
 
-    public synchronized void addTask(Node node, RemoteTask task)
+    public synchronized void addTask(final Node node, final RemoteTask task)
     {
         NodeTasks tasks = tasksByNode.get(node);
         if (tasks == null) {
             tasks = new NodeTasks(node);
             tasksByNode.put(node, tasks);
         }
+        task.addStateChangeListener(new StateMachine.StateChangeListener<TaskInfo>() {
+            @Override
+            public void stateChanged(TaskInfo newValue)
+            {
+                if (newValue.getState().isDone()) {
+                    tasksByNode.remove(node, task);
+                }
+            }
+        });
         tasks.addTask(task);
     }
 
