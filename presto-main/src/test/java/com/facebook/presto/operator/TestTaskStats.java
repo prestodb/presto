@@ -39,9 +39,7 @@ public class TestTaskStats
             6,
             7,
             8,
-            9,
             10,
-            11,
 
             new DataSize(11, BYTE),
             new Duration(12, NANOSECONDS),
@@ -82,10 +80,8 @@ public class TestTaskStats
 
         assertEquals(actual.getTotalDrivers(), 6);
         assertEquals(actual.getQueuedDrivers(), 7);
-        assertEquals(actual.getQueuedPartitionedDrivers(), 8);
-        assertEquals(actual.getRunningDrivers(), 9);
-        assertEquals(actual.getRunningPartitionedDrivers(), 10);
-        assertEquals(actual.getCompletedDrivers(), 11);
+        assertEquals(actual.getRunningDrivers(), 8);
+        assertEquals(actual.getCompletedDrivers(), 10);
 
         assertEquals(actual.getMemoryReservation(), new DataSize(11, BYTE));
 

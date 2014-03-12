@@ -278,11 +278,12 @@ public class HttpRemoteTask
     }
 
     @Override
-    public synchronized int getPartitionedSplitCount()
+    public synchronized int getQueuedSplits()
     {
         try (SetThreadName setThreadName = new SetThreadName("HttpRemoteTask-%s", taskId)) {
-            int splitCount = pendingSplits.get(planFragment.getPartitionedSource()).size();
-            return splitCount + taskInfo.get().getStats().getQueuedPartitionedDrivers() + taskInfo.get().getStats().getRunningPartitionedDrivers();
+            int pendingSplitCount = 0;
+            pendingSplitCount = pendingSplits.get(planFragment.getPartitionedSource()).size();
+            return pendingSplitCount + taskInfo.get().getStats().getQueuedDrivers();
         }
     }
 
