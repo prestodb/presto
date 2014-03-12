@@ -157,6 +157,12 @@ public final class FunctionInfo
         return aggregation(aggregationFunction, inputs, mask, sampleWeight, confidence);
     }
 
+    public AggregationFunction getAggregationFunction()
+    {
+        checkState(aggregationFunction != null, "not an aggregation function");
+        return aggregationFunction;
+    }
+
     public MethodHandle getScalarFunction()
     {
         checkState(scalarFunction != null, "not a scalar function");

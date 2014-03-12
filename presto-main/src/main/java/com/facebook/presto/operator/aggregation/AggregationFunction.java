@@ -27,6 +27,11 @@ public interface AggregationFunction
 
     TupleInfo getIntermediateTupleInfo();
 
+    /**
+     * Indicates that the aggregation can be decomposed, and run as partial aggregations followed by a final aggregation to combine the intermediate results
+     */
+    boolean isDecomposable();
+
     Accumulator createAggregation(Optional<Integer> maskChannel, Optional<Integer> sampleWeight, double confidence, int... argumentChannels);
 
     Accumulator createIntermediateAggregation(double confidence);

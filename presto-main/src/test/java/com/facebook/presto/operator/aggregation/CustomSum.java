@@ -52,6 +52,12 @@ public class CustomSum
     }
 
     @Override
+    public boolean isDecomposable()
+    {
+        return false;
+    }
+
+    @Override
     public Accumulator createAggregation(Optional<Integer> maskChannel, Optional<Integer> sampleWeightChannel, double confidence, int... argumentChannels)
     {
         checkArgument(confidence == 1.0, "custom sum does not support approximate queries");

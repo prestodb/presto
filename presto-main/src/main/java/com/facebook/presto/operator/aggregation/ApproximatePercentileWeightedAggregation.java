@@ -68,6 +68,12 @@ public class ApproximatePercentileWeightedAggregation
     }
 
     @Override
+    public boolean isDecomposable()
+    {
+        return true;
+    }
+
+    @Override
     public ApproximatePercentileWeightedGroupedAccumulator createGroupedAggregation(Optional<Integer> maskChannel, Optional<Integer> sampleWeightChannel, double confidence, int[] argumentChannels)
     {
         checkArgument(confidence == 1.0, "approximate weighted percentile does not support approximate queries");

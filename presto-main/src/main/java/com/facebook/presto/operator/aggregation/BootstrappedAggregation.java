@@ -74,6 +74,12 @@ public class BootstrappedAggregation
     }
 
     @Override
+    public boolean isDecomposable()
+    {
+        return function.isDecomposable();
+    }
+
+    @Override
     public Accumulator createAggregation(Optional<Integer> maskChannel, Optional<Integer> sampleWeightChannel, double confidence, int... argumentChannels)
     {
         checkArgument(sampleWeightChannel.isPresent(), "sample weight must be present for bootstrapping");
