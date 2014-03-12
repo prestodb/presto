@@ -98,8 +98,6 @@ Miscellaneous
 
 * General improvements to the JDBC driver, specifically with respect to metadata handling.
 
-* Scheduling improvements that should result in better load balancing across workers when multiple queries execute concurrently.
-
 * Fix division by zero errors in variance aggregation functions (``VARIANCE``, ``STDDEV``, etc.).
 
 * Fix a bug when using ``DISTINCT`` aggregations in the ``HAVING`` clause.
