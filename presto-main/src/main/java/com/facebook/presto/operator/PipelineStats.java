@@ -35,9 +35,7 @@ public class PipelineStats
 
     private final int totalDrivers;
     private final int queuedDrivers;
-    private final int queuedPartitionedDrivers;
     private final int runningDrivers;
-    private final int runningPartitionedDrivers;
     private final int completedDrivers;
 
     private final DataSize memoryReservation;
@@ -69,9 +67,7 @@ public class PipelineStats
 
             @JsonProperty("totalDrivers") int totalDrivers,
             @JsonProperty("queuedDrivers") int queuedDrivers,
-            @JsonProperty("queuedPartitionedDrivers") int queuedPartitionedDrivers,
             @JsonProperty("runningDrivers") int runningDrivers,
-            @JsonProperty("runningPartitionedDrivers") int runningPartitionedDrivers,
             @JsonProperty("completedDrivers") int completedDrivers,
 
             @JsonProperty("memoryReservation") DataSize memoryReservation,
@@ -101,17 +97,10 @@ public class PipelineStats
 
         checkArgument(totalDrivers >= 0, "totalDrivers is negative");
         this.totalDrivers = totalDrivers;
-
         checkArgument(queuedDrivers >= 0, "queuedDrivers is negative");
         this.queuedDrivers = queuedDrivers;
-        checkArgument(queuedPartitionedDrivers >= 0, "queuedPartitionedDrivers is negative");
-        this.queuedPartitionedDrivers = queuedPartitionedDrivers;
-
         checkArgument(runningDrivers >= 0, "runningDrivers is negative");
         this.runningDrivers = runningDrivers;
-        checkArgument(runningPartitionedDrivers >= 0, "runningPartitionedDrivers is negative");
-        this.runningPartitionedDrivers = runningPartitionedDrivers;
-
         checkArgument(completedDrivers >= 0, "completedDrivers is negative");
         this.completedDrivers = completedDrivers;
 
@@ -265,17 +254,5 @@ public class PipelineStats
     public List<DriverStats> getDrivers()
     {
         return drivers;
-    }
-
-    @JsonProperty
-    public int getRunningPartitionedDrivers()
-    {
-        return runningPartitionedDrivers;
-    }
-
-    @JsonProperty
-    public int getQueuedPartitionedDrivers()
-    {
-        return queuedPartitionedDrivers;
     }
 }
