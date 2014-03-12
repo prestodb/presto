@@ -37,8 +37,6 @@ public class TestPipelineStats
             2,
             3,
             4,
-            5,
-            6,
 
             new DataSize(5, BYTE),
 
@@ -80,10 +78,8 @@ public class TestPipelineStats
 
         assertEquals(actual.getTotalDrivers(), 1);
         assertEquals(actual.getQueuedDrivers(), 2);
-        assertEquals(actual.getQueuedPartitionedDrivers(), 3);
-        assertEquals(actual.getRunningDrivers(), 4);
-        assertEquals(actual.getRunningPartitionedDrivers(), 5);
-        assertEquals(actual.getCompletedDrivers(), 6);
+        assertEquals(actual.getRunningDrivers(), 3);
+        assertEquals(actual.getCompletedDrivers(), 4);
 
         assertEquals(actual.getMemoryReservation(), new DataSize(5, BYTE));
 

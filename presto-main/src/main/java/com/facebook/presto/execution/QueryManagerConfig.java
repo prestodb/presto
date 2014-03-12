@@ -26,6 +26,8 @@ public class QueryManagerConfig
 {
     private int scheduleSplitBatchSize = 1000;
 
+    private int maxPendingSplitsPerNode = 100;
+
     private int initialHashPartitions = 8;
     private Duration maxQueryAge = new Duration(15, TimeUnit.MINUTES);
     private int maxQueryHistory = 100;
@@ -46,6 +48,19 @@ public class QueryManagerConfig
     public QueryManagerConfig setScheduleSplitBatchSize(int scheduleSplitBatchSize)
     {
         this.scheduleSplitBatchSize = scheduleSplitBatchSize;
+        return this;
+    }
+
+    @Min(1)
+    public int getMaxPendingSplitsPerNode()
+    {
+        return maxPendingSplitsPerNode;
+    }
+
+    @Config("query.max-pending-splits-per-node")
+    public QueryManagerConfig setMaxPendingSplitsPerNode(int maxPendingSplitsPerNode)
+    {
+        this.maxPendingSplitsPerNode = maxPendingSplitsPerNode;
         return this;
     }
 
