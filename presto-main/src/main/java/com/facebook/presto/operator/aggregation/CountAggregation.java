@@ -54,6 +54,12 @@ public class CountAggregation
     }
 
     @Override
+    public boolean isDecomposable()
+    {
+        return true;
+    }
+
+    @Override
     public CountGroupedAccumulator createGroupedAggregation(Optional<Integer> maskChannel, Optional<Integer> sampleWeightChannel, double confidence, int[] argumentChannels)
     {
         checkArgument(confidence == 1.0, "count does not support approximate queries");
@@ -99,6 +105,7 @@ public class CountAggregation
             return SINGLE_LONG;
         }
 
+        @Override
         public void addInput(GroupByIdBlock groupIdsBlock, Page page)
         {
             counts.ensureCapacity(groupIdsBlock.getGroupCount());
@@ -134,6 +141,7 @@ public class CountAggregation
             evaluateFinal(groupId, output);
         }
 
+        @Override
         public void evaluateFinal(int groupId, BlockBuilder output)
         {
             long value = counts.get((long) groupId);
@@ -180,6 +188,7 @@ public class CountAggregation
             return SINGLE_LONG;
         }
 
+        @Override
         public void addInput(Page page)
         {
             if (!maskChannel.isPresent() && !sampleWeightChannel.isPresent()) {
