@@ -86,7 +86,7 @@ public abstract class AbstractScanFilterAndProjectOperator
     }
 
     @Override
-    public synchronized void addSplit(final Split split)
+    public synchronized void addSplit(Split split)
     {
         checkNotNull(split, "split is null");
         checkState(cursor == null && operator == null, "split already set");
@@ -125,6 +125,7 @@ public abstract class AbstractScanFilterAndProjectOperator
         close();
     }
 
+    @Override
     public void close()
     {
         if (operator != null) {
@@ -152,9 +153,7 @@ public abstract class AbstractScanFilterAndProjectOperator
         if (operator != null) {
             return operator.isBlocked();
         }
-        else {
-            return NOT_BLOCKED;
-        }
+        return NOT_BLOCKED;
     }
 
     @Override
