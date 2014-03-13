@@ -395,4 +395,19 @@ public enum CassandraType
                 throw new IllegalStateException("Back conversion not implemented for " + this);
         }
     }
+
+    public static CassandraType toCassandraType(ColumnType type)
+    {
+        switch (type) {
+            case BOOLEAN:
+                return BOOLEAN;
+            case LONG:
+                return BIGINT;
+            case DOUBLE:
+                return DOUBLE;
+            case STRING:
+                return TEXT;
+        }
+        throw new IllegalArgumentException("unsupported type: " + type);
+    }
 }
