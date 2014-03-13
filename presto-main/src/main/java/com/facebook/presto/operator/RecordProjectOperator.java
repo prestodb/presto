@@ -56,7 +56,7 @@ public class RecordProjectOperator
         }
         this.tupleInfos = tupleInfos.build();
 
-        pageBuilder = new PageBuilder(getTupleInfos());
+        pageBuilder = new PageBuilder(this.tupleInfos);
     }
 
     @Override
@@ -82,6 +82,7 @@ public class RecordProjectOperator
         close();
     }
 
+    @Override
     public void close()
     {
         finishing = true;
@@ -116,8 +117,8 @@ public class RecordProjectOperator
     public Page getOutput()
     {
         if (!finishing) {
-            int i = 0;
-            for (; i < ROWS_PER_REQUEST; i++) {
+            int i;
+            for (i = 0; i < ROWS_PER_REQUEST; i++) {
                 if (pageBuilder.isFull()) {
                     break;
                 }

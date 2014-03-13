@@ -73,6 +73,7 @@ public class FilterAndProjectOperator
         this.projections = ImmutableList.copyOf(projections);
     }
 
+    @Override
     protected void filterAndProjectRowOriented(Page page, PageBuilder pageBuilder)
     {
         int rows = page.getPositionCount();
