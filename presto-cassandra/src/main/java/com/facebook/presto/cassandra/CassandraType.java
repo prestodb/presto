@@ -405,4 +405,21 @@ public enum CassandraType
                 throw new IllegalStateException("Back conversion not implemented for " + this);
         }
     }
+
+    public static CassandraType toCassandraType(Type type)
+    {
+        if (type.equals(BooleanType.BOOLEAN)) {
+            return BOOLEAN;
+        }
+        else if (type.equals(BigintType.BIGINT)) {
+            return BIGINT;
+        }
+        else if (type.equals(DoubleType.DOUBLE)) {
+            return DOUBLE;
+        }
+        else if (type.equals(VarcharType.VARCHAR)) {
+            return TEXT;
+        }
+        throw new IllegalArgumentException("unsupported type: " + type);
+    }
 }

@@ -16,38 +16,50 @@ package com.facebook.presto.cassandra;
 import com.facebook.presto.cassandra.util.CassandraCqlUtils;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorColumnHandle;
+import com.facebook.presto.spi.ConnectorMetadata;
+import com.facebook.presto.spi.ConnectorOutputTableHandle;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorTableHandle;
 import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.NotFoundException;
-import com.facebook.presto.spi.ReadOnlyConnectorMetadata;
 import com.facebook.presto.spi.SchemaNotFoundException;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.SchemaTablePrefix;
+import com.facebook.presto.spi.type.Type;
 import com.google.common.base.Objects;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.inject.Inject;
 
+import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 
 import static com.facebook.presto.cassandra.CassandraColumnHandle.columnMetadataGetter;
+import static com.facebook.presto.cassandra.CassandraType.toCassandraType;
 import static com.facebook.presto.cassandra.util.Types.checkType;
+import static com.facebook.presto.spi.type.BigintType.BIGINT;
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Strings.isNullOrEmpty;
 import static com.google.common.collect.Iterables.transform;
+import static java.util.Collections.emptyList;
+import static java.util.Collections.emptyMap;
 
 public class CassandraMetadata
-    extends ReadOnlyConnectorMetadata
+    implements ConnectorMetadata
 {
+    public static final String SAMPLE_WEIGHT_COLUMN_NAME = "__presto__sample_weight__";
     private final String connectorId;
     private final CachingCassandraSchemaProvider schemaProvider;
+    private final CassandraSession cassandraSession;
 
     @Inject
-    public CassandraMetadata(CassandraConnectorId connectorId, CachingCassandraSchemaProvider schemaProvider)
+    public CassandraMetadata(CassandraConnectorId connectorId, CachingCassandraSchemaProvider schemaProvider, CassandraSession cassandraSession)
     {
         this.connectorId = checkNotNull(connectorId, "connectorId is null").toString();
         this.schemaProvider = checkNotNull(schemaProvider, "schemaProvider is null");
+        this.cassandraSession = checkNotNull(cassandraSession, "cassandraSession is null");
     }
 
     @Override
@@ -179,5 +191,98 @@ public class CassandraMetadata
         return Objects.toStringHelper(this)
                 .add("connectorId", connectorId)
                 .toString();
+    }
+
+    @Override
+    public boolean canCreateSampledTables(ConnectorSession session)
+    {
+        return true;
+    }
+
+    @Override
+    public ConnectorTableHandle createTable(ConnectorSession session, ConnectorTableMetadata tableMetadata)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public void dropTable(ConnectorTableHandle tableHandle)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public ConnectorOutputTableHandle beginCreateTable(ConnectorSession session, ConnectorTableMetadata tableMetadata)
+    {
+        checkArgument(!isNullOrEmpty(tableMetadata.getOwner()), "Table owner is null or empty");
+
+        ImmutableList.Builder<String> columnNames = ImmutableList.builder();
+        ImmutableList.Builder<Type> columnTypes = ImmutableList.builder();
+        for (ColumnMetadata column : tableMetadata.getColumns()) {
+            columnNames.add(column.getName());
+            columnTypes.add(column.getType());
+        }
+        if (tableMetadata.isSampled()) {
+            columnNames.add(SAMPLE_WEIGHT_COLUMN_NAME);
+            columnTypes.add(BIGINT);
+        }
+
+        // get the root directory for the database
+        SchemaTableName table = tableMetadata.getTable();
+        String schemaName = schemaProvider.getCaseSensitiveSchemaName(table.getSchemaName());
+        String tableName = table.getTableName();
+        List<String> columns = columnNames.build();
+        List<Type> types = columnTypes.build();
+        StringBuilder queryBuilder = new StringBuilder(String.format("CREATE TABLE \"%s\".\"%s\"(id uuid primary key", schemaName, tableName));
+        for (int i = 0; i < columns.size(); i++) {
+            String name = columns.get(i);
+            Type type = types.get(i);
+            queryBuilder.append(", ")
+                        .append(name)
+                        .append(" ")
+                        .append(toCassandraType(type).name().toLowerCase());
+        }
+        queryBuilder.append(")");
+
+        // We need create Cassandra table before commit because record need to be written to the table .
+        cassandraSession.executeQuery(queryBuilder.toString());
+        return new CassandraOutputTableHandle(
+                connectorId,
+                schemaName,
+                tableName,
+                columnNames.build(),
+                columnTypes.build(),
+                tableMetadata.getOwner());
+    }
+
+    @Override
+    public void commitCreateTable(ConnectorOutputTableHandle tableHandle, Collection<String> fragments)
+    {
+        checkNotNull(tableHandle, "tableHandle is null");
+        checkArgument(tableHandle instanceof CassandraOutputTableHandle, "tableHandle is not an instance of CassandraOutputTableHandle");
+    }
+
+    @Override
+    public void createView(ConnectorSession session, SchemaTableName viewName, String viewData, boolean replace)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public void dropView(ConnectorSession session, SchemaTableName viewName)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public List<SchemaTableName> listViews(ConnectorSession session, String schemaNameOrNull)
+    {
+        return emptyList();
+    }
+
+    @Override
+    public Map<SchemaTableName, String> getViews(ConnectorSession session, SchemaTablePrefix prefix)
+    {
+        return emptyMap();
     }
 }

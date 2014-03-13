@@ -49,6 +49,8 @@ public class CassandraClientModule
         binder.bind(CassandraTokenSplitManager.class).in(Scopes.SINGLETON);
         binder.bind(CassandraRecordSetProvider.class).in(Scopes.SINGLETON);
         binder.bind(CassandraHandleResolver.class).in(Scopes.SINGLETON);
+        binder.bind(CassandraConnectorOutputHandleResolver.class).in(Scopes.SINGLETON);
+        binder.bind(CassandraConnectorRecordSinkProvider.class).in(Scopes.SINGLETON);
 
         bindConfig(binder).to(CassandraClientConfig.class);
 

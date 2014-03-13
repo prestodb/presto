@@ -305,4 +305,9 @@ public class CassandraSession
             where.and(clause);
         }
     }
+
+    public ResultSet execute(String query, Object... values)
+    {
+        return session.execute(query, values);
+    }
 }
