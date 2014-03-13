@@ -117,6 +117,12 @@ public class SampledTpchRecordSetProvider
         }
 
         @Override
+        public long getReadTimeNanos()
+        {
+            return 0;
+        }
+
+        @Override
         public ColumnType getType(int field)
         {
             throw new RuntimeException("record cursor is empty");
@@ -258,6 +264,12 @@ public class SampledTpchRecordSetProvider
         public long getCompletedBytes()
         {
             return delegate.getCompletedBytes();
+        }
+
+        @Override
+        public long getReadTimeNanos()
+        {
+            return 0;
         }
 
         @Override

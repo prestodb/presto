@@ -13,12 +13,22 @@
  */
 package com.facebook.presto.hive;
 
-import com.google.common.base.Optional;
-import org.apache.hadoop.mapred.RecordReader;
+import com.facebook.presto.spi.RecordCursor;
 
-import java.util.List;
-
-public interface HiveRecordCursorProvider
+public abstract class AbstractHiveRecordCursor
+        implements RecordCursor
 {
-    Optional<AbstractHiveRecordCursor> createHiveRecordCursor(HiveSplit split, RecordReader<?, ?> recordReader, List<HiveColumnHandle> columns);
+    private long readTime;
+
+    @Override
+    public long getReadTimeNanos()
+    {
+        return readTime;
+    }
+
+    // For use with HDFS clients that can report the remote read time
+    public void addReadTime(long nanos)
+    {
+        readTime += nanos;
+    }
 }

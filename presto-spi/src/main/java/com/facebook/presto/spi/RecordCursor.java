@@ -22,6 +22,8 @@ public interface RecordCursor
 
     long getCompletedBytes();
 
+    long getReadTimeNanos();
+
     ColumnType getType(int field);
 
     boolean advanceNextPosition();

@@ -72,6 +72,12 @@ public class InfiniteRecordSet
         }
 
         @Override
+        public long getReadTimeNanos()
+        {
+            return 0;
+        }
+
+        @Override
         public boolean advanceNextPosition()
         {
             return true;

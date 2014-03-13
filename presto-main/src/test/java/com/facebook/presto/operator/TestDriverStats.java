@@ -45,6 +45,7 @@ public class TestDriverStats
 
             new DataSize(11, BYTE),
             12,
+            new Duration(13, NANOSECONDS),
 
             new DataSize(13, BYTE),
             14,
@@ -82,6 +83,7 @@ public class TestDriverStats
 
         assertEquals(actual.getRawInputDataSize(), new DataSize(11, BYTE));
         assertEquals(actual.getRawInputPositions(), 12);
+        assertEquals(actual.getRawInputReadTime(), new Duration(13, NANOSECONDS));
 
         assertEquals(actual.getProcessedInputDataSize(), new DataSize(13, BYTE));
         assertEquals(actual.getProcessedInputPositions(), 14);

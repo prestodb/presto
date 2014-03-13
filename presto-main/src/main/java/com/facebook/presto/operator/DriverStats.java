@@ -49,6 +49,7 @@ public class DriverStats
 
     private final DataSize rawInputDataSize;
     private final long rawInputPositions;
+    private final Duration rawInputReadTime;
 
     private final DataSize processedInputDataSize;
     private final long processedInputPositions;
@@ -75,6 +76,7 @@ public class DriverStats
 
         this.rawInputDataSize = new DataSize(0, BYTE);
         this.rawInputPositions = 0;
+        this.rawInputReadTime = new Duration(0, MILLISECONDS);
 
         this.processedInputDataSize = new DataSize(0, BYTE);
         this.processedInputPositions = 0;
@@ -102,6 +104,7 @@ public class DriverStats
 
             @JsonProperty("rawInputDataSize") DataSize rawInputDataSize,
             @JsonProperty("rawInputPositions") long rawInputPositions,
+            @JsonProperty("rawInputReadTime") Duration rawInputReadTime,
 
             @JsonProperty("processedInputDataSize") DataSize processedInputDataSize,
             @JsonProperty("processedInputPositions") long processedInputPositions,
@@ -127,6 +130,7 @@ public class DriverStats
         this.rawInputDataSize = checkNotNull(rawInputDataSize, "rawInputDataSize is null");
         Preconditions.checkArgument(rawInputPositions >= 0, "rawInputPositions is negative");
         this.rawInputPositions = rawInputPositions;
+        this.rawInputReadTime = checkNotNull(rawInputReadTime, "rawInputReadTime is null");
 
         this.processedInputDataSize = checkNotNull(processedInputDataSize, "processedInputDataSize is null");
         Preconditions.checkArgument(processedInputPositions >= 0, "processedInputPositions is negative");
@@ -205,6 +209,12 @@ public class DriverStats
     public DataSize getRawInputDataSize()
     {
         return rawInputDataSize;
+    }
+
+    @JsonProperty
+    public Duration getRawInputReadTime()
+    {
+        return rawInputReadTime;
     }
 
     @JsonProperty

@@ -16,7 +16,6 @@ package com.facebook.presto.hive;
 import com.facebook.presto.hive.shaded.org.apache.commons.codec.binary.Base64;
 import com.facebook.presto.hive.util.SerDeUtils;
 import com.facebook.presto.spi.ColumnType;
-import com.facebook.presto.spi.RecordCursor;
 import com.google.common.base.Charsets;
 import com.google.common.base.Throwables;
 import org.apache.hadoop.hive.metastore.api.MetaException;
@@ -50,7 +49,7 @@ import static java.lang.Math.max;
 import static java.lang.Math.min;
 
 class ColumnarTextHiveRecordCursor<K>
-        implements RecordCursor
+        extends AbstractHiveRecordCursor
 {
     private final RecordReader<K, BytesRefArrayWritable> recordReader;
     private final K key;
