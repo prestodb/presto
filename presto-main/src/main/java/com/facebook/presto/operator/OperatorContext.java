@@ -123,10 +123,16 @@ public class OperatorContext
         }
     }
 
-    public void recordGeneratedInput(DataSize dataSize, long positions)
+    public void recordGeneratedInput(DataSize dataSize, long positions, long readNanos)
     {
         inputDataSize.update(dataSize.toBytes());
         inputPositions.update(positions);
+        addInputWallNanos.getAndAdd(readNanos);
+    }
+
+    public void recordGeneratedInput(DataSize dataSize, long positions)
+    {
+        recordGeneratedInput(dataSize, positions, 0);
     }
 
     public void recordGetOutput(Page page)

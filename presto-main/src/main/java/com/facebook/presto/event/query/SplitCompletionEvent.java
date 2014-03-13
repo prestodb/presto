@@ -44,6 +44,7 @@ public class SplitCompletionEvent
 
     private final DataSize completedDataSize;
     private final long completedPositions;
+    private final Long completedReadTimeMs;
 
     private final Long wallTimeMs;
     private final Long cpuTimeMs;
@@ -65,6 +66,7 @@ public class SplitCompletionEvent
             @Nullable Duration timeToLastByte,
             DataSize completedDataSize,
             long completedPositions,
+            Duration completedReadTime,
             @Nullable Duration wallTime,
             @Nullable Duration cpuTime,
             @Nullable Duration userTime,
@@ -89,6 +91,7 @@ public class SplitCompletionEvent
         this.timeToLastByteMs = durationToMillis(timeToLastByte);
         this.completedDataSize = completedDataSize;
         this.completedPositions = completedPositions;
+        this.completedReadTimeMs = durationToMillis(completedReadTime);
         this.wallTimeMs = durationToMillis(wallTime);
         this.cpuTimeMs = durationToMillis(cpuTime);
         this.userTimeMs = durationToMillis(userTime);
@@ -164,6 +167,12 @@ public class SplitCompletionEvent
     public long getCompletedPositionsTotal()
     {
         return completedPositions;
+    }
+
+    @EventField
+    public Long getCompletedReadTimeMs()
+    {
+        return completedReadTimeMs;
     }
 
     @EventField

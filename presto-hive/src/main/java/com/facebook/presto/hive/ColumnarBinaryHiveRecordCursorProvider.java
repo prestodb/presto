@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.hive;
 
-import com.facebook.presto.spi.RecordCursor;
 import com.google.common.base.Optional;
 import com.google.common.base.Throwables;
 import org.apache.hadoop.hive.metastore.api.MetaException;
@@ -29,10 +28,10 @@ public class ColumnarBinaryHiveRecordCursorProvider
         implements HiveRecordCursorProvider
 {
     @Override
-    public Optional<RecordCursor> createHiveRecordCursor(HiveSplit split, RecordReader<?, ?> recordReader, List<HiveColumnHandle> columns)
+    public Optional<AbstractHiveRecordCursor> createHiveRecordCursor(HiveSplit split, RecordReader<?, ?> recordReader, List<HiveColumnHandle> columns)
     {
         if (usesColumnarBinarySerDe(split)) {
-            return Optional.<RecordCursor>of(new ColumnarBinaryHiveRecordCursor<>(
+            return Optional.<AbstractHiveRecordCursor>of(new ColumnarBinaryHiveRecordCursor<>(
                     bytesRecordReader(recordReader),
                     split.getLength(),
                     split.getSchema(),

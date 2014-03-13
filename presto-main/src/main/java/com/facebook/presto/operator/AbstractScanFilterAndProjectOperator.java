@@ -52,6 +52,7 @@ public abstract class AbstractScanFilterAndProjectOperator
     private boolean finishing;
 
     private long completedBytes;
+    private long readTimeNanos;
 
     protected AbstractScanFilterAndProjectOperator(
             OperatorContext operatorContext,
@@ -175,8 +176,9 @@ public abstract class AbstractScanFilterAndProjectOperator
             if (cursor != null) {
                 int rowsProcessed = filterAndProjectRowOriented(cursor, pageBuilder);
                 long bytesProcessed = cursor.getCompletedBytes() - completedBytes;
-                operatorContext.recordGeneratedInput(new DataSize(bytesProcessed, BYTE), rowsProcessed);
+                operatorContext.recordGeneratedInput(new DataSize(bytesProcessed, BYTE), rowsProcessed, cursor.getReadTimeNanos() - readTimeNanos);
                 completedBytes += bytesProcessed;
+                readTimeNanos = cursor.getReadTimeNanos();
 
                 if (rowsProcessed == 0) {
                     finishing = true;

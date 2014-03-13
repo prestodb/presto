@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.hive;
 
-import com.facebook.presto.spi.RecordCursor;
 import com.google.common.base.Optional;
 import org.apache.hadoop.io.Writable;
 import org.apache.hadoop.mapred.RecordReader;
@@ -24,9 +23,9 @@ public class GenericHiveRecordCursorProvider
         implements HiveRecordCursorProvider
 {
     @Override
-    public Optional<RecordCursor> createHiveRecordCursor(HiveSplit split, RecordReader<?, ?> recordReader, List<HiveColumnHandle> columns)
+    public Optional<AbstractHiveRecordCursor> createHiveRecordCursor(HiveSplit split, RecordReader<?, ?> recordReader, List<HiveColumnHandle> columns)
     {
-        return Optional.<RecordCursor>of(new GenericHiveRecordCursor<>(
+        return Optional.<AbstractHiveRecordCursor>of(new GenericHiveRecordCursor<>(
                 genericRecordReader(recordReader),
                 split.getLength(),
                 split.getSchema(),

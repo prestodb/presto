@@ -77,6 +77,12 @@ public class ExampleRecordCursor
     }
 
     @Override
+    public long getReadTimeNanos()
+    {
+        return 0;
+    }
+
+    @Override
     public ColumnType getType(int field)
     {
         checkArgument(field < columnHandles.size(), "Invalid field index");

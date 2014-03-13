@@ -101,6 +101,12 @@ public class TpchRecordSet<E extends TpchEntity>
         }
 
         @Override
+        public long getReadTimeNanos()
+        {
+            return 0;
+        }
+
+        @Override
         public ColumnType getType(int field)
         {
             return ColumnType.fromNativeType(getTpchColumn(field).getType());

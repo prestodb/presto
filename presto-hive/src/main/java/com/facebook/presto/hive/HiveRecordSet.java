@@ -17,7 +17,6 @@ import com.facebook.presto.hadoop.HadoopFileSystemCache;
 import com.facebook.presto.hadoop.HadoopNative;
 import com.facebook.presto.spi.ColumnType;
 import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.spi.RecordCursor;
 import com.facebook.presto.spi.RecordSet;
 import com.google.common.base.Optional;
 import com.google.common.base.Throwables;
@@ -105,7 +104,7 @@ public class HiveRecordSet
     }
 
     @Override
-    public RecordCursor cursor()
+    public AbstractHiveRecordCursor cursor()
     {
         // Tell hive the columns we would like to read, this lets hive optimize reading column oriented files
         ColumnProjectionUtils.setReadColumnIDs(configuration, readHiveColumnIndexes);
@@ -113,7 +112,7 @@ public class HiveRecordSet
         RecordReader<?, ?> recordReader = createRecordReader(split, configuration, wrappedPath);
 
         for (HiveRecordCursorProvider provider : cursorProviders) {
-            Optional<RecordCursor> cursor = provider.createHiveRecordCursor(split, recordReader, columns);
+            Optional<AbstractHiveRecordCursor> cursor = provider.createHiveRecordCursor(split, recordReader, columns);
             if (cursor.isPresent()) {
                 return cursor.get();
             }
