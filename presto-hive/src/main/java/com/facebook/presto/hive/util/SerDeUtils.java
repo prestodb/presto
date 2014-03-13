@@ -34,9 +34,11 @@ import org.apache.hadoop.hive.serde2.objectinspector.primitive.LongObjectInspect
 import org.apache.hadoop.hive.serde2.objectinspector.primitive.ShortObjectInspector;
 import org.apache.hadoop.hive.serde2.objectinspector.primitive.StringObjectInspector;
 import org.apache.hadoop.hive.serde2.objectinspector.primitive.TimestampObjectInspector;
+import org.apache.hadoop.io.BytesWritable;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 
@@ -86,7 +88,8 @@ public final class SerDeUtils
                 return String.valueOf(((TimestampObjectInspector) objectInspector).getPrimitiveWritableObject(object).getSeconds());
             case BINARY:
                 // Using same Base64 encoder which Jackson uses in JsonGenerator.writeBinary().
-                return Base64Variants.getDefaultVariant().encode(((BinaryObjectInspector) objectInspector).getPrimitiveWritableObject(object).getBytes());
+                BytesWritable writable = ((BinaryObjectInspector) objectInspector).getPrimitiveWritableObject(object);
+                return Base64Variants.getDefaultVariant().encode(Arrays.copyOf(writable.getBytes(), writable.getLength()));
             default:
                 throw new RuntimeException("Unknown primitive type: " + objectInspector.getPrimitiveCategory());
         }

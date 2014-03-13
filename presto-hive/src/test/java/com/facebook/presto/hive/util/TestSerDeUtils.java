@@ -13,22 +13,26 @@
  */
 package com.facebook.presto.hive.util;
 
+import com.fasterxml.jackson.core.Base64Variants;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
+import com.google.common.reflect.TypeToken;
 import org.apache.hadoop.hive.serde2.objectinspector.ObjectInspector;
 import org.apache.hadoop.hive.serde2.objectinspector.ObjectInspectorFactory;
 import org.apache.hadoop.hive.serde2.objectinspector.StandardUnionObjectInspector;
 import org.apache.hadoop.hive.serde2.objectinspector.UnionObject;
 import org.apache.hadoop.hive.serde2.objectinspector.UnionObjectInspector;
+import org.apache.hadoop.io.BytesWritable;
 import org.testng.annotations.Test;
 
 import java.lang.reflect.Type;
-import java.nio.charset.StandardCharsets;
 import java.sql.Timestamp;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.TreeMap;
 
+import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.testng.Assert.assertEquals;
 
 public class TestSerDeUtils
@@ -71,7 +75,7 @@ public class TestSerDeUtils
 
     private String toUtf8String(byte[] bytes)
     {
-        return new String(bytes, StandardCharsets.UTF_8);
+        return new String(bytes, UTF_8);
     }
 
     @Test
@@ -206,5 +210,25 @@ public class TestSerDeUtils
         String actual =  toUtf8String(SerDeUtils.getJsonBytes(union, unionInspector));
         String expected = "{\"0\":{\"intval\":1,\"longval\":2}}";
         assertEquals(actual, expected);
+    }
+
+    @Test
+    public void testReuse()
+            throws Exception
+    {
+        BytesWritable value = new BytesWritable();
+
+        byte[] first = "hello world".getBytes(UTF_8);
+        value.set(first, 0, first.length);
+
+        byte[] second = "bye".getBytes(UTF_8);
+        value.set(second, 0, second.length);
+
+        ObjectInspector inspector = ObjectInspectorFactory.getReflectionObjectInspector(new TypeToken<Map<BytesWritable, Integer>>() {}.getType(), ObjectInspectorFactory.ObjectInspectorOptions.JAVA);
+
+        byte[] bytes = SerDeUtils.getJsonBytes(ImmutableMap.of(value, 0), inspector);
+
+        String encoded = Base64Variants.getDefaultVariant().encode(second);
+        assertEquals(new String(bytes, UTF_8), "{\"" + encoded + "\":0}");
     }
 }
