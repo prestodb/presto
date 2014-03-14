@@ -20,7 +20,7 @@ import com.facebook.presto.spi.RecordSink;
 import com.google.common.collect.Lists;
 import com.google.inject.Inject;
 
-import static com.facebook.presto.cassandra.CassandraMetadata.SAMPLE_WEIGHT_COLUMN_NAME;
+import static com.facebook.presto.cassandra.CassandraColumnHandle.SAMPLE_WEIGHT_COLUMN_NAME;
 import static com.google.common.base.Preconditions.checkState;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static com.facebook.presto.cassandra.util.CassandraCqlUtils.quoteStringLiteral;
@@ -43,10 +43,13 @@ public class CassandraRecordSink implements RecordSink
         StringBuilder queryBuilder = new StringBuilder(String.format("INSERT INTO \"%s\".\"%s\"(", handle.getSchemaName(), handle.getTableName()));
         queryBuilder.append("id");
         for (String columnName : handle.getColumnNames()) {
-            queryBuilder.append(",").append(columnName);
+            if (!columnName.equals(SAMPLE_WEIGHT_COLUMN_NAME)) {
+                queryBuilder.append(",").append(columnName);
+            }
         }
         queryBuilder.append(") VALUES (?");
-        for (int i = 0; i < handle.getColumnNames().size(); i++) {
+
+        for (int i = sampleWeightField > -1 ? 1 : 0; i < handle.getColumnNames().size(); i++) {
             queryBuilder.append(",?");
         }
         queryBuilder.append(")");
