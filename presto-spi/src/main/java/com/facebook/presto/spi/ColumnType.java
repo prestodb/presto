@@ -43,4 +43,14 @@ public enum ColumnType
         }
         throw new IllegalArgumentException(String.format("No native column type found for %s", nativeType));
     }
+
+    public static ColumnType fromObject(Object value)
+    {
+        for (ColumnType columnType : ColumnType.values()) {
+            if (columnType.getNativeType().isInstance(value)) {
+                return columnType;
+            }
+        }
+        throw new IllegalArgumentException(String.format("No native column type found for %s", value));
+    }
 }
