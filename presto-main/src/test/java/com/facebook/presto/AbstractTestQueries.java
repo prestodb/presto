@@ -13,68 +13,28 @@
  */
 package com.facebook.presto;
 
-import com.facebook.presto.connector.dual.DualMetadata;
-import com.facebook.presto.connector.dual.DualSplitManager;
-import com.facebook.presto.index.IndexManager;
 import com.facebook.presto.metadata.FunctionInfo;
 import com.facebook.presto.metadata.FunctionRegistry;
-import com.facebook.presto.metadata.InMemoryNodeManager;
-import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.operator.aggregation.CustomSum;
 import com.facebook.presto.operator.scalar.CustomAdd;
 import com.facebook.presto.operator.window.CustomRank;
-import com.facebook.presto.spi.ConnectorSplitManager;
-import com.facebook.presto.spi.ConnectorTableMetadata;
-import com.facebook.presto.spi.RecordCursor;
-import com.facebook.presto.spi.RecordSet;
-import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.split.SplitManager;
-import com.facebook.presto.sql.analyzer.FeaturesConfig;
-import com.facebook.presto.sql.analyzer.QueryExplainer;
-import com.facebook.presto.spi.Session;
-import com.facebook.presto.sql.parser.SqlParser;
-import com.facebook.presto.sql.planner.PlanOptimizersFactory;
-import com.facebook.presto.sql.planner.optimizations.PlanOptimizer;
-import com.facebook.presto.sql.tree.ExplainType;
-import com.facebook.presto.tpch.TpchMetadata;
-import com.facebook.presto.tpch.TpchTableHandle;
-import com.facebook.presto.type.TypeRegistry;
 import com.facebook.presto.util.MaterializedResult;
 import com.facebook.presto.util.MaterializedRow;
 import com.google.common.base.Function;
-import com.google.common.base.Joiner;
 import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMultimap;
-import com.google.common.collect.ImmutableMultiset;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Multimap;
 import com.google.common.collect.Multimaps;
 import com.google.common.collect.Ordering;
-import io.airlift.log.Logger;
-import io.airlift.log.Logging;
 import io.airlift.tpch.TpchTable;
-import io.airlift.units.Duration;
 import org.apache.commons.math3.stat.descriptive.DescriptiveStatistics;
 import org.intellij.lang.annotations.Language;
-import org.skife.jdbi.v2.DBI;
-import org.skife.jdbi.v2.Handle;
-import org.skife.jdbi.v2.PreparedBatch;
-import org.skife.jdbi.v2.PreparedBatchPart;
-import org.skife.jdbi.v2.StatementContext;
-import org.skife.jdbi.v2.tweak.ResultSetMapper;
-import org.testng.annotations.AfterClass;
-import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
-import java.sql.Date;
-import java.sql.ResultSet;
-import java.sql.SQLException;
-import java.sql.Time;
-import java.sql.Timestamp;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
 
@@ -82,32 +42,20 @@ import static com.facebook.presto.connector.informationSchema.InformationSchemaM
 import static com.facebook.presto.metadata.FunctionRegistry.supplier;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
-import static com.facebook.presto.spi.type.DateType.DATE;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
-import static com.facebook.presto.spi.type.NullType.NULL;
-import static com.facebook.presto.spi.type.TimeType.TIME;
-import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.sql.tree.ExplainType.Type.DISTRIBUTED;
 import static com.facebook.presto.sql.tree.ExplainType.Type.LOGICAL;
-import static com.facebook.presto.tpch.TpchMetadata.TINY_SCHEMA_NAME;
-import static com.facebook.presto.tpch.TpchRecordSet.createTpchRecordSet;
 import static com.facebook.presto.util.MaterializedResult.resultBuilder;
-import static com.google.common.base.Charsets.UTF_8;
-import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.Iterables.transform;
-import static io.airlift.tpch.TpchTable.LINE_ITEM;
 import static io.airlift.tpch.TpchTable.ORDERS;
 import static io.airlift.tpch.TpchTable.tableNameGetter;
 import static java.lang.String.format;
-import static java.util.Collections.nCopies;
 import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertTrue;
-import static org.testng.Assert.fail;
 
 public abstract class AbstractTestQueries
+        extends AbstractTestQueryFramework
 {
     protected static final List<FunctionInfo> CUSTOM_FUNCTIONS = new FunctionRegistry.FunctionListBuilder()
             .aggregate("custom_sum",
@@ -118,9 +66,6 @@ public abstract class AbstractTestQueries
             .window("custom_rank", BIGINT, ImmutableList.<Type>of(), supplier(CustomRank.class))
             .scalar(CustomAdd.class)
             .getFunctions();
-
-    private Handle handle;
-    private Session session;
 
     @Test
     public void testValues()
@@ -218,7 +163,7 @@ public abstract class AbstractTestQueries
                 "ORDER BY orderkey DESC\n" +
                 "LIMIT 3");
 
-        MaterializedResult expected = resultBuilder(session, BIGINT, BIGINT)
+        MaterializedResult expected = resultBuilder(getSession(), BIGINT, BIGINT)
                 .row(7, 5)
                 .row(6, 4)
                 .row(5, 3)
@@ -250,7 +195,7 @@ public abstract class AbstractTestQueries
     {
         MaterializedResult actual = computeActual("SELECT approx_distinct(custkey) FROM orders");
 
-        MaterializedResult expected = resultBuilder(session, BIGINT)
+        MaterializedResult expected = resultBuilder(getSession(), BIGINT)
                 .row(971)
                 .build();
 
@@ -262,7 +207,7 @@ public abstract class AbstractTestQueries
             throws Exception
     {
         MaterializedResult actual = computeActual("SELECT orderstatus, approx_distinct(custkey) FROM orders GROUP BY orderstatus");
-        MaterializedResult expected = resultBuilder(session, actual.getTypes())
+        MaterializedResult expected = resultBuilder(getSession(), actual.getTypes())
                 .row("O", 969)
                 .row("F", 964)
                 .row("P", 301)
@@ -396,13 +341,13 @@ public abstract class AbstractTestQueries
                 "GROUP BY orderdate, custkey " +
                 "ORDER BY rnk " +
                 "LIMIT 1");
-        MaterializedResult expected = resultBuilder(session, BIGINT).row(1).build();
+        MaterializedResult expected = resultBuilder(getSession(), BIGINT).row(1).build();
         assertEquals(actual, expected);
     }
 
     @Test
     public void testDistinctWhere()
-        throws Exception
+            throws Exception
     {
         assertQuery("SELECT COUNT(DISTINCT clerk) FROM orders WHERE LENGTH(clerk) > 5");
     }
@@ -1704,7 +1649,7 @@ public abstract class AbstractTestQueries
                 "FROM (SELECT * FROM orders ORDER BY orderkey LIMIT 10) x\n" +
                 "ORDER BY orderkey LIMIT 5");
 
-        MaterializedResult expected = resultBuilder(session, BIGINT, VARCHAR, BIGINT)
+        MaterializedResult expected = resultBuilder(getSession(), BIGINT, VARCHAR, BIGINT)
                 .row(1, "O", (1 * 10) + 100)
                 .row(2, "O", (2 * 9) + 100)
                 .row(3, "F", (3 * 8) + 100)
@@ -1732,7 +1677,7 @@ public abstract class AbstractTestQueries
                 "WHERE rnk <= 2\n" +
                 "ORDER BY orderstatus, rnk");
 
-        MaterializedResult expected = resultBuilder(session, VARCHAR, VARCHAR, DOUBLE, BIGINT)
+        MaterializedResult expected = resultBuilder(getSession(), VARCHAR, VARCHAR, DOUBLE, BIGINT)
                 .row("F", "Clerk#000000090", 2784836.61, 1)
                 .row("F", "Clerk#000000084", 2674447.15, 2)
                 .row("O", "Clerk#000000500", 2569878.29, 1)
@@ -1754,7 +1699,7 @@ public abstract class AbstractTestQueries
                 "ORDER BY 2 DESC\n" +
                 "LIMIT 5");
 
-        MaterializedResult expected = resultBuilder(session, BIGINT, BIGINT)
+        MaterializedResult expected = resultBuilder(getSession(), BIGINT, BIGINT)
                 .row(34, 10)
                 .row(33, 9)
                 .row(32, 8)
@@ -1779,7 +1724,7 @@ public abstract class AbstractTestQueries
                 "ORDER BY 2 ASC\n" +
                 "LIMIT 5");
 
-        expected = resultBuilder(session, BIGINT, BIGINT)
+        expected = resultBuilder(getSession(), BIGINT, BIGINT)
                 .row(3, 1)
                 .row(1, 2)
                 .row(2, 3)
@@ -1796,7 +1741,7 @@ public abstract class AbstractTestQueries
                 "ORDER BY 2 DESC\n" +
                 "LIMIT 5");
 
-        expected = resultBuilder(session, BIGINT, BIGINT)
+        expected = resultBuilder(getSession(), BIGINT, BIGINT)
                 .row(3, 10)
                 .row(34, 9)
                 .row(33, 8)
@@ -2218,7 +2163,7 @@ public abstract class AbstractTestQueries
     {
         MaterializedResult result = computeActual("SHOW CATALOGS");
         Set<String> catalogNames = ImmutableSet.copyOf(transform(result.getMaterializedRows(), onlyColumnGetter()));
-        assertTrue(catalogNames.contains(session.getCatalog()));
+        assertTrue(catalogNames.contains(getSession().getCatalog()));
     }
 
     @Test
@@ -2227,16 +2172,16 @@ public abstract class AbstractTestQueries
     {
         MaterializedResult result = computeActual("SHOW SCHEMAS");
         ImmutableSet<String> schemaNames = ImmutableSet.copyOf(transform(result.getMaterializedRows(), onlyColumnGetter()));
-        assertTrue(schemaNames.containsAll(ImmutableSet.of(session.getSchema(), INFORMATION_SCHEMA, "sys")));
+        assertTrue(schemaNames.containsAll(ImmutableSet.of(getSession().getSchema(), INFORMATION_SCHEMA, "sys")));
     }
 
     @Test
     public void testShowSchemasFrom()
             throws Exception
     {
-        MaterializedResult result = computeActual(format("SHOW SCHEMAS FROM %s", session.getCatalog()));
+        MaterializedResult result = computeActual(format("SHOW SCHEMAS FROM %s", getSession().getCatalog()));
         ImmutableSet<String> schemaNames = ImmutableSet.copyOf(transform(result.getMaterializedRows(), onlyColumnGetter()));
-        assertTrue(schemaNames.containsAll(ImmutableSet.of(session.getSchema(), INFORMATION_SCHEMA, "sys")));
+        assertTrue(schemaNames.containsAll(ImmutableSet.of(getSession().getSchema(), INFORMATION_SCHEMA, "sys")));
     }
 
     @Test
@@ -2256,11 +2201,11 @@ public abstract class AbstractTestQueries
     {
         Set<String> expectedTables = ImmutableSet.copyOf(transform(TpchTable.getTables(), tableNameGetter()));
 
-        MaterializedResult result = computeActual("SHOW TABLES FROM " + session.getSchema());
+        MaterializedResult result = computeActual("SHOW TABLES FROM " + getSession().getSchema());
         Set<String> tableNames = ImmutableSet.copyOf(transform(result.getMaterializedRows(), onlyColumnGetter()));
         assertEquals(tableNames, expectedTables);
 
-        result = computeActual("SHOW TABLES FROM " + session.getCatalog() + "." + session.getSchema());
+        result = computeActual("SHOW TABLES FROM " + getSession().getCatalog() + "." + getSession().getSchema());
         tableNames = ImmutableSet.copyOf(transform(result.getMaterializedRows(), onlyColumnGetter()));
         assertEquals(tableNames, expectedTables);
 
@@ -2284,7 +2229,7 @@ public abstract class AbstractTestQueries
     {
         MaterializedResult actual = computeActual("SHOW COLUMNS FROM orders");
 
-        MaterializedResult expected = resultBuilder(session, VARCHAR, VARCHAR, BOOLEAN, BOOLEAN)
+        MaterializedResult expected = resultBuilder(getSession(), VARCHAR, VARCHAR, BOOLEAN, BOOLEAN)
                 .row("orderkey", "bigint", true, false)
                 .row("custkey", "bigint", true, false)
                 .row("orderstatus", "varchar", true, false)
@@ -3052,308 +2997,5 @@ public abstract class AbstractTestQueries
                 "ORDER BY orderstatus, clerk";
 
         assertEquals(computeActual(sql), computeActual(sql.replace("custom_rank", "rank")));
-    }
-
-    @BeforeClass(alwaysRun = true)
-    public void setupDatabase()
-            throws Exception
-    {
-        Logging.initialize();
-
-        handle = DBI.open("jdbc:h2:mem:test" + System.nanoTime());
-        TpchMetadata tpchMetadata = new TpchMetadata("");
-
-        handle.execute("CREATE TABLE orders (\n" +
-                "  orderkey BIGINT PRIMARY KEY,\n" +
-                "  custkey BIGINT NOT NULL,\n" +
-                "  orderstatus CHAR(1) NOT NULL,\n" +
-                "  totalprice DOUBLE NOT NULL,\n" +
-                "  orderdate CHAR(10) NOT NULL,\n" +
-                "  orderpriority CHAR(15) NOT NULL,\n" +
-                "  clerk CHAR(15) NOT NULL,\n" +
-                "  shippriority BIGINT NOT NULL,\n" +
-                "  comment VARCHAR(79) NOT NULL\n" +
-                ")");
-        handle.execute("CREATE INDEX custkey_index ON orders (custkey)");
-        TpchTableHandle ordersHandle = tpchMetadata.getTableHandle(new SchemaTableName(TINY_SCHEMA_NAME, ORDERS.getTableName()));
-        insertRows(tpchMetadata.getTableMetadata(ordersHandle), handle, createTpchRecordSet(ORDERS, ordersHandle.getScaleFactor()));
-
-        handle.execute("CREATE TABLE lineitem (\n" +
-                "  orderkey BIGINT,\n" +
-                "  partkey BIGINT NOT NULL,\n" +
-                "  suppkey BIGINT NOT NULL,\n" +
-                "  linenumber BIGINT,\n" +
-                "  quantity BIGINT NOT NULL,\n" +
-                "  extendedprice DOUBLE NOT NULL,\n" +
-                "  discount DOUBLE NOT NULL,\n" +
-                "  tax DOUBLE NOT NULL,\n" +
-                "  returnflag CHAR(1) NOT NULL,\n" +
-                "  linestatus CHAR(1) NOT NULL,\n" +
-                "  shipdate CHAR(10) NOT NULL,\n" +
-                "  commitdate CHAR(10) NOT NULL,\n" +
-                "  receiptdate CHAR(10) NOT NULL,\n" +
-                "  shipinstruct VARCHAR(25) NOT NULL,\n" +
-                "  shipmode VARCHAR(10) NOT NULL,\n" +
-                "  comment VARCHAR(44) NOT NULL,\n" +
-                "  PRIMARY KEY (orderkey, linenumber)" +
-                ")");
-        TpchTableHandle lineItemHandle = tpchMetadata.getTableHandle(new SchemaTableName(TINY_SCHEMA_NAME, LINE_ITEM.getTableName()));
-        insertRows(tpchMetadata.getTableMetadata(lineItemHandle), handle, createTpchRecordSet(LINE_ITEM, lineItemHandle.getScaleFactor()));
-
-        session = setUpQueryFramework();
-    }
-
-    @AfterClass(alwaysRun = true)
-    public void cleanupDatabase()
-            throws Exception
-    {
-        tearDownQueryFramework();
-        if (handle != null) {
-            handle.close();
-        }
-    }
-
-    protected abstract int getNodeCount();
-
-    protected abstract Session setUpQueryFramework()
-            throws Exception;
-
-    protected void tearDownQueryFramework()
-            throws Exception
-    {
-    }
-
-    protected abstract MaterializedResult computeActual(@Language("SQL") String sql);
-
-    protected void assertQuery(@Language("SQL") String sql)
-            throws Exception
-    {
-        assertQuery(sql, sql, false);
-    }
-
-    private void assertQueryOrdered(@Language("SQL") String sql)
-            throws Exception
-    {
-        assertQuery(sql, sql, true);
-    }
-
-    protected void assertQuery(@Language("SQL") String actual, @Language("SQL") String expected)
-            throws Exception
-    {
-        assertQuery(actual, expected, false);
-    }
-
-    protected void assertQueryOrdered(@Language("SQL") String actual, @Language("SQL") String expected)
-            throws Exception
-    {
-        assertQuery(actual, expected, true);
-    }
-
-    private static final Logger log = Logger.get(AbstractTestQueries.class);
-
-    private void assertQuery(@Language("SQL") String actual, @Language("SQL") String expected, boolean ensureOrdering)
-            throws Exception
-    {
-        long start = System.nanoTime();
-        MaterializedResult actualResults = computeActual(actual);
-        Duration actualTime = Duration.nanosSince(start);
-
-        long expectedStart = System.nanoTime();
-        MaterializedResult expectedResults = computeExpected(expected, actualResults.getTypes());
-        log.info("FINISHED in presto: %s, h2: %s, total: %s", actualTime, Duration.nanosSince(expectedStart), Duration.nanosSince(start));
-
-        if (ensureOrdering) {
-            assertEquals(actualResults.getMaterializedRows(), expectedResults.getMaterializedRows());
-        }
-        else {
-            assertEqualsIgnoreOrder(actualResults.getMaterializedRows(), expectedResults.getMaterializedRows());
-        }
-    }
-
-    public static void assertEqualsIgnoreOrder(Iterable<?> actual, Iterable<?> expected)
-    {
-        assertNotNull(actual, "actual is null");
-        assertNotNull(expected, "expected is null");
-
-        ImmutableMultiset<?> actualSet = ImmutableMultiset.copyOf(actual);
-        ImmutableMultiset<?> expectedSet = ImmutableMultiset.copyOf(expected);
-        if (!actualSet.equals(expectedSet)) {
-            fail(format("not equal\nActual %s rows:\n    %s\nExpected %s rows:\n    %s\n",
-                    actualSet.size(),
-                    Joiner.on("\n    ").join(Iterables.limit(actualSet, 100)),
-                    expectedSet.size(),
-                    Joiner.on("\n    ").join(Iterables.limit(expectedSet, 100))));
-        }
-    }
-
-    protected MaterializedResult computeExpected(@Language("SQL") String sql, List<? extends Type> resultTypes)
-    {
-        return new MaterializedResult(
-                handle.createQuery(sql)
-                        .map(rowMapper(resultTypes))
-                        .list(),
-                resultTypes
-        );
-    }
-
-    private static ResultSetMapper<MaterializedRow> rowMapper(final List<? extends Type> types)
-    {
-        return new ResultSetMapper<MaterializedRow>()
-        {
-            @Override
-            public MaterializedRow map(int index, ResultSet resultSet, StatementContext ctx)
-                    throws SQLException
-            {
-                int count = resultSet.getMetaData().getColumnCount();
-                checkArgument(types.size() == count, "type does not match result");
-                List<Object> row = new ArrayList<>(count);
-                for (int i = 1; i <= count; i++) {
-                    Type type = types.get(i - 1);
-                    if (BOOLEAN.equals(type)) {
-                        boolean booleanValue = resultSet.getBoolean(i);
-                        if (resultSet.wasNull()) {
-                            row.add(null);
-                        }
-                        else {
-                            row.add(booleanValue);
-                        }
-                    }
-                    else if (BIGINT.equals(type)) {
-                        long longValue = resultSet.getLong(i);
-                        if (resultSet.wasNull()) {
-                            row.add(null);
-                        }
-                        else {
-                            row.add(longValue);
-                        }
-                    }
-                    else if (DOUBLE.equals(type)) {
-                        double doubleValue = resultSet.getDouble(i);
-                        if (resultSet.wasNull()) {
-                            row.add(null);
-                        }
-                        else {
-                            row.add(doubleValue);
-                        }
-                    }
-                    else if (VARCHAR.equals(type)) {
-                        String stringValue = resultSet.getString(i);
-                        if (resultSet.wasNull()) {
-                            row.add(null);
-                        }
-                        else {
-                            row.add(stringValue);
-                        }
-                    }
-                    else if (DATE.equals(type)) {
-                        Date dateValue = resultSet.getDate(i);
-                        if (resultSet.wasNull()) {
-                            row.add(null);
-                        }
-                        else {
-                            row.add(dateValue);
-                        }
-                    }
-                    else if (TIME.equals(type)) {
-                        Time timeValue = resultSet.getTime(i);
-                        if (resultSet.wasNull()) {
-                            row.add(null);
-                        }
-                        else {
-                            row.add(timeValue);
-                        }
-                    }
-                    else if (TIMESTAMP.equals(type)) {
-                        Timestamp timestampValue = resultSet.getTimestamp(i);
-                        if (resultSet.wasNull()) {
-                            row.add(null);
-                        }
-                        else {
-                            row.add(timestampValue);
-                        }
-                    }
-                    else if (NULL.equals(type)) {
-                        Object objectValue = resultSet.getObject(i);
-                        checkState(resultSet.wasNull(), "Expected a null value, but got %s", objectValue);
-                        row.add(null);
-                    }
-                    else {
-                        throw new AssertionError("unhandled type: " + type);
-                    }
-                }
-                return new MaterializedRow(MaterializedResult.DEFAULT_PRECISION, row);
-            }
-        };
-    }
-
-    private static void insertRows(ConnectorTableMetadata tableMetadata, Handle handle, RecordSet data)
-    {
-        String vars = Joiner.on(',').join(nCopies(tableMetadata.getColumns().size(), "?"));
-        String sql = format("INSERT INTO %s VALUES (%s)", tableMetadata.getTable().getTableName(), vars);
-
-        RecordCursor cursor = data.cursor();
-        while (true) {
-            // insert 1000 rows at a time
-            PreparedBatch batch = handle.prepareBatch(sql);
-            for (int row = 0; row < 1000; row++) {
-                if (!cursor.advanceNextPosition()) {
-                    batch.execute();
-                    return;
-                }
-                PreparedBatchPart part = batch.add();
-                for (int column = 0; column < tableMetadata.getColumns().size(); column++) {
-                    Type type = tableMetadata.getColumns().get(column).getType();
-                    if (BOOLEAN.equals(type)) {
-                        part.bind(column, cursor.getBoolean(column));
-                    }
-                    else if (BIGINT.equals(type)) {
-                        part.bind(column, cursor.getLong(column));
-                    }
-                    else if (DOUBLE.equals(type)) {
-                        part.bind(column, cursor.getDouble(column));
-                    }
-                    else if (VARCHAR.equals(type)) {
-                        part.bind(column, new String(cursor.getString(column), UTF_8));
-                    }
-                }
-            }
-            batch.execute();
-        }
-    }
-
-    public Function<MaterializedRow, String> onlyColumnGetter()
-    {
-        return new Function<MaterializedRow, String>()
-        {
-            @Override
-            public String apply(MaterializedRow input)
-            {
-                assertEquals(input.getFieldCount(), 1);
-                return (String) input.getField(0);
-            }
-        };
-    }
-
-    private String getExplainPlan(String query, ExplainType.Type planType)
-    {
-        QueryExplainer explainer = getQueryExplainer();
-        return explainer.getPlan(SqlParser.createStatement(query), planType);
-    }
-
-    private String getGraphvizExplainPlan(String query, ExplainType.Type planType)
-    {
-        QueryExplainer explainer = getQueryExplainer();
-        return explainer.getGraphvizPlan(SqlParser.createStatement(query), planType);
-    }
-
-    private QueryExplainer getQueryExplainer()
-    {
-        MetadataManager metadata = new MetadataManager(new FeaturesConfig().setExperimentalSyntaxEnabled(true), new TypeRegistry());
-        metadata.addInternalSchemaMetadata(MetadataManager.INTERNAL_CONNECTOR_ID, new DualMetadata());
-        SplitManager splitManager = new SplitManager(ImmutableSet.<ConnectorSplitManager>of(new DualSplitManager(new InMemoryNodeManager())));
-        IndexManager indexManager = new IndexManager();
-        FeaturesConfig featuresConfig = new FeaturesConfig().setExperimentalSyntaxEnabled(true);
-        List<PlanOptimizer> optimizers = new PlanOptimizersFactory(metadata, splitManager, indexManager, featuresConfig).get();
-        return new QueryExplainer(session, optimizers, metadata, featuresConfig.isExperimentalSyntaxEnabled());
     }
 }
