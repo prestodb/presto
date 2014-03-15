@@ -43,7 +43,7 @@ public class TpchMetadata
         extends ReadOnlyConnectorMetadata
 {
     public static final String TINY_SCHEMA_NAME = "tiny";
-    private static final double TINY_SCALE_FACTOR = 0.01;
+    public static final double TINY_SCALE_FACTOR = 0.01;
 
     private final String connectorId;
     private final Set<String> tableNames;
