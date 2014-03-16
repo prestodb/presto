@@ -27,7 +27,9 @@ import com.google.common.collect.ImmutableMap;
 import io.airlift.units.DataSize;
 
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
+import java.util.TimeZone;
 import java.util.concurrent.ExecutorService;
 
 import static com.google.common.base.Preconditions.checkNotNull;
@@ -81,7 +83,7 @@ public abstract class AbstractOperatorBenchmark
     @Override
     protected Map<String, Long> runOnce()
     {
-        Session session = new Session("user", "source", "catalog", "schema", "address", "agent");
+        Session session = new Session("user", "source", "catalog", "schema", TimeZone.getTimeZone("UTC"), Locale.ENGLISH, "address", "agent");
         ExecutorService executor = localQueryRunner.getExecutor();
         TaskContext taskContext = new TaskContext(
                 new TaskStateMachine(new TaskId("query", "stage", "task"), executor),

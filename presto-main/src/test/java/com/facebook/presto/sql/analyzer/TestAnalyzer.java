@@ -29,6 +29,9 @@ import org.intellij.lang.annotations.Language;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
+import java.util.Locale;
+import java.util.TimeZone;
+
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.AMBIGUOUS_ATTRIBUTE;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.CANNOT_HAVE_AGGREGATIONS_OR_WINDOWS;
@@ -391,10 +394,6 @@ public class TestAnalyzer
     public void testExpressions()
             throws Exception
     {
-        assertFails(NOT_SUPPORTED, "SELECT CURRENT_TIME FROM t1");
-        assertFails(NOT_SUPPORTED, "SELECT CURRENT_TIMESTAMP (1) FROM t1");
-        assertFails(NOT_SUPPORTED, "SELECT CURRENT_DATE FROM t1");
-
         // logical not
         assertFails(TYPE_MISMATCH, "SELECT NOT 1 FROM t1");
 
@@ -581,8 +580,8 @@ public class TestAnalyzer
                         new ColumnMetadata("a", BIGINT, 0, false),
                         new ColumnMetadata("b", BIGINT, 1, false)))));
 
-        analyzer = new Analyzer(new Session("user", "test", "tpch", "default", null, null), metadata, Optional.<QueryExplainer>absent(), true);
-        approximateDisabledAnalyzer = new Analyzer(new Session("user", "test", "tpch", "default", null, null), metadata, Optional.<QueryExplainer>absent(), false);
+        analyzer = new Analyzer(new Session("user", "test", "tpch", "default", TimeZone.getTimeZone("UTC"), Locale.ENGLISH, null, null), metadata, Optional.<QueryExplainer>absent(), true);
+        approximateDisabledAnalyzer = new Analyzer(new Session("user", "test", "tpch", "default", TimeZone.getTimeZone("UTC"), Locale.ENGLISH, null, null), metadata, Optional.<QueryExplainer>absent(), false);
     }
 
     private void analyze(@Language("SQL") String query)

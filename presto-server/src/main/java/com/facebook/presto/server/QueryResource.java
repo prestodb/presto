@@ -39,10 +39,12 @@ import javax.ws.rs.core.UriInfo;
 import java.net.URI;
 import java.util.List;
 import java.util.NoSuchElementException;
+import java.util.TimeZone;
 
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_CATALOG;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_SCHEMA;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_SOURCE;
+import static com.facebook.presto.client.PrestoHeaders.PRESTO_TIME_ZONE;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_USER;
 import static com.facebook.presto.spi.Session.DEFAULT_CATALOG;
 import static com.facebook.presto.spi.Session.DEFAULT_SCHEMA;
@@ -103,6 +105,7 @@ public class QueryResource
             @HeaderParam(PRESTO_SOURCE) String source,
             @HeaderParam(PRESTO_CATALOG) @DefaultValue(DEFAULT_CATALOG) String catalog,
             @HeaderParam(PRESTO_SCHEMA) @DefaultValue(DEFAULT_SCHEMA) String schema,
+            @HeaderParam(PRESTO_TIME_ZONE) String timeZoneString,
             @HeaderParam(USER_AGENT) String userAgent,
             @Context HttpServletRequest requestContext,
             @Context UriInfo uriInfo)
@@ -112,8 +115,16 @@ public class QueryResource
         checkNotNull(catalog, "catalog is null");
         checkNotNull(schema, "schema is null");
 
+        TimeZone timeZone;
+        if (timeZoneString == null) {
+            timeZone = TimeZone.getDefault();
+        }
+        else {
+            timeZone = TimeZone.getTimeZone(timeZoneString);
+        }
+
         String remoteUserAddress = requestContext.getRemoteAddr();
-        QueryInfo queryInfo = queryManager.createQuery(new Session(user, source, catalog, schema, remoteUserAddress, userAgent), query);
+        QueryInfo queryInfo = queryManager.createQuery(new Session(user, source, catalog, schema, timeZone, requestContext.getLocale(), remoteUserAddress, userAgent), query);
         URI pagesUri = uriBuilderFrom(uriInfo.getRequestUri()).appendPath(queryInfo.getQueryId().toString()).build();
         return Response.created(pagesUri).entity(queryInfo).build();
     }

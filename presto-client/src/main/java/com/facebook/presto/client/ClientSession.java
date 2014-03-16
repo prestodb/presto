@@ -16,6 +16,8 @@ package com.facebook.presto.client;
 import com.google.common.base.Objects;
 
 import java.net.URI;
+import java.util.Locale;
+import java.util.TimeZone;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 
@@ -26,6 +28,8 @@ public class ClientSession
     private final String source;
     private final String catalog;
     private final String schema;
+    private final TimeZone timeZone;
+    private final Locale locale;
     private final boolean debug;
 
     public static ClientSession withCatalog(ClientSession session, String catalog)
@@ -36,6 +40,8 @@ public class ClientSession
                 session.getSource(),
                 catalog,
                 session.getSchema(),
+                session.getTimeZone(),
+                session.getLocale(),
                 session.isDebug());
     }
 
@@ -47,11 +53,15 @@ public class ClientSession
                 session.getSource(),
                 session.getCatalog(),
                 schema,
+                session.getTimeZone(),
+                session.getLocale(),
                 session.isDebug());
     }
 
-    public ClientSession(URI server, String user, String source, String catalog, String schema, boolean debug)
+    public ClientSession(URI server, String user, String source, String catalog, String schema, TimeZone timeZone, Locale locale, boolean debug)
     {
+        this.timeZone = timeZone;
+        this.locale = locale;
         this.server = checkNotNull(server, "server is null");
         this.user = user;
         this.source = source;
@@ -85,6 +95,16 @@ public class ClientSession
         return schema;
     }
 
+    public TimeZone getTimeZone()
+    {
+        return timeZone;
+    }
+
+    public Locale getLocale()
+    {
+        return locale;
+    }
+
     public boolean isDebug()
     {
         return debug;
@@ -98,6 +118,8 @@ public class ClientSession
                 .add("user", user)
                 .add("catalog", catalog)
                 .add("schema", schema)
+                .add("timeZone", timeZone)
+                .add("locale", locale)
                 .add("debug", debug)
                 .toString();
     }

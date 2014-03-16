@@ -49,6 +49,8 @@ import java.io.PrintStream;
 import java.net.URI;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
+import java.util.TimeZone;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.CountDownLatch;
@@ -151,7 +153,7 @@ public class PerfTest
 
             ImmutableList.Builder<QueryRunner> runners = ImmutableList.builder();
             for (int i = 0; i < maxParallelism; i++) {
-                ClientSession session = new ClientSession(server, "test-" + i, "presto-perf", catalog, schema, debug);
+                ClientSession session = new ClientSession(server, "test-" + i, "presto-perf", catalog, schema, TimeZone.getDefault(), Locale.getDefault(), debug);
                 runners.add(new QueryRunner(session, executor));
             }
             this.runners = runners.build();

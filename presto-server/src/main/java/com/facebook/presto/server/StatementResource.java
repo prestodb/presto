@@ -74,6 +74,7 @@ import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Set;
+import java.util.TimeZone;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.Executors;
@@ -84,6 +85,7 @@ import java.util.concurrent.atomic.AtomicLong;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_CATALOG;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_SCHEMA;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_SOURCE;
+import static com.facebook.presto.client.PrestoHeaders.PRESTO_TIME_ZONE;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_USER;
 import static com.facebook.presto.execution.QueryInfo.queryIdGetter;
 import static com.facebook.presto.execution.StageInfo.getAllStages;
@@ -137,6 +139,7 @@ public class StatementResource
             @HeaderParam(PRESTO_SOURCE) String source,
             @HeaderParam(PRESTO_CATALOG) String catalog,
             @HeaderParam(PRESTO_SCHEMA) String schema,
+            @HeaderParam(PRESTO_TIME_ZONE) String timeZoneString,
             @HeaderParam(USER_AGENT) String userAgent,
             @Context HttpServletRequest requestContext,
             @Context UriInfo uriInfo)
@@ -149,7 +152,15 @@ public class StatementResource
 
         String remoteUserAddress = requestContext.getRemoteAddr();
 
-        Session session = new Session(user, source, catalog, schema, remoteUserAddress, userAgent);
+        TimeZone timeZone;
+        if (timeZoneString == null) {
+            timeZone = TimeZone.getDefault();
+        }
+        else {
+            timeZone = TimeZone.getTimeZone(timeZoneString);
+        }
+
+        Session session = new Session(user, source, catalog, schema, timeZone, requestContext.getLocale(), remoteUserAddress, userAgent);
         ExchangeClient exchangeClient = exchangeClientSupplier.get();
         Query query = new Query(session, statement, queryManager, exchangeClient);
         queries.put(query.getQueryId(), query);

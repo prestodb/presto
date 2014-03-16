@@ -21,6 +21,8 @@ import com.facebook.presto.util.MaterializedResult;
 import com.google.common.collect.ImmutableMap;
 import org.intellij.lang.annotations.Language;
 
+import java.util.Locale;
+import java.util.TimeZone;
 import java.util.concurrent.ExecutorService;
 
 import static com.facebook.presto.AbstractTestQueries.assertEqualsIgnoreOrder;
@@ -32,7 +34,8 @@ public final class WindowAssertions
 
     public static MaterializedResult computeActual(@Language("SQL") String sql, ExecutorService executor)
     {
-        LocalQueryRunner localQueryRunner = new LocalQueryRunner(new Session("user", "test", "tpch", TpchMetadata.TINY_SCHEMA_NAME, null, null), executor);
+        Session session = new Session("user", "test", "tpch", TpchMetadata.TINY_SCHEMA_NAME, TimeZone.getTimeZone("UTC"), Locale.ENGLISH, null, null);
+        LocalQueryRunner localQueryRunner = new LocalQueryRunner(session, executor);
         localQueryRunner.createCatalog("tpch", new TpchConnectorFactory(localQueryRunner.getNodeManager(), 1), ImmutableMap.<String, String>of());
 
         return localQueryRunner.execute(sql);

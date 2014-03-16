@@ -73,7 +73,9 @@ import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.IdentityHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
+import java.util.TimeZone;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -102,7 +104,7 @@ import static org.testng.Assert.assertTrue;
 
 public final class FunctionAssertions
 {
-    public static final Session SESSION = new Session("user", "source", "catalog", "schema", "address", "agent");
+    public static final Session SESSION = new Session("user", "source", "catalog", "schema", TimeZone.getTimeZone("UTC"), Locale.ENGLISH, "address", "agent");
 
     private static final ExecutorService EXECUTOR = Executors.newCachedThreadPool(Threads.daemonThreadsNamed("test-%s"));
 

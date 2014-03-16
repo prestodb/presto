@@ -19,6 +19,8 @@ import io.airlift.command.Option;
 
 import java.net.URI;
 import java.net.URISyntaxException;
+import java.util.Locale;
+import java.util.TimeZone;
 
 public class ClientOptions
 {
@@ -61,7 +63,7 @@ public class ClientOptions
 
     public ClientSession toClientSession()
     {
-        return new ClientSession(parseServer(server), user, source, catalog, schema, debug);
+        return new ClientSession(parseServer(server), user, source, catalog, schema, TimeZone.getDefault(), Locale.getDefault(), debug);
     }
 
     public static URI parseServer(String server)

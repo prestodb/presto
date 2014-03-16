@@ -43,6 +43,8 @@ import org.skife.jdbi.v2.DBI;
 import org.skife.jdbi.v2.IDBI;
 
 import java.io.File;
+import java.util.Locale;
+import java.util.TimeZone;
 import java.util.concurrent.ExecutorService;
 
 import static com.facebook.presto.serde.TestingBlockEncodingManager.createTestingBlockEncodingManager;
@@ -55,7 +57,7 @@ public final class BenchmarkQueryRunner
 
     public static LocalQueryRunner createLocalSampledQueryRunner(ExecutorService executor)
     {
-        Session session = new Session("user", "test", "default", "default", null, null);
+        Session session = new Session("user", "test", "default", "default", TimeZone.getTimeZone("UTC"), Locale.ENGLISH, null, null);
         LocalQueryRunner localQueryRunner = new LocalQueryRunner(session, executor);
 
         // add sampled tpch
@@ -81,7 +83,7 @@ public final class BenchmarkQueryRunner
 
     public static LocalQueryRunner createLocalQueryRunner(ExecutorService executor)
     {
-        Session session = new Session("user", "test", "default", "default", null, null);
+        Session session = new Session("user", "test", "default", "default", TimeZone.getTimeZone("UTC"), Locale.ENGLISH, null, null);
         LocalQueryRunner localQueryRunner = new LocalQueryRunner(session, executor);
 
         // add tpch

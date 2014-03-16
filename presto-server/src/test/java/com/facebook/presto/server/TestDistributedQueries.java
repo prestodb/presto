@@ -50,7 +50,9 @@ import org.testng.annotations.Test;
 import java.net.URI;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
+import java.util.TimeZone;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 
@@ -77,7 +79,7 @@ import static org.testng.Assert.assertTrue;
 public class TestDistributedQueries
         extends AbstractTestSampledQueries
 {
-    private static final Session SESSION = new Session("user", "test", DEFAULT_CATALOG, "test", null, null);
+    private static final Session SESSION = new Session("user", "test", DEFAULT_CATALOG, "test", TimeZone.getTimeZone("UTC"), Locale.ENGLISH, null, null);
 
     private static final String ENVIRONMENT = "testing";
     private static final Logger log = Logger.get(TestDistributedQueries.class.getSimpleName());
@@ -293,12 +295,28 @@ public class TestDistributedQueries
 
     protected ClientSession getClientSession()
     {
-        return new ClientSession(coordinator.getBaseUrl(), SESSION.getUser(), SESSION.getSource(), SESSION.getCatalog(), SESSION.getSchema(), true);
+        return new ClientSession(
+                coordinator.getBaseUrl(),
+                SESSION.getUser(),
+                SESSION.getSource(),
+                SESSION.getCatalog(),
+                SESSION.getSchema(),
+                SESSION.getTimeZone(),
+                SESSION.getLocale(),
+                true);
     }
 
     protected ClientSession getSampledClientSession()
     {
-        return new ClientSession(coordinator.getBaseUrl(), SESSION.getUser(), SESSION.getSource(), SESSION.getCatalog(), "sampled", true);
+        return new ClientSession(
+                coordinator.getBaseUrl(),
+                SESSION.getUser(),
+                SESSION.getSource(),
+                SESSION.getCatalog(),
+                "sampled",
+                SESSION.getTimeZone(),
+                SESSION.getLocale(),
+                true);
     }
 
     @Override

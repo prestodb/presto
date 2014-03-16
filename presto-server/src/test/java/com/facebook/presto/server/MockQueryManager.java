@@ -40,7 +40,9 @@ import javax.inject.Inject;
 
 import java.net.URI;
 import java.util.List;
+import java.util.Locale;
 import java.util.NoSuchElementException;
+import java.util.TimeZone;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -175,7 +177,7 @@ public class MockQueryManager
                     throw new IllegalStateException("Unknown task state " + outputTask.getState());
             }
             return new QueryInfo(outputTaskId.getQueryId(),
-                    new Session("user", "test", "test_catalog", "test_schema", null, null),
+                    new Session("user", "test", "test_catalog", "test_schema", TimeZone.getTimeZone("UTC"), Locale.ENGLISH, null, null),
                     state,
                     self,
                     ImmutableList.of("out"),

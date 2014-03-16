@@ -23,6 +23,8 @@ import com.google.common.collect.ImmutableMap;
 import org.intellij.lang.annotations.Language;
 import org.testng.annotations.AfterClass;
 
+import java.util.Locale;
+import java.util.TimeZone;
 import java.util.concurrent.ExecutorService;
 
 import static com.facebook.presto.util.Threads.daemonThreadsNamed;
@@ -60,7 +62,7 @@ public class TestLocalQueries
     @Override
     protected Session setUpQueryFramework()
     {
-        Session session = new Session("user", "test", "local", TpchMetadata.TINY_SCHEMA_NAME, null, null);
+        Session session = new Session("user", "test", "local", TpchMetadata.TINY_SCHEMA_NAME, TimeZone.getTimeZone("UTC"), Locale.ENGLISH, null, null);
         localQueryRunner = new LocalQueryRunner(session, getExecutor());
         localSampledQueryRunner = new LocalQueryRunner(session, getExecutor());
 
