@@ -29,14 +29,18 @@ import org.joda.time.chrono.ISOChronology;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
+import java.util.Locale;
+import java.util.TimeZone;
+
 import static com.facebook.presto.spi.Session.DEFAULT_CATALOG;
 import static com.facebook.presto.spi.Session.DEFAULT_SCHEMA;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
+import static org.joda.time.DateTimeZone.UTC;
 import static org.testng.Assert.assertEquals;
 
 public class TestUnixTimeFunctions
 {
-    private static final DateTimeField CENTURY_FIELD = ISOChronology.getInstance(DateTimeZone.UTC).centuryOfEra();
+    private static final DateTimeField CENTURY_FIELD = ISOChronology.getInstance(UTC).centuryOfEra();
 
     private FunctionAssertions functionAssertions;
 
@@ -49,8 +53,8 @@ public class TestUnixTimeFunctions
     @Test
     public void testCurrentTime()
     {
-        long millis = new DateTime(2001, 1, 22, 3, 4, 5, 321, DateTimeZone.UTC).getMillis();
-        Session session = new Session("user", "test", DEFAULT_CATALOG, DEFAULT_SCHEMA, null, null, millis);
+        long millis = new DateTime(2001, 1, 22, 3, 4, 5, 321, UTC).getMillis();
+        Session session = new Session("user", "test", DEFAULT_CATALOG, DEFAULT_SCHEMA, TimeZone.getTimeZone("UTC"), Locale.ENGLISH, null, null, millis);
 
         assertEquals((long) functionAssertions.selectSingleValue("current_timestamp", session), fromMillis(millis));
         assertEquals((long) functionAssertions.selectSingleValue("now()", session), fromMillis(millis));
@@ -59,7 +63,7 @@ public class TestUnixTimeFunctions
     @Test
     public void testFromUnixTime()
     {
-        long seconds = getSeconds(new DateTime(2001, 1, 22, 3, 4, 5, 321, DateTimeZone.UTC));
+        long seconds = getSeconds(new DateTime(2001, 1, 22, 3, 4, 5, 321, UTC));
         assertFunction("from_unixtime(980132645)", seconds);
         assertFunction("from_unixtime(980132645.888)", seconds + 1);
     }
@@ -67,14 +71,14 @@ public class TestUnixTimeFunctions
     @Test
     public void testToUnixTime()
     {
-        long seconds = getSeconds(new DateTime(2001, 1, 22, 3, 4, 5, 321, DateTimeZone.UTC));
+        long seconds = getSeconds(new DateTime(2001, 1, 22, 3, 4, 5, 321, UTC));
         assertFunction("to_unixtime(" + seconds + ")", (double) seconds);
     }
 
     @Test
     public void testPartFunctions()
     {
-        DateTime dateTime = new DateTime(2001, 1, 22, 3, 4, 5, 321, DateTimeZone.UTC);
+        DateTime dateTime = new DateTime(2001, 1, 22, 3, 4, 5, 321, UTC);
         long seconds = getSeconds(dateTime);
 
         assertFunction("second(" + seconds + ")", dateTime.getSecondOfMinute());
@@ -97,7 +101,7 @@ public class TestUnixTimeFunctions
     @Test
     public void testExtract()
     {
-        DateTime dateTime = new DateTime(2001, 1, 22, 3, 4, 5, 321, DateTimeZone.UTC);
+        DateTime dateTime = new DateTime(2001, 1, 22, 3, 4, 5, 321, UTC);
         long seconds = getSeconds(dateTime);
 
         assertFunction("extract(second FROM " + seconds + ")", dateTime.getSecondOfMinute());
@@ -119,7 +123,7 @@ public class TestUnixTimeFunctions
     @Test
     public void testDateAdd()
     {
-        DateTime dateTime = new DateTime(2001, 1, 22, 3, 4, 5, 321, DateTimeZone.UTC);
+        DateTime dateTime = new DateTime(2001, 1, 22, 3, 4, 5, 321, UTC);
         long seconds = getSeconds(dateTime);
 
         assertFunction("date_add('second', 3, " + seconds + ")", getSeconds(dateTime.plusSeconds(3)));
@@ -136,9 +140,9 @@ public class TestUnixTimeFunctions
     @Test
     public void testDateDiff()
     {
-        DateTime dateTime1 = new DateTime(1960, 1, 22, 3, 4, 5, 0, DateTimeZone.UTC);
+        DateTime dateTime1 = new DateTime(1960, 1, 22, 3, 4, 5, 0, UTC);
         long seconds1 = getSeconds(dateTime1);
-        DateTime dateTime2 = new DateTime(2011, 5, 1, 7, 2, 9, 0, DateTimeZone.UTC);
+        DateTime dateTime2 = new DateTime(2011, 5, 1, 7, 2, 9, 0, UTC);
         long seconds2 = getSeconds(dateTime2);
 
         assertFunction("date_diff('second', " + seconds1 + ", " + seconds2 + ")", Seconds.secondsBetween(dateTime1, dateTime2).getSeconds());
@@ -157,7 +161,7 @@ public class TestUnixTimeFunctions
     {
         DateTimeZone timeZone = DateTimeZone.forOffsetHours(5);
 
-        assertFunction("parse_datetime('1960/01/22 03:04', 'YYYY/MM/DD HH:mm')", getSeconds(new DateTime(1960, 1, 22, 3, 4, 0, 0, DateTimeZone.UTC)));
+        assertFunction("parse_datetime('1960/01/22 03:04', 'YYYY/MM/DD HH:mm')", getSeconds(new DateTime(1960, 1, 22, 3, 4, 0, 0, UTC)));
         assertFunction("parse_datetime('1960/01/22 03:04 Asia/Oral', 'YYYY/MM/DD HH:mm ZZZZZ')", getSeconds(new DateTime(1960, 1, 22, 3, 4, 0, 0, timeZone)));
         assertFunction("parse_datetime('1960/01/22 03:04 +0500', 'YYYY/MM/DD HH:mm Z')", getSeconds(new DateTime(1960, 1, 22, 3, 4, 0, 0, timeZone)));
     }
@@ -171,7 +175,7 @@ public class TestUnixTimeFunctions
     @Test
     public void testFormatDatetime()
     {
-        DateTime dateTime = new DateTime(2001, 1, 22, 3, 4, 5, 321, DateTimeZone.UTC);
+        DateTime dateTime = new DateTime(2001, 1, 22, 3, 4, 5, 321, UTC);
         long seconds = getSeconds(dateTime);
 
         assertFunction("format_datetime(" + seconds + ", 'YYYY/MM/DD HH:mm')", "2001/01/22 03:04");
