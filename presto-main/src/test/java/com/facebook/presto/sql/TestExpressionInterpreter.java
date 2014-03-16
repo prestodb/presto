@@ -35,7 +35,9 @@ import org.testng.Assert;
 import org.testng.annotations.Test;
 
 import java.util.IdentityHashMap;
+import java.util.Locale;
 import java.util.Map;
+import java.util.TimeZone;
 import java.util.concurrent.TimeUnit;
 
 import static com.facebook.presto.connector.dual.DualMetadata.DUAL_METADATA_MANAGER;
@@ -60,7 +62,7 @@ import static org.testng.Assert.assertEquals;
 
 public class TestExpressionInterpreter
 {
-    private static final Session SESSION = new Session("user", "test", DEFAULT_CATALOG, DEFAULT_SCHEMA, null, null);
+    private static final Session SESSION = new Session("user", "test", DEFAULT_CATALOG, DEFAULT_SCHEMA, TimeZone.getTimeZone("UTC"), Locale.ENGLISH, null, null);
     private static final Map<Symbol, Type> SYMBOL_TYPES = ImmutableMap.<Symbol, Type>builder()
             .put(new Symbol("bound_long"), BIGINT)
             .put(new Symbol("bound_string"), VARCHAR)

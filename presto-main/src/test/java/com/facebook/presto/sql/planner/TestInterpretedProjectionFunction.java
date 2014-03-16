@@ -26,8 +26,10 @@ import org.testng.annotations.Test;
 
 import javax.annotation.Nullable;
 
+import java.util.Locale;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.TimeZone;
 
 import static com.facebook.presto.connector.dual.DualMetadata.DUAL_METADATA_MANAGER;
 import static com.facebook.presto.operator.scalar.FunctionAssertions.createExpression;
@@ -168,7 +170,7 @@ public class TestInterpretedProjectionFunction
                 symbolTypes.build(),
                 symbolToInputMappings,
                 DUAL_METADATA_MANAGER,
-                new Session("user", "test", Session.DEFAULT_CATALOG, Session.DEFAULT_SCHEMA, null, null)
+                new Session("user", "test", Session.DEFAULT_CATALOG, Session.DEFAULT_SCHEMA, TimeZone.getTimeZone("UTC"), Locale.ENGLISH, null, null)
         );
 
         // create output
