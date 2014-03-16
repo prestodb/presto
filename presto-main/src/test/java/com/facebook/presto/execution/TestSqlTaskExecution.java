@@ -62,6 +62,8 @@ import org.testng.annotations.Test;
 
 import java.io.File;
 import java.net.URI;
+import java.util.Locale;
+import java.util.TimeZone;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
@@ -134,7 +136,7 @@ public class TestSqlTaskExecution
                 ImmutableList.<Symbol>of());
 
         TaskId taskId = new TaskId("query", "stage", "task");
-        Session session = new Session("user", "test", "default", "default", "test", "test");
+        Session session = new Session("user", "test", "default", "default", TimeZone.getTimeZone("UTC"), Locale.ENGLISH, "test", "test");
 
         taskNotificationExecutor = Executors.newCachedThreadPool(threadsNamed("task-notification-%d"));
 
