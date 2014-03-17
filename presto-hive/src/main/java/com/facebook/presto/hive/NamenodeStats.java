@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.hive.util;
+package com.facebook.presto.hive;
 
 import io.airlift.stats.CounterStat;
 import io.airlift.stats.TimeStat;
@@ -20,7 +20,7 @@ import org.weakref.jmx.Nested;
 
 import java.io.IOException;
 
-public class HadoopApiStats
+public class NamenodeStats
 {
     private final CallStats listLocatedStatus = new CallStats();
     private final CallStats remoteIteratorNext = new CallStats();
