@@ -11,7 +11,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.client;
+package com.facebook.presto.execution;
+
+import com.facebook.presto.spi.ErrorCode;
+
+import javax.annotation.Nullable;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 
@@ -19,16 +23,23 @@ public class Failure
         extends RuntimeException
 {
     private final String type;
+    private final ErrorCode errorCode;
 
-    Failure(String type, String message, Failure cause)
+    Failure(String type, String message, @Nullable ErrorCode errorCode, Failure cause)
     {
         super(message, cause, true, true);
         this.type = checkNotNull(type, "type is null");
+        this.errorCode = errorCode;
     }
 
     public String getType()
     {
         return type;
+    }
+
+    public ErrorCode getErrorCode()
+    {
+        return errorCode;
     }
 
     @Override

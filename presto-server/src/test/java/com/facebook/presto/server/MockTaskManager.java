@@ -15,7 +15,6 @@ package com.facebook.presto.server;
 
 import com.facebook.presto.OutputBuffers;
 import com.facebook.presto.TaskSource;
-import com.facebook.presto.client.FailureInfo;
 import com.facebook.presto.execution.BufferResult;
 import com.facebook.presto.execution.SharedBuffer;
 import com.facebook.presto.execution.TaskId;
@@ -28,6 +27,7 @@ import com.facebook.presto.operator.TaskContext;
 import com.facebook.presto.sql.analyzer.Session;
 import com.facebook.presto.sql.planner.PlanFragment;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
+import com.facebook.presto.execution.ExecutionFailureInfo;
 import com.facebook.presto.util.Threads;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
@@ -242,7 +242,7 @@ public class MockTaskManager
         public TaskInfo getTaskInfo()
         {
             TaskState state = taskStateMachine.getState();
-            List<FailureInfo> failures = ImmutableList.of();
+            List<ExecutionFailureInfo> failures = ImmutableList.of();
             if (state == TaskState.FAILED) {
                 failures = toFailures(taskStateMachine.getFailureCauses());
             }

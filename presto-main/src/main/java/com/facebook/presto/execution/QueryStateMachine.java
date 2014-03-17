@@ -13,12 +13,12 @@
  */
 package com.facebook.presto.execution;
 
-import com.facebook.presto.spi.ErrorCode;
-import com.facebook.presto.spi.StandardErrorCode;
 import com.facebook.presto.ErrorCodes;
-import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.client.FailureInfo;
 import com.facebook.presto.execution.StateMachine.StateChangeListener;
+import com.facebook.presto.spi.ErrorCode;
+import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.StandardErrorCode;
 import com.facebook.presto.sql.analyzer.Session;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Predicates;
@@ -139,7 +139,7 @@ public class QueryStateMachine
         FailureInfo failureInfo = null;
         ErrorCode errorCode = null;
         if (state != FINISHED) {
-            failureInfo = toFailure(failureCause);
+            failureInfo = failureCause == null ? null : toFailure(failureCause).toFailureInfo();
             errorCode = ErrorCodes.toErrorCode(failureCause);
         }
 
@@ -255,7 +255,7 @@ public class QueryStateMachine
 
     public synchronized void setInputs(List<Input> inputs)
     {
-        Preconditions.checkNotNull(inputs, "inputs is null");
+        checkNotNull(inputs, "inputs is null");
         this.inputs = ImmutableSet.copyOf(inputs);
     }
 

@@ -11,10 +11,16 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.client;
+package com.facebook.presto.execution;
 
+import com.facebook.presto.client.ErrorLocation;
+import com.facebook.presto.client.FailureInfo;
+import com.facebook.presto.spi.ErrorCode;
+import com.facebook.presto.util.IterableTransformer;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.google.common.base.Function;
+import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 
 import javax.annotation.Nullable;
@@ -25,32 +31,32 @@ import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-import static com.google.common.base.Preconditions.checkNotNull;
-
 @Immutable
-public class FailureInfo
+public class ExecutionFailureInfo
 {
     private static final Pattern STACK_TRACE_PATTERN = Pattern.compile("(.*)\\.(.*)\\(([^:]*)(?::(.*))?\\)");
 
     private final String type;
     private final String message;
-    private final FailureInfo cause;
-    private final List<FailureInfo> suppressed;
+    private final ExecutionFailureInfo cause;
+    private final List<ExecutionFailureInfo> suppressed;
     private final List<String> stack;
     private final ErrorLocation errorLocation;
+    private final ErrorCode errorCode;
 
     @JsonCreator
-    public FailureInfo(
+    public ExecutionFailureInfo(
             @JsonProperty("type") String type,
             @JsonProperty("message") String message,
-            @JsonProperty("cause") FailureInfo cause,
-            @JsonProperty("suppressed") List<FailureInfo> suppressed,
+            @JsonProperty("cause") ExecutionFailureInfo cause,
+            @JsonProperty("suppressed") List<ExecutionFailureInfo> suppressed,
             @JsonProperty("stack") List<String> stack,
-            @JsonProperty("errorLocation") @Nullable ErrorLocation errorLocation)
+            @JsonProperty("errorLocation") @Nullable ErrorLocation errorLocation,
+            @JsonProperty("errorCode") @Nullable ErrorCode errorCode)
     {
-        checkNotNull(type, "type is null");
-        checkNotNull(suppressed, "suppressed is null");
-        checkNotNull(stack, "stack is null");
+        Preconditions.checkNotNull(type, "type is null");
+        Preconditions.checkNotNull(suppressed, "suppressed is null");
+        Preconditions.checkNotNull(stack, "stack is null");
 
         this.type = type;
         this.message = message;
@@ -58,6 +64,7 @@ public class FailureInfo
         this.suppressed = ImmutableList.copyOf(suppressed);
         this.stack = ImmutableList.copyOf(stack);
         this.errorLocation = errorLocation;
+        this.errorCode = errorCode;
     }
 
     @NotNull
@@ -76,14 +83,14 @@ public class FailureInfo
 
     @Nullable
     @JsonProperty
-    public FailureInfo getCause()
+    public ExecutionFailureInfo getCause()
     {
         return cause;
     }
 
     @NotNull
     @JsonProperty
-    public List<FailureInfo> getSuppressed()
+    public List<ExecutionFailureInfo> getSuppressed()
     {
         return suppressed;
     }
@@ -102,22 +109,42 @@ public class FailureInfo
         return errorLocation;
     }
 
+    @Nullable
+    @JsonProperty
+    public ErrorCode getErrorCode()
+    {
+        return errorCode;
+    }
+
+    public FailureInfo toFailureInfo()
+    {
+        List<FailureInfo> suppressed = IterableTransformer.on(this.suppressed).transform(new Function<ExecutionFailureInfo, FailureInfo>()
+        {
+            @Override
+            public FailureInfo apply(ExecutionFailureInfo input)
+            {
+                return input.toFailureInfo();
+            }
+        }).list();
+        return new FailureInfo(type, message, cause == null ? null : cause.toFailureInfo(), suppressed, stack, errorLocation);
+    }
+
     public RuntimeException toException()
     {
         return toException(this);
     }
 
-    private static FailureException toException(FailureInfo failureInfo)
+    private static Failure toException(ExecutionFailureInfo executionFailureInfo)
     {
-        if (failureInfo == null) {
+        if (executionFailureInfo == null) {
             return null;
         }
-        FailureException failure = new FailureException(failureInfo.getType(), failureInfo.getMessage(), toException(failureInfo.getCause()));
-        for (FailureInfo suppressed : failureInfo.getSuppressed()) {
+        Failure failure = new Failure(executionFailureInfo.getType(), executionFailureInfo.getMessage(), executionFailureInfo.getErrorCode(), toException(executionFailureInfo.getCause()));
+        for (ExecutionFailureInfo suppressed : executionFailureInfo.getSuppressed()) {
             failure.addSuppressed(toException(suppressed));
         }
         ImmutableList.Builder<StackTraceElement> stackTraceBuilder = ImmutableList.builder();
-        for (String stack : failureInfo.getStack()) {
+        for (String stack : executionFailureInfo.getStack()) {
             stackTraceBuilder.add(toStackTraceElement(stack));
         }
         ImmutableList<StackTraceElement> stackTrace = stackTraceBuilder.build();
@@ -143,32 +170,5 @@ public class FailureInfo
             return new StackTraceElement(declaringClass, methodName, fileName, number);
         }
         return new StackTraceElement("Unknown", stack, null, -1);
-    }
-
-    private static class FailureException
-            extends RuntimeException
-    {
-        private final String type;
-
-        FailureException(String type, String message, FailureException cause)
-        {
-            super(message, cause, true, true);
-            this.type = checkNotNull(type, "type is null");
-        }
-
-        public String getType()
-        {
-            return type;
-        }
-
-        @Override
-        public String toString()
-        {
-            String message = getMessage();
-            if (message != null) {
-                return type + ": " + message;
-            }
-            return type;
-        }
     }
 }

@@ -15,7 +15,6 @@ package com.facebook.presto.execution;
 
 import com.facebook.presto.OutputBuffers;
 import com.facebook.presto.UnpartitionedPagePartitionFunction;
-import com.facebook.presto.client.FailureInfo;
 import com.facebook.presto.connector.dual.DualMetadata;
 import com.facebook.presto.connector.dual.DualSplit;
 import com.facebook.presto.execution.SharedBuffer.QueueState;
@@ -410,7 +409,7 @@ public class TestSqlStageExecution
             public TaskInfo getTaskInfo()
             {
                 TaskState state = taskStateMachine.getState();
-                List<FailureInfo> failures = ImmutableList.of();
+                List<ExecutionFailureInfo> failures = ImmutableList.of();
                 if (state == TaskState.FAILED) {
                     failures = toFailures(taskStateMachine.getFailureCauses());
                 }

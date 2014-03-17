@@ -15,7 +15,6 @@ package com.facebook.presto.execution;
 
 import com.facebook.presto.OutputBuffers;
 import com.facebook.presto.TaskSource;
-import com.facebook.presto.client.FailureInfo;
 import com.facebook.presto.event.query.QueryMonitor;
 import com.facebook.presto.execution.SharedBuffer.QueueState;
 import com.facebook.presto.operator.TaskContext;
@@ -402,7 +401,7 @@ public class SqlTaskManager
                         new SharedBufferInfo(QueueState.FINISHED, 0, 0, ImmutableList.<BufferInfo>of()),
                         ImmutableSet.<PlanNodeId>of(),
                         taskContext.getTaskStats(),
-                        ImmutableList.<FailureInfo>of());
+                        ImmutableList.<ExecutionFailureInfo>of());
                 TaskInfo existingTaskInfo = taskInfos.putIfAbsent(taskId, taskInfo);
                 if (existingTaskInfo != null) {
                     taskInfo = existingTaskInfo;

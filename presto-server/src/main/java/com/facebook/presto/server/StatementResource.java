@@ -14,8 +14,8 @@
 package com.facebook.presto.server;
 
 import com.facebook.presto.block.BlockCursor;
-import com.facebook.presto.client.Column;
 import com.facebook.presto.client.FailureInfo;
+import com.facebook.presto.client.Column;
 import com.facebook.presto.client.QueryError;
 import com.facebook.presto.client.QueryResults;
 import com.facebook.presto.client.StageStats;
@@ -593,7 +593,7 @@ public class StatementResource
                     return null;
                 }
                 log.warn("Query %s in state %s has no failure info", queryInfo.getQueryId(), state);
-                failure = toFailure(new RuntimeException(format("Query is %s (reason unknown)", state)));
+                failure = toFailure(new RuntimeException(format("Query is %s (reason unknown)", state))).toFailureInfo();
             }
             return new QueryError(failure.getMessage(), null, 0, failure.getErrorLocation(), failure);
         }

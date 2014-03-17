@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.execution;
 
-import com.facebook.presto.client.FailureInfo;
 import com.facebook.presto.operator.TaskStats;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.fasterxml.jackson.annotation.JsonCreator;
@@ -59,7 +58,7 @@ public class TaskInfo
     private final SharedBufferInfo outputBuffers;
     private final Set<PlanNodeId> noMoreSplits;
     private final TaskStats stats;
-    private final List<FailureInfo> failures;
+    private final List<ExecutionFailureInfo> failures;
 
     @JsonCreator
     public TaskInfo(@JsonProperty("taskId") TaskId taskId,
@@ -70,7 +69,7 @@ public class TaskInfo
             @JsonProperty("outputBuffers") SharedBufferInfo outputBuffers,
             @JsonProperty("noMoreSplits") Set<PlanNodeId> noMoreSplits,
             @JsonProperty("stats") TaskStats stats,
-            @JsonProperty("failures") List<FailureInfo> failures)
+            @JsonProperty("failures") List<ExecutionFailureInfo> failures)
     {
         this.taskId = checkNotNull(taskId, "taskId is null");
         this.version = checkNotNull(version, "version is null");
@@ -138,7 +137,7 @@ public class TaskInfo
     }
 
     @JsonProperty
-    public List<FailureInfo> getFailures()
+    public List<ExecutionFailureInfo> getFailures()
     {
         return failures;
     }
