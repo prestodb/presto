@@ -43,10 +43,13 @@ public class CassandraRecordSink implements RecordSink
         StringBuilder queryBuilder = new StringBuilder(String.format("INSERT INTO \"%s\".\"%s\"(", handle.getSchemaName(), handle.getTableName()));
         queryBuilder.append("id");
         for (String columnName : handle.getColumnNames()) {
-            queryBuilder.append(",").append(columnName);
+            if (!columnName.equals(SAMPLE_WEIGHT_COLUMN_NAME)) {
+                queryBuilder.append(",").append(columnName);
+            }
         }
         queryBuilder.append(") VALUES (?");
-        for (int i = 0; i < handle.getColumnNames().size(); i++) {
+
+        for (int i = sampleWeightField > -1 ? 1 : 0; i < handle.getColumnNames().size(); i++) {
             queryBuilder.append(",?");
         }
         queryBuilder.append(")");
