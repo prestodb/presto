@@ -40,6 +40,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Strings.isNullOrEmpty;
 import static com.google.common.collect.Iterables.transform;
+import static com.facebook.presto.cassandra.CassandraColumnHandle.SAMPLE_WEIGHT_COLUMN_NAME;
 
 public class CassandraMetadata
     implements ConnectorMetadata
@@ -94,7 +95,7 @@ public class CassandraMetadata
     private ConnectorTableMetadata getTableMetadata(SchemaTableName tableName)
     {
         CassandraTableHandle tableHandle = schemaProvider.getTableHandle(tableName);
-        List<ColumnMetadata> columns = ImmutableList.copyOf(transform((Iterable) getColumnHandles(tableHandle, false).values(), columnMetadataGetter()));
+        List<ColumnMetadata> columns = ImmutableList.copyOf(transform((Iterable) getColumnHandles(tableHandle).values(), columnMetadataGetter()));
         return new ConnectorTableMetadata(tableName, columns);
     }
 
@@ -154,14 +155,12 @@ public class CassandraMetadata
         CassandraTable table = schemaProvider.getTable((CassandraTableHandle) tableHandle);
         ImmutableMap.Builder<String, ColumnHandle> columnHandles = ImmutableMap.builder();
         for (CassandraColumnHandle columnHandle : table.getColumns()) {
-            columnHandles.put(CassandraCqlUtils.cqlNameToSqlName(columnHandle.getName()).toLowerCase(), columnHandle);
-        }
-        if (incluseSampleWeight) {
-            CassandraColumnHandle sampleWeightColumnHandle = new CassandraColumnHandle(connectorId, CassandraColumnHandle.SAMPLE_WEIGHT_COLUMN_NAME, 0, CassandraType.BIGINT, null, false, false);
-            columnHandles.put(CassandraColumnHandle.SAMPLE_WEIGHT_COLUMN_NAME, sampleWeightColumnHandle);
+            if (incluseSampleWeight || !columnHandle.getName().equals(SAMPLE_WEIGHT_COLUMN_NAME)) {
+                columnHandles.put(CassandraCqlUtils.cqlNameToSqlName(columnHandle.getName()).toLowerCase(), columnHandle);
+            }
         }
         return columnHandles.build();
-    }  
+    }
 
     @Override
     public Map<SchemaTableName, List<ColumnMetadata>> listTableColumns(SchemaTablePrefix prefix)
@@ -262,10 +261,12 @@ public class CassandraMetadata
         for (int i = 0; i < columns.size(); i++) {
             String name = columns.get(i);
             ColumnType type = types.get(i);
-            queryBuilder.append(", ")
-                        .append(name)
-                        .append(" ")
-                        .append(toCassandraType(type).name().toLowerCase());
+            if (!name.equals(SAMPLE_WEIGHT_COLUMN_NAME)) {
+                queryBuilder.append(", ")
+                            .append(name)
+                            .append(" ")
+                            .append(toCassandraType(type).name().toLowerCase());
+            }
         }
         queryBuilder.append(")");
         // We need create Cassandra table before commit because record needs been sinked to the table .
