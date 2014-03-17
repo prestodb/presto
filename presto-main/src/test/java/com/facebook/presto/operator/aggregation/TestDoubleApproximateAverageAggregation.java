@@ -13,13 +13,9 @@
  */
 package com.facebook.presto.operator.aggregation;
 
-import com.facebook.presto.block.Block;
-import com.facebook.presto.block.BlockBuilder;
-import org.testng.annotations.Test;
+import com.facebook.presto.tuple.TupleInfo;
 
-import java.util.ArrayList;
 import java.util.List;
-import java.util.Random;
 
 import static com.facebook.presto.operator.aggregation.ApproximateAverageAggregations.DOUBLE_APPROXIMATE_AVERAGE_AGGREGATION;
 import static com.facebook.presto.tuple.TupleInfo.SINGLE_DOUBLE;
@@ -28,79 +24,35 @@ public class TestDoubleApproximateAverageAggregation
         extends AbstractTestApproximateAggregationFunction
 {
     @Override
-    public Block getSequenceBlock(int start, int length)
-    {
-        BlockBuilder blockBuilder = new BlockBuilder(SINGLE_DOUBLE);
-        for (int i = start; i < start + length; i++) {
-            blockBuilder.append((double) i);
-        }
-        return blockBuilder.build();
-    }
-
-    @Override
     public AggregationFunction getFunction()
     {
         return DOUBLE_APPROXIMATE_AVERAGE_AGGREGATION;
     }
 
     @Override
-    public double getConfidence()
+    protected TupleInfo getTupleInfo()
     {
-        return 0.99;
+        return SINGLE_DOUBLE;
     }
 
     @Override
-    public String getExpectedValue(int start, int length)
+    protected Double getExpectedValue(List<Number> values)
     {
+        int length = 0;
+        double sum = 0;
+
+        for (Number value : values) {
+            if (value == null) {
+                continue;
+            }
+            length++;
+            sum += value.doubleValue();
+        }
+
         if (length == 0) {
             return null;
         }
 
-        double sum = 0;
-        for (int i = start; i < start + length; i++) {
-            sum += i;
-        }
-
-        double mean = sum / length;
-        double m2 = 0.0;
-        for (int i = start; i < start + length; i++) {
-            m2 += (i - mean) * (i - mean);
-        }
-
-        double variance = m2 / length;
-        StringBuilder sb = new StringBuilder();
-        sb.append(mean);
-        sb.append(" +/- ");
-        sb.append(zScore(getConfidence()) * Math.sqrt(variance / length));
-
-        return sb.toString();
-    }
-
-    @Test
-    public void testCorrectnessOnGaussianData()
-            throws Exception
-    {
-        int originalDataSize = 100;
-        Random distribution = new Random(0);
-        List<Number> list = new ArrayList<>();
-        for (int i = 0; i < originalDataSize; i++) {
-            list.add(distribution.nextGaussian());
-        }
-
-        testCorrectnessOfErrorFunction(list, SINGLE_DOUBLE);
-    }
-
-    @Test
-    public void testCorrectnessOnUniformData()
-            throws Exception
-    {
-        int originalDataSize = 100;
-        Random distribution = new Random(0);
-        List<Number> list = new ArrayList<>();
-        for (int i = 0; i < originalDataSize; i++) {
-            list.add(distribution.nextDouble() * 1000);
-        }
-
-        testCorrectnessOfErrorFunction(list, SINGLE_DOUBLE);
+        return sum / length;
     }
 }

@@ -17,18 +17,12 @@ import com.facebook.presto.tuple.TupleInfo;
 
 import java.util.List;
 
-import static com.facebook.presto.operator.aggregation.ApproximateAverageAggregations.LONG_APPROXIMATE_AVERAGE_AGGREGATION;
+import static com.facebook.presto.operator.aggregation.ApproximateCountAggregation.APPROXIMATE_COUNT_AGGREGATION;
 import static com.facebook.presto.tuple.TupleInfo.SINGLE_LONG;
 
-public class TestLongApproximateAverageAggregation
+public class TestApproximateCountAggregation
         extends AbstractTestApproximateAggregationFunction
 {
-    @Override
-    public AggregationFunction getFunction()
-    {
-        return LONG_APPROXIMATE_AVERAGE_AGGREGATION;
-    }
-
     @Override
     protected TupleInfo getTupleInfo()
     {
@@ -38,21 +32,12 @@ public class TestLongApproximateAverageAggregation
     @Override
     protected Double getExpectedValue(List<Number> values)
     {
-        int length = 0;
-        long sum = 0;
+        return (double) values.size();
+    }
 
-        for (Number value : values) {
-            if (value == null) {
-                continue;
-            }
-            length++;
-            sum += value.longValue();
-        }
-
-        if (length == 0) {
-            return null;
-        }
-
-        return (double) sum / length;
+    @Override
+    public AggregationFunction getFunction()
+    {
+        return APPROXIMATE_COUNT_AGGREGATION;
     }
 }
