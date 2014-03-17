@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.hive.util;
 
+import com.facebook.presto.hive.NamenodeStats;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
 import io.airlift.stats.TimeStat;
@@ -34,13 +35,13 @@ public class AsyncRecursiveWalker
 {
     private final FileSystem fileSystem;
     private final Executor executor;
-    private final HadoopApiStats hadoopApiStats;
+    private final NamenodeStats namenodeStats;
 
-    public AsyncRecursiveWalker(FileSystem fileSystem, Executor executor, HadoopApiStats hadoopApiStats)
+    public AsyncRecursiveWalker(FileSystem fileSystem, Executor executor, NamenodeStats namenodeStats)
     {
         this.fileSystem = checkNotNull(fileSystem, "fileSystem is null");
         this.executor = checkNotNull(executor, "executor is null");
-        this.hadoopApiStats = checkNotNull(hadoopApiStats, "hadoopApiStats is null");
+        this.namenodeStats = checkNotNull(namenodeStats, "namenodeStats is null");
     }
 
     public ListenableFuture<Void> beginWalk(Path path, FileStatusCallback callback)
@@ -108,11 +109,11 @@ public class AsyncRecursiveWalker
     private RemoteIterator<LocatedFileStatus> getLocatedFileStatusRemoteIterator(Path path)
             throws IOException
     {
-        try (TimeStat.BlockTimer timer = hadoopApiStats.getListLocatedStatus().time()) {
+        try (TimeStat.BlockTimer timer = namenodeStats.getListLocatedStatus().time()) {
             return listLocatedStatus(fileSystem, path);
         }
         catch (IOException | RuntimeException e) {
-            hadoopApiStats.getListLocatedStatus().recordException(e);
+            namenodeStats.getListLocatedStatus().recordException(e);
             throw e;
         }
     }
@@ -120,11 +121,11 @@ public class AsyncRecursiveWalker
     private LocatedFileStatus getLocatedFileStatus(RemoteIterator<LocatedFileStatus> iterator)
             throws IOException
     {
-        try (TimeStat.BlockTimer timer = hadoopApiStats.getRemoteIteratorNext().time()) {
+        try (TimeStat.BlockTimer timer = namenodeStats.getRemoteIteratorNext().time()) {
             return iterator.next();
         }
         catch (IOException | RuntimeException e) {
-            hadoopApiStats.getRemoteIteratorNext().recordException(e);
+            namenodeStats.getRemoteIteratorNext().recordException(e);
             throw e;
         }
     }
