@@ -16,7 +16,6 @@ package com.facebook.presto.execution;
 import com.facebook.presto.OutputBuffers;
 import com.facebook.presto.ScheduledSplit;
 import com.facebook.presto.TaskSource;
-import com.facebook.presto.client.FailureInfo;
 import com.facebook.presto.event.query.QueryMonitor;
 import com.facebook.presto.execution.SharedBuffer.QueueState;
 import com.facebook.presto.execution.StateMachine.StateChangeListener;
@@ -279,7 +278,7 @@ public class SqlTaskExecution
             checkTaskCompletion();
 
             TaskState state = taskStateMachine.getState();
-            List<FailureInfo> failures = ImmutableList.of();
+            List<ExecutionFailureInfo> failures = ImmutableList.of();
             if (state == TaskState.FAILED) {
                 failures = toFailures(taskStateMachine.getFailureCauses());
             }

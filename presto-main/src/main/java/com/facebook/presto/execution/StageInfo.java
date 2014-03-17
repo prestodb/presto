@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.execution;
 
-import com.facebook.presto.client.FailureInfo;
 import com.facebook.presto.sql.planner.PlanFragment;
 import com.facebook.presto.tuple.TupleInfo;
 import com.fasterxml.jackson.annotation.JsonCreator;
@@ -40,7 +39,7 @@ public class StageInfo
     private final StageStats stageStats;
     private final List<TaskInfo> tasks;
     private final List<StageInfo> subStages;
-    private final List<FailureInfo> failures;
+    private final List<ExecutionFailureInfo> failures;
 
     @JsonCreator
     public StageInfo(
@@ -52,7 +51,7 @@ public class StageInfo
             @JsonProperty("stageStats") StageStats stageStats,
             @JsonProperty("tasks") List<TaskInfo> tasks,
             @JsonProperty("subStages") List<StageInfo> subStages,
-            @JsonProperty("failures") List<FailureInfo> failures)
+            @JsonProperty("failures") List<ExecutionFailureInfo> failures)
     {
         Preconditions.checkNotNull(stageId, "stageId is null");
         Preconditions.checkNotNull(state, "state is null");
@@ -123,7 +122,7 @@ public class StageInfo
     }
 
     @JsonProperty
-    public List<FailureInfo> getFailures()
+    public List<ExecutionFailureInfo> getFailures()
     {
         return failures;
     }

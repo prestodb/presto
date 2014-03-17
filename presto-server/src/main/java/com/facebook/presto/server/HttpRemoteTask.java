@@ -16,7 +16,6 @@ package com.facebook.presto.server;
 import com.facebook.presto.OutputBuffers;
 import com.facebook.presto.ScheduledSplit;
 import com.facebook.presto.TaskSource;
-import com.facebook.presto.client.FailureInfo;
 import com.facebook.presto.client.PrestoHeaders;
 import com.facebook.presto.execution.BufferInfo;
 import com.facebook.presto.execution.RemoteTask;
@@ -35,6 +34,7 @@ import com.facebook.presto.sql.analyzer.Session;
 import com.facebook.presto.sql.planner.PlanFragment;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.facebook.presto.tuple.TupleInfo;
+import com.facebook.presto.execution.ExecutionFailureInfo;
 import com.facebook.presto.util.SetThreadName;
 import com.google.common.base.Function;
 import com.google.common.base.Objects;
@@ -205,7 +205,7 @@ public class HttpRemoteTask
                     new SharedBufferInfo(QueueState.OPEN, 0, 0, bufferStates),
                     ImmutableSet.<PlanNodeId>of(),
                     taskStats,
-                    ImmutableList.<FailureInfo>of()));
+                    ImmutableList.<ExecutionFailureInfo>of()));
         }
     }
 
@@ -418,7 +418,7 @@ public class HttpRemoteTask
                     taskInfo.getOutputBuffers(),
                     taskInfo.getNoMoreSplits(),
                     taskInfo.getStats(),
-                    ImmutableList.<FailureInfo>of()));
+                    ImmutableList.<ExecutionFailureInfo>of()));
 
             // fire delete to task and ignore response
             if (taskInfo.getSelf() != null) {
