@@ -301,44 +301,30 @@ public class TestSortedRangeSet
     public void testUnion()
             throws Exception
     {
-        Assert.assertEquals(
-                SortedRangeSet.none(Long.class).union(
-                        SortedRangeSet.none(Long.class)),
-                SortedRangeSet.none(Long.class));
+        assertUnion(SortedRangeSet.none(Long.class), SortedRangeSet.none(Long.class), SortedRangeSet.none(Long.class));
+        assertUnion(SortedRangeSet.all(Long.class), SortedRangeSet.all(Long.class), SortedRangeSet.all(Long.class));
+        assertUnion(SortedRangeSet.none(Long.class), SortedRangeSet.all(Long.class), SortedRangeSet.all(Long.class));
 
-        Assert.assertEquals(
-                SortedRangeSet.all(Long.class).union(
-                        SortedRangeSet.all(Long.class)),
-                SortedRangeSet.all(Long.class));
-
-        Assert.assertEquals(
-                SortedRangeSet.none(Long.class).union(
-                        SortedRangeSet.all(Long.class)),
-                SortedRangeSet.all(Long.class));
-
-        Assert.assertEquals(
-                SortedRangeSet.of(Range.equal(1L), Range.equal(2L)).union(
-                        SortedRangeSet.of(Range.equal(2L), Range.equal(3L))),
+        assertUnion(
+                SortedRangeSet.of(Range.equal(1L), Range.equal(2L)),
+                SortedRangeSet.of(Range.equal(2L), Range.equal(3L)),
                 SortedRangeSet.of(Range.equal(1L), Range.equal(2L), Range.equal(3L)));
 
-        Assert.assertEquals(
-                SortedRangeSet.all(Long.class).union(
-                        SortedRangeSet.of(Range.equal(0L))),
-                SortedRangeSet.all(Long.class));
+        assertUnion(SortedRangeSet.all(Long.class), SortedRangeSet.of(Range.equal(0L)), SortedRangeSet.all(Long.class));
 
-        Assert.assertEquals(
-                SortedRangeSet.of(Range.range(0L, true, 4L, false)).union(
-                        SortedRangeSet.of(Range.greaterThan(3L))),
+        assertUnion(
+                SortedRangeSet.of(Range.range(0L, true, 4L, false)),
+                SortedRangeSet.of(Range.greaterThan(3L)),
                 SortedRangeSet.of(Range.greaterThanOrEqual(0L)));
 
-        Assert.assertEquals(
-                SortedRangeSet.of(Range.greaterThanOrEqual(0L)).union(
-                        SortedRangeSet.of(Range.lessThanOrEqual(0L))),
+        assertUnion(
+                SortedRangeSet.of(Range.greaterThanOrEqual(0L)),
+                SortedRangeSet.of(Range.lessThanOrEqual(0L)),
                 SortedRangeSet.of(Range.all(Long.class)));
 
-        Assert.assertEquals(
-                SortedRangeSet.of(Range.greaterThan(0L)).union(
-                        SortedRangeSet.of(Range.lessThan(0L))),
+        assertUnion(
+                SortedRangeSet.of(Range.greaterThan(0L)),
+                SortedRangeSet.of(Range.lessThan(0L)),
                 SortedRangeSet.singleValue(0L).complement());
     }
 
@@ -453,5 +439,11 @@ public class TestSortedRangeSet
 
         set = SortedRangeSet.of(Range.equal(true), Range.equal(false));
         Assert.assertEquals(set, mapper.readValue(mapper.writeValueAsString(set), SortedRangeSet.class));
+    }
+
+    private void assertUnion(SortedRangeSet first, SortedRangeSet second, SortedRangeSet expected)
+    {
+        Assert.assertEquals(first.union(second), expected);
+        Assert.assertEquals(SortedRangeSet.union(ImmutableList.of(first, second)), expected);
     }
 }
