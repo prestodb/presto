@@ -14,6 +14,8 @@
 package com.facebook.presto.operator.scalar;
 
 import com.facebook.presto.operator.Description;
+import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.StandardErrorCode;
 import com.facebook.presto.sql.analyzer.Session;
 import com.facebook.presto.util.ThreadLocalCache;
 import com.google.common.base.Charsets;
@@ -363,7 +365,7 @@ public final class UnixTimeFunctions
                     case 'X': // %X Year for the week where Sunday is the first day of the week, numeric, four digits; used with %V
                     case 'x': // %x Year for the week, where Monday is the first day of the week, numeric, four digits; used with %v
                     case 'D': // %D Day of the month with English suffix (0th, 1st, 2nd, 3rd, …)
-                        throw new UnsupportedOperationException(String.format("%%%s not supported in date format string", character));
+                        throw new PrestoException(StandardErrorCode.INVALID_FUNCTION_ARGUMENT, String.format("%%%s not supported in date format string", character));
                     case '%': // %% A literal “%” character
                         builder.appendLiteral('%');
                         break;

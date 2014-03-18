@@ -14,6 +14,8 @@
 package com.facebook.presto.sql.gen;
 
 import com.facebook.presto.operator.scalar.MathFunctions;
+import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.StandardErrorCode;
 import com.google.common.primitives.Booleans;
 import com.google.common.primitives.Doubles;
 import com.google.common.primitives.Longs;
@@ -320,7 +322,7 @@ public final class Operations
                 (toUpperCase(value.getByte(4)) == 'E')) {
             return false;
         }
-        throw new IllegalArgumentException(String.format("Cannot cast '%s' to BOOLEAN", value.toString(UTF_8)));
+        throw new PrestoException(StandardErrorCode.INVALID_FUNCTION_ARGUMENT, String.format("Cannot cast '%s' to BOOLEAN", value.toString(UTF_8)));
     }
 
     private static byte toUpperCase(byte b)
@@ -370,7 +372,7 @@ public final class Operations
             catch (RuntimeException ignored) {
             }
         }
-        throw new IllegalArgumentException(String.format("Can not cast '%s' to BIGINT", slice.toString(UTF_8)));
+        throw new PrestoException(StandardErrorCode.INVALID_FUNCTION_ARGUMENT, String.format("Can not cast '%s' to BIGINT", slice.toString(UTF_8)));
     }
 
     private static int getDecimalValue(Slice slice, int start)
@@ -411,7 +413,7 @@ public final class Operations
             catch (RuntimeException ignored) {
             }
         }
-        throw new IllegalArgumentException(String.format("Can not cast '%s' to DOUBLE", value.toString(UTF_8)));
+        throw new PrestoException(StandardErrorCode.INVALID_FUNCTION_ARGUMENT, String.format("Can not cast '%s' to DOUBLE", value.toString(UTF_8)));
     }
 
     public static Slice castToSlice(boolean value)
