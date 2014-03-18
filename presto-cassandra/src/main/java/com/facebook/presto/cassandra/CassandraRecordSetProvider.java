@@ -60,6 +60,9 @@ public class CassandraRecordSetProvider
             sb.setLength(sb.length() - 1);
         }
         sb.append(cassandraSplit.getWhereClause());
+        if (cassandraSplit.getLimit() > 0) {
+            sb.append(" LIMIT " + cassandraSplit.getLimit());
+        }
         String cql = sb.toString();
         log.debug("Creating record set: %s", cql);
 
