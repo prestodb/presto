@@ -25,6 +25,8 @@ import org.testng.annotations.Test;
 import java.io.IOException;
 import java.util.Map;
 
+import static com.facebook.presto.spi.TupleDomain.columnWiseUnion;
+
 public class TestTupleDomain
 {
     private static final ColumnHandle A = new TestingColumnHandle("a");
@@ -158,20 +160,19 @@ public class TestTupleDomain
                         .put(E, Domain.all(Double.class))
                         .build());
 
-        Assert.assertEquals(tupleDomain1.columnWiseUnion(tupleDomain2), expectedTupleDomain);
+        Assert.assertEquals(columnWiseUnion(tupleDomain1, tupleDomain2), expectedTupleDomain);
     }
 
     @Test
     public void testNoneColumnWiseUnion()
             throws Exception
     {
-        Assert.assertEquals(TupleDomain.none().columnWiseUnion(TupleDomain.all()), TupleDomain.all());
-        Assert.assertEquals(TupleDomain.all().columnWiseUnion(TupleDomain.none()), TupleDomain.all());
-        Assert.assertEquals(TupleDomain.none().columnWiseUnion(TupleDomain.none()), TupleDomain.none());
-        Assert.assertEquals(TupleDomain.withColumnDomains(
-                ImmutableMap.<ColumnHandle, Domain>of(A, Domain.onlyNull(Long.class)))
-                .columnWiseUnion(
-                        TupleDomain.withColumnDomains(ImmutableMap.<ColumnHandle, Domain>of(A, Domain.notNull(Long.class)))),
+        Assert.assertEquals(columnWiseUnion(TupleDomain.none(), TupleDomain.all()), TupleDomain.all());
+        Assert.assertEquals(columnWiseUnion(TupleDomain.all(), TupleDomain.none()), TupleDomain.all());
+        Assert.assertEquals(columnWiseUnion(TupleDomain.none(), TupleDomain.none()), TupleDomain.none());
+        Assert.assertEquals(columnWiseUnion(
+                TupleDomain.withColumnDomains(ImmutableMap.<ColumnHandle, Domain>of(A, Domain.onlyNull(Long.class))),
+                TupleDomain.withColumnDomains(ImmutableMap.<ColumnHandle, Domain>of(A, Domain.notNull(Long.class)))),
                 TupleDomain.all());
     }
 
@@ -191,7 +192,7 @@ public class TestTupleDomain
 
         TupleDomain expectedTupleDomain = TupleDomain.withColumnDomains(ImmutableMap.<ColumnHandle, Domain>of(A, Domain.all(Double.class)));
 
-        Assert.assertEquals(tupleDomain1.columnWiseUnion(tupleDomain2), expectedTupleDomain);
+        Assert.assertEquals(columnWiseUnion(tupleDomain1, tupleDomain2), expectedTupleDomain);
     }
 
     @Test

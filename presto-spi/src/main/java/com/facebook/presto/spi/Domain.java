@@ -157,6 +157,22 @@ public final class Domain
         return new Domain(unionRanges, nullAllowed);
     }
 
+    public static Domain union(List<Domain> domains)
+    {
+        if (domains.size() == 1) {
+            return domains.get(0);
+        }
+
+        boolean nullAllowed = false;
+        List<SortedRangeSet> ranges = new ArrayList<>();
+        for (Domain domain : domains) {
+            ranges.add(domain.getRanges());
+            nullAllowed = nullAllowed || domain.nullAllowed;
+        }
+
+        return new Domain(SortedRangeSet.union(ranges), nullAllowed);
+    }
+
     public Domain complement()
     {
         return new Domain(ranges.complement(), !nullAllowed);

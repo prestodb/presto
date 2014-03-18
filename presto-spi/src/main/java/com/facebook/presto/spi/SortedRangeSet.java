@@ -210,6 +210,24 @@ public final class SortedRangeSet
                 .build();
     }
 
+    public static SortedRangeSet union(Iterable<SortedRangeSet> ranges)
+    {
+        Iterator<SortedRangeSet> iterator = ranges.iterator();
+        if (!iterator.hasNext()) {
+            throw new IllegalArgumentException("ranges must have at least one element");
+        }
+
+        SortedRangeSet first = iterator.next();
+        Builder builder = new Builder(first.type);
+        builder.addAll(first);
+
+        while (iterator.hasNext()) {
+            builder.addAll(iterator.next());
+        }
+
+        return builder.build();
+    }
+
     public SortedRangeSet complement()
     {
         Builder builder = new Builder(type);
