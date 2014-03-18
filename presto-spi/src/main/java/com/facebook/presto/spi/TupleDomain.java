@@ -18,11 +18,15 @@ import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 
 /**
  * Defines a set of valid tuples according to the constraints on each of its constituent columns
@@ -219,6 +223,16 @@ public final class TupleDomain
         return withColumnDomains(intersected);
     }
 
+    public static TupleDomain columnWiseUnion(TupleDomain first, TupleDomain second, TupleDomain... rest)
+    {
+        List<TupleDomain> domains = new ArrayList<>();
+        domains.add(first);
+        domains.add(second);
+        domains.addAll(Arrays.asList(rest));
+
+        return columnWiseUnion(domains);
+    }
+
     /**
      * Returns a TupleDomain in which corresponding column Domains are unioned together.
      *
@@ -232,25 +246,67 @@ public final class TupleDomain
      * not be valid for either TupleDomain X or TupleDomain Y.
      * However, this result is guaranteed to be a superset of the strict union.
      */
-    public TupleDomain columnWiseUnion(TupleDomain other)
+    public static TupleDomain columnWiseUnion(List<TupleDomain> tupleDomains)
     {
-        if (this.isNone()) {
-            return other;
-        }
-        else if (other.isNone()) {
-            return this;
+        if (tupleDomains.isEmpty()) {
+            throw new IllegalArgumentException("tupleDomains must have at least one element");
         }
 
-        // Only columns contained in both TupleDomains will make it into the column-wise union.
-        // This is b/c an unmentioned column is implicitly an "all" Domain and so any union with that "all" Domain will also be the "all" Domain.
-        Map<ColumnHandle, Domain> columnWiseUnioned = new HashMap<>();
-        for (Map.Entry<ColumnHandle, Domain> entry : this.getDomains().entrySet()) {
-            Domain otherDomain = other.getDomains().get(entry.getKey());
-            if (otherDomain != null) {
-                columnWiseUnioned.put(entry.getKey(), entry.getValue().union(otherDomain));
+        if (tupleDomains.size() == 1) {
+            return tupleDomains.get(0);
+        }
+
+        // gather all common columns
+        Set<ColumnHandle> commonColumns = new HashSet<>();
+
+        // first, find a non-none domain
+        boolean found = false;
+        Iterator<TupleDomain> domains = tupleDomains.iterator();
+        while (domains.hasNext()) {
+            TupleDomain domain = domains.next();
+            if (!domain.isNone()) {
+                found = true;
+                commonColumns.addAll(domain.getDomains().keySet());
+                break;
             }
         }
-        return withColumnDomains(columnWiseUnioned);
+
+        if (!found) {
+            return TupleDomain.none();
+        }
+
+        // then, get the common columns
+        while (domains.hasNext()) {
+            TupleDomain domain = domains.next();
+            if (!domain.isNone()) {
+                commonColumns.retainAll(domain.getDomains().keySet());
+            }
+        }
+
+        // group domains by column (only for common columns)
+        Map<ColumnHandle, List<Domain>> domainsByColumn = new HashMap<>();
+
+        for (TupleDomain domain : tupleDomains) {
+            if (!domain.isNone()) {
+                for (Map.Entry<ColumnHandle, Domain> entry : domain.getDomains().entrySet()) {
+                    if (commonColumns.contains(entry.getKey())) {
+                        List<Domain> domainForColumn = domainsByColumn.get(entry.getKey());
+                        if (domainForColumn == null) {
+                            domainForColumn = new ArrayList<>();
+                            domainsByColumn.put(entry.getKey(), domainForColumn);
+                        }
+                        domainForColumn.add(entry.getValue());
+                    }
+                }
+            }
+        }
+
+        // finally, do the column-wise union
+        Map<ColumnHandle, Domain> result = new HashMap<>();
+        for (Map.Entry<ColumnHandle, List<Domain>> entry : domainsByColumn.entrySet()) {
+            result.put(entry.getKey(), Domain.union(entry.getValue()));
+        }
+        return withColumnDomains(result);
     }
 
     /**
@@ -268,7 +324,7 @@ public final class TupleDomain
      */
     public boolean contains(TupleDomain other)
     {
-        return other.isNone() || this.columnWiseUnion(other).equals(this);
+        return other.isNone() || columnWiseUnion(this, other).equals(this);
     }
 
     @Override

@@ -14,6 +14,7 @@
 package com.facebook.presto.spi;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.google.common.collect.ImmutableList;
 import org.testng.Assert;
 import org.testng.annotations.Test;
 
@@ -223,40 +224,20 @@ public class TestDomain
     public void testUnion()
             throws Exception
     {
-        Assert.assertEquals(
-                Domain.all(Long.class).union(Domain.all(Long.class)),
-                Domain.all(Long.class));
+        assertUnion(Domain.all(Long.class), Domain.all(Long.class), Domain.all(Long.class));
+        assertUnion(Domain.none(Long.class), Domain.none(Long.class), Domain.none(Long.class));
+        assertUnion(Domain.all(Long.class), Domain.none(Long.class), Domain.all(Long.class));
+        assertUnion(Domain.notNull(Long.class), Domain.onlyNull(Long.class), Domain.all(Long.class));
+        assertUnion(Domain.singleValue(0L), Domain.all(Long.class), Domain.all(Long.class));
+        assertUnion(Domain.singleValue(0L), Domain.notNull(Long.class), Domain.notNull(Long.class));
+        assertUnion(Domain.singleValue(0L), Domain.onlyNull(Long.class), Domain.create(SortedRangeSet.of(Range.equal(0L)), true));
 
-        Assert.assertEquals(
-                Domain.none(Long.class).union(Domain.none(Long.class)),
-                Domain.none(Long.class));
-
-        Assert.assertEquals(
-                Domain.all(Long.class).union(Domain.none(Long.class)),
-                Domain.all(Long.class));
-
-        Assert.assertEquals(
-                Domain.notNull(Long.class).union(Domain.onlyNull(Long.class)),
-                Domain.all(Long.class));
-
-        Assert.assertEquals(
-                Domain.singleValue(0L).union(Domain.all(Long.class)),
-                Domain.all(Long.class));
-
-        Assert.assertEquals(
-                  Domain.singleValue(0L).union(Domain.notNull(Long.class)),
-                  Domain.notNull(Long.class));
-
-        Assert.assertEquals(
-                Domain.singleValue(0L).union(Domain.onlyNull(Long.class)),
-                Domain.create(SortedRangeSet.of(Range.equal(0L)), true));
-
-        Assert.assertEquals(
-                Domain.create(SortedRangeSet.of(Range.equal(1L)), true).union(Domain.create(SortedRangeSet.of(Range.equal(2L)), true)),
+        assertUnion(Domain.create(SortedRangeSet.of(Range.equal(1L)), true),
+                Domain.create(SortedRangeSet.of(Range.equal(2L)), true),
                 Domain.create(SortedRangeSet.of(Range.equal(1L), Range.equal(2L)), true));
 
-        Assert.assertEquals(
-                Domain.create(SortedRangeSet.of(Range.equal(1L)), true).union(Domain.create(SortedRangeSet.of(Range.equal(1L), Range.equal(2L)), false)),
+        assertUnion(Domain.create(SortedRangeSet.of(Range.equal(1L)), true),
+                Domain.create(SortedRangeSet.of(Range.equal(1L), Range.equal(2L)), false),
                 Domain.create(SortedRangeSet.of(Range.equal(1L), Range.equal(2L)), true));
     }
 
@@ -376,5 +357,11 @@ public class TestDomain
 
         domain = Domain.create(SortedRangeSet.of(Range.lessThan(0L), Range.equal(1L), Range.range(2L, true, 3L, true)), true);
         Assert.assertEquals(domain, mapper.readValue(mapper.writeValueAsString(domain), Domain.class));
+    }
+
+    private void assertUnion(Domain first, Domain second, Domain expected)
+    {
+        Assert.assertEquals(first.union(second), expected);
+        Assert.assertEquals(Domain.union(ImmutableList.of(first, second)), expected);
     }
 }

@@ -235,7 +235,7 @@ public final class DomainTranslator
                             combineConjuncts(leftResult.getRemainingExpression(), rightResult.getRemainingExpression()));
 
                 case OR:
-                    TupleDomain columnUnionedTupleDomain = leftResult.getTupleDomain().columnWiseUnion(rightResult.getTupleDomain());
+                    TupleDomain columnUnionedTupleDomain = TupleDomain.columnWiseUnion(leftResult.getTupleDomain(), rightResult.getTupleDomain());
 
                     // In most cases, the columnUnionedTupleDomain is only a superset of the actual strict union
                     // and so we can return the current node as the remainingExpression so that all bounds will be double checked again at execution time.

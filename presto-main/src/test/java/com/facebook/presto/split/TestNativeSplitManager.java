@@ -128,7 +128,7 @@ public class TestNativeSplitManager
         assertTrue(partitionResult.getUndeterminedTupleDomain().isAll());
 
         List<Partition> partitions = partitionResult.getPartitions();
-        TupleDomain columnUnionedTupleDomain = partitions.get(0).getTupleDomain().columnWiseUnion(partitions.get(1).getTupleDomain());
+        TupleDomain columnUnionedTupleDomain = TupleDomain.columnWiseUnion(partitions.get(0).getTupleDomain(), partitions.get(1).getTupleDomain());
         assertEquals(columnUnionedTupleDomain, TupleDomain.withColumnDomains(ImmutableMap.of(dsColumnHandle, Domain.create(SortedRangeSet.of(Range.equal("1"), Range.equal("2")), false))));
 
         SplitSource splitSource = nativeSplitManager.getPartitionSplits(tableHandle, partitions);

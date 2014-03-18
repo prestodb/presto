@@ -21,10 +21,12 @@ import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.tree.Expression;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.google.common.base.Function;
 import com.google.common.base.Objects;
 import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 
 import javax.annotation.Nullable;
@@ -140,11 +142,19 @@ public class TableScanNode
             return TupleDomain.all();
         }
 
-        TupleDomain tupleDomain = TupleDomain.none();
-        for (Partition partition : generatedPartitions.get().getPartitions()) {
-            tupleDomain = tupleDomain.columnWiseUnion(partition.getTupleDomain());
+        if (generatedPartitions.get().getPartitions().isEmpty()) {
+            return TupleDomain.none();
         }
-        return tupleDomain;
+
+        List<TupleDomain> domains = Lists.transform(generatedPartitions.get().getPartitions(), new Function<Partition, TupleDomain>()
+        {
+            @Override
+            public TupleDomain apply(Partition partition)
+            {
+                return partition.getTupleDomain();
+            }
+        });
+        return TupleDomain.columnWiseUnion(domains);
     }
 
     @JsonProperty("partitionDomainSummary")
