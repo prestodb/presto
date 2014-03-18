@@ -16,7 +16,9 @@ package com.facebook.presto.sql.planner;
 import com.facebook.presto.metadata.FunctionInfo;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.operator.scalar.UnixTimeFunctions;
+import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.RecordCursor;
+import com.facebook.presto.spi.StandardErrorCode;
 import com.facebook.presto.sql.Casts;
 import com.facebook.presto.sql.analyzer.Session;
 import com.facebook.presto.sql.analyzer.Type;
@@ -460,7 +462,12 @@ public class ExpressionInterpreter
                     }
                 case DIVIDE:
                     if (leftNumber instanceof Long && rightNumber instanceof Long) {
-                        return leftNumber.longValue() / rightNumber.longValue();
+                        try {
+                            return leftNumber.longValue() / rightNumber.longValue();
+                        }
+                        catch (ArithmeticException e) {
+                            throw new PrestoException(StandardErrorCode.DIVISION_BY_ZERO, e);
+                        }
                     }
                     else {
                         return leftNumber.doubleValue() / rightNumber.doubleValue();

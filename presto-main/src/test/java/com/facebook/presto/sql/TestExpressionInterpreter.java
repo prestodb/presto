@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.sql;
 
+import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.RecordCursor;
 import com.facebook.presto.sql.analyzer.Session;
 import com.facebook.presto.sql.planner.ExpressionInterpreter;
@@ -797,21 +798,21 @@ public class TestExpressionInterpreter
         assertOptimizedEqualsSelf("coalesce(x, 0 / 0)");
     }
 
-    @Test(expectedExceptions = ArithmeticException.class)
+    @Test(expectedExceptions = PrestoException.class)
     public void testOptimizeDivideByZero()
             throws Exception
     {
         optimize("0 / 0");
     }
 
-    @Test(expectedExceptions = ArithmeticException.class)
+    @Test(expectedExceptions = PrestoException.class)
     public void testOptimizeConstantIfDivideByZero()
             throws Exception
     {
         optimize("if(false, 1, 0 / 0)");
     }
 
-    @Test(expectedExceptions = ArithmeticException.class)
+    @Test(expectedExceptions = PrestoException.class)
     public void testOptimizeConstantSearchedCaseDivideByZero()
             throws Exception
     {

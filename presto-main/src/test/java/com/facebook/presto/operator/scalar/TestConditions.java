@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.operator.scalar;
 
+import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.sql.analyzer.SemanticException;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
@@ -103,7 +104,7 @@ public class TestConditions
         assertFunction("3 not in (2, null) is null", true);
     }
 
-    @Test(expectedExceptions = ArithmeticException.class)
+    @Test(expectedExceptions = PrestoException.class)
     public void testInDoesNotShortCircuit()
     {
         selectSingleValue("3 in (2, 4, 3, 5 / 0)");
