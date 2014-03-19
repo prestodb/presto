@@ -233,7 +233,7 @@ class GenericHiveRecordCursor<K, V extends Writable>
         }
         catch (IOException | SerDeException | RuntimeException e) {
             close();
-            throw new PrestoException(HiveErrorCode.HIVE_CURSOR_ERROR, e);
+            throw new PrestoException(HiveErrorCode.HIVE_CURSOR_ERROR.toErrorCode(), e);
         }
     }
 

@@ -144,7 +144,7 @@ public class DropTableExecution
         final Optional<TableHandle> tableHandle = metadataManager.getTableHandle(tableName);
         checkState(tableHandle.isPresent(), "Table %s does not exist", tableName);
         if (!(tableHandle.get() instanceof NativeTableHandle)) {
-            throw new PrestoException(CANNOT_DROP_TABLE, "Can only drop native tables");
+            throw new PrestoException(CANNOT_DROP_TABLE.toErrorCode(), "Can only drop native tables");
         }
 
         Set<TablePartition> partitions = shardManager.getPartitions(tableHandle.get());

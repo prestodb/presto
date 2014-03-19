@@ -319,7 +319,7 @@ public class QueryStateMachine
         }
         synchronized (this) {
             if (failureCause == null) {
-                failureCause = new PrestoException(StandardErrorCode.USER_CANCELED, "Query was canceled");
+                failureCause = new PrestoException(StandardErrorCode.USER_CANCELED.toErrorCode(), "Query was canceled");
             }
         }
         return queryState.setIf(CANCELED, Predicates.not(inDoneState()));

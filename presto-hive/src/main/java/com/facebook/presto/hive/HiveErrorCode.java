@@ -16,29 +16,21 @@ package com.facebook.presto.hive;
 import com.facebook.presto.spi.ErrorCode;
 
 public enum HiveErrorCode
-        implements ErrorCode
 {
     // Connectors can use error codes starting at EXTERNAL
     HIVE_METASTORE_ERROR(0x0100_0000),
     HIVE_CURSOR_ERROR(0x0100_0001),
     HIVE_TABLE_OFFLINE(0x0100_0002);
 
-    private final int code;
+    private final ErrorCode errorCode;
 
     HiveErrorCode(int code)
     {
-        this.code = code;
+        errorCode = new ErrorCode(code, name());
     }
 
-    @Override
-    public int getCode()
+    public ErrorCode toErrorCode()
     {
-        return code;
-    }
-
-    @Override
-    public String getName()
-    {
-        return name();
+        return errorCode;
     }
 }
