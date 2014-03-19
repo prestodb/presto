@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.hive.util;
 
+import com.facebook.presto.hive.DirectoryLister;
 import com.facebook.presto.hive.NamenodeStats;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
@@ -28,19 +29,20 @@ import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicLong;
 
 import static com.facebook.presto.hadoop.HadoopFileStatus.isDirectory;
-import static com.facebook.presto.hadoop.HadoopFileSystem.listLocatedStatus;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 public class AsyncRecursiveWalker
 {
     private final FileSystem fileSystem;
     private final Executor executor;
+    private final DirectoryLister directoryLister;
     private final NamenodeStats namenodeStats;
 
-    public AsyncRecursiveWalker(FileSystem fileSystem, Executor executor, NamenodeStats namenodeStats)
+    public AsyncRecursiveWalker(FileSystem fileSystem, Executor executor, DirectoryLister directoryLister, NamenodeStats namenodeStats)
     {
         this.fileSystem = checkNotNull(fileSystem, "fileSystem is null");
         this.executor = checkNotNull(executor, "executor is null");
+        this.directoryLister = checkNotNull(directoryLister, "directoryLister is null");
         this.namenodeStats = checkNotNull(namenodeStats, "namenodeStats is null");
     }
 
@@ -110,7 +112,7 @@ public class AsyncRecursiveWalker
             throws IOException
     {
         try (TimeStat.BlockTimer timer = namenodeStats.getListLocatedStatus().time()) {
-            return listLocatedStatus(fileSystem, path);
+            return directoryLister.list(fileSystem, path);
         }
         catch (IOException | RuntimeException e) {
             namenodeStats.getListLocatedStatus().recordException(e);

@@ -103,6 +103,7 @@ class HiveSplitSourceProvider
     private final int maxThreads;
     private final HdfsEnvironment hdfsEnvironment;
     private final NamenodeStats namenodeStats;
+    private final DirectoryLister directoryLister;
     private final Executor executor;
     private final ClassLoader classLoader;
     private final DataSize maxSplitSize;
@@ -118,6 +119,7 @@ class HiveSplitSourceProvider
             int maxThreads,
             HdfsEnvironment hdfsEnvironment,
             NamenodeStats namenodeStats,
+            DirectoryLister directoryLister,
             Executor executor,
             int maxPartitionBatchSize)
     {
@@ -132,6 +134,7 @@ class HiveSplitSourceProvider
         this.maxThreads = maxThreads;
         this.hdfsEnvironment = hdfsEnvironment;
         this.namenodeStats = namenodeStats;
+        this.directoryLister = directoryLister;
         this.executor = executor;
         this.classLoader = Thread.currentThread().getContextClassLoader();
     }
@@ -218,7 +221,7 @@ class HiveSplitSourceProvider
                 // callback to release it. Otherwise, we will need a try-finally block around this section.
                 semaphore.acquire();
 
-                ListenableFuture<Void> partitionFuture = new AsyncRecursiveWalker(fs, suspendingExecutor, namenodeStats).beginWalk(path, new FileStatusCallback()
+                ListenableFuture<Void> partitionFuture = createRecursiveWalker(fs, suspendingExecutor).beginWalk(path, new FileStatusCallback()
                 {
                     @Override
                     public void process(FileStatus file, BlockLocation[] blockLocations)
@@ -273,6 +276,11 @@ class HiveSplitSourceProvider
             hiveSplitSource.fail(e);
             Throwables.propagateIfInstanceOf(e, Error.class);
         }
+    }
+
+    private AsyncRecursiveWalker createRecursiveWalker(FileSystem fs, SuspendingExecutor suspendingExecutor)
+    {
+        return new AsyncRecursiveWalker(fs, suspendingExecutor, directoryLister, namenodeStats);
     }
 
     private static Optional<FileStatus> getBucketFile(HiveBucket bucket, FileSystem fs, Path path)
