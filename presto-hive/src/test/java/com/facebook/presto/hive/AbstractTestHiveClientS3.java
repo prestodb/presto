@@ -14,7 +14,6 @@
 package com.facebook.presto.hive;
 
 import com.facebook.presto.hive.shaded.org.apache.thrift.TException;
-import com.facebook.presto.hive.util.HadoopApiStats;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ColumnType;
@@ -96,7 +95,7 @@ public abstract class AbstractTestHiveClientS3
                 new HiveConnectorId("hive-test"),
                 hiveClientConfig,
                 metastoreClient,
-                new HadoopApiStats(),
+                new NamenodeStats(),
                 new HdfsEnvironment(new HdfsConfiguration(hiveClientConfig)),
                 sameThreadExecutor());
     }
