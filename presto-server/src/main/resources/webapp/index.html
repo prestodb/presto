@@ -118,10 +118,15 @@ function renderDoneQueries(queries)
                       var splits = queryInfo.queryStats.totalDrivers;
                       var completedSplits = queryInfo.queryStats.completedDrivers;
 
+                      var query = queryInfo.query;
+                      if (query.length > 200) {
+                          query = query.substring(0, 200) + "...";
+                      }
+
                       return [
                           queryInfo.queryId,
                           queryInfo.queryStats.elapsedTime,
-                          queryInfo.query,
+                          query,
                           queryInfo.session.source,
                           queryInfo.session.user,
                           queryInfo.state,
