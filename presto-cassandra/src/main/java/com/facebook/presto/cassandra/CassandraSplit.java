@@ -34,6 +34,7 @@ public class CassandraSplit
     private final String schema;
     private final String table;
     private final String splitCondition;
+    private final long limit;
 
     @JsonCreator
     public CassandraSplit(
@@ -42,7 +43,8 @@ public class CassandraSplit
             @JsonProperty("table") String table,
             @JsonProperty("partitionId") String partitionId,
             @JsonProperty("splitCondition") String splitCondition,
-            @JsonProperty("addresses") List<HostAddress> addresses)
+            @JsonProperty("addresses") List<HostAddress> addresses,
+            @JsonProperty("limit") long limit)
     {
         checkNotNull(connectorId, "connectorId is null");
         checkNotNull(schema, "schema is null");
@@ -56,6 +58,7 @@ public class CassandraSplit
         this.partitionId = partitionId;
         this.addresses = ImmutableList.copyOf(addresses);
         this.splitCondition = splitCondition;
+        this.limit = limit;
     }
 
     @JsonProperty
@@ -139,6 +142,12 @@ public class CassandraSplit
                 return " WHERE " + partitionId;
             }
         }
+    }
+
+    @JsonProperty
+    public long getLimit()
+    {
+        return limit;
     }
 
     public CassandraTableHandle getCassandraTableHandle()

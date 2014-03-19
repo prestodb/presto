@@ -51,6 +51,7 @@ public class TableScanNode
     private final Optional<GeneratedPartitions> generatedPartitions;
     private final boolean partitionsDroppedBySerialization;
     private final TupleDomain partitionDomainSummary;
+    private long limit = -1;
 
     // HACK!
     //
@@ -225,5 +226,15 @@ public class TableScanNode
             final GeneratedPartitions other = (GeneratedPartitions) obj;
             return Objects.equal(this.tupleDomainInput, other.tupleDomainInput) && Objects.equal(this.partitions, other.partitions);
         }
+    }
+
+    public void setLimit(long limit)
+    {
+        this.limit = limit;
+    }
+
+    public long getLimit()
+    {
+        return limit;
     }
 }

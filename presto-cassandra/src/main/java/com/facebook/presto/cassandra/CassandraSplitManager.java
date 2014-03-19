@@ -86,7 +86,6 @@ public class CassandraSplitManager
         checkNotNull(tableHandle, "tableHandle is null");
         checkNotNull(tupleDomain, "tupleDomain is null");
         CassandraTableHandle cassandraTableHandle = (CassandraTableHandle) tableHandle;
-
         CassandraTable table = schemaProvider.getTable(cassandraTableHandle);
 
         List<CassandraColumnHandle> partitionKeys = table.getPartitionKeyColumns();
@@ -126,6 +125,9 @@ public class CassandraSplitManager
             @SuppressWarnings({"rawtypes", "unchecked"})
             List<ColumnHandle> partitionColumns = (List) partitionKeys;
             remainingTupleDomain = TupleDomain.withColumnDomains(Maps.filterKeys(tupleDomain.getDomains(), not(in(partitionColumns))));
+            if (tupleDomain.getLimit() > 0) {
+                remainingTupleDomain.setLimit(tupleDomain.getLimit());
+            }
         }
 
         return new PartitionResult(partitions, remainingTupleDomain);
@@ -151,7 +153,7 @@ public class CassandraSplitManager
 
             if (cassandraPartition.isUnpartitioned()) {
                 CassandraTable table = schemaProvider.getTable(cassandraTableHandle);
-                List<Split> splits = getSplitsByTokenRange(table, cassandraPartition.getPartitionId());
+                List<Split> splits = getSplitsByTokenRange(table, cassandraPartition.getPartitionId(), cassandraPartition.getTupleDomain().getLimit());
                 return new FixedSplitSource(connectorId, splits);
             }
         }
@@ -159,7 +161,7 @@ public class CassandraSplitManager
         return new FixedSplitSource(connectorId, getSplitsForPartitions(cassandraTableHandle, partitions));
     }
 
-    private List<Split> getSplitsByTokenRange(CassandraTable table, String partitionId)
+    private List<Split> getSplitsByTokenRange(CassandraTable table, String partitionId, long limit)
     {
         String schema = table.getTableHandle().getSchemaName();
         String tableName = table.getTableHandle().getTableName();
@@ -179,7 +181,7 @@ public class CassandraSplitManager
             long endToken = startToken + delta;
             String condition = buildTokenCondition(tokenExpression, startToken, endToken);
 
-            CassandraSplit split = new CassandraSplit(connectorId, schema, tableName, partitionId, condition, addresses);
+            CassandraSplit split = new CassandraSplit(connectorId, schema, tableName, partitionId, condition, addresses, -1);
             builder.add(split);
 
             startToken = endToken + 1;
@@ -187,7 +189,7 @@ public class CassandraSplitManager
 
         // special handling for last split
         String condition = buildTokenCondition(tokenExpression, startToken, end.longValue());
-        CassandraSplit split = new CassandraSplit(connectorId, schema, tableName, partitionId, condition, addresses);
+        CassandraSplit split = new CassandraSplit(connectorId, schema, tableName, partitionId, condition, addresses, limit);
         builder.add(split);
 
         return builder.build();
@@ -210,7 +212,7 @@ public class CassandraSplitManager
 
             Set<Host> hosts = cassandraSession.getReplicas(schema, cassandraPartition.getKeyAsByteBuffer());
             List<HostAddress> addresses = hostAddressFactory.toHostAddressList(hosts);
-            CassandraSplit split = new CassandraSplit(connectorId, schema, table, cassandraPartition.getPartitionId(), null, addresses);
+            CassandraSplit split = new CassandraSplit(connectorId, schema, table, cassandraPartition.getPartitionId(), null, addresses, -1);
             builder.add(split);
         }
         return builder.build();

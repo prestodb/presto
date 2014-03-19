@@ -28,6 +28,7 @@ import com.facebook.presto.sql.planner.plan.PlanRewriter;
 import com.facebook.presto.sql.planner.plan.ProjectNode;
 import com.facebook.presto.sql.planner.plan.SemiJoinNode;
 import com.facebook.presto.sql.planner.plan.SortNode;
+import com.facebook.presto.sql.planner.plan.TableScanNode;
 import com.facebook.presto.sql.planner.plan.TopNNode;
 import com.facebook.presto.sql.planner.plan.UnionNode;
 import com.facebook.presto.sql.tree.Expression;
@@ -103,6 +104,12 @@ public class LimitPushDown
         @Override
         public PlanNode rewriteLimit(LimitNode node, LimitContext context, PlanRewriter<LimitContext> planRewriter)
         {
+            for (PlanNode source : node.getSources()) {
+                if (source instanceof TableScanNode) {
+                    ((TableScanNode) source).setLimit(node.getCount());
+                }
+            }
+
             if (context != null && context.getCount() < node.getCount()) {
                 if (context.getSampleWeight().isPresent()) {
                     checkState(node.getSampleWeight().isPresent() && node.getSampleWeight().equals(context.getSampleWeight()), "sample weight symbols don't match");

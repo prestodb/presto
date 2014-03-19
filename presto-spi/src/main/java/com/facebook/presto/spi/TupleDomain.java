@@ -50,6 +50,13 @@ public final class TupleDomain
      * we remove any Domain.all() values from the map.
      */
     private final Map<ColumnHandle, Domain> domains;
+    private long limit = -1;
+
+    private TupleDomain(Map<ColumnHandle, Domain> domains, long limit)
+    {
+        this(domains);
+        this.limit = limit;
+    }
 
     private TupleDomain(Map<ColumnHandle, Domain> domains)
     {
@@ -64,6 +71,11 @@ public final class TupleDomain
     public static TupleDomain withColumnDomains(Map<ColumnHandle, Domain> domains)
     {
         return new TupleDomain(Objects.requireNonNull(domains, "domains is null"));
+    }
+
+    public void setLimit(long limit)
+    {
+        this.limit = limit;
     }
 
     public static TupleDomain none()
@@ -104,6 +116,11 @@ public final class TupleDomain
     public List<ColumnDomain> getNullableColumnDomains()
     {
         return domains == null ? null : toList(domains);
+    }
+
+    public long getLimit()
+    {
+        return limit;
     }
 
     private static Map<ColumnHandle, Domain> toMap(List<ColumnDomain> columnDomains)
@@ -343,6 +360,10 @@ public final class TupleDomain
             return false;
         }
 
+        if (limit != that.limit) {
+            return false;
+        }
+
         return true;
     }
 
@@ -365,6 +386,9 @@ public final class TupleDomain
         }
         else {
             builder.append(domains);
+        }
+        if (limit > -1) {
+            builder.append(", limit: " + limit);
         }
         return builder.toString();
     }

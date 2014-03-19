@@ -782,6 +782,9 @@ public class PredicatePushDown
                 tupleDomain = tupleDomain.intersect(node.getGeneratedPartitions().get().getTupleDomainInput()).intersect(node.getPartitionsDomainSummary());
             }
 
+            if (node.getLimit() > 0) {
+                tupleDomain.setLimit(node.getLimit());
+            }
             Stopwatch partitionTimer = Stopwatch.createStarted();
             PartitionResult matchingPartitions = splitManager.getPartitions(node.getTable(), Optional.of(tupleDomain));
             List<Partition> partitions = matchingPartitions.getPartitions();
