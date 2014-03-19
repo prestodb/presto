@@ -24,6 +24,6 @@ public class AbandonedException
 {
     public AbandonedException(String name, DateTime lastHeartbeat, DateTime now)
     {
-        super(ABANDONED_QUERY, format("%s has not been accessed since %s: currentTime %s", name, lastHeartbeat, now));
+        super(ABANDONED_QUERY.toErrorCode(), format("%s has not been accessed since %s: currentTime %s", name, lastHeartbeat, now));
     }
 }

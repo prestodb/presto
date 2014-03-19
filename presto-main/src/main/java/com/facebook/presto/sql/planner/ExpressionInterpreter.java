@@ -466,7 +466,7 @@ public class ExpressionInterpreter
                             return leftNumber.longValue() / rightNumber.longValue();
                         }
                         catch (ArithmeticException e) {
-                            throw new PrestoException(StandardErrorCode.DIVISION_BY_ZERO, e);
+                            throw new PrestoException(StandardErrorCode.DIVISION_BY_ZERO.toErrorCode(), e);
                         }
                     }
                     else {

@@ -247,7 +247,7 @@ public class FunctionRegistry
             String expected = Joiner.on(", ").join(expectedParameters);
             message = format("Unexpected parameters (%s) for function %s. Expected: %s", parameters, name, expected);
         }
-        throw new PrestoException(StandardErrorCode.FUNCTION_NOT_FOUND, message);
+        throw new PrestoException(StandardErrorCode.FUNCTION_NOT_FOUND.toErrorCode(), message);
     }
 
     private static boolean canCoerce(List<Type> parameterTypes, FunctionInfo functionInfo)

@@ -257,7 +257,7 @@ public class CachingHiveMetastore
             }));
         }
         catch (TException e) {
-            throw new PrestoException(HiveErrorCode.HIVE_METASTORE_ERROR, e);
+            throw new PrestoException(HiveErrorCode.HIVE_METASTORE_ERROR.toErrorCode(), e);
         }
     }
 
@@ -287,7 +287,7 @@ public class CachingHiveMetastore
             throw e;
         }
         catch (TException e) {
-            throw new PrestoException(HiveErrorCode.HIVE_METASTORE_ERROR, e);
+            throw new PrestoException(HiveErrorCode.HIVE_METASTORE_ERROR.toErrorCode(), e);
         }
     }
 
@@ -345,7 +345,7 @@ public class CachingHiveMetastore
             throw e;
         }
         catch (TException e) {
-            throw new PrestoException(HiveErrorCode.HIVE_METASTORE_ERROR, e);
+            throw new PrestoException(HiveErrorCode.HIVE_METASTORE_ERROR.toErrorCode(), e);
         }
     }
 
@@ -381,7 +381,7 @@ public class CachingHiveMetastore
             throw Throwables.propagate(e);
         }
         catch (TException e) {
-            throw new PrestoException(HiveErrorCode.HIVE_METASTORE_ERROR, e);
+            throw new PrestoException(HiveErrorCode.HIVE_METASTORE_ERROR.toErrorCode(), e);
         }
         catch (Exception e) {
             if (e instanceof InterruptedException) {
@@ -411,7 +411,7 @@ public class CachingHiveMetastore
             throw Throwables.propagate(e);
         }
         catch (TException e) {
-            throw new PrestoException(HiveErrorCode.HIVE_METASTORE_ERROR, e);
+            throw new PrestoException(HiveErrorCode.HIVE_METASTORE_ERROR.toErrorCode(), e);
         }
         catch (Exception e) {
             if (e instanceof InterruptedException) {
@@ -445,7 +445,7 @@ public class CachingHiveMetastore
             throw e;
         }
         catch (TException e) {
-            throw new PrestoException(HiveErrorCode.HIVE_METASTORE_ERROR, e);
+            throw new PrestoException(HiveErrorCode.HIVE_METASTORE_ERROR.toErrorCode(), e);
         }
     }
 
@@ -475,7 +475,7 @@ public class CachingHiveMetastore
             throw e;
         }
         catch (TException e) {
-            throw new PrestoException(HiveErrorCode.HIVE_METASTORE_ERROR, e);
+            throw new PrestoException(HiveErrorCode.HIVE_METASTORE_ERROR.toErrorCode(), e);
         }
     }
 
@@ -508,7 +508,7 @@ public class CachingHiveMetastore
             throw e;
         }
         catch (TException e) {
-            throw new PrestoException(HiveErrorCode.HIVE_METASTORE_ERROR, e);
+            throw new PrestoException(HiveErrorCode.HIVE_METASTORE_ERROR.toErrorCode(), e);
         }
     }
 
@@ -545,7 +545,7 @@ public class CachingHiveMetastore
             throw e;
         }
         catch (TException e) {
-            throw new PrestoException(HiveErrorCode.HIVE_METASTORE_ERROR, e);
+            throw new PrestoException(HiveErrorCode.HIVE_METASTORE_ERROR.toErrorCode(), e);
         }
     }
 
@@ -591,7 +591,7 @@ public class CachingHiveMetastore
             throw e;
         }
         catch (TException e) {
-            throw new PrestoException(HiveErrorCode.HIVE_METASTORE_ERROR, e);
+            throw new PrestoException(HiveErrorCode.HIVE_METASTORE_ERROR.toErrorCode(), e);
         }
     }
 

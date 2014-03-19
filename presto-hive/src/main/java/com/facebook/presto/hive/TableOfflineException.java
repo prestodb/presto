@@ -30,7 +30,7 @@ public class TableOfflineException
 
     public TableOfflineException(SchemaTableName tableName, String message)
     {
-        super(HiveErrorCode.HIVE_TABLE_OFFLINE, message);
+        super(HiveErrorCode.HIVE_TABLE_OFFLINE.toErrorCode(), message);
         this.tableName = checkNotNull(tableName, "tableName is null");
     }
 

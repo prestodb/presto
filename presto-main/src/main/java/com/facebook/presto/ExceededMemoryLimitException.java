@@ -22,6 +22,6 @@ public class ExceededMemoryLimitException
 {
     public ExceededMemoryLimitException(DataSize maxMemory)
     {
-        super(StandardErrorCode.EXCEEDED_MEMORY_LIMIT, String.format("Task exceeded max memory size of %s", maxMemory));
+        super(StandardErrorCode.EXCEEDED_MEMORY_LIMIT.toErrorCode(), String.format("Task exceeded max memory size of %s", maxMemory));
     }
 }

@@ -33,11 +33,11 @@ public abstract class NotFoundException
 
     protected NotFoundException(String message, Throwable cause)
     {
-        super(StandardErrorCode.NOT_FOUND, message, cause);
+        super(StandardErrorCode.NOT_FOUND.toErrorCode(), message, cause);
     }
 
     protected NotFoundException(String message, Throwable cause, boolean enableSuppression, boolean writableStackTrace)
     {
-        super(StandardErrorCode.NOT_FOUND, message, cause, enableSuppression, writableStackTrace);
+        super(StandardErrorCode.NOT_FOUND.toErrorCode(), message, cause, enableSuppression, writableStackTrace);
     }
 }

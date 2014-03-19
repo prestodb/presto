@@ -508,7 +508,7 @@ public class HttpRemoteTask
         Duration timeSinceLastSuccess = Duration.nanosSince(lastSuccessfulRequest.get());
         if (errorCount > maxConsecutiveErrorCount && timeSinceLastSuccess.compareTo(minErrorDuration) > 0) {
             // it is weird to mark the task failed locally and then cancel the remote task, but there is no way to tell a remote task that it is failed
-            PrestoException exception = new PrestoException(TOO_MANY_REQUESTS_FAILED, format("Too many requests to %s failed: %s failures: Time since last success %s",
+            PrestoException exception = new PrestoException(TOO_MANY_REQUESTS_FAILED.toErrorCode(), format("Too many requests to %s failed: %s failures: Time since last success %s",
                     taskInfo.getSelf(),
                     errorCount,
                     timeSinceLastSuccess));

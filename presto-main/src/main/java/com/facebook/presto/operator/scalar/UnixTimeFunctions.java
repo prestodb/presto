@@ -365,7 +365,7 @@ public final class UnixTimeFunctions
                     case 'X': // %X Year for the week where Sunday is the first day of the week, numeric, four digits; used with %V
                     case 'x': // %x Year for the week, where Monday is the first day of the week, numeric, four digits; used with %v
                     case 'D': // %D Day of the month with English suffix (0th, 1st, 2nd, 3rd, …)
-                        throw new PrestoException(StandardErrorCode.INVALID_FUNCTION_ARGUMENT, String.format("%%%s not supported in date format string", character));
+                        throw new PrestoException(StandardErrorCode.INVALID_FUNCTION_ARGUMENT.toErrorCode(), String.format("%%%s not supported in date format string", character));
                     case '%': // %% A literal “%” character
                         builder.appendLiteral('%');
                         break;
