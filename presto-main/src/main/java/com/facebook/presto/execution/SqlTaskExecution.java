@@ -616,6 +616,9 @@ public class SqlTaskExecution
         private final DriverSplitRunnerFactory driverSplitRunnerFactory;
         private final DriverContext driverContext;
 
+        @GuardedBy("this")
+        private boolean closed;
+
         @Nullable
         private final ScheduledSplit partitionedSplit;
 
@@ -644,18 +647,34 @@ public class SqlTaskExecution
         }
 
         @Override
-        public synchronized ListenableFuture<?> processFor(Duration duration)
+        public ListenableFuture<?> processFor(Duration duration)
         {
-            if (driver == null) {
-                driver = driverSplitRunnerFactory.createDriver(driverContext, partitionedSplit);
+            Driver driver;
+            synchronized (this) {
+                // if close() was called before we get here, there's not point in even creating the driver
+                if (closed) {
+                    return Futures.immediateFuture(null);
+                }
+
+                if (this.driver == null) {
+                    this.driver = driverSplitRunnerFactory.createDriver(driverContext, partitionedSplit);
+                }
+
+                driver = this.driver;
             }
 
             return driver.processFor(duration);
         }
 
         @Override
-        public synchronized void close()
+        public void close()
         {
+            Driver driver;
+            synchronized (this) {
+                closed = true;
+                driver = this.driver;
+            }
+
             if (driver != null) {
                 driver.close();
             }
