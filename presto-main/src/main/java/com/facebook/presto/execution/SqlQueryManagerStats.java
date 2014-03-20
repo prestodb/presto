@@ -23,6 +23,7 @@ public class SqlQueryManagerStats
 {
     private final CounterStat startedQueries = new CounterStat();
     private final CounterStat completedQueries = new CounterStat();
+    private final CounterStat failedQueries = new CounterStat();
     private final CounterStat userErrorFailures = new CounterStat();
     private final CounterStat internalFailures = new CounterStat();
     private final CounterStat externalFailures = new CounterStat();
@@ -54,6 +55,7 @@ public class SqlQueryManagerStats
                     externalFailures.update(1);
                     break;
             }
+            failedQueries.update(1);
         }
     }
 
@@ -75,6 +77,13 @@ public class SqlQueryManagerStats
     public CounterStat getCompletedQueries()
     {
         return completedQueries;
+    }
+
+    @Managed
+    @Nested
+    public CounterStat getFailedQueries()
+    {
+        return failedQueries;
     }
 
     @Managed
