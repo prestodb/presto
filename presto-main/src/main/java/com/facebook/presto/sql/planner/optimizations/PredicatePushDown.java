@@ -67,7 +67,6 @@ import com.google.common.base.Optional;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Predicate;
 import com.google.common.base.Predicates;
-import com.google.common.base.Stopwatch;
 import com.google.common.collect.ImmutableBiMap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -82,7 +81,6 @@ import java.util.EnumSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.concurrent.TimeUnit;
 
 import static com.facebook.presto.sql.ExpressionUtils.and;
 import static com.facebook.presto.sql.ExpressionUtils.combineConjuncts;
@@ -782,11 +780,9 @@ public class PredicatePushDown
                 tupleDomain = tupleDomain.intersect(node.getGeneratedPartitions().get().getTupleDomainInput()).intersect(node.getPartitionsDomainSummary());
             }
 
-            Stopwatch partitionTimer = Stopwatch.createStarted();
             PartitionResult matchingPartitions = splitManager.getPartitions(node.getTable(), Optional.of(tupleDomain));
             List<Partition> partitions = matchingPartitions.getPartitions();
             TupleDomain undeterminedTupleDomain = matchingPartitions.getUndeterminedTupleDomain();
-            log.debug("Partition retrieval, table %s (%d partitions): %dms", node.getTable(), partitions.size(), partitionTimer.elapsed(TimeUnit.MILLISECONDS));
 
             Expression unevaluatedDomainPredicate = DomainTranslator.toPredicate(undeterminedTupleDomain, ImmutableBiMap.copyOf(node.getAssignments()).inverse());
 
