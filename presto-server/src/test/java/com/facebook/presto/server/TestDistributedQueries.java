@@ -37,6 +37,7 @@ import com.google.common.base.Joiner;
 import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.inject.Module;
 import io.airlift.http.client.AsyncHttpClient;
 import io.airlift.http.client.HttpClientConfig;
 import io.airlift.http.client.jetty.JettyHttpClient;
@@ -424,7 +425,7 @@ public class TestDistributedQueries
                 .put("datasources", "native,tpch,tpch_sampled")
                 .build();
 
-        TestingPrestoServer server = new TestingPrestoServer(coordinator, properties, ENVIRONMENT, discoveryUri);
+        TestingPrestoServer server = new TestingPrestoServer(coordinator, properties, ENVIRONMENT, discoveryUri, ImmutableList.<Module>of());
         server.installPlugin(new TpchPlugin(), "tpch", "tpch");
         server.installPlugin(new SampledTpchPlugin(), "tpch_sampled", "tpch_sampled");
         return server;

@@ -47,6 +47,7 @@ import java.io.Closeable;
 import java.net.URI;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.List;
 import java.util.Map;
 
 import static com.facebook.presto.server.testing.FileUtils.deleteRecursively;
@@ -67,10 +68,16 @@ public class TestingPrestoServer
     public TestingPrestoServer()
             throws Exception
     {
-        this(true, ImmutableMap.<String, String>of(), null, null);
+        this(ImmutableList.<Module>of());
     }
 
-    public TestingPrestoServer(boolean coordinator, Map<String, String> properties, String environment, URI discoveryUri)
+    public TestingPrestoServer(List<Module> additionalModules)
+            throws Exception
+    {
+        this(true, ImmutableMap.<String, String>of(), null, null, additionalModules);
+    }
+
+    public TestingPrestoServer(boolean coordinator, Map<String, String> properties, String environment, URI discoveryUri, List<Module> additionalModules)
             throws Exception
     {
         baseDataDir = Files.createTempDirectory("PrestoTest");
@@ -108,6 +115,8 @@ public class TestingPrestoServer
         else {
             modules.add(new TestingDiscoveryModule());
         }
+
+        modules.addAll(additionalModules);
 
         Bootstrap app = new Bootstrap(modules.build());
 
