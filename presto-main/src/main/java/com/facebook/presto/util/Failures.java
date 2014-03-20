@@ -14,8 +14,10 @@
 package com.facebook.presto.util;
 
 import com.facebook.presto.client.ErrorLocation;
-import com.facebook.presto.client.Failure;
-import com.facebook.presto.client.FailureInfo;
+import com.facebook.presto.execution.ExecutionFailureInfo;
+import com.facebook.presto.execution.Failure;
+import com.facebook.presto.spi.ErrorCode;
+import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.sql.parser.ParsingException;
 import com.google.common.base.Function;
 import com.google.common.collect.ImmutableList;
@@ -33,7 +35,7 @@ public final class Failures
 {
     private Failures() {}
 
-    public static FailureInfo toFailure(Throwable failure)
+    public static ExecutionFailureInfo toFailure(Throwable failure)
     {
         if (failure == null) {
             return null;
@@ -47,25 +49,34 @@ public final class Failures
             type = failure.getClass().getCanonicalName();
         }
 
-        return new FailureInfo(type,
+        ErrorCode errorCode = null;
+        if (failure instanceof PrestoException) {
+            errorCode = ((PrestoException) failure).getErrorCode();
+        }
+        else if (failure instanceof Failure) {
+            errorCode = ((Failure) failure).getErrorCode();
+        }
+
+        return new ExecutionFailureInfo(type,
                 failure.getMessage(),
                 toFailure(failure.getCause()),
                 toFailures(asList(failure.getSuppressed())),
                 Lists.transform(asList(failure.getStackTrace()), toStringFunction()),
-                getErrorLocation(failure));
+                getErrorLocation(failure),
+                errorCode);
     }
 
-    public static List<FailureInfo> toFailures(Iterable<? extends Throwable> failures)
+    public static List<ExecutionFailureInfo> toFailures(Iterable<? extends Throwable> failures)
     {
         return ImmutableList.copyOf(transform(failures, toFailureFunction()));
     }
 
-    private static Function<Throwable, FailureInfo> toFailureFunction()
+    private static Function<Throwable, ExecutionFailureInfo> toFailureFunction()
     {
-        return new Function<Throwable, FailureInfo>()
+        return new Function<Throwable, ExecutionFailureInfo>()
         {
             @Override
-            public FailureInfo apply(Throwable throwable)
+            public ExecutionFailureInfo apply(Throwable throwable)
             {
                 return toFailure(throwable);
             }

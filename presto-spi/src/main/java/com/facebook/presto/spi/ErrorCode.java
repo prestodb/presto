@@ -13,8 +13,30 @@
  */
 package com.facebook.presto.spi;
 
-public interface ErrorCode
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonProperty;
+
+public final class ErrorCode
 {
-    int getCode();
-    String getName();
+    private final int code;
+    private final String name;
+
+    @JsonCreator
+    public ErrorCode(@JsonProperty("code") int code, @JsonProperty("name") String name)
+    {
+        this.code = code;
+        this.name = name;
+    }
+
+    @JsonProperty
+    public int getCode()
+    {
+        return code;
+    }
+
+    @JsonProperty
+    public String getName()
+    {
+        return name;
+    }
 }

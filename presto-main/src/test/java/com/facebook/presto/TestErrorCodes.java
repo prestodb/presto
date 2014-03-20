@@ -15,6 +15,7 @@ package com.facebook.presto;
 
 import com.facebook.presto.spi.StandardErrorCode;
 import com.facebook.presto.util.IterableTransformer;
+import com.google.common.base.Function;
 import org.testng.annotations.Test;
 
 import java.util.Set;
@@ -27,7 +28,14 @@ public class TestErrorCodes
     @Test
     public void testUnique()
     {
-        Set<Integer> codes = IterableTransformer.on(StandardErrorCode.values()).transform(ErrorCodes.codeGetter()).set();
+        Set<Integer> codes = IterableTransformer.on(StandardErrorCode.values()).transform(new Function<StandardErrorCode, Integer>()
+        {
+            @Override
+            public Integer apply(StandardErrorCode input)
+            {
+                return input.toErrorCode().getCode();
+            }
+        }).set();
 
         assertEquals(codes.size(), StandardErrorCode.values().length);
     }
@@ -36,7 +44,7 @@ public class TestErrorCodes
     public void testReserved()
     {
         for (StandardErrorCode errorCode : StandardErrorCode.values()) {
-            assertLessThanOrEqual(errorCode.getCode(), StandardErrorCode.EXTERNAL.getCode());
+            assertLessThanOrEqual(errorCode.toErrorCode().getCode(), StandardErrorCode.EXTERNAL.toErrorCode().getCode());
         }
     }
 }

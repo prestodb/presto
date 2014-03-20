@@ -15,7 +15,6 @@ package com.facebook.presto.server;
 
 import com.facebook.presto.TaskSource;
 import com.facebook.presto.UnpartitionedPagePartitionFunction;
-import com.facebook.presto.client.FailureInfo;
 import com.facebook.presto.execution.LocationFactory;
 import com.facebook.presto.execution.QueryId;
 import com.facebook.presto.execution.QueryInfo;
@@ -30,6 +29,7 @@ import com.facebook.presto.execution.TaskId;
 import com.facebook.presto.execution.TaskInfo;
 import com.facebook.presto.sql.analyzer.Session;
 import com.facebook.presto.tuple.TupleInfo;
+import com.facebook.presto.execution.ExecutionFailureInfo;
 import com.google.common.base.Function;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Predicates;
@@ -190,7 +190,7 @@ public class MockQueryManager
                             new StageStats(),
                             ImmutableList.<TaskInfo>of(outputTask),
                             ImmutableList.<StageInfo>of(),
-                            ImmutableList.<FailureInfo>of()),
+                            ImmutableList.<ExecutionFailureInfo>of()),
                     null,
                     null,
                     null);

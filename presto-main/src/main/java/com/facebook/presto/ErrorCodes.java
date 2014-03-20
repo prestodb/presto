@@ -18,7 +18,7 @@ import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.StandardErrorCode;
 import com.facebook.presto.sql.analyzer.SemanticException;
 import com.facebook.presto.sql.parser.ParsingException;
-import com.google.common.base.Function;
+import com.facebook.presto.execution.Failure;
 
 import javax.annotation.Nullable;
 
@@ -38,23 +38,15 @@ public final class ErrorCodes
         if (throwable instanceof PrestoException) {
             return ((PrestoException) throwable).getErrorCode();
         }
+        if (throwable instanceof Failure && ((Failure) throwable).getErrorCode() != null) {
+            return ((Failure) throwable).getErrorCode();
+        }
         if (throwable instanceof ParsingException || throwable instanceof SemanticException) {
-            return StandardErrorCode.SYNTAX_ERROR;
+            return StandardErrorCode.SYNTAX_ERROR.toErrorCode();
         }
         if (throwable.getCause() != null) {
             return toErrorCode(throwable.getCause());
         }
-        return StandardErrorCode.INTERNAL;
-    }
-
-    public static Function<ErrorCode, Integer> codeGetter()
-    {
-        return new Function<ErrorCode, Integer>() {
-            @Override
-            public Integer apply(ErrorCode input)
-            {
-                return input.getCode();
-            }
-        };
+        return StandardErrorCode.INTERNAL.toErrorCode();
     }
 }
