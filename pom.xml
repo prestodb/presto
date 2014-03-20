@@ -36,11 +36,13 @@
     <properties>
         <air.main.basedir>${project.basedir}</air.main.basedir>
 
+        <dep.jetty.version>9.1.3.v20140225</dep.jetty.version>
+
         <air.check.skip-extended>true</air.check.skip-extended>
         <air.check.skip-license>false</air.check.skip-license>
 
         <dep.antlr.version>3.4</dep.antlr.version>
-        <dep.airlift.version>0.86</dep.airlift.version>
+        <dep.airlift.version>0.87-SNAPSHOT</dep.airlift.version>
         <dep.packaging.version>${dep.airlift.version}</dep.packaging.version>
 
         <cli.skip-execute>true</cli.skip-execute>
