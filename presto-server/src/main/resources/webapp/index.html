@@ -111,12 +111,8 @@ function renderDoneQueries(queries)
 
     rows.selectAll("td")
             .data(function (queryInfo) {
-                      var stages = allStages(queryInfo.outputStage);
-
-                      var tasks = queryInfo.queryStats.totalTasks;
-
-                      var splits = queryInfo.queryStats.totalDrivers;
-                      var completedSplits = queryInfo.queryStats.completedDrivers;
+                      var splits = queryInfo.totalDrivers;
+                      var completedSplits = queryInfo.completedDrivers;
 
                       var query = queryInfo.query;
                       if (query.length > 200) {
@@ -125,7 +121,7 @@ function renderDoneQueries(queries)
 
                       return [
                           queryInfo.queryId,
-                          queryInfo.queryStats.elapsedTime,
+                          queryInfo.elapsedTime,
                           query,
                           queryInfo.session.source,
                           queryInfo.session.user,
@@ -143,7 +139,7 @@ function renderDoneQueries(queries)
                   });
 
     tbody.selectAll("tr")
-            .sort(function (a, b) { return d3.descending(a.queryStats.endTime, b.queryStats.endTime); });
+            .sort(function (a, b) { return d3.descending(a.endTime, b.endTime); });
 }
 
 function renderRunningQueries(queries)
@@ -164,15 +160,11 @@ function renderRunningQueries(queries)
     var cells = rows.selectAll("td")
             .data(function (queryInfo)
                   {
-                      var stages = allStages(queryInfo.outputStage);
+                      var splits = queryInfo.totalDrivers;
+                      var completedSplits = queryInfo.completedDrivers;
 
-                      var tasks = queryInfo.queryStats.totalTasks;
-
-                      var splits = queryInfo.queryStats.totalDrivers;
-                      var completedSplits = queryInfo.queryStats.completedDrivers;
-
-                      var runningSplits = queryInfo.queryStats.runningDrivers;
-                      var queuedSplits = queryInfo.queryStats.queuedDrivers;
+                      var runningSplits = queryInfo.runningDrivers;
+                      var queuedSplits = queryInfo.queuedDrivers;
 
                       var query = queryInfo.query;
                       if (query.length > 200) {
@@ -181,7 +173,7 @@ function renderRunningQueries(queries)
 
                       return [
                           queryInfo.queryId,
-                          queryInfo.queryStats.elapsedTime,
+                          queryInfo.elapsedTime,
                           query,
                           queryInfo.session.source,
                           queryInfo.session.user,
@@ -200,7 +192,7 @@ function renderRunningQueries(queries)
             .text(function (d) { return d; });
 
     tbody.selectAll("tr")
-            .sort(function (a, b) { return d3.descending(a.queryStats.createTime, b.queryStats.createTime); });
+            .sort(function (a, b) { return d3.descending(a.createTime, b.createTime); });
 }
 
 function allStages(stage)
