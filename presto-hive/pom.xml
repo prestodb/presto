@@ -14,6 +14,7 @@
 
     <properties>
         <air.main.basedir>${project.parent.basedir}</air.main.basedir>
+        <dep.parquet.version>1.3.2</dep.parquet.version>
     </properties>
 
     <dependencies>
@@ -50,6 +51,12 @@
             <groupId>com.fasterxml.jackson.core</groupId>
             <artifactId>jackson-databind</artifactId>
             <scope>provided</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>com.twitter</groupId>
+            <artifactId>parquet-hive-bundle</artifactId>
+            <version>${dep.parquet.version}</version>
         </dependency>
 
         <dependency>
