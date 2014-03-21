@@ -18,6 +18,7 @@ import com.facebook.presto.execution.QueryInfo;
 import com.facebook.presto.execution.QueryManager;
 import com.facebook.presto.execution.StageId;
 import com.facebook.presto.sql.analyzer.Session;
+import com.google.common.collect.ImmutableList;
 
 import javax.inject.Inject;
 import javax.servlet.http.HttpServletRequest;
@@ -66,9 +67,18 @@ public class QueryResource
     }
 
     @GET
-    public List<QueryInfo> getAllQueryInfo()
+    public List<BasicQueryInfo> getAllQueryInfo()
     {
-        return queryManager.getAllQueryInfo();
+        return extractBasicQueryInfo(queryManager.getAllQueryInfo());
+    }
+
+    private List<BasicQueryInfo> extractBasicQueryInfo(List<QueryInfo> allQueryInfo)
+    {
+        ImmutableList.Builder<BasicQueryInfo> basicQueryInfo = ImmutableList.builder();
+        for (QueryInfo queryInfo : allQueryInfo) {
+            basicQueryInfo.add(new BasicQueryInfo(queryInfo));
+        }
+        return basicQueryInfo.build();
     }
 
     @GET
