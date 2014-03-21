@@ -21,6 +21,7 @@ import com.facebook.presto.metadata.TableMetadata;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.Domain;
+import com.facebook.presto.spi.Session;
 import com.facebook.presto.spi.TupleDomain;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
@@ -55,17 +56,17 @@ public final class JsonPlanPrinter
     private static final JsonCodec<QueryExplanation> CODEC = JsonCodec.jsonCodec(QueryExplanation.class);
     private final ImmutableList.Builder<Input> inputBuilder = ImmutableList.builder();
 
-    private JsonPlanPrinter(PlanNode plan, Metadata metadata)
+    private JsonPlanPrinter(PlanNode plan, Session session, Metadata metadata)
     {
         checkNotNull(plan, "plan is null");
         checkNotNull(metadata, "metadata is null");
-        SourceVisitor visitor = new SourceVisitor(metadata);
+        SourceVisitor visitor = new SourceVisitor(session, metadata);
         plan.accept(visitor, null);
     }
 
-    public static String getPlan(PlanNode plan, Metadata metadata)
+    public static String getPlan(PlanNode plan, Session session, Metadata metadata)
     {
-        return new JsonPlanPrinter(plan, metadata).toString();
+        return new JsonPlanPrinter(plan, session, metadata).toString();
     }
 
     @Override
@@ -77,10 +78,12 @@ public final class JsonPlanPrinter
     private class SourceVisitor
             extends PlanVisitor<Void, Void>
     {
+        private final Session session;
         private final Metadata metadata;
 
-        public SourceVisitor(Metadata metadata)
+        public SourceVisitor(Session session, Metadata metadata)
         {
+            this.session = checkNotNull(session);
             this.metadata = checkNotNull(metadata);
         }
 
@@ -130,12 +133,12 @@ public final class JsonPlanPrinter
         public Void visitTableScan(TableScanNode node, Void context)
         {
             TupleDomain partitionsDomainSummary = node.getPartitionsDomainSummary();
-            TableMetadata tableMetadata = metadata.getTableMetadata(node.getTable());
+            TableMetadata tableMetadata = metadata.getTableMetadata(session, node.getTable());
 
             ImmutableList.Builder<Column> columnBuilder = ImmutableList.builder();
 
             for (Map.Entry<Symbol, ColumnHandle> entry : node.getAssignments().entrySet()) {
-                ColumnMetadata columnMetadata = metadata.getColumnMetadata(node.getTable(), entry.getValue());
+                ColumnMetadata columnMetadata = metadata.getColumnMetadata(session, node.getTable(), entry.getValue());
                 Domain domain = null;
                 if (!partitionsDomainSummary.isNone() && partitionsDomainSummary.getDomains().keySet().contains(entry.getValue())) {
                     domain = partitionsDomainSummary.getDomains().get(entry.getValue());

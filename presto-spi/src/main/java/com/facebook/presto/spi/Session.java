@@ -11,13 +11,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.sql.analyzer;
+package com.facebook.presto.spi;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.base.Objects;
-
-import javax.annotation.Nullable;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 
@@ -34,14 +32,14 @@ public class Session
     private final String schema;
     private final long startTime;
 
-    public Session(@Nullable String user, String source, String catalog, String schema, String remoteUserAddress, String userAgent)
+    public Session(String user, String source, String catalog, String schema, String remoteUserAddress, String userAgent)
     {
         this(user, source, catalog, schema, remoteUserAddress, userAgent, System.currentTimeMillis());
     }
 
     @JsonCreator
     public Session(
-            @JsonProperty("user") @Nullable String user,
+            @JsonProperty("user") String user,
             @JsonProperty("source") String source,
             @JsonProperty("catalog") String catalog,
             @JsonProperty("schema") String schema,
@@ -59,7 +57,6 @@ public class Session
     }
 
     @JsonProperty
-    @Nullable
     public String getUser()
     {
         return user;

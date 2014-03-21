@@ -20,7 +20,7 @@ import com.facebook.presto.operator.RecordSinkManager;
 import com.facebook.presto.spi.Connector;
 import com.facebook.presto.spi.ConnectorFactory;
 import com.facebook.presto.spi.ConnectorHandleResolver;
-import com.facebook.presto.spi.ConnectorMetadata;
+import com.facebook.presto.spi.ConnectorMetadataProvider;
 import com.facebook.presto.spi.ConnectorOutputHandleResolver;
 import com.facebook.presto.spi.ConnectorRecordSetProvider;
 import com.facebook.presto.spi.ConnectorRecordSinkProvider;
@@ -119,8 +119,8 @@ public class ConnectorManager
 
     private void addConnector(@Nullable String catalogName, String connectorId, Connector connector)
     {
-        ConnectorMetadata connectorMetadata = connector.getMetadata();
-        checkState(connectorMetadata != null, "Connector %s can not provide metadata", connectorId);
+        ConnectorMetadataProvider metadataProvider = connector.getMetadataProvider();
+        checkState(metadataProvider != null, "Connector %s can not provide metadata provider", connectorId);
 
         ConnectorSplitManager connectorSplitManager = connector.getSplitManager();
         checkState(connectorSplitManager != null, "Connector %s does not have a split manager", connectorId);
@@ -165,10 +165,10 @@ public class ConnectorManager
         }
 
         if (catalogName != null) {
-            metadataManager.addConnectorMetadata(connectorId, catalogName, connectorMetadata);
+            metadataManager.addConnectorMetadataProvider(connectorId, catalogName, metadataProvider);
         }
         else {
-            metadataManager.addInternalSchemaMetadata(connectorId, connectorMetadata);
+            metadataManager.addInternalSchemaMetadataProvider(connectorId, metadataProvider);
         }
 
         handleResolver.addHandleResolver(connectorId, connectorHandleResolver);

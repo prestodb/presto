@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.operator.scalar;
 
-import com.facebook.presto.sql.analyzer.Session;
+import com.facebook.presto.spi.Session;
 import org.joda.time.DateTime;
 import org.joda.time.DateTimeField;
 import org.joda.time.DateTimeZone;
@@ -28,8 +28,8 @@ import org.joda.time.chrono.ISOChronology;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
-import static com.facebook.presto.sql.analyzer.Session.DEFAULT_CATALOG;
-import static com.facebook.presto.sql.analyzer.Session.DEFAULT_SCHEMA;
+import static com.facebook.presto.spi.Session.DEFAULT_CATALOG;
+import static com.facebook.presto.spi.Session.DEFAULT_SCHEMA;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static org.testng.Assert.assertEquals;
 

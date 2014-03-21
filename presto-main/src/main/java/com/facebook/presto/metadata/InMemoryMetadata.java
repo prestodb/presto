@@ -17,10 +17,12 @@ import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ColumnType;
 import com.facebook.presto.spi.ConnectorMetadata;
+import com.facebook.presto.spi.ConnectorMetadataProvider;
 import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.OutputTableHandle;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.SchemaTablePrefix;
+import com.facebook.presto.spi.Session;
 import com.facebook.presto.spi.TableHandle;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -37,7 +39,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 public class InMemoryMetadata
-        implements ConnectorMetadata
+        implements ConnectorMetadata, ConnectorMetadataProvider
 {
     private final ConcurrentMap<SchemaTableName, ConnectorTableMetadata> tables = new ConcurrentHashMap<>();
 
@@ -190,6 +192,18 @@ public class InMemoryMetadata
         checkArgument(tableHandle instanceof InMemoryTableHandle, "tableHandle is not an instance of InMemoryTableHandle");
         InMemoryTableHandle inMemoryTableHandle = (InMemoryTableHandle) tableHandle;
         return inMemoryTableHandle.getTableName();
+    }
+
+    @Override
+    public boolean canHandle(Session session)
+    {
+        return true;
+    }
+
+    @Override
+    public ConnectorMetadata getMetadata(Session session)
+    {
+        return this;
     }
 
     public static class InMemoryTableHandle

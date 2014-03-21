@@ -144,7 +144,7 @@ public class InformationSchemaDataStreamProvider
 
     private Map<QualifiedTableName, List<ColumnMetadata>> getColumnsList(String catalogName, Map<String, Object> filters)
     {
-        return metadata.listTableColumns(extractQualifiedTablePrefix(catalogName, filters));
+        return metadata.listTableColumns(null, extractQualifiedTablePrefix(catalogName, filters));
     }
 
     private InternalTable buildTables(String catalogName, Map<String, Object> filters)
@@ -162,7 +162,7 @@ public class InformationSchemaDataStreamProvider
 
     private List<QualifiedTableName> getTablesList(String catalogName, Map<String, Object> filters)
     {
-        return metadata.listTables(extractQualifiedTablePrefix(catalogName, filters));
+        return metadata.listTables(null, extractQualifiedTablePrefix(catalogName, filters));
     }
 
     private InternalTable buildFunctions()
@@ -202,7 +202,7 @@ public class InformationSchemaDataStreamProvider
     private InternalTable buildSchemata(String catalogName)
     {
         InternalTable.Builder table = InternalTable.builder(InformationSchemaMetadata.informationSchemaTableColumns(InformationSchemaMetadata.TABLE_SCHEMATA));
-        for (String schema : metadata.listSchemaNames(catalogName)) {
+        for (String schema : metadata.listSchemaNames(null, catalogName)) {
             table.add(catalogName, schema);
         }
         return table.build();
@@ -215,9 +215,9 @@ public class InformationSchemaDataStreamProvider
         InternalTable.Builder table = InternalTable.builder(InformationSchemaMetadata.informationSchemaTableColumns(InformationSchemaMetadata.TABLE_INTERNAL_PARTITIONS));
         int partitionNumber = 1;
 
-        Optional<TableHandle> tableHandle = metadata.getTableHandle(tableName);
+        Optional<TableHandle> tableHandle = metadata.getTableHandle(null, tableName);
         checkArgument(tableHandle.isPresent(), "Table %s does not exist", tableName);
-        Map<ColumnHandle, String> columnHandles = ImmutableBiMap.copyOf(metadata.getColumnHandles(tableHandle.get())).inverse();
+        Map<ColumnHandle, String> columnHandles = ImmutableBiMap.copyOf(metadata.getColumnHandles(null, tableHandle.get())).inverse();
         PartitionResult partitionResult = splitManager.getPartitions(tableHandle.get(), Optional.<TupleDomain>absent());
 
         for (Partition partition : partitionResult.getPartitions()) {

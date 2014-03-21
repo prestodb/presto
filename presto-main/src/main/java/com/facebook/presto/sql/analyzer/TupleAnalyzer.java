@@ -20,6 +20,7 @@ import com.facebook.presto.metadata.QualifiedTableName;
 import com.facebook.presto.metadata.TableMetadata;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
+import com.facebook.presto.spi.Session;
 import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.sql.ExpressionUtils;
 import com.facebook.presto.sql.planner.ExpressionInterpreter;
@@ -142,18 +143,18 @@ class TupleAnalyzer
 
         QualifiedTableName name = MetadataUtil.createQualifiedTableName(session, table.getName());
 
-        Optional<TableHandle> tableHandle = metadata.getTableHandle(name);
+        Optional<TableHandle> tableHandle = metadata.getTableHandle(session, name);
         if (!tableHandle.isPresent()) {
             if (!metadata.getCatalogNames().containsKey(name.getCatalogName())) {
                 throw new SemanticException(MISSING_CATALOG, table, "Catalog %s does not exist", name.getCatalogName());
             }
-            if (!metadata.listSchemaNames(name.getCatalogName()).contains(name.getSchemaName())) {
+            if (!metadata.listSchemaNames(session, name.getCatalogName()).contains(name.getSchemaName())) {
                 throw new SemanticException(MISSING_SCHEMA, table, "Schema %s does not exist", name.getSchemaName());
             }
             throw new SemanticException(MISSING_TABLE, table, "Table %s does not exist", name);
         }
-        TableMetadata tableMetadata = metadata.getTableMetadata(tableHandle.get());
-        Map<String, ColumnHandle> columns = metadata.getColumnHandles(tableHandle.get());
+        TableMetadata tableMetadata = metadata.getTableMetadata(session, tableHandle.get());
+        Map<String, ColumnHandle> columns = metadata.getColumnHandles(session, tableHandle.get());
 
         // TODO: discover columns lazily based on where they are needed (to support datasources that can't enumerate all tables)
         ImmutableList.Builder<Field> fields = ImmutableList.builder();

@@ -20,6 +20,7 @@ import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ColumnType;
 import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.SchemaTableName;
+import com.facebook.presto.spi.Session;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.tree.Statement;
 import com.google.common.base.Optional;
@@ -556,11 +557,12 @@ public class TestAnalyzer
     public void setup()
             throws Exception
     {
+        Session session = new Session("user", "test", "default", "default", null, null);
         MetadataManager metadata = new MetadataManager(new FeaturesConfig().setExperimentalSyntaxEnabled(true));
-        metadata.addConnectorMetadata("tpch", "tpch", new InMemoryMetadata());
+        metadata.addConnectorMetadataProvider("tpch", "tpch", new InMemoryMetadata());
 
         SchemaTableName table1 = new SchemaTableName("default", "t1");
-        metadata.createTable("tpch", new TableMetadata("tpch", new ConnectorTableMetadata(table1,
+        metadata.createTable(session, "tpch", new TableMetadata("tpch", new ConnectorTableMetadata(table1,
                 ImmutableList.<ColumnMetadata>of(
                         new ColumnMetadata("a", ColumnType.LONG, 0, false),
                         new ColumnMetadata("b", ColumnType.LONG, 1, false),
@@ -568,13 +570,13 @@ public class TestAnalyzer
                         new ColumnMetadata("d", ColumnType.LONG, 3, false)))));
 
         SchemaTableName table2 = new SchemaTableName("default", "t2");
-        metadata.createTable("tpch", new TableMetadata("tpch", new ConnectorTableMetadata(table2,
+        metadata.createTable(session, "tpch", new TableMetadata("tpch", new ConnectorTableMetadata(table2,
                 ImmutableList.<ColumnMetadata>of(
                         new ColumnMetadata("a", ColumnType.LONG, 0, false),
                         new ColumnMetadata("b", ColumnType.LONG, 1, false)))));
 
         SchemaTableName table3 = new SchemaTableName("default", "t3");
-        metadata.createTable("tpch", new TableMetadata("tpch", new ConnectorTableMetadata(table3,
+        metadata.createTable(session, "tpch", new TableMetadata("tpch", new ConnectorTableMetadata(table3,
                 ImmutableList.<ColumnMetadata>of(
                         new ColumnMetadata("a", ColumnType.LONG, 0, false),
                         new ColumnMetadata("b", ColumnType.LONG, 1, false)))));

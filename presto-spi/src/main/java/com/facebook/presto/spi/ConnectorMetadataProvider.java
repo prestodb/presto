@@ -11,25 +11,19 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.execution;
+package com.facebook.presto.spi;
 
-import com.facebook.presto.spi.Session;
-import io.airlift.units.Duration;
-
-import java.util.List;
-
-public interface QueryManager
+public interface ConnectorMetadataProvider
 {
-    List<QueryInfo> getAllQueryInfo();
+    /**
+     * Can this Metadata Provider handler operations for the specified session.
+     */
+    boolean canHandle(Session session);
 
-    Duration waitForStateChange(QueryId queryId, QueryState currentState, Duration maxWait)
-            throws InterruptedException;
-
-    QueryInfo getQueryInfo(QueryId queryId);
-
-    QueryInfo createQuery(Session session, String query);
-
-    void cancelQuery(QueryId queryId);
-
-    void cancelStage(StageId stageId);
+    /**
+     * Return the metadata for the specified session.
+     *
+     * @throws RuntimeException if table handle is no longer valid
+     */
+    ConnectorMetadata getMetadata(Session session);
 }

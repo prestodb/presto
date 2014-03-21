@@ -19,9 +19,9 @@ import com.facebook.presto.metadata.TableMetadata;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ColumnType;
 import com.facebook.presto.spi.ConnectorTableMetadata;
+import com.facebook.presto.spi.Session;
 import com.facebook.presto.sql.analyzer.Analysis;
 import com.facebook.presto.sql.analyzer.Field;
-import com.facebook.presto.sql.analyzer.Session;
 import com.facebook.presto.sql.analyzer.Type;
 import com.facebook.presto.sql.planner.optimizations.PlanOptimizer;
 import com.facebook.presto.sql.planner.plan.OutputNode;
@@ -108,7 +108,7 @@ public class LogicalPlanner
                 Optional.<Symbol>absent(),
                 destination.getCatalogName(),
                 tableMetadata,
-                metadata.canCreateSampledTables(destination.getCatalogName()));
+                metadata.canCreateSampledTables(session, destination.getCatalogName()));
 
         List<Symbol> outputs = ImmutableList.of(symbolAllocator.newSymbol("rows", Type.BIGINT));
 

@@ -55,8 +55,8 @@ import com.facebook.presto.operator.WindowOperator.WindowOperatorFactory;
 import com.facebook.presto.operator.window.WindowFunction;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.RecordSink;
+import com.facebook.presto.spi.Session;
 import com.facebook.presto.split.DataStreamProvider;
-import com.facebook.presto.sql.analyzer.Session;
 import com.facebook.presto.sql.analyzer.Type;
 import com.facebook.presto.sql.gen.ExpressionCompiler;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
@@ -170,7 +170,7 @@ public class LocalExecutionPlanner
     {
         LocalExecutionPlanContext context = new LocalExecutionPlanContext(session, types);
 
-        PhysicalOperation physicalOperation = plan.accept(new Visitor(), context);
+        PhysicalOperation physicalOperation = plan.accept(new Visitor(session), context);
         DriverFactory driverFactory = new DriverFactory(
                 context.isInputDriver(),
                 true,
@@ -264,6 +264,13 @@ public class LocalExecutionPlanner
     private class Visitor
             extends PlanVisitor<LocalExecutionPlanContext, PhysicalOperation>
     {
+        private final Session session;
+
+        public Visitor(Session session)
+        {
+            this.session = session;
+        }
+
         @Override
         public PhysicalOperation visitExchange(ExchangeNode node, LocalExecutionPlanContext context)
         {
@@ -989,7 +996,7 @@ public class LocalExecutionPlanner
         {
             PhysicalOperation source = node.getSource().accept(this, context);
 
-            OperatorFactory operatorFactory = new TableCommitOperatorFactory(context.getNextOperatorId(), createTableCommitter(node, metadata));
+            OperatorFactory operatorFactory = new TableCommitOperatorFactory(context.getNextOperatorId(), createTableCommitter(session, node, metadata));
             Map<Symbol, Input> layout = ImmutableMap.of(node.getOutputSymbols().get(0), new Input(0));
 
             return new PhysicalOperation(operatorFactory, layout, source);
@@ -1149,14 +1156,14 @@ public class LocalExecutionPlanner
         }
     }
 
-    private static TableCommitter createTableCommitter(final TableCommitNode node, final Metadata metadata)
+    private static TableCommitter createTableCommitter(final Session session, final TableCommitNode node, final Metadata metadata)
     {
         return new TableCommitter()
         {
             @Override
             public void commitTable(Collection<String> fragments)
             {
-                metadata.commitCreateTable(node.getTarget(), fragments);
+                metadata.commitCreateTable(session, node.getTarget(), fragments);
             }
         };
     }

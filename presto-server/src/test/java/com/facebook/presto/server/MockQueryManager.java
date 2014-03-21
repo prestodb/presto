@@ -27,7 +27,7 @@ import com.facebook.presto.execution.StageState;
 import com.facebook.presto.execution.StageStats;
 import com.facebook.presto.execution.TaskId;
 import com.facebook.presto.execution.TaskInfo;
-import com.facebook.presto.sql.analyzer.Session;
+import com.facebook.presto.spi.Session;
 import com.facebook.presto.tuple.TupleInfo;
 import com.facebook.presto.execution.ExecutionFailureInfo;
 import com.google.common.base.Function;

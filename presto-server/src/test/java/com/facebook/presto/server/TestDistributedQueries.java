@@ -23,8 +23,8 @@ import com.facebook.presto.metadata.AllNodes;
 import com.facebook.presto.metadata.QualifiedTableName;
 import com.facebook.presto.metadata.QualifiedTablePrefix;
 import com.facebook.presto.server.testing.TestingPrestoServer;
+import com.facebook.presto.spi.Session;
 import com.facebook.presto.spi.TableHandle;
-import com.facebook.presto.sql.analyzer.Session;
 import com.facebook.presto.tpch.SampledTpchPlugin;
 import com.facebook.presto.tpch.TpchMetadata;
 import com.facebook.presto.tpch.TpchPlugin;
@@ -55,8 +55,8 @@ import java.util.Map;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 
-import static com.facebook.presto.sql.analyzer.Session.DEFAULT_CATALOG;
-import static com.facebook.presto.sql.analyzer.Session.DEFAULT_SCHEMA;
+import static com.facebook.presto.spi.Session.DEFAULT_CATALOG;
+import static com.facebook.presto.spi.Session.DEFAULT_SCHEMA;
 import static com.facebook.presto.util.MaterializedResult.DEFAULT_PRECISION;
 import static com.facebook.presto.util.Types.checkType;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -194,9 +194,9 @@ public class TestDistributedQueries
         }
         finally {
             QualifiedTableName name = new QualifiedTableName(DEFAULT_CATALOG, DEFAULT_SCHEMA, table);
-            Optional<TableHandle> handle = coordinator.getMetadata().getTableHandle(name);
+            Optional<TableHandle> handle = coordinator.getMetadata().getTableHandle(SESSION, name);
             if (handle.isPresent()) {
-                coordinator.getMetadata().dropTable(handle.get());
+                coordinator.getMetadata().dropTable(SESSION, handle.get());
             }
         }
     }
@@ -277,7 +277,7 @@ public class TestDistributedQueries
     private void distributeData(String catalog, String schema, ClientSession session)
             throws Exception
     {
-        for (QualifiedTableName table : coordinator.getMetadata().listTables(new QualifiedTablePrefix(catalog, schema))) {
+        for (QualifiedTableName table : coordinator.getMetadata().listTables(SESSION, new QualifiedTablePrefix(catalog, schema))) {
             if (table.getTableName().equalsIgnoreCase("dual")) {
                 continue;
             }

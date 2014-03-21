@@ -17,10 +17,12 @@ import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ColumnType;
 import com.facebook.presto.spi.ConnectorMetadata;
+import com.facebook.presto.spi.ConnectorMetadataProvider;
 import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.OutputTableHandle;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.SchemaTablePrefix;
+import com.facebook.presto.spi.Session;
 import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.tuple.TupleInfo;
 import com.google.common.base.Predicate;
@@ -55,7 +57,7 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 
 public class NativeMetadata
-        implements ConnectorMetadata
+        implements ConnectorMetadata, ConnectorMetadataProvider
 {
     private final IDBI dbi;
     private final MetadataDao dao;
@@ -343,5 +345,17 @@ public class NativeMetadata
         TableHandle tableHandle = getTableHandle(new SchemaTableName(table.getSchemaName(), table.getTableName()));
 
         shardManager.commitUnpartitionedTable(tableHandle, shards.build());
+    }
+
+    @Override
+    public boolean canHandle(Session session)
+    {
+        return true;
+    }
+
+    @Override
+    public ConnectorMetadata getMetadata(Session session)
+    {
+        return this;
     }
 }

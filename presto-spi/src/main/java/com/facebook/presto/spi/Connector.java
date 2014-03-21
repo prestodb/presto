@@ -18,7 +18,7 @@ public interface Connector
     ConnectorHandleResolver getHandleResolver();
     ConnectorOutputHandleResolver getOutputHandleResolver();
 
-    ConnectorMetadata getMetadata();
+    ConnectorMetadataProvider getMetadataProvider();
     ConnectorSplitManager getSplitManager();
     ConnectorRecordSetProvider getRecordSetProvider();
     ConnectorRecordSinkProvider getRecordSinkProvider();

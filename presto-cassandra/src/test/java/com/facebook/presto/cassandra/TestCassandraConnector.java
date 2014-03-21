@@ -26,6 +26,7 @@ import com.facebook.presto.spi.RecordCursor;
 import com.facebook.presto.spi.SchemaNotFoundException;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.SchemaTablePrefix;
+import com.facebook.presto.spi.Session;
 import com.facebook.presto.spi.Split;
 import com.facebook.presto.spi.SplitSource;
 import com.facebook.presto.spi.TableHandle;
@@ -73,6 +74,7 @@ public class TestCassandraConnector
 {
     protected static final String INVALID_DATABASE = "totally_invalid_database";
 
+    private Session session;
     private ConnectorMetadata metadata;
     private ConnectorSplitManager splitManager;
     private ConnectorRecordSetProvider recordSetProvider;
@@ -100,7 +102,8 @@ public class TestCassandraConnector
                 "cassandra.contact-points", "localhost",
                 "cassandra.native-protocol-port", "9142"));
 
-        metadata = connector.getMetadata();
+        session = new Session("user", "test", "default", "default", null, null);
+        metadata = connector.getMetadataProvider().getMetadata(session);
         assertInstanceOf(metadata, CassandraMetadata.class);
 
         splitManager = connector.getSplitManager();

@@ -15,8 +15,8 @@ package com.facebook.presto.operator.scalar;
 
 import com.facebook.presto.operator.Description;
 import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.Session;
 import com.facebook.presto.spi.StandardErrorCode;
-import com.facebook.presto.sql.analyzer.Session;
 import com.facebook.presto.util.ThreadLocalCache;
 import com.google.common.base.Charsets;
 import com.google.common.primitives.Ints;

@@ -26,9 +26,9 @@ import com.facebook.presto.metadata.NativeMetadata;
 import com.facebook.presto.metadata.NativeRecordSinkProvider;
 import com.facebook.presto.metadata.QualifiedTableName;
 import com.facebook.presto.spi.NodeManager;
+import com.facebook.presto.spi.Session;
 import com.facebook.presto.split.NativeDataStreamProvider;
 import com.facebook.presto.split.NativeSplitManager;
-import com.facebook.presto.sql.analyzer.Session;
 import com.facebook.presto.tpch.SampledTpchConnectorFactory;
 import com.facebook.presto.tpch.TpchConnectorFactory;
 import com.facebook.presto.util.LocalQueryRunner;
@@ -62,10 +62,10 @@ public final class BenchmarkQueryRunner
         NativeConnectorFactory nativeConnectorFactory = createNativeConnectorFactory(nodeManager, metadata, System.getProperty("tpchSampledCacheDir", "/tmp/tpch_sampled_data_cache"));
         localQueryRunner.createCatalog("default", nativeConnectorFactory, ImmutableMap.<String, String>of());
 
-        if (!metadata.getTableHandle(new QualifiedTableName("default", "default", "orders")).isPresent()) {
+        if (!metadata.getTableHandle(session, new QualifiedTableName("default", "default", "orders")).isPresent()) {
             localQueryRunner.execute("CREATE TABLE orders AS SELECT * FROM tpch_sampled.sf1.orders");
         }
-        if (!metadata.getTableHandle(new QualifiedTableName("default", "default", "lineitem")).isPresent()) {
+        if (!metadata.getTableHandle(session, new QualifiedTableName("default", "default", "lineitem")).isPresent()) {
             localQueryRunner.execute("CREATE TABLE lineitem AS SELECT * FROM tpch_sampled.sf1.lineitem");
         }
         return localQueryRunner;
@@ -85,10 +85,10 @@ public final class BenchmarkQueryRunner
         NativeConnectorFactory nativeConnectorFactory = createNativeConnectorFactory(nodeManager, metadata, System.getProperty("tpchCacheDir", "/tmp/tpch_data_cache"));
         localQueryRunner.createCatalog("default", nativeConnectorFactory, ImmutableMap.<String, String>of());
 
-        if (!metadata.getTableHandle(new QualifiedTableName("default", "default", "orders")).isPresent()) {
+        if (!metadata.getTableHandle(session, new QualifiedTableName("default", "default", "orders")).isPresent()) {
             localQueryRunner.execute("CREATE TABLE orders AS SELECT * FROM tpch.sf1.orders");
         }
-        if (!metadata.getTableHandle(new QualifiedTableName("default", "default", "lineitem")).isPresent()) {
+        if (!metadata.getTableHandle(session, new QualifiedTableName("default", "default", "lineitem")).isPresent()) {
             localQueryRunner.execute("CREATE TABLE lineitem AS SELECT * FROM tpch.sf1.lineitem");
         }
         return localQueryRunner;

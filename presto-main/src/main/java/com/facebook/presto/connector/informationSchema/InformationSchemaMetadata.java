@@ -15,10 +15,13 @@ package com.facebook.presto.connector.informationSchema;
 
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
+import com.facebook.presto.spi.ConnectorMetadata;
+import com.facebook.presto.spi.ConnectorMetadataProvider;
 import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.ReadOnlyConnectorMetadata;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.SchemaTablePrefix;
+import com.facebook.presto.spi.Session;
 import com.facebook.presto.spi.TableHandle;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -41,7 +44,7 @@ import static com.google.common.base.Predicates.equalTo;
 import static com.google.common.collect.Iterables.filter;
 
 public class InformationSchemaMetadata
-        extends ReadOnlyConnectorMetadata
+        extends ReadOnlyConnectorMetadata implements ConnectorMetadataProvider
 {
     public static final String INFORMATION_SCHEMA = "information_schema";
 
@@ -210,5 +213,17 @@ public class InformationSchemaMetadata
     {
         checkArgument(TABLES.containsKey(tableName), "table does not exist: %s", tableName);
         return TABLES.get(tableName).getColumns();
+    }
+
+    @Override
+    public boolean canHandle(Session session)
+    {
+        return true;
+    }
+
+    @Override
+    public ConnectorMetadata getMetadata(Session session)
+    {
+        return this;
     }
 }

@@ -17,7 +17,7 @@ import com.facebook.presto.connector.InternalConnector;
 import com.facebook.presto.spi.Connector;
 import com.facebook.presto.spi.ConnectorFactory;
 import com.facebook.presto.spi.ConnectorHandleResolver;
-import com.facebook.presto.spi.ConnectorMetadata;
+import com.facebook.presto.spi.ConnectorMetadataProvider;
 import com.facebook.presto.spi.ConnectorOutputHandleResolver;
 import com.facebook.presto.spi.ConnectorRecordSetProvider;
 import com.facebook.presto.spi.ConnectorRecordSinkProvider;
@@ -65,7 +65,7 @@ public class JmxConnectorFactory
             }
 
             @Override
-            public ConnectorMetadata getMetadata()
+            public ConnectorMetadataProvider getMetadataProvider()
             {
                 return new JmxMetadata(new JmxConnectorId(connectorId), mbeanServer);
             }

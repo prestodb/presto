@@ -21,11 +21,11 @@ import com.facebook.presto.metadata.TableMetadata;
 import com.facebook.presto.operator.SortOrder;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
+import com.facebook.presto.spi.Session;
 import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.sql.analyzer.Analysis;
 import com.facebook.presto.sql.analyzer.Field;
 import com.facebook.presto.sql.analyzer.FieldOrExpression;
-import com.facebook.presto.sql.analyzer.Session;
 import com.facebook.presto.sql.analyzer.TupleDescriptor;
 import com.facebook.presto.sql.analyzer.Type;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
@@ -183,12 +183,12 @@ class QueryPlanner
         // TODO: replace this with a table-generating operator that produces 1 row with no columns
 
         QualifiedTableName name = MetadataUtil.createQualifiedTableName(session, QualifiedName.of("dual"));
-        Optional<TableHandle> optionalHandle = metadata.getTableHandle(name);
+        Optional<TableHandle> optionalHandle = metadata.getTableHandle(session, name);
         checkState(optionalHandle.isPresent(), "Dual table provider not installed");
         TableHandle table = optionalHandle.get();
-        TableMetadata tableMetadata = metadata.getTableMetadata(table);
-        Map<String, ColumnHandle> columnHandles = metadata.getColumnHandles(table);
-        checkState(!metadata.getSampleWeightColumnHandle(table).isPresent(), "dual table should not have a sample weight");
+        TableMetadata tableMetadata = metadata.getTableMetadata(session, table);
+        Map<String, ColumnHandle> columnHandles = metadata.getColumnHandles(session, table);
+        checkState(!metadata.getSampleWeightColumnHandle(session, table).isPresent(), "dual table should not have a sample weight");
 
         ImmutableMap.Builder<Symbol, ColumnHandle> columns = ImmutableMap.builder();
         for (ColumnMetadata column : tableMetadata.getColumns()) {

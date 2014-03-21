@@ -15,7 +15,7 @@ package com.facebook.presto.example;
 
 import com.facebook.presto.spi.Connector;
 import com.facebook.presto.spi.ConnectorHandleResolver;
-import com.facebook.presto.spi.ConnectorMetadata;
+import com.facebook.presto.spi.ConnectorMetadataProvider;
 import com.facebook.presto.spi.ConnectorOutputHandleResolver;
 import com.facebook.presto.spi.ConnectorRecordSetProvider;
 import com.facebook.presto.spi.ConnectorRecordSinkProvider;
@@ -47,7 +47,7 @@ public class ExampleConnector
     }
 
     @Override
-    public ConnectorMetadata getMetadata()
+    public ConnectorMetadataProvider getMetadataProvider()
     {
         return metadata;
     }

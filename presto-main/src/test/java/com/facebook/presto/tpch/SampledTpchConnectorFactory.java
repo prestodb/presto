@@ -16,7 +16,7 @@ package com.facebook.presto.tpch;
 import com.facebook.presto.spi.Connector;
 import com.facebook.presto.spi.ConnectorFactory;
 import com.facebook.presto.spi.ConnectorHandleResolver;
-import com.facebook.presto.spi.ConnectorMetadata;
+import com.facebook.presto.spi.ConnectorMetadataProvider;
 import com.facebook.presto.spi.ConnectorOutputHandleResolver;
 import com.facebook.presto.spi.ConnectorRecordSetProvider;
 import com.facebook.presto.spi.ConnectorRecordSinkProvider;
@@ -56,7 +56,7 @@ public class SampledTpchConnectorFactory
 
         return new Connector() {
             @Override
-            public ConnectorMetadata getMetadata()
+            public ConnectorMetadataProvider getMetadataProvider()
             {
                 return new SampledTpchMetadata(connectorId);
             }

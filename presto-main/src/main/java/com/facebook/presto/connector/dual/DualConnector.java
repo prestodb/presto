@@ -15,7 +15,7 @@ package com.facebook.presto.connector.dual;
 
 import com.facebook.presto.connector.InternalConnector;
 import com.facebook.presto.spi.ConnectorHandleResolver;
-import com.facebook.presto.spi.ConnectorMetadata;
+import com.facebook.presto.spi.ConnectorMetadataProvider;
 import com.facebook.presto.spi.ConnectorOutputHandleResolver;
 import com.facebook.presto.spi.ConnectorRecordSetProvider;
 import com.facebook.presto.spi.ConnectorRecordSinkProvider;
@@ -45,7 +45,7 @@ public class DualConnector
     }
 
     @Override
-    public ConnectorMetadata getMetadata()
+    public ConnectorMetadataProvider getMetadataProvider()
     {
         return new DualMetadata();
     }

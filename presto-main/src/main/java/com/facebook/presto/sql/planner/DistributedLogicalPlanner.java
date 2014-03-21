@@ -17,6 +17,7 @@ import com.facebook.presto.metadata.FunctionInfo;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.spi.OutputTableHandle;
+import com.facebook.presto.spi.Session;
 import com.facebook.presto.sql.planner.PlanFragment.OutputPartitioning;
 import com.facebook.presto.sql.planner.PlanFragment.PlanDistribution;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
@@ -68,18 +69,20 @@ import static com.google.common.base.Preconditions.checkState;
  */
 public class DistributedLogicalPlanner
 {
+    private final Session session;
     private final Metadata metadata;
     private final PlanNodeIdAllocator idAllocator;
 
-    public DistributedLogicalPlanner(Metadata metadata, PlanNodeIdAllocator idAllocator)
+    public DistributedLogicalPlanner(Session session, Metadata metadata, PlanNodeIdAllocator idAllocator)
     {
+        this.session = session;
         this.metadata = metadata;
         this.idAllocator = idAllocator;
     }
 
     public SubPlan createSubPlans(Plan plan, boolean createSingleNodePlan)
     {
-        Visitor visitor = new Visitor(plan.getSymbolAllocator(), createSingleNodePlan);
+        Visitor visitor = new Visitor(session, plan.getSymbolAllocator(), createSingleNodePlan);
         SubPlanBuilder builder = plan.getRoot().accept(visitor, null);
 
         SubPlan subplan = builder.build();
@@ -93,11 +96,13 @@ public class DistributedLogicalPlanner
     {
         private int nextFragmentId = 0;
 
+        private final Session session;
         private final SymbolAllocator allocator;
         private final boolean createSingleNodePlan;
 
-        public Visitor(SymbolAllocator allocator, boolean createSingleNodePlan)
+        public Visitor(Session session, SymbolAllocator allocator, boolean createSingleNodePlan)
         {
+            this.session = session;
             this.allocator = allocator;
             this.createSingleNodePlan = createSingleNodePlan;
         }
@@ -388,7 +393,7 @@ public class DistributedLogicalPlanner
             // TODO: create table in pre-execution step, not here
             // Part of the plan should be an Optional<StateChangeListener<QueryState>> and this
             // callback can create the table and abort the table creation if the query fails.
-            OutputTableHandle target = metadata.beginCreateTable(node.getCatalog(), node.getTableMetadata());
+            OutputTableHandle target = metadata.beginCreateTable(session, node.getCatalog(), node.getTableMetadata());
 
             SubPlanBuilder current = node.getSource().accept(this, context);
             current.setRoot(new TableWriterNode(node.getId(), current.getRoot(), target, node.getColumns(), node.getColumnNames(), node.getOutputSymbols(), node.getSampleWeightSymbol()));

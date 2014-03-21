@@ -15,7 +15,7 @@ package com.facebook.presto.cassandra;
 
 import com.facebook.presto.spi.Connector;
 import com.facebook.presto.spi.ConnectorHandleResolver;
-import com.facebook.presto.spi.ConnectorMetadata;
+import com.facebook.presto.spi.ConnectorMetadataProvider;
 import com.facebook.presto.spi.ConnectorOutputHandleResolver;
 import com.facebook.presto.spi.ConnectorRecordSetProvider;
 import com.facebook.presto.spi.ConnectorRecordSinkProvider;
@@ -46,7 +46,7 @@ public class CassandraConnector
         this.handleResolver = checkNotNull(handleResolver, "handleResolver is null");
     }
 
-    public ConnectorMetadata getMetadata()
+    public ConnectorMetadataProvider getMetadataProvider()
     {
         return metadata;
     }

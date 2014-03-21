@@ -30,11 +30,11 @@ import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.FixedSplitSource;
 import com.facebook.presto.spi.HostAddress;
 import com.facebook.presto.spi.Node;
+import com.facebook.presto.spi.Session;
 import com.facebook.presto.spi.Split;
 import com.facebook.presto.spi.SplitSource;
 import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
-import com.facebook.presto.sql.analyzer.Session;
 import com.facebook.presto.sql.analyzer.Type;
 import com.facebook.presto.sql.planner.PlanFragment;
 import com.facebook.presto.sql.planner.PlanFragment.OutputPartitioning;
@@ -97,8 +97,7 @@ public class TestSqlStageExecution
             throws Exception
     {
         metadata = new MetadataManager(new FeaturesConfig());
-        metadata.addInternalSchemaMetadata(MetadataManager.INTERNAL_CONNECTOR_ID, new DualMetadata());
-
+        metadata.addInternalSchemaMetadataProvider(MetadataManager.INTERNAL_CONNECTOR_ID, new DualMetadata());
     }
 
     @Test
@@ -204,7 +203,7 @@ public class TestSqlStageExecution
         SqlStageExecution stageExecution = null;
         try {
             MetadataManager metadata = new MetadataManager(new FeaturesConfig());
-            metadata.addInternalSchemaMetadata(MetadataManager.INTERNAL_CONNECTOR_ID, new DualMetadata());
+            metadata.addInternalSchemaMetadataProvider(MetadataManager.INTERNAL_CONNECTOR_ID, new DualMetadata());
 
             StageExecutionPlan joinPlan = createJoinPlan("A", metadata);
 
@@ -309,8 +308,8 @@ public class TestSqlStageExecution
 
     private StageExecutionPlan createTableScanPlan(String planId, MetadataManager metadata, int splitCount)
     {
-        TableHandle tableHandle = metadata.getTableHandle(new QualifiedTableName("default", "default", DualMetadata.NAME)).get();
-        ColumnHandle columnHandle = metadata.getColumnHandle(tableHandle, DualMetadata.COLUMN_NAME).get();
+        TableHandle tableHandle = metadata.getTableHandle(SESSION, new QualifiedTableName("default", "default", DualMetadata.NAME)).get();
+        ColumnHandle columnHandle = metadata.getColumnHandle(SESSION, tableHandle, DualMetadata.COLUMN_NAME).get();
         Symbol symbol = new Symbol(DualMetadata.COLUMN_NAME);
 
         // table scan with splitCount splits

@@ -15,6 +15,7 @@ package com.facebook.presto.sql.planner;
 
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.spi.ColumnHandle;
+import com.facebook.presto.spi.Session;
 import com.facebook.presto.spi.TupleDomain;
 import com.facebook.presto.sql.analyzer.Type;
 import com.facebook.presto.sql.planner.PlanFragment.OutputPartitioning;
@@ -90,9 +91,9 @@ public class PlanPrinter
         return new PlanPrinter(plan, types, Optional.<Map<PlanFragmentId, PlanFragment>>absent()).toString();
     }
 
-    public static String getJsonPlanSource(PlanNode plan, Metadata metadata)
+    public static String getJsonPlanSource(PlanNode plan, Session session, Metadata metadata)
     {
-        return JsonPlanPrinter.getPlan(plan, metadata);
+        return JsonPlanPrinter.getPlan(plan, session, metadata);
     }
 
     public static String textDistributedPlan(SubPlan plan)

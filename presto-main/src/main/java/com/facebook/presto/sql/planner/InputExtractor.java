@@ -21,6 +21,7 @@ import com.facebook.presto.metadata.TableMetadata;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.SchemaTableName;
+import com.facebook.presto.spi.Session;
 import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.PlanVisitor;
@@ -36,10 +37,12 @@ import java.util.Objects;
 
 public class InputExtractor
 {
+    private final Session session;
     private final Metadata metadata;
 
-    public InputExtractor(Metadata metadata)
+    public InputExtractor(Session session, Metadata metadata)
     {
+        this.session = session;
         this.metadata = metadata;
     }
 
@@ -47,7 +50,7 @@ public class InputExtractor
     {
         ImmutableSetMultimap.Builder<TableEntry, Column> builder = ImmutableSetMultimap.builder();
 
-        root.accept(new Visitor(builder), null);
+        root.accept(new Visitor(session, builder), null);
 
         ImmutableList.Builder<Input> inputBuilder = ImmutableList.builder();
         for (Map.Entry<TableEntry, Collection<Column>> entry : builder.build().asMap().entrySet()) {
@@ -61,10 +64,12 @@ public class InputExtractor
     private class Visitor
             extends PlanVisitor<Void, Void>
     {
+        private final Session session;
         private final ImmutableSetMultimap.Builder<TableEntry, Column> builder;
 
-        public Visitor(ImmutableSetMultimap.Builder<TableEntry, Column> builder)
+        public Visitor(Session session, ImmutableSetMultimap.Builder<TableEntry, Column> builder)
         {
+            this.session = session;
             this.builder = builder;
         }
 
@@ -72,15 +77,15 @@ public class InputExtractor
         public Void visitTableScan(TableScanNode node, Void context)
         {
             TableHandle tableHandle = node.getTable();
-            TableMetadata table = metadata.getTableMetadata(tableHandle);
+            TableMetadata table = metadata.getTableMetadata(session, tableHandle);
             SchemaTableName schemaTable = table.getTable();
 
             TableEntry entry = new TableEntry(table.getConnectorId(), schemaTable.getSchemaName(), schemaTable.getTableName());
-            Optional<ColumnHandle> sampleWeightColumn = metadata.getSampleWeightColumnHandle(tableHandle);
+            Optional<ColumnHandle> sampleWeightColumn = metadata.getSampleWeightColumnHandle(session, tableHandle);
 
             for (ColumnHandle columnHandle : node.getAssignments().values()) {
                 if (!columnHandle.equals(sampleWeightColumn.orNull())) {
-                    ColumnMetadata columnMetadata = metadata.getColumnMetadata(tableHandle, columnHandle);
+                    ColumnMetadata columnMetadata = metadata.getColumnMetadata(session, tableHandle, columnHandle);
                     builder.put(entry, new Column(columnMetadata.getName(), columnMetadata.getType().toString(), Optional.<SimpleDomain>absent()));
                 }
             }

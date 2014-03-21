@@ -21,6 +21,7 @@ import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ColumnType;
 import com.facebook.presto.spi.ConnectorHandleResolver;
 import com.facebook.presto.spi.ConnectorMetadata;
+import com.facebook.presto.spi.ConnectorMetadataProvider;
 import com.facebook.presto.spi.ConnectorOutputHandleResolver;
 import com.facebook.presto.spi.ConnectorRecordSetProvider;
 import com.facebook.presto.spi.ConnectorRecordSinkProvider;
@@ -37,6 +38,7 @@ import com.facebook.presto.spi.RecordSink;
 import com.facebook.presto.spi.SchemaNotFoundException;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.SchemaTablePrefix;
+import com.facebook.presto.spi.Session;
 import com.facebook.presto.spi.Split;
 import com.facebook.presto.spi.SplitSource;
 import com.facebook.presto.spi.TableHandle;
@@ -122,7 +124,7 @@ import static org.apache.hadoop.hive.metastore.Warehouse.makePartName;
 
 @SuppressWarnings("deprecation")
 public class HiveClient
-        implements ConnectorMetadata, ConnectorSplitManager, ConnectorRecordSetProvider, ConnectorRecordSinkProvider, ConnectorHandleResolver, ConnectorOutputHandleResolver
+        implements ConnectorMetadata, ConnectorMetadataProvider, ConnectorSplitManager, ConnectorRecordSetProvider, ConnectorRecordSinkProvider, ConnectorHandleResolver, ConnectorOutputHandleResolver
 {
     static {
         HadoopNative.requireHadoopNative();
@@ -857,6 +859,18 @@ public class HiveClient
     public Class<? extends OutputTableHandle> getOutputTableHandleClass()
     {
         return HiveOutputTableHandle.class;
+    }
+
+    @Override
+    public boolean canHandle(Session session)
+    {
+        return true;
+    }
+
+    @Override
+    public ConnectorMetadata getMetadata(Session session)
+    {
+        return this;
     }
 
     @Override

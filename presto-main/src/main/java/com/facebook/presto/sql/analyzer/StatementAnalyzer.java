@@ -17,6 +17,7 @@ import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.MetadataUtil;
 import com.facebook.presto.metadata.QualifiedTableName;
 import com.facebook.presto.spi.ColumnMetadata;
+import com.facebook.presto.spi.Session;
 import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.sql.tree.Approximate;
 import com.facebook.presto.sql.tree.BooleanLiteral;
@@ -197,7 +198,7 @@ class StatementAnalyzer
     {
         QualifiedTableName tableName = MetadataUtil.createQualifiedTableName(session, showColumns.getTable());
 
-        if (!metadata.getTableHandle(tableName).isPresent()) {
+        if (!metadata.getTableHandle(session, tableName).isPresent()) {
             throw new SemanticException(MISSING_TABLE, showColumns, "Table '%s' does not exist", tableName);
         }
 
@@ -244,7 +245,7 @@ class StatementAnalyzer
     protected TupleDescriptor visitShowPartitions(ShowPartitions showPartitions, AnalysisContext context)
     {
         QualifiedTableName table = MetadataUtil.createQualifiedTableName(session, showPartitions.getTable());
-        Optional<TableHandle> tableHandle = metadata.getTableHandle(table);
+        Optional<TableHandle> tableHandle = metadata.getTableHandle(session, table);
         if (!tableHandle.isPresent()) {
             throw new SemanticException(MISSING_TABLE, showPartitions, "Table '%s' does not exist", table);
         }
@@ -268,7 +269,7 @@ class StatementAnalyzer
         ImmutableList.Builder<SelectItem> selectList = ImmutableList.builder();
         ImmutableList.Builder<SelectItem> wrappedList = ImmutableList.builder();
         selectList.add(unaliasedName("partition_number"));
-        for (ColumnMetadata column : metadata.getTableMetadata(tableHandle.get()).getColumns()) {
+        for (ColumnMetadata column : metadata.getTableMetadata(session, tableHandle.get()).getColumns()) {
             if (!column.isPartitionKey()) {
                 continue;
             }
@@ -353,7 +354,7 @@ class StatementAnalyzer
         QualifiedTableName targetTable = MetadataUtil.createQualifiedTableName(session, node.getName());
         analysis.setCreateTableDestination(targetTable);
 
-        Optional<TableHandle> targetTableHandle = metadata.getTableHandle(targetTable);
+        Optional<TableHandle> targetTableHandle = metadata.getTableHandle(session, targetTable);
         if (targetTableHandle.isPresent()) {
             throw new SemanticException(TABLE_ALREADY_EXISTS, node, "Destination table '%s' already exists", targetTable);
         }

@@ -14,6 +14,7 @@
 package com.facebook.presto.sql.analyzer;
 
 import com.facebook.presto.metadata.Metadata;
+import com.facebook.presto.spi.Session;
 import com.facebook.presto.sql.planner.DistributedLogicalPlanner;
 import com.facebook.presto.sql.planner.LogicalPlanner;
 import com.facebook.presto.sql.planner.Plan;
@@ -76,7 +77,7 @@ public class QueryExplainer
     public String getJsonPlan(Statement statement)
     {
         Plan plan = getLogicalPlan(statement);
-        return PlanPrinter.getJsonPlanSource(plan.getRoot(), metadata);
+        return PlanPrinter.getJsonPlanSource(plan.getRoot(), session, metadata);
     }
 
     private Plan getLogicalPlan(Statement statement)
@@ -104,6 +105,6 @@ public class QueryExplainer
         LogicalPlanner logicalPlanner = new LogicalPlanner(session, planOptimizers, idAllocator, metadata);
         Plan plan = logicalPlanner.plan(analysis);
 
-        return new DistributedLogicalPlanner(metadata, idAllocator).createSubPlans(plan, false);
+        return new DistributedLogicalPlanner(session, metadata, idAllocator).createSubPlans(plan, false);
     }
 }

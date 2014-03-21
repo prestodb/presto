@@ -16,7 +16,7 @@ package com.facebook.presto.spi;
 import java.util.Collection;
 
 public abstract class ReadOnlyConnectorMetadata
-        implements ConnectorMetadata
+        implements ConnectorMetadata, ConnectorMetadataProvider
 {
     @Override
     public final TableHandle createTable(ConnectorTableMetadata tableMetadata)
@@ -52,5 +52,17 @@ public abstract class ReadOnlyConnectorMetadata
     public final void commitCreateTable(OutputTableHandle tableHandle, Collection<String> fragments)
     {
         throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public boolean canHandle(Session session)
+    {
+        return true;
+    }
+
+    @Override
+    public ConnectorMetadata getMetadata(Session session)
+    {
+        return this;
     }
 }

@@ -15,7 +15,7 @@ package com.facebook.presto.hive;
 
 import com.facebook.presto.spi.Connector;
 import com.facebook.presto.spi.ConnectorHandleResolver;
-import com.facebook.presto.spi.ConnectorMetadata;
+import com.facebook.presto.spi.ConnectorMetadataProvider;
 import com.facebook.presto.spi.ConnectorOutputHandleResolver;
 import com.facebook.presto.spi.ConnectorRecordSetProvider;
 import com.facebook.presto.spi.ConnectorRecordSinkProvider;
@@ -26,7 +26,7 @@ import static com.google.common.base.Preconditions.checkNotNull;
 public class HiveConnector
         implements Connector
 {
-    private final ConnectorMetadata metadata;
+    private final ConnectorMetadataProvider metadataProvider;
     private final ConnectorSplitManager splitManager;
     private final ConnectorRecordSetProvider recordSetProvider;
     private final ConnectorRecordSinkProvider recordSinkProvider;
@@ -34,14 +34,14 @@ public class HiveConnector
     private final ConnectorOutputHandleResolver outputHandleResolver;
 
     public HiveConnector(
-            ConnectorMetadata metadata,
+            ConnectorMetadataProvider metadataProvider,
             ConnectorSplitManager splitManager,
             ConnectorRecordSetProvider recordSetProvider,
             ConnectorRecordSinkProvider recordSinkProvider,
             ConnectorHandleResolver handleResolver,
             ConnectorOutputHandleResolver outputHandleResolver)
     {
-        this.metadata = checkNotNull(metadata, "metadata is null");
+        this.metadataProvider = checkNotNull(metadataProvider, "metadataProvider is null");
         this.splitManager = checkNotNull(splitManager, "splitManager is null");
         this.recordSetProvider = checkNotNull(recordSetProvider, "recordSetProvider is null");
         this.recordSinkProvider = checkNotNull(recordSinkProvider, "recordSinkProvider is null");
@@ -50,9 +50,9 @@ public class HiveConnector
     }
 
     @Override
-    public ConnectorMetadata getMetadata()
+    public ConnectorMetadataProvider getMetadataProvider()
     {
-        return metadata;
+        return metadataProvider;
     }
 
     @Override

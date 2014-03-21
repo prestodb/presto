@@ -43,7 +43,7 @@ public class TestHiveConnectorFactory
                 HiveConnector.class.getClassLoader());
 
         Connector connector = connectorFactory.create("hive-test", ImmutableMap.<String, String>of());
-        assertInstanceOf(connector.getMetadata(), ClassLoaderSafeConnectorMetadata.class);
+        assertInstanceOf(connector.getMetadataProvider(), ClassLoaderSafeConnectorMetadata.class);
         assertInstanceOf(connector.getSplitManager(), ClassLoaderSafeConnectorSplitManager.class);
         assertInstanceOf(connector.getRecordSetProvider(), ClassLoaderSafeConnectorRecordSetProvider.class);
         assertInstanceOf(connector.getHandleResolver(), ClassLoaderSafeConnectorHandleResolver.class);

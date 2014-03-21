@@ -16,6 +16,7 @@ package com.facebook.presto.metadata;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.OutputTableHandle;
+import com.facebook.presto.spi.Session;
 import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.sql.analyzer.Type;
 import com.facebook.presto.sql.tree.QualifiedName;
@@ -42,13 +43,13 @@ public interface Metadata
     void addFunctions(List<FunctionInfo> functions);
 
     @NotNull
-    List<String> listSchemaNames(String catalogName);
+    List<String> listSchemaNames(Session session, String catalogName);
 
     /**
      * Returns a table handle for the specified table name.
      */
     @NotNull
-    Optional<TableHandle> getTableHandle(QualifiedTableName tableName);
+    Optional<TableHandle> getTableHandle(Session session, QualifiedTableName tableName);
 
     /**
      * Return the metadata for the specified table handle.
@@ -56,13 +57,13 @@ public interface Metadata
      * @throws RuntimeException if table handle is no longer valid
      */
     @NotNull
-    TableMetadata getTableMetadata(TableHandle tableHandle);
+    TableMetadata getTableMetadata(Session session, TableHandle tableHandle);
 
     /**
      * Get the names that match the specified table prefix (never null).
      */
     @NotNull
-    List<QualifiedTableName> listTables(QualifiedTablePrefix prefix);
+    List<QualifiedTableName> listTables(Session session, QualifiedTablePrefix prefix);
 
     /**
      * Returns a handle for the specified table column.
@@ -70,7 +71,7 @@ public interface Metadata
      * @throws RuntimeException if table handle is no longer valid
      */
     @NotNull
-    Optional<ColumnHandle> getColumnHandle(TableHandle tableHandle, String columnName);
+    Optional<ColumnHandle> getColumnHandle(Session session, TableHandle tableHandle, String columnName);
 
     /**
      * Returns the handle for the sample weight column.
@@ -78,13 +79,13 @@ public interface Metadata
      * @throws RuntimeException if the table handle is no longer valid
      */
     @NotNull
-    Optional<ColumnHandle> getSampleWeightColumnHandle(TableHandle tableHandle);
+    Optional<ColumnHandle> getSampleWeightColumnHandle(Session session, TableHandle tableHandle);
 
     /**
      * Returns true iff this catalog supports creation of sampled tables
      *
      */
-    boolean canCreateSampledTables(String catalogName);
+    boolean canCreateSampledTables(Session session, String catalogName);
 
     /**
      * Gets all of the columns on the specified table, or an empty map if the columns can not be enumerated.
@@ -92,7 +93,7 @@ public interface Metadata
      * @throws RuntimeException if table handle is no longer valid
      */
     @NotNull
-    Map<String, ColumnHandle> getColumnHandles(TableHandle tableHandle);
+    Map<String, ColumnHandle> getColumnHandles(Session session, TableHandle tableHandle);
 
     /**
      * Gets the metadata for the specified table column.
@@ -100,36 +101,36 @@ public interface Metadata
      * @throws RuntimeException if table or column handles are no longer valid
      */
     @NotNull
-    ColumnMetadata getColumnMetadata(TableHandle tableHandle, ColumnHandle columnHandle);
+    ColumnMetadata getColumnMetadata(Session session, TableHandle tableHandle, ColumnHandle columnHandle);
 
     /**
      * Gets the metadata for all columns that match the specified table prefix.
      */
     @NotNull
-    Map<QualifiedTableName, List<ColumnMetadata>> listTableColumns(QualifiedTablePrefix prefix);
+    Map<QualifiedTableName, List<ColumnMetadata>> listTableColumns(Session session, QualifiedTablePrefix prefix);
 
     /**
      * Creates a table using the specified table metadata.
      */
     @NotNull
-    TableHandle createTable(String catalogName, TableMetadata tableMetadata);
+    TableHandle createTable(Session session, String catalogName, TableMetadata tableMetadata);
 
     /**
      * Drops the specified table
      *
      * @throws RuntimeException if the table can not be dropped or table handle is no longer valid
      */
-    void dropTable(TableHandle tableHandle);
+    void dropTable(Session session, TableHandle tableHandle);
 
     /**
      * Begin the atomic creation of a table with data.
      */
-    OutputTableHandle beginCreateTable(String catalogName, TableMetadata tableMetadata);
+    OutputTableHandle beginCreateTable(Session session, String catalogName, TableMetadata tableMetadata);
 
     /**
      * Commit a table creation with data after the data is written.
      */
-    void commitCreateTable(OutputTableHandle tableHandle, Collection<String> fragments);
+    void commitCreateTable(Session session, OutputTableHandle tableHandle, Collection<String> fragments);
 
     /**
      * Gets all the loaded catalogs

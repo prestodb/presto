@@ -52,6 +52,7 @@ import com.facebook.presto.spi.ConnectorFactory;
 import com.facebook.presto.spi.ConnectorSplitManager;
 import com.facebook.presto.spi.Partition;
 import com.facebook.presto.spi.PartitionResult;
+import com.facebook.presto.spi.Session;
 import com.facebook.presto.spi.Split;
 import com.facebook.presto.spi.SplitSource;
 import com.facebook.presto.spi.SystemTable;
@@ -63,7 +64,6 @@ import com.facebook.presto.sql.analyzer.Analysis;
 import com.facebook.presto.sql.analyzer.Analyzer;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.sql.analyzer.QueryExplainer;
-import com.facebook.presto.sql.analyzer.Session;
 import com.facebook.presto.sql.gen.ExpressionCompiler;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.DistributedLogicalPlanner;
@@ -151,13 +151,13 @@ public class LocalQueryRunner
         dataStreamProvider.addConnectorDataStreamProvider(new InformationSchemaDataStreamProvider(metadata, splitManager));
 
         // dual table
-        metadata.addInternalSchemaMetadata(MetadataManager.INTERNAL_CONNECTOR_ID, new DualMetadata());
+        metadata.addInternalSchemaMetadataProvider(MetadataManager.INTERNAL_CONNECTOR_ID, new DualMetadata());
         splitManager.addConnectorSplitManager(new DualSplitManager(nodeManager));
         dataStreamProvider.addConnectorDataStreamProvider(new DualDataStreamProvider());
 
         // sys schema
         SystemTablesMetadata systemTablesMetadata = new SystemTablesMetadata();
-        metadata.addInternalSchemaMetadata(MetadataManager.INTERNAL_CONNECTOR_ID, systemTablesMetadata);
+        metadata.addInternalSchemaMetadataProvider(MetadataManager.INTERNAL_CONNECTOR_ID, systemTablesMetadata);
 
         SystemSplitManager systemSplitManager = new SystemSplitManager(nodeManager);
         splitManager.addConnectorSplitManager(systemSplitManager);
@@ -293,7 +293,7 @@ public class LocalQueryRunner
             System.out.println(PlanPrinter.textLogicalPlan(plan.getRoot(), plan.getTypes()));
         }
 
-        SubPlan subplan = new DistributedLogicalPlanner(metadata, idAllocator).createSubPlans(plan, true);
+        SubPlan subplan = new DistributedLogicalPlanner(session, metadata, idAllocator).createSubPlans(plan, true);
         assertTrue(subplan.getChildren().isEmpty(), "Expected subplan to have no children");
 
         LocalExecutionPlanner executionPlanner = new LocalExecutionPlanner(
@@ -378,17 +378,17 @@ public class LocalQueryRunner
     public OperatorFactory createTableScanOperator(final int operatorId, String tableName, String... columnNames)
     {
         // look up the table
-        TableHandle tableHandle = metadata.getTableHandle(new QualifiedTableName(session.getCatalog(), session.getSchema(), tableName)).orNull();
+        TableHandle tableHandle = metadata.getTableHandle(session, new QualifiedTableName(session.getCatalog(), session.getSchema(), tableName)).orNull();
         checkArgument(tableHandle != null, "Table %s does not exist", tableName);
 
         // lookup the columns
         ImmutableList.Builder<ColumnHandle> columnHandlesBuilder = ImmutableList.builder();
         ImmutableList.Builder<TupleInfo> columnTypesBuilder = ImmutableList.builder();
         for (String columnName : columnNames) {
-            ColumnHandle columnHandle = metadata.getColumnHandle(tableHandle, columnName).orNull();
+            ColumnHandle columnHandle = metadata.getColumnHandle(session, tableHandle, columnName).orNull();
             checkArgument(columnHandle != null, "Table %s does not have a column %s", tableName, columnName);
             columnHandlesBuilder.add(columnHandle);
-            ColumnMetadata columnMetadata = metadata.getColumnMetadata(tableHandle, columnHandle);
+            ColumnMetadata columnMetadata = metadata.getColumnMetadata(session, tableHandle, columnHandle);
             columnTypesBuilder.add(new TupleInfo(fromColumnType(columnMetadata.getType())));
         }
         final List<ColumnHandle> columnHandles = columnHandlesBuilder.build();
