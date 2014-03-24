@@ -44,4 +44,17 @@ public class PrestoException
     {
         return errorCode;
     }
+
+    @Override
+    public String getMessage()
+    {
+        String message = super.getMessage();
+        if (message == null && getCause() != null) {
+            message = getCause().getMessage();
+        }
+        if (message == null) {
+            message = errorCode.getName();
+        }
+        return message;
+    }
 }
