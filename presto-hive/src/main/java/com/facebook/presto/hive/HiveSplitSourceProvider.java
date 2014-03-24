@@ -489,6 +489,9 @@ class HiveSplitSourceProvider
             // while scheduling splits and wait for work to finish before continuing.  In this case,
             // we want to end the query as soon as possible and abort the work
             if (throwable.get() != null) {
+                if (throwable.get() instanceof PrestoException) {
+                    throw (PrestoException) throwable.get();
+                }
                 if (throwable.get() instanceof FileNotFoundException) {
                     throw new PrestoException(HiveErrorCode.HIVE_FILE_NOT_FOUND.toErrorCode(), throwable.get());
                 }
