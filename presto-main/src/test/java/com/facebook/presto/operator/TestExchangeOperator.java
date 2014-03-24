@@ -17,7 +17,7 @@ import com.facebook.presto.execution.TaskId;
 import com.facebook.presto.operator.ExchangeOperator.ExchangeOperatorFactory;
 import com.facebook.presto.serde.PagesSerde;
 import com.facebook.presto.split.RemoteSplit;
-import com.facebook.presto.sql.analyzer.Session;
+import com.facebook.presto.spi.Session;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.base.Function;

@@ -21,7 +21,7 @@ import com.facebook.presto.operator.OperatorAssertion;
 import com.facebook.presto.operator.Page;
 import com.facebook.presto.operator.TaskContext;
 import com.facebook.presto.spi.ColumnHandle;
-import com.facebook.presto.sql.analyzer.Session;
+import com.facebook.presto.spi.Session;
 import com.facebook.presto.util.MaterializedResult;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;

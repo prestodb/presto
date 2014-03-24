@@ -11,15 +11,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.sql.analyzer;
+package com.facebook.presto.spi;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.google.common.base.Objects;
 
-import javax.annotation.Nullable;
-
-import static com.google.common.base.Preconditions.checkNotNull;
+import java.util.Objects;
 
 public class Session
 {
@@ -34,14 +31,14 @@ public class Session
     private final String schema;
     private final long startTime;
 
-    public Session(@Nullable String user, String source, String catalog, String schema, String remoteUserAddress, String userAgent)
+    public Session(String user, String source, String catalog, String schema, String remoteUserAddress, String userAgent)
     {
         this(user, source, catalog, schema, remoteUserAddress, userAgent, System.currentTimeMillis());
     }
 
     @JsonCreator
     public Session(
-            @JsonProperty("user") @Nullable String user,
+            @JsonProperty("user") String user,
             @JsonProperty("source") String source,
             @JsonProperty("catalog") String catalog,
             @JsonProperty("schema") String schema,
@@ -51,15 +48,14 @@ public class Session
     {
         this.user = user;
         this.source = source;
-        this.catalog = checkNotNull(catalog, "catalog is null");
-        this.schema = checkNotNull(schema, "schema is null");
+        this.catalog = Objects.requireNonNull(catalog, "catalog is null");
+        this.schema = Objects.requireNonNull(schema, "schema is null");
         this.remoteUserAddress = remoteUserAddress;
         this.userAgent = userAgent;
         this.startTime = startTime;
     }
 
     @JsonProperty
-    @Nullable
     public String getUser()
     {
         return user;
@@ -104,14 +100,15 @@ public class Session
     @Override
     public String toString()
     {
-        return Objects.toStringHelper(this)
-                .add("user", user)
-                .add("source", source)
-                .add("remoteUserAddress", remoteUserAddress)
-                .add("userAgent", userAgent)
-                .add("catalog", catalog)
-                .add("schema", schema)
-                .add("startTime", startTime)
-                .toString();
+        StringBuilder builder = new StringBuilder("Session{");
+        builder.append("user='").append(user).append('\'');
+        builder.append(", source='").append(source).append('\'');
+        builder.append(", remoteUserAddress='").append(remoteUserAddress).append('\'');
+        builder.append(", userAgent='").append(userAgent).append('\'');
+        builder.append(", catalog='").append(catalog).append('\'');
+        builder.append(", schema='").append(schema).append('\'');
+        builder.append(", startTime=").append(startTime);
+        builder.append('}');
+        return builder.toString();
     }
 }

@@ -14,8 +14,6 @@
 package com.facebook.presto.sql.gen;
 
 import com.facebook.presto.block.BlockAssertions;
-import com.facebook.presto.spi.block.BlockCursor;
-import com.facebook.presto.spi.block.RandomAccessBlock;
 import com.facebook.presto.execution.TaskId;
 import com.facebook.presto.operator.DriverContext;
 import com.facebook.presto.operator.JoinHash;
@@ -27,7 +25,9 @@ import com.facebook.presto.operator.PageBuilder;
 import com.facebook.presto.operator.SequencePageBuilder;
 import com.facebook.presto.operator.TaskContext;
 import com.facebook.presto.operator.ValuesOperator;
-import com.facebook.presto.sql.analyzer.Session;
+import com.facebook.presto.spi.Session;
+import com.facebook.presto.spi.block.BlockCursor;
+import com.facebook.presto.spi.block.RandomAccessBlock;
 import com.facebook.presto.sql.gen.JoinCompiler.JoinHashFactory;
 import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Ints;

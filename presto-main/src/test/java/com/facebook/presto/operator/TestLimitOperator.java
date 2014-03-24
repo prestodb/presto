@@ -15,7 +15,7 @@ package com.facebook.presto.operator;
 
 import com.facebook.presto.execution.TaskId;
 import com.facebook.presto.operator.LimitOperator.LimitOperatorFactory;
-import com.facebook.presto.sql.analyzer.Session;
+import com.facebook.presto.spi.Session;
 import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
 import org.testng.annotations.AfterMethod;

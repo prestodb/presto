@@ -18,7 +18,7 @@ import com.facebook.presto.spi.block.BlockCursor;
 import com.facebook.presto.execution.TaskId;
 import com.facebook.presto.operator.FilterAndProjectOperator.FilterAndProjectOperatorFactory;
 import com.facebook.presto.spi.RecordCursor;
-import com.facebook.presto.sql.analyzer.Session;
+import com.facebook.presto.spi.Session;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.util.MaterializedResult;
 import com.google.common.collect.ImmutableList;

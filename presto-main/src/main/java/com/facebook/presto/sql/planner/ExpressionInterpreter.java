@@ -19,7 +19,7 @@ import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.OperatorInfo;
 import com.facebook.presto.metadata.OperatorInfo.OperatorType;
 import com.facebook.presto.spi.RecordCursor;
-import com.facebook.presto.sql.analyzer.Session;
+import com.facebook.presto.spi.Session;
 import com.facebook.presto.sql.tree.ArithmeticExpression;
 import com.facebook.presto.sql.tree.AstVisitor;
 import com.facebook.presto.sql.tree.BetweenPredicate;

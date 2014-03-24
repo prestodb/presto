@@ -15,7 +15,7 @@ package com.facebook.presto.sql.planner.optimizations;
 
 import com.facebook.presto.metadata.TableMetadata;
 import com.facebook.presto.spi.ConnectorTableMetadata;
-import com.facebook.presto.sql.analyzer.Session;
+import com.facebook.presto.spi.Session;
 import com.facebook.presto.sql.planner.DeterminismEvaluator;
 import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
 import com.facebook.presto.sql.planner.Symbol;
