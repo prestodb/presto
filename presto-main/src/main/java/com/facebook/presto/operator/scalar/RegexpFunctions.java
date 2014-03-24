@@ -16,6 +16,8 @@ package com.facebook.presto.operator.scalar;
 import com.facebook.presto.byteCode.ByteCodeNode;
 import com.facebook.presto.byteCode.instruction.Constant;
 import com.facebook.presto.operator.Description;
+import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.StandardErrorCode;
 import com.facebook.presto.sql.gen.DefaultFunctionBinder;
 import com.facebook.presto.sql.gen.FunctionBinder;
 import com.facebook.presto.sql.gen.FunctionBinding;
@@ -36,6 +38,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.util.regex.PatternSyntaxException;
 
 import static java.lang.invoke.MethodHandles.lookup;
 import static java.lang.invoke.MethodType.methodType;
@@ -231,7 +234,12 @@ public final class RegexpFunctions
         @Override
         protected Pattern load(Slice patternSlice)
         {
-            return Pattern.compile(patternSlice.toString(UTF_8));
+            try {
+                return Pattern.compile(patternSlice.toString(UTF_8));
+            }
+            catch (PatternSyntaxException e) {
+                throw new PrestoException(StandardErrorCode.INVALID_FUNCTION_ARGUMENT.toErrorCode(), e);
+            }
         }
     }
 }
