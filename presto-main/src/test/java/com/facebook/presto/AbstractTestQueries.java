@@ -29,7 +29,7 @@ import com.facebook.presto.spi.RecordCursor;
 import com.facebook.presto.spi.RecordSet;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.split.SplitManager;
-import com.facebook.presto.sql.analyzer.AnalyzerConfig;
+import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.sql.analyzer.QueryExplainer;
 import com.facebook.presto.sql.analyzer.Session;
 import com.facebook.presto.sql.analyzer.Type;
@@ -3320,8 +3320,8 @@ public abstract class AbstractTestQueries
         MetadataManager metadata = new MetadataManager();
         metadata.addInternalSchemaMetadata(MetadataManager.INTERNAL_CONNECTOR_ID, new DualMetadata());
         SplitManager splitManager = new SplitManager(ImmutableSet.<ConnectorSplitManager>of(new DualSplitManager(new InMemoryNodeManager())));
-        AnalyzerConfig analyzerConfig = new AnalyzerConfig().setExperimentalSyntaxEnabled(true);
-        List<PlanOptimizer> optimizers = new PlanOptimizersFactory(metadata, splitManager, analyzerConfig).get();
-        return new QueryExplainer(session, optimizers, metadata, analyzerConfig.isExperimentalSyntaxEnabled());
+        FeaturesConfig featuresConfig = new FeaturesConfig().setExperimentalSyntaxEnabled(true);
+        List<PlanOptimizer> optimizers = new PlanOptimizersFactory(metadata, splitManager, featuresConfig).get();
+        return new QueryExplainer(session, optimizers, metadata, featuresConfig.isExperimentalSyntaxEnabled());
     }
 }
