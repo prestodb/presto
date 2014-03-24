@@ -57,7 +57,7 @@ import com.facebook.presto.spi.block.BlockCursor;
 import com.facebook.presto.spi.block.SortOrder;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.split.DataStreamProvider;
-import com.facebook.presto.sql.analyzer.Session;
+import com.facebook.presto.spi.Session;
 import com.facebook.presto.sql.gen.ExpressionCompiler;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.planner.plan.DistinctLimitNode;

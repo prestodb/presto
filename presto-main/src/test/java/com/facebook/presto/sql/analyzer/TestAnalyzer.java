@@ -19,6 +19,7 @@ import com.facebook.presto.metadata.TableMetadata;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.SchemaTableName;
+import com.facebook.presto.spi.Session;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.tree.Statement;
 import com.facebook.presto.type.TypeRegistry;
