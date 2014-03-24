@@ -69,6 +69,12 @@ public class CassandraRecordCursor
     }
 
     @Override
+    public long getReadTimeNanos()
+    {
+        return 0;
+    }
+
+    @Override
     public double getDouble(int i)
     {
         switch (getCassandraType(i)) {

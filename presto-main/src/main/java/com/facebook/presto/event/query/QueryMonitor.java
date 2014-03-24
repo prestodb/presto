@@ -230,6 +230,7 @@ public class QueryMonitor
                             timeToEnd,
                             driverStats.getRawInputDataSize(),
                             driverStats.getRawInputPositions(),
+                            driverStats.getRawInputReadTime(),
                             driverStats.getElapsedTime(),
                             driverStats.getTotalCpuTime(),
                             driverStats.getTotalUserTime(),

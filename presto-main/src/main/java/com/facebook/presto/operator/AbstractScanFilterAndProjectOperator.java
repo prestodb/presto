@@ -52,6 +52,7 @@ public abstract class AbstractScanFilterAndProjectOperator
     private boolean finishing;
 
     private long completedBytes;
+    private long readTimeNanos;
 
     protected AbstractScanFilterAndProjectOperator(
             OperatorContext operatorContext,
@@ -86,7 +87,7 @@ public abstract class AbstractScanFilterAndProjectOperator
     }
 
     @Override
-    public synchronized void addSplit(final Split split)
+    public synchronized void addSplit(Split split)
     {
         checkNotNull(split, "split is null");
         checkState(cursor == null && operator == null, "split already set");
@@ -125,6 +126,7 @@ public abstract class AbstractScanFilterAndProjectOperator
         close();
     }
 
+    @Override
     public void close()
     {
         if (operator != null) {
@@ -152,9 +154,7 @@ public abstract class AbstractScanFilterAndProjectOperator
         if (operator != null) {
             return operator.isBlocked();
         }
-        else {
-            return NOT_BLOCKED;
-        }
+        return NOT_BLOCKED;
     }
 
     @Override
@@ -176,8 +176,9 @@ public abstract class AbstractScanFilterAndProjectOperator
             if (cursor != null) {
                 int rowsProcessed = filterAndProjectRowOriented(cursor, pageBuilder);
                 long bytesProcessed = cursor.getCompletedBytes() - completedBytes;
-                operatorContext.recordGeneratedInput(new DataSize(bytesProcessed, BYTE), rowsProcessed);
+                operatorContext.recordGeneratedInput(new DataSize(bytesProcessed, BYTE), rowsProcessed, cursor.getReadTimeNanos() - readTimeNanos);
                 completedBytes += bytesProcessed;
+                readTimeNanos = cursor.getReadTimeNanos();
 
                 if (rowsProcessed == 0) {
                     finishing = true;

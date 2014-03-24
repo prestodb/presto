@@ -39,6 +39,7 @@ public class RecordProjectOperator
     private final PageBuilder pageBuilder;
     private boolean finishing;
     private long completedBytes;
+    private long readTimeNanos;
 
     public RecordProjectOperator(OperatorContext operatorContext, RecordSet recordSet)
     {
@@ -56,7 +57,7 @@ public class RecordProjectOperator
         }
         this.tupleInfos = tupleInfos.build();
 
-        pageBuilder = new PageBuilder(getTupleInfos());
+        pageBuilder = new PageBuilder(this.tupleInfos);
     }
 
     @Override
@@ -82,6 +83,7 @@ public class RecordProjectOperator
         close();
     }
 
+    @Override
     public void close()
     {
         finishing = true;
@@ -116,8 +118,8 @@ public class RecordProjectOperator
     public Page getOutput()
     {
         if (!finishing) {
-            int i = 0;
-            for (; i < ROWS_PER_REQUEST; i++) {
+            int i;
+            for (i = 0; i < ROWS_PER_REQUEST; i++) {
                 if (pageBuilder.isFull()) {
                     break;
                 }
@@ -155,8 +157,10 @@ public class RecordProjectOperator
             }
 
             long bytesProcessed = cursor.getCompletedBytes() - completedBytes;
-            operatorContext.recordGeneratedInput(new DataSize(bytesProcessed, BYTE), i);
+            long endReadTimeNanos = cursor.getReadTimeNanos();
+            operatorContext.recordGeneratedInput(new DataSize(bytesProcessed, BYTE), i, endReadTimeNanos - readTimeNanos);
             completedBytes += bytesProcessed;
+            readTimeNanos = endReadTimeNanos;
         }
 
         // only return a full page is buffer is full or we are finishing

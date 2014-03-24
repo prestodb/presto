@@ -81,6 +81,12 @@ public class MappedRecordSet
         }
 
         @Override
+        public long getReadTimeNanos()
+        {
+            return delegate.getReadTimeNanos();
+        }
+
+        @Override
         public ColumnType getType(int field)
         {
             return delegate.getType(field);
