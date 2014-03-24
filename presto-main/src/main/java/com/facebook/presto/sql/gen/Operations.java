@@ -107,12 +107,22 @@ public final class Operations
 
     public static long divide(long left, long right)
     {
-        return left / right;
+        try {
+            return left / right;
+        }
+        catch (ArithmeticException e) {
+            throw new PrestoException(StandardErrorCode.DIVISION_BY_ZERO.toErrorCode(), e);
+        }
     }
 
     public static long modulus(long left, long right)
     {
-        return left % right;
+        try {
+            return left % right;
+        }
+        catch (ArithmeticException e) {
+            throw new PrestoException(StandardErrorCode.DIVISION_BY_ZERO.toErrorCode(), e);
+        }
     }
 
     public static long negate(long value)

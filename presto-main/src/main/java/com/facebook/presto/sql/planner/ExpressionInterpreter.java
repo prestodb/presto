@@ -481,7 +481,12 @@ public class ExpressionInterpreter
                     }
                 case MODULUS:
                     if (leftNumber instanceof Long && rightNumber instanceof Long) {
-                        return leftNumber.longValue() % rightNumber.longValue();
+                        try {
+                            return leftNumber.longValue() % rightNumber.longValue();
+                        }
+                        catch (ArithmeticException e) {
+                            throw new PrestoException(StandardErrorCode.DIVISION_BY_ZERO.toErrorCode(), e);
+                        }
                     }
                     else {
                         return leftNumber.doubleValue() % rightNumber.doubleValue();
