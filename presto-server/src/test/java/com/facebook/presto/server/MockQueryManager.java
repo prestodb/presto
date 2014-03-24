@@ -15,6 +15,7 @@ package com.facebook.presto.server;
 
 import com.facebook.presto.TaskSource;
 import com.facebook.presto.UnpartitionedPagePartitionFunction;
+import com.facebook.presto.execution.ExecutionFailureInfo;
 import com.facebook.presto.execution.LocationFactory;
 import com.facebook.presto.execution.QueryId;
 import com.facebook.presto.execution.QueryInfo;
@@ -27,8 +28,7 @@ import com.facebook.presto.execution.StageState;
 import com.facebook.presto.execution.StageStats;
 import com.facebook.presto.execution.TaskId;
 import com.facebook.presto.execution.TaskInfo;
-import com.facebook.presto.sql.analyzer.Session;
-import com.facebook.presto.execution.ExecutionFailureInfo;
+import com.facebook.presto.spi.Session;
 import com.google.common.base.Function;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Predicates;

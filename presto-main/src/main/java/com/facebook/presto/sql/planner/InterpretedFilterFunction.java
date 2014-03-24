@@ -17,7 +17,7 @@ import com.facebook.presto.spi.block.BlockCursor;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.operator.FilterFunction;
 import com.facebook.presto.spi.RecordCursor;
-import com.facebook.presto.sql.analyzer.Session;
+import com.facebook.presto.spi.Session;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.ExpressionTreeRewriter;
 import com.facebook.presto.sql.tree.Input;

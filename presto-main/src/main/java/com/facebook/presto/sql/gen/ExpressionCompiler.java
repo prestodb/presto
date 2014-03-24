@@ -46,7 +46,7 @@ import com.facebook.presto.operator.SourceOperatorFactory;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.RecordCursor;
 import com.facebook.presto.split.DataStreamProvider;
-import com.facebook.presto.sql.analyzer.Session;
+import com.facebook.presto.spi.Session;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.InputReference;

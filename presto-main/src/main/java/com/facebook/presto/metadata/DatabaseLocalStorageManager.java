@@ -26,7 +26,7 @@ import com.facebook.presto.serde.BlocksFileEncoding;
 import com.facebook.presto.serde.BlocksFileReader;
 import com.facebook.presto.serde.BlocksFileStats;
 import com.facebook.presto.spi.ColumnHandle;
-import com.facebook.presto.sql.analyzer.Session;
+import com.facebook.presto.spi.Session;
 import com.facebook.presto.util.KeyBoundedExecutor;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Function;
