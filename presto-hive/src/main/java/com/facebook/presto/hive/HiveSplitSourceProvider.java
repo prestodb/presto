@@ -18,6 +18,7 @@ import com.facebook.presto.hive.util.BoundedExecutor;
 import com.facebook.presto.hive.util.FileStatusCallback;
 import com.facebook.presto.hive.util.SuspendingExecutor;
 import com.facebook.presto.spi.HostAddress;
+import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.Split;
 import com.facebook.presto.spi.SplitSource;
 import com.google.common.annotations.VisibleForTesting;
@@ -45,6 +46,7 @@ import org.apache.hadoop.mapred.InputFormat;
 import org.apache.hadoop.mapred.InputSplit;
 import org.apache.hadoop.mapred.JobConf;
 
+import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -487,7 +489,10 @@ class HiveSplitSourceProvider
             // while scheduling splits and wait for work to finish before continuing.  In this case,
             // we want to end the query as soon as possible and abort the work
             if (throwable.get() != null) {
-                throw Throwables.propagate(throwable.get());
+                if (throwable.get() instanceof FileNotFoundException) {
+                    throw new PrestoException(HiveErrorCode.HIVE_FILE_NOT_FOUND.toErrorCode(), throwable.get());
+                }
+                throw new PrestoException(HiveErrorCode.HIVE_UNKNOWN_ERROR.toErrorCode(), throwable.get());
             }
 
             // decrement the outstanding split count by the number of splits we took
