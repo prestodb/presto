@@ -122,7 +122,7 @@ public class TestHiveSplitSource
             fail("expected RuntimeException");
         }
         catch (RuntimeException e) {
-            assertEquals(e.getMessage(), "test");
+            assertEquals(e.getCause().getMessage(), "test");
         }
         assertEquals(hiveSplitSource.getOutstandingSplitCount(), 4);
 
@@ -140,7 +140,7 @@ public class TestHiveSplitSource
             fail("expected RuntimeException");
         }
         catch (RuntimeException e) {
-            assertEquals(e.getMessage(), "test");
+            assertEquals(e.getCause().getMessage(), "test");
         }
     }
 

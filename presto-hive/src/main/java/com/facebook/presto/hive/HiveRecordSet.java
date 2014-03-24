@@ -16,6 +16,7 @@ package com.facebook.presto.hive;
 import com.facebook.presto.hadoop.HadoopFileSystemCache;
 import com.facebook.presto.hadoop.HadoopNative;
 import com.facebook.presto.spi.ColumnType;
+import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.RecordCursor;
 import com.facebook.presto.spi.RecordSet;
 import com.google.common.base.Optional;
@@ -166,7 +167,7 @@ public class HiveRecordSet
             });
         }
         catch (Exception e) {
-            throw new RuntimeException(String.format("Error opening Hive split %s (offset=%s, length=%s) using %s: %s",
+            throw new PrestoException(HiveErrorCode.HIVE_CANNOT_OPEN_SPLIT.toErrorCode(), String.format("Error opening Hive split %s (offset=%s, length=%s) using %s: %s",
                     split.getPath(),
                     split.getStart(),
                     split.getLength(),
