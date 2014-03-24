@@ -485,7 +485,7 @@ class HiveSplitSourceProvider
             }
 
             // Before returning, check if there is a registered failure.
-            // If so, we want to throw the error, instead of retuning because the scheduler can block
+            // If so, we want to throw the error, instead of returning because the scheduler can block
             // while scheduling splits and wait for work to finish before continuing.  In this case,
             // we want to end the query as soon as possible and abort the work
             if (throwable.get() != null) {
