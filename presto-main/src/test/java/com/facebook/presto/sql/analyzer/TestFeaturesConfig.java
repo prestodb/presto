@@ -19,28 +19,33 @@ import org.testng.annotations.Test;
 
 import java.util.Map;
 
+import static io.airlift.configuration.testing.ConfigAssertions.assertDeprecatedEquivalence;
 import static io.airlift.configuration.testing.ConfigAssertions.assertFullMapping;
 import static io.airlift.configuration.testing.ConfigAssertions.assertRecordedDefaults;
 
-public class TestAnalyzerConfig
+public class TestFeaturesConfig
 {
     @Test
     public void testDefaults()
     {
-        assertRecordedDefaults(ConfigAssertions.recordDefaults(AnalyzerConfig.class)
+        assertRecordedDefaults(ConfigAssertions.recordDefaults(FeaturesConfig.class)
                 .setExperimentalSyntaxEnabled(false));
     }
 
     @Test
     public void testExplicitPropertyMappings()
     {
-        Map<String, String> properties = new ImmutableMap.Builder<String, String>()
+        Map<String, String> propertiesLegacy = new ImmutableMap.Builder<String, String>()
                 .put("analyzer.experimental-syntax-enabled", "true")
                 .build();
+        Map<String, String> properties = new ImmutableMap.Builder<String, String>()
+                .put("experimental-syntax-enabled", "true")
+                .build();
 
-        AnalyzerConfig expected = new AnalyzerConfig()
+        FeaturesConfig expected = new FeaturesConfig()
                 .setExperimentalSyntaxEnabled(true);
 
         assertFullMapping(properties, expected);
+        assertDeprecatedEquivalence(FeaturesConfig.class, properties, propertiesLegacy);
     }
 }
