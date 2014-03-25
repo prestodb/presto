@@ -21,6 +21,7 @@ import org.testng.annotations.Test;
 import java.util.List;
 
 import static com.facebook.presto.cassandra.util.CassandraCqlUtils.quoteStringLiteral;
+import static com.facebook.presto.cassandra.util.CassandraCqlUtils.quoteStringLiteralForJson;
 import static com.facebook.presto.cassandra.util.CassandraCqlUtils.validColumnName;
 import static com.facebook.presto.cassandra.util.CassandraCqlUtils.validSchemaName;
 import static com.facebook.presto.cassandra.util.CassandraCqlUtils.validTableName;
@@ -57,6 +58,14 @@ public class TestCassandraCqlUtils
     {
         assertEquals("'foo'", quoteStringLiteral("foo"));
         assertEquals("'Presto''s'", quoteStringLiteral("Presto's"));
+    }
+
+    @Test
+    public void testQuoteJson()
+    {
+        assertEquals("\"foo\"", quoteStringLiteralForJson("foo"));
+        assertEquals("\"Presto's\"", quoteStringLiteralForJson("Presto's"));
+        assertEquals("\"xx\\\"xx\"", quoteStringLiteralForJson("xx\"xx"));
     }
 
     @Test
