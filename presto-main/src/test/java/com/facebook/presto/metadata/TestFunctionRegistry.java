@@ -28,7 +28,7 @@ public class TestFunctionRegistry
                 .scalar(CustomAdd.class)
                 .build();
 
-        FunctionRegistry registry = new FunctionRegistry();
+        FunctionRegistry registry = new FunctionRegistry(true);
         registry.addFunctions(functions);
         registry.addFunctions(functions);
     }
@@ -41,7 +41,7 @@ public class TestFunctionRegistry
                 .scalar(ScalarSum.class)
                 .build();
 
-        FunctionRegistry registry = new FunctionRegistry();
+        FunctionRegistry registry = new FunctionRegistry(true);
         registry.addFunctions(functions);
     }
 

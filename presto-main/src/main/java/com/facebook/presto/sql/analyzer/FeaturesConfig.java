@@ -14,13 +14,15 @@
 package com.facebook.presto.sql.analyzer;
 
 import io.airlift.configuration.Config;
+import io.airlift.configuration.LegacyConfig;
 
-public class AnalyzerConfig
+public class FeaturesConfig
 {
     private boolean experimentalSyntaxEnabled;
 
-    @Config("analyzer.experimental-syntax-enabled")
-    public AnalyzerConfig setExperimentalSyntaxEnabled(boolean enabled)
+    @LegacyConfig("analyzer.experimental-syntax-enabled")
+    @Config("experimental-syntax-enabled")
+    public FeaturesConfig setExperimentalSyntaxEnabled(boolean enabled)
     {
         experimentalSyntaxEnabled = enabled;
         return this;

@@ -20,7 +20,7 @@ import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.split.SplitManager;
 import com.facebook.presto.sql.analyzer.Analysis;
 import com.facebook.presto.sql.analyzer.Analyzer;
-import com.facebook.presto.sql.analyzer.AnalyzerConfig;
+import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.sql.analyzer.QueryExplainer;
 import com.facebook.presto.sql.analyzer.Session;
 import com.facebook.presto.sql.planner.DistributedExecutionPlanner;
@@ -397,7 +397,7 @@ public class SqlQueryExecution
 
         @Inject
         SqlQueryExecutionFactory(QueryManagerConfig config,
-                AnalyzerConfig analyzerConfig,
+                FeaturesConfig featuresConfig,
                 Metadata metadata,
                 LocationFactory locationFactory,
                 SplitManager splitManager,
@@ -415,7 +415,7 @@ public class SqlQueryExecution
             this.nodeScheduler = checkNotNull(nodeScheduler, "nodeScheduler is null");
             this.planOptimizers = checkNotNull(planOptimizers, "planOptimizers is null");
             this.remoteTaskFactory = checkNotNull(remoteTaskFactory, "remoteTaskFactory is null");
-            this.experimentalSyntaxEnabled = checkNotNull(analyzerConfig, "analyzerConfig is null").isExperimentalSyntaxEnabled();
+            this.experimentalSyntaxEnabled = checkNotNull(featuresConfig, "featuresConfig is null").isExperimentalSyntaxEnabled();
 
             this.executor = Executors.newCachedThreadPool(threadsNamed("query-scheduler-%d"));
             this.executorMBean = new ThreadPoolExecutorMBean((ThreadPoolExecutor) executor);

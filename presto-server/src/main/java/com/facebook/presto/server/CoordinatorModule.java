@@ -37,7 +37,7 @@ import com.facebook.presto.spi.NodeManager;
 import com.facebook.presto.split.NativeDataStreamProvider;
 import com.facebook.presto.split.NativeSplitManager;
 import com.facebook.presto.split.SplitManager;
-import com.facebook.presto.sql.analyzer.AnalyzerConfig;
+import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.sql.tree.CreateTable;
 import com.facebook.presto.sql.tree.DropTable;
 import com.facebook.presto.sql.tree.Explain;
@@ -84,7 +84,7 @@ public class CoordinatorModule
         bindConfig(binder).to(QueryManagerConfig.class);
 
         // analyzer
-        bindConfig(binder).to(AnalyzerConfig.class);
+        bindConfig(binder).to(FeaturesConfig.class);
 
         // native
         binder.bind(NativeConnectorId.class).toInstance(new NativeConnectorId("default"));

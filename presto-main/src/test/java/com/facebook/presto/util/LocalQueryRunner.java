@@ -61,7 +61,7 @@ import com.facebook.presto.split.DataStreamManager;
 import com.facebook.presto.split.SplitManager;
 import com.facebook.presto.sql.analyzer.Analysis;
 import com.facebook.presto.sql.analyzer.Analyzer;
-import com.facebook.presto.sql.analyzer.AnalyzerConfig;
+import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.sql.analyzer.QueryExplainer;
 import com.facebook.presto.sql.analyzer.Session;
 import com.facebook.presto.sql.gen.ExpressionCompiler;
@@ -128,7 +128,7 @@ public class LocalQueryRunner
         this.executor = checkNotNull(executor, "executor is null");
 
         this.nodeManager = new InMemoryNodeManager();
-        this.metadata = new MetadataManager();
+        this.metadata = new MetadataManager(new FeaturesConfig().setExperimentalSyntaxEnabled(true));
         this.splitManager = new SplitManager(ImmutableSet.<ConnectorSplitManager>of());
         this.dataStreamProvider = new DataStreamManager();
         this.recordSinkManager = new RecordSinkManager();
@@ -280,11 +280,11 @@ public class LocalQueryRunner
         }
 
         PlanNodeIdAllocator idAllocator = new PlanNodeIdAllocator();
-        AnalyzerConfig analyzerConfig = new AnalyzerConfig().setExperimentalSyntaxEnabled(true);
-        PlanOptimizersFactory planOptimizersFactory = new PlanOptimizersFactory(metadata, splitManager, analyzerConfig);
+        FeaturesConfig featuresConfig = new FeaturesConfig().setExperimentalSyntaxEnabled(true);
+        PlanOptimizersFactory planOptimizersFactory = new PlanOptimizersFactory(metadata, splitManager, featuresConfig);
 
-        QueryExplainer queryExplainer = new QueryExplainer(session, planOptimizersFactory.get(), metadata, analyzerConfig.isExperimentalSyntaxEnabled());
-        Analyzer analyzer = new Analyzer(session, metadata, Optional.of(queryExplainer), analyzerConfig.isExperimentalSyntaxEnabled());
+        QueryExplainer queryExplainer = new QueryExplainer(session, planOptimizersFactory.get(), metadata, featuresConfig.isExperimentalSyntaxEnabled());
+        Analyzer analyzer = new Analyzer(session, metadata, Optional.of(queryExplainer), featuresConfig.isExperimentalSyntaxEnabled());
 
         Analysis analysis = analyzer.analyze(statement);
 
