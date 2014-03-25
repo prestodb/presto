@@ -19,6 +19,7 @@ import com.datastax.driver.core.querybuilder.Select.Selection;
 import com.facebook.presto.cassandra.CassandraColumnHandle;
 import com.facebook.presto.cassandra.CassandraTableHandle;
 import com.facebook.presto.spi.ConnectorColumnHandle;
+import com.fasterxml.jackson.core.io.JsonStringEncoder;
 
 import java.util.Arrays;
 import java.util.HashSet;
@@ -85,6 +86,11 @@ public final class CassandraCqlUtils
     public static String quoteStringLiteral(String string)
     {
         return "'" + string.replace("'", "''") + "'";
+    }
+
+    public static String quoteStringLiteralForJson(String string)
+    {
+        return '"' + new String(JsonStringEncoder.getInstance().quoteAsUTF8(string)) + '"';
     }
 
     public static void appendSelectColumns(StringBuilder stringBuilder, List<? extends ConnectorColumnHandle> columns)
