@@ -49,7 +49,7 @@ import static java.lang.Math.max;
 import static java.lang.Math.min;
 
 class ColumnarTextHiveRecordCursor<K>
-        extends AbstractHiveRecordCursor
+        extends HiveRecordCursor
 {
     private final RecordReader<K, BytesRefArrayWritable> recordReader;
     private final K key;
