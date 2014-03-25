@@ -24,6 +24,7 @@ import com.facebook.presto.connector.informationSchema.InformationSchemaDataStre
 import com.facebook.presto.connector.informationSchema.InformationSchemaSplitManager;
 import com.facebook.presto.connector.system.CatalogSystemTable;
 import com.facebook.presto.connector.system.NodesSystemTable;
+import com.facebook.presto.connector.system.SystemConnector;
 import com.facebook.presto.connector.system.SystemDataStreamProvider;
 import com.facebook.presto.connector.system.SystemSplitManager;
 import com.facebook.presto.connector.system.SystemTablesManager;
@@ -164,7 +165,7 @@ public class LocalQueryRunner
 
         // sys schema
         SystemTablesMetadata systemTablesMetadata = new SystemTablesMetadata();
-        metadata.addInternalSchemaMetadata(MetadataManager.INTERNAL_CONNECTOR_ID, systemTablesMetadata);
+        metadata.addInternalSchemaMetadata(SystemConnector.CONNECTOR_ID, systemTablesMetadata);
 
         SystemSplitManager systemSplitManager = new SystemSplitManager(nodeManager);
         splitManager.addConnectorSplitManager(systemSplitManager);

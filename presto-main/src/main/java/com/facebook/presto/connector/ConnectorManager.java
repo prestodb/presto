@@ -14,6 +14,7 @@
 package com.facebook.presto.connector;
 
 import com.facebook.presto.index.IndexManager;
+import com.facebook.presto.connector.informationSchema.InformationSchemaMetadata;
 import com.facebook.presto.metadata.HandleResolver;
 import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.metadata.OutputTableHandleResolver;
@@ -46,6 +47,8 @@ import static com.google.common.base.Preconditions.checkState;
 
 public class ConnectorManager
 {
+    public static final String INFORMATION_SCHEMA_CONNECTOR_PREFIX = "$info_schema@";
+
     private final MetadataManager metadataManager;
     private final SplitManager splitManager;
     private final DataStreamManager dataStreamManager;
@@ -170,8 +173,20 @@ public class ConnectorManager
         catch (UnsupportedOperationException ignored) {
         }
 
+        ConnectorIndexResolver indexResolver = null;
+        try {
+            indexResolver = connector.getIndexResolver();
+            checkNotNull(indexResolver, "Connector %s returned a null index resolver", connectorId);
+        }
+        catch (UnsupportedOperationException ignored) {
+        }
+
+        // IMPORTANT: all the instances need to be fetched from the connector *before* we add them to the corresponding managers.
+        // Otherwise, a broken connector would leave the managers in an inconsistent state with respect to each other
+
         if (catalogName != null) {
             metadataManager.addConnectorMetadata(connectorId, catalogName, connectorMetadata);
+            metadataManager.addInternalSchemaMetadata(makeInformationSchemaConnectorId(connectorId), new InformationSchemaMetadata(catalogName));
         }
         else {
             metadataManager.addInternalSchemaMetadata(connectorId, connectorMetadata);
@@ -189,16 +204,13 @@ public class ConnectorManager
             outputTableHandleResolver.addHandleResolver(connectorId, connectorOutputHandleResolver);
         }
 
-        ConnectorIndexResolver indexResolver = null;
-        try {
-            indexResolver = connector.getIndexResolver();
-            checkNotNull(indexResolver, "Connector %s returned a null index resolver", connectorId);
-        }
-        catch (UnsupportedOperationException ignored) {
-        }
-
         if (indexResolver != null) {
             indexManager.addIndexResolver(indexResolver);
         }
+    }
+
+    private static String makeInformationSchemaConnectorId(String connectorId)
+    {
+        return INFORMATION_SCHEMA_CONNECTOR_PREFIX + connectorId;
     }
 }
