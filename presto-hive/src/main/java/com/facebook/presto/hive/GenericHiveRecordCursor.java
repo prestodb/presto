@@ -49,7 +49,7 @@ import static java.lang.Math.min;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 class GenericHiveRecordCursor<K, V extends Writable>
-        extends AbstractHiveRecordCursor
+        extends HiveRecordCursor
 {
     private final RecordReader<K, V> recordReader;
     private final K key;

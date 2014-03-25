@@ -15,7 +15,7 @@ package com.facebook.presto.hive;
 
 import com.facebook.presto.spi.RecordCursor;
 
-public abstract class AbstractHiveRecordCursor
+public abstract class HiveRecordCursor
         implements RecordCursor
 {
     private long readTime;

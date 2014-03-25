@@ -104,7 +104,7 @@ public class HiveRecordSet
     }
 
     @Override
-    public AbstractHiveRecordCursor cursor()
+    public HiveRecordCursor cursor()
     {
         // Tell hive the columns we would like to read, this lets hive optimize reading column oriented files
         ColumnProjectionUtils.setReadColumnIDs(configuration, readHiveColumnIndexes);
@@ -112,7 +112,7 @@ public class HiveRecordSet
         RecordReader<?, ?> recordReader = createRecordReader(split, configuration, wrappedPath);
 
         for (HiveRecordCursorProvider provider : cursorProviders) {
-            Optional<AbstractHiveRecordCursor> cursor = provider.createHiveRecordCursor(split, recordReader, columns);
+            Optional<HiveRecordCursor> cursor = provider.createHiveRecordCursor(split, recordReader, columns);
             if (cursor.isPresent()) {
                 return cursor.get();
             }
