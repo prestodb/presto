@@ -383,6 +383,11 @@ public final class UnixTimeFunctions
             }
         }
 
-        return builder.toFormatter();
+        try {
+            return builder.toFormatter();
+        }
+        catch (UnsupportedOperationException e) {
+            throw new PrestoException(StandardErrorCode.INVALID_FUNCTION_ARGUMENT.toErrorCode(), e);
+        }
     }
 }
