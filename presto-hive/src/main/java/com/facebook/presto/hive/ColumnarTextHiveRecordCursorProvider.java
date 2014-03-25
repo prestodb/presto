@@ -28,10 +28,10 @@ public class ColumnarTextHiveRecordCursorProvider
         implements HiveRecordCursorProvider
 {
     @Override
-    public Optional<AbstractHiveRecordCursor> createHiveRecordCursor(HiveSplit split, RecordReader<?, ?> recordReader, List<HiveColumnHandle> columns)
+    public Optional<HiveRecordCursor> createHiveRecordCursor(HiveSplit split, RecordReader<?, ?> recordReader, List<HiveColumnHandle> columns)
     {
         if (usesColumnarTextSerDe(split)) {
-            return Optional.<AbstractHiveRecordCursor>of(new ColumnarTextHiveRecordCursor<>(
+            return Optional.<HiveRecordCursor>of(new ColumnarTextHiveRecordCursor<>(
                     columnarTextRecordReader(recordReader),
                     split.getLength(),
                     split.getSchema(),

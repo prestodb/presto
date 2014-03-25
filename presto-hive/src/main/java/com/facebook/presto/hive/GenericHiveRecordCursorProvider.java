@@ -23,9 +23,9 @@ public class GenericHiveRecordCursorProvider
         implements HiveRecordCursorProvider
 {
     @Override
-    public Optional<AbstractHiveRecordCursor> createHiveRecordCursor(HiveSplit split, RecordReader<?, ?> recordReader, List<HiveColumnHandle> columns)
+    public Optional<HiveRecordCursor> createHiveRecordCursor(HiveSplit split, RecordReader<?, ?> recordReader, List<HiveColumnHandle> columns)
     {
-        return Optional.<AbstractHiveRecordCursor>of(new GenericHiveRecordCursor<>(
+        return Optional.<HiveRecordCursor>of(new GenericHiveRecordCursor<>(
                 genericRecordReader(recordReader),
                 split.getLength(),
                 split.getSchema(),

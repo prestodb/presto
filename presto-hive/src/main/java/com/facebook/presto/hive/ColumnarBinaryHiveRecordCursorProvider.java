@@ -28,10 +28,10 @@ public class ColumnarBinaryHiveRecordCursorProvider
         implements HiveRecordCursorProvider
 {
     @Override
-    public Optional<AbstractHiveRecordCursor> createHiveRecordCursor(HiveSplit split, RecordReader<?, ?> recordReader, List<HiveColumnHandle> columns)
+    public Optional<HiveRecordCursor> createHiveRecordCursor(HiveSplit split, RecordReader<?, ?> recordReader, List<HiveColumnHandle> columns)
     {
         if (usesColumnarBinarySerDe(split)) {
-            return Optional.<AbstractHiveRecordCursor>of(new ColumnarBinaryHiveRecordCursor<>(
+            return Optional.<HiveRecordCursor>of(new ColumnarBinaryHiveRecordCursor<>(
                     bytesRecordReader(recordReader),
                     split.getLength(),
                     split.getSchema(),

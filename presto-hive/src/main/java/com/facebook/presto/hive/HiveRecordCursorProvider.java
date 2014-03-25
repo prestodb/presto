@@ -20,5 +20,5 @@ import java.util.List;
 
 public interface HiveRecordCursorProvider
 {
-    Optional<AbstractHiveRecordCursor> createHiveRecordCursor(HiveSplit split, RecordReader<?, ?> recordReader, List<HiveColumnHandle> columns);
+    Optional<HiveRecordCursor> createHiveRecordCursor(HiveSplit split, RecordReader<?, ?> recordReader, List<HiveColumnHandle> columns);
 }
