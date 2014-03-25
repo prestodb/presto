@@ -21,18 +21,23 @@ import com.facebook.presto.metadata.TableMetadata;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.Domain;
+import com.facebook.presto.spi.SortedRangeSet;
 import com.facebook.presto.spi.TupleDomain;
+import com.facebook.presto.sql.planner.DependencyExtractor;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
+import com.facebook.presto.sql.planner.plan.DistinctLimitNode;
 import com.facebook.presto.sql.planner.plan.ExchangeNode;
 import com.facebook.presto.sql.planner.plan.FilterNode;
 import com.facebook.presto.sql.planner.plan.JoinNode;
 import com.facebook.presto.sql.planner.plan.LimitNode;
 import com.facebook.presto.sql.planner.plan.MarkDistinctNode;
+import com.facebook.presto.sql.planner.plan.MaterializeSampleNode;
 import com.facebook.presto.sql.planner.plan.OutputNode;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.PlanVisitor;
 import com.facebook.presto.sql.planner.plan.ProjectNode;
+import com.facebook.presto.sql.planner.plan.SampleNode;
 import com.facebook.presto.sql.planner.plan.SemiJoinNode;
 import com.facebook.presto.sql.planner.plan.SinkNode;
 import com.facebook.presto.sql.planner.plan.SortNode;
@@ -42,8 +47,10 @@ import com.facebook.presto.sql.planner.plan.TableWriterNode;
 import com.facebook.presto.sql.planner.plan.TopNNode;
 import com.facebook.presto.sql.planner.plan.UnionNode;
 import com.facebook.presto.sql.planner.plan.WindowNode;
+import com.google.common.base.Function;
 import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Maps;
 import io.airlift.json.JsonCodec;
 
 import java.util.Map;
@@ -109,6 +116,18 @@ public final class JsonPlanPrinter
         }
 
         @Override
+        public Void visitDistinctLimit(DistinctLimitNode node, Void context)
+        {
+            return processChildren(node);
+        }
+
+        @Override
+        public Void visitSample(SampleNode node, Void context)
+        {
+            return processChildren(node);
+        }
+
+        @Override
         public Void visitAggregation(AggregationNode node, Void context)
         {
             return processChildren(node);
@@ -126,28 +145,61 @@ public final class JsonPlanPrinter
             return processChildren(node);
         }
 
+        private TupleDomain spanTupleDomain(TupleDomain tupleDomain)
+        {
+            if (tupleDomain.isNone()) {
+                return tupleDomain;
+            }
+            Map<ColumnHandle, Domain> spannedDomains = Maps.transformValues(tupleDomain.getDomains(), new Function<Domain, Domain>()
+            {
+                @Override
+                public Domain apply(Domain domain)
+                {
+                    // Retain nullability, but collapse each SortedRangeSet into a single span
+                    return Domain.create(getSortedRangeSpan(domain.getRanges()), domain.isNullAllowed());
+                }
+            });
+            return TupleDomain.withColumnDomains(spannedDomains);
+        }
+
+        private SortedRangeSet getSortedRangeSpan(SortedRangeSet rangeSet)
+        {
+            return rangeSet.isNone() ? SortedRangeSet.none(rangeSet.getType()) : SortedRangeSet.of(rangeSet.getSpan());
+        }
+
+        private TupleDomain getTupleDomainSummary(TableScanNode node)
+        {
+            if (!node.getGeneratedPartitions().isPresent()) {
+                return spanTupleDomain(node.getPartitionsDomainSummary());
+            }
+            return spanTupleDomain(node.getPartitionsDomainSummary().intersect(node.getGeneratedPartitions().get().getTupleDomainInput()));
+        }
+
         @Override
         public Void visitTableScan(TableScanNode node, Void context)
         {
-            TupleDomain partitionsDomainSummary = node.getPartitionsDomainSummary();
+            TupleDomain tupleDomain = getTupleDomainSummary(node);
             TableMetadata tableMetadata = metadata.getTableMetadata(node.getTable());
 
             ImmutableList.Builder<Column> columnBuilder = ImmutableList.builder();
 
             for (Map.Entry<Symbol, ColumnHandle> entry : node.getAssignments().entrySet()) {
-                ColumnMetadata columnMetadata = metadata.getColumnMetadata(node.getTable(), entry.getValue());
-                Domain domain = null;
-                if (!partitionsDomainSummary.isNone() && partitionsDomainSummary.getDomains().keySet().contains(entry.getValue())) {
-                    domain = partitionsDomainSummary.getDomains().get(entry.getValue());
+                if (node.getOutputSymbols().contains(entry.getKey())
+                        || DependencyExtractor.extractUnique(node.getOriginalConstraint()).contains(entry.getKey())) {
+                    ColumnMetadata columnMetadata = metadata.getColumnMetadata(node.getTable(), entry.getValue());
+                    Domain domain = null;
+                    if (!tupleDomain.isNone() && tupleDomain.getDomains().keySet().contains(entry.getValue())) {
+                        domain = tupleDomain.getDomains().get(entry.getValue());
+                    }
+                    else if (tupleDomain.isNone()) {
+                        domain = Domain.none(columnMetadata.getType().getNativeType());
+                    }
+                    Column column = new Column(
+                            columnMetadata.getName(),
+                            columnMetadata.getType().toString(),
+                            Optional.fromNullable(SimpleDomain.fromDomain(domain)));
+                    columnBuilder.add(column);
                 }
-                else if (partitionsDomainSummary.isNone()) {
-                    domain = Domain.none(columnMetadata.getType().getNativeType());
-                }
-                Column column = new Column(
-                        columnMetadata.getName(),
-                        columnMetadata.getType().toString(),
-                        Optional.fromNullable(SimpleDomain.fromDomain(domain)));
-                columnBuilder.add(column);
             }
             Input input = new Input(
                     tableMetadata.getConnectorId(),
@@ -214,6 +266,12 @@ public final class JsonPlanPrinter
 
         @Override
         public Void visitTableCommit(TableCommitNode node, Void context)
+        {
+            return processChildren(node);
+        }
+
+        @Override
+        public Void visitMaterializeSample(MaterializeSampleNode node, Void context)
         {
             return processChildren(node);
         }

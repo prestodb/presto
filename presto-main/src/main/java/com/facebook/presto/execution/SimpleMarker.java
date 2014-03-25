@@ -14,40 +14,28 @@
 package com.facebook.presto.execution;
 
 import com.facebook.presto.spi.Marker;
-import com.facebook.presto.spi.SerializableNativeValue;
 import com.fasterxml.jackson.annotation.JsonCreator;
-import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.base.Objects;
 
 import javax.annotation.concurrent.Immutable;
 
-import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 @Immutable
 public final class SimpleMarker
 {
     private final boolean inclusive;
-    private final Comparable<?> value;
-    private final Class<?> type;
-
-    private SimpleMarker(boolean inclusive, Comparable<?> value, Class<?> type)
-    {
-        checkNotNull(value, "value is null");
-        checkNotNull(type, "type is null");
-        checkArgument(type.isInstance(value), String.format("value (%s) must be of specified type (%s)", value, type));
-        this.inclusive = inclusive;
-        this.value = value;
-        this.type = type;
-    }
+    private final Object value;
 
     @JsonCreator
     public SimpleMarker(
             @JsonProperty("inclusive") boolean inclusive,
-            @JsonProperty("value") SerializableNativeValue value)
+            @JsonProperty("value") Object value)
     {
-        this(inclusive, value.getValue(), value.getType());
+        this.inclusive = inclusive;
+        checkNotNull(value, "value is null");
+        this.value = (value instanceof Integer) ? ((Integer) value).longValue() : value;
     }
 
     @JsonProperty
@@ -56,16 +44,10 @@ public final class SimpleMarker
         return inclusive;
     }
 
-    @JsonIgnore
-    public Comparable<?> getValue()
+    @JsonProperty
+    public Object getValue()
     {
         return value;
-    }
-
-    @JsonProperty("value")
-    public SerializableNativeValue getSerializableNativeValue()
-    {
-        return new SerializableNativeValue(type, value);
     }
 
     public static SimpleMarker fromMarker(Marker marker)
@@ -73,7 +55,7 @@ public final class SimpleMarker
         if (marker == null || marker.isUpperUnbounded() || marker.isLowerUnbounded()) {
             return null;
         }
-        return new SimpleMarker(marker.getBound() == Marker.Bound.EXACTLY, marker.getValue(), marker.getType());
+        return new SimpleMarker(marker.getBound() == Marker.Bound.EXACTLY, marker.getValue());
     }
 
     @Override
@@ -89,14 +71,13 @@ public final class SimpleMarker
         SimpleMarker that = (SimpleMarker) o;
 
         return Objects.equal(this.inclusive, that.inclusive) &&
-                Objects.equal(this.value, that.value) &&
-                Objects.equal(this.type, that.type);
+                Objects.equal(this.value, that.value);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hashCode(inclusive, value, type);
+        return Objects.hashCode(inclusive, value);
     }
 
     @Override
@@ -105,7 +86,6 @@ public final class SimpleMarker
         return Objects.toStringHelper(this)
                 .addValue(inclusive)
                 .addValue(value)
-                .addValue(type)
                 .toString();
     }
 }

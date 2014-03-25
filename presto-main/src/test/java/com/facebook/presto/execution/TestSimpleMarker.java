@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.execution;
 
+import com.facebook.presto.spi.Marker;
 import com.facebook.presto.spi.SerializableNativeValue;
 import io.airlift.json.JsonCodec;
 import org.testng.annotations.Test;
@@ -26,16 +27,20 @@ public class TestSimpleMarker
     @Test
     public void testRoundTrip()
     {
-        SimpleMarker expected = new SimpleMarker(true, new SerializableNativeValue(Long.class, new Long(10)));
+        Marker marker = new Marker(new SerializableNativeValue(Long.class, 10L), Marker.Bound.BELOW);
+        SimpleMarker expected = SimpleMarker.fromMarker(marker);
         assertEquals(codec.fromJson(codec.toJson(expected)), expected);
 
-        expected = new SimpleMarker(false, new SerializableNativeValue(Double.class, new Double(10)));
+        marker = new Marker(new SerializableNativeValue(Double.class, 11.12), Marker.Bound.BELOW);
+        expected = SimpleMarker.fromMarker(marker);
         assertEquals(codec.fromJson(codec.toJson(expected)), expected);
 
-        expected = new SimpleMarker(true, new SerializableNativeValue(Boolean.class, new Boolean(true)));
+        marker = new Marker(new SerializableNativeValue(String.class, "23rsdg"), Marker.Bound.BELOW);
+        expected = SimpleMarker.fromMarker(marker);
         assertEquals(codec.fromJson(codec.toJson(expected)), expected);
 
-        expected = new SimpleMarker(true, new SerializableNativeValue(String.class, new String("123")));
+        marker = new Marker(new SerializableNativeValue(Boolean.class, true), Marker.Bound.BELOW);
+        expected = SimpleMarker.fromMarker(marker);
         assertEquals(codec.fromJson(codec.toJson(expected)), expected);
     }
 }

@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.execution;
 
-import com.facebook.presto.spi.SerializableNativeValue;
 import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
 import io.airlift.json.JsonCodec;
@@ -30,8 +29,8 @@ public class TestSimpleDomain
     @Test
     public void testRoundTrip()
     {
-        SimpleMarker low = new SimpleMarker(true, new SerializableNativeValue(Long.class, new Long(10)));
-        SimpleMarker high = new SimpleMarker(false, new SerializableNativeValue(Long.class, new Long(100)));
+        SimpleMarker low = new SimpleMarker(true, 10L);
+        SimpleMarker high = new SimpleMarker(false, 100L);
         List<SimpleRange> ranges = ImmutableList.of(new SimpleRange(Optional.fromNullable(low), Optional.fromNullable(high)));
         SimpleDomain expected = new SimpleDomain(true, Optional.fromNullable(ranges));
 
