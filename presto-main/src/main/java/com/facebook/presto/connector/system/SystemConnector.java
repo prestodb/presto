@@ -29,6 +29,8 @@ import javax.inject.Inject;
 public class SystemConnector
         implements InternalConnector
 {
+    public static final String CONNECTOR_ID = "system";
+
     private final SystemTablesMetadata metadata;
     private final SystemSplitManager splitManager;
     private final SystemDataStreamProvider dataStreamProvider;
