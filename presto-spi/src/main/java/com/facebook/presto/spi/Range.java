@@ -112,7 +112,7 @@ public final class Range
                 !high.isUpperUnbounded() &&
                 low.getBound() == Marker.Bound.EXACTLY &&
                 high.getBound() == Marker.Bound.EXACTLY &&
-                low.getValue() == high.getValue();
+                low.getValue().equals(high.getValue());
     }
 
     @JsonIgnore

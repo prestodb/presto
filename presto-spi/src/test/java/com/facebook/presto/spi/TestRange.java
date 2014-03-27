@@ -50,6 +50,18 @@ public class TestRange
     }
 
     @Test
+    public void testSingleValue()
+            throws Exception
+    {
+        Assert.assertTrue(Range.range(1L, true, 1L, true).isSingleValue());
+        Assert.assertFalse(Range.range(1L, true, 2L, true).isSingleValue());
+        Assert.assertTrue(Range.range(1.1, true, 1.1, true).isSingleValue());
+        Assert.assertTrue(Range.range("a", true, "a", true).isSingleValue());
+        Assert.assertTrue(Range.range(true, true, true, true).isSingleValue());
+        Assert.assertFalse(Range.range(false, true, true, true).isSingleValue());
+    }
+
+    @Test
     public void testAllRange()
             throws Exception
     {
