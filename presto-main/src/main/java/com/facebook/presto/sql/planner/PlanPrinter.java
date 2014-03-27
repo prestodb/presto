@@ -255,7 +255,7 @@ public class PlanPrinter
             print(indent, "- TableScan[%s, original constraint=%s] => [%s]", node.getTable(), node.getOriginalConstraint(), formatOutputs(node.getOutputSymbols()));
             for (Map.Entry<Symbol, ColumnHandle> entry : node.getAssignments().entrySet()) {
                 boolean isOutputSymbol = node.getOutputSymbols().contains(entry.getKey());
-                boolean isInOriginalConstraint = DependencyExtractor.extractUnique(node.getOriginalConstraint()).contains(entry.getKey());
+                boolean isInOriginalConstraint = node.getOriginalConstraint() == null ? false : DependencyExtractor.extractUnique(node.getOriginalConstraint()).contains(entry.getKey());
                 boolean isInDomainSummary = !partitionsDomainSummary.isNone() && partitionsDomainSummary.getDomains().keySet().contains(entry.getValue());
 
                 if (isOutputSymbol || isInOriginalConstraint || isInDomainSummary) {
