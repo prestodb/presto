@@ -120,9 +120,14 @@ public class CassandraSplitManager
         // All partition key domains will be fully evaluated, so we don't need to include those
         TupleDomain<ConnectorColumnHandle> remainingTupleDomain = TupleDomain.none();
         if (!tupleDomain.isNone()) {
-            @SuppressWarnings({"rawtypes", "unchecked"})
-            List<ConnectorColumnHandle> partitionColumns = (List) partitionKeys;
-            remainingTupleDomain = TupleDomain.withColumnDomains(Maps.filterKeys(tupleDomain.getDomains(), not(in(partitionColumns))));
+            if (partitions.size() == 1 && ((CassandraPartition) partitions.get(0)).isUnpartitioned()) {
+                remainingTupleDomain = tupleDomain;
+            }
+            else {
+                @SuppressWarnings({"rawtypes", "unchecked"})
+                List<ConnectorColumnHandle> partitionColumns = (List) partitionKeys;
+                remainingTupleDomain = TupleDomain.withColumnDomains(Maps.filterKeys(tupleDomain.getDomains(), not(in(partitionColumns))));
+            }
         }
 
         // push down indexed column fixed value predicates only for unpartitioned partition which uses token range query
