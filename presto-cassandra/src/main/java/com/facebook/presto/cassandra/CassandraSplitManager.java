@@ -123,9 +123,14 @@ public class CassandraSplitManager
         // All partition key domains will be fully evaluated, so we don't need to include those
         TupleDomain remainingTupleDomain = TupleDomain.none();
         if (!tupleDomain.isNone()) {
-            @SuppressWarnings({"rawtypes", "unchecked"})
-            List<ColumnHandle> partitionColumns = (List) partitionKeys;
-            remainingTupleDomain = TupleDomain.withColumnDomains(Maps.filterKeys(tupleDomain.getDomains(), not(in(partitionColumns))));
+            if (partitions.size() == 1 && ((CassandraPartition) partitions.get(0)).isUnpartitioned()) {
+                remainingTupleDomain = tupleDomain;
+            }
+            else {
+                @SuppressWarnings({"rawtypes", "unchecked"})
+                List<ColumnHandle> partitionColumns = (List) partitionKeys;
+                remainingTupleDomain = TupleDomain.withColumnDomains(Maps.filterKeys(tupleDomain.getDomains(), not(in(partitionColumns))));
+            }            
         }
 
         return new PartitionResult(partitions, remainingTupleDomain);
