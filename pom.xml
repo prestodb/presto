@@ -485,7 +485,7 @@
                     <groupId>org.apache.maven.plugins</groupId>
                     <artifactId>maven-surefire-plugin</artifactId>
                     <configuration combine.children="append">
-                        <argLine>-Xmx2g -Xms2g -XX:MaxPermSize=512m</argLine>
+                        <argLine>-Duser.timezone=UTC -Xmx2g -Xms2g -XX:MaxPermSize=512m</argLine>
                         <parallel>methods</parallel>
                         <threadCount>2</threadCount>
                         <perCoreThreadCount>true</perCoreThreadCount>
