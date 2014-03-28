@@ -37,6 +37,7 @@ import com.facebook.presto.sql.tree.ComparisonExpression;
 import com.facebook.presto.sql.tree.DoubleLiteral;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.FunctionCall;
+import com.facebook.presto.sql.tree.GenericLiteral;
 import com.facebook.presto.sql.tree.InListExpression;
 import com.facebook.presto.sql.tree.InPredicate;
 import com.facebook.presto.sql.tree.Input;
@@ -82,8 +83,9 @@ import static com.facebook.presto.byteCode.instruction.Constant.loadBoolean;
 import static com.facebook.presto.byteCode.instruction.Constant.loadDouble;
 import static com.facebook.presto.byteCode.instruction.Constant.loadLong;
 import static com.facebook.presto.byteCode.instruction.JumpInstruction.jump;
-import static com.facebook.presto.sql.gen.SliceConstant.sliceConstant;
 import static com.facebook.presto.spi.type.NullType.NULL;
+import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
+import static com.facebook.presto.sql.gen.SliceConstant.sliceConstant;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.Iterables.transform;
 import static java.lang.String.format;
@@ -143,6 +145,23 @@ public class ByteCodeExpressionVisitor
     }
 
     @Override
+    protected ByteCodeNode visitGenericLiteral(GenericLiteral node, CompilerContext context)
+    {
+        Type type = metadata.getType(node.getType());
+        if (type == null) {
+            throw new IllegalArgumentException("Unsupported type: " + node.getType());
+        }
+
+        ByteCodeNode value = sliceConstant(node.getValue());
+        FunctionBinding functionBinding = bootstrapFunctionBinder.bindCastOperator(
+                getSessionByteCode,
+                value,
+                VARCHAR,
+                type);
+
+        return visitFunctionBinding(context, functionBinding, node.toString());
+    }
+
     public ByteCodeNode visitInputReference(InputReference node, CompilerContext context)
     {
         Input input = node.getInput();

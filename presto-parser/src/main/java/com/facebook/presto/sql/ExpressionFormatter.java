@@ -29,6 +29,7 @@ import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.Extract;
 import com.facebook.presto.sql.tree.FrameBound;
 import com.facebook.presto.sql.tree.FunctionCall;
+import com.facebook.presto.sql.tree.GenericLiteral;
 import com.facebook.presto.sql.tree.IfExpression;
 import com.facebook.presto.sql.tree.InListExpression;
 import com.facebook.presto.sql.tree.InPredicate;
@@ -156,6 +157,12 @@ public final class ExpressionFormatter
         protected String visitDoubleLiteral(DoubleLiteral node, Void context)
         {
             return Double.toString(node.getValue());
+        }
+
+        @Override
+        protected String visitGenericLiteral(GenericLiteral node, Void context)
+        {
+            return "" + node.getType() + " '" + node.getValue() + "'";
         }
 
         @Override
