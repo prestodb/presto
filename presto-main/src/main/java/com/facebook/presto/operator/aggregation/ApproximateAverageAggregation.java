@@ -22,20 +22,23 @@ import com.facebook.presto.util.array.DoubleBigArray;
 import com.facebook.presto.util.array.LongBigArray;
 import com.google.common.base.Optional;
 import io.airlift.slice.Slice;
+import io.airlift.slice.Slices;
 
 import static com.facebook.presto.operator.aggregation.ApproximateUtils.formatApproximateResult;
-import static com.facebook.presto.operator.aggregation.VarianceAggregation.createIntermediate;
-import static com.facebook.presto.operator.aggregation.VarianceAggregation.getCount;
-import static com.facebook.presto.operator.aggregation.VarianceAggregation.getM2;
-import static com.facebook.presto.operator.aggregation.VarianceAggregation.getMean;
 import static com.facebook.presto.tuple.TupleInfo.SINGLE_VARBINARY;
 import static com.facebook.presto.tuple.TupleInfo.Type.DOUBLE;
 import static com.facebook.presto.tuple.TupleInfo.Type.FIXED_INT_64;
 import static com.google.common.base.Preconditions.checkState;
+import static io.airlift.slice.SizeOf.SIZE_OF_DOUBLE;
+import static io.airlift.slice.SizeOf.SIZE_OF_LONG;
 
 public class ApproximateAverageAggregation
         extends SimpleAggregationFunction
 {
+    private static final int COUNT_OFFSET = 0;
+    private static final int MEAN_OFFSET = SIZE_OF_LONG;
+    private static final int M2_OFFSET = SIZE_OF_LONG + SIZE_OF_DOUBLE;
+
     private final boolean inputIsLong;
 
     public ApproximateAverageAggregation(Type parameterType)
@@ -157,9 +160,9 @@ public class ApproximateAverageAggregation
                     long groupId = groupIdsBlock.getGroupId(position);
 
                     Slice slice = values.getSlice();
-                    long inputCount = getCount(slice);
-                    double inputMean = getMean(slice);
-                    double inputM2 = getM2(slice);
+                    long inputCount = slice.getLong(COUNT_OFFSET);
+                    double inputMean = slice.getDouble(MEAN_OFFSET);
+                    double inputM2 = slice.getDouble(M2_OFFSET);
 
                     long currentCount = counts.get(groupId);
                     double currentMean = means.get(groupId);
@@ -284,9 +287,9 @@ public class ApproximateAverageAggregation
 
                 if (!values.isNull()) {
                     Slice slice = values.getSlice();
-                    long inputCount = getCount(slice);
-                    double inputMean = getMean(slice);
-                    double inputM2 = getM2(slice);
+                    long inputCount = slice.getLong(COUNT_OFFSET);
+                    double inputMean = slice.getDouble(MEAN_OFFSET);
+                    double inputM2 = slice.getDouble(M2_OFFSET);
 
                     // Use numerically stable variant
                     if (inputCount > 0) {
@@ -326,5 +329,14 @@ public class ApproximateAverageAggregation
     private static String formatApproximateAverage(long count, double mean, double variance, double confidence)
     {
         return formatApproximateResult(mean, Math.sqrt(variance / count), confidence, false);
+    }
+
+    public static Slice createIntermediate(long count, double mean, double m2)
+    {
+        Slice slice = Slices.allocate(SIZE_OF_LONG + 2 * SIZE_OF_DOUBLE);
+        slice.setLong(COUNT_OFFSET, count);
+        slice.setDouble(MEAN_OFFSET, mean);
+        slice.setDouble(M2_OFFSET, m2);
+        return slice;
     }
 }
