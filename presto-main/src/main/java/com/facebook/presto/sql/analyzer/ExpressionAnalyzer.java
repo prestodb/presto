@@ -33,6 +33,7 @@ import com.facebook.presto.sql.tree.DoubleLiteral;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.Extract;
 import com.facebook.presto.sql.tree.FunctionCall;
+import com.facebook.presto.sql.tree.GenericLiteral;
 import com.facebook.presto.sql.tree.IfExpression;
 import com.facebook.presto.sql.tree.InListExpression;
 import com.facebook.presto.sql.tree.InPredicate;
@@ -394,6 +395,26 @@ public class ExpressionAnalyzer
         {
             expressionTypes.put(node, BIGINT);
             return BIGINT;
+        }
+
+        @Override
+        protected Type visitGenericLiteral(GenericLiteral node, AnalysisContext context)
+        {
+            Type type = metadata.getType(node.getType());
+            if (type == null) {
+                throw new SemanticException(TYPE_MISMATCH, node, "Unknown type: " + node.getType());
+            }
+
+            try {
+                OperatorInfo operator = metadata.getExactOperator(OperatorType.CAST, type, ImmutableList.of(VARCHAR));
+                resolvedOperators.put(node, operator);
+            }
+            catch (IllegalArgumentException e) {
+                throw new SemanticException(TYPE_MISMATCH, node, "No literal form for type %s", type);
+            }
+
+            expressionTypes.put(node, type);
+            return type;
         }
 
         @Override
