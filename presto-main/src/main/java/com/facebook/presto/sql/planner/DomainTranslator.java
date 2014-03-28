@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.sql.planner;
 
+import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.Domain;
 import com.facebook.presto.spi.Marker;
@@ -21,6 +22,7 @@ import com.facebook.presto.spi.SortedRangeSet;
 import com.facebook.presto.spi.TupleDomain;
 import com.facebook.presto.spi.type.DoubleType;
 import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.sql.analyzer.Session;
 import com.facebook.presto.sql.tree.AstVisitor;
 import com.facebook.presto.sql.tree.BetweenPredicate;
 import com.facebook.presto.sql.tree.BooleanLiteral;
@@ -177,19 +179,28 @@ public final class DomainTranslator
      * 2) An Expression fragment which represents the part of the original Expression that will need to be re-evaluated
      * after filtering with the TupleDomain.
      */
-    public static ExtractionResult fromPredicate(Expression predicate, Map<Symbol, Type> types, Map<Symbol, ColumnHandle> columnHandleTranslationMap)
+    public static ExtractionResult fromPredicate(
+            Metadata metadata,
+            Session session,
+            Expression predicate,
+            Map<Symbol, Type> types,
+            Map<Symbol, ColumnHandle> columnHandleTranslationMap)
     {
-        return new Visitor(types, columnHandleTranslationMap).process(predicate, false);
+        return new Visitor(metadata, session, types, columnHandleTranslationMap).process(predicate, false);
     }
 
     private static class Visitor
             extends AstVisitor<ExtractionResult, Boolean>
     {
+        private final Metadata metadata;
+        private final Session session;
         private final Map<Symbol, Type> types;
         private final Map<Symbol, ColumnHandle> columnHandles;
 
-        private Visitor(Map<Symbol, Type> types, Map<Symbol, ColumnHandle> columnHandles)
+        private Visitor(Metadata metadata, Session session, Map<Symbol, Type> types, Map<Symbol, ColumnHandle> columnHandles)
         {
+            this.metadata = checkNotNull(metadata, "metadata is null");
+            this.session = checkNotNull(session, "session is null");
             this.types = ImmutableMap.copyOf(checkNotNull(types, "types is null"));
             this.columnHandles = ImmutableMap.copyOf(checkNotNull(columnHandles, "columnHandles is null"));
         }
@@ -307,7 +318,7 @@ public final class DomainTranslator
             Symbol symbol = Symbol.fromQualifiedName(((QualifiedNameReference) node.getLeft()).getName());
             Type columnType = checkedTypeLookup(symbol);
             ColumnHandle columnHandle = checkedColumnHandleLookup(symbol);
-            Object value = LiteralInterpreter.evaluate(node.getRight());
+            Object value = LiteralInterpreter.evaluate(session, node.getRight(), metadata);
 
             // Handle the cases where implicit coercions can happen in comparisons
             // TODO: how to abstract this out

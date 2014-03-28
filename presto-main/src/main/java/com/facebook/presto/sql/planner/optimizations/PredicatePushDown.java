@@ -756,7 +756,12 @@ public class PredicatePushDown
         @Override
         public PlanNode rewriteTableScan(TableScanNode node, Expression inheritedPredicate, PlanRewriter<Expression> planRewriter)
         {
-            DomainTranslator.ExtractionResult extractionResult = DomainTranslator.fromPredicate(inheritedPredicate, symbolAllocator.getTypes(), node.getAssignments());
+            DomainTranslator.ExtractionResult extractionResult = DomainTranslator.fromPredicate(
+                    metadata,
+                    session,
+                    inheritedPredicate,
+                    symbolAllocator.getTypes(),
+                    node.getAssignments());
             Expression extractionRemainingExpression = extractionResult.getRemainingExpression();
             TupleDomain tupleDomain = extractionResult.getTupleDomain();
 

@@ -19,6 +19,7 @@ import com.facebook.presto.sql.tree.CurrentTime;
 import com.facebook.presto.sql.tree.DateLiteral;
 import com.facebook.presto.sql.tree.DoubleLiteral;
 import com.facebook.presto.sql.tree.Expression;
+import com.facebook.presto.sql.tree.GenericLiteral;
 import com.facebook.presto.sql.tree.IntervalLiteral;
 import com.facebook.presto.sql.tree.IntervalLiteral.Sign;
 import com.facebook.presto.sql.tree.LongLiteral;
@@ -55,6 +56,22 @@ public class TestSqlParser
             throws Exception
     {
         SqlParser.createExpression("(((((((((((((((((((((((((((true)))))))))))))))))))))))))))");
+    }
+
+    @Test
+    public void testGenericLiteral()
+            throws Exception
+    {
+        assertGenericLiteral("VARCHAR");
+        assertGenericLiteral("BIGINT");
+        assertGenericLiteral("DOUBLE");
+        assertGenericLiteral("BOOLEAN");
+        assertGenericLiteral("foo");
+    }
+
+    public void assertGenericLiteral(String type)
+    {
+        assertExpression(type + " 'abc'", new GenericLiteral(type, "abc"));
     }
 
     @Test

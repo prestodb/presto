@@ -211,7 +211,7 @@ public class ExpressionInterpreter
         @Override
         protected Object visitLiteral(Literal node, Object context)
         {
-            return LiteralInterpreter.evaluate(node);
+            return LiteralInterpreter.evaluate(session, node, metadata);
         }
 
         @Override
@@ -596,7 +596,7 @@ public class ExpressionInterpreter
             if (optimize && (!function.isDeterministic() || hasUnresolvedValue(argumentValues))) {
                 return new FunctionCall(node.getName(), node.getWindow().orNull(), node.isDistinct(), toExpressions(argumentValues, argumentTypes));
             }
-            return invoke(function.getScalarFunction(), argumentValues);
+            return invoke(session, function.getScalarFunction(), argumentValues);
         }
 
         @Override
@@ -694,7 +694,7 @@ public class ExpressionInterpreter
             }
 
             OperatorInfo operatorInfo = metadata.getExactOperator(OperatorType.CAST, type, types(node.getExpression()));
-            return invoke(operatorInfo.getMethodHandle(), ImmutableList.of(value));
+            return invoke(session, operatorInfo.getMethodHandle(), ImmutableList.of(value));
         }
 
         @Override
@@ -727,22 +727,7 @@ public class ExpressionInterpreter
         private Object invokeOperator(OperatorType operatorType, List<? extends Type> argumentTypes, List<Object> argumentValues)
         {
             OperatorInfo operatorInfo = metadata.resolveOperator(operatorType, argumentTypes);
-            return invoke(operatorInfo.getMethodHandle(), argumentValues);
-        }
-
-        private Object invoke(MethodHandle handle, List<Object> argumentValues)
-        {
-            if (handle.type().parameterCount() > 0 && handle.type().parameterType(0) == Session.class) {
-                handle = handle.bindTo(session);
-            }
-            try {
-                return handle.invokeWithArguments(argumentValues);
-            }
-            catch (Throwable throwable) {
-                Throwables.propagateIfInstanceOf(throwable, RuntimeException.class);
-                Throwables.propagateIfInstanceOf(throwable, Error.class);
-                throw new RuntimeException(throwable.getMessage(), throwable);
-            }
+            return invoke(session, operatorInfo.getMethodHandle(), argumentValues);
         }
 
         private Object optimize(Node node, Object context)
@@ -754,6 +739,21 @@ public class ExpressionInterpreter
             catch (RuntimeException e) {
                 return node;
             }
+        }
+    }
+
+    public static Object invoke(Session session, MethodHandle handle, List<Object> argumentValues)
+    {
+        if (handle.type().parameterCount() > 0 && handle.type().parameterType(0) == Session.class) {
+            handle = handle.bindTo(session);
+        }
+        try {
+            return handle.invokeWithArguments(argumentValues);
+        }
+        catch (Throwable throwable) {
+            Throwables.propagateIfInstanceOf(throwable, RuntimeException.class);
+            Throwables.propagateIfInstanceOf(throwable, Error.class);
+            throw new RuntimeException(throwable.getMessage(), throwable);
         }
     }
 

@@ -56,6 +56,7 @@ tokens {
     SIMPLE_CASE;
     SEARCHED_CASE;
     FUNCTION_CALL;
+    LITERAL;
     WINDOW;
     PARTITION_BY;
     UNBOUNDED_PRECEDING;
@@ -404,8 +405,8 @@ numericFactor
 
 exprPrimary
     : NULL
-    | (dateValue) => dateValue
     | (intervalValue) => intervalValue
+    | (literal) => literal
     | qnameOrFunction
     | specialFunction
     | number
@@ -451,10 +452,15 @@ subquery
     : '(' query ')' -> query
     ;
 
-dateValue
-    : DATE STRING      -> ^(DATE STRING)
-    | TIME STRING      -> ^(TIME STRING)
-    | TIMESTAMP STRING -> ^(TIMESTAMP STRING)
+literal
+    : (VARCHAR) => VARCHAR STRING     -> ^(LITERAL IDENT["VARCHAR"] STRING)
+    | (BIGINT) => BIGINT STRING       -> ^(LITERAL IDENT["BIGINT"] STRING)
+    | (DOUBLE) => DOUBLE STRING       -> ^(LITERAL IDENT["DOUBLE"] STRING)
+    | (BOOLEAN) => BOOLEAN STRING     -> ^(LITERAL IDENT["BOOLEAN"] STRING)
+    | (DATE) => DATE STRING           -> ^(DATE STRING)
+    | (TIME) => TIME STRING           -> ^(TIME STRING)
+    | (TIMESTAMP) => TIMESTAMP STRING -> ^(TIMESTAMP STRING)
+    | ident STRING                    -> ^(LITERAL ident STRING)
     ;
 
 intervalValue

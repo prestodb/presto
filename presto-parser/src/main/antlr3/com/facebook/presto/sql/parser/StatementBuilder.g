@@ -321,6 +321,7 @@ expr returns [Expression value]
     | ^(AND a=expr b=expr)  { $value = LogicalBinaryExpression.and($a.value, $b.value); }
     | ^(OR a=expr b=expr)   { $value = LogicalBinaryExpression.or($a.value, $b.value); }
     | ^(NOT e=expr)         { $value = new NotExpression($e.value); }
+    | ^(LITERAL ident string) { $value = new GenericLiteral($ident.value, $string.value); }
     | ^(DATE string)        { $value = new DateLiteral($string.value); }
     | ^(TIME string)        { $value = new TimeLiteral($string.value); }
     | ^(TIMESTAMP string)   { $value = new TimestampLiteral($string.value); }
