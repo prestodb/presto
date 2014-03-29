@@ -52,6 +52,21 @@ public final class ApproximateUtils
         return builder.toString();
     }
 
+    /**
+     * Computes the standard deviation for the random variable C = sum(1 / p * Bern(p))
+     * <br /><br />
+     * Derivation:
+     * <pre>
+     * Var(C) = Var(sum(1 / p * Bern(p)))
+     *        = sum(Var(1 / p * Bern(p)))   [Bienayme formula]
+     *        = n * Var(1 / p * Bern(p))    [Bern(p) are iid]
+     *        = n * 1 / p^2 * Var(Bern(p))  [1 / p is constant]
+     *        = n * 1 / p^2 * p * (1 - p)   [Variance of a Bernoulli distribution]
+     *        = n * (1 - p) / p
+     *        = samples / p * (1 - p) / p   [samples = n * p, since it's only the observed rows]
+     * </pre>
+     * Therefore Stddev(C) = 1 / p * sqrt(samples * (1 - p))
+     */
     public static double countError(long samples, long count)
     {
         if (count == 0) {
@@ -63,15 +78,31 @@ public final class ApproximateUtils
         return conservativeError(error, p, samples);
     }
 
-    public static double sumError(long samples, long count, double sum, double variance)
+    /**
+     * Computes the standard deviation for the random variable S = sum(1 / p * X * Bern(p))
+     * <br /><br />
+     * Derivation:
+     * <pre>
+     * Var(S) = Var(sum(1 / p * X * Bern(p)))
+     *        = sum(Var(1 / p * X * Bern(p)))                                                           [Bienayme formula]
+     *        = n * Var(1 / p * X * Bern(p))                                                            [X * Bern(p) are iid]
+     *        = n * 1 / p^2 * Var(X * Bern(p))                                                          [1 / p is constant]
+     *        = n * 1 / p^2 * (Var(X) * Var(Bern(p)) + E(X)^2 * Var(Bern(p)) + Var(X) * E(Bern(p))^2    [Product of independent variables]
+     *        = n * 1 / p^2 * (Var(X) * p(1 - p) + E(X)^2 * p(1 - p) + Var(X) * p^2)                    [Variance of a Bernoulli distribution]
+     *        = n * 1 / p * (Var(X) + E(X)^2 * (1 - p))
+     *        = samples / p^2 * (Var(X) + E(X)^2 * (1 - p))                                             [samples = n * p, since it's only the observed rows]
+     * </pre>
+     * Therefore Stddev(S) = 1 / p * sqrt(samples * (variance + mean^2 * (1 - p)))
+     */
+    public static double sumError(long samples, long count, double m2, double mean)
     {
         if (count == 0) {
             return Double.POSITIVE_INFINITY;
         }
 
         double p = samples / (double) count;
-        double mean = sum / (double) count;
-        double error = 1 / p * Math.sqrt(variance / count + (1 - p) * mean * mean);
+        double variance = m2 / samples;
+        double error = 1 / p * Math.sqrt(samples * (variance + mean * mean * (1 - p)));
         return conservativeError(error, p, samples);
     }
 
