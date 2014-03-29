@@ -197,8 +197,7 @@ public abstract class AbstractTestHiveClientS3
         PartitionResult partitionResult = client.getPartitions(tableHandle, TupleDomain.all());
         assertEquals(partitionResult.getPartitions().size(), 1);
         SplitSource splitSource = client.getPartitionSplits(tableHandle, partitionResult.getPartitions());
-        Split split = getOnlyElement(splitSource.getNextBatch(1000));
-        assertTrue(splitSource.isFinished());
+        Split split = getOnlyElement(getAllSplits(splitSource));
 
         try (RecordCursor cursor = client.getRecordSet(split, columnHandles).cursor()) {
             assertTrue(cursor.advanceNextPosition());
