@@ -117,7 +117,7 @@ public final class AggregationTestUtils
         double actual = Double.parseDouble(parts.get(0));
         double error = Double.parseDouble(parts.get(2));
 
-        return Math.abs(expected - actual) <= error;
+        return Math.abs(expected - actual) <= error && !Double.isInfinite(error);
     }
 
     public static void assertAggregation(AggregationFunction function, double confidence, Object expectedValue, Page... pages)
