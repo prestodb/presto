@@ -882,8 +882,7 @@ public abstract class AbstractTestHiveClient
         PartitionResult partitionResult = splitManager.getPartitions(tableHandle, TupleDomain.all());
         assertEquals(partitionResult.getPartitions().size(), 1);
         SplitSource splitSource = splitManager.getPartitionSplits(tableHandle, partitionResult.getPartitions());
-        Split split = getOnlyElement(splitSource.getNextBatch(1000));
-        assertTrue(splitSource.isFinished());
+        Split split = getOnlyElement(getAllSplits(splitSource));
 
         try (RecordCursor cursor = recordSetProvider.getRecordSet(split, columnHandles).cursor()) {
             assertRecordCursorType(cursor, "rcfile-binary");
@@ -971,8 +970,7 @@ public abstract class AbstractTestHiveClient
         PartitionResult partitionResult = splitManager.getPartitions(tableHandle, TupleDomain.all());
         assertEquals(partitionResult.getPartitions().size(), 1);
         SplitSource splitSource = splitManager.getPartitionSplits(tableHandle, partitionResult.getPartitions());
-        Split split = getOnlyElement(splitSource.getNextBatch(1000));
-        assertTrue(splitSource.isFinished());
+        Split split = getOnlyElement(getAllSplits(splitSource));
 
         try (RecordCursor cursor = recordSetProvider.getRecordSet(split, columnHandles).cursor()) {
             assertRecordCursorType(cursor, "rcfile-binary");
