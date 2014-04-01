@@ -13,6 +13,8 @@
  */
 package com.facebook.presto.operator.scalar;
 
+import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.StandardErrorCode;
 import com.facebook.presto.util.ThreadLocalCache;
 import com.fasterxml.jackson.core.JsonFactory;
 import com.fasterxml.jackson.core.JsonGenerator;
@@ -196,7 +198,9 @@ public final class JsonExtract
 
     private static Iterable<String> tokenizePath(String path)
     {
-        checkArgument(EXPECTED_PATH.matcher(path).matches(), "Invalid/unsupported JSON path: '%s'", path);
+        if (!EXPECTED_PATH.matcher(path).matches()) {
+            throw new PrestoException(StandardErrorCode.INVALID_FUNCTION_ARGUMENT.toErrorCode(), String.format("Invalid/unsupported JSON path: '%s'", path));
+        }
         // This performs the following transformation:
         // $.blah[0].fuu[1][2].bar => $.blah.[0.fuu.[1.[2.bar
         for (StringReplacer replacer : PATH_STRING_REPLACERS) {
@@ -208,7 +212,9 @@ public final class JsonExtract
     public static JsonExtractor generateExtractor(String path, boolean scalarValue)
     {
         Iterator<String> iterator = tokenizePath(path).iterator();
-        checkArgument(iterator.hasNext() && iterator.next().equals("$"), "JSON path must begin with root: '$'");
+        if (!(iterator.hasNext() && iterator.next().equals("$"))) {
+            throw new PrestoException(StandardErrorCode.INVALID_FUNCTION_ARGUMENT.toErrorCode(), "JSON path must begin with root: '$'");
+        }
         return generateExtractor(iterator, scalarValue);
     }
 
