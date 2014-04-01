@@ -137,7 +137,7 @@ public class GroupByHash
 
             activePage = new GroupByPageBuilder(types);
             if (!activePage.append(row)) {
-                if (memoryManager.canUse(getEstimatedSize() + GroupByPageBuilder.memoryRequiredFor(row))) {
+                if (!memoryManager.canUse(getEstimatedSize() + GroupByPageBuilder.memoryRequiredFor(row))) {
                     throw new PrestoException(StandardErrorCode.EXCEEDED_MEMORY_LIMIT.toErrorCode(), "Not enough memory to build group by hash");
                 }
                 activePage = new GroupByPageBuilder(types, row);
