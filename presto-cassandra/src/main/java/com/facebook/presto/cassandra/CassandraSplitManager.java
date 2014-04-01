@@ -130,7 +130,7 @@ public class CassandraSplitManager
                 @SuppressWarnings({"rawtypes", "unchecked"})
                 List<ColumnHandle> partitionColumns = (List) partitionKeys;
                 remainingTupleDomain = TupleDomain.withColumnDomains(Maps.filterKeys(tupleDomain.getDomains(), not(in(partitionColumns))));
-            }            
+            }
         }
 
         return new PartitionResult(partitions, remainingTupleDomain);
