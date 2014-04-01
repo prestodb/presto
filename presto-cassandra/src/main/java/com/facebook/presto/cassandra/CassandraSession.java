@@ -36,6 +36,7 @@ import com.facebook.presto.spi.TupleDomain;
 import com.google.common.collect.ImmutableList;
 
 import java.nio.ByteBuffer;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -283,17 +284,24 @@ public class CassandraSession
         Select partitionKeys = CassandraCqlUtils.selectDistinctFrom(tableHandle, partitionKeyColumns);
         partitionKeys.limit(limit);
         partitionKeys.setFetchSize(fetchSizeForPartitionKeySelect);
-        addWhereClause(partitionKeys.where(), partitionKeyColumns, filterPrefix);
-        ResultSetFuture partitionKeyFuture = session.executeAsync(partitionKeys);
 
         if (!fullPartitionKey) {
+            addWhereClause(partitionKeys.where(), partitionKeyColumns, new ArrayList<Comparable<?>>());
+            ResultSetFuture partitionKeyFuture = session.executeAsync(partitionKeys);
             long count = countFuture.getUninterruptibly().one().getLong(0);
             if (count == limitForPartitionKeySelect) {
                 partitionKeyFuture.cancel(true);
                 return null; // too much effort to query all partition keys
             }
+            else {
+                return partitionKeyFuture.getUninterruptibly();
+            }
         }
-        return partitionKeyFuture.getUninterruptibly();
+        else {
+            addWhereClause(partitionKeys.where(), partitionKeyColumns, filterPrefix);
+            ResultSetFuture partitionKeyFuture = session.executeAsync(partitionKeys);
+            return partitionKeyFuture.getUninterruptibly();
+        }
     }
 
     private static void addWhereClause(Where where, List<CassandraColumnHandle> partitionKeyColumns, List<Comparable<?>> filterPrefix)
