@@ -14,6 +14,8 @@
 package com.facebook.presto.sql;
 
 import com.facebook.presto.operator.scalar.MathFunctions;
+import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.StandardErrorCode;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 
@@ -55,7 +57,7 @@ public final class Casts
         if (value instanceof Slice) {
             value = "'" + ((Slice) value).toString(UTF_8) + "'";
         }
-        throw new IllegalArgumentException(String.format("Cannot cast %s to BOOLEAN", value));
+        throw new PrestoException(StandardErrorCode.INVALID_CAST_ARGUMENT.toErrorCode(), String.format("Cannot cast %s to BOOLEAN", value));
     }
 
     public static Object toLong(Object value)
@@ -81,7 +83,7 @@ public final class Casts
         if (value instanceof Slice) {
             value = "'" + ((Slice) value).toString(UTF_8) + "'";
         }
-        throw new IllegalArgumentException(String.format("Cannot cast %s to BIGINT", value));
+        throw new PrestoException(StandardErrorCode.INVALID_CAST_ARGUMENT.toErrorCode(), String.format("Cannot cast %s to BIGINT", value));
     }
 
     public static Object toSlice(Object value)
@@ -100,7 +102,7 @@ public final class Casts
         catch (RuntimeException ignored) {
         }
 
-        throw new IllegalArgumentException(String.format("Cannot cast %s to VARCHAR", value));
+        throw new PrestoException(StandardErrorCode.INVALID_CAST_ARGUMENT.toErrorCode(), String.format("Cannot cast %s to VARCHAR", value));
     }
 
     public static Object toDouble(Object value)
@@ -126,6 +128,6 @@ public final class Casts
         if (value instanceof Slice) {
             value = "'" + ((Slice) value).toString(UTF_8) + "'";
         }
-        throw new IllegalArgumentException(String.format("Cannot cast %s to DOUBLE", value));
+        throw new PrestoException(StandardErrorCode.INVALID_CAST_ARGUMENT.toErrorCode(), String.format("Cannot cast %s to DOUBLE", value));
     }
 }
