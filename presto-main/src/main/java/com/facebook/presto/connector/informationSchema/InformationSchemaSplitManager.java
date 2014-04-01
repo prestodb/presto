@@ -20,6 +20,7 @@ import com.facebook.presto.spi.HostAddress;
 import com.facebook.presto.spi.NodeManager;
 import com.facebook.presto.spi.Partition;
 import com.facebook.presto.spi.PartitionResult;
+import com.facebook.presto.spi.SerializableNativeValue;
 import com.facebook.presto.spi.Split;
 import com.facebook.presto.spi.SplitSource;
 import com.facebook.presto.spi.TableHandle;
@@ -71,7 +72,7 @@ public class InformationSchemaSplitManager
         checkArgument(table instanceof InformationSchemaTableHandle, "TableHandle must be an InformationSchemaTableHandle");
         InformationSchemaTableHandle informationSchemaTableHandle = (InformationSchemaTableHandle) table;
 
-        Map<ColumnHandle, Comparable<?>> bindings = tupleDomain.extractFixedValues();
+        Map<ColumnHandle, SerializableNativeValue> bindings = tupleDomain.extractFixedOrOnlyNullValues();
 
         List<Partition> partitions = ImmutableList.<Partition>of(new InformationSchemaPartition(informationSchemaTableHandle, bindings));
         // We don't strip out the bindings that we have created from the undeterminedTupleDomain b/c the current InformationSchema
@@ -93,8 +94,8 @@ public class InformationSchemaSplitManager
 
         List<HostAddress> localAddress = ImmutableList.of(nodeManager.getCurrentNode().getHostAndPort());
 
-        ImmutableMap.Builder<String, Object> filters = ImmutableMap.builder();
-        for (Entry<ColumnHandle, Comparable<?>> entry : informationSchemaPartition.getFilters().entrySet()) {
+        ImmutableMap.Builder<String, SerializableNativeValue> filters = ImmutableMap.builder();
+        for (Entry<ColumnHandle, SerializableNativeValue> entry : informationSchemaPartition.getFilters().entrySet()) {
             InformationSchemaColumnHandle informationSchemaColumnHandle = (InformationSchemaColumnHandle) entry.getKey();
             filters.put(informationSchemaColumnHandle.getColumnName(), entry.getValue());
         }
@@ -108,9 +109,9 @@ public class InformationSchemaSplitManager
             implements Partition
     {
         private final InformationSchemaTableHandle table;
-        private final Map<ColumnHandle, Comparable<?>> filters;
+        private final Map<ColumnHandle, SerializableNativeValue> filters;
 
-        public InformationSchemaPartition(InformationSchemaTableHandle table, Map<ColumnHandle, Comparable<?>> filters)
+        public InformationSchemaPartition(InformationSchemaTableHandle table, Map<ColumnHandle, SerializableNativeValue> filters)
         {
             this.table = checkNotNull(table, "table is null");
             this.filters = ImmutableMap.copyOf(checkNotNull(filters, "filters is null"));
@@ -130,10 +131,10 @@ public class InformationSchemaSplitManager
         @Override
         public TupleDomain getTupleDomain()
         {
-            return TupleDomain.withFixedValues(filters);
+            return TupleDomain.withNullableFixedValues(filters);
         }
 
-        public Map<ColumnHandle, Comparable<?>> getFilters()
+        public Map<ColumnHandle, SerializableNativeValue> getFilters()
         {
             return filters;
         }

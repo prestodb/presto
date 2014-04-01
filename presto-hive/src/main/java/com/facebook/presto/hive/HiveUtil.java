@@ -155,4 +155,9 @@ final class HiveUtil
     {
         return getTableObjectInspector(getTableMetadata(table)).getAllStructFieldRefs();
     }
+
+    public static boolean isHiveNull(byte[] bytes)
+    {
+        return bytes.length == 2 && bytes[0] == '\\' && bytes[1] == 'N';
+    }
 }

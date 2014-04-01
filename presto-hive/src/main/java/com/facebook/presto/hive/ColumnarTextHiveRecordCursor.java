@@ -147,6 +147,11 @@ class ColumnarTextHiveRecordCursor<K>
 
                 byte[] bytes = partitionKey.getValue().getBytes(Charsets.UTF_8);
 
+                if (HiveUtil.isHiveNull(bytes)) {
+                    nulls[columnIndex] = true;
+                    continue;
+                }
+
                 switch (types[columnIndex]) {
                     case BOOLEAN:
                         if (isTrue(bytes, 0, bytes.length)) {
@@ -225,10 +230,6 @@ class ColumnarTextHiveRecordCursor<K>
             // reset loaded flags
             // partition keys are already loaded, but everything else is not
             System.arraycopy(isPartitionColumn, 0, loaded, 0, isPartitionColumn.length);
-
-            // reset null flags
-            // todo this shouldn't be needed
-            Arrays.fill(nulls, false);
 
             return true;
         }
