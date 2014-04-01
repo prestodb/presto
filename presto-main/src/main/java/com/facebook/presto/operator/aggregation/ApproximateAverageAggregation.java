@@ -22,20 +22,24 @@ import com.facebook.presto.util.array.DoubleBigArray;
 import com.facebook.presto.util.array.LongBigArray;
 import com.google.common.base.Optional;
 import io.airlift.slice.Slice;
+import io.airlift.slice.Slices;
 
 import static com.facebook.presto.operator.aggregation.ApproximateUtils.formatApproximateResult;
-import static com.facebook.presto.operator.aggregation.VarianceAggregation.createIntermediate;
-import static com.facebook.presto.operator.aggregation.VarianceAggregation.getCount;
-import static com.facebook.presto.operator.aggregation.VarianceAggregation.getM2;
-import static com.facebook.presto.operator.aggregation.VarianceAggregation.getMean;
 import static com.facebook.presto.tuple.TupleInfo.SINGLE_VARBINARY;
 import static com.facebook.presto.tuple.TupleInfo.Type.DOUBLE;
 import static com.facebook.presto.tuple.TupleInfo.Type.FIXED_INT_64;
 import static com.google.common.base.Preconditions.checkState;
+import static io.airlift.slice.SizeOf.SIZE_OF_DOUBLE;
+import static io.airlift.slice.SizeOf.SIZE_OF_LONG;
 
 public class ApproximateAverageAggregation
         extends SimpleAggregationFunction
 {
+    private static final int COUNT_OFFSET = 0;
+    private static final int SAMPLES_OFFSET = SIZE_OF_LONG;
+    private static final int MEAN_OFFSET = 2 * SIZE_OF_LONG;
+    private static final int M2_OFFSET = 2 * SIZE_OF_LONG + SIZE_OF_DOUBLE;
+
     private final boolean inputIsLong;
 
     public ApproximateAverageAggregation(Type parameterType)
@@ -67,6 +71,7 @@ public class ApproximateAverageAggregation
         private final double confidence;
 
         private final LongBigArray counts;
+        private final LongBigArray samples;
         private final DoubleBigArray means;
         private final DoubleBigArray m2s;
 
@@ -78,6 +83,7 @@ public class ApproximateAverageAggregation
             this.confidence = confidence;
 
             this.counts = new LongBigArray();
+            this.samples = new LongBigArray();
             this.means = new DoubleBigArray();
             this.m2s = new DoubleBigArray();
         }
@@ -85,13 +91,14 @@ public class ApproximateAverageAggregation
         @Override
         public long getEstimatedSize()
         {
-            return counts.sizeOf() + means.sizeOf() + m2s.sizeOf();
+            return counts.sizeOf() + samples.sizeOf() + means.sizeOf() + m2s.sizeOf();
         }
 
         @Override
         protected void processInput(GroupByIdBlock groupIdsBlock, Block valuesBlock, Optional<Block> maskBlock, Optional<Block> sampleWeightBlock)
         {
             counts.ensureCapacity(groupIdsBlock.getGroupCount());
+            samples.ensureCapacity(groupIdsBlock.getGroupCount());
             means.ensureCapacity(groupIdsBlock.getGroupCount());
             m2s.ensureCapacity(groupIdsBlock.getGroupCount());
 
@@ -136,6 +143,7 @@ public class ApproximateAverageAggregation
                     // write values back out
                     counts.set(groupId, currentCount);
                     means.set(groupId, currentMean);
+                    samples.increment(groupId);
                 }
             }
             checkState(!values.advanceNextPosition());
@@ -145,6 +153,7 @@ public class ApproximateAverageAggregation
         protected void processIntermediate(GroupByIdBlock groupIdsBlock, Block valuesBlock)
         {
             counts.ensureCapacity(groupIdsBlock.getGroupCount());
+            samples.ensureCapacity(groupIdsBlock.getGroupCount());
             means.ensureCapacity(groupIdsBlock.getGroupCount());
             m2s.ensureCapacity(groupIdsBlock.getGroupCount());
 
@@ -157,9 +166,10 @@ public class ApproximateAverageAggregation
                     long groupId = groupIdsBlock.getGroupId(position);
 
                     Slice slice = values.getSlice();
-                    long inputCount = getCount(slice);
-                    double inputMean = getMean(slice);
-                    double inputM2 = getM2(slice);
+                    long inputCount = slice.getLong(COUNT_OFFSET);
+                    long inputSamples = slice.getLong(SAMPLES_OFFSET);
+                    double inputMean = slice.getDouble(MEAN_OFFSET);
+                    double inputM2 = slice.getDouble(M2_OFFSET);
 
                     long currentCount = counts.get(groupId);
                     double currentMean = means.get(groupId);
@@ -173,6 +183,7 @@ public class ApproximateAverageAggregation
                         double newM2 = currentM2 + inputM2 + ((delta * delta) * (currentCount * inputCount)) / newCount;
 
                         counts.set(groupId, newCount);
+                        samples.add(groupId, inputSamples);
                         means.set(groupId, newMean);
                         m2s.set(groupId, newM2);
                     }
@@ -184,11 +195,7 @@ public class ApproximateAverageAggregation
         @Override
         public void evaluateIntermediate(int groupId, BlockBuilder output)
         {
-            long count = counts.get((long) groupId);
-            double mean = means.get((long) groupId);
-            double m2 = m2s.get((long) groupId);
-
-            output.append(createIntermediate(count, mean, m2));
+            output.append(createIntermediate(counts.get(groupId), samples.get(groupId), means.get(groupId), m2s.get(groupId)));
         }
 
         @Override
@@ -203,7 +210,7 @@ public class ApproximateAverageAggregation
                 double m2 = m2s.get((long) groupId);
                 double variance = m2 / count;
 
-                String result = formatApproximateAverage(count, mean, variance, confidence);
+                String result = formatApproximateAverage(samples.get(groupId), mean, variance, confidence);
                 output.append(result);
             }
         }
@@ -222,6 +229,7 @@ public class ApproximateAverageAggregation
         private final double confidence;
 
         private long currentCount;
+        private long currentSamples;
         private double currentMean;
         private double currentM2;
 
@@ -269,6 +277,7 @@ public class ApproximateAverageAggregation
                         // update m2 inline
                         currentM2 += (delta * (inputValue - currentMean));
                     }
+                    currentSamples++;
                 }
             }
             checkState(!values.advanceNextPosition());
@@ -284,9 +293,10 @@ public class ApproximateAverageAggregation
 
                 if (!values.isNull()) {
                     Slice slice = values.getSlice();
-                    long inputCount = getCount(slice);
-                    double inputMean = getMean(slice);
-                    double inputM2 = getM2(slice);
+                    long inputCount = slice.getLong(COUNT_OFFSET);
+                    long inputSamples = slice.getLong(SAMPLES_OFFSET);
+                    double inputMean = slice.getDouble(MEAN_OFFSET);
+                    double inputM2 = slice.getDouble(M2_OFFSET);
 
                     // Use numerically stable variant
                     if (inputCount > 0) {
@@ -298,6 +308,7 @@ public class ApproximateAverageAggregation
                         currentCount = newCount;
                         currentMean = newMean;
                         currentM2 = newM2;
+                        currentSamples += inputSamples;
                     }
                 }
             }
@@ -307,7 +318,7 @@ public class ApproximateAverageAggregation
         @Override
         public void evaluateIntermediate(BlockBuilder output)
         {
-            output.append(createIntermediate(currentCount, currentMean, currentM2));
+            output.append(createIntermediate(currentCount, currentSamples, currentMean, currentM2));
         }
 
         @Override
@@ -317,14 +328,24 @@ public class ApproximateAverageAggregation
                 output.appendNull();
             }
             else {
-                String result = formatApproximateAverage(currentCount, currentMean, currentM2 / currentCount, confidence);
+                String result = formatApproximateAverage(currentSamples, currentMean, currentM2 / currentCount, confidence);
                 output.append(result);
             }
         }
     }
 
-    private static String formatApproximateAverage(long count, double mean, double variance, double confidence)
+    private static String formatApproximateAverage(long samples, double mean, double variance, double confidence)
     {
-        return formatApproximateResult(mean, Math.sqrt(variance / count), confidence, false);
+        return formatApproximateResult(mean, Math.sqrt(variance / samples), confidence, false);
+    }
+
+    public static Slice createIntermediate(long count, long samples, double mean, double m2)
+    {
+        Slice slice = Slices.allocate(2 * SIZE_OF_LONG + 2 * SIZE_OF_DOUBLE);
+        slice.setLong(COUNT_OFFSET, count);
+        slice.setLong(SAMPLES_OFFSET, samples);
+        slice.setDouble(MEAN_OFFSET, mean);
+        slice.setDouble(M2_OFFSET, m2);
+        return slice;
     }
 }
