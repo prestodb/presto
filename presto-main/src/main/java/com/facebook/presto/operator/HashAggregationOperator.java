@@ -289,7 +289,7 @@ public class HashAggregationOperator
             for (Aggregator aggregator : aggregators) {
                 memorySize += aggregator.getEstimatedSize();
             }
-            return memoryManager.canUse(memorySize);
+            return !memoryManager.canUse(memorySize);
         }
 
         public Iterator<Page> build()
@@ -361,16 +361,16 @@ public class HashAggregationOperator
 
             long delta = memorySize - currentMemoryReservation;
             if (delta <= 0) {
-                return false;
+                return true;
             }
 
             if (!operatorContext.reserveMemory(delta)) {
-                return true;
+                return false;
             }
 
             // reservation worked, record the reservation
             currentMemoryReservation = Math.max(currentMemoryReservation, memorySize);
-            return false;
+            return true;
         }
 
         public DataSize getMaxMemorySize()
