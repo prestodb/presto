@@ -22,7 +22,6 @@ import io.airlift.units.Duration;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
-import java.util.List;
 import java.util.concurrent.TimeUnit;
 
 import static com.facebook.presto.cassandra.MockCassandraSession.BAD_SCHEMA;
@@ -130,16 +129,15 @@ public class TestCachingCassandraSchemaProvider
 
         String expectedList = "[column1 = 'testpartition1', column1 = 'testpartition2']";
 
-        List<Comparable<?>> empty = ImmutableList.of();
         assertEquals(mockSession.getAccessCount(), 1);
-        assertEquals(expectedList, schemaProvider.getPartitions(table, empty).toString());
+        assertEquals(expectedList, schemaProvider.getAllPartitions(table).toString());
         assertEquals(mockSession.getAccessCount(), 2);
-        assertEquals(expectedList, schemaProvider.getPartitions(table, empty).toString());
+        assertEquals(expectedList, schemaProvider.getAllPartitions(table).toString());
         assertEquals(mockSession.getAccessCount(), 2);
 
         schemaProvider.flushCache();
 
-        assertEquals(expectedList, schemaProvider.getPartitions(table, empty).toString());
+        assertEquals(expectedList, schemaProvider.getAllPartitions(table).toString());
         assertEquals(mockSession.getAccessCount(), 3);
     }
 

@@ -26,28 +26,34 @@ import com.facebook.presto.spi.ConnectorTableHandle;
 import com.facebook.presto.spi.Domain;
 import com.facebook.presto.spi.FixedSplitSource;
 import com.facebook.presto.spi.HostAddress;
+import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.Range;
 import com.facebook.presto.spi.TupleDomain;
 import com.google.common.base.Objects;
 import com.google.common.base.Predicate;
+import com.google.common.base.Throwables;
 import com.google.common.collect.FluentIterable;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.ImmutableSet.Builder;
-import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
+import com.google.common.util.concurrent.ListenableFuture;
+import com.google.common.util.concurrent.ListeningExecutorService;
+import com.google.common.util.concurrent.MoreExecutors;
 import com.google.inject.Inject;
 import io.airlift.log.Logger;
 
 import java.io.IOException;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.Callable;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
 
 import static com.facebook.presto.cassandra.util.Types.checkType;
+import static com.facebook.presto.spi.StandardErrorCode.EXTERNAL;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Predicates.in;
@@ -63,19 +69,22 @@ public class CassandraSplitManager
     private final CachingCassandraSchemaProvider schemaProvider;
     private final int partitionSizeForBatchSelect;
     private final CassandraTokenSplitManager tokenSplitMgr;
+    private final ListeningExecutorService executor;
 
     @Inject
     public CassandraSplitManager(CassandraConnectorId connectorId,
             CassandraClientConfig cassandraClientConfig,
             CassandraSession cassandraSession,
             CachingCassandraSchemaProvider schemaProvider,
-            CassandraTokenSplitManager tokenSplitMgr)
+            CassandraTokenSplitManager tokenSplitMgr,
+            @ForCassandra ExecutorService executor)
     {
         this.connectorId = checkNotNull(connectorId, "connectorId is null").toString();
         this.schemaProvider = checkNotNull(schemaProvider, "schemaProvider is null");
         this.cassandraSession = checkNotNull(cassandraSession, "cassandraSession is null");
         this.partitionSizeForBatchSelect = cassandraClientConfig.getPartitionSizeForBatchSelect();
         this.tokenSplitMgr = tokenSplitMgr;
+        this.executor = MoreExecutors.listeningDecorator(executor);
     }
 
     @Override
@@ -83,32 +92,11 @@ public class CassandraSplitManager
     {
         CassandraTableHandle cassandraTableHandle = checkType(tableHandle, CassandraTableHandle.class, "tableHandle");
         checkNotNull(tupleDomain, "tupleDomain is null");
-
         CassandraTable table = schemaProvider.getTable(cassandraTableHandle);
-
         List<CassandraColumnHandle> partitionKeys = table.getPartitionKeyColumns();
-        List<Comparable<?>> filterPrefix = new ArrayList<>();
-        for (int i = 0; i < partitionKeys.size(); i++) {
-            CassandraColumnHandle columnHandle = partitionKeys.get(i);
-
-            // only add to prefix if all previous keys have a value
-            if (filterPrefix.size() == i && !tupleDomain.isNone()) {
-                Domain domain = tupleDomain.getDomains().get(columnHandle);
-                if (domain != null && domain.getRanges().getRangeCount() == 1) {
-                    // We intentionally ignore whether NULL is in the domain since partition keys can never be NULL
-                    Range range = Iterables.getOnlyElement(domain.getRanges());
-                    if (range.isSingleValue()) {
-                        Comparable<?> value = range.getLow().getValue();
-                        checkArgument(value instanceof Boolean || value instanceof String || value instanceof Double || value instanceof Long,
-                                "Only Boolean, String, Double and Long partition keys are supported");
-                        filterPrefix.add(value);
-                    }
-                }
-            }
-        }
 
         // fetch the partitions
-        List<CassandraPartition> allPartitions = schemaProvider.getPartitions(table, filterPrefix);
+        List<CassandraPartition> allPartitions = getCassandraPartitions(table, tupleDomain);
         log.debug("%s.%s #partitions: %d", cassandraTableHandle.getSchemaName(), cassandraTableHandle.getTableName(), allPartitions.size());
 
         // do a final pass to filter based on fields that could not be used to build the prefix
@@ -157,6 +145,83 @@ public class CassandraSplitManager
             }
         }
         return new ConnectorPartitionResult(partitions, remainingTupleDomain);
+    }
+
+    private List<CassandraPartition> getCassandraPartitions(final CassandraTable table, TupleDomain<ConnectorColumnHandle> tupleDomain)
+    {
+        if (tupleDomain.isNone()) {
+            return ImmutableList.of();
+        }
+
+        Set<List<Comparable<?>>> partitionKeysSet = getPartitionKeysSet(table, tupleDomain);
+
+        // empty filter means, all partitions
+        if (partitionKeysSet.isEmpty()) {
+            return schemaProvider.getAllPartitions(table);
+        }
+
+        ImmutableList.Builder<ListenableFuture<List<CassandraPartition>>> getPartitionResults = ImmutableList.builder();
+        for (final List<Comparable<?>> partitionKeys : partitionKeysSet) {
+            getPartitionResults.add(executor.submit(new Callable<List<CassandraPartition>>()
+            {
+                @Override
+                public List<CassandraPartition> call()
+                {
+                    return schemaProvider.getPartitions(table, partitionKeys);
+                }
+            }));
+        }
+
+        ImmutableList.Builder<CassandraPartition> partitions = ImmutableList.builder();
+        for (ListenableFuture<List<CassandraPartition>> result : getPartitionResults.build()) {
+            try {
+                partitions.addAll(result.get());
+            }
+            catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                throw Throwables.propagate(e);
+            }
+            catch (ExecutionException e) {
+                throw new PrestoException(EXTERNAL.toErrorCode(), "Error fetching cassandra partitions", e);
+            }
+        }
+
+        return partitions.build();
+    }
+
+    private static Set<List<Comparable<?>>> getPartitionKeysSet(CassandraTable table, TupleDomain<ConnectorColumnHandle> tupleDomain)
+    {
+        ImmutableList.Builder<Set<Comparable<?>>> partitionColumnValues = ImmutableList.builder();
+        for (CassandraColumnHandle columnHandle : table.getPartitionKeyColumns()) {
+            Domain domain = tupleDomain.getDomains().get(columnHandle);
+
+            // if there is no constraint on a partition key, return an empty set
+            if (domain == null) {
+                return ImmutableSet.of();
+            }
+
+            // todo does cassandra allow null partition keys?
+            if (domain.isNullAllowed()) {
+                return ImmutableSet.of();
+            }
+
+            ImmutableSet.Builder<Comparable<?>> columnValues = ImmutableSet.builder();
+            for (Range range : domain.getRanges()) {
+                // if the range is not a single value, we can not perform partition pruning
+                if (!range.isSingleValue()) {
+                    return ImmutableSet.of();
+                }
+                Comparable<?> value = range.getSingleValue();
+
+                // todo should we just skip partition pruning instead of throwing an exception?
+                checkArgument(value instanceof Boolean || value instanceof String || value instanceof Double || value instanceof Long,
+                        "Only Boolean, String, Double and Long partition keys are supported");
+
+                columnValues.add(value);
+            }
+            partitionColumnValues.add(columnValues.build());
+        }
+        return Sets.cartesianProduct(partitionColumnValues.build());
     }
 
     @Override

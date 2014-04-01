@@ -40,6 +40,7 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 
 import static com.facebook.presto.cassandra.RetryDriver.retry;
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
@@ -268,17 +269,20 @@ public class CachingCassandraSchemaProvider
                 });
     }
 
-    public List<CassandraPartition> getPartitions(CassandraTable table, List<Comparable<?>> filterPrefix)
+    public List<CassandraPartition> getAllPartitions(CassandraTable table)
     {
-        LoadingCache<PartitionListKey, List<CassandraPartition>> cache;
-        if (filterPrefix.size() == table.getPartitionKeyColumns().size()) {
-            cache = partitionsCacheFull;
-        }
-        else {
-            cache = partitionsCache;
-        }
-        PartitionListKey key = new PartitionListKey(table, filterPrefix);
-        return getCacheValue(cache, key, RuntimeException.class);
+        PartitionListKey key = new PartitionListKey(table, ImmutableList.<Comparable<?>>of());
+        return getCacheValue(partitionsCache, key, RuntimeException.class);
+    }
+
+    public List<CassandraPartition> getPartitions(CassandraTable table, List<Comparable<?>> partitionKeys)
+    {
+        checkNotNull(table, "table is null");
+        checkNotNull(partitionKeys, "partitionKeys is null");
+        checkArgument(partitionKeys.size() == table.getPartitionKeyColumns().size());
+
+        PartitionListKey key = new PartitionListKey(table, partitionKeys);
+        return getCacheValue(partitionsCacheFull, key, RuntimeException.class);
     }
 
     private List<CassandraPartition> loadPartitions(final PartitionListKey key)
