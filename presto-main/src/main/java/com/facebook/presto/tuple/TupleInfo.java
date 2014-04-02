@@ -83,13 +83,13 @@ public class TupleInfo
             this.name = name;
         }
 
-        int getSize()
+        public int getSize()
         {
             checkState(isFixedSize(), "Can't get size of variable length value");
             return size;
         }
 
-        boolean isFixedSize()
+        public boolean isFixedSize()
         {
             return size != -1;
         }
