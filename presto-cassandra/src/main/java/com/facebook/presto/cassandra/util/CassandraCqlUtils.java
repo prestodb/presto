@@ -18,6 +18,7 @@ import com.datastax.driver.core.querybuilder.Select;
 import com.datastax.driver.core.querybuilder.Select.Selection;
 import com.facebook.presto.cassandra.CassandraColumnHandle;
 import com.facebook.presto.cassandra.CassandraTableHandle;
+import com.facebook.presto.cassandra.CassandraType;
 import com.facebook.presto.spi.ColumnHandle;
 
 import java.util.Arrays;
@@ -152,5 +153,20 @@ public final class CassandraCqlUtils
         String schema = validSchemaName(tableHandle.getSchemaName());
         String table = validTableName(tableHandle.getTableName());
         return QueryBuilder.select().countAll().from(schema, table);
+    }
+
+    public static String cqlValue(String value, CassandraType cassandraType)
+    {
+        switch (cassandraType) {
+            case ASCII:
+            case TEXT:
+            case VARCHAR:
+                return quoteStringLiteral(value);
+            case INET:
+                // remove '/' in the string. e.g. /127.0.0.1
+                return quoteStringLiteral(value.substring(1));
+            default:
+                return value;
+        }
     }
 }

@@ -14,6 +14,7 @@
 package com.facebook.presto.cassandra;
 
 import com.datastax.driver.core.Host;
+import com.facebook.presto.cassandra.util.CassandraCqlUtils;
 import com.facebook.presto.cassandra.util.HostAddressFactory;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorSplitManager;
@@ -32,6 +33,7 @@ import com.google.common.base.Predicate;
 import com.google.common.collect.FluentIterable;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
+import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.google.inject.Inject;
 import io.airlift.log.Logger;
@@ -39,6 +41,7 @@ import io.airlift.log.Logger;
 import java.math.BigInteger;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkArgument;
@@ -128,6 +131,32 @@ public class CassandraSplitManager
             remainingTupleDomain = TupleDomain.withColumnDomains(Maps.filterKeys(tupleDomain.getDomains(), not(in(partitionColumns))));
         }
 
+        // push down indexed column fixed value predicates only for unpartitioned partition which uses token range query
+        if (partitions.size() == 1 && ((CassandraPartition) partitions.get(0)).isUnpartitioned()) {
+            Map<ColumnHandle, Domain> domains = tupleDomain.getDomains();
+            List<ColumnHandle> indexedColumns = Lists.newArrayList();
+            // compose partitionId by using indexed column
+            StringBuilder sb = new StringBuilder();
+            for (Map.Entry<ColumnHandle, Domain> entry : domains.entrySet()) {
+                CassandraColumnHandle column = (CassandraColumnHandle) entry.getKey();
+                Domain domain = entry.getValue();
+                if (column.isIndexed() && domain.isSingleValue()) {
+                    sb.append(CassandraCqlUtils.validColumnName(column.getName()))
+                      .append(" = ")
+                      .append(CassandraCqlUtils.cqlValue(entry.getValue().getSingleValue().toString(), column.getCassandraType()));
+                    indexedColumns.add(column);
+                    // Only onde indexed column predicate can be pushed down.
+                    break;
+                }
+            }
+            if (sb.length() > 0) {
+                CassandraPartition partition = (CassandraPartition) partitions.get(0);
+                TupleDomain filterIndexedColumn = TupleDomain.withColumnDomains(Maps.filterKeys(remainingTupleDomain.getDomains(), not(in(indexedColumns))));
+                partitions = Lists.newArrayList();
+                partitions.add(new CassandraPartition(partition.getKey(), sb.toString(), filterIndexedColumn, true));
+                return new PartitionResult(partitions, filterIndexedColumn);
+            }
+        }
         return new PartitionResult(partitions, remainingTupleDomain);
     }
 
@@ -149,7 +178,7 @@ public class CassandraSplitManager
             checkArgument(partition instanceof CassandraPartition, "partitions are no CassandraPartitions");
             CassandraPartition cassandraPartition = (CassandraPartition) partition;
 
-            if (cassandraPartition.isUnpartitioned()) {
+            if (cassandraPartition.isUnpartitioned() || cassandraPartition.isIndexedColumnPredicatePushdown()) {
                 CassandraTable table = schemaProvider.getTable(cassandraTableHandle);
                 List<Split> splits = getSplitsByTokenRange(table, cassandraPartition.getPartitionId());
                 return new FixedSplitSource(connectorId, splits);

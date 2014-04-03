@@ -179,7 +179,8 @@ public class CassandraSession
                     throw new IllegalArgumentException("Invalid type arguments: " + typeArgs);
             }
         }
-        return new CassandraColumnHandle(connectorId, columnMeta.getName(), index, cassandraType, typeArguments, partitionKey, clusteringKey);
+        boolean indexed = columnMeta.getIndex() != null;
+        return new CassandraColumnHandle(connectorId, columnMeta.getName(), index, cassandraType, typeArguments, partitionKey, clusteringKey, indexed);
     }
 
     public List<CassandraPartition> getPartitions(CassandraTable table, List<Comparable<?>> filterPrefix)
@@ -232,7 +233,7 @@ public class CassandraSession
             TupleDomain tupleDomain = TupleDomain.withFixedValues(map);
             String partitionId = stringBuilder.toString();
             if (uniquePartitionIds.add(partitionId)) {
-                partitions.add(new CassandraPartition(key, partitionId, tupleDomain));
+                partitions.add(new CassandraPartition(key, partitionId, tupleDomain, false));
             }
         }
         return partitions.build();
