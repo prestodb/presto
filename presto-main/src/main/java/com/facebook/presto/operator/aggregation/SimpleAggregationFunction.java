@@ -200,6 +200,12 @@ public abstract class SimpleAggregationFunction
         }
 
         @Override
+        public long getEstimatedSize()
+        {
+            return 0;
+        }
+
+        @Override
         public final Type getFinalType()
         {
             return finalType;
