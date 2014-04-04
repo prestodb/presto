@@ -243,6 +243,8 @@ public class ServerMainModule
 
         // optimizers
         binder.bind(new TypeLiteral<List<PlanOptimizer>>() {}).toProvider(PlanOptimizersFactory.class).in(Scopes.SINGLETON);
+
+        binder.bind(ThreadResource.class).in(Scopes.SINGLETON);
     }
 
     @Provides
