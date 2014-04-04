@@ -18,6 +18,7 @@ import com.facebook.presto.execution.ExecutionFailureInfo;
 import com.facebook.presto.execution.Failure;
 import com.facebook.presto.spi.ErrorCode;
 import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.StandardErrorCode;
 import com.facebook.presto.sql.parser.ParsingException;
 import com.google.common.base.Function;
 import com.google.common.collect.ImmutableList;
@@ -29,6 +30,7 @@ import java.util.List;
 
 import static com.google.common.base.Functions.toStringFunction;
 import static com.google.common.collect.Iterables.transform;
+import static java.lang.String.format;
 import static java.util.Arrays.asList;
 
 public final class Failures
@@ -64,6 +66,18 @@ public final class Failures
                 Lists.transform(asList(failure.getStackTrace()), toStringFunction()),
                 getErrorLocation(failure),
                 errorCode);
+    }
+
+    public static void checkCondition(boolean condition, StandardErrorCode errorCode, String formatString, Object... args)
+    {
+        checkCondition(condition, errorCode.toErrorCode(), formatString, args);
+    }
+
+    public static void checkCondition(boolean condition, ErrorCode errorCode, String formatString, Object... args)
+    {
+        if (!condition) {
+            throw new PrestoException(errorCode, format(formatString, args));
+        }
     }
 
     public static List<ExecutionFailureInfo> toFailures(Iterable<? extends Throwable> failures)
