@@ -19,6 +19,8 @@ import com.facebook.presto.spi.type.Type;
 
 public interface Accumulator
 {
+    long getEstimatedSize();
+
     Type getFinalType();
 
     Type getIntermediateType();

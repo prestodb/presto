@@ -177,6 +177,12 @@ public class CountAggregation
         }
 
         @Override
+        public long getEstimatedSize()
+        {
+            return 0;
+        }
+
+        @Override
         public Type getFinalType()
         {
             return BIGINT;

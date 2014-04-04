@@ -277,6 +277,12 @@ public class ApproximatePercentileAggregation
         }
 
         @Override
+        public long getEstimatedSize()
+        {
+            return digest.estimatedInMemorySizeInBytes();
+        }
+
+        @Override
         public Type getFinalType()
         {
             return getOutputType(parameterType);

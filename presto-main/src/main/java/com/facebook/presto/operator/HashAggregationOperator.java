@@ -24,7 +24,6 @@ import com.google.common.collect.AbstractIterator;
 import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Ints;
 import com.google.common.util.concurrent.ListenableFuture;
-import io.airlift.units.DataSize;
 
 import java.util.ArrayList;
 import java.util.Iterator;
@@ -104,7 +103,7 @@ public class HashAggregationOperator
     private final int expectedGroups;
 
     private final List<Type> types;
-    private final HashMemoryManager memoryManager;
+    private final MemoryManager memoryManager;
 
     private GroupByHashAggregationBuilder aggregationBuilder;
     private Iterator<Page> outputIterator;
@@ -128,7 +127,7 @@ public class HashAggregationOperator
         this.functionDefinitions = ImmutableList.copyOf(functionDefinitions);
         this.step = step;
         this.expectedGroups = expectedGroups;
-        this.memoryManager = new HashMemoryManager(operatorContext);
+        this.memoryManager = new MemoryManager(operatorContext);
 
         this.types = toTypes(groupByTypes, step, functionDefinitions);
     }
@@ -240,7 +239,7 @@ public class HashAggregationOperator
     {
         private final GroupByHash groupByHash;
         private final List<Aggregator> aggregators;
-        private final HashMemoryManager memoryManager;
+        private final MemoryManager memoryManager;
 
         private GroupByHashAggregationBuilder(
                 List<AggregationFunctionDefinition> functionDefinitions,
@@ -248,7 +247,7 @@ public class HashAggregationOperator
                 int expectedGroups,
                 List<Type> groupByTypes,
                 List<Integer> groupByChannels,
-                HashMemoryManager memoryManager)
+                MemoryManager memoryManager)
         {
             this.groupByHash = new GroupByHash(groupByTypes, Ints.toArray(groupByChannels), expectedGroups);
             this.memoryManager = memoryManager;
@@ -323,41 +322,6 @@ public class HashAggregationOperator
                     return page;
                 }
             };
-        }
-    }
-
-    public static class HashMemoryManager
-    {
-        private final OperatorContext operatorContext;
-        private long currentMemoryReservation;
-
-        public HashMemoryManager(OperatorContext operatorContext)
-        {
-            this.operatorContext = operatorContext;
-        }
-
-        public boolean canUse(long memorySize)
-        {
-            // remove the pre-allocated memory from this size
-            memorySize -= operatorContext.getOperatorPreAllocatedMemory().toBytes();
-
-            long delta = memorySize - currentMemoryReservation;
-            if (delta <= 0) {
-                return true;
-            }
-
-            if (!operatorContext.reserveMemory(delta)) {
-                return false;
-            }
-
-            // reservation worked, record the reservation
-            currentMemoryReservation = Math.max(currentMemoryReservation, memorySize);
-            return true;
-        }
-
-        public DataSize getMaxMemorySize()
-        {
-            return operatorContext.getMaxMemorySize();
         }
     }
 
