@@ -22,7 +22,6 @@ import com.facebook.presto.sql.tree.Input;
 import com.facebook.presto.tuple.TupleInfo;
 import com.facebook.presto.tuple.TupleInfo.Type;
 import com.google.common.base.Function;
-import com.google.common.base.Preconditions;
 import com.google.common.collect.AbstractIterator;
 import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Ints;
@@ -62,10 +61,10 @@ public class HashAggregationOperator
                 int expectedGroups)
         {
             this.operatorId = operatorId;
-            this.groupByTupleInfos = groupByTupleInfos;
-            this.groupByChannels = groupByChannels;
+            this.groupByTupleInfos = ImmutableList.copyOf(groupByTupleInfos);
+            this.groupByChannels = ImmutableList.copyOf(groupByChannels);
             this.step = step;
-            this.functionDefinitions = functionDefinitions;
+            this.functionDefinitions = ImmutableList.copyOf(functionDefinitions);
             this.expectedGroups = expectedGroups;
 
             this.tupleInfos = toTupleInfos(groupByTupleInfos, step, functionDefinitions);
@@ -123,12 +122,12 @@ public class HashAggregationOperator
             int expectedGroups)
     {
         this.operatorContext = checkNotNull(operatorContext, "operatorContext is null");
-        Preconditions.checkNotNull(step, "step is null");
-        Preconditions.checkNotNull(functionDefinitions, "functionDefinitions is null");
-        Preconditions.checkNotNull(operatorContext, "operatorContext is null");
+        checkNotNull(step, "step is null");
+        checkNotNull(functionDefinitions, "functionDefinitions is null");
+        checkNotNull(operatorContext, "operatorContext is null");
 
-        this.groupByTupleInfos = groupByTupleInfos;
-        this.groupByChannels = groupByChannels;
+        this.groupByTupleInfos = ImmutableList.copyOf(groupByTupleInfos);
+        this.groupByChannels = ImmutableList.copyOf(groupByChannels);
         this.functionDefinitions = ImmutableList.copyOf(functionDefinitions);
         this.step = step;
         this.expectedGroups = expectedGroups;
@@ -256,6 +255,7 @@ public class HashAggregationOperator
         {
             List<Type> groupByTypes = ImmutableList.copyOf(transform(groupByTupleInfos, new Function<TupleInfo, Type>()
             {
+                @Override
                 public Type apply(TupleInfo tupleInfo)
                 {
                     return tupleInfo.getType();
@@ -336,8 +336,7 @@ public class HashAggregationOperator
                         }
                     }
 
-                    Page page = pageBuilder.build();
-                    return page;
+                    return pageBuilder.build();
                 }
             };
         }
