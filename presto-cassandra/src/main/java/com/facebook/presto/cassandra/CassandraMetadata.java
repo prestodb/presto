@@ -16,9 +16,11 @@ package com.facebook.presto.cassandra;
 import com.facebook.presto.cassandra.util.CassandraCqlUtils;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
+import com.facebook.presto.spi.ColumnType;
+import com.facebook.presto.spi.ConnectorMetadata;
 import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.NotFoundException;
-import com.facebook.presto.spi.ReadOnlyConnectorMetadata;
+import com.facebook.presto.spi.OutputTableHandle;
 import com.facebook.presto.spi.SchemaNotFoundException;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.SchemaTablePrefix;
@@ -28,25 +30,31 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.inject.Inject;
 
+import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 
 import static com.facebook.presto.cassandra.CassandraColumnHandle.columnMetadataGetter;
+import static com.facebook.presto.cassandra.CassandraType.toCassandraType;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Strings.isNullOrEmpty;
 import static com.google.common.collect.Iterables.transform;
+import static com.facebook.presto.cassandra.CassandraColumnHandle.SAMPLE_WEIGHT_COLUMN_NAME;
 
 public class CassandraMetadata
-    extends ReadOnlyConnectorMetadata
+    implements ConnectorMetadata
 {
     private final String connectorId;
     private final CachingCassandraSchemaProvider schemaProvider;
+    private final CassandraSession cassandraSession;
 
     @Inject
-    public CassandraMetadata(CassandraConnectorId connectorId, CachingCassandraSchemaProvider schemaProvider)
+    public CassandraMetadata(CassandraConnectorId connectorId, CachingCassandraSchemaProvider schemaProvider, CassandraSession cassandraSession)
     {
         this.connectorId = checkNotNull(connectorId, "connectorId is null").toString();
         this.schemaProvider = checkNotNull(schemaProvider, "schemaProvider is null");
+        this.cassandraSession = checkNotNull(cassandraSession, "cassandraSession is null");
     }
 
     @Override
@@ -87,8 +95,7 @@ public class CassandraMetadata
     private ConnectorTableMetadata getTableMetadata(SchemaTableName tableName)
     {
         CassandraTableHandle tableHandle = schemaProvider.getTableHandle(tableName);
-        CassandraTable table = schemaProvider.getTable(tableHandle);
-        List<ColumnMetadata> columns = ImmutableList.copyOf(transform(table.getColumns(), columnMetadataGetter()));
+        List<ColumnMetadata> columns = ImmutableList.copyOf(transform((Iterable) getColumnHandles(tableHandle).values(), columnMetadataGetter()));
         return new ConnectorTableMetadata(tableName, columns);
     }
 
@@ -128,16 +135,29 @@ public class CassandraMetadata
     @Override
     public ColumnHandle getSampleWeightColumnHandle(TableHandle tableHandle)
     {
+        for (ColumnHandle handle : getColumnHandles(tableHandle, true).values()) {
+            CassandraColumnHandle columnHandle = (CassandraColumnHandle) handle;
+            if (columnHandle.getName().equals(CassandraColumnHandle.SAMPLE_WEIGHT_COLUMN_NAME)) {
+                return columnHandle;
+            }
+        }
         return null;
     }
 
     @Override
     public Map<String, ColumnHandle> getColumnHandles(TableHandle tableHandle)
     {
+        return getColumnHandles(tableHandle, false);
+    }
+
+    private Map<String, ColumnHandle> getColumnHandles(TableHandle tableHandle, boolean incluseSampleWeight)
+    {
         CassandraTable table = schemaProvider.getTable((CassandraTableHandle) tableHandle);
         ImmutableMap.Builder<String, ColumnHandle> columnHandles = ImmutableMap.builder();
         for (CassandraColumnHandle columnHandle : table.getColumns()) {
-            columnHandles.put(CassandraCqlUtils.cqlNameToSqlName(columnHandle.getName()).toLowerCase(), columnHandle);
+            if (incluseSampleWeight || !columnHandle.getName().equals(SAMPLE_WEIGHT_COLUMN_NAME)) {
+                columnHandles.put(CassandraCqlUtils.cqlNameToSqlName(columnHandle.getName()).toLowerCase(), columnHandle);
+            }
         }
         return columnHandles.build();
     }
@@ -188,5 +208,82 @@ public class CassandraMetadata
         return Objects.toStringHelper(this)
                 .add("connectorId", connectorId)
                 .toString();
+    }
+
+    @Override
+    public boolean canCreateSampledTables()
+    {
+        return true;
+    }
+
+    @Override
+    public TableHandle createTable(ConnectorTableMetadata tableMetadata)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public void dropTable(TableHandle tableHandle)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public boolean canHandle(OutputTableHandle tableHandle)
+    {
+        return (tableHandle instanceof CassandraOutputTableHandle) && ((CassandraOutputTableHandle) tableHandle).getConnectorId().equals(connectorId);
+
+    }
+
+    @Override
+    public OutputTableHandle beginCreateTable(ConnectorTableMetadata tableMetadata)
+    {
+        checkArgument(!isNullOrEmpty(tableMetadata.getOwner()), "Table owner is null or empty");
+
+        ImmutableList.Builder<String> columnNames = ImmutableList.builder();
+        ImmutableList.Builder<ColumnType> columnTypes = ImmutableList.builder();
+        for (ColumnMetadata column : tableMetadata.getColumns()) {
+            columnNames.add(column.getName());
+            columnTypes.add(column.getType());
+        }
+        if (tableMetadata.isSampled()) {
+            columnNames.add(CassandraColumnHandle.SAMPLE_WEIGHT_COLUMN_NAME);
+            columnTypes.add(ColumnType.LONG);
+        }
+
+        // get the root directory for the database
+        SchemaTableName table = tableMetadata.getTable();
+        String schemaName = schemaProvider.getCaseSensitiveSchemaName(table.getSchemaName());
+        String tableName = table.getTableName();
+        List<String> columns = columnNames.build();
+        List<ColumnType> types = columnTypes.build();
+        StringBuilder queryBuilder = new StringBuilder(String.format("CREATE TABLE \"%s\".\"%s\"(id uuid primary key", schemaName, tableName));
+        for (int i = 0; i < columns.size(); i++) {
+            String name = columns.get(i);
+            ColumnType type = types.get(i);
+            if (!name.equals(SAMPLE_WEIGHT_COLUMN_NAME)) {
+                queryBuilder.append(", ")
+                            .append(name)
+                            .append(" ")
+                            .append(toCassandraType(type).name().toLowerCase());
+            }
+        }
+        queryBuilder.append(")");
+        // We need create Cassandra table before commit because record needs been sinked to the table .
+        cassandraSession.executeQuery(queryBuilder.toString());
+        return new CassandraOutputTableHandle(
+                connectorId,
+                schemaName,
+                tableName,
+                columnNames.build(),
+                columnTypes.build(),
+                tableMetadata.getOwner());
+    }
+
+    @Override
+    public void commitCreateTable(OutputTableHandle tableHandle, Collection<String> fragments)
+    {
+        checkNotNull(tableHandle, "tableHandle is null");
+        checkArgument(tableHandle instanceof CassandraOutputTableHandle, "tableHandle is not an instance of CassandraOutputTableHandle");
     }
 }

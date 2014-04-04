@@ -33,6 +33,8 @@ import static com.google.common.base.Preconditions.checkNotNull;
 public class CassandraColumnHandle
         implements ColumnHandle
 {
+    public static final String SAMPLE_WEIGHT_COLUMN_NAME = "presto_sample_weight";
+
     private final String connectorId;
     private final String name;
     private final int ordinalPosition;
