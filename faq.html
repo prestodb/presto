@@ -122,6 +122,69 @@
             everything is working. We will fix the log message eventually
             but it is purely a cosmetic issue.
         </p>
+
+	<h2 id="client">Using the Presto Client</h2>
+
+	<h3>How can I export the result of the select statement into a
+	    file?</h3>
+
+	<p>
+	    The Presto CLI supports exporting results to a file with
+	    the <code>--execute</code>
+	    and <code>--output-format</code> command-line options. The
+	    following example exports <code>SELECT * FROM FOO</code>
+	    to the file <code>foo.csv</code> using a CSV format.
+	</p>
+
+	<pre>presto --execute "SELECT * FROM FOO" --output-format CSV > foo.csv</pre>
+
+	<p>
+	    <i>Note:</i> As of April 2014, the CLI exits with status 0
+	    even if there is an error. If the query fails during
+	    execution you will get partial results in the file with an
+	    error printed to stderr. If an error occurs before
+	    execution, the file will contain an error.
+	</p>
+	    
+	<p>
+	    Another option is
+	    to <a href="https://groups.google.com/d/msg/presto-users/kR-3YZAaNg8/5LXy4FfeT6cJ">use
+	    CREATE TABLE and export your data via Hive.</a>
+	    (<a href="https://groups.google.com/d/msg/presto-users/kR-3YZAaNg8/5LXy4FfeT6cJ">source</a>)
+	</p>
+
+        <h2 id="errors">REST API</h2>
+
+        <h3>When calling the Statement resource
+	    at <code>/v1/statement</code> why doesn't the result of a
+	    simple query like <code>select count(*)</code> return
+	    results? Why do I get a <code>nextUri</code> to fetch the
+	    result?</h3>
+
+	<p>
+	    The Statement REST resource was designed to support
+	    queries that can take anywhere from a few seconds to many
+	    minutes or hours. When the Presto CLI executes a query it
+	    calls the Statement resource repeatedly to gather
+	    statistics about a running query.
+	</p>
+
+        <p>
+	    StatementResource (the query API) assigns the query an ID,
+	    parses the query, queues it for execution and immediately
+	    returns the initial response with the query ID. At this
+	    point the query has not even been analyzed or planned,
+	    which can take a significant amount of time (for example,
+	    it might have to make many remote calls to the Hive
+	    metastore via the Presto connector API). By returning the
+	    query ID immediately and returning stats continuously,
+	    the CLI (or other UI) can display something useful to the
+	    end user. Having the query ID is also useful for debugging
+	    or administrative purposes (for example, to see why
+	    something is hanging during
+	    planning). (<a href="https://groups.google.com/d/msg/presto-users/A0iJGeeOGKk/6ONUjgy02MUJ">source</a>)
+	</p>
+
     </div>
 
     <div class="rightcol">
@@ -130,6 +193,8 @@
             <li><a href="#running">Running Presto</a></li>
             <li><a href="#compatibility">Compatibility</a></li>
             <li><a href="#errors">Common Errors</a></li>
+	    <li><a href="#client">Presto Client</a></li>
+	    <li><a href="#rest">REST API</a></li>
         </ul>
     </div>
 </div>
