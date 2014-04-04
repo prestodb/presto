@@ -229,6 +229,24 @@ code {
     left: 4px;
 }
 
+.item {
+    background-color: #dddddd;
+    padding: 15px;
+    border: 1px solid black;
+    margin-bottom: 30px;
+}
+
+.item h4 {
+    margin-top: 5px;
+    margin-bottom: 5px;
+    font-weight: bold;
+}
+
+.item dl dd pre {
+    margin-left: -30px;
+}
+
+
 /* tabletish */
 
 @media (min-width: 480px) {
