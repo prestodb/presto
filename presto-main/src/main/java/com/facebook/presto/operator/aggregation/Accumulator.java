@@ -19,6 +19,8 @@ import com.facebook.presto.tuple.TupleInfo;
 
 public interface Accumulator
 {
+    long getEstimatedSize();
+
     TupleInfo getFinalTupleInfo();
 
     TupleInfo getIntermediateTupleInfo();

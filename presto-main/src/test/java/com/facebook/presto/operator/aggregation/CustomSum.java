@@ -102,6 +102,12 @@ public class CustomSum
         }
 
         @Override
+        public long getEstimatedSize()
+        {
+            return 0;
+        }
+
+        @Override
         public TupleInfo getFinalTupleInfo()
         {
             return SINGLE_LONG;
