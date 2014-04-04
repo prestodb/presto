@@ -19,7 +19,6 @@ import com.facebook.presto.metadata.NativeTableHandle;
 import com.facebook.presto.metadata.QualifiedTableName;
 import com.facebook.presto.metadata.ShardManager;
 import com.facebook.presto.metadata.TablePartition;
-import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.sql.analyzer.Session;
 import com.facebook.presto.sql.tree.DropTable;
@@ -42,6 +41,7 @@ import java.util.concurrent.ThreadPoolExecutor;
 
 import static com.facebook.presto.metadata.MetadataUtil.createQualifiedTableName;
 import static com.facebook.presto.spi.StandardErrorCode.CANNOT_DROP_TABLE;
+import static com.facebook.presto.util.Failures.checkCondition;
 import static com.facebook.presto.util.Threads.daemonThreadsNamed;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
@@ -143,9 +143,7 @@ public class DropTableExecution
 
         final Optional<TableHandle> tableHandle = metadataManager.getTableHandle(tableName);
         checkState(tableHandle.isPresent(), "Table %s does not exist", tableName);
-        if (!(tableHandle.get() instanceof NativeTableHandle)) {
-            throw new PrestoException(CANNOT_DROP_TABLE.toErrorCode(), "Can only drop native tables");
-        }
+        checkCondition(tableHandle.get() instanceof NativeTableHandle, CANNOT_DROP_TABLE, "Can only drop native tables");
 
         Set<TablePartition> partitions = shardManager.getPartitions(tableHandle.get());
         for (TablePartition partition : partitions) {
