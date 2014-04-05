@@ -925,14 +925,13 @@ public class LocalExecutionPlanner
         public PhysicalOperation visitTableWriter(TableWriterNode node, LocalExecutionPlanContext context)
         {
             // serialize writes by forcing data through a single writer
-            PhysicalOperation exchange = createInMemoryExchange(node, context);
-            PhysicalOperation source = node.getSource().accept(this, context);
+            PhysicalOperation exchange = createInMemoryExchange(node.getSource(), context);
 
-            Optional<Integer> sampleWeightChannel = node.getSampleWeightSymbol().transform(source.channelGetter());
+            Optional<Integer> sampleWeightChannel = node.getSampleWeightSymbol().transform(exchange.channelGetter());
 
             // create the table writer
             RecordSink recordSink = recordSinkManager.getRecordSink(node.getTarget());
-            List<TupleInfo.Type> outputTypes = new ArrayList<>(FluentIterable.from(source.getTupleInfos()).transform(new Function<TupleInfo, TupleInfo.Type>() {
+            List<TupleInfo.Type> outputTypes = new ArrayList<>(FluentIterable.from(exchange.getTupleInfos()).transform(new Function<TupleInfo, TupleInfo.Type>() {
                 @Override
                 public TupleInfo.Type apply(TupleInfo input)
                 {
@@ -952,12 +951,12 @@ public class LocalExecutionPlanner
             return new PhysicalOperation(operatorFactory, layout, exchange);
         }
 
-        private PhysicalOperation createInMemoryExchange(TableWriterNode node, LocalExecutionPlanContext context)
+        private PhysicalOperation createInMemoryExchange(PlanNode node, LocalExecutionPlanContext context)
         {
             LocalExecutionPlanContext subContext = context.createSubContext();
-            PhysicalOperation source = node.getSource().accept(this, subContext);
+            PhysicalOperation source = node.accept(this, subContext);
 
-            InMemoryExchange exchange = new InMemoryExchange(getSourceOperatorTupleInfos(node, context.getTypes()));
+            InMemoryExchange exchange = new InMemoryExchange(source.getTupleInfos());
 
             // create exchange sink
             List<OperatorFactory> factories = ImmutableList.<OperatorFactory>builder()
