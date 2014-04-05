@@ -221,7 +221,7 @@ public enum CassandraType
         return buildArrayValue(row.getList(i, elemType.javaType), elemType);
     }
 
-    private static String buildMapValue(Row row, int i, CassandraType keyType,
+    public static String buildMapValue(Row row, int i, CassandraType keyType,
             CassandraType valueType)
     {
         StringBuilder sb = new StringBuilder();
@@ -238,7 +238,7 @@ public enum CassandraType
         return sb.toString();
     }
 
-    private static String buildArrayValue(Collection<?> collection, CassandraType elemType)
+    public static String buildArrayValue(Collection<?> collection, CassandraType elemType)
     {
         StringBuilder sb = new StringBuilder();
         sb.append("[");
@@ -315,11 +315,11 @@ public enum CassandraType
             case TIMESTAMP:
             case INET:
             case VARINT:
-                return CassandraCqlUtils.quoteStringLiteral(object.toString());
+                return CassandraCqlUtils.quoteStringLiteralForJson(object.toString());
 
             case BLOB:
             case CUSTOM:
-                return CassandraCqlUtils.quoteStringLiteral(Bytes.toHexString((ByteBuffer) object));
+                return CassandraCqlUtils.quoteStringLiteralForJson(Bytes.toHexString((ByteBuffer) object));
 
             case INT:
             case BIGINT:
