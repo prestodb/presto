@@ -39,13 +39,15 @@ public class TableWriterOperator
     {
         private final int operatorId;
         private final RecordSink recordSink;
+        private final List<Integer> inputChannels;
         private final List<Type> outputTypes;
         private final Optional<Integer> sampleWeightChannel;
         private boolean closed;
 
-        public TableWriterOperatorFactory(int operatorId, RecordSink recordSink, List<Type> outputTypes, Optional<Integer> sampleWeightChannel)
+        public TableWriterOperatorFactory(int operatorId, RecordSink recordSink, List<Type> outputTypes, List<Integer> inputChannels, Optional<Integer> sampleWeightChannel)
         {
             this.operatorId = operatorId;
+            this.inputChannels = checkNotNull(inputChannels, "inputChannels is null");
             this.recordSink = checkNotNull(recordSink, "recordSink is null");
             this.outputTypes = checkNotNull(outputTypes, "outputTypes is null");
             this.sampleWeightChannel = checkNotNull(sampleWeightChannel, "sampleWeightChannel is null");
@@ -62,7 +64,7 @@ public class TableWriterOperator
         {
             checkState(!closed, "Factory is already closed");
             OperatorContext context = driverContext.addOperatorContext(operatorId, TableWriterOperator.class.getSimpleName());
-            return new TableWriterOperator(context, recordSink, outputTypes, sampleWeightChannel);
+            return new TableWriterOperator(context, recordSink, outputTypes, inputChannels, sampleWeightChannel);
         }
 
         @Override
@@ -81,26 +83,18 @@ public class TableWriterOperator
     private final RecordSink recordSink;
     private final Optional<Integer> sampleWeightChannel;
     private final List<Type> outputTypes;
-    // Maps output channels to the corresponding input channel (identity mapping, unless sample weight channel is present)
-    private final int[] inputChannels;
+    private final List<Integer> inputChannels;
 
     private State state = State.RUNNING;
     private long rowCount;
 
-    public TableWriterOperator(OperatorContext operatorContext, RecordSink recordSink, List<Type> outputTypes, Optional<Integer> sampleWeightChannel)
+    public TableWriterOperator(OperatorContext operatorContext, RecordSink recordSink, List<Type> outputTypes, List<Integer> inputChannels, Optional<Integer> sampleWeightChannel)
     {
         this.operatorContext = checkNotNull(operatorContext, "operatorContext is null");
         this.recordSink = checkNotNull(recordSink, "recordSink is null");
         this.outputTypes = checkNotNull(outputTypes, "outputTypes is null");
         this.sampleWeightChannel = checkNotNull(sampleWeightChannel, "sampleWeightChannel is null");
-        this.inputChannels = new int[outputTypes.size()];
-        for (int inputChannel = 0, outputChannel = 0; outputChannel < inputChannels.length; inputChannel++, outputChannel++) {
-            if (sampleWeightChannel.isPresent() && inputChannel == sampleWeightChannel.get()) {
-                // Skip the sample weight channel in the input, since it's passed to the RecordSink out of band
-                inputChannel++;
-            }
-            inputChannels[outputChannel] = inputChannel;
-        }
+        this.inputChannels = checkNotNull(inputChannels, "inputChannels is null");
     }
 
     @Override
@@ -154,11 +148,11 @@ public class TableWriterOperator
             sampleWeightCursor = page.getBlock(sampleWeightChannel.get()).cursor();
         }
         else {
-            cursors = new BlockCursor[page.getChannelCount()];
+            cursors = new BlockCursor[outputTypes.size()];
         }
 
         for (int outputChannel = 0; outputChannel < cursors.length; outputChannel++) {
-            cursors[outputChannel] = page.getBlock(inputChannels[outputChannel]).cursor();
+            cursors[outputChannel] = page.getBlock(inputChannels.get(outputChannel)).cursor();
         }
 
         int rows = 0;
