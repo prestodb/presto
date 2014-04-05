@@ -98,7 +98,6 @@ import com.google.common.base.Functions;
 import com.google.common.base.Optional;
 import com.google.common.base.Supplier;
 import com.google.common.collect.ComparisonChain;
-import com.google.common.collect.FluentIterable;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableMap.Builder;
@@ -931,17 +930,17 @@ public class LocalExecutionPlanner
 
             // create the table writer
             RecordSink recordSink = recordSinkManager.getRecordSink(node.getTarget());
-            List<TupleInfo.Type> outputTypes = new ArrayList<>(FluentIterable.from(exchange.getTupleInfos()).transform(new Function<TupleInfo, TupleInfo.Type>() {
-                @Override
-                public TupleInfo.Type apply(TupleInfo input)
-                {
-                    return input.getType();
-                }
-            }).toList());
-            if (sampleWeightChannel.isPresent()) {
-                outputTypes.remove((int) sampleWeightChannel.get());
-            }
-            OperatorFactory operatorFactory = new TableWriterOperatorFactory(context.getNextOperatorId(), recordSink, outputTypes, sampleWeightChannel);
+
+            List<TupleInfo.Type> types = IterableTransformer.on(node.getColumns())
+                    .transform(Functions.forMap(context.getTypes()))
+                    .transform(Type.toRaw())
+                    .list();
+
+            List<Integer> inputChannels = IterableTransformer.on(node.getColumns())
+                    .transform(exchange.channelGetter())
+                    .list();
+
+            OperatorFactory operatorFactory = new TableWriterOperatorFactory(context.getNextOperatorId(), recordSink, types, inputChannels, sampleWeightChannel);
 
             Map<Symbol, Input> layout = ImmutableMap.<Symbol, Input>builder()
                     .put(node.getOutputSymbols().get(0), new Input(0))
