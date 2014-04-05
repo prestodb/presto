@@ -134,7 +134,7 @@ public class TestDistributedQueries
     {
         assertCreateTable(
                 "test_simple",
-                "SELECT orderkey, totalprice, orderdate FROM orders",
+                "SELECT orderdate, orderkey, totalprice FROM orders",
                 "SELECT count(*) FROM orders");
     }
 
