@@ -915,35 +915,26 @@ public class PrestoDatabaseMetaData
             throws SQLException
     {
         StringBuilder query = new StringBuilder(1024);
-        query.append("SELECT");
-        query.append(" table_catalog AS TABLE_CAT");
-        query.append(", table_schema AS TABLE_SCHEM");
-        query.append(", table_name AS TABLE_NAME");
-        query.append(", table_type AS TABLE_TYPE");
-        query.append(", '' AS REMARKS");
-        query.append(", '' AS TYPE_CAT");
-        query.append(", '' AS TYPE_SCHEM");
-        query.append(", '' AS TYPE_NAME");
-        query.append(", '' AS SELF_REFERENCING_COL_NAME");
-        query.append(", '' AS REF_GENERATION");
-        query.append(" FROM information_schema.tables ");
+        query.append("SELECT TABLE_CAT, TABLE_SCHEM, TABLE_NAME, TABLE_TYPE, REMARKS, ");
+        query.append(" TYPE_CAT, TYPE_SCHEM, TYPE_NAME, SELF_REFERENCING_COL_NAME, REF_GENERATION ");
+        query.append(" FROM jdbc.tables ");
 
         List<String> filters = new ArrayList<>(4);
         if (catalog != null) {
             if (catalog.length() == 0) {
-                filters.add("table_catalog IS NULL");
+                filters.add("table_cat IS NULL");
             }
             else {
-                filters.add(stringColumnEquals("table_catalog", catalog));
+                filters.add(stringColumnEquals("table_cat", catalog));
             }
         }
 
         if (schemaPattern != null) {
             if (schemaPattern.length() == 0) {
-                filters.add("table_schema IS NULL");
+                filters.add("table_schem IS NULL");
             }
             else {
-                filters.add(stringColumnLike("table_schema", schemaPattern));
+                filters.add(stringColumnLike("table_schem", schemaPattern));
             }
         }
 
@@ -983,8 +974,8 @@ public class PrestoDatabaseMetaData
             throws SQLException
     {
         return select("" +
-                "SELECT schema_name AS TABLE_SCHEM, catalog_name TABLE_CATALOG " +
-                "FROM information_schema.schemata " +
+                "SELECT DISTINCT table_schem AS TABLE_SCHEM, table_cat AS TABLE_CATALOG " +
+                "FROM jdbc.tables " +
                 "ORDER BY TABLE_CATALOG, TABLE_SCHEM");
     }
 
@@ -993,8 +984,8 @@ public class PrestoDatabaseMetaData
             throws SQLException
     {
         return select("" +
-                "SELECT DISTINCT catalog_name AS TABLE_CAT " +
-                "FROM information_schema.schemata " +
+                "SELECT DISTINCT table_cat AS TABLE_CAT " +
+                "FROM jdbc.tables " +
                 "ORDER BY TABLE_CAT");
     }
 
@@ -1004,7 +995,7 @@ public class PrestoDatabaseMetaData
     {
         return select("" +
                 "SELECT DISTINCT table_type AS TABLE_TYPE " +
-                "FROM information_schema.tables " +
+                "FROM jdbc.tables " +
                 "ORDER BY TABLE_TYPE");
     }
 
@@ -1392,21 +1383,21 @@ public class PrestoDatabaseMetaData
         // TABLE_SCHEM String => schema name
         // TABLE_CATALOG String => catalog name (may be null)
         StringBuilder query = new StringBuilder(512);
-        query.append("SELECT DISTINCT schema_name TABLE_SCHEM, catalog_name TABLE_CATALOG ");
-        query.append(" FROM information_schema.schemata");
+        query.append("SELECT DISTINCT table_schem TABLE_SCHEM, table_cat AS TABLE_CATALOG ");
+        query.append(" FROM jdbc.tables");
 
         List<String> filters = new ArrayList<>(4);
         if (catalog != null) {
             if (catalog.length() == 0) {
-                filters.add("catalog_name IS NULL");
+                filters.add("table_cat IS NULL");
             }
             else {
-                filters.add(stringColumnEquals("catalog_name", catalog));
+                filters.add(stringColumnEquals("table_cat", catalog));
             }
         }
 
         if (schemaPattern != null) {
-            filters.add(stringColumnLike("schema_name", schemaPattern));
+            filters.add(stringColumnLike("table_schem", schemaPattern));
         }
 
         if (filters.size() > 0) {
