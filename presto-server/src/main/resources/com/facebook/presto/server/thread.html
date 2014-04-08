@@ -112,7 +112,14 @@ d3.select("#graph").call(tip);
 
 function redraw() {
 
-    d3.json('/v1/thread', function (threads) {
+    d3.json('/v1/thread', function (error, json) {
+        if (error) {
+            setTimeout(redraw, 1000);
+            return;
+        }
+
+        var threads = json;
+
         graph = new dagreD3.Digraph();
 
         threads.forEach(function (thread) {
@@ -169,12 +176,13 @@ function redraw() {
 
         d3.select("#graph")
                 .attr("width", layout.graph().width + 40)
-                .attr("height", layout.graph().height + 40)
+                .attr("height", layout.graph().height + 40);
+
+
+        setTimeout(redraw, 1000);
     });
 }
 
-
-setInterval(redraw, 1000);
-
+redraw();
 
 </script>
