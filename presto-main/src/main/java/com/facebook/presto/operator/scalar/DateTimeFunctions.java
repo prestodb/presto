@@ -47,7 +47,7 @@ import static com.facebook.presto.util.DateTimeZoneIndex.extractZoneOffsetMinute
 import static com.facebook.presto.util.DateTimeZoneIndex.getChronology;
 import static com.facebook.presto.util.DateTimeZoneIndex.packDateTimeWithZone;
 
-public final class UnixTimeFunctions
+public final class DateTimeFunctions
 {
     private static final ThreadLocalCache<Slice, DateTimeFormatter> DATETIME_FORMATTER_CACHE = new ThreadLocalCache<Slice, DateTimeFormatter>(100)
     {
@@ -77,7 +77,7 @@ public final class UnixTimeFunctions
     private static final int MAX_TIME_ZONE_OFFSET = 13 * 60;
     private static final int MIN_TIME_ZONE_OFFSET = -(12 * 60 + 59);
 
-    private UnixTimeFunctions() {}
+    private DateTimeFunctions() {}
 
     @ScalarFunction("__to_time__")
     @SqlType(TimeType.class)
