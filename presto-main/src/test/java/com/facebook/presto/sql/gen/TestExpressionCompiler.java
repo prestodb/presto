@@ -13,12 +13,12 @@
  */
 package com.facebook.presto.sql.gen;
 
+import com.facebook.presto.operator.scalar.DateTimeFunctions;
 import com.facebook.presto.operator.scalar.FunctionAssertions;
 import com.facebook.presto.operator.scalar.JsonFunctions;
 import com.facebook.presto.operator.scalar.MathFunctions;
 import com.facebook.presto.operator.scalar.RegexpFunctions;
 import com.facebook.presto.operator.scalar.StringFunctions;
-import com.facebook.presto.operator.scalar.UnixTimeFunctions;
 import com.facebook.presto.spi.Session;
 import com.facebook.presto.spi.type.TimestampWithTimeZone;
 import com.facebook.presto.sql.planner.LikeUtils;
@@ -967,34 +967,34 @@ public class TestExpressionCompiler
     {
         switch (field) {
             case CENTURY:
-                return UnixTimeFunctions.centuryFromTimestamp(session, value);
+                return DateTimeFunctions.centuryFromTimestamp(session, value);
             case YEAR:
-                return UnixTimeFunctions.yearFromTimestamp(session, value);
+                return DateTimeFunctions.yearFromTimestamp(session, value);
             case QUARTER:
-                return UnixTimeFunctions.quarterFromTimestamp(session, value);
+                return DateTimeFunctions.quarterFromTimestamp(session, value);
             case MONTH:
-                return UnixTimeFunctions.monthFromTimestamp(session, value);
+                return DateTimeFunctions.monthFromTimestamp(session, value);
             case WEEK:
-                return UnixTimeFunctions.weekFromTimestamp(session, value);
+                return DateTimeFunctions.weekFromTimestamp(session, value);
             case DAY:
             case DAY_OF_MONTH:
-                return UnixTimeFunctions.dayFromTimestamp(session, value);
+                return DateTimeFunctions.dayFromTimestamp(session, value);
             case DAY_OF_WEEK:
             case DOW:
-                return UnixTimeFunctions.dayOfWeekFromTimestamp(session, value);
+                return DateTimeFunctions.dayOfWeekFromTimestamp(session, value);
             case DAY_OF_YEAR:
             case DOY:
-                return UnixTimeFunctions.dayOfYearFromTimestamp(session, value);
+                return DateTimeFunctions.dayOfYearFromTimestamp(session, value);
             case HOUR:
-                return UnixTimeFunctions.hourFromTimestamp(session, value);
+                return DateTimeFunctions.hourFromTimestamp(session, value);
             case MINUTE:
-                return UnixTimeFunctions.minuteFromTimestamp(session, value);
+                return DateTimeFunctions.minuteFromTimestamp(session, value);
             case SECOND:
-                return UnixTimeFunctions.secondFromTimestamp(value);
+                return DateTimeFunctions.secondFromTimestamp(value);
             case TIMEZONE_MINUTE:
-                return UnixTimeFunctions.timeZoneMinuteFromTimestampWithTimeZone(packDateTimeWithZone(value, session.getTimeZoneKey()));
+                return DateTimeFunctions.timeZoneMinuteFromTimestampWithTimeZone(packDateTimeWithZone(value, session.getTimeZoneKey()));
             case TIMEZONE_HOUR:
-                return UnixTimeFunctions.timeZoneHourFromTimestampWithTimeZone(packDateTimeWithZone(value, session.getTimeZoneKey()));
+                return DateTimeFunctions.timeZoneHourFromTimestampWithTimeZone(packDateTimeWithZone(value, session.getTimeZoneKey()));
         }
         throw new AssertionError("Unhandled field: " + field);
     }
