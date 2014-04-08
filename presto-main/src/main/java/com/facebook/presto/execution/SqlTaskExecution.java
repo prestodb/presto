@@ -643,6 +643,14 @@ public class SqlTaskExecution
         @Override
         public synchronized boolean isFinished()
         {
+            if (closed) {
+                return true;
+            }
+
+            if (driver == null) {
+                return false;
+            }
+
             return driver.isFinished();
         }
 
