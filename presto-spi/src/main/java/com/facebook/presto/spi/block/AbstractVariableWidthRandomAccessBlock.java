@@ -102,7 +102,7 @@ public abstract class AbstractVariableWidthRandomAccessBlock
             return null;
         }
         int offset = getPositionOffset(position);
-        return type.getObjectValue(session, getRawSlice(), offset + SIZE_OF_BYTE);
+        return type.getObjectValue(session, getRawSlice(), valueOffset(offset));
     }
 
     @Override
@@ -112,7 +112,7 @@ public abstract class AbstractVariableWidthRandomAccessBlock
             throw new IllegalStateException("position is null");
         }
         int offset = getPositionOffset(position);
-        return type.getSlice(getRawSlice(), offset + SIZE_OF_BYTE);
+        return type.getSlice(getRawSlice(), valueOffset(offset));
     }
 
     @Override
@@ -121,11 +121,11 @@ public abstract class AbstractVariableWidthRandomAccessBlock
         checkReadablePosition(position);
 
         int offset = getPositionOffset(position);
-        if (getRawSlice().getByte(offset) != 0) {
+        if (isEntryAtOffsetNull(offset)) {
             return new VariableWidthRandomAccessBlock(type, 1, Slices.wrappedBuffer(new byte[] {1}));
         }
 
-        int entrySize = type.getLength(getRawSlice(), offset + SIZE_OF_BYTE) + SIZE_OF_BYTE;
+        int entrySize = valueOffset(type.getLength(getRawSlice(), offset + SIZE_OF_BYTE));
 
         // TODO: add Slices.copyOf() to airlift
         Slice copy = Slices.allocate(entrySize);
@@ -139,7 +139,7 @@ public abstract class AbstractVariableWidthRandomAccessBlock
     {
         checkReadablePosition(position);
         int offset = getPositionOffset(position);
-        return getRawSlice().getByte(offset) != 0;
+        return isEntryAtOffsetNull(offset);
     }
 
     @Override
@@ -148,7 +148,7 @@ public abstract class AbstractVariableWidthRandomAccessBlock
         checkReadablePosition(position);
         int leftOffset = getPositionOffset(position);
 
-        boolean leftIsNull = getRawSlice().getByte(leftOffset) != 0;
+        boolean leftIsNull = isEntryAtOffsetNull(leftOffset);
         boolean rightIsNull = right.isNull(rightPosition);
 
         if (leftIsNull != rightIsNull) {
@@ -160,7 +160,7 @@ public abstract class AbstractVariableWidthRandomAccessBlock
             return true;
         }
 
-        return right.equals(rightPosition, getRawSlice(), leftOffset + SIZE_OF_BYTE);
+        return right.equals(rightPosition, getRawSlice(), valueOffset(leftOffset));
     }
 
     @Override
@@ -168,7 +168,7 @@ public abstract class AbstractVariableWidthRandomAccessBlock
     {
         checkReadablePosition(position);
         int offset = getPositionOffset(position);
-        boolean thisIsNull = getRawSlice().getByte(offset) != 0;
+        boolean thisIsNull = isEntryAtOffsetNull(offset);
         boolean valueIsNull = cursor.isNull();
 
         if (thisIsNull != valueIsNull) {
@@ -181,7 +181,7 @@ public abstract class AbstractVariableWidthRandomAccessBlock
         }
 
         VariableWidthBlockCursor variableWidthBlockCursor = (VariableWidthBlockCursor) cursor;
-        return variableWidthBlockCursor.equalTo(getRawSlice(), offset + SIZE_OF_BYTE);
+        return variableWidthBlockCursor.equalTo(getRawSlice(), valueOffset(offset));
     }
 
     @Override
@@ -189,7 +189,7 @@ public abstract class AbstractVariableWidthRandomAccessBlock
     {
         checkReadablePosition(position);
         int leftEntryOffset = getPositionOffset(position);
-        return type.equals(getRawSlice(), leftEntryOffset + SIZE_OF_BYTE, rightSlice, rightOffset);
+        return type.equals(getRawSlice(), valueOffset(leftEntryOffset), rightSlice, rightOffset);
     }
 
     @Override
@@ -197,12 +197,10 @@ public abstract class AbstractVariableWidthRandomAccessBlock
     {
         checkReadablePosition(position);
         int offset = getPositionOffset(position);
-        if (getRawSlice().getByte(offset) != 0) {
+        if (isEntryAtOffsetNull(offset)) {
             return 0;
         }
-        else {
-            return type.hashCode(getRawSlice(), offset + SIZE_OF_BYTE);
-        }
+        return type.hashCode(getRawSlice(), valueOffset(offset));
     }
 
     @Override
@@ -211,7 +209,7 @@ public abstract class AbstractVariableWidthRandomAccessBlock
         checkReadablePosition(position);
         int leftOffset = getPositionOffset(position);
 
-        boolean leftIsNull = getRawSlice().getByte(leftOffset) != 0;
+        boolean leftIsNull = isEntryAtOffsetNull(leftOffset);
         boolean rightIsNull = rightBlock.isNull(rightPosition);
 
         if (leftIsNull && rightIsNull) {
@@ -225,7 +223,7 @@ public abstract class AbstractVariableWidthRandomAccessBlock
         }
 
         // compare the right block to our slice but negate the result since we are evaluating in the opposite order
-        int result = -rightBlock.compareTo(rightPosition, getRawSlice(), leftOffset + SIZE_OF_BYTE);
+        int result = -rightBlock.compareTo(rightPosition, getRawSlice(), valueOffset(leftOffset));
         return sortOrder.isAscending() ? result : -result;
     }
 
@@ -234,7 +232,7 @@ public abstract class AbstractVariableWidthRandomAccessBlock
     {
         checkReadablePosition(position);
         int leftEntryOffset = getPositionOffset(position);
-        boolean leftIsNull = getRawSlice().getByte(leftEntryOffset) != 0;
+        boolean leftIsNull = isEntryAtOffsetNull(leftEntryOffset);
 
         boolean rightIsNull = cursor.isNull();
 
@@ -249,7 +247,7 @@ public abstract class AbstractVariableWidthRandomAccessBlock
         }
 
         // compare the right cursor to our slice but negate the result since we are evaluating in the opposite order
-        int result = -cursor.compareTo(getRawSlice(), leftEntryOffset + SIZE_OF_BYTE);
+        int result = -cursor.compareTo(getRawSlice(), valueOffset(leftEntryOffset));
         return sortOrder.isAscending() ? result : -result;
     }
 
@@ -258,7 +256,7 @@ public abstract class AbstractVariableWidthRandomAccessBlock
     {
         checkReadablePosition(position);
         int leftEntryOffset = getPositionOffset(position);
-        return type.compareTo(getRawSlice(), leftEntryOffset + SIZE_OF_BYTE, rightSlice, rightOffset);
+        return type.compareTo(getRawSlice(), valueOffset(leftEntryOffset), rightSlice, rightOffset);
     }
 
     @Override
@@ -266,12 +264,22 @@ public abstract class AbstractVariableWidthRandomAccessBlock
     {
         checkReadablePosition(position);
         int offset = getPositionOffset(position);
-        if (getRawSlice().getByte(offset) != 0) {
+        if (isEntryAtOffsetNull(offset)) {
             blockBuilder.appendNull();
         }
         else {
-            type.appendTo(getRawSlice(), offset + SIZE_OF_BYTE, blockBuilder);
+            type.appendTo(getRawSlice(), valueOffset(offset), blockBuilder);
         }
+    }
+
+    private int valueOffset(int entryOffset)
+    {
+        return entryOffset + SIZE_OF_BYTE;
+    }
+
+    private boolean isEntryAtOffsetNull(int offset)
+    {
+        return getRawSlice().getByte(offset) != 0;
     }
 
     private void checkReadablePosition(int position)
