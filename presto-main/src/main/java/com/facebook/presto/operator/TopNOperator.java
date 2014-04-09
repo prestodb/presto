@@ -367,7 +367,7 @@ public class TopNOperator
             while (!globalCandidates.isEmpty()) {
                 RandomAccessBlock[] row = globalCandidates.remove();
                 if (sampleWeightChannel.isPresent()) {
-                    // sampled rows are inserted multiple times (we can us identity comparison here)
+                    // sampled rows are inserted multiple times (we can use identity comparison here)
                     // we could also test for equality to "pack" results further, but that would require another equality function
                     if (globalCandidates.peek() != null && row == globalCandidates.peek()) {
                         sampleWeight++;

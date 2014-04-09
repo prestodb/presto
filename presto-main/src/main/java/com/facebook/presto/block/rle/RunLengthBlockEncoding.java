@@ -88,16 +88,16 @@ public class RunLengthBlockEncoding
         }
 
         @Override
-        public RunLengthBlockEncoding readEncoding(TypeManager typeManager, BlockEncodingSerde blockEncodingSerde, SliceInput input)
+        public RunLengthBlockEncoding readEncoding(TypeManager manager, BlockEncodingSerde serde, SliceInput input)
         {
-            BlockEncoding valueBlockEncoding = blockEncodingSerde.readBlockEncoding(input);
+            BlockEncoding valueBlockEncoding = serde.readBlockEncoding(input);
             return new RunLengthBlockEncoding(valueBlockEncoding);
         }
 
         @Override
-        public void writeEncoding(BlockEncodingSerde blockEncodingSerde, SliceOutput output, RunLengthBlockEncoding blockEncoding)
+        public void writeEncoding(BlockEncodingSerde serde, SliceOutput output, RunLengthBlockEncoding blockEncoding)
         {
-            blockEncodingSerde.writeBlockEncoding(output, blockEncoding.getValueBlockEncoding());
+            serde.writeBlockEncoding(output, blockEncoding.getValueBlockEncoding());
         }
     }
 }

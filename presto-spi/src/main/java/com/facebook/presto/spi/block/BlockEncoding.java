@@ -51,11 +51,11 @@ public interface BlockEncoding
         /**
          * Reads the encoding from the specified input.
          */
-        T readEncoding(TypeManager typeManager, BlockEncodingSerde blockEncodingSerde, SliceInput input);
+        T readEncoding(TypeManager manager, BlockEncodingSerde serde, SliceInput input);
 
         /**
          * Writes this encoding to the output stream.
          */
-        void writeEncoding(BlockEncodingSerde blockEncodingSerde, SliceOutput output, T blockEncoding);
+        void writeEncoding(BlockEncodingSerde serde, SliceOutput output, T blockEncoding);
     }
 }
