@@ -27,13 +27,13 @@ public class HashJoinOperators
 
     private static final JoinProbeCompiler JOIN_PROBE_COMPILER = new JoinProbeCompiler();
 
-    public static OperatorFactory innerJoin(int operatorId, HashSupplier hashSupplier, List<Type> probeTypes, List<Integer> probeJoinChannel)
+    public static OperatorFactory innerJoin(int operatorId, HashSupplier hashSupplier, List<? extends Type> probeTypes, List<Integer> probeJoinChannel)
     {
         OperatorFactory operatorFactory = JOIN_PROBE_COMPILER.compileJoinOperatorFactory(operatorId, hashSupplier, probeTypes, probeJoinChannel, false);
         return operatorFactory;
     }
 
-    public static OperatorFactory outerJoin(int operatorId, HashSupplier hashSupplier, List<Type> probeTypes, List<Integer> probeJoinChannel)
+    public static OperatorFactory outerJoin(int operatorId, HashSupplier hashSupplier, List<? extends Type> probeTypes, List<Integer> probeJoinChannel)
     {
         return JOIN_PROBE_COMPILER.compileJoinOperatorFactory(operatorId, hashSupplier, probeTypes, probeJoinChannel, true);
     }
