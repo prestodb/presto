@@ -319,8 +319,8 @@ public class TopNOperator
             // Count the column sizes only once, because we insert the same object reference multiple times for sampled rows
             sizeDelta += sizeOfRow(row);
             globalCandidates.add(row);
+            sizeDelta += (sampleWeight - 1) * OVERHEAD_PER_VALUE.toBytes();
             for (int i = 1; i < sampleWeight; i++) {
-                sizeDelta += OVERHEAD_PER_VALUE.toBytes();
                 globalCandidates.add(row);
             }
 
