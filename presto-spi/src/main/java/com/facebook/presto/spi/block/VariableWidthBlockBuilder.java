@@ -14,7 +14,7 @@
 package com.facebook.presto.spi.block;
 
 import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.spi.type.VarcharType;
+import com.facebook.presto.spi.type.VariableWidthType;
 import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceOutput;
@@ -36,7 +36,7 @@ public class VariableWidthBlockBuilder
     private int positions;
     private int[] offsets = new int[1024];
 
-    public VariableWidthBlockBuilder(VarcharType type, BlockBuilderStatus blockBuilderStatus)
+    public VariableWidthBlockBuilder(VariableWidthType type, BlockBuilderStatus blockBuilderStatus)
     {
         super(type);
 
@@ -163,10 +163,7 @@ public class VariableWidthBlockBuilder
 
         int bytesWritten = type.setSlice(sliceOutput, value, offset, length);
 
-        blockBuilderStatus.addBytes(SIZE_OF_BYTE + bytesWritten);
-        if (sliceOutput.size() > blockBuilderStatus.getMaxBlockSizeInBytes()) {
-            blockBuilderStatus.setFull();
-        }
+        entryAdded(bytesWritten);
 
         return this;
     }
@@ -175,12 +172,20 @@ public class VariableWidthBlockBuilder
     public BlockBuilder appendNull()
     {
         recordNewPosition();
+
         sliceOutput.writeByte(1);
-        blockBuilderStatus.addBytes(SIZE_OF_BYTE);
-        if (sliceOutput.size() > blockBuilderStatus.getMaxBlockSizeInBytes()) {
+
+        entryAdded(0);
+
+        return this;
+    }
+
+    private void entryAdded(int bytesWritten)
+    {
+        blockBuilderStatus.addBytes(SIZE_OF_BYTE + bytesWritten);
+        if (sliceOutput.size() >= blockBuilderStatus.getMaxBlockSizeInBytes()) {
             blockBuilderStatus.setFull();
         }
-        return this;
     }
 
     private void recordNewPosition()

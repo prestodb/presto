@@ -53,7 +53,7 @@ public class BlockBuilderStatus
 
     public boolean isFull()
     {
-        return full || currentSize > maxPageSizeInBytes;
+        return full || currentSize >= maxPageSizeInBytes;
     }
 
     public void setFull()
