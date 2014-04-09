@@ -151,28 +151,28 @@ public class FixedWidthBlockCursor
     public boolean getBoolean()
     {
         checkReadablePosition();
-        return type.getBoolean(slice, offset + SIZE_OF_BYTE);
+        return type.getBoolean(slice, valueOffset());
     }
 
     @Override
     public long getLong()
     {
         checkReadablePosition();
-        return type.getLong(slice, offset + SIZE_OF_BYTE);
+        return type.getLong(slice, valueOffset());
     }
 
     @Override
     public double getDouble()
     {
         checkReadablePosition();
-        return type.getDouble(slice, offset + SIZE_OF_BYTE);
+        return type.getDouble(slice, valueOffset());
     }
 
     @Override
     public Slice getSlice()
     {
         checkReadablePosition();
-        return type.getSlice(slice, offset + SIZE_OF_BYTE);
+        return type.getSlice(slice, valueOffset());
     }
 
     @Override
@@ -182,7 +182,7 @@ public class FixedWidthBlockCursor
         if (isNull()) {
             return null;
         }
-        return type.getObjectValue(session, slice, offset + SIZE_OF_BYTE);
+        return type.getObjectValue(session, slice, valueOffset());
     }
 
     @Override
@@ -196,28 +196,31 @@ public class FixedWidthBlockCursor
     public int compareTo(Slice rightSlice, int rightOffset)
     {
         checkReadablePosition();
-        return type.compareTo(slice, offset + SIZE_OF_BYTE, rightSlice, rightOffset);
+        return type.compareTo(slice, valueOffset(), rightSlice, rightOffset);
     }
 
     @Override
     public int calculateHashCode()
     {
-        checkReadablePosition();
-        if (slice.getByte(offset) != 0) {
+        if (isNull()) {
             return 0;
         }
-        return type.hashCode(slice, offset + SIZE_OF_BYTE);
+        return type.hashCode(slice, valueOffset());
     }
 
     @Override
     public void appendTo(BlockBuilder blockBuilder)
     {
-        checkReadablePosition();
-        if (slice.getByte(offset) != 0) {
+        if (isNull()) {
             blockBuilder.appendNull();
         }
         else {
-            type.appendTo(slice, offset + SIZE_OF_BYTE, blockBuilder);
+            type.appendTo(slice, valueOffset(), blockBuilder);
         }
+    }
+
+    private int valueOffset()
+    {
+        return offset + SIZE_OF_BYTE;
     }
 }
