@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.sql.tree;
 
+import com.facebook.presto.sql.parser.ParsingException;
 import com.google.common.base.Preconditions;
 
 public class LongLiteral
@@ -23,7 +24,12 @@ public class LongLiteral
     public LongLiteral(String value)
     {
         Preconditions.checkNotNull(value, "value is null");
-        this.value = Long.parseLong(value);
+        try {
+            this.value = Long.parseLong(value);
+        }
+        catch (NumberFormatException e) {
+            throw new ParsingException("Invalid numeric literal: " + value);
+        }
     }
 
     public long getValue()
