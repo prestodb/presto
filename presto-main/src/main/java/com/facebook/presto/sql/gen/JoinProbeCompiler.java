@@ -100,7 +100,11 @@ public class JoinProbeCompiler
                 }
             });
 
-    public OperatorFactory compileJoinOperatorFactory(int operatorId, HashSupplier hashSupplier, List<Type> probeTypes, List<Integer> probeJoinChannel, boolean enableOuterJoin)
+    public OperatorFactory compileJoinOperatorFactory(int operatorId,
+            HashSupplier hashSupplier,
+            List<? extends Type> probeTypes,
+            List<Integer> probeJoinChannel,
+            boolean enableOuterJoin)
     {
         try {
             Class<? extends HashSupplier> hashSupplierClass = hashSupplier.getClass();
@@ -463,12 +467,13 @@ public class JoinProbeCompiler
         private final Class<? extends HashSupplier> hashSupplierClass;
         private final boolean enableOuterJoin;
 
-        private JoinOperatorCacheKey(List<Type> types,
+        private JoinOperatorCacheKey(List<? extends Type> types,
                 List<Integer> probeChannels,
-                Class<? extends HashSupplier> hashSupplierClass, boolean enableOuterJoin)
+                Class<? extends HashSupplier> hashSupplierClass,
+                boolean enableOuterJoin)
         {
-            this.types = types;
-            this.probeChannels = probeChannels;
+            this.types = ImmutableList.copyOf(types);
+            this.probeChannels = ImmutableList.copyOf(probeChannels);
             this.hashSupplierClass = null;
             this.enableOuterJoin = enableOuterJoin;
         }
@@ -523,7 +528,12 @@ public class JoinProbeCompiler
             }
         }
 
-        public OperatorFactory createHashJoinOperatorFactory(int operatorId, HashSupplier hashSupplier, List<Type> probeTypes, List<Integer> probeJoinChannel, boolean enableOuterJoin)
+        public OperatorFactory createHashJoinOperatorFactory(
+                int operatorId,
+                HashSupplier hashSupplier,
+                List<? extends Type> probeTypes,
+                List<Integer> probeJoinChannel,
+                boolean enableOuterJoin)
         {
             try {
                 return constructor.newInstance(operatorId, hashSupplier, probeTypes, enableOuterJoin, joinProbeFactory);

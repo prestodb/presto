@@ -30,7 +30,7 @@ public final class SequencePageBuilder
     {
     }
 
-    public static Page createSequencePage(List<Type> types, int length, int... initialValues)
+    public static Page createSequencePage(List<? extends Type> types, int length, int... initialValues)
     {
         Block[] blocks = new Block[initialValues.length];
         for (int i = 0; i < blocks.length; i++) {
