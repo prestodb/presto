@@ -50,6 +50,11 @@
                     <groupId>org.weakref</groupId>
                     <artifactId>jmxutils</artifactId>
                 </exclusion>
+                <!-- TODO: remove when fixed in airlift -->
+                <exclusion>
+                    <groupId>org.eclipse.jetty</groupId>
+                    <artifactId>jetty-servlet</artifactId>
+                </exclusion>
             </exclusions>
         </dependency>
 
@@ -85,6 +90,12 @@
         <dependency>
             <groupId>com.google.code.findbugs</groupId>
             <artifactId>annotations</artifactId>
+        </dependency>
+
+        <!-- TODO: fix this in Airlift and remove this dependency -->
+        <dependency>
+            <groupId>org.eclipse.jetty</groupId>
+            <artifactId>jetty-util</artifactId>
         </dependency>
 
         <!-- for testing -->
@@ -164,12 +175,12 @@
                                     <shadedPattern>${shadeBase}.jol</shadedPattern>
                                 </relocation>
                                 <relocation>
-                                    <pattern>org.jboss.netty</pattern>
-                                    <shadedPattern>${shadeBase}.netty</shadedPattern>
-                                </relocation>
-                                <relocation>
                                     <pattern>org.joda.time</pattern>
                                     <shadedPattern>${shadeBase}.joda.time</shadedPattern>
+                                </relocation>
+                                <relocation>
+                                    <pattern>org.eclipse.jetty</pattern>
+                                    <shadedPattern>${shadeBase}.jetty</shadedPattern>
                                 </relocation>
                             </relocations>
                             <filters>
@@ -197,6 +208,24 @@
                                     <artifact>javax.validation:validation-api</artifact>
                                     <excludes>
                                         <exclude>**</exclude>
+                                    </excludes>
+                                </filter>
+                                <filter>
+                                    <artifact>io.airlift</artifact>
+                                    <excludes>
+                                        <exclude>jetty-logging.properties</exclude>
+                                    </excludes>
+                                </filter>
+                                <filter>
+                                    <artifact>org.eclipse.jetty:jetty-util</artifact>
+                                    <excludes>
+                                        <exclude>jetty-dir.css</exclude>
+                                    </excludes>
+                                </filter>
+                                <filter>
+                                    <artifact>org.eclipse.jetty:*</artifact>
+                                    <excludes>
+                                        <exclude>about.html</exclude>
                                     </excludes>
                                 </filter>
                             </filters>
