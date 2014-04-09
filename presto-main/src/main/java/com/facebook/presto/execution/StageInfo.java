@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.execution;
 
+import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.planner.PlanFragment;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
@@ -34,7 +35,7 @@ public class StageInfo
     private final StageState state;
     private final URI self;
     private final PlanFragment plan;
-    private final List<String> types;
+    private final List<Type> types;
     private final StageStats stageStats;
     private final List<TaskInfo> tasks;
     private final List<StageInfo> subStages;
@@ -46,7 +47,7 @@ public class StageInfo
             @JsonProperty("state") StageState state,
             @JsonProperty("self") URI self,
             @JsonProperty("plan") @Nullable PlanFragment plan,
-            @JsonProperty("types") List<String> types,
+            @JsonProperty("types") List<Type> types,
             @JsonProperty("stageStats") StageStats stageStats,
             @JsonProperty("tasks") List<TaskInfo> tasks,
             @JsonProperty("subStages") List<StageInfo> subStages,
@@ -97,7 +98,7 @@ public class StageInfo
     }
 
     @JsonProperty
-    public List<String> getTypes()
+    public List<Type> getTypes()
     {
         return types;
     }

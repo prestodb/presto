@@ -34,6 +34,7 @@ import com.facebook.presto.spi.Session;
 import com.facebook.presto.spi.block.BlockCursor;
 import com.facebook.presto.spi.type.TimeZoneKey;
 import com.facebook.presto.spi.type.TimeZoneNotSupported;
+import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.util.IterableTransformer;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Predicate;
@@ -438,14 +439,14 @@ public class StatementResource
             }
 
             List<String> names = queryInfo.getFieldNames();
-            List<String> types = outputStage.getTypes();
+            List<Type> types = outputStage.getTypes();
 
             checkArgument(names.size() == types.size(), "names and types size mismatch");
 
             ImmutableList.Builder<Column> list = ImmutableList.builder();
             for (int i = 0; i < names.size(); i++) {
                 String name = names.get(i);
-                String type = types.get(i);
+                String type = types.get(i).getName();
                 list.add(new Column(name, type));
             }
             return list.build();
