@@ -91,13 +91,13 @@ public class FixedWidthBlockEncoding
         }
 
         @Override
-        public BlockEncoding readEncoding(TypeManager typeManager, BlockEncodingSerde blockEncodingSerde, SliceInput input)
+        public BlockEncoding readEncoding(TypeManager manager, BlockEncodingSerde serde, SliceInput input)
         {
             return new FixedWidthBlockEncoding(type);
         }
 
         @Override
-        public void writeEncoding(BlockEncodingSerde blockEncodingSerde, SliceOutput output, BlockEncoding blockEncoding)
+        public void writeEncoding(BlockEncodingSerde serde, SliceOutput output, BlockEncoding blockEncoding)
         {
         }
     }

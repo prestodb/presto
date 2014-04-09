@@ -106,9 +106,9 @@ public class GroupByIdBlock
     }
 
     @Override
-    public boolean equals(int rightPosition, Slice slice, int offset)
+    public boolean equals(int position, Slice slice, int offset)
     {
-        return block.equals(rightPosition, slice, offset);
+        return block.equals(position, slice, offset);
     }
 
     @Override

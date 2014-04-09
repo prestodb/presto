@@ -18,6 +18,7 @@ import com.facebook.presto.spi.block.RandomAccessBlock;
 
 import java.util.List;
 
+// This class exists as template for code generation and for testing
 public class TwoChannelPagesHashStrategy
         implements PagesHashStrategy
 {

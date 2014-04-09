@@ -35,10 +35,10 @@ public class BlockBuilderStatus
         this.maxBlockSizeInBytes = maxBlockSizeInBytes;
     }
 
-    public BlockBuilderStatus(BlockBuilderStatus blockBuilderStatus)
+    public BlockBuilderStatus(BlockBuilderStatus status)
     {
-        this.maxPageSizeInBytes = blockBuilderStatus.maxPageSizeInBytes;
-        this.maxBlockSizeInBytes = blockBuilderStatus.maxBlockSizeInBytes;
+        this.maxPageSizeInBytes = status.maxPageSizeInBytes;
+        this.maxBlockSizeInBytes = status.maxBlockSizeInBytes;
     }
 
     public int getMaxBlockSizeInBytes()

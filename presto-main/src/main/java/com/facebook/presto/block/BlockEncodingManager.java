@@ -30,7 +30,6 @@ import java.util.concurrent.ConcurrentMap;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
-import static com.google.common.base.Preconditions.checkState;
 
 public class BlockEncodingManager
         implements BlockEncodingSerde
@@ -47,8 +46,8 @@ public class BlockEncodingManager
     public BlockEncodingManager(TypeManager typeManager, Set<BlockEncodingFactory<?>> blockEncodingFactories)
     {
         this.typeManager = checkNotNull(typeManager, "typeManager is null");
-        for (BlockEncodingFactory<?> blockEncodingFactory : checkNotNull(blockEncodingFactories, "blockEncodingFactories is null")) {
-            addBlockEncodingFactory(blockEncodingFactory);
+        for (BlockEncodingFactory<?> factory : checkNotNull(blockEncodingFactories, "blockEncodingFactories is null")) {
+            addBlockEncodingFactory(factory);
         }
     }
 
@@ -67,7 +66,7 @@ public class BlockEncodingManager
 
         // look up the encoding factory
         BlockEncodingFactory<?> blockEncoding = blockEncodings.get(encodingName);
-        checkState(blockEncoding != null, "Unknown block encoding %s", encodingName);
+        checkArgument(blockEncoding != null, "Unknown block encoding %s", encodingName);
 
         // load read the encoding factory from the output stream
         return blockEncoding.readEncoding(typeManager, this, input);
@@ -81,7 +80,7 @@ public class BlockEncodingManager
 
         // look up the encoding factory
         BlockEncodingFactory<T> blockEncoding = (BlockEncodingFactory<T>) blockEncodings.get(encodingName);
-        checkState(blockEncoding != null, "Unknown block encoding %s", encodingName);
+        checkArgument(blockEncoding != null, "Unknown block encoding %s", encodingName);
 
         // write the name to the output
         writeLengthPrefixedString(output, encodingName);

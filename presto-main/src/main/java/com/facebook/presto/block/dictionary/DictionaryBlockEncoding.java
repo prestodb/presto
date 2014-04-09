@@ -77,27 +77,27 @@ public class DictionaryBlockEncoding
         }
 
         @Override
-        public DictionaryBlockEncoding readEncoding(TypeManager typeManager, BlockEncodingSerde blockEncodingSerde, SliceInput input)
+        public DictionaryBlockEncoding readEncoding(TypeManager manager, BlockEncodingSerde serde, SliceInput input)
         {
             // read the dictionary
-            BlockEncoding dictionaryEncoding = blockEncodingSerde.readBlockEncoding(input);
+            BlockEncoding dictionaryEncoding = serde.readBlockEncoding(input);
             RandomAccessBlock dictionary = dictionaryEncoding.readBlock(input).toRandomAccessBlock();
 
             // read the id block encoding
-            BlockEncoding idBlockEncoding = blockEncodingSerde.readBlockEncoding(input);
+            BlockEncoding idBlockEncoding = serde.readBlockEncoding(input);
             return new DictionaryBlockEncoding(dictionary, idBlockEncoding);
         }
 
         @Override
-        public void writeEncoding(BlockEncodingSerde blockEncodingSerde, SliceOutput output, DictionaryBlockEncoding blockEncoding)
+        public void writeEncoding(BlockEncodingSerde serde, SliceOutput output, DictionaryBlockEncoding blockEncoding)
         {
             // write the dictionary
             BlockEncoding dictionaryBlockEncoding = blockEncoding.dictionary.getEncoding();
-            blockEncodingSerde.writeBlockEncoding(output, dictionaryBlockEncoding);
+            serde.writeBlockEncoding(output, dictionaryBlockEncoding);
             dictionaryBlockEncoding.writeBlock(output, blockEncoding.dictionary);
 
             // write the id block encoding
-            blockEncodingSerde.writeBlockEncoding(output, blockEncoding.idBlockEncoding);
+            serde.writeBlockEncoding(output, blockEncoding.idBlockEncoding);
         }
     }
 }
