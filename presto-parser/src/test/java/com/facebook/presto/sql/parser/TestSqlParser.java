@@ -252,6 +252,18 @@ public class TestSqlParser
         SqlParser.createStatement("select fuu from dual limit 10 order by fuu");
     }
 
+    @Test(expectedExceptions = ParsingException.class, expectedExceptionsMessageRegExp = "line 1:1: Invalid numeric literal: 12223222232535343423232435343")
+    public void testParseErrorInvalidPositiveLongCast()
+    {
+        SqlParser.createStatement("select CAST(12223222232535343423232435343 AS BIGINT)");
+    }
+
+    @Test(expectedExceptions = ParsingException.class, expectedExceptionsMessageRegExp = "line 1:1: Invalid numeric literal: 12223222232535343423232435343")
+    public void testParseErrorInvalidNegativeLongCast()
+    {
+        SqlParser.createStatement("select CAST(-12223222232535343423232435343 AS BIGINT)");
+    }
+
     @Test
     public void testParsingExceptionPositionInfo()
     {
