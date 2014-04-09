@@ -79,18 +79,21 @@ public class TestRunLengthEncodedBlockSerde
         RunLengthEncodedBlock rleBlock = (RunLengthEncodedBlock) block;
         assertTrue(rleBlock.equals(0, expectedBlock, 0));
         assertEquals(rleBlock.getPositionCount(), 2);
+        assertEquals(rleBlock.getSlice(0).toStringUtf8(), "alice");
 
         block = blockEncoding.readBlock(sliceInput);
         assertInstanceOf(block, RunLengthEncodedBlock.class);
         rleBlock = (RunLengthEncodedBlock) block;
         assertTrue(rleBlock.equals(0, expectedBlock, 2));
         assertEquals(rleBlock.getPositionCount(), 4);
+        assertEquals(rleBlock.getSlice(0).toStringUtf8(), "bob");
 
         block = blockEncoding.readBlock(sliceInput);
         assertInstanceOf(block, RunLengthEncodedBlock.class);
         rleBlock = (RunLengthEncodedBlock) block;
         assertTrue(rleBlock.equals(0, expectedBlock, 6));
         assertEquals(rleBlock.getPositionCount(), 6);
+        assertEquals(rleBlock.getSlice(0).toStringUtf8(), "charlie");
 
         assertFalse(sliceInput.isReadable());
     }
