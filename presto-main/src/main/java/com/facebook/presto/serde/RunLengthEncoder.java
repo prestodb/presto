@@ -51,13 +51,12 @@ public class RunLengthEncoder
 
         BlockCursor cursor = block.cursor();
         while (cursor.advanceNextPosition()) {
-            RandomAccessBlock value = cursor.getSingleValueBlock();
             if (lastValue == null) {
-                lastValue = value;
+                lastValue = cursor.getSingleValueBlock();
             }
-            else if (!value.equals(0, lastValue, 0)) {
+            else if (!lastValue.equals(0, cursor)) {
                 writeBlock();
-                lastValue = value;
+                lastValue = cursor.getSingleValueBlock();
             }
             positionCount++;
         }
