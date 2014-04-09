@@ -14,6 +14,7 @@
 package com.facebook.presto.operator;
 
 import com.facebook.presto.spi.block.BlockCursor;
+import io.airlift.slice.Murmur3;
 import it.unimi.dsi.fastutil.HashCommon;
 import it.unimi.dsi.fastutil.longs.LongArrayList;
 
@@ -23,8 +24,8 @@ import static com.facebook.presto.operator.SyntheticAddress.decodePosition;
 import static com.facebook.presto.operator.SyntheticAddress.decodeSliceIndex;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static io.airlift.slice.SizeOf.sizeOfIntArray;
-import static it.unimi.dsi.fastutil.HashCommon.murmurHash3;
 
+// This implementation assumes arrays used in the hash are always a power of 2
 public final class InMemoryJoinHash
         implements JoinHash
 {
@@ -57,7 +58,7 @@ public final class InMemoryJoinHash
 
         // index pages
         for (int position = 0; position < addresses.size(); position++) {
-            int pos = (murmurHash3(hashPosition(position) ^ mask)) & mask;
+            int pos = ((int) Murmur3.hash64(hashPosition(position))) & mask;
 
             // look for an empty slot or a slot containing this key
             while (key[pos] != -1) {
@@ -87,7 +88,7 @@ public final class InMemoryJoinHash
     @Override
     public final int getJoinPosition(BlockCursor... cursors)
     {
-        int pos = (murmurHash3(hashCursor(cursors) ^ mask)) & mask;
+        int pos = ((int) Murmur3.hash64(hashCursor(cursors))) & mask;
 
         while (key[pos] != -1) {
             if (positionEqualsCurrentRow(key[pos], cursors)) {

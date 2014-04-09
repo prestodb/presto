@@ -20,6 +20,7 @@ import com.facebook.presto.spi.block.RandomAccessBlock;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.util.array.LongBigArray;
 import com.google.common.collect.ImmutableList;
+import io.airlift.slice.Murmur3;
 import it.unimi.dsi.fastutil.objects.ObjectArrayList;
 
 import java.util.Arrays;
@@ -35,8 +36,8 @@ import static com.google.common.base.Preconditions.checkState;
 import static io.airlift.slice.SizeOf.sizeOf;
 import static it.unimi.dsi.fastutil.HashCommon.arraySize;
 import static it.unimi.dsi.fastutil.HashCommon.maxFill;
-import static it.unimi.dsi.fastutil.HashCommon.murmurHash3;
 
+// This implementation assumes arrays used in the hash are always a power of 2
 public class GroupByHash
 {
     private static final float FILL_RATIO = 0.75f;
@@ -138,7 +139,7 @@ public class GroupByHash
 
     private int putIfAbsent(BlockCursor[] cursors)
     {
-        int hashPosition = (murmurHash3(hashCursor(cursors) ^ mask)) & mask;
+        int hashPosition = ((int) Murmur3.hash64(hashCursor(cursors))) & mask;
 
         // look for an empty slot or a slot containing this key
         int groupId = -1;
@@ -150,7 +151,7 @@ public class GroupByHash
 
                 break;
             }
-            // increment position and mask to handler wrap around
+            // increment position and mask to handle wrap around
             hashPosition = (hashPosition + 1) & mask;
         }
 
@@ -190,7 +191,7 @@ public class GroupByHash
     {
         int newSize = arraySize(size + 1, FILL_RATIO);
 
-        int newMask = newSize - 1; // Note that this is used by the hashing macro
+        int newMask = newSize - 1;
         long[] newKey = new long[newSize];
         Arrays.fill(newKey, -1);
         int[] newValue = new int[newSize];
@@ -206,7 +207,7 @@ public class GroupByHash
             long address = key[oldIndex];
 
             // find an empty slot for the address
-            int pos = (murmurHash3(hashPosition(address) ^ newMask)) & newMask;
+            int pos = ((int) Murmur3.hash64(hashPosition(address))) & newMask;
             while (newKey[pos] != -1) {
                 pos = (pos + 1) & newMask;
             }
