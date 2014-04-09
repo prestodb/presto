@@ -29,6 +29,7 @@ import com.facebook.presto.execution.StageStats;
 import com.facebook.presto.execution.TaskId;
 import com.facebook.presto.execution.TaskInfo;
 import com.facebook.presto.spi.Session;
+import com.facebook.presto.spi.type.Type;
 import com.google.common.base.Function;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Predicates;
@@ -56,7 +57,7 @@ import static com.google.common.collect.Iterables.transform;
 public class MockQueryManager
         implements QueryManager
 {
-    public static final List<String> TYPES = ImmutableList.of(VARCHAR.getName());
+    public static final List<Type> TYPES = ImmutableList.<Type>of(VARCHAR);
 
     private final MockTaskManager mockTaskManager;
     private final LocationFactory locationFactory;
@@ -189,7 +190,7 @@ public class MockQueryManager
                             null,
                             TYPES,
                             new StageStats(),
-                            ImmutableList.<TaskInfo>of(outputTask),
+                            ImmutableList.of(outputTask),
                             ImmutableList.<StageInfo>of(),
                             ImmutableList.<ExecutionFailureInfo>of()),
                     null,
