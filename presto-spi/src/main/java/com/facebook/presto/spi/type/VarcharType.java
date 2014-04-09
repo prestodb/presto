@@ -30,7 +30,7 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 public class VarcharType
         implements VariableWidthType
 {
-    public static final Type VARCHAR = new VarcharType();
+    public static final VarcharType VARCHAR = new VarcharType();
 
     public static final BlockEncodingFactory<?> BLOCK_ENCODING_FACTORY = new VariableWidthBlockEncodingFactory(VARCHAR);
 

@@ -100,7 +100,7 @@ public class JoinCompiler
                 }
             });
 
-    public JoinHashFactory compileJoinHash(List<Type> types, List<Integer> hashChannels)
+    public JoinHashFactory compileJoinHash(List<? extends Type> types, List<Integer> hashChannels)
     {
         try {
             return joinHashFactories.get(new JoinHashCacheKey(types, hashChannels));
@@ -111,7 +111,7 @@ public class JoinCompiler
     }
 
     @VisibleForTesting
-    public JoinHashFactory internalCompileJoinHash(List<Type> types, List<Integer> hashChannels)
+    public JoinHashFactory internalCompileJoinHash(List<? extends Type> types, List<Integer> hashChannels)
     {
         DynamicClassLoader classLoader = new DynamicClassLoader(getClass().getClassLoader());
 
@@ -465,7 +465,7 @@ public class JoinCompiler
         private final List<Type> types;
         private final List<Integer> hashChannels;
 
-        private JoinHashCacheKey(List<Type> types, List<Integer> hashChannels)
+        private JoinHashCacheKey(List<? extends Type> types, List<Integer> hashChannels)
         {
             this.types = ImmutableList.copyOf(checkNotNull(types, "types is null"));
             this.hashChannels = ImmutableList.copyOf(checkNotNull(hashChannels, "hashChannels is null"));
