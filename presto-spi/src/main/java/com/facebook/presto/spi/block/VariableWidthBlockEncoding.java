@@ -51,6 +51,7 @@ public class VariableWidthBlockEncoding
             throw new IllegalArgumentException("Invalid block");
         }
 
+        // The down casts here are safe because it is the block itself the provides this encoding implementation.
         Slice rawSlice;
         if (block instanceof AbstractVariableWidthRandomAccessBlock) {
             AbstractVariableWidthRandomAccessBlock uncompressedBlock = (AbstractVariableWidthRandomAccessBlock) block;
@@ -104,13 +105,13 @@ public class VariableWidthBlockEncoding
         }
 
         @Override
-        public VariableWidthBlockEncoding readEncoding(TypeManager typeManager, BlockEncodingSerde blockEncodingSerde, SliceInput input)
+        public VariableWidthBlockEncoding readEncoding(TypeManager manager, BlockEncodingSerde serde, SliceInput input)
         {
             return new VariableWidthBlockEncoding(type);
         }
 
         @Override
-        public void writeEncoding(BlockEncodingSerde blockEncodingSerde, SliceOutput output, VariableWidthBlockEncoding blockEncoding)
+        public void writeEncoding(BlockEncodingSerde serde, SliceOutput output, VariableWidthBlockEncoding blockEncoding)
         {
         }
     }

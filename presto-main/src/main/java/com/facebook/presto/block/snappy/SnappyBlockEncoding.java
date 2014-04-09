@@ -85,18 +85,18 @@ public class SnappyBlockEncoding
         }
 
         @Override
-        public SnappyBlockEncoding readEncoding(TypeManager typeManager, BlockEncodingSerde blockEncodingSerde, SliceInput input)
+        public SnappyBlockEncoding readEncoding(TypeManager manager, BlockEncodingSerde serde, SliceInput input)
         {
-            Type type = TypeSerde.readType(typeManager, input);
-            BlockEncoding valueBlockEncoding = blockEncodingSerde.readBlockEncoding(input);
+            Type type = TypeSerde.readType(manager, input);
+            BlockEncoding valueBlockEncoding = serde.readBlockEncoding(input);
             return new SnappyBlockEncoding(type, valueBlockEncoding);
         }
 
         @Override
-        public void writeEncoding(BlockEncodingSerde blockEncodingSerde, SliceOutput output, SnappyBlockEncoding blockEncoding)
+        public void writeEncoding(BlockEncodingSerde serde, SliceOutput output, SnappyBlockEncoding blockEncoding)
         {
             TypeSerde.writeInfo(output, blockEncoding.type);
-            blockEncodingSerde.writeBlockEncoding(output, blockEncoding.uncompressedBlockEncoding);
+            serde.writeBlockEncoding(output, blockEncoding.uncompressedBlockEncoding);
         }
     }
 }

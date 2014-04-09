@@ -30,6 +30,7 @@ import com.facebook.presto.spi.block.BlockCursor;
 
 import static com.google.common.base.Preconditions.checkState;
 
+// This class exists as template for code generation and for testing
 public class TwoChannelJoinProbe
         implements JoinProbe
 {

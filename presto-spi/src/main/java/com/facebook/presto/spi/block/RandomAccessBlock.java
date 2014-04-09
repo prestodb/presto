@@ -77,7 +77,7 @@ public interface RandomAccessBlock
 
     boolean equals(int position, RandomAccessBlock right, int rightPosition);
     boolean equals(int position, BlockCursor cursor);
-    boolean equals(int rightPosition, Slice slice, int offset);
+    boolean equals(int position, Slice slice, int offset);
 
     int hashCode(int position);
 
