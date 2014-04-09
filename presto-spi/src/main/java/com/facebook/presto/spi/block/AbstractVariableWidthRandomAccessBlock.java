@@ -125,7 +125,7 @@ public abstract class AbstractVariableWidthRandomAccessBlock
             return new VariableWidthRandomAccessBlock(type, 1, Slices.wrappedBuffer(new byte[] {1}));
         }
 
-        int entrySize = valueOffset(type.getLength(getRawSlice(), offset + SIZE_OF_BYTE));
+        int entrySize = valueOffset(type.getLength(getRawSlice(), valueOffset(offset)));
 
         // TODO: add Slices.copyOf() to airlift
         Slice copy = Slices.allocate(entrySize);
