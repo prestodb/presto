@@ -19,8 +19,6 @@ import io.airlift.slice.Slice;
 import io.airlift.slice.SliceOutput;
 import io.airlift.slice.Slices;
 
-import static io.airlift.slice.SizeOf.SIZE_OF_BYTE;
-import static io.airlift.slice.SizeOf.SIZE_OF_LONG;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
 public class FixedWidthBlockBuilder
@@ -43,7 +41,6 @@ public class FixedWidthBlockBuilder
     {
         super(type);
 
-        int entrySize = type.getFixedSize() + SIZE_OF_BYTE;
         Slice slice = Slices.allocate(entrySize * positionCount);
 
         this.blockBuilderStatus = new BlockBuilderStatus(slice.length(), slice.length());
@@ -157,7 +154,7 @@ public class FixedWidthBlockBuilder
     @Override
     public BlockBuilder append(Slice value, int offset, int length)
     {
-        if (length != (int) SIZE_OF_LONG) {
+        if (length != type.getFixedSize()) {
             throw new IllegalArgumentException("length must be " + type.getFixedSize() + " but is " + length);
         }
 
@@ -186,8 +183,8 @@ public class FixedWidthBlockBuilder
     private void entryAdded()
     {
         positionCount++;
-        blockBuilderStatus.addBytes(SIZE_OF_BYTE + entrySize);
-        if (sliceOutput.size() > blockBuilderStatus.getMaxBlockSizeInBytes()) {
+        blockBuilderStatus.addBytes(entrySize);
+        if (sliceOutput.size() >= blockBuilderStatus.getMaxBlockSizeInBytes()) {
             blockBuilderStatus.setFull();
         }
     }
