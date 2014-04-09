@@ -52,6 +52,8 @@ public class PrestoDriver
     private final QueryExecutor queryExecutor;
 
     static {
+        JettyLogging.useJavaUtilLogging();
+
         try {
             DriverManager.registerDriver(new PrestoDriver());
         }
