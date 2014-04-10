@@ -150,6 +150,7 @@ public class GroupByHash
         // record group id in hash
         int groupId = nextGroupId++;
         long address = encodeSyntheticAddress(pageIndex, activePage.getPositionCount() - 1);
+        hashStrategy.setInserting();
         pagePositionToGroupId.put(address, groupId);
 
         return groupId;
@@ -170,10 +171,19 @@ public class GroupByHash
             implements Strategy
     {
         private BlockCursor[] currentRow;
+        private int currentHash;
+        private boolean inserting;
 
         public void setCurrentRow(BlockCursor[] currentRow)
         {
             this.currentRow = currentRow;
+            this.currentHash = -1;
+            this.inserting = false;
+        }
+
+        public void setInserting()
+        {
+            inserting = true;
         }
 
         @Override
@@ -189,6 +199,10 @@ public class GroupByHash
 
         private int hashPosition(long sliceAddress)
         {
+            if (inserting) {
+                inserting = false; // rehash not to enter here
+                return currentHash;
+            }
             int sliceIndex = decodeSliceIndex(sliceAddress);
             int position = decodePosition(sliceAddress);
             return allPages.get(sliceIndex).hashCode(position);
@@ -202,31 +216,21 @@ public class GroupByHash
                 BlockCursor cursor = currentRow[channel];
                 result = addToHashCode(result, valueHashCode(type, cursor.getRawSlice(), cursor.getRawOffset()));
             }
+            currentHash = result;
             return result;
         }
 
         @Override
         public boolean equals(long leftSliceAddress, long rightSliceAddress)
         {
-            // current row always equals itself
-            if (leftSliceAddress == CURRENT_ROW_ADDRESS && rightSliceAddress == CURRENT_ROW_ADDRESS) {
-                return true;
-            }
-
-            // current row == position
-            if (leftSliceAddress == CURRENT_ROW_ADDRESS) {
-                return positionEqualsCurrentRow(decodeSliceIndex(rightSliceAddress), decodePosition(rightSliceAddress));
-            }
-
-            // position == current row
+            // leftSliceAddress cannot be CURRENT_ROW_ADDRESS
+            // position == current row, called by get(CURRENT_ROW_ADDRESS)
             if (rightSliceAddress == CURRENT_ROW_ADDRESS) {
                 return positionEqualsCurrentRow(decodeSliceIndex(leftSliceAddress), decodePosition(leftSliceAddress));
             }
 
-            // position == position
-            return positionEqualsPosition(
-                    decodeSliceIndex(leftSliceAddress), decodePosition(leftSliceAddress),
-                    decodeSliceIndex(rightSliceAddress), decodePosition(rightSliceAddress));
+            // called by put(address, groupId) only when the key is not found int the container
+            return false;
         }
 
         private boolean positionEqualsCurrentRow(int sliceIndex, int position)
