@@ -13,11 +13,9 @@
  */
 package com.facebook.presto.operator;
 
-import com.facebook.presto.block.BlockCursor;
 import com.facebook.presto.operator.HashBuilderOperator.HashSupplier;
-import com.facebook.presto.tuple.TupleInfo;
+import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableList;
-import com.google.common.primitives.Ints;
 import com.google.common.util.concurrent.ListenableFuture;
 
 import java.util.List;
@@ -29,96 +27,42 @@ import static com.google.common.base.Preconditions.checkState;
 public class HashJoinOperator
         implements Operator
 {
-    public static HashJoinOperatorFactory innerJoin(int operatorId, HashSupplier hashSupplier, List<TupleInfo> probeTupleInfos, List<Integer> probeJoinChannel)
-    {
-        return new HashJoinOperatorFactory(operatorId, hashSupplier, probeTupleInfos, probeJoinChannel, false);
-    }
-
-    public static HashJoinOperatorFactory outerJoin(int operatorId, HashSupplier hashSupplier, List<TupleInfo> probeTupleInfos, List<Integer> probeJoinChannel)
-    {
-        return new HashJoinOperatorFactory(operatorId, hashSupplier, probeTupleInfos, probeJoinChannel, true);
-    }
-
-    public static class HashJoinOperatorFactory
-            implements OperatorFactory
-    {
-        private final int operatorId;
-        private final HashSupplier hashSupplier;
-        private final List<TupleInfo> probeTupleInfos;
-        private final List<Integer> probeJoinChannels;
-        private final boolean enableOuterJoin;
-        private final List<TupleInfo> tupleInfos;
-        private boolean closed;
-
-        public HashJoinOperatorFactory(int operatorId, HashSupplier hashSupplier, List<TupleInfo> probeTupleInfos, List<Integer> probeJoinChannels, boolean enableOuterJoin)
-        {
-            this.operatorId = operatorId;
-            this.hashSupplier = hashSupplier;
-            this.probeTupleInfos = probeTupleInfos;
-            this.probeJoinChannels = probeJoinChannels;
-            this.enableOuterJoin = enableOuterJoin;
-
-            this.tupleInfos = ImmutableList.<TupleInfo>builder()
-                    .addAll(probeTupleInfos)
-                    .addAll(hashSupplier.getTupleInfos())
-                    .build();
-        }
-
-        @Override
-        public List<TupleInfo> getTupleInfos()
-        {
-            return tupleInfos;
-        }
-
-        @Override
-        public Operator createOperator(DriverContext driverContext)
-        {
-            checkState(!closed, "Factory is already closed");
-            OperatorContext operatorContext = driverContext.addOperatorContext(operatorId, HashJoinOperator.class.getSimpleName());
-            return new HashJoinOperator(operatorContext, hashSupplier, probeTupleInfos, probeJoinChannels, enableOuterJoin);
-        }
-
-        @Override
-        public void close()
-        {
-            closed = true;
-        }
-    }
-
     private final ListenableFuture<JoinHash> hashFuture;
 
     private final OperatorContext operatorContext;
-    private final int[] probeJoinChannels;
+    private final JoinProbeFactory joinProbeFactory;
     private final boolean enableOuterJoin;
-    private final List<TupleInfo> tupleInfos;
-
-    private final BlockCursor[] cursors;
-
+    private final List<Type> types;
     private final PageBuilder pageBuilder;
 
     private JoinHash hash;
+    private JoinProbe probe;
+
     private boolean finishing;
     private int joinPosition = -1;
 
-    public HashJoinOperator(OperatorContext operatorContext, HashSupplier hashSupplier, List<TupleInfo> probeTupleInfos, List<Integer> probeJoinChannels, boolean enableOuterJoin)
+    public HashJoinOperator(
+            OperatorContext operatorContext,
+            HashSupplier hashSupplier,
+            List<Type> probeTypes,
+            boolean enableOuterJoin,
+            JoinProbeFactory joinProbeFactory)
     {
         this.operatorContext = checkNotNull(operatorContext, "operatorContext is null");
 
         // todo pass in desired projection
         checkNotNull(hashSupplier, "hashSupplier is null");
-        checkNotNull(probeTupleInfos, "probeTupleInfos is null");
+        checkNotNull(probeTypes, "probeTypes is null");
 
         this.hashFuture = hashSupplier.getSourceHash();
-        this.probeJoinChannels = Ints.toArray(probeJoinChannels);
+        this.joinProbeFactory = joinProbeFactory;
         this.enableOuterJoin = enableOuterJoin;
 
-        this.tupleInfos = ImmutableList.<TupleInfo>builder()
-                .addAll(probeTupleInfos)
-                .addAll(hashSupplier.getTupleInfos())
+        this.types = ImmutableList.<Type>builder()
+                .addAll(probeTypes)
+                .addAll(hashSupplier.getTypes())
                 .build();
-        this.pageBuilder = new PageBuilder(tupleInfos);
-
-        this.cursors = new BlockCursor[probeTupleInfos.size()];
+        this.pageBuilder = new PageBuilder(types);
     }
 
     @Override
@@ -128,9 +72,9 @@ public class HashJoinOperator
     }
 
     @Override
-    public List<TupleInfo> getTupleInfos()
+    public List<Type> getTypes()
     {
-        return tupleInfos;
+        return types;
     }
 
     @Override
@@ -142,15 +86,13 @@ public class HashJoinOperator
     @Override
     public boolean isFinished()
     {
-        boolean finished = finishing && cursors[0] == null && pageBuilder.isEmpty();
+        boolean finished = finishing && probe == null && pageBuilder.isEmpty();
 
         // if finished drop references so memory is freed early
         if (finished) {
             hash = null;
 
-            for (int i = 0; i < cursors.length; i++) {
-                cursors[i] = null;
-            }
+            probe = null;
             pageBuilder.reset();
         }
         return finished;
@@ -172,7 +114,7 @@ public class HashJoinOperator
         if (hash == null) {
             hash = tryGetUnchecked(hashFuture);
         }
-        return hash != null && cursors[0] == null;
+        return hash != null && probe == null;
     }
 
     @Override
@@ -181,15 +123,10 @@ public class HashJoinOperator
         checkNotNull(page, "page is null");
         checkState(!finishing, "Operator is finishing");
         checkState(hash != null, "Hash has not been built yet");
-        checkState(cursors[0] == null, "Current page has not been completely processed yet");
+        checkState(probe == null, "Current page has not been completely processed yet");
 
-        // open cursors
-        for (int i = 0; i < page.getChannelCount(); i++) {
-            cursors[i] = page.getBlock(i).cursor();
-        }
-
-        // set hashing strategy to use probe block
-        hash.setProbeCursors(cursors, probeJoinChannels);
+        // create probe
+        probe = joinProbeFactory.createJoinProbe(hash, page);
 
         // initialize to invalid join position to force output code to advance the cursors
         joinPosition = -1;
@@ -199,7 +136,7 @@ public class HashJoinOperator
     public Page getOutput()
     {
         // join probe page with the hash
-        if (cursors[0] != null) {
+        if (probe != null) {
             while (joinCurrentPosition()) {
                 if (!advanceProbePosition()) {
                     break;
@@ -211,7 +148,7 @@ public class HashJoinOperator
         }
 
         // only flush full pages unless we are done
-        if (pageBuilder.isFull() || (finishing && !pageBuilder.isEmpty() && cursors[0] == null)) {
+        if (pageBuilder.isFull() || (finishing && !pageBuilder.isEmpty() && probe == null)) {
             Page page = pageBuilder.build();
             pageBuilder.reset();
             return page;
@@ -225,12 +162,10 @@ public class HashJoinOperator
         // while we have a position to join against...
         while (joinPosition >= 0) {
             // write probe columns
-            for (int i = 0; i < cursors.length; i++) {
-                cursors[i].appendTupleTo(pageBuilder.getBlockBuilder(i));
-            }
+            probe.appendTo(pageBuilder);
 
             // write build columns
-            hash.appendTupleTo(joinPosition, pageBuilder, cursors.length);
+            hash.appendTo(joinPosition, pageBuilder, probe.getChannelCount());
 
             // get next join position for this row
             joinPosition = hash.getNextJoinPosition(joinPosition);
@@ -243,20 +178,13 @@ public class HashJoinOperator
 
     private boolean advanceProbePosition()
     {
-        // advance cursors (only if we have initialized the cursors)
-        if (!advanceNextCursorPosition()) {
+        if (!probe.advanceNextPosition()) {
+            probe = null;
             return false;
         }
 
         // update join position
-        if (currentRowJoinPositionContainsNull()) {
-            // Null values will never match in an equijoin, so just omit them from the probe side
-            joinPosition = -1;
-        }
-        else {
-            joinPosition = hash.getJoinPosition();
-        }
-
+        joinPosition = probe.getCurrentJoinPosition();
         return true;
     }
 
@@ -264,13 +192,10 @@ public class HashJoinOperator
     {
         if (enableOuterJoin && joinPosition < 0) {
             // write probe columns
-            int outputIndex = 0;
-            for (BlockCursor cursor : cursors) {
-                cursor.appendTupleTo(pageBuilder.getBlockBuilder(outputIndex));
-                outputIndex++;
-            }
+            probe.appendTo(pageBuilder);
 
             // write nulls into build columns
+            int outputIndex = probe.getChannelCount();
             for (int buildChannel = 0; buildChannel < hash.getChannelCount(); buildChannel++) {
                 pageBuilder.getBlockBuilder(outputIndex).appendNull();
                 outputIndex++;
@@ -280,33 +205,5 @@ public class HashJoinOperator
             }
         }
         return true;
-    }
-
-    public boolean advanceNextCursorPosition()
-    {
-        // advance all cursors
-        boolean advanced = cursors[0].advanceNextPosition();
-        for (int i = 1; i < cursors.length; i++) {
-            checkState(advanced == cursors[i].advanceNextPosition());
-        }
-
-        // null out the cursors to signal the need for more input
-        if (!advanced) {
-            for (int i = 0; i < cursors.length; i++) {
-                cursors[i] = null;
-            }
-        }
-
-        return advanced;
-    }
-
-    private boolean currentRowJoinPositionContainsNull()
-    {
-        for (int probeJoinChannel : probeJoinChannels) {
-            if (cursors[probeJoinChannel].isNull()) {
-                return true;
-            }
-        }
-        return false;
     }
 }

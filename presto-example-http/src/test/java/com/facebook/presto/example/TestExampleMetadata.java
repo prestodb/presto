@@ -14,7 +14,6 @@
 package com.facebook.presto.example;
 
 import com.facebook.presto.spi.ColumnMetadata;
-import com.facebook.presto.spi.ColumnType;
 import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.TableNotFoundException;
@@ -22,19 +21,15 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.io.Resources;
-import io.airlift.json.JsonCodec;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
 import java.net.URI;
 import java.net.URL;
-import java.util.List;
-import java.util.Map;
 
-import static com.facebook.presto.spi.ColumnType.LONG;
-import static com.facebook.presto.spi.ColumnType.STRING;
-import static io.airlift.json.JsonCodec.listJsonCodec;
-import static io.airlift.json.JsonCodec.mapJsonCodec;
+import static com.facebook.presto.example.MetadataUtil.CATALOG_CODEC;
+import static com.facebook.presto.spi.type.BigintType.BIGINT;
+import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNotNull;
@@ -45,7 +40,6 @@ import static org.testng.Assert.fail;
 @Test(singleThreaded = true)
 public class TestExampleMetadata
 {
-    private static final JsonCodec<Map<String, List<ExampleTable>>> CATALOG_CODEC = mapJsonCodec(String.class, listJsonCodec(ExampleTable.class));
     private static final String CONNECTOR_ID = "TEST";
     private static final ExampleTableHandle NUMBERS_TABLE_HANDLE = new ExampleTableHandle(CONNECTOR_ID, "example", "numbers");
     private ExampleMetadata metadata;
@@ -89,7 +83,7 @@ public class TestExampleMetadata
     {
         // known column
         assertEquals(metadata.getColumnHandle(NUMBERS_TABLE_HANDLE, "text"),
-                new ExampleColumnHandle(CONNECTOR_ID, "text", STRING, 0));
+                new ExampleColumnHandle(CONNECTOR_ID, "text", VARCHAR, 0));
 
         // unknown column
         assertNull(metadata.getColumnHandle(NUMBERS_TABLE_HANDLE, "unknown"));
@@ -114,8 +108,8 @@ public class TestExampleMetadata
     {
         // known table
         assertEquals(metadata.getColumnHandles(NUMBERS_TABLE_HANDLE), ImmutableMap.of(
-                "text", new ExampleColumnHandle(CONNECTOR_ID, "text", STRING, 0),
-                "value", new ExampleColumnHandle(CONNECTOR_ID, "value", LONG, 1)));
+                "text", new ExampleColumnHandle(CONNECTOR_ID, "text", VARCHAR, 0),
+                "value", new ExampleColumnHandle(CONNECTOR_ID, "value", BIGINT, 1)));
 
         // unknown table
         try {
@@ -139,8 +133,8 @@ public class TestExampleMetadata
         ConnectorTableMetadata tableMetadata = metadata.getTableMetadata(NUMBERS_TABLE_HANDLE);
         assertEquals(tableMetadata.getTable(), new SchemaTableName("example", "numbers"));
         assertEquals(tableMetadata.getColumns(), ImmutableList.of(
-                new ColumnMetadata("text", STRING, 0, false),
-                new ColumnMetadata("value", ColumnType.LONG, 1, false)));
+                new ColumnMetadata("text", VARCHAR, 0, false),
+                new ColumnMetadata("value", BIGINT, 1, false)));
 
         // unknown tables should produce null
         assertNull(metadata.getTableMetadata(new ExampleTableHandle(CONNECTOR_ID, "unknown", "unknown")));
@@ -171,8 +165,8 @@ public class TestExampleMetadata
     @Test
     public void getColumnMetadata()
     {
-        assertEquals(metadata.getColumnMetadata(NUMBERS_TABLE_HANDLE, new ExampleColumnHandle(CONNECTOR_ID, "text", STRING, 0)),
-                new ColumnMetadata("text", STRING, 0, false));
+        assertEquals(metadata.getColumnMetadata(NUMBERS_TABLE_HANDLE, new ExampleColumnHandle(CONNECTOR_ID, "text", VARCHAR, 0)),
+                new ColumnMetadata("text", VARCHAR, 0, false));
 
         // example connector assumes that the table handle and column handle are
         // properly formed, so it will return a metadata object for any
@@ -186,7 +180,7 @@ public class TestExampleMetadata
     {
         metadata.createTable(new ConnectorTableMetadata(
                 new SchemaTableName("example", "foo"),
-                ImmutableList.of(new ColumnMetadata("text", STRING, 0, false))));
+                ImmutableList.of(new ColumnMetadata("text", VARCHAR, 0, false))));
     }
 
     @Test(expectedExceptions = UnsupportedOperationException.class)

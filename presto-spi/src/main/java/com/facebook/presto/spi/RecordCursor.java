@@ -13,6 +13,8 @@
  */
 package com.facebook.presto.spi;
 
+import com.facebook.presto.spi.type.Type;
+
 import java.io.Closeable;
 
 public interface RecordCursor
@@ -24,7 +26,7 @@ public interface RecordCursor
 
     long getReadTimeNanos();
 
-    ColumnType getType(int field);
+    Type getType(int field);
 
     boolean advanceNextPosition();
 

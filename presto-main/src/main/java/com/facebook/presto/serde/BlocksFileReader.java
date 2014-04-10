@@ -13,9 +13,11 @@
  */
 package com.facebook.presto.serde;
 
-import com.facebook.presto.block.Block;
+import com.facebook.presto.spi.block.Block;
+import com.facebook.presto.spi.block.BlockEncoding;
+import com.facebook.presto.spi.block.BlockEncodingSerde;
 import com.facebook.presto.block.BlockIterable;
-import com.facebook.presto.tuple.TupleInfo;
+import com.facebook.presto.spi.type.Type;
 import com.google.common.base.Optional;
 import com.google.common.base.Preconditions;
 import com.google.common.primitives.Ints;
@@ -29,9 +31,9 @@ import java.util.Iterator;
 public class BlocksFileReader
         implements BlockIterable
 {
-    public static BlocksFileReader readBlocks(Slice slice)
+    public static BlocksFileReader readBlocks(BlockEncodingSerde blockEncodingSerde, Slice slice)
     {
-        return new BlocksFileReader(slice);
+        return new BlocksFileReader(blockEncodingSerde, slice);
     }
 
     private final BlockEncoding blockEncoding;
@@ -39,7 +41,7 @@ public class BlocksFileReader
     private final BlockIterable blockIterable;
     private final BlocksFileStats stats;
 
-    public BlocksFileReader(Slice slice)
+    public BlocksFileReader(BlockEncodingSerde blockEncodingSerde, Slice slice)
     {
         Preconditions.checkNotNull(slice, "slice is null");
 
@@ -50,7 +52,7 @@ public class BlocksFileReader
         SliceInput input = footerSlice.getInput();
 
         // read file encoding
-        blockEncoding = BlockEncodings.readBlockEncoding(input);
+        blockEncoding = blockEncodingSerde.readBlockEncoding(input);
 
         // read stats
         stats = BlocksFileStats.deserialize(input);
@@ -60,9 +62,9 @@ public class BlocksFileReader
     }
 
     @Override
-    public TupleInfo getTupleInfo()
+    public Type getType()
     {
-        return blockEncoding.getTupleInfo();
+        return blockEncoding.getType();
     }
 
     @Override

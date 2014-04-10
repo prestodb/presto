@@ -44,7 +44,7 @@ public abstract class AbstractSimpleOperatorBenchmark
     {
         List<OperatorFactory> operatorFactories = new ArrayList<>(createOperatorFactories());
 
-        operatorFactories.add(new NullOutputOperatorFactory(999, Iterables.getLast(operatorFactories).getTupleInfos()));
+        operatorFactories.add(new NullOutputOperatorFactory(999, Iterables.getLast(operatorFactories).getTypes()));
 
         return new DriverFactory(true, true, operatorFactories);
     }

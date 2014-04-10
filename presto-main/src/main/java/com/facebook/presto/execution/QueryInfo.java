@@ -15,7 +15,7 @@ package com.facebook.presto.execution;
 
 import com.facebook.presto.client.FailureInfo;
 import com.facebook.presto.spi.ErrorCode;
-import com.facebook.presto.sql.analyzer.Session;
+import com.facebook.presto.spi.Session;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.base.Function;

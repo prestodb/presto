@@ -17,15 +17,15 @@ import com.facebook.presto.operator.aggregation.AverageAggregation.AverageAccumu
 import com.facebook.presto.operator.aggregation.AverageAggregation.AverageGroupedAccumulator;
 import com.facebook.presto.operator.aggregation.SimpleAggregationFunction.SimpleAccumulator;
 import com.facebook.presto.operator.aggregation.SimpleAggregationFunction.SimpleGroupedAccumulator;
-import com.facebook.presto.tuple.TupleInfo.Type;
+import com.facebook.presto.spi.type.Type;
 import com.google.common.base.Throwables;
 
-import static com.facebook.presto.tuple.TupleInfo.Type.DOUBLE;
-import static com.facebook.presto.tuple.TupleInfo.Type.FIXED_INT_64;
+import static com.facebook.presto.spi.type.BigintType.BIGINT;
+import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 
 public final class AverageAggregations
 {
-    public static final AggregationFunction LONG_AVERAGE = createIsolatedAggregation(FIXED_INT_64);
+    public static final AggregationFunction LONG_AVERAGE = createIsolatedAggregation(BIGINT);
     public static final AggregationFunction DOUBLE_AVERAGE = createIsolatedAggregation(DOUBLE);
 
     private AverageAggregations() {}

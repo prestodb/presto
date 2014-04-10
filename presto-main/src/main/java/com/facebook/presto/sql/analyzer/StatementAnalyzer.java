@@ -17,6 +17,7 @@ import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.MetadataUtil;
 import com.facebook.presto.metadata.QualifiedTableName;
 import com.facebook.presto.spi.ColumnMetadata;
+import com.facebook.presto.spi.Session;
 import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.sql.tree.Approximate;
 import com.facebook.presto.sql.tree.BooleanLiteral;
@@ -60,7 +61,7 @@ import static com.facebook.presto.connector.informationSchema.InformationSchemaM
 import static com.facebook.presto.connector.informationSchema.InformationSchemaMetadata.TABLE_SCHEMATA;
 import static com.facebook.presto.connector.informationSchema.InformationSchemaMetadata.TABLE_TABLES;
 import static com.facebook.presto.connector.system.CatalogSystemTable.CATALOG_TABLE_NAME;
-import static com.facebook.presto.sql.analyzer.Analyzer.ExpressionAnalysis;
+
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.COLUMN_NAME_NOT_SPECIFIED;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.DUPLICATE_COLUMN_NAME;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.DUPLICATE_RELATION;
@@ -83,6 +84,7 @@ import static com.facebook.presto.sql.tree.QueryUtil.selectList;
 import static com.facebook.presto.sql.tree.QueryUtil.subquery;
 import static com.facebook.presto.sql.tree.QueryUtil.table;
 import static com.facebook.presto.sql.tree.QueryUtil.unaliasedName;
+import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 
@@ -274,7 +276,7 @@ class StatementAnalyzer
             }
             Expression key = equal(nameReference("partition_key"), new StringLiteral(column.getName()));
             Expression value = caseWhen(key, nameReference("partition_value"));
-            value = new Cast(value, Type.fromRaw(column.getType()).getName());
+            value = new Cast(value, column.getType().getName());
             Expression function = functionCall("max", value);
             selectList.add(new SingleColumn(function, column.getName()));
             wrappedList.add(unaliasedName(column.getName()));
@@ -375,7 +377,7 @@ class StatementAnalyzer
             }
         }
 
-        return new TupleDescriptor(Field.newUnqualified("rows", Type.BIGINT));
+        return new TupleDescriptor(Field.newUnqualified("rows", BIGINT));
     }
 
     @Override
@@ -525,7 +527,13 @@ class StatementAnalyzer
                 else {
                     // otherwise, just use the expression as is
                     orderByField = new FieldOrExpression(expression);
-                    ExpressionAnalysis expressionAnalysis = Analyzer.analyzeExpression(session, metadata, tupleDescriptor, analysis, experimentalSyntaxEnabled, context, orderByField.getExpression());
+                    ExpressionAnalysis expressionAnalysis = ExpressionAnalyzer.analyzeExpression(session,
+                            metadata,
+                            tupleDescriptor,
+                            analysis,
+                            experimentalSyntaxEnabled,
+                            context,
+                            orderByField.getExpression());
                     analysis.addInPredicates(node, expressionAnalysis.getSubqueryInPredicates());
                 }
 

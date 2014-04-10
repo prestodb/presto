@@ -14,8 +14,8 @@
 package com.facebook.presto.benchmark;
 
 import com.facebook.presto.benchmark.HandTpchQuery6.TpchQuery6Operator.TpchQuery6OperatorFactory;
-import com.facebook.presto.block.Block;
-import com.facebook.presto.block.BlockCursor;
+import com.facebook.presto.spi.block.Block;
+import com.facebook.presto.spi.block.BlockCursor;
 import com.facebook.presto.operator.AggregationOperator.AggregationOperatorFactory;
 import com.facebook.presto.operator.DriverContext;
 import com.facebook.presto.operator.Operator;
@@ -25,7 +25,7 @@ import com.facebook.presto.operator.Page;
 import com.facebook.presto.operator.PageBuilder;
 import com.facebook.presto.sql.planner.plan.AggregationNode.Step;
 import com.facebook.presto.sql.tree.Input;
-import com.facebook.presto.tuple.TupleInfo;
+import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.util.LocalQueryRunner;
 import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
@@ -38,6 +38,7 @@ import java.util.concurrent.ExecutorService;
 import static com.facebook.presto.benchmark.BenchmarkQueryRunner.createLocalQueryRunner;
 import static com.facebook.presto.operator.AggregationFunctionDefinition.aggregation;
 import static com.facebook.presto.operator.aggregation.DoubleSumAggregation.DOUBLE_SUM;
+import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.util.Threads.daemonThreadsNamed;
 import static com.google.common.base.Charsets.UTF_8;
 import static com.google.common.base.Preconditions.checkState;
@@ -89,9 +90,9 @@ public class HandTpchQuery6
             }
 
             @Override
-            public List<TupleInfo> getTupleInfos()
+            public List<Type> getTypes()
             {
-                return ImmutableList.of(TupleInfo.SINGLE_DOUBLE);
+                return ImmutableList.<Type>of(DOUBLE);
             }
 
             @Override
@@ -112,7 +113,7 @@ public class HandTpchQuery6
 
         public TpchQuery6Operator(OperatorContext operatorContext)
         {
-            super(operatorContext, ImmutableList.of(TupleInfo.SINGLE_DOUBLE));
+            super(operatorContext, ImmutableList.of(DOUBLE));
         }
 
         @Override

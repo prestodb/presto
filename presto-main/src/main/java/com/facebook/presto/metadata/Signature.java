@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.metadata;
 
-import com.facebook.presto.sql.analyzer.Type;
+import com.facebook.presto.spi.type.Type;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.base.Joiner;
@@ -76,6 +76,11 @@ public final class Signature
     public int hashCode()
     {
         return Objects.hash(name, returnType, argumentTypes, approximate);
+    }
+
+    Signature withAlias(String name)
+    {
+        return new Signature(name, returnType, argumentTypes, approximate);
     }
 
     @Override

@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.hive;
 
-import com.facebook.presto.spi.ColumnType;
 import com.facebook.presto.spi.PartitionKey;
+import com.facebook.presto.spi.type.Type;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.base.Function;
@@ -58,7 +58,7 @@ public class HivePartitionKey
     }
 
     @Override
-    public ColumnType getType()
+    public Type getType()
     {
         return hiveType.getNativeType();
     }

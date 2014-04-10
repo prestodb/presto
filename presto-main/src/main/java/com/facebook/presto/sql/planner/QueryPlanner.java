@@ -18,16 +18,15 @@ import com.facebook.presto.metadata.MetadataUtil;
 import com.facebook.presto.metadata.QualifiedTableName;
 import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.metadata.TableMetadata;
-import com.facebook.presto.operator.SortOrder;
+import com.facebook.presto.spi.block.SortOrder;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.sql.analyzer.Analysis;
 import com.facebook.presto.sql.analyzer.Field;
 import com.facebook.presto.sql.analyzer.FieldOrExpression;
-import com.facebook.presto.sql.analyzer.Session;
+import com.facebook.presto.spi.Session;
 import com.facebook.presto.sql.analyzer.TupleDescriptor;
-import com.facebook.presto.sql.analyzer.Type;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.planner.plan.FilterNode;
 import com.facebook.presto.sql.planner.plan.LimitNode;
@@ -73,6 +72,7 @@ import static com.facebook.presto.sql.planner.plan.TableScanNode.GeneratedPartit
 import static com.facebook.presto.sql.tree.FunctionCall.argumentsGetter;
 import static com.facebook.presto.sql.tree.FunctionCall.distinctPredicate;
 import static com.facebook.presto.sql.tree.SortItem.sortKeyGetter;
+import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.google.common.base.Preconditions.checkState;
 
 class QueryPlanner
@@ -192,7 +192,7 @@ class QueryPlanner
 
         ImmutableMap.Builder<Symbol, ColumnHandle> columns = ImmutableMap.builder();
         for (ColumnMetadata column : tableMetadata.getColumns()) {
-            Symbol symbol = symbolAllocator.newSymbol(column.getName(), Type.fromRaw(column.getType()));
+            Symbol symbol = symbolAllocator.newSymbol(column.getName(), column.getType());
             columns.put(symbol, columnHandles.get(column.getName()));
         }
 
@@ -288,10 +288,10 @@ class QueryPlanner
             Symbol aggregateSymbol = translations.get(aggregate);
             if (marker == null) {
                 if (args.size() == 1) {
-                    marker = symbolAllocator.newSymbol(Iterables.getOnlyElement(args), Type.BOOLEAN, "distinct");
+                    marker = symbolAllocator.newSymbol(Iterables.getOnlyElement(args), BOOLEAN, "distinct");
                 }
                 else {
-                    marker = symbolAllocator.newSymbol(aggregateSymbol.getName(), Type.BOOLEAN, "distinct");
+                    marker = symbolAllocator.newSymbol(aggregateSymbol.getName(), BOOLEAN, "distinct");
                 }
                 argumentMarkers.put(args, marker);
             }
@@ -438,7 +438,7 @@ class QueryPlanner
         RelationPlan valueListRelation = relationPlanner.process(subqueryExpression.getQuery(), null);
         Symbol filteringSourceJoinSymbol = Iterables.getOnlyElement(valueListRelation.getRoot().getOutputSymbols());
 
-        Symbol semiJoinOutputSymbol = symbolAllocator.newSymbol("semijoinresult", Type.BOOLEAN);
+        Symbol semiJoinOutputSymbol = symbolAllocator.newSymbol("semijoinresult", BOOLEAN);
 
         translations.put(inPredicate, semiJoinOutputSymbol);
 

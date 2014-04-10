@@ -13,20 +13,20 @@
  */
 package com.facebook.presto.operator.aggregation;
 
-import com.facebook.presto.block.Block;
-import com.facebook.presto.block.BlockBuilder;
-import com.facebook.presto.block.BlockCursor;
+import com.facebook.presto.spi.block.Block;
+import com.facebook.presto.spi.block.BlockBuilder;
+import com.facebook.presto.spi.block.BlockBuilderStatus;
+import com.facebook.presto.spi.block.BlockCursor;
 import com.facebook.presto.operator.GroupByIdBlock;
 import com.facebook.presto.operator.Page;
-import com.facebook.presto.tuple.TupleInfo;
-import com.facebook.presto.tuple.TupleInfo.Type;
+import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.util.array.LongBigArray;
 import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
 
-import static com.facebook.presto.tuple.TupleInfo.SINGLE_LONG;
+import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 
@@ -42,15 +42,15 @@ public class CountAggregation
     }
 
     @Override
-    public TupleInfo getFinalTupleInfo()
+    public Type getFinalType()
     {
-        return SINGLE_LONG;
+        return BIGINT;
     }
 
     @Override
-    public TupleInfo getIntermediateTupleInfo()
+    public Type getIntermediateType()
     {
-        return SINGLE_LONG;
+        return BIGINT;
     }
 
     @Override
@@ -94,15 +94,15 @@ public class CountAggregation
         }
 
         @Override
-        public TupleInfo getFinalTupleInfo()
+        public Type getFinalType()
         {
-            return SINGLE_LONG;
+            return BIGINT;
         }
 
         @Override
-        public TupleInfo getIntermediateTupleInfo()
+        public Type getIntermediateType()
         {
-            return SINGLE_LONG;
+            return BIGINT;
         }
 
         @Override
@@ -177,15 +177,15 @@ public class CountAggregation
         }
 
         @Override
-        public TupleInfo getFinalTupleInfo()
+        public Type getFinalType()
         {
-            return SINGLE_LONG;
+            return BIGINT;
         }
 
         @Override
-        public TupleInfo getIntermediateTupleInfo()
+        public Type getIntermediateType()
         {
-            return SINGLE_LONG;
+            return BIGINT;
         }
 
         @Override
@@ -231,7 +231,7 @@ public class CountAggregation
         @Override
         public final Block evaluateFinal()
         {
-            BlockBuilder out = new BlockBuilder(getFinalTupleInfo());
+            BlockBuilder out = getFinalType().createBlockBuilder(new BlockBuilderStatus());
 
             out.append(count);
 

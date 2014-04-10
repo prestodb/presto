@@ -13,9 +13,9 @@
  */
 package com.facebook.presto.split;
 
-import com.facebook.presto.spi.ColumnType;
 import com.facebook.presto.spi.RecordCursor;
 import com.facebook.presto.spi.RecordSet;
+import com.facebook.presto.spi.type.Type;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 
@@ -28,15 +28,15 @@ public class MappedRecordSet
 {
     private final RecordSet delegate;
     private final List<Integer> userToSystemFieldIndex;
-    private final List<ColumnType> columnTypes;
+    private final List<Type> columnTypes;
 
     public MappedRecordSet(RecordSet delegate, List<Integer> userToSystemFieldIndex)
     {
         this.delegate = delegate;
         this.userToSystemFieldIndex = userToSystemFieldIndex;
 
-        List<ColumnType> delegateColumnTypes = delegate.getColumnTypes();
-        ImmutableList.Builder<ColumnType> columnTypes = ImmutableList.builder();
+        List<Type> delegateColumnTypes = delegate.getColumnTypes();
+        ImmutableList.Builder<Type> columnTypes = ImmutableList.builder();
         for (int systemField : userToSystemFieldIndex) {
             checkArgument(systemField >= 0 && systemField < delegateColumnTypes.size(), "Invalid system field %s", systemField);
             columnTypes.add(delegateColumnTypes.get(systemField));
@@ -45,7 +45,7 @@ public class MappedRecordSet
     }
 
     @Override
-    public List<ColumnType> getColumnTypes()
+    public List<Type> getColumnTypes()
     {
         return columnTypes;
     }
@@ -87,7 +87,7 @@ public class MappedRecordSet
         }
 
         @Override
-        public ColumnType getType(int field)
+        public Type getType(int field)
         {
             return delegate.getType(field);
         }

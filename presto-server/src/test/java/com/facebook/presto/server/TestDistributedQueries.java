@@ -20,18 +20,18 @@ import com.facebook.presto.client.QueryError;
 import com.facebook.presto.client.QueryResults;
 import com.facebook.presto.client.StatementClient;
 import com.facebook.presto.metadata.AllNodes;
+import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.QualifiedTableName;
 import com.facebook.presto.metadata.QualifiedTablePrefix;
 import com.facebook.presto.server.testing.TestingPrestoServer;
+import com.facebook.presto.spi.Session;
 import com.facebook.presto.spi.TableHandle;
-import com.facebook.presto.sql.analyzer.Session;
+import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.tpch.SampledTpchPlugin;
 import com.facebook.presto.tpch.TpchMetadata;
 import com.facebook.presto.tpch.TpchPlugin;
-import com.facebook.presto.tuple.TupleInfo;
-import com.facebook.presto.tuple.TupleInfo.Type;
 import com.facebook.presto.util.MaterializedResult;
-import com.facebook.presto.util.MaterializedTuple;
+import com.facebook.presto.util.MaterializedRow;
 import com.google.common.base.Function;
 import com.google.common.base.Joiner;
 import com.google.common.base.Optional;
@@ -46,17 +46,30 @@ import io.airlift.log.Logger;
 import io.airlift.testing.Closeables;
 import io.airlift.units.Duration;
 import org.intellij.lang.annotations.Language;
+import org.joda.time.format.ISODateTimeFormat;
 import org.testng.annotations.Test;
 
 import java.net.URI;
+import java.sql.Date;
+import java.sql.Time;
+import java.sql.Timestamp;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 
-import static com.facebook.presto.sql.analyzer.Session.DEFAULT_CATALOG;
-import static com.facebook.presto.sql.analyzer.Session.DEFAULT_SCHEMA;
+import static com.facebook.presto.spi.Session.DEFAULT_CATALOG;
+import static com.facebook.presto.spi.Session.DEFAULT_SCHEMA;
+import static com.facebook.presto.spi.type.BigintType.BIGINT;
+import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
+import static com.facebook.presto.spi.type.DateType.DATE;
+import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
+import static com.facebook.presto.spi.type.TimeType.TIME;
+import static com.facebook.presto.spi.type.TimeZoneKey.UTC_KEY;
+import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
+import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.util.MaterializedResult.DEFAULT_PRECISION;
 import static com.facebook.presto.util.Types.checkType;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -74,7 +87,7 @@ import static org.testng.Assert.assertTrue;
 public class TestDistributedQueries
         extends AbstractTestSampledQueries
 {
-    private static final Session SESSION = new Session("user", "test", DEFAULT_CATALOG, "test", null, null);
+    private static final Session SESSION = new Session("user", "test", DEFAULT_CATALOG, "test", UTC_KEY, Locale.ENGLISH, null, null);
 
     private static final String ENVIRONMENT = "testing";
     private static final Logger log = Logger.get(TestDistributedQueries.class.getSimpleName());
@@ -103,11 +116,11 @@ public class TestDistributedQueries
     public void testTableSampleSystem()
             throws Exception
     {
-        int total = computeActual("SELECT orderkey FROM orders").getMaterializedTuples().size();
+        int total = computeActual("SELECT orderkey FROM orders").getMaterializedRows().size();
 
         boolean sampleSizeFound = false;
         for (int i = 0; i < 100; i++) {
-            int sampleSize = computeActual("SELECT orderkey FROM ORDERS TABLESAMPLE SYSTEM (50)").getMaterializedTuples().size();
+            int sampleSize = computeActual("SELECT orderkey FROM ORDERS TABLESAMPLE SYSTEM (50)").getMaterializedRows().size();
             if (sampleSize > 0 && sampleSize < total) {
                 sampleSizeFound = true;
                 break;
@@ -124,8 +137,8 @@ public class TestDistributedQueries
         MaterializedResult emptySample = computeActual("SELECT orderkey FROM orders TABLESAMPLE SYSTEM (0)");
         MaterializedResult all = computeActual("SELECT orderkey FROM orders");
 
-        assertTrue(all.getMaterializedTuples().containsAll(fullSample.getMaterializedTuples()));
-        assertEquals(emptySample.getMaterializedTuples().size(), 0);
+        assertTrue(all.getMaterializedRows().containsAll(fullSample.getMaterializedRows()));
+        assertEquals(emptySample.getMaterializedRows().size(), 0);
     }
 
     @Test
@@ -283,19 +296,35 @@ public class TestDistributedQueries
             }
             log.info("Running import for %s", table.getTableName());
             @Language("SQL") String sql = format("CREATE TABLE %s AS SELECT * FROM %s", table.getTableName(), table);
-            long rows = checkType(compute(sql, session).getMaterializedTuples().get(0).getField(0), Long.class, "rows");
+            long rows = checkType(compute(sql, session).getMaterializedRows().get(0).getField(0), Long.class, "rows");
             log.info("Imported %s rows for %s", rows, table.getTableName());
         }
     }
 
     protected ClientSession getClientSession()
     {
-        return new ClientSession(coordinator.getBaseUrl(), SESSION.getUser(), SESSION.getSource(), SESSION.getCatalog(), SESSION.getSchema(), true);
+        return new ClientSession(
+                coordinator.getBaseUrl(),
+                SESSION.getUser(),
+                SESSION.getSource(),
+                SESSION.getCatalog(),
+                SESSION.getSchema(),
+                SESSION.getTimeZoneKey().getTimeZoneId(),
+                SESSION.getLocale(),
+                true);
     }
 
     protected ClientSession getSampledClientSession()
     {
-        return new ClientSession(coordinator.getBaseUrl(), SESSION.getUser(), SESSION.getSource(), SESSION.getCatalog(), "sampled", true);
+        return new ClientSession(
+                coordinator.getBaseUrl(),
+                SESSION.getUser(),
+                SESSION.getSource(),
+                SESSION.getCatalog(),
+                "sampled",
+                SESSION.getTimeZoneKey().getTimeZoneId(),
+                SESSION.getLocale(),
+                true);
     }
 
     @Override
@@ -314,8 +343,8 @@ public class TestDistributedQueries
     {
         try (StatementClient client = new StatementClient(httpClient, queryResultsCodec, session, sql)) {
             AtomicBoolean loggedUri = new AtomicBoolean(false);
-            ImmutableList.Builder<MaterializedTuple> rows = ImmutableList.builder();
-            List<TupleInfo> types = null;
+            ImmutableList.Builder<MaterializedRow> rows = ImmutableList.builder();
+            List<Type> types = null;
 
             while (client.isValid()) {
                 QueryResults results = client.current();
@@ -324,10 +353,10 @@ public class TestDistributedQueries
                 }
 
                 if ((types == null) && (results.getColumns() != null)) {
-                    types = getTupleInfos(results.getColumns());
+                    types = getTypes(coordinator.getMetadata(), results.getColumns());
                 }
                 if (results.getData() != null) {
-                    rows.addAll(transform(results.getData(), dataToTuple(types)));
+                    rows.addAll(transform(results.getData(), dataToRow(types)));
                 }
 
                 client.advance();
@@ -350,42 +379,36 @@ public class TestDistributedQueries
         }
     }
 
-    private static List<TupleInfo> getTupleInfos(List<Column> columns)
+    private static List<Type> getTypes(Metadata metadata, List<Column> columns)
     {
-        return ImmutableList.copyOf(transform(columns, columnTupleInfoGetter()));
+        return ImmutableList.copyOf(transform(columns, columnTypeGetter(metadata)));
     }
 
-    private static Function<Column, TupleInfo> columnTupleInfoGetter()
+    private static Function<Column, Type> columnTypeGetter(final Metadata metadata)
     {
-        return new Function<Column, TupleInfo>()
+        return new Function<Column, Type>()
         {
             @Override
-            public TupleInfo apply(Column column)
+            public Type apply(Column column)
             {
-                String type = column.getType();
-                switch (type) {
-                    case "boolean":
-                        return TupleInfo.SINGLE_BOOLEAN;
-                    case "bigint":
-                        return TupleInfo.SINGLE_LONG;
-                    case "double":
-                        return TupleInfo.SINGLE_DOUBLE;
-                    case "varchar":
-                        return TupleInfo.SINGLE_VARBINARY;
+                String typeName = column.getType();
+                Type type = metadata.getType(typeName);
+                if (type == null) {
+                    throw new AssertionError("Unhandled type: " + typeName);
                 }
-                throw new AssertionError("Unhandled type: " + type);
+                return type;
             }
         };
     }
 
-    private static Function<List<Object>, MaterializedTuple> dataToTuple(final List<TupleInfo> tupleInfos)
+    private static Function<List<Object>, MaterializedRow> dataToRow(final List<Type> types)
     {
-        return new Function<List<Object>, MaterializedTuple>()
+        return new Function<List<Object>, MaterializedRow>()
         {
             @Override
-            public MaterializedTuple apply(List<Object> data)
+            public MaterializedRow apply(List<Object> data)
             {
-                checkArgument(data.size() == tupleInfos.size(), "columns size does not match tuple infos");
+                checkArgument(data.size() == types.size(), "columns size does not match types size");
                 List<Object> row = new ArrayList<>();
                 for (int i = 0; i < data.size(); i++) {
                     Object value = data.get(i);
@@ -393,25 +416,31 @@ public class TestDistributedQueries
                         row.add(null);
                         continue;
                     }
-                    Type type = tupleInfos.get(i).getType();
-                    switch (type) {
-                        case BOOLEAN:
-                            row.add(value);
-                            break;
-                        case FIXED_INT_64:
-                            row.add(((Number) value).longValue());
-                            break;
-                        case DOUBLE:
-                            row.add(((Number) value).doubleValue());
-                            break;
-                        case VARIABLE_BINARY:
-                            row.add(value);
-                            break;
-                        default:
-                            throw new AssertionError("unhandled type: " + type);
+
+                    Type type = types.get(i);
+                    if (BOOLEAN.equals(type)) {
+                        row.add(value);
+                    }
+                    else if (BIGINT.equals(type)) {
+                        row.add(((Number) value).longValue());
+                    }
+                    else if (DOUBLE.equals(type)) {
+                        row.add(((Number) value).doubleValue());
+                    }
+                    else if (VARCHAR.equals(type)) {
+                        row.add(value);
+                    }
+                    else if (DATE.equals(type)) {
+                        row.add(new Date(ISODateTimeFormat.dateParser().withZoneUTC().parseMillis((String) value)));
+                    }
+                    else if (TIME.equals(type)) {
+                        row.add(new Time(ISODateTimeFormat.timeParser().withZoneUTC().parseMillis((String) value)));
+                    }
+                    else if (TIMESTAMP.equals(type)) {
+                        row.add(new Timestamp(ISODateTimeFormat.dateTimeParser().withZoneUTC().parseMillis((String) value)));
                     }
                 }
-                return new MaterializedTuple(DEFAULT_PRECISION, row);
+                return new MaterializedRow(DEFAULT_PRECISION, row);
             }
         };
     }

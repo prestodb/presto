@@ -13,9 +13,10 @@
  */
 package com.facebook.presto.operator.aggregation;
 
-import com.facebook.presto.block.Block;
+import com.facebook.presto.spi.block.Block;
+import com.facebook.presto.spi.block.BlockBuilderStatus;
+import com.facebook.presto.spi.block.RandomAccessBlock;
 import com.facebook.presto.block.rle.RunLengthEncodedBlock;
-import com.facebook.presto.block.uncompressed.UncompressedBlock;
 import com.facebook.presto.operator.Page;
 import com.google.common.base.Preconditions;
 import org.testng.annotations.Test;
@@ -27,13 +28,14 @@ import static com.facebook.presto.operator.aggregation.ApproximatePercentileAggr
 import static com.facebook.presto.operator.aggregation.ApproximatePercentileAggregations.LONG_APPROXIMATE_PERCENTILE_AGGREGATION;
 import static com.facebook.presto.operator.aggregation.ApproximatePercentileWeightedAggregations.DOUBLE_APPROXIMATE_PERCENTILE_WEIGHTED_AGGREGATION;
 import static com.facebook.presto.operator.aggregation.ApproximatePercentileWeightedAggregations.LONG_APPROXIMATE_PERCENTILE_WEIGHTED_AGGREGATION;
-import static com.facebook.presto.tuple.TupleInfo.SINGLE_DOUBLE;
-import static com.facebook.presto.tuple.TupleInfo.SINGLE_LONG;
-import static com.facebook.presto.tuple.Tuples.createTuple;
-import static io.airlift.slice.Slices.EMPTY_SLICE;
+import static com.facebook.presto.spi.type.BigintType.BIGINT;
+import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 
 public class TestApproximatePercentileAggregation
 {
+    private static final Block EMPTY_DOUBLE_BLOCK = DOUBLE.createBlockBuilder(new BlockBuilderStatus()).build();
+    private static final Block EMPTY_LONG_BLOCK = BIGINT.createBlockBuilder(new BlockBuilderStatus()).build();
+
     @Test
     public void testLongPartialStep()
             throws Exception
@@ -292,12 +294,13 @@ public class TestApproximatePercentileAggregation
         Block percentilesBlock;
 
         if (values.length == 0) {
-            valuesBlock = new UncompressedBlock(0, SINGLE_DOUBLE, EMPTY_SLICE);
-            percentilesBlock = new UncompressedBlock(0, SINGLE_DOUBLE, EMPTY_SLICE);
+            valuesBlock = EMPTY_DOUBLE_BLOCK;
+            percentilesBlock = EMPTY_DOUBLE_BLOCK;
         }
         else {
             valuesBlock = createDoublesBlock(values);
-            percentilesBlock = new RunLengthEncodedBlock(createTuple(percentile), values.length);
+            int positionCount = values.length;
+            percentilesBlock = createRLEBlock(percentile, positionCount);
         }
 
         return new Page(valuesBlock, percentilesBlock);
@@ -309,12 +312,12 @@ public class TestApproximatePercentileAggregation
         Block percentilesBlock;
 
         if (values.length == 0) {
-            valuesBlock = new UncompressedBlock(0, SINGLE_LONG, EMPTY_SLICE);
-            percentilesBlock = new UncompressedBlock(0, SINGLE_DOUBLE, EMPTY_SLICE);
+            valuesBlock = EMPTY_LONG_BLOCK;
+            percentilesBlock = EMPTY_DOUBLE_BLOCK;
         }
         else {
             valuesBlock = createLongsBlock(values);
-            percentilesBlock = new RunLengthEncodedBlock(createTuple(percentile), values.length);
+            percentilesBlock = createRLEBlock(percentile, values.length);
         }
 
         return new Page(valuesBlock, percentilesBlock);
@@ -329,14 +332,14 @@ public class TestApproximatePercentileAggregation
         Block percentilesBlock;
 
         if (values.length == 0) {
-            valuesBlock = new UncompressedBlock(0, SINGLE_LONG, EMPTY_SLICE);
-            weightsBlock = new UncompressedBlock(0, SINGLE_LONG, EMPTY_SLICE);
-            percentilesBlock = new UncompressedBlock(0, SINGLE_DOUBLE, EMPTY_SLICE);
+            valuesBlock = EMPTY_LONG_BLOCK;
+            weightsBlock = EMPTY_LONG_BLOCK;
+            percentilesBlock = EMPTY_DOUBLE_BLOCK;
         }
         else {
             valuesBlock = createLongsBlock(values);
             weightsBlock = createLongsBlock(weights);
-            percentilesBlock = new RunLengthEncodedBlock(createTuple(percentile), values.length);
+            percentilesBlock = createRLEBlock(percentile, values.length);
         }
 
         return new Page(valuesBlock, weightsBlock, percentilesBlock);
@@ -351,16 +354,26 @@ public class TestApproximatePercentileAggregation
         Block percentilesBlock;
 
         if (values.length == 0) {
-            valuesBlock = new UncompressedBlock(0, SINGLE_DOUBLE, EMPTY_SLICE);
-            weightsBlock = new UncompressedBlock(0, SINGLE_LONG, EMPTY_SLICE);
-            percentilesBlock = new UncompressedBlock(0, SINGLE_DOUBLE, EMPTY_SLICE);
+            valuesBlock = EMPTY_DOUBLE_BLOCK;
+            weightsBlock = EMPTY_LONG_BLOCK;
+            percentilesBlock = EMPTY_DOUBLE_BLOCK;
         }
         else {
             valuesBlock = createDoublesBlock(values);
             weightsBlock = createLongsBlock(weights);
-            percentilesBlock = new RunLengthEncodedBlock(createTuple(percentile), values.length);
+            percentilesBlock = createRLEBlock(percentile, values.length);
         }
 
         return new Page(valuesBlock, weightsBlock, percentilesBlock);
+    }
+
+    private static RunLengthEncodedBlock createRLEBlock(double percentile, int positionCount)
+    {
+        RandomAccessBlock value = DOUBLE.createBlockBuilder(new BlockBuilderStatus())
+                .append(percentile)
+                .build()
+                .toRandomAccessBlock();
+
+        return new RunLengthEncodedBlock(value, positionCount);
     }
 }

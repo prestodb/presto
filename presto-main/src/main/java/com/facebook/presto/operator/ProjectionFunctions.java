@@ -13,13 +13,13 @@
  */
 package com.facebook.presto.operator;
 
-import com.facebook.presto.block.BlockBuilder;
 import com.facebook.presto.spi.RecordCursor;
+import com.facebook.presto.spi.block.BlockBuilder;
+import com.facebook.presto.spi.block.BlockCursor;
+import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.tree.Input;
-import com.facebook.presto.tuple.TupleInfo;
-import com.facebook.presto.tuple.TupleInfo.Type;
-import com.facebook.presto.tuple.TupleReadable;
 import com.google.common.base.Preconditions;
+import io.airlift.slice.Slice;
 
 public final class ProjectionFunctions
 {
@@ -40,7 +40,6 @@ public final class ProjectionFunctions
     {
         private final Type columnType;
         private final int channelIndex;
-        private final TupleInfo info;
 
         public SingleColumnProjection(Type columnType, int channelIndex)
         {
@@ -49,37 +48,22 @@ public final class ProjectionFunctions
 
             this.columnType = columnType;
             this.channelIndex = channelIndex;
-            this.info = new TupleInfo(columnType);
         }
 
         @Override
-        public TupleInfo getTupleInfo()
+        public Type getType()
         {
-            return info;
+            return columnType;
         }
 
         @Override
-        public void project(TupleReadable[] cursors, BlockBuilder output)
+        public void project(BlockCursor[] cursors, BlockBuilder output)
         {
             if (cursors[channelIndex].isNull()) {
                 output.appendNull();
             }
             else {
-                switch (columnType) {
-                    case BOOLEAN:
-                        output.append(cursors[channelIndex].getBoolean());
-                        return;
-                    case FIXED_INT_64:
-                        output.append(cursors[channelIndex].getLong());
-                        return;
-                    case VARIABLE_BINARY:
-                        output.append(cursors[channelIndex].getSlice());
-                        return;
-                    case DOUBLE:
-                        output.append(cursors[channelIndex].getDouble());
-                        return;
-                }
-                throw new IllegalStateException("Unsupported type info " + info);
+                cursors[channelIndex].appendTo(output);
             }
         }
 
@@ -91,19 +75,18 @@ public final class ProjectionFunctions
                 output.appendNull();
             }
             else {
-                switch (columnType) {
-                    case BOOLEAN:
-                        output.append(cursor.getBoolean(channelIndex));
-                        break;
-                    case FIXED_INT_64:
-                        output.append(cursor.getLong(channelIndex));
-                        break;
-                    case VARIABLE_BINARY:
-                        output.append(cursor.getString(channelIndex));
-                        break;
-                    case DOUBLE:
-                        output.append(cursor.getDouble(channelIndex));
-                        break;
+                Class<?> javaType = columnType.getJavaType();
+                if (javaType == boolean.class) {
+                    output.append(cursor.getBoolean(channelIndex));
+                }
+                else if (javaType == long.class) {
+                    output.append(cursor.getLong(channelIndex));
+                }
+                else if (javaType == double.class) {
+                    output.append(cursor.getDouble(channelIndex));
+                }
+                else if (javaType == Slice.class) {
+                    output.append(cursor.getString(channelIndex));
                 }
             }
         }

@@ -13,24 +13,22 @@
  */
 package com.facebook.presto.serde;
 
-import com.facebook.presto.block.Block;
+import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.block.BlockAssertions;
-import com.facebook.presto.block.BlockBuilder;
-import com.facebook.presto.block.uncompressed.UncompressedBlock;
-import com.facebook.presto.tuple.Tuple;
-import com.google.common.collect.ImmutableList;
+import com.facebook.presto.spi.block.BlockBuilderStatus;
+import com.facebook.presto.spi.block.BlockEncoding;
+import com.facebook.presto.spi.block.VariableWidthBlockEncoding;
 import io.airlift.slice.DynamicSliceOutput;
 import org.testng.annotations.Test;
 
-import static com.facebook.presto.tuple.TupleInfo.SINGLE_VARBINARY;
-import static com.facebook.presto.tuple.Tuples.createTuple;
+import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 
 public class TestUncompressedBlockSerde
 {
     @Test
     public void testRoundTrip()
     {
-        UncompressedBlock expectedBlock = new BlockBuilder(SINGLE_VARBINARY)
+        Block expectedBlock = VARCHAR.createBlockBuilder(new BlockBuilderStatus())
                 .append("alice")
                 .append("bob")
                 .append("charlie")
@@ -38,7 +36,7 @@ public class TestUncompressedBlockSerde
                 .build();
 
         DynamicSliceOutput sliceOutput = new DynamicSliceOutput(1024);
-        BlockEncoding blockEncoding = new UncompressedBlockEncoding(SINGLE_VARBINARY);
+        BlockEncoding blockEncoding = new VariableWidthBlockEncoding(VARCHAR);
         blockEncoding.writeBlock(sliceOutput, expectedBlock);
         Block actualBlock = blockEncoding.readBlock(sliceOutput.slice().getInput());
         BlockAssertions.assertBlockEquals(actualBlock, expectedBlock);
@@ -47,15 +45,17 @@ public class TestUncompressedBlockSerde
     @Test
     public void testCreateBlockWriter()
     {
-        ImmutableList<Tuple> tuples = ImmutableList.of(createTuple("alice"),
-                createTuple("bob"),
-                createTuple("charlie"),
-                createTuple("dave"));
+        Block block = VARCHAR.createBlockBuilder(new BlockBuilderStatus())
+                .append("alice")
+                .append("bob")
+                .append("charlie")
+                .append("dave")
+                .build();
 
         DynamicSliceOutput sliceOutput = new DynamicSliceOutput(1024);
-        BlockEncoding blockEncoding = new UncompressedEncoder(sliceOutput).append(tuples).append(tuples).finish();
+        BlockEncoding blockEncoding = new UncompressedEncoder(sliceOutput).append(block).append(block).finish();
         Block actualBlock = blockEncoding.readBlock(sliceOutput.slice().getInput());
-        BlockAssertions.assertBlockEquals(actualBlock, new BlockBuilder(SINGLE_VARBINARY)
+        BlockAssertions.assertBlockEquals(actualBlock, VARCHAR.createBlockBuilder(new BlockBuilderStatus())
                 .append("alice")
                 .append("bob")
                 .append("charlie")

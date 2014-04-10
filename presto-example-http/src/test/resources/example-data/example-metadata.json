@@ -5,11 +5,11 @@
             "columns": [
                 {
                     "name": "text",
-                    "type": "STRING"
+                    "type": "VARCHAR"
                 },
                 {
                     "name": "value",
-                    "type": "LONG"
+                    "type": "BIGINT"
                 }
             ],
             "sources": [ "numbers-1.csv", "numbers-2.csv" ]
@@ -21,15 +21,15 @@
             "columns": [
                 {
                     "name": "orderkey",
-                    "type": "LONG"
+                    "type": "BIGINT"
                 },
                 {
                     "name": "custkey",
-                    "type": "LONG"
+                    "type": "BIGINT"
                 },
                 {
                     "name": "orderstatus",
-                    "type": "STRING"
+                    "type": "VARCHAR"
                 },
                 {
                     "name": "totalprice",
@@ -37,23 +37,23 @@
                 },
                 {
                     "name": "orderdate",
-                    "type": "STRING"
+                    "type": "VARCHAR"
                 },
                 {
                     "name": "orderpriority",
-                    "type": "STRING"
+                    "type": "VARCHAR"
                 },
                 {
                     "name": "clerk",
-                    "type": "STRING"
+                    "type": "VARCHAR"
                 },
                 {
                     "name": "shippriority",
-                    "type": "LONG"
+                    "type": "BIGINT"
                 },
                 {
                     "name": "comment",
-                    "type": "STRING"
+                    "type": "VARCHAR"
                 }
             ],
             "sources": [ "orders-1.csv", "orders-2.csv" ]
@@ -63,19 +63,19 @@
             "columns": [
                 {
                     "name": "orderkey",
-                    "type": "LONG"
+                    "type": "BIGINT"
                 },
                 {
                     "name": "partkey",
-                    "type": "LONG"
+                    "type": "BIGINT"
                 },
                 {
                     "name": "suppkey",
-                    "type": "LONG"
+                    "type": "BIGINT"
                 },
                 {
                     "name": "linenumber",
-                    "type": "LONG"
+                    "type": "BIGINT"
                 },
                 {
                     "name": "quantity",
@@ -91,35 +91,35 @@
                 },
                 {
                     "name": "returnflag",
-                    "type": "STRING"
+                    "type": "VARCHAR"
                 },
                 {
                     "name": "linestatus",
-                    "type": "STRING"
+                    "type": "VARCHAR"
                 },
                 {
                     "name": "shipdate",
-                    "type": "STRING"
+                    "type": "VARCHAR"
                 },
                 {
                     "name": "commitdate",
-                    "type": "STRING"
+                    "type": "VARCHAR"
                 },
                 {
                     "name": "receiptdate",
-                    "type": "STRING"
+                    "type": "VARCHAR"
                 },
                 {
                     "name": "shipinstruct",
-                    "type": "STRING"
+                    "type": "VARCHAR"
                 },
                 {
                     "name": "shipmode",
-                    "type": "STRING"
+                    "type": "VARCHAR"
                 },
                 {
                     "name": "comment",
-                    "type": "STRING"
+                    "type": "VARCHAR"
                 }
             ],
             "sources": [ "lineitem-1.csv", "lineitem-2.csv" ]

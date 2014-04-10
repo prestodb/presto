@@ -16,15 +16,16 @@ package com.facebook.presto.sql.planner;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.spi.ColumnHandle;
+import com.facebook.presto.spi.Session;
 import com.facebook.presto.spi.TableHandle;
+import com.facebook.presto.spi.block.BlockCursor;
+import com.facebook.presto.spi.type.BigintType;
 import com.facebook.presto.sql.analyzer.Analysis;
 import com.facebook.presto.sql.analyzer.EquiJoinClause;
 import com.facebook.presto.sql.analyzer.Field;
 import com.facebook.presto.sql.analyzer.FieldOrExpression;
 import com.facebook.presto.sql.analyzer.SemanticException;
-import com.facebook.presto.sql.analyzer.Session;
 import com.facebook.presto.sql.analyzer.TupleDescriptor;
-import com.facebook.presto.sql.analyzer.Type;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.planner.plan.JoinNode;
 import com.facebook.presto.sql.planner.plan.MaterializeSampleNode;
@@ -53,7 +54,6 @@ import com.facebook.presto.sql.tree.Table;
 import com.facebook.presto.sql.tree.TableSubquery;
 import com.facebook.presto.sql.tree.Union;
 import com.facebook.presto.sql.tree.Values;
-import com.facebook.presto.tuple.TupleReadable;
 import com.google.common.base.Optional;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
@@ -65,6 +65,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+import static com.facebook.presto.spi.type.BigintType.BIGINT;
+import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.sql.analyzer.EquiJoinClause.leftGetter;
 import static com.facebook.presto.sql.analyzer.EquiJoinClause.rightGetter;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.EXPRESSION_NOT_CONSTANT;
@@ -124,7 +126,7 @@ class RelationPlanner
         Optional<ColumnHandle> sampleWeightColumn = metadata.getSampleWeightColumnHandle(handle);
         Symbol sampleWeightSymbol = null;
         if (sampleWeightColumn.isPresent()) {
-            sampleWeightSymbol = symbolAllocator.newSymbol("$sampleWeight", Type.BIGINT);
+            sampleWeightSymbol = symbolAllocator.newSymbol("$sampleWeight", BIGINT);
             outputSymbolsBuilder.add(sampleWeightSymbol);
             columns.put(sampleWeightSymbol, sampleWeightColumn.get());
         }
@@ -160,7 +162,7 @@ class RelationPlanner
         double ratio = analysis.getSampleRatio(node);
         Symbol sampleWeightSymbol = null;
         if (node.getType() == SampledRelation.Type.POISSONIZED) {
-            sampleWeightSymbol = symbolAllocator.newSymbol("$sampleWeight", Type.BIGINT);
+            sampleWeightSymbol = symbolAllocator.newSymbol("$sampleWeight", BigintType.BIGINT);
         }
         PlanNode planNode = new SampleNode(idAllocator.getNextId(), subPlan.getRoot(), ratio, SampleNode.Type.fromType(node.getType()), node.isRescaled(), Optional.fromNullable(sampleWeightSymbol));
         if (sampleWeightSymbol != null) {
@@ -278,7 +280,7 @@ class RelationPlanner
     {
         try {
             // verify the expression is constant (has no inputs)
-            ExpressionInterpreter.expressionOptimizer(expression, metadata, session).optimize(new SymbolResolver() {
+            ExpressionInterpreter.expressionOptimizer(expression, metadata, session, analysis.getTypes()).optimize(new SymbolResolver() {
                 @Override
                 public Object getValue(Symbol symbol)
                 {
@@ -287,11 +289,11 @@ class RelationPlanner
             });
 
             // evaluate the expression
-            Object result = ExpressionInterpreter.expressionInterpreter(expression, metadata, session).evaluate(new TupleReadable[0]);
+            Object result = ExpressionInterpreter.expressionInterpreter(expression, metadata, session, analysis.getTypes()).evaluate(new BlockCursor[0]);
             checkState(!(result instanceof Expression), "Expression interpreter returned an unresolved expression");
 
             // convert result to a literal
-            return (Literal) LiteralInterpreter.toExpression(result);
+            return (Literal) LiteralInterpreter.toExpression(result, analysis.getType(expression));
         }
         catch (Exception e) {
             throw new SemanticException(EXPRESSION_NOT_CONSTANT, expression, "Error evaluating constant expression: %s", e.getMessage());
@@ -397,7 +399,7 @@ class RelationPlanner
         RelationPlan valueListRelation = relationPlanner.process(subqueryExpression.getQuery(), null);
         Symbol filteringSourceJoinSymbol = Iterables.getOnlyElement(valueListRelation.getRoot().getOutputSymbols());
 
-        Symbol semiJoinOutputSymbol = symbolAllocator.newSymbol("semijoinresult", Type.BOOLEAN);
+        Symbol semiJoinOutputSymbol = symbolAllocator.newSymbol("semijoinresult", BOOLEAN);
 
         translations.put(inPredicate, semiJoinOutputSymbol);
 

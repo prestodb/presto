@@ -32,11 +32,12 @@ import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.spi.TupleDomain;
 import com.facebook.presto.split.ConnectorDataStreamProvider;
 import com.facebook.presto.split.SplitManager;
-import com.facebook.presto.sql.analyzer.Type;
+import com.facebook.presto.type.Types;
 import com.google.common.base.Joiner;
 import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableBiMap;
 import com.google.common.collect.ImmutableList;
+import io.airlift.slice.Slice;
 
 import javax.inject.Inject;
 
@@ -44,7 +45,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 
-import static com.facebook.presto.tuple.TupleInfo.Type.fromColumnType;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Strings.nullToEmpty;
@@ -135,7 +135,7 @@ public class InformationSchemaDataStreamProvider
                         column.getOrdinalPosition() + 1,
                         null,
                         "YES",
-                        fromColumnType(column.getType()).getName(),
+                        column.getType().getName(),
                         column.isPartitionKey() ? "YES" : "NO");
             }
         }
@@ -173,7 +173,7 @@ public class InformationSchemaDataStreamProvider
                 continue;
             }
 
-            Iterable<String> arguments = transform(function.getArgumentTypes(), Type.nameGetter());
+            Iterable<String> arguments = transform(function.getArgumentTypes(), Types.nameGetter());
 
             String functionType;
             if (function.isAggregate()) {
@@ -263,6 +263,9 @@ public class InformationSchemaDataStreamProvider
             if (entry.getKey().equals(columnName)) {
                 if (entry.getValue() instanceof String) {
                     return Optional.of((String) entry.getValue());
+                }
+                if (entry.getValue() instanceof Slice) {
+                    return Optional.of(((Slice) entry.getValue()).toStringUtf8());
                 }
                 break;
             }
