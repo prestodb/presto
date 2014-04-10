@@ -171,6 +171,20 @@ public class ChannelIndex
         return valueEquals(type, slice, offset, rightSlice, rightOffset);
     }
 
+    public boolean equals(int position, ChannelIndex other, int otherPosition)
+    {
+        // get slice an offset for the position
+        long sliceAddress = valueAddresses.getLong(position);
+        Slice slice = getSliceForSyntheticAddress(sliceAddress);
+        int offset = decodePosition(sliceAddress);
+
+        long otherSliceAddress = other.valueAddresses.getLong(otherPosition);
+        Slice otherSlice = other.getSliceForSyntheticAddress(otherSliceAddress);
+        int otherOffset = decodePosition(otherSliceAddress);
+
+        return valueEquals(type, slice, offset, otherSlice, otherOffset);
+    }
+
     public int hashCode(int position)
     {
         // get slice an offset for the position

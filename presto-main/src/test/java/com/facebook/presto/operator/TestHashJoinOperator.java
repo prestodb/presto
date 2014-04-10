@@ -16,7 +16,6 @@ package com.facebook.presto.operator;
 import com.facebook.presto.ExceededMemoryLimitException;
 import com.facebook.presto.execution.TaskId;
 import com.facebook.presto.operator.HashBuilderOperator.HashBuilderOperatorFactory;
-import com.facebook.presto.operator.HashJoinOperator.HashJoinOperatorFactory;
 import com.facebook.presto.sql.analyzer.Session;
 import com.facebook.presto.util.MaterializedResult;
 import com.google.common.collect.ImmutableList;
@@ -29,6 +28,7 @@ import org.testng.annotations.Test;
 import java.util.List;
 import java.util.concurrent.ExecutorService;
 
+import static com.facebook.presto.operator.LookupJoinOperator.LookupJoinOperatorFactory;
 import static com.facebook.presto.operator.OperatorAssertion.assertOperatorEquals;
 import static com.facebook.presto.operator.RowPagesBuilder.rowPagesBuilder;
 import static com.facebook.presto.tuple.TupleInfo.SINGLE_LONG;
@@ -82,7 +82,7 @@ public class TestHashJoinOperator
         List<Page> probeInput = rowPagesBuilder(SINGLE_VARBINARY, SINGLE_LONG, SINGLE_LONG)
                 .addSequencePage(1000, 0, 1000, 2000)
                 .build();
-        HashJoinOperatorFactory joinOperatorFactory = HashJoinOperator.innerJoin(
+        LookupJoinOperatorFactory joinOperatorFactory = LookupJoinOperator.innerJoin(
                 0,
                 hashBuilderOperatorFactory.getHashSupplier(),
                 ImmutableList.of(SINGLE_VARBINARY, SINGLE_LONG, SINGLE_LONG),
@@ -141,7 +141,7 @@ public class TestHashJoinOperator
                 .row("a")
                 .row("b")
                 .build();
-        HashJoinOperatorFactory joinOperatorFactory = HashJoinOperator.innerJoin(
+        LookupJoinOperatorFactory joinOperatorFactory = LookupJoinOperator.innerJoin(
                 0,
                 hashBuilderOperatorFactory.getHashSupplier(),
                 ImmutableList.of(SINGLE_VARBINARY),
@@ -187,7 +187,7 @@ public class TestHashJoinOperator
                 .row("b")
                 .row("c")
                 .build();
-        HashJoinOperatorFactory joinOperatorFactory = HashJoinOperator.innerJoin(
+        LookupJoinOperatorFactory joinOperatorFactory = LookupJoinOperator.innerJoin(
                 0,
                 hashBuilderOperatorFactory.getHashSupplier(),
                 ImmutableList.of(SINGLE_VARBINARY),
@@ -234,7 +234,7 @@ public class TestHashJoinOperator
                 .row((String) null)
                 .row("c")
                 .build();
-        HashJoinOperatorFactory joinOperatorFactory = HashJoinOperator.innerJoin(
+        LookupJoinOperatorFactory joinOperatorFactory = LookupJoinOperator.innerJoin(
                 0,
                 hashBuilderOperatorFactory.getHashSupplier(),
                 ImmutableList.of(SINGLE_VARBINARY),
@@ -275,7 +275,7 @@ public class TestHashJoinOperator
         List<Page> probeInput = rowPagesBuilder(SINGLE_VARBINARY, SINGLE_LONG, SINGLE_LONG)
                 .addSequencePage(15, 20, 1020, 2020)
                 .build();
-        HashJoinOperatorFactory joinOperatorFactory = HashJoinOperator.outerJoin(
+        LookupJoinOperatorFactory joinOperatorFactory = LookupJoinOperator.outerJoin(
                 0,
                 hashBuilderOperatorFactory.getHashSupplier(),
                 ImmutableList.of(SINGLE_VARBINARY, SINGLE_LONG, SINGLE_LONG),
@@ -339,7 +339,7 @@ public class TestHashJoinOperator
                 .row("a")
                 .row("b")
                 .build();
-        HashJoinOperatorFactory joinOperatorFactory = HashJoinOperator.outerJoin(
+        LookupJoinOperatorFactory joinOperatorFactory = LookupJoinOperator.outerJoin(
                 0,
                 hashBuilderOperatorFactory.getHashSupplier(),
                 ImmutableList.of(SINGLE_VARBINARY),
@@ -387,7 +387,7 @@ public class TestHashJoinOperator
                 .row("b")
                 .row("c")
                 .build();
-        HashJoinOperatorFactory joinOperatorFactory = HashJoinOperator.outerJoin(
+        LookupJoinOperatorFactory joinOperatorFactory = LookupJoinOperator.outerJoin(
                 0,
                 hashBuilderOperatorFactory.getHashSupplier(),
                 ImmutableList.of(SINGLE_VARBINARY),
@@ -435,7 +435,7 @@ public class TestHashJoinOperator
                 .row((String) null)
                 .row("c")
                 .build();
-        HashJoinOperatorFactory joinOperatorFactory = HashJoinOperator.outerJoin(
+        LookupJoinOperatorFactory joinOperatorFactory = LookupJoinOperator.outerJoin(
                 0,
                 hashBuilderOperatorFactory.getHashSupplier(),
                 ImmutableList.of(SINGLE_VARBINARY),
