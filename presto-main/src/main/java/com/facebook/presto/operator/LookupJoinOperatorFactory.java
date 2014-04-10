@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.operator;
 
-import com.facebook.presto.operator.HashBuilderOperator.HashSupplier;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableList;
 
@@ -25,7 +24,7 @@ public class LookupJoinOperatorFactory
         implements OperatorFactory
 {
     private final int operatorId;
-    private final HashSupplier hashSupplier;
+    private final LookupSourceSupplier lookupSourceSupplier;
     private final List<Type> probeTypes;
     private final boolean enableOuterJoin;
     private final List<Type> types;
@@ -33,13 +32,13 @@ public class LookupJoinOperatorFactory
     private boolean closed;
 
     public LookupJoinOperatorFactory(int operatorId,
-            HashSupplier hashSupplier,
+            LookupSourceSupplier lookupSourceSupplier,
             List<Type> probeTypes,
             boolean enableOuterJoin,
             JoinProbeFactory joinProbeFactory)
     {
         this.operatorId = operatorId;
-        this.hashSupplier = hashSupplier;
+        this.lookupSourceSupplier = lookupSourceSupplier;
         this.probeTypes = probeTypes;
         this.enableOuterJoin = enableOuterJoin;
 
@@ -47,7 +46,7 @@ public class LookupJoinOperatorFactory
 
         this.types = ImmutableList.<Type>builder()
                 .addAll(probeTypes)
-                .addAll(hashSupplier.getTypes())
+                .addAll(lookupSourceSupplier.getTypes())
                 .build();
     }
 
@@ -62,7 +61,7 @@ public class LookupJoinOperatorFactory
     {
         checkState(!closed, "Factory is already closed");
         OperatorContext operatorContext = driverContext.addOperatorContext(operatorId, LookupJoinOperator.class.getSimpleName());
-        return new LookupJoinOperator(operatorContext, hashSupplier, probeTypes, enableOuterJoin, joinProbeFactory);
+        return new LookupJoinOperator(operatorContext, lookupSourceSupplier, probeTypes, enableOuterJoin, joinProbeFactory);
     }
 
     @Override
