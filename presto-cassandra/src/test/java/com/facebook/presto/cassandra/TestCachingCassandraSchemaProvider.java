@@ -44,7 +44,7 @@ public class TestCachingCassandraSchemaProvider
     public void setUp()
             throws Exception
     {
-        mockSession = new MockCassandraSession(CONNECTOR_ID);
+        mockSession = new MockCassandraSession(CONNECTOR_ID, new CassandraClientConfig());
         ListeningExecutorService executor = listeningDecorator(newCachedThreadPool(new ThreadFactoryBuilder().setDaemon(true).build()));
         schemaProvider = new CachingCassandraSchemaProvider(
                 CONNECTOR_ID,

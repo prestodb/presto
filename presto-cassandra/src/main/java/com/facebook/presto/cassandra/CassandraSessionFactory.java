@@ -16,7 +16,7 @@ package com.facebook.presto.cassandra;
 import com.datastax.driver.core.Cluster;
 import com.datastax.driver.core.ConsistencyLevel;
 import com.datastax.driver.core.QueryOptions;
-import com.datastax.driver.core.Session;
+import com.datastax.driver.core.policies.ExponentialReconnectionPolicy;
 
 import javax.inject.Inject;
 
@@ -43,7 +43,7 @@ public class CassandraSessionFactory
         checkNotNull(config, "config is null");
 
         this.contactPoints = checkNotNull(config.getContactPoints(), "contactPoints is null");
-        checkArgument(contactPoints.size() > 0, "empty contactPoints");
+        checkArgument(!contactPoints.isEmpty(), "empty contactPoints");
 
         nativeProtocolPort = config.getNativeProtocolPort();
         fetchSize = config.getFetchSize();
@@ -57,14 +57,13 @@ public class CassandraSessionFactory
         Cluster.Builder clusterBuilder = Cluster.builder();
         clusterBuilder.addContactPoints(contactPoints.toArray(new String[contactPoints.size()]));
         clusterBuilder.withPort(nativeProtocolPort);
+        clusterBuilder.withReconnectionPolicy(new ExponentialReconnectionPolicy(500, 10000));
 
         QueryOptions options = new QueryOptions();
         options.setFetchSize(fetchSize);
         options.setConsistencyLevel(consistencyLevel);
         clusterBuilder.withQueryOptions(options);
 
-        Cluster cluster = clusterBuilder.build();
-        Session session = cluster.connect();
-        return new CassandraSession(connectorId.toString(), session, fetchSizeForPartitionKeySelect, limitForPartitionKeySelect);
+        return new CassandraSession(connectorId.toString(), clusterBuilder, fetchSizeForPartitionKeySelect, limitForPartitionKeySelect);
     }
 }
