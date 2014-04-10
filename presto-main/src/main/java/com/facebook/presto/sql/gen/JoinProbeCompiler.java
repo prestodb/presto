@@ -107,11 +107,7 @@ public class JoinProbeCompiler
             boolean enableOuterJoin)
     {
         try {
-            Class<? extends HashSupplier> hashSupplierClass = hashSupplier.getClass();
-            HashJoinOperatorFactoryFactory operatorFactoryFactory = joinProbeFactories.get(new JoinOperatorCacheKey(probeTypes,
-                    probeJoinChannel,
-                    hashSupplierClass,
-                    enableOuterJoin));
+            HashJoinOperatorFactoryFactory operatorFactoryFactory = joinProbeFactories.get(new JoinOperatorCacheKey(probeTypes, probeJoinChannel, enableOuterJoin));
             return operatorFactoryFactory.createHashJoinOperatorFactory(operatorId, hashSupplier, probeTypes, probeJoinChannel, enableOuterJoin);
         }
         catch (ExecutionException | UncheckedExecutionException | ExecutionError e) {
@@ -464,17 +460,14 @@ public class JoinProbeCompiler
     {
         private final List<Type> types;
         private final List<Integer> probeChannels;
-        private final Class<? extends HashSupplier> hashSupplierClass;
         private final boolean enableOuterJoin;
 
         private JoinOperatorCacheKey(List<? extends Type> types,
                 List<Integer> probeChannels,
-                Class<? extends HashSupplier> hashSupplierClass,
                 boolean enableOuterJoin)
         {
             this.types = ImmutableList.copyOf(types);
             this.probeChannels = ImmutableList.copyOf(probeChannels);
-            this.hashSupplierClass = null;
             this.enableOuterJoin = enableOuterJoin;
         }
 
@@ -491,7 +484,7 @@ public class JoinProbeCompiler
         @Override
         public int hashCode()
         {
-            return Objects.hashCode(types, probeChannels, hashSupplierClass, enableOuterJoin);
+            return Objects.hashCode(types, probeChannels, enableOuterJoin);
         }
 
         @Override
@@ -506,7 +499,6 @@ public class JoinProbeCompiler
             final JoinOperatorCacheKey other = (JoinOperatorCacheKey) obj;
             return Objects.equal(this.types, other.types) &&
                     Objects.equal(this.probeChannels, other.probeChannels) &&
-                    Objects.equal(this.hashSupplierClass, other.hashSupplierClass) &&
                     Objects.equal(this.enableOuterJoin, other.enableOuterJoin);
         }
     }
