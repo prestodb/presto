@@ -30,7 +30,7 @@ import static com.google.common.base.Preconditions.checkState;
 public class HashBuilderOperator
         implements Operator
 {
-    public static class HashSupplier
+    public static final class HashSupplier
     {
         private final List<Type> types;
         private final SettableFuture<JoinHash> hashFuture = SettableFuture.create();
