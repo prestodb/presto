@@ -16,7 +16,6 @@ package com.facebook.presto.operator;
 import com.facebook.presto.block.BlockBuilder;
 import com.facebook.presto.block.BlockCursor;
 import com.facebook.presto.block.uncompressed.UncompressedBlock;
-import com.facebook.presto.operator.HashAggregationOperator.HashMemoryManager;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.StandardErrorCode;
 import com.facebook.presto.tuple.TupleInfo;
@@ -68,9 +67,9 @@ public class GroupByHash
 
     private int nextGroupId;
 
-    private final HashMemoryManager memoryManager;
+    private final MemoryManager memoryManager;
 
-    public GroupByHash(List<Type> types, int[] channels, int expectedSize, HashMemoryManager memoryManager)
+    public GroupByHash(List<Type> types, int[] channels, int expectedSize, MemoryManager memoryManager)
     {
         this.types = checkNotNull(types, "types is null");
         this.channels = checkNotNull(channels, "channels is null").clone();

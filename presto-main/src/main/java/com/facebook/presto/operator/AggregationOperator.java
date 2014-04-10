@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.operator;
 
+import com.facebook.presto.ExceededMemoryLimitException;
 import com.facebook.presto.block.Block;
 import com.facebook.presto.operator.aggregation.Accumulator;
 import com.facebook.presto.operator.aggregation.AggregationFunction;
@@ -93,11 +94,12 @@ public class AggregationOperator
         checkNotNull(functionDefinitions, "functionDefinitions is null");
 
         this.tupleInfos = toTupleInfos(step, functionDefinitions);
+        MemoryManager memoryManager = new MemoryManager(operatorContext);
 
         // wrapper each function with an aggregator
         ImmutableList.Builder<Aggregator> builder = ImmutableList.builder();
         for (AggregationFunctionDefinition functionDefinition : functionDefinitions) {
-            builder.add(new Aggregator(functionDefinition, step));
+            builder.add(new Aggregator(functionDefinition, step, memoryManager));
         }
         aggregates = builder.build();
     }
@@ -185,10 +187,11 @@ public class AggregationOperator
     {
         private final Accumulator aggregation;
         private final Step step;
+        private final MemoryManager memoryManager;
 
         private final int intermediateChannel;
 
-        private Aggregator(AggregationFunctionDefinition functionDefinition, Step step)
+        private Aggregator(AggregationFunctionDefinition functionDefinition, Step step, MemoryManager memoryManager)
         {
             AggregationFunction function = functionDefinition.getFunction();
 
@@ -210,6 +213,7 @@ public class AggregationOperator
                 aggregation = function.createIntermediateAggregation(functionDefinition.getConfidence());
             }
             this.step = step;
+            this.memoryManager = memoryManager;
         }
 
         public TupleInfo getTupleInfo()
@@ -229,6 +233,9 @@ public class AggregationOperator
             }
             else {
                 aggregation.addInput(page);
+            }
+            if (!memoryManager.canUse(aggregation.getEstimatedSize())) {
+                throw new ExceededMemoryLimitException(memoryManager.getMaxMemorySize());
             }
         }
 

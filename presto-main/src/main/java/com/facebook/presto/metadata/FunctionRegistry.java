@@ -15,8 +15,11 @@ package com.facebook.presto.metadata;
 
 import com.facebook.presto.operator.Description;
 import com.facebook.presto.operator.aggregation.AggregationFunction;
+import com.facebook.presto.operator.aggregation.EvaluateClassifierPredictionsAggregation;
+import com.facebook.presto.operator.aggregation.LearnAggregation;
 import com.facebook.presto.operator.scalar.ColorFunctions;
 import com.facebook.presto.operator.scalar.JsonFunctions;
+import com.facebook.presto.operator.scalar.MLFunctions;
 import com.facebook.presto.operator.scalar.MathFunctions;
 import com.facebook.presto.operator.scalar.RegexpFunctions;
 import com.facebook.presto.operator.scalar.ScalarFunction;
@@ -35,6 +38,7 @@ import com.facebook.presto.sql.analyzer.Session;
 import com.facebook.presto.sql.analyzer.Type;
 import com.facebook.presto.sql.gen.FunctionBinder;
 import com.facebook.presto.sql.tree.QualifiedName;
+import com.facebook.presto.tuple.TupleInfo;
 import com.facebook.presto.util.IterableTransformer;
 import com.google.common.base.Joiner;
 import com.google.common.base.Predicate;
@@ -189,7 +193,11 @@ public class FunctionRegistry
                     .approximateAggregate("count", VARCHAR, ImmutableList.of(BOOLEAN), VARCHAR, BOOLEAN_APPROXIMATE_COUNT_AGGREGATION)
                     .approximateAggregate("count", VARCHAR, ImmutableList.of(BIGINT), VARCHAR, LONG_APPROXIMATE_COUNT_AGGREGATION)
                     .approximateAggregate("count", VARCHAR, ImmutableList.of(DOUBLE), VARCHAR, DOUBLE_APPROXIMATE_COUNT_AGGREGATION)
-                    .approximateAggregate("count", VARCHAR, ImmutableList.of(VARCHAR), VARCHAR, VARBINARY_APPROXIMATE_COUNT_AGGREGATION);
+                    .approximateAggregate("count", VARCHAR, ImmutableList.of(VARCHAR), VARCHAR, VARBINARY_APPROXIMATE_COUNT_AGGREGATION)
+                    .aggregate("learn", VARCHAR, ImmutableList.of(BIGINT, VARCHAR), VARCHAR, new LearnAggregation(TupleInfo.Type.FIXED_INT_64))
+                    .aggregate("learn", VARCHAR, ImmutableList.of(DOUBLE, VARCHAR), VARCHAR, new LearnAggregation(TupleInfo.Type.DOUBLE))
+                    .aggregate("evaluate_classifier_predictions", VARCHAR, ImmutableList.of(BIGINT, BIGINT), VARCHAR, new EvaluateClassifierPredictionsAggregation())
+                    .scalar(MLFunctions.class);
         }
 
         addFunctions(builder.build());

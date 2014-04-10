@@ -11,25 +11,18 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.operator.aggregation;
+package com.facebook.presto.ml;
 
-import com.facebook.presto.block.Block;
-import com.facebook.presto.operator.Page;
-import com.facebook.presto.tuple.TupleInfo;
-
-public interface Accumulator
+public interface Model
 {
-    long getEstimatedSize();
+    ModelType getType();
 
-    TupleInfo getFinalTupleInfo();
+    byte[] getSerializedData();
 
-    TupleInfo getIntermediateTupleInfo();
+    void train(Dataset dataset);
 
-    void addInput(Page page);
-
-    void addIntermediate(Block block);
-
-    Block evaluateIntermediate();
-
-    Block evaluateFinal();
+    /**
+     * Models must also provide a public static deserialization method, which accepts a byte[] returned from getSerializedData
+     */
+    //static Model deserialize(byte[] data)
 }

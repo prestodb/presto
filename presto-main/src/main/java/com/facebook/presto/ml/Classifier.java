@@ -11,25 +11,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.operator.aggregation;
+package com.facebook.presto.ml;
 
-import com.facebook.presto.block.Block;
-import com.facebook.presto.operator.Page;
-import com.facebook.presto.tuple.TupleInfo;
-
-public interface Accumulator
+public interface Classifier
+        extends Model
 {
-    long getEstimatedSize();
-
-    TupleInfo getFinalTupleInfo();
-
-    TupleInfo getIntermediateTupleInfo();
-
-    void addInput(Page page);
-
-    void addIntermediate(Block block);
-
-    Block evaluateIntermediate();
-
-    Block evaluateFinal();
+    int classify(FeatureVector features);
 }

@@ -281,6 +281,12 @@ public class ApproximatePercentileWeightedAggregation
         }
 
         @Override
+        public long getEstimatedSize()
+        {
+            return 0;
+        }
+
+        @Override
         public TupleInfo getFinalTupleInfo()
         {
             return getOutputTupleInfo(parameterType);

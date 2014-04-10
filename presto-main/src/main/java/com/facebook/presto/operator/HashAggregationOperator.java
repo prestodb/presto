@@ -22,12 +22,10 @@ import com.facebook.presto.sql.tree.Input;
 import com.facebook.presto.tuple.TupleInfo;
 import com.facebook.presto.tuple.TupleInfo.Type;
 import com.google.common.base.Function;
-import com.google.common.base.Preconditions;
 import com.google.common.collect.AbstractIterator;
 import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Ints;
 import com.google.common.util.concurrent.ListenableFuture;
-import io.airlift.units.DataSize;
 import it.unimi.dsi.fastutil.longs.Long2IntMap.Entry;
 import it.unimi.dsi.fastutil.objects.ObjectIterator;
 
@@ -63,10 +61,10 @@ public class HashAggregationOperator
                 int expectedGroups)
         {
             this.operatorId = operatorId;
-            this.groupByTupleInfos = groupByTupleInfos;
-            this.groupByChannels = groupByChannels;
+            this.groupByTupleInfos = ImmutableList.copyOf(groupByTupleInfos);
+            this.groupByChannels = ImmutableList.copyOf(groupByChannels);
             this.step = step;
-            this.functionDefinitions = functionDefinitions;
+            this.functionDefinitions = ImmutableList.copyOf(functionDefinitions);
             this.expectedGroups = expectedGroups;
 
             this.tupleInfos = toTupleInfos(groupByTupleInfos, step, functionDefinitions);
@@ -109,7 +107,7 @@ public class HashAggregationOperator
     private final int expectedGroups;
 
     private final List<TupleInfo> tupleInfos;
-    private final HashMemoryManager memoryManager;
+    private final MemoryManager memoryManager;
 
     private GroupByHashAggregationBuilder aggregationBuilder;
     private Iterator<Page> outputIterator;
@@ -124,16 +122,16 @@ public class HashAggregationOperator
             int expectedGroups)
     {
         this.operatorContext = checkNotNull(operatorContext, "operatorContext is null");
-        Preconditions.checkNotNull(step, "step is null");
-        Preconditions.checkNotNull(functionDefinitions, "functionDefinitions is null");
-        Preconditions.checkNotNull(operatorContext, "operatorContext is null");
+        checkNotNull(step, "step is null");
+        checkNotNull(functionDefinitions, "functionDefinitions is null");
+        checkNotNull(operatorContext, "operatorContext is null");
 
-        this.groupByTupleInfos = groupByTupleInfos;
-        this.groupByChannels = groupByChannels;
+        this.groupByTupleInfos = ImmutableList.copyOf(groupByTupleInfos);
+        this.groupByChannels = ImmutableList.copyOf(groupByChannels);
         this.functionDefinitions = ImmutableList.copyOf(functionDefinitions);
         this.step = step;
         this.expectedGroups = expectedGroups;
-        this.memoryManager = new HashMemoryManager(operatorContext);
+        this.memoryManager = new MemoryManager(operatorContext);
 
         this.tupleInfos = toTupleInfos(groupByTupleInfos, step, functionDefinitions);
     }
@@ -245,7 +243,7 @@ public class HashAggregationOperator
     {
         private final GroupByHash groupByHash;
         private final List<Aggregator> aggregators;
-        private final HashMemoryManager memoryManager;
+        private final MemoryManager memoryManager;
 
         private GroupByHashAggregationBuilder(
                 List<AggregationFunctionDefinition> functionDefinitions,
@@ -253,10 +251,11 @@ public class HashAggregationOperator
                 int expectedGroups,
                 List<TupleInfo> groupByTupleInfos,
                 List<Integer> groupByChannels,
-                HashMemoryManager memoryManager)
+                MemoryManager memoryManager)
         {
             List<Type> groupByTypes = ImmutableList.copyOf(transform(groupByTupleInfos, new Function<TupleInfo, Type>()
             {
+                @Override
                 public Type apply(TupleInfo tupleInfo)
                 {
                     return tupleInfo.getType();
@@ -337,45 +336,9 @@ public class HashAggregationOperator
                         }
                     }
 
-                    Page page = pageBuilder.build();
-                    return page;
+                    return pageBuilder.build();
                 }
             };
-        }
-    }
-
-    public static class HashMemoryManager
-    {
-        private final OperatorContext operatorContext;
-        private long currentMemoryReservation;
-
-        public HashMemoryManager(OperatorContext operatorContext)
-        {
-            this.operatorContext = operatorContext;
-        }
-
-        public boolean canUse(long memorySize)
-        {
-            // remove the pre-allocated memory from this size
-            memorySize -= operatorContext.getOperatorPreAllocatedMemory().toBytes();
-
-            long delta = memorySize - currentMemoryReservation;
-            if (delta <= 0) {
-                return true;
-            }
-
-            if (!operatorContext.reserveMemory(delta)) {
-                return false;
-            }
-
-            // reservation worked, record the reservation
-            currentMemoryReservation = Math.max(currentMemoryReservation, memorySize);
-            return true;
-        }
-
-        public DataSize getMaxMemorySize()
-        {
-            return operatorContext.getMaxMemorySize();
         }
     }
 
