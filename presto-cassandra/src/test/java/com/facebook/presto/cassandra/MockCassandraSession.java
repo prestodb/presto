@@ -42,12 +42,12 @@ public class MockCassandraSession
     private final AtomicInteger accessCount = new AtomicInteger();
     private boolean throwException;
 
-    public MockCassandraSession(String connectorId)
+    public MockCassandraSession(String connectorId, CassandraClientConfig config)
     {
         super(connectorId,
                 null,
-                new CassandraClientConfig().getFetchSizeForPartitionKeySelect(),
-                new CassandraClientConfig().getLimitForPartitionKeySelect());
+                config.getFetchSizeForPartitionKeySelect(),
+                config.getLimitForPartitionKeySelect());
     }
 
     public void setThrowException(boolean throwException)
