@@ -53,7 +53,7 @@ public class CassandraClientModule
         binder.bind(CachingCassandraSchemaProvider.class).in(Scopes.SINGLETON);
         newExporter(binder).export(CachingCassandraSchemaProvider.class).as(generatedNameOf(CachingCassandraSchemaProvider.class, connectorId));
 
-        binder.bind(CassandraSessionFactory.class).in(Scopes.SINGLETON);
+        binder.bind(CassandraBuilderFactory.class).in(Scopes.SINGLETON);
     }
 
     @ForCassandraSchema
@@ -71,7 +71,7 @@ public class CassandraClientModule
     @Provides
     public CassandraSession createCassandraSession(CassandraConnectorId connectorId, CassandraClientConfig config)
     {
-        CassandraSessionFactory factory = new CassandraSessionFactory(connectorId, config);
+        CassandraBuilderFactory factory = new CassandraBuilderFactory(connectorId, config);
         return factory.create();
     }
 }
