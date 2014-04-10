@@ -13,15 +13,14 @@
  */
 package com.facebook.presto.operator;
 
-import com.facebook.presto.spi.block.BlockCursor;
+import com.facebook.presto.spi.type.Type;
+import com.google.common.util.concurrent.ListenableFuture;
 
-public interface JoinHash
+import java.util.List;
+
+public interface LookupSourceSupplier
 {
-    void appendTo(int position, PageBuilder pageBuilder, int outputChannelOffset);
+    List<Type> getTypes();
 
-    int getChannelCount();
-
-    int getJoinPosition(BlockCursor... cursors);
-
-    int getNextJoinPosition(int currentPosition);
+    ListenableFuture<LookupSource> getLookupSource();
 }

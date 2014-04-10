@@ -14,6 +14,7 @@
 package com.facebook.presto.operator;
 
 import com.facebook.presto.spi.block.BlockCursor;
+import com.google.common.primitives.Ints;
 import io.airlift.slice.Murmur3;
 import it.unimi.dsi.fastutil.HashCommon;
 import it.unimi.dsi.fastutil.longs.LongArrayList;
@@ -27,7 +28,7 @@ import static io.airlift.slice.SizeOf.sizeOfIntArray;
 
 // This implementation assumes arrays used in the hash are always a power of 2
 public final class InMemoryJoinHash
-        implements JoinHash
+        implements LookupSource
 {
     private final LongArrayList addresses;
     private final PagesHashStrategy pagesHashStrategy;
@@ -86,7 +87,7 @@ public final class InMemoryJoinHash
     }
 
     @Override
-    public final int getJoinPosition(BlockCursor... cursors)
+    public final long getJoinPosition(BlockCursor... cursors)
     {
         int pos = ((int) Murmur3.hash64(hashCursor(cursors))) & mask;
 
@@ -101,14 +102,14 @@ public final class InMemoryJoinHash
     }
 
     @Override
-    public final int getNextJoinPosition(int currentPosition)
+    public final long getNextJoinPosition(long currentPosition)
     {
-        return positionLinks[currentPosition];
+        return positionLinks[Ints.checkedCast(currentPosition)];
     }
 
-    public void appendTo(int position, PageBuilder pageBuilder, int outputChannelOffset)
+    public void appendTo(long position, PageBuilder pageBuilder, int outputChannelOffset)
     {
-        long pageAddress = addresses.getLong(position);
+        long pageAddress = addresses.getLong(Ints.checkedCast(position));
         int blockIndex = decodeSliceIndex(pageAddress);
         int blockPosition = decodePosition(pageAddress);
 

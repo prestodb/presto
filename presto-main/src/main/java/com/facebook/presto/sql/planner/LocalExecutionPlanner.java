@@ -26,12 +26,12 @@ import com.facebook.presto.operator.FilterFunction;
 import com.facebook.presto.operator.FilterFunctions;
 import com.facebook.presto.operator.HashAggregationOperator.HashAggregationOperatorFactory;
 import com.facebook.presto.operator.HashBuilderOperator.HashBuilderOperatorFactory;
-import com.facebook.presto.operator.HashBuilderOperator.HashSupplier;
-import com.facebook.presto.operator.LookupJoinOperators;
 import com.facebook.presto.operator.HashSemiJoinOperator.HashSemiJoinOperatorFactory;
 import com.facebook.presto.operator.InMemoryExchange;
 import com.facebook.presto.operator.InMemoryExchangeSourceOperator.InMemoryExchangeSourceOperatorFactory;
 import com.facebook.presto.operator.LimitOperator.LimitOperatorFactory;
+import com.facebook.presto.operator.LookupJoinOperators;
+import com.facebook.presto.operator.LookupSourceSupplier;
 import com.facebook.presto.operator.MarkDistinctOperator.MarkDistinctOperatorFactory;
 import com.facebook.presto.operator.MaterializeSampleOperator;
 import com.facebook.presto.operator.OperatorFactory;
@@ -811,7 +811,7 @@ public class LocalExecutionPlanner
                     buildSource.getTypes(),
                     buildChannels,
                     100_000);
-            HashSupplier hashSupplier = hashBuilderOperatorFactory.getHashSupplier();
+            LookupSourceSupplier lookupSourceSupplier = hashBuilderOperatorFactory.getLookupSourceSupplier();
             DriverFactory buildDriverFactory = new DriverFactory(
                     buildContext.isInputDriver(),
                     false,
@@ -832,23 +832,23 @@ public class LocalExecutionPlanner
                 outputMappings.put(entry.getKey(), new Input(offset + input.getChannel()));
             }
 
-            OperatorFactory operator = createJoinOperator(node.getType(), hashSupplier, probeSource.getTypes(), probeChannels, context);
+            OperatorFactory operator = createJoinOperator(node.getType(), lookupSourceSupplier, probeSource.getTypes(), probeChannels, context);
             return new PhysicalOperation(operator, outputMappings.build(), probeSource);
         }
 
         private OperatorFactory createJoinOperator(
                 JoinNode.Type type,
-                HashSupplier hashSupplier,
+                LookupSourceSupplier lookupSourceSupplier,
                 List<Type> probeTypes,
                 List<Integer> probeJoinChannels,
                 LocalExecutionPlanContext context)
         {
             switch (type) {
                 case INNER:
-                    return LookupJoinOperators.innerJoin(context.getNextOperatorId(), hashSupplier, probeTypes, probeJoinChannels);
+                    return LookupJoinOperators.innerJoin(context.getNextOperatorId(), lookupSourceSupplier, probeTypes, probeJoinChannels);
                 case LEFT:
                 case RIGHT:
-                    return LookupJoinOperators.outerJoin(context.getNextOperatorId(), hashSupplier, probeTypes, probeJoinChannels);
+                    return LookupJoinOperators.outerJoin(context.getNextOperatorId(), lookupSourceSupplier, probeTypes, probeJoinChannels);
                 default:
                     throw new UnsupportedOperationException("Unsupported join type: " + type);
             }

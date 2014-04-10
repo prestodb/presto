@@ -38,22 +38,22 @@ public class TwoChannelJoinProbe
             implements JoinProbeFactory
     {
         @Override
-        public JoinProbe createJoinProbe(JoinHash hash, Page page)
+        public JoinProbe createJoinProbe(LookupSource lookupSource, Page page)
         {
-            return new TwoChannelJoinProbe(hash, page);
+            return new TwoChannelJoinProbe(lookupSource, page);
         }
     }
 
-    private final JoinHash hash;
+    private final LookupSource lookupSource;
     private final BlockCursor cursorA;
     private final BlockCursor cursorB;
     private final BlockCursor probeCursorA;
     private final BlockCursor probeCursorB;
     private final BlockCursor[] probeCursors;
 
-    public TwoChannelJoinProbe(JoinHash hash, Page page)
+    public TwoChannelJoinProbe(LookupSource lookupSource, Page page)
     {
-        this.hash = hash;
+        this.lookupSource = lookupSource;
         this.cursorA = page.getBlock(0).cursor();
         this.cursorB = page.getBlock(1).cursor();
         this.probeCursorA = cursorA;
@@ -85,12 +85,12 @@ public class TwoChannelJoinProbe
     }
 
     @Override
-    public int getCurrentJoinPosition()
+    public long getCurrentJoinPosition()
     {
         if (currentRowContainsNull()) {
             return -1;
         }
-        return hash.getJoinPosition(probeCursors);
+        return lookupSource.getJoinPosition(probeCursors);
     }
 
     private boolean currentRowContainsNull()

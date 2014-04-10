@@ -33,19 +33,19 @@ public class SimpleJoinProbe
         }
 
         @Override
-        public JoinProbe createJoinProbe(JoinHash hash, Page page)
+        public JoinProbe createJoinProbe(LookupSource lookupSource, Page page)
         {
-            return new SimpleJoinProbe(hash, page, probeJoinChannels);
+            return new SimpleJoinProbe(lookupSource, page, probeJoinChannels);
         }
     }
 
-    private final JoinHash hash;
+    private final LookupSource lookupSource;
     private final BlockCursor[] cursors;
     private final BlockCursor[] probeCursors;
 
-    private SimpleJoinProbe(JoinHash hash, Page page, List<Integer> probeJoinChannels)
+    private SimpleJoinProbe(LookupSource lookupSource, Page page, List<Integer> probeJoinChannels)
     {
-        this.hash = hash;
+        this.lookupSource = lookupSource;
         this.cursors = new BlockCursor[page.getChannelCount()];
         this.probeCursors = new BlockCursor[probeJoinChannels.size()];
 
@@ -85,12 +85,12 @@ public class SimpleJoinProbe
     }
 
     @Override
-    public int getCurrentJoinPosition()
+    public long getCurrentJoinPosition()
     {
         if (currentRowContainsNull()) {
             return -1;
         }
-        return hash.getJoinPosition(probeCursors);
+        return lookupSource.getJoinPosition(probeCursors);
     }
 
     private boolean currentRowContainsNull()
