@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.connector.system;
 
-import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorSplitManager;
 import com.facebook.presto.spi.FixedSplitSource;
 import com.facebook.presto.spi.HostAddress;
@@ -29,22 +28,16 @@ import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.spi.TupleDomain;
 import com.google.common.base.Objects;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
-import com.google.common.collect.Maps;
 
 import javax.inject.Inject;
 
 import java.util.List;
-import java.util.Map;
-import java.util.Map.Entry;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
-import static com.google.common.base.Predicates.in;
-import static com.google.common.base.Predicates.not;
 
 public class SystemSplitManager
         implements ConnectorSplitManager
@@ -87,15 +80,8 @@ public class SystemSplitManager
         checkArgument(table instanceof SystemTableHandle, "TableHandle must be an SystemTableHandle");
         SystemTableHandle systemTableHandle = (SystemTableHandle) table;
 
-        Map<ColumnHandle, Comparable<?>> bindings = tupleDomain.extractFixedValues();
-
-        TupleDomain unusedTupleDomain = TupleDomain.none();
-        if (!tupleDomain.isNone()) {
-            unusedTupleDomain = TupleDomain.withColumnDomains(Maps.filterKeys(tupleDomain.getDomains(), not(in(bindings.keySet()))));
-        }
-
-        ImmutableList<Partition> partitions = ImmutableList.<Partition>of(new SystemPartition(systemTableHandle, bindings));
-        return new PartitionResult(partitions, unusedTupleDomain);
+        List<Partition> partitions = ImmutableList.<Partition>of(new SystemPartition(systemTableHandle));
+        return new PartitionResult(partitions, tupleDomain);
     }
 
     @Override
@@ -113,22 +99,16 @@ public class SystemSplitManager
         SystemTable systemTable = tables.get(systemPartition.getTableHandle().getSchemaTableName());
         checkArgument(systemTable != null, "Table %s does not exist", systemPartition.getTableHandle().getTableName());
 
-        ImmutableMap.Builder<String, Object> filters = ImmutableMap.builder();
-        for (Entry<ColumnHandle, Comparable<?>> entry : systemPartition.getFilters().entrySet()) {
-            SystemColumnHandle systemColumnHandle = (SystemColumnHandle) entry.getKey();
-            filters.put(systemColumnHandle.getColumnName(), entry.getValue());
-        }
-
         if (systemTable.isDistributed()) {
             ImmutableList.Builder<Split> splits = ImmutableList.builder();
             for (Node node : nodeManager.getActiveNodes()) {
-                splits.add(new SystemSplit(systemPartition.tableHandle, filters.build(), node.getHostAndPort()));
+                splits.add(new SystemSplit(systemPartition.tableHandle, node.getHostAndPort()));
             }
             return new FixedSplitSource(null, splits.build());
         }
 
         HostAddress address = nodeManager.getCurrentNode().getHostAndPort();
-        Split split = new SystemSplit(systemPartition.tableHandle, filters.build(), address);
+        Split split = new SystemSplit(systemPartition.tableHandle, address);
         return new FixedSplitSource(null, ImmutableList.of(split));
     }
 
@@ -136,12 +116,10 @@ public class SystemSplitManager
             implements Partition
     {
         private final SystemTableHandle tableHandle;
-        private final Map<ColumnHandle, Comparable<?>> filters;
 
-        public SystemPartition(SystemTableHandle tableHandle, Map<ColumnHandle, Comparable<?>> filters)
+        public SystemPartition(SystemTableHandle tableHandle)
         {
             this.tableHandle = checkNotNull(tableHandle, "tableHandle is null");
-            this.filters = ImmutableMap.copyOf(checkNotNull(filters, "filters is null"));
         }
 
         public SystemTableHandle getTableHandle()
@@ -158,12 +136,7 @@ public class SystemSplitManager
         @Override
         public TupleDomain getTupleDomain()
         {
-            return TupleDomain.withFixedValues(filters);
-        }
-
-        public Map<ColumnHandle, Comparable<?>> getFilters()
-        {
-            return filters;
+            return TupleDomain.all();
         }
 
         @Override
@@ -171,7 +144,6 @@ public class SystemSplitManager
         {
             return Objects.toStringHelper(this)
                     .add("tableHandle", tableHandle)
-                    .add("filters", filters)
                     .toString();
         }
     }
