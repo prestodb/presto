@@ -13,10 +13,6 @@
  */
 package com.facebook.presto.sql.gen;
 
-import com.facebook.presto.operator.LookupJoinOperator;
-import com.facebook.presto.operator.LookupJoinOperatorFactory;
-import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.block.BlockCursor;
 import com.facebook.presto.byteCode.Block;
 import com.facebook.presto.byteCode.ClassDefinition;
 import com.facebook.presto.byteCode.ClassInfoLoader;
@@ -29,14 +25,18 @@ import com.facebook.presto.byteCode.ParameterizedType;
 import com.facebook.presto.byteCode.SmartClassWriter;
 import com.facebook.presto.byteCode.control.IfStatement;
 import com.facebook.presto.byteCode.instruction.LabelNode;
-import com.facebook.presto.operator.HashBuilderOperator.HashSupplier;
-import com.facebook.presto.operator.JoinHash;
 import com.facebook.presto.operator.JoinProbe;
 import com.facebook.presto.operator.JoinProbeFactory;
+import com.facebook.presto.operator.LookupJoinOperator;
+import com.facebook.presto.operator.LookupJoinOperatorFactory;
+import com.facebook.presto.operator.LookupSource;
+import com.facebook.presto.operator.LookupSourceSupplier;
 import com.facebook.presto.operator.OperatorFactory;
 import com.facebook.presto.operator.Page;
 import com.facebook.presto.operator.PageBuilder;
 import com.facebook.presto.operator.aggregation.IsolatedClass;
+import com.facebook.presto.spi.block.BlockBuilder;
+import com.facebook.presto.spi.block.BlockCursor;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Objects;
@@ -101,14 +101,14 @@ public class JoinProbeCompiler
             });
 
     public OperatorFactory compileJoinOperatorFactory(int operatorId,
-            HashSupplier hashSupplier,
+            LookupSourceSupplier lookupSourceSupplier,
             List<? extends Type> probeTypes,
             List<Integer> probeJoinChannel,
             boolean enableOuterJoin)
     {
         try {
             HashJoinOperatorFactoryFactory operatorFactoryFactory = joinProbeFactories.get(new JoinOperatorCacheKey(probeTypes, probeJoinChannel, enableOuterJoin));
-            return operatorFactoryFactory.createHashJoinOperatorFactory(operatorId, hashSupplier, probeTypes, probeJoinChannel, enableOuterJoin);
+            return operatorFactoryFactory.createHashJoinOperatorFactory(operatorId, lookupSourceSupplier, probeTypes, probeJoinChannel, enableOuterJoin);
         }
         catch (ExecutionException | UncheckedExecutionException | ExecutionError e) {
             throw Throwables.propagate(e.getCause());
@@ -138,14 +138,14 @@ public class JoinProbeCompiler
                 a(PUBLIC),
                 "createJoinProbe",
                 type(JoinProbe.class),
-                arg("hash", JoinHash.class),
+                arg("lookupSource", LookupSource.class),
                 arg("page", Page.class))
                 .getBody()
                 .newObject(joinProbeClass)
                 .dup()
-                .getVariable("hash")
+                .getVariable("lookupSource")
                 .getVariable("page")
-                .invokeConstructor(joinProbeClass, JoinHash.class, Page.class)
+                .invokeConstructor(joinProbeClass, LookupSource.class, Page.class)
                 .retObject();
 
         Class<? extends JoinProbeFactory> joinProbeFactoryClass = defineClass(classDefinition, JoinProbeFactory.class, classLoader);
@@ -185,7 +185,7 @@ public class JoinProbeCompiler
                 type(JoinProbe.class));
 
         // declare fields
-        FieldDefinition hashField = classDefinition.declareField(a(PRIVATE, FINAL), "hash", JoinHash.class);
+        FieldDefinition lookupSourceField = classDefinition.declareField(a(PRIVATE, FINAL), "lookupSource", LookupSource.class);
         List<FieldDefinition> cursorFields = new ArrayList<>();
         for (int i = 0; i < channelCount; i++) {
             FieldDefinition channelField = classDefinition.declareField(a(PRIVATE, FINAL), "cursor_" + i, BlockCursor.class);
@@ -198,11 +198,11 @@ public class JoinProbeCompiler
         }
         FieldDefinition probeCursorsArrayField = classDefinition.declareField(a(PRIVATE, FINAL), "probeCursors", BlockCursor[].class);
 
-        generateConstructor(classDefinition, probeChannels, hashField, cursorFields, probeCursorFields, probeCursorsArrayField);
+        generateConstructor(classDefinition, probeChannels, lookupSourceField, cursorFields, probeCursorFields, probeCursorsArrayField);
         generateGetChannelCountMethod(classDefinition, cursorFields.size());
         generateAppendToMethod(classDefinition, cursorFields);
         generateAdvanceNextPosition(classDefinition, cursorFields);
-        generateGetCurrentJoinPosition(classDefinition, hashField, probeCursorsArrayField);
+        generateGetCurrentJoinPosition(classDefinition, lookupSourceField, probeCursorsArrayField);
         generateCurrentRowContainsNull(classDefinition, probeCursorFields);
 
         Class<? extends JoinProbe> joinProbeClass = defineClass(classDefinition, JoinProbe.class, classLoader);
@@ -211,25 +211,25 @@ public class JoinProbeCompiler
 
     private void generateConstructor(ClassDefinition classDefinition,
             List<Integer> probeChannels,
-            FieldDefinition hashField,
+            FieldDefinition lookupSourceField,
             List<FieldDefinition> cursorFields,
             List<FieldDefinition> probeChannelFields,
             FieldDefinition probeCursorsArrayField)
     {
         Block constructor = classDefinition.declareConstructor(new CompilerContext(bootstrapMethod),
                 a(PUBLIC),
-                arg("hash", JoinHash.class),
+                arg("lookupSource", LookupSource.class),
                 arg("page", Page.class))
                 .getBody()
                 .comment("super();")
                 .pushThis()
                 .invokeConstructor(Object.class);
 
-        constructor.comment("this.hash = hash;");
+        constructor.comment("this.lookupSource = lookupSource;");
         constructor
                 .pushThis()
-                .getVariable("hash")
-                .putField(hashField);
+                .getVariable("lookupSource")
+                .putField(lookupSourceField);
 
         constructor.comment("Set cursor fields");
         for (int index = 0; index < cursorFields.size(); index++) {
@@ -332,26 +332,26 @@ public class JoinProbeCompiler
                 .retBoolean();
     }
 
-    private void generateGetCurrentJoinPosition(ClassDefinition classDefinition, FieldDefinition hashField, FieldDefinition probeCursorsArrayField)
+    private void generateGetCurrentJoinPosition(ClassDefinition classDefinition, FieldDefinition lookupSourceField, FieldDefinition probeCursorsArrayField)
     {
         CompilerContext compilerContext = new CompilerContext(bootstrapMethod);
         classDefinition.declareMethod(compilerContext,
                 a(PUBLIC),
                 "getCurrentJoinPosition",
-                type(int.class))
+                type(long.class))
                 .getBody()
                 .append(new IfStatement(
                         compilerContext,
                         new Block(compilerContext).pushThis().invokeVirtual(classDefinition.getType(), "currentRowContainsNull", type(boolean.class)),
-                        new Block(compilerContext).push(-1).retInt(),
+                        new Block(compilerContext).push(-1L).retLong(),
                         null
                 ))
                 .pushThis()
-                .getField(hashField)
+                .getField(lookupSourceField)
                 .pushThis()
                 .getField(probeCursorsArrayField)
-                .invokeInterface(JoinHash.class, "getJoinPosition", int.class, BlockCursor[].class)
-                .retInt();
+                .invokeInterface(LookupSource.class, "getJoinPosition", long.class, BlockCursor[].class)
+                .retLong();
     }
 
     private void generateCurrentRowContainsNull(ClassDefinition classDefinition, List<FieldDefinition> probeCursorFields)
@@ -385,7 +385,7 @@ public class JoinProbeCompiler
         public ReflectionJoinProbeFactory(Class<? extends JoinProbe> joinProbeClass)
         {
             try {
-                constructor = joinProbeClass.getConstructor(JoinHash.class, Page.class);
+                constructor = joinProbeClass.getConstructor(LookupSource.class, Page.class);
             }
             catch (NoSuchMethodException e) {
                 throw Throwables.propagate(e);
@@ -393,10 +393,10 @@ public class JoinProbeCompiler
         }
 
         @Override
-        public JoinProbe createJoinProbe(JoinHash hash, Page page)
+        public JoinProbe createJoinProbe(LookupSource lookupSource, Page page)
         {
             try {
-                return constructor.newInstance(hash, page);
+                return constructor.newInstance(lookupSource, page);
             }
             catch (Exception e) {
                 throw Throwables.propagate(e);
@@ -513,7 +513,7 @@ public class JoinProbeCompiler
             this.joinProbeFactory = joinProbeFactory;
 
             try {
-                constructor = operatorFactoryClass.getConstructor(int.class, HashSupplier.class, List.class, boolean.class, JoinProbeFactory.class);
+                constructor = operatorFactoryClass.getConstructor(int.class, LookupSourceSupplier.class, List.class, boolean.class, JoinProbeFactory.class);
             }
             catch (NoSuchMethodException e) {
                 throw Throwables.propagate(e);
@@ -522,13 +522,13 @@ public class JoinProbeCompiler
 
         public OperatorFactory createHashJoinOperatorFactory(
                 int operatorId,
-                HashSupplier hashSupplier,
+                LookupSourceSupplier lookupSourceSupplier,
                 List<? extends Type> probeTypes,
                 List<Integer> probeJoinChannel,
                 boolean enableOuterJoin)
         {
             try {
-                return constructor.newInstance(operatorId, hashSupplier, probeTypes, enableOuterJoin, joinProbeFactory);
+                return constructor.newInstance(operatorId, lookupSourceSupplier, probeTypes, enableOuterJoin, joinProbeFactory);
             }
             catch (Exception e) {
                 throw Throwables.propagate(e);

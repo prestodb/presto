@@ -56,7 +56,7 @@ public class HashBuildAndJoinBenchmark
         // join
         OperatorFactory lineItemTableScan = createTableScanOperator(0, "lineitem", "orderkey", "quantity");
 
-        OperatorFactory joinOperator = LookupJoinOperators.innerJoin(1, hashBuilder.getHashSupplier(), lineItemTableScan.getTypes(), Ints.asList(0));
+        OperatorFactory joinOperator = LookupJoinOperators.innerJoin(1, hashBuilder.getLookupSourceSupplier(), lineItemTableScan.getTypes(), Ints.asList(0));
 
         NullOutputOperatorFactory output = new NullOutputOperatorFactory(2, joinOperator.getTypes());
 
