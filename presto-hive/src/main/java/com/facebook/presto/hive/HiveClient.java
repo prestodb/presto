@@ -37,6 +37,7 @@ import com.facebook.presto.spi.RecordSink;
 import com.facebook.presto.spi.SchemaNotFoundException;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.SchemaTablePrefix;
+import com.facebook.presto.spi.SerializableNativeValue;
 import com.facebook.presto.spi.Split;
 import com.facebook.presto.spi.SplitSource;
 import com.facebook.presto.spi.TableHandle;
@@ -661,14 +662,18 @@ public class HiveClient
             // only add to prefix if all previous keys have a value
             if (filterPrefix.size() == i && !tupleDomain.isNone()) {
                 Domain domain = tupleDomain.getDomains().get(columnHandle);
-                if (domain != null && domain.getRanges().getRangeCount() == 1) {
-                    // We intentionally ignore whether NULL is in the domain since partition keys can never be NULL
-                    Range range = Iterables.getOnlyElement(domain.getRanges());
-                    if (range.isSingleValue()) {
-                        Comparable<?> value = range.getLow().getValue();
-                        checkArgument(value instanceof Boolean || value instanceof String || value instanceof Double || value instanceof Long,
-                                "Only Boolean, String, Double and Long partition keys are supported");
-                        filterPrefix.add(value.toString());
+                if (domain != null && ((domain.getRanges().getRangeCount() == 1 && !domain.isNullAllowed()) || domain.isOnlyNull())) {
+                    if (domain.isOnlyNull()) {
+                        filterPrefix.add(HivePartitionKey.HIVE_DEFAULT_DYNAMIC_PARTITION);
+                    }
+                    else {
+                        Range range = Iterables.getOnlyElement(domain.getRanges());
+                        if (range.isSingleValue()) {
+                            Comparable<?> value = range.getLow().getValue();
+                            checkArgument(value instanceof Boolean || value instanceof String || value instanceof Double || value instanceof Long,
+                                    "Only Boolean, String, Double and Long partition keys are supported");
+                            filterPrefix.add(value.toString());
+                        }
                     }
                 }
             }
@@ -883,7 +888,7 @@ public class HiveClient
                     }
 
                     LinkedHashMap<String, String> keys = Warehouse.makeSpecFromName(partitionId);
-                    ImmutableMap.Builder<ColumnHandle, Comparable<?>> builder = ImmutableMap.builder();
+                    ImmutableMap.Builder<ColumnHandle, SerializableNativeValue> builder = ImmutableMap.builder();
                     for (Entry<String, String> entry : keys.entrySet()) {
                         ColumnHandle columnHandle = columnsByName.get(entry.getKey());
                         checkArgument(columnHandle != null, "Invalid partition key %s in partition %s", entry.getKey(), partitionId);
@@ -894,37 +899,50 @@ public class HiveClient
                         switch (hiveColumnHandle.getType()) {
                             case BOOLEAN:
                                 if (value.isEmpty()) {
-                                    builder.put(columnHandle, false);
+                                    builder.put(columnHandle, new SerializableNativeValue(Boolean.class, false));
+                                }
+                                else if (value.equals(HivePartitionKey.HIVE_DEFAULT_DYNAMIC_PARTITION)) {
+                                    builder.put(columnHandle, new SerializableNativeValue(Boolean.class, null));
                                 }
                                 else {
-                                    builder.put(columnHandle, parseBoolean(value));
+                                    builder.put(columnHandle, new SerializableNativeValue(Boolean.class, parseBoolean(value)));
                                 }
                                 break;
                             case LONG:
                                 if (value.isEmpty()) {
-                                    builder.put(columnHandle, 0L);
+                                    builder.put(columnHandle, new SerializableNativeValue(Long.class, 0L));
+                                }
+                                else if (value.equals(HivePartitionKey.HIVE_DEFAULT_DYNAMIC_PARTITION)) {
+                                    builder.put(columnHandle, new SerializableNativeValue(Long.class, null));
                                 }
                                 else if (hiveColumnHandle.getHiveType() == HiveType.TIMESTAMP) {
-                                    builder.put(columnHandle, parseHiveTimestamp(value));
+                                    builder.put(columnHandle, new SerializableNativeValue(Long.class, parseHiveTimestamp(value)));
                                 }
                                 else {
-                                    builder.put(columnHandle, parseLong(value));
+                                    builder.put(columnHandle, new SerializableNativeValue(Long.class, parseLong(value)));
                                 }
                                 break;
                             case DOUBLE:
                                 if (value.isEmpty()) {
-                                    builder.put(columnHandle, 0.0);
+                                    builder.put(columnHandle, new SerializableNativeValue(Double.class, 0.0));
+                                }
+                                else if (value.equals(HivePartitionKey.HIVE_DEFAULT_DYNAMIC_PARTITION)) {
+                                    builder.put(columnHandle, new SerializableNativeValue(Double.class, null));
                                 }
                                 else {
-                                    builder.put(columnHandle, parseDouble(value));
+                                    builder.put(columnHandle, new SerializableNativeValue(Double.class, parseDouble(value)));
                                 }
                                 break;
                             case STRING:
-                                builder.put(columnHandle, value);
+                                if (value.equals(HivePartitionKey.HIVE_DEFAULT_DYNAMIC_PARTITION)) {
+                                    builder.put(columnHandle, new SerializableNativeValue(String.class, null));
+                                }
+                                else {
+                                    builder.put(columnHandle, new SerializableNativeValue(String.class, value));
+                                }
                                 break;
                         }
                     }
-
                     return new HivePartition(tableName, partitionId, builder.build(), bucket);
                 }
                 catch (MetaException e) {
@@ -945,10 +963,15 @@ public class HiveClient
                 if (tupleDomain.isNone()) {
                     return false;
                 }
-                for (Entry<ColumnHandle, Comparable<?>> entry : partition.getKeys().entrySet()) {
+                for (Entry<ColumnHandle, SerializableNativeValue> entry : partition.getKeys().entrySet()) {
                     Domain allowedDomain = tupleDomain.getDomains().get(entry.getKey());
-                    if (allowedDomain != null && !allowedDomain.includesValue(entry.getValue())) {
-                        return false;
+                    if (allowedDomain != null) {
+                        if (entry.getValue().getValue() != null && !allowedDomain.includesValue(entry.getValue().getValue())) {
+                            return false;
+                        }
+                        if (entry.getValue().getValue() == null && !allowedDomain.isNullAllowed()) {
+                            return false;
+                        }
                     }
                 }
                 return true;

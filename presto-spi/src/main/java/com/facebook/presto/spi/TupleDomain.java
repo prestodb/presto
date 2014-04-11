@@ -16,6 +16,7 @@ package com.facebook.presto.spi;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.google.common.collect.ImmutableMap;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -84,7 +85,25 @@ public final class TupleDomain
     {
         Map<ColumnHandle, Domain> domains = new HashMap<>();
         for (Map.Entry<ColumnHandle, Comparable<?>> entry : fixedValues.entrySet()) {
-            domains.put(entry.getKey(), Domain.singleValue(entry.getValue()));
+                domains.put(entry.getKey(), Domain.singleValue(entry.getValue()));
+        }
+        return withColumnDomains(domains);
+    }
+
+    /**
+     * Convert a map of columns to values into the TupleDomain which requires
+     * those columns to be fixed to those values. Null is allowed as a fixed value.
+     */
+    public static TupleDomain withNullableFixedValues(Map<ColumnHandle, SerializableNativeValue> fixedValues)
+    {
+        Map<ColumnHandle, Domain> domains = new HashMap<>();
+        for (Map.Entry<ColumnHandle, SerializableNativeValue> entry : fixedValues.entrySet()) {
+            if (entry.getValue().getValue() != null) {
+                domains.put(entry.getKey(), Domain.singleValue(entry.getValue().getValue()));
+            }
+            else {
+                domains.put(entry.getKey(), Domain.onlyNull(entry.getValue().getType()));
+            }
         }
         return withColumnDomains(domains);
     }
@@ -197,6 +216,27 @@ public final class TupleDomain
             }
         }
         return fixedValues;
+    }
+
+    /**
+    * Extract all column constraints that require exactly one value or only null in their respective Domains.
+    */
+    public Map<ColumnHandle, SerializableNativeValue> extractFixedOrOnlyNullValues()
+    {
+        if (isNone()) {
+            return Collections.emptyMap();
+        }
+
+        ImmutableMap.Builder<ColumnHandle, SerializableNativeValue> builder = ImmutableMap.builder();
+        for (Map.Entry<ColumnHandle, Domain> entry : getDomains().entrySet()) {
+            if (entry.getValue().isSingleValue()) {
+                builder.put(entry.getKey(), new SerializableNativeValue(entry.getValue().getType(), entry.getValue().getSingleValue()));
+            }
+            else if (entry.getValue().isOnlyNull()) {
+                builder.put(entry.getKey(), new SerializableNativeValue(entry.getValue().getType(), null));
+            }
+        }
+        return builder.build();
     }
 
     /**

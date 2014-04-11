@@ -29,7 +29,7 @@ import java.util.Objects;
 
 @JsonSerialize(using = SerializableNativeValue.Serializer.class)
 @JsonDeserialize(using = SerializableNativeValue.Deserializer.class)
-public class SerializableNativeValue
+public final class SerializableNativeValue
 {
     private final Class<?> type;
     private final Comparable<?> value;
@@ -51,6 +51,28 @@ public class SerializableNativeValue
     public Comparable<?> getValue()
     {
         return value;
+    }
+
+    @Override
+    public boolean equals(Object o)
+    {
+        if (this == o) {
+            return true;
+        }
+        if (o == null || getClass() != o.getClass()) {
+            return false;
+        }
+
+        SerializableNativeValue that = (SerializableNativeValue) o;
+
+        return com.google.common.base.Objects.equal(this.type, that.type) &&
+                com.google.common.base.Objects.equal(this.value, that.value);
+    }
+
+    @Override
+    public int hashCode()
+    {
+        return com.google.common.base.Objects.hashCode(type, value);
     }
 
     public static class Serializer

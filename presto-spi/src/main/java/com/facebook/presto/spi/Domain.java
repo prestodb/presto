@@ -115,6 +115,12 @@ public final class Domain
     }
 
     @JsonIgnore
+    public boolean isOnlyNull()
+    {
+        return equals(Domain.onlyNull(getType()));
+    }
+
+    @JsonIgnore
     public Comparable<?> getSingleValue()
     {
         if (!isSingleValue()) {
