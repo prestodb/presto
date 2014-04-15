@@ -14,7 +14,6 @@
 package com.facebook.presto.sql.analyzer;
 
 import com.facebook.presto.metadata.FunctionInfo;
-import com.facebook.presto.metadata.FunctionRegistry;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.OperatorInfo;
 import com.facebook.presto.metadata.OperatorInfo.OperatorType;
@@ -79,6 +78,8 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
 
+import static com.facebook.presto.metadata.FunctionRegistry.canCoerce;
+import static com.facebook.presto.metadata.FunctionRegistry.getCommonSuperType;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.DateType.DATE;
@@ -98,7 +99,6 @@ import static com.facebook.presto.sql.analyzer.SemanticErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.TYPE_MISMATCH;
 import static com.facebook.presto.sql.tree.Extract.Field.TIMEZONE_HOUR;
 import static com.facebook.presto.sql.tree.Extract.Field.TIMEZONE_MINUTE;
-import static com.facebook.presto.type.Types.isNumeric;
 import static com.facebook.presto.util.DateTimeUtils.timeHasTimeZone;
 import static com.facebook.presto.util.DateTimeUtils.timestampHasTimeZone;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -666,16 +666,15 @@ public class ExpressionAnalyzer
             return operatorInfo.getReturnType();
         }
 
-        private Type coerceType(AnalysisContext context, Expression expression, Type expectedType, String message)
+        private void coerceType(AnalysisContext context, Expression expression, Type expectedType, String message)
         {
             Type actualType = process(expression, context);
             if (!actualType.equals(expectedType)) {
-                if (!FunctionRegistry.canCoerce(actualType, expectedType)) {
+                if (!canCoerce(actualType, expectedType)) {
                     throw new SemanticException(TYPE_MISMATCH, expression, message + " must evaluate to a %s (actual: %s)", expectedType, actualType);
                 }
                 expressionCoercions.put(expression, expectedType);
             }
-            return actualType;
         }
 
         private Type coerceToSingleType(AnalysisContext context, Node node, String message, Expression first, Expression second)
@@ -689,10 +688,10 @@ public class ExpressionAnalyzer
                 secondType = process(second, context);
             }
 
-            if (first == null) {
+            if (firstType == null) {
                 return secondType;
             }
-            if (second == null) {
+            if (secondType == null) {
                 return firstType;
             }
             if (firstType.equals(secondType)) {
@@ -700,11 +699,11 @@ public class ExpressionAnalyzer
             }
 
             // coerce types if possible
-            if (firstType.equals(NULL) || (secondType.equals(DOUBLE) && firstType.equals(BIGINT))) {
+            if (canCoerce(firstType, secondType)) {
                 expressionCoercions.put(first, secondType);
                 return secondType;
             }
-            if (secondType.equals(NULL) || (secondType.equals(BIGINT) && firstType.equals(DOUBLE))) {
+            if (canCoerce(secondType, firstType)) {
                 expressionCoercions.put(second, firstType);
                 return firstType;
             }
@@ -716,24 +715,18 @@ public class ExpressionAnalyzer
             // determine super type
             Type superType = NULL;
             for (Expression expression : expressions) {
-                Type type = process(expression, context);
-                if (superType.equals(type) || type.equals(NULL)) {
-                    continue;
+                Optional<Type> newSuperType = getCommonSuperType(superType, process(expression, context));
+                if (!newSuperType.isPresent()) {
+                    throw new SemanticException(TYPE_MISMATCH, expression, message, superType);
                 }
-
-                if (superType.equals(NULL)) {
-                    superType = type;
-                }
-                else if (isNumeric(superType) && isNumeric(type)) {
-                    superType = DOUBLE;
-                }
+                superType = newSuperType.get();
             }
 
             // verify all expressions can be coerced to the superType
             for (Expression expression : expressions) {
                 Type type = process(expression, context);
                 if (!type.equals(superType)) {
-                    if (!type.equals(NULL) && !(type.equals(BIGINT) && superType.equals(DOUBLE))) {
+                    if (!canCoerce(type, superType)) {
                         throw new SemanticException(TYPE_MISMATCH, expression, message, superType);
                     }
                     expressionCoercions.put(expression, superType);

@@ -52,6 +52,7 @@ import com.facebook.presto.type.TimestampWithTimeZoneOperators;
 import com.facebook.presto.type.VarcharOperators;
 import com.facebook.presto.util.IterableTransformer;
 import com.google.common.base.Joiner;
+import com.google.common.base.Optional;
 import com.google.common.base.Predicate;
 import com.google.common.base.Supplier;
 import com.google.common.base.Throwables;
@@ -365,6 +366,35 @@ public class FunctionRegistry
             return true;
         }
         return false;
+    }
+
+    public static Optional<Type> getCommonSuperType(Type firstType, Type secondType)
+    {
+        if (firstType.equals(NULL)) {
+            return Optional.of(secondType);
+        }
+
+        if (secondType.equals(NULL)) {
+            return Optional.of(firstType);
+        }
+
+        if (firstType.equals(secondType)) {
+            return Optional.of(firstType);
+        }
+
+        if ((firstType.equals(BIGINT) || firstType.equals(DOUBLE)) && (secondType.equals(BIGINT) || secondType.equals(DOUBLE))) {
+            return Optional.<Type>of(DOUBLE);
+        }
+
+        if ((firstType.equals(TIME) || firstType.equals(TIME_WITH_TIME_ZONE)) && (secondType.equals(TIME) || secondType.equals(TIME_WITH_TIME_ZONE))) {
+            return Optional.<Type>of(TIME_WITH_TIME_ZONE);
+        }
+
+        if ((firstType.equals(TIMESTAMP) || firstType.equals(TIMESTAMP_WITH_TIME_ZONE)) && (secondType.equals(TIMESTAMP) || secondType.equals(TIMESTAMP_WITH_TIME_ZONE))) {
+            return Optional.<Type>of(TIMESTAMP_WITH_TIME_ZONE);
+        }
+
+        return Optional.absent();
     }
 
     private static List<Type> parameterTypes(Method method)
