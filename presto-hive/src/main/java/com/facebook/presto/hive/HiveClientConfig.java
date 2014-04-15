@@ -41,13 +41,13 @@ public class HiveClientConfig
     private int maxSplitIteratorThreads = 50;
     private int minPartitionBatchSize = 10;
     private int maxPartitionBatchSize = 100;
+
     private Duration metastoreCacheTtl = new Duration(1, TimeUnit.HOURS);
     private Duration metastoreRefreshInterval = new Duration(2, TimeUnit.MINUTES);
     private int maxMetastoreRefreshThreads = 100;
     private HostAndPort metastoreSocksProxy;
     private Duration metastoreTimeout = new Duration(10, TimeUnit.SECONDS);
 
-    private Duration fileSystemCacheTtl = new Duration(1, TimeUnit.DAYS);
     private Duration dfsTimeout = new Duration(10, TimeUnit.SECONDS);
     private Duration dfsConnectTimeout = new Duration(500, TimeUnit.MILLISECONDS);
     private int dfsConnectMaxRetries = 5;
@@ -221,19 +221,6 @@ public class HiveClientConfig
     public HiveClientConfig setResourceConfigFiles(List<String> files)
     {
         this.resourceConfigFiles = (files == null) ? null : ImmutableList.copyOf(files);
-        return this;
-    }
-
-    @NotNull
-    public Duration getFileSystemCacheTtl()
-    {
-        return fileSystemCacheTtl;
-    }
-
-    @Config("hive.file-system-cache-ttl")
-    public HiveClientConfig setFileSystemCacheTtl(Duration fileSystemCacheTtl)
-    {
-        this.fileSystemCacheTtl = fileSystemCacheTtl;
         return this;
     }
 
