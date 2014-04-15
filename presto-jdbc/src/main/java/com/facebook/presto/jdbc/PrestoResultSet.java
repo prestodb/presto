@@ -60,7 +60,7 @@ import static java.lang.String.format;
 public class PrestoResultSet
         implements ResultSet
 {
-    private static final int VARIABLE_BINARY_MAX = 1024 * 1024 * 1024;
+    private static final int VARCHAR_MAX = 1024 * 1024 * 1024;
 
     private final StatementClient client;
     private final Iterator<List<Object>> results;
@@ -1622,9 +1622,9 @@ public class PrestoResultSet
             case "varchar":
                 builder.setColumnType(Types.LONGNVARCHAR);
                 builder.setSigned(true);
-                builder.setPrecision(VARIABLE_BINARY_MAX);
+                builder.setPrecision(VARCHAR_MAX);
                 builder.setScale(0);
-                builder.setColumnDisplaySize(VARIABLE_BINARY_MAX);
+                builder.setColumnDisplaySize(VARCHAR_MAX);
                 break;
             default:
                 throw new AssertionError("unimplemented type: " + type);

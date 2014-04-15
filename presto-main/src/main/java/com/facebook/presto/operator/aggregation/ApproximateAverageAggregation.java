@@ -54,7 +54,7 @@ public class ApproximateAverageAggregation
             this.inputIsLong = false;
         }
         else {
-            throw new IllegalArgumentException("Expected parameter type to be FIXED_INT_64 or DOUBLE, but was " + parameterType);
+            throw new IllegalArgumentException("Expected parameter type to be BIGINT or DOUBLE, but was " + parameterType);
         }
     }
 

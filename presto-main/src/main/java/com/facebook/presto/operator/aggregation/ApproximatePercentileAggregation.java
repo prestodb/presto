@@ -381,7 +381,7 @@ public class ApproximatePercentileAggregation
             return DOUBLE;
         }
         else {
-            throw new IllegalArgumentException("Expected parameter type to be FIXED_INT_64 or DOUBLE");
+            throw new IllegalArgumentException("Expected parameter type to be BIGINT or DOUBLE");
         }
     }
 
@@ -395,7 +395,7 @@ public class ApproximatePercentileAggregation
             value = doubleToSortableLong(values.getDouble());
         }
         else {
-            throw new IllegalArgumentException("Expected parameter type to be FIXED_INT_64 or DOUBLE");
+            throw new IllegalArgumentException("Expected parameter type to be BIGINT or DOUBLE");
         }
 
         digest.add(value, count);
@@ -418,7 +418,7 @@ public class ApproximatePercentileAggregation
                 out.append(longToDouble(value));
             }
             else {
-                throw new IllegalArgumentException("Expected parameter type to be FIXED_INT_64 or DOUBLE");
+                throw new IllegalArgumentException("Expected parameter type to be BIGINT or DOUBLE");
             }
         }
     }

@@ -52,7 +52,7 @@ public class ApproximateCountDistinctAggregation
         super(BIGINT, VARCHAR, parameterType);
 
         checkArgument(parameterType == BIGINT || parameterType == DOUBLE || parameterType == VARCHAR,
-                "Expected parameter type to be FIXED_INT_64, DOUBLE, or VARIABLE_BINARY, but was %s",
+                "Expected parameter type to be BIGINT, DOUBLE, or VARCHAR, but was %s",
                 parameterType);
 
         this.parameterType = parameterType;
@@ -302,7 +302,7 @@ public class ApproximateCountDistinctAggregation
             return Murmur3.hash64(values.getSlice());
         }
         else {
-            throw new IllegalArgumentException("Expected parameter type to be FIXED_INT_64, DOUBLE, or VARIABLE_BINARY");
+            throw new IllegalArgumentException("Expected parameter type to be BIGINT, DOUBLE, or VARCHAR");
         }
     }
 }
