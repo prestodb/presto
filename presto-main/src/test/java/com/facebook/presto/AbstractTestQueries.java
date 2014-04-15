@@ -16,6 +16,7 @@ package com.facebook.presto;
 import com.facebook.presto.metadata.FunctionInfo;
 import com.facebook.presto.metadata.FunctionRegistry;
 import com.facebook.presto.operator.aggregation.CustomSum;
+import com.facebook.presto.operator.scalar.CreateHll;
 import com.facebook.presto.operator.scalar.CustomAdd;
 import com.facebook.presto.operator.window.CustomRank;
 import com.facebook.presto.spi.type.Type;
@@ -65,6 +66,7 @@ public abstract class AbstractTestQueries
                     new CustomSum())
             .window("custom_rank", BIGINT, ImmutableList.<Type>of(), supplier(CustomRank.class))
             .scalar(CustomAdd.class)
+            .scalar(CreateHll.class)
             .getFunctions();
 
     @Test
@@ -2997,5 +2999,217 @@ public abstract class AbstractTestQueries
                 "ORDER BY orderstatus, clerk";
 
         assertEquals(computeActual(sql), computeActual(sql.replace("custom_rank", "rank")));
+    }
+
+    @Test
+    public void testApproxSetBigint()
+            throws Exception
+    {
+        MaterializedResult actual = computeActual("SELECT cardinality(approx_set(custkey)) FROM orders");
+
+        MaterializedResult expected = resultBuilder(getSession(), BIGINT)
+                .row(999)
+                .build();
+
+        assertEqualsIgnoreOrder(actual.getMaterializedRows(), expected.getMaterializedRows());
+    }
+
+    @Test
+    public void testApproxSetVarchar()
+            throws Exception
+    {
+        MaterializedResult actual = computeActual("SELECT cardinality(approx_set(CAST(custkey AS VARCHAR))) FROM orders");
+
+        MaterializedResult expected = resultBuilder(getSession(), BIGINT)
+                .row(1006)
+                .build();
+
+        assertEqualsIgnoreOrder(actual.getMaterializedRows(), expected.getMaterializedRows());
+    }
+
+    @Test
+    public void testApproxSetDouble()
+            throws Exception
+    {
+        MaterializedResult actual = computeActual("SELECT cardinality(approx_set(CAST(custkey AS DOUBLE))) FROM orders");
+
+        MaterializedResult expected = resultBuilder(getSession(), BIGINT)
+                .row(1014)
+                .build();
+
+        assertEqualsIgnoreOrder(actual.getMaterializedRows(), expected.getMaterializedRows());
+    }
+
+    @Test
+    public void testApproxSetBigintGroupBy()
+            throws Exception
+    {
+        MaterializedResult actual = computeActual("" +
+                "SELECT orderstatus, cardinality(approx_set(custkey)) " +
+                "FROM orders " +
+                "GROUP BY orderstatus");
+
+        MaterializedResult expected = resultBuilder(getSession(), actual.getTypes())
+                .row("O", 997)
+                .row("F", 995)
+                .row("P", 304)
+                .build();
+
+        assertEqualsIgnoreOrder(actual.getMaterializedRows(), expected.getMaterializedRows());
+    }
+
+    @Test
+    public void testApproxSetVarcharGroupBy()
+            throws Exception
+    {
+        MaterializedResult actual = computeActual("" +
+                "SELECT orderstatus, cardinality(approx_set(CAST(custkey AS VARCHAR))) " +
+                "FROM orders " +
+                "GROUP BY orderstatus");
+
+        MaterializedResult expected = resultBuilder(getSession(), actual.getTypes())
+                .row("O", 1004)
+                .row("F", 1002)
+                .row("P", 305)
+                .build();
+
+        assertEqualsIgnoreOrder(actual.getMaterializedRows(), expected.getMaterializedRows());
+    }
+
+    @Test
+    public void testApproxSetDoubleGroupBy()
+            throws Exception
+    {
+        MaterializedResult actual = computeActual("" +
+                "SELECT orderstatus, cardinality(approx_set(CAST(custkey AS DOUBLE))) " +
+                "FROM orders " +
+                "GROUP BY orderstatus");
+
+        MaterializedResult expected = resultBuilder(getSession(), actual.getTypes())
+                .row("O", 1002)
+                .row("F", 1000)
+                .row("P", 304)
+                .build();
+
+        assertEqualsIgnoreOrder(actual.getMaterializedRows(), expected.getMaterializedRows());
+    }
+
+    @Test
+    public void testApproxSetWithNulls()
+            throws Exception
+    {
+        MaterializedResult actual = computeActual("SELECT cardinality(approx_set(IF(orderstatus = 'O', custkey))) FROM orders");
+
+        MaterializedResult expected = resultBuilder(getSession(), actual.getTypes())
+                .row(997)
+                .build();
+
+        assertEqualsIgnoreOrder(actual.getMaterializedRows(), expected.getMaterializedRows());
+    }
+
+    @Test
+    public void testApproxSetOnlyNulls()
+            throws Exception
+    {
+        MaterializedResult actual = computeActual("SELECT cardinality(approx_set(null)) FROM orders");
+
+        MaterializedResult expected = resultBuilder(getSession(), actual.getTypes())
+                .row(new Object[] { null })
+                .build();
+
+        assertEqualsIgnoreOrder(actual.getMaterializedRows(), expected.getMaterializedRows());
+    }
+
+    @Test
+    public void testApproxSetGroupByWithNulls()
+            throws Exception
+    {
+        MaterializedResult actual = computeActual("" +
+                "SELECT orderstatus, cardinality(approx_set(IF(orderstatus != 'O', custkey))) " +
+                "FROM orders " +
+                "GROUP BY orderstatus");
+
+        MaterializedResult expected = resultBuilder(getSession(), actual.getTypes())
+                .row("O", null)
+                .row("F", 995)
+                .row("P", 304)
+                .build();
+
+        assertEqualsIgnoreOrder(actual.getMaterializedRows(), expected.getMaterializedRows());
+    }
+
+    @Test
+    public void testMergeHyperLogLog()
+            throws Exception
+    {
+        MaterializedResult actual = computeActual("SELECT cardinality(merge(create_hll(custkey))) FROM orders");
+
+        MaterializedResult expected = resultBuilder(getSession(), BIGINT)
+                .row(999)
+                .build();
+
+        assertEqualsIgnoreOrder(actual.getMaterializedRows(), expected.getMaterializedRows());
+    }
+
+    @Test
+    public void testMergeHyperLogLogGroupBy()
+            throws Exception
+    {
+        MaterializedResult actual = computeActual("" +
+                "SELECT orderstatus, cardinality(merge(create_hll(custkey))) " +
+                "FROM orders " +
+                "GROUP BY orderstatus");
+
+        MaterializedResult expected = resultBuilder(getSession(), actual.getTypes())
+                .row("O", 997)
+                .row("F", 995)
+                .row("P", 304)
+                .build();
+
+        assertEqualsIgnoreOrder(actual.getMaterializedRows(), expected.getMaterializedRows());
+    }
+
+    @Test
+    public void testMergeHyperLogLogWithNulls()
+            throws Exception
+    {
+        MaterializedResult actual = computeActual("SELECT cardinality(merge(create_hll(IF(orderstatus = 'O', custkey)))) FROM orders");
+
+        MaterializedResult expected = resultBuilder(getSession(), BIGINT)
+                .row(997)
+                .build();
+
+        assertEqualsIgnoreOrder(actual.getMaterializedRows(), expected.getMaterializedRows());
+    }
+
+    @Test
+    public void testMergeHyperLogLogGroupByWithNulls()
+            throws Exception
+    {
+        MaterializedResult actual = computeActual("" +
+                "SELECT orderstatus, cardinality(merge(create_hll(IF(orderstatus != 'O', custkey)))) " +
+                "FROM orders " +
+                "GROUP BY orderstatus");
+
+        MaterializedResult expected = resultBuilder(getSession(), actual.getTypes())
+                .row("O", null)
+                .row("F", 995)
+                .row("P", 304)
+                .build();
+
+        assertEqualsIgnoreOrder(actual.getMaterializedRows(), expected.getMaterializedRows());
+    }
+
+    @Test
+    public void testMergeHyperLogLogOnlyNulls()
+            throws Exception
+    {
+        MaterializedResult actual = computeActual("SELECT cardinality(merge(null)) FROM orders");
+
+        MaterializedResult expected = resultBuilder(getSession(), BIGINT)
+                .row(new Object[] { null })
+                .build();
+
+        assertEqualsIgnoreOrder(actual.getMaterializedRows(), expected.getMaterializedRows());
     }
 }

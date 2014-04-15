@@ -71,6 +71,7 @@ import com.facebook.presto.spi.type.BigintType;
 import com.facebook.presto.spi.type.BooleanType;
 import com.facebook.presto.spi.type.DateType;
 import com.facebook.presto.spi.type.DoubleType;
+import com.facebook.presto.spi.type.HyperLogLogType;
 import com.facebook.presto.spi.type.NullType;
 import com.facebook.presto.spi.type.TimeType;
 import com.facebook.presto.spi.type.TimeWithTimeZoneType;
@@ -110,6 +111,7 @@ import io.airlift.dbpool.MySqlDataSourceModule;
 import io.airlift.discovery.client.ServiceAnnouncement.ServiceAnnouncementBuilder;
 import io.airlift.discovery.client.ServiceDescriptor;
 import io.airlift.slice.Slice;
+import io.airlift.stats.cardinality.HyperLogLog;
 import io.airlift.units.Duration;
 import org.skife.jdbi.v2.DBI;
 import org.skife.jdbi.v2.IDBI;
@@ -304,6 +306,7 @@ public class ServerMainModule
         blockEncodingFactoryBinder.addBinding().toInstance(RunLengthBlockEncoding.FACTORY);
         blockEncodingFactoryBinder.addBinding().toInstance(DictionaryBlockEncoding.FACTORY);
         blockEncodingFactoryBinder.addBinding().toInstance(SnappyBlockEncoding.FACTORY);
+        blockEncodingFactoryBinder.addBinding().toInstance(HyperLogLogType.BLOCK_ENCODING_FACTORY);
 
         // thread visualizer
         binder.bind(ThreadResource.class).in(Scopes.SINGLETON);

@@ -22,6 +22,7 @@ import com.facebook.presto.spi.type.BigintType;
 import com.facebook.presto.spi.type.BooleanType;
 import com.facebook.presto.spi.type.DateType;
 import com.facebook.presto.spi.type.DoubleType;
+import com.facebook.presto.spi.type.HyperLogLogType;
 import com.facebook.presto.spi.type.NullType;
 import com.facebook.presto.spi.type.TimeType;
 import com.facebook.presto.spi.type.TimeWithTimeZoneType;
@@ -52,6 +53,7 @@ public final class TestingBlockEncodingManager
                 TimestampWithTimeZoneType.BLOCK_ENCODING_FACTORY,
                 RunLengthBlockEncoding.FACTORY,
                 DictionaryBlockEncoding.FACTORY,
-                SnappyBlockEncoding.FACTORY);
+                SnappyBlockEncoding.FACTORY,
+                HyperLogLogType.BLOCK_ENCODING_FACTORY);
     }
 }
