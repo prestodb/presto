@@ -29,6 +29,7 @@ import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.DateType.DATE;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.NullType.NULL;
+import static com.facebook.presto.spi.type.HyperLogLogType.HYPER_LOG_LOG;
 import static com.facebook.presto.spi.type.TimeType.TIME;
 import static com.facebook.presto.spi.type.TimeWithTimeZoneType.TIME_WITH_TIME_ZONE;
 import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
@@ -64,6 +65,7 @@ public class TypeRegistry
         addType(TIME_WITH_TIME_ZONE);
         addType(TIMESTAMP);
         addType(TIMESTAMP_WITH_TIME_ZONE);
+        addType(HYPER_LOG_LOG);
 
         for (Type type : types) {
             addType(type);
