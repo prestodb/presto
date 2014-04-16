@@ -245,7 +245,7 @@ public class TestDriver
         }
 
         try (Connection connection = createConnection()) {
-            try (ResultSet rs = connection.getMetaData().getTables("default", "information_schema", "tables", new String[] {"BASE TABLE"})) {
+            try (ResultSet rs = connection.getMetaData().getTables("default", "information_schema", "tables", new String[] {"TABLE"})) {
                 assertTableMetadata(rs);
 
                 Set<List<Object>> rows = ImmutableSet.copyOf(readRows(rs));
@@ -278,7 +278,7 @@ public class TestDriver
         }
 
         try (Connection connection = createConnection()) {
-            try (ResultSet rs = connection.getMetaData().getTables(null, null, null, new String[] {"BASE TABLE"})) {
+            try (ResultSet rs = connection.getMetaData().getTables(null, null, null, new String[] {"TABLE"})) {
                 assertTableMetadata(rs);
 
                 Set<List<Object>> rows = ImmutableSet.copyOf(readRows(rs));
@@ -311,7 +311,7 @@ public class TestDriver
         }
 
         try (Connection connection = createConnection()) {
-            try (ResultSet rs = connection.getMetaData().getTables("unknown", "information_schema", "tables", new String[] {"BASE TABLE"})) {
+            try (ResultSet rs = connection.getMetaData().getTables("unknown", "information_schema", "tables", new String[] {"TABLE"})) {
                 assertTableMetadata(rs);
 
                 Set<List<Object>> rows = ImmutableSet.copyOf(readRows(rs));
@@ -323,7 +323,7 @@ public class TestDriver
 
         // todo why does Presto require that the schema name be lower case
         try (Connection connection = createConnection()) {
-            try (ResultSet rs = connection.getMetaData().getTables("default", "unknown", "tables", new String[] {"BASE TABLE"})) {
+            try (ResultSet rs = connection.getMetaData().getTables("default", "unknown", "tables", new String[] {"TABLE"})) {
                 assertTableMetadata(rs);
 
                 Set<List<Object>> rows = ImmutableSet.copyOf(readRows(rs));
@@ -334,7 +334,7 @@ public class TestDriver
         }
 
         try (Connection connection = createConnection()) {
-            try (ResultSet rs = connection.getMetaData().getTables("default", "information_schema", "unknown", new String[] {"BASE TABLE"})) {
+            try (ResultSet rs = connection.getMetaData().getTables("default", "information_schema", "unknown", new String[] {"TABLE"})) {
                 assertTableMetadata(rs);
 
                 Set<List<Object>> rows = ImmutableSet.copyOf(readRows(rs));
@@ -356,7 +356,7 @@ public class TestDriver
         }
 
         try (Connection connection = createConnection()) {
-            try (ResultSet rs = connection.getMetaData().getTables("default", "information_schema", "tables", new String[] {"unknown", "BASE TABLE"})) {
+            try (ResultSet rs = connection.getMetaData().getTables("default", "information_schema", "tables", new String[] {"unknown", "TABLE"})) {
                 assertTableMetadata(rs);
 
                 Set<List<Object>> rows = ImmutableSet.copyOf(readRows(rs));
@@ -380,7 +380,7 @@ public class TestDriver
 
     private static List<Object> getTablesRow(String schema, String table)
     {
-        return ImmutableList.<Object>of("default", schema, table, "BASE TABLE", "", "", "", "", "", "");
+        return ImmutableList.<Object>of("default", schema, table, "TABLE", "", "", "", "", "", "");
     }
 
     private void assertTableMetadata(ResultSet rs)
@@ -428,7 +428,7 @@ public class TestDriver
             try (ResultSet tableTypes = connection.getMetaData().getTableTypes()) {
                 List<List<Object>> data = readRows(tableTypes);
                 assertEquals(data.size(), 1);
-                assertEquals(data.get(0).get(0), "BASE TABLE");
+                assertEquals(data.get(0).get(0), "TABLE");
 
                 ResultSetMetaData metadata = tableTypes.getMetaData();
                 assertEquals(metadata.getColumnCount(), 1);
