@@ -211,9 +211,14 @@ public final class SerDeUtils
         }
     }
 
-    private static long getTimestampMillis(Object object, TimestampObjectInspector objectInspector)
+    public static long getTimestampMillis(Object object, TimestampObjectInspector objectInspector)
     {
         TimestampWritable timestampWritable = objectInspector.getPrimitiveWritableObject(object);
+        return getTimestampMillis(timestampWritable);
+    }
+
+    public static long getTimestampMillis(TimestampWritable timestampWritable)
+    {
         long seconds = timestampWritable.getSeconds();
         long nanos = timestampWritable.getNanos();
         return (seconds * 1000) + (nanos / 1_000_000);

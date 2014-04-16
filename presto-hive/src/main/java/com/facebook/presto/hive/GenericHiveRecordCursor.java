@@ -18,6 +18,7 @@ import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.base.Charsets;
 import com.google.common.base.Throwables;
+import io.airlift.slice.Slice;
 import org.apache.hadoop.hive.metastore.MetaStoreUtils;
 import org.apache.hadoop.hive.metastore.api.MetaException;
 import org.apache.hadoop.hive.serde2.Deserializer;
@@ -44,6 +45,7 @@ import static com.facebook.presto.hive.NumberParser.parseLong;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
+import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
@@ -255,7 +257,7 @@ class GenericHiveRecordCursor<K, V extends Writable>
     {
         checkState(!closed, "Cursor is closed");
 
-        validateType(fieldId, BOOLEAN);
+        validateType(fieldId, boolean.class);
         if (!loaded[fieldId]) {
             parseBooleanColumn(fieldId);
         }
@@ -287,7 +289,7 @@ class GenericHiveRecordCursor<K, V extends Writable>
     {
         checkState(!closed, "Cursor is closed");
 
-        validateType(fieldId, BIGINT);
+        validateType(fieldId, long.class);
         if (!loaded[fieldId]) {
             parseLongColumn(fieldId);
         }
@@ -341,7 +343,7 @@ class GenericHiveRecordCursor<K, V extends Writable>
     {
         checkState(!closed, "Cursor is closed");
 
-        validateType(fieldId, DOUBLE);
+        validateType(fieldId, double.class);
         if (!loaded[fieldId]) {
             parseDoubleColumn(fieldId);
         }
@@ -373,7 +375,7 @@ class GenericHiveRecordCursor<K, V extends Writable>
     {
         checkState(!closed, "Cursor is closed");
 
-        validateType(fieldId, VARCHAR);
+        validateType(fieldId, Slice.class);
         if (!loaded[fieldId]) {
             parseStringColumn(fieldId);
         }
@@ -439,14 +441,17 @@ class GenericHiveRecordCursor<K, V extends Writable>
         else if (VARCHAR.equals(type)) {
             parseStringColumn(column);
         }
+        else if (TIMESTAMP.equals(type)) {
+            parseLongColumn(column);
+        }
         else {
             throw new UnsupportedOperationException("Unsupported column type: " + type);
         }
     }
 
-    private void validateType(int fieldId, Type type)
+    private void validateType(int fieldId, Class<?> type)
     {
-        if (!types[fieldId].equals(type)) {
+        if (!types[fieldId].getJavaType().equals(type)) {
             // we don't use Preconditions.checkArgument because it requires boxing fieldId, which affects inner loop performance
             throw new IllegalArgumentException(String.format("Expected field to be %s, actual %s (field %s)", type, types[fieldId], fieldId));
         }

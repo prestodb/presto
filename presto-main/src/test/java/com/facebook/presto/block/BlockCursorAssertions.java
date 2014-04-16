@@ -67,7 +67,6 @@ public final class BlockCursorAssertions
         Type type = cursor.getType();
         if (type == BOOLEAN) {
             assertEquals(cursor.getBoolean(), value);
-            assertEquals(cursor.getSlice().getByte(0) != 0, value);
             try {
                 cursor.getLong();
                 fail("Expected IllegalStateException or UnsupportedOperationException");
@@ -83,7 +82,6 @@ public final class BlockCursorAssertions
         }
         else if (type == BIGINT) {
             assertEquals(cursor.getLong(), value);
-            assertEquals(cursor.getSlice().getLong(0), value);
             try {
                 cursor.getBoolean();
                 fail("Expected IllegalStateException or UnsupportedOperationException");
@@ -100,7 +98,6 @@ public final class BlockCursorAssertions
         }
         else if (type == DOUBLE) {
             assertEquals(cursor.getDouble(), value);
-            assertEquals(cursor.getSlice().getDouble(0), value);
             try {
                 cursor.getBoolean();
                 fail("Expected IllegalStateException or UnsupportedOperationException");

@@ -595,6 +595,9 @@ class ColumnarBinaryHiveRecordCursor<K>
         else if (VARCHAR.equals(type)) {
             parseStringColumn(column);
         }
+        else if (TIMESTAMP.equals(type)) {
+            parseLongColumn(column);
+        }
         else {
             throw new UnsupportedOperationException("Unsupported column type: " + type);
         }
