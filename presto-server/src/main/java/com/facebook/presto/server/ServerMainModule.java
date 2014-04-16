@@ -93,6 +93,7 @@ import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.Serialization.ExpressionDeserializer;
 import com.facebook.presto.sql.tree.Serialization.ExpressionSerializer;
 import com.facebook.presto.sql.tree.Serialization.FunctionCallDeserializer;
+import com.facebook.presto.type.ColorType;
 import com.facebook.presto.type.TypeDeserializer;
 import com.facebook.presto.type.TypeRegistry;
 import com.facebook.presto.util.Threads;
@@ -306,6 +307,7 @@ public class ServerMainModule
         blockEncodingFactoryBinder.addBinding().toInstance(DictionaryBlockEncoding.FACTORY);
         blockEncodingFactoryBinder.addBinding().toInstance(SnappyBlockEncoding.FACTORY);
         blockEncodingFactoryBinder.addBinding().toInstance(HyperLogLogType.BLOCK_ENCODING_FACTORY);
+        blockEncodingFactoryBinder.addBinding().toInstance(ColorType.BLOCK_ENCODING_FACTORY);
 
         // thread visualizer
         binder.bind(ThreadResource.class).in(Scopes.SINGLETON);

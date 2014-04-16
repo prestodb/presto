@@ -13,6 +13,8 @@
  */
 package com.facebook.presto.operator.scalar;
 
+import com.facebook.presto.type.ColorType;
+import com.facebook.presto.type.SqlType;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Charsets;
 import com.google.common.base.Preconditions;
@@ -33,33 +35,52 @@ public final class ColorFunctions
     private static final Slice RENDERED_TRUE = render(Slices.copiedBuffer("\u2713", Charsets.UTF_8), color(Slices.copiedBuffer("green", Charsets.UTF_8)));
     private static final Slice RENDERED_FALSE = render(Slices.copiedBuffer("\u2717", Charsets.UTF_8), color(Slices.copiedBuffer("red", Charsets.UTF_8)));
 
-    private enum SystemColor
+    public enum SystemColor
     {
-        BLACK(0),
-        RED(1),
-        GREEN(2),
-        YELLOW(3),
-        BLUE(4),
-        MAGENTA(5),
-        CYAN(6),
-        WHITE(7);
+        BLACK(0, "black"),
+        RED(1, "red"),
+        GREEN(2, "green"),
+        YELLOW(3, "yellow"),
+        BLUE(4, "blue"),
+        MAGENTA(5, "magenta"),
+        CYAN(6, "cyan"),
+        WHITE(7, "white");
 
         private final int index;
+        private final String name;
 
-        SystemColor(int index)
+        SystemColor(int index, String name)
         {
             this.index = index;
+            this.name = name;
         }
 
         private int getIndex()
         {
             return index;
         }
+
+        public String getName()
+        {
+            return name;
+        }
+
+        public static SystemColor valueOf(int index)
+        {
+            for (SystemColor color : values()) {
+                if (index == color.getIndex()) {
+                    return color;
+                }
+            }
+
+            throw new IllegalArgumentException(String.format("invalid index: %s", index));
+        }
     }
 
     private ColorFunctions() {}
 
     @ScalarFunction
+    @SqlType(ColorType.class)
     public static long color(Slice color)
     {
         int rgb = parseRgb(color);
@@ -80,6 +101,7 @@ public final class ColorFunctions
     }
 
     @ScalarFunction
+    @SqlType(ColorType.class)
     public static long rgb(long red, long green, long blue)
     {
         checkArgument(red >= 0 && red <= 255, "red must be between 0 and 255");
@@ -96,7 +118,8 @@ public final class ColorFunctions
      * Color must be a valid rgb value of the form #rgb
      */
     @ScalarFunction
-    public static long color(double value, double low, double high, Slice lowColor, Slice highColor)
+    @SqlType(ColorType.class)
+    public static long color(double value, double low, double high, @SqlType(ColorType.class) long lowColor, @SqlType(ColorType.class) long highColor)
     {
         return color((value - low) * 1.0 / (high - low), lowColor, highColor);
     }
@@ -108,22 +131,20 @@ public final class ColorFunctions
      * Color must be a valid rgb value of the form #rgb
      */
     @ScalarFunction
-    public static long color(double fraction, Slice lowColor, Slice highColor)
+    @SqlType(ColorType.class)
+    public static long color(double fraction, @SqlType(ColorType.class) long lowColor, @SqlType(ColorType.class) long highColor)
     {
-        int lowRgb = parseRgb(lowColor);
-        int highRgb = parseRgb(highColor);
-
-        Preconditions.checkArgument(lowRgb != -1, "lowColor not a valid RGB color: %s", lowColor.toString(Charsets.UTF_8));
-        Preconditions.checkArgument(highRgb != -1, "highColor not a valid RGB color: %s", lowColor.toString(Charsets.UTF_8));
+        Preconditions.checkArgument(lowColor >= 0, "lowColor not a valid RGB color");
+        Preconditions.checkArgument(highColor >= 0, "highColor not a valid RGB color");
 
         fraction = Math.min(1, fraction);
         fraction = Math.max(0, fraction);
 
-        return interpolate((float) fraction, lowRgb, highRgb);
+        return interpolate((float) fraction, lowColor, highColor);
     }
 
     @ScalarFunction
-    public static Slice render(Slice value, long color)
+    public static Slice render(Slice value, @SqlType(ColorType.class) long color)
     {
         StringBuilder builder = new StringBuilder(value.length());
 
@@ -136,13 +157,13 @@ public final class ColorFunctions
     }
 
     @ScalarFunction
-    public static Slice render(long value, long color)
+    public static Slice render(long value, @SqlType(ColorType.class) long color)
     {
         return render(Slices.copiedBuffer(Long.toString(value), Charsets.UTF_8), color);
     }
 
     @ScalarFunction
-    public static Slice render(double value, long color)
+    public static Slice render(double value, @SqlType(ColorType.class) long color)
     {
         return render(Slices.copiedBuffer(Double.toString(value), Charsets.UTF_8), color);
     }
@@ -160,7 +181,7 @@ public final class ColorFunctions
     }
 
     @ScalarFunction
-    public static Slice bar(double percent, long width, long lowColor, long highColor)
+    public static Slice bar(double percent, long width, @SqlType(ColorType.class) long lowColor, @SqlType(ColorType.class) long highColor)
     {
         long count = (int) (percent * width);
         count = Math.min(width, count);
@@ -185,6 +206,13 @@ public final class ColorFunctions
         }
 
         return Slices.copiedBuffer(builder.toString(), Charsets.UTF_8);
+    }
+
+    @ScalarFunction("__to_color__")
+    @SqlType(ColorType.class)
+    public static long toColor(long color)
+    {
+        return color;
     }
 
     private static int interpolate(float fraction, long lowRgb, long highRgb)

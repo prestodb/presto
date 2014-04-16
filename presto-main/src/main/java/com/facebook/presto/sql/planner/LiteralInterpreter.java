@@ -42,6 +42,7 @@ import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.sql.tree.StringLiteral;
 import com.facebook.presto.sql.tree.TimeLiteral;
 import com.facebook.presto.sql.tree.TimestampLiteral;
+import com.facebook.presto.type.ColorType;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
@@ -160,6 +161,10 @@ public final class LiteralInterpreter
 
         if (type.equals(IntervalYearMonthType.INTERVAL_YEAR_MONTH)) {
             return new FunctionCall(new QualifiedName("__to_interval_year_month__"), ImmutableList.<Expression>of(new LongLiteral(object.toString())));
+        }
+
+        if (type.equals(ColorType.COLOR)) {
+            return new FunctionCall(new QualifiedName("__to_color__"), ImmutableList.<Expression>of(new LongLiteral(object.toString())));
         }
 
         throw new UnsupportedOperationException("not yet implemented: " + object.getClass().getName());
