@@ -18,6 +18,7 @@ import com.facebook.presto.hive.util.SerDeUtils;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.base.Charsets;
 import com.google.common.base.Throwables;
+import io.airlift.slice.Slice;
 import org.apache.hadoop.hive.metastore.api.MetaException;
 import org.apache.hadoop.hive.serde2.SerDeException;
 import org.apache.hadoop.hive.serde2.columnar.BytesRefArrayWritable;
@@ -255,7 +256,7 @@ class ColumnarTextHiveRecordCursor<K>
     {
         checkState(!closed, "Cursor is closed");
 
-        validateType(fieldId, BOOLEAN);
+        validateType(fieldId, boolean.class);
         if (!loaded[fieldId]) {
             parseBooleanColumn(fieldId);
         }
@@ -378,7 +379,7 @@ class ColumnarTextHiveRecordCursor<K>
     {
         checkState(!closed, "Cursor is closed");
 
-        validateType(fieldId, DOUBLE);
+        validateType(fieldId, double.class);
         if (!loaded[fieldId]) {
             parseDoubleColumn(fieldId);
         }
@@ -433,7 +434,7 @@ class ColumnarTextHiveRecordCursor<K>
     {
         checkState(!closed, "Cursor is closed");
 
-        validateType(fieldId, VARCHAR);
+        validateType(fieldId, Slice.class);
         if (!loaded[fieldId]) {
             parseStringColumn(fieldId);
         }
@@ -525,14 +526,17 @@ class ColumnarTextHiveRecordCursor<K>
         else if (type.equals(VARCHAR)) {
             parseStringColumn(column);
         }
+        else if (type.equals(TIMESTAMP)) {
+            parseLongColumn(column);
+        }
         else {
             throw new UnsupportedOperationException("Unsupported column type: " + type);
         }
     }
 
-    private void validateType(int fieldId, Type type)
+    private void validateType(int fieldId, Class<?> type)
     {
-        if (!types[fieldId].equals(type)) {
+        if (!types[fieldId].getJavaType().equals(type)) {
             // we don't use Preconditions.checkArgument because it requires boxing fieldId, which affects inner loop performance
             throw new IllegalArgumentException(String.format("Expected field to be %s, actual %s (field %s)", type, types[fieldId], fieldId));
         }
