@@ -21,11 +21,11 @@ import org.testng.annotations.Test;
 public class TestHiveClient
         extends AbstractTestHiveClient
 {
-    @Parameters({"hive.hadoop2.metastoreHost", "hive.hadoop2.metastorePort", "hive.hadoop2.databaseName"})
+    @Parameters({"hive.hadoop2.metastoreHost", "hive.hadoop2.metastorePort", "hive.hadoop2.databaseName", "hive.hadoop2.timeZone"})
     @BeforeMethod
     @Override
-    public void setup(String host, int port, String databaseName)
+    public void setup(String host, int port, String databaseName, String timeZone)
     {
-        super.setup(host, port, databaseName);
+        super.setup(host, port, databaseName, timeZone);
     }
 }

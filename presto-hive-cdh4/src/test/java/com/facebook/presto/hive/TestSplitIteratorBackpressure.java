@@ -21,11 +21,11 @@ import org.testng.annotations.Test;
 public class TestSplitIteratorBackpressure
         extends AbstractTestSplitIteratorBackpressure
 {
-    @Parameters({"hive.cdh4.metastoreHost", "hive.cdh4.metastorePort", "hive.cdh4.databaseName"})
+    @Parameters({"hive.cdh4.metastoreHost", "hive.cdh4.metastorePort", "hive.cdh4.databaseName", "hive.cdh4.timeZone"})
     @BeforeMethod
     @Override
-    protected void setup(String host, int port, String databaseName)
+    protected void setup(String host, int port, String databaseName, String timeZone)
     {
-        super.setup(host, port, databaseName);
+        super.setup(host, port, databaseName, timeZone);
     }
 }

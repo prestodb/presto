@@ -35,6 +35,7 @@ import org.apache.hadoop.mapred.InputFormat;
 import org.apache.hadoop.mapred.JobConf;
 import org.apache.hadoop.mapred.RecordReader;
 import org.apache.hadoop.mapred.Reporter;
+import org.joda.time.DateTimeZone;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -71,13 +72,15 @@ public class HiveRecordSet
     private final Configuration configuration;
     private final Path wrappedPath;
     private final List<HiveRecordCursorProvider> cursorProviders;
+    private final DateTimeZone timeZone;
 
-    public HiveRecordSet(HdfsEnvironment hdfsEnvironment, HiveSplit split, List<HiveColumnHandle> columns, List<HiveRecordCursorProvider> cursorProviders)
+    public HiveRecordSet(HdfsEnvironment hdfsEnvironment, HiveSplit split, List<HiveColumnHandle> columns, List<HiveRecordCursorProvider> cursorProviders, DateTimeZone timeZone)
     {
         this.split = checkNotNull(split, "split is null");
         this.columns = ImmutableList.copyOf(checkNotNull(columns, "columns is null"));
         this.columnTypes = ImmutableList.copyOf(Iterables.transform(columns, nativeTypeGetter()));
         this.cursorProviders = ImmutableList.copyOf(checkNotNull(cursorProviders, "cursor providers is null"));
+        this.timeZone = checkNotNull(timeZone, "timeZone is null");
 
         // determine which hive columns we will read
         List<HiveColumnHandle> readColumns = ImmutableList.copyOf(filter(columns, not(isPartitionKeyPredicate())));
@@ -112,7 +115,7 @@ public class HiveRecordSet
         RecordReader<?, ?> recordReader = createRecordReader(split, configuration, wrappedPath);
 
         for (HiveRecordCursorProvider provider : cursorProviders) {
-            Optional<HiveRecordCursor> cursor = provider.createHiveRecordCursor(split, recordReader, columns);
+            Optional<HiveRecordCursor> cursor = provider.createHiveRecordCursor(split, recordReader, columns, timeZone);
             if (cursor.isPresent()) {
                 return cursor.get();
             }

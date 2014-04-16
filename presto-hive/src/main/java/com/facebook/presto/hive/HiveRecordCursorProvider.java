@@ -15,10 +15,15 @@ package com.facebook.presto.hive;
 
 import com.google.common.base.Optional;
 import org.apache.hadoop.mapred.RecordReader;
+import org.joda.time.DateTimeZone;
 
 import java.util.List;
 
 public interface HiveRecordCursorProvider
 {
-    Optional<HiveRecordCursor> createHiveRecordCursor(HiveSplit split, RecordReader<?, ?> recordReader, List<HiveColumnHandle> columns);
+    Optional<HiveRecordCursor> createHiveRecordCursor(
+            HiveSplit split,
+            RecordReader<?, ?> recordReader,
+            List<HiveColumnHandle> columns,
+            DateTimeZone timeZone);
 }
