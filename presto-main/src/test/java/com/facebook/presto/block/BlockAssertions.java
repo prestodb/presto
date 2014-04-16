@@ -13,17 +13,19 @@
  */
 package com.facebook.presto.block;
 
-import com.facebook.presto.tuple.Tuple;
-import com.facebook.presto.tuple.TupleInfo;
-import com.facebook.presto.tuple.TupleInfo.Type;
+import com.facebook.presto.spi.Session;
+import com.facebook.presto.spi.block.Block;
+import com.facebook.presto.spi.block.BlockBuilder;
+import com.facebook.presto.spi.block.BlockBuilderStatus;
+import com.facebook.presto.spi.block.BlockCursor;
+import com.facebook.presto.spi.block.RandomAccessBlock;
+import com.facebook.presto.spi.type.Type;
 import com.google.common.base.Function;
 import com.google.common.collect.ContiguousSet;
 import com.google.common.collect.DiscreteDomain;
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Range;
 import io.airlift.slice.Slice;
-import org.testng.Assert;
 
 import javax.annotation.Nullable;
 
@@ -32,27 +34,36 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Locale;
 
 import static com.facebook.presto.block.BlockIterables.createBlockIterable;
+import static com.facebook.presto.spi.type.BigintType.BIGINT;
+import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
+import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
+import static com.facebook.presto.spi.type.TimeZoneKey.UTC_KEY;
+import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.google.common.base.Charsets.UTF_8;
 import static com.google.common.base.Preconditions.checkNotNull;
-import static io.airlift.testing.Assertions.assertEqualsIgnoreOrder;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 
 public final class BlockAssertions
 {
-    private BlockAssertions() {}
+    public static final Session SESSION = new Session("user", "source", "catalog", "schema", UTC_KEY, Locale.ENGLISH, "address", "agent");
+
+    private BlockAssertions()
+    {
+    }
 
     public static Object getOnlyValue(Block block)
     {
         assertEquals(block.getPositionCount(), 1, "Block positions");
 
         BlockCursor cursor = block.cursor();
-        Assert.assertTrue(cursor.advanceNextPosition());
-        Object value = cursor.getTuple().getObjectValue();
-        Assert.assertFalse(cursor.advanceNextPosition());
+        assertTrue(cursor.advanceNextPosition());
+        Object value = cursor.getObjectValue(SESSION);
+        assertFalse(cursor.advanceNextPosition());
 
         return value;
     }
@@ -74,7 +85,7 @@ public final class BlockAssertions
         for (Block block : blocks) {
             BlockCursor cursor = block.cursor();
             while (cursor.advanceNextPosition()) {
-                values.add(cursor.getTuple().getObjectValue());
+                values.add(cursor.getObjectValue(SESSION));
             }
         }
         return Collections.unmodifiableList(values);
@@ -90,44 +101,25 @@ public final class BlockAssertions
     {
         List<Object> values = new ArrayList<>();
         while (cursor.advanceNextPosition()) {
-            values.add(cursor.getTuple().getObjectValue());
+            values.add(cursor.getObjectValue(SESSION));
         }
         return Collections.unmodifiableList(values);
     }
 
     public static void assertBlockEquals(Block actual, Block expected)
     {
-        Assert.assertEquals(actual.getTupleInfo(), expected.getTupleInfo());
+        assertEquals(actual.getType(), expected.getType());
         assertCursorsEquals(actual.cursor(), expected.cursor());
     }
 
     public static void assertCursorsEquals(BlockCursor actualCursor, BlockCursor expectedCursor)
     {
-        Assert.assertEquals(actualCursor.getTupleInfo(), expectedCursor.getTupleInfo());
+        assertEquals(actualCursor.getType(), expectedCursor.getType());
         while (advanceAllCursorsToNextPosition(actualCursor, expectedCursor)) {
-            assertEquals(actualCursor.getTuple(), expectedCursor.getTuple());
+            assertEquals(actualCursor.getObjectValue(SESSION), expectedCursor.getObjectValue(SESSION));
         }
         assertTrue(actualCursor.isFinished());
         assertTrue(expectedCursor.isFinished());
-    }
-
-    public static void assertBlockEqualsIgnoreOrder(Block actual, Block expected)
-    {
-        Assert.assertEquals(actual.getTupleInfo(), expected.getTupleInfo());
-
-        List<Tuple> actualTuples = toTuplesList(actual);
-        List<Tuple> expectedTuples = toTuplesList(expected);
-        assertEqualsIgnoreOrder(actualTuples, expectedTuples);
-    }
-
-    public static List<Tuple> toTuplesList(Block block)
-    {
-        ImmutableList.Builder<Tuple> tuples = ImmutableList.builder();
-        BlockCursor actualCursor = block.cursor();
-        while (actualCursor.advanceNextPosition()) {
-            tuples.add(actualCursor.getTuple());
-        }
-        return tuples.build();
     }
 
     public static boolean advanceAllCursorsToNextPosition(BlockCursor... cursors)
@@ -198,7 +190,7 @@ public final class BlockAssertions
 
     public static Block createStringsBlock(Iterable<String> values)
     {
-        BlockBuilder builder = new BlockBuilder(TupleInfo.SINGLE_VARBINARY);
+        BlockBuilder builder = VARCHAR.createBlockBuilder(new BlockBuilderStatus());
 
         for (String value : values) {
             if (value == null) {
@@ -214,12 +206,12 @@ public final class BlockAssertions
 
     public static BlockIterable createStringsBlockIterable(@Nullable String... values)
     {
-        return BlockIterables.createBlockIterable(createStringsBlock(values));
+        return createBlockIterable(createStringsBlock(values));
     }
 
     public static Block createStringSequenceBlock(int start, int end)
     {
-        BlockBuilder builder = new BlockBuilder(TupleInfo.SINGLE_VARBINARY);
+        BlockBuilder builder = VARCHAR.createBlockBuilder(new BlockBuilderStatus());
 
         for (int i = start; i < end; i++) {
             builder.append(String.valueOf(i));
@@ -242,7 +234,7 @@ public final class BlockAssertions
 
     public static Block createBooleansBlock(Iterable<Boolean> values)
     {
-        BlockBuilder builder = new BlockBuilder(TupleInfo.SINGLE_BOOLEAN);
+        BlockBuilder builder = BOOLEAN.createBlockBuilder(new BlockBuilderStatus());
 
         for (Boolean value : values) {
             if (value == null) {
@@ -257,15 +249,15 @@ public final class BlockAssertions
     }
 
     // This method makes it easy to create blocks without having to add an L to every value
-    public static Block createLongsBlock(int... values)
+    public static RandomAccessBlock createLongsBlock(int... values)
     {
-        BlockBuilder builder = new BlockBuilder(TupleInfo.SINGLE_LONG);
+        BlockBuilder builder = BIGINT.createBlockBuilder(new BlockBuilderStatus());
 
         for (int value : values) {
             builder.append((long) value);
         }
 
-        return builder.build();
+        return builder.build().toRandomAccessBlock();
     }
 
     public static Block createLongsBlock(Long... values)
@@ -277,7 +269,7 @@ public final class BlockAssertions
 
     public static Block createLongsBlock(Iterable<Long> values)
     {
-        BlockBuilder builder = new BlockBuilder(TupleInfo.SINGLE_LONG);
+        BlockBuilder builder = BIGINT.createBlockBuilder(new BlockBuilderStatus());
 
         for (Long value : values) {
             if (value == null) {
@@ -293,17 +285,17 @@ public final class BlockAssertions
 
     public static BlockIterable createLongsBlockIterable(int... values)
     {
-        return BlockIterables.createBlockIterable(createLongsBlock(values));
+        return createBlockIterable(createLongsBlock(values));
     }
 
     public static BlockIterable createLongsBlockIterable(@Nullable Long... values)
     {
-        return BlockIterables.createBlockIterable(createLongsBlock(values));
+        return createBlockIterable(createLongsBlock(values));
     }
 
     public static Block createLongSequenceBlock(int start, int end)
     {
-        BlockBuilder builder = new BlockBuilder(TupleInfo.SINGLE_LONG);
+        BlockBuilder builder = BIGINT.createBlockBuilder(new BlockBuilderStatus());
 
         for (int i = start; i < end; i++) {
             builder.append(i);
@@ -314,7 +306,7 @@ public final class BlockAssertions
 
     public static Block createBooleanSequenceBlock(int start, int end)
     {
-        BlockBuilder builder = new BlockBuilder(TupleInfo.SINGLE_BOOLEAN);
+        BlockBuilder builder = BOOLEAN.createBlockBuilder(new BlockBuilderStatus());
 
         for (int i = start; i < end; i++) {
             builder.append(i % 2 == 0);
@@ -332,7 +324,7 @@ public final class BlockAssertions
 
     public static Block createDoublesBlock(Iterable<Double> values)
     {
-        BlockBuilder builder = new BlockBuilder(TupleInfo.SINGLE_DOUBLE);
+        BlockBuilder builder = DOUBLE.createBlockBuilder(new BlockBuilderStatus());
 
         for (Double value : values) {
             if (value == null) {
@@ -353,7 +345,7 @@ public final class BlockAssertions
 
     public static Block createDoubleSequenceBlock(int start, int end)
     {
-        BlockBuilder builder = new BlockBuilder(TupleInfo.SINGLE_DOUBLE);
+        BlockBuilder builder = DOUBLE.createBlockBuilder(new BlockBuilderStatus());
 
         for (int i = start; i < end; i++) {
             builder.append((double) i);
@@ -364,7 +356,7 @@ public final class BlockAssertions
 
     public static BlockIterableBuilder blockIterableBuilder(Type type)
     {
-        return new BlockIterableBuilder(new TupleInfo(type));
+        return new BlockIterableBuilder(type);
     }
 
     public static class BlockIterableBuilder
@@ -372,15 +364,9 @@ public final class BlockAssertions
         private final List<Block> blocks = new ArrayList<>();
         private BlockBuilder blockBuilder;
 
-        private BlockIterableBuilder(TupleInfo tupleInfo)
+        private BlockIterableBuilder(Type type)
         {
-            blockBuilder = new BlockBuilder(tupleInfo);
-        }
-
-        public BlockIterableBuilder append(Tuple tuple)
-        {
-            blockBuilder.append(tuple);
-            return this;
+            blockBuilder = type.createBlockBuilder(new BlockBuilderStatus());
         }
 
         public BlockIterableBuilder append(Slice value)
@@ -424,7 +410,7 @@ public final class BlockAssertions
             if (!blockBuilder.isEmpty()) {
                 Block block = blockBuilder.build();
                 blocks.add(block);
-                blockBuilder = new BlockBuilder(block.getTupleInfo());
+                blockBuilder = block.getType().createBlockBuilder(new BlockBuilderStatus());
             }
             return this;
         }

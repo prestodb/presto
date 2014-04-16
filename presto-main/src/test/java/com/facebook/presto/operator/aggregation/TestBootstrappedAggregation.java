@@ -14,18 +14,19 @@
 package com.facebook.presto.operator.aggregation;
 
 import com.facebook.presto.operator.PageBuilder;
-import com.facebook.presto.tuple.TupleInfo;
+import com.facebook.presto.spi.block.BlockEncodingSerde;
 import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
 import org.apache.commons.math3.distribution.BinomialDistribution;
 import org.testng.annotations.Test;
 
-import java.util.List;
 import java.util.Random;
 
 import static com.facebook.presto.operator.aggregation.AggregationTestUtils.approximateAggregationWithinErrorBound;
 import static com.facebook.presto.operator.aggregation.AggregationTestUtils.assertApproximateAggregation;
 import static com.facebook.presto.operator.aggregation.LongSumAggregation.LONG_SUM;
+import static com.facebook.presto.serde.TestingBlockEncodingManager.createTestingBlockEncodingManager;
+import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static org.testng.Assert.assertTrue;
 
 public class TestBootstrappedAggregation
@@ -35,8 +36,7 @@ public class TestBootstrappedAggregation
             throws Exception
     {
         int sum = 1_000;
-        List<TupleInfo> tupleInfos = ImmutableList.of(TupleInfo.SINGLE_LONG, TupleInfo.SINGLE_LONG);
-        PageBuilder builder = new PageBuilder(tupleInfos);
+        PageBuilder builder = new PageBuilder(ImmutableList.of(BIGINT, BIGINT));
         Random rand = new Random(0);
         for (int i = 0; i < sum; i++) {
             if (rand.nextDouble() < 0.5) {
@@ -45,7 +45,7 @@ public class TestBootstrappedAggregation
             }
         }
 
-        AggregationFunction function = new DeterministicBootstrappedAggregation(LONG_SUM);
+        AggregationFunction function = new DeterministicBootstrappedAggregation(createTestingBlockEncodingManager(), LONG_SUM);
 
         assertApproximateAggregation(function, 1, 0.99, (double) sum, builder.build());
     }
@@ -61,8 +61,7 @@ public class TestBootstrappedAggregation
         Random rand = new Random(0);
         for (int i = 0; i < trials; i++) {
             int sum = 1_000;
-            List<TupleInfo> tupleInfos = ImmutableList.of(TupleInfo.SINGLE_LONG, TupleInfo.SINGLE_LONG);
-            PageBuilder builder = new PageBuilder(tupleInfos);
+            PageBuilder builder = new PageBuilder(ImmutableList.of(BIGINT, BIGINT));
             for (int j = 0; j < sum; j++) {
                 if (rand.nextDouble() < 0.5) {
                     builder.getBlockBuilder(0).append(1);
@@ -70,7 +69,7 @@ public class TestBootstrappedAggregation
                 }
             }
 
-            AggregationFunction function = new DeterministicBootstrappedAggregation(LONG_SUM);
+            AggregationFunction function = new DeterministicBootstrappedAggregation(createTestingBlockEncodingManager(), LONG_SUM);
 
             successes += approximateAggregationWithinErrorBound(function, 1, 0.5, (double) sum, builder.build()) ? 1 : 0;
         }
@@ -82,9 +81,9 @@ public class TestBootstrappedAggregation
     private static class DeterministicBootstrappedAggregation
             extends BootstrappedAggregation
     {
-        public DeterministicBootstrappedAggregation(AggregationFunction function)
+        public DeterministicBootstrappedAggregation(BlockEncodingSerde blockEncodingManager, AggregationFunction function)
         {
-            super(function);
+            super(blockEncodingManager, function);
         }
 
         @Override

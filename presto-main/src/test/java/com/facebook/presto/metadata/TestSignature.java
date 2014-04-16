@@ -13,21 +13,33 @@
  */
 package com.facebook.presto.metadata;
 
-import com.facebook.presto.sql.analyzer.Type;
+import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.type.TypeDeserializer;
+import com.facebook.presto.type.TypeRegistry;
+import com.fasterxml.jackson.databind.JsonDeserializer;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import io.airlift.json.JsonCodec;
+import io.airlift.json.JsonCodecFactory;
+import io.airlift.json.ObjectMapperProvider;
 import org.testng.annotations.Test;
 
+import static com.facebook.presto.spi.type.BigintType.BIGINT;
+import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
+import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
+import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static org.testng.Assert.assertEquals;
 
 public class TestSignature
 {
-    private final JsonCodec<Signature> codec = JsonCodec.jsonCodec(Signature.class);
-
     @Test
     public void testRoundTrip()
     {
-        Signature expected = new Signature("function", Type.BIGINT, ImmutableList.of(Type.BOOLEAN, Type.DOUBLE, Type.VARCHAR), false);
+        ObjectMapperProvider objectMapperProvider = new ObjectMapperProvider();
+        objectMapperProvider.setJsonDeserializers(ImmutableMap.<Class<?>, JsonDeserializer<?>>of(Type.class, new TypeDeserializer(new TypeRegistry())));
+        JsonCodec<Signature> codec = new JsonCodecFactory(objectMapperProvider, true).jsonCodec(Signature.class);
+
+        Signature expected = new Signature("function", BIGINT, ImmutableList.of(BOOLEAN, DOUBLE, VARCHAR), false);
 
         String json = codec.toJson(expected);
         Signature actual = codec.fromJson(json);

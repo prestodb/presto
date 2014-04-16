@@ -13,16 +13,15 @@
  */
 package com.facebook.presto.operator.aggregation;
 
-import com.facebook.presto.block.Block;
-import com.facebook.presto.block.BlockBuilder;
-import com.facebook.presto.block.BlockCursor;
+import com.facebook.presto.spi.block.Block;
+import com.facebook.presto.spi.block.BlockBuilder;
+import com.facebook.presto.spi.block.BlockCursor;
 import com.facebook.presto.operator.GroupByIdBlock;
 import com.facebook.presto.util.array.BooleanBigArray;
 import com.facebook.presto.util.array.DoubleBigArray;
 import com.google.common.base.Optional;
 
-import static com.facebook.presto.tuple.TupleInfo.SINGLE_DOUBLE;
-import static com.facebook.presto.tuple.TupleInfo.Type.DOUBLE;
+import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 
@@ -33,7 +32,7 @@ public class DoubleSumAggregation
 
     public DoubleSumAggregation()
     {
-        super(SINGLE_DOUBLE, SINGLE_DOUBLE, DOUBLE);
+        super(DOUBLE, DOUBLE, DOUBLE);
     }
 
     @Override
@@ -51,7 +50,7 @@ public class DoubleSumAggregation
 
         public DoubleSumGroupedAccumulator(int valueChannel, Optional<Integer> maskChannel, Optional<Integer> sampleWeightChannel)
         {
-            super(valueChannel, SINGLE_DOUBLE, SINGLE_DOUBLE, maskChannel, sampleWeightChannel);
+            super(valueChannel, DOUBLE, DOUBLE, maskChannel, sampleWeightChannel);
             this.notNull = new BooleanBigArray();
             this.sums = new DoubleBigArray();
         }
@@ -124,7 +123,7 @@ public class DoubleSumAggregation
 
         public DoubleSumAccumulator(int valueChannel, Optional<Integer> maskChannel, Optional<Integer> sampleWeightChannel)
         {
-            super(valueChannel, SINGLE_DOUBLE, SINGLE_DOUBLE, maskChannel, sampleWeightChannel);
+            super(valueChannel, DOUBLE, DOUBLE, maskChannel, sampleWeightChannel);
         }
 
         @Override

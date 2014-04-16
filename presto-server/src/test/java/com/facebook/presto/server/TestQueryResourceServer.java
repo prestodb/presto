@@ -54,6 +54,7 @@ import org.testng.annotations.Test;
 import java.net.URI;
 import java.util.List;
 
+import static com.facebook.presto.serde.TestingBlockEncodingManager.createTestingBlockEncodingManager;
 import static com.google.common.base.Charsets.UTF_8;
 import static io.airlift.http.client.FullJsonResponseHandler.createFullJsonResponseHandler;
 import static io.airlift.http.client.HttpUriBuilder.uriBuilderFrom;
@@ -140,7 +141,7 @@ public class TestQueryResourceServer
         long sequenceId = 0;
         PagesResponse response = client.execute(
                 prepareGet().setUri(uriBuilderFrom(outputLocation).appendPath(String.valueOf(sequenceId)).build()).build(),
-                new PageResponseHandler());
+                new PageResponseHandler(createTestingBlockEncodingManager()));
         List<Page> pages = response.getPages();
         assertEquals(countPositions(pages), 220);
         assertQueryStatus(location, QueryState.RUNNING);
@@ -148,14 +149,14 @@ public class TestQueryResourceServer
         sequenceId += pages.size();
         response = client.execute(
                 prepareGet().setUri(uriBuilderFrom(outputLocation).appendPath(String.valueOf(sequenceId)).build()).build(),
-                new PageResponseHandler());
+                new PageResponseHandler(createTestingBlockEncodingManager()));
         pages = response.getPages();
         assertEquals(countPositions(pages), 44 + 48);
 
         sequenceId += pages.size();
         response = client.execute(
                 prepareGet().setUri(uriBuilderFrom(outputLocation).appendPath(String.valueOf(sequenceId)).build()).build(),
-                new PageResponseHandler());
+                new PageResponseHandler(createTestingBlockEncodingManager()));
         pages = response.getPages();
         assertEquals(countPositions(pages), 0);
 

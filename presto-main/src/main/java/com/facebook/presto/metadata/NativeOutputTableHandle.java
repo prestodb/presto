@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.metadata;
 
-import com.facebook.presto.spi.ColumnType;
 import com.facebook.presto.spi.OutputTableHandle;
+import com.facebook.presto.spi.type.Type;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
@@ -33,7 +33,7 @@ public class NativeOutputTableHandle
     private final String schemaName;
     private final String tableName;
     private final List<NativeColumnHandle> columnHandles;
-    private final List<ColumnType> columnTypes;
+    private final List<Type> columnTypes;
     @Nullable
     private final NativeColumnHandle sampleWeightColumnHandle;
 
@@ -42,7 +42,7 @@ public class NativeOutputTableHandle
             @JsonProperty("schemaName") String schemaName,
             @JsonProperty("tableName") String tableName,
             @JsonProperty("columnHandles") List<NativeColumnHandle> columnHandles,
-            @JsonProperty("columnTypes") List<ColumnType> columnTypes,
+            @JsonProperty("columnTypes") List<Type> columnTypes,
             @JsonProperty("sampleWeightColumnHandle") NativeColumnHandle sampleWeightColumnHandle)
     {
         this.schemaName = checkSchemaName(schemaName);
@@ -71,7 +71,7 @@ public class NativeOutputTableHandle
     }
 
     @JsonProperty
-    public List<ColumnType> getColumnTypes()
+    public List<Type> getColumnTypes()
     {
         return columnTypes;
     }

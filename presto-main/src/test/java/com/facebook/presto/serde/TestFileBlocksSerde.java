@@ -13,9 +13,9 @@
  */
 package com.facebook.presto.serde;
 
+import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.block.BlockAssertions;
-import com.facebook.presto.block.BlockBuilder;
-import com.facebook.presto.block.uncompressed.UncompressedBlock;
+import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.google.common.collect.ImmutableList;
 import com.google.common.io.OutputSupplier;
 import io.airlift.slice.DynamicSliceOutput;
@@ -25,8 +25,8 @@ import org.testng.annotations.Test;
 import java.util.List;
 
 import static com.facebook.presto.serde.BlocksFileReader.readBlocks;
-import static com.facebook.presto.serde.BlocksFileWriter.writeBlocks;
-import static com.facebook.presto.tuple.TupleInfo.SINGLE_VARBINARY;
+import static com.facebook.presto.serde.TestingBlockEncodingManager.createTestingBlockEncodingManager;
+import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static org.testng.Assert.assertEquals;
 
 public class TestFileBlocksSerde
@@ -45,7 +45,7 @@ public class TestFileBlocksSerde
             "charlie",
             "dave");
 
-    private final UncompressedBlock expectedBlock = new BlockBuilder(SINGLE_VARBINARY)
+    private final Block expectedBlock = VARCHAR.createBlockBuilder(new BlockBuilderStatus())
             .append("alice")
             .append("bob")
             .append("charlie")
@@ -55,12 +55,11 @@ public class TestFileBlocksSerde
     @Test
     public void testRoundTrip()
     {
-        testRoundTrip(BlocksFileEncoding.DIC_RAW);
         for (BlocksFileEncoding encoding : BlocksFileEncoding.values()) {
             try {
                 testRoundTrip(encoding);
             }
-            catch (Exception e) {
+            catch (Throwable e) {
                 throw new RuntimeException("Round trip failed for encoding: " + encoding, e);
             }
         }
@@ -69,9 +68,17 @@ public class TestFileBlocksSerde
     public void testRoundTrip(BlocksFileEncoding encoding)
     {
         DynamicSliceOutputSupplier sliceOutput = new DynamicSliceOutputSupplier(1024);
-        writeBlocks(encoding, sliceOutput, expectedBlock, expectedBlock, expectedBlock);
+
+        // write 3 copies the expected block
+        BlocksFileWriter fileWriter = new BlocksFileWriter(createTestingBlockEncodingManager(), encoding, sliceOutput);
+        fileWriter.append(expectedBlock);
+        fileWriter.append(expectedBlock);
+        fileWriter.append(expectedBlock);
+        fileWriter.close();
+
+        // read the block
         Slice slice = sliceOutput.getLastSlice();
-        BlocksFileReader actualBlocks = readBlocks(slice);
+        BlocksFileReader actualBlocks = readBlocks(createTestingBlockEncodingManager(), slice);
 
         List<Object> actualValues = BlockAssertions.toValues(actualBlocks);
 

@@ -18,9 +18,11 @@ import com.facebook.presto.execution.TaskId;
 import com.facebook.presto.operator.WindowOperator.WindowOperatorFactory;
 import com.facebook.presto.operator.window.RowNumberFunction;
 import com.facebook.presto.operator.window.WindowFunction;
-import com.facebook.presto.sql.analyzer.Session;
+import com.facebook.presto.spi.Session;
+import com.facebook.presto.spi.block.SortOrder;
 import com.facebook.presto.util.MaterializedResult;
 import com.google.common.collect.ImmutableList;
+import com.google.common.primitives.Ints;
 import io.airlift.units.DataSize;
 import io.airlift.units.DataSize.Unit;
 import org.testng.annotations.AfterMethod;
@@ -28,19 +30,17 @@ import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
 import java.util.List;
+import java.util.Locale;
 import java.util.concurrent.ExecutorService;
 
 import static com.facebook.presto.operator.OperatorAssertion.assertOperatorEquals;
 import static com.facebook.presto.operator.OperatorAssertion.toPages;
 import static com.facebook.presto.operator.RowPagesBuilder.rowPagesBuilder;
-import static com.facebook.presto.tuple.TupleInfo.SINGLE_BOOLEAN;
-import static com.facebook.presto.tuple.TupleInfo.SINGLE_DOUBLE;
-import static com.facebook.presto.tuple.TupleInfo.SINGLE_LONG;
-import static com.facebook.presto.tuple.TupleInfo.SINGLE_VARBINARY;
-import static com.facebook.presto.tuple.TupleInfo.Type.BOOLEAN;
-import static com.facebook.presto.tuple.TupleInfo.Type.DOUBLE;
-import static com.facebook.presto.tuple.TupleInfo.Type.FIXED_INT_64;
-import static com.facebook.presto.tuple.TupleInfo.Type.VARIABLE_BINARY;
+import static com.facebook.presto.spi.type.BigintType.BIGINT;
+import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
+import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
+import static com.facebook.presto.spi.type.TimeZoneKey.UTC_KEY;
+import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.util.MaterializedResult.resultBuilder;
 import static com.facebook.presto.util.Threads.daemonThreadsNamed;
 import static java.util.concurrent.Executors.newCachedThreadPool;
@@ -57,7 +57,7 @@ public class TestWindowOperator
     public void setUp()
     {
         executor = newCachedThreadPool(daemonThreadsNamed("test"));
-        Session session = new Session("user", "source", "catalog", "schema", "address", "agent");
+        Session session = new Session("user", "source", "catalog", "schema", UTC_KEY, Locale.ENGLISH, "address", "agent");
         driverContext = new TaskContext(new TaskId("query", "stage", "task"), executor, session)
                 .addPipelineContext(true, true)
                 .addDriverContext();
@@ -73,7 +73,7 @@ public class TestWindowOperator
     public void testRowNumber()
             throws Exception
     {
-        List<Page> input = rowPagesBuilder(SINGLE_LONG, SINGLE_DOUBLE)
+        List<Page> input = rowPagesBuilder(BIGINT, DOUBLE)
                 .row(2, 0.3)
                 .row(4, 0.2)
                 .row(6, 0.1)
@@ -84,17 +84,17 @@ public class TestWindowOperator
 
         WindowOperatorFactory operatorFactory = new WindowOperatorFactory(
                 0,
-                ImmutableList.of(SINGLE_LONG, SINGLE_DOUBLE),
-                ints(1, 0),
+                ImmutableList.of(BIGINT, DOUBLE),
+                Ints.asList(1, 0),
                 ROW_NUMBER,
-                ints(),
-                ints(0),
-                sortOrder(SortOrder.ASC_NULLS_LAST),
+                Ints.asList(),
+                Ints.asList(0),
+                ImmutableList.copyOf(new SortOrder[] {SortOrder.ASC_NULLS_LAST}),
                 10);
 
         Operator operator = operatorFactory.createOperator(driverContext);
 
-        MaterializedResult expected = resultBuilder(DOUBLE, FIXED_INT_64, FIXED_INT_64)
+        MaterializedResult expected = resultBuilder(driverContext.getSession(), DOUBLE, BIGINT, BIGINT)
                 .row(-0.1, -1, 1)
                 .row(0.3, 2, 2)
                 .row(0.2, 4, 3)
@@ -109,7 +109,7 @@ public class TestWindowOperator
     public void testRowNumberPartition()
             throws Exception
     {
-        List<Page> input = rowPagesBuilder(SINGLE_VARBINARY, SINGLE_LONG, SINGLE_DOUBLE, SINGLE_BOOLEAN)
+        List<Page> input = rowPagesBuilder(VARCHAR, BIGINT, DOUBLE, BOOLEAN)
                 .row("b", -1, -0.1, true)
                 .row("a", 2, 0.3, false)
                 .row("a", 4, 0.2, true)
@@ -120,17 +120,17 @@ public class TestWindowOperator
 
         WindowOperatorFactory operatorFactory = new WindowOperatorFactory(
                 0,
-                ImmutableList.of(SINGLE_VARBINARY, SINGLE_LONG, SINGLE_DOUBLE, SINGLE_BOOLEAN),
-                ints(0, 1, 2, 3),
+                ImmutableList.of(VARCHAR, BIGINT, DOUBLE, BOOLEAN),
+                Ints.asList(0, 1, 2, 3),
                 ROW_NUMBER,
-                ints(0),
-                ints(1),
-                sortOrder(SortOrder.ASC_NULLS_LAST),
+                Ints.asList(0),
+                Ints.asList(1),
+                ImmutableList.copyOf(new SortOrder[] {SortOrder.ASC_NULLS_LAST}),
                 10);
 
         Operator operator = operatorFactory.createOperator(driverContext);
 
-        MaterializedResult expected = resultBuilder(VARIABLE_BINARY, FIXED_INT_64, DOUBLE, BOOLEAN, FIXED_INT_64)
+        MaterializedResult expected = resultBuilder(driverContext.getSession(), VARCHAR, BIGINT, DOUBLE, BOOLEAN, BIGINT)
                 .row("a", 2, 0.3, false, 1)
                 .row("a", 4, 0.2, true, 2)
                 .row("a", 6, 0.1, true, 3)
@@ -145,7 +145,7 @@ public class TestWindowOperator
     public void testRowNumberArbitrary()
             throws Exception
     {
-        List<Page> input = rowPagesBuilder(SINGLE_LONG)
+        List<Page> input = rowPagesBuilder(BIGINT)
                 .row(1)
                 .row(3)
                 .row(5)
@@ -159,16 +159,16 @@ public class TestWindowOperator
 
         WindowOperatorFactory operatorFactory = new WindowOperatorFactory(
                 0,
-                ImmutableList.of(SINGLE_LONG),
-                ints(0),
+                ImmutableList.of(BIGINT),
+                Ints.asList(0),
                 ROW_NUMBER,
-                ints(),
-                ints(),
-                sortOrder(),
+                Ints.asList(),
+                Ints.asList(),
+                ImmutableList.copyOf(new SortOrder[] {}),
                 10);
         Operator operator = operatorFactory.createOperator(driverContext);
 
-        MaterializedResult expected = resultBuilder(FIXED_INT_64, FIXED_INT_64)
+        MaterializedResult expected = resultBuilder(driverContext.getSession(), BIGINT, BIGINT)
                 .row(1, 1)
                 .row(3, 2)
                 .row(5, 3)
@@ -186,7 +186,7 @@ public class TestWindowOperator
     public void testMemoryLimit()
             throws Exception
     {
-        List<Page> input = rowPagesBuilder(SINGLE_LONG, SINGLE_DOUBLE)
+        List<Page> input = rowPagesBuilder(BIGINT, DOUBLE)
                 .row(1, 0.1)
                 .row(2, 0.2)
                 .pageBreak()
@@ -194,33 +194,23 @@ public class TestWindowOperator
                 .row(4, 0.4)
                 .build();
 
-        Session session = new Session("user", "source", "catalog", "schema", "address", "agent");
+        Session session = new Session("user", "source", "catalog", "schema", UTC_KEY, Locale.ENGLISH, "address", "agent");
         DriverContext driverContext = new TaskContext(new TaskId("query", "stage", "task"), executor, session, new DataSize(10, Unit.BYTE))
                 .addPipelineContext(true, true)
                 .addDriverContext();
 
         WindowOperatorFactory operatorFactory = new WindowOperatorFactory(
                 0,
-                ImmutableList.of(SINGLE_LONG, SINGLE_DOUBLE),
-                ints(1),
+                ImmutableList.of(BIGINT, DOUBLE),
+                Ints.asList(1),
                 ROW_NUMBER,
-                ints(),
-                ints(0),
-                sortOrder(SortOrder.ASC_NULLS_LAST),
+                Ints.asList(),
+                Ints.asList(0),
+                ImmutableList.copyOf(new SortOrder[] {SortOrder.ASC_NULLS_LAST}),
                 10);
 
         Operator operator = operatorFactory.createOperator(driverContext);
 
         toPages(operator, input);
-    }
-
-    private static int[] ints(int... array)
-    {
-        return array;
-    }
-
-    private static SortOrder[] sortOrder(SortOrder... array)
-    {
-        return array;
     }
 }

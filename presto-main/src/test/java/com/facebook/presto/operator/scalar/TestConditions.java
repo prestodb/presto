@@ -14,11 +14,8 @@
 package com.facebook.presto.operator.scalar;
 
 import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.sql.analyzer.SemanticException;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
-
-import static org.testng.Assert.fail;
 
 public class TestConditions
 {
@@ -149,21 +146,22 @@ public class TestConditions
                 "end",
                 33L);
 
-        // todo coercion to double
-        try {
-            selectSingleValue("case " +
-                    "when false then 1.0 " +
-                    "when true then 33 " +
-                    "end");
-            fail("Expected SemanticException");
-        }
-        catch (ClassCastException | SemanticException expected) {
-        }
+        assertFunction("case " +
+                "when false then 1.0 " +
+                "when true then 33 " +
+                "end",
+                33.0);
     }
 
     @Test
     public void testSimpleCase()
     {
+        assertFunction("case true " +
+                "when true then cast(null as varchar) " +
+                "else 'foo' " +
+                "end",
+                null);
+
         assertFunction("case true " +
                 "when true then 33 " +
                 "end",
@@ -206,16 +204,11 @@ public class TestConditions
                 "end",
                 33);
 
-        // todo coercion to double
-        try {
-            selectSingleValue("case true " +
-                    "when false then 1.0 " +
-                    "when true then 33 " +
-                    "end");
-            fail("Expected SemanticException");
-        }
-        catch (ClassCastException | SemanticException expected) {
-        }
+        assertFunction("case true " +
+                "when false then 1.0 " +
+                "when true then 33 " +
+                "end",
+                33.0);
     }
 
     private void assertFunction(String projection, Object expected)

@@ -14,7 +14,7 @@
 package com.facebook.presto.operator;
 
 import com.facebook.presto.execution.TaskId;
-import com.facebook.presto.sql.analyzer.Session;
+import com.facebook.presto.spi.Session;
 import com.google.common.base.Function;
 import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.ImmutableList;
@@ -83,6 +83,11 @@ public class PipelineContext
         this.outputPipeline = outputPipeline;
         this.taskContext = checkNotNull(taskContext, "taskContext is null");
         this.executor = checkNotNull(executor, "executor is null");
+    }
+
+    public TaskContext getTaskContext()
+    {
+        return taskContext;
     }
 
     public TaskId getTaskId()

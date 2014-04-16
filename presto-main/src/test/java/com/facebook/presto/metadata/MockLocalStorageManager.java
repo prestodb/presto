@@ -24,6 +24,8 @@ import java.io.IOException;
 import java.util.List;
 import java.util.UUID;
 
+import static com.facebook.presto.serde.TestingBlockEncodingManager.createTestingBlockEncodingManager;
+
 public class MockLocalStorageManager
         implements LocalStorageManager
 {
@@ -80,7 +82,7 @@ public class MockLocalStorageManager
     public ColumnFileHandle createStagingFileHandles(UUID shardUuid, List<? extends ColumnHandle> columnHandles)
             throws IOException
     {
-        Builder builder = ColumnFileHandle.builder(shardUuid);
+        Builder builder = ColumnFileHandle.builder(shardUuid, createTestingBlockEncodingManager());
         for (ColumnHandle handle : columnHandles) {
             File tmpfile = File.createTempFile("mock-storage", "mock", storageFolder);
             tmpfile.deleteOnExit();

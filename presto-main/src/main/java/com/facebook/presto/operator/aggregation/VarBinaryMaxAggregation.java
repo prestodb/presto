@@ -13,16 +13,15 @@
  */
 package com.facebook.presto.operator.aggregation;
 
-import com.facebook.presto.block.Block;
-import com.facebook.presto.block.BlockBuilder;
-import com.facebook.presto.block.BlockCursor;
+import com.facebook.presto.spi.block.Block;
+import com.facebook.presto.spi.block.BlockBuilder;
+import com.facebook.presto.spi.block.BlockCursor;
 import com.facebook.presto.operator.GroupByIdBlock;
 import com.facebook.presto.util.array.ObjectBigArray;
 import com.google.common.base.Optional;
 import io.airlift.slice.Slice;
 
-import static com.facebook.presto.tuple.TupleInfo.SINGLE_VARBINARY;
-import static com.facebook.presto.tuple.TupleInfo.Type.VARIABLE_BINARY;
+import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 
@@ -33,7 +32,7 @@ public class VarBinaryMaxAggregation
 
     public VarBinaryMaxAggregation()
     {
-        super(SINGLE_VARBINARY, SINGLE_VARBINARY, VARIABLE_BINARY);
+        super(VARCHAR, VARCHAR, VARCHAR);
     }
 
     @Override
@@ -52,7 +51,7 @@ public class VarBinaryMaxAggregation
 
         public VarBinaryMaxGroupedAccumulator(int valueChannel)
         {
-            super(valueChannel, SINGLE_VARBINARY, SINGLE_VARBINARY, Optional.<Integer>absent(), Optional.<Integer>absent());
+            super(valueChannel, VARCHAR, VARCHAR, Optional.<Integer>absent(), Optional.<Integer>absent());
 
             this.maxValues = new ObjectBigArray<>();
         }
@@ -121,7 +120,7 @@ public class VarBinaryMaxAggregation
 
         public VarBinaryMaxAccumulator(int valueChannel)
         {
-            super(valueChannel, SINGLE_VARBINARY, SINGLE_VARBINARY, Optional.<Integer>absent(), Optional.<Integer>absent());
+            super(valueChannel, VARCHAR, VARCHAR, Optional.<Integer>absent(), Optional.<Integer>absent());
         }
 
         @Override

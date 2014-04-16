@@ -13,12 +13,11 @@
  */
 package com.facebook.presto.sql.planner;
 
-import com.facebook.presto.sql.analyzer.Type;
 import com.facebook.presto.sql.planner.plan.PlanFragmentId;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.facebook.presto.sql.planner.plan.SinkNode;
-import com.facebook.presto.tuple.TupleInfo;
+import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.util.IterableTransformer;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
@@ -60,7 +59,7 @@ public class PlanFragment
     private final Map<Symbol, Type> symbols;
     private final PlanDistribution distribution;
     private final PlanNodeId partitionedSource;
-    private final List<TupleInfo> tupleInfos;
+    private final List<Type> types;
     private final List<PlanNode> sources;
     private final Set<PlanNodeId> sourceIds;
     private final OutputPartitioning outputPartitioning;
@@ -83,18 +82,9 @@ public class PlanFragment
         this.partitionedSource = partitionedSource;
         this.partitionBy = ImmutableList.copyOf(checkNotNull(partitionBy, "partitionBy is null"));
 
-        tupleInfos = IterableTransformer.on(root.getOutputSymbols())
+        types = ImmutableList.copyOf(IterableTransformer.on(root.getOutputSymbols())
                 .transform(Functions.forMap(symbols))
-                .transform(Type.toRaw())
-                .transform(new Function<TupleInfo.Type, TupleInfo>()
-                {
-                    @Override
-                    public TupleInfo apply(TupleInfo.Type input)
-                    {
-                        return new TupleInfo(input);
-                    }
-                })
-                .list();
+                .list());
 
         ImmutableList.Builder<PlanNode> sources = ImmutableList.builder();
         findSources(root, sources, partitionedSource);
@@ -169,9 +159,9 @@ public class PlanFragment
         }).list();
     }
 
-    public List<TupleInfo> getTupleInfos()
+    public List<Type> getTypes()
     {
-        return tupleInfos;
+        return types;
     }
 
     public List<PlanNode> getSources()

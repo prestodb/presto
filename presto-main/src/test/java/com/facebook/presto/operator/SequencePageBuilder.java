@@ -13,16 +13,16 @@
  */
 package com.facebook.presto.operator;
 
-import com.facebook.presto.block.Block;
+import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.block.BlockAssertions;
-import com.facebook.presto.tuple.TupleInfo;
+import com.facebook.presto.spi.type.Type;
 
 import java.util.List;
 
-import static com.facebook.presto.tuple.TupleInfo.SINGLE_BOOLEAN;
-import static com.facebook.presto.tuple.TupleInfo.SINGLE_DOUBLE;
-import static com.facebook.presto.tuple.TupleInfo.SINGLE_LONG;
-import static com.facebook.presto.tuple.TupleInfo.SINGLE_VARBINARY;
+import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
+import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
+import static com.facebook.presto.spi.type.BigintType.BIGINT;
+import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 
 public final class SequencePageBuilder
 {
@@ -30,27 +30,27 @@ public final class SequencePageBuilder
     {
     }
 
-    public static Page createSequencePage(List<TupleInfo> tupleInfos1, int length, int... initialValues)
+    public static Page createSequencePage(List<? extends Type> types, int length, int... initialValues)
     {
         Block[] blocks = new Block[initialValues.length];
         for (int i = 0; i < blocks.length; i++) {
-            TupleInfo tupleInfo = tupleInfos1.get(i);
+            Type type = types.get(i);
             int initialValue = initialValues[i];
 
-            if (tupleInfo.equals(SINGLE_LONG)) {
+            if (type.equals(BIGINT)) {
                 blocks[i] = BlockAssertions.createLongSequenceBlock(initialValue, initialValue + length);
             }
-            else if (tupleInfo.equals(SINGLE_DOUBLE)) {
+            else if (type.equals(DOUBLE)) {
                 blocks[i] = BlockAssertions.createDoubleSequenceBlock(initialValue, initialValue + length);
             }
-            else if (tupleInfo.equals(SINGLE_VARBINARY)) {
+            else if (type.equals(VARCHAR)) {
                 blocks[i] = BlockAssertions.createStringSequenceBlock(initialValue, initialValue + length);
             }
-            else if (tupleInfo.equals(SINGLE_BOOLEAN)) {
+            else if (type.equals(BOOLEAN)) {
                 blocks[i] = BlockAssertions.createBooleanSequenceBlock(initialValue, initialValue + length);
             }
             else {
-                throw new IllegalStateException("Unsupported tuple info " + tupleInfo);
+                throw new IllegalStateException("Unsupported type " + type);
             }
         }
 

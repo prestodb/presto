@@ -17,16 +17,17 @@ import com.facebook.presto.operator.Operator;
 import com.facebook.presto.operator.OperatorContext;
 import com.facebook.presto.operator.RecordProjectOperator;
 import com.facebook.presto.spi.ColumnHandle;
-import com.facebook.presto.spi.ColumnType;
 import com.facebook.presto.spi.InMemoryRecordSet;
 import com.facebook.presto.spi.RecordSet;
 import com.facebook.presto.spi.Split;
+import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.split.ConnectorDataStreamProvider;
 import com.facebook.presto.util.IterableTransformer;
 import com.google.common.base.Function;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.node.NodeInfo;
+import io.airlift.slice.Slice;
 
 import javax.inject.Inject;
 import javax.management.Attribute;
@@ -79,13 +80,13 @@ public class JmxDataStreamProvider
         checkNotNull(columns, "columns is null");
         checkArgument(!columns.isEmpty(), "must provide at least one column");
 
-        ImmutableMap.Builder<String, ColumnType> builder = ImmutableMap.builder();
+        ImmutableMap.Builder<String, Type> builder = ImmutableMap.builder();
         for (ColumnHandle column : columns) {
             checkArgument(column instanceof JmxColumnHandle, "column must be of type %s, not %s", JmxColumnHandle.class.getName(), column.getClass().getName());
             JmxColumnHandle jmxColumnHandle = (JmxColumnHandle) column;
             builder.put(jmxColumnHandle.getColumnName(), jmxColumnHandle.getColumnType());
         }
-        ImmutableMap<String, ColumnType> columnTypes = builder.build();
+        ImmutableMap<String, Type> columnTypes = builder.build();
 
         List<List<Object>> rows;
         try {
@@ -94,7 +95,7 @@ public class JmxDataStreamProvider
             // NOTE: data must be produced in the order of the columns parameter.  This code relies on the
             // fact that columnTypes is an ImmutableMap which is an order preserving LinkedHashMap under
             // the covers.
-            for (Entry<String, ColumnType> entry : columnTypes.entrySet()) {
+            for (Entry<String, Type> entry : columnTypes.entrySet()) {
                 if (entry.getKey().equals("node")) {
                     row.add(nodeId);
                 }
@@ -104,37 +105,36 @@ public class JmxDataStreamProvider
                         row.add(null);
                     }
                     else {
-                        switch (entry.getValue()) {
-                            case BOOLEAN:
-                                if (value instanceof Boolean) {
-                                    row.add(value);
-                                }
-                                else {
-                                    // mbeans can lie about types
-                                    row.add(null);
-                                }
-                                break;
-                            case LONG:
-                                if (value instanceof Number) {
-                                    row.add(((Number) value).longValue());
-                                }
-                                else {
-                                    // mbeans can lie about types
-                                    row.add(null);
-                                }
-                                break;
-                            case DOUBLE:
-                                if (value instanceof Number) {
-                                    row.add(((Number) value).doubleValue());
-                                }
-                                else {
-                                    // mbeans can lie about types
-                                    row.add(null);
-                                }
-                                break;
-                            case STRING:
-                                row.add(value.toString());
-                                break;
+                        Class<?> javaType = entry.getValue().getJavaType();
+                        if (javaType == boolean.class) {
+                            if (value instanceof Boolean) {
+                                row.add(value);
+                            }
+                            else {
+                                // mbeans can lie about types
+                                row.add(null);
+                            }
+                        }
+                        else if (javaType == long.class) {
+                            if (value instanceof Number) {
+                                row.add(((Number) value).longValue());
+                            }
+                            else {
+                                // mbeans can lie about types
+                                row.add(null);
+                            }
+                        }
+                        else if (javaType == double.class) {
+                            if (value instanceof Number) {
+                                row.add(((Number) value).doubleValue());
+                            }
+                            else {
+                                // mbeans can lie about types
+                                row.add(null);
+                            }
+                        }
+                        else if (javaType == Slice.class) {
+                            row.add(value.toString());
                         }
                     }
                 }

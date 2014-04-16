@@ -13,16 +13,15 @@
  */
 package com.facebook.presto.operator.aggregation;
 
-import com.facebook.presto.block.Block;
-import com.facebook.presto.block.BlockBuilder;
-import com.facebook.presto.block.BlockCursor;
+import com.facebook.presto.spi.block.Block;
+import com.facebook.presto.spi.block.BlockBuilder;
+import com.facebook.presto.spi.block.BlockCursor;
 import com.facebook.presto.operator.GroupByIdBlock;
 import com.facebook.presto.util.array.BooleanBigArray;
 import com.facebook.presto.util.array.LongBigArray;
 import com.google.common.base.Optional;
 
-import static com.facebook.presto.tuple.TupleInfo.SINGLE_LONG;
-import static com.facebook.presto.tuple.TupleInfo.Type.FIXED_INT_64;
+import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 
@@ -33,7 +32,7 @@ public class LongMinAggregation
 
     public LongMinAggregation()
     {
-        super(SINGLE_LONG, SINGLE_LONG, FIXED_INT_64);
+        super(BIGINT, BIGINT, BIGINT);
     }
 
     @Override
@@ -52,7 +51,7 @@ public class LongMinAggregation
 
         public LongMinGroupedAccumulator(int valueChannel)
         {
-            super(valueChannel, SINGLE_LONG, SINGLE_LONG, Optional.<Integer>absent(), Optional.<Integer>absent());
+            super(valueChannel, BIGINT, BIGINT, Optional.<Integer>absent(), Optional.<Integer>absent());
 
             this.notNull = new BooleanBigArray();
 
@@ -118,7 +117,7 @@ public class LongMinAggregation
 
         public LongMinAccumulator(int valueChannel)
         {
-            super(valueChannel, SINGLE_LONG, SINGLE_LONG, Optional.<Integer>absent(), Optional.<Integer>absent());
+            super(valueChannel, BIGINT, BIGINT, Optional.<Integer>absent(), Optional.<Integer>absent());
         }
 
         @Override

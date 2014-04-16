@@ -15,7 +15,7 @@ package com.facebook.presto.operator;
 
 import com.facebook.presto.execution.TaskId;
 import com.facebook.presto.operator.MaterializeSampleOperator.MaterializeSampleOperatorFactory;
-import com.facebook.presto.sql.analyzer.Session;
+import com.facebook.presto.spi.Session;
 import com.facebook.presto.util.MaterializedResult;
 import com.google.common.collect.ImmutableList;
 import org.testng.annotations.AfterMethod;
@@ -23,11 +23,13 @@ import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
 import java.util.List;
+import java.util.Locale;
 import java.util.concurrent.ExecutorService;
 
 import static com.facebook.presto.operator.OperatorAssertion.appendSampleWeight;
 import static com.facebook.presto.operator.RowPagesBuilder.rowPagesBuilder;
-import static com.facebook.presto.tuple.TupleInfo.SINGLE_LONG;
+import static com.facebook.presto.spi.type.BigintType.BIGINT;
+import static com.facebook.presto.spi.type.TimeZoneKey.UTC_KEY;
 import static com.facebook.presto.util.MaterializedResult.resultBuilder;
 import static com.facebook.presto.util.Threads.daemonThreadsNamed;
 import static java.util.concurrent.Executors.newCachedThreadPool;
@@ -42,7 +44,7 @@ public class TestMaterializeSampleOperator
     public void setUp()
     {
         executor = newCachedThreadPool(daemonThreadsNamed("test"));
-        Session session = new Session("user", "source", "catalog", "schema", "address", "agent");
+        Session session = new Session("user", "source", "catalog", "schema", UTC_KEY, Locale.ENGLISH, "address", "agent");
         driverContext = new TaskContext(new TaskId("query", "stage", "task"), executor, session)
                 .addPipelineContext(true, true)
                 .addDriverContext();
@@ -58,15 +60,15 @@ public class TestMaterializeSampleOperator
     public void testZeroSampleWeight()
             throws Exception
     {
-        List<Page> input = rowPagesBuilder(SINGLE_LONG)
+        List<Page> input = rowPagesBuilder(BIGINT)
                 .addSequencePage(100, 1)
                 .build();
         input = appendSampleWeight(input, 0);
 
-        OperatorFactory operatorFactory = new MaterializeSampleOperatorFactory(0, ImmutableList.of(SINGLE_LONG), 1);
+        OperatorFactory operatorFactory = new MaterializeSampleOperatorFactory(0, ImmutableList.of(BIGINT), 1);
         Operator operator = operatorFactory.createOperator(driverContext);
 
-        MaterializedResult expected = resultBuilder(SINGLE_LONG)
+        MaterializedResult expected = resultBuilder(driverContext.getSession(), BIGINT)
                 .build();
 
         OperatorAssertion.assertOperatorEqualsIgnoreOrder(operator, input, expected);
@@ -76,20 +78,20 @@ public class TestMaterializeSampleOperator
     public void testMaterialization()
             throws Exception
     {
-        List<Page> input = rowPagesBuilder(SINGLE_LONG)
+        List<Page> input = rowPagesBuilder(BIGINT)
                 .addSequencePage(100, 1)
                 .build();
         input = appendSampleWeight(input, 2);
 
-        OperatorFactory operatorFactory = new MaterializeSampleOperatorFactory(0, ImmutableList.of(SINGLE_LONG), 1);
+        OperatorFactory operatorFactory = new MaterializeSampleOperatorFactory(0, ImmutableList.of(BIGINT), 1);
         Operator operator = operatorFactory.createOperator(driverContext);
 
-        List<Page> expectedPages = rowPagesBuilder(SINGLE_LONG)
+        List<Page> expectedPages = rowPagesBuilder(BIGINT)
                 .addSequencePage(100, 1)
                 .addSequencePage(100, 1)
                 .build();
 
-        MaterializedResult expected = resultBuilder(SINGLE_LONG)
+        MaterializedResult expected = resultBuilder(driverContext.getSession(), BIGINT)
                 .pages(expectedPages)
                 .build();
 

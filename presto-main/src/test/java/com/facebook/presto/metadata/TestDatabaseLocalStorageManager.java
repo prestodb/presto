@@ -21,7 +21,7 @@ import com.facebook.presto.operator.OperatorAssertion;
 import com.facebook.presto.operator.Page;
 import com.facebook.presto.operator.TaskContext;
 import com.facebook.presto.spi.ColumnHandle;
-import com.facebook.presto.sql.analyzer.Session;
+import com.facebook.presto.spi.Session;
 import com.facebook.presto.util.MaterializedResult;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
@@ -37,14 +37,17 @@ import org.testng.annotations.Test;
 import java.io.File;
 import java.io.IOException;
 import java.util.List;
+import java.util.Locale;
 import java.util.UUID;
 import java.util.concurrent.ExecutorService;
 
 import static com.facebook.presto.metadata.DatabaseLocalStorageManager.getShardPath;
 import static com.facebook.presto.operator.OperatorAssertion.toMaterializedResult;
 import static com.facebook.presto.operator.RowPagesBuilder.rowPagesBuilder;
-import static com.facebook.presto.tuple.TupleInfo.SINGLE_LONG;
-import static com.facebook.presto.tuple.TupleInfo.SINGLE_VARBINARY;
+import static com.facebook.presto.serde.TestingBlockEncodingManager.createTestingBlockEncodingManager;
+import static com.facebook.presto.spi.type.BigintType.BIGINT;
+import static com.facebook.presto.spi.type.TimeZoneKey.UTC_KEY;
+import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.util.Threads.daemonThreadsNamed;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static org.testng.Assert.assertEquals;
@@ -68,9 +71,9 @@ public class TestDatabaseLocalStorageManager
         dummyHandle = dbi.open();
         dataDir = Files.createTempDir();
         DatabaseLocalStorageManagerConfig config = new DatabaseLocalStorageManagerConfig().setDataDirectory(dataDir);
-        storageManager = new DatabaseLocalStorageManager(dbi, config);
+        storageManager = new DatabaseLocalStorageManager(dbi, createTestingBlockEncodingManager(), config);
         executor = newCachedThreadPool(daemonThreadsNamed("test"));
-        Session session = new Session("user", "source", "catalog", "schema", "address", "agent");
+        Session session = new Session("user", "source", "catalog", "schema", UTC_KEY, Locale.ENGLISH, "address", "agent");
         driverContext = new TaskContext(new TaskId("query", "stage", "task"), executor, session)
                 .addPipelineContext(true, true)
                 .addDriverContext();
@@ -93,7 +96,7 @@ public class TestDatabaseLocalStorageManager
 
         List<ColumnHandle> columnHandles = ImmutableList.<ColumnHandle>of(new NativeColumnHandle("column_7", 7L), new NativeColumnHandle("column_11", 11L));
 
-        List<Page> pages = rowPagesBuilder(SINGLE_VARBINARY, SINGLE_LONG)
+        List<Page> pages = rowPagesBuilder(VARCHAR, BIGINT)
                 .row("alice", 0)
                 .row("bob", 1)
                 .row("charlie", 2)
@@ -124,7 +127,7 @@ public class TestDatabaseLocalStorageManager
         Operator operator = factory.createOperator(driverContext);
 
         // materialize pages to force comparision only on contents and not page boundaries
-        MaterializedResult expected = toMaterializedResult(operator.getTupleInfos(), pages);
+        MaterializedResult expected = toMaterializedResult(operator.getOperatorContext().getSession(), operator.getTypes(), pages);
 
         OperatorAssertion.assertOperatorEquals(operator, expected);
     }

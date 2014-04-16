@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.operator;
 
-import com.facebook.presto.block.Block;
-import com.facebook.presto.block.RandomAccessBlock;
+import com.facebook.presto.spi.block.Block;
+import com.facebook.presto.spi.block.RandomAccessBlock;
 import com.google.common.base.Objects;
 import com.google.common.base.Preconditions;
 import io.airlift.slice.Slice;
@@ -54,7 +54,7 @@ public class RandomAccessPage
     {
         long dataSize = 0;
         for (Block block : blocks) {
-            dataSize += block.getDataSize().toBytes();
+            dataSize += block.getSizeInBytes();
         }
         return new DataSize(dataSize, Unit.BYTE);
     }

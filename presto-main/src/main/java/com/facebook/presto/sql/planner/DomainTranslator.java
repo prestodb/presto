@@ -13,14 +13,16 @@
  */
 package com.facebook.presto.sql.planner;
 
+import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.spi.ColumnHandle;
-import com.facebook.presto.spi.ColumnType;
 import com.facebook.presto.spi.Domain;
 import com.facebook.presto.spi.Marker;
 import com.facebook.presto.spi.Range;
+import com.facebook.presto.spi.Session;
 import com.facebook.presto.spi.SortedRangeSet;
 import com.facebook.presto.spi.TupleDomain;
-import com.facebook.presto.sql.analyzer.Type;
+import com.facebook.presto.spi.type.DoubleType;
+import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.tree.AstVisitor;
 import com.facebook.presto.sql.tree.BetweenPredicate;
 import com.facebook.presto.sql.tree.BooleanLiteral;
@@ -40,13 +42,12 @@ import com.facebook.presto.sql.tree.QualifiedNameReference;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.math.DoubleMath;
-import io.airlift.slice.Slice;
 
-import java.math.RoundingMode;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
+import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.sql.ExpressionUtils.and;
 import static com.facebook.presto.sql.ExpressionUtils.combineConjuncts;
 import static com.facebook.presto.sql.ExpressionUtils.combineDisjunctsWithDefault;
@@ -55,11 +56,18 @@ import static com.facebook.presto.sql.planner.LiteralInterpreter.toExpression;
 import static com.facebook.presto.sql.tree.BooleanLiteral.FALSE_LITERAL;
 import static com.facebook.presto.sql.tree.BooleanLiteral.TRUE_LITERAL;
 import static com.facebook.presto.sql.tree.ComparisonExpression.Type.EQUAL;
+import static com.facebook.presto.sql.tree.ComparisonExpression.Type.GREATER_THAN;
+import static com.facebook.presto.sql.tree.ComparisonExpression.Type.GREATER_THAN_OR_EQUAL;
+import static com.facebook.presto.sql.tree.ComparisonExpression.Type.LESS_THAN;
+import static com.facebook.presto.sql.tree.ComparisonExpression.Type.LESS_THAN_OR_EQUAL;
 import static com.facebook.presto.sql.tree.ComparisonExpression.Type.NOT_EQUAL;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.Iterables.getOnlyElement;
+import static com.google.common.primitives.Primitives.wrap;
+import static java.math.RoundingMode.CEILING;
+import static java.math.RoundingMode.FLOOR;
 
 public final class DomainTranslator
 {
@@ -67,7 +75,7 @@ public final class DomainTranslator
     {
     }
 
-    public static Expression toPredicate(TupleDomain tupleDomain, Map<ColumnHandle, Symbol> symbolTranslationMap)
+    public static Expression toPredicate(TupleDomain tupleDomain, Map<ColumnHandle, Symbol> symbolTranslationMap, Map<Symbol, Type> symbolTypes)
     {
         if (tupleDomain.isNone()) {
             return FALSE_LITERAL;
@@ -76,20 +84,22 @@ public final class DomainTranslator
         for (Map.Entry<ColumnHandle, Domain> entry : tupleDomain.getDomains().entrySet()) {
             ColumnHandle columnHandle = entry.getKey();
             checkArgument(symbolTranslationMap.containsKey(columnHandle), "Unable to convert TupleDomain to Expression b/c don't know Symbol for ColumnHandle %s", columnHandle);
-            QualifiedNameReference reference = new QualifiedNameReference(symbolTranslationMap.get(columnHandle).toQualifiedName());
-            conjunctBuilder.add(toPredicate(entry.getValue(), reference));
+            Symbol symbol = symbolTranslationMap.get(columnHandle);
+            QualifiedNameReference reference = new QualifiedNameReference(symbol.toQualifiedName());
+            Type type = symbolTypes.get(symbol);
+            conjunctBuilder.add(toPredicate(entry.getValue(), reference, type));
         }
         return combineConjuncts(conjunctBuilder.build());
     }
 
-    private static Expression toPredicate(Domain domain, QualifiedNameReference reference)
+    private static Expression toPredicate(Domain domain, QualifiedNameReference reference, Type type)
     {
         if (domain.getRanges().isNone()) {
             return domain.isNullAllowed() ? new IsNullPredicate(reference) : FALSE_LITERAL;
         }
 
         if (domain.getRanges().isAll()) {
-            return domain.isNullAllowed() ? TRUE_LITERAL : new IsNotNullPredicate(reference);
+            return domain.isNullAllowed() ? TRUE_LITERAL : new NotExpression(new IsNullPredicate(reference));
         }
 
         // Add disjuncts for ranges
@@ -98,21 +108,22 @@ public final class DomainTranslator
         for (Range range : domain.getRanges()) {
             checkState(!range.isAll()); // Already checked
             if (range.isSingleValue()) {
-                singleValues.add(toExpression(range.getLow().getValue()));
+                singleValues.add(toExpression(range.getLow().getValue(), type));
             }
             else if (isBetween(range)) {
                 // Specialize the range with BETWEEN expression if possible b/c it is currently more efficient
-                disjuncts.add(new BetweenPredicate(reference, toExpression(range.getLow().getValue()), toExpression(range.getHigh().getValue())));
+                disjuncts.add(new BetweenPredicate(reference, toExpression(range.getLow().getValue(), type), toExpression(range.getHigh().getValue(), type)));
             }
             else {
                 List<Expression> rangeConjuncts = new ArrayList<>();
                 if (!range.getLow().isLowerUnbounded()) {
                     switch (range.getLow().getBound()) {
                         case ABOVE:
-                            rangeConjuncts.add(new ComparisonExpression(ComparisonExpression.Type.GREATER_THAN, reference, toExpression(range.getLow().getValue())));
+                            rangeConjuncts.add(new ComparisonExpression(GREATER_THAN, reference, toExpression(range.getLow().getValue(), type)));
                             break;
                         case EXACTLY:
-                            rangeConjuncts.add(new ComparisonExpression(ComparisonExpression.Type.GREATER_THAN_OR_EQUAL, reference, toExpression(range.getLow().getValue())));
+                            rangeConjuncts.add(new ComparisonExpression(GREATER_THAN_OR_EQUAL, reference, toExpression(range.getLow().getValue(),
+                                    type)));
                             break;
                         case BELOW:
                             throw new IllegalStateException("Low Marker should never use BELOW bound: " + range);
@@ -125,10 +136,10 @@ public final class DomainTranslator
                         case ABOVE:
                             throw new IllegalStateException("High Marker should never use ABOVE bound: " + range);
                         case EXACTLY:
-                            rangeConjuncts.add(new ComparisonExpression(ComparisonExpression.Type.LESS_THAN_OR_EQUAL, reference, toExpression(range.getHigh().getValue())));
+                            rangeConjuncts.add(new ComparisonExpression(LESS_THAN_OR_EQUAL, reference, toExpression(range.getHigh().getValue(), type)));
                             break;
                         case BELOW:
-                            rangeConjuncts.add(new ComparisonExpression(ComparisonExpression.Type.LESS_THAN, reference, toExpression(range.getHigh().getValue())));
+                            rangeConjuncts.add(new ComparisonExpression(LESS_THAN, reference, toExpression(range.getHigh().getValue(), type)));
                             break;
                         default:
                             throw new AssertionError("Unhandled bound: " + range.getHigh().getBound());
@@ -168,28 +179,37 @@ public final class DomainTranslator
      * 2) An Expression fragment which represents the part of the original Expression that will need to be re-evaluated
      * after filtering with the TupleDomain.
      */
-    public static ExtractionResult fromPredicate(Expression predicate, Map<Symbol, Type> types, Map<Symbol, ColumnHandle> columnHandleTranslationMap)
+    public static ExtractionResult fromPredicate(
+            Metadata metadata,
+            Session session,
+            Expression predicate,
+            Map<Symbol, Type> types,
+            Map<Symbol, ColumnHandle> columnHandleTranslationMap)
     {
-        return new Visitor(types, columnHandleTranslationMap).process(predicate, false);
+        return new Visitor(metadata, session, types, columnHandleTranslationMap).process(predicate, false);
     }
 
     private static class Visitor
             extends AstVisitor<ExtractionResult, Boolean>
     {
+        private final Metadata metadata;
+        private final Session session;
         private final Map<Symbol, Type> types;
         private final Map<Symbol, ColumnHandle> columnHandles;
 
-        private Visitor(Map<Symbol, Type> types, Map<Symbol, ColumnHandle> columnHandles)
+        private Visitor(Metadata metadata, Session session, Map<Symbol, Type> types, Map<Symbol, ColumnHandle> columnHandles)
         {
+            this.metadata = checkNotNull(metadata, "metadata is null");
+            this.session = checkNotNull(session, "session is null");
             this.types = ImmutableMap.copyOf(checkNotNull(types, "types is null"));
             this.columnHandles = ImmutableMap.copyOf(checkNotNull(columnHandles, "columnHandles is null"));
         }
 
-        private ColumnType checkedTypeLookup(Symbol symbol)
+        private Type checkedTypeLookup(Symbol symbol)
         {
             Type type = types.get(symbol);
             checkArgument(type != null, "Types is missing info for symbol: %s", symbol);
-            return type.getColumnType();
+            return type;
         }
 
         private ColumnHandle checkedColumnHandleLookup(Symbol symbol)
@@ -296,27 +316,23 @@ public final class DomainTranslator
             node = normalizeSimpleComparison(node);
 
             Symbol symbol = Symbol.fromQualifiedName(((QualifiedNameReference) node.getLeft()).getName());
-            ColumnType columnType = checkedTypeLookup(symbol);
+            Type columnType = checkedTypeLookup(symbol);
             ColumnHandle columnHandle = checkedColumnHandleLookup(symbol);
-            Object value = LiteralInterpreter.evaluate(node.getRight());
+            Object value = LiteralInterpreter.evaluate(metadata, session, node.getRight());
 
             // Handle the cases where implicit coercions can happen in comparisons
             // TODO: how to abstract this out
-            if (value instanceof Double && columnType == ColumnType.LONG) {
+            if (value instanceof Double && columnType.equals(BIGINT)) {
                 return process(coerceDoubleToLongComparison(node), complement);
             }
-            if (value instanceof Long && columnType == ColumnType.DOUBLE) {
+            if (value instanceof Long && columnType.equals(DoubleType.DOUBLE)) {
                 value = ((Long) value).doubleValue();
-            }
-            if (value instanceof Slice) {
-                // String is the expected SPI type for Slice objects
-                value = ((Slice) value).toStringUtf8();
             }
             verifyType(columnType, value);
             return createComparisonExtractionResult(node.getType(), columnHandle, columnType, objectToComparable(value), complement);
         }
 
-        private ExtractionResult createComparisonExtractionResult(ComparisonExpression.Type comparisonType, ColumnHandle columnHandle, ColumnType columnType, Comparable<?> value, boolean complement)
+        private ExtractionResult createComparisonExtractionResult(ComparisonExpression.Type comparisonType, ColumnHandle columnHandle, Type columnType, Comparable<?> value, boolean complement)
         {
             if (value == null) {
                 switch (comparisonType) {
@@ -329,7 +345,7 @@ public final class DomainTranslator
                         return new ExtractionResult(TupleDomain.none(), TRUE_LITERAL);
 
                     case IS_DISTINCT_FROM:
-                        Domain domain = complementIfNecessary(Domain.notNull(columnType.getNativeType()), complement);
+                        Domain domain = complementIfNecessary(Domain.notNull(wrap(columnType.getJavaType())), complement);
                         return new ExtractionResult(
                                 TupleDomain.withColumnDomains(ImmutableMap.<ColumnHandle, Domain>of(columnHandle, domain)),
                                 TRUE_LITERAL);
@@ -372,9 +388,9 @@ public final class DomainTranslator
                     TRUE_LITERAL);
         }
 
-        private static void verifyType(ColumnType type, Object value)
+        private static void verifyType(Type type, Object value)
         {
-            checkState(value == null || type.getNativeType().isInstance(value), "Value %s is not of expected type %s", value, type);
+            checkState(value == null || wrap(type.getJavaType()).isInstance(value), "Value %s is not of expected type %s", value, type);
         }
 
         private static Comparable<?> objectToComparable(Object value)
@@ -404,8 +420,8 @@ public final class DomainTranslator
         {
             // Re-write as two comparison expressions
             return process(and(
-                    new ComparisonExpression(ComparisonExpression.Type.GREATER_THAN_OR_EQUAL, node.getValue(), node.getMin()),
-                    new ComparisonExpression(ComparisonExpression.Type.LESS_THAN_OR_EQUAL, node.getValue(), node.getMax())), complement);
+                    new ComparisonExpression(GREATER_THAN_OR_EQUAL, node.getValue(), node.getMin()),
+                    new ComparisonExpression(LESS_THAN_OR_EQUAL, node.getValue(), node.getMax())), complement);
         }
 
         @Override
@@ -416,10 +432,10 @@ public final class DomainTranslator
             }
 
             Symbol symbol = Symbol.fromQualifiedName(((QualifiedNameReference) node.getValue()).getName());
-            ColumnType columnType = checkedTypeLookup(symbol);
+            Type columnType = checkedTypeLookup(symbol);
             ColumnHandle columnHandle = checkedColumnHandleLookup(symbol);
 
-            Domain domain = complementIfNecessary(Domain.onlyNull(columnType.getNativeType()), complement);
+            Domain domain = complementIfNecessary(Domain.onlyNull(wrap(columnType.getJavaType())), complement);
             return new ExtractionResult(
                     TupleDomain.withColumnDomains(ImmutableMap.<ColumnHandle, Domain>of(columnHandle, domain)),
                     TRUE_LITERAL);
@@ -433,10 +449,10 @@ public final class DomainTranslator
             }
 
             Symbol symbol = Symbol.fromQualifiedName(((QualifiedNameReference) node.getValue()).getName());
-            ColumnType columnType = checkedTypeLookup(symbol);
+            Type columnType = checkedTypeLookup(symbol);
             ColumnHandle columnHandle = checkedColumnHandleLookup(symbol);
 
-            Domain domain = complementIfNecessary(Domain.notNull(columnType.getNativeType()), complement);
+            Domain domain = complementIfNecessary(Domain.notNull(wrap(columnType.getJavaType())), complement);
             return new ExtractionResult(
                     TupleDomain.withColumnDomains(ImmutableMap.<ColumnHandle, Domain>of(columnHandle, domain)),
                     TRUE_LITERAL);
@@ -482,13 +498,13 @@ public final class DomainTranslator
     {
         switch (type) {
             case LESS_THAN_OR_EQUAL:
-                return ComparisonExpression.Type.GREATER_THAN_OR_EQUAL;
+                return GREATER_THAN_OR_EQUAL;
             case LESS_THAN:
-                return ComparisonExpression.Type.GREATER_THAN;
+                return GREATER_THAN;
             case GREATER_THAN_OR_EQUAL:
-                return ComparisonExpression.Type.LESS_THAN_OR_EQUAL;
+                return LESS_THAN_OR_EQUAL;
             case GREATER_THAN:
-                return ComparisonExpression.Type.LESS_THAN;
+                return LESS_THAN;
             default:
                 // The remaining types have no direction association
                 return type;
@@ -508,36 +524,36 @@ public final class DomainTranslator
         switch (comparison.getType()) {
             case GREATER_THAN_OR_EQUAL:
             case LESS_THAN:
-                return new ComparisonExpression(comparison.getType(), reference, toExpression(DoubleMath.roundToLong(value, RoundingMode.CEILING)));
+                return new ComparisonExpression(comparison.getType(), reference, toExpression(DoubleMath.roundToLong(value, CEILING), BIGINT));
 
             case GREATER_THAN:
             case LESS_THAN_OR_EQUAL:
-                return new ComparisonExpression(comparison.getType(), reference, toExpression(DoubleMath.roundToLong(value, RoundingMode.FLOOR)));
+                return new ComparisonExpression(comparison.getType(), reference, toExpression(DoubleMath.roundToLong(value, FLOOR), BIGINT));
 
             case EQUAL:
-                Long equalValue = DoubleMath.roundToLong(value, RoundingMode.FLOOR);
+                Long equalValue = DoubleMath.roundToLong(value, FLOOR);
                 if (equalValue.doubleValue() != value) {
                     // Return something that is false for all non-null values
                     return and(new ComparisonExpression(EQUAL, reference, new LongLiteral("0")),
                             new ComparisonExpression(NOT_EQUAL, reference, new LongLiteral("0")));
                 }
-                return new ComparisonExpression(comparison.getType(), reference, toExpression(equalValue));
+                return new ComparisonExpression(comparison.getType(), reference, toExpression(equalValue, BIGINT));
 
             case NOT_EQUAL:
-                Long notEqualValue = DoubleMath.roundToLong(value, RoundingMode.FLOOR);
+                Long notEqualValue = DoubleMath.roundToLong(value, FLOOR);
                 if (notEqualValue.doubleValue() != value) {
                     // Return something that is true for all non-null values
                     return or(new ComparisonExpression(EQUAL, reference, new LongLiteral("0")),
                             new ComparisonExpression(NOT_EQUAL, reference, new LongLiteral("0")));
                 }
-                return new ComparisonExpression(comparison.getType(), reference, toExpression(notEqualValue));
+                return new ComparisonExpression(comparison.getType(), reference, toExpression(notEqualValue, BIGINT));
 
             case IS_DISTINCT_FROM:
-                Long distinctValue = DoubleMath.roundToLong(value, RoundingMode.FLOOR);
+                Long distinctValue = DoubleMath.roundToLong(value, FLOOR);
                 if (distinctValue.doubleValue() != value) {
                     return TRUE_LITERAL;
                 }
-                return new ComparisonExpression(comparison.getType(), reference, toExpression(distinctValue));
+                return new ComparisonExpression(comparison.getType(), reference, toExpression(distinctValue, BIGINT));
 
             default:
                 throw new AssertionError("Unhandled type: " + comparison.getType());

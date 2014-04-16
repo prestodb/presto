@@ -13,10 +13,11 @@
  */
 package com.facebook.presto.operator.aggregation;
 
-import com.facebook.presto.block.Block;
-import com.facebook.presto.block.BlockBuilder;
+import com.facebook.presto.spi.block.Block;
+import com.facebook.presto.spi.block.BlockBuilder;
+import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.operator.Page;
-import com.facebook.presto.tuple.TupleInfo;
+import com.facebook.presto.spi.type.Type;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
@@ -38,7 +39,7 @@ public abstract class AbstractTestApproximateCountDistinct
 {
     public abstract AggregationFunction getAggregationFunction();
 
-    public abstract TupleInfo.Type getValueType();
+    public abstract Type getValueType();
 
     public abstract Object randomValue();
 
@@ -152,25 +153,28 @@ public abstract class AbstractTestApproximateCountDistinct
      */
     private Block createBlock(List<Object> values)
     {
-        BlockBuilder blockBuilder = new BlockBuilder(new TupleInfo(getValueType()));
+        BlockBuilder blockBuilder = getValueType().createBlockBuilder(new BlockBuilderStatus());
 
         for (Object value : values) {
             if (value == null) {
                 blockBuilder.appendNull();
             }
             else {
-                switch (getValueType()) {
-                    case FIXED_INT_64:
-                        blockBuilder.append((Long) value);
-                        break;
-                    case VARIABLE_BINARY:
-                        blockBuilder.append((Slice) value);
-                        break;
-                    case DOUBLE:
-                        blockBuilder.append((Double) value);
-                        break;
-                    default:
-                        throw new UnsupportedOperationException("not yet implemented");
+                Class<?> javaType = getValueType().getJavaType();
+                if (javaType == boolean.class) {
+                    blockBuilder.append((Boolean) value);
+                }
+                else if (javaType == long.class) {
+                    blockBuilder.append((Long) value);
+                }
+                else if (javaType == double.class) {
+                    blockBuilder.append((Double) value);
+                }
+                else if (javaType == Slice.class) {
+                    blockBuilder.append((Slice) value);
+                }
+                else {
+                    throw new UnsupportedOperationException("not yet implemented");
                 }
             }
         }

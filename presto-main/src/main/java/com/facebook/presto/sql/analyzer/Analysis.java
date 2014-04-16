@@ -27,6 +27,7 @@ import com.facebook.presto.sql.tree.Query;
 import com.facebook.presto.sql.tree.QuerySpecification;
 import com.facebook.presto.sql.tree.SampledRelation;
 import com.facebook.presto.sql.tree.Table;
+import com.facebook.presto.spi.type.Type;
 import com.google.common.base.Objects;
 import com.google.common.base.Optional;
 import com.google.common.base.Preconditions;
@@ -66,6 +67,7 @@ public class Analysis
     private final IdentityHashMap<Table, TableHandle> tables = new IdentityHashMap<>();
 
     private final IdentityHashMap<Expression, Type> types = new IdentityHashMap<>();
+    private final IdentityHashMap<Expression, Type> coercions = new IdentityHashMap<>();
     private final IdentityHashMap<FunctionCall, FunctionInfo> functionInfo = new IdentityHashMap<>();
 
     private final IdentityHashMap<Field, ColumnHandle> columns = new IdentityHashMap<>();
@@ -105,10 +107,20 @@ public class Analysis
         return aggregates.get(query);
     }
 
+    public IdentityHashMap<Expression, Type> getTypes()
+    {
+        return new IdentityHashMap<>(types);
+    }
+
     public Type getType(Expression expression)
     {
         Preconditions.checkArgument(types.containsKey(expression), "Expression not analyzed: %s", expression);
         return types.get(expression);
+    }
+
+    public Type getCoercion(Expression expression)
+    {
+        return coercions.get(expression);
     }
 
     public void setGroupByExpressions(QuerySpecification node, List<FieldOrExpression> expressions)
@@ -255,6 +267,16 @@ public class Analysis
     public void addTypes(IdentityHashMap<Expression, Type> types)
     {
         this.types.putAll(types);
+    }
+
+    public void addCoercion(Expression expression, Type type)
+    {
+        this.coercions.put(expression, type);
+    }
+
+    public void addCoercions(IdentityHashMap<Expression, Type> coercions)
+    {
+        this.coercions.putAll(coercions);
     }
 
     public Expression getHaving(QuerySpecification query)

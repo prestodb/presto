@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.operator.window;
 
-import com.facebook.presto.sql.analyzer.Session;
+import com.facebook.presto.spi.Session;
 import com.facebook.presto.tpch.TpchConnectorFactory;
 import com.facebook.presto.tpch.TpchMetadata;
 import com.facebook.presto.util.LocalQueryRunner;
@@ -21,9 +21,11 @@ import com.facebook.presto.util.MaterializedResult;
 import com.google.common.collect.ImmutableMap;
 import org.intellij.lang.annotations.Language;
 
+import java.util.Locale;
 import java.util.concurrent.ExecutorService;
 
 import static com.facebook.presto.AbstractTestQueries.assertEqualsIgnoreOrder;
+import static com.facebook.presto.spi.type.TimeZoneKey.UTC_KEY;
 import static java.lang.String.format;
 
 public final class WindowAssertions
@@ -32,7 +34,8 @@ public final class WindowAssertions
 
     public static MaterializedResult computeActual(@Language("SQL") String sql, ExecutorService executor)
     {
-        LocalQueryRunner localQueryRunner = new LocalQueryRunner(new Session("user", "test", "tpch", TpchMetadata.TINY_SCHEMA_NAME, null, null), executor);
+        Session session = new Session("user", "test", "tpch", TpchMetadata.TINY_SCHEMA_NAME, UTC_KEY, Locale.ENGLISH, null, null);
+        LocalQueryRunner localQueryRunner = new LocalQueryRunner(session, executor);
         localQueryRunner.createCatalog("tpch", new TpchConnectorFactory(localQueryRunner.getNodeManager(), 1), ImmutableMap.<String, String>of());
 
         return localQueryRunner.execute(sql);
@@ -46,6 +49,6 @@ public final class WindowAssertions
                 "ORDER BY orderkey", sql);
 
         MaterializedResult actual = computeActual(query, executor);
-        assertEqualsIgnoreOrder(actual.getMaterializedTuples(), expected.getMaterializedTuples());
+        assertEqualsIgnoreOrder(actual.getMaterializedRows(), expected.getMaterializedRows());
     }
 }

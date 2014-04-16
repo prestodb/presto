@@ -13,14 +13,15 @@
  */
 package com.facebook.presto.operator.aggregation;
 
-import com.facebook.presto.block.Block;
-import com.facebook.presto.block.BlockBuilder;
-import com.facebook.presto.block.BlockCursor;
 import com.facebook.presto.operator.GroupByIdBlock;
 import com.facebook.presto.operator.Page;
 import com.facebook.presto.serde.PagesSerde;
-import com.facebook.presto.tuple.TupleInfo;
-import com.facebook.presto.tuple.TupleInfo.Type;
+import com.facebook.presto.spi.block.Block;
+import com.facebook.presto.spi.block.BlockBuilder;
+import com.facebook.presto.spi.block.BlockBuilderStatus;
+import com.facebook.presto.spi.block.BlockCursor;
+import com.facebook.presto.spi.block.BlockEncodingSerde;
+import com.facebook.presto.spi.type.Type;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
@@ -36,9 +37,9 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.ThreadLocalRandom;
 
-import static com.facebook.presto.tuple.TupleInfo.SINGLE_DOUBLE;
-import static com.facebook.presto.tuple.TupleInfo.SINGLE_LONG;
-import static com.facebook.presto.tuple.TupleInfo.SINGLE_VARBINARY;
+import static com.facebook.presto.spi.type.BigintType.BIGINT;
+import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
+import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
@@ -47,12 +48,14 @@ public class BootstrappedAggregation
         implements AggregationFunction
 {
     private static final int SAMPLES = 100;
+    private final BlockEncodingSerde blockEncodingSerde;
     private final AggregationFunction function;
 
-    public BootstrappedAggregation(AggregationFunction function)
+    public BootstrappedAggregation(BlockEncodingSerde blockEncodingSerde, AggregationFunction function)
     {
+        this.blockEncodingSerde = checkNotNull(blockEncodingSerde, "blockEncodingSerde is null");
         this.function = checkNotNull(function, "function is null");
-        checkArgument(function.getFinalTupleInfo().equals(SINGLE_LONG) || function.getFinalTupleInfo().equals(SINGLE_DOUBLE) , "bootstrap only supports functions that output a number");
+        checkArgument(function.getFinalType().equals(BIGINT) || function.getFinalType().equals(DOUBLE) , "bootstrap only supports functions that output a number");
     }
 
     @Override
@@ -62,15 +65,15 @@ public class BootstrappedAggregation
     }
 
     @Override
-    public TupleInfo getFinalTupleInfo()
+    public Type getFinalType()
     {
-        return SINGLE_VARBINARY;
+        return VARCHAR;
     }
 
     @Override
-    public TupleInfo getIntermediateTupleInfo()
+    public Type getIntermediateType()
     {
-        return SINGLE_VARBINARY;
+        return VARCHAR;
     }
 
     @Override
@@ -112,7 +115,7 @@ public class BootstrappedAggregation
         for (int i = 0; i < SAMPLES; i++) {
             builder.add(function.createAggregation(maskChannel, Optional.of(sampleWeightChannel), 1.0, argumentChannels));
         }
-        return new BootstrappedAccumulator(builder.build(), sampleWeightChannel, confidence, seed);
+        return new BootstrappedAccumulator(blockEncodingSerde, builder.build(), sampleWeightChannel, confidence, seed);
     }
 
     @VisibleForTesting
@@ -122,7 +125,7 @@ public class BootstrappedAggregation
         for (int i = 0; i < SAMPLES; i++) {
             builder.add(function.createIntermediateAggregation(1.0));
         }
-        return new BootstrappedAccumulator(builder.build(), -1, confidence, seed);
+        return new BootstrappedAccumulator(blockEncodingSerde, builder.build(), -1, confidence, seed);
     }
 
     @VisibleForTesting
@@ -132,7 +135,7 @@ public class BootstrappedAggregation
         for (int i = 0; i < SAMPLES; i++) {
             builder.add(function.createGroupedAggregation(maskChannel, Optional.of(sampleWeightChannel), 1.0, argumentChannels));
         }
-        return new BootstrappedGroupedAccumulator(builder.build(), sampleWeightChannel, confidence, seed);
+        return new BootstrappedGroupedAccumulator(blockEncodingSerde, builder.build(), sampleWeightChannel, confidence, seed);
     }
 
     @VisibleForTesting
@@ -142,7 +145,7 @@ public class BootstrappedAggregation
         for (int i = 0; i < SAMPLES; i++) {
             builder.add(function.createGroupedIntermediateAggregation(1.0));
         }
-        return new BootstrappedGroupedAccumulator(builder.build(), -1, confidence, seed);
+        return new BootstrappedGroupedAccumulator(blockEncodingSerde, builder.build(), -1, confidence, seed);
     }
 
     public abstract static class AbstractBootstrappedAccumulator
@@ -165,10 +168,10 @@ public class BootstrappedAggregation
 
         protected static double getNumeric(BlockCursor cursor)
         {
-            if (cursor.getTupleInfo().equals(SINGLE_DOUBLE)) {
+            if (cursor.getType().equals(DOUBLE)) {
                 return cursor.getDouble();
             }
-            else if (cursor.getTupleInfo().equals(SINGLE_LONG)) {
+            else if (cursor.getType().equals(BIGINT)) {
                 return cursor.getLong();
             }
             else {
@@ -181,26 +184,28 @@ public class BootstrappedAggregation
             extends AbstractBootstrappedAccumulator
             implements Accumulator
     {
+        private final BlockEncodingSerde blockEncodingSerde;
         private final List<Accumulator> accumulators;
 
-        public BootstrappedAccumulator(List<Accumulator> accumulators, int sampleWeightChannel, double confidence, long seed)
+        public BootstrappedAccumulator(BlockEncodingSerde blockEncodingSerde, List<Accumulator> accumulators, int sampleWeightChannel, double confidence, long seed)
         {
             super(sampleWeightChannel, confidence, seed);
+            this.blockEncodingSerde = blockEncodingSerde;
 
             this.accumulators = ImmutableList.copyOf(checkNotNull(accumulators, "accumulators is null"));
             checkArgument(accumulators.size() > 1, "accumulators size is less than 2");
         }
 
         @Override
-        public TupleInfo getFinalTupleInfo()
+        public Type getFinalType()
         {
-            return SINGLE_VARBINARY;
+            return VARCHAR;
         }
 
         @Override
-        public TupleInfo getIntermediateTupleInfo()
+        public Type getIntermediateType()
         {
-            return SINGLE_VARBINARY;
+            return VARCHAR;
         }
 
         @Override
@@ -219,7 +224,7 @@ public class BootstrappedAggregation
             BlockCursor cursor = block.cursor();
             checkArgument(cursor.advanceNextPosition());
             SliceInput sliceInput = new BasicSliceInput(cursor.getSlice());
-            Page page = Iterators.getOnlyElement(PagesSerde.readPages(sliceInput));
+            Page page = Iterators.getOnlyElement(PagesSerde.readPages(blockEncodingSerde, sliceInput));
             checkArgument(page.getChannelCount() == accumulators.size(), "number of blocks does not match accumulators");
 
             for (int i = 0; i < page.getChannelCount(); i++) {
@@ -234,12 +239,12 @@ public class BootstrappedAggregation
             int sizeEstimate = 64 * accumulators.size();
             for (int i = 0; i < accumulators.size(); i++) {
                 blocks[i] = accumulators.get(i).evaluateIntermediate();
-                sizeEstimate += blocks[i].getDataSize().toBytes();
+                sizeEstimate += blocks[i].getSizeInBytes();
             }
 
             SliceOutput output = new DynamicSliceOutput(sizeEstimate);
-            PagesSerde.writePages(output, new Page(blocks));
-            BlockBuilder builder = new BlockBuilder(SINGLE_VARBINARY);
+            PagesSerde.writePages(blockEncodingSerde, output, new Page(blocks));
+            BlockBuilder builder = VARCHAR.createBlockBuilder(new BlockBuilderStatus());
             builder.append(output.slice());
             return builder.build();
         }
@@ -254,7 +259,7 @@ public class BootstrappedAggregation
                 statistics.addValue(getNumeric(cursor));
             }
 
-            BlockBuilder builder = new BlockBuilder(SINGLE_VARBINARY);
+            BlockBuilder builder = VARCHAR.createBlockBuilder(new BlockBuilderStatus());
             builder.append(formatApproximateOutput(statistics, confidence));
             return builder.build();
         }
@@ -264,11 +269,17 @@ public class BootstrappedAggregation
             extends AbstractBootstrappedAccumulator
             implements GroupedAccumulator
     {
+        private final BlockEncodingSerde blockEncodingSerde;
         private final List<GroupedAccumulator> accumulators;
 
-        public BootstrappedGroupedAccumulator(List<GroupedAccumulator> accumulators, int sampleWeightChannel, double confidence, long seed)
+        public BootstrappedGroupedAccumulator(BlockEncodingSerde blockEncodingSerde,
+                List<GroupedAccumulator> accumulators,
+                int sampleWeightChannel,
+                double confidence,
+                long seed)
         {
             super(sampleWeightChannel, confidence, seed);
+            this.blockEncodingSerde = blockEncodingSerde;
 
             this.accumulators = ImmutableList.copyOf(checkNotNull(accumulators, "accumulators is null"));
             checkArgument(accumulators.size() > 1, "accumulators size is less than 2");
@@ -285,15 +296,15 @@ public class BootstrappedAggregation
         }
 
         @Override
-        public TupleInfo getFinalTupleInfo()
+        public Type getFinalType()
         {
-            return SINGLE_VARBINARY;
+            return VARCHAR;
         }
 
         @Override
-        public TupleInfo getIntermediateTupleInfo()
+        public Type getIntermediateType()
         {
-            return SINGLE_VARBINARY;
+            return VARCHAR;
         }
 
         @Override
@@ -312,7 +323,7 @@ public class BootstrappedAggregation
             BlockCursor cursor = block.cursor();
             checkArgument(cursor.advanceNextPosition());
             SliceInput sliceInput = new BasicSliceInput(cursor.getSlice());
-            Page page = Iterators.getOnlyElement(PagesSerde.readPages(sliceInput));
+            Page page = Iterators.getOnlyElement(PagesSerde.readPages(blockEncodingSerde, sliceInput));
             checkArgument(page.getChannelCount() == accumulators.size(), "number of blocks does not match accumulators");
 
             for (int i = 0; i < page.getChannelCount(); i++) {
@@ -326,14 +337,14 @@ public class BootstrappedAggregation
             Block[] blocks = new Block[accumulators.size()];
             int sizeEstimate = 64 * accumulators.size();
             for (int i = 0; i < accumulators.size(); i++) {
-                BlockBuilder builder = new BlockBuilder(accumulators.get(i).getIntermediateTupleInfo());
+                BlockBuilder builder = accumulators.get(i).getIntermediateType().createBlockBuilder(new BlockBuilderStatus());
                 accumulators.get(i).evaluateIntermediate(groupId, builder);
                 blocks[i] = builder.build();
-                sizeEstimate += blocks[i].getDataSize().toBytes();
+                sizeEstimate += blocks[i].getSizeInBytes();
             }
 
             SliceOutput sliceOutput = new DynamicSliceOutput(sizeEstimate);
-            PagesSerde.writePages(sliceOutput, new Page(blocks));
+            PagesSerde.writePages(blockEncodingSerde, sliceOutput, new Page(blocks));
             output.append(sliceOutput.slice());
         }
 
@@ -342,7 +353,7 @@ public class BootstrappedAggregation
         {
             DescriptiveStatistics statistics = new DescriptiveStatistics();
             for (int i = 0; i < accumulators.size(); i++) {
-                BlockBuilder builder = new BlockBuilder(accumulators.get(i).getFinalTupleInfo());
+                BlockBuilder builder = accumulators.get(i).getFinalType().createBlockBuilder(new BlockBuilderStatus());
                 accumulators.get(i).evaluateFinal(groupId, builder);
                 BlockCursor cursor = builder.build().cursor();
                 checkArgument(cursor.advanceNextPosition(), "accumulator returned no results");

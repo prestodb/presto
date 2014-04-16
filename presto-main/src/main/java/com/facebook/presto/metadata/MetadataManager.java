@@ -14,6 +14,7 @@
 package com.facebook.presto.metadata;
 
 import com.facebook.presto.connector.informationSchema.InformationSchemaMetadata;
+import com.facebook.presto.metadata.OperatorInfo.OperatorType;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorMetadata;
@@ -22,15 +23,17 @@ import com.facebook.presto.spi.OutputTableHandle;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
-import com.facebook.presto.sql.analyzer.Type;
 import com.facebook.presto.sql.tree.QualifiedName;
+import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.spi.type.TypeManager;
+import com.facebook.presto.type.TypeRegistry;
 import com.google.common.base.Optional;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.inject.Inject;
 
+import javax.inject.Inject;
 import javax.inject.Singleton;
 
 import java.util.Collection;
@@ -62,11 +65,18 @@ public class MetadataManager
     private final ConcurrentMap<String, ConnectorMetadataEntry> connectors = new ConcurrentHashMap<>();
     private final ConcurrentMap<String, ConnectorMetadataEntry> informationSchemas = new ConcurrentHashMap<>();
     private final FunctionRegistry functions;
+    private final TypeManager typeManager;
+
+    public MetadataManager()
+    {
+        this(new FeaturesConfig(), new TypeRegistry());
+    }
 
     @Inject
-    public MetadataManager(FeaturesConfig featuresConfig)
+    public MetadataManager(FeaturesConfig featuresConfig, TypeManager typeManager)
     {
         functions = new FunctionRegistry(featuresConfig.isExperimentalSyntaxEnabled());
+        this.typeManager = checkNotNull(typeManager, "types is null");
     }
 
     public void addConnectorMetadata(String connectorId, String catalogName, ConnectorMetadata connectorMetadata)
@@ -86,15 +96,21 @@ public class MetadataManager
     }
 
     @Override
-    public FunctionInfo getFunction(QualifiedName name, List<Type> parameterTypes, boolean approximate)
+    public Type getType(String typeName)
     {
-        return functions.get(name, parameterTypes, approximate);
+        return typeManager.getType(typeName);
     }
 
     @Override
-    public FunctionInfo getFunction(Signature handle)
+    public FunctionInfo resolveFunction(QualifiedName name, List<? extends Type> parameterTypes, boolean approximate)
     {
-        return functions.get(handle);
+        return functions.resolveFunction(name, parameterTypes, approximate);
+    }
+
+    @Override
+    public FunctionInfo getExactFunction(Signature handle)
+    {
+        return functions.getExactFunction(handle);
     }
 
     @Override
@@ -112,7 +128,21 @@ public class MetadataManager
     @Override
     public void addFunctions(List<FunctionInfo> functionInfos)
     {
-        functions.addFunctions(functionInfos);
+        functions.addFunctions(functionInfos, ImmutableList.<OperatorInfo>of());
+    }
+
+    @Override
+    public OperatorInfo resolveOperator(OperatorType operatorType, List<? extends Type> argumentTypes)
+            throws OperatorNotFoundException
+    {
+        return functions.resolveOperator(operatorType, argumentTypes);
+    }
+
+    @Override
+    public OperatorInfo getExactOperator(OperatorType operatorType, Type returnType, List<? extends Type> argumentTypes)
+            throws OperatorNotFoundException
+    {
+        return functions.getExactOperator(operatorType, argumentTypes, returnType);
     }
 
     @Override

@@ -15,6 +15,7 @@ package com.facebook.presto.metadata;
 
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorHandleResolver;
+import com.facebook.presto.spi.IndexHandle;
 import com.facebook.presto.spi.Split;
 import com.facebook.presto.spi.TableHandle;
 
@@ -78,6 +79,16 @@ public class HandleResolver
         throw new IllegalArgumentException("No connector for split: " + split);
     }
 
+    public String getId(IndexHandle indexHandle)
+    {
+        for (Entry<String, ConnectorHandleResolver> entry : handleIdResolvers.entrySet()) {
+            if (entry.getValue().canHandle(indexHandle)) {
+                return entry.getKey();
+            }
+        }
+        throw new IllegalArgumentException("No connector for index handle: " + indexHandle);
+    }
+
     public Class<? extends TableHandle> getTableHandleClass(String id)
     {
         ConnectorHandleResolver connectorHandleResolver = handleIdResolvers.get(id);
@@ -97,5 +108,12 @@ public class HandleResolver
         ConnectorHandleResolver connectorHandleResolver = handleIdResolvers.get(id);
         checkArgument(connectorHandleResolver != null, "No handle resolver for %s", id);
         return connectorHandleResolver.getSplitClass();
+    }
+
+    public Class<? extends IndexHandle> getIndexHandleClass(String id)
+    {
+        ConnectorHandleResolver connectorHandleResolver = handleIdResolvers.get(id);
+        checkArgument(connectorHandleResolver != null, "No handle resolver for %s", id);
+        return connectorHandleResolver.getIndexHandleClass();
     }
 }
