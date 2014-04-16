@@ -19,6 +19,7 @@ import org.apache.hadoop.hive.metastore.api.MetaException;
 import org.apache.hadoop.hive.serde2.columnar.BytesRefArrayWritable;
 import org.apache.hadoop.hive.serde2.columnar.LazyBinaryColumnarSerDe;
 import org.apache.hadoop.mapred.RecordReader;
+import org.joda.time.DateTimeZone;
 
 import java.util.List;
 
@@ -28,7 +29,7 @@ public class ColumnarBinaryHiveRecordCursorProvider
         implements HiveRecordCursorProvider
 {
     @Override
-    public Optional<HiveRecordCursor> createHiveRecordCursor(HiveSplit split, RecordReader<?, ?> recordReader, List<HiveColumnHandle> columns)
+    public Optional<HiveRecordCursor> createHiveRecordCursor(HiveSplit split, RecordReader<?, ?> recordReader, List<HiveColumnHandle> columns, DateTimeZone timeZone)
     {
         if (usesColumnarBinarySerDe(split)) {
             return Optional.<HiveRecordCursor>of(new ColumnarBinaryHiveRecordCursor<>(

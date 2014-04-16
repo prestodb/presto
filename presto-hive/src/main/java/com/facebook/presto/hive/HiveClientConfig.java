@@ -29,11 +29,14 @@ import javax.validation.constraints.NotNull;
 
 import java.io.File;
 import java.util.List;
+import java.util.TimeZone;
 import java.util.concurrent.TimeUnit;
 
 public class HiveClientConfig
 {
     private static final Splitter SPLITTER = Splitter.on(',').trimResults().omitEmptyStrings();
+
+    private TimeZone timeZone = TimeZone.getDefault();
 
     private DataSize maxSplitSize = new DataSize(64, Unit.MEGABYTE);
     private int maxOutstandingSplits = 1_000;
@@ -63,6 +66,25 @@ public class HiveClientConfig
     private File s3StagingDirectory = new File(StandardSystemProperty.JAVA_IO_TMPDIR.value());
 
     private List<String> resourceConfigFiles;
+
+    @NotNull
+    public TimeZone getTimeZone()
+    {
+        return timeZone;
+    }
+
+    @Config("hive.time-zone")
+    public HiveClientConfig setTimeZone(String id)
+    {
+        this.timeZone = (id == null) ? TimeZone.getDefault() : TimeZone.getTimeZone(id);
+        return this;
+    }
+
+    public HiveClientConfig setTimeZone(TimeZone timeZone)
+    {
+        this.timeZone = (timeZone == null) ? TimeZone.getDefault() : timeZone;
+        return this;
+    }
 
     @NotNull
     public DataSize getMaxSplitSize()

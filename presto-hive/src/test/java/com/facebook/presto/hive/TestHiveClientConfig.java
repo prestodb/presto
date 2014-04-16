@@ -26,7 +26,10 @@ import org.testng.annotations.Test;
 
 import java.io.File;
 import java.util.Map;
+import java.util.TimeZone;
 import java.util.concurrent.TimeUnit;
+
+import static com.facebook.presto.hive.TestHiveUtil.nonDefaultTimeZone;
 
 @DefunctConfig("hive.file-system-cache-ttl")
 public class TestHiveClientConfig
@@ -35,6 +38,7 @@ public class TestHiveClientConfig
     public void testDefaults()
     {
         ConfigAssertions.assertRecordedDefaults(ConfigAssertions.recordDefaults(HiveClientConfig.class)
+                .setTimeZone(TimeZone.getDefault().getID())
                 .setMaxSplitSize(new DataSize(64, Unit.MEGABYTE))
                 .setMaxOutstandingSplits(1_000)
                 .setMaxGlobalSplitIteratorThreads(1_000)
@@ -64,6 +68,7 @@ public class TestHiveClientConfig
     public void testExplicitPropertyMappings()
     {
         Map<String, String> properties = new ImmutableMap.Builder<String, String>()
+                .put("hive.time-zone", nonDefaultTimeZone().getID())
                 .put("hive.max-split-size", "256MB")
                 .put("hive.max-outstanding-splits", "10")
                 .put("hive.max-global-split-iterator-threads", "10")
@@ -90,6 +95,7 @@ public class TestHiveClientConfig
                 .build();
 
         HiveClientConfig expected = new HiveClientConfig()
+                .setTimeZone(nonDefaultTimeZone().toTimeZone())
                 .setMaxSplitSize(new DataSize(256, Unit.MEGABYTE))
                 .setMaxOutstandingSplits(10)
                 .setMaxGlobalSplitIteratorThreads(10)

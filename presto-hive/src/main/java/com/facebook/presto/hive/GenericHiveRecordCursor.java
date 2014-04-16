@@ -28,6 +28,7 @@ import org.apache.hadoop.hive.serde2.objectinspector.StructField;
 import org.apache.hadoop.hive.serde2.objectinspector.StructObjectInspector;
 import org.apache.hadoop.io.Writable;
 import org.apache.hadoop.mapred.RecordReader;
+import org.joda.time.DateTimeZone;
 
 import java.io.IOException;
 import java.sql.Timestamp;
@@ -75,11 +76,19 @@ class GenericHiveRecordCursor<K, V extends Writable>
     private final boolean[] nulls;
 
     private final long totalBytes;
+    private final DateTimeZone timeZone;
+
     private long completedBytes;
     private Object rowData;
     private boolean closed;
 
-    public GenericHiveRecordCursor(RecordReader<K, V> recordReader, long totalBytes, Properties splitSchema, List<HivePartitionKey> partitionKeys, List<HiveColumnHandle> columns)
+    public GenericHiveRecordCursor(
+            RecordReader<K, V> recordReader,
+            long totalBytes,
+            Properties splitSchema,
+            List<HivePartitionKey> partitionKeys,
+            List<HiveColumnHandle> columns,
+            DateTimeZone timeZone)
     {
         checkNotNull(recordReader, "recordReader is null");
         checkArgument(totalBytes >= 0, "totalBytes is negative");
@@ -87,11 +96,13 @@ class GenericHiveRecordCursor<K, V extends Writable>
         checkNotNull(partitionKeys, "partitionKeys is null");
         checkNotNull(columns, "columns is null");
         checkArgument(!columns.isEmpty(), "columns is empty");
+        checkNotNull(timeZone, "timeZone is null");
 
         this.recordReader = recordReader;
         this.totalBytes = totalBytes;
         this.key = recordReader.createKey();
         this.value = recordReader.createValue();
+        this.timeZone = timeZone;
 
         try {
             this.deserializer = MetaStoreUtils.getDeserializer(null, splitSchema);
@@ -295,15 +306,29 @@ class GenericHiveRecordCursor<K, V extends Writable>
         else {
             Object fieldValue = ((PrimitiveObjectInspector) fieldInspectors[column]).getPrimitiveJavaObject(fieldData);
             checkState(fieldValue != null, "fieldValue should not be null");
-            longs[column] = getLongOrTimestamp(fieldValue);
+            longs[column] = getLongOrTimestamp(fieldValue, timeZone);
             nulls[column] = false;
         }
     }
 
-    private static long getLongOrTimestamp(Object value)
+    private static long getLongOrTimestamp(Object value, DateTimeZone hiveTimeZone)
     {
         if (value instanceof Timestamp) {
-            return MILLISECONDS.toSeconds(((Timestamp) value).getTime());
+            // The Hive SerDe parses timestamps using the default time zone of
+            // this JVM, but the data might have been written using a different
+            // time zone. We need to convert it to the configured time zone.
+
+            // the timestamp that Hive parsed using the JVM time zone
+            long parsedJvmMillis = ((Timestamp) value).getTime();
+
+            // remove the JVM time zone correction from the timestamp
+            DateTimeZone jvmTimeZone = DateTimeZone.getDefault();
+            long hiveMillis = jvmTimeZone.convertUTCToLocal(parsedJvmMillis);
+
+            // convert to UTC using the real time zone for the underlying data
+            long utcMillis = hiveTimeZone.convertLocalToUTC(hiveMillis, false);
+
+            return MILLISECONDS.toSeconds(utcMillis);
         }
         return ((Number) value).longValue();
     }

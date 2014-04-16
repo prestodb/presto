@@ -47,12 +47,14 @@ import com.google.common.net.HostAndPort;
 import io.airlift.log.Logger;
 import io.airlift.units.Duration;
 import org.joda.time.DateTime;
+import org.joda.time.DateTimeZone;
 import org.testng.annotations.Test;
 
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.TimeZone;
 import java.util.UUID;
 import java.util.concurrent.ExecutorService;
 
@@ -108,6 +110,8 @@ public abstract class AbstractTestHiveClient
     protected Set<Partition> unpartitionedPartitions;
     protected Partition invalidPartition;
 
+    protected DateTimeZone timeZone;
+
     protected CachingHiveMetastore metastoreClient;
 
     protected ConnectorMetadata metadata;
@@ -115,7 +119,7 @@ public abstract class AbstractTestHiveClient
     protected ConnectorRecordSetProvider recordSetProvider;
     protected ConnectorRecordSinkProvider recordSinkProvider;
 
-    protected void setupHive(String connectorId, String databaseName)
+    protected void setupHive(String connectorId, String databaseName, String timeZoneId)
     {
         database = databaseName;
         table = new SchemaTableName(database, "presto_test");
@@ -161,16 +165,18 @@ public abstract class AbstractTestHiveClient
                         Optional.<HiveBucket>absent()));
         unpartitionedPartitions = ImmutableSet.<Partition>of(new HivePartition(tableUnpartitioned));
         invalidPartition = new HivePartition(invalidTable, "unknown", ImmutableMap.<ColumnHandle, Comparable<?>>of(), Optional.<HiveBucket>absent());
+
+        timeZone = DateTimeZone.forTimeZone(TimeZone.getTimeZone(timeZoneId));
     }
 
-    protected void setup(String host, int port, String databaseName)
+    protected void setup(String host, int port, String databaseName, String timeZone)
     {
-        setup(host, port, databaseName, "hive-test", 100, 50);
+        setup(host, port, databaseName, timeZone, "hive-test", 100, 50);
     }
 
-    protected void setup(String host, int port, String databaseName, String connectorName, int maxOutstandingSplits, int maxThreads)
+    protected void setup(String host, int port, String databaseName, String timeZoneId, String connectorName, int maxOutstandingSplits, int maxThreads)
     {
-        setupHive(connectorName, databaseName);
+        setupHive(connectorName, databaseName, timeZoneId);
 
         HiveClientConfig hiveClientConfig = new HiveClientConfig();
         String proxy = System.getProperty("hive.metastore.thrift.client.socks-proxy");
@@ -189,6 +195,7 @@ public abstract class AbstractTestHiveClient
                 new NamenodeStats(),
                 new HdfsEnvironment(new HdfsConfiguration(hiveClientConfig)),
                 new HadoopDirectoryLister(),
+                timeZone,
                 sameThreadExecutor(),
                 hiveClientConfig.getMaxSplitSize(),
                 maxOutstandingSplits,
@@ -653,8 +660,8 @@ public abstract class AbstractTestHiveClient
                         assertTrue(cursor.isNull(columnIndex.get("t_timestamp")));
                     }
                     else {
-                        long seconds = MILLISECONDS.toSeconds(new DateTime(2011, 5, 6, 7, 8, 9, 123).getMillis());
-                        assertEquals(cursor.getLong(columnIndex.get("t_timestamp")), seconds);
+                        long seconds = MILLISECONDS.toSeconds(new DateTime(2011, 5, 6, 7, 8, 9, 123, timeZone).getMillis());
+                        assertEquals(cursor.getLong(columnIndex.get("t_timestamp")), seconds, (fileType + " test"));
                     }
 
                     if (rowNumber % 23 == 0) {
