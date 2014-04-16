@@ -24,6 +24,7 @@ import org.apache.hadoop.mapred.FileSplit;
 import org.apache.hadoop.mapred.JobConf;
 import org.apache.hadoop.mapred.RecordReader;
 import org.apache.hadoop.mapred.Reporter;
+import org.joda.time.DateTimeZone;
 import org.testng.annotations.Test;
 
 import java.io.File;
@@ -52,7 +53,7 @@ public class TestHiveFileFormats
             splitProperties.setProperty("serialization.lib", "org.apache.hadoop.hive.serde2.columnar.ColumnarSerDe");
             splitProperties.setProperty("columns", COLUMN_NAMES_STRING);
             splitProperties.setProperty("columns.types", COLUMN_TYPES);
-            RecordCursor cursor = new ColumnarTextHiveRecordCursor<>(recordReader, split.getLength(), splitProperties, new ArrayList<HivePartitionKey>(), getColumns());
+            RecordCursor cursor = new ColumnarTextHiveRecordCursor<>(recordReader, split.getLength(), splitProperties, new ArrayList<HivePartitionKey>(), getColumns(), DateTimeZone.getDefault());
 
             checkCursor(cursor);
         }

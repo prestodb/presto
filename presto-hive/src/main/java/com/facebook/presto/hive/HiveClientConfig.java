@@ -29,11 +29,14 @@ import javax.validation.constraints.NotNull;
 
 import java.io.File;
 import java.util.List;
+import java.util.TimeZone;
 import java.util.concurrent.TimeUnit;
 
 public class HiveClientConfig
 {
     private static final Splitter SPLITTER = Splitter.on(',').trimResults().omitEmptyStrings();
+
+    private TimeZone timeZone = TimeZone.getDefault();
 
     private DataSize maxSplitSize = new DataSize(64, Unit.MEGABYTE);
     private int maxOutstandingSplits = 1_000;
@@ -41,13 +44,13 @@ public class HiveClientConfig
     private int maxSplitIteratorThreads = 50;
     private int minPartitionBatchSize = 10;
     private int maxPartitionBatchSize = 100;
+
     private Duration metastoreCacheTtl = new Duration(1, TimeUnit.HOURS);
     private Duration metastoreRefreshInterval = new Duration(2, TimeUnit.MINUTES);
     private int maxMetastoreRefreshThreads = 100;
     private HostAndPort metastoreSocksProxy;
     private Duration metastoreTimeout = new Duration(10, TimeUnit.SECONDS);
 
-    private Duration fileSystemCacheTtl = new Duration(1, TimeUnit.DAYS);
     private Duration dfsTimeout = new Duration(10, TimeUnit.SECONDS);
     private Duration dfsConnectTimeout = new Duration(500, TimeUnit.MILLISECONDS);
     private int dfsConnectMaxRetries = 5;
@@ -63,6 +66,25 @@ public class HiveClientConfig
     private File s3StagingDirectory = new File(StandardSystemProperty.JAVA_IO_TMPDIR.value());
 
     private List<String> resourceConfigFiles;
+
+    @NotNull
+    public TimeZone getTimeZone()
+    {
+        return timeZone;
+    }
+
+    @Config("hive.time-zone")
+    public HiveClientConfig setTimeZone(String id)
+    {
+        this.timeZone = (id == null) ? TimeZone.getDefault() : TimeZone.getTimeZone(id);
+        return this;
+    }
+
+    public HiveClientConfig setTimeZone(TimeZone timeZone)
+    {
+        this.timeZone = (timeZone == null) ? TimeZone.getDefault() : timeZone;
+        return this;
+    }
 
     @NotNull
     public DataSize getMaxSplitSize()
@@ -221,19 +243,6 @@ public class HiveClientConfig
     public HiveClientConfig setResourceConfigFiles(List<String> files)
     {
         this.resourceConfigFiles = (files == null) ? null : ImmutableList.copyOf(files);
-        return this;
-    }
-
-    @NotNull
-    public Duration getFileSystemCacheTtl()
-    {
-        return fileSystemCacheTtl;
-    }
-
-    @Config("hive.file-system-cache-ttl")
-    public HiveClientConfig setFileSystemCacheTtl(Duration fileSystemCacheTtl)
-    {
-        this.fileSystemCacheTtl = fileSystemCacheTtl;
         return this;
     }
 

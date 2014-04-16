@@ -17,6 +17,7 @@ import com.google.common.base.StandardSystemProperty;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.net.HostAndPort;
+import io.airlift.configuration.DefunctConfig;
 import io.airlift.configuration.testing.ConfigAssertions;
 import io.airlift.units.DataSize;
 import io.airlift.units.DataSize.Unit;
@@ -25,14 +26,19 @@ import org.testng.annotations.Test;
 
 import java.io.File;
 import java.util.Map;
+import java.util.TimeZone;
 import java.util.concurrent.TimeUnit;
 
+import static com.facebook.presto.hive.TestHiveUtil.nonDefaultTimeZone;
+
+@DefunctConfig("hive.file-system-cache-ttl")
 public class TestHiveClientConfig
 {
     @Test
     public void testDefaults()
     {
         ConfigAssertions.assertRecordedDefaults(ConfigAssertions.recordDefaults(HiveClientConfig.class)
+                .setTimeZone(TimeZone.getDefault().getID())
                 .setMaxSplitSize(new DataSize(64, Unit.MEGABYTE))
                 .setMaxOutstandingSplits(1_000)
                 .setMaxGlobalSplitIteratorThreads(1_000)
@@ -47,7 +53,6 @@ public class TestHiveClientConfig
                 .setDfsTimeout(new Duration(10, TimeUnit.SECONDS))
                 .setDfsConnectTimeout(new Duration(500, TimeUnit.MILLISECONDS))
                 .setDfsConnectMaxRetries(5)
-                .setFileSystemCacheTtl(new Duration(1, TimeUnit.DAYS))
                 .setResourceConfigFiles((String) null)
                 .setDomainSocketPath(null)
                 .setS3AwsAccessKey(null)
@@ -63,6 +68,7 @@ public class TestHiveClientConfig
     public void testExplicitPropertyMappings()
     {
         Map<String, String> properties = new ImmutableMap.Builder<String, String>()
+                .put("hive.time-zone", nonDefaultTimeZone().getID())
                 .put("hive.max-split-size", "256MB")
                 .put("hive.max-outstanding-splits", "10")
                 .put("hive.max-global-split-iterator-threads", "10")
@@ -77,7 +83,6 @@ public class TestHiveClientConfig
                 .put("hive.dfs-timeout", "33s")
                 .put("hive.dfs.connect.timeout", "20s")
                 .put("hive.dfs.connect.max-retries", "10")
-                .put("hive.file-system-cache-ttl", "2d")
                 .put("hive.config.resources", "/foo.xml,/bar.xml")
                 .put("dfs.domain-socket-path", "/foo")
                 .put("hive.s3.aws-access-key", "abc123")
@@ -90,6 +95,7 @@ public class TestHiveClientConfig
                 .build();
 
         HiveClientConfig expected = new HiveClientConfig()
+                .setTimeZone(nonDefaultTimeZone().toTimeZone())
                 .setMaxSplitSize(new DataSize(256, Unit.MEGABYTE))
                 .setMaxOutstandingSplits(10)
                 .setMaxGlobalSplitIteratorThreads(10)
@@ -104,7 +110,6 @@ public class TestHiveClientConfig
                 .setDfsTimeout(new Duration(33, TimeUnit.SECONDS))
                 .setDfsConnectTimeout(new Duration(20, TimeUnit.SECONDS))
                 .setDfsConnectMaxRetries(10)
-                .setFileSystemCacheTtl(new Duration(2, TimeUnit.DAYS))
                 .setResourceConfigFiles(ImmutableList.of("/foo.xml", "/bar.xml"))
                 .setDomainSocketPath("/foo")
                 .setS3AwsAccessKey("abc123")

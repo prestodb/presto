@@ -28,6 +28,7 @@ import org.apache.hadoop.hive.serde2.lazy.LazyObject;
 import org.apache.hadoop.hive.serde2.objectinspector.ObjectInspector;
 import org.apache.hadoop.hive.serde2.objectinspector.StructObjectInspector;
 import org.apache.hadoop.mapred.RecordReader;
+import org.joda.time.DateTimeZone;
 
 import java.io.IOException;
 import java.util.Arrays;
@@ -74,14 +75,18 @@ class ColumnarTextHiveRecordCursor<K>
     private final boolean[] nulls;
 
     private final long totalBytes;
+    private final DateTimeZone timeZone;
+
     private long completedBytes;
     private boolean closed;
 
-    public ColumnarTextHiveRecordCursor(RecordReader<K, BytesRefArrayWritable> recordReader,
+    public ColumnarTextHiveRecordCursor(
+            RecordReader<K, BytesRefArrayWritable> recordReader,
             long totalBytes,
             Properties splitSchema,
             List<HivePartitionKey> partitionKeys,
-            List<HiveColumnHandle> columns)
+            List<HiveColumnHandle> columns,
+            DateTimeZone timeZone)
     {
         checkNotNull(recordReader, "recordReader is null");
         checkArgument(totalBytes >= 0, "totalBytes is negative");
@@ -89,11 +94,13 @@ class ColumnarTextHiveRecordCursor<K>
         checkNotNull(partitionKeys, "partitionKeys is null");
         checkNotNull(columns, "columns is null");
         checkArgument(!columns.isEmpty(), "columns is empty");
+        checkNotNull(timeZone, "timeZone is null");
 
         this.recordReader = recordReader;
         this.totalBytes = totalBytes;
         this.key = recordReader.createKey();
         this.value = recordReader.createValue();
+        this.timeZone = timeZone;
 
         int size = columns.size();
 
@@ -347,7 +354,7 @@ class ColumnarTextHiveRecordCursor<K>
         }
         else if (hiveTypes[column] == HiveType.TIMESTAMP) {
             String value = new String(bytes, start, length);
-            longs[column] = parseHiveTimestamp(value);
+            longs[column] = parseHiveTimestamp(value, timeZone);
             wasNull = false;
         }
         else {

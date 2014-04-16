@@ -17,9 +17,9 @@ public abstract class AbstractTestSplitIteratorBackpressure
         extends AbstractTestHiveClient
 {
     @Override
-    protected void setup(String host, int port, String databaseName)
+    protected void setup(String host, int port, String databaseName, String timeZone)
     {
         // Restrict the outstanding splits to 1 and only use 2 threads per iterator
-        setup(host, port, databaseName, "hive-push-backtest", 1, 2);
+        setup(host, port, databaseName, timeZone, "hive-push-backtest", 1, 2);
     }
 }
