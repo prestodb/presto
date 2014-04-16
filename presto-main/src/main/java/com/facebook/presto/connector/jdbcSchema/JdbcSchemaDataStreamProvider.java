@@ -1,0 +1,235 @@
+/*
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package com.facebook.presto.connector.jdbcSchema;
+
+import com.facebook.presto.block.BlockIterable;
+import com.facebook.presto.metadata.FunctionInfo;
+import com.facebook.presto.metadata.InternalTable;
+import com.facebook.presto.metadata.Metadata;
+import com.facebook.presto.metadata.QualifiedTableName;
+import com.facebook.presto.metadata.QualifiedTablePrefix;
+import com.facebook.presto.operator.AlignmentOperator;
+import com.facebook.presto.operator.Operator;
+import com.facebook.presto.operator.OperatorContext;
+import com.facebook.presto.spi.ColumnHandle;
+import com.facebook.presto.spi.ColumnMetadata;
+import com.facebook.presto.spi.SchemaTableName;
+import com.facebook.presto.spi.Split;
+import com.facebook.presto.split.ConnectorDataStreamProvider;
+import com.facebook.presto.split.SplitManager;
+import com.facebook.presto.sql.analyzer.Type;
+import com.google.common.base.Optional;
+import com.google.common.collect.ImmutableList;
+
+import javax.inject.Inject;
+
+import java.util.List;
+import java.util.Map;
+import java.util.Map.Entry;
+
+import static com.facebook.presto.tuple.TupleInfo.Type.fromColumnType;
+import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Strings.nullToEmpty;
+import static com.google.common.collect.Iterables.transform;
+import static java.lang.String.format;
+
+public class JdbcSchemaDataStreamProvider
+        implements ConnectorDataStreamProvider
+{
+    private final Metadata metadata;
+    private final SplitManager splitManager;
+
+    @Inject
+    public JdbcSchemaDataStreamProvider(Metadata metadata, SplitManager splitManager)
+    {
+        this.metadata = checkNotNull(metadata, "metadata is null");
+        this.splitManager = checkNotNull(splitManager, "splitManager is null");
+    }
+
+    @Override
+    public boolean canHandle(Split split)
+    {
+        return split instanceof JdbcSchemaSplit;
+    }
+
+    @Override
+    public Operator createNewDataStream(OperatorContext operatorContext, Split split, List<ColumnHandle> columns)
+    {
+        List<BlockIterable> channels = createChannels(split, columns);
+        return new AlignmentOperator(operatorContext, channels);
+    }
+
+    private List<BlockIterable> createChannels(Split split, List<ColumnHandle> columns)
+    {
+        checkNotNull(split, "split is null");
+        checkArgument(split instanceof JdbcSchemaSplit, "Split must be of type %s, not %s", JdbcSchemaSplit.class.getName(), split.getClass().getName());
+
+        checkNotNull(columns, "columns is null");
+        checkArgument(!columns.isEmpty(), "must provide at least one column");
+
+        JdbcSchemaTableHandle handle = ((JdbcSchemaSplit) split).getTableHandle();
+        Map<String, Object> filters = ((JdbcSchemaSplit) split).getFilters();
+
+        InternalTable table = getJdbcSchemaTable(handle.getCatalogName(), handle.getSchemaTableName(), filters);
+
+        ImmutableList.Builder<BlockIterable> list = ImmutableList.builder();
+        for (ColumnHandle column : columns) {
+            checkArgument(column instanceof JdbcSchemaColumnHandle, "column must be of type %s, not %s", JdbcSchemaColumnHandle.class.getName(), column.getClass().getName());
+            JdbcSchemaColumnHandle internalColumn = (JdbcSchemaColumnHandle) column;
+
+            list.add(table.getColumn(internalColumn.getColumnName()));
+        }
+        return list.build();
+    }
+
+    public InternalTable getJdbcSchemaTable(String catalog, SchemaTableName table, Map<String, Object> filters)
+    {
+        if (table.equals(JdbcSchemaMetadata.TABLE_COLUMNS)) {
+            return buildColumns(catalog, filters);
+        }
+        else if (table.equals(JdbcSchemaMetadata.TABLE_TABLES)) {
+            return buildTables(catalog, filters);
+        }
+        else if (table.equals(JdbcSchemaMetadata.TABLE_FUNCTIONS)) {
+            return buildFunctions();
+        }
+        else if (table.equals(JdbcSchemaMetadata.TABLE_FUNCTIONS)) {
+            return buildFunctions();
+        }
+
+        throw new IllegalArgumentException(format("table does not exist: %s", table));
+    }
+
+    private InternalTable buildColumns(String catalogName, Map<String, Object> filters)
+    {
+        InternalTable.Builder table = InternalTable.builder(JdbcSchemaMetadata.jdbcSchemaTableColumns(JdbcSchemaMetadata.TABLE_COLUMNS));
+        for (Entry<QualifiedTableName, List<ColumnMetadata>> entry : getColumnsList(catalogName, filters).entrySet()) {
+            QualifiedTableName tableName = entry.getKey();
+            for (ColumnMetadata column : entry.getValue()) {
+                table.add(
+                        tableName.getCatalogName(),
+                        tableName.getSchemaName(),
+                        tableName.getTableName(),
+                        column.getName(),
+                        column.getOrdinalPosition() + 1,
+                        null,
+                        "YES",
+                        fromColumnType(column.getType()).getName(),
+                        column.isPartitionKey() ? "YES" : "NO");
+            }
+        }
+        return table.build();
+    }
+
+    private Map<QualifiedTableName, List<ColumnMetadata>> getColumnsList(String catalogName, Map<String, Object> filters)
+    {
+        return metadata.listTableColumns(extractQualifiedTablePrefix(catalogName, filters));
+    }
+
+    private InternalTable buildTables(String catalogName, Map<String, Object> filters)
+    {
+        InternalTable.Builder table = InternalTable.builder(JdbcSchemaMetadata.jdbcSchemaTableColumns(JdbcSchemaMetadata.TABLE_TABLES));
+        for (QualifiedTableName name : getTablesList(catalogName, filters)) {
+            String tableType = "TABLE";
+            table.add(
+                    name.getCatalogName(),
+                    name.getSchemaName(),
+                    name.getTableName(),
+                    tableType,
+                    "",
+                    null,
+                    null,
+                    null,
+                    null,
+                    null
+            );
+        }
+        return table.build();
+    }
+
+    private List<QualifiedTableName> getTablesList(String catalogName, Map<String, Object> filters)
+    {
+        return metadata.listTables(extractQualifiedTablePrefix(catalogName, filters));
+    }
+
+    private InternalTable buildFunctions()
+    {
+        InternalTable.Builder table = InternalTable.builder(JdbcSchemaMetadata.jdbcSchemaTableColumns(JdbcSchemaMetadata.TABLE_FUNCTIONS));
+        for (FunctionInfo function : metadata.listFunctions()) {
+            if (function.isApproximate()) {
+                continue;
+            }
+
+            Iterable<String> arguments = transform(function.getArgumentTypes(), Type.nameGetter());
+
+            String functionType;
+            if (function.isAggregate()) {
+                functionType = "aggregate";
+            }
+            else if (function.isWindow()) {
+                functionType = "window";
+            }
+            else if (function.isDeterministic()) {
+                functionType = "scalar";
+            }
+            else {
+                functionType = "scalar (non-deterministic)";
+            }
+
+            table.add(
+                    "", // catalog
+                    "", // schema
+                    function.getName().toString(), // name
+                    nullToEmpty(function.getDescription()), // remark
+                    java.sql.DatabaseMetaData.functionNoTable, // type
+                    "" // specific name Joiner.on(", ").join(arguments)
+            );
+        }
+        return table.build();
+    }
+
+    /*private static QualifiedTableName extractQualifiedTableName(String catalogName, Map<String, Object> filters)
+    {
+        Optional<String> schemaName = getFilterColumn(filters, "table_schema");
+        checkArgument(schemaName.isPresent(), "filter is required for column: %s.%s", JdbcSchemaMetadata.TABLE_INTERNAL_PARTITIONS, "table_schema");
+        Optional<String> tableName = getFilterColumn(filters, "table_name");
+        checkArgument(tableName.isPresent(), "filter is required for column: %s.%s", JdbcSchemaMetadata.TABLE_INTERNAL_PARTITIONS, "table_name");
+        return new QualifiedTableName(catalogName, schemaName.get(), tableName.get());
+    }*/
+
+    private static QualifiedTablePrefix extractQualifiedTablePrefix(String catalogName, Map<String, Object> filters)
+    {
+        Optional<String> schemaName = getFilterColumn(filters, "table_schema");
+        Optional<String> tableName = getFilterColumn(filters, "table_name");
+        if (!schemaName.isPresent()) {
+            return new QualifiedTablePrefix(catalogName, Optional.<String>absent(), Optional.<String>absent());
+        }
+        //return new QualifiedTablePrefix(catalogName, schemaName, tableName);
+        return new QualifiedTablePrefix(catalogName, schemaName, tableName);
+    }
+
+    private static Optional<String> getFilterColumn(Map<String, Object> filters, String columnName)
+    {
+        for (Map.Entry<String, Object> entry : filters.entrySet()) {
+            if (entry.getKey().equals(columnName)) {
+                if (entry.getValue() instanceof String) {
+                    return Optional.of((String) entry.getValue());
+                }
+                break;
+            }
+        }
+        return Optional.absent();
+    }
+}

@@ -14,6 +14,7 @@
 package com.facebook.presto.metadata;
 
 import com.facebook.presto.connector.informationSchema.InformationSchemaMetadata;
+import com.facebook.presto.connector.jdbcSchema.JdbcSchemaMetadata;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorMetadata;
@@ -59,6 +60,7 @@ public class MetadataManager
     private final CopyOnWriteArrayList<ConnectorMetadataEntry> internalSchemas = new CopyOnWriteArrayList<>();
     private final ConcurrentMap<String, ConnectorMetadataEntry> connectors = new ConcurrentHashMap<>();
     private final ConcurrentMap<String, ConnectorMetadataEntry> informationSchemas = new ConcurrentHashMap<>();
+    private final ConcurrentMap<String, ConnectorMetadataEntry> jdbcSchemas = new ConcurrentHashMap<>();
     private final FunctionRegistry functions = new FunctionRegistry();
 
     public void addConnectorMetadata(String connectorId, String catalogName, ConnectorMetadata connectorMetadata)
@@ -67,6 +69,7 @@ public class MetadataManager
         checkState(connectors.putIfAbsent(catalogName, entry) == null, "Catalog '%s' is already registered", catalogName);
 
         informationSchemas.put(catalogName, new ConnectorMetadataEntry(INTERNAL_CONNECTOR_ID, new InformationSchemaMetadata(catalogName)));
+        jdbcSchemas.put(catalogName, new ConnectorMetadataEntry(INTERNAL_CONNECTOR_ID, new JdbcSchemaMetadata(catalogName)));
     }
 
     public void addInternalSchemaMetadata(String connectorId, ConnectorMetadata connectorMetadata)
@@ -261,6 +264,10 @@ public class MetadataManager
         if (informationSchema != null) {
             builder.add(informationSchema);
         }
+        ConnectorMetadataEntry jdbcSchema = jdbcSchemas.get(catalogName);
+        if (jdbcSchema != null) {
+            builder.add(jdbcSchema);
+        }
         return builder.build();
     }
 
@@ -269,6 +276,12 @@ public class MetadataManager
         checkNotNull(tableHandle, "tableHandle is null");
 
         for (Entry<String, ConnectorMetadataEntry> entry : informationSchemas.entrySet()) {
+            if (entry.getValue().getMetadata().canHandle(tableHandle)) {
+                return entry.getValue();
+            }
+        }
+
+        for (Entry<String, ConnectorMetadataEntry> entry : jdbcSchemas.entrySet()) {
             if (entry.getValue().getMetadata().canHandle(tableHandle)) {
                 return entry.getValue();
             }

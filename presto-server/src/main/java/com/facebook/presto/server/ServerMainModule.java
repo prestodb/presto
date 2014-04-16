@@ -18,6 +18,7 @@ import com.facebook.presto.connector.ConnectorManager;
 import com.facebook.presto.connector.NativeConnectorFactory;
 import com.facebook.presto.connector.dual.DualModule;
 import com.facebook.presto.connector.informationSchema.InformationSchemaModule;
+import com.facebook.presto.connector.jdbcSchema.JdbcSchemaModule;
 import com.facebook.presto.connector.jmx.JmxConnectorFactory;
 import com.facebook.presto.connector.system.SystemTablesModule;
 import com.facebook.presto.event.query.QueryCompletionEvent;
@@ -77,6 +78,7 @@ import com.google.inject.Provides;
 import com.google.inject.Scopes;
 import com.google.inject.TypeLiteral;
 import com.google.inject.multibindings.MapBinder;
+
 import io.airlift.dbpool.H2EmbeddedDataSource;
 import io.airlift.dbpool.H2EmbeddedDataSourceConfig;
 import io.airlift.dbpool.H2EmbeddedDataSourceModule;
@@ -84,6 +86,7 @@ import io.airlift.dbpool.MySqlDataSourceModule;
 import io.airlift.discovery.client.ServiceAnnouncement.ServiceAnnouncementBuilder;
 import io.airlift.discovery.client.ServiceDescriptor;
 import io.airlift.units.Duration;
+
 import org.skife.jdbi.v2.DBI;
 import org.skife.jdbi.v2.IDBI;
 
@@ -190,6 +193,9 @@ public class ServerMainModule
 
         // information schema
         binder.install(new InformationSchemaModule());
+
+        // JDBC schema
+        binder.install(new JdbcSchemaModule());
 
         // system tables
         binder.install(new SystemTablesModule());
