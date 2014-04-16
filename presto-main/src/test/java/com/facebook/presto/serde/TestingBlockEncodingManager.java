@@ -29,6 +29,7 @@ import com.facebook.presto.spi.type.TimeWithTimeZoneType;
 import com.facebook.presto.spi.type.TimestampType;
 import com.facebook.presto.spi.type.TimestampWithTimeZoneType;
 import com.facebook.presto.spi.type.VarcharType;
+import com.facebook.presto.type.ColorType;
 import com.facebook.presto.type.TypeRegistry;
 
 public final class TestingBlockEncodingManager
@@ -54,6 +55,7 @@ public final class TestingBlockEncodingManager
                 RunLengthBlockEncoding.FACTORY,
                 DictionaryBlockEncoding.FACTORY,
                 SnappyBlockEncoding.FACTORY,
-                HyperLogLogType.BLOCK_ENCODING_FACTORY);
+                HyperLogLogType.BLOCK_ENCODING_FACTORY,
+                ColorType.BLOCK_ENCODING_FACTORY);
     }
 }

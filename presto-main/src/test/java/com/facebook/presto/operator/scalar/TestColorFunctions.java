@@ -118,13 +118,13 @@ public class TestColorFunctions
     public void testInterpolate()
             throws Exception
     {
-        assertEquals(color(0, 0, 255, toSlice("#000"), toSlice("#fff")), 0x00_00_00);
-        assertEquals(color(128, 0, 255, toSlice("#000"), toSlice("#fff")), 0x80_80_80);
-        assertEquals(color(255, 0, 255, toSlice("#000"), toSlice("#fff")), 0xFF_FF_FF);
+        assertEquals(color(0, 0, 255, color(toSlice("#000")), color(toSlice("#fff"))), 0x00_00_00);
+        assertEquals(color(128, 0, 255, color(toSlice("#000")), color(toSlice("#fff"))), 0x80_80_80);
+        assertEquals(color(255, 0, 255, color(toSlice("#000")), color(toSlice("#fff"))), 0xFF_FF_FF);
 
-        assertEquals(color(0.0, toSlice("#000"), toSlice("#fff")), 0x00_00_00);
-        assertEquals(color(0.5, toSlice("#000"), toSlice("#fff")), 0x80_80_80);
-        assertEquals(color(1.0, toSlice("#000"), toSlice("#fff")), 0xFF_FF_FF);
+        assertEquals(color(0.0, color(toSlice("#000")), color(toSlice("#fff"))), 0x00_00_00);
+        assertEquals(color(0.5, color(toSlice("#000")), color(toSlice("#fff"))), 0x80_80_80);
+        assertEquals(color(1.0, color(toSlice("#000")), color(toSlice("#fff"))), 0xFF_FF_FF);
     }
 
     private static Slice toSlice(String string)
