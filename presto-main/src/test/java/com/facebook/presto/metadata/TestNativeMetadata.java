@@ -20,11 +20,12 @@ import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.SchemaTablePrefix;
 import com.facebook.presto.spi.TableHandle;
+import com.facebook.presto.split.NativePartitionKey;
+import com.facebook.presto.type.TypeRegistry;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import org.skife.jdbi.v2.DBI;
 import org.skife.jdbi.v2.Handle;
-import org.skife.jdbi.v2.IDBI;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
@@ -33,9 +34,9 @@ import java.util.List;
 import java.util.Map;
 
 import static com.facebook.presto.metadata.MetadataUtil.TableMetadataBuilder.tableMetadataBuilder;
-import static com.facebook.presto.spi.ColumnType.DOUBLE;
-import static com.facebook.presto.spi.ColumnType.LONG;
-import static com.facebook.presto.spi.ColumnType.STRING;
+import static com.facebook.presto.spi.type.BigintType.BIGINT;
+import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
+import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static io.airlift.testing.Assertions.assertInstanceOf;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNull;
@@ -52,7 +53,11 @@ public class TestNativeMetadata
     public void setupDatabase()
             throws Exception
     {
-        IDBI dbi = new DBI("jdbc:h2:mem:test" + System.nanoTime());
+        TypeRegistry typeRegistry = new TypeRegistry();
+        DBI dbi = new DBI("jdbc:h2:mem:test" + System.nanoTime());
+        dbi.registerMapper(new TableColumnMapper(typeRegistry));
+        dbi.registerMapper(new ColumnMetadataMapper(typeRegistry));
+        dbi.registerMapper(new NativePartitionKey.Mapper(typeRegistry));
         dummyHandle = dbi.open();
         metadata = new NativeMetadata(new NativeConnectorId("default"), dbi, new DatabaseShardManager(dbi));
     }
@@ -110,10 +115,10 @@ public class TestNativeMetadata
     private static ConnectorTableMetadata getOrdersTable()
     {
         return tableMetadataBuilder(DEFAULT_TEST_ORDERS)
-                .column("orderkey", LONG)
-                .column("custkey", LONG)
+                .column("orderkey", BIGINT)
+                .column("custkey", BIGINT)
                 .column("totalprice", DOUBLE)
-                .column("orderdate", STRING)
+                .column("orderdate", VARCHAR)
                 .build();
     }
 

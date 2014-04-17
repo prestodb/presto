@@ -13,19 +13,20 @@
  */
 package com.facebook.presto.operator.aggregation;
 
-import com.facebook.presto.block.Block;
-import com.facebook.presto.block.BlockBuilder;
-import com.facebook.presto.block.BlockCursor;
+import com.facebook.presto.spi.block.Block;
+import com.facebook.presto.spi.block.BlockBuilder;
+import com.facebook.presto.spi.block.BlockCursor;
 import com.facebook.presto.operator.GroupByIdBlock;
-import com.facebook.presto.tuple.TupleInfo.Type;
+import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.util.array.DoubleBigArray;
 import com.facebook.presto.util.array.LongBigArray;
 import com.google.common.base.Optional;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 
-import static com.facebook.presto.tuple.TupleInfo.SINGLE_DOUBLE;
-import static com.facebook.presto.tuple.TupleInfo.SINGLE_VARBINARY;
+import static com.facebook.presto.spi.type.BigintType.BIGINT;
+import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
+import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 
@@ -41,16 +42,16 @@ public class VarianceAggregation
             boolean standardDeviation)
     {
         // Intermediate type should be a fixed width structure
-        super(SINGLE_DOUBLE, SINGLE_VARBINARY, parameterType);
+        super(DOUBLE, VARCHAR, parameterType);
         this.population = population;
-        if (parameterType == Type.FIXED_INT_64) {
+        if (parameterType == BIGINT) {
             this.inputIsLong = true;
         }
-        else if (parameterType == Type.DOUBLE) {
+        else if (parameterType == DOUBLE) {
             this.inputIsLong = false;
         }
         else {
-            throw new IllegalArgumentException("Expected parameter type to be FIXED_INT_64 or DOUBLE, but was " + parameterType);
+            throw new IllegalArgumentException("Expected parameter type to be BIGINT or DOUBLE, but was " + parameterType);
         }
         this.standardDeviation = standardDeviation;
     }
@@ -75,7 +76,7 @@ public class VarianceAggregation
 
         private VarianceGroupedAccumulator(int valueChannel, boolean inputIsLong, boolean population, boolean standardDeviation, Optional<Integer> maskChannel, Optional<Integer> sampleWeightChannel)
         {
-            super(valueChannel, SINGLE_DOUBLE, SINGLE_VARBINARY, maskChannel, sampleWeightChannel);
+            super(valueChannel, DOUBLE, VARCHAR, maskChannel, sampleWeightChannel);
 
             this.inputIsLong = inputIsLong;
             this.population = population;
@@ -228,7 +229,7 @@ public class VarianceAggregation
 
         private VarianceAccumulator(int valueChannel, boolean inputIsLong, boolean population, boolean standardDeviation, Optional<Integer> maskChannel, Optional<Integer> sampleWeightChannel)
         {
-            super(valueChannel, SINGLE_DOUBLE, SINGLE_VARBINARY, maskChannel, sampleWeightChannel);
+            super(valueChannel, DOUBLE, VARCHAR, maskChannel, sampleWeightChannel);
 
             this.inputIsLong = inputIsLong;
             this.population = population;

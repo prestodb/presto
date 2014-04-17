@@ -22,13 +22,13 @@ import com.facebook.presto.sql.tree.Cast;
 import com.facebook.presto.sql.tree.CoalesceExpression;
 import com.facebook.presto.sql.tree.ComparisonExpression;
 import com.facebook.presto.sql.tree.CurrentTime;
-import com.facebook.presto.sql.tree.DateLiteral;
 import com.facebook.presto.sql.tree.DoubleLiteral;
 import com.facebook.presto.sql.tree.ExistsPredicate;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.Extract;
 import com.facebook.presto.sql.tree.FrameBound;
 import com.facebook.presto.sql.tree.FunctionCall;
+import com.facebook.presto.sql.tree.GenericLiteral;
 import com.facebook.presto.sql.tree.IfExpression;
 import com.facebook.presto.sql.tree.InListExpression;
 import com.facebook.presto.sql.tree.InPredicate;
@@ -159,6 +159,12 @@ public final class ExpressionFormatter
         }
 
         @Override
+        protected String visitGenericLiteral(GenericLiteral node, Void context)
+        {
+            return "" + node.getType() + " '" + node.getValue() + "'";
+        }
+
+        @Override
         protected String visitTimeLiteral(TimeLiteral node, Void context)
         {
             return "TIME '" + node.getValue() + "'";
@@ -177,16 +183,19 @@ public final class ExpressionFormatter
         }
 
         @Override
-        protected String visitDateLiteral(DateLiteral node, Void context)
-        {
-            return "DATE '" + node.getValue() + "'";
-        }
-
-        @Override
         protected String visitIntervalLiteral(IntervalLiteral node, Void context)
         {
             String sign = (node.getSign() == IntervalLiteral.Sign.NEGATIVE) ? "- " : "";
-            return "INTERVAL " + sign + "'" + node.getValue() + "' " + node.getType();
+            StringBuilder builder = new StringBuilder()
+                    .append("INTERVAL ")
+                    .append(sign)
+                    .append(" '").append(node.getValue()).append("' ")
+                    .append(node.getStartField());
+
+            if (node.getEndField() != null)  {
+                builder.append(" TO ").append(node.getEndField());
+            }
+            return builder.toString();
         }
 
         @Override

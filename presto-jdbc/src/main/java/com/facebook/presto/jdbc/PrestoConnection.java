@@ -38,8 +38,10 @@ import java.sql.Savepoint;
 import java.sql.Statement;
 import java.sql.Struct;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Properties;
+import java.util.TimeZone;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -56,6 +58,8 @@ public class PrestoConnection
     private final AtomicBoolean closed = new AtomicBoolean();
     private final AtomicReference<String> catalog = new AtomicReference<>();
     private final AtomicReference<String> schema = new AtomicReference<>();
+    private final AtomicReference<String> timeZoneId = new AtomicReference<>();
+    private final AtomicReference<Locale> locale = new AtomicReference<>();
     private final URI uri;
     private final HostAndPort address;
     private final String user;
@@ -71,6 +75,8 @@ public class PrestoConnection
         this.queryExecutor = checkNotNull(queryExecutor, "queryExecutor is null");
         catalog.set("default");
         schema.set("default");
+        timeZoneId.set(TimeZone.getDefault().getID());
+        locale.set(Locale.getDefault());
 
         if (!isNullOrEmpty(uri.getPath())) {
             setCatalogAndSchema();
@@ -399,7 +405,7 @@ public class PrestoConnection
             clientInfo.put(name, value);
         }
         else {
-            clientInfo.remove(value);
+            clientInfo.remove(name);
         }
     }
 
@@ -456,6 +462,27 @@ public class PrestoConnection
         return schema.get();
     }
 
+    public String getTimeZoneId()
+    {
+        return timeZoneId.get();
+    }
+
+    public void setTimeZoneId(String timeZoneId)
+    {
+        checkNotNull(timeZoneId, "timeZoneId is null");
+        this.timeZoneId.set(timeZoneId);
+    }
+
+    public Locale getLocale()
+    {
+        return locale.get();
+    }
+
+    public void setLocale(Locale locale)
+    {
+        this.locale.set(locale);
+    }
+
     @Override
     public void abort(Executor executor)
             throws SQLException
@@ -510,7 +537,7 @@ public class PrestoConnection
         URI uri = createHttpUri(address);
 
         String source = Objects.firstNonNull(clientInfo.get("ApplicationName"), "presto-jdbc");
-        ClientSession session = new ClientSession(uri, user, source, catalog.get(), schema.get(), false);
+        ClientSession session = new ClientSession(uri, user, source, catalog.get(), schema.get(), timeZoneId.get(), locale.get(), false);
         return queryExecutor.startQuery(session, sql);
     }
 

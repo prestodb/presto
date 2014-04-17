@@ -120,7 +120,7 @@ public class DistributedLogicalPlanner
 
             boolean decomposable = true;
             for (Signature function : functions.values()) {
-                if (!metadata.getFunction(function).getAggregationFunction().isDecomposable()) {
+                if (!metadata.getExactFunction(function).getAggregationFunction().isDecomposable()) {
                     decomposable = false;
                     break;
                 }
@@ -185,7 +185,7 @@ public class DistributedLogicalPlanner
             Map<Symbol, Symbol> intermediateMask = new HashMap<>();
             for (Map.Entry<Symbol, FunctionCall> entry : aggregations.entrySet()) {
                 Signature signature = functions.get(entry.getKey());
-                FunctionInfo function = metadata.getFunction(signature);
+                FunctionInfo function = metadata.getExactFunction(signature);
 
                 Symbol intermediateSymbol = allocator.newSymbol(function.getName().getSuffix(), function.getIntermediateType());
                 intermediateCalls.put(intermediateSymbol, entry.getValue());

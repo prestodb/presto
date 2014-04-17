@@ -15,14 +15,13 @@ package com.facebook.presto.metadata;
 
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
-import com.facebook.presto.spi.ColumnType;
 import com.facebook.presto.spi.ConnectorMetadata;
 import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.OutputTableHandle;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.SchemaTablePrefix;
 import com.facebook.presto.spi.TableHandle;
-import com.facebook.presto.tuple.TupleInfo;
+import com.facebook.presto.spi.type.Type;
 import com.google.common.base.Predicate;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
@@ -47,7 +46,7 @@ import java.util.UUID;
 import java.util.concurrent.Callable;
 
 import static com.facebook.presto.metadata.MetadataDaoUtils.createMetadataTablesWithRetry;
-import static com.facebook.presto.tuple.TupleInfo.Type.fromColumnType;
+import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.util.SqlUtils.runIgnoringConstraintViolation;
 import static com.facebook.presto.util.Types.checkType;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -204,7 +203,7 @@ public class NativeMetadata
             if (tableColumn.getColumnName().equals(NativeColumnHandle.SAMPLE_WEIGHT_COLUMN_NAME)) {
                 continue;
             }
-            ColumnMetadata columnMetadata = new ColumnMetadata(tableColumn.getColumnName(), tableColumn.getDataType().toColumnType(), tableColumn.getOrdinalPosition(), false);
+            ColumnMetadata columnMetadata = new ColumnMetadata(tableColumn.getColumnName(), tableColumn.getDataType(), tableColumn.getOrdinalPosition(), false);
             columns.put(tableColumn.getTable().asSchemaTableName(), columnMetadata);
         }
         return Multimaps.asMap(columns.build());
@@ -243,11 +242,11 @@ public class NativeMetadata
                         int ordinalPosition = 0;
                         for (ColumnMetadata column : tableMetadata.getColumns()) {
                             long columnId = ordinalPosition + 1;
-                            dao.insertColumn(tableId, columnId, column.getName(), ordinalPosition, fromColumnType(column.getType()).getName());
+                            dao.insertColumn(tableId, columnId, column.getName(), ordinalPosition, column.getType().getName());
                             ordinalPosition++;
                         }
                         if (tableMetadata.isSampled()) {
-                            dao.insertColumn(tableId, ordinalPosition + 1, NativeColumnHandle.SAMPLE_WEIGHT_COLUMN_NAME, ordinalPosition, TupleInfo.Type.FIXED_INT_64.getName());
+                            dao.insertColumn(tableId, ordinalPosition + 1, NativeColumnHandle.SAMPLE_WEIGHT_COLUMN_NAME, ordinalPosition, BIGINT.getName());
                         }
                         return tableId;
                     }
@@ -289,7 +288,7 @@ public class NativeMetadata
     public OutputTableHandle beginCreateTable(ConnectorTableMetadata tableMetadata)
     {
         ImmutableList.Builder<NativeColumnHandle> columnHandles = ImmutableList.builder();
-        ImmutableList.Builder<ColumnType> columnTypes = ImmutableList.builder();
+        ImmutableList.Builder<Type> columnTypes = ImmutableList.builder();
         long maxColumnId = 0;
         for (ColumnMetadata column : tableMetadata.getColumns()) {
             long columnId = column.getOrdinalPosition() + 1;
@@ -301,7 +300,7 @@ public class NativeMetadata
         if (tableMetadata.isSampled()) {
             sampleWeightColumnHandle = new NativeColumnHandle(NativeColumnHandle.SAMPLE_WEIGHT_COLUMN_NAME, maxColumnId + 1);
             columnHandles.add(sampleWeightColumnHandle);
-            columnTypes.add(ColumnType.LONG);
+            columnTypes.add(BIGINT);
         }
 
         return new NativeOutputTableHandle(
@@ -326,8 +325,8 @@ public class NativeMetadata
                 long tableId = dao.insertTable(connectorId, table.getSchemaName(), table.getTableName());
                 for (int i = 0; i < table.getColumnTypes().size(); i++) {
                     NativeColumnHandle column = table.getColumnHandles().get(i);
-                    ColumnType columnType = table.getColumnTypes().get(i);
-                    dao.insertColumn(tableId, i + 1, column.getColumnName(), i, fromColumnType(columnType).getName());
+                    Type columnType = table.getColumnTypes().get(i);
+                    dao.insertColumn(tableId, i + 1, column.getColumnName(), i, columnType.getName());
                 }
             }
         });

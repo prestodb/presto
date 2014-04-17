@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.hive;
 
-import com.facebook.presto.spi.ColumnType;
 import com.facebook.presto.spi.OutputTableHandle;
+import com.facebook.presto.spi.type.Type;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
@@ -31,7 +31,7 @@ public class HiveOutputTableHandle
     private final String schemaName;
     private final String tableName;
     private final List<String> columnNames;
-    private final List<ColumnType> columnTypes;
+    private final List<Type> columnTypes;
     private final String tableOwner;
     private final String targetPath;
     private final String temporaryPath;
@@ -42,7 +42,7 @@ public class HiveOutputTableHandle
             @JsonProperty("schemaName") String schemaName,
             @JsonProperty("tableName") String tableName,
             @JsonProperty("columnNames") List<String> columnNames,
-            @JsonProperty("columnTypes") List<ColumnType> columnTypes,
+            @JsonProperty("columnTypes") List<Type> columnTypes,
             @JsonProperty("tableOwner") String tableOwner,
             @JsonProperty("targetPath") String targetPath,
             @JsonProperty("temporaryPath") String temporaryPath)
@@ -86,7 +86,7 @@ public class HiveOutputTableHandle
     }
 
     @JsonProperty
-    public List<ColumnType> getColumnTypes()
+    public List<Type> getColumnTypes()
     {
         return columnTypes;
     }

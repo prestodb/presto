@@ -13,29 +13,24 @@
  */
 package com.facebook.presto.serde;
 
-import com.facebook.presto.block.uncompressed.UncompressedBlock;
-import com.facebook.presto.tuple.Tuple;
-import com.google.common.base.Preconditions;
-import io.airlift.slice.DynamicSliceOutput;
-import io.airlift.slice.Slice;
+import com.facebook.presto.spi.block.Block;
+import com.facebook.presto.spi.block.BlockBuilder;
+import com.facebook.presto.spi.block.BlockBuilderStatus;
+import com.facebook.presto.spi.block.BlockCursor;
+import com.facebook.presto.spi.block.BlockEncoding;
 import io.airlift.slice.SliceOutput;
-import io.airlift.units.DataSize;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
-import static io.airlift.units.DataSize.Unit.KILOBYTE;
 
 public class UncompressedEncoder
         implements Encoder
 {
-    private static final int MAX_BLOCK_SIZE = (int) new DataSize(64, KILOBYTE).toBytes();
-
     private final SliceOutput sliceOutput;
-    private final DynamicSliceOutput buffer = new DynamicSliceOutput(MAX_BLOCK_SIZE);
 
-    private UncompressedBlockEncoding encoding;
+    private BlockEncoding encoding;
+    private BlockBuilder blockBuilder;
     private boolean finished;
-    private int tupleCount;
 
     public UncompressedEncoder(SliceOutput sliceOutput)
     {
@@ -43,19 +38,19 @@ public class UncompressedEncoder
     }
 
     @Override
-    public Encoder append(Iterable<Tuple> tuples)
+    public Encoder append(Block block)
     {
-        Preconditions.checkNotNull(tuples, "tuples is null");
+        checkNotNull(block, "block is null");
         checkState(!finished, "already finished");
 
-        for (Tuple tuple : tuples) {
-            if (encoding == null) {
-                encoding = new UncompressedBlockEncoding(tuple.getTupleInfo());
-            }
-            tuple.writeTo(buffer);
-            tupleCount++;
-
-            if (buffer.size() >= MAX_BLOCK_SIZE) {
+        if (encoding == null) {
+            blockBuilder = block.getType().createBlockBuilder(new BlockBuilderStatus());
+            encoding = blockBuilder.getEncoding();
+        }
+        BlockCursor cursor = block.cursor();
+        while (cursor.advanceNextPosition()) {
+            cursor.appendTo(blockBuilder);
+            if (blockBuilder.isFull()) {
                 writeBlock();
             }
         }
@@ -70,7 +65,7 @@ public class UncompressedEncoder
         checkState(!finished, "already finished");
         finished = true;
 
-        if (buffer.size() > 0) {
+        if (!blockBuilder.isEmpty()) {
             writeBlock();
         }
         return encoding;
@@ -78,10 +73,8 @@ public class UncompressedEncoder
 
     private void writeBlock()
     {
-        Slice slice = buffer.slice();
-        UncompressedBlock block = new UncompressedBlock(tupleCount, encoding.getTupleInfo(), slice);
+        Block block = blockBuilder.build();
         encoding.writeBlock(sliceOutput, block);
-        buffer.reset();
-        tupleCount = 0;
+        blockBuilder = block.getType().createBlockBuilder(new BlockBuilderStatus());
     }
 }

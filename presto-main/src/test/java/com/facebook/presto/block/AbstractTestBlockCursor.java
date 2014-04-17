@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.block;
 
-import com.facebook.presto.tuple.Tuple;
-import com.facebook.presto.tuple.Tuples;
+import com.facebook.presto.spi.block.Block;
+import com.facebook.presto.spi.block.BlockCursor;
 import com.google.common.collect.ImmutableList;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
@@ -32,7 +32,7 @@ import static org.testng.Assert.fail;
 
 public abstract class AbstractTestBlockCursor
 {
-    private final SortedMap<Integer, Tuple> expectedValues = BlockCursorAssertions.toTuplesMap(createTestCursor());
+    private final SortedMap<Integer, Object> expectedValues = BlockCursorAssertions.toValuesMap(createTestCursor());
 
     protected abstract Block createExpectedValues();
 
@@ -41,12 +41,12 @@ public abstract class AbstractTestBlockCursor
         return createExpectedValues().cursor();
     }
 
-    public final Tuple getExpectedValue(int position)
+    public final Object getExpectedValue(int position)
     {
         return getExpectedValues().get(position);
     }
 
-    public final SortedMap<Integer, Tuple> getExpectedValues()
+    public final SortedMap<Integer, Object> getExpectedValues()
     {
         return expectedValues;
     }
@@ -120,14 +120,7 @@ public abstract class AbstractTestBlockCursor
         assertFalse(cursor.isFinished());
 
         try {
-            cursor.getTuple();
-            fail("Expected IllegalStateException");
-        }
-        catch (IllegalStateException expected) {
-        }
-
-        try {
-            cursor.currentTupleEquals(Tuples.createTuple(0L));
+            cursor.getSingleValueBlock();
             fail("Expected IllegalStateException");
         }
         catch (IllegalStateException expected) {
@@ -166,7 +159,7 @@ public abstract class AbstractTestBlockCursor
     {
         BlockCursor cursor = createTestCursor();
 
-        for (Entry<Integer, Tuple> entry : getExpectedValues().entrySet()) {
+        for (Entry<Integer, Object> entry : getExpectedValues().entrySet()) {
             assertNextPosition(cursor, entry.getKey(), entry.getValue());
         }
 

@@ -13,9 +13,9 @@
  */
 package com.facebook.presto.cassandra;
 
-import com.facebook.presto.spi.ColumnType;
 import com.facebook.presto.spi.RecordCursor;
 import com.facebook.presto.spi.RecordSet;
+import com.facebook.presto.spi.type.Type;
 
 import java.util.List;
 
@@ -29,7 +29,7 @@ public class CassandraRecordSet
 {
     private final String cql;
     private final List<FullCassandraType> cassandraTypes;
-    private final List<ColumnType> columnTypes;
+    private final List<Type> columnTypes;
     private final CassandraSession cassandraSession;
 
     public CassandraRecordSet(CassandraSession cassandraSession, String cql, List<CassandraColumnHandle> cassandraColumns)
@@ -42,7 +42,7 @@ public class CassandraRecordSet
     }
 
     @Override
-    public List<ColumnType> getColumnTypes()
+    public List<Type> getColumnTypes()
     {
         return columnTypes;
     }

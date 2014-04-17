@@ -15,6 +15,7 @@ package com.facebook.presto.metadata;
 
 import com.facebook.presto.operator.scalar.CustomAdd;
 import com.facebook.presto.operator.scalar.ScalarFunction;
+import com.google.common.collect.ImmutableList;
 import org.testng.annotations.Test;
 
 import java.util.List;
@@ -26,11 +27,11 @@ public class TestFunctionRegistry
     {
         List<FunctionInfo> functions = new FunctionRegistry.FunctionListBuilder()
                 .scalar(CustomAdd.class)
-                .build();
+                .getFunctions();
 
         FunctionRegistry registry = new FunctionRegistry(true);
-        registry.addFunctions(functions);
-        registry.addFunctions(functions);
+        registry.addFunctions(functions, ImmutableList.<OperatorInfo>of());
+        registry.addFunctions(functions, ImmutableList.<OperatorInfo>of());
     }
 
     @Test(expectedExceptions = IllegalStateException.class, expectedExceptionsMessageRegExp = "'sum' is both an aggregation and a scalar function")
@@ -39,10 +40,10 @@ public class TestFunctionRegistry
     {
         List<FunctionInfo> functions = new FunctionRegistry.FunctionListBuilder()
                 .scalar(ScalarSum.class)
-                .build();
+                .getFunctions();
 
         FunctionRegistry registry = new FunctionRegistry(true);
-        registry.addFunctions(functions);
+        registry.addFunctions(functions, ImmutableList.<OperatorInfo>of());
     }
 
     public static final class ScalarSum

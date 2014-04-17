@@ -30,12 +30,12 @@ import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.FixedSplitSource;
 import com.facebook.presto.spi.HostAddress;
 import com.facebook.presto.spi.Node;
+import com.facebook.presto.spi.Session;
 import com.facebook.presto.spi.Split;
 import com.facebook.presto.spi.SplitSource;
 import com.facebook.presto.spi.TableHandle;
+import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
-import com.facebook.presto.sql.analyzer.Session;
-import com.facebook.presto.sql.analyzer.Type;
 import com.facebook.presto.sql.planner.PlanFragment;
 import com.facebook.presto.sql.planner.PlanFragment.OutputPartitioning;
 import com.facebook.presto.sql.planner.PlanFragment.PlanDistribution;
@@ -47,6 +47,7 @@ import com.facebook.presto.sql.planner.plan.JoinNode.EquiJoinClause;
 import com.facebook.presto.sql.planner.plan.PlanFragmentId;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.facebook.presto.sql.planner.plan.TableScanNode;
+import com.facebook.presto.type.TypeRegistry;
 import com.facebook.presto.util.Threads;
 import com.google.common.base.Optional;
 import com.google.common.collect.HashMultimap;
@@ -66,6 +67,7 @@ import javax.annotation.concurrent.GuardedBy;
 import java.net.URI;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.Executor;
@@ -77,6 +79,8 @@ import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicLong;
 
 import static com.facebook.presto.OutputBuffers.INITIAL_EMPTY_OUTPUT_BUFFERS;
+import static com.facebook.presto.spi.type.TimeZoneKey.UTC_KEY;
+import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.sql.planner.plan.TableScanNode.GeneratedPartitions;
 import static com.facebook.presto.util.Failures.toFailures;
 import static com.google.common.base.Preconditions.checkNotNull;
@@ -88,7 +92,7 @@ import static org.testng.Assert.fail;
 @Test(singleThreaded = true)
 public class TestSqlStageExecution
 {
-    public static final Session SESSION = new Session("user", "source", "catalog", "schema", "address", "agent");
+    public static final Session SESSION = new Session("user", "source", "catalog", "schema", UTC_KEY, Locale.ENGLISH, "address", "agent");
     MetadataManager metadata;
     LocationFactory locationFactory = new MockLocationFactory();
 
@@ -96,7 +100,7 @@ public class TestSqlStageExecution
     public void setUp()
             throws Exception
     {
-        metadata = new MetadataManager(new FeaturesConfig());
+        metadata = new MetadataManager(new FeaturesConfig(), new TypeRegistry());
         metadata.addInternalSchemaMetadata(MetadataManager.INTERNAL_CONNECTOR_ID, new DualMetadata());
 
     }
@@ -203,7 +207,7 @@ public class TestSqlStageExecution
         ExecutorService executor = Executors.newCachedThreadPool(Threads.daemonThreadsNamed("test"));
         SqlStageExecution stageExecution = null;
         try {
-            MetadataManager metadata = new MetadataManager(new FeaturesConfig());
+            MetadataManager metadata = new MetadataManager(new FeaturesConfig(), new TypeRegistry());
             metadata.addInternalSchemaMetadata(MetadataManager.INTERNAL_CONNECTOR_ID, new DualMetadata());
 
             StageExecutionPlan joinPlan = createJoinPlan("A", metadata);
@@ -325,7 +329,7 @@ public class TestSqlStageExecution
                         ImmutableMap.of(symbol, columnHandle),
                         null,
                         Optional.<GeneratedPartitions>absent()),
-                ImmutableMap.<Symbol, Type>of(symbol, Type.VARCHAR),
+                ImmutableMap.<Symbol, Type>of(symbol, VARCHAR),
                 PlanDistribution.SOURCE,
                 tableScanNodeId,
                 OutputPartitioning.NONE,
@@ -390,7 +394,7 @@ public class TestSqlStageExecution
             {
                 this.taskStateMachine = new TaskStateMachine(checkNotNull(taskId, "taskId is null"), checkNotNull(executor, "executor is null"));
 
-                Session session = new Session("user", "source", "catalog", "schema", "address", "agent");
+                Session session = new Session("user", "source", "catalog", "schema", UTC_KEY, Locale.ENGLISH, "address", "agent");
                 this.taskContext = new TaskContext(taskStateMachine, executor, session, new DataSize(256, MEGABYTE), new DataSize(1, MEGABYTE), true);
 
                 this.location = URI.create("fake://task/" + taskId);

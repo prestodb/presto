@@ -31,8 +31,15 @@ public final class IsolatedClass
 
     public static <T> Class<? extends T> isolateClass(Class<T> publicBaseClass, Class<? extends T> implementationClass, Class<?>... additionalClasses)
     {
-        DynamicClassLoader dynamicClassLoader = new DynamicClassLoader(publicBaseClass.getClassLoader());
+        return isolateClass(new DynamicClassLoader(publicBaseClass.getClassLoader()), publicBaseClass, implementationClass, additionalClasses);
+    }
 
+    public static <T> Class<? extends T> isolateClass(
+            DynamicClassLoader dynamicClassLoader,
+            Class<T> publicBaseClass,
+            Class<? extends T> implementationClass,
+            Class<?>... additionalClasses)
+    {
         ImmutableMap.Builder<String, byte[]> builder = ImmutableMap.builder();
         builder.put(implementationClass.getName(), getByteCode(implementationClass));
         for (Class<?> additionalClass : additionalClasses) {

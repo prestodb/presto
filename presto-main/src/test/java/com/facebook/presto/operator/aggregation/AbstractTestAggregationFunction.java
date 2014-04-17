@@ -13,14 +13,16 @@
  */
 package com.facebook.presto.operator.aggregation;
 
-import com.facebook.presto.block.Block;
-import com.facebook.presto.block.BlockBuilder;
-import com.facebook.presto.block.BlockCursor;
+import com.facebook.presto.spi.block.Block;
+import com.facebook.presto.spi.block.BlockBuilder;
+import com.facebook.presto.spi.block.BlockBuilderStatus;
+import com.facebook.presto.spi.block.BlockCursor;
+import com.facebook.presto.spi.block.RandomAccessBlock;
 import com.facebook.presto.block.rle.RunLengthEncodedBlock;
+import com.facebook.presto.spi.type.Type;
 import org.testng.annotations.Test;
 
 import static com.facebook.presto.operator.aggregation.AggregationTestUtils.assertAggregation;
-import static com.facebook.presto.tuple.Tuples.nullTuple;
 
 public abstract class AbstractTestAggregationFunction
 {
@@ -62,7 +64,13 @@ public abstract class AbstractTestAggregationFunction
     public void testAllPositionsNull()
             throws Exception
     {
-        Block block = new RunLengthEncodedBlock(nullTuple(getSequenceBlock(0, 10).getTupleInfo()), 10);
+        Type type = getSequenceBlock(0, 10).getType();
+        RandomAccessBlock nullValueBlock = type.createBlockBuilder(new BlockBuilderStatus())
+                .appendNull()
+                .build()
+                .toRandomAccessBlock();
+
+        Block block = new RunLengthEncodedBlock(nullValueBlock, 10);
         testAggregation(getExpectedValueIncludingNulls(0, 0, 10), block);
     }
 
@@ -87,10 +95,13 @@ public abstract class AbstractTestAggregationFunction
 
     public Block createAlternatingNullsBlock(Block sequenceBlock)
     {
-        BlockBuilder blockBuilder = new BlockBuilder(sequenceBlock.getTupleInfo());
+        BlockBuilder blockBuilder = sequenceBlock.getType().createBlockBuilder(new BlockBuilderStatus());
         BlockCursor cursor = sequenceBlock.cursor();
         while (cursor.advanceNextPosition()) {
-            blockBuilder.appendNull().append(cursor.getTuple());
+            // append null
+            blockBuilder.appendNull();
+            // append value
+            cursor.appendTo(blockBuilder);
         }
         return blockBuilder.build();
     }

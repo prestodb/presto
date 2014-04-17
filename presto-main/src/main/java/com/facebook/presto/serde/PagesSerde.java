@@ -13,16 +13,15 @@
  */
 package com.facebook.presto.serde;
 
-import com.facebook.presto.block.Block;
+import com.facebook.presto.spi.block.Block;
+import com.facebook.presto.spi.block.BlockEncoding;
+import com.facebook.presto.spi.block.BlockEncodingSerde;
 import com.facebook.presto.operator.Page;
 import com.google.common.base.Preconditions;
-import com.google.common.base.Throwables;
 import com.google.common.collect.AbstractIterator;
-import com.google.common.io.InputSupplier;
 import io.airlift.slice.SliceInput;
 import io.airlift.slice.SliceOutput;
 
-import java.io.IOException;
 import java.util.Iterator;
 
 import static com.google.common.base.Preconditions.checkNotNull;
@@ -34,7 +33,7 @@ public final class PagesSerde
     {
     }
 
-    public static PagesWriter createPagesWriter(final SliceOutput sliceOutput)
+    public static PagesWriter createPagesWriter(final BlockEncodingSerde blockEncodingSerde, final SliceOutput sliceOutput)
     {
         checkNotNull(sliceOutput, "sliceOutput is null");
         return new PagesWriter()
@@ -54,7 +53,7 @@ public final class PagesSerde
                         Block block = blocks[i];
                         BlockEncoding blockEncoding = block.getEncoding();
                         blockEncodings[i] = blockEncoding;
-                        BlockEncodings.writeBlockEncoding(sliceOutput, blockEncoding);
+                        blockEncodingSerde.writeBlockEncoding(sliceOutput, blockEncoding);
                     }
                 }
 
@@ -69,57 +68,40 @@ public final class PagesSerde
         };
     }
 
-    public static void writePages(SliceOutput sliceOutput, Page... pages)
+    public static void writePages(BlockEncodingSerde blockEncodingSerde, SliceOutput sliceOutput, Page... pages)
     {
-        writePages(sliceOutput, asList(pages).iterator());
+        writePages(blockEncodingSerde, sliceOutput, asList(pages).iterator());
     }
 
-    public static void writePages(SliceOutput sliceOutput, Iterable<Page> pages)
+    public static void writePages(BlockEncodingSerde blockEncodingSerde, SliceOutput sliceOutput, Iterable<Page> pages)
     {
-        writePages(sliceOutput, pages.iterator());
+        writePages(blockEncodingSerde, sliceOutput, pages.iterator());
     }
 
-    public static void writePages(SliceOutput sliceOutput, Iterator<Page> pages)
+    public static void writePages(BlockEncodingSerde blockEncodingSerde, SliceOutput sliceOutput, Iterator<Page> pages)
     {
-        PagesWriter pagesWriter = createPagesWriter(sliceOutput);
+        PagesWriter pagesWriter = createPagesWriter(blockEncodingSerde, sliceOutput);
         while (pages.hasNext()) {
             pagesWriter.append(pages.next());
         }
     }
 
-    public Iterable<Page> readPages(final InputSupplier<SliceInput> sliceInputSupplier)
-    {
-        Preconditions.checkNotNull(sliceInputSupplier, "sliceInputSupplier is null");
-
-        return new Iterable<Page>()
-        {
-            @Override
-            public Iterator<Page> iterator()
-            {
-                try {
-                    return readPages(sliceInputSupplier.getInput());
-                }
-                catch (IOException e) {
-                    throw Throwables.propagate(e);
-                }
-            }
-        };
-    }
-
-    public static Iterator<Page> readPages(SliceInput sliceInput)
+    public static Iterator<Page> readPages(BlockEncodingSerde blockEncodingSerde, SliceInput sliceInput)
     {
         Preconditions.checkNotNull(sliceInput, "sliceInput is null");
-        return new PagesReader(sliceInput);
+        return new PagesReader(blockEncodingSerde, sliceInput);
     }
 
     private static class PagesReader
             extends AbstractIterator<Page>
     {
+        private final BlockEncodingSerde blockEncodingSerde;
         private final BlockEncoding[] blockEncodings;
         private final SliceInput sliceInput;
 
-        public PagesReader(SliceInput sliceInput)
+        public PagesReader(BlockEncodingSerde blockEncodingSerde, SliceInput sliceInput)
         {
+            this.blockEncodingSerde = blockEncodingSerde;
             this.sliceInput = sliceInput;
 
             if (!sliceInput.isReadable()) {
@@ -131,7 +113,7 @@ public final class PagesSerde
 
                 blockEncodings = new BlockEncoding[channelCount];
                 for (int i = 0; i < blockEncodings.length; i++) {
-                    blockEncodings[i] = BlockEncodings.readBlockEncoding(sliceInput);
+                    blockEncodings[i] = this.blockEncodingSerde.readBlockEncoding(sliceInput);
                 }
             }
         }

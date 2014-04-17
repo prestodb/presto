@@ -13,11 +13,12 @@
  */
 package com.facebook.presto.operator;
 
-import com.facebook.presto.tuple.TupleInfo;
+import com.facebook.presto.spi.block.SortOrder;
+import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableList;
+import com.google.common.primitives.Ints;
 import com.google.common.util.concurrent.ListenableFuture;
 
-import java.util.Arrays;
 import java.util.List;
 
 import static com.google.common.base.Preconditions.checkNotNull;
@@ -30,52 +31,36 @@ public class OrderByOperator
             implements OperatorFactory
     {
         private final int operatorId;
-        private final List<TupleInfo> sourceTupleInfos;
-        private final int[] outputChannels;
+        private final List<Type> sourceTypes;
+        private final List<Integer> outputChannels;
         private final int expectedPositions;
-        private final int[] sortChannels;
-        private final SortOrder[] sortOrder;
-        private final List<TupleInfo> tupleInfos;
+        private final List<Integer> sortChannels;
+        private final List<SortOrder> sortOrder;
+        private final List<Type> types;
         private boolean closed;
 
         public OrderByOperatorFactory(
                 int operatorId,
-                List<TupleInfo> sourceTupleInfos,
-                int[] sortChannels,
-                int[] outputChannels,
-                int expectedPositions)
-        {
-            this(
-                    operatorId,
-                    sourceTupleInfos,
-                    outputChannels,
-                    expectedPositions,
-                    sortChannels,
-                    defaultSortOrder(sortChannels));
-        }
-
-        public OrderByOperatorFactory(
-                int operatorId,
-                List<TupleInfo> sourceTupleInfos,
-                int[] outputChannels,
+                List<? extends Type> sourceTypes,
+                List<Integer> outputChannels,
                 int expectedPositions,
-                int[] sortChannels,
-                SortOrder[] sortOrder)
+                List<Integer> sortChannels,
+                List<SortOrder> sortOrder)
         {
             this.operatorId = operatorId;
-            this.sourceTupleInfos = ImmutableList.copyOf(checkNotNull(sourceTupleInfos, "sourceTupleInfos is null"));
+            this.sourceTypes = ImmutableList.copyOf(checkNotNull(sourceTypes, "sourceTypes is null"));
             this.outputChannels = checkNotNull(outputChannels, "outputChannels is null");
             this.expectedPositions = expectedPositions;
-            this.sortChannels = checkNotNull(sortChannels, "sortChannels is null");
-            this.sortOrder = checkNotNull(sortOrder, "sortOrder is null");
+            this.sortChannels = ImmutableList.copyOf(checkNotNull(sortChannels, "sortChannels is null"));
+            this.sortOrder = ImmutableList.copyOf(checkNotNull(sortOrder, "sortOrder is null"));
 
-            this.tupleInfos = toTupleInfos(sourceTupleInfos, outputChannels);
+            this.types = toTypes(sourceTypes, outputChannels);
         }
 
         @Override
-        public List<TupleInfo> getTupleInfos()
+        public List<Type> getTypes()
         {
-            return tupleInfos;
+            return types;
         }
 
         @Override
@@ -86,7 +71,7 @@ public class OrderByOperator
             OperatorContext operatorContext = driverContext.addOperatorContext(operatorId, OrderByOperator.class.getSimpleName());
             return new OrderByOperator(
                     operatorContext,
-                    sourceTupleInfos,
+                    sourceTypes,
                     outputChannels,
                     expectedPositions,
                     sortChannels,
@@ -108,10 +93,10 @@ public class OrderByOperator
     }
 
     private final OperatorContext operatorContext;
-    private final int[] sortChannels;
-    private final SortOrder[] sortOrder;
+    private final List<Integer> sortChannels;
+    private final List<SortOrder> sortOrder;
     private final int[] outputChannels;
-    private final List<TupleInfo> tupleInfos;
+    private final List<Type> types;
 
     private final PagesIndex pageIndex;
 
@@ -122,21 +107,21 @@ public class OrderByOperator
 
     public OrderByOperator(
             OperatorContext operatorContext,
-            List<TupleInfo> sourceTupleInfos,
-            int[] outputChannels,
+            List<Type> sourceTypes,
+            List<Integer> outputChannels,
             int expectedPositions,
-            int[] sortChannels,
-            SortOrder[] sortOrder)
+            List<Integer> sortChannels,
+            List<SortOrder> sortOrder)
     {
         this.operatorContext = checkNotNull(operatorContext, "operatorContext is null");
-        this.outputChannels = checkNotNull(outputChannels, "outputChannels is null");
-        this.tupleInfos = toTupleInfos(sourceTupleInfos, outputChannels);
-        this.sortChannels = checkNotNull(sortChannels, "sortChannels is null");
-        this.sortOrder = checkNotNull(sortOrder, "sortOrder is null");
+        this.outputChannels = Ints.toArray(checkNotNull(outputChannels, "outputChannels is null"));
+        this.types = toTypes(sourceTypes, outputChannels);
+        this.sortChannels = ImmutableList.copyOf(checkNotNull(sortChannels, "sortChannels is null"));
+        this.sortOrder = ImmutableList.copyOf(checkNotNull(sortOrder, "sortOrder is null"));
 
-        this.pageIndex = new PagesIndex(sourceTupleInfos, expectedPositions, operatorContext);
+        this.pageIndex = new PagesIndex(sourceTypes, expectedPositions, operatorContext);
 
-        this.pageBuilder = new PageBuilder(this.tupleInfos);
+        this.pageBuilder = new PageBuilder(this.types);
     }
 
     @Override
@@ -146,9 +131,9 @@ public class OrderByOperator
     }
 
     @Override
-    public List<TupleInfo> getTupleInfos()
+    public List<Type> getTypes()
     {
-        return tupleInfos;
+        return types;
     }
 
     @Override
@@ -203,12 +188,7 @@ public class OrderByOperator
 
         // iterate through the positions sequentially until we have one full page
         pageBuilder.reset();
-        while (!pageBuilder.isFull() && currentPosition < pageIndex.getPositionCount()) {
-            for (int i = 0; i < outputChannels.length; i++) {
-                pageIndex.appendTupleTo(outputChannels[i], currentPosition, pageBuilder.getBlockBuilder(i));
-            }
-            currentPosition++;
-        }
+        currentPosition = pageIndex.buildPage(currentPosition, outputChannels, pageBuilder);
 
         // output the page if we have any data
         if (pageBuilder.isEmpty()) {
@@ -220,19 +200,12 @@ public class OrderByOperator
         return page;
     }
 
-    private static SortOrder[] defaultSortOrder(int[] orderByChannels)
+    private static List<Type> toTypes(List<? extends Type> sourceTypes, List<Integer> outputChannels)
     {
-        SortOrder[] sortOrder = new SortOrder[orderByChannels.length];
-        Arrays.fill(sortOrder, SortOrder.ASC_NULLS_LAST);
-        return sortOrder;
-    }
-
-    private static List<TupleInfo> toTupleInfos(List<TupleInfo> sourceTupleInfos, int[] outputChannels)
-    {
-        ImmutableList.Builder<TupleInfo> tupleInfos = ImmutableList.builder();
+        ImmutableList.Builder<Type> types = ImmutableList.builder();
         for (int channel : outputChannels) {
-            tupleInfos.add(sourceTupleInfos.get(channel));
+            types.add(sourceTypes.get(channel));
         }
-        return tupleInfos.build();
+        return types.build();
     }
 }

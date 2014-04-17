@@ -13,9 +13,8 @@
  */
 package com.facebook.presto.server;
 
-import com.facebook.presto.block.BlockCursor;
-import com.facebook.presto.client.FailureInfo;
 import com.facebook.presto.client.Column;
+import com.facebook.presto.client.FailureInfo;
 import com.facebook.presto.client.QueryError;
 import com.facebook.presto.client.QueryResults;
 import com.facebook.presto.client.StageStats;
@@ -31,9 +30,11 @@ import com.facebook.presto.execution.StageState;
 import com.facebook.presto.execution.TaskInfo;
 import com.facebook.presto.operator.ExchangeClient;
 import com.facebook.presto.operator.Page;
-import com.facebook.presto.sql.analyzer.Session;
-import com.facebook.presto.tuple.TupleInfo;
-import com.facebook.presto.tuple.TupleInfo.Type;
+import com.facebook.presto.spi.Session;
+import com.facebook.presto.spi.block.BlockCursor;
+import com.facebook.presto.spi.type.TimeZoneKey;
+import com.facebook.presto.spi.type.TimeZoneNotSupported;
+import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.util.IterableTransformer;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Predicate;
@@ -76,6 +77,7 @@ import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Set;
+import java.util.TimeZone;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.Executors;
@@ -86,6 +88,7 @@ import java.util.concurrent.atomic.AtomicLong;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_CATALOG;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_SCHEMA;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_SOURCE;
+import static com.facebook.presto.client.PrestoHeaders.PRESTO_TIME_ZONE;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_USER;
 import static com.facebook.presto.execution.QueryInfo.queryIdGetter;
 import static com.facebook.presto.execution.StageInfo.getAllStages;
@@ -139,6 +142,7 @@ public class StatementResource
             @HeaderParam(PRESTO_SOURCE) String source,
             @HeaderParam(PRESTO_CATALOG) String catalog,
             @HeaderParam(PRESTO_SCHEMA) String schema,
+            @HeaderParam(PRESTO_TIME_ZONE) String timeZoneId,
             @HeaderParam(USER_AGENT) String userAgent,
             @Context HttpServletRequest requestContext,
             @Context UriInfo uriInfo)
@@ -149,9 +153,20 @@ public class StatementResource
         assertRequest(!isNullOrEmpty(catalog), "Catalog (%s) is empty", PRESTO_CATALOG);
         assertRequest(!isNullOrEmpty(schema), "Schema (%s) is empty", PRESTO_SCHEMA);
 
+        if (timeZoneId == null) {
+            timeZoneId = TimeZone.getDefault().getID();
+        }
+
         String remoteUserAddress = requestContext.getRemoteAddr();
 
-        Session session = new Session(user, source, catalog, schema, remoteUserAddress, userAgent);
+        Session session;
+        try {
+            session = new Session(user, source, catalog, schema, TimeZoneKey.getTimeZoneKey(timeZoneId), requestContext.getLocale(), remoteUserAddress, userAgent);
+        }
+        catch (TimeZoneNotSupported e) {
+            return Response.status(Status.BAD_REQUEST).entity(e.getMessage()).build();
+        }
+
         ExchangeClient exchangeClient = exchangeClientSupplier.get();
         Query query = new Query(session, statement, queryManager, exchangeClient);
         queries.put(query.getQueryId(), query);
@@ -212,6 +227,7 @@ public class StatementResource
         private final ExchangeClient exchangeClient;
 
         private final AtomicLong resultId = new AtomicLong();
+        private final Session session;
 
         @GuardedBy("this")
         private QueryResults lastResult;
@@ -232,6 +248,7 @@ public class StatementResource
             checkNotNull(queryManager, "queryManager is null");
             checkNotNull(exchangeClient, "exchangeClient is null");
 
+            this.session = session;
             this.queryManager = queryManager;
 
             QueryInfo queryInfo = queryManager.createQuery(session, query);
@@ -367,7 +384,7 @@ public class StatementResource
                     break;
                 }
                 bytes += page.getDataSize().toBytes();
-                pages.add(new RowIterable(page));
+                pages.add(new RowIterable(session, page));
 
                 // only wait on first call
                 maxWait = new Duration(0, TimeUnit.MILLISECONDS);
@@ -422,33 +439,15 @@ public class StatementResource
             }
 
             List<String> names = queryInfo.getFieldNames();
-            ArrayList<Type> types = new ArrayList<>();
-            for (TupleInfo tupleInfo : outputStage.getTupleInfos()) {
-                types.add(tupleInfo.getType());
-            }
+            List<Type> types = outputStage.getTypes();
 
             checkArgument(names.size() == types.size(), "names and types size mismatch");
 
             ImmutableList.Builder<Column> list = ImmutableList.builder();
             for (int i = 0; i < names.size(); i++) {
                 String name = names.get(i);
-                Type type = types.get(i);
-                switch (type) {
-                    case BOOLEAN:
-                        list.add(new Column(name, "boolean"));
-                        break;
-                    case FIXED_INT_64:
-                        list.add(new Column(name, "bigint"));
-                        break;
-                    case DOUBLE:
-                        list.add(new Column(name, "double"));
-                        break;
-                    case VARIABLE_BINARY:
-                        list.add(new Column(name, "varchar"));
-                        break;
-                    default:
-                        throw new IllegalArgumentException("unhandled type: " + type);
-                }
+                String type = types.get(i).getName();
+                list.add(new Column(name, type));
             }
             return list.build();
         }
@@ -601,27 +600,31 @@ public class StatementResource
         private static class RowIterable
                 implements Iterable<List<Object>>
         {
+            private final Session session;
             private final Page page;
 
-            private RowIterable(Page page)
+            private RowIterable(Session session, Page page)
             {
+                this.session = session;
                 this.page = checkNotNull(page, "page is null");
             }
 
             @Override
             public Iterator<List<Object>> iterator()
             {
-                return new RowIterator(page);
+                return new RowIterator(session, page);
             }
         }
 
         private static class RowIterator
                 extends AbstractIterator<List<Object>>
         {
+            private final Session session;
             private final BlockCursor[] cursors;
 
-            private RowIterator(Page page)
+            private RowIterator(Session session, Page page)
             {
+                this.session = session;
                 cursors = new BlockCursor[page.getChannelCount()];
                 for (int channel = 0; channel < cursors.length; channel++) {
                     cursors[channel] = page.getBlock(channel).cursor();
@@ -638,7 +641,7 @@ public class StatementResource
                         return endOfData();
                     }
 
-                    row.add(cursor.getTuple().getObjectValue());
+                    row.add(cursor.getObjectValue(session));
                 }
                 return row;
             }

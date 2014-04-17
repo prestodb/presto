@@ -15,7 +15,7 @@ package com.facebook.presto.operator;
 
 import com.facebook.presto.execution.TaskId;
 import com.facebook.presto.spi.InMemoryRecordSet;
-import com.facebook.presto.sql.analyzer.Session;
+import com.facebook.presto.spi.Session;
 import com.facebook.presto.util.InfiniteRecordSet;
 import com.facebook.presto.util.MaterializedResult;
 import com.google.common.collect.ImmutableList;
@@ -24,12 +24,12 @@ import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
 import java.util.List;
+import java.util.Locale;
 import java.util.concurrent.ExecutorService;
 
-import static com.facebook.presto.spi.ColumnType.LONG;
-import static com.facebook.presto.spi.ColumnType.STRING;
-import static com.facebook.presto.tuple.TupleInfo.Type.FIXED_INT_64;
-import static com.facebook.presto.tuple.TupleInfo.Type.VARIABLE_BINARY;
+import static com.facebook.presto.spi.type.BigintType.BIGINT;
+import static com.facebook.presto.spi.type.TimeZoneKey.UTC_KEY;
+import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.util.MaterializedResult.resultBuilder;
 import static com.facebook.presto.util.Threads.daemonThreadsNamed;
 import static java.util.concurrent.Executors.newCachedThreadPool;
@@ -47,7 +47,7 @@ public class TestRecordProjectOperator
     public void setUp()
     {
         executor = newCachedThreadPool(daemonThreadsNamed("test"));
-        Session session = new Session("user", "source", "catalog", "schema", "address", "agent");
+        Session session = new Session("user", "source", "catalog", "schema", UTC_KEY, Locale.ENGLISH, "address", "agent");
         driverContext = new TaskContext(new TaskId("query", "stage", "task"), executor, session)
                 .addPipelineContext(true, true)
                 .addDriverContext();
@@ -63,13 +63,13 @@ public class TestRecordProjectOperator
     public void testSingleColumn()
             throws Exception
     {
-        InMemoryRecordSet records = new InMemoryRecordSet(ImmutableList.of(STRING), ImmutableList.copyOf(new List<?>[] {ImmutableList.of("abc"), ImmutableList.of("def"),
+        InMemoryRecordSet records = new InMemoryRecordSet(ImmutableList.of(VARCHAR), ImmutableList.copyOf(new List<?>[] {ImmutableList.of("abc"), ImmutableList.of("def"),
                                                                                                                         ImmutableList.of("g")}));
 
         OperatorContext operatorContext = driverContext.addOperatorContext(0, RecordProjectOperator.class.getSimpleName());
         Operator operator = new RecordProjectOperator(operatorContext, records);
 
-        MaterializedResult expected = resultBuilder(VARIABLE_BINARY)
+        MaterializedResult expected = resultBuilder(driverContext.getSession(), VARCHAR)
                 .row("abc")
                 .row("def")
                 .row("g")
@@ -82,7 +82,7 @@ public class TestRecordProjectOperator
     public void testMultiColumn()
             throws Exception
     {
-        InMemoryRecordSet records = new InMemoryRecordSet(ImmutableList.of(STRING, LONG), ImmutableList.of(
+        InMemoryRecordSet records = new InMemoryRecordSet(ImmutableList.of(VARCHAR, BIGINT), ImmutableList.of(
                 ImmutableList.of("abc", 1L),
                 ImmutableList.of("def", 2L),
                 ImmutableList.of("g", 0L)));
@@ -90,7 +90,7 @@ public class TestRecordProjectOperator
         OperatorContext operatorContext = driverContext.addOperatorContext(0, RecordProjectOperator.class.getSimpleName());
         Operator operator = new RecordProjectOperator(operatorContext, records);
 
-        MaterializedResult expected = resultBuilder(VARIABLE_BINARY, FIXED_INT_64)
+        MaterializedResult expected = resultBuilder(driverContext.getSession(), VARCHAR, BIGINT)
                 .row("abc", 1)
                 .row("def", 2)
                 .row("g", 0)
@@ -103,7 +103,7 @@ public class TestRecordProjectOperator
     public void testFinish()
             throws Exception
     {
-        InfiniteRecordSet records = new InfiniteRecordSet(ImmutableList.of(STRING, LONG), ImmutableList.of("abc", 1L));
+        InfiniteRecordSet records = new InfiniteRecordSet(ImmutableList.of(VARCHAR, BIGINT), ImmutableList.of("abc", 1L));
 
         OperatorContext operatorContext = driverContext.addOperatorContext(0, RecordProjectOperator.class.getSimpleName());
         Operator operator = new RecordProjectOperator(operatorContext, records);

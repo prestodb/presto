@@ -43,7 +43,6 @@ import java.util.List;
 import java.util.Properties;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static org.apache.hadoop.hive.metastore.MetaStoreUtils.getDeserializer;
 import static org.apache.hadoop.hive.metastore.MetaStoreUtils.getTableMetadata;
 import static org.apache.hadoop.hive.metastore.api.hive_metastoreConstants.FILE_INPUT_FORMAT;
@@ -114,7 +113,7 @@ final class HiveUtil
 
     public static long parseHiveTimestamp(String value, DateTimeZone timeZone)
     {
-        return MILLISECONDS.toSeconds(HIVE_TIMESTAMP_PARSER.withZone(timeZone).parseMillis(value));
+        return HIVE_TIMESTAMP_PARSER.withZone(timeZone).parseMillis(value);
     }
 
     static boolean isSplittable(InputFormat<?, ?> inputFormat, FileSystem fileSystem, Path path)

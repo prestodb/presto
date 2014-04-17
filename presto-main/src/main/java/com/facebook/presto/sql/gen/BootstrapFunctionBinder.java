@@ -16,11 +16,11 @@ package com.facebook.presto.sql.gen;
 import com.facebook.presto.byteCode.ByteCodeNode;
 import com.facebook.presto.metadata.FunctionInfo;
 import com.facebook.presto.metadata.Metadata;
-import com.facebook.presto.sql.analyzer.Type;
+import com.facebook.presto.metadata.OperatorInfo;
+import com.facebook.presto.metadata.OperatorInfo.OperatorType;
 import com.facebook.presto.sql.tree.QualifiedName;
-import com.google.common.base.Function;
-import com.google.common.collect.Lists;
-import io.airlift.slice.Slice;
+import com.facebook.presto.spi.type.Type;
+import com.google.common.collect.ImmutableList;
 
 import java.lang.invoke.CallSite;
 import java.lang.invoke.MethodType;
@@ -45,10 +45,9 @@ public class BootstrapFunctionBinder
         this.metadata = checkNotNull(metadata, "metadata is null");
     }
 
-    public FunctionBinding bindFunction(QualifiedName name, ByteCodeNode getSessionByteCode, List<TypedByteCodeNode> arguments)
+    public FunctionBinding bindFunction(QualifiedName name, ByteCodeNode getSessionByteCode, List<ByteCodeNode> arguments, List<Type> argumentTypes)
     {
-        List<Type> argumentTypes = Lists.transform(arguments, toTupleType());
-        FunctionInfo function = metadata.getFunction(name, argumentTypes, false);
+        FunctionInfo function = metadata.resolveFunction(name, argumentTypes, false);
         checkArgument(function != null, "Unknown function %s%s", name, argumentTypes);
 
         FunctionBinding functionBinding = bindFunction(name.toString(), getSessionByteCode, arguments, function.getFunctionBinder());
@@ -56,7 +55,35 @@ public class BootstrapFunctionBinder
         return functionBinding;
     }
 
-    public FunctionBinding bindFunction(String name, ByteCodeNode getSessionByteCode, List<TypedByteCodeNode> arguments, FunctionBinder defaultFunctionBinder)
+    public FunctionBinding bindFunction(String name, ByteCodeNode getSessionByteCode, List<ByteCodeNode> arguments, FunctionBinder defaultFunctionBinder)
+    {
+        // perform binding
+        FunctionBinding functionBinding = defaultFunctionBinder.bindFunction(NEXT_BINDING_ID.getAndIncrement(), name, getSessionByteCode, arguments);
+
+        // record binding
+        functionBindings.put(functionBinding.getBindingId(), functionBinding);
+
+        return functionBinding;
+    }
+
+    public FunctionBinding bindOperator(OperatorType operatorType, ByteCodeNode getSessionByteCode, List<ByteCodeNode> arguments, List<Type> argumentTypes)
+    {
+        OperatorInfo operatorInfo = metadata.resolveOperator(operatorType, argumentTypes);
+        return bindOperator(operatorInfo, getSessionByteCode, arguments);
+    }
+
+    public FunctionBinding bindCastOperator(ByteCodeNode getSessionByteCode, ByteCodeNode sourceValue, Type sourceType, Type targetType)
+    {
+        OperatorInfo operatorInfo = metadata.getExactOperator(OperatorType.CAST, targetType, ImmutableList.of(sourceType));
+        return bindOperator(operatorInfo, getSessionByteCode, ImmutableList.of(sourceValue));
+    }
+
+    private FunctionBinding bindOperator(OperatorInfo operatorInfo, ByteCodeNode getSessionByteCode, List<ByteCodeNode> arguments)
+    {
+        return bindOperator(operatorInfo.getOperatorType().toString(), getSessionByteCode, arguments, operatorInfo.getFunctionBinder());
+    }
+
+    public FunctionBinding bindOperator(String name, ByteCodeNode getSessionByteCode, List<ByteCodeNode> arguments, FunctionBinder defaultFunctionBinder)
     {
         // perform binding
         FunctionBinding functionBinding = defaultFunctionBinder.bindFunction(NEXT_BINDING_ID.getAndIncrement(), name, getSessionByteCode, arguments);
@@ -73,33 +100,5 @@ public class BootstrapFunctionBinder
         checkArgument(functionBinding != null, "Binding %s for function %s%s not found", bindingId, name, type.parameterList());
 
         return functionBinding.getCallSite();
-    }
-
-    public static Function<TypedByteCodeNode, Type> toTupleType()
-    {
-        return new Function<TypedByteCodeNode, Type>()
-        {
-            @Override
-            public Type apply(TypedByteCodeNode node)
-            {
-                Class<?> type = node.getType();
-                if (type == boolean.class) {
-                    return Type.BOOLEAN;
-                }
-                if (type == long.class) {
-                    return Type.BIGINT;
-                }
-                if (type == double.class) {
-                    return Type.DOUBLE;
-                }
-                if (type == String.class) {
-                    return Type.VARCHAR;
-                }
-                if (type == Slice.class) {
-                    return Type.VARCHAR;
-                }
-                throw new UnsupportedOperationException("Unsupported function type " + type);
-            }
-        };
     }
 }

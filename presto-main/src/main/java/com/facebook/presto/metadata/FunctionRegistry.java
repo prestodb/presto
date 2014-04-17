@@ -13,15 +13,17 @@
  */
 package com.facebook.presto.metadata;
 
+import com.facebook.presto.metadata.OperatorInfo.OperatorType;
 import com.facebook.presto.operator.Description;
 import com.facebook.presto.operator.aggregation.AggregationFunction;
 import com.facebook.presto.operator.scalar.ColorFunctions;
+import com.facebook.presto.operator.scalar.DateTimeFunctions;
 import com.facebook.presto.operator.scalar.JsonFunctions;
 import com.facebook.presto.operator.scalar.MathFunctions;
 import com.facebook.presto.operator.scalar.RegexpFunctions;
 import com.facebook.presto.operator.scalar.ScalarFunction;
+import com.facebook.presto.operator.scalar.ScalarOperator;
 import com.facebook.presto.operator.scalar.StringFunctions;
-import com.facebook.presto.operator.scalar.UnixTimeFunctions;
 import com.facebook.presto.operator.scalar.UrlFunctions;
 import com.facebook.presto.operator.window.CumulativeDistributionFunction;
 import com.facebook.presto.operator.window.DenseRankFunction;
@@ -30,13 +32,27 @@ import com.facebook.presto.operator.window.RankFunction;
 import com.facebook.presto.operator.window.RowNumberFunction;
 import com.facebook.presto.operator.window.WindowFunction;
 import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.Session;
 import com.facebook.presto.spi.StandardErrorCode;
-import com.facebook.presto.sql.analyzer.Session;
-import com.facebook.presto.sql.analyzer.Type;
+import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.gen.FunctionBinder;
 import com.facebook.presto.sql.tree.QualifiedName;
+import com.facebook.presto.type.BigintOperators;
+import com.facebook.presto.type.BooleanOperators;
+import com.facebook.presto.type.DateOperators;
+import com.facebook.presto.type.DateTimeOperators;
+import com.facebook.presto.type.DoubleOperators;
+import com.facebook.presto.type.IntervalDayTimeOperators;
+import com.facebook.presto.type.IntervalYearMonthOperators;
+import com.facebook.presto.type.SqlType;
+import com.facebook.presto.type.TimeOperators;
+import com.facebook.presto.type.TimeWithTimeZoneOperators;
+import com.facebook.presto.type.TimestampOperators;
+import com.facebook.presto.type.TimestampWithTimeZoneOperators;
+import com.facebook.presto.type.VarcharOperators;
 import com.facebook.presto.util.IterableTransformer;
 import com.google.common.base.Joiner;
+import com.google.common.base.Optional;
 import com.google.common.base.Predicate;
 import com.google.common.base.Supplier;
 import com.google.common.base.Throwables;
@@ -54,6 +70,7 @@ import io.airlift.slice.Slice;
 import javax.annotation.Nullable;
 import javax.annotation.concurrent.ThreadSafe;
 
+import java.lang.annotation.Annotation;
 import java.lang.invoke.MethodHandle;
 import java.lang.reflect.AnnotatedElement;
 import java.lang.reflect.Constructor;
@@ -108,10 +125,15 @@ import static com.facebook.presto.operator.aggregation.VarianceAggregations.LONG
 import static com.facebook.presto.operator.aggregation.VarianceAggregations.LONG_STDDEV_POP_INSTANCE;
 import static com.facebook.presto.operator.aggregation.VarianceAggregations.LONG_VARIANCE_INSTANCE;
 import static com.facebook.presto.operator.aggregation.VarianceAggregations.LONG_VARIANCE_POP_INSTANCE;
-import static com.facebook.presto.sql.analyzer.Type.BIGINT;
-import static com.facebook.presto.sql.analyzer.Type.BOOLEAN;
-import static com.facebook.presto.sql.analyzer.Type.DOUBLE;
-import static com.facebook.presto.sql.analyzer.Type.VARCHAR;
+import static com.facebook.presto.spi.type.BigintType.BIGINT;
+import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
+import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
+import static com.facebook.presto.spi.type.NullType.NULL;
+import static com.facebook.presto.spi.type.TimeType.TIME;
+import static com.facebook.presto.spi.type.TimeWithTimeZoneType.TIME_WITH_TIME_ZONE;
+import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
+import static com.facebook.presto.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
+import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.google.common.base.CaseFormat.LOWER_CAMEL;
 import static com.google.common.base.CaseFormat.LOWER_UNDERSCORE;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -126,18 +148,18 @@ public class FunctionRegistry
 
     public FunctionRegistry(boolean experimentalSyntaxEnabled)
     {
-         FunctionListBuilder builder = new FunctionListBuilder()
+        FunctionListBuilder builder = new FunctionListBuilder()
                 .window("row_number", BIGINT, ImmutableList.<Type>of(), supplier(RowNumberFunction.class))
                 .window("rank", BIGINT, ImmutableList.<Type>of(), supplier(RankFunction.class))
                 .window("dense_rank", BIGINT, ImmutableList.<Type>of(), supplier(DenseRankFunction.class))
                 .window("percent_rank", DOUBLE, ImmutableList.<Type>of(), supplier(PercentRankFunction.class))
                 .window("cume_dist", DOUBLE, ImmutableList.<Type>of(), supplier(CumulativeDistributionFunction.class))
                 .aggregate("count", BIGINT, ImmutableList.<Type>of(), BIGINT, COUNT)
-                .aggregate("count", BIGINT, ImmutableList.<Type>of(BOOLEAN), BIGINT, COUNT_BOOLEAN_COLUMN)
-                .aggregate("count", BIGINT, ImmutableList.<Type>of(BIGINT), BIGINT, COUNT_LONG_COLUMN)
-                .aggregate("count", BIGINT, ImmutableList.<Type>of(DOUBLE), BIGINT, COUNT_DOUBLE_COLUMN)
-                .aggregate("count", BIGINT, ImmutableList.<Type>of(VARCHAR), BIGINT, COUNT_STRING_COLUMN)
-                .aggregate("count_if", BIGINT, ImmutableList.<Type>of(BOOLEAN), BIGINT, COUNT_IF)
+                .aggregate("count", BIGINT, ImmutableList.of(BOOLEAN), BIGINT, COUNT_BOOLEAN_COLUMN)
+                .aggregate("count", BIGINT, ImmutableList.of(BIGINT), BIGINT, COUNT_LONG_COLUMN)
+                .aggregate("count", BIGINT, ImmutableList.of(DOUBLE), BIGINT, COUNT_DOUBLE_COLUMN)
+                .aggregate("count", BIGINT, ImmutableList.of(VARCHAR), BIGINT, COUNT_STRING_COLUMN)
+                .aggregate("count_if", BIGINT, ImmutableList.of(BOOLEAN), BIGINT, COUNT_IF)
                 .aggregate("sum", BIGINT, ImmutableList.of(BIGINT), BIGINT, LONG_SUM)
                 .aggregate("sum", DOUBLE, ImmutableList.of(DOUBLE), DOUBLE, DOUBLE_SUM)
                 .aggregate("avg", DOUBLE, ImmutableList.of(DOUBLE), VARCHAR, DOUBLE_AVERAGE)
@@ -176,9 +198,21 @@ public class FunctionRegistry
                 .scalar(RegexpFunctions.class)
                 .scalar(UrlFunctions.class)
                 .scalar(MathFunctions.class)
-                .scalar(UnixTimeFunctions.class)
+                .scalar(DateTimeFunctions.class)
                 .scalar(JsonFunctions.class)
-                .scalar(ColorFunctions.class);
+                .scalar(ColorFunctions.class)
+                .scalar(BooleanOperators.class)
+                .scalar(BigintOperators.class)
+                .scalar(DoubleOperators.class)
+                .scalar(VarcharOperators.class)
+                .scalar(DateOperators.class)
+                .scalar(TimeOperators.class)
+                .scalar(TimestampOperators.class)
+                .scalar(IntervalDayTimeOperators.class)
+                .scalar(IntervalYearMonthOperators.class)
+                .scalar(TimeWithTimeZoneOperators.class)
+                .scalar(TimestampWithTimeZoneOperators.class)
+                .scalar(DateTimeOperators.class);
 
         if (experimentalSyntaxEnabled) {
             builder.approximateAggregate("avg", VARCHAR, ImmutableList.of(BIGINT), VARCHAR, LONG_APPROXIMATE_AVERAGE_AGGREGATION)
@@ -192,17 +226,17 @@ public class FunctionRegistry
                     .approximateAggregate("count", VARCHAR, ImmutableList.of(VARCHAR), VARCHAR, VARBINARY_APPROXIMATE_COUNT_AGGREGATION);
         }
 
-        addFunctions(builder.build());
+        addFunctions(builder.getFunctions(), builder.getOperators());
     }
 
-    public final synchronized void addFunctions(List<FunctionInfo> functions)
+    public final synchronized void addFunctions(List<FunctionInfo> functions, List<OperatorInfo> operators)
     {
         for (FunctionInfo function : functions) {
             checkArgument(this.functions.get(function.getHandle()) == null,
                     "Function already registered: %s", function.getHandle());
         }
 
-        this.functions = new FunctionMap(this.functions, functions);
+        this.functions = new FunctionMap(this.functions, functions, operators);
     }
 
     public List<FunctionInfo> list()
@@ -215,7 +249,7 @@ public class FunctionRegistry
         return Iterables.any(functions.get(name), isAggregationPredicate());
     }
 
-    public FunctionInfo get(QualifiedName name, List<Type> parameterTypes, final boolean approximate)
+    public FunctionInfo resolveFunction(QualifiedName name, List<? extends Type> parameterTypes, final boolean approximate)
     {
         List<FunctionInfo> candidates = IterableTransformer.on(functions.get(name)).select(new Predicate<FunctionInfo>() {
             @Override
@@ -234,7 +268,7 @@ public class FunctionRegistry
 
         // search for coerced match
         for (FunctionInfo functionInfo : candidates) {
-            if (canCoerce(parameterTypes, functionInfo)) {
+            if (canCoerce(parameterTypes, functionInfo.getArgumentTypes())) {
                 return functionInfo;
             }
         }
@@ -252,32 +286,138 @@ public class FunctionRegistry
         throw new PrestoException(StandardErrorCode.FUNCTION_NOT_FOUND.toErrorCode(), message);
     }
 
-    private static boolean canCoerce(List<Type> parameterTypes, FunctionInfo functionInfo)
+    public FunctionInfo getExactFunction(Signature signature)
     {
-        List<Type> functionArguments = functionInfo.getArgumentTypes();
-        if (parameterTypes.size() != functionArguments.size()) {
+        return functions.get(signature);
+    }
+
+    public OperatorInfo resolveOperator(OperatorType operatorType, List<? extends Type> argumentTypes)
+            throws OperatorNotFoundException
+    {
+        Iterable<OperatorInfo> candidates = functions.getOperators(operatorType);
+
+        // search for exact match
+        for (OperatorInfo operatorInfo : candidates) {
+            if (operatorInfo.getArgumentTypes().equals(argumentTypes)) {
+                return operatorInfo;
+            }
+        }
+
+        // search for coerced match
+        for (OperatorInfo operatorInfo : candidates) {
+            if (canCoerce(argumentTypes, operatorInfo.getArgumentTypes())) {
+                return operatorInfo;
+            }
+        }
+
+        throw new OperatorNotFoundException(operatorType, argumentTypes);
+    }
+
+    public OperatorInfo getExactOperator(OperatorType operatorType, List<? extends Type> argumentTypes, Type returnType)
+            throws OperatorNotFoundException
+    {
+        Iterable<OperatorInfo> candidates = functions.getOperators(operatorType);
+
+        // search for exact match
+        for (OperatorInfo operatorInfo : candidates) {
+            if (operatorInfo.getReturnType().equals(returnType) && operatorInfo.getArgumentTypes().equals(argumentTypes)) {
+                return operatorInfo;
+            }
+        }
+
+        throw new OperatorNotFoundException(operatorType, argumentTypes, returnType);
+    }
+
+    public static boolean canCoerce(List<? extends Type> actualTypes, List<Type> expectedTypes)
+    {
+        if (actualTypes.size() != expectedTypes.size()) {
             return false;
         }
-        for (int i = 0; i < functionArguments.size(); i++) {
-            Type functionArgument = functionArguments.get(i);
-            Type parameterType = parameterTypes.get(i);
-            if (functionArgument != parameterType && !(functionArgument == DOUBLE && parameterType == BIGINT)) {
+        for (int i = 0; i < expectedTypes.size(); i++) {
+            Type expectedType = expectedTypes.get(i);
+            Type actualType = actualTypes.get(i);
+            if (!canCoerce(actualType, expectedType)) {
                 return false;
             }
         }
         return true;
     }
 
-    public FunctionInfo get(Signature signature)
+    public static boolean canCoerce(Type actualType, Type expectedType)
     {
-        return functions.get(signature);
+        // are types the same
+        if (expectedType.equals(actualType)) {
+            return true;
+        }
+        // null can be cast to anything
+        if (actualType.equals(NULL)) {
+            return true;
+        }
+        // widen bigint to double
+        if (actualType.equals(BIGINT) && expectedType.equals(DOUBLE)) {
+            return true;
+        }
+        // widen time to time with time zone
+        if (actualType.equals(TIME) && expectedType.equals(TIME_WITH_TIME_ZONE)) {
+            return true;
+        }
+        // widen timestamp to timestamp with time zone
+        if (actualType.equals(TIMESTAMP) && expectedType.equals(TIMESTAMP_WITH_TIME_ZONE)) {
+            return true;
+        }
+        return false;
     }
 
-    private static List<Type> types(MethodHandle handle)
+    public static Optional<Type> getCommonSuperType(Type firstType, Type secondType)
     {
+        if (firstType.equals(NULL)) {
+            return Optional.of(secondType);
+        }
+
+        if (secondType.equals(NULL)) {
+            return Optional.of(firstType);
+        }
+
+        if (firstType.equals(secondType)) {
+            return Optional.of(firstType);
+        }
+
+        if ((firstType.equals(BIGINT) || firstType.equals(DOUBLE)) && (secondType.equals(BIGINT) || secondType.equals(DOUBLE))) {
+            return Optional.<Type>of(DOUBLE);
+        }
+
+        if ((firstType.equals(TIME) || firstType.equals(TIME_WITH_TIME_ZONE)) && (secondType.equals(TIME) || secondType.equals(TIME_WITH_TIME_ZONE))) {
+            return Optional.<Type>of(TIME_WITH_TIME_ZONE);
+        }
+
+        if ((firstType.equals(TIMESTAMP) || firstType.equals(TIMESTAMP_WITH_TIME_ZONE)) && (secondType.equals(TIMESTAMP) || secondType.equals(TIMESTAMP_WITH_TIME_ZONE))) {
+            return Optional.<Type>of(TIMESTAMP_WITH_TIME_ZONE);
+        }
+
+        return Optional.absent();
+    }
+
+    private static List<Type> parameterTypes(Method method)
+    {
+        Annotation[][] parameterAnnotations = method.getParameterAnnotations();
+
         ImmutableList.Builder<Type> types = ImmutableList.builder();
-        for (Class<?> parameter : getParameterTypes(handle.type().parameterArray())) {
-            types.add(type(parameter));
+        for (int i = 0; i < method.getParameterTypes().length; i++) {
+            Class<?> clazz = method.getParameterTypes()[i];
+            // skip session parameters
+            if (clazz == Session.class) {
+                continue;
+            }
+
+            // find the explicit type annotation if present
+            SqlType explicitType = null;
+            for (Annotation annotation : parameterAnnotations[i]) {
+                if (annotation instanceof SqlType) {
+                    explicitType = (SqlType) annotation;
+                    break;
+                }
+            }
+            types.add(type(explicitType, clazz));
         }
         return types.build();
     }
@@ -289,6 +429,19 @@ public class FunctionRegistry
             parameterTypes = parameterTypes.subList(1, parameterTypes.size());
         }
         return parameterTypes;
+    }
+
+    private static Type type(SqlType explicitType, Class<?> clazz)
+    {
+        if (explicitType == null) {
+            return type(clazz);
+        }
+        try {
+            return (Type) explicitType.value().getMethod("getInstance").invoke(null);
+        }
+        catch (Exception e) {
+            throw Throwables.propagate(e);
+        }
     }
 
     private static Type type(Class<?> clazz)
@@ -312,42 +465,46 @@ public class FunctionRegistry
     public static class FunctionListBuilder
     {
         private final List<FunctionInfo> functions = new ArrayList<>();
+        private final List<OperatorInfo> operators = new ArrayList<>();
 
-        public FunctionListBuilder window(String name, Type returnType, List<Type> argumentTypes, Supplier<WindowFunction> function)
+        public FunctionListBuilder window(String name, Type returnType, List<? extends Type> argumentTypes, Supplier<WindowFunction> function)
         {
             name = name.toLowerCase();
 
             String description = getDescription(function.getClass());
-            functions.add(new FunctionInfo(new Signature(name, returnType, argumentTypes, false), description, function));
+            functions.add(new FunctionInfo(new Signature(name, returnType, ImmutableList.copyOf(argumentTypes), false), description, function));
             return this;
         }
 
-        public FunctionListBuilder approximateAggregate(String name, Type returnType, List<Type> argumentTypes, Type intermediateType, AggregationFunction function)
+        public FunctionListBuilder approximateAggregate(String name, Type returnType, List<? extends Type> argumentTypes, Type intermediateType, AggregationFunction function)
         {
             return aggregate(name, returnType, argumentTypes, true, intermediateType, function);
         }
 
-        public FunctionListBuilder aggregate(String name, Type returnType, List<Type> argumentTypes, Type intermediateType, AggregationFunction function)
+        public FunctionListBuilder aggregate(String name, Type returnType, List<? extends Type> argumentTypes, Type intermediateType, AggregationFunction function)
         {
             return aggregate(name, returnType, argumentTypes, false, intermediateType, function);
         }
 
-        private FunctionListBuilder aggregate(String name, Type returnType, List<Type> argumentTypes, boolean approximate, Type intermediateType, AggregationFunction function)
+        private FunctionListBuilder aggregate(String name, Type returnType, List<? extends Type> argumentTypes, boolean approximate, Type intermediateType,
+                AggregationFunction function)
         {
             name = name.toLowerCase();
 
             String description = getDescription(function.getClass());
-            functions.add(new FunctionInfo(new Signature(name, returnType, argumentTypes, approximate), description, intermediateType, function));
+            functions.add(new FunctionInfo(new Signature(name, returnType, ImmutableList.copyOf(argumentTypes), approximate), description, intermediateType, function));
             return this;
         }
 
-        public FunctionListBuilder scalar(String name, MethodHandle function, boolean deterministic, FunctionBinder functionBinder, String description)
+        public FunctionListBuilder scalar(Signature signature, MethodHandle function, boolean deterministic, FunctionBinder functionBinder, String description)
         {
-            name = name.toLowerCase();
+            functions.add(new FunctionInfo(signature, description, function, deterministic, functionBinder));
+            return this;
+        }
 
-            Type returnType = type(function.type().returnType());
-            List<Type> argumentTypes = types(function);
-            functions.add(new FunctionInfo(new Signature(name, returnType, argumentTypes, false), description, function, deterministic, functionBinder));
+        private FunctionListBuilder operator(OperatorType operatorType, Type returnType, List<Type> parameterTypes, MethodHandle function, FunctionBinder functionBinder)
+        {
+            operators.add(new OperatorInfo(operatorType, returnType, parameterTypes, function, functionBinder));
             return this;
         }
 
@@ -356,23 +513,8 @@ public class FunctionRegistry
             try {
                 boolean foundOne = false;
                 for (Method method : clazz.getMethods()) {
-                    ScalarFunction scalarFunction = method.getAnnotation(ScalarFunction.class);
-                    if (scalarFunction == null) {
-                        continue;
-                    }
-                    checkValidMethod(method);
-                    MethodHandle methodHandle = lookup().unreflect(method);
-                    String name = scalarFunction.value();
-                    if (name.isEmpty()) {
-                        name = camelToSnake(method.getName());
-                    }
-                    String description = getDescription(method);
-                    FunctionBinder functionBinder = createFunctionBinder(method, scalarFunction);
-                    scalar(name, methodHandle, scalarFunction.deterministic(), functionBinder, description);
-                    for (String alias : scalarFunction.alias()) {
-                        scalar(alias, methodHandle, scalarFunction.deterministic(), functionBinder, description);
-                    }
-                    foundOne = true;
+                    foundOne = processScalarFunction(method) || foundOne;
+                    foundOne = processScalarOperator(method) || foundOne;
                 }
                 checkArgument(foundOne, "Expected class %s to contain at least one method annotated with @%s", clazz.getName(), ScalarFunction.class.getSimpleName());
             }
@@ -382,9 +524,58 @@ public class FunctionRegistry
             return this;
         }
 
-        private FunctionBinder createFunctionBinder(Method method, ScalarFunction scalarFunction)
+        private boolean processScalarFunction(Method method)
+                throws IllegalAccessException
         {
-            Class<? extends FunctionBinder> functionBinderClass = scalarFunction.functionBinder();
+            ScalarFunction scalarFunction = method.getAnnotation(ScalarFunction.class);
+            if (scalarFunction == null) {
+                return false;
+            }
+            checkValidMethod(method);
+            MethodHandle methodHandle = lookup().unreflect(method);
+            String name = scalarFunction.value();
+            if (name.isEmpty()) {
+                name = camelToSnake(method.getName());
+            }
+            Type returnType = type(method.getAnnotation(SqlType.class), method.getReturnType());
+            Signature signature = new Signature(name.toLowerCase(), returnType, parameterTypes(method), false);
+
+            FunctionBinder functionBinder = createFunctionBinder(method, scalarFunction.functionBinder());
+
+            scalar(signature, methodHandle, scalarFunction.deterministic(), functionBinder, getDescription(method));
+            for (String alias : scalarFunction.alias()) {
+                scalar(signature.withAlias(alias.toLowerCase()), methodHandle, scalarFunction.deterministic(), functionBinder, getDescription(method));
+            }
+            return true;
+        }
+
+        private boolean processScalarOperator(Method method)
+                throws IllegalAccessException
+        {
+            ScalarOperator scalarOperator = method.getAnnotation(ScalarOperator.class);
+            if (scalarOperator == null) {
+                return false;
+            }
+            checkValidMethod(method);
+            MethodHandle methodHandle = lookup().unreflect(method);
+            OperatorType operatorType = scalarOperator.value();
+            Type returnType;
+            if (operatorType == OperatorType.HASH_CODE) {
+                // todo hack for hashCode... should be int
+                returnType = BIGINT;
+            }
+            else {
+                returnType = type(method.getAnnotation(SqlType.class), method.getReturnType());
+            }
+
+            FunctionBinder functionBinder = createFunctionBinder(method, scalarOperator.functionBinder());
+
+            operator(operatorType, returnType, parameterTypes(method), methodHandle, functionBinder);
+            return true;
+        }
+
+        private FunctionBinder createFunctionBinder(Method method, Class<? extends FunctionBinder> functionBinderClass)
+        {
             try {
                 // look for <init>(MethodHandle,boolean)
                 Constructor<? extends FunctionBinder> constructor = functionBinderClass.getConstructor(MethodHandle.class, boolean.class);
@@ -415,6 +606,7 @@ public class FunctionRegistry
         }
 
         private static final Set<Class<?>> SUPPORTED_TYPES = ImmutableSet.<Class<?>>of(long.class, double.class, Slice.class, boolean.class);
+        private static final Set<Class<?>> SUPPORTED_RETURN_TYPES = ImmutableSet.<Class<?>>of(long.class, double.class, Slice.class, boolean.class, int.class);
 
         private static void checkValidMethod(Method method)
         {
@@ -422,7 +614,7 @@ public class FunctionRegistry
 
             checkArgument(Modifier.isStatic(method.getModifiers()), message + "must be static", method);
 
-            checkArgument(SUPPORTED_TYPES.contains(Primitives.unwrap(method.getReturnType())), message + "return type not supported", method);
+            checkArgument(SUPPORTED_RETURN_TYPES.contains(Primitives.unwrap(method.getReturnType())), message + "return type not supported", method);
             if (method.getAnnotation(Nullable.class) != null) {
                 checkArgument(!method.getReturnType().isPrimitive(), message + "annotated with @Nullable but has primitive return type", method);
             }
@@ -435,9 +627,14 @@ public class FunctionRegistry
             }
         }
 
-        public List<FunctionInfo> build()
+        public List<FunctionInfo> getFunctions()
         {
             return ImmutableList.copyOf(functions);
+        }
+
+        public List<OperatorInfo> getOperators()
+        {
+            return ImmutableList.copyOf(operators);
         }
     }
 
@@ -460,51 +657,60 @@ public class FunctionRegistry
 
     private static class FunctionMap
     {
-        private final Multimap<QualifiedName, FunctionInfo> byName;
-        private final Map<Signature, FunctionInfo> bySignature;
+        private final Multimap<QualifiedName, FunctionInfo> functionsByName;
+        private final Map<Signature, FunctionInfo> functionsBySignature;
+        private final Multimap<OperatorType, OperatorInfo> byOperator;
 
         public FunctionMap()
         {
-            byName = ImmutableListMultimap.of();
-            bySignature = ImmutableMap.of();
+            functionsByName = ImmutableListMultimap.of();
+            functionsBySignature = ImmutableMap.of();
+            byOperator = ImmutableListMultimap.of();
         }
 
-        public FunctionMap(FunctionMap map, Iterable<FunctionInfo> functions)
+        public FunctionMap(FunctionMap map, Iterable<FunctionInfo> functions, Iterable<OperatorInfo> operator)
         {
-            Multimap<QualifiedName, FunctionInfo> byName = ImmutableListMultimap.<QualifiedName, FunctionInfo>builder()
-                    .putAll(map.byName)
+            functionsByName = ImmutableListMultimap.<QualifiedName, FunctionInfo>builder()
+                    .putAll(map.functionsByName)
                     .putAll(Multimaps.index(functions, FunctionInfo.nameGetter()))
                     .build();
 
-            Map<Signature, FunctionInfo> bySignature = ImmutableMap.<Signature, FunctionInfo>builder()
-                    .putAll(map.bySignature)
+            functionsBySignature = ImmutableMap.<Signature, FunctionInfo>builder()
+                    .putAll(map.functionsBySignature)
                     .putAll(Maps.uniqueIndex(functions, FunctionInfo.handleGetter()))
                     .build();
 
+            byOperator = ImmutableListMultimap.<OperatorType, OperatorInfo>builder()
+                    .putAll(map.byOperator)
+                    .putAll(Multimaps.index(operator, OperatorInfo.operatorGetter()))
+                    .build();
+
             // Make sure all functions with the same name are aggregations or none of them are
-            for (Map.Entry<QualifiedName, Collection<FunctionInfo>> entry : byName.asMap().entrySet()) {
+            for (Map.Entry<QualifiedName, Collection<FunctionInfo>> entry : functionsByName.asMap().entrySet()) {
                 Collection<FunctionInfo> infos = entry.getValue();
                 checkState(Iterables.all(infos, isAggregationPredicate()) || !Iterables.any(infos, isAggregationPredicate()),
                         "'%s' is both an aggregation and a scalar function", entry.getKey());
             }
-
-            this.byName = byName;
-            this.bySignature = bySignature;
         }
 
         public List<FunctionInfo> list()
         {
-            return ImmutableList.copyOf(byName.values());
+            return ImmutableList.copyOf(functionsByName.values());
         }
 
         public Collection<FunctionInfo> get(QualifiedName name)
         {
-            return byName.get(name);
+            return functionsByName.get(name);
         }
 
         public FunctionInfo get(Signature signature)
         {
-            return bySignature.get(signature);
+            return functionsBySignature.get(signature);
+        }
+
+        public Collection<OperatorInfo> getOperators(OperatorType operatorType)
+        {
+            return byOperator.get(operatorType);
         }
     }
 }

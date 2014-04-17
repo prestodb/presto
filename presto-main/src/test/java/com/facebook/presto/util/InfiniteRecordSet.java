@@ -13,9 +13,9 @@
  */
 package com.facebook.presto.util;
 
-import com.facebook.presto.spi.ColumnType;
 import com.facebook.presto.spi.RecordCursor;
 import com.facebook.presto.spi.RecordSet;
+import com.facebook.presto.spi.type.Type;
 import com.google.common.base.Charsets;
 import com.google.common.collect.ImmutableList;
 
@@ -26,17 +26,17 @@ import static com.google.common.base.Preconditions.checkNotNull;
 public class InfiniteRecordSet
         implements RecordSet
 {
-    private final List<ColumnType> types;
+    private final List<Type> types;
     private final List<?> record;
 
-    public InfiniteRecordSet(List<ColumnType> types, List<?> record)
+    public InfiniteRecordSet(List<Type> types, List<?> record)
     {
         this.types = types;
         this.record = record;
     }
 
     @Override
-    public List<ColumnType> getColumnTypes()
+    public List<Type> getColumnTypes()
     {
         return types;
     }
@@ -50,10 +50,10 @@ public class InfiniteRecordSet
     private static class InMemoryRecordCursor
             implements RecordCursor
     {
-        private final List<ColumnType> types;
+        private final List<Type> types;
         private final List<?> record;
 
-        private InMemoryRecordCursor(List<ColumnType> types, List<?> record)
+        private InMemoryRecordCursor(List<Type> types, List<?> record)
         {
             this.types = checkNotNull(ImmutableList.copyOf(types), "types is null");
             this.record = checkNotNull(ImmutableList.copyOf(record), "record is null");
@@ -84,7 +84,7 @@ public class InfiniteRecordSet
         }
 
         @Override
-        public ColumnType getType(int field)
+        public Type getType(int field)
         {
             return types.get(field);
         }

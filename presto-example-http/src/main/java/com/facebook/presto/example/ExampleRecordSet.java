@@ -13,9 +13,9 @@
  */
 package com.facebook.presto.example;
 
-import com.facebook.presto.spi.ColumnType;
 import com.facebook.presto.spi.RecordCursor;
 import com.facebook.presto.spi.RecordSet;
+import com.facebook.presto.spi.type.Type;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.io.InputSupplier;
@@ -31,7 +31,7 @@ public class ExampleRecordSet
         implements RecordSet
 {
     private final List<ExampleColumnHandle> columnHandles;
-    private final List<ColumnType> columnTypes;
+    private final List<Type> columnTypes;
     private final InputSupplier<InputStream> inputStreamSupplier;
 
     public ExampleRecordSet(ExampleSplit split, List<ExampleColumnHandle> columnHandles)
@@ -39,7 +39,7 @@ public class ExampleRecordSet
         checkNotNull(split, "split is null");
 
         this.columnHandles = checkNotNull(columnHandles, "column handles is null");
-        ImmutableList.Builder<ColumnType> types = ImmutableList.builder();
+        ImmutableList.Builder<Type> types = ImmutableList.builder();
         for (ExampleColumnHandle column : columnHandles) {
             types.add(column.getColumnType());
         }
@@ -54,7 +54,7 @@ public class ExampleRecordSet
     }
 
     @Override
-    public List<ColumnType> getColumnTypes()
+    public List<Type> getColumnTypes()
     {
         return columnTypes;
     }

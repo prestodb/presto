@@ -14,8 +14,8 @@
 package com.facebook.presto.benchmark;
 
 import com.facebook.presto.benchmark.HandTpchQuery1.TpchQuery1Operator.TpchQuery1OperatorFactory;
-import com.facebook.presto.block.Block;
-import com.facebook.presto.block.BlockCursor;
+import com.facebook.presto.spi.block.Block;
+import com.facebook.presto.spi.block.BlockCursor;
 import com.facebook.presto.operator.DriverContext;
 import com.facebook.presto.operator.HashAggregationOperator.HashAggregationOperatorFactory;
 import com.facebook.presto.operator.Operator;
@@ -25,7 +25,7 @@ import com.facebook.presto.operator.Page;
 import com.facebook.presto.operator.PageBuilder;
 import com.facebook.presto.sql.planner.plan.AggregationNode.Step;
 import com.facebook.presto.sql.tree.Input;
-import com.facebook.presto.tuple.TupleInfo;
+import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.util.LocalQueryRunner;
 import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
@@ -44,6 +44,9 @@ import static com.facebook.presto.operator.aggregation.AverageAggregations.LONG_
 import static com.facebook.presto.operator.aggregation.CountAggregation.COUNT;
 import static com.facebook.presto.operator.aggregation.DoubleSumAggregation.DOUBLE_SUM;
 import static com.facebook.presto.operator.aggregation.LongSumAggregation.LONG_SUM;
+import static com.facebook.presto.spi.type.BigintType.BIGINT;
+import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
+import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.util.Threads.daemonThreadsNamed;
 import static com.google.common.base.Charsets.UTF_8;
 import static com.google.common.base.Preconditions.checkNotNull;
@@ -97,7 +100,7 @@ public class HandTpchQuery1
         TpchQuery1OperatorFactory tpchQuery1Operator = new TpchQuery1OperatorFactory(1);
         HashAggregationOperatorFactory aggregationOperator = new HashAggregationOperatorFactory(
                 2,
-                ImmutableList.of(tpchQuery1Operator.getTupleInfos().get(0), tpchQuery1Operator.getTupleInfos().get(1)),
+                ImmutableList.of(tpchQuery1Operator.getTypes().get(0), tpchQuery1Operator.getTypes().get(1)),
                 Ints.asList(0, 1),
                 Step.SINGLE,
                 ImmutableList.of(
@@ -117,14 +120,14 @@ public class HandTpchQuery1
     public static class TpchQuery1Operator
             implements com.facebook.presto.operator.Operator
     {
-        private static final ImmutableList<TupleInfo> TUPLE_INFOS = ImmutableList.of(
-                TupleInfo.SINGLE_VARBINARY,
-                TupleInfo.SINGLE_VARBINARY,
-                TupleInfo.SINGLE_LONG,
-                TupleInfo.SINGLE_DOUBLE,
-                TupleInfo.SINGLE_DOUBLE,
-                TupleInfo.SINGLE_DOUBLE,
-                TupleInfo.SINGLE_DOUBLE);
+        private static final ImmutableList<Type> TYPES = ImmutableList.of(
+                VARCHAR,
+                VARCHAR,
+                BIGINT,
+                DOUBLE,
+                DOUBLE,
+                DOUBLE,
+                DOUBLE);
 
         public static class TpchQuery1OperatorFactory
                 implements OperatorFactory
@@ -137,9 +140,9 @@ public class HandTpchQuery1
             }
 
             @Override
-            public List<TupleInfo> getTupleInfos()
+            public List<Type> getTypes()
             {
-                return TUPLE_INFOS;
+                return TYPES;
             }
 
             @Override
@@ -162,7 +165,7 @@ public class HandTpchQuery1
         public TpchQuery1Operator(OperatorContext operatorContext)
         {
             this.operatorContext = checkNotNull(operatorContext, "operatorContext is null");
-            this.pageBuilder = new PageBuilder(TUPLE_INFOS);
+            this.pageBuilder = new PageBuilder(TYPES);
         }
 
         @Override
@@ -172,9 +175,9 @@ public class HandTpchQuery1
         }
 
         @Override
-        public List<TupleInfo> getTupleInfos()
+        public List<Type> getTypes()
         {
-            return TUPLE_INFOS;
+            return TYPES;
         }
 
         @Override

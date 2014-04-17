@@ -20,7 +20,9 @@ import com.facebook.presto.metadata.QualifiedTableName;
 import com.facebook.presto.metadata.TableMetadata;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
+import com.facebook.presto.spi.Session;
 import com.facebook.presto.spi.TableHandle;
+import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.ExpressionUtils;
 import com.facebook.presto.sql.planner.ExpressionInterpreter;
 import com.facebook.presto.sql.planner.NoOpSymbolResolver;
@@ -60,6 +62,7 @@ import com.google.common.base.Function;
 import com.google.common.base.Joiner;
 import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
@@ -69,11 +72,14 @@ import com.google.common.collect.Sets;
 
 import java.util.Collection;
 import java.util.EnumSet;
+import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-import static com.facebook.presto.sql.analyzer.Analyzer.ExpressionAnalysis;
+import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
+import static com.facebook.presto.spi.type.NullType.NULL;
+import static com.facebook.presto.sql.analyzer.ExpressionAnalyzer.getExpressionTypes;
 import static com.facebook.presto.sql.analyzer.Field.typeGetter;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.AMBIGUOUS_ATTRIBUTE;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.DUPLICATE_RELATION;
@@ -91,6 +97,7 @@ import static com.facebook.presto.sql.analyzer.SemanticErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.ORDER_BY_MUST_BE_IN_SELECT;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.TYPE_MISMATCH;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.WILDCARD_WITHOUT_FROM;
+import static com.facebook.presto.sql.planner.ExpressionInterpreter.expressionOptimizer;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.Iterables.elementsEqual;
@@ -158,7 +165,7 @@ class TupleAnalyzer
         // TODO: discover columns lazily based on where they are needed (to support datasources that can't enumerate all tables)
         ImmutableList.Builder<Field> fields = ImmutableList.builder();
         for (ColumnMetadata column : tableMetadata.getColumns()) {
-            Field field = Field.newQualified(table.getName(), Optional.of(column.getName()), Type.fromRaw(column.getType()));
+            Field field = Field.newQualified(table.getName(), Optional.of(column.getName()), column.getType());
             fields.add(field);
             analysis.setColumn(field, columns.get(column.getName()));
         }
@@ -207,10 +214,12 @@ class TupleAnalyzer
             throw new SemanticException(NOT_SUPPORTED, relation, "STRATIFY ON is not yet implemented");
         }
 
-        // We use the optimizer to be able to produce a semantic exception if columns are referenced in the expression.
-        // We can't do this with the interpreter yet because it's designed for the execution stage and has the wrong shape.
-        // So, for now, we punt on supporting non-deterministic functions.
-        ExpressionInterpreter samplePercentageEval = ExpressionInterpreter.expressionOptimizer(relation.getSamplePercentage(), metadata, session);
+        if (!DependencyExtractor.extract(relation.getSamplePercentage()).isEmpty()) {
+            throw new SemanticException(NON_NUMERIC_SAMPLE_PERCENTAGE, relation.getSamplePercentage(), "Sample percentage cannot contain column references");
+        }
+
+        IdentityHashMap<Expression, Type> expressionTypes = getExpressionTypes(session, metadata, ImmutableMap.<Symbol, Type>of(), relation.getSamplePercentage());
+        ExpressionInterpreter samplePercentageEval = expressionOptimizer(relation.getSamplePercentage(), metadata, session, expressionTypes);
 
         Object samplePercentageObject = samplePercentageEval.optimize(new SymbolResolver()
         {
@@ -222,7 +231,7 @@ class TupleAnalyzer
         });
 
         if (!(samplePercentageObject instanceof Number)) {
-            throw new SemanticException(SemanticErrorCode.NON_NUMERIC_SAMPLE_PERCENTAGE, relation.getSamplePercentage(), "Sample percentage should evaluate to a numeric expression");
+            throw new SemanticException(NON_NUMERIC_SAMPLE_PERCENTAGE, relation.getSamplePercentage(), "Sample percentage should evaluate to a numeric expression");
         }
 
         double samplePercentageValue = ((Number) samplePercentageObject).doubleValue();
@@ -358,8 +367,20 @@ class TupleAnalyzer
                 Expression leftExpression = new QualifiedNameReference(QualifiedName.of(column));
                 Expression rightExpression = new QualifiedNameReference(QualifiedName.of(column));
 
-                ExpressionAnalysis leftExpressionAnalysis = Analyzer.analyzeExpression(session, metadata, left, analysis, experimentalSyntaxEnabled, context, leftExpression);
-                ExpressionAnalysis rightExpressionAnalysis = Analyzer.analyzeExpression(session, metadata, right, analysis, experimentalSyntaxEnabled, context, rightExpression);
+                ExpressionAnalysis leftExpressionAnalysis = ExpressionAnalyzer.analyzeExpression(session,
+                        metadata,
+                        left,
+                        analysis,
+                        experimentalSyntaxEnabled,
+                        context,
+                        leftExpression);
+                ExpressionAnalysis rightExpressionAnalysis = ExpressionAnalyzer.analyzeExpression(session,
+                        metadata,
+                        right,
+                        analysis,
+                        experimentalSyntaxEnabled,
+                        context,
+                        rightExpression);
                 checkState(leftExpressionAnalysis.getSubqueryInPredicates().isEmpty(), "INVARIANT");
                 checkState(rightExpressionAnalysis.getSubqueryInPredicates().isEmpty(), "INVARIANT");
 
@@ -378,7 +399,7 @@ class TupleAnalyzer
 
             Analyzer.verifyNoAggregatesOrWindowFunctions(metadata, expression, "JOIN");
 
-            Object optimizedExpression = ExpressionInterpreter.expressionOptimizer(expression, metadata, session).optimize(NoOpSymbolResolver.INSTANCE);
+            Object optimizedExpression = expressionOptimizer(expression, metadata, session, analyzer.getExpressionTypes()).optimize(NoOpSymbolResolver.INSTANCE);
 
             if (!(optimizedExpression instanceof Expression) && optimizedExpression instanceof Boolean) {
                 // If the JoinOn clause evaluates to a boolean expression, simulate a cross join by adding the relevant redundant expression
@@ -424,8 +445,20 @@ class TupleAnalyzer
                 }
 
                 // analyze the clauses to record the types of all subexpressions and resolve names against the left/right underlying tuples
-                ExpressionAnalysis leftExpressionAnalysis = Analyzer.analyzeExpression(session, metadata, left, analysis, experimentalSyntaxEnabled, context, leftExpression);
-                ExpressionAnalysis rightExpressionAnalysis = Analyzer.analyzeExpression(session, metadata, right, analysis, experimentalSyntaxEnabled, context, rightExpression);
+                ExpressionAnalysis leftExpressionAnalysis = ExpressionAnalyzer.analyzeExpression(session,
+                        metadata,
+                        left,
+                        analysis,
+                        experimentalSyntaxEnabled,
+                        context,
+                        leftExpression);
+                ExpressionAnalysis rightExpressionAnalysis = ExpressionAnalyzer.analyzeExpression(session,
+                        metadata,
+                        right,
+                        analysis,
+                        experimentalSyntaxEnabled,
+                        context,
+                        rightExpression);
                 analysis.addJoinInPredicates(node, new Analysis.JoinInPredicates(leftExpressionAnalysis.getSubqueryInPredicates(), rightExpressionAnalysis.getSubqueryInPredicates()));
 
                 clauses.add(new EquiJoinClause(leftExpression, rightExpression));
@@ -471,8 +504,14 @@ class TupleAnalyzer
     {
         ImmutableList.Builder<Field> outputFields = ImmutableList.builder();
         for (Expression expression : node.getItems()) {
-            ExpressionAnalysis expressionAnalysis = Analyzer.analyzeExpression(session, metadata, new TupleDescriptor(), analysis, experimentalSyntaxEnabled, context, expression);
-            outputFields.add(Field.newUnqualified(Optional.<String>absent(), expressionAnalysis.getType()));
+            ExpressionAnalysis expressionAnalysis = ExpressionAnalyzer.analyzeExpression(session,
+                    metadata,
+                    new TupleDescriptor(),
+                    analysis,
+                    experimentalSyntaxEnabled,
+                    context,
+                    expression);
+            outputFields.add(Field.newUnqualified(Optional.<String>absent(), expressionAnalysis.getType(expression)));
         }
         return new TupleDescriptor(outputFields.build());
     }
@@ -532,7 +571,7 @@ class TupleAnalyzer
                 }
             });
 
-            FunctionInfo info = metadata.getFunction(windowFunction.getName(), argumentTypes, false);
+            FunctionInfo info = metadata.resolveFunction(windowFunction.getName(), argumentTypes, false);
             if (!info.isWindow()) {
                 throw new SemanticException(MUST_BE_WINDOW_FUNCTION, node, "Not a window function: %s", windowFunction.getName());
             }
@@ -546,11 +585,18 @@ class TupleAnalyzer
         if (node.getHaving().isPresent()) {
             Expression predicate = node.getHaving().get();
 
-            ExpressionAnalysis expressionAnalysis = Analyzer.analyzeExpression(session, metadata, tupleDescriptor, analysis, experimentalSyntaxEnabled, context, predicate);
+            ExpressionAnalysis expressionAnalysis = ExpressionAnalyzer.analyzeExpression(session,
+                    metadata,
+                    tupleDescriptor,
+                    analysis,
+                    experimentalSyntaxEnabled,
+                    context,
+                    predicate);
             analysis.addInPredicates(node, expressionAnalysis.getSubqueryInPredicates());
 
-            if (expressionAnalysis.getType() != Type.BOOLEAN && expressionAnalysis.getType() != Type.NULL) {
-                throw new SemanticException(TYPE_MISMATCH, predicate, "HAVING clause must evaluate to a boolean: actual type %s", expressionAnalysis.getType());
+            Type predicateType = expressionAnalysis.getType(predicate);
+            if (!predicateType.equals(BOOLEAN) && !predicateType.equals(NULL)) {
+                throw new SemanticException(TYPE_MISMATCH, predicate, "HAVING clause must evaluate to a boolean: actual type %s", predicateType);
             }
 
             analysis.setHaving(node, predicate);
@@ -611,7 +657,13 @@ class TupleAnalyzer
                 }
 
                 if (orderByExpression.isExpression()) {
-                    ExpressionAnalysis expressionAnalysis = Analyzer.analyzeExpression(session, metadata, tupleDescriptor, analysis, experimentalSyntaxEnabled, context, orderByExpression.getExpression());
+                    ExpressionAnalysis expressionAnalysis = ExpressionAnalyzer.analyzeExpression(session,
+                            metadata,
+                            tupleDescriptor,
+                            analysis,
+                            experimentalSyntaxEnabled,
+                            context,
+                            orderByExpression.getExpression());
                     analysis.addInPredicates(node, expressionAnalysis.getSubqueryInPredicates());
                 }
 
@@ -646,7 +698,13 @@ class TupleAnalyzer
                     groupByExpression = outputExpressions.get((int) (ordinal - 1));
                 }
                 else {
-                    ExpressionAnalysis expressionAnalysis = Analyzer.analyzeExpression(session, metadata, tupleDescriptor, analysis, experimentalSyntaxEnabled, context, expression);
+                    ExpressionAnalysis expressionAnalysis = ExpressionAnalyzer.analyzeExpression(session,
+                            metadata,
+                            tupleDescriptor,
+                            analysis,
+                            experimentalSyntaxEnabled,
+                            context,
+                            expression);
                     analysis.addInPredicates(node, expressionAnalysis.getSubqueryInPredicates());
                     groupByExpression = new FieldOrExpression(expression);
                 }
@@ -720,7 +778,13 @@ class TupleAnalyzer
             }
             else if (item instanceof SingleColumn) {
                 SingleColumn column = (SingleColumn) item;
-                ExpressionAnalysis expressionAnalysis = Analyzer.analyzeExpression(session, metadata, tupleDescriptor, analysis, experimentalSyntaxEnabled, context, column.getExpression());
+                ExpressionAnalysis expressionAnalysis = ExpressionAnalyzer.analyzeExpression(session,
+                        metadata,
+                        tupleDescriptor,
+                        analysis,
+                        experimentalSyntaxEnabled,
+                        context,
+                        column.getExpression());
                 analysis.addInPredicates(node, expressionAnalysis.getSubqueryInPredicates());
                 outputExpressionBuilder.add(new FieldOrExpression(column.getExpression()));
             }
@@ -742,11 +806,22 @@ class TupleAnalyzer
 
             Analyzer.verifyNoAggregatesOrWindowFunctions(metadata, predicate, "WHERE");
 
-            ExpressionAnalysis expressionAnalysis = Analyzer.analyzeExpression(session, metadata, tupleDescriptor, analysis, experimentalSyntaxEnabled, context, predicate);
+            ExpressionAnalysis expressionAnalysis = ExpressionAnalyzer.analyzeExpression(session,
+                    metadata,
+                    tupleDescriptor,
+                    analysis,
+                    experimentalSyntaxEnabled,
+                    context,
+                    predicate);
             analysis.addInPredicates(node, expressionAnalysis.getSubqueryInPredicates());
 
-            if (expressionAnalysis.getType() != Type.BOOLEAN && expressionAnalysis.getType() != Type.NULL) {
-                throw new SemanticException(TYPE_MISMATCH, predicate, "WHERE clause must evaluate to a boolean: actual type %s", expressionAnalysis.getType());
+            Type predicateType = expressionAnalysis.getType(predicate);
+            if (!predicateType.equals(BOOLEAN)) {
+                if (!predicateType.equals(NULL)) {
+                    throw new SemanticException(TYPE_MISMATCH, predicate, "WHERE clause must evaluate to a boolean: actual type %s", predicateType);
+                }
+                // coerce null to boolean
+                analysis.addCoercion(predicate, BOOLEAN);
             }
 
             analysis.setWhere(node, predicate);

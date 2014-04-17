@@ -20,7 +20,7 @@ import com.facebook.presto.metadata.QualifiedTableName;
 import com.facebook.presto.metadata.ShardManager;
 import com.facebook.presto.metadata.TablePartition;
 import com.facebook.presto.spi.TableHandle;
-import com.facebook.presto.sql.analyzer.Session;
+import com.facebook.presto.spi.Session;
 import com.facebook.presto.sql.tree.DropTable;
 import com.facebook.presto.sql.tree.Statement;
 import com.google.common.base.Optional;

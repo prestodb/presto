@@ -29,14 +29,13 @@ import com.facebook.presto.operator.RecordSinkManager;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.PartitionResult;
 import com.facebook.presto.spi.SchemaTableName;
+import com.facebook.presto.spi.Session;
 import com.facebook.presto.spi.Split;
 import com.facebook.presto.spi.SplitSource;
 import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.spi.TupleDomain;
+import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.split.DataStreamManager;
-import com.facebook.presto.sql.analyzer.FeaturesConfig;
-import com.facebook.presto.sql.analyzer.Session;
-import com.facebook.presto.sql.analyzer.Type;
 import com.facebook.presto.sql.gen.ExpressionCompiler;
 import com.facebook.presto.sql.planner.LocalExecutionPlanner;
 import com.facebook.presto.sql.planner.PlanFragment;
@@ -64,10 +63,13 @@ import org.testng.annotations.Test;
 
 import java.io.File;
 import java.net.URI;
+import java.util.Locale;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 
+import static com.facebook.presto.spi.type.TimeZoneKey.UTC_KEY;
+import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.util.Threads.threadsNamed;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
@@ -96,7 +98,7 @@ public class TestSqlTaskExecution
         assertNotNull(columnHandle, "columnHandle is null");
         Symbol symbol = new Symbol(DualMetadata.COLUMN_NAME);
 
-        MetadataManager metadata = new MetadataManager(new FeaturesConfig());
+        MetadataManager metadata = new MetadataManager();
         metadata.addInternalSchemaMetadata(MetadataManager.INTERNAL_CONNECTOR_ID, dualMetadata);
 
         DualSplitManager dualSplitManager = new DualSplitManager(new InMemoryNodeManager());
@@ -128,14 +130,14 @@ public class TestSqlTaskExecution
                         ImmutableMap.of(symbol, columnHandle),
                         null,
                         Optional.<GeneratedPartitions>absent()),
-                ImmutableMap.of(symbol, Type.VARCHAR),
+                ImmutableMap.<Symbol, Type>of(symbol, VARCHAR),
                 PlanDistribution.SOURCE,
                 tableScanNodeId,
                 OutputPartitioning.NONE,
                 ImmutableList.<Symbol>of());
 
         TaskId taskId = new TaskId("query", "stage", "task");
-        Session session = new Session("user", "test", "default", "default", "test", "test");
+        Session session = new Session("user", "test", "default", "default", UTC_KEY, Locale.ENGLISH, "test", "test");
 
         taskNotificationExecutor = Executors.newCachedThreadPool(threadsNamed("task-notification-%d"));
 

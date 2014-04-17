@@ -13,12 +13,13 @@
  */
 package com.facebook.presto.operator.aggregation;
 
-import com.facebook.presto.block.Block;
 import com.facebook.presto.block.BlockAssertions;
-import com.facebook.presto.block.BlockBuilder;
 import com.facebook.presto.operator.OperatorAssertion;
 import com.facebook.presto.operator.Page;
-import com.facebook.presto.tuple.TupleInfo;
+import com.facebook.presto.spi.block.Block;
+import com.facebook.presto.spi.block.BlockBuilder;
+import com.facebook.presto.spi.block.BlockBuilderStatus;
+import com.facebook.presto.spi.type.Type;
 import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
 import org.apache.commons.math3.distribution.BinomialDistribution;
@@ -29,15 +30,15 @@ import java.util.List;
 import java.util.Random;
 
 import static com.facebook.presto.operator.aggregation.AggregationTestUtils.assertApproximateAggregation;
-import static com.facebook.presto.tuple.TupleInfo.SINGLE_DOUBLE;
-import static com.facebook.presto.tuple.TupleInfo.SINGLE_LONG;
+import static com.facebook.presto.spi.type.BigintType.BIGINT;
+import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static org.testng.Assert.assertTrue;
 
 public abstract class AbstractTestApproximateAggregationFunction
         extends AbstractTestAggregationFunction
 {
     private static final int WEIGHT = 10;
-    protected abstract TupleInfo getTupleInfo();
+    protected abstract Type getType();
 
     // values may contain nulls
     protected abstract Double getExpectedValue(List<Number> values);
@@ -51,9 +52,9 @@ public abstract class AbstractTestApproximateAggregationFunction
     @Override
     public Block getSequenceBlock(int start, int length)
     {
-        BlockBuilder blockBuilder = new BlockBuilder(getTupleInfo());
+        BlockBuilder blockBuilder = getType().createBlockBuilder(new BlockBuilderStatus());
         for (int i = start; i < start + length; i++) {
-            if (getTupleInfo() == SINGLE_LONG) {
+            if (getType() == BIGINT) {
                 blockBuilder.append((long) i);
             }
             else {
@@ -68,7 +69,7 @@ public abstract class AbstractTestApproximateAggregationFunction
     {
         List<Number> values = new ArrayList<>();
         for (int i = 0; i < length; i++) {
-            if (getTupleInfo() == SINGLE_LONG) {
+            if (getType() == BIGINT) {
                 for (int j = 0; j < WEIGHT; j++) {
                     values.add((long) start + i);
                 }
@@ -88,7 +89,7 @@ public abstract class AbstractTestApproximateAggregationFunction
     {
         List<Number> values = new ArrayList<>();
         for (int i = 0; i < length; i++) {
-            if (getTupleInfo() == SINGLE_LONG) {
+            if (getType() == BIGINT) {
                 for (int j = 0; j < WEIGHT; j++) {
                     values.add((long) start + i);
                 }
@@ -154,12 +155,12 @@ public abstract class AbstractTestApproximateAggregationFunction
                 }
             }
 
-            BlockBuilder builder = new BlockBuilder(getTupleInfo());
+            BlockBuilder builder = getType().createBlockBuilder(new BlockBuilderStatus());
             for (Number sample : sampledList.build()) {
-                if (getTupleInfo() == SINGLE_LONG) {
+                if (getType() == BIGINT) {
                     builder.append(sample.longValue());
                 }
-                else if (getTupleInfo() == SINGLE_DOUBLE) {
+                else if (getType() == DOUBLE) {
                     builder.append(sample.doubleValue());
                 }
                 else {

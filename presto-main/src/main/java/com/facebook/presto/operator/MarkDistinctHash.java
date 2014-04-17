@@ -13,29 +13,28 @@
  */
 package com.facebook.presto.operator;
 
-import com.facebook.presto.block.Block;
-import com.facebook.presto.block.BlockBuilder;
-import com.facebook.presto.tuple.TupleInfo;
-import io.airlift.slice.Slices;
+import com.facebook.presto.spi.block.Block;
+import com.facebook.presto.spi.block.BlockBuilder;
+import com.facebook.presto.spi.block.BlockBuilderStatus;
+import com.facebook.presto.spi.type.Type;
 
 import java.util.List;
 
-import static com.facebook.presto.operator.HashAggregationOperator.HashMemoryManager;
-import static com.facebook.presto.tuple.TupleInfo.SINGLE_BOOLEAN;
+import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 
 public class MarkDistinctHash
 {
     private final GroupByHash groupByHash;
     private long nextDistinctId;
 
-    public MarkDistinctHash(List<TupleInfo.Type> types, int[] channels, HashMemoryManager memoryManager)
+    public MarkDistinctHash(List<Type> types, int[] channels)
     {
-        this(types, channels, memoryManager, 10_000);
+        this(types, channels, 10_000);
     }
 
-    public MarkDistinctHash(List<TupleInfo.Type> types, int[] channels, HashMemoryManager memoryManager, int expectedDistinctValues)
+    public MarkDistinctHash(List<Type> types, int[] channels, int expectedDistinctValues)
     {
-        this.groupByHash = new GroupByHash(types, channels, expectedDistinctValues, memoryManager);
+        this.groupByHash = new GroupByHash(types, channels, expectedDistinctValues);
     }
 
     public long getEstimatedSize()
@@ -45,9 +44,7 @@ public class MarkDistinctHash
 
     public Block markDistinctRows(Page page)
     {
-        int positionCount = page.getPositionCount();
-        int blockSize = SINGLE_BOOLEAN.getFixedSize() * positionCount;
-        BlockBuilder blockBuilder = new BlockBuilder(SINGLE_BOOLEAN, blockSize, Slices.allocate(blockSize).getOutput());
+        BlockBuilder blockBuilder = BOOLEAN.createBlockBuilder(new BlockBuilderStatus());
         GroupByIdBlock ids = groupByHash.getGroupIds(page);
         for (int i = 0; i < ids.getPositionCount(); i++) {
             if (ids.getGroupId(i) == nextDistinctId) {

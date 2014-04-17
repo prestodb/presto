@@ -15,8 +15,7 @@ package com.facebook.presto.sql.planner.optimizations;
 
 import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.spi.ColumnHandle;
-import com.facebook.presto.sql.analyzer.Session;
-import com.facebook.presto.sql.analyzer.Type;
+import com.facebook.presto.spi.Session;
 import com.facebook.presto.sql.planner.DependencyExtractor;
 import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
 import com.facebook.presto.sql.planner.Symbol;
@@ -42,6 +41,7 @@ import com.facebook.presto.sql.planner.plan.UnionNode;
 import com.facebook.presto.sql.planner.plan.WindowNode;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.FunctionCall;
+import com.facebook.presto.spi.type.Type;
 import com.google.common.base.Predicates;
 import com.google.common.collect.FluentIterable;
 import com.google.common.collect.ImmutableList;
@@ -58,6 +58,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+import static com.facebook.presto.spi.type.BigintType.BIGINT;
+import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.sql.planner.plan.JoinNode.EquiJoinClause.leftGetter;
 import static com.facebook.presto.sql.planner.plan.JoinNode.EquiJoinClause.rightGetter;
 import static com.google.common.base.Preconditions.checkNotNull;
@@ -206,7 +208,8 @@ public class PruneUnreferencedOutputs
                     .toSet();
             if (requiredTableScanOutputs.isEmpty()) {
                 for (Symbol symbol : node.getOutputSymbols()) {
-                    if (Type.isNumeric(types.get(symbol))) {
+                    Type type = types.get(symbol);
+                    if (type.equals(BIGINT) || type.equals(DOUBLE)) {
                         requiredTableScanOutputs = ImmutableSet.of(symbol);
                         break;
                     }

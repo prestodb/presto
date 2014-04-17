@@ -13,7 +13,8 @@
  */
 package com.facebook.presto.metadata;
 
-import com.facebook.presto.block.Block;
+import com.facebook.presto.spi.block.Block;
+import com.facebook.presto.spi.block.BlockEncodingSerde;
 import com.facebook.presto.operator.Page;
 import com.facebook.presto.serde.BlocksFileEncoding;
 import com.facebook.presto.serde.BlocksFileWriter;
@@ -32,7 +33,6 @@ import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicBoolean;
 
-import static com.facebook.presto.block.BlockUtils.toTupleIterable;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
@@ -49,9 +49,9 @@ public class ColumnFileHandle
 
     private final AtomicBoolean committed = new AtomicBoolean();
 
-    public static Builder builder(UUID shardUuid)
+    public static Builder builder(UUID shardUuid, BlockEncodingSerde blockEncodingSerde)
     {
-        return new Builder(shardUuid);
+        return new Builder(shardUuid, blockEncodingSerde);
     }
 
     private ColumnFileHandle(Builder builder)
@@ -82,22 +82,22 @@ public class ColumnFileHandle
         checkState(!committed.get(), "already committed: %s", shardUuid);
 
         Block[] blocks = page.getBlocks();
-        int[] tupleCount = new int[blocks.length];
+        int[] positionCount = new int[blocks.length];
 
         checkState(blocks.length == writers.size(), "Block count does not match writer count (%s vs %s)!", blocks.length, writers.size());
 
         int i = 0;
         for (BlocksFileWriter writer : writers.values()) {
             Block block = blocks[i];
-            writer.append(toTupleIterable(block));
-            tupleCount[i] = block.getPositionCount();
+            writer.append(block);
+            positionCount[i] = block.getPositionCount();
             if (i > 0) {
-                checkState(tupleCount[i] == tupleCount[i - 1], "different tuple count (%s vs. %s) for block!", tupleCount[i], tupleCount[i - 1]);
+                checkState(positionCount[i] == positionCount[i - 1], "different position count (%s vs. %s) for block!", positionCount[i], positionCount[i - 1]);
             }
             i++;
         }
 
-        return tupleCount[0]; // they are all the same. And [0] is guaranteed to exist...
+        return positionCount[0]; // they are all the same. And [0] is guaranteed to exist...
     }
 
     public void commit()
@@ -127,14 +127,17 @@ public class ColumnFileHandle
     public static class Builder
     {
         private final UUID shardUuid;
+        private final BlockEncodingSerde blockEncodingSerde;
+
         // both of these Maps are ordered by the column handles. The writer map
         // may contain less writers than files.
         private final Map<ColumnHandle, File> files = new LinkedHashMap<>();
         private final Map<ColumnHandle, BlocksFileWriter> writers = new LinkedHashMap<>();
 
-        public Builder(UUID shardUuid)
+        public Builder(UUID shardUuid, BlockEncodingSerde blockEncodingSerde)
         {
             this.shardUuid = checkNotNull(shardUuid, "shardUuid is null");
+            this.blockEncodingSerde = checkNotNull(blockEncodingSerde, "blockEncodingManager is null");
         }
 
         /**
@@ -152,7 +155,7 @@ public class ColumnFileHandle
             checkState(!targetFile.exists(), "Can not write to existing file %s", targetFile.getAbsolutePath());
 
             files.put(columnHandle, targetFile);
-            writers.put(columnHandle, new BlocksFileWriter(encoding, new BufferedOutputSupplier(newOutputStreamSupplier(targetFile), OUTPUT_BUFFER_SIZE)));
+            writers.put(columnHandle, new BlocksFileWriter(blockEncodingSerde, encoding, new BufferedOutputSupplier(newOutputStreamSupplier(targetFile), OUTPUT_BUFFER_SIZE)));
 
             return this;
         }

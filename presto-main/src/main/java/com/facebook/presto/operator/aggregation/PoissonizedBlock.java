@@ -13,18 +13,18 @@
  */
 package com.facebook.presto.operator.aggregation;
 
-import com.facebook.presto.block.Block;
-import com.facebook.presto.block.BlockBuilder;
-import com.facebook.presto.block.BlockCursor;
-import com.facebook.presto.block.RandomAccessBlock;
-import com.facebook.presto.serde.BlockEncoding;
-import com.facebook.presto.tuple.Tuple;
-import com.facebook.presto.tuple.TupleInfo;
+import com.facebook.presto.spi.Session;
+import com.facebook.presto.spi.block.Block;
+import com.facebook.presto.spi.block.BlockBuilder;
+import com.facebook.presto.spi.block.BlockCursor;
+import com.facebook.presto.spi.block.BlockEncoding;
+import com.facebook.presto.spi.block.RandomAccessBlock;
+import com.facebook.presto.spi.type.Type;
+import com.google.common.primitives.Longs;
 import io.airlift.slice.Slice;
-import io.airlift.units.DataSize;
 import org.apache.commons.math3.random.RandomDataGenerator;
 
-import static com.facebook.presto.tuple.TupleInfo.SINGLE_LONG;
+import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 
@@ -41,9 +41,9 @@ class PoissonizedBlock
     }
 
     @Override
-    public TupleInfo getTupleInfo()
+    public Type getType()
     {
-        return SINGLE_LONG;
+        return BIGINT;
     }
 
     @Override
@@ -53,9 +53,9 @@ class PoissonizedBlock
     }
 
     @Override
-    public DataSize getDataSize()
+    public int getSizeInBytes()
     {
-        return delegate.getDataSize();
+        return delegate.getSizeInBytes();
     }
 
     @Override
@@ -91,15 +91,15 @@ class PoissonizedBlock
 
         private PoissonizedBlockCursor(BlockCursor delegate, long seed)
         {
-            checkArgument(delegate.getTupleInfo().equals(SINGLE_LONG), "delegate must be a cursor of longs");
+            checkArgument(delegate.getType().equals(BIGINT), "delegate must be a cursor of longs");
             this.delegate = delegate;
             rand.reSeed(seed);
         }
 
         @Override
-        public TupleInfo getTupleInfo()
+        public Type getType()
         {
-            return SINGLE_LONG;
+            return BIGINT;
         }
 
         @Override
@@ -151,9 +151,15 @@ class PoissonizedBlock
         }
 
         @Override
-        public Tuple getTuple()
+        public RandomAccessBlock getSingleValueBlock()
         {
-            return SINGLE_LONG.builder().append(currentValue).build();
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public Object getObjectValue(Session session)
+        {
+            return currentValue;
         }
 
         @Override
@@ -188,31 +194,25 @@ class PoissonizedBlock
         }
 
         @Override
+        public int compareTo(Slice slice, int offset)
+        {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
         public int getPosition()
         {
             return delegate.getPosition();
         }
 
         @Override
-        public boolean currentTupleEquals(Tuple value)
+        public int calculateHashCode()
         {
-            return value.getTupleInfo().equals(SINGLE_LONG) && value.getLong() == currentValue;
+            return Longs.hashCode(currentValue);
         }
 
         @Override
-        public int getRawOffset()
-        {
-            throw new UnsupportedOperationException();
-        }
-
-        @Override
-        public Slice getRawSlice()
-        {
-            throw new UnsupportedOperationException();
-        }
-
-        @Override
-        public void appendTupleTo(BlockBuilder blockBuilder)
+        public void appendTo(BlockBuilder blockBuilder)
         {
             blockBuilder.append(currentValue);
         }

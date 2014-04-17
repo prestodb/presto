@@ -13,11 +13,11 @@
  */
 package com.facebook.presto.operator.aggregation;
 
-import com.facebook.presto.block.Block;
-import com.facebook.presto.block.BlockBuilder;
-import com.facebook.presto.block.BlockCursor;
 import com.facebook.presto.operator.GroupByIdBlock;
-import com.facebook.presto.tuple.TupleInfo.Type;
+import com.facebook.presto.spi.block.Block;
+import com.facebook.presto.spi.block.BlockBuilder;
+import com.facebook.presto.spi.block.BlockCursor;
+import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.util.array.DoubleBigArray;
 import com.facebook.presto.util.array.LongBigArray;
 import com.google.common.base.Optional;
@@ -25,9 +25,9 @@ import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 
 import static com.facebook.presto.operator.aggregation.ApproximateUtils.formatApproximateResult;
-import static com.facebook.presto.tuple.TupleInfo.SINGLE_VARBINARY;
-import static com.facebook.presto.tuple.TupleInfo.Type.DOUBLE;
-import static com.facebook.presto.tuple.TupleInfo.Type.FIXED_INT_64;
+import static com.facebook.presto.spi.type.BigintType.BIGINT;
+import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
+import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.google.common.base.Preconditions.checkState;
 import static io.airlift.slice.SizeOf.SIZE_OF_DOUBLE;
 import static io.airlift.slice.SizeOf.SIZE_OF_LONG;
@@ -45,16 +45,16 @@ public class ApproximateAverageAggregation
     public ApproximateAverageAggregation(Type parameterType)
     {
         // Intermediate type should be a fixed width structure
-        super(SINGLE_VARBINARY, SINGLE_VARBINARY, parameterType);
+        super(VARCHAR, VARCHAR, parameterType);
 
-        if (parameterType == FIXED_INT_64) {
+        if (parameterType == BIGINT) {
             this.inputIsLong = true;
         }
         else if (parameterType == DOUBLE) {
             this.inputIsLong = false;
         }
         else {
-            throw new IllegalArgumentException("Expected parameter type to be FIXED_INT_64 or DOUBLE, but was " + parameterType);
+            throw new IllegalArgumentException("Expected parameter type to be BIGINT or DOUBLE, but was " + parameterType);
         }
     }
 
@@ -77,7 +77,7 @@ public class ApproximateAverageAggregation
 
         private ApproximateAverageGroupedAccumulator(int valueChannel, boolean inputIsLong, Optional<Integer> maskChannel, Optional<Integer> sampleWeightChannel, double confidence)
         {
-            super(valueChannel, SINGLE_VARBINARY, SINGLE_VARBINARY, maskChannel, sampleWeightChannel);
+            super(valueChannel, VARCHAR, VARCHAR, maskChannel, sampleWeightChannel);
 
             this.inputIsLong = inputIsLong;
             this.confidence = confidence;
@@ -235,7 +235,7 @@ public class ApproximateAverageAggregation
 
         private ApproximateAverageAccumulator(int valueChannel, boolean inputIsLong, Optional<Integer> maskChannel, Optional<Integer> sampleWeightChannel, double confidence)
         {
-            super(valueChannel, SINGLE_VARBINARY, SINGLE_VARBINARY, maskChannel, sampleWeightChannel);
+            super(valueChannel, VARCHAR, VARCHAR, maskChannel, sampleWeightChannel);
 
             this.inputIsLong = inputIsLong;
             this.confidence = confidence;

@@ -17,13 +17,16 @@ import com.google.inject.Binder;
 import com.google.inject.Injector;
 import com.google.inject.Key;
 import com.google.inject.Provider;
+import com.google.inject.TypeLiteral;
 import org.skife.jdbi.v2.DBI;
 import org.skife.jdbi.v2.IDBI;
+import org.skife.jdbi.v2.tweak.ResultSetMapper;
 
 import javax.inject.Inject;
 import javax.sql.DataSource;
 
 import java.lang.annotation.Annotation;
+import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
@@ -49,7 +52,14 @@ public class DbiProvider
     public IDBI get()
     {
         checkState(injector != null, "injector was not set");
-        return new DBI(injector.getInstance(Key.get(DataSource.class, annotationType)));
+        DBI dbi = new DBI(injector.getInstance(Key.get(DataSource.class, annotationType)));
+        Key<Set<ResultSetMapper<?>>> mappersKey = Key.get(new TypeLiteral<Set<ResultSetMapper<?>>>() {}, annotationType);
+        if (injector.getExistingBinding(mappersKey) != null) {
+            for (ResultSetMapper<?> mapper : injector.getInstance(mappersKey)) {
+                dbi.registerMapper(mapper);
+            }
+        }
+        return dbi;
     }
 
     public static void bindDbiToDataSource(Binder bind, Class<? extends Annotation> annotationType)

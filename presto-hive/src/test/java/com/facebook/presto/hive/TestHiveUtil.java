@@ -19,7 +19,6 @@ import org.joda.time.format.DateTimeFormat;
 import org.testng.annotations.Test;
 
 import static com.facebook.presto.hive.HiveUtil.parseHiveTimestamp;
-import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static org.testng.Assert.assertEquals;
 
 public class TestHiveUtil
@@ -28,11 +27,11 @@ public class TestHiveUtil
     public void testParseHiveTimestamp()
     {
         DateTime time = new DateTime(2011, 5, 6, 7, 8, 9, 123, nonDefaultTimeZone());
-        assertEquals(parse(time, "yyyy-MM-dd HH:mm:ss"), unixTime(time));
-        assertEquals(parse(time, "yyyy-MM-dd HH:mm:ss.S"), unixTime(time));
-        assertEquals(parse(time, "yyyy-MM-dd HH:mm:ss.SSS"), unixTime(time));
-        assertEquals(parse(time, "yyyy-MM-dd HH:mm:ss.SSSSSSS"), unixTime(time));
-        assertEquals(parse(time, "yyyy-MM-dd HH:mm:ss.SSSSSSSSS"), unixTime(time));
+        assertEquals(parse(time, "yyyy-MM-dd HH:mm:ss"), unixTime(time, 0));
+        assertEquals(parse(time, "yyyy-MM-dd HH:mm:ss.S"), unixTime(time, 1));
+        assertEquals(parse(time, "yyyy-MM-dd HH:mm:ss.SSS"), unixTime(time, 3));
+        assertEquals(parse(time, "yyyy-MM-dd HH:mm:ss.SSSSSSS"), unixTime(time, 6));
+        assertEquals(parse(time, "yyyy-MM-dd HH:mm:ss.SSSSSSSSS"), unixTime(time, 7));
     }
 
     private static long parse(DateTime time, String pattern)
@@ -40,9 +39,10 @@ public class TestHiveUtil
         return parseHiveTimestamp(DateTimeFormat.forPattern(pattern).print(time), nonDefaultTimeZone());
     }
 
-    private static long unixTime(DateTime time)
+    private static long unixTime(DateTime time, int factionalDigits)
     {
-        return MILLISECONDS.toSeconds(time.getMillis());
+        int factor = (int) Math.pow(10, Math.max(0, 3 - factionalDigits));
+        return (time.getMillis() / factor) * factor;
     }
 
     static DateTimeZone nonDefaultTimeZone()

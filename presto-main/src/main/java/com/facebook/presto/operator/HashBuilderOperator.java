@@ -13,11 +13,9 @@
  */
 package com.facebook.presto.operator;
 
-import com.facebook.presto.tuple.TupleInfo;
-import com.google.common.base.Function;
+import com.facebook.presto.spi.type.Type;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
-import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
 
@@ -32,31 +30,24 @@ import static com.google.common.base.Preconditions.checkState;
 public class HashBuilderOperator
         implements Operator
 {
-    public static class HashSupplier
+    public static final class HashSupplier
     {
-        private final List<TupleInfo> tupleInfos;
+        private final List<Type> types;
         private final SettableFuture<JoinHash> hashFuture = SettableFuture.create();
 
-        public HashSupplier(List<TupleInfo> tupleInfos)
+        public HashSupplier(List<Type> types)
         {
-            this.tupleInfos = ImmutableList.copyOf(checkNotNull(tupleInfos, "tupleInfos is null"));
+            this.types = ImmutableList.copyOf(checkNotNull(types, "types is null"));
         }
 
-        public List<TupleInfo> getTupleInfos()
+        public List<Type> getTypes()
         {
-            return tupleInfos;
+            return types;
         }
 
         public ListenableFuture<JoinHash> getSourceHash()
         {
-            return Futures.transform(hashFuture, new Function<JoinHash, JoinHash>()
-            {
-                @Override
-                public JoinHash apply(JoinHash joinHash)
-                {
-                    return new JoinHash(joinHash);
-                }
-            });
+            return hashFuture;
         }
 
         void setHash(JoinHash joinHash)
@@ -77,12 +68,12 @@ public class HashBuilderOperator
 
         public HashBuilderOperatorFactory(
                 int operatorId,
-                List<TupleInfo> tupleInfos,
+                List<Type> types,
                 List<Integer> hashChannels,
                 int expectedPositions)
         {
             this.operatorId = operatorId;
-            this.hashSupplier = new HashSupplier(checkNotNull(tupleInfos, "tupleInfos is null"));
+            this.hashSupplier = new HashSupplier(checkNotNull(types, "types is null"));
 
             Preconditions.checkArgument(!hashChannels.isEmpty(), "hashChannels is empty");
             this.hashChannels = ImmutableList.copyOf(checkNotNull(hashChannels, "hashChannels is null"));
@@ -96,9 +87,9 @@ public class HashBuilderOperator
         }
 
         @Override
-        public List<TupleInfo> getTupleInfos()
+        public List<Type> getTypes()
         {
-            return hashSupplier.tupleInfos;
+            return hashSupplier.types;
         }
 
         @Override
@@ -141,7 +132,7 @@ public class HashBuilderOperator
         Preconditions.checkArgument(!hashChannels.isEmpty(), "hashChannels is empty");
         this.hashChannels = ImmutableList.copyOf(checkNotNull(hashChannels, "hashChannels is null"));
 
-        this.pagesIndex = new PagesIndex(hashSupplier.getTupleInfos(), expectedPositions, operatorContext);
+        this.pagesIndex = new PagesIndex(hashSupplier.getTypes(), expectedPositions, operatorContext);
     }
 
     @Override
@@ -151,9 +142,9 @@ public class HashBuilderOperator
     }
 
     @Override
-    public List<TupleInfo> getTupleInfos()
+    public List<Type> getTypes()
     {
-        return hashSupplier.getTupleInfos();
+        return hashSupplier.getTypes();
     }
 
     @Override
@@ -163,7 +154,7 @@ public class HashBuilderOperator
             return;
         }
 
-        JoinHash joinHash = new JoinHash(pagesIndex, hashChannels, operatorContext);
+        JoinHash joinHash = pagesIndex.createJoinHash(hashChannels, operatorContext);
         hashSupplier.setHash(joinHash);
         finished = true;
     }
