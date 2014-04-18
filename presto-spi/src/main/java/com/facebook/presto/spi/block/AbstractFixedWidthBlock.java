@@ -265,11 +265,6 @@ public abstract class AbstractFixedWidthBlock
         return position * entrySize;
     }
 
-    private int valueOffset(int entryOffset)
-    {
-        return entryOffset + SIZE_OF_BYTE;
-    }
-
     private boolean isEntryAtOffsetNull(int entryOffset)
     {
         return getRawSlice().getByte(entryOffset) != 0;
@@ -280,5 +275,10 @@ public abstract class AbstractFixedWidthBlock
         if (position < 0 || position >= getPositionCount()) {
             throw new IllegalStateException("position is not valid");
         }
+    }
+
+    private static int valueOffset(int entryOffset)
+    {
+        return entryOffset + SIZE_OF_BYTE;
     }
 }

@@ -63,11 +63,6 @@ public class VarcharType
         return getValueSize(slice, offset) + SIZE_OF_INT;
     }
 
-    private int getValueSize(Slice slice, int offset)
-    {
-        return slice.getInt(offset);
-    }
-
     @Override
     public Slice getSlice(Slice slice, int offset)
     {
@@ -157,5 +152,10 @@ public class VarcharType
     public String toString()
     {
         return getName();
+    }
+
+    private static int getValueSize(Slice slice, int offset)
+    {
+        return slice.getInt(offset);
     }
 }

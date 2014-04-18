@@ -25,7 +25,7 @@ import java.util.TreeSet;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 
-public class FixedWidthBlockUtil
+public final class FixedWidthBlockUtil
 {
     private FixedWidthBlockUtil()
     {
@@ -127,7 +127,7 @@ public class FixedWidthBlockUtil
 
         public Class<?> defineClass(String className, byte[] byteCode)
         {
-            return super.defineClass(className, byteCode, 0, byteCode.length);
+            return defineClass(className, byteCode, 0, byteCode.length);
         }
 
         public Map<String, Class<?>> defineClasses(Map<String, byte[]> newClasses)

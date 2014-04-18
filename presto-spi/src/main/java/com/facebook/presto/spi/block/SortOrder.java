@@ -23,7 +23,7 @@ public enum SortOrder
     private final boolean ascending;
     private final boolean nullsFirst;
 
-    private SortOrder(boolean ascending, boolean nullsFirst)
+    SortOrder(boolean ascending, boolean nullsFirst)
     {
         this.ascending = ascending;
         this.nullsFirst = nullsFirst;
