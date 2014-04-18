@@ -272,11 +272,6 @@ public abstract class AbstractVariableWidthRandomAccessBlock
         }
     }
 
-    private int valueOffset(int entryOffset)
-    {
-        return entryOffset + SIZE_OF_BYTE;
-    }
-
     private boolean isEntryAtOffsetNull(int offset)
     {
         return getRawSlice().getByte(offset) != 0;
@@ -287,5 +282,10 @@ public abstract class AbstractVariableWidthRandomAccessBlock
         if (position < 0 || position >= getPositionCount()) {
             throw new IllegalStateException("position is not valid");
         }
+    }
+
+    private static int valueOffset(int entryOffset)
+    {
+        return entryOffset + SIZE_OF_BYTE;
     }
 }

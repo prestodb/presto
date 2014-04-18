@@ -126,6 +126,7 @@ public final class IntervalDayTimeType
         sliceOutput.writeBytes(value, offset, SIZE_OF_LONG);
     }
 
+    @Override
     public boolean equalTo(Slice leftSlice, int leftOffset, Slice rightSlice, int rightOffset)
     {
         long leftValue = leftSlice.getLong(leftOffset);
@@ -133,6 +134,7 @@ public final class IntervalDayTimeType
         return leftValue == rightValue;
     }
 
+    @Override
     public boolean equalTo(Slice leftSlice, int leftOffset, BlockCursor rightCursor)
     {
         long leftValue = leftSlice.getLong(leftOffset);
@@ -140,12 +142,14 @@ public final class IntervalDayTimeType
         return leftValue == rightValue;
     }
 
+    @Override
     public int hash(Slice slice, int offset)
     {
         long value = slice.getLong(offset);
         return (int) (value ^ (value >>> 32));
     }
 
+    @Override
     public int compareTo(Slice leftSlice, int leftOffset, Slice rightSlice, int rightOffset)
     {
         long leftValue = leftSlice.getLong(leftOffset);
@@ -153,6 +157,7 @@ public final class IntervalDayTimeType
         return Long.compare(leftValue, rightValue);
     }
 
+    @Override
     public void appendTo(Slice slice, int offset, BlockBuilder blockBuilder)
     {
         long value = slice.getLong(offset);

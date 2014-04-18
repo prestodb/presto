@@ -38,6 +38,7 @@ public class VariableWidthBlock
         this.slice = requireNonNull(slice, "data is null");
     }
 
+    @Override
     public Type getType()
     {
         return type;
@@ -48,6 +49,7 @@ public class VariableWidthBlock
         return slice;
     }
 
+    @Override
     public int getPositionCount()
     {
         return positionCount;
