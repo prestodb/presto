@@ -30,6 +30,11 @@ public final class BigintType
 {
     public static final BigintType BIGINT = new BigintType();
 
+    public static BigintType getInstance()
+    {
+        return BIGINT;
+    }
+
     private static final FixedWidthBlockBuilderFactory BLOCK_BUILDER_FACTORY = createIsolatedFixedWidthBlockBuilderFactory(BIGINT);
     public static final BlockEncodingFactory<?> BLOCK_ENCODING_FACTORY = BLOCK_BUILDER_FACTORY.getBlockEncodingFactory();
 

@@ -30,6 +30,11 @@ public final class DoubleType
 {
     public static final DoubleType DOUBLE = new DoubleType();
 
+    public static DoubleType getInstance()
+    {
+        return DOUBLE;
+    }
+
     private static final FixedWidthBlockBuilderFactory BLOCK_BUILDER_FACTORY = createIsolatedFixedWidthBlockBuilderFactory(DOUBLE);
     public static final BlockEncodingFactory<?> BLOCK_ENCODING_FACTORY = BLOCK_BUILDER_FACTORY.getBlockEncodingFactory();
 
