@@ -66,7 +66,7 @@ import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.DateType.DATE;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
-import static com.facebook.presto.spi.type.NullType.NULL;
+import static com.facebook.presto.type.UnknownType.UNKNOWN;
 import static com.facebook.presto.spi.type.TimeType.TIME;
 import static com.facebook.presto.spi.type.TimeWithTimeZoneType.TIME_WITH_TIME_ZONE;
 import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
@@ -313,7 +313,7 @@ public abstract class AbstractTestQueryFramework
                             row.add(timestampValue);
                         }
                     }
-                    else if (NULL.equals(type)) {
+                    else if (UNKNOWN.equals(type)) {
                         Object objectValue = resultSet.getObject(i);
                         checkState(resultSet.wasNull(), "Expected a null value, but got %s", objectValue);
                         row.add(null);

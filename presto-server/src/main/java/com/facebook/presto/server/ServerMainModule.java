@@ -73,7 +73,6 @@ import com.facebook.presto.spi.type.DoubleType;
 import com.facebook.presto.spi.type.HyperLogLogType;
 import com.facebook.presto.spi.type.IntervalDayTimeType;
 import com.facebook.presto.spi.type.IntervalYearMonthType;
-import com.facebook.presto.spi.type.NullType;
 import com.facebook.presto.spi.type.TimeType;
 import com.facebook.presto.spi.type.TimeWithTimeZoneType;
 import com.facebook.presto.spi.type.TimestampType;
@@ -97,6 +96,7 @@ import com.facebook.presto.sql.tree.Serialization.FunctionCallDeserializer;
 import com.facebook.presto.type.ColorType;
 import com.facebook.presto.type.TypeDeserializer;
 import com.facebook.presto.type.TypeRegistry;
+import com.facebook.presto.type.UnknownType;
 import com.facebook.presto.util.Threads;
 import com.google.common.base.Supplier;
 import com.google.common.collect.ImmutableSet;
@@ -293,7 +293,7 @@ public class ServerMainModule
         // block encodings
         binder.bind(BlockEncodingSerde.class).to(BlockEncodingManager.class).in(Scopes.SINGLETON);
         Multibinder<BlockEncodingFactory<?>> blockEncodingFactoryBinder = newSetBinder(binder, new TypeLiteral<BlockEncodingFactory<?>>() {});
-        blockEncodingFactoryBinder.addBinding().toInstance(NullType.BLOCK_ENCODING_FACTORY);
+        blockEncodingFactoryBinder.addBinding().toInstance(UnknownType.BLOCK_ENCODING_FACTORY);
         blockEncodingFactoryBinder.addBinding().toInstance(BooleanType.BLOCK_ENCODING_FACTORY);
         blockEncodingFactoryBinder.addBinding().toInstance(BigintType.BLOCK_ENCODING_FACTORY);
         blockEncodingFactoryBinder.addBinding().toInstance(DoubleType.BLOCK_ENCODING_FACTORY);

@@ -87,7 +87,7 @@ import static com.facebook.presto.byteCode.instruction.Constant.loadBoolean;
 import static com.facebook.presto.byteCode.instruction.Constant.loadDouble;
 import static com.facebook.presto.byteCode.instruction.Constant.loadLong;
 import static com.facebook.presto.byteCode.instruction.JumpInstruction.jump;
-import static com.facebook.presto.spi.type.NullType.NULL;
+import static com.facebook.presto.type.UnknownType.UNKNOWN;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.sql.gen.SliceConstant.sliceConstant;
 import static com.facebook.presto.spi.type.TimeWithTimeZoneType.TIME_WITH_TIME_ZONE;
@@ -406,7 +406,7 @@ public class ByteCodeExpressionVisitor
             throw new IllegalArgumentException("Unsupported type: " + node.getType());
         }
 
-        if (expressionTypes.get(node.getExpression()).equals(NULL)) {
+        if (expressionTypes.get(node.getExpression()).equals(UNKNOWN)) {
             // set was null and push java default
             return new Block(context).putVariable("wasNull", true).pushJavaDefault(type.getJavaType());
         }
@@ -692,7 +692,7 @@ public class ByteCodeExpressionVisitor
     protected ByteCodeNode visitIsNullPredicate(IsNullPredicate node, CompilerContext context)
     {
         Type valueType = expressionTypes.get(node.getValue());
-        if (valueType.equals(NULL)) {
+        if (valueType.equals(UNKNOWN)) {
             return loadBoolean(true);
         }
 

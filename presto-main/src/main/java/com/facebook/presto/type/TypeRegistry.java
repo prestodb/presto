@@ -31,18 +31,18 @@ import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.HyperLogLogType.HYPER_LOG_LOG;
 import static com.facebook.presto.spi.type.IntervalDayTimeType.INTERVAL_DAY_TIME;
 import static com.facebook.presto.spi.type.IntervalYearMonthType.INTERVAL_YEAR_MONTH;
-import static com.facebook.presto.spi.type.NullType.NULL;
 import static com.facebook.presto.spi.type.TimeType.TIME;
 import static com.facebook.presto.spi.type.TimeWithTimeZoneType.TIME_WITH_TIME_ZONE;
 import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.type.ColorType.COLOR;
+import static com.facebook.presto.type.UnknownType.UNKNOWN;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 
 @ThreadSafe
-public class TypeRegistry
+public final class TypeRegistry
         implements TypeManager
 {
     private final ConcurrentMap<String, Type> types = new ConcurrentHashMap<>();
@@ -58,7 +58,7 @@ public class TypeRegistry
         checkNotNull(types, "types is null");
 
         // always add the built-in types; Presto will not function without these
-        addType(NULL);
+        addType(UNKNOWN);
         addType(BOOLEAN);
         addType(BIGINT);
         addType(DOUBLE);
