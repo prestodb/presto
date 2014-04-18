@@ -18,13 +18,11 @@ import com.facebook.presto.spi.type.VariableWidthType;
 import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceOutput;
-import io.airlift.slice.Slices;
 
 import java.util.Arrays;
 import java.util.Objects;
 
 import static io.airlift.slice.SizeOf.SIZE_OF_BYTE;
-import static java.nio.charset.StandardCharsets.UTF_8;
 
 public class VariableWidthBlockBuilder
         extends AbstractVariableWidthRandomAccessBlock
@@ -89,36 +87,6 @@ public class VariableWidthBlockBuilder
     }
 
     @Override
-    public BlockBuilder appendObject(Object value)
-    {
-        if (value == null) {
-            appendNull();
-        }
-        else if (value instanceof Boolean) {
-            append((Boolean) value);
-        }
-        else if (value instanceof Double || value instanceof Float) {
-            append(((Number) value).doubleValue());
-        }
-        else if (value instanceof Number) {
-            append(((Number) value).longValue());
-        }
-        else if (value instanceof byte[]) {
-            append(Slices.wrappedBuffer((byte[]) value));
-        }
-        else if (value instanceof String) {
-            append((String) value);
-        }
-        else if (value instanceof Slice) {
-            append((Slice) value);
-        }
-        else {
-            throw new IllegalArgumentException("Unsupported type: " + value.getClass());
-        }
-        return this;
-    }
-
-    @Override
     public BlockBuilder append(boolean value)
     {
         throw new UnsupportedOperationException();
@@ -134,18 +102,6 @@ public class VariableWidthBlockBuilder
     public BlockBuilder append(double value)
     {
         throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public BlockBuilder append(byte[] value)
-    {
-        return append(Slices.wrappedBuffer(value));
-    }
-
-    @Override
-    public BlockBuilder append(String value)
-    {
-        return append(Slices.copiedBuffer(value, UTF_8));
     }
 
     @Override

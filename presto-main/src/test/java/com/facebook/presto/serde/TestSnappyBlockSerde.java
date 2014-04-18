@@ -13,13 +13,14 @@
  */
 package com.facebook.presto.serde;
 
-import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.block.BlockAssertions;
+import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.block.BlockEncoding;
 import com.facebook.presto.spi.block.RandomAccessBlock;
 import io.airlift.slice.DynamicSliceOutput;
+import io.airlift.slice.Slices;
 import org.testng.annotations.Test;
 
 import java.util.concurrent.ThreadLocalRandom;
@@ -33,10 +34,10 @@ public class TestSnappyBlockSerde
     public void testRoundTrip()
     {
         Block block = VARCHAR.createBlockBuilder(new BlockBuilderStatus())
-                .append("alice")
-                .append("bob")
-                .append("charlie")
-                .append("dave")
+                .append(Slices.utf8Slice("alice"))
+                .append(Slices.utf8Slice("bob"))
+                .append(Slices.utf8Slice("charlie"))
+                .append(Slices.utf8Slice("dave"))
                 .build();
 
         DynamicSliceOutput compressedOutput = new DynamicSliceOutput(1024);
@@ -52,10 +53,10 @@ public class TestSnappyBlockSerde
     public void testLotsOfStuff()
     {
         RandomAccessBlock block = VARCHAR.createBlockBuilder(new BlockBuilderStatus())
-                .append("alice")
-                .append("bob")
-                .append("charlie")
-                .append("dave")
+                .append(Slices.utf8Slice("alice"))
+                .append(Slices.utf8Slice("bob"))
+                .append(Slices.utf8Slice("charlie"))
+                .append(Slices.utf8Slice("dave"))
                 .build()
                 .toRandomAccessBlock();
 

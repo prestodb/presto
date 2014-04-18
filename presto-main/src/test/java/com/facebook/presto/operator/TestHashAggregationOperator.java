@@ -26,6 +26,7 @@ import com.facebook.presto.util.MaterializedResult;
 import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Ints;
+import io.airlift.slice.Slices;
 import io.airlift.units.DataSize;
 import io.airlift.units.DataSize.Unit;
 import org.testng.annotations.AfterMethod;
@@ -198,7 +199,7 @@ public class TestHashAggregationOperator
     public void testHashBuilderResize()
     {
         BlockBuilder builder = VARCHAR.createBlockBuilder(new BlockBuilderStatus());
-        builder.append(new String(new byte[200_000])); // this must be larger than DEFAULT_MAX_BLOCK_SIZE, 64K
+        builder.append(Slices.allocate(200_000)); // this must be larger than DEFAULT_MAX_BLOCK_SIZE, 64K
         builder.build();
 
         List<Page> input = rowPagesBuilder(VARCHAR)
@@ -229,7 +230,7 @@ public class TestHashAggregationOperator
     public void testHashBuilderResizeLimit()
     {
         BlockBuilder builder = VARCHAR.createBlockBuilder(new BlockBuilderStatus());
-        builder.append(new String(new byte[5_000_000])); // this must be larger than DEFAULT_MAX_BLOCK_SIZE, 64K
+        builder.append(Slices.allocate(5_000_000)); // this must be larger than DEFAULT_MAX_BLOCK_SIZE, 64K
         builder.build();
 
         List<Page> input = rowPagesBuilder(VARCHAR)

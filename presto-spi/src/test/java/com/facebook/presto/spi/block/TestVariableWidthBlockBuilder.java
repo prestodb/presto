@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.spi.block;
 
+import io.airlift.slice.Slices;
 import org.testng.annotations.Test;
 
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
@@ -40,7 +41,7 @@ public class TestVariableWidthBlockBuilder
     {
         assertTrue(blockBuilder.isEmpty());
         while (!blockBuilder.isFull()) {
-            blockBuilder.append(new byte[VARCHAR_VALUE_SIZE]);
+            blockBuilder.append(Slices.allocate(VARCHAR_VALUE_SIZE));
         }
         assertEquals(blockBuilder.getPositionCount(), EXPECTED_ENTRY_COUNT);
         assertEquals(blockBuilder.isFull(), true);

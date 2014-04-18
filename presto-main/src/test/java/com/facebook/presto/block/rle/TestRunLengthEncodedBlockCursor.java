@@ -17,6 +17,7 @@ import com.facebook.presto.block.AbstractTestBlockCursor;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.block.RandomAccessBlock;
+import io.airlift.slice.Slices;
 
 import static com.facebook.presto.block.BlockAssertions.createStringsBlock;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
@@ -28,7 +29,7 @@ public class TestRunLengthEncodedBlockCursor
     protected RunLengthEncodedBlockCursor createTestCursor()
     {
         RandomAccessBlock value = VARCHAR.createBlockBuilder(new BlockBuilderStatus())
-                .appendObject("cherry")
+                .append(Slices.utf8Slice("cherry"))
                 .build()
                 .toRandomAccessBlock();
 

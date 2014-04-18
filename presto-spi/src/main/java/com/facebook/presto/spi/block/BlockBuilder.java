@@ -25,17 +25,11 @@ public interface BlockBuilder
 
     BlockBuilder append(double value);
 
-    BlockBuilder append(byte[] value);
-
-    BlockBuilder append(String value);
-
     BlockBuilder append(Slice value);
 
     BlockBuilder append(Slice value, int offset, int length);
 
     BlockBuilder appendNull();
-
-    BlockBuilder appendObject(Object value);
 
     RandomAccessBlock build();
 

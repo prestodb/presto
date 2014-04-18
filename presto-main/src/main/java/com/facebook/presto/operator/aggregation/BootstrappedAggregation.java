@@ -30,6 +30,7 @@ import io.airlift.slice.BasicSliceInput;
 import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.SliceInput;
 import io.airlift.slice.SliceOutput;
+import io.airlift.slice.Slices;
 import org.apache.commons.math3.random.RandomDataGenerator;
 import org.apache.commons.math3.stat.descriptive.DescriptiveStatistics;
 
@@ -260,7 +261,8 @@ public class BootstrappedAggregation
             }
 
             BlockBuilder builder = VARCHAR.createBlockBuilder(new BlockBuilderStatus());
-            builder.append(formatApproximateOutput(statistics, confidence));
+            String result = formatApproximateOutput(statistics, confidence);
+            builder.append(Slices.utf8Slice(result));
             return builder.build();
         }
     }
@@ -360,7 +362,8 @@ public class BootstrappedAggregation
                 statistics.addValue(getNumeric(cursor));
             }
 
-            output.append(formatApproximateOutput(statistics, confidence));
+            String result = formatApproximateOutput(statistics, confidence);
+            output.append(Slices.utf8Slice(result));
         }
     }
 

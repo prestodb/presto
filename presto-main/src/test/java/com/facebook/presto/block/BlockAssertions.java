@@ -26,6 +26,7 @@ import com.google.common.collect.DiscreteDomain;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Range;
 import io.airlift.slice.Slice;
+import io.airlift.slice.Slices;
 
 import javax.annotation.Nullable;
 
@@ -42,7 +43,6 @@ import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.TimeZoneKey.UTC_KEY;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
-import static com.google.common.base.Charsets.UTF_8;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
@@ -197,7 +197,7 @@ public final class BlockAssertions
                 builder.appendNull();
             }
             else {
-                builder.append(value.getBytes(UTF_8));
+                builder.append(Slices.utf8Slice(value));
             }
         }
 
@@ -214,7 +214,7 @@ public final class BlockAssertions
         BlockBuilder builder = VARCHAR.createBlockBuilder(new BlockBuilderStatus());
 
         for (int i = start; i < end; i++) {
-            builder.append(String.valueOf(i));
+            builder.append(Slices.utf8Slice(String.valueOf(i)));
         }
 
         return builder.build();
@@ -389,13 +389,13 @@ public final class BlockAssertions
 
         public BlockIterableBuilder append(String value)
         {
-            blockBuilder.append(value.getBytes(UTF_8));
+            blockBuilder.append(Slices.utf8Slice(value));
             return this;
         }
 
         public BlockIterableBuilder append(byte[] value)
         {
-            blockBuilder.append(value);
+            blockBuilder.append(Slices.wrappedBuffer(value));
             return this;
         }
 

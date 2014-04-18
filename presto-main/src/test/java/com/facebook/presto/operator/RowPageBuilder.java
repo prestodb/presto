@@ -18,6 +18,7 @@ import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableList;
+import io.airlift.slice.Slices;
 
 import java.util.List;
 
@@ -90,7 +91,7 @@ public class RowPageBuilder
             builder.append((Double) value);
         }
         else if (value instanceof String) {
-            builder.append((String) value);
+            builder.append(Slices.utf8Slice((String) value));
         }
         else {
             throw new IllegalArgumentException("bad value: " + value.getClass().getName());

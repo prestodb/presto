@@ -19,8 +19,6 @@ import io.airlift.slice.Slice;
 import io.airlift.slice.SliceOutput;
 import io.airlift.slice.Slices;
 
-import static java.nio.charset.StandardCharsets.UTF_8;
-
 public class FixedWidthBlockBuilder
         extends AbstractFixedWidthBlock
         implements BlockBuilder
@@ -77,36 +75,6 @@ public class FixedWidthBlockBuilder
     }
 
     @Override
-    public BlockBuilder appendObject(Object value)
-    {
-        if (value == null) {
-            appendNull();
-        }
-        else if (value instanceof Boolean) {
-            append((Boolean) value);
-        }
-        else if (value instanceof Double || value instanceof Float) {
-            append(((Number) value).doubleValue());
-        }
-        else if (value instanceof Number) {
-            append(((Number) value).longValue());
-        }
-        else if (value instanceof byte[]) {
-            append(Slices.wrappedBuffer((byte[]) value));
-        }
-        else if (value instanceof String) {
-            append((String) value);
-        }
-        else if (value instanceof Slice) {
-            append((Slice) value);
-        }
-        else {
-            throw new IllegalArgumentException("Unsupported type: " + value.getClass());
-        }
-        return this;
-    }
-
-    @Override
     public BlockBuilder append(boolean value)
     {
         sliceOutput.writeByte(0);
@@ -131,18 +99,6 @@ public class FixedWidthBlockBuilder
         type.setDouble(sliceOutput, value);
         entryAdded();
         return this;
-    }
-
-    @Override
-    public BlockBuilder append(byte[] value)
-    {
-        return append(Slices.wrappedBuffer(value));
-    }
-
-    @Override
-    public BlockBuilder append(String value)
-    {
-        return append(Slices.copiedBuffer(value, UTF_8));
     }
 
     @Override

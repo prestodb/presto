@@ -18,6 +18,7 @@ import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.block.BlockCursor;
 import com.facebook.presto.spi.block.RandomAccessBlock;
+import io.airlift.slice.Slices;
 import org.testng.annotations.Test;
 
 import static com.facebook.presto.block.BlockAssertions.createLongsBlock;
@@ -39,10 +40,10 @@ public class TestDictionaryEncodedBlockCursorWithNulls
     {
         RandomAccessBlock dictionary = VARCHAR.createBlockBuilder(new BlockBuilderStatus())
                 .appendNull()
-                .append("apple")
-                .append("banana")
-                .append("cherry")
-                .append("date")
+                .append(Slices.utf8Slice("apple"))
+                .append(Slices.utf8Slice("banana"))
+                .append(Slices.utf8Slice("cherry"))
+                .append(Slices.utf8Slice("date"))
                 .build()
                 .toRandomAccessBlock();
 

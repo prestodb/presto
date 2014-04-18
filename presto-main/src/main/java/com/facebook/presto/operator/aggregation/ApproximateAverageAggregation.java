@@ -211,7 +211,7 @@ public class ApproximateAverageAggregation
                 double variance = m2 / count;
 
                 String result = formatApproximateAverage(samples.get(groupId), mean, variance, confidence);
-                output.append(result);
+                output.append(Slices.utf8Slice(result));
             }
         }
     }
@@ -329,7 +329,7 @@ public class ApproximateAverageAggregation
             }
             else {
                 String result = formatApproximateAverage(currentSamples, currentMean, currentM2 / currentCount, confidence);
-                output.append(result);
+                output.append(Slices.utf8Slice(result));
             }
         }
     }

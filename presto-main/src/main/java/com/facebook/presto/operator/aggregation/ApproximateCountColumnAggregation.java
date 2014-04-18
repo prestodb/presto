@@ -125,7 +125,8 @@ public class ApproximateCountColumnAggregation
         {
             long count = counts.get(groupId);
             long samples = this.samples.get(groupId);
-            output.append(formatApproximateResult(count, countError(samples, count), confidence, true));
+            String result = formatApproximateResult(count, countError(samples, count), confidence, true);
+            output.append(Slices.utf8Slice(result));
         }
     }
 
@@ -194,7 +195,8 @@ public class ApproximateCountColumnAggregation
         @Override
         public void evaluateFinal(BlockBuilder out)
         {
-            out.append(formatApproximateResult(count, countError(samples, count), confidence, true));
+            String result = formatApproximateResult(count, countError(samples, count), confidence, true);
+            out.append(Slices.utf8Slice(result));
         }
     }
 
