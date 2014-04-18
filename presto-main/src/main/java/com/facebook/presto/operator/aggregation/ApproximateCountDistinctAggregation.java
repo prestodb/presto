@@ -168,7 +168,7 @@ public class ApproximateCountDistinctAggregation
             }
             else {
                 Slice intermediate = valueSlice.slice(valueOffset + 1, ESTIMATOR.getSizeInBytes());
-                output.append(intermediate); // TODO: add BlockBuilder.appendSlice(slice, offset, length) to avoid creating intermediate slice
+                output.appendSlice(intermediate); // TODO: add BlockBuilder.appendSlice(slice, offset, length) to avoid creating intermediate slice
             }
         }
 
@@ -182,10 +182,10 @@ public class ApproximateCountDistinctAggregation
             int valueOffset = Ints.checkedCast(globalOffset - (sliceIndex * SLICE_SIZE));
 
             if (isNull(valueSlice, valueOffset)) {
-                output.append(0);
+                output.appendLong(0);
             }
             else {
-                output.append(ESTIMATOR.estimate(valueSlice, valueOffset + 1));
+                output.appendLong(ESTIMATOR.estimate(valueSlice, valueOffset + 1));
             }
         }
     }
@@ -253,7 +253,7 @@ public class ApproximateCountDistinctAggregation
         public void evaluateIntermediate(BlockBuilder out)
         {
             if (notNull) {
-                out.append(slice);
+                out.appendSlice(slice);
             }
             else {
                 out.appendNull();
@@ -264,10 +264,10 @@ public class ApproximateCountDistinctAggregation
         public void evaluateFinal(BlockBuilder out)
         {
             if (notNull) {
-                out.append(ESTIMATOR.estimate(slice, 0));
+                out.appendLong(ESTIMATOR.estimate(slice, 0));
             }
             else {
-                out.append(0);
+                out.appendLong(0);
             }
         }
     }

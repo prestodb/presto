@@ -102,7 +102,7 @@ public class BooleanMinAggregation
                 output.appendNull();
             }
             else {
-                output.append(value == TRUE_VALUE);
+                output.appendBoolean(value == TRUE_VALUE);
             }
         }
     }
@@ -149,7 +149,7 @@ public class BooleanMinAggregation
         public void evaluateFinal(BlockBuilder out)
         {
             if (notNull) {
-                out.append(min);
+                out.appendBoolean(min);
             }
             else {
                 out.appendNull();

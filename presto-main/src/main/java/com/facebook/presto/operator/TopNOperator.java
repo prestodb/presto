@@ -388,7 +388,7 @@ public class TopNOperator
         private static RandomAccessBlock createBigintBlock(long value)
         {
             return BIGINT.createBlockBuilder(new BlockBuilderStatus())
-                    .append(value)
+                    .appendLong(value)
                     .build()
                     .toRandomAccessBlock();
         }

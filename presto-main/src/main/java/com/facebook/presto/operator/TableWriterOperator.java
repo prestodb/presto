@@ -229,8 +229,8 @@ public class TableWriterOperator
         String fragment = recordSink.commit();
 
         PageBuilder page = new PageBuilder(TYPES);
-        page.getBlockBuilder(0).append(rowCount);
-        page.getBlockBuilder(1).append(Slices.utf8Slice(fragment));
+        page.getBlockBuilder(0).appendLong(rowCount);
+        page.getBlockBuilder(1).appendSlice(Slices.utf8Slice(fragment));
         return page.build();
     }
 }

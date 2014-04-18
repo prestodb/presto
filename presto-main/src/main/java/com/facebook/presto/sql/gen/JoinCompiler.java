@@ -268,7 +268,7 @@ public class JoinCompiler
                     .invokeInterface(List.class, "get", Object.class, int.class)
                     .checkCast(RandomAccessBlock.class)
                     .getVariable("blockPosition")
-                    .invokeInterface(RandomAccessBlock.class, "hashCode", int.class, int.class)
+                    .invokeInterface(RandomAccessBlock.class, "hash", int.class, int.class)
                     .append(OpCodes.IADD)
                     .putVariable(resultVariable);
         }
@@ -302,7 +302,7 @@ public class JoinCompiler
                     .getVariable("cursors")
                     .push(index)
                     .getObjectArrayElement()
-                    .invokeInterface(RandomAccessBlock.class, "equals", boolean.class, int.class, BlockCursor.class)
+                    .invokeInterface(RandomAccessBlock.class, "equalTo", boolean.class, int.class, BlockCursor.class)
                     .ifTrueGoto(checkNextField)
                     .push(false)
                     .retBoolean()
@@ -342,7 +342,7 @@ public class JoinCompiler
                     .invokeInterface(List.class, "get", Object.class, int.class)
                     .checkCast(RandomAccessBlock.class)
                     .getVariable("rightBlockPosition")
-                    .invokeInterface(RandomAccessBlock.class, "equals", boolean.class, int.class, RandomAccessBlock.class, int.class)
+                    .invokeInterface(RandomAccessBlock.class, "equalTo", boolean.class, int.class, RandomAccessBlock.class, int.class)
                     .ifTrueGoto(checkNextField)
                     .push(false)
                     .retBoolean()

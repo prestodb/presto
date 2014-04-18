@@ -154,7 +154,7 @@ public class ApproximateLongSumAggregation
         {
             OnlineVarianceCalculator calculator = new OnlineVarianceCalculator();
             calculator.merge(samples.get(groupId), means.get(groupId), m2s.get(groupId));
-            output.append(createIntermediate(counts.get(groupId), sums.get(groupId), calculator));
+            output.appendSlice(createIntermediate(counts.get(groupId), sums.get(groupId), calculator));
         }
 
         @Override
@@ -171,7 +171,7 @@ public class ApproximateLongSumAggregation
                     sumError(samples.get(groupId), count, m2s.get(groupId), means.get(groupId)),
                     confidence,
                     true);
-            output.append(Slices.utf8Slice(result));
+            output.appendSlice(Slices.utf8Slice(result));
         }
     }
 
@@ -241,7 +241,7 @@ public class ApproximateLongSumAggregation
         @Override
         public void evaluateIntermediate(BlockBuilder out)
         {
-            out.append(createIntermediate(count, sum, calculator));
+            out.appendSlice(createIntermediate(count, sum, calculator));
         }
 
         @Override
@@ -257,7 +257,7 @@ public class ApproximateLongSumAggregation
                     sumError(calculator.getCount(), count, calculator.getM2(), calculator.getMean()),
                     confidence,
                     true);
-            out.append(Slices.utf8Slice(result));
+            out.appendSlice(Slices.utf8Slice(result));
         }
     }
 

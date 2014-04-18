@@ -33,7 +33,7 @@ import com.facebook.presto.operator.Page;
 import com.facebook.presto.spi.Session;
 import com.facebook.presto.spi.block.BlockCursor;
 import com.facebook.presto.spi.type.TimeZoneKey;
-import com.facebook.presto.spi.type.TimeZoneNotSupported;
+import com.facebook.presto.spi.type.TimeZoneNotSupportedException;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.util.IterableTransformer;
 import com.google.common.base.Preconditions;
@@ -163,7 +163,7 @@ public class StatementResource
         try {
             session = new Session(user, source, catalog, schema, TimeZoneKey.getTimeZoneKey(timeZoneId), requestContext.getLocale(), remoteUserAddress, userAgent);
         }
-        catch (TimeZoneNotSupported e) {
+        catch (TimeZoneNotSupportedException e) {
             return Response.status(Status.BAD_REQUEST).entity(e.getMessage()).build();
         }
 

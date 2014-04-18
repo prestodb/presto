@@ -31,7 +31,7 @@ public class TestBooleanMaxAggregation
         BlockBuilder blockBuilder = BOOLEAN.createBlockBuilder(new BlockBuilderStatus());
         for (int i = start; i < start + length; i++) {
             // false, true, false, true...
-            blockBuilder.append(i % 2 != 0);
+            blockBuilder.appendBoolean(i % 2 != 0);
         }
         return blockBuilder.build();
     }

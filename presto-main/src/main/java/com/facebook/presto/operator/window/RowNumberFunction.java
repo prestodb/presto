@@ -39,6 +39,6 @@ public class RowNumberFunction
     public void processRow(BlockBuilder output, boolean newPeerGroup, int peerGroupCount)
     {
         rowNumber++;
-        output.append(rowNumber);
+        output.appendLong(rowNumber);
     }
 }

@@ -39,10 +39,10 @@ public class TestDictionaryEncodedBlockCursor
     protected BlockCursor createTestCursor()
     {
         RandomAccessBlock dictionary = VARCHAR.createBlockBuilder(new BlockBuilderStatus())
-                .append(Slices.utf8Slice("apple"))
-                .append(Slices.utf8Slice("banana"))
-                .append(Slices.utf8Slice("cherry"))
-                .append(Slices.utf8Slice("date"))
+                .appendSlice(Slices.utf8Slice("apple"))
+                .appendSlice(Slices.utf8Slice("banana"))
+                .appendSlice(Slices.utf8Slice("cherry"))
+                .appendSlice(Slices.utf8Slice("date"))
                 .build()
                 .toRandomAccessBlock();
 

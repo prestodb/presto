@@ -19,7 +19,7 @@ import com.facebook.presto.execution.QueryManager;
 import com.facebook.presto.execution.StageId;
 import com.facebook.presto.spi.Session;
 import com.facebook.presto.spi.type.TimeZoneKey;
-import com.facebook.presto.spi.type.TimeZoneNotSupported;
+import com.facebook.presto.spi.type.TimeZoneNotSupportedException;
 import com.google.common.collect.ImmutableList;
 
 import javax.inject.Inject;
@@ -127,7 +127,7 @@ public class QueryResource
         try {
             session = new Session(user, source, catalog, schema, TimeZoneKey.getTimeZoneKey(timeZoneId), requestContext.getLocale(), remoteUserAddress, userAgent);
         }
-        catch (TimeZoneNotSupported e) {
+        catch (TimeZoneNotSupportedException e) {
             return Response.status(Status.BAD_REQUEST).entity(e.getMessage()).build();
         }
 

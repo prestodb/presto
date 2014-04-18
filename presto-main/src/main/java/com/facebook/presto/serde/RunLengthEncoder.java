@@ -54,7 +54,7 @@ public class RunLengthEncoder
             if (lastValue == null) {
                 lastValue = cursor.getSingleValueBlock();
             }
-            else if (!lastValue.equals(0, cursor)) {
+            else if (!lastValue.equalTo(0, cursor)) {
                 writeBlock();
                 lastValue = cursor.getSingleValueBlock();
             }

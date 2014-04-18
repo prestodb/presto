@@ -14,7 +14,6 @@
 package com.facebook.presto.spi.block;
 
 import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.spi.type.TypeManager;
 import io.airlift.slice.SliceInput;
 import io.airlift.slice.SliceOutput;
 
@@ -40,22 +39,4 @@ public interface BlockEncoding
      * Write the specified block to the specified output
      */
     void writeBlock(SliceOutput sliceOutput, Block block);
-
-    public interface BlockEncodingFactory<T extends BlockEncoding>
-    {
-        /**
-         * Gets the unique name of this encoding.
-         */
-        String getName();
-
-        /**
-         * Reads the encoding from the specified input.
-         */
-        T readEncoding(TypeManager manager, BlockEncodingSerde serde, SliceInput input);
-
-        /**
-         * Writes this encoding to the output stream.
-         */
-        void writeEncoding(BlockEncodingSerde serde, SliceOutput output, T blockEncoding);
-    }
 }

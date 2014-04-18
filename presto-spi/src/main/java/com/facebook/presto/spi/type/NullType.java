@@ -17,7 +17,7 @@ import com.facebook.presto.spi.Session;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.block.BlockCursor;
-import com.facebook.presto.spi.block.BlockEncoding.BlockEncodingFactory;
+import com.facebook.presto.spi.block.BlockEncodingFactory;
 import com.facebook.presto.spi.block.FixedWidthBlockUtil.FixedWidthBlockBuilderFactory;
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceOutput;
@@ -80,7 +80,7 @@ public final class NullType
     }
 
     @Override
-    public void setBoolean(SliceOutput sliceOutput, boolean value)
+    public void writeBoolean(SliceOutput sliceOutput, boolean value)
     {
         throw new UnsupportedOperationException();
     }
@@ -92,7 +92,7 @@ public final class NullType
     }
 
     @Override
-    public void setLong(SliceOutput sliceOutput, long value)
+    public void writeLong(SliceOutput sliceOutput, long value)
     {
         throw new UnsupportedOperationException();
     }
@@ -104,7 +104,7 @@ public final class NullType
     }
 
     @Override
-    public void setDouble(SliceOutput sliceOutput, double value)
+    public void writeDouble(SliceOutput sliceOutput, double value)
     {
         throw new UnsupportedOperationException();
     }
@@ -116,25 +116,25 @@ public final class NullType
     }
 
     @Override
-    public void setSlice(SliceOutput sliceOutput, Slice value, int offset)
+    public void writeSlice(SliceOutput sliceOutput, Slice value, int offset)
     {
         throw new UnsupportedOperationException();
     }
 
     @Override
-    public boolean equals(Slice leftSlice, int leftOffset, Slice rightSlice, int rightOffset)
+    public boolean equalTo(Slice leftSlice, int leftOffset, Slice rightSlice, int rightOffset)
     {
         throw new UnsupportedOperationException();
     }
 
     @Override
-    public boolean equals(Slice leftSlice, int leftOffset, BlockCursor rightCursor)
+    public boolean equalTo(Slice leftSlice, int leftOffset, BlockCursor rightCursor)
     {
         throw new UnsupportedOperationException();
     }
 
     @Override
-    public int hashCode(Slice slice, int offset)
+    public int hash(Slice slice, int offset)
     {
         throw new UnsupportedOperationException();
     }

@@ -38,7 +38,7 @@ public class TestFixedWidthBlockBuilder
     {
         assertTrue(blockBuilder.isEmpty());
         while (!blockBuilder.isFull()) {
-            blockBuilder.append(true);
+            blockBuilder.appendBoolean(true);
         }
         assertEquals(blockBuilder.getPositionCount(), EXPECTED_ENTRY_COUNT);
         assertEquals(blockBuilder.isFull(), true);

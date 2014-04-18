@@ -149,7 +149,7 @@ public class BlocksFileWriter
                 if (lastValue == null) {
                     lastValue = randomAccessBlock;
                 }
-                else if (!randomAccessBlock.equals(0, lastValue, 0)) {
+                else if (!randomAccessBlock.equalTo(0, lastValue, 0)) {
                     runsCount++;
                     lastValue = randomAccessBlock;
                 }

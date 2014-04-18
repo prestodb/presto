@@ -306,17 +306,17 @@ class MarkDistinctSampledOperator
                 BlockBuilder builder = pageBuilder.getBlockBuilder(i);
                 if (i == sampleWeightChannel) {
                     if (distinct) {
-                        builder.append(1);
+                        builder.appendLong(1);
                     }
                     else {
-                        builder.append(sampleWeight);
+                        builder.appendLong(sampleWeight);
                     }
                 }
                 else {
                     cursors[i].appendTo(builder);
                 }
             }
-            pageBuilder.getBlockBuilder(markerChannel).append(distinct);
+            pageBuilder.getBlockBuilder(markerChannel).appendBoolean(distinct);
         }
 
         // only flush full pages unless we are done

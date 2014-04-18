@@ -47,6 +47,6 @@ public class RankFunction
         else {
             count++;
         }
-        output.append(rank);
+        output.appendLong(rank);
     }
 }

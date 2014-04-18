@@ -130,7 +130,7 @@ public class GroupByHash
             int groupId = putIfAbsentInternal(currentRow);
 
             // output the group id for this row
-            blockBuilder.append(groupId);
+            blockBuilder.appendLong(groupId);
         }
 
         RandomAccessBlock block = blockBuilder.build();
@@ -239,7 +239,7 @@ public class GroupByHash
     {
         int result = 0;
         for (BlockCursor cursor : cursors) {
-            result = result * 31 + cursor.calculateHashCode();
+            result = result * 31 + cursor.hash();
         }
         return result;
     }
@@ -307,7 +307,7 @@ public class GroupByHash
         {
             int result = 0;
             for (BlockBuilder channel : channels) {
-                result = 31 * result + channel.hashCode(position);
+                result = 31 * result + channel.hash(position);
             }
             return result;
         }
@@ -317,7 +317,7 @@ public class GroupByHash
             for (int i = 0; i < channels.size(); i++) {
                 BlockBuilder thisBlock = this.channels.get(i);
                 BlockBuilder thatBlock = that.channels.get(i);
-                if (!thisBlock.equals(thisPosition, thatBlock, thatPosition)) {
+                if (!thisBlock.equalTo(thisPosition, thatBlock, thatPosition)) {
                     return false;
                 }
             }
@@ -328,7 +328,7 @@ public class GroupByHash
         {
             for (int i = 0; i < channels.size(); i++) {
                 BlockBuilder thisBlock = this.channels.get(i);
-                if (!thisBlock.equals(position, row[i])) {
+                if (!thisBlock.equalTo(position, row[i])) {
                     return false;
                 }
             }

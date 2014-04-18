@@ -194,7 +194,7 @@ public class PagesIndex
             RandomAccessBlock leftBlock = this.channels[channel].get(leftBlockIndex);
             RandomAccessBlock rightBlock = this.channels[channel].get(rightBlockIndex);
 
-            if (!leftBlock.equals(leftBlockPosition, rightBlock, rightBlockPosition)) {
+            if (!leftBlock.equalTo(leftBlockPosition, rightBlock, rightBlockPosition)) {
                 return false;
             }
         }
@@ -213,7 +213,7 @@ public class PagesIndex
 
             RandomAccessBlock block = this.channels[channel].get(blockIndex);
 
-            if (!block.equals(blockPosition, cursor)) {
+            if (!block.equalTo(blockPosition, cursor)) {
                 return false;
             }
         }
@@ -229,7 +229,7 @@ public class PagesIndex
         int result = 0;
         for (int channel : channels) {
             RandomAccessBlock block = this.channels[channel].get(blockIndex);
-            result = 31 * result + block.hashCode(blockPosition);
+            result = 31 * result + block.hash(blockPosition);
         }
         return result;
     }

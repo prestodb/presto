@@ -13,20 +13,32 @@
  */
 package com.facebook.presto.spi.type;
 
-import com.facebook.presto.spi.Session;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.fasterxml.jackson.annotation.JsonValue;
-import io.airlift.slice.Slice;
 
 public interface Type
 {
+    /**
+     * Gets the name of this type which must be case insensitive globally unique.
+     * The name of a user defined type must be a legal identifier in Presto.
+     */
     @JsonValue
     String getName();
 
+    /**
+     * Gets the Java class type used to represent this value on the stack during
+     * expression execution. This value is used to determine which method should
+     * be called on Cursor, RecordSet or RandomAccessBlock to fetch a value of
+     * this type.
+     *
+     * Currently, this must be boolean, long, double, or Slice.
+     */
     Class<?> getJavaType();
 
-    Object getObjectValue(Session session, Slice slice, int offset);
-
+    /**
+     * Creates a block builder for this type.  This is the builder used to
+     * store values after an expression projection within the query.
+     */
     BlockBuilder createBlockBuilder(BlockBuilderStatus blockBuilderStatus);
 }

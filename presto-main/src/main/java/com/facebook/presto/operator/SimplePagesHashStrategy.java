@@ -58,7 +58,7 @@ public class SimplePagesHashStrategy
         int result = 0;
         for (List<RandomAccessBlock> channel : hashChannels) {
             RandomAccessBlock block = channel.get(blockIndex);
-            result = result * 31 + block.hashCode(blockPosition);
+            result = result * 31 + block.hash(blockPosition);
         }
         return result;
     }
@@ -69,7 +69,7 @@ public class SimplePagesHashStrategy
         for (int i = 0; i < hashChannels.size(); i++) {
             List<RandomAccessBlock> channel = hashChannels.get(i);
             RandomAccessBlock block = channel.get(blockIndex);
-            if (!block.equals(blockPosition, cursors[i])) {
+            if (!block.equalTo(blockPosition, cursors[i])) {
                 return false;
             }
         }
@@ -82,7 +82,7 @@ public class SimplePagesHashStrategy
         for (List<RandomAccessBlock> channel : hashChannels) {
             RandomAccessBlock leftBlock = channel.get(leftBlockIndex);
             RandomAccessBlock rightBlock = channel.get(rightBlockIndex);
-            if (!leftBlock.equals(leftBlockPosition, rightBlock, rightBlockPosition)) {
+            if (!leftBlock.equalTo(leftBlockPosition, rightBlock, rightBlockPosition)) {
                 return false;
             }
         }

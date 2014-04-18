@@ -100,7 +100,7 @@ public class VarBinaryMaxAggregation
                 output.appendNull();
             }
             else {
-                output.append(value);
+                output.appendSlice(value);
             }
         }
     }
@@ -140,7 +140,7 @@ public class VarBinaryMaxAggregation
         public void evaluateFinal(BlockBuilder out)
         {
             if (max != null) {
-                out.append(max);
+                out.appendSlice(max);
             }
             else {
                 out.appendNull();

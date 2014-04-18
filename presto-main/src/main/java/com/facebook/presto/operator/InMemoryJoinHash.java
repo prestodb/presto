@@ -120,7 +120,7 @@ public final class InMemoryJoinHash
     {
         int result = 0;
         for (BlockCursor cursor : cursors) {
-            result = result * 31 + cursor.calculateHashCode();
+            result = result * 31 + cursor.hash();
         }
         return result;
     }

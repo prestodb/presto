@@ -55,10 +55,10 @@ public abstract class AbstractTestApproximateAggregationFunction
         BlockBuilder blockBuilder = getType().createBlockBuilder(new BlockBuilderStatus());
         for (int i = start; i < start + length; i++) {
             if (getType() == BIGINT) {
-                blockBuilder.append((long) i);
+                blockBuilder.appendLong((long) i);
             }
             else {
-                blockBuilder.append((double) i);
+                blockBuilder.appendDouble((double) i);
             }
         }
         return blockBuilder.build();
@@ -158,10 +158,10 @@ public abstract class AbstractTestApproximateAggregationFunction
             BlockBuilder builder = getType().createBlockBuilder(new BlockBuilderStatus());
             for (Number sample : sampledList.build()) {
                 if (getType() == BIGINT) {
-                    builder.append(sample.longValue());
+                    builder.appendLong(sample.longValue());
                 }
                 else if (getType() == DOUBLE) {
-                    builder.append(sample.doubleValue());
+                    builder.appendDouble(sample.doubleValue());
                 }
                 else {
                     throw new AssertionError("Can only handle longs and doubles");

@@ -180,16 +180,16 @@ public final class RunLengthEncodedBlockCursor
     }
 
     @Override
-    public int compareTo(Slice slice, int offset)
+    public int compareTo(Slice otherSlice, int otherOffset)
     {
         checkReadablePosition();
-        return value.compareTo(0, slice, offset);
+        return value.compareTo(0, otherSlice, otherOffset);
     }
 
     @Override
-    public int calculateHashCode()
+    public int hash()
     {
-        return value.hashCode(0);
+        return value.hash(0);
     }
 
     @Override

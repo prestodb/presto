@@ -39,10 +39,10 @@ public class TestPagesSerde
     public void testRoundTrip()
     {
         Block expectedBlock = VARCHAR.createBlockBuilder(new BlockBuilderStatus())
-                .append(Slices.utf8Slice("alice"))
-                .append(Slices.utf8Slice("bob"))
-                .append(Slices.utf8Slice("charlie"))
-                .append(Slices.utf8Slice("dave"))
+                .appendSlice(Slices.utf8Slice("alice"))
+                .appendSlice(Slices.utf8Slice("bob"))
+                .appendSlice(Slices.utf8Slice("charlie"))
+                .appendSlice(Slices.utf8Slice("dave"))
                 .build();
         Page expectedPage = new Page(expectedBlock, expectedBlock, expectedBlock);
 

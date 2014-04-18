@@ -137,38 +137,38 @@ public class RunLengthEncodedBlock
     }
 
     @Override
-    public boolean equals(int position, RandomAccessBlock right, int rightPosition)
+    public boolean equalTo(int position, RandomAccessBlock otherBlock, int otherPosition)
     {
         checkReadablePosition(position);
-        return value.equals(0, right, rightPosition);
+        return value.equalTo(0, otherBlock, otherPosition);
     }
 
     @Override
-    public boolean equals(int position, BlockCursor cursor)
+    public boolean equalTo(int position, BlockCursor cursor)
     {
         checkReadablePosition(position);
-        return this.value.equals(0, cursor);
+        return this.value.equalTo(0, cursor);
     }
 
     @Override
-    public boolean equals(int position, Slice slice, int offset)
+    public boolean equalTo(int position, Slice otherSlice, int otherOffset)
     {
         checkReadablePosition(position);
-        return value.equals(0, slice, offset);
+        return value.equalTo(0, otherSlice, otherOffset);
     }
 
     @Override
-    public int hashCode(int position)
+    public int hash(int position)
     {
         checkReadablePosition(position);
-        return value.hashCode(0);
+        return value.hash(0);
     }
 
     @Override
-    public int compareTo(SortOrder sortOrder, int position, RandomAccessBlock right, int rightPosition)
+    public int compareTo(SortOrder sortOrder, int position, RandomAccessBlock otherBlock, int otherPosition)
     {
         checkReadablePosition(position);
-        return value.compareTo(sortOrder, 0, right, rightPosition);
+        return value.compareTo(sortOrder, 0, otherBlock, otherPosition);
     }
 
     @Override
@@ -179,10 +179,10 @@ public class RunLengthEncodedBlock
     }
 
     @Override
-    public int compareTo(int position, Slice slice, int offset)
+    public int compareTo(int position, Slice otherSlice, int otherOffset)
     {
         checkReadablePosition(position);
-        return value.compareTo(0, slice, offset);
+        return value.compareTo(0, otherSlice, otherOffset);
     }
 
     @Override

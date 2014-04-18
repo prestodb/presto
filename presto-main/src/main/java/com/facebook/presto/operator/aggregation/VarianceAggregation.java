@@ -175,7 +175,7 @@ public class VarianceAggregation
             OnlineVarianceCalculator calculator = new OnlineVarianceCalculator();
             calculator.merge(counts.get(groupId), means.get(groupId), m2s.get(groupId));
 
-            output.append(createIntermediate(calculator));
+            output.appendSlice(createIntermediate(calculator));
         }
 
         @Override
@@ -192,7 +192,7 @@ public class VarianceAggregation
                     if (standardDeviation) {
                         result = Math.sqrt(result);
                     }
-                    output.append(result);
+                    output.appendDouble(result);
                 }
             }
             else {
@@ -205,7 +205,7 @@ public class VarianceAggregation
                     if (standardDeviation) {
                         result = Math.sqrt(result);
                     }
-                    output.append(result);
+                    output.appendDouble(result);
                 }
             }
         }
@@ -294,7 +294,7 @@ public class VarianceAggregation
         @Override
         public void evaluateIntermediate(BlockBuilder output)
         {
-            output.append(createIntermediate(calculator));
+            output.appendSlice(createIntermediate(calculator));
         }
 
         @Override
@@ -309,7 +309,7 @@ public class VarianceAggregation
                     if (standardDeviation) {
                         result = Math.sqrt(result);
                     }
-                    output.append(result);
+                    output.appendDouble(result);
                 }
             }
             else {
@@ -321,7 +321,7 @@ public class VarianceAggregation
                     if (standardDeviation) {
                         result = Math.sqrt(result);
                     }
-                    output.append(result);
+                    output.appendDouble(result);
                 }
             }
         }

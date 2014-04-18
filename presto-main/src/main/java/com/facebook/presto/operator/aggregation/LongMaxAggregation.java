@@ -92,7 +92,7 @@ public class LongMaxAggregation
         {
             if (notNull.get((long) groupId)) {
                 long value = maxValues.get((long) groupId);
-                output.append(value);
+                output.appendLong(value);
             }
             else {
                 output.appendNull();
@@ -137,7 +137,7 @@ public class LongMaxAggregation
         public void evaluateFinal(BlockBuilder out)
         {
             if (notNull) {
-                out.append(max);
+                out.appendLong(max);
             }
             else {
                 out.appendNull();

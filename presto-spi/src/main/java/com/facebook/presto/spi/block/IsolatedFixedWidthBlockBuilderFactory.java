@@ -15,7 +15,6 @@ package com.facebook.presto.spi.block;
 
 import com.facebook.presto.spi.block.FixedWidthBlockUtil.FixedWidthBlockBuilderFactory;
 import com.facebook.presto.spi.block.FixedWidthBlockEncoding.FixedWidthBlockEncodingFactory;
-import com.facebook.presto.spi.block.BlockEncoding.BlockEncodingFactory;
 import com.facebook.presto.spi.type.FixedWidthType;
 
 import static java.util.Objects.requireNonNull;

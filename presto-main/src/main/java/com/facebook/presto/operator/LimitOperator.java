@@ -163,10 +163,10 @@ public class LimitOperator
             rowsToCopy++;
             long sampleWeight = cursor.getLong();
             if (sampleWeight <= remainingLimit) {
-                builder.append(sampleWeight);
+                builder.appendLong(sampleWeight);
             }
             else {
-                builder.append(remainingLimit);
+                builder.appendLong(remainingLimit);
             }
             remainingLimit -= sampleWeight;
         }

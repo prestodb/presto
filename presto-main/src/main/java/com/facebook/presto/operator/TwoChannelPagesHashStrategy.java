@@ -52,18 +52,18 @@ public class TwoChannelPagesHashStrategy
     public int hashPosition(int blockIndex, int blockPosition)
     {
         int result = 0;
-        result = result * 31 + hashChannelA.get(blockIndex).hashCode(blockPosition);
-        result = result * 31 + hashChannelB.get(blockIndex).hashCode(blockPosition);
+        result = result * 31 + hashChannelA.get(blockIndex).hash(blockPosition);
+        result = result * 31 + hashChannelB.get(blockIndex).hash(blockPosition);
         return result;
     }
 
     @Override
     public boolean positionEqualsCursors(int blockIndex, int blockPosition, BlockCursor[] cursors)
     {
-        if (!hashChannelA.get(blockIndex).equals(blockPosition, cursors[0])) {
+        if (!hashChannelA.get(blockIndex).equalTo(blockPosition, cursors[0])) {
             return false;
         }
-        if (!hashChannelB.get(blockIndex).equals(blockPosition, cursors[1])) {
+        if (!hashChannelB.get(blockIndex).equalTo(blockPosition, cursors[1])) {
             return false;
         }
         return true;
@@ -72,10 +72,10 @@ public class TwoChannelPagesHashStrategy
     @Override
     public boolean positionEqualsPosition(int leftBlockIndex, int leftBlockPosition, int rightBlockIndex, int rightBlockPosition)
     {
-        if (!hashChannelA.get(leftBlockIndex).equals(leftBlockPosition, hashChannelA.get(rightBlockIndex), rightBlockPosition)) {
+        if (!hashChannelA.get(leftBlockIndex).equalTo(leftBlockPosition, hashChannelA.get(rightBlockIndex), rightBlockPosition)) {
             return false;
         }
-        if (!hashChannelB.get(leftBlockIndex).equals(leftBlockPosition, hashChannelB.get(rightBlockIndex), rightBlockPosition)) {
+        if (!hashChannelB.get(leftBlockIndex).equalTo(leftBlockPosition, hashChannelB.get(rightBlockIndex), rightBlockPosition)) {
             return false;
         }
 

@@ -94,7 +94,7 @@ public class DoubleMaxAggregation
         {
             if (notNull.get((long) groupId)) {
                 double value = maxValues.get((long) groupId);
-                output.append(value);
+                output.appendDouble(value);
             }
             else {
                 output.appendNull();
@@ -140,7 +140,7 @@ public class DoubleMaxAggregation
         public void evaluateFinal(BlockBuilder out)
         {
             if (notNull) {
-                out.append(max);
+                out.appendDouble(max);
             }
             else {
                 out.appendNull();

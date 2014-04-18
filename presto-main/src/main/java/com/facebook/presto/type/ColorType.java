@@ -18,7 +18,7 @@ import com.facebook.presto.spi.Session;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.block.BlockCursor;
-import com.facebook.presto.spi.block.BlockEncoding;
+import com.facebook.presto.spi.block.BlockEncodingFactory;
 import com.facebook.presto.spi.block.FixedWidthBlockUtil;
 import com.facebook.presto.spi.type.FixedWidthType;
 import com.google.common.base.Preconditions;
@@ -34,7 +34,7 @@ public class ColorType
     public static final ColorType COLOR = new ColorType();
 
     private static final FixedWidthBlockUtil.FixedWidthBlockBuilderFactory BLOCK_BUILDER_FACTORY = createIsolatedFixedWidthBlockBuilderFactory(COLOR);
-    public static final BlockEncoding.BlockEncodingFactory<?> BLOCK_ENCODING_FACTORY = BLOCK_BUILDER_FACTORY.getBlockEncodingFactory();
+    public static final BlockEncodingFactory<?> BLOCK_ENCODING_FACTORY = BLOCK_BUILDER_FACTORY.getBlockEncodingFactory();
 
     public static ColorType getInstance()
     {
@@ -96,7 +96,7 @@ public class ColorType
     }
 
     @Override
-    public void setBoolean(SliceOutput sliceOutput, boolean value)
+    public void writeBoolean(SliceOutput sliceOutput, boolean value)
     {
         throw new UnsupportedOperationException();
     }
@@ -108,7 +108,7 @@ public class ColorType
     }
 
     @Override
-    public void setLong(SliceOutput sliceOutput, long value)
+    public void writeLong(SliceOutput sliceOutput, long value)
     {
         sliceOutput.writeInt((int) value);
     }
@@ -120,7 +120,7 @@ public class ColorType
     }
 
     @Override
-    public void setDouble(SliceOutput sliceOutput, double value)
+    public void writeDouble(SliceOutput sliceOutput, double value)
     {
         throw new UnsupportedOperationException();
     }
@@ -132,26 +132,26 @@ public class ColorType
     }
 
     @Override
-    public void setSlice(SliceOutput sliceOutput, Slice value, int offset)
+    public void writeSlice(SliceOutput sliceOutput, Slice value, int offset)
     {
         Preconditions.checkArgument(value.length() == SIZE_OF_INT);
         sliceOutput.writeBytes(value, offset, SIZE_OF_INT);
     }
 
     @Override
-    public boolean equals(Slice leftSlice, int leftOffset, Slice rightSlice, int rightOffset)
+    public boolean equalTo(Slice leftSlice, int leftOffset, Slice rightSlice, int rightOffset)
     {
         return leftSlice.getInt(leftOffset) == rightSlice.getInt(rightOffset);
     }
 
     @Override
-    public boolean equals(Slice leftSlice, int leftOffset, BlockCursor rightCursor)
+    public boolean equalTo(Slice leftSlice, int leftOffset, BlockCursor rightCursor)
     {
         return leftSlice.getInt(leftOffset) == (int) rightCursor.getLong();
     }
 
     @Override
-    public int hashCode(Slice slice, int offset)
+    public int hash(Slice slice, int offset)
     {
         return slice.getInt(offset);
     }
@@ -165,7 +165,7 @@ public class ColorType
     @Override
     public void appendTo(Slice slice, int offset, BlockBuilder blockBuilder)
     {
-        blockBuilder.append(slice.getInt(offset));
+        blockBuilder.appendLong(slice.getInt(offset));
     }
 
     @Override

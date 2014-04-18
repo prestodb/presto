@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.spi.block;
 
-import com.facebook.presto.spi.block.BlockEncoding.BlockEncodingFactory;
 import com.facebook.presto.spi.type.FixedWidthType;
 
 import java.io.ByteArrayOutputStream;

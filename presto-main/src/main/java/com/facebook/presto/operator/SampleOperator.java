@@ -163,7 +163,7 @@ public class SampleOperator
                 for (int i = 0; i < cursors.length; i++) {
                     cursors[i].appendTo(pageBuilder.getBlockBuilder(i));
                 }
-                pageBuilder.getBlockBuilder(sampleWeightChannel).append(repeats);
+                pageBuilder.getBlockBuilder(sampleWeightChannel).appendLong(repeats);
             }
         }
 

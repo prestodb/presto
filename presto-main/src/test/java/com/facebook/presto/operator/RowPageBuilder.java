@@ -82,16 +82,16 @@ public class RowPageBuilder
             builder.appendNull();
         }
         else if (value instanceof Boolean) {
-            builder.append((Boolean) value);
+            builder.appendBoolean((Boolean) value);
         }
         else if ((value instanceof Long) || (value instanceof Integer)) {
-            builder.append(((Number) value).longValue());
+            builder.appendLong(((Number) value).longValue());
         }
         else if (value instanceof Double) {
-            builder.append((Double) value);
+            builder.appendDouble((Double) value);
         }
         else if (value instanceof String) {
-            builder.append(Slices.utf8Slice((String) value));
+            builder.appendSlice(Slices.utf8Slice((String) value));
         }
         else {
             throw new IllegalArgumentException("bad value: " + value.getClass().getName());

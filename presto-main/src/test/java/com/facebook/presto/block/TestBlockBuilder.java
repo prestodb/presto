@@ -28,9 +28,9 @@ public class TestBlockBuilder
     {
         BlockCursor cursor = BIGINT.createBlockBuilder(new BlockBuilderStatus())
                 .appendNull()
-                .append(42)
+                .appendLong(42)
                 .appendNull()
-                .append(42)
+                .appendLong(42)
                 .build()
                 .cursor();
 

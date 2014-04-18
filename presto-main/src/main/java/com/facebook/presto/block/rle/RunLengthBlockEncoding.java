@@ -15,6 +15,7 @@ package com.facebook.presto.block.rle;
 
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockEncoding;
+import com.facebook.presto.spi.block.BlockEncodingFactory;
 import com.facebook.presto.spi.block.BlockEncodingSerde;
 import com.facebook.presto.spi.block.RandomAccessBlock;
 import com.facebook.presto.spi.type.Type;

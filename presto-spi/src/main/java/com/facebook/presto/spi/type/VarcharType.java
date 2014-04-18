@@ -17,7 +17,7 @@ import com.facebook.presto.spi.Session;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.block.BlockCursor;
-import com.facebook.presto.spi.block.BlockEncoding.BlockEncodingFactory;
+import com.facebook.presto.spi.block.BlockEncodingFactory;
 import com.facebook.presto.spi.block.VariableWidthBlockBuilder;
 import com.facebook.presto.spi.block.VariableWidthBlockEncoding.VariableWidthBlockEncodingFactory;
 import com.fasterxml.jackson.annotation.JsonCreator;
@@ -75,7 +75,7 @@ public class VarcharType
     }
 
     @Override
-    public int setSlice(SliceOutput sliceOutput, Slice value, int offset, int length)
+    public int writeSlice(SliceOutput sliceOutput, Slice value, int offset, int length)
     {
         sliceOutput.writeInt(length);
         sliceOutput.writeBytes(value, offset, length);
@@ -89,7 +89,7 @@ public class VarcharType
     }
 
     @Override
-    public boolean equals(Slice leftSlice, int leftOffset, Slice rightSlice, int rightOffset)
+    public boolean equalTo(Slice leftSlice, int leftOffset, Slice rightSlice, int rightOffset)
     {
         int leftLength = getValueSize(leftSlice, leftOffset);
         int rightLength = getValueSize(rightSlice, rightOffset);
@@ -97,7 +97,7 @@ public class VarcharType
     }
 
     @Override
-    public boolean equals(Slice leftSlice, int leftOffset, BlockCursor rightCursor)
+    public boolean equalTo(Slice leftSlice, int leftOffset, BlockCursor rightCursor)
     {
         int leftLength = getValueSize(leftSlice, leftOffset);
         Slice rightSlice = rightCursor.getSlice();
@@ -105,7 +105,7 @@ public class VarcharType
     }
 
     @Override
-    public int hashCode(Slice slice, int offset)
+    public int hash(Slice slice, int offset)
     {
         int length = getValueSize(slice, offset);
         return slice.hashCode(offset + SIZE_OF_INT, length);
@@ -123,7 +123,7 @@ public class VarcharType
     public void appendTo(Slice slice, int offset, BlockBuilder blockBuilder)
     {
         int length = getValueSize(slice, offset);
-        blockBuilder.append(slice, offset + SIZE_OF_INT, length);
+        blockBuilder.appendSlice(slice, offset + SIZE_OF_INT, length);
     }
 
     @Override

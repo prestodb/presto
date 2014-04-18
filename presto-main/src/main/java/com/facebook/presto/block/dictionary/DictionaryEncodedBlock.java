@@ -135,33 +135,33 @@ public class DictionaryEncodedBlock
     }
 
     @Override
-    public boolean equals(int position, RandomAccessBlock right, int rightPosition)
+    public boolean equalTo(int position, RandomAccessBlock otherBlock, int otherPosition)
     {
-        return dictionary.equals(getDictionaryKey(position), right, rightPosition);
+        return dictionary.equalTo(getDictionaryKey(position), otherBlock, otherPosition);
     }
 
     @Override
-    public boolean equals(int position, BlockCursor value)
+    public boolean equalTo(int position, BlockCursor value)
     {
-        return dictionary.equals(getDictionaryKey(position), value);
+        return dictionary.equalTo(getDictionaryKey(position), value);
     }
 
     @Override
-    public boolean equals(int position, Slice slice, int offset)
+    public boolean equalTo(int position, Slice otherSlice, int otherOffset)
     {
-        return dictionary.equals(getDictionaryKey(position), slice, offset);
+        return dictionary.equalTo(getDictionaryKey(position), otherSlice, otherOffset);
     }
 
     @Override
-    public int hashCode(int position)
+    public int hash(int position)
     {
-        return dictionary.hashCode(getDictionaryKey(position));
+        return dictionary.hash(getDictionaryKey(position));
     }
 
     @Override
-    public int compareTo(SortOrder sortOrder, int position, RandomAccessBlock right, int rightPosition)
+    public int compareTo(SortOrder sortOrder, int position, RandomAccessBlock otherBlock, int otherPosition)
     {
-        return dictionary.compareTo(sortOrder, getDictionaryKey(position), right, rightPosition);
+        return dictionary.compareTo(sortOrder, getDictionaryKey(position), otherBlock, otherPosition);
     }
 
     @Override
@@ -171,9 +171,9 @@ public class DictionaryEncodedBlock
     }
 
     @Override
-    public int compareTo(int position, Slice slice, int offset)
+    public int compareTo(int position, Slice otherSlice, int otherOffset)
     {
-        return dictionary.compareTo(getDictionaryKey(position), slice, offset);
+        return dictionary.compareTo(getDictionaryKey(position), otherSlice, otherOffset);
     }
 
     @Override

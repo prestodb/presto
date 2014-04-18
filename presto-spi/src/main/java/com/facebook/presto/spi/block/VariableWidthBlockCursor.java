@@ -225,25 +225,25 @@ public class VariableWidthBlockCursor
     }
 
     @Override
-    public int compareTo(Slice rightSlice, int rightOffset)
+    public int compareTo(Slice otherSlice, int otherOffset)
     {
         checkReadablePosition();
-        return type.compareTo(slice, valueOffset(), rightSlice, rightOffset);
+        return type.compareTo(slice, valueOffset(), otherSlice, otherOffset);
     }
 
     public boolean equalTo(Slice rightSlice, int rightOffset)
     {
         checkReadablePosition();
-        return type.equals(slice, valueOffset(), rightSlice, rightOffset);
+        return type.equalTo(slice, valueOffset(), rightSlice, rightOffset);
     }
 
     @Override
-    public int calculateHashCode()
+    public int hash()
     {
         if (isNull()) {
             return 0;
         }
-        return type.hashCode(slice, valueOffset());
+        return type.hash(slice, valueOffset());
     }
 
     @Override

@@ -129,7 +129,7 @@ public class ApproximateSetAggregation
                 out.appendNull();
             }
             else {
-                out.append(estimator.serialize());
+                out.appendSlice(estimator.serialize());
             }
         }
     }
@@ -248,7 +248,7 @@ public class ApproximateSetAggregation
                 output.appendNull();
             }
             else {
-                output.append(estimator.serialize());
+                output.appendSlice(estimator.serialize());
             }
         }
     }

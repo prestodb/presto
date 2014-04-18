@@ -86,7 +86,7 @@ public class PageBuilder
     {
         long sizeInBytes = 0;
         for (BlockBuilder blockBuilder : blockBuilders) {
-            sizeInBytes += blockBuilder.size();
+            sizeInBytes += blockBuilder.getSizeInBytes();
         }
         return sizeInBytes;
     }

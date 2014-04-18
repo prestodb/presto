@@ -17,7 +17,7 @@ import com.facebook.presto.spi.Session;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.block.BlockCursor;
-import com.facebook.presto.spi.block.BlockEncoding.BlockEncodingFactory;
+import com.facebook.presto.spi.block.BlockEncodingFactory;
 import com.facebook.presto.spi.block.FixedWidthBlockUtil.FixedWidthBlockBuilderFactory;
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceOutput;
@@ -80,7 +80,7 @@ public final class DoubleType
     }
 
     @Override
-    public void setBoolean(SliceOutput sliceOutput, boolean value)
+    public void writeBoolean(SliceOutput sliceOutput, boolean value)
     {
         throw new UnsupportedOperationException();
     }
@@ -92,7 +92,7 @@ public final class DoubleType
     }
 
     @Override
-    public void setLong(SliceOutput sliceOutput, long value)
+    public void writeLong(SliceOutput sliceOutput, long value)
     {
         throw new UnsupportedOperationException();
     }
@@ -104,7 +104,7 @@ public final class DoubleType
     }
 
     @Override
-    public void setDouble(SliceOutput sliceOutput, double value)
+    public void writeDouble(SliceOutput sliceOutput, double value)
     {
         sliceOutput.writeDouble(value);
     }
@@ -116,13 +116,13 @@ public final class DoubleType
     }
 
     @Override
-    public void setSlice(SliceOutput sliceOutput, Slice value, int offset)
+    public void writeSlice(SliceOutput sliceOutput, Slice value, int offset)
     {
         sliceOutput.writeBytes(value, offset, SIZE_OF_DOUBLE);
     }
 
     @Override
-    public boolean equals(Slice leftSlice, int leftOffset, Slice rightSlice, int rightOffset)
+    public boolean equalTo(Slice leftSlice, int leftOffset, Slice rightSlice, int rightOffset)
     {
         long leftValue = leftSlice.getLong(leftOffset);
         long rightValue = rightSlice.getLong(rightOffset);
@@ -130,7 +130,7 @@ public final class DoubleType
     }
 
     @Override
-    public boolean equals(Slice leftSlice, int leftOffset, BlockCursor rightCursor)
+    public boolean equalTo(Slice leftSlice, int leftOffset, BlockCursor rightCursor)
     {
         long leftValue = leftSlice.getLong(leftOffset);
         long rightValue = Double.doubleToLongBits(rightCursor.getDouble());
@@ -138,7 +138,7 @@ public final class DoubleType
     }
 
     @Override
-    public int hashCode(Slice slice, int offset)
+    public int hash(Slice slice, int offset)
     {
         long value = slice.getLong(offset);
         return (int) (value ^ (value >>> 32));
@@ -156,7 +156,7 @@ public final class DoubleType
     public void appendTo(Slice slice, int offset, BlockBuilder blockBuilder)
     {
         double value = slice.getDouble(offset);
-        blockBuilder.append(value);
+        blockBuilder.appendDouble(value);
     }
 
     @Override

@@ -138,16 +138,16 @@ public class RecordProjectOperator
                         Type type = getTypes().get(column);
                         Class<?> javaType = type.getJavaType();
                         if (javaType == boolean.class) {
-                            output.append(cursor.getBoolean(column));
+                            output.appendBoolean(cursor.getBoolean(column));
                         }
                         else if (javaType == long.class) {
-                            output.append(cursor.getLong(column));
+                            output.appendLong(cursor.getLong(column));
                         }
                         else if (javaType == double.class) {
-                            output.append(cursor.getDouble(column));
+                            output.appendDouble(cursor.getDouble(column));
                         }
                         else if (javaType == Slice.class) {
-                            output.append(Slices.wrappedBuffer(cursor.getString(column)));
+                            output.appendSlice(Slices.wrappedBuffer(cursor.getString(column)));
                         }
                         else {
                             throw new AssertionError("Unimplemented type: " + javaType.getName());

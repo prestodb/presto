@@ -195,7 +195,7 @@ public class ApproximateAverageAggregation
         @Override
         public void evaluateIntermediate(int groupId, BlockBuilder output)
         {
-            output.append(createIntermediate(counts.get(groupId), samples.get(groupId), means.get(groupId), m2s.get(groupId)));
+            output.appendSlice(createIntermediate(counts.get(groupId), samples.get(groupId), means.get(groupId), m2s.get(groupId)));
         }
 
         @Override
@@ -211,7 +211,7 @@ public class ApproximateAverageAggregation
                 double variance = m2 / count;
 
                 String result = formatApproximateAverage(samples.get(groupId), mean, variance, confidence);
-                output.append(Slices.utf8Slice(result));
+                output.appendSlice(Slices.utf8Slice(result));
             }
         }
     }
@@ -318,7 +318,7 @@ public class ApproximateAverageAggregation
         @Override
         public void evaluateIntermediate(BlockBuilder output)
         {
-            output.append(createIntermediate(currentCount, currentSamples, currentMean, currentM2));
+            output.appendSlice(createIntermediate(currentCount, currentSamples, currentMean, currentM2));
         }
 
         @Override
@@ -329,7 +329,7 @@ public class ApproximateAverageAggregation
             }
             else {
                 String result = formatApproximateAverage(currentSamples, currentMean, currentM2 / currentCount, confidence);
-                output.append(Slices.utf8Slice(result));
+                output.appendSlice(Slices.utf8Slice(result));
             }
         }
     }

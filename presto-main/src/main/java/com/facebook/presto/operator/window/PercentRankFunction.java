@@ -43,7 +43,7 @@ public class PercentRankFunction
     public void processRow(BlockBuilder output, boolean newPeerGroup, int peerGroupCount)
     {
         if (totalCount == 1) {
-            output.append(0.0);
+            output.appendDouble(0.0);
             return;
         }
 
@@ -55,6 +55,6 @@ public class PercentRankFunction
             count++;
         }
 
-        output.append(((double) (rank - 1)) / (totalCount - 1));
+        output.appendDouble(((double) (rank - 1)) / (totalCount - 1));
     }
 }

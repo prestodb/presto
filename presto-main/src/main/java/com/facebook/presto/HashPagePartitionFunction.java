@@ -119,7 +119,7 @@ public final class HashPagePartitionFunction
         long hashCode = 1;
         for (int channel : partitioningChannels) {
             hashCode *= 31;
-            hashCode += cursors[channel].calculateHashCode();
+            hashCode += cursors[channel].hash();
         }
         // clear the sign bit
         hashCode &= 0x7fff_ffff_ffff_ffffL;

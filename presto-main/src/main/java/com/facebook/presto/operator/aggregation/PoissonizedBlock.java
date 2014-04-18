@@ -200,7 +200,7 @@ class PoissonizedBlock
         }
 
         @Override
-        public int compareTo(Slice slice, int offset)
+        public int compareTo(Slice otherSlice, int otherOffset)
         {
             throw new UnsupportedOperationException();
         }
@@ -212,7 +212,7 @@ class PoissonizedBlock
         }
 
         @Override
-        public int calculateHashCode()
+        public int hash()
         {
             return Longs.hashCode(currentValue);
         }
@@ -220,7 +220,7 @@ class PoissonizedBlock
         @Override
         public void appendTo(BlockBuilder blockBuilder)
         {
-            blockBuilder.append(currentValue);
+            blockBuilder.appendLong(currentValue);
         }
     }
 }

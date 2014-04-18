@@ -40,8 +40,8 @@ public class TestBootstrappedAggregation
         Random rand = new Random(0);
         for (int i = 0; i < sum; i++) {
             if (rand.nextDouble() < 0.5) {
-                builder.getBlockBuilder(0).append(1);
-                builder.getBlockBuilder(1).append(2);
+                builder.getBlockBuilder(0).appendLong(1);
+                builder.getBlockBuilder(1).appendLong(2);
             }
         }
 
@@ -64,8 +64,8 @@ public class TestBootstrappedAggregation
             PageBuilder builder = new PageBuilder(ImmutableList.of(BIGINT, BIGINT));
             for (int j = 0; j < sum; j++) {
                 if (rand.nextDouble() < 0.5) {
-                    builder.getBlockBuilder(0).append(1);
-                    builder.getBlockBuilder(1).append(2);
+                    builder.getBlockBuilder(0).appendLong(1);
+                    builder.getBlockBuilder(1).appendLong(2);
                 }
             }
 

@@ -370,7 +370,7 @@ public class TestApproximatePercentileAggregation
     private static RunLengthEncodedBlock createRLEBlock(double percentile, int positionCount)
     {
         RandomAccessBlock value = DOUBLE.createBlockBuilder(new BlockBuilderStatus())
-                .append(percentile)
+                .appendDouble(percentile)
                 .build()
                 .toRandomAccessBlock();
 
