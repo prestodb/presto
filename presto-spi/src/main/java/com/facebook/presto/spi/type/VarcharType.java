@@ -32,6 +32,11 @@ public class VarcharType
 {
     public static final VarcharType VARCHAR = new VarcharType();
 
+    public static VarcharType getInstance()
+    {
+        return VARCHAR;
+    }
+
     public static final BlockEncodingFactory<?> BLOCK_ENCODING_FACTORY = new VariableWidthBlockEncodingFactory(VARCHAR);
 
     @JsonCreator

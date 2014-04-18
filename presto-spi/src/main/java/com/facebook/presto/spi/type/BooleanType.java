@@ -30,6 +30,11 @@ public final class BooleanType
 {
     public static final BooleanType BOOLEAN = new BooleanType();
 
+    public static BooleanType getInstance()
+    {
+        return BOOLEAN;
+    }
+
     private static final FixedWidthBlockBuilderFactory BLOCK_BUILDER_FACTORY = createIsolatedFixedWidthBlockBuilderFactory(BOOLEAN);
     public static final BlockEncodingFactory<?> BLOCK_ENCODING_FACTORY = BLOCK_BUILDER_FACTORY.getBlockEncodingFactory();
 
