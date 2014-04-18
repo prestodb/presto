@@ -38,10 +38,12 @@ import org.joda.time.format.DateTimeFormat;
 import org.joda.time.format.DateTimeFormatter;
 import org.joda.time.format.DateTimeFormatterBuilder;
 
+import static com.facebook.presto.operator.scalar.QuarterOfYearDateTimeField.QUARTER_OF_YEAR;
 import static com.facebook.presto.spi.type.DateTimeEncoding.packDateTimeWithZone;
 import static com.facebook.presto.spi.type.DateTimeEncoding.unpackMillisUtc;
 import static com.facebook.presto.spi.type.DateTimeEncoding.updateMillisUtc;
 import static com.facebook.presto.spi.type.TimeZoneKey.getTimeZoneKeyForOffset;
+import static com.facebook.presto.type.DateTimeOperators.modulo24Hour;
 import static com.facebook.presto.util.DateTimeZoneIndex.extractZoneOffsetMinutes;
 import static com.facebook.presto.util.DateTimeZoneIndex.getChronology;
 import static com.facebook.presto.util.DateTimeZoneIndex.packDateTimeWithZone;
@@ -78,7 +80,9 @@ public final class DateTimeFunctions
     private static final int MIN_TIME_ZONE_OFFSET = -(12 * 60 + 59);
     private static final int MONTHS_IN_QUARTER = 3;
 
-    private DateTimeFunctions() {}
+    private DateTimeFunctions()
+    {
+    }
 
     @ScalarFunction("__to_time__")
     @SqlType(TimeType.class)
@@ -252,94 +256,152 @@ public final class DateTimeFunctions
         return packDateTimeWithZone(unpackMillisUtc(timestampWithTimeZone), getTimeZoneKeyForOffset(zoneOffsetMinutes));
     }
 
-    @Description("add the specified amount of time to the given timestamp")
-    @ScalarFunction
-    @SqlType(TimestampType.class)
-    public static long dateAdd(Session session, Slice unit, long value, @SqlType(TimestampType.class) long timestamp)
+    @Description("add the specified amount of date to the given date")
+    @ScalarFunction("date_add")
+    @SqlType(DateType.class)
+    public static long addFieldValueDate(Session session, Slice unit, long value, @SqlType(DateType.class) long date)
     {
-        return dateAdd(getChronology(session.getTimeZoneKey()), unit, value, timestamp);
+        return getDateField(UTC_CHRONOLOGY, unit).add(date, Ints.checkedCast(value));
+    }
+
+    @Description("add the specified amount of time to the given time")
+    @ScalarFunction("date_add")
+    @SqlType(TimeType.class)
+    public static long addFieldValueTime(Session session, Slice unit, long value, @SqlType(TimeType.class) long time)
+    {
+        ISOChronology chronology = getChronology(session.getTimeZoneKey());
+        return modulo24Hour(chronology, getTimeField(chronology, unit).add(time, Ints.checkedCast(value)));
+    }
+
+    @Description("add the specified amount of time to the given time")
+    @ScalarFunction("date_add")
+    @SqlType(TimeWithTimeZoneType.class)
+    public static long addFieldValueTimeWithTimeZone(Slice unit, long value, @SqlType(TimeWithTimeZoneType.class) long timeWithTimeZone)
+    {
+        ISOChronology chronology = unpackChronology(timeWithTimeZone);
+        long millis = modulo24Hour(chronology, getTimeField(chronology, unit).add(unpackMillisUtc(timeWithTimeZone), Ints.checkedCast(value)));
+        return updateMillisUtc(millis, timeWithTimeZone);
+    }
+
+    @Description("add the specified amount of time to the given timestamp")
+    @ScalarFunction("date_add")
+    @SqlType(TimestampType.class)
+    public static long addFieldValueTimestamp(Session session, Slice unit, long value, @SqlType(TimestampType.class) long timestamp)
+    {
+        return getTimestampField(getChronology(session.getTimeZoneKey()), unit).add(timestamp, Ints.checkedCast(value));
     }
 
     @Description("add the specified amount of time to the given timestamp")
     @ScalarFunction("date_add")
     @SqlType(TimestampWithTimeZoneType.class)
-    public static long dateAddWithTimeZone(Slice unit, long value, @SqlType(TimestampWithTimeZoneType.class) long timestampWithTimeZone)
+    public static long addFieldValueTimestampWithTimeZone(Slice unit, long value, @SqlType(TimestampWithTimeZoneType.class) long timestampWithTimeZone)
     {
-        long millis = dateAdd(unpackChronology(timestampWithTimeZone), unit, value, unpackMillisUtc(timestampWithTimeZone));
+        long millis = getTimestampField(unpackChronology(timestampWithTimeZone), unit).add(unpackMillisUtc(timestampWithTimeZone), Ints.checkedCast(value));
         return updateMillisUtc(millis, timestampWithTimeZone);
     }
 
-    private static long dateAdd(ISOChronology chronology, Slice unit, long value, long milliseconds)
+    @Description("difference of the given dates in the given unit")
+    @ScalarFunction("date_diff")
+    public static long diffDate(Session session, Slice unit, @SqlType(DateType.class) long date1, @SqlType(DateType.class) long date2)
     {
-        String unitString = unit.toString(Charsets.US_ASCII).toLowerCase();
-        int intValue = Ints.checkedCast(value);
-        switch (unitString) {
-            case "second":
-                return chronology.secondOfMinute().add(milliseconds, intValue);
-            case "minute":
-                return chronology.minuteOfHour().add(milliseconds, intValue);
-            case "hour":
-                return chronology.hourOfDay().add(milliseconds, intValue);
-            case "day":
-                return chronology.dayOfMonth().add(milliseconds, intValue);
-            case "week":
-                return chronology.weekOfWeekyear().add(milliseconds, intValue);
-            case "month":
-                return chronology.monthOfYear().add(milliseconds, intValue);
-            case "quarter":
-                return chronology.monthOfYear().add(milliseconds, intValue * MONTHS_IN_QUARTER);
-            case "year":
-                return chronology.year().add(milliseconds, intValue);
-            case "century":
-                return chronology.centuryOfEra().add(milliseconds, intValue);
-            default:
-                throw new IllegalArgumentException("Unsupported unit " + unitString);
-        }
-    }
-
-    @Description("difference of the given times in the given unit")
-    @ScalarFunction
-    public static long dateDiff(Session session, Slice unit, @SqlType(TimestampType.class) long timestamp1, @SqlType(TimestampType.class) long timestamp2)
-    {
-        return dateDiff(getChronology(session.getTimeZoneKey()), unit, timestamp1, timestamp2);
+        return getDateField(UTC_CHRONOLOGY, unit).getDifference(date2, date1);
     }
 
     @Description("difference of the given times in the given unit")
     @ScalarFunction("date_diff")
-    public static long dateDiffWithTimeZone(
+    public static long diffTime(Session session, Slice unit, @SqlType(TimeType.class) long time1, @SqlType(TimeType.class) long time2)
+    {
+        ISOChronology chronology = getChronology(session.getTimeZoneKey());
+        return getTimeField(chronology, unit).getDifference(time2, time1);
+    }
+
+    @Description("difference of the given times in the given unit")
+    @ScalarFunction("date_diff")
+    public static long diffTimeWithTimeZone(
+            Slice unit,
+            @SqlType(TimeWithTimeZoneType.class) long timeWithTimeZone1,
+            @SqlType(TimeWithTimeZoneType.class) long timeWithTimeZone2)
+    {
+        return getTimeField(unpackChronology(timeWithTimeZone1), unit).getDifference(unpackMillisUtc(timeWithTimeZone2), unpackMillisUtc(timeWithTimeZone1));
+    }
+
+    @Description("difference of the given times in the given unit")
+    @ScalarFunction("date_diff")
+    public static long diffTimestamp(Session session, Slice unit, @SqlType(TimestampType.class) long timestamp1, @SqlType(TimestampType.class) long timestamp2)
+    {
+        return getTimestampField(getChronology(session.getTimeZoneKey()), unit).getDifference(timestamp2, timestamp1);
+    }
+
+    @Description("difference of the given times in the given unit")
+    @ScalarFunction("date_diff")
+    public static long diffTimestampWithTimeZone(
             Slice unit,
             @SqlType(TimestampWithTimeZoneType.class) long timestampWithTimeZone1,
             @SqlType(TimestampWithTimeZoneType.class) long timestampWithTimeZone2)
     {
-        return dateDiff(unpackChronology(timestampWithTimeZone1), unit, unpackMillisUtc(timestampWithTimeZone1), unpackMillisUtc(timestampWithTimeZone2));
+        return getTimestampField(unpackChronology(timestampWithTimeZone1), unit).getDifference(unpackMillisUtc(timestampWithTimeZone2), unpackMillisUtc(timestampWithTimeZone1));
     }
 
-    public static long dateDiff(ISOChronology chronology, Slice unit, long timestamp1, long timestamp2)
+    private static DateTimeField getDateField(ISOChronology chronology, Slice unit)
     {
-        String unitString = unit.toString(Charsets.US_ASCII).toLowerCase();
+        String unitString = unit.toString(Charsets.UTF_8).toLowerCase();
+        switch (unitString) {
+            case "day":
+                return chronology.dayOfMonth();
+            case "week":
+                return chronology.weekOfWeekyear();
+            case "month":
+                return chronology.monthOfYear();
+            case "quarter":
+                return QUARTER_OF_YEAR.getField(chronology);
+            case "year":
+                return chronology.year();
+            case "century":
+                return chronology.centuryOfEra();
+            default:
+                throw new IllegalArgumentException("'" + unitString + "' is not a valid DATE field");
+        }
+    }
 
+    private static DateTimeField getTimeField(ISOChronology chronology, Slice unit)
+    {
+        String unitString = unit.toString(Charsets.UTF_8).toLowerCase();
         switch (unitString) {
             case "second":
-                return chronology.secondOfMinute().getDifference(timestamp2, timestamp1);
+                return chronology.secondOfMinute();
             case "minute":
-                return chronology.minuteOfHour().getDifference(timestamp2, timestamp1);
+                return chronology.minuteOfHour();
             case "hour":
-                return chronology.hourOfDay().getDifference(timestamp2, timestamp1);
-            case "day":
-                return chronology.dayOfMonth().getDifference(timestamp2, timestamp1);
-            case "week":
-                return chronology.weekOfWeekyear().getDifference(timestamp2, timestamp1);
-            case "month":
-                return chronology.monthOfYear().getDifference(timestamp2, timestamp1);
-            case "quarter":
-                // quarters are base 1 so we need to add 1
-                return chronology.monthOfYear().getDifference(timestamp2, timestamp1) / 4 + 1;
-            case "year":
-                return chronology.year().getDifference(timestamp2, timestamp1);
-            case "century":
-                return chronology.centuryOfEra().getDifference(timestamp2, timestamp1);
+                return chronology.hourOfDay();
             default:
-                throw new IllegalArgumentException("Unsupported unit " + unitString);
+                throw new IllegalArgumentException("'" + unitString + "' is not a valid Time field");
+        }
+    }
+
+    private static DateTimeField getTimestampField(ISOChronology chronology, Slice unit)
+    {
+        String unitString = unit.toString(Charsets.UTF_8).toLowerCase();
+        switch (unitString) {
+            case "second":
+                return chronology.secondOfMinute();
+            case "minute":
+                return chronology.minuteOfHour();
+            case "hour":
+                return chronology.hourOfDay();
+            case "day":
+                return chronology.dayOfMonth();
+            case "week":
+                return chronology.weekOfWeekyear();
+            case "month":
+                return chronology.monthOfYear();
+            case "quarter":
+                return QUARTER_OF_YEAR.getField(chronology);
+            case "year":
+                return chronology.year();
+            case "century":
+                return chronology.centuryOfEra();
+            default:
+                throw new IllegalArgumentException("'" + unitString + "' is not a valid Timestamp field");
         }
     }
 
