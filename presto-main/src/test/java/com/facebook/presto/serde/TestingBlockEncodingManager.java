@@ -25,7 +25,6 @@ import com.facebook.presto.spi.type.DoubleType;
 import com.facebook.presto.spi.type.HyperLogLogType;
 import com.facebook.presto.spi.type.IntervalDayTimeType;
 import com.facebook.presto.spi.type.IntervalYearMonthType;
-import com.facebook.presto.spi.type.NullType;
 import com.facebook.presto.spi.type.TimeType;
 import com.facebook.presto.spi.type.TimeWithTimeZoneType;
 import com.facebook.presto.spi.type.TimestampType;
@@ -33,6 +32,7 @@ import com.facebook.presto.spi.type.TimestampWithTimeZoneType;
 import com.facebook.presto.spi.type.VarcharType;
 import com.facebook.presto.type.ColorType;
 import com.facebook.presto.type.TypeRegistry;
+import com.facebook.presto.type.UnknownType;
 
 public final class TestingBlockEncodingManager
 {
@@ -44,7 +44,7 @@ public final class TestingBlockEncodingManager
     {
         return new BlockEncodingManager(
                 new TypeRegistry(),
-                NullType.BLOCK_ENCODING_FACTORY,
+                UnknownType.BLOCK_ENCODING_FACTORY,
                 BooleanType.BLOCK_ENCODING_FACTORY,
                 BigintType.BLOCK_ENCODING_FACTORY,
                 DoubleType.BLOCK_ENCODING_FACTORY,

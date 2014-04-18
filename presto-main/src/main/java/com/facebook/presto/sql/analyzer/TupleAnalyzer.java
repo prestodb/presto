@@ -78,7 +78,7 @@ import java.util.Map;
 import java.util.Set;
 
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
-import static com.facebook.presto.spi.type.NullType.NULL;
+import static com.facebook.presto.type.UnknownType.UNKNOWN;
 import static com.facebook.presto.sql.analyzer.ExpressionAnalyzer.getExpressionTypes;
 import static com.facebook.presto.sql.analyzer.Field.typeGetter;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.AMBIGUOUS_ATTRIBUTE;
@@ -595,7 +595,7 @@ class TupleAnalyzer
             analysis.addInPredicates(node, expressionAnalysis.getSubqueryInPredicates());
 
             Type predicateType = expressionAnalysis.getType(predicate);
-            if (!predicateType.equals(BOOLEAN) && !predicateType.equals(NULL)) {
+            if (!predicateType.equals(BOOLEAN) && !predicateType.equals(UNKNOWN)) {
                 throw new SemanticException(TYPE_MISMATCH, predicate, "HAVING clause must evaluate to a boolean: actual type %s", predicateType);
             }
 
@@ -817,7 +817,7 @@ class TupleAnalyzer
 
             Type predicateType = expressionAnalysis.getType(predicate);
             if (!predicateType.equals(BOOLEAN)) {
-                if (!predicateType.equals(NULL)) {
+                if (!predicateType.equals(UNKNOWN)) {
                     throw new SemanticException(TYPE_MISMATCH, predicate, "WHERE clause must evaluate to a boolean: actual type %s", predicateType);
                 }
                 // coerce null to boolean
