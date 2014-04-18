@@ -102,7 +102,7 @@ public class LongSumAggregation
         {
             if (notNull.get((long) groupId)) {
                 long value = sums.get((long) groupId);
-                output.append(value);
+                output.appendLong(value);
             }
             else {
                 output.appendNull();
@@ -157,7 +157,7 @@ public class LongSumAggregation
         public void evaluateFinal(BlockBuilder out)
         {
             if (notNull) {
-                out.append(sum);
+                out.appendLong(sum);
             }
             else {
                 out.appendNull();

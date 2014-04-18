@@ -100,7 +100,7 @@ public class DoubleSumAggregation
         {
             if (notNull.get((long) groupId)) {
                 double value = sums.get((long) groupId);
-                output.append(value);
+                output.appendDouble(value);
             }
             else {
                 output.appendNull();
@@ -155,7 +155,7 @@ public class DoubleSumAggregation
         public void evaluateFinal(BlockBuilder out)
         {
             if (notNull) {
-                out.append(sum);
+                out.appendDouble(sum);
             }
             else {
                 out.appendNull();

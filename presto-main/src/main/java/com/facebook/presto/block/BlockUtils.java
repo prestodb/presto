@@ -38,22 +38,22 @@ public final class BlockUtils
             blockBuilder.appendNull();
         }
         else if (value instanceof Boolean) {
-            blockBuilder.append((Boolean) value);
+            blockBuilder.appendBoolean((Boolean) value);
         }
         else if (value instanceof Double || value instanceof Float) {
-            blockBuilder.append(((Number) value).doubleValue());
+            blockBuilder.appendDouble(((Number) value).doubleValue());
         }
         else if (value instanceof Number) {
-            blockBuilder.append(((Number) value).longValue());
+            blockBuilder.appendLong(((Number) value).longValue());
         }
         else if (value instanceof byte[]) {
-            blockBuilder.append(Slices.wrappedBuffer((byte[]) value));
+            blockBuilder.appendSlice(Slices.wrappedBuffer((byte[]) value));
         }
         else if (value instanceof String) {
-            blockBuilder.append(Slices.utf8Slice((String) value));
+            blockBuilder.appendSlice(Slices.utf8Slice((String) value));
         }
         else if (value instanceof Slice) {
-            blockBuilder.append((Slice) value);
+            blockBuilder.appendSlice((Slice) value);
         }
         else {
             throw new IllegalArgumentException("Unsupported type: " + value.getClass().getName());

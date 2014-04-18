@@ -143,15 +143,15 @@ public class DictionaryEncodedBlockCursor
     }
 
     @Override
-    public int compareTo(Slice slice, int offset)
+    public int compareTo(Slice otherSlice, int otherOffset)
     {
-        return dictionary.compareTo(getDictionaryKey(), slice, offset);
+        return dictionary.compareTo(getDictionaryKey(), otherSlice, otherOffset);
     }
 
     @Override
-    public int calculateHashCode()
+    public int hash()
     {
-        return dictionary.hashCode(getDictionaryKey());
+        return dictionary.hash(getDictionaryKey());
     }
 
     @Override

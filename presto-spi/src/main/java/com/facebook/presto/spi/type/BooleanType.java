@@ -17,7 +17,7 @@ import com.facebook.presto.spi.Session;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.block.BlockCursor;
-import com.facebook.presto.spi.block.BlockEncoding.BlockEncodingFactory;
+import com.facebook.presto.spi.block.BlockEncodingFactory;
 import com.facebook.presto.spi.block.FixedWidthBlockUtil.FixedWidthBlockBuilderFactory;
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceOutput;
@@ -80,7 +80,7 @@ public final class BooleanType
     }
 
     @Override
-    public void setBoolean(SliceOutput sliceOutput, boolean value)
+    public void writeBoolean(SliceOutput sliceOutput, boolean value)
     {
         sliceOutput.writeByte(value ? 1 : 0);
     }
@@ -92,7 +92,7 @@ public final class BooleanType
     }
 
     @Override
-    public void setLong(SliceOutput sliceOutput, long value)
+    public void writeLong(SliceOutput sliceOutput, long value)
     {
         throw new UnsupportedOperationException();
     }
@@ -104,7 +104,7 @@ public final class BooleanType
     }
 
     @Override
-    public void setDouble(SliceOutput sliceOutput, double value)
+    public void writeDouble(SliceOutput sliceOutput, double value)
     {
         throw new UnsupportedOperationException();
     }
@@ -116,13 +116,13 @@ public final class BooleanType
     }
 
     @Override
-    public void setSlice(SliceOutput sliceOutput, Slice value, int offset)
+    public void writeSlice(SliceOutput sliceOutput, Slice value, int offset)
     {
         sliceOutput.writeBytes(value, offset, SIZE_OF_BYTE);
     }
 
     @Override
-    public boolean equals(Slice leftSlice, int leftOffset, Slice rightSlice, int rightOffset)
+    public boolean equalTo(Slice leftSlice, int leftOffset, Slice rightSlice, int rightOffset)
     {
         boolean leftValue = leftSlice.getByte(leftOffset) != 0;
         boolean rightValue = rightSlice.getByte(rightOffset) != 0;
@@ -130,7 +130,7 @@ public final class BooleanType
     }
 
     @Override
-    public boolean equals(Slice leftSlice, int leftOffset, BlockCursor rightCursor)
+    public boolean equalTo(Slice leftSlice, int leftOffset, BlockCursor rightCursor)
     {
         boolean leftValue = leftSlice.getByte(leftOffset) != 0;
         boolean rightValue = rightCursor.getBoolean();
@@ -138,7 +138,7 @@ public final class BooleanType
     }
 
     @Override
-    public int hashCode(Slice slice, int offset)
+    public int hash(Slice slice, int offset)
     {
         return slice.getByte(offset) != 0 ? 1231 : 1237;
     }
@@ -155,7 +155,7 @@ public final class BooleanType
     public void appendTo(Slice slice, int offset, BlockBuilder blockBuilder)
     {
         boolean value = slice.getByte(offset) != 0;
-        blockBuilder.append(value);
+        blockBuilder.appendBoolean(value);
     }
 
     @Override

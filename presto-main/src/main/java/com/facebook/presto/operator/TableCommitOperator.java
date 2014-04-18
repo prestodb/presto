@@ -148,7 +148,7 @@ public class TableCommitOperator
         tableCommitter.commitTable(fragmentBuilder.build());
 
         PageBuilder page = new PageBuilder(getTypes());
-        page.getBlockBuilder(0).append(rowCount);
+        page.getBlockBuilder(0).appendLong(rowCount);
         return page.build();
     }
 

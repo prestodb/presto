@@ -28,7 +28,7 @@ public class TestLongSumAggregation
     {
         BlockBuilder blockBuilder = BIGINT.createBlockBuilder(new BlockBuilderStatus());
         for (int i = start; i < start + length; i++) {
-            blockBuilder.append(i);
+            blockBuilder.appendLong(i);
         }
         return blockBuilder.build();
     }

@@ -143,13 +143,13 @@ public abstract class AbstractVariableWidthRandomAccessBlock
     }
 
     @Override
-    public boolean equals(int position, RandomAccessBlock right, int rightPosition)
+    public boolean equalTo(int position, RandomAccessBlock otherBlock, int otherPosition)
     {
         checkReadablePosition(position);
         int leftOffset = getPositionOffset(position);
 
         boolean leftIsNull = isEntryAtOffsetNull(leftOffset);
-        boolean rightIsNull = right.isNull(rightPosition);
+        boolean rightIsNull = otherBlock.isNull(otherPosition);
 
         if (leftIsNull != rightIsNull) {
             return false;
@@ -160,11 +160,11 @@ public abstract class AbstractVariableWidthRandomAccessBlock
             return true;
         }
 
-        return right.equals(rightPosition, getRawSlice(), valueOffset(leftOffset));
+        return otherBlock.equalTo(otherPosition, getRawSlice(), valueOffset(leftOffset));
     }
 
     @Override
-    public boolean equals(int position, BlockCursor cursor)
+    public boolean equalTo(int position, BlockCursor cursor)
     {
         checkReadablePosition(position);
         int offset = getPositionOffset(position);
@@ -185,32 +185,32 @@ public abstract class AbstractVariableWidthRandomAccessBlock
     }
 
     @Override
-    public boolean equals(int position, Slice rightSlice, int rightOffset)
+    public boolean equalTo(int position, Slice otherSlice, int otherOffset)
     {
         checkReadablePosition(position);
         int leftEntryOffset = getPositionOffset(position);
-        return type.equals(getRawSlice(), valueOffset(leftEntryOffset), rightSlice, rightOffset);
+        return type.equalTo(getRawSlice(), valueOffset(leftEntryOffset), otherSlice, otherOffset);
     }
 
     @Override
-    public int hashCode(int position)
+    public int hash(int position)
     {
         checkReadablePosition(position);
         int offset = getPositionOffset(position);
         if (isEntryAtOffsetNull(offset)) {
             return 0;
         }
-        return type.hashCode(getRawSlice(), valueOffset(offset));
+        return type.hash(getRawSlice(), valueOffset(offset));
     }
 
     @Override
-    public int compareTo(SortOrder sortOrder, int position, RandomAccessBlock rightBlock, int rightPosition)
+    public int compareTo(SortOrder sortOrder, int position, RandomAccessBlock otherBlock, int otherPosition)
     {
         checkReadablePosition(position);
         int leftOffset = getPositionOffset(position);
 
         boolean leftIsNull = isEntryAtOffsetNull(leftOffset);
-        boolean rightIsNull = rightBlock.isNull(rightPosition);
+        boolean rightIsNull = otherBlock.isNull(otherPosition);
 
         if (leftIsNull && rightIsNull) {
             return 0;
@@ -223,7 +223,7 @@ public abstract class AbstractVariableWidthRandomAccessBlock
         }
 
         // compare the right block to our slice but negate the result since we are evaluating in the opposite order
-        int result = -rightBlock.compareTo(rightPosition, getRawSlice(), valueOffset(leftOffset));
+        int result = -otherBlock.compareTo(otherPosition, getRawSlice(), valueOffset(leftOffset));
         return sortOrder.isAscending() ? result : -result;
     }
 
@@ -252,11 +252,11 @@ public abstract class AbstractVariableWidthRandomAccessBlock
     }
 
     @Override
-    public int compareTo(int position, Slice rightSlice, int rightOffset)
+    public int compareTo(int position, Slice otherSlice, int otherOffset)
     {
         checkReadablePosition(position);
         int leftEntryOffset = getPositionOffset(position);
-        return type.compareTo(getRawSlice(), valueOffset(leftEntryOffset), rightSlice, rightOffset);
+        return type.compareTo(getRawSlice(), valueOffset(leftEntryOffset), otherSlice, otherOffset);
     }
 
     @Override

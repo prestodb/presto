@@ -78,16 +78,16 @@ public final class ProjectionFunctions
             else {
                 Class<?> javaType = columnType.getJavaType();
                 if (javaType == boolean.class) {
-                    output.append(cursor.getBoolean(channelIndex));
+                    output.appendBoolean(cursor.getBoolean(channelIndex));
                 }
                 else if (javaType == long.class) {
-                    output.append(cursor.getLong(channelIndex));
+                    output.appendLong(cursor.getLong(channelIndex));
                 }
                 else if (javaType == double.class) {
-                    output.append(cursor.getDouble(channelIndex));
+                    output.appendDouble(cursor.getDouble(channelIndex));
                 }
                 else if (javaType == Slice.class) {
-                    output.append(Slices.wrappedBuffer(cursor.getString(channelIndex)));
+                    output.appendSlice(Slices.wrappedBuffer(cursor.getString(channelIndex)));
                 }
             }
         }

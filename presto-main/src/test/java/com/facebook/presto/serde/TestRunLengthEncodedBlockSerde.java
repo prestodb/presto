@@ -38,7 +38,7 @@ public class TestRunLengthEncodedBlockSerde
     public void testRoundTrip()
     {
         RandomAccessBlock value = VARCHAR.createBlockBuilder(new BlockBuilderStatus())
-                .append(Slices.utf8Slice("alice"))
+                .appendSlice(Slices.utf8Slice("alice"))
                 .build()
                 .toRandomAccessBlock();
 
@@ -48,7 +48,7 @@ public class TestRunLengthEncodedBlockSerde
         RunLengthBlockEncoding blockEncoding = new RunLengthBlockEncoding(new VariableWidthBlockEncoding(VARCHAR));
         blockEncoding.writeBlock(sliceOutput, expectedBlock);
         RunLengthEncodedBlock actualBlock = blockEncoding.readBlock(sliceOutput.slice().getInput());
-        assertTrue(actualBlock.equals(0, expectedBlock, 0));
+        assertTrue(actualBlock.equalTo(0, expectedBlock, 0));
         BlockAssertions.assertBlockEquals(actualBlock, expectedBlock);
     }
 
@@ -56,18 +56,18 @@ public class TestRunLengthEncodedBlockSerde
     public void testCreateBlockWriter()
     {
         RandomAccessBlock expectedBlock = VARCHAR.createBlockBuilder(new BlockBuilderStatus())
-                .append(Slices.utf8Slice("alice"))
-                .append(Slices.utf8Slice("alice"))
-                .append(Slices.utf8Slice("bob"))
-                .append(Slices.utf8Slice("bob"))
-                .append(Slices.utf8Slice("bob"))
-                .append(Slices.utf8Slice("bob"))
-                .append(Slices.utf8Slice("charlie"))
-                .append(Slices.utf8Slice("charlie"))
-                .append(Slices.utf8Slice("charlie"))
-                .append(Slices.utf8Slice("charlie"))
-                .append(Slices.utf8Slice("charlie"))
-                .append(Slices.utf8Slice("charlie"))
+                .appendSlice(Slices.utf8Slice("alice"))
+                .appendSlice(Slices.utf8Slice("alice"))
+                .appendSlice(Slices.utf8Slice("bob"))
+                .appendSlice(Slices.utf8Slice("bob"))
+                .appendSlice(Slices.utf8Slice("bob"))
+                .appendSlice(Slices.utf8Slice("bob"))
+                .appendSlice(Slices.utf8Slice("charlie"))
+                .appendSlice(Slices.utf8Slice("charlie"))
+                .appendSlice(Slices.utf8Slice("charlie"))
+                .appendSlice(Slices.utf8Slice("charlie"))
+                .appendSlice(Slices.utf8Slice("charlie"))
+                .appendSlice(Slices.utf8Slice("charlie"))
                 .build()
                 .toRandomAccessBlock();
 
@@ -78,21 +78,21 @@ public class TestRunLengthEncodedBlockSerde
         Block block = blockEncoding.readBlock(sliceInput);
         assertInstanceOf(block, RunLengthEncodedBlock.class);
         RunLengthEncodedBlock rleBlock = (RunLengthEncodedBlock) block;
-        assertTrue(rleBlock.equals(0, expectedBlock, 0));
+        assertTrue(rleBlock.equalTo(0, expectedBlock, 0));
         assertEquals(rleBlock.getPositionCount(), 2);
         assertEquals(rleBlock.getSlice(0).toStringUtf8(), "alice");
 
         block = blockEncoding.readBlock(sliceInput);
         assertInstanceOf(block, RunLengthEncodedBlock.class);
         rleBlock = (RunLengthEncodedBlock) block;
-        assertTrue(rleBlock.equals(0, expectedBlock, 2));
+        assertTrue(rleBlock.equalTo(0, expectedBlock, 2));
         assertEquals(rleBlock.getPositionCount(), 4);
         assertEquals(rleBlock.getSlice(0).toStringUtf8(), "bob");
 
         block = blockEncoding.readBlock(sliceInput);
         assertInstanceOf(block, RunLengthEncodedBlock.class);
         rleBlock = (RunLengthEncodedBlock) block;
-        assertTrue(rleBlock.equals(0, expectedBlock, 6));
+        assertTrue(rleBlock.equalTo(0, expectedBlock, 6));
         assertEquals(rleBlock.getPositionCount(), 6);
         assertEquals(rleBlock.getSlice(0).toStringUtf8(), "charlie");
 

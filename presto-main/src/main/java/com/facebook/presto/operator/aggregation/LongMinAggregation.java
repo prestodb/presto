@@ -93,7 +93,7 @@ public class LongMinAggregation
         {
             if (notNull.get((long) groupId)) {
                 long value = minValues.get((long) groupId);
-                output.append(value);
+                output.appendLong(value);
             }
             else {
                 output.appendNull();
@@ -138,7 +138,7 @@ public class LongMinAggregation
         public void evaluateFinal(BlockBuilder out)
         {
             if (notNull) {
-                out.append(min);
+                out.appendLong(min);
             }
             else {
                 out.appendNull();

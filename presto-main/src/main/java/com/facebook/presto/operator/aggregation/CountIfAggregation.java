@@ -110,7 +110,7 @@ public class CountIfAggregation
         public void evaluateFinal(int groupId, BlockBuilder output)
         {
             long value = counts.get((long) groupId);
-            output.append(value);
+            output.appendLong(value);
         }
     }
 
@@ -175,7 +175,7 @@ public class CountIfAggregation
         @Override
         public void evaluateFinal(BlockBuilder out)
         {
-            out.append(count);
+            out.appendLong(count);
         }
     }
 }

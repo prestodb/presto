@@ -130,7 +130,7 @@ public class TestFilterAndProjectOperator
                 output.appendNull();
             }
             else {
-                output.append(cursors[channelIndex].getLong() + 5);
+                output.appendLong(cursors[channelIndex].getLong() + 5);
             }
         }
 
@@ -141,7 +141,7 @@ public class TestFilterAndProjectOperator
                 output.appendNull();
             }
             else {
-                output.append(cursor.getLong(channelIndex) + 5);
+                output.appendLong(cursor.getLong(channelIndex) + 5);
             }
         }
     }

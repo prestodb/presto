@@ -14,7 +14,7 @@
 package com.facebook.presto.block;
 
 import com.facebook.presto.spi.block.BlockEncoding;
-import com.facebook.presto.spi.block.BlockEncoding.BlockEncodingFactory;
+import com.facebook.presto.spi.block.BlockEncodingFactory;
 import com.facebook.presto.spi.block.BlockEncodingSerde;
 import com.facebook.presto.spi.type.TypeManager;
 import com.google.common.base.Charsets;
@@ -73,14 +73,13 @@ public final class BlockEncodingManager
     }
 
     @Override
-    public <T extends BlockEncoding> void writeBlockEncoding(SliceOutput output, T encoding)
+    public void writeBlockEncoding(SliceOutput output, BlockEncoding encoding)
     {
         // get the encoding name
         String encodingName = encoding.getName();
 
         // look up the encoding factory
-        @SuppressWarnings("unchecked")
-        BlockEncodingFactory<T> blockEncoding = (BlockEncodingFactory<T>) blockEncodings.get(encodingName);
+        BlockEncodingFactory<BlockEncoding> blockEncoding = (BlockEncodingFactory<BlockEncoding>) blockEncodings.get(encodingName);
         checkArgument(blockEncoding != null, "Unknown block encoding %s", encodingName);
 
         // write the name to the output

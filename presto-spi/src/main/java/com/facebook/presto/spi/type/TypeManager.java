@@ -15,5 +15,8 @@ package com.facebook.presto.spi.type;
 
 public interface TypeManager
 {
+    /**
+     * Gets the type with the specified case insensitive name, or null if not found.
+     */
     Type getType(String typeName);
 }

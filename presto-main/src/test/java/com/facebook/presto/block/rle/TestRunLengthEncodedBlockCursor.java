@@ -29,7 +29,7 @@ public class TestRunLengthEncodedBlockCursor
     protected RunLengthEncodedBlockCursor createTestCursor()
     {
         RandomAccessBlock value = VARCHAR.createBlockBuilder(new BlockBuilderStatus())
-                .append(Slices.utf8Slice("cherry"))
+                .appendSlice(Slices.utf8Slice("cherry"))
                 .build()
                 .toRandomAccessBlock();
 

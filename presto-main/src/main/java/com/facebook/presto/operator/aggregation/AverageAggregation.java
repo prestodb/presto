@@ -154,7 +154,7 @@ public class AverageAggregation
             Slice value = Slices.allocate(SIZE_OF_LONG + SIZE_OF_DOUBLE);
             value.setLong(0, count);
             value.setDouble(SIZE_OF_LONG, sum);
-            output.append(value);
+            output.appendSlice(value);
         }
 
         @Override
@@ -163,7 +163,7 @@ public class AverageAggregation
             long count = counts.get((long) groupId);
             if (count != 0) {
                 double value = sums.get((long) groupId);
-                output.append(value / count);
+                output.appendDouble(value / count);
             }
             else {
                 output.appendNull();
@@ -242,14 +242,14 @@ public class AverageAggregation
             Slice value = Slices.allocate(SIZE_OF_LONG + SIZE_OF_DOUBLE);
             value.setLong(0, count);
             value.setDouble(SIZE_OF_LONG, sum);
-            out.append(value);
+            out.appendSlice(value);
         }
 
         @Override
         public void evaluateFinal(BlockBuilder out)
         {
             if (count != 0) {
-                out.append(sum / count);
+                out.appendDouble(sum / count);
             }
             else {
                 out.appendNull();

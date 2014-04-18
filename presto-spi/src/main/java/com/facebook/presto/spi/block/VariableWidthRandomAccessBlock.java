@@ -46,7 +46,8 @@ public class VariableWidthRandomAccessBlock
         }
     }
 
-    protected int getPositionOffset(int position)
+    @Override
+    protected final int getPositionOffset(int position)
     {
         return offsets[position];
     }
@@ -57,6 +58,7 @@ public class VariableWidthRandomAccessBlock
         return offsets.length;
     }
 
+    @Override
     protected Slice getRawSlice()
     {
         return slice;

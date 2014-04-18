@@ -17,7 +17,7 @@ import com.facebook.presto.spi.Session;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.block.BlockCursor;
-import com.facebook.presto.spi.block.BlockEncoding.BlockEncodingFactory;
+import com.facebook.presto.spi.block.BlockEncodingFactory;
 import com.facebook.presto.spi.block.FixedWidthBlockUtil.FixedWidthBlockBuilderFactory;
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceOutput;
@@ -90,7 +90,7 @@ public final class TimestampType
     }
 
     @Override
-    public void setBoolean(SliceOutput sliceOutput, boolean value)
+    public void writeBoolean(SliceOutput sliceOutput, boolean value)
     {
         throw new UnsupportedOperationException();
     }
@@ -102,7 +102,7 @@ public final class TimestampType
     }
 
     @Override
-    public void setLong(SliceOutput sliceOutput, long value)
+    public void writeLong(SliceOutput sliceOutput, long value)
     {
         sliceOutput.writeLong(value);
     }
@@ -114,7 +114,7 @@ public final class TimestampType
     }
 
     @Override
-    public void setDouble(SliceOutput sliceOutput, double value)
+    public void writeDouble(SliceOutput sliceOutput, double value)
     {
         throw new UnsupportedOperationException();
     }
@@ -126,26 +126,26 @@ public final class TimestampType
     }
 
     @Override
-    public void setSlice(SliceOutput sliceOutput, Slice value, int offset)
+    public void writeSlice(SliceOutput sliceOutput, Slice value, int offset)
     {
         sliceOutput.writeBytes(value, offset, SIZE_OF_LONG);
     }
 
-    public boolean equals(Slice leftSlice, int leftOffset, Slice rightSlice, int rightOffset)
+    public boolean equalTo(Slice leftSlice, int leftOffset, Slice rightSlice, int rightOffset)
     {
         long leftValue = leftSlice.getLong(leftOffset);
         long rightValue = rightSlice.getLong(rightOffset);
         return leftValue == rightValue;
     }
 
-    public boolean equals(Slice leftSlice, int leftOffset, BlockCursor rightCursor)
+    public boolean equalTo(Slice leftSlice, int leftOffset, BlockCursor rightCursor)
     {
         long leftValue = leftSlice.getLong(leftOffset);
         long rightValue = rightCursor.getLong();
         return leftValue == rightValue;
     }
 
-    public int hashCode(Slice slice, int offset)
+    public int hash(Slice slice, int offset)
     {
         long value = slice.getLong(offset);
         return (int) (value ^ (value >>> 32));
@@ -161,7 +161,7 @@ public final class TimestampType
     public void appendTo(Slice slice, int offset, BlockBuilder blockBuilder)
     {
         long value = slice.getLong(offset);
-        blockBuilder.append(value);
+        blockBuilder.appendLong(value);
     }
 
     @Override

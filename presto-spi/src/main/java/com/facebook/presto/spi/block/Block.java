@@ -49,5 +49,8 @@ public interface Block
      */
     Block getRegion(int positionOffset, int length);
 
+    /**
+     * Converts this block to a random access block
+     */
     RandomAccessBlock toRandomAccessBlock();
 }

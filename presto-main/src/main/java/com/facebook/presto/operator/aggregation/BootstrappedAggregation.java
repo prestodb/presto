@@ -246,7 +246,7 @@ public class BootstrappedAggregation
             SliceOutput output = new DynamicSliceOutput(sizeEstimate);
             PagesSerde.writePages(blockEncodingSerde, output, new Page(blocks));
             BlockBuilder builder = VARCHAR.createBlockBuilder(new BlockBuilderStatus());
-            builder.append(output.slice());
+            builder.appendSlice(output.slice());
             return builder.build();
         }
 
@@ -262,7 +262,7 @@ public class BootstrappedAggregation
 
             BlockBuilder builder = VARCHAR.createBlockBuilder(new BlockBuilderStatus());
             String result = formatApproximateOutput(statistics, confidence);
-            builder.append(Slices.utf8Slice(result));
+            builder.appendSlice(Slices.utf8Slice(result));
             return builder.build();
         }
     }
@@ -347,7 +347,7 @@ public class BootstrappedAggregation
 
             SliceOutput sliceOutput = new DynamicSliceOutput(sizeEstimate);
             PagesSerde.writePages(blockEncodingSerde, sliceOutput, new Page(blocks));
-            output.append(sliceOutput.slice());
+            output.appendSlice(sliceOutput.slice());
         }
 
         @Override
@@ -363,7 +363,7 @@ public class BootstrappedAggregation
             }
 
             String result = formatApproximateOutput(statistics, confidence);
-            output.append(Slices.utf8Slice(result));
+            output.appendSlice(Slices.utf8Slice(result));
         }
     }
 

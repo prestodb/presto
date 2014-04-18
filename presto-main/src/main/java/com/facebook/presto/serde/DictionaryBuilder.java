@@ -94,12 +94,12 @@ public class DictionaryBuilder
 
         private int hashCurrentRow()
         {
-            return currentValue.calculateHashCode();
+            return currentValue.hash();
         }
 
         public int hashOffset(int offset)
         {
-            return blockBuilder.hashCode(offset);
+            return blockBuilder.hash(offset);
         }
 
         @Override
@@ -126,12 +126,12 @@ public class DictionaryBuilder
 
         public boolean offsetEqualsOffset(int leftOffset, int rightOffset)
         {
-            return blockBuilder.equals(leftOffset, blockBuilder, rightOffset);
+            return blockBuilder.equalTo(leftOffset, blockBuilder, rightOffset);
         }
 
         public boolean offsetEqualsCurrentValue(int offset)
         {
-            return blockBuilder.equals(offset, currentValue);
+            return blockBuilder.equalTo(offset, currentValue);
         }
     }
 }

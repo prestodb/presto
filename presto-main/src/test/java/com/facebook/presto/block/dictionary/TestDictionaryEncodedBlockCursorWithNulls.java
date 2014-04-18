@@ -40,10 +40,10 @@ public class TestDictionaryEncodedBlockCursorWithNulls
     {
         RandomAccessBlock dictionary = VARCHAR.createBlockBuilder(new BlockBuilderStatus())
                 .appendNull()
-                .append(Slices.utf8Slice("apple"))
-                .append(Slices.utf8Slice("banana"))
-                .append(Slices.utf8Slice("cherry"))
-                .append(Slices.utf8Slice("date"))
+                .appendSlice(Slices.utf8Slice("apple"))
+                .appendSlice(Slices.utf8Slice("banana"))
+                .appendSlice(Slices.utf8Slice("cherry"))
+                .appendSlice(Slices.utf8Slice("date"))
                 .build()
                 .toRandomAccessBlock();
 

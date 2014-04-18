@@ -150,9 +150,19 @@ public interface BlockCursor
      */
     int getPosition();
 
-    int compareTo(Slice slice, int offset);
+    /**
+     * Compares the value at the current position to the value at the other offset
+     * in the other slice?
+     */
+    int compareTo(Slice otherSlice, int otherOffset);
 
-    int calculateHashCode();
+    /**
+     * Calculates the hash code of the value at the current position.
+     */
+    int hash();
 
+    /**
+     * Appends the value at the current position to the block builder.
+     */
     void appendTo(BlockBuilder blockBuilder);
 }

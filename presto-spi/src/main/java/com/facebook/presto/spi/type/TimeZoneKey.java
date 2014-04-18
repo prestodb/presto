@@ -111,7 +111,7 @@ public final class TimeZoneKey
             zoneKey = ZONE_ID_TO_KEY.get(normalizeZoneId(zoneId));
         }
         if (zoneKey == null) {
-            throw new TimeZoneNotSupported(zoneId);
+            throw new TimeZoneNotSupportedException(zoneId);
         }
         return zoneKey;
     }
@@ -125,7 +125,7 @@ public final class TimeZoneKey
         checkArgument(offsetMinutes >= OFFSET_TIME_ZONE_MIN && offsetMinutes <= OFFSET_TIME_ZONE_MAX, "Invalid offset minutes %s", offsetMinutes);
         TimeZoneKey timeZoneKey = OFFSET_TIME_ZONE_KEYS[((int) offsetMinutes) - OFFSET_TIME_ZONE_MIN];
         if (timeZoneKey == null) {
-            throw new TimeZoneNotSupported(zoneIdForOffset(offsetMinutes));
+            throw new TimeZoneNotSupportedException(zoneIdForOffset(offsetMinutes));
         }
         return timeZoneKey;
     }

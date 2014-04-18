@@ -168,7 +168,7 @@ public class ChannelSet
 
         public ChannelSet build()
         {
-            DataSize estimatedSize = new DataSize(addressValueSet.getEstimatedSize().toBytes() + blocksMemorySize + openBlockBuilder.size(), BYTE);
+            DataSize estimatedSize = new DataSize(addressValueSet.getEstimatedSize().toBytes() + blocksMemorySize + openBlockBuilder.getSizeInBytes(), BYTE);
             return new ChannelSet(strategy, addressValueSet, containsNull, estimatedSize);
         }
     }
@@ -211,12 +211,12 @@ public class ChannelSet
         {
             int sliceIndex = decodeSliceIndex(sliceAddress);
             int position = decodePosition(sliceAddress);
-            return blocks.get(sliceIndex).hashCode(position);
+            return blocks.get(sliceIndex).hash(position);
         }
 
         private int hashCurrentRow()
         {
-            return lookupValue.calculateHashCode();
+            return lookupValue.hash();
         }
 
         @Override
@@ -245,12 +245,12 @@ public class ChannelSet
 
         private boolean positionEqualsCurrentRow(int sliceIndex, int position)
         {
-            return blocks.get(sliceIndex).equals(position, lookupValue);
+            return blocks.get(sliceIndex).equalTo(position, lookupValue);
         }
 
         private boolean positionEqualsPosition(int leftSliceIndex, int leftPosition, int rightSliceIndex, int rightPosition)
         {
-            return blocks.get(leftSliceIndex).equals(leftPosition, blocks.get(rightSliceIndex), rightPosition);
+            return blocks.get(leftSliceIndex).equalTo(leftPosition, blocks.get(rightSliceIndex), rightPosition);
         }
     }
 }

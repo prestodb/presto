@@ -64,7 +64,7 @@ public class TestJoinCompiler
 
             for (int leftBlockPosition = 0; leftBlockPosition < leftBlock.getPositionCount(); leftBlockPosition++) {
                 // hash code of position must match block hash
-                assertEquals(hashStrategy.hashPosition(leftBlockIndex, leftBlockPosition), leftBlock.hashCode(leftBlockPosition));
+                assertEquals(hashStrategy.hashPosition(leftBlockIndex, leftBlockPosition), leftBlock.hash(leftBlockPosition));
 
                 // position must be equal to itself
                 assertTrue(hashStrategy.positionEqualsPosition(leftBlockIndex, leftBlockPosition, leftBlockIndex, leftBlockPosition));
@@ -75,7 +75,7 @@ public class TestJoinCompiler
                     for (int rightBlockPosition = 0; rightBlockPosition < rightBlock.getPositionCount(); rightBlockPosition++) {
                         assertEquals(
                                 hashStrategy.positionEqualsPosition(leftBlockIndex, leftBlockPosition, rightBlockIndex, rightBlockPosition),
-                                leftBlock.equals(leftBlockPosition, rightBlock, rightBlockPosition));
+                                leftBlock.equalTo(leftBlockPosition, rightBlock, rightBlockPosition));
                     }
                 }
 
@@ -86,7 +86,7 @@ public class TestJoinCompiler
                     while (rightCursor.advanceNextPosition()) {
                         assertEquals(
                                 hashStrategy.positionEqualsCursors(leftBlockIndex, leftBlockPosition, rightCursors),
-                                leftBlock.equals(leftBlockPosition, rightCursor));
+                                leftBlock.equalTo(leftBlockPosition, rightCursor));
                     }
                 }
 

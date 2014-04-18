@@ -81,43 +81,43 @@ public class VariableWidthBlockBuilder
     }
 
     @Override
-    public int size()
+    public int getSizeInBytes()
     {
         return sliceOutput.size();
     }
 
     @Override
-    public BlockBuilder append(boolean value)
+    public BlockBuilder appendBoolean(boolean value)
     {
         throw new UnsupportedOperationException();
     }
 
     @Override
-    public BlockBuilder append(long value)
+    public BlockBuilder appendLong(long value)
     {
         throw new UnsupportedOperationException();
     }
 
     @Override
-    public BlockBuilder append(double value)
+    public BlockBuilder appendDouble(double value)
     {
         throw new UnsupportedOperationException();
     }
 
     @Override
-    public BlockBuilder append(Slice value)
+    public BlockBuilder appendSlice(Slice value)
     {
-        return append(value, 0, value.length());
+        return appendSlice(value, 0, value.length());
     }
 
     @Override
-    public BlockBuilder append(Slice value, int offset, int length)
+    public BlockBuilder appendSlice(Slice value, int offset, int length)
     {
         recordNewPosition();
 
         sliceOutput.writeByte(0);
 
-        int bytesWritten = type.setSlice(sliceOutput, value, offset, length);
+        int bytesWritten = type.writeSlice(sliceOutput, value, offset, length);
 
         entryAdded(bytesWritten);
 
