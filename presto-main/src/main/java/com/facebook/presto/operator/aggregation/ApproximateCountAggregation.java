@@ -169,7 +169,8 @@ public class ApproximateCountAggregation
         {
             long count = counts.get(groupId);
             long samples = this.samples.get(groupId);
-            output.append(formatApproximateResult(count, countError(samples, count), confidence, true));
+            String result = formatApproximateResult(count, countError(samples, count), confidence, true);
+            output.append(Slices.utf8Slice(result));
         }
     }
 
@@ -256,8 +257,9 @@ public class ApproximateCountAggregation
         @Override
         public final Block evaluateFinal()
         {
+            String result = formatApproximateResult(count, countError(samples, count), confidence, true);
             return getFinalType().createBlockBuilder(new BlockBuilderStatus())
-                    .append(formatApproximateResult(count, countError(samples, count), confidence, true))
+                    .append(Slices.utf8Slice(result))
                     .build();
         }
     }

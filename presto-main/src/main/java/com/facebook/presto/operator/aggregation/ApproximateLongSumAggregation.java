@@ -166,11 +166,12 @@ public class ApproximateLongSumAggregation
                 return;
             }
 
-            output.append(formatApproximateResult(
+            String result = formatApproximateResult(
                     sums.get(groupId),
                     sumError(samples.get(groupId), count, m2s.get(groupId), means.get(groupId)),
                     confidence,
-                    true));
+                    true);
+            output.append(Slices.utf8Slice(result));
         }
     }
 
@@ -251,11 +252,12 @@ public class ApproximateLongSumAggregation
                 return;
             }
 
-            out.append(formatApproximateResult(
+            String result = formatApproximateResult(
                     sum,
                     sumError(calculator.getCount(), count, calculator.getM2(), calculator.getMean()),
                     confidence,
-                    true));
+                    true);
+            out.append(Slices.utf8Slice(result));
         }
     }
 

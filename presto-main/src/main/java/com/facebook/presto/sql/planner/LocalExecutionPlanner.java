@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.sql.planner;
 
+import com.facebook.presto.block.BlockUtils;
 import com.facebook.presto.index.IndexManager;
 import com.facebook.presto.metadata.ColumnHandle;
 import com.facebook.presto.metadata.LocalStorageManager;
@@ -810,7 +811,7 @@ public class LocalExecutionPlanner
                 for (int i = 0; i < row.size(); i++) {
                     // evaluate the literal value
                     Object result = ExpressionInterpreter.expressionInterpreter(row.get(i), metadata, context.getSession(), expressionTypes).evaluate(new BlockCursor[0]);
-                    pageBuilder.getBlockBuilder(i).appendObject(result);
+                    BlockUtils.appendObject(pageBuilder.getBlockBuilder(i), result);
                 }
             }
 

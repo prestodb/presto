@@ -20,6 +20,7 @@ import com.facebook.presto.spi.type.Type;
 import com.google.common.base.Joiner;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
+import io.airlift.slice.Slices;
 
 import java.io.IOException;
 import java.util.List;
@@ -111,7 +112,7 @@ public class NativeRecordSink
     @Override
     public void appendString(byte[] value)
     {
-        nextColumn().append(value);
+        nextColumn().append(Slices.wrappedBuffer(value));
     }
 
     @Override

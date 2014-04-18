@@ -20,6 +20,7 @@ import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.slice.Slice;
+import io.airlift.slice.Slices;
 import io.airlift.units.DataSize;
 
 import java.io.Closeable;
@@ -146,7 +147,7 @@ public class RecordProjectOperator
                             output.append(cursor.getDouble(column));
                         }
                         else if (javaType == Slice.class) {
-                            output.append(cursor.getString(column));
+                            output.append(Slices.wrappedBuffer(cursor.getString(column)));
                         }
                         else {
                             throw new AssertionError("Unimplemented type: " + javaType.getName());

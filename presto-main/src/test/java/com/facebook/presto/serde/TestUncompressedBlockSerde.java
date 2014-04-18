@@ -13,12 +13,13 @@
  */
 package com.facebook.presto.serde;
 
-import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.block.BlockAssertions;
+import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.block.BlockEncoding;
 import com.facebook.presto.spi.block.VariableWidthBlockEncoding;
 import io.airlift.slice.DynamicSliceOutput;
+import io.airlift.slice.Slices;
 import org.testng.annotations.Test;
 
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
@@ -29,10 +30,10 @@ public class TestUncompressedBlockSerde
     public void testRoundTrip()
     {
         Block expectedBlock = VARCHAR.createBlockBuilder(new BlockBuilderStatus())
-                .append("alice")
-                .append("bob")
-                .append("charlie")
-                .append("dave")
+                .append(Slices.utf8Slice("alice"))
+                .append(Slices.utf8Slice("bob"))
+                .append(Slices.utf8Slice("charlie"))
+                .append(Slices.utf8Slice("dave"))
                 .build();
 
         DynamicSliceOutput sliceOutput = new DynamicSliceOutput(1024);
@@ -46,24 +47,24 @@ public class TestUncompressedBlockSerde
     public void testCreateBlockWriter()
     {
         Block block = VARCHAR.createBlockBuilder(new BlockBuilderStatus())
-                .append("alice")
-                .append("bob")
-                .append("charlie")
-                .append("dave")
+                .append(Slices.utf8Slice("alice"))
+                .append(Slices.utf8Slice("bob"))
+                .append(Slices.utf8Slice("charlie"))
+                .append(Slices.utf8Slice("dave"))
                 .build();
 
         DynamicSliceOutput sliceOutput = new DynamicSliceOutput(1024);
         BlockEncoding blockEncoding = new UncompressedEncoder(sliceOutput).append(block).append(block).finish();
         Block actualBlock = blockEncoding.readBlock(sliceOutput.slice().getInput());
         BlockAssertions.assertBlockEquals(actualBlock, VARCHAR.createBlockBuilder(new BlockBuilderStatus())
-                .append("alice")
-                .append("bob")
-                .append("charlie")
-                .append("dave")
-                .append("alice")
-                .append("bob")
-                .append("charlie")
-                .append("dave")
+                .append(Slices.utf8Slice("alice"))
+                .append(Slices.utf8Slice("bob"))
+                .append(Slices.utf8Slice("charlie"))
+                .append(Slices.utf8Slice("dave"))
+                .append(Slices.utf8Slice("alice"))
+                .append(Slices.utf8Slice("bob"))
+                .append(Slices.utf8Slice("charlie"))
+                .append(Slices.utf8Slice("dave"))
                 .build());
     }
 }

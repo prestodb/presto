@@ -13,16 +13,17 @@
  */
 package com.facebook.presto.serde;
 
-import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.block.BlockAssertions;
+import com.facebook.presto.block.rle.RunLengthBlockEncoding;
+import com.facebook.presto.block.rle.RunLengthEncodedBlock;
+import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.block.BlockEncoding;
 import com.facebook.presto.spi.block.RandomAccessBlock;
-import com.facebook.presto.block.rle.RunLengthBlockEncoding;
-import com.facebook.presto.block.rle.RunLengthEncodedBlock;
 import com.facebook.presto.spi.block.VariableWidthBlockEncoding;
 import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.SliceInput;
+import io.airlift.slice.Slices;
 import org.testng.annotations.Test;
 
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
@@ -37,7 +38,7 @@ public class TestRunLengthEncodedBlockSerde
     public void testRoundTrip()
     {
         RandomAccessBlock value = VARCHAR.createBlockBuilder(new BlockBuilderStatus())
-                .append("alice")
+                .append(Slices.utf8Slice("alice"))
                 .build()
                 .toRandomAccessBlock();
 
@@ -55,18 +56,18 @@ public class TestRunLengthEncodedBlockSerde
     public void testCreateBlockWriter()
     {
         RandomAccessBlock expectedBlock = VARCHAR.createBlockBuilder(new BlockBuilderStatus())
-                .append("alice")
-                .append("alice")
-                .append("bob")
-                .append("bob")
-                .append("bob")
-                .append("bob")
-                .append("charlie")
-                .append("charlie")
-                .append("charlie")
-                .append("charlie")
-                .append("charlie")
-                .append("charlie")
+                .append(Slices.utf8Slice("alice"))
+                .append(Slices.utf8Slice("alice"))
+                .append(Slices.utf8Slice("bob"))
+                .append(Slices.utf8Slice("bob"))
+                .append(Slices.utf8Slice("bob"))
+                .append(Slices.utf8Slice("bob"))
+                .append(Slices.utf8Slice("charlie"))
+                .append(Slices.utf8Slice("charlie"))
+                .append(Slices.utf8Slice("charlie"))
+                .append(Slices.utf8Slice("charlie"))
+                .append(Slices.utf8Slice("charlie"))
+                .append(Slices.utf8Slice("charlie"))
                 .build()
                 .toRandomAccessBlock();
 
