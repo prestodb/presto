@@ -256,6 +256,48 @@ public final class DateTimeFunctions
         return packDateTimeWithZone(unpackMillisUtc(timestampWithTimeZone), getTimeZoneKeyForOffset(zoneOffsetMinutes));
     }
 
+    @Description("truncate to the specified precision in the session timezone")
+    @ScalarFunction("date_trunc")
+    @SqlType(DateType.class)
+    public static long truncateDate(Session session, Slice unit, @SqlType(DateType.class) long time)
+    {
+        return getDateField(UTC_CHRONOLOGY, unit).roundFloor(time);
+    }
+
+    @Description("truncate to the specified precision in the session timezone")
+    @ScalarFunction("date_trunc")
+    @SqlType(TimeType.class)
+    public static long truncateTime(Session session, Slice unit, @SqlType(TimeType.class) long time)
+    {
+        return getTimeField(getChronology(session.getTimeZoneKey()), unit).roundFloor(time);
+    }
+
+    @Description("truncate to the specified precision")
+    @ScalarFunction("date_trunc")
+    @SqlType(TimeWithTimeZoneType.class)
+    public static long truncateTimeWithTimeZone(Slice unit, @SqlType(TimeWithTimeZoneType.class) long timeWithTimeZone)
+    {
+        long millis = getTimeField(unpackChronology(timeWithTimeZone), unit).roundFloor(unpackMillisUtc(timeWithTimeZone));
+        return updateMillisUtc(millis, timeWithTimeZone);
+    }
+
+    @Description("truncate to the specified precision in the session timezone")
+    @ScalarFunction("date_trunc")
+    @SqlType(TimestampType.class)
+    public static long truncateTimestamp(Session session, Slice unit, @SqlType(TimestampType.class) long timestamp)
+    {
+        return getTimestampField(getChronology(session.getTimeZoneKey()), unit).roundFloor(timestamp);
+    }
+
+    @Description("truncate to the specified precision")
+    @ScalarFunction("date_trunc")
+    @SqlType(TimestampWithTimeZoneType.class)
+    public static long truncateTimestampWithTimezone(Slice unit, @SqlType(TimestampWithTimeZoneType.class) long timestampWithTimeZone)
+    {
+        long millis = getTimestampField(unpackChronology(timestampWithTimeZone), unit).roundFloor(unpackMillisUtc(timestampWithTimeZone));
+        return updateMillisUtc(millis, timestampWithTimeZone);
+    }
+
     @Description("add the specified amount of date to the given date")
     @ScalarFunction("date_add")
     @SqlType(DateType.class)

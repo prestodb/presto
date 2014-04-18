@@ -54,18 +54,18 @@ public class TestUnixTimeFunctions
     private static final TimeZoneKey WEIRD_ZONE_KEY = getTimeZoneKey("+07:09");
     private static final DateTimeZone WEIRD_ZONE = getDateTimeZone(WEIRD_ZONE_KEY);
 
-    private static final DateTime DATE = new DateTime(2001, 3, 22, 0, 0, 0, 0, DATE_TIME_ZONE);
-    private static final String DATE_LITERAL = "DATE '2001-03-22'";
+    private static final DateTime DATE = new DateTime(2001, 8, 22, 0, 0, 0, 0, DATE_TIME_ZONE);
+    private static final String DATE_LITERAL = "DATE '2001-08-22'";
 
     private static final DateTime TIME = new DateTime(1970, 1, 1, 3, 4, 5, 321, DATE_TIME_ZONE);
     private static final String TIME_LITERAL = "TIME '03:04:05.321'";
     private static final DateTime WEIRD_TIME = new DateTime(1970, 1, 1, 3, 4, 5, 321, WEIRD_ZONE);
     private static final String WEIRD_TIME_LITERAL = "TIME '03:04:05.321 +07:09'";
 
-    private static final DateTime TIMESTAMP = new DateTime(2001, 1, 22, 3, 4, 5, 321, DATE_TIME_ZONE);
-    private static final String TIMESTAMP_LITERAL = "TIMESTAMP '2001-01-22 03:04:05.321'";
-    private static final DateTime WEIRD_TIMESTAMP = new DateTime(2001, 1, 22, 3, 4, 5, 321, WEIRD_ZONE);
-    private static final String WEIRD_TIMESTAMP_LITERAL = "TIMESTAMP '2001-01-22 03:04:05.321 +07:09'";
+    private static final DateTime TIMESTAMP = new DateTime(2001, 8, 22, 3, 4, 5, 321, DATE_TIME_ZONE);
+    private static final String TIMESTAMP_LITERAL = "TIMESTAMP '2001-08-22 03:04:05.321'";
+    private static final DateTime WEIRD_TIMESTAMP = new DateTime(2001, 8, 22, 3, 4, 5, 321, WEIRD_ZONE);
+    private static final String WEIRD_TIMESTAMP_LITERAL = "TIMESTAMP '2001-08-22 03:04:05.321 +07:09'";
 
     private static final DateTimeField CENTURY_FIELD = ISOChronology.getInstance(DATE_TIME_ZONE).centuryOfEra();
     private static final TimeZoneKey WEIRD_TIME_ZONE_KEY = getTimeZoneKeyForOffset(7 * 60 + 9);
@@ -245,15 +245,15 @@ public class TestUnixTimeFunctions
     @Test
     public void testExtractFromDate()
     {
-        assertFunction("extract(day_of_week FROM " + DATE_LITERAL + ")", 4);
-        assertFunction("extract(dow FROM " + DATE_LITERAL + ")", 4);
+        assertFunction("extract(day_of_week FROM " + DATE_LITERAL + ")", 3);
+        assertFunction("extract(dow FROM " + DATE_LITERAL + ")", 3);
         assertFunction("extract(day FROM " + DATE_LITERAL + ")", 22);
         assertFunction("extract(day_of_month FROM " + DATE_LITERAL + ")", 22);
-        assertFunction("extract(day_of_year FROM " + DATE_LITERAL + ")", 81);
-        assertFunction("extract(doy FROM " + DATE_LITERAL + ")", 81);
-        assertFunction("extract(week FROM " + DATE_LITERAL + ")", 12);
-        assertFunction("extract(month FROM " + DATE_LITERAL + ")", 3);
-        assertFunction("extract(quarter FROM " + DATE_LITERAL + ")", 1);
+        assertFunction("extract(day_of_year FROM " + DATE_LITERAL + ")", 234);
+        assertFunction("extract(doy FROM " + DATE_LITERAL + ")", 234);
+        assertFunction("extract(week FROM " + DATE_LITERAL + ")", 34);
+        assertFunction("extract(month FROM " + DATE_LITERAL + ")", 8);
+        assertFunction("extract(quarter FROM " + DATE_LITERAL + ")", 3);
         assertFunction("extract(year FROM " + DATE_LITERAL + ")", 2001);
         assertFunction("extract(century FROM " + DATE_LITERAL + ")", 21);
     }
@@ -280,6 +280,112 @@ public class TestUnixTimeFunctions
 
         assertFunction("extract(year FROM INTERVAL '2' YEAR)", 2);
         assertFunction("extract(year FROM INTERVAL '29' MONTH)", 2);
+    }
+
+    @Test
+    public void testTruncateTimestamp()
+    {
+        DateTime result = TIMESTAMP;
+        result = result.withMillisOfSecond(0);
+        assertFunction("date_trunc('second', " + TIMESTAMP_LITERAL + ")", toTimestamp(result));
+
+        result = result.withSecondOfMinute(0);
+        assertFunction("date_trunc('minute', " + TIMESTAMP_LITERAL + ")", toTimestamp(result));
+
+        result = result.withMinuteOfHour(0);
+        assertFunction("date_trunc('hour', " + TIMESTAMP_LITERAL + ")", toTimestamp(result));
+
+        result = result.withHourOfDay(0);
+        assertFunction("date_trunc('day', " + TIMESTAMP_LITERAL + ")", toTimestamp(result));
+
+        result = result.withDayOfMonth(20);
+        assertFunction("date_trunc('week', " + TIMESTAMP_LITERAL + ")", toTimestamp(result));
+
+        result = result.withDayOfMonth(1);
+        assertFunction("date_trunc('month', " + TIMESTAMP_LITERAL + ")", toTimestamp(result));
+
+        result = result.withMonthOfYear(7);
+        assertFunction("date_trunc('quarter', " + TIMESTAMP_LITERAL + ")", toTimestamp(result));
+
+        result = result.withMonthOfYear(1);
+        assertFunction("date_trunc('year', " + TIMESTAMP_LITERAL + ")", toTimestamp(result));
+
+        result = result.withYear(2000);
+        assertFunction("date_trunc('century', " + TIMESTAMP_LITERAL + ")", toTimestamp(result));
+
+        result = WEIRD_TIMESTAMP;
+        result = result.withMillisOfSecond(0);
+        assertFunction("date_trunc('second', " + WEIRD_TIMESTAMP_LITERAL + ")", toTimestampWithTimeZone(result));
+
+        result = result.withSecondOfMinute(0);
+        assertFunction("date_trunc('minute', " + WEIRD_TIMESTAMP_LITERAL + ")", toTimestampWithTimeZone(result));
+
+        result = result.withMinuteOfHour(0);
+        assertFunction("date_trunc('hour', " + WEIRD_TIMESTAMP_LITERAL + ")", toTimestampWithTimeZone(result));
+
+        result = result.withHourOfDay(0);
+        assertFunction("date_trunc('day', " + WEIRD_TIMESTAMP_LITERAL + ")", toTimestampWithTimeZone(result));
+
+        result = result.withDayOfMonth(20);
+        assertFunction("date_trunc('week', " + WEIRD_TIMESTAMP_LITERAL + ")", toTimestampWithTimeZone(result));
+
+        result = result.withDayOfMonth(1);
+        assertFunction("date_trunc('month', " + WEIRD_TIMESTAMP_LITERAL + ")", toTimestampWithTimeZone(result));
+
+        result = result.withMonthOfYear(7);
+        assertFunction("date_trunc('quarter', " + WEIRD_TIMESTAMP_LITERAL + ")", toTimestampWithTimeZone(result));
+
+        result = result.withMonthOfYear(1);
+        assertFunction("date_trunc('year', " + WEIRD_TIMESTAMP_LITERAL + ")", toTimestampWithTimeZone(result));
+
+        result = result.withYear(2000);
+        assertFunction("date_trunc('century', " + WEIRD_TIMESTAMP_LITERAL + ")", toTimestampWithTimeZone(result));
+    }
+
+    @Test
+    public void testTruncateTime()
+    {
+        DateTime result = TIME;
+        result = result.withMillisOfSecond(0);
+        assertFunction("date_trunc('second', " + TIME_LITERAL + ")", toTime(result));
+
+        result = result.withSecondOfMinute(0);
+        assertFunction("date_trunc('minute', " + TIME_LITERAL + ")", toTime(result));
+
+        result = result.withMinuteOfHour(0);
+        assertFunction("date_trunc('hour', " + TIME_LITERAL + ")", toTime(result));
+
+        result = WEIRD_TIME;
+        result = result.withMillisOfSecond(0);
+        assertFunction("date_trunc('second', " + WEIRD_TIME_LITERAL + ")", toTimeWithTimeZone(result));
+
+        result = result.withSecondOfMinute(0);
+        assertFunction("date_trunc('minute', " + WEIRD_TIME_LITERAL + ")", toTimeWithTimeZone(result));
+
+        result = result.withMinuteOfHour(0);
+        assertFunction("date_trunc('hour', " + WEIRD_TIME_LITERAL + ")", toTimeWithTimeZone(result));
+    }
+
+    @Test
+    public void testTruncateDate()
+    {
+        DateTime result = DATE;
+        assertFunction("date_trunc('day', " + DATE_LITERAL + ")", toDate(result));
+
+        result = result.withDayOfMonth(20);
+        assertFunction("date_trunc('week', " + DATE_LITERAL + ")", toDate(result));
+
+        result = result.withDayOfMonth(1);
+        assertFunction("date_trunc('month', " + DATE_LITERAL + ")", toDate(result));
+
+        result = result.withMonthOfYear(7);
+        assertFunction("date_trunc('quarter', " + DATE_LITERAL + ")", toDate(result));
+
+        result = result.withMonthOfYear(1);
+        assertFunction("date_trunc('year', " + DATE_LITERAL + ")", toDate(result));
+
+        result = result.withYear(2000);
+        assertFunction("date_trunc('century', " + DATE_LITERAL + ")", toDate(result));
     }
 
     @Test
@@ -415,10 +521,10 @@ public class TestUnixTimeFunctions
     @Test
     public void testFormatDatetime()
     {
-        assertFunction("format_datetime(" + TIMESTAMP_LITERAL + ", 'YYYY/MM/DD HH:mm')", "2001/01/22 03:04");
-        assertFunction("format_datetime(" + TIMESTAMP_LITERAL + ", 'YYYY/MM/DD HH:mm ZZZZ')", "2001/01/22 03:04 Asia/Kathmandu");
-        assertFunction("format_datetime(" + WEIRD_TIMESTAMP_LITERAL + ", 'YYYY/MM/DD HH:mm')", "2001/01/22 03:04");
-        assertFunction("format_datetime(" + WEIRD_TIMESTAMP_LITERAL + ", 'YYYY/MM/DD HH:mm ZZZZ')", "2001/01/22 03:04 +07:09");
+        assertFunction("format_datetime(" + TIMESTAMP_LITERAL + ", 'YYYY/MM/dd HH:mm')", "2001/08/22 03:04");
+        assertFunction("format_datetime(" + TIMESTAMP_LITERAL + ", 'YYYY/MM/dd HH:mm ZZZZ')", "2001/08/22 03:04 Asia/Kathmandu");
+        assertFunction("format_datetime(" + WEIRD_TIMESTAMP_LITERAL + ", 'YYYY/MM/dd HH:mm')", "2001/08/22 03:04");
+        assertFunction("format_datetime(" + WEIRD_TIMESTAMP_LITERAL + ", 'YYYY/MM/dd HH:mm ZZZZ')", "2001/08/22 03:04 +07:09");
     }
 
     @Test
