@@ -16,7 +16,6 @@ package com.facebook.presto.split;
 import com.facebook.presto.spi.RecordCursor;
 import com.facebook.presto.spi.RecordSet;
 import com.facebook.presto.spi.type.Type;
-import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
@@ -27,19 +26,22 @@ public class MappedRecordSet
         implements RecordSet
 {
     private final RecordSet delegate;
-    private final List<Integer> userToSystemFieldIndex;
+    private final int[] delegateFieldIndex;
     private final List<Type> columnTypes;
 
-    public MappedRecordSet(RecordSet delegate, List<Integer> userToSystemFieldIndex)
+    public MappedRecordSet(RecordSet delegate, List<Integer> delegateFieldIndex)
     {
         this.delegate = delegate;
-        this.userToSystemFieldIndex = userToSystemFieldIndex;
+        this.delegateFieldIndex = new int[delegateFieldIndex.size()];
+        for (int i = 0; i < delegateFieldIndex.size(); i++) {
+            this.delegateFieldIndex[i] = delegateFieldIndex.get(i);
+        }
 
         List<Type> delegateColumnTypes = delegate.getColumnTypes();
         ImmutableList.Builder<Type> columnTypes = ImmutableList.builder();
-        for (int systemField : userToSystemFieldIndex) {
-            checkArgument(systemField >= 0 && systemField < delegateColumnTypes.size(), "Invalid system field %s", systemField);
-            columnTypes.add(delegateColumnTypes.get(systemField));
+        for (int delegateField : delegateFieldIndex) {
+            checkArgument(delegateField >= 0 && delegateField < delegateColumnTypes.size(), "Invalid system field %s", delegateField);
+            columnTypes.add(delegateColumnTypes.get(delegateField));
         }
         this.columnTypes = columnTypes.build();
     }
@@ -53,19 +55,19 @@ public class MappedRecordSet
     @Override
     public RecordCursor cursor()
     {
-        return new MappedRecordCursor(delegate.cursor(), userToSystemFieldIndex);
+        return new MappedRecordCursor(delegate.cursor(), delegateFieldIndex);
     }
 
     private static class MappedRecordCursor
             implements RecordCursor
     {
         private final RecordCursor delegate;
-        private final List<Integer> userToSystemFieldIndex;
+        private final int[] delegateFieldIndex;
 
-        private MappedRecordCursor(RecordCursor delegate, List<Integer> userToSystemFieldIndex)
+        private MappedRecordCursor(RecordCursor delegate, int[] delegateFieldIndex)
         {
             this.delegate = delegate;
-            this.userToSystemFieldIndex = ImmutableList.copyOf(userToSystemFieldIndex);
+            this.delegateFieldIndex = delegateFieldIndex;
         }
 
         @Override
@@ -101,31 +103,31 @@ public class MappedRecordSet
         @Override
         public boolean getBoolean(int field)
         {
-            return delegate.getBoolean(userFieldToSystemField(field));
+            return delegate.getBoolean(toDelegateField(field));
         }
 
         @Override
         public long getLong(int field)
         {
-            return delegate.getLong(userFieldToSystemField(field));
+            return delegate.getLong(toDelegateField(field));
         }
 
         @Override
         public double getDouble(int field)
         {
-            return delegate.getDouble(userFieldToSystemField(field));
+            return delegate.getDouble(toDelegateField(field));
         }
 
         @Override
         public byte[] getString(int field)
         {
-            return delegate.getString(userFieldToSystemField(field));
+            return delegate.getString(toDelegateField(field));
         }
 
         @Override
         public boolean isNull(int field)
         {
-            return delegate.isNull(userFieldToSystemField(field));
+            return delegate.isNull(toDelegateField(field));
         }
 
         @Override
@@ -134,11 +136,11 @@ public class MappedRecordSet
             delegate.close();
         }
 
-        private int userFieldToSystemField(int field)
+        private int toDelegateField(int field)
         {
-            Preconditions.checkArgument(field >= 0, "field is negative");
-            checkArgument(field < userToSystemFieldIndex.size());
-            return userToSystemFieldIndex.get(field);
+            checkArgument(field >= 0, "field is negative");
+            checkArgument(field < delegateFieldIndex.length);
+            return delegateFieldIndex[field];
         }
     }
 }

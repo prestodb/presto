@@ -50,6 +50,24 @@ public class VariableWidthBlockCursor
         position = -1;
     }
 
+    public VariableWidthBlockCursor(VariableWidthBlockCursor cursor)
+    {
+        this.type = cursor.type;
+        this.positionCount = cursor.positionCount;
+        this.slice = cursor.slice;
+
+        this.position = cursor.position;
+        this.entryOffset = cursor.entryOffset;
+        this.entrySize = cursor.entrySize;
+        this.isNull = cursor.isNull();
+    }
+
+    @Override
+    public BlockCursor duplicate()
+    {
+        return new VariableWidthBlockCursor(this);
+    }
+
     // Accessible for VariableWidthRandomAccessBlock
     int getRawOffset()
     {

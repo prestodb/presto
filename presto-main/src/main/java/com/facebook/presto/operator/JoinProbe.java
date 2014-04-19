@@ -15,11 +15,11 @@ package com.facebook.presto.operator;
 
 public interface JoinProbe
 {
-    boolean advanceNextPosition();
-
-    void appendTo(PageBuilder pageBuilder);
-
     int getChannelCount();
 
-    int getCurrentJoinPosition();
+    boolean advanceNextPosition();
+
+    long getCurrentJoinPosition();
+
+    void appendTo(PageBuilder pageBuilder);
 }

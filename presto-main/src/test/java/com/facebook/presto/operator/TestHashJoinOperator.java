@@ -81,9 +81,9 @@ public class TestHashJoinOperator
         List<Page> probeInput = rowPagesBuilder(VARCHAR, BIGINT, BIGINT)
                 .addSequencePage(1000, 0, 1000, 2000)
                 .build();
-        OperatorFactory joinOperatorFactory = HashJoinOperators.innerJoin(
+        OperatorFactory joinOperatorFactory = LookupJoinOperators.innerJoin(
                 0,
-                hashBuilderOperatorFactory.getHashSupplier(),
+                hashBuilderOperatorFactory.getLookupSourceSupplier(),
                 ImmutableList.of(VARCHAR, BIGINT, BIGINT),
                 Ints.asList(0));
 
@@ -135,9 +135,9 @@ public class TestHashJoinOperator
                 .row("a")
                 .row("b")
                 .build();
-        OperatorFactory joinOperatorFactory = HashJoinOperators.innerJoin(
+        OperatorFactory joinOperatorFactory = LookupJoinOperators.innerJoin(
                 0,
-                hashBuilderOperatorFactory.getHashSupplier(),
+                hashBuilderOperatorFactory.getLookupSourceSupplier(),
                 ImmutableList.of(VARCHAR),
                 Ints.asList(0));
         Operator joinOperator = joinOperatorFactory.createOperator(taskContext.addPipelineContext(true, true).addDriverContext());
@@ -181,9 +181,9 @@ public class TestHashJoinOperator
                 .row("b")
                 .row("c")
                 .build();
-        OperatorFactory joinOperatorFactory = HashJoinOperators.innerJoin(
+        OperatorFactory joinOperatorFactory = LookupJoinOperators.innerJoin(
                 0,
-                hashBuilderOperatorFactory.getHashSupplier(),
+                hashBuilderOperatorFactory.getLookupSourceSupplier(),
                 ImmutableList.of(VARCHAR),
                 Ints.asList(0));
         Operator joinOperator = joinOperatorFactory.createOperator(taskContext.addPipelineContext(true, true).addDriverContext());
@@ -228,9 +228,9 @@ public class TestHashJoinOperator
                 .row((String) null)
                 .row("c")
                 .build();
-        OperatorFactory joinOperatorFactory = HashJoinOperators.innerJoin(
+        OperatorFactory joinOperatorFactory = LookupJoinOperators.innerJoin(
                 0,
-                hashBuilderOperatorFactory.getHashSupplier(),
+                hashBuilderOperatorFactory.getLookupSourceSupplier(),
                 ImmutableList.of(VARCHAR),
                 Ints.asList(0));
         Operator joinOperator = joinOperatorFactory.createOperator(taskContext.addPipelineContext(true, true).addDriverContext());
@@ -269,9 +269,9 @@ public class TestHashJoinOperator
         List<Page> probeInput = rowPagesBuilder(VARCHAR, BIGINT, BIGINT)
                 .addSequencePage(15, 20, 1020, 2020)
                 .build();
-        OperatorFactory joinOperatorFactory = HashJoinOperators.outerJoin(
+        OperatorFactory joinOperatorFactory = LookupJoinOperators.outerJoin(
                 0,
-                hashBuilderOperatorFactory.getHashSupplier(),
+                hashBuilderOperatorFactory.getLookupSourceSupplier(),
                 ImmutableList.of(VARCHAR, BIGINT, BIGINT),
                 Ints.asList(0));
         Operator joinOperator = joinOperatorFactory.createOperator(taskContext.addPipelineContext(true, true).addDriverContext());
@@ -328,9 +328,9 @@ public class TestHashJoinOperator
                 .row("a")
                 .row("b")
                 .build();
-        OperatorFactory joinOperatorFactory = HashJoinOperators.outerJoin(
+        OperatorFactory joinOperatorFactory = LookupJoinOperators.outerJoin(
                 0,
-                hashBuilderOperatorFactory.getHashSupplier(),
+                hashBuilderOperatorFactory.getLookupSourceSupplier(),
                 ImmutableList.of(VARCHAR),
                 Ints.asList(0));
         Operator joinOperator = joinOperatorFactory.createOperator(taskContext.addPipelineContext(true, true).addDriverContext());
@@ -376,9 +376,9 @@ public class TestHashJoinOperator
                 .row("b")
                 .row("c")
                 .build();
-        OperatorFactory joinOperatorFactory = HashJoinOperators.outerJoin(
+        OperatorFactory joinOperatorFactory = LookupJoinOperators.outerJoin(
                 0,
-                hashBuilderOperatorFactory.getHashSupplier(),
+                hashBuilderOperatorFactory.getLookupSourceSupplier(),
                 ImmutableList.of(VARCHAR),
                 Ints.asList(0));
         Operator joinOperator = joinOperatorFactory.createOperator(taskContext.addPipelineContext(true, true).addDriverContext());
@@ -424,9 +424,9 @@ public class TestHashJoinOperator
                 .row((String) null)
                 .row("c")
                 .build();
-        OperatorFactory joinOperatorFactory = HashJoinOperators.outerJoin(
+        OperatorFactory joinOperatorFactory = LookupJoinOperators.outerJoin(
                 0,
-                hashBuilderOperatorFactory.getHashSupplier(),
+                hashBuilderOperatorFactory.getLookupSourceSupplier(),
                 ImmutableList.of(VARCHAR),
                 Ints.asList(0));
         Operator joinOperator = joinOperatorFactory.createOperator(taskContext.addPipelineContext(true, true).addDriverContext());

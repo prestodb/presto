@@ -18,7 +18,7 @@ import com.facebook.presto.spi.block.BlockCursor;
 import com.facebook.presto.spi.block.RandomAccessBlock;
 import com.facebook.presto.spi.block.SortOrder;
 import com.facebook.presto.sql.gen.JoinCompiler;
-import com.facebook.presto.sql.gen.JoinCompiler.JoinHashFactory;
+import com.facebook.presto.sql.gen.JoinCompiler.LookupSourceFactory;
 import com.facebook.presto.sql.gen.OrderingCompiler;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableList;
@@ -44,7 +44,7 @@ import static io.airlift.slice.SizeOf.sizeOf;
  * This data structure is not general purpose and is designed for a few specific uses:
  * <ul>
  * <li>Sort via the {@link #sort} method</li>
- * <li>Hash build via the {@link #createJoinHash} method</li>
+ * <li>Hash build via the {@link #createLookupSource} method</li>
  * <li>Positional output via the {@link #appendTo} method</li>
  * </ul>
  */
@@ -252,24 +252,24 @@ public class PagesIndex
         };
     }
 
-    public JoinHash createJoinHash(List<Integer> hashChannels, OperatorContext operatorContext)
+    public LookupSource createLookupSource(List<Integer> joinChannels)
     {
         try {
-            JoinHashFactory joinHashFactory = joinCompiler.compileJoinHash(types, hashChannels);
-            JoinHash joinHash = joinHashFactory.createJoinHash(
+            LookupSourceFactory lookupSourceFactory = joinCompiler.compileLookupSourceFactory(types, joinChannels);
+            LookupSource lookupSource = lookupSourceFactory.createLookupSource(
                     valueAddresses,
                     ImmutableList.<List<RandomAccessBlock>>copyOf(channels),
                     operatorContext);
 
-            return joinHash;
+            return lookupSource;
         }
         catch (Exception e) {
-            log.error(e, "JoinHash compile failed for types=%s error=%s", types, e);
+            log.error(e, "Lookup source compile failed for types=%s error=%s", types, e);
         }
 
         PagesHashStrategy hashStrategy = new SimplePagesHashStrategy(
                 ImmutableList.<List<RandomAccessBlock>>copyOf(channels),
-                hashChannels);
+                joinChannels);
         return new InMemoryJoinHash(valueAddresses, hashStrategy, operatorContext);
     }
 }

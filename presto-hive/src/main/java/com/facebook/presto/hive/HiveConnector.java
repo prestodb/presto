@@ -15,6 +15,7 @@ package com.facebook.presto.hive;
 
 import com.facebook.presto.spi.Connector;
 import com.facebook.presto.spi.ConnectorHandleResolver;
+import com.facebook.presto.spi.ConnectorIndexResolver;
 import com.facebook.presto.spi.ConnectorMetadata;
 import com.facebook.presto.spi.ConnectorOutputHandleResolver;
 import com.facebook.presto.spi.ConnectorRecordSetProvider;
@@ -83,5 +84,11 @@ public class HiveConnector
     public ConnectorOutputHandleResolver getOutputHandleResolver()
     {
         return outputHandleResolver;
+    }
+
+    @Override
+    public ConnectorIndexResolver getIndexResolver()
+    {
+        throw new UnsupportedOperationException();
     }
 }

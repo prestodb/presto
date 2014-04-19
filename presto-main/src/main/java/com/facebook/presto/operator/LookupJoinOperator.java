@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.operator;
 
-import com.facebook.presto.operator.HashBuilderOperator.HashSupplier;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -24,10 +23,10 @@ import static com.facebook.presto.util.MoreFutures.tryGetUnchecked;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 
-public class HashJoinOperator
+public class LookupJoinOperator
         implements Operator
 {
-    private final ListenableFuture<JoinHash> hashFuture;
+    private final ListenableFuture<LookupSource> lookupSourceFuture;
 
     private final OperatorContext operatorContext;
     private final JoinProbeFactory joinProbeFactory;
@@ -35,15 +34,15 @@ public class HashJoinOperator
     private final List<Type> types;
     private final PageBuilder pageBuilder;
 
-    private JoinHash hash;
+    private LookupSource lookupSource;
     private JoinProbe probe;
 
     private boolean finishing;
-    private int joinPosition = -1;
+    private long joinPosition = -1;
 
-    public HashJoinOperator(
+    public LookupJoinOperator(
             OperatorContext operatorContext,
-            HashSupplier hashSupplier,
+            LookupSourceSupplier lookupSourceSupplier,
             List<Type> probeTypes,
             boolean enableOuterJoin,
             JoinProbeFactory joinProbeFactory)
@@ -51,16 +50,16 @@ public class HashJoinOperator
         this.operatorContext = checkNotNull(operatorContext, "operatorContext is null");
 
         // todo pass in desired projection
-        checkNotNull(hashSupplier, "hashSupplier is null");
+        checkNotNull(lookupSourceSupplier, "lookupSourceSupplier is null");
         checkNotNull(probeTypes, "probeTypes is null");
 
-        this.hashFuture = hashSupplier.getSourceHash();
+        this.lookupSourceFuture = lookupSourceSupplier.getLookupSource(operatorContext);
         this.joinProbeFactory = joinProbeFactory;
         this.enableOuterJoin = enableOuterJoin;
 
         this.types = ImmutableList.<Type>builder()
                 .addAll(probeTypes)
-                .addAll(hashSupplier.getTypes())
+                .addAll(lookupSourceSupplier.getTypes())
                 .build();
         this.pageBuilder = new PageBuilder(types);
     }
@@ -90,7 +89,7 @@ public class HashJoinOperator
 
         // if finished drop references so memory is freed early
         if (finished) {
-            hash = null;
+            lookupSource = null;
 
             probe = null;
             pageBuilder.reset();
@@ -101,7 +100,7 @@ public class HashJoinOperator
     @Override
     public ListenableFuture<?> isBlocked()
     {
-        return hashFuture;
+        return lookupSourceFuture;
     }
 
     @Override
@@ -111,10 +110,10 @@ public class HashJoinOperator
             return false;
         }
 
-        if (hash == null) {
-            hash = tryGetUnchecked(hashFuture);
+        if (lookupSource == null) {
+            lookupSource = tryGetUnchecked(lookupSourceFuture);
         }
-        return hash != null && probe == null;
+        return lookupSource != null && probe == null;
     }
 
     @Override
@@ -122,11 +121,11 @@ public class HashJoinOperator
     {
         checkNotNull(page, "page is null");
         checkState(!finishing, "Operator is finishing");
-        checkState(hash != null, "Hash has not been built yet");
+        checkState(lookupSource != null, "Lookup source has not been built yet");
         checkState(probe == null, "Current page has not been completely processed yet");
 
         // create probe
-        probe = joinProbeFactory.createJoinProbe(hash, page);
+        probe = joinProbeFactory.createJoinProbe(lookupSource, page);
 
         // initialize to invalid join position to force output code to advance the cursors
         joinPosition = -1;
@@ -135,7 +134,7 @@ public class HashJoinOperator
     @Override
     public Page getOutput()
     {
-        // join probe page with the hash
+        // join probe page with the lookup source
         if (probe != null) {
             while (joinCurrentPosition()) {
                 if (!advanceProbePosition()) {
@@ -165,10 +164,10 @@ public class HashJoinOperator
             probe.appendTo(pageBuilder);
 
             // write build columns
-            hash.appendTo(joinPosition, pageBuilder, probe.getChannelCount());
+            lookupSource.appendTo(joinPosition, pageBuilder, probe.getChannelCount());
 
             // get next join position for this row
-            joinPosition = hash.getNextJoinPosition(joinPosition);
+            joinPosition = lookupSource.getNextJoinPosition(joinPosition);
             if (pageBuilder.isFull()) {
                 return false;
             }
@@ -196,7 +195,7 @@ public class HashJoinOperator
 
             // write nulls into build columns
             int outputIndex = probe.getChannelCount();
-            for (int buildChannel = 0; buildChannel < hash.getChannelCount(); buildChannel++) {
+            for (int buildChannel = 0; buildChannel < lookupSource.getChannelCount(); buildChannel++) {
                 pageBuilder.getBlockBuilder(outputIndex).appendNull();
                 outputIndex++;
             }

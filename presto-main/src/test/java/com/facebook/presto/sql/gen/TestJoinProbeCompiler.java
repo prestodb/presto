@@ -16,9 +16,9 @@ package com.facebook.presto.sql.gen;
 import com.facebook.presto.block.BlockAssertions;
 import com.facebook.presto.execution.TaskId;
 import com.facebook.presto.operator.DriverContext;
-import com.facebook.presto.operator.JoinHash;
 import com.facebook.presto.operator.JoinProbe;
 import com.facebook.presto.operator.JoinProbeFactory;
+import com.facebook.presto.operator.LookupSource;
 import com.facebook.presto.operator.OperatorContext;
 import com.facebook.presto.operator.Page;
 import com.facebook.presto.operator.PageBuilder;
@@ -28,7 +28,7 @@ import com.facebook.presto.operator.ValuesOperator;
 import com.facebook.presto.spi.Session;
 import com.facebook.presto.spi.block.BlockCursor;
 import com.facebook.presto.spi.block.RandomAccessBlock;
-import com.facebook.presto.sql.gen.JoinCompiler.JoinHashFactory;
+import com.facebook.presto.sql.gen.JoinCompiler.LookupSourceFactory;
 import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Ints;
 import it.unimi.dsi.fastutil.longs.LongArrayList;
@@ -76,7 +76,7 @@ public class TestJoinProbeCompiler
         DriverContext driverContext = taskContext.addPipelineContext(true, true).addDriverContext();
         OperatorContext operatorContext = driverContext.addOperatorContext(0, ValuesOperator.class.getSimpleName());
         JoinCompiler joinCompiler = new JoinCompiler();
-        JoinHashFactory hashFactory = joinCompiler.compileJoinHash(ImmutableList.of(VARCHAR), Ints.asList(0));
+        LookupSourceFactory lookupSourceFactoryFactory = joinCompiler.compileLookupSourceFactory(ImmutableList.of(VARCHAR), Ints.asList(0));
 
         // crate hash strategy with a single channel blocks -- make sure there is some overlap in values
         List<RandomAccessBlock> channel = ImmutableList.of(
@@ -90,13 +90,13 @@ public class TestJoinProbeCompiler
                 addresses.add(encodeSyntheticAddress(blockIndex, positionIndex));
             }
         }
-        JoinHash hash = hashFactory.createJoinHash(addresses, ImmutableList.of(channel), operatorContext);
+        LookupSource lookupSource = lookupSourceFactoryFactory.createLookupSource(addresses, ImmutableList.of(channel), operatorContext);
 
         JoinProbeCompiler joinProbeCompiler = new JoinProbeCompiler();
         JoinProbeFactory probeFactory = joinProbeCompiler.internalCompileJoinProbe(1, Ints.asList(0));
 
         Page page = SequencePageBuilder.createSequencePage(ImmutableList.of(VARCHAR), 10, 10);
-        JoinProbe joinProbe = probeFactory.createJoinProbe(hash, page);
+        JoinProbe joinProbe = probeFactory.createJoinProbe(lookupSource, page);
 
         // verify channel count
         assertEquals(joinProbe.getChannelCount(), 1);
@@ -109,7 +109,7 @@ public class TestJoinProbeCompiler
 
             joinProbe.appendTo(pageBuilder);
 
-            assertEquals(joinProbe.getCurrentJoinPosition(), hash.getJoinPosition(probeCursor));
+            assertEquals(joinProbe.getCurrentJoinPosition(), lookupSource.getJoinPosition(probeCursor));
         }
         assertFalse(joinProbe.advanceNextPosition());
         assertBlockEquals(pageBuilder.build().getBlock(0), page.getBlock(0));

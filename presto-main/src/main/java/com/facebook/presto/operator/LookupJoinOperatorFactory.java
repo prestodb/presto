@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.operator;
 
-import com.facebook.presto.operator.HashBuilderOperator.HashSupplier;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableList;
 
@@ -21,25 +20,25 @@ import java.util.List;
 
 import static com.google.common.base.Preconditions.checkState;
 
-public class HashJoinOperatorFactory
+public class LookupJoinOperatorFactory
         implements OperatorFactory
 {
     private final int operatorId;
-    private final HashSupplier hashSupplier;
+    private final LookupSourceSupplier lookupSourceSupplier;
     private final List<Type> probeTypes;
     private final boolean enableOuterJoin;
     private final List<Type> types;
     private final JoinProbeFactory joinProbeFactory;
     private boolean closed;
 
-    public HashJoinOperatorFactory(int operatorId,
-            HashSupplier hashSupplier,
+    public LookupJoinOperatorFactory(int operatorId,
+            LookupSourceSupplier lookupSourceSupplier,
             List<Type> probeTypes,
             boolean enableOuterJoin,
             JoinProbeFactory joinProbeFactory)
     {
         this.operatorId = operatorId;
-        this.hashSupplier = hashSupplier;
+        this.lookupSourceSupplier = lookupSourceSupplier;
         this.probeTypes = probeTypes;
         this.enableOuterJoin = enableOuterJoin;
 
@@ -47,7 +46,7 @@ public class HashJoinOperatorFactory
 
         this.types = ImmutableList.<Type>builder()
                 .addAll(probeTypes)
-                .addAll(hashSupplier.getTypes())
+                .addAll(lookupSourceSupplier.getTypes())
                 .build();
     }
 
@@ -61,8 +60,8 @@ public class HashJoinOperatorFactory
     public Operator createOperator(DriverContext driverContext)
     {
         checkState(!closed, "Factory is already closed");
-        OperatorContext operatorContext = driverContext.addOperatorContext(operatorId, HashJoinOperator.class.getSimpleName());
-        return new HashJoinOperator(operatorContext, hashSupplier, probeTypes, enableOuterJoin, joinProbeFactory);
+        OperatorContext operatorContext = driverContext.addOperatorContext(operatorId, LookupJoinOperator.class.getSimpleName());
+        return new LookupJoinOperator(operatorContext, lookupSourceSupplier, probeTypes, enableOuterJoin, joinProbeFactory);
     }
 
     @Override

@@ -127,7 +127,7 @@ public class GroupByHash
             }
 
             // get the group for the current row
-            int groupId = putIfAbsent(currentRow);
+            int groupId = putIfAbsentInternal(currentRow);
 
             // output the group id for this row
             blockBuilder.append(groupId);
@@ -137,7 +137,18 @@ public class GroupByHash
         return new GroupByIdBlock(nextGroupId, block);
     }
 
-    private int putIfAbsent(BlockCursor[] cursors)
+    public int putIfAbsent(BlockCursor[] cursors)
+    {
+        int maxPossibleGroupId = nextGroupId + cursors[0].getRemainingPositions() + 1;
+        groupAddress.ensureCapacity(maxPossibleGroupId);
+        if (maxPossibleGroupId > maxFill) {
+            rehash(maxPossibleGroupId);
+        }
+
+        return putIfAbsentInternal(cursors);
+    }
+
+    private int putIfAbsentInternal(BlockCursor[] cursors)
     {
         int hashPosition = ((int) Murmur3.hash64(hashCursor(cursors))) & mask;
 

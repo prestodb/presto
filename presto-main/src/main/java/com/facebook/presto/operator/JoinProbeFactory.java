@@ -15,5 +15,5 @@ package com.facebook.presto.operator;
 
 public interface JoinProbeFactory
 {
-    JoinProbe createJoinProbe(JoinHash hash, Page page);
+    JoinProbe createJoinProbe(LookupSource lookupSource, Page page);
 }

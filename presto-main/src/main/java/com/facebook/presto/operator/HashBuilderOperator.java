@@ -17,7 +17,6 @@ import com.facebook.presto.spi.type.Type;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListenableFuture;
-import com.google.common.util.concurrent.SettableFuture;
 
 import javax.annotation.concurrent.ThreadSafe;
 
@@ -30,38 +29,11 @@ import static com.google.common.base.Preconditions.checkState;
 public class HashBuilderOperator
         implements Operator
 {
-    public static final class HashSupplier
-    {
-        private final List<Type> types;
-        private final SettableFuture<JoinHash> hashFuture = SettableFuture.create();
-
-        public HashSupplier(List<Type> types)
-        {
-            this.types = ImmutableList.copyOf(checkNotNull(types, "types is null"));
-        }
-
-        public List<Type> getTypes()
-        {
-            return types;
-        }
-
-        public ListenableFuture<JoinHash> getSourceHash()
-        {
-            return hashFuture;
-        }
-
-        void setHash(JoinHash joinHash)
-        {
-            boolean wasSet = hashFuture.set(joinHash);
-            checkState(wasSet, "Hash already set");
-        }
-    }
-
     public static class HashBuilderOperatorFactory
             implements OperatorFactory
     {
         private final int operatorId;
-        private final HashSupplier hashSupplier;
+        private final SettableLookupSourceSupplier lookupSourceSupplier;
         private final List<Integer> hashChannels;
         private final int expectedPositions;
         private boolean closed;
@@ -73,7 +45,7 @@ public class HashBuilderOperator
                 int expectedPositions)
         {
             this.operatorId = operatorId;
-            this.hashSupplier = new HashSupplier(checkNotNull(types, "types is null"));
+            this.lookupSourceSupplier = new SettableLookupSourceSupplier(checkNotNull(types, "types is null"));
 
             Preconditions.checkArgument(!hashChannels.isEmpty(), "hashChannels is empty");
             this.hashChannels = ImmutableList.copyOf(checkNotNull(hashChannels, "hashChannels is null"));
@@ -81,15 +53,15 @@ public class HashBuilderOperator
             this.expectedPositions = checkNotNull(expectedPositions, "expectedPositions is null");
         }
 
-        public HashSupplier getHashSupplier()
+        public LookupSourceSupplier getLookupSourceSupplier()
         {
-            return hashSupplier;
+            return lookupSourceSupplier;
         }
 
         @Override
         public List<Type> getTypes()
         {
-            return hashSupplier.types;
+            return lookupSourceSupplier.getTypes();
         }
 
         @Override
@@ -99,7 +71,7 @@ public class HashBuilderOperator
             OperatorContext operatorContext = driverContext.addOperatorContext(operatorId, HashBuilderOperator.class.getSimpleName());
             return new HashBuilderOperator(
                     operatorContext,
-                    hashSupplier,
+                    lookupSourceSupplier,
                     hashChannels,
                     expectedPositions);
         }
@@ -112,7 +84,7 @@ public class HashBuilderOperator
     }
 
     private final OperatorContext operatorContext;
-    private final HashSupplier hashSupplier;
+    private final SettableLookupSourceSupplier lookupSourceSupplier;
     private final List<Integer> hashChannels;
 
     private final PagesIndex pagesIndex;
@@ -121,18 +93,18 @@ public class HashBuilderOperator
 
     public HashBuilderOperator(
             OperatorContext operatorContext,
-            HashSupplier hashSupplier,
+            SettableLookupSourceSupplier lookupSourceSupplier,
             List<Integer> hashChannels,
             int expectedPositions)
     {
         this.operatorContext = checkNotNull(operatorContext, "operatorContext is null");
 
-        this.hashSupplier = checkNotNull(hashSupplier, "hashSupplier is null");
+        this.lookupSourceSupplier = checkNotNull(lookupSourceSupplier, "hashSupplier is null");
 
         Preconditions.checkArgument(!hashChannels.isEmpty(), "hashChannels is empty");
         this.hashChannels = ImmutableList.copyOf(checkNotNull(hashChannels, "hashChannels is null"));
 
-        this.pagesIndex = new PagesIndex(hashSupplier.getTypes(), expectedPositions, operatorContext);
+        this.pagesIndex = new PagesIndex(lookupSourceSupplier.getTypes(), expectedPositions, operatorContext);
     }
 
     @Override
@@ -144,7 +116,7 @@ public class HashBuilderOperator
     @Override
     public List<Type> getTypes()
     {
-        return hashSupplier.getTypes();
+        return lookupSourceSupplier.getTypes();
     }
 
     @Override
@@ -154,8 +126,8 @@ public class HashBuilderOperator
             return;
         }
 
-        JoinHash joinHash = pagesIndex.createJoinHash(hashChannels, operatorContext);
-        hashSupplier.setHash(joinHash);
+        LookupSource lookupSource = pagesIndex.createLookupSource(hashChannels);
+        lookupSourceSupplier.setLookupSource(lookupSource);
         finished = true;
     }
 

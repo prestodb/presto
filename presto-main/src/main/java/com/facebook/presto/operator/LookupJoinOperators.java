@@ -13,28 +13,27 @@
  */
 package com.facebook.presto.operator;
 
-import com.facebook.presto.operator.HashBuilderOperator.HashSupplier;
-import com.facebook.presto.sql.gen.JoinProbeCompiler;
 import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.sql.gen.JoinProbeCompiler;
 
 import java.util.List;
 
-public class HashJoinOperators
+public class LookupJoinOperators
 {
-    private HashJoinOperators()
+    private LookupJoinOperators()
     {
     }
 
     private static final JoinProbeCompiler JOIN_PROBE_COMPILER = new JoinProbeCompiler();
 
-    public static OperatorFactory innerJoin(int operatorId, HashSupplier hashSupplier, List<? extends Type> probeTypes, List<Integer> probeJoinChannel)
+    public static OperatorFactory innerJoin(int operatorId, LookupSourceSupplier lookupSourceSupplier, List<? extends Type> probeTypes, List<Integer> probeJoinChannel)
     {
-        OperatorFactory operatorFactory = JOIN_PROBE_COMPILER.compileJoinOperatorFactory(operatorId, hashSupplier, probeTypes, probeJoinChannel, false);
+        OperatorFactory operatorFactory = JOIN_PROBE_COMPILER.compileJoinOperatorFactory(operatorId, lookupSourceSupplier, probeTypes, probeJoinChannel, false);
         return operatorFactory;
     }
 
-    public static OperatorFactory outerJoin(int operatorId, HashSupplier hashSupplier, List<? extends Type> probeTypes, List<Integer> probeJoinChannel)
+    public static OperatorFactory outerJoin(int operatorId, LookupSourceSupplier lookupSourceSupplier, List<? extends Type> probeTypes, List<Integer> probeJoinChannel)
     {
-        return JOIN_PROBE_COMPILER.compileJoinOperatorFactory(operatorId, hashSupplier, probeTypes, probeJoinChannel, true);
+        return JOIN_PROBE_COMPILER.compileJoinOperatorFactory(operatorId, lookupSourceSupplier, probeTypes, probeJoinChannel, true);
     }
 }
