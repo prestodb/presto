@@ -26,7 +26,6 @@ public class Extract
 
     public enum Field
     {
-        CENTURY,
         YEAR,
         QUARTER,
         MONTH,

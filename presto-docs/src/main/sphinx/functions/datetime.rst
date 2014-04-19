@@ -77,7 +77,6 @@ Unit        Description
 ``month``   Months
 ``quarter`` Quarters of a year
 ``year``    Years
-``century`` Centuries
 =========== ==================
 
 .. function:: date_add(unit, value, timestamp) -> timestamp
@@ -168,7 +167,6 @@ The ``extract`` function supports the following fields:
 =================== ===========
 Field               Description
 =================== ===========
-``CENTURY``         :func:`century`
 ``YEAR``            :func:`year`
 ``QUARTER``         :func:`quarter`
 ``MONTH``           :func:`month`
@@ -194,10 +192,6 @@ Field               Description
 
 Convenience Extraction Functions
 --------------------------------
-
-.. function:: century(timestamp) -> bigint
-
-    Returns the centry from ``timestamp``.
 
 .. function:: day(timestamp) -> bigint
 

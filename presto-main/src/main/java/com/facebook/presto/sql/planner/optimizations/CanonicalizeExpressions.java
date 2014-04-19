@@ -166,8 +166,6 @@ public class CanonicalizeExpressions
             Expression value = treeRewriter.rewrite(node.getExpression(), context);
 
             switch (node.getField()) {
-                case CENTURY:
-                    return new FunctionCall(new QualifiedName("century"), ImmutableList.of(value));
                 case YEAR:
                     return new FunctionCall(new QualifiedName("year"), ImmutableList.of(value));
                 case QUARTER:
