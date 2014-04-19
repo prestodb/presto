@@ -71,7 +71,6 @@ public final class DateTimeFunctions
     private static final DateTimeField WEEK_OF_YEAR = UTC_CHRONOLOGY.weekOfWeekyear();
     private static final DateTimeField MONTH_OF_YEAR = UTC_CHRONOLOGY.monthOfYear();
     private static final DateTimeField YEAR = UTC_CHRONOLOGY.year();
-    private static final DateTimeField CENTURY = UTC_CHRONOLOGY.centuryOfEra();
     private static final int MILLISECONDS_IN_SECOND = 1000;
     private static final int MILLISECONDS_IN_MINUTE = 60 * MILLISECONDS_IN_SECOND;
     private static final int MILLISECONDS_IN_HOUR = 60 * MILLISECONDS_IN_MINUTE;
@@ -398,8 +397,6 @@ public final class DateTimeFunctions
                 return QUARTER_OF_YEAR.getField(chronology);
             case "year":
                 return chronology.year();
-            case "century":
-                return chronology.centuryOfEra();
             default:
                 throw new IllegalArgumentException("'" + unitString + "' is not a valid DATE field");
         }
@@ -440,8 +437,6 @@ public final class DateTimeFunctions
                 return QUARTER_OF_YEAR.getField(chronology);
             case "year":
                 return chronology.year();
-            case "century":
-                return chronology.centuryOfEra();
             default:
                 throw new IllegalArgumentException("'" + unitString + "' is not a valid Timestamp field");
         }
@@ -784,27 +779,6 @@ public final class DateTimeFunctions
     public static long yearFromInterval(@SqlType(IntervalYearMonthType.class) long months)
     {
         return months / 12;
-    }
-
-    @Description("century of the given timestamp")
-    @ScalarFunction("century")
-    public static long centuryFromTimestamp(Session session, @SqlType(TimestampType.class) long timestamp)
-    {
-        return getChronology(session.getTimeZoneKey()).centuryOfEra().get(timestamp) + 1;
-    }
-
-    @Description("century of the given timestamp")
-    @ScalarFunction("century")
-    public static long centuryFromTimestampWithTimeZone(@SqlType(TimestampWithTimeZoneType.class) long timestampWithTimeZone)
-    {
-        return unpackChronology(timestampWithTimeZone).centuryOfEra().get(unpackMillisUtc(timestampWithTimeZone)) + 1;
-    }
-
-    @Description("century of the given date")
-    @ScalarFunction("century")
-    public static long centuryFromDate(@SqlType(DateType.class) long date)
-    {
-        return CENTURY.get(date) + 1;
     }
 
     @Description("time zone minute of the given timestamp")

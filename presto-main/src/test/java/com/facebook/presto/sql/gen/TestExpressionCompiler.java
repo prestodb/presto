@@ -966,8 +966,6 @@ public class TestExpressionCompiler
     private static long callExtractFunction(Session session, long value, Field field)
     {
         switch (field) {
-            case CENTURY:
-                return DateTimeFunctions.centuryFromTimestamp(session, value);
             case YEAR:
                 return DateTimeFunctions.yearFromTimestamp(session, value);
             case QUARTER:
