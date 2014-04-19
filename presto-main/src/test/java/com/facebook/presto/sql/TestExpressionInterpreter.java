@@ -305,7 +305,6 @@ public class TestExpressionInterpreter
         DateTime dateTime = new DateTime(2001, 8, 22, 3, 4, 5, 321, DateTimeZone.UTC);
         double seconds = dateTime.getMillis() / 1000.0;
 
-        assertOptimizedEquals("extract (CENTURY from from_unixtime(" + seconds + "))", "21");
         assertOptimizedEquals("extract (YEAR from from_unixtime(" + seconds + "))", "2001");
         assertOptimizedEquals("extract (QUARTER from from_unixtime(" + seconds + "))", "3");
         assertOptimizedEquals("extract (MONTH from from_unixtime(" + seconds + "))", "8");
@@ -319,7 +318,6 @@ public class TestExpressionInterpreter
         assertOptimizedEquals("extract (TIMEZONE_HOUR from from_unixtime(" + seconds + ", 7, 9))", "7");
         assertOptimizedEquals("extract (TIMEZONE_MINUTE from from_unixtime(" + seconds + ", 7, 9))", "9");
 
-        assertOptimizedEquals("extract (CENTURY from bound_timestamp)", "21");
         assertOptimizedEquals("extract (YEAR from bound_timestamp)", "2001");
         assertOptimizedEquals("extract (QUARTER from bound_timestamp)", "3");
         assertOptimizedEquals("extract (MONTH from bound_timestamp)", "8");
