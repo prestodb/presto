@@ -18,33 +18,18 @@ import com.fasterxml.jackson.annotation.JsonValue;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.Objects;
-import java.util.TimeZone;
 
-import static com.facebook.presto.spi.type.DateTimeEncoding.unpackMillisUtc;
-import static com.facebook.presto.spi.type.DateTimeEncoding.unpackZoneKey;
 import static com.facebook.presto.spi.type.TimeZoneIndex.getTimeZoneForKey;
 
-public final class SqlTimestampWithTimeZone
+public final class SqlTimestamp
 {
     private final long millisUtc;
-    private final TimeZoneKey timeZoneKey;
+    private final TimeZoneKey sessionTimeZoneKey;
 
-    public SqlTimestampWithTimeZone(long timestampWithTimeZone)
-    {
-        millisUtc = unpackMillisUtc(timestampWithTimeZone);
-        timeZoneKey = unpackZoneKey(timestampWithTimeZone);
-    }
-
-    public SqlTimestampWithTimeZone(long millisUtc, TimeZoneKey timeZoneKey)
+    public SqlTimestamp(long millisUtc, TimeZoneKey sessionTimeZoneKey)
     {
         this.millisUtc = millisUtc;
-        this.timeZoneKey = timeZoneKey;
-    }
-
-    public SqlTimestampWithTimeZone(long millisUtc, TimeZone timeZone)
-    {
-        this.millisUtc = millisUtc;
-        this.timeZoneKey = TimeZoneKey.getTimeZoneKey(timeZone.getID());
+        this.sessionTimeZoneKey = sessionTimeZoneKey;
     }
 
     public long getMillisUtc()
@@ -52,15 +37,15 @@ public final class SqlTimestampWithTimeZone
         return millisUtc;
     }
 
-    public TimeZoneKey getTimeZoneKey()
+    public TimeZoneKey getSessionTimeZoneKey()
     {
-        return timeZoneKey;
+        return sessionTimeZoneKey;
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(millisUtc, timeZoneKey);
+        return Objects.hash(millisUtc, sessionTimeZoneKey);
     }
 
     @Override
@@ -72,9 +57,9 @@ public final class SqlTimestampWithTimeZone
         if (obj == null || getClass() != obj.getClass()) {
             return false;
         }
-        SqlTimestampWithTimeZone other = (SqlTimestampWithTimeZone) obj;
+        SqlTimestamp other = (SqlTimestamp) obj;
         return Objects.equals(this.millisUtc, other.millisUtc) &&
-                Objects.equals(this.timeZoneKey, other.timeZoneKey);
+                Objects.equals(this.sessionTimeZoneKey, other.sessionTimeZoneKey);
     }
 
     @JsonValue
@@ -82,7 +67,7 @@ public final class SqlTimestampWithTimeZone
     public String toString()
     {
         SimpleDateFormat format = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss.SSS");
-        format.setTimeZone(getTimeZoneForKey(timeZoneKey));
-        return format.format(new Date(millisUtc)) + " " + timeZoneKey.getTimeZoneId();
+        format.setTimeZone(getTimeZoneForKey(sessionTimeZoneKey));
+        return format.format(new Date(millisUtc));
     }
 }

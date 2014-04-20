@@ -15,7 +15,9 @@ package com.facebook.presto.type;
 
 import com.facebook.presto.operator.scalar.FunctionAssertions;
 import com.facebook.presto.spi.Session;
+import com.facebook.presto.spi.type.SqlTime;
 import com.facebook.presto.spi.type.SqlTimeWithTimeZone;
+import com.facebook.presto.spi.type.SqlTimestamp;
 import com.facebook.presto.spi.type.SqlTimestampWithTimeZone;
 import com.facebook.presto.spi.type.TimeZoneKey;
 import org.joda.time.DateTime;
@@ -23,8 +25,6 @@ import org.joda.time.DateTimeZone;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
-import java.sql.Time;
-import java.sql.Timestamp;
 import java.util.Locale;
 
 import static com.facebook.presto.spi.Session.DEFAULT_CATALOG;
@@ -183,14 +183,14 @@ public class TestTimeWithTimeZone
     public void testCastToTime()
             throws Exception
     {
-        assertFunction("cast(TIME '03:04:05.321 +07:09' as time)", new Time(new DateTime(1970, 1, 1, 3, 4, 5, 321, WEIRD_ZONE).getMillis()));
+        assertFunction("cast(TIME '03:04:05.321 +07:09' as time)", new SqlTime(new DateTime(1970, 1, 1, 3, 4, 5, 321, WEIRD_ZONE).getMillis(), session.getTimeZoneKey()));
     }
 
     @Test
     public void testCastToTimestamp()
             throws Exception
     {
-        assertFunction("cast(TIME '03:04:05.321 +07:09' as timestamp)", new Timestamp(new DateTime(1970, 1, 1, 3, 4, 5, 321, WEIRD_ZONE).getMillis()));
+        assertFunction("cast(TIME '03:04:05.321 +07:09' as timestamp)", new SqlTimestamp(new DateTime(1970, 1, 1, 3, 4, 5, 321, WEIRD_ZONE).getMillis(), session.getTimeZoneKey()));
     }
 
     @Test

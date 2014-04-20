@@ -15,7 +15,9 @@ package com.facebook.presto.type;
 
 import com.facebook.presto.operator.scalar.FunctionAssertions;
 import com.facebook.presto.spi.Session;
+import com.facebook.presto.spi.type.SqlTime;
 import com.facebook.presto.spi.type.SqlTimeWithTimeZone;
+import com.facebook.presto.spi.type.SqlTimestamp;
 import com.facebook.presto.spi.type.SqlTimestampWithTimeZone;
 import com.facebook.presto.spi.type.TimeZoneKey;
 import org.joda.time.DateTime;
@@ -23,8 +25,6 @@ import org.joda.time.DateTimeZone;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
-import java.sql.Time;
-import java.sql.Timestamp;
 import java.util.Locale;
 
 import static com.facebook.presto.spi.Session.DEFAULT_CATALOG;
@@ -55,9 +55,9 @@ public class TestTime
     public void testLiteral()
             throws Exception
     {
-        assertFunction("TIME '03:04:05.321'", new Time(new DateTime(1970, 1, 1, 3, 4, 5, 321, DATE_TIME_ZONE).getMillis()));
-        assertFunction("TIME '03:04:05'", new Time(new DateTime(1970, 1, 1, 3, 4, 5, 0, DATE_TIME_ZONE).getMillis()));
-        assertFunction("TIME '03:04'", new Time(new DateTime(1970, 1, 1, 3, 4, 0, 0, DATE_TIME_ZONE).getMillis()));
+        assertFunction("TIME '03:04:05.321'", new SqlTime(new DateTime(1970, 1, 1, 3, 4, 5, 321, DATE_TIME_ZONE).getMillis(), TIME_ZONE_KEY));
+        assertFunction("TIME '03:04:05'", new SqlTime(new DateTime(1970, 1, 1, 3, 4, 5, 0, DATE_TIME_ZONE).getMillis(), TIME_ZONE_KEY));
+        assertFunction("TIME '03:04'", new SqlTime(new DateTime(1970, 1, 1, 3, 4, 0, 0, DATE_TIME_ZONE).getMillis(), TIME_ZONE_KEY));
     }
 
     @Test
@@ -143,7 +143,7 @@ public class TestTime
     public void testCastToTimestamp()
             throws Exception
     {
-        assertFunction("cast(TIME '03:04:05.321' as timestamp)", new Timestamp(new DateTime(1970, 1, 1, 3, 4, 5, 321, DATE_TIME_ZONE).getMillis()));
+        assertFunction("cast(TIME '03:04:05.321' as timestamp)", new SqlTimestamp(new DateTime(1970, 1, 1, 3, 4, 5, 321, DATE_TIME_ZONE).getMillis(), TIME_ZONE_KEY));
     }
 
     @Test

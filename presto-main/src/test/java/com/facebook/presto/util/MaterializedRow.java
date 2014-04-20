@@ -31,15 +31,18 @@ import static com.google.common.base.Preconditions.checkNotNull;
  */
 public class MaterializedRow
 {
+    private final int precision;
     private final List<Object> values;
 
     public MaterializedRow(int precision, Object... values)
     {
         this(precision, Arrays.asList(checkNotNull(values, "values is null")));
     }
+
     public MaterializedRow(int precision, List<Object> values)
     {
         checkArgument(precision > 0, "Need at least one digit of precision");
+        this.precision = precision;
 
         this.values = new ArrayList<>(values.size());
         for (Object object : values) {
@@ -53,6 +56,11 @@ public class MaterializedRow
                 this.values.add(object);
             }
         }
+    }
+
+    public int getPrecision()
+    {
+        return precision;
     }
 
     public int getFieldCount()

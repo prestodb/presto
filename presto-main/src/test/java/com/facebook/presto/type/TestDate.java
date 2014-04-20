@@ -15,6 +15,8 @@ package com.facebook.presto.type;
 
 import com.facebook.presto.operator.scalar.FunctionAssertions;
 import com.facebook.presto.spi.Session;
+import com.facebook.presto.spi.type.SqlDate;
+import com.facebook.presto.spi.type.SqlTimestamp;
 import com.facebook.presto.spi.type.SqlTimestampWithTimeZone;
 import com.facebook.presto.spi.type.TimeZoneKey;
 import org.joda.time.DateTime;
@@ -23,8 +25,6 @@ import org.joda.time.LocalDate;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
-import java.sql.Date;
-import java.sql.Timestamp;
 import java.util.Locale;
 
 import static com.facebook.presto.spi.Session.DEFAULT_CATALOG;
@@ -55,7 +55,7 @@ public class TestDate
     public void testLiteral()
             throws Exception
     {
-        assertFunction("DATE '2001-1-22'", new Date(new LocalDate(2001, 1, 22).toDateMidnight(getDateTimeZone(TIME_ZONE_KEY)).getMillis()));
+        assertFunction("DATE '2001-1-22'", new SqlDate(new LocalDate(2001, 1, 22).toDateMidnight(getDateTimeZone(TIME_ZONE_KEY)).getMillis(), TIME_ZONE_KEY));
     }
 
     @Test
@@ -137,7 +137,8 @@ public class TestDate
     public void testCastToTimestamp()
             throws Exception
     {
-        assertFunction("cast(DATE '2001-1-22' as timestamp)", new Timestamp(new DateTime(2001, 1, 22, 0, 0, 0, 0, DATE_TIME_ZONE).getMillis()));
+        assertFunction("cast(DATE '2001-1-22' as timestamp)",
+                new SqlTimestamp(new DateTime(2001, 1, 22, 0, 0, 0, 0, DATE_TIME_ZONE).getMillis(), TIME_ZONE_KEY));
     }
 
     @Test

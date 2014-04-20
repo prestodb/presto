@@ -82,12 +82,12 @@ public class TestLocalQueries
     @Override
     protected MaterializedResult computeActual(@Language("SQL") String sql)
     {
-        return localQueryRunner.execute(sql);
+        return localQueryRunner.execute(sql).toJdbcTypes();
     }
 
     @Override
     protected MaterializedResult computeActualSampled(@Language("SQL") String sql)
     {
-        return localSampledQueryRunner.execute(sql);
+        return localSampledQueryRunner.execute(sql).toJdbcTypes();
     }
 }

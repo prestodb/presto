@@ -22,8 +22,6 @@ import com.facebook.presto.spi.block.FixedWidthBlockUtil.FixedWidthBlockBuilderF
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceOutput;
 
-import java.sql.Timestamp;
-
 import static com.facebook.presto.spi.block.FixedWidthBlockUtil.createIsolatedFixedWidthBlockBuilderFactory;
 import static io.airlift.slice.SizeOf.SIZE_OF_LONG;
 
@@ -70,8 +68,7 @@ public final class TimestampType
     @Override
     public Object getObjectValue(Session session, Slice slice, int offset)
     {
-        // java.sql.Timestamp holds milliseconds in UTC so no conversion is necessary
-        return new Timestamp(slice.getLong(offset));
+        return new SqlTimestamp(slice.getLong(offset), session.getTimeZoneKey());
     }
 
     @Override
