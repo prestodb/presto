@@ -22,8 +22,6 @@ import com.facebook.presto.spi.block.FixedWidthBlockUtil.FixedWidthBlockBuilderF
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceOutput;
 
-import java.sql.Time;
-
 import static com.facebook.presto.spi.block.FixedWidthBlockUtil.createIsolatedFixedWidthBlockBuilderFactory;
 import static io.airlift.slice.SizeOf.SIZE_OF_LONG;
 
@@ -69,7 +67,7 @@ public final class TimeType
     @Override
     public Object getObjectValue(Session session, Slice slice, int offset)
     {
-        return new Time(slice.getLong(offset));
+        return new SqlTime(slice.getLong(offset), session.getTimeZoneKey());
     }
 
     @Override

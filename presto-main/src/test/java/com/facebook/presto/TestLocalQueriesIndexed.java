@@ -76,6 +76,6 @@ public class TestLocalQueriesIndexed
     @Override
     protected MaterializedResult computeActual(@Language("SQL") String sql)
     {
-        return localIndexedQueryRunner.execute(sql);
+        return localIndexedQueryRunner.execute(sql).toJdbcTypes();
     }
 }

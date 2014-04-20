@@ -20,10 +20,9 @@ import java.util.Date;
 import java.util.Objects;
 import java.util.TimeZone;
 
-import static com.facebook.presto.spi.type.TimeZoneIndex.getTimeZoneForKey;
 import static com.facebook.presto.spi.type.DateTimeEncoding.unpackMillisUtc;
 import static com.facebook.presto.spi.type.DateTimeEncoding.unpackZoneKey;
-import static com.facebook.presto.spi.type.TimeZoneKey.getTimeZoneKey;
+import static com.facebook.presto.spi.type.TimeZoneIndex.getTimeZoneForKey;
 
 public final class SqlTimeWithTimeZone
 {
@@ -45,7 +44,17 @@ public final class SqlTimeWithTimeZone
     public SqlTimeWithTimeZone(long millisUtc, TimeZone timeZone)
     {
         this.millisUtc = millisUtc;
-        this.timeZoneKey = getTimeZoneKey(timeZone.getID());
+        this.timeZoneKey = TimeZoneKey.getTimeZoneKey(timeZone.getID());
+    }
+
+    public long getMillisUtc()
+    {
+        return millisUtc;
+    }
+
+    public TimeZoneKey getTimeZoneKey()
+    {
+        return timeZoneKey;
     }
 
     @Override

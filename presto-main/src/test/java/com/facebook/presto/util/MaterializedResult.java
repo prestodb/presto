@@ -17,10 +17,18 @@ import com.facebook.presto.operator.Page;
 import com.facebook.presto.spi.Session;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockCursor;
+import com.facebook.presto.spi.type.SqlDate;
+import com.facebook.presto.spi.type.SqlTime;
+import com.facebook.presto.spi.type.SqlTimeWithTimeZone;
+import com.facebook.presto.spi.type.SqlTimestamp;
+import com.facebook.presto.spi.type.SqlTimestampWithTimeZone;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.base.Objects;
 import com.google.common.collect.ImmutableList;
 
+import java.sql.Date;
+import java.sql.Time;
+import java.sql.Timestamp;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -78,6 +86,44 @@ public class MaterializedResult
                 .add("rows", rows)
                 .add("types", types)
                 .toString();
+    }
+
+    public MaterializedResult toJdbcTypes()
+    {
+        ImmutableList.Builder<MaterializedRow> jdbcRows = ImmutableList.builder();
+        for (MaterializedRow row : rows) {
+            jdbcRows.add(convertToJdbcTypes(row));
+        }
+        return new MaterializedResult(jdbcRows.build(), types);
+    }
+
+    private static MaterializedRow convertToJdbcTypes(MaterializedRow prestoRow)
+    {
+        List<Object> jdbcValues = new ArrayList<>();
+        for (int field = 0; field < prestoRow.getFieldCount(); field++) {
+            Object prestoValue = prestoRow.getField(field);
+            Object jdbcValue;
+            if (prestoValue instanceof SqlDate) {
+                jdbcValue = new Date(((SqlDate) prestoValue).getMillisAtMidnight());
+            }
+            else if (prestoValue instanceof SqlTime) {
+                jdbcValue = new Time(((SqlTime) prestoValue).getMillisUtc());
+            }
+            else if (prestoValue instanceof SqlTimeWithTimeZone) {
+                jdbcValue = new Time(((SqlTimeWithTimeZone) prestoValue).getMillisUtc());
+            }
+            else if (prestoValue instanceof SqlTimestamp) {
+                jdbcValue = new Timestamp(((SqlTimestamp) prestoValue).getMillisUtc());
+            }
+            else if (prestoValue instanceof SqlTimestampWithTimeZone) {
+                jdbcValue = new Timestamp(((SqlTimestampWithTimeZone) prestoValue).getMillisUtc());
+            }
+            else {
+                jdbcValue = prestoValue;
+            }
+            jdbcValues.add(jdbcValue);
+        }
+        return new MaterializedRow(prestoRow.getPrecision(), jdbcValues);
     }
 
     public static Builder resultBuilder(Session session, Type... types)

@@ -15,7 +15,10 @@ package com.facebook.presto.type;
 
 import com.facebook.presto.operator.scalar.FunctionAssertions;
 import com.facebook.presto.spi.Session;
+import com.facebook.presto.spi.type.SqlDate;
+import com.facebook.presto.spi.type.SqlTime;
 import com.facebook.presto.spi.type.SqlTimeWithTimeZone;
+import com.facebook.presto.spi.type.SqlTimestamp;
 import com.facebook.presto.spi.type.SqlTimestampWithTimeZone;
 import com.facebook.presto.spi.type.TimeZoneKey;
 import org.joda.time.DateTime;
@@ -24,9 +27,6 @@ import org.joda.time.LocalDate;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
-import java.sql.Date;
-import java.sql.Time;
-import java.sql.Timestamp;
 import java.util.Locale;
 
 import static com.facebook.presto.spi.Session.DEFAULT_CATALOG;
@@ -56,19 +56,19 @@ public class TestTimestamp
     @Test
     public void testLiteral()
     {
-        assertFunction("TIMESTAMP '2013-03-30 01:05'", new Timestamp(new DateTime(2013, 3, 30, 1, 5, 0, 0, DATE_TIME_ZONE).getMillis()));
-        assertFunction("TIMESTAMP '2013-03-30 02:05'", new Timestamp(new DateTime(2013, 3, 30, 2, 5, 0, 0, DATE_TIME_ZONE).getMillis()));
-        assertFunction("TIMESTAMP '2013-03-30 03:05'", new Timestamp(new DateTime(2013, 3, 30, 3, 5, 0, 0, DATE_TIME_ZONE).getMillis()));
+        assertFunction("TIMESTAMP '2013-03-30 01:05'", new SqlTimestamp(new DateTime(2013, 3, 30, 1, 5, 0, 0, DATE_TIME_ZONE).getMillis(), TIME_ZONE_KEY));
+        assertFunction("TIMESTAMP '2013-03-30 02:05'", new SqlTimestamp(new DateTime(2013, 3, 30, 2, 5, 0, 0, DATE_TIME_ZONE).getMillis(), TIME_ZONE_KEY));
+        assertFunction("TIMESTAMP '2013-03-30 03:05'", new SqlTimestamp(new DateTime(2013, 3, 30, 3, 5, 0, 0, DATE_TIME_ZONE).getMillis(), TIME_ZONE_KEY));
 
-        assertFunction("TIMESTAMP '2001-01-22 03:04:05.321'", new Timestamp(new DateTime(2001, 1, 22, 3, 4, 5, 321, DATE_TIME_ZONE).getMillis()));
-        assertFunction("TIMESTAMP '2001-01-22 03:04:05'", new Timestamp(new DateTime(2001, 1, 22, 3, 4, 5, 0, DATE_TIME_ZONE).getMillis()));
-        assertFunction("TIMESTAMP '2001-01-22 03:04'", new Timestamp(new DateTime(2001, 1, 22, 3, 4, 0, 0, DATE_TIME_ZONE).getMillis()));
-        assertFunction("TIMESTAMP '2001-01-22'", new Timestamp(new DateTime(2001, 1, 22, 0, 0, 0, 0, DATE_TIME_ZONE).getMillis()));
+        assertFunction("TIMESTAMP '2001-01-22 03:04:05.321'", new SqlTimestamp(new DateTime(2001, 1, 22, 3, 4, 5, 321, DATE_TIME_ZONE).getMillis(), TIME_ZONE_KEY));
+        assertFunction("TIMESTAMP '2001-01-22 03:04:05'", new SqlTimestamp(new DateTime(2001, 1, 22, 3, 4, 5, 0, DATE_TIME_ZONE).getMillis(), TIME_ZONE_KEY));
+        assertFunction("TIMESTAMP '2001-01-22 03:04'", new SqlTimestamp(new DateTime(2001, 1, 22, 3, 4, 0, 0, DATE_TIME_ZONE).getMillis(), TIME_ZONE_KEY));
+        assertFunction("TIMESTAMP '2001-01-22'", new SqlTimestamp(new DateTime(2001, 1, 22, 0, 0, 0, 0, DATE_TIME_ZONE).getMillis(), TIME_ZONE_KEY));
 
-        assertFunction("TIMESTAMP '2001-1-2 3:4:5.321'", new Timestamp(new DateTime(2001, 1, 2, 3, 4, 5, 321, DATE_TIME_ZONE).getMillis()));
-        assertFunction("TIMESTAMP '2001-1-2 3:4:5'", new Timestamp(new DateTime(2001, 1, 2, 3, 4, 5, 0, DATE_TIME_ZONE).getMillis()));
-        assertFunction("TIMESTAMP '2001-1-2 3:4'", new Timestamp(new DateTime(2001, 1, 2, 3, 4, 0, 0, DATE_TIME_ZONE).getMillis()));
-        assertFunction("TIMESTAMP '2001-1-2'", new Timestamp(new DateTime(2001, 1, 2, 0, 0, 0, 0, DATE_TIME_ZONE).getMillis()));
+        assertFunction("TIMESTAMP '2001-1-2 3:4:5.321'", new SqlTimestamp(new DateTime(2001, 1, 2, 3, 4, 5, 321, DATE_TIME_ZONE).getMillis(), TIME_ZONE_KEY));
+        assertFunction("TIMESTAMP '2001-1-2 3:4:5'", new SqlTimestamp(new DateTime(2001, 1, 2, 3, 4, 5, 0, DATE_TIME_ZONE).getMillis(), TIME_ZONE_KEY));
+        assertFunction("TIMESTAMP '2001-1-2 3:4'", new SqlTimestamp(new DateTime(2001, 1, 2, 3, 4, 0, 0, DATE_TIME_ZONE).getMillis(), TIME_ZONE_KEY));
+        assertFunction("TIMESTAMP '2001-1-2'", new SqlTimestamp(new DateTime(2001, 1, 2, 0, 0, 0, 0, DATE_TIME_ZONE).getMillis(), TIME_ZONE_KEY));
     }
 
     @Test
@@ -156,14 +156,14 @@ public class TestTimestamp
     public void testCastToDate()
             throws Exception
     {
-        assertFunction("cast(TIMESTAMP '2001-1-22 03:04:05.321' as date)", new Date(new LocalDate(2001, 1, 22).toDateMidnight(DATE_TIME_ZONE).getMillis()));
+        assertFunction("cast(TIMESTAMP '2001-1-22 03:04:05.321' as date)", new SqlDate(new LocalDate(2001, 1, 22).toDateMidnight(DATE_TIME_ZONE).getMillis(), TIME_ZONE_KEY));
     }
 
     @Test
     public void testCastToTime()
             throws Exception
     {
-        assertFunction("cast(TIMESTAMP '2001-1-22 03:04:05.321' as time)", new Time(new DateTime(1970, 1, 1, 3, 4, 5, 321, DATE_TIME_ZONE).getMillis()));
+        assertFunction("cast(TIMESTAMP '2001-1-22 03:04:05.321' as time)", new SqlTime(new DateTime(1970, 1, 1, 3, 4, 5, 321, DATE_TIME_ZONE).getMillis(), TIME_ZONE_KEY));
     }
 
     @Test

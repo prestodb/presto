@@ -15,7 +15,10 @@ package com.facebook.presto.operator.scalar;
 
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.Session;
+import com.facebook.presto.spi.type.SqlDate;
+import com.facebook.presto.spi.type.SqlTime;
 import com.facebook.presto.spi.type.SqlTimeWithTimeZone;
+import com.facebook.presto.spi.type.SqlTimestamp;
 import com.facebook.presto.spi.type.SqlTimestampWithTimeZone;
 import com.facebook.presto.spi.type.TimeZoneKey;
 import org.joda.time.DateMidnight;
@@ -25,9 +28,6 @@ import org.joda.time.LocalTime;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
-import java.sql.Date;
-import java.sql.Time;
-import java.sql.Timestamp;
 import java.util.Locale;
 import java.util.TimeZone;
 
@@ -82,7 +82,7 @@ public class TestUnixTimeFunctions
     {
         // current date is the time at midnight in the session time zone
         DateMidnight dateMidnight = new DateMidnight(session.getStartTime(), DateTimeZone.UTC).withZoneRetainFields(DATE_TIME_ZONE);
-        assertFunction("CURRENT_DATE", new Date(dateMidnight.getMillis()));
+        assertFunction("CURRENT_DATE", toDate(dateMidnight.getMillis()));
     }
 
     @Test
@@ -90,7 +90,7 @@ public class TestUnixTimeFunctions
             throws Exception
     {
         long millis = new LocalTime(session.getStartTime(), DATE_TIME_ZONE).getMillisOfDay();
-        functionAssertions.assertFunction("LOCALTIME", new Time(millis));
+        functionAssertions.assertFunction("LOCALTIME", toTime(millis));
     }
 
     @Test
@@ -590,42 +590,42 @@ public class TestUnixTimeFunctions
         functionAssertions.assertFunction(projection, expected);
     }
 
-    private static Date toDate(long milliseconds)
+    private SqlDate toDate(long milliseconds)
     {
-        return new Date(milliseconds);
+        return new SqlDate(milliseconds, session.getTimeZoneKey());
     }
 
-    private static Date toDate(DateTime dateDate)
+    private SqlDate toDate(DateTime dateDate)
     {
-        return new Date(dateDate.getMillis());
+        return new SqlDate(dateDate.getMillis(), session.getTimeZoneKey());
     }
 
-    private static Time toTime(long milliseconds)
+    private SqlTime toTime(long milliseconds)
     {
-        return new Time(milliseconds);
+        return new SqlTime(milliseconds, session.getTimeZoneKey());
     }
 
-    private static Time toTime(DateTime dateTime)
+    private SqlTime toTime(DateTime dateTime)
     {
-        return new Time(dateTime.getMillis());
+        return new SqlTime(dateTime.getMillis(), session.getTimeZoneKey());
     }
 
-    private static SqlTimeWithTimeZone toTimeWithTimeZone(DateTime dateTime)
+    private SqlTimeWithTimeZone toTimeWithTimeZone(DateTime dateTime)
     {
         return new SqlTimeWithTimeZone(dateTime.getMillis(), dateTime.getZone().toTimeZone());
     }
 
-    private static Timestamp toTimestamp(long milliseconds)
+    private SqlTimestamp toTimestamp(long milliseconds)
     {
-        return new Timestamp(milliseconds);
+        return new SqlTimestamp(milliseconds, session.getTimeZoneKey());
     }
 
-    private static Timestamp toTimestamp(DateTime dateTime)
+    private SqlTimestamp toTimestamp(DateTime dateTime)
     {
-        return new Timestamp(dateTime.getMillis());
+        return new SqlTimestamp(dateTime.getMillis(), session.getTimeZoneKey());
     }
 
-    private static SqlTimestampWithTimeZone toTimestampWithTimeZone(DateTime dateTime)
+    private SqlTimestampWithTimeZone toTimestampWithTimeZone(DateTime dateTime)
     {
         return new SqlTimestampWithTimeZone(dateTime.getMillis(), dateTime.getZone().toTimeZone());
     }
