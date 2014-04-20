@@ -15,9 +15,9 @@ package com.facebook.presto.operator.scalar;
 
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.Session;
-import com.facebook.presto.spi.type.TimeWithTimeZone;
+import com.facebook.presto.spi.type.SqlTimeWithTimeZone;
+import com.facebook.presto.spi.type.SqlTimestampWithTimeZone;
 import com.facebook.presto.spi.type.TimeZoneKey;
-import com.facebook.presto.spi.type.TimestampWithTimeZone;
 import org.joda.time.DateMidnight;
 import org.joda.time.DateTime;
 import org.joda.time.DateTimeZone;
@@ -98,7 +98,7 @@ public class TestUnixTimeFunctions
             throws Exception
     {
         long millis = new LocalTime(session.getStartTime(), DATE_TIME_ZONE).getMillisOfDay();
-        functionAssertions.assertFunction("CURRENT_TIME", new TimeWithTimeZone(millis, session.getTimeZoneKey()));
+        functionAssertions.assertFunction("CURRENT_TIME", new SqlTimeWithTimeZone(millis, session.getTimeZoneKey()));
     }
 
     @Test
@@ -110,8 +110,8 @@ public class TestUnixTimeFunctions
     @Test
     public void testCurrentTimestamp()
     {
-        assertEquals(functionAssertions.selectSingleValue("current_timestamp"), new TimestampWithTimeZone(session.getStartTime(), session.getTimeZoneKey()));
-        assertEquals(functionAssertions.selectSingleValue("now()"), new TimestampWithTimeZone(session.getStartTime(), session.getTimeZoneKey()));
+        assertEquals(functionAssertions.selectSingleValue("current_timestamp"), new SqlTimestampWithTimeZone(session.getStartTime(), session.getTimeZoneKey()));
+        assertEquals(functionAssertions.selectSingleValue("now()"), new SqlTimestampWithTimeZone(session.getStartTime(), session.getTimeZoneKey()));
     }
 
     @Test
@@ -146,11 +146,11 @@ public class TestUnixTimeFunctions
     public void testAtTimeZone()
     {
         assertEquals(functionAssertions.selectSingleValue("current_timestamp at time zone interval '07:09' hour to minute"),
-                new TimestampWithTimeZone(session.getStartTime(), WEIRD_TIME_ZONE_KEY));
+                new SqlTimestampWithTimeZone(session.getStartTime(), WEIRD_TIME_ZONE_KEY));
 
-        assertEquals(functionAssertions.selectSingleValue("current_timestamp at time zone 'Asia/Oral'"), new TimestampWithTimeZone(session.getStartTime(), TimeZone.getTimeZone("Asia/Oral")));
-        assertEquals(functionAssertions.selectSingleValue("now() at time zone 'Asia/Oral'"), new TimestampWithTimeZone(session.getStartTime(), TimeZone.getTimeZone("Asia/Oral")));
-        assertEquals(functionAssertions.selectSingleValue("current_timestamp at time zone '+07:09'"), new TimestampWithTimeZone(session.getStartTime(), WEIRD_TIME_ZONE_KEY));
+        assertEquals(functionAssertions.selectSingleValue("current_timestamp at time zone 'Asia/Oral'"), new SqlTimestampWithTimeZone(session.getStartTime(), TimeZone.getTimeZone("Asia/Oral")));
+        assertEquals(functionAssertions.selectSingleValue("now() at time zone 'Asia/Oral'"), new SqlTimestampWithTimeZone(session.getStartTime(), TimeZone.getTimeZone("Asia/Oral")));
+        assertEquals(functionAssertions.selectSingleValue("current_timestamp at time zone '+07:09'"), new SqlTimestampWithTimeZone(session.getStartTime(), WEIRD_TIME_ZONE_KEY));
     }
 
     @Test
@@ -610,9 +610,9 @@ public class TestUnixTimeFunctions
         return new Time(dateTime.getMillis());
     }
 
-    private static TimeWithTimeZone toTimeWithTimeZone(DateTime dateTime)
+    private static SqlTimeWithTimeZone toTimeWithTimeZone(DateTime dateTime)
     {
-        return new TimeWithTimeZone(dateTime.getMillis(), dateTime.getZone().toTimeZone());
+        return new SqlTimeWithTimeZone(dateTime.getMillis(), dateTime.getZone().toTimeZone());
     }
 
     private static Timestamp toTimestamp(long milliseconds)
@@ -625,8 +625,8 @@ public class TestUnixTimeFunctions
         return new Timestamp(dateTime.getMillis());
     }
 
-    private static TimestampWithTimeZone toTimestampWithTimeZone(DateTime dateTime)
+    private static SqlTimestampWithTimeZone toTimestampWithTimeZone(DateTime dateTime)
     {
-        return new TimestampWithTimeZone(dateTime.getMillis(), dateTime.getZone().toTimeZone());
+        return new SqlTimestampWithTimeZone(dateTime.getMillis(), dateTime.getZone().toTimeZone());
     }
 }

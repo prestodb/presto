@@ -15,9 +15,9 @@ package com.facebook.presto.type;
 
 import com.facebook.presto.operator.scalar.FunctionAssertions;
 import com.facebook.presto.spi.Session;
-import com.facebook.presto.spi.type.TimeWithTimeZone;
+import com.facebook.presto.spi.type.SqlTimeWithTimeZone;
+import com.facebook.presto.spi.type.SqlTimestampWithTimeZone;
 import com.facebook.presto.spi.type.TimeZoneKey;
-import com.facebook.presto.spi.type.TimestampWithTimeZone;
 import org.joda.time.DateTime;
 import org.joda.time.DateTimeZone;
 import org.joda.time.LocalDate;
@@ -171,14 +171,14 @@ public class TestTimestamp
             throws Exception
     {
         assertFunction("cast(TIMESTAMP '2001-1-22 03:04:05.321' as time with time zone)",
-                new TimeWithTimeZone(new DateTime(1970, 1, 1, 3, 4, 5, 321, DATE_TIME_ZONE).getMillis(), TIME_ZONE_KEY));
+                new SqlTimeWithTimeZone(new DateTime(1970, 1, 1, 3, 4, 5, 321, DATE_TIME_ZONE).getMillis(), TIME_ZONE_KEY));
     }
 
     @Test
     public void testCastToTimestampWithTimeZone()
     {
         assertFunction("cast(TIMESTAMP '2001-1-22 03:04:05.321' as timestamp with time zone)",
-                new TimestampWithTimeZone(new DateTime(2001, 1, 22, 3, 4, 5, 321, DATE_TIME_ZONE).getMillis(), DATE_TIME_ZONE.toTimeZone()));
+                new SqlTimestampWithTimeZone(new DateTime(2001, 1, 22, 3, 4, 5, 321, DATE_TIME_ZONE).getMillis(), DATE_TIME_ZONE.toTimeZone()));
     }
 
     @Test

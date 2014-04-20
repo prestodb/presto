@@ -64,7 +64,7 @@ public final class TimestampWithTimeZoneType
     @Override
     public Object getObjectValue(Session session, Slice slice, int offset)
     {
-        return new TimestampWithTimeZone(slice.getLong(offset));
+        return new SqlTimestampWithTimeZone(slice.getLong(offset));
     }
 
     @Override
