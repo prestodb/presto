@@ -78,7 +78,15 @@ public final class DateTimeUtils
                 DateTimeFormat.forPattern("yyyy-M-d H:m:sZ").getParser(),
                 DateTimeFormat.forPattern("yyyy-M-d H:m:s Z").getParser(),
                 DateTimeFormat.forPattern("yyyy-M-d H:m:s.SSSZ").getParser(),
-                DateTimeFormat.forPattern("yyyy-M-d H:m:s.SSS Z").getParser()};
+                DateTimeFormat.forPattern("yyyy-M-d H:m:s.SSS Z").getParser(),
+                DateTimeFormat.forPattern("yyyy-M-dZZZ").getParser(),
+                DateTimeFormat.forPattern("yyyy-M-d ZZZ").getParser(),
+                DateTimeFormat.forPattern("yyyy-M-d H:mZZZ").getParser(),
+                DateTimeFormat.forPattern("yyyy-M-d H:m ZZZ").getParser(),
+                DateTimeFormat.forPattern("yyyy-M-d H:m:sZZZ").getParser(),
+                DateTimeFormat.forPattern("yyyy-M-d H:m:s ZZZ").getParser(),
+                DateTimeFormat.forPattern("yyyy-M-d H:m:s.SSSZZZ").getParser(),
+                DateTimeFormat.forPattern("yyyy-M-d H:m:s.SSS ZZZ").getParser()};
         DateTimePrinter timestampWithTimeZonePrinter = DateTimeFormat.forPattern("yyyy-MM-dd HH:mm:ss.SSS ZZZ").getPrinter();
         TIMESTAMP_WITH_TIME_ZONE_FORMATTER = new DateTimeFormatterBuilder().append(timestampWithTimeZonePrinter, timestampWithTimeZoneParser).toFormatter().withOffsetParsed();
     }
@@ -144,7 +152,13 @@ public final class DateTimeUtils
                 DateTimeFormat.forPattern("H:m:sZ").getParser(),
                 DateTimeFormat.forPattern("H:m:s Z").getParser(),
                 DateTimeFormat.forPattern("H:m:s.SSSZ").getParser(),
-                DateTimeFormat.forPattern("H:m:s.SSS Z").getParser()};
+                DateTimeFormat.forPattern("H:m:s.SSS Z").getParser(),
+                DateTimeFormat.forPattern("H:mZZZ").getParser(),
+                DateTimeFormat.forPattern("H:m ZZZ").getParser(),
+                DateTimeFormat.forPattern("H:m:sZZZ").getParser(),
+                DateTimeFormat.forPattern("H:m:s ZZZ").getParser(),
+                DateTimeFormat.forPattern("H:m:s.SSSZZZ").getParser(),
+                DateTimeFormat.forPattern("H:m:s.SSS ZZZ").getParser()};
         DateTimePrinter timeWithTimeZonePrinter = DateTimeFormat.forPattern("HH:mm:ss.SSS ZZZ").getPrinter();
         TIME_WITH_TIME_ZONE_FORMATTER = new DateTimeFormatterBuilder().append(timeWithTimeZonePrinter, timeWithTimeZoneParser).toFormatter().withOffsetParsed();
     }

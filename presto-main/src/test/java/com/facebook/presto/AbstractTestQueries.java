@@ -2955,7 +2955,9 @@ public abstract class AbstractTestQueries
     public void testTimeLiterals()
             throws Exception
     {
-        assertQuery("SELECT TIME '3:04:05', TIMESTAMP '1960-01-22 3:04:05', DATE '2013-03-22'");
+        assertQuery(
+                "SELECT DATE '2013-03-22', TIME '3:04:05', TIME '3:04:05 UTC', TIMESTAMP '1960-01-22 3:04:05', TIMESTAMP '1960-01-22 3:04:05 +06:00'",
+                "SELECT DATE '2013-03-22', TIME '3:04:05', TIME '3:04:05', TIMESTAMP '1960-01-22 3:04:05', TIMESTAMP '1960-01-21 21:04:05'");
     }
 
     @Test
