@@ -63,7 +63,7 @@ public final class IntervalDayTimeType
     @Override
     public Object getObjectValue(Session session, Slice slice, int offset)
     {
-        return new IntervalDayTime((int) slice.getLong(offset));
+        return new SqlIntervalDayTime((int) slice.getLong(offset));
     }
 
     @Override

@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.util;
 
-import com.facebook.presto.spi.type.IntervalDayTime;
+import com.facebook.presto.spi.type.SqlIntervalDayTime;
 import com.facebook.presto.spi.type.TimeZoneKey;
 import com.facebook.presto.sql.tree.IntervalLiteral.IntervalField;
 import org.joda.time.DateTime;
@@ -280,7 +280,7 @@ public final class DateTimeUtils
     public static long parsePeriodMillis(PeriodFormatter periodFormatter, String value, IntervalField startField, IntervalField endField)
     {
         Period period = parsePeriod(periodFormatter, value, startField, endField);
-        return IntervalDayTime.toMillis(
+        return SqlIntervalDayTime.toMillis(
                 period.getValue(DAY_FIELD),
                 period.getValue(HOUR_FIELD),
                 period.getValue(MINUTE_FIELD),
@@ -290,7 +290,7 @@ public final class DateTimeUtils
 
     public static String printDayTimeInterval(long millis)
     {
-        return IntervalDayTime.formatMillis(millis);
+        return SqlIntervalDayTime.formatMillis(millis);
     }
 
     public static long parseYearMonthInterval(String value, IntervalField startField, IntervalField endField)

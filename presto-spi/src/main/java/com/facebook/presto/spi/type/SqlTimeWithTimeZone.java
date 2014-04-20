@@ -25,24 +25,24 @@ import static com.facebook.presto.spi.type.DateTimeEncoding.unpackMillisUtc;
 import static com.facebook.presto.spi.type.DateTimeEncoding.unpackZoneKey;
 import static com.facebook.presto.spi.type.TimeZoneKey.getTimeZoneKey;
 
-public final class TimeWithTimeZone
+public final class SqlTimeWithTimeZone
 {
     private final long millisUtc;
     private final TimeZoneKey timeZoneKey;
 
-    public TimeWithTimeZone(long timeWithTimeZone)
+    public SqlTimeWithTimeZone(long timeWithTimeZone)
     {
         millisUtc = unpackMillisUtc(timeWithTimeZone);
         timeZoneKey = unpackZoneKey(timeWithTimeZone);
     }
 
-    public TimeWithTimeZone(long millisUtc, TimeZoneKey timeZoneKey)
+    public SqlTimeWithTimeZone(long millisUtc, TimeZoneKey timeZoneKey)
     {
         this.millisUtc = millisUtc;
         this.timeZoneKey = timeZoneKey;
     }
 
-    public TimeWithTimeZone(long millisUtc, TimeZone timeZone)
+    public SqlTimeWithTimeZone(long millisUtc, TimeZone timeZone)
     {
         this.millisUtc = millisUtc;
         this.timeZoneKey = getTimeZoneKey(timeZone.getID());
@@ -63,7 +63,7 @@ public final class TimeWithTimeZone
         if (obj == null || getClass() != obj.getClass()) {
             return false;
         }
-        TimeWithTimeZone other = (TimeWithTimeZone) obj;
+        SqlTimeWithTimeZone other = (SqlTimeWithTimeZone) obj;
         return Objects.equals(this.millisUtc, other.millisUtc) &&
                 Objects.equals(this.timeZoneKey, other.timeZoneKey);
     }

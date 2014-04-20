@@ -65,7 +65,7 @@ public final class TimeWithTimeZoneType
     @Override
     public Object getObjectValue(Session session, Slice slice, int offset)
     {
-        return new TimeWithTimeZone(slice.getLong(offset));
+        return new SqlTimeWithTimeZone(slice.getLong(offset));
     }
 
     @Override
