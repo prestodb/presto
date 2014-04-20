@@ -13,6 +13,8 @@
  */
 package com.facebook.presto.spi.type;
 
+import com.fasterxml.jackson.annotation.JsonValue;
+
 import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.Objects;
@@ -66,6 +68,7 @@ public final class TimestampWithTimeZone
                 Objects.equals(this.timeZoneKey, other.timeZoneKey);
     }
 
+    @JsonValue
     @Override
     public String toString()
     {

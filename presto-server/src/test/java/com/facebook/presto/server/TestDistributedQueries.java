@@ -64,12 +64,17 @@ import static com.facebook.presto.spi.Session.DEFAULT_CATALOG;
 import static com.facebook.presto.spi.Session.DEFAULT_SCHEMA;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
+import static com.facebook.presto.spi.type.DateTimeEncoding.unpackMillisUtc;
 import static com.facebook.presto.spi.type.DateType.DATE;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.TimeType.TIME;
+import static com.facebook.presto.spi.type.TimeWithTimeZoneType.TIME_WITH_TIME_ZONE;
 import static com.facebook.presto.spi.type.TimeZoneKey.UTC_KEY;
 import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
+import static com.facebook.presto.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
+import static com.facebook.presto.util.DateTimeUtils.parseTimeWithTimeZone;
+import static com.facebook.presto.util.DateTimeUtils.parseTimestampWithTimeZone;
 import static com.facebook.presto.util.MaterializedResult.DEFAULT_PRECISION;
 import static com.facebook.presto.util.Types.checkType;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -436,8 +441,14 @@ public class TestDistributedQueries
                     else if (TIME.equals(type)) {
                         row.add(new Time(ISODateTimeFormat.timeParser().withZoneUTC().parseMillis((String) value)));
                     }
+                    else if (TIME_WITH_TIME_ZONE.equals(type)) {
+                        row.add(new Time(unpackMillisUtc(parseTimeWithTimeZone((String) value))));
+                    }
                     else if (TIMESTAMP.equals(type)) {
                         row.add(new Timestamp(ISODateTimeFormat.dateTimeParser().withZoneUTC().parseMillis((String) value)));
+                    }
+                    else if (TIMESTAMP_WITH_TIME_ZONE.equals(type)) {
+                        row.add(new Timestamp(unpackMillisUtc(parseTimestampWithTimeZone((String) value))));
                     }
                 }
                 return new MaterializedRow(DEFAULT_PRECISION, row);
