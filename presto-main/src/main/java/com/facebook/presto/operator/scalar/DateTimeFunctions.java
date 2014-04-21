@@ -38,6 +38,8 @@ import org.joda.time.format.DateTimeFormat;
 import org.joda.time.format.DateTimeFormatter;
 import org.joda.time.format.DateTimeFormatterBuilder;
 
+import java.util.Locale;
+
 import static com.facebook.presto.operator.scalar.QuarterOfYearDateTimeField.QUARTER_OF_YEAR;
 import static com.facebook.presto.spi.type.DateTimeEncoding.packDateTimeWithZone;
 import static com.facebook.presto.spi.type.DateTimeEncoding.unpackMillisUtc;
@@ -448,7 +450,7 @@ public final class DateTimeFunctions
     public static long parseDatetime(Session session, Slice datetime, Slice formatString)
     {
         String pattern = formatString.toString(Charsets.UTF_8);
-        DateTimeFormatter formatter = DateTimeFormat.forPattern(pattern).withChronology(getChronology(session.getTimeZoneKey())).withOffsetParsed();
+        DateTimeFormatter formatter = DateTimeFormat.forPattern(pattern).withChronology(getChronology(session.getTimeZoneKey())).withOffsetParsed().withLocale(Locale.US);
 
         String datetimeString = datetime.toString(Charsets.UTF_8);
         DateTime dateTime = formatter.parseDateTime(datetimeString);
@@ -472,7 +474,7 @@ public final class DateTimeFunctions
     private static Slice formatDatetime(ISOChronology chronology, long timestamp, Slice formatString)
     {
         String pattern = formatString.toString(Charsets.UTF_8);
-        DateTimeFormatter formatter = DateTimeFormat.forPattern(pattern).withChronology(chronology);
+        DateTimeFormatter formatter = DateTimeFormat.forPattern(pattern).withChronology(chronology).withLocale(Locale.US);
 
         String datetimeString = formatter.print(timestamp);
         return Slices.wrappedBuffer(datetimeString.getBytes(Charsets.UTF_8));
@@ -492,7 +494,7 @@ public final class DateTimeFunctions
 
     private static Slice dateFormat(ISOChronology chronology, long timestamp, Slice formatString)
     {
-        DateTimeFormatter formatter = DATETIME_FORMATTER_CACHE.get(formatString).withChronology(chronology);
+        DateTimeFormatter formatter = DATETIME_FORMATTER_CACHE.get(formatString).withChronology(chronology).withLocale(Locale.US);
         return Slices.copiedBuffer(formatter.print(timestamp), Charsets.UTF_8);
     }
 
@@ -500,7 +502,7 @@ public final class DateTimeFunctions
     @SqlType(TimestampType.class)
     public static long dateParse(Session session, Slice dateTime, Slice formatString)
     {
-        DateTimeFormatter formatter = DATETIME_FORMATTER_CACHE.get(formatString).withChronology(getChronology(session.getTimeZoneKey()));
+        DateTimeFormatter formatter = DATETIME_FORMATTER_CACHE.get(formatString).withChronology(getChronology(session.getTimeZoneKey())).withLocale(Locale.US);
         return formatter.parseMillis(dateTime.toString(Charsets.UTF_8));
     }
 
