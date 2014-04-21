@@ -225,7 +225,8 @@ class StatementAnalyzer
                                 aliasedName("column_name", "Column"),
                                 aliasedName("data_type", "Type"),
                                 aliasedYesNoToBoolean("is_nullable", "Null"),
-                                aliasedYesNoToBoolean("is_partition_key", "Partition Key")),
+                                aliasedYesNoToBoolean("is_partition_key", "Partition Key"),
+                                aliasedName("comment", "Comment")),
                         table(QualifiedName.of(tableName.getCatalogName(), TABLE_COLUMNS.getSchemaName(), TABLE_COLUMNS.getTableName())),
                         Optional.of(logicalAnd(
                                 equal(nameReference("table_schema"), new StringLiteral(tableName.getSchemaName())),

@@ -13,14 +13,20 @@
  */
 package com.facebook.presto.hive;
 
-import com.facebook.presto.spi.ConnectorColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
+import com.facebook.presto.spi.ConnectorColumnHandle;
 import com.facebook.presto.spi.type.Type;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.base.Function;
 import com.google.common.base.Objects;
 import com.google.common.base.Predicate;
+import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Iterables;
+import org.apache.hadoop.hive.metastore.api.FieldSchema;
+import org.apache.hadoop.hive.metastore.api.Table;
+
+import java.util.Map;
 
 import static com.facebook.presto.hive.util.Types.checkType;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -163,14 +169,27 @@ public class HiveColumnHandle
         };
     }
 
-    public static Function<HiveColumnHandle, ColumnMetadata> columnMetadataGetter()
+    public static Function<HiveColumnHandle, ColumnMetadata> columnMetadataGetter(Table table)
     {
+        ImmutableMap.Builder<String, String> builder = ImmutableMap.builder();
+        for (FieldSchema field : Iterables.concat(table.getSd().getCols(), table.getPartitionKeys())) {
+            if (field.getComment() != null) {
+                builder.put(field.getName(), field.getComment());
+            }
+        }
+        final Map<String, String> columnComment = builder.build();
+
         return new Function<HiveColumnHandle, ColumnMetadata>()
         {
             @Override
             public ColumnMetadata apply(HiveColumnHandle input)
             {
-                return input.getColumnMetadata();
+                return new ColumnMetadata(
+                        input.getName(),
+                        input.getType(),
+                        input.getOrdinalPosition(),
+                        input.isPartitionKey(),
+                        columnComment.get(input.getName()));
             }
         };
     }

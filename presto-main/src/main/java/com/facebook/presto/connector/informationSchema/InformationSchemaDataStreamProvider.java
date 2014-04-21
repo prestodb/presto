@@ -152,7 +152,8 @@ public class InformationSchemaDataStreamProvider
                         null,
                         "YES",
                         column.getType().getName(),
-                        column.isPartitionKey() ? "YES" : "NO");
+                        column.isPartitionKey() ? "YES" : "NO",
+                        column.getComment());
             }
         }
         return table.build();
