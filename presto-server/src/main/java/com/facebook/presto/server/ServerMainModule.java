@@ -72,6 +72,8 @@ import com.facebook.presto.spi.type.BooleanType;
 import com.facebook.presto.spi.type.DateType;
 import com.facebook.presto.spi.type.DoubleType;
 import com.facebook.presto.spi.type.HyperLogLogType;
+import com.facebook.presto.spi.type.IntervalDayTimeType;
+import com.facebook.presto.spi.type.IntervalYearMonthType;
 import com.facebook.presto.spi.type.NullType;
 import com.facebook.presto.spi.type.TimeType;
 import com.facebook.presto.spi.type.TimeWithTimeZoneType;
@@ -303,6 +305,8 @@ public class ServerMainModule
         blockEncodingFactoryBinder.addBinding().toInstance(TimeWithTimeZoneType.BLOCK_ENCODING_FACTORY);
         blockEncodingFactoryBinder.addBinding().toInstance(TimestampType.BLOCK_ENCODING_FACTORY);
         blockEncodingFactoryBinder.addBinding().toInstance(TimestampWithTimeZoneType.BLOCK_ENCODING_FACTORY);
+        blockEncodingFactoryBinder.addBinding().toInstance(IntervalYearMonthType.BLOCK_ENCODING_FACTORY);
+        blockEncodingFactoryBinder.addBinding().toInstance(IntervalDayTimeType.BLOCK_ENCODING_FACTORY);
         blockEncodingFactoryBinder.addBinding().toInstance(RunLengthBlockEncoding.FACTORY);
         blockEncodingFactoryBinder.addBinding().toInstance(DictionaryBlockEncoding.FACTORY);
         blockEncodingFactoryBinder.addBinding().toInstance(SnappyBlockEncoding.FACTORY);
