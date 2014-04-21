@@ -450,7 +450,7 @@ public final class DateTimeFunctions
     public static long parseDatetime(Session session, Slice datetime, Slice formatString)
     {
         String pattern = formatString.toString(Charsets.UTF_8);
-        DateTimeFormatter formatter = DateTimeFormat.forPattern(pattern).withChronology(getChronology(session.getTimeZoneKey())).withOffsetParsed().withLocale(Locale.US);
+        DateTimeFormatter formatter = DateTimeFormat.forPattern(pattern).withChronology(getChronology(session.getTimeZoneKey())).withOffsetParsed().withLocale(session.getLocale());
 
         String datetimeString = datetime.toString(Charsets.UTF_8);
         DateTime dateTime = formatter.parseDateTime(datetimeString);
@@ -461,20 +461,20 @@ public final class DateTimeFunctions
     @ScalarFunction
     public static Slice formatDatetime(Session session, @SqlType(TimestampType.class) long timestamp, Slice formatString)
     {
-        return formatDatetime(getChronology(session.getTimeZoneKey()), timestamp, formatString);
+        return formatDatetime(getChronology(session.getTimeZoneKey()), session.getLocale(), timestamp, formatString);
     }
 
     @Description("formats the given time by the given format")
     @ScalarFunction("format_datetime")
-    public static Slice formatDatetimeWithTimeZone(@SqlType(TimestampWithTimeZoneType.class) long timestampWithTimeZone, Slice formatString)
+    public static Slice formatDatetimeWithTimeZone(Session session, @SqlType(TimestampWithTimeZoneType.class) long timestampWithTimeZone, Slice formatString)
     {
-        return formatDatetime(unpackChronology(timestampWithTimeZone), unpackMillisUtc(timestampWithTimeZone), formatString);
+        return formatDatetime(unpackChronology(timestampWithTimeZone), session.getLocale(), unpackMillisUtc(timestampWithTimeZone), formatString);
     }
 
-    private static Slice formatDatetime(ISOChronology chronology, long timestamp, Slice formatString)
+    private static Slice formatDatetime(ISOChronology chronology, Locale locale, long timestamp, Slice formatString)
     {
         String pattern = formatString.toString(Charsets.UTF_8);
-        DateTimeFormatter formatter = DateTimeFormat.forPattern(pattern).withChronology(chronology).withLocale(Locale.US);
+        DateTimeFormatter formatter = DateTimeFormat.forPattern(pattern).withChronology(chronology).withLocale(locale);
 
         String datetimeString = formatter.print(timestamp);
         return Slices.wrappedBuffer(datetimeString.getBytes(Charsets.UTF_8));
@@ -483,18 +483,18 @@ public final class DateTimeFunctions
     @ScalarFunction
     public static Slice dateFormat(Session session, @SqlType(TimestampType.class) long timestamp, Slice formatString)
     {
-        return dateFormat(getChronology(session.getTimeZoneKey()), timestamp, formatString);
+        return dateFormat(getChronology(session.getTimeZoneKey()), session.getLocale(), timestamp, formatString);
     }
 
     @ScalarFunction("date_format")
-    public static Slice dateFormatWithTimeZone(@SqlType(TimestampWithTimeZoneType.class) long timestampWithTimeZone, Slice formatString)
+    public static Slice dateFormatWithTimeZone(Session session, @SqlType(TimestampWithTimeZoneType.class) long timestampWithTimeZone, Slice formatString)
     {
-        return dateFormat(unpackChronology(timestampWithTimeZone), unpackMillisUtc(timestampWithTimeZone), formatString);
+        return dateFormat(unpackChronology(timestampWithTimeZone), session.getLocale(), unpackMillisUtc(timestampWithTimeZone), formatString);
     }
 
-    private static Slice dateFormat(ISOChronology chronology, long timestamp, Slice formatString)
+    private static Slice dateFormat(ISOChronology chronology, Locale locale, long timestamp, Slice formatString)
     {
-        DateTimeFormatter formatter = DATETIME_FORMATTER_CACHE.get(formatString).withChronology(chronology).withLocale(Locale.US);
+        DateTimeFormatter formatter = DATETIME_FORMATTER_CACHE.get(formatString).withChronology(chronology).withLocale(locale);
         return Slices.copiedBuffer(formatter.print(timestamp), Charsets.UTF_8);
     }
 
@@ -502,7 +502,7 @@ public final class DateTimeFunctions
     @SqlType(TimestampType.class)
     public static long dateParse(Session session, Slice dateTime, Slice formatString)
     {
-        DateTimeFormatter formatter = DATETIME_FORMATTER_CACHE.get(formatString).withChronology(getChronology(session.getTimeZoneKey())).withLocale(Locale.US);
+        DateTimeFormatter formatter = DATETIME_FORMATTER_CACHE.get(formatString).withChronology(getChronology(session.getTimeZoneKey())).withLocale(session.getLocale());
         return formatter.parseMillis(dateTime.toString(Charsets.UTF_8));
     }
 
