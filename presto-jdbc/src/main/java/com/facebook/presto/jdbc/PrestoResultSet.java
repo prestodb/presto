@@ -22,11 +22,14 @@ import com.google.common.collect.AbstractIterator;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import org.joda.time.DateTimeZone;
+import org.joda.time.Period;
 import org.joda.time.format.DateTimeFormat;
 import org.joda.time.format.DateTimeFormatter;
 import org.joda.time.format.DateTimeFormatterBuilder;
 import org.joda.time.format.DateTimeParser;
 import org.joda.time.format.ISODateTimeFormat;
+import org.joda.time.format.PeriodFormatter;
+import org.joda.time.format.PeriodFormatterBuilder;
 
 import java.io.InputStream;
 import java.io.Reader;
@@ -89,9 +92,36 @@ public class PrestoResultSet
             .toFormatter()
             .withOffsetParsed();
 
+    private static final PeriodFormatter INTERVAL_YEAR_TO_MONTH_FORMATTER = new PeriodFormatterBuilder()
+            .appendYears()
+            .appendLiteral("-")
+            .appendMonths()
+            .toFormatter();
+
+    private static final PeriodFormatter INTERVAL_DAY_TO_SECOND_FORMATTER = new PeriodFormatterBuilder()
+            .appendDays()
+            .appendLiteral(" ")
+            .appendHours()
+            .appendLiteral(":")
+            .appendMinutes()
+            .appendLiteral(":")
+            .appendSecondsWithOptionalMillis()
+            .toFormatter();
+
+    private static final int YEAR_FIELD = 0;
+    private static final int MONTH_FIELD = 1;
+    private static final int DAY_FIELD = 3;
+    private static final int HOUR_FIELD = 4;
+    private static final int MINUTE_FIELD = 5;
+    private static final int SECOND_FIELD = 6;
+    private static final int MILLIS_FIELD = 7;
+
     private static final int VARCHAR_MAX = 1024 * 1024 * 1024;
+    private static final int TIME_ZONE_MAX = 40; // current longest time zone is 32
     private static final int TIME_MAX = "HH:mm:ss.SSS".length();
+    private static final int TIME_WITH_TIME_ZONE_MAX = TIME_MAX + TIME_ZONE_MAX;
     private static final int TIMESTAMP_MAX = "yyyy-MM-dd HH:mm:ss.SSS".length();
+    private static final int TIMESTAMP_WITH_TIME_ZONE_MAX = TIMESTAMP_MAX + TIME_ZONE_MAX;
     private static final int DATE_MAX = "yyyy-MM-dd".length();
 
     private final StatementClient client;
@@ -507,8 +537,46 @@ public class PrestoResultSet
                 return getTime(columnIndex);
             case Types.TIMESTAMP:
                 return getTimestamp(columnIndex);
+            case Types.JAVA_OBJECT:
+                if (columnInfo.getColumnTypeName().equalsIgnoreCase("interval year to month")) {
+                    return getIntervalYearMonth(columnIndex);
+                }
+                else if (columnInfo.getColumnTypeName().equalsIgnoreCase("interval day to second")) {
+                    return getIntervalDayTime(columnIndex);
+                }
         }
         return column(columnIndex);
+    }
+
+    private PrestoIntervalYearMonth getIntervalYearMonth(int columnIndex)
+            throws SQLException
+    {
+        Object value = column(columnIndex);
+        if (value == null) {
+            return null;
+        }
+
+        Period period = INTERVAL_YEAR_TO_MONTH_FORMATTER.parsePeriod(String.valueOf(value));
+        return new PrestoIntervalYearMonth(
+                period.getValue(YEAR_FIELD),
+                period.getValue(MONTH_FIELD));
+    }
+
+    private PrestoIntervalDayTime getIntervalDayTime(int columnIndex)
+            throws SQLException
+    {
+        Object value = column(columnIndex);
+        if (value == null) {
+            return null;
+        }
+
+        Period period = INTERVAL_DAY_TO_SECOND_FORMATTER.parsePeriod(String.valueOf(value));
+        return new PrestoIntervalDayTime(
+                period.getValue(DAY_FIELD),
+                period.getValue(HOUR_FIELD),
+                period.getValue(MINUTE_FIELD),
+                period.getValue(SECOND_FIELD),
+                period.getValue(MILLIS_FIELD));
     }
 
     @Override
@@ -1748,26 +1816,46 @@ public class PrestoResultSet
                 builder.setColumnDisplaySize(VARCHAR_MAX);
                 break;
             case "time":
-            case "time with time zone":
                 builder.setColumnType(Types.TIME);
                 builder.setSigned(true);
                 builder.setPrecision(3);
                 builder.setScale(0);
                 builder.setColumnDisplaySize(TIME_MAX);
                 break;
+            case "time with time zone":
+                builder.setColumnType(Types.TIME);
+                builder.setSigned(true);
+                builder.setPrecision(3);
+                builder.setScale(0);
+                builder.setColumnDisplaySize(TIME_WITH_TIME_ZONE_MAX);
+                break;
             case "timestamp":
-            case "timestamp with time zone":
                 builder.setColumnType(Types.TIMESTAMP);
                 builder.setSigned(true);
                 builder.setPrecision(3);
                 builder.setScale(0);
                 builder.setColumnDisplaySize(TIMESTAMP_MAX);
                 break;
+            case "timestamp with time zone":
+                builder.setColumnType(Types.TIMESTAMP);
+                builder.setSigned(true);
+                builder.setPrecision(3);
+                builder.setScale(0);
+                builder.setColumnDisplaySize(TIMESTAMP_WITH_TIME_ZONE_MAX);
+                break;
             case "date":
                 builder.setColumnType(Types.DATE);
                 builder.setSigned(true);
                 builder.setScale(0);
                 builder.setColumnDisplaySize(DATE_MAX);
+                break;
+            case "interval year to month":
+                builder.setColumnType(Types.JAVA_OBJECT);
+                builder.setColumnDisplaySize(TIMESTAMP_MAX);
+                break;
+            case "interval day to second":
+                builder.setColumnType(Types.JAVA_OBJECT);
+                builder.setColumnDisplaySize(TIMESTAMP_MAX);
                 break;
             default:
                 throw new AssertionError("unimplemented type: " + type);

@@ -110,6 +110,8 @@ public class TestDriver
                         ", TIMESTAMP '2004-05-06 6:07:08 +06:17' as e" +
                         ", TIMESTAMP '2007-08-09 9:10:11 Europe/Berlin' as f" +
                         ", DATE '2013-03-22' as g" +
+                        ", INTERVAL '123-11' YEAR TO MONTH as h" +
+                        ", INTERVAL '11 22:33:44.555' DAY TO SECOND as i" +
                         "")) {
                     assertTrue(rs.next());
 
@@ -161,6 +163,11 @@ public class TestDriver
                     assertEquals(rs.getDate("g"), new Date(new DateTime(2013, 3, 22, 0, 0).getMillis()));
                     assertEquals(rs.getDate("g", ASIA_ORAL_CALENDAR), new Date(new DateTime(2013, 3, 22, 0, 0, ASIA_ORAL_ZONE).getMillis()));
                     assertEquals(rs.getObject("g"), new Date(new DateTime(2013, 3, 22, 0, 0).getMillis()));
+
+                    assertEquals(rs.getObject(8), new PrestoIntervalYearMonth(123, 11));
+                    assertEquals(rs.getObject("h"), new PrestoIntervalYearMonth(123, 11));
+                    assertEquals(rs.getObject(9), new PrestoIntervalDayTime(11, 22, 33, 44, 555));
+                    assertEquals(rs.getObject("i"), new PrestoIntervalDayTime(11, 22, 33, 44, 555));
 
                     assertFalse(rs.next());
                 }
