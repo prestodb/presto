@@ -163,18 +163,6 @@ public class HiveColumnHandle
         };
     }
 
-    public static Function<HiveColumnHandle, ColumnMetadata> columnMetadataGetter()
-    {
-        return new Function<HiveColumnHandle, ColumnMetadata>()
-        {
-            @Override
-            public ColumnMetadata apply(HiveColumnHandle input)
-            {
-                return input.getColumnMetadata();
-            }
-        };
-    }
-
     public static Function<HiveColumnHandle, Type> nativeTypeGetter()
     {
         return new Function<HiveColumnHandle, Type>()
