@@ -23,14 +23,15 @@ public class ColumnMetadata
     private final Type type;
     private final int ordinalPosition;
     private final boolean partitionKey;
+    private final String comment;
     private final boolean hidden;
 
     public ColumnMetadata(String name, Type type, int ordinalPosition, boolean partitionKey)
     {
-        this(name, type, ordinalPosition, partitionKey, false);
+        this(name, type, ordinalPosition, partitionKey, null, false);
     }
 
-    public ColumnMetadata(String name, Type type, int ordinalPosition, boolean partitionKey, boolean hidden)
+    public ColumnMetadata(String name, Type type, int ordinalPosition, boolean partitionKey, String comment, boolean hidden)
     {
         if (name == null || name.isEmpty()) {
             throw new NullPointerException("name is null or empty");
@@ -46,6 +47,7 @@ public class ColumnMetadata
         this.type = type;
         this.ordinalPosition = ordinalPosition;
         this.partitionKey = partitionKey;
+        this.comment = comment;
         this.hidden = hidden;
     }
 
@@ -69,6 +71,11 @@ public class ColumnMetadata
         return partitionKey;
     }
 
+    public String getComment()
+    {
+        return comment;
+    }
+
     public boolean isHidden()
     {
         return hidden;
@@ -82,6 +89,9 @@ public class ColumnMetadata
         sb.append(", type=").append(type);
         sb.append(", ordinalPosition=").append(ordinalPosition);
         sb.append(", partitionKey=").append(partitionKey);
+        if (comment != null) {
+            sb.append(", comment='").append(comment).append('\'');
+        }
         if (hidden) {
             sb.append(", hidden");
         }
@@ -92,7 +102,7 @@ public class ColumnMetadata
     @Override
     public int hashCode()
     {
-        return Objects.hash(name, type, ordinalPosition, partitionKey, hidden);
+        return Objects.hash(name, type, ordinalPosition, partitionKey, comment, hidden);
     }
 
     @Override
@@ -109,6 +119,7 @@ public class ColumnMetadata
                 Objects.equals(this.type, other.type) &&
                 Objects.equals(this.ordinalPosition, other.ordinalPosition) &&
                 Objects.equals(this.partitionKey, other.partitionKey) &&
+                Objects.equals(this.comment, other.comment) &&
                 Objects.equals(this.hidden, other.hidden);
     }
 }

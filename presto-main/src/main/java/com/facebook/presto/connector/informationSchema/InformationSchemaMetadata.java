@@ -65,6 +65,7 @@ public class InformationSchemaMetadata
                     .column("is_nullable", VARCHAR)
                     .column("data_type", VARCHAR)
                     .column("is_partition_key", VARCHAR)
+                    .column("comment", VARCHAR)
                     .build())
             .table(tableMetadataBuilder(TABLE_TABLES)
                     .column("table_catalog", VARCHAR)
