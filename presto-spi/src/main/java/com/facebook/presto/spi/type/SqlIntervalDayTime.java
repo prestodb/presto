@@ -13,6 +13,8 @@
  */
 package com.facebook.presto.spi.type;
 
+import com.fasterxml.jackson.annotation.JsonValue;
+
 import java.util.Objects;
 
 public class SqlIntervalDayTime
@@ -53,6 +55,7 @@ public class SqlIntervalDayTime
         return Objects.equals(this.milliSeconds, other.milliSeconds);
     }
 
+    @JsonValue
     @Override
     public String toString()
     {

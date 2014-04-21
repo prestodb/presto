@@ -13,6 +13,8 @@
  */
 package com.facebook.presto.spi.type;
 
+import com.fasterxml.jackson.annotation.JsonValue;
+
 import java.util.Objects;
 
 public class SqlIntervalYearMonth
@@ -48,6 +50,7 @@ public class SqlIntervalYearMonth
         return Objects.equals(this.months, other.months);
     }
 
+    @JsonValue
     @Override
     public String toString()
     {
