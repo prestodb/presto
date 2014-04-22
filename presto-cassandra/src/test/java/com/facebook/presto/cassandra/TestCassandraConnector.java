@@ -29,6 +29,7 @@ import com.facebook.presto.spi.RecordCursor;
 import com.facebook.presto.spi.SchemaNotFoundException;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.SchemaTablePrefix;
+import com.facebook.presto.spi.Session;
 import com.facebook.presto.spi.TupleDomain;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.base.Charsets;
@@ -59,12 +60,15 @@ import org.testng.annotations.Test;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.UUID;
 
+import static com.facebook.presto.spi.Session.DEFAULT_CATALOG;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
+import static com.facebook.presto.spi.type.TimeZoneKey.UTC_KEY;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.testing.Assertions.assertInstanceOf;
@@ -76,6 +80,7 @@ import static org.testng.Assert.fail;
 
 public class TestCassandraConnector
 {
+    private static final Session SESSION = new Session("user", "test", DEFAULT_CATALOG, "test", UTC_KEY, Locale.ENGLISH, null, null);
     protected static final String INVALID_DATABASE = "totally_invalid_database";
 
     private ConnectorMetadata metadata;
@@ -139,7 +144,7 @@ public class TestCassandraConnector
     public void testGetDatabaseNames()
             throws Exception
     {
-        List<String> databases = metadata.listSchemaNames();
+        List<String> databases = metadata.listSchemaNames(SESSION);
         assertTrue(databases.contains(database.toLowerCase()));
     }
 
@@ -147,7 +152,7 @@ public class TestCassandraConnector
     public void testGetTableNames()
             throws Exception
     {
-        List<SchemaTableName> tables = metadata.listTables(database);
+        List<SchemaTableName> tables = metadata.listTables(SESSION, database);
         assertTrue(tables.contains(table));
     }
 
@@ -156,15 +161,15 @@ public class TestCassandraConnector
     public void testGetTableNamesException()
             throws Exception
     {
-        metadata.listTables(INVALID_DATABASE);
+        metadata.listTables(SESSION, INVALID_DATABASE);
     }
 
     @Test
     public void testListUnknownSchema()
     {
-        assertNull(metadata.getTableHandle(new SchemaTableName("totally_invalid_database_name", "dual")));
-        assertEquals(metadata.listTables("totally_invalid_database_name"), ImmutableList.of());
-        assertEquals(metadata.listTableColumns(new SchemaTablePrefix("totally_invalid_database_name", "dual")), ImmutableMap.of());
+        assertNull(metadata.getTableHandle(SESSION, new SchemaTableName("totally_invalid_database_name", "dual")));
+        assertEquals(metadata.listTables(SESSION, "totally_invalid_database_name"), ImmutableList.of());
+        assertEquals(metadata.listTableColumns(SESSION, new SchemaTablePrefix("totally_invalid_database_name", "dual")), ImmutableMap.of());
     }
 
     @Test
@@ -261,7 +266,7 @@ public class TestCassandraConnector
 
     private ConnectorTableHandle getTableHandle(SchemaTableName tableName)
     {
-        ConnectorTableHandle handle = metadata.getTableHandle(tableName);
+        ConnectorTableHandle handle = metadata.getTableHandle(SESSION, tableName);
         checkArgument(handle != null, "table not found: %s", tableName);
         return handle;
     }

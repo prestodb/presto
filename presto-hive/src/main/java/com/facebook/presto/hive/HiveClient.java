@@ -40,6 +40,7 @@ import com.facebook.presto.spi.RecordSink;
 import com.facebook.presto.spi.SchemaNotFoundException;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.SchemaTablePrefix;
+import com.facebook.presto.spi.Session;
 import com.facebook.presto.spi.TableNotFoundException;
 import com.facebook.presto.spi.TupleDomain;
 import com.facebook.presto.spi.type.Type;
@@ -217,13 +218,13 @@ public class HiveClient
     }
 
     @Override
-    public List<String> listSchemaNames()
+    public List<String> listSchemaNames(Session session)
     {
         return metastore.getAllDatabases();
     }
 
     @Override
-    public HiveTableHandle getTableHandle(SchemaTableName tableName)
+    public HiveTableHandle getTableHandle(Session session, SchemaTableName tableName)
     {
         checkNotNull(tableName, "tableName is null");
         try {
@@ -263,10 +264,10 @@ public class HiveClient
     }
 
     @Override
-    public List<SchemaTableName> listTables(String schemaNameOrNull)
+    public List<SchemaTableName> listTables(Session session, String schemaNameOrNull)
     {
         ImmutableList.Builder<SchemaTableName> tableNames = ImmutableList.builder();
-        for (String schemaName : listSchemas(schemaNameOrNull)) {
+        for (String schemaName : listSchemas(session, schemaNameOrNull)) {
             try {
                 for (String tableName : metastore.getAllTables(schemaName)) {
                     tableNames.add(new SchemaTableName(schemaName, tableName));
@@ -279,10 +280,10 @@ public class HiveClient
         return tableNames.build();
     }
 
-    private List<String> listSchemas(String schemaNameOrNull)
+    private List<String> listSchemas(Session session, String schemaNameOrNull)
     {
         if (schemaNameOrNull == null) {
-            return listSchemaNames();
+            return listSchemaNames(session);
         }
         return ImmutableList.of(schemaNameOrNull);
     }
@@ -314,7 +315,7 @@ public class HiveClient
     }
 
     @Override
-    public boolean canCreateSampledTables()
+    public boolean canCreateSampledTables(Session session)
     {
         return true;
     }
@@ -369,11 +370,11 @@ public class HiveClient
     }
 
     @Override
-    public Map<SchemaTableName, List<ColumnMetadata>> listTableColumns(SchemaTablePrefix prefix)
+    public Map<SchemaTableName, List<ColumnMetadata>> listTableColumns(Session session, SchemaTablePrefix prefix)
     {
         checkNotNull(prefix, "prefix is null");
         ImmutableMap.Builder<SchemaTableName, List<ColumnMetadata>> columns = ImmutableMap.builder();
-        for (SchemaTableName tableName : listTables(prefix)) {
+        for (SchemaTableName tableName : listTables(session, prefix)) {
             try {
                 columns.put(tableName, getTableMetadata(tableName).getColumns());
             }
@@ -384,10 +385,10 @@ public class HiveClient
         return columns.build();
     }
 
-    private List<SchemaTableName> listTables(SchemaTablePrefix prefix)
+    private List<SchemaTableName> listTables(Session session, SchemaTablePrefix prefix)
     {
         if (prefix.getSchemaName() == null) {
-            return listTables(prefix.getSchemaName());
+            return listTables(session, prefix.getSchemaName());
         }
         return ImmutableList.of(new SchemaTableName(prefix.getSchemaName(), prefix.getTableName()));
     }
@@ -403,7 +404,7 @@ public class HiveClient
     }
 
     @Override
-    public ConnectorTableHandle createTable(ConnectorTableMetadata tableMetadata)
+    public ConnectorTableHandle createTable(Session session, ConnectorTableMetadata tableMetadata)
     {
         throw new UnsupportedOperationException();
     }
@@ -415,7 +416,7 @@ public class HiveClient
     }
 
     @Override
-    public HiveOutputTableHandle beginCreateTable(ConnectorTableMetadata tableMetadata)
+    public HiveOutputTableHandle beginCreateTable(Session session, ConnectorTableMetadata tableMetadata)
     {
         checkArgument(!isNullOrEmpty(tableMetadata.getOwner()), "Table owner is null or empty");
 

@@ -21,6 +21,7 @@ import com.facebook.presto.spi.ConnectorTableHandle;
 import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.SchemaTablePrefix;
+import com.facebook.presto.spi.Session;
 
 import java.util.Collection;
 import java.util.List;
@@ -41,18 +42,18 @@ public class ClassLoaderSafeConnectorMetadata
     }
 
     @Override
-    public List<String> listSchemaNames()
+    public List<String> listSchemaNames(Session session)
     {
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
-            return delegate.listSchemaNames();
+            return delegate.listSchemaNames(session);
         }
     }
 
     @Override
-    public ConnectorTableHandle getTableHandle(SchemaTableName tableName)
+    public ConnectorTableHandle getTableHandle(Session session, SchemaTableName tableName)
     {
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
-            return delegate.getTableHandle(tableName);
+            return delegate.getTableHandle(session, tableName);
         }
     }
 
@@ -65,10 +66,10 @@ public class ClassLoaderSafeConnectorMetadata
     }
 
     @Override
-    public List<SchemaTableName> listTables(String schemaNameOrNull)
+    public List<SchemaTableName> listTables(Session session, String schemaNameOrNull)
     {
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
-            return delegate.listTables(schemaNameOrNull);
+            return delegate.listTables(session, schemaNameOrNull);
         }
     }
 
@@ -89,10 +90,10 @@ public class ClassLoaderSafeConnectorMetadata
     }
 
     @Override
-    public boolean canCreateSampledTables()
+    public boolean canCreateSampledTables(Session session)
     {
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
-            return delegate.canCreateSampledTables();
+            return delegate.canCreateSampledTables(session);
         }
     }
 
@@ -113,18 +114,18 @@ public class ClassLoaderSafeConnectorMetadata
     }
 
     @Override
-    public Map<SchemaTableName, List<ColumnMetadata>> listTableColumns(SchemaTablePrefix prefix)
+    public Map<SchemaTableName, List<ColumnMetadata>> listTableColumns(Session session, SchemaTablePrefix prefix)
     {
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
-            return delegate.listTableColumns(prefix);
+            return delegate.listTableColumns(session, prefix);
         }
     }
 
     @Override
-    public ConnectorTableHandle createTable(ConnectorTableMetadata tableMetadata)
+    public ConnectorTableHandle createTable(Session session, ConnectorTableMetadata tableMetadata)
     {
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
-            return delegate.createTable(tableMetadata);
+            return delegate.createTable(session, tableMetadata);
         }
     }
 
@@ -137,10 +138,10 @@ public class ClassLoaderSafeConnectorMetadata
     }
 
     @Override
-    public ConnectorOutputTableHandle beginCreateTable(ConnectorTableMetadata tableMetadata)
+    public ConnectorOutputTableHandle beginCreateTable(Session session, ConnectorTableMetadata tableMetadata)
     {
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
-            return delegate.beginCreateTable(tableMetadata);
+            return delegate.beginCreateTable(session, tableMetadata);
         }
     }
 

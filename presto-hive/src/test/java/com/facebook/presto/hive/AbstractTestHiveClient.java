@@ -33,6 +33,7 @@ import com.facebook.presto.spi.RecordSink;
 import com.facebook.presto.spi.SchemaNotFoundException;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.SchemaTablePrefix;
+import com.facebook.presto.spi.Session;
 import com.facebook.presto.spi.TableNotFoundException;
 import com.facebook.presto.spi.TupleDomain;
 import com.facebook.presto.spi.type.Type;
@@ -52,6 +53,7 @@ import org.testng.annotations.Test;
 
 import java.util.HashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import java.util.TimeZone;
@@ -63,6 +65,7 @@ import static com.facebook.presto.hive.HiveUtil.partitionIdGetter;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
+import static com.facebook.presto.spi.type.TimeZoneKey.UTC_KEY;
 import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -84,6 +87,8 @@ import static org.testng.Assert.fail;
 @Test(groups = "hive")
 public abstract class AbstractTestHiveClient
 {
+    private static final Session SESSION = new Session("user", "test", "default", "default", UTC_KEY, Locale.ENGLISH, null, null);
+
     protected static final String INVALID_DATABASE = "totally_invalid_database";
     protected static final String INVALID_COLUMN = "totally_invalid_column_name";
 
@@ -216,7 +221,7 @@ public abstract class AbstractTestHiveClient
     public void testGetDatabaseNames()
             throws Exception
     {
-        List<String> databases = metadata.listSchemaNames();
+        List<String> databases = metadata.listSchemaNames(SESSION);
         assertTrue(databases.contains(database));
     }
 
@@ -224,7 +229,7 @@ public abstract class AbstractTestHiveClient
     public void testGetTableNames()
             throws Exception
     {
-        List<SchemaTableName> tables = metadata.listTables(database);
+        List<SchemaTableName> tables = metadata.listTables(SESSION, database);
         assertTrue(tables.contains(table));
     }
 
@@ -233,15 +238,15 @@ public abstract class AbstractTestHiveClient
     public void testGetTableNamesException()
             throws Exception
     {
-        metadata.listTables(INVALID_DATABASE);
+        metadata.listTables(SESSION, INVALID_DATABASE);
     }
 
     @Test
     public void testListUnknownSchema()
     {
-        assertNull(metadata.getTableHandle(new SchemaTableName("totally_invalid_database_name", "dual")));
-        assertEquals(metadata.listTables("totally_invalid_database_name"), ImmutableList.of());
-        assertEquals(metadata.listTableColumns(new SchemaTablePrefix("totally_invalid_database_name", "dual")), ImmutableMap.of());
+        assertNull(metadata.getTableHandle(SESSION, new SchemaTableName("totally_invalid_database_name", "dual")));
+        assertEquals(metadata.listTables(SESSION, "totally_invalid_database_name"), ImmutableList.of());
+        assertEquals(metadata.listTableColumns(SESSION, new SchemaTablePrefix("totally_invalid_database_name", "dual")), ImmutableMap.of());
     }
 
     @Test
@@ -381,7 +386,7 @@ public abstract class AbstractTestHiveClient
     public void testGetTableSchemaException()
             throws Exception
     {
-        assertNull(metadata.getTableHandle(invalidTable));
+        assertNull(metadata.getTableHandle(SESSION, invalidTable));
     }
 
     @Test
@@ -850,7 +855,7 @@ public abstract class AbstractTestHiveClient
                 .build();
 
         ConnectorTableMetadata tableMetadata = new ConnectorTableMetadata(temporaryCreateSampledTable, columns, tableOwner, true);
-        ConnectorOutputTableHandle outputHandle = metadata.beginCreateTable(tableMetadata);
+        ConnectorOutputTableHandle outputHandle = metadata.beginCreateTable(SESSION, tableMetadata);
 
         // write the records
         RecordSink sink = recordSinkProvider.getRecordSink(outputHandle);
@@ -927,7 +932,7 @@ public abstract class AbstractTestHiveClient
                 .build();
 
         ConnectorTableMetadata tableMetadata = new ConnectorTableMetadata(temporaryCreateTable, columns, tableOwner);
-        ConnectorOutputTableHandle outputHandle = metadata.beginCreateTable(tableMetadata);
+        ConnectorOutputTableHandle outputHandle = metadata.beginCreateTable(SESSION, tableMetadata);
 
         // write the records
         RecordSink sink = recordSinkProvider.getRecordSink(outputHandle);
@@ -1023,7 +1028,7 @@ public abstract class AbstractTestHiveClient
 
     private ConnectorTableHandle getTableHandle(SchemaTableName tableName)
     {
-        ConnectorTableHandle handle = metadata.getTableHandle(tableName);
+        ConnectorTableHandle handle = metadata.getTableHandle(SESSION, tableName);
         checkArgument(handle != null, "table not found: %s", tableName);
         return handle;
     }

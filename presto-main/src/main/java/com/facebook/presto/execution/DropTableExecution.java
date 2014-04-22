@@ -52,6 +52,7 @@ public class DropTableExecution
 {
     private static final Logger log = Logger.get(DropTableExecution.class);
 
+    private final Session session;
     private final DropTable statement;
     private final MetadataManager metadataManager;
     private final ShardManager shardManager;
@@ -66,6 +67,7 @@ public class DropTableExecution
             ShardManager shardManager,
             Executor executor)
     {
+        this.session = checkNotNull(session, "session is null");
         this.statement = statement;
         this.metadataManager = metadataManager;
         this.shardManager = shardManager;
@@ -142,7 +144,7 @@ public class DropTableExecution
 
         log.debug("Dropping %s", tableName);
 
-        final Optional<TableHandle> tableHandle = metadataManager.getTableHandle(tableName);
+        final Optional<TableHandle> tableHandle = metadataManager.getTableHandle(session, tableName);
         checkState(tableHandle.isPresent(), "Table %s does not exist", tableName);
         final ConnectorTableHandle connectorHandle = tableHandle.get().getConnectorHandle();
         if (!(connectorHandle instanceof NativeTableHandle)) {

@@ -101,7 +101,7 @@ public class TestSqlTaskManager
             throws Exception
     {
         DualMetadata dualMetadata = new DualMetadata();
-        tableHandle = new TableHandle(DualConnector.CONNECTOR_ID, dualMetadata.getTableHandle(new SchemaTableName("default", DualMetadata.NAME)));
+        tableHandle = new TableHandle(DualConnector.CONNECTOR_ID, dualMetadata.getTableHandle(session, new SchemaTableName("default", DualMetadata.NAME)));
         assertNotNull(tableHandle, "tableHandle is null");
 
         columnHandle = new ColumnHandle(DualConnector.CONNECTOR_ID, dualMetadata.getColumnHandle(tableHandle.getConnectorHandle(), DualMetadata.COLUMN_NAME));

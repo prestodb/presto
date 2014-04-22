@@ -72,10 +72,10 @@ public final class BenchmarkQueryRunner
         localQueryRunner.createCatalog("default", nativeConnectorFactory, ImmutableMap.<String, String>of());
 
         MetadataManager metadata = localQueryRunner.getMetadata();
-        if (!metadata.getTableHandle(new QualifiedTableName("default", "default", "orders")).isPresent()) {
+        if (!metadata.getTableHandle(session, new QualifiedTableName("default", "default", "orders")).isPresent()) {
             localQueryRunner.execute("CREATE TABLE orders AS SELECT * FROM tpch_sampled.sf1.orders");
         }
-        if (!metadata.getTableHandle(new QualifiedTableName("default", "default", "lineitem")).isPresent()) {
+        if (!metadata.getTableHandle(session, new QualifiedTableName("default", "default", "lineitem")).isPresent()) {
             localQueryRunner.execute("CREATE TABLE lineitem AS SELECT * FROM tpch_sampled.sf1.lineitem");
         }
         return localQueryRunner;
@@ -98,10 +98,10 @@ public final class BenchmarkQueryRunner
         localQueryRunner.createCatalog("default", nativeConnectorFactory, ImmutableMap.<String, String>of());
 
         MetadataManager metadata = localQueryRunner.getMetadata();
-        if (!metadata.getTableHandle(new QualifiedTableName("default", "default", "orders")).isPresent()) {
+        if (!metadata.getTableHandle(session, new QualifiedTableName("default", "default", "orders")).isPresent()) {
             localQueryRunner.execute("CREATE TABLE orders AS SELECT * FROM tpch.sf1.orders");
         }
-        if (!metadata.getTableHandle(new QualifiedTableName("default", "default", "lineitem")).isPresent()) {
+        if (!metadata.getTableHandle(session, new QualifiedTableName("default", "default", "lineitem")).isPresent()) {
             localQueryRunner.execute("CREATE TABLE lineitem AS SELECT * FROM tpch.sf1.lineitem");
         }
         return localQueryRunner;

@@ -32,6 +32,7 @@ import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorColumnHandle;
 import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.SchemaTableName;
+import com.facebook.presto.spi.Session;
 import com.facebook.presto.spi.TupleDomain;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.VarcharType;
@@ -88,7 +89,7 @@ public class InformationSchemaDataStreamProvider
         InformationSchemaTableHandle handle = ((InformationSchemaSplit) split).getTableHandle();
         Map<String, Object> filters = ((InformationSchemaSplit) split).getFilters();
 
-        InternalTable table = getInformationSchemaTable(handle.getCatalogName(), handle.getSchemaTableName(), filters);
+        InternalTable table = getInformationSchemaTable(handle.getSession(), handle.getCatalogName(), handle.getSchemaTableName(), filters);
 
         ImmutableList.Builder<BlockIterable> list = ImmutableList.builder();
         for (ConnectorColumnHandle column : columns) {
@@ -100,31 +101,31 @@ public class InformationSchemaDataStreamProvider
         return list.build();
     }
 
-    public InternalTable getInformationSchemaTable(String catalog, SchemaTableName table, Map<String, Object> filters)
+    public InternalTable getInformationSchemaTable(Session session, String catalog, SchemaTableName table, Map<String, Object> filters)
     {
         if (table.equals(InformationSchemaMetadata.TABLE_COLUMNS)) {
-            return buildColumns(catalog, filters);
+            return buildColumns(session, catalog, filters);
         }
         else if (table.equals(InformationSchemaMetadata.TABLE_TABLES)) {
-            return buildTables(catalog, filters);
+            return buildTables(session, catalog, filters);
         }
         else if (table.equals(InformationSchemaMetadata.TABLE_SCHEMATA)) {
-            return buildSchemata(catalog);
+            return buildSchemata(session, catalog);
         }
         else if (table.equals(InformationSchemaMetadata.TABLE_INTERNAL_FUNCTIONS)) {
             return buildFunctions();
         }
         else if (table.equals(InformationSchemaMetadata.TABLE_INTERNAL_PARTITIONS)) {
-            return buildPartitions(catalog, filters);
+            return buildPartitions(session, catalog, filters);
         }
 
         throw new IllegalArgumentException(format("table does not exist: %s", table));
     }
 
-    private InternalTable buildColumns(String catalogName, Map<String, Object> filters)
+    private InternalTable buildColumns(Session session, String catalogName, Map<String, Object> filters)
     {
         InternalTable.Builder table = InternalTable.builder(InformationSchemaMetadata.informationSchemaTableColumns(InformationSchemaMetadata.TABLE_COLUMNS));
-        for (Entry<QualifiedTableName, List<ColumnMetadata>> entry : getColumnsList(catalogName, filters).entrySet()) {
+        for (Entry<QualifiedTableName, List<ColumnMetadata>> entry : getColumnsList(session, catalogName, filters).entrySet()) {
             QualifiedTableName tableName = entry.getKey();
             for (ColumnMetadata column : entry.getValue()) {
                 table.add(
@@ -142,15 +143,15 @@ public class InformationSchemaDataStreamProvider
         return table.build();
     }
 
-    private Map<QualifiedTableName, List<ColumnMetadata>> getColumnsList(String catalogName, Map<String, Object> filters)
+    private Map<QualifiedTableName, List<ColumnMetadata>> getColumnsList(Session session, String catalogName, Map<String, Object> filters)
     {
-        return metadata.listTableColumns(extractQualifiedTablePrefix(catalogName, filters));
+        return metadata.listTableColumns(session, extractQualifiedTablePrefix(catalogName, filters));
     }
 
-    private InternalTable buildTables(String catalogName, Map<String, Object> filters)
+    private InternalTable buildTables(Session session, String catalogName, Map<String, Object> filters)
     {
         InternalTable.Builder table = InternalTable.builder(InformationSchemaMetadata.informationSchemaTableColumns(InformationSchemaMetadata.TABLE_TABLES));
-        for (QualifiedTableName name : getTablesList(catalogName, filters)) {
+        for (QualifiedTableName name : getTablesList(session, catalogName, filters)) {
             table.add(
                     name.getCatalogName(),
                     name.getSchemaName(),
@@ -160,9 +161,9 @@ public class InformationSchemaDataStreamProvider
         return table.build();
     }
 
-    private List<QualifiedTableName> getTablesList(String catalogName, Map<String, Object> filters)
+    private List<QualifiedTableName> getTablesList(Session session, String catalogName, Map<String, Object> filters)
     {
-        return metadata.listTables(extractQualifiedTablePrefix(catalogName, filters));
+        return metadata.listTables(session, extractQualifiedTablePrefix(catalogName, filters));
     }
 
     private InternalTable buildFunctions()
@@ -206,23 +207,23 @@ public class InformationSchemaDataStreamProvider
         return table.build();
     }
 
-    private InternalTable buildSchemata(String catalogName)
+    private InternalTable buildSchemata(Session session, String catalogName)
     {
         InternalTable.Builder table = InternalTable.builder(InformationSchemaMetadata.informationSchemaTableColumns(InformationSchemaMetadata.TABLE_SCHEMATA));
-        for (String schema : metadata.listSchemaNames(catalogName)) {
+        for (String schema : metadata.listSchemaNames(session, catalogName)) {
             table.add(catalogName, schema);
         }
         return table.build();
     }
 
-    private InternalTable buildPartitions(String catalogName, Map<String, Object> filters)
+    private InternalTable buildPartitions(Session session, String catalogName, Map<String, Object> filters)
     {
         QualifiedTableName tableName = extractQualifiedTableName(catalogName, filters);
 
         InternalTable.Builder table = InternalTable.builder(InformationSchemaMetadata.informationSchemaTableColumns(InformationSchemaMetadata.TABLE_INTERNAL_PARTITIONS));
         int partitionNumber = 1;
 
-        Optional<TableHandle> tableHandle = metadata.getTableHandle(tableName);
+        Optional<TableHandle> tableHandle = metadata.getTableHandle(session, tableName);
         checkArgument(tableHandle.isPresent(), "Table %s does not exist", tableName);
         Map<ColumnHandle, String> columnHandles = ImmutableBiMap.copyOf(metadata.getColumnHandles(tableHandle.get())).inverse();
         PartitionResult partitionResult = splitManager.getPartitions(tableHandle.get(), Optional.<TupleDomain<ColumnHandle>>absent());

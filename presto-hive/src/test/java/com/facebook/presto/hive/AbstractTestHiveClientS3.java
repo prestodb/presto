@@ -24,6 +24,7 @@ import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.RecordCursor;
 import com.facebook.presto.spi.RecordSink;
 import com.facebook.presto.spi.SchemaTableName;
+import com.facebook.presto.spi.Session;
 import com.facebook.presto.spi.TupleDomain;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
@@ -38,12 +39,14 @@ import org.apache.hadoop.hive.metastore.api.Table;
 import org.testng.annotations.Test;
 
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ExecutorService;
 
 import static com.facebook.presto.hadoop.HadoopFileStatus.isDirectory;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
+import static com.facebook.presto.spi.type.TimeZoneKey.UTC_KEY;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.util.concurrent.MoreExecutors.sameThreadExecutor;
@@ -56,6 +59,8 @@ import static org.testng.Assert.assertTrue;
 @Test(groups = "hive-s3")
 public abstract class AbstractTestHiveClientS3
 {
+    private static final Session SESSION = new Session("user", "test", "default", "default", UTC_KEY, Locale.ENGLISH, null, null);
+
     protected String database;
     protected SchemaTableName tableS3;
     protected SchemaTableName temporaryCreateTable;
@@ -160,7 +165,7 @@ public abstract class AbstractTestHiveClientS3
                 .build();
 
         ConnectorTableMetadata tableMetadata = new ConnectorTableMetadata(tableName, columns, tableOwner);
-        HiveOutputTableHandle outputHandle = client.beginCreateTable(tableMetadata);
+        HiveOutputTableHandle outputHandle = client.beginCreateTable(SESSION, tableMetadata);
 
         // write the records
         RecordSink sink = client.getRecordSink(outputHandle);
@@ -225,7 +230,7 @@ public abstract class AbstractTestHiveClientS3
 
     private ConnectorTableHandle getTableHandle(SchemaTableName tableName)
     {
-        ConnectorTableHandle handle = client.getTableHandle(tableName);
+        ConnectorTableHandle handle = client.getTableHandle(SESSION, tableName);
         checkArgument(handle != null, "table not found: %s", tableName);
         return handle;
     }

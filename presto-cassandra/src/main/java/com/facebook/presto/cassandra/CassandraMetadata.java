@@ -23,6 +23,7 @@ import com.facebook.presto.spi.ReadOnlyConnectorMetadata;
 import com.facebook.presto.spi.SchemaNotFoundException;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.SchemaTablePrefix;
+import com.facebook.presto.spi.Session;
 import com.google.common.base.Objects;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -50,13 +51,13 @@ public class CassandraMetadata
     }
 
     @Override
-    public List<String> listSchemaNames()
+    public List<String> listSchemaNames(Session session)
     {
         return schemaProvider.getAllSchemas();
     }
 
     @Override
-    public CassandraTableHandle getTableHandle(SchemaTableName tableName)
+    public CassandraTableHandle getTableHandle(Session session, SchemaTableName tableName)
     {
         checkNotNull(tableName, "tableName is null");
         try {
@@ -93,10 +94,10 @@ public class CassandraMetadata
     }
 
     @Override
-    public List<SchemaTableName> listTables(String schemaNameOrNull)
+    public List<SchemaTableName> listTables(Session session, String schemaNameOrNull)
     {
         ImmutableList.Builder<SchemaTableName> tableNames = ImmutableList.builder();
-        for (String schemaName : listSchemas(schemaNameOrNull)) {
+        for (String schemaName : listSchemas(session, schemaNameOrNull)) {
             try {
                 for (String tableName : schemaProvider.getAllTables(schemaName)) {
                     tableNames.add(new SchemaTableName(schemaName, tableName.toLowerCase()));
@@ -109,10 +110,10 @@ public class CassandraMetadata
         return tableNames.build();
     }
 
-    private List<String> listSchemas(String schemaNameOrNull)
+    private List<String> listSchemas(Session session, String schemaNameOrNull)
     {
         if (schemaNameOrNull == null) {
-            return listSchemaNames();
+            return listSchemaNames(session);
         }
         return ImmutableList.of(schemaNameOrNull);
     }
@@ -143,11 +144,11 @@ public class CassandraMetadata
     }
 
     @Override
-    public Map<SchemaTableName, List<ColumnMetadata>> listTableColumns(SchemaTablePrefix prefix)
+    public Map<SchemaTableName, List<ColumnMetadata>> listTableColumns(Session session, SchemaTablePrefix prefix)
     {
         checkNotNull(prefix, "prefix is null");
         ImmutableMap.Builder<SchemaTableName, List<ColumnMetadata>> columns = ImmutableMap.builder();
-        for (SchemaTableName tableName : listTables(prefix)) {
+        for (SchemaTableName tableName : listTables(session, prefix)) {
             try {
                 columns.put(tableName, getTableMetadata(tableName).getColumns());
             }
@@ -158,10 +159,10 @@ public class CassandraMetadata
         return columns.build();
     }
 
-    private List<SchemaTableName> listTables(SchemaTablePrefix prefix)
+    private List<SchemaTableName> listTables(Session session, SchemaTablePrefix prefix)
     {
         if (prefix.getSchemaName() == null) {
-            return listTables(prefix.getSchemaName());
+            return listTables(session, prefix.getSchemaName());
         }
         return ImmutableList.of(new SchemaTableName(prefix.getSchemaName(), prefix.getTableName()));
     }

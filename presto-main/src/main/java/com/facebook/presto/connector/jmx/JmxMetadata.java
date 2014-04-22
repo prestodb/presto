@@ -20,6 +20,7 @@ import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.ReadOnlyConnectorMetadata;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.SchemaTablePrefix;
+import com.facebook.presto.spi.Session;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.base.Function;
 import com.google.common.base.Predicate;
@@ -64,13 +65,13 @@ public class JmxMetadata
     }
 
     @Override
-    public List<String> listSchemaNames()
+    public List<String> listSchemaNames(Session session)
     {
         return ImmutableList.of(SCHEMA_NAME);
     }
 
     @Override
-    public JmxTableHandle getTableHandle(SchemaTableName tableName)
+    public JmxTableHandle getTableHandle(Session session, SchemaTableName tableName)
     {
         checkNotNull(tableName, "tableName is null");
         if (!tableName.getSchemaName().equals(SCHEMA_NAME)) {
@@ -107,7 +108,7 @@ public class JmxMetadata
     }
 
     @Override
-    public List<SchemaTableName> listTables(String schemaNameOrNull)
+    public List<SchemaTableName> listTables(Session session, String schemaNameOrNull)
     {
         if (schemaNameOrNull != null && !schemaNameOrNull.equals(SCHEMA_NAME)) {
             return ImmutableList.of();
@@ -171,7 +172,7 @@ public class JmxMetadata
     }
 
     @Override
-    public Map<SchemaTableName, List<ColumnMetadata>> listTableColumns(SchemaTablePrefix prefix)
+    public Map<SchemaTableName, List<ColumnMetadata>> listTableColumns(Session session, SchemaTablePrefix prefix)
     {
         checkNotNull(prefix, "prefix is null");
         if (prefix.getSchemaName() != null && !prefix.getSchemaName().equals(SCHEMA_NAME)) {
@@ -182,14 +183,14 @@ public class JmxMetadata
 
         List<SchemaTableName> tableNames;
         if (prefix.getTableName() == null) {
-            tableNames = listTables(prefix.getSchemaName());
+            tableNames = listTables(session, prefix.getSchemaName());
         }
         else {
             tableNames = ImmutableList.of(new SchemaTableName(prefix.getSchemaName(), prefix.getTableName()));
         }
 
         for (SchemaTableName tableName : tableNames) {
-            JmxTableHandle tableHandle = getTableHandle(tableName);
+            JmxTableHandle tableHandle = getTableHandle(session, tableName);
             columns.put(tableName, tableHandle.getTableMetadata().getColumns());
         }
         return columns.build();

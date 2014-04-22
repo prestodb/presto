@@ -288,7 +288,7 @@ public class LocalQueryRunner
             System.out.println(PlanPrinter.textLogicalPlan(plan.getRoot(), plan.getTypes()));
         }
 
-        SubPlan subplan = new DistributedLogicalPlanner(metadata, idAllocator).createSubPlans(plan, true);
+        SubPlan subplan = new DistributedLogicalPlanner(session, metadata, idAllocator).createSubPlans(plan, true);
         assertTrue(subplan.getChildren().isEmpty(), "Expected subplan to have no children");
 
         LocalExecutionPlanner executionPlanner = new LocalExecutionPlanner(
@@ -374,7 +374,7 @@ public class LocalQueryRunner
     public OperatorFactory createTableScanOperator(final int operatorId, String tableName, String... columnNames)
     {
         // look up the table
-        TableHandle tableHandle = metadata.getTableHandle(new QualifiedTableName(session.getCatalog(), session.getSchema(), tableName)).orNull();
+        TableHandle tableHandle = metadata.getTableHandle(session, new QualifiedTableName(session.getCatalog(), session.getSchema(), tableName)).orNull();
         checkArgument(tableHandle != null, "Table %s does not exist", tableName);
 
         // lookup the columns
