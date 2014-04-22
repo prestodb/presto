@@ -42,6 +42,7 @@ import org.apache.hadoop.mapred.FileSplit;
 import org.apache.hadoop.mapred.JobConf;
 import org.apache.hadoop.util.Progressable;
 import org.joda.time.DateTime;
+import org.joda.time.format.DateTimeFormat;
 import org.testng.annotations.Test;
 
 import java.io.File;
@@ -168,6 +169,7 @@ public abstract class AbstractTestHiveFileFormats
     protected static final String COLUMN_NAMES_STRING = Joiner.on(",").join(COLUMN_NAMES);
 
     public static final long TIMESTAMP = new DateTime(2011, 5, 6, 7, 8, 9, 123).getMillis();
+    public static final String TIMESTAMP_STRING = DateTimeFormat.forPattern("yyyy-MM-dd HH:mm:ss.SSS").print(TIMESTAMP);
 
     // Pairs of <value-to-write-to-Hive, value-expected-from-Presto>
     @SuppressWarnings("unchecked")
@@ -192,7 +194,7 @@ public abstract class AbstractTestHiveFileFormats
                 Pair.<Object, Object>of(ImmutableMap.of(5.0f, 5.0f), "{\"5.0\":5.0}"),
                 Pair.<Object, Object>of(ImmutableMap.of(6.0, 6.0), "{\"6.0\":6.0}"),
                 Pair.<Object, Object>of(ImmutableMap.of(true, true), "{\"true\":true}"),
-                Pair.<Object, Object>of(ImmutableMap.of(new Timestamp(TIMESTAMP), new Timestamp(TIMESTAMP)), String.format("{\"%d\":%d}", TIMESTAMP, TIMESTAMP)),
+                Pair.<Object, Object>of(ImmutableMap.of(new Timestamp(TIMESTAMP), new Timestamp(TIMESTAMP)), String.format("{\"%s\":\"%s\"}", TIMESTAMP_STRING, TIMESTAMP_STRING)),
                 Pair.<Object, Object>of(ImmutableList.of("test"), "[\"test\"]"),
                 Pair.<Object, Object>of(ImmutableList.of((byte) 1), "[1]"),
                 Pair.<Object, Object>of(ImmutableList.of((short) 2), "[2]"),
@@ -201,7 +203,7 @@ public abstract class AbstractTestHiveFileFormats
                 Pair.<Object, Object>of(ImmutableList.of(5.0f), "[5.0]"),
                 Pair.<Object, Object>of(ImmutableList.of(6.0), "[6.0]"),
                 Pair.<Object, Object>of(ImmutableList.of(true), "[true]"),
-                Pair.<Object, Object>of(ImmutableList.of(new Timestamp(TIMESTAMP)), String.format("[%d]", TIMESTAMP)),
+                Pair.<Object, Object>of(ImmutableList.of(new Timestamp(TIMESTAMP)), String.format("[\"%s\"]", TIMESTAMP_STRING)),
                 Pair.<Object, Object>of(ImmutableMap.of("test", ImmutableList.<Object>of(new Integer[] {1})), "{\"test\":[{\"s_int\":1}]}")
         );
 

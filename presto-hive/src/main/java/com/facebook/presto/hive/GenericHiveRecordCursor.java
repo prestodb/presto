@@ -83,6 +83,7 @@ class GenericHiveRecordCursor<K, V extends Writable>
 
     private final long totalBytes;
     private final DateTimeZone hiveStorageTimeZone;
+    private final DateTimeZone sessionTimeZone;
 
     private long completedBytes;
     private Object rowData;
@@ -94,7 +95,8 @@ class GenericHiveRecordCursor<K, V extends Writable>
             Properties splitSchema,
             List<HivePartitionKey> partitionKeys,
             List<HiveColumnHandle> columns,
-            DateTimeZone hiveStorageTimeZone)
+            DateTimeZone hiveStorageTimeZone,
+            DateTimeZone sessionTimeZone)
     {
         checkNotNull(recordReader, "recordReader is null");
         checkArgument(totalBytes >= 0, "totalBytes is negative");
@@ -103,12 +105,14 @@ class GenericHiveRecordCursor<K, V extends Writable>
         checkNotNull(columns, "columns is null");
         checkArgument(!columns.isEmpty(), "columns is empty");
         checkNotNull(hiveStorageTimeZone, "hiveStorageTimeZone is null");
+        checkNotNull(sessionTimeZone, "sessionTimeZone is null");
 
         this.recordReader = recordReader;
         this.totalBytes = totalBytes;
         this.key = recordReader.createKey();
         this.value = recordReader.createValue();
         this.hiveStorageTimeZone = hiveStorageTimeZone;
+        this.sessionTimeZone = sessionTimeZone;
 
         try {
             this.deserializer = MetaStoreUtils.getDeserializer(null, splitSchema);
@@ -397,7 +401,7 @@ class GenericHiveRecordCursor<K, V extends Writable>
         }
         else if (hiveTypes[column] == HiveType.MAP || hiveTypes[column] == HiveType.LIST || hiveTypes[column] == HiveType.STRUCT) {
             // temporarily special case MAP, LIST, and STRUCT types as strings
-            slices[column] = Slices.wrappedBuffer(SerDeUtils.getJsonBytes(fieldData, fieldInspectors[column]));
+            slices[column] = Slices.wrappedBuffer(SerDeUtils.getJsonBytes(sessionTimeZone, fieldData, fieldInspectors[column]));
             nulls[column] = false;
         }
         else {

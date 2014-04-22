@@ -38,7 +38,8 @@ public class ColumnarTextHiveRecordCursorProvider
                     split.getSchema(),
                     split.getPartitionKeys(),
                     columns,
-                    hiveStorageTimeZone));
+                    hiveStorageTimeZone,
+                    DateTimeZone.forID(split.getSession().getTimeZoneKey().getTimeZoneId())));
         }
         return Optional.absent();
     }

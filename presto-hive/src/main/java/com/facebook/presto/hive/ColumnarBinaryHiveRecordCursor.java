@@ -31,6 +31,7 @@ import org.apache.hadoop.hive.serde2.objectinspector.ObjectInspector;
 import org.apache.hadoop.hive.serde2.objectinspector.StructObjectInspector;
 import org.apache.hadoop.io.WritableUtils;
 import org.apache.hadoop.mapred.RecordReader;
+import org.joda.time.DateTimeZone;
 import sun.misc.Unsafe;
 
 import java.io.IOException;
@@ -63,6 +64,7 @@ class ColumnarBinaryHiveRecordCursor<K>
         extends HiveRecordCursor
 {
     private final RecordReader<K, BytesRefArrayWritable> recordReader;
+    private final DateTimeZone sessionTimeZone;
     private final K key;
     private final BytesRefArrayWritable value;
 
@@ -122,7 +124,8 @@ class ColumnarBinaryHiveRecordCursor<K>
             long totalBytes,
             Properties splitSchema,
             List<HivePartitionKey> partitionKeys,
-            List<HiveColumnHandle> columns)
+            List<HiveColumnHandle> columns,
+            DateTimeZone sessionTimeZone)
     {
         checkNotNull(recordReader, "recordReader is null");
         checkArgument(totalBytes >= 0, "totalBytes is negative");
@@ -130,11 +133,13 @@ class ColumnarBinaryHiveRecordCursor<K>
         checkNotNull(partitionKeys, "partitionKeys is null");
         checkNotNull(columns, "columns is null");
         checkArgument(!columns.isEmpty(), "columns is empty");
+        checkNotNull(sessionTimeZone, "sessionTimeZone is null");
 
         this.recordReader = recordReader;
         this.totalBytes = totalBytes;
         this.key = recordReader.createKey();
         this.value = recordReader.createValue();
+        this.sessionTimeZone = sessionTimeZone;
 
         int size = columns.size();
 
@@ -556,7 +561,7 @@ class ColumnarBinaryHiveRecordCursor<K>
                 ByteArrayRef byteArrayRef = new ByteArrayRef();
                 byteArrayRef.setData(bytes);
                 lazyObject.init(byteArrayRef, start, length);
-                slices[column] = Slices.wrappedBuffer(SerDeUtils.getJsonBytes(lazyObject.getObject(), fieldInspectors[column]));
+                slices[column] = Slices.wrappedBuffer(SerDeUtils.getJsonBytes(sessionTimeZone, lazyObject.getObject(), fieldInspectors[column]));
             }
             else {
                 // TODO: zero length BINARY is not supported. See https://issues.apache.org/jira/browse/HIVE-2483

@@ -53,7 +53,13 @@ public class TestHiveFileFormats
             splitProperties.setProperty("serialization.lib", "org.apache.hadoop.hive.serde2.columnar.ColumnarSerDe");
             splitProperties.setProperty("columns", COLUMN_NAMES_STRING);
             splitProperties.setProperty("columns.types", COLUMN_TYPES);
-            RecordCursor cursor = new ColumnarTextHiveRecordCursor<>(recordReader, split.getLength(), splitProperties, new ArrayList<HivePartitionKey>(), getColumns(), DateTimeZone.getDefault());
+            RecordCursor cursor = new ColumnarTextHiveRecordCursor<>(recordReader,
+                    split.getLength(),
+                    splitProperties,
+                    new ArrayList<HivePartitionKey>(),
+                    getColumns(),
+                    DateTimeZone.getDefault(),
+                    DateTimeZone.getDefault());
 
             checkCursor(cursor);
         }
@@ -82,7 +88,12 @@ public class TestHiveFileFormats
             splitProperties.setProperty("serialization.lib", "org.apache.hadoop.hive.serde2.columnar.LazyBinaryColumnarSerDe");
             splitProperties.setProperty("columns", COLUMN_NAMES_STRING);
             splitProperties.setProperty("columns.types", COLUMN_TYPES);
-            RecordCursor cursor = new ColumnarBinaryHiveRecordCursor<>(recordReader, split.getLength(), splitProperties, new ArrayList<HivePartitionKey>(), getColumns());
+            RecordCursor cursor = new ColumnarBinaryHiveRecordCursor<>(recordReader,
+                    split.getLength(),
+                    splitProperties,
+                    new ArrayList<HivePartitionKey>(),
+                    getColumns(),
+                    DateTimeZone.getDefault());
 
             checkCursor(cursor);
         }
