@@ -29,7 +29,7 @@ public class ColumnarTextHiveRecordCursorProvider
         implements HiveRecordCursorProvider
 {
     @Override
-    public Optional<HiveRecordCursor> createHiveRecordCursor(HiveSplit split, RecordReader<?, ?> recordReader, List<HiveColumnHandle> columns, DateTimeZone timeZone)
+    public Optional<HiveRecordCursor> createHiveRecordCursor(HiveSplit split, RecordReader<?, ?> recordReader, List<HiveColumnHandle> columns, DateTimeZone hiveStorageTimeZone)
     {
         if (usesColumnarTextSerDe(split)) {
             return Optional.<HiveRecordCursor>of(new ColumnarTextHiveRecordCursor<>(
@@ -38,7 +38,7 @@ public class ColumnarTextHiveRecordCursorProvider
                     split.getSchema(),
                     split.getPartitionKeys(),
                     columns,
-                    timeZone));
+                    hiveStorageTimeZone));
         }
         return Optional.absent();
     }

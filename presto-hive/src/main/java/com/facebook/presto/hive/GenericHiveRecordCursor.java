@@ -82,7 +82,7 @@ class GenericHiveRecordCursor<K, V extends Writable>
     private final boolean[] nulls;
 
     private final long totalBytes;
-    private final DateTimeZone timeZone;
+    private final DateTimeZone hiveStorageTimeZone;
 
     private long completedBytes;
     private Object rowData;
@@ -94,7 +94,7 @@ class GenericHiveRecordCursor<K, V extends Writable>
             Properties splitSchema,
             List<HivePartitionKey> partitionKeys,
             List<HiveColumnHandle> columns,
-            DateTimeZone timeZone)
+            DateTimeZone hiveStorageTimeZone)
     {
         checkNotNull(recordReader, "recordReader is null");
         checkArgument(totalBytes >= 0, "totalBytes is negative");
@@ -102,13 +102,13 @@ class GenericHiveRecordCursor<K, V extends Writable>
         checkNotNull(partitionKeys, "partitionKeys is null");
         checkNotNull(columns, "columns is null");
         checkArgument(!columns.isEmpty(), "columns is empty");
-        checkNotNull(timeZone, "timeZone is null");
+        checkNotNull(hiveStorageTimeZone, "hiveStorageTimeZone is null");
 
         this.recordReader = recordReader;
         this.totalBytes = totalBytes;
         this.key = recordReader.createKey();
         this.value = recordReader.createValue();
-        this.timeZone = timeZone;
+        this.hiveStorageTimeZone = hiveStorageTimeZone;
 
         try {
             this.deserializer = MetaStoreUtils.getDeserializer(null, splitSchema);
@@ -312,7 +312,7 @@ class GenericHiveRecordCursor<K, V extends Writable>
         else {
             Object fieldValue = ((PrimitiveObjectInspector) fieldInspectors[column]).getPrimitiveJavaObject(fieldData);
             checkState(fieldValue != null, "fieldValue should not be null");
-            longs[column] = getLongOrTimestamp(fieldValue, timeZone);
+            longs[column] = getLongOrTimestamp(fieldValue, hiveStorageTimeZone);
             nulls[column] = false;
         }
     }

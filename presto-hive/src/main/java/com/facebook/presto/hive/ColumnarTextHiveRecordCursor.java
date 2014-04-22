@@ -82,7 +82,7 @@ class ColumnarTextHiveRecordCursor<K>
     private final boolean[] nulls;
 
     private final long totalBytes;
-    private final DateTimeZone timeZone;
+    private final DateTimeZone hiveStorageTimeZone;
 
     private long completedBytes;
     private boolean closed;
@@ -93,7 +93,7 @@ class ColumnarTextHiveRecordCursor<K>
             Properties splitSchema,
             List<HivePartitionKey> partitionKeys,
             List<HiveColumnHandle> columns,
-            DateTimeZone timeZone)
+            DateTimeZone hiveStorageTimeZone)
     {
         checkNotNull(recordReader, "recordReader is null");
         checkArgument(totalBytes >= 0, "totalBytes is negative");
@@ -101,13 +101,13 @@ class ColumnarTextHiveRecordCursor<K>
         checkNotNull(partitionKeys, "partitionKeys is null");
         checkNotNull(columns, "columns is null");
         checkArgument(!columns.isEmpty(), "columns is empty");
-        checkNotNull(timeZone, "timeZone is null");
+        checkNotNull(hiveStorageTimeZone, "hiveStorageTimeZone is null");
 
         this.recordReader = recordReader;
         this.totalBytes = totalBytes;
         this.key = recordReader.createKey();
         this.value = recordReader.createValue();
-        this.timeZone = timeZone;
+        this.hiveStorageTimeZone = hiveStorageTimeZone;
 
         int size = columns.size();
 
@@ -365,7 +365,7 @@ class ColumnarTextHiveRecordCursor<K>
         }
         else if (hiveTypes[column] == HiveType.TIMESTAMP) {
             String value = new String(bytes, start, length);
-            longs[column] = parseHiveTimestamp(value, timeZone);
+            longs[column] = parseHiveTimestamp(value, hiveStorageTimeZone);
             wasNull = false;
         }
         else {

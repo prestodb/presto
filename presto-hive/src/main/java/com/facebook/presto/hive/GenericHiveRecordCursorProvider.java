@@ -24,15 +24,15 @@ public class GenericHiveRecordCursorProvider
         implements HiveRecordCursorProvider
 {
     @Override
-    public Optional<HiveRecordCursor> createHiveRecordCursor(HiveSplit split, RecordReader<?, ?> recordReader, List<HiveColumnHandle> columns, DateTimeZone timeZone)
+    public Optional<HiveRecordCursor> createHiveRecordCursor(HiveSplit split, RecordReader<?, ?> recordReader, List<HiveColumnHandle> columns, DateTimeZone hiveStorageTimeZone)
     {
-        return Optional.<HiveRecordCursor>of(new GenericHiveRecordCursor<>(
+        return Optional.<HiveRecordCursor>of(new  GenericHiveRecordCursor<>(
                 genericRecordReader(recordReader),
                 split.getLength(),
                 split.getSchema(),
                 split.getPartitionKeys(),
                 columns,
-                timeZone));
+                hiveStorageTimeZone));
     }
 
     @SuppressWarnings("unchecked")
