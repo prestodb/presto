@@ -1572,6 +1572,28 @@ public abstract class AbstractTestQueries
     }
 
     @Test
+    public void testAggregationImplicitCoercion()
+            throws Exception
+    {
+        assertQuery("SELECT 1.0 / COUNT(*) FROM orders");
+        assertQuery("SELECT custkey, 1.0 / COUNT(*) FROM orders GROUP BY custkey");
+    }
+
+    @Test
+    public void testWindowImplicitCoercion()
+            throws Exception
+    {
+        MaterializedResult actual = computeActual("SELECT orderkey, 1.0 / row_number() OVER (ORDER BY orderkey) FROM orders LIMIT 2");
+
+        MaterializedResult expected = resultBuilder(getSession(), BIGINT, DOUBLE)
+                .row(1, 1.0)
+                .row(2, 0.5)
+                .build();
+
+        assertEquals(actual, expected);
+    }
+
+    @Test
     public void testHaving()
             throws Exception
     {
