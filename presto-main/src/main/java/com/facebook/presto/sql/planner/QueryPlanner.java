@@ -20,12 +20,13 @@ import com.facebook.presto.metadata.QualifiedTableName;
 import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.metadata.TableHandle;
 import com.facebook.presto.metadata.TableMetadata;
-import com.facebook.presto.spi.block.SortOrder;
 import com.facebook.presto.spi.ColumnMetadata;
+import com.facebook.presto.spi.Session;
+import com.facebook.presto.spi.block.SortOrder;
+import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.analyzer.Analysis;
 import com.facebook.presto.sql.analyzer.Field;
 import com.facebook.presto.sql.analyzer.FieldOrExpression;
-import com.facebook.presto.spi.Session;
 import com.facebook.presto.sql.analyzer.TupleDescriptor;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.planner.plan.FilterNode;
@@ -38,6 +39,7 @@ import com.facebook.presto.sql.planner.plan.SortNode;
 import com.facebook.presto.sql.planner.plan.TableScanNode;
 import com.facebook.presto.sql.planner.plan.TopNNode;
 import com.facebook.presto.sql.planner.plan.WindowNode;
+import com.facebook.presto.sql.tree.Cast;
 import com.facebook.presto.sql.tree.DefaultTraversalVisitor;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.FunctionCall;
@@ -52,6 +54,7 @@ import com.facebook.presto.sql.tree.SortItem.Ordering;
 import com.facebook.presto.sql.tree.SubqueryExpression;
 import com.facebook.presto.util.IterableTransformer;
 import com.google.common.base.Function;
+import com.google.common.base.Objects;
 import com.google.common.base.Optional;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
@@ -68,11 +71,11 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.sql.planner.plan.TableScanNode.GeneratedPartitions;
 import static com.facebook.presto.sql.tree.FunctionCall.argumentsGetter;
 import static com.facebook.presto.sql.tree.FunctionCall.distinctPredicate;
 import static com.facebook.presto.sql.tree.SortItem.sortKeyGetter;
-import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.google.common.base.Preconditions.checkState;
 
 class QueryPlanner
@@ -236,6 +239,62 @@ class QueryPlanner
         return new PlanBuilder(outputTranslations, new ProjectNode(idAllocator.getNextId(), subPlan.getRoot(), projections.build()));
     }
 
+    private Map<Symbol, Expression> coerce(Iterable<? extends Expression> expressions, PlanBuilder subPlan, TranslationMap translations)
+    {
+        ImmutableMap.Builder<Symbol, Expression> projections = ImmutableMap.builder();
+
+        for (Expression expression : expressions) {
+            Type coercion = analysis.getCoercion(expression);
+            Symbol symbol = symbolAllocator.newSymbol(expression, Objects.firstNonNull(coercion, analysis.getType(expression)));
+            Expression rewritten = subPlan.rewrite(expression);
+            if (coercion != null) {
+                rewritten = new Cast(rewritten, coercion.getName());
+            }
+            projections.put(symbol, rewritten);
+            translations.put(expression, symbol);
+        }
+
+        return projections.build();
+    }
+
+    private PlanBuilder explicitCoercionFields(PlanBuilder subPlan, Iterable<FieldOrExpression> alreadyCoerced, Iterable<? extends Expression> uncoerced)
+    {
+        TranslationMap translations = new TranslationMap(subPlan.getRelationPlan(), analysis);
+        ImmutableMap.Builder<Symbol, Expression> projections = ImmutableMap.builder();
+
+        projections.putAll(coerce(uncoerced, subPlan, translations));
+
+        for (FieldOrExpression fieldOrExpression : alreadyCoerced) {
+            Symbol symbol;
+            if (fieldOrExpression.isFieldReference()) {
+                Field field = subPlan.getRelationPlan().getDescriptor().getFields().get(fieldOrExpression.getFieldIndex());
+                symbol = symbolAllocator.newSymbol(field);
+            }
+            else {
+                symbol = symbolAllocator.newSymbol(fieldOrExpression.getExpression(), analysis.getType(fieldOrExpression.getExpression()));
+            }
+            Expression rewritten = subPlan.rewrite(fieldOrExpression);
+            projections.put(symbol, rewritten);
+            translations.put(fieldOrExpression, symbol);
+        }
+
+        return new PlanBuilder(translations, new ProjectNode(idAllocator.getNextId(), subPlan.getRoot(), projections.build()));
+    }
+
+    private PlanBuilder explicitCoercionSymbols(PlanBuilder subPlan, Iterable<Symbol> alreadyCoerced, Iterable<? extends Expression> uncoerced)
+    {
+        TranslationMap translations = new TranslationMap(subPlan.getRelationPlan(), analysis);
+        ImmutableMap.Builder<Symbol, Expression> projections = ImmutableMap.builder();
+
+        projections.putAll(coerce(uncoerced, subPlan, translations));
+
+        for (Symbol symbol : alreadyCoerced) {
+            projections.put(symbol, new QualifiedNameReference(symbol.toQualifiedName()));
+        }
+
+        return new PlanBuilder(translations, new ProjectNode(idAllocator.getNextId(), subPlan.getRoot(), projections.build()));
+    }
+
     private PlanBuilder aggregate(PlanBuilder subPlan, QuerySpecification node)
     {
         if (analysis.getAggregates(node).isEmpty() && analysis.getGroupByExpressions(node).isEmpty()) {
@@ -259,11 +318,18 @@ class QueryPlanner
 
         // 2.a. Rewrite aggregates in terms of pre-projected inputs
         TranslationMap translations = new TranslationMap(subPlan.getRelationPlan(), analysis);
+        boolean needPostProjectionCoercion = false;
         for (FunctionCall aggregate : analysis.getAggregates(node)) {
-            FunctionCall rewritten = (FunctionCall) subPlan.rewrite(aggregate);
+            Expression rewritten = subPlan.rewrite(aggregate);
             Symbol newSymbol = symbolAllocator.newSymbol(rewritten, analysis.getType(aggregate));
 
-            aggregationAssignments.put(newSymbol, rewritten);
+            // TODO: this is a hack, because we apply coercions to the output of expressions, rather than the arguments to expressions.
+            // Therefore we can end up with this implicit cast, and have to move it into a post-projection
+            if (rewritten instanceof Cast) {
+                rewritten = ((Cast) rewritten).getExpression();
+                needPostProjectionCoercion = true;
+            }
+            aggregationAssignments.put(newSymbol, (FunctionCall) rewritten);
             translations.put(aggregate, newSymbol);
 
             functions.put(newSymbol, analysis.getFunctionInfo(aggregate).getHandle());
@@ -318,7 +384,15 @@ class QueryPlanner
             confidence = Double.valueOf(analysis.getQuery().getApproximate().get().getConfidence()) / 100.0;
         }
 
-        return new PlanBuilder(translations, new AggregationNode(idAllocator.getNextId(), subPlan.getRoot(), ImmutableList.copyOf(groupBySymbols), aggregationAssignments.build(), functions.build(), new ImmutableMap.Builder<Symbol, Symbol>().putAll(masks).build(), Optional.<Symbol>absent(), confidence));
+        subPlan = new PlanBuilder(translations, new AggregationNode(idAllocator.getNextId(), subPlan.getRoot(), ImmutableList.copyOf(groupBySymbols), aggregationAssignments.build(), functions.build(), new ImmutableMap.Builder<Symbol, Symbol>().putAll(masks).build(), Optional.<Symbol>absent(), confidence));
+
+        // 3. Post-projection
+        // Add back the implicit casts that we removed in 2.a
+        // TODO: this is a hack, we should change type coercions to coerce the inputs to functions/operators instead of coercing the output
+        if (needPostProjectionCoercion) {
+            return explicitCoercionFields(subPlan, analysis.getGroupByExpressions(node), analysis.getAggregates(node));
+        }
+        return subPlan;
     }
 
     private PlanBuilder window(PlanBuilder subPlan, QuerySpecification node)
@@ -360,17 +434,28 @@ class QueryPlanner
             Map<Symbol, Signature> signatures = new HashMap<>();
 
             // Rewrite function call in terms of pre-projected inputs
-            FunctionCall rewritten = (FunctionCall) subPlan.rewrite(windowFunction);
+            Expression rewritten = subPlan.rewrite(windowFunction);
             Symbol newSymbol = symbolAllocator.newSymbol(rewritten, analysis.getType(windowFunction));
 
-            assignments.put(newSymbol, rewritten);
+            boolean needCoercion = rewritten instanceof Cast;
+            // Strip out the cast and add it back as a post-projection
+            if (rewritten instanceof Cast) {
+                rewritten = ((Cast) rewritten).getExpression();
+            }
+            assignments.put(newSymbol, (FunctionCall) rewritten);
             outputTranslations.put(windowFunction, newSymbol);
 
             signatures.put(newSymbol, analysis.getFunctionInfo(windowFunction).getHandle());
 
+            List<Symbol> sourceSymbols = subPlan.getRoot().getOutputSymbols();
+
             // create window node
             subPlan = new PlanBuilder(outputTranslations,
                     new WindowNode(idAllocator.getNextId(), subPlan.getRoot(), partitionBySymbols.build(), orderBySymbols.build(), orderings, assignments.build(), signatures));
+
+            if (needCoercion) {
+                subPlan = explicitCoercionSymbols(subPlan, sourceSymbols, ImmutableList.of(windowFunction));
+            }
         }
 
         return subPlan;
