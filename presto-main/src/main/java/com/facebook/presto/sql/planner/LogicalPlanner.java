@@ -109,7 +109,7 @@ public class LogicalPlanner
                 Optional.<Symbol>absent(),
                 destination.getCatalogName(),
                 tableMetadata,
-                metadata.canCreateSampledTables(destination.getCatalogName()));
+                metadata.canCreateSampledTables(session, destination.getCatalogName()));
 
         List<Symbol> outputs = ImmutableList.of(symbolAllocator.newSymbol("rows", BIGINT));
 

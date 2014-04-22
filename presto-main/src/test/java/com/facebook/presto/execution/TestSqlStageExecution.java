@@ -314,7 +314,7 @@ public class TestSqlStageExecution
 
     private StageExecutionPlan createTableScanPlan(String planId, MetadataManager metadata, int splitCount)
     {
-        TableHandle tableHandle = metadata.getTableHandle(new QualifiedTableName("default", "default", DualMetadata.NAME)).get();
+        TableHandle tableHandle = metadata.getTableHandle(SESSION, new QualifiedTableName("default", "default", DualMetadata.NAME)).get();
         ColumnHandle columnHandle = metadata.getColumnHandle(tableHandle, DualMetadata.COLUMN_NAME).get();
         Symbol symbol = new Symbol(DualMetadata.COLUMN_NAME);
 

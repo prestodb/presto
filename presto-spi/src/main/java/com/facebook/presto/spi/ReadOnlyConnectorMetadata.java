@@ -19,7 +19,7 @@ public abstract class ReadOnlyConnectorMetadata
         implements ConnectorMetadata
 {
     @Override
-    public final ConnectorTableHandle createTable(ConnectorTableMetadata tableMetadata)
+    public final ConnectorTableHandle createTable(Session session, ConnectorTableMetadata tableMetadata)
     {
         throw new UnsupportedOperationException();
     }
@@ -31,13 +31,13 @@ public abstract class ReadOnlyConnectorMetadata
     }
 
     @Override
-    public final boolean canCreateSampledTables()
+    public final boolean canCreateSampledTables(Session session)
     {
         return false;
     }
 
     @Override
-    public final ConnectorOutputTableHandle beginCreateTable(ConnectorTableMetadata tableMetadata)
+    public final ConnectorOutputTableHandle beginCreateTable(Session session, ConnectorTableMetadata tableMetadata)
     {
         throw new UnsupportedOperationException();
     }

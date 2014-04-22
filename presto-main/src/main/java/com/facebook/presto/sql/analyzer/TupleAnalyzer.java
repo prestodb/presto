@@ -149,12 +149,12 @@ class TupleAnalyzer
 
         QualifiedTableName name = MetadataUtil.createQualifiedTableName(session, table.getName());
 
-        Optional<TableHandle> tableHandle = metadata.getTableHandle(name);
+        Optional<TableHandle> tableHandle = metadata.getTableHandle(session, name);
         if (!tableHandle.isPresent()) {
             if (!metadata.getCatalogNames().containsKey(name.getCatalogName())) {
                 throw new SemanticException(MISSING_CATALOG, table, "Catalog %s does not exist", name.getCatalogName());
             }
-            if (!metadata.listSchemaNames(name.getCatalogName()).contains(name.getSchemaName())) {
+            if (!metadata.listSchemaNames(session, name.getCatalogName()).contains(name.getSchemaName())) {
                 throw new SemanticException(MISSING_SCHEMA, table, "Schema %s does not exist", name.getSchemaName());
             }
             throw new SemanticException(MISSING_TABLE, table, "Table %s does not exist", name);

@@ -32,6 +32,7 @@ import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.Domain;
 import com.facebook.presto.spi.PartitionKey;
 import com.facebook.presto.spi.Range;
+import com.facebook.presto.spi.Session;
 import com.facebook.presto.spi.SortedRangeSet;
 import com.facebook.presto.spi.TupleDomain;
 import com.facebook.presto.spi.type.BigintType;
@@ -49,8 +50,10 @@ import org.testng.annotations.Test;
 import java.io.File;
 import java.net.URI;
 import java.util.List;
+import java.util.Locale;
 import java.util.UUID;
 
+import static com.facebook.presto.spi.type.TimeZoneKey.UTC_KEY;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static io.airlift.slice.Slices.utf8Slice;
 import static org.testng.Assert.assertEquals;
@@ -59,6 +62,7 @@ import static org.testng.Assert.assertTrue;
 @Test(singleThreaded = true)
 public class TestNativeSplitManager
 {
+    private static final Session SESSION = new Session("user", "test", "default", "default", UTC_KEY, Locale.ENGLISH, null, null);
     private static final ConnectorTableMetadata TEST_TABLE = TableMetadataBuilder.tableMetadataBuilder("demo", "test_table")
             .partitionKeyColumn("ds", VARCHAR)
             .column("foo", VARCHAR)
@@ -90,7 +94,7 @@ public class TestNativeSplitManager
 
         NativeMetadata metadata = new NativeMetadata(new NativeConnectorId("native"), dbi, shardManager);
 
-        tableHandle = metadata.createTable(TEST_TABLE);
+        tableHandle = metadata.createTable(SESSION, TEST_TABLE);
         dsColumnHandle = metadata.getColumnHandle(tableHandle, "ds");
 
         UUID shardUuid1 = UUID.randomUUID();

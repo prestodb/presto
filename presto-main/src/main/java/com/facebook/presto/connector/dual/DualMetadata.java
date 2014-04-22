@@ -23,6 +23,7 @@ import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.SchemaTablePrefix;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.type.TypeRegistry;
+import com.facebook.presto.spi.Session;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -52,13 +53,13 @@ public class DualMetadata
     public static final ColumnMetadata COLUMN_METADATA = new ColumnMetadata(COLUMN_NAME, VARCHAR, 0, false);
 
     @Override
-    public List<String> listSchemaNames()
+    public List<String> listSchemaNames(Session session)
     {
         return ImmutableList.of();
     }
 
     @Override
-    public ConnectorTableHandle getTableHandle(SchemaTableName table)
+    public ConnectorTableHandle getTableHandle(Session session, SchemaTableName table)
     {
         checkNotNull(table, "table is null");
         if (!table.getTableName().equals(NAME)) {
@@ -78,7 +79,7 @@ public class DualMetadata
     }
 
     @Override
-    public List<SchemaTableName> listTables(String schemaNameOrNull)
+    public List<SchemaTableName> listTables(Session session, String schemaNameOrNull)
     {
         // don't list dual
         return ImmutableList.of();
@@ -123,7 +124,7 @@ public class DualMetadata
     }
 
     @Override
-    public Map<SchemaTableName, List<ColumnMetadata>> listTableColumns(SchemaTablePrefix prefix)
+    public Map<SchemaTableName, List<ColumnMetadata>> listTableColumns(Session session, SchemaTablePrefix prefix)
     {
         // dual can not be a listed at catalog level because dual is in all possible schemas
         if (prefix.getSchemaName() == null) {

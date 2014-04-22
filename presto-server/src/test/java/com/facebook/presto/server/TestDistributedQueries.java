@@ -225,7 +225,7 @@ public class TestDistributedQueries
         }
         finally {
             QualifiedTableName name = new QualifiedTableName(DEFAULT_CATALOG, DEFAULT_SCHEMA, table);
-            Optional<TableHandle> handle = coordinator.getMetadata().getTableHandle(name);
+            Optional<TableHandle> handle = coordinator.getMetadata().getTableHandle(SESSION, name);
             if (handle.isPresent()) {
                 coordinator.getMetadata().dropTable(handle.get());
             }
@@ -308,7 +308,7 @@ public class TestDistributedQueries
     private void distributeData(String catalog, String schema, ClientSession session)
             throws Exception
     {
-        for (QualifiedTableName table : coordinator.getMetadata().listTables(new QualifiedTablePrefix(catalog, schema))) {
+        for (QualifiedTableName table : coordinator.getMetadata().listTables(SESSION, new QualifiedTablePrefix(catalog, schema))) {
             if (table.getTableName().equalsIgnoreCase("dual")) {
                 continue;
             }

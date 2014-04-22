@@ -21,6 +21,7 @@ import com.facebook.presto.spi.ConnectorTableHandle;
 import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.SchemaTablePrefix;
+import com.facebook.presto.spi.Session;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.base.Predicate;
 import com.google.common.base.Splitter;
@@ -75,12 +76,17 @@ public class NativeMetadata
     }
 
     @Override
-    public List<String> listSchemaNames()
+    public List<String> listSchemaNames(Session session)
     {
         return dao.listSchemaNames(connectorId);
     }
 
     @Override
+    public ConnectorTableHandle getTableHandle(Session session, SchemaTableName tableName)
+    {
+        return getTableHandle(tableName);
+    }
+
     public ConnectorTableHandle getTableHandle(SchemaTableName tableName)
     {
         checkNotNull(tableName, "tableName is null");
@@ -122,7 +128,7 @@ public class NativeMetadata
     }
 
     @Override
-    public List<SchemaTableName> listTables(@Nullable String schemaNameOrNull)
+    public List<SchemaTableName> listTables(Session session, @Nullable String schemaNameOrNull)
     {
         return dao.listTables(connectorId, schemaNameOrNull);
     }
@@ -166,7 +172,7 @@ public class NativeMetadata
     }
 
     @Override
-    public boolean canCreateSampledTables()
+    public boolean canCreateSampledTables(Session session)
     {
         return true;
     }
@@ -188,7 +194,7 @@ public class NativeMetadata
     }
 
     @Override
-    public Map<SchemaTableName, List<ColumnMetadata>> listTableColumns(SchemaTablePrefix prefix)
+    public Map<SchemaTableName, List<ColumnMetadata>> listTableColumns(Session session, SchemaTablePrefix prefix)
     {
         checkNotNull(prefix, "prefix is null");
 
@@ -216,7 +222,7 @@ public class NativeMetadata
     }
 
     @Override
-    public ConnectorTableHandle createTable(final ConnectorTableMetadata tableMetadata)
+    public ConnectorTableHandle createTable(Session session, final ConnectorTableMetadata tableMetadata)
     {
         Long tableId = dbi.inTransaction(new TransactionCallback<Long>()
         {
@@ -273,7 +279,7 @@ public class NativeMetadata
     }
 
     @Override
-    public ConnectorOutputTableHandle beginCreateTable(ConnectorTableMetadata tableMetadata)
+    public ConnectorOutputTableHandle beginCreateTable(Session session, ConnectorTableMetadata tableMetadata)
     {
         ImmutableList.Builder<NativeColumnHandle> columnHandles = ImmutableList.builder();
         ImmutableList.Builder<Type> columnTypes = ImmutableList.builder();

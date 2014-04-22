@@ -67,6 +67,7 @@ public class SqlQueryExecution
 
     private final QueryStateMachine stateMachine;
 
+    private final Session session;
     private final Statement statement;
     private final Metadata metadata;
     private final SplitManager splitManager;
@@ -101,6 +102,7 @@ public class SqlQueryExecution
             ExecutorService queryExecutor)
     {
         try (SetThreadName setThreadName = new SetThreadName("Query-%s", queryId)) {
+            this.session = checkNotNull(session, "session is null");
             this.statement = checkNotNull(statement, "statement is null");
             this.metadata = checkNotNull(metadata, "metadata is null");
             this.splitManager = checkNotNull(splitManager, "splitManager is null");
@@ -206,7 +208,7 @@ public class SqlQueryExecution
         stateMachine.setInputs(inputs);
 
         // fragment the plan
-        SubPlan subplan = new DistributedLogicalPlanner(metadata, idAllocator).createSubPlans(plan, false);
+        SubPlan subplan = new DistributedLogicalPlanner(session, metadata, idAllocator).createSubPlans(plan, false);
 
         stateMachine.recordAnalysisTime(analysisStart);
         return subplan;

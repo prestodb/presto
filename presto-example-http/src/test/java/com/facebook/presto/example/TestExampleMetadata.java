@@ -16,6 +16,7 @@ package com.facebook.presto.example;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.SchemaTableName;
+import com.facebook.presto.spi.Session;
 import com.facebook.presto.spi.TableNotFoundException;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -26,9 +27,11 @@ import org.testng.annotations.Test;
 
 import java.net.URI;
 import java.net.URL;
+import java.util.Locale;
 
 import static com.facebook.presto.example.MetadataUtil.CATALOG_CODEC;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
+import static com.facebook.presto.spi.type.TimeZoneKey.UTC_KEY;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotNull;
@@ -38,6 +41,7 @@ import static org.testng.Assert.fail;
 @Test(singleThreaded = true)
 public class TestExampleMetadata
 {
+    private static final Session SESSION = new Session("user", "test", "default", "default", UTC_KEY, Locale.ENGLISH, null, null);
     private static final String CONNECTOR_ID = "TEST";
     private static final ExampleTableHandle NUMBERS_TABLE_HANDLE = new ExampleTableHandle(CONNECTOR_ID, "example", "numbers");
     private ExampleMetadata metadata;
@@ -57,16 +61,16 @@ public class TestExampleMetadata
     @Test
     public void testListSchemaNames()
     {
-        assertEquals(metadata.listSchemaNames(), ImmutableSet.of("example", "tpch"));
+        assertEquals(metadata.listSchemaNames(SESSION), ImmutableSet.of("example", "tpch"));
     }
 
     @Test
     public void testGetTableHandle()
     {
-        assertEquals(metadata.getTableHandle(new SchemaTableName("example", "numbers")), NUMBERS_TABLE_HANDLE);
-        assertNull(metadata.getTableHandle(new SchemaTableName("example", "unknown")));
-        assertNull(metadata.getTableHandle(new SchemaTableName("unknown", "numbers")));
-        assertNull(metadata.getTableHandle(new SchemaTableName("unknown", "unknown")));
+        assertEquals(metadata.getTableHandle(SESSION, new SchemaTableName("example", "numbers")), NUMBERS_TABLE_HANDLE);
+        assertNull(metadata.getTableHandle(SESSION, new SchemaTableName("example", "unknown")));
+        assertNull(metadata.getTableHandle(SESSION, new SchemaTableName("unknown", "numbers")));
+        assertNull(metadata.getTableHandle(SESSION, new SchemaTableName("unknown", "unknown")));
     }
 
     @Test
@@ -137,20 +141,20 @@ public class TestExampleMetadata
     public void testListTables()
     {
         // all schemas
-        assertEquals(ImmutableSet.copyOf(metadata.listTables(null)), ImmutableSet.of(
+        assertEquals(ImmutableSet.copyOf(metadata.listTables(SESSION, null)), ImmutableSet.of(
                 new SchemaTableName("example", "numbers"),
                 new SchemaTableName("tpch", "orders"),
                 new SchemaTableName("tpch", "lineitem")));
 
         // specific schema
-        assertEquals(ImmutableSet.copyOf(metadata.listTables("example")), ImmutableSet.of(
+        assertEquals(ImmutableSet.copyOf(metadata.listTables(SESSION, "example")), ImmutableSet.of(
                 new SchemaTableName("example", "numbers")));
-        assertEquals(ImmutableSet.copyOf(metadata.listTables("tpch")), ImmutableSet.of(
+        assertEquals(ImmutableSet.copyOf(metadata.listTables(SESSION, "tpch")), ImmutableSet.of(
                 new SchemaTableName("tpch", "orders"),
                 new SchemaTableName("tpch", "lineitem")));
 
         // unknown schema
-        assertEquals(ImmutableSet.copyOf(metadata.listTables("unknown")), ImmutableSet.of());
+        assertEquals(ImmutableSet.copyOf(metadata.listTables(SESSION, "unknown")), ImmutableSet.of());
     }
 
     @Test
@@ -169,7 +173,7 @@ public class TestExampleMetadata
     @Test(expectedExceptions = UnsupportedOperationException.class)
     public void testCreateTable()
     {
-        metadata.createTable(new ConnectorTableMetadata(
+        metadata.createTable(SESSION, new ConnectorTableMetadata(
                 new SchemaTableName("example", "foo"),
                 ImmutableList.of(new ColumnMetadata("text", VARCHAR, 0, false))));
     }

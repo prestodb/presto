@@ -110,7 +110,7 @@ public abstract class AbstractTestQueryFramework
                 "  comment VARCHAR(79) NOT NULL\n" +
                 ")");
         handle.execute("CREATE INDEX custkey_index ON orders (custkey)");
-        TpchTableHandle ordersHandle = tpchMetadata.getTableHandle(new SchemaTableName(TINY_SCHEMA_NAME, ORDERS.getTableName()));
+        TpchTableHandle ordersHandle = tpchMetadata.getTableHandle(session, new SchemaTableName(TINY_SCHEMA_NAME, ORDERS.getTableName()));
         insertRows(tpchMetadata.getTableMetadata(ordersHandle), handle, createTpchRecordSet(ORDERS, ordersHandle.getScaleFactor()));
 
         handle.execute("CREATE TABLE lineitem (\n" +
@@ -132,7 +132,7 @@ public abstract class AbstractTestQueryFramework
                 "  comment VARCHAR(44) NOT NULL,\n" +
                 "  PRIMARY KEY (orderkey, linenumber)" +
                 ")");
-        TpchTableHandle lineItemHandle = tpchMetadata.getTableHandle(new SchemaTableName(TINY_SCHEMA_NAME, LINE_ITEM.getTableName()));
+        TpchTableHandle lineItemHandle = tpchMetadata.getTableHandle(session, new SchemaTableName(TINY_SCHEMA_NAME, LINE_ITEM.getTableName()));
         insertRows(tpchMetadata.getTableMetadata(lineItemHandle), handle, createTpchRecordSet(LINE_ITEM, lineItemHandle.getScaleFactor()));
 
         session = setUpQueryFramework();
