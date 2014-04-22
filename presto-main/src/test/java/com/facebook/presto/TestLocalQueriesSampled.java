@@ -77,6 +77,6 @@ public class TestLocalQueriesSampled
     @Override
     protected MaterializedResult computeActual(@Language("SQL") String sql)
     {
-        return localSampledQueryRunner.execute(sql);
+        return localSampledQueryRunner.execute(sql).toJdbcTypes();
     }
 }

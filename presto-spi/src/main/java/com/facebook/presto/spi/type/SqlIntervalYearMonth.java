@@ -13,18 +13,20 @@
  */
 package com.facebook.presto.spi.type;
 
+import com.fasterxml.jackson.annotation.JsonValue;
+
 import java.util.Objects;
 
-public class IntervalYearMonth
+public class SqlIntervalYearMonth
 {
     private final long months;
 
-    public IntervalYearMonth(long months)
+    public SqlIntervalYearMonth(long months)
     {
         this.months = months;
     }
 
-    public IntervalYearMonth(int year, int months)
+    public SqlIntervalYearMonth(int year, int months)
     {
         this.months = 12 * year + months;
     }
@@ -44,10 +46,11 @@ public class IntervalYearMonth
         if (obj == null || getClass() != obj.getClass()) {
             return false;
         }
-        IntervalYearMonth other = (IntervalYearMonth) obj;
+        SqlIntervalYearMonth other = (SqlIntervalYearMonth) obj;
         return Objects.equals(this.months, other.months);
     }
 
+    @JsonValue
     @Override
     public String toString()
     {

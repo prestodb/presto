@@ -22,8 +22,6 @@ import com.facebook.presto.spi.block.FixedWidthBlockUtil.FixedWidthBlockBuilderF
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceOutput;
 
-import java.sql.Date;
-
 import static com.facebook.presto.spi.block.FixedWidthBlockUtil.createIsolatedFixedWidthBlockBuilderFactory;
 import static com.facebook.presto.spi.type.TimeZoneIndex.getTimeZoneForKey;
 import static io.airlift.slice.SizeOf.SIZE_OF_LONG;
@@ -77,7 +75,7 @@ public final class DateType
     {
         // convert date to timestamp at midnight in local time zone
         long date = slice.getLong(offset);
-        return new Date(date - getTimeZoneForKey(session.getTimeZoneKey()).getOffset(date));
+        return new SqlDate(date - getTimeZoneForKey(session.getTimeZoneKey()).getOffset(date), session.getTimeZoneKey());
     }
 
     @Override

@@ -63,7 +63,7 @@ public final class IntervalYearMonthType
     @Override
     public Object getObjectValue(Session session, Slice slice, int offset)
     {
-        return new IntervalYearMonth((int) slice.getLong(offset));
+        return new SqlIntervalYearMonth((int) slice.getLong(offset));
     }
 
     @Override

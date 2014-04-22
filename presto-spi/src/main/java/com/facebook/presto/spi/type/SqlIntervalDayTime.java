@@ -13,9 +13,11 @@
  */
 package com.facebook.presto.spi.type;
 
+import com.fasterxml.jackson.annotation.JsonValue;
+
 import java.util.Objects;
 
-public class IntervalDayTime
+public class SqlIntervalDayTime
 {
     private static final long MILLIS_IN_SECOND = 1000;
     private static final long MILLIS_IN_MINUTE = 60 * MILLIS_IN_SECOND;
@@ -24,12 +26,12 @@ public class IntervalDayTime
 
     private final long milliSeconds;
 
-    public IntervalDayTime(long milliSeconds)
+    public SqlIntervalDayTime(long milliSeconds)
     {
         this.milliSeconds = milliSeconds;
     }
 
-    public IntervalDayTime(int day, int hour, int minute, int second, int millis)
+    public SqlIntervalDayTime(int day, int hour, int minute, int second, int millis)
     {
         milliSeconds = toMillis(day, hour, minute, second, millis);
     }
@@ -49,10 +51,11 @@ public class IntervalDayTime
         if (obj == null || getClass() != obj.getClass()) {
             return false;
         }
-        IntervalDayTime other = (IntervalDayTime) obj;
+        SqlIntervalDayTime other = (SqlIntervalDayTime) obj;
         return Objects.equals(this.milliSeconds, other.milliSeconds);
     }
 
+    @JsonValue
     @Override
     public String toString()
     {

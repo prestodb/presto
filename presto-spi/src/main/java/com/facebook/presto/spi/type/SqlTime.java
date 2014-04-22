@@ -13,43 +13,39 @@
  */
 package com.facebook.presto.spi.type;
 
+import com.fasterxml.jackson.annotation.JsonValue;
+
 import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.Objects;
-import java.util.TimeZone;
 
 import static com.facebook.presto.spi.type.TimeZoneIndex.getTimeZoneForKey;
-import static com.facebook.presto.spi.type.DateTimeEncoding.unpackMillisUtc;
-import static com.facebook.presto.spi.type.DateTimeEncoding.unpackZoneKey;
-import static com.facebook.presto.spi.type.TimeZoneKey.getTimeZoneKey;
 
-public final class TimeWithTimeZone
+public final class SqlTime
 {
     private final long millisUtc;
-    private final TimeZoneKey timeZoneKey;
+    private final TimeZoneKey sessionTimeZoneKey;
 
-    public TimeWithTimeZone(long timeWithTimeZone)
-    {
-        millisUtc = unpackMillisUtc(timeWithTimeZone);
-        timeZoneKey = unpackZoneKey(timeWithTimeZone);
-    }
-
-    public TimeWithTimeZone(long millisUtc, TimeZoneKey timeZoneKey)
+    public SqlTime(long millisUtc, TimeZoneKey sessionTimeZoneKey)
     {
         this.millisUtc = millisUtc;
-        this.timeZoneKey = timeZoneKey;
+        this.sessionTimeZoneKey = sessionTimeZoneKey;
     }
 
-    public TimeWithTimeZone(long millisUtc, TimeZone timeZone)
+    public long getMillisUtc()
     {
-        this.millisUtc = millisUtc;
-        this.timeZoneKey = getTimeZoneKey(timeZone.getID());
+        return millisUtc;
+    }
+
+    public TimeZoneKey getSessionTimeZoneKey()
+    {
+        return sessionTimeZoneKey;
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(millisUtc, timeZoneKey);
+        return Objects.hash(millisUtc, sessionTimeZoneKey);
     }
 
     @Override
@@ -61,16 +57,17 @@ public final class TimeWithTimeZone
         if (obj == null || getClass() != obj.getClass()) {
             return false;
         }
-        TimeWithTimeZone other = (TimeWithTimeZone) obj;
+        SqlTime other = (SqlTime) obj;
         return Objects.equals(this.millisUtc, other.millisUtc) &&
-                Objects.equals(this.timeZoneKey, other.timeZoneKey);
+                Objects.equals(this.sessionTimeZoneKey, other.sessionTimeZoneKey);
     }
 
+    @JsonValue
     @Override
     public String toString()
     {
         SimpleDateFormat format = new SimpleDateFormat("HH:mm:ss.SSS");
-        format.setTimeZone(getTimeZoneForKey(timeZoneKey));
-        return format.format(new Date(millisUtc)) + " " + timeZoneKey.getTimeZoneId();
+        format.setTimeZone(getTimeZoneForKey(sessionTimeZoneKey));
+        return format.format(new Date(millisUtc));
     }
 }

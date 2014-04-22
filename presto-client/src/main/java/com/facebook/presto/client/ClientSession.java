@@ -65,7 +65,7 @@ public class ClientSession
         this.catalog = catalog;
         this.schema = schema;
         this.locale = locale;
-        this.timeZoneId = timeZoneId;
+        this.timeZoneId = checkNotNull(timeZoneId, "timeZoneId is null");
         this.debug = debug;
     }
 

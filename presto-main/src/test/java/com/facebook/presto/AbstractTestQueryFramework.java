@@ -69,7 +69,9 @@ import static com.facebook.presto.spi.type.DateType.DATE;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.NullType.NULL;
 import static com.facebook.presto.spi.type.TimeType.TIME;
+import static com.facebook.presto.spi.type.TimeWithTimeZoneType.TIME_WITH_TIME_ZONE;
 import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
+import static com.facebook.presto.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.tpch.TpchMetadata.TINY_SCHEMA_NAME;
 import static com.facebook.presto.tpch.TpchRecordSet.createTpchRecordSet;
@@ -294,7 +296,7 @@ public abstract class AbstractTestQueryFramework
                             row.add(dateValue);
                         }
                     }
-                    else if (TIME.equals(type)) {
+                    else if (TIME.equals(type) || TIME_WITH_TIME_ZONE.equals(type)) {
                         Time timeValue = resultSet.getTime(i);
                         if (resultSet.wasNull()) {
                             row.add(null);
@@ -303,7 +305,7 @@ public abstract class AbstractTestQueryFramework
                             row.add(timeValue);
                         }
                     }
-                    else if (TIMESTAMP.equals(type)) {
+                    else if (TIMESTAMP.equals(type) || TIMESTAMP_WITH_TIME_ZONE.equals(type)) {
                         Timestamp timestampValue = resultSet.getTimestamp(i);
                         if (resultSet.wasNull()) {
                             row.add(null);

@@ -20,7 +20,7 @@ import com.facebook.presto.operator.scalar.MathFunctions;
 import com.facebook.presto.operator.scalar.RegexpFunctions;
 import com.facebook.presto.operator.scalar.StringFunctions;
 import com.facebook.presto.spi.Session;
-import com.facebook.presto.spi.type.TimestampWithTimeZone;
+import com.facebook.presto.spi.type.SqlTimestampWithTimeZone;
 import com.facebook.presto.sql.planner.LikeUtils;
 import com.facebook.presto.sql.tree.Extract.Field;
 import com.google.common.base.Function;
@@ -937,8 +937,8 @@ public class TestExpressionCompiler
     public void testFunctionWithSessionCall()
             throws Exception
     {
-        assertExecute("now()", new TimestampWithTimeZone(SESSION.getStartTime(), SESSION.getTimeZoneKey()));
-        assertExecute("current_timestamp", new TimestampWithTimeZone(SESSION.getStartTime(), SESSION.getTimeZoneKey()));
+        assertExecute("now()", new SqlTimestampWithTimeZone(SESSION.getStartTime(), SESSION.getTimeZoneKey()));
+        assertExecute("current_timestamp", new SqlTimestampWithTimeZone(SESSION.getStartTime(), SESSION.getTimeZoneKey()));
 
         Futures.allAsList(futures).get();
     }

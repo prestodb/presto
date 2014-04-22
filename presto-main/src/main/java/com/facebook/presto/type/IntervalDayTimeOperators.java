@@ -14,7 +14,7 @@
 package com.facebook.presto.type;
 
 import com.facebook.presto.operator.scalar.ScalarOperator;
-import com.facebook.presto.spi.type.IntervalDayTime;
+import com.facebook.presto.spi.type.SqlIntervalDayTime;
 import com.facebook.presto.spi.type.IntervalDayTimeType;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
@@ -145,7 +145,7 @@ public final class IntervalDayTimeOperators
     @ScalarOperator(CAST)
     public static Slice castToSlice(@SqlType(IntervalDayTimeType.class) long value)
     {
-        return Slices.copiedBuffer(IntervalDayTime.formatMillis(value), UTF_8);
+        return Slices.copiedBuffer(SqlIntervalDayTime.formatMillis(value), UTF_8);
     }
 
     @ScalarOperator(HASH_CODE)
