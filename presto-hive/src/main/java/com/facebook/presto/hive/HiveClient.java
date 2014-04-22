@@ -945,6 +945,9 @@ public class HiveClient
                         else if (VARCHAR.equals(type)) {
                             builder.put(columnHandle, utf8Slice(value));
                         }
+                        else {
+                            throw new IllegalArgumentException(format("Unsupported partition type [%s] for partition: %s", type, partitionId));
+                        }
                     }
 
                     return new HivePartition(tableName, partitionId, builder.build(), bucket);
