@@ -125,7 +125,7 @@ public class StatementResource
         this.queryManager = checkNotNull(queryManager, "queryManager is null");
         this.exchangeClientSupplier = checkNotNull(exchangeClientSupplier, "exchangeClientSupplier is null");
 
-        queryPurger.scheduleWithFixedDelay(new PurgeQueriesRunnable(queries.keySet(), queryManager), 200, 200, TimeUnit.MILLISECONDS);
+        queryPurger.scheduleWithFixedDelay(new PurgeQueriesRunnable(queries, queryManager), 200, 200, TimeUnit.MILLISECONDS);
     }
 
     @PreDestroy
@@ -651,12 +651,12 @@ public class StatementResource
     private static class PurgeQueriesRunnable
             implements Runnable
     {
-        private final Set<QueryId> queryIds;
+        private final ConcurrentMap<QueryId, Query> queries;
         private final QueryManager queryManager;
 
-        public PurgeQueriesRunnable(Set<QueryId> queryIds, QueryManager queryManager)
+        public PurgeQueriesRunnable(ConcurrentMap<QueryId, Query> queries, QueryManager queryManager)
         {
-            this.queryIds = queryIds;
+            this.queries = queries;
             this.queryManager = queryManager;
         }
 
@@ -670,14 +670,17 @@ public class StatementResource
                 // not live queries set.  If we did this in the other order, a query could be
                 // registered between fetching the live queries and inspecting the queryIds set.
 
-                Set<QueryId> queryIdsSnapshot = ImmutableSet.copyOf(queryIds);
+                Set<QueryId> queryIdsSnapshot = ImmutableSet.copyOf(queries.keySet());
                 // do not call queryManager.getQueryInfo() since it updates the heartbeat time
                 Set<QueryId> liveQueries = ImmutableSet.copyOf(transform(queryManager.getAllQueryInfo(), queryIdGetter()));
 
                 Set<QueryId> deadQueries = Sets.difference(queryIdsSnapshot, liveQueries);
-                for (QueryId deadQuery : deadQueries) {
-                    queryIds.remove(deadQuery);
-                    log.debug("Removed expired query %s", deadQuery);
+                for (QueryId deadQueryId : deadQueries) {
+                    Query query = queries.remove(deadQueryId);
+                    if (query != null) {
+                        query.close();
+                        log.info("Removed expired query %s", deadQueryId);
+                    }
                 }
             }
             catch (Throwable e) {
