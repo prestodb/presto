@@ -42,7 +42,6 @@ import com.google.common.collect.ImmutableBiMap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.Slice;
-import io.airlift.slice.Slices;
 import org.testng.Assert;
 import org.testng.annotations.Test;
 
@@ -70,6 +69,7 @@ import static com.facebook.presto.sql.tree.ComparisonExpression.Type.IS_DISTINCT
 import static com.facebook.presto.sql.tree.ComparisonExpression.Type.LESS_THAN;
 import static com.facebook.presto.sql.tree.ComparisonExpression.Type.LESS_THAN_OR_EQUAL;
 import static com.facebook.presto.sql.tree.ComparisonExpression.Type.NOT_EQUAL;
+import static io.airlift.slice.Slices.utf8Slice;
 
 public class TestDomainTranslator
 {
@@ -142,7 +142,7 @@ public class TestDomainTranslator
                 .put(DCH, Domain.singleValue(true))
                 .put(ECH, Domain.singleValue(2L))
                 .put(FCH, Domain.create(SortedRangeSet.of(Range.lessThanOrEqual(1.1), Range.equal(2.0), Range.range(3.0, false, 3.5, true)), true))
-                .put(GCH, Domain.create(SortedRangeSet.of(Range.lessThanOrEqual(Slices.utf8Slice("2013-01-01")), Range.greaterThan(Slices.utf8Slice("2013-10-01"))), false))
+                .put(GCH, Domain.create(SortedRangeSet.of(Range.lessThanOrEqual(utf8Slice("2013-01-01")), Range.greaterThan(utf8Slice("2013-10-01"))), false))
                 .build());
 
         ExtractionResult result = fromPredicate(MANAGER, SESSION, toPredicate(tupleDomain, COLUMN_HANDLES.inverse(), TYPES), TYPES, COLUMN_HANDLES);
@@ -595,7 +595,7 @@ public class TestDomainTranslator
         originalExpression = greaterThan(C, stringLiteral("test"));
         result = fromPredicate(MANAGER, SESSION, originalExpression, TYPES, COLUMN_HANDLES);
         Assert.assertEquals(result.getRemainingExpression(), TRUE_LITERAL);
-        Assert.assertEquals(result.getTupleDomain(), withColumnDomains(ImmutableMap.of(CCH, Domain.create(SortedRangeSet.of(Range.greaterThan(Slices.utf8Slice("test"))), false))));
+        Assert.assertEquals(result.getTupleDomain(), withColumnDomains(ImmutableMap.of(CCH, Domain.create(SortedRangeSet.of(Range.greaterThan(utf8Slice("test"))), false))));
 
         // A is a long column. Check that it can be compared against doubles
         originalExpression = greaterThan(A, doubleLiteral(2.0));
@@ -680,7 +680,7 @@ public class TestDomainTranslator
         originalExpression = not(greaterThan(C, stringLiteral("test")));
         result = fromPredicate(MANAGER, SESSION, originalExpression, TYPES, COLUMN_HANDLES);
         Assert.assertEquals(result.getRemainingExpression(), TRUE_LITERAL);
-        Assert.assertEquals(result.getTupleDomain(), withColumnDomains(ImmutableMap.of(CCH, Domain.create(SortedRangeSet.of(Range.lessThanOrEqual(Slices.utf8Slice("test"))), false))));
+        Assert.assertEquals(result.getTupleDomain(), withColumnDomains(ImmutableMap.of(CCH, Domain.create(SortedRangeSet.of(Range.lessThanOrEqual(utf8Slice("test"))), false))));
 
         // A is a long column. Check that it can be compared against doubles
         originalExpression = not(greaterThan(A, doubleLiteral(2.0)));

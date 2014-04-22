@@ -46,7 +46,6 @@ import com.facebook.presto.type.ColorType;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
-import io.airlift.slice.Slices;
 
 import java.util.List;
 
@@ -63,6 +62,7 @@ import static com.facebook.presto.util.DateTimeUtils.printDate;
 import static com.google.common.base.Charsets.UTF_8;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
+import static io.airlift.slice.Slices.utf8Slice;
 
 public final class LiteralInterpreter
 {
@@ -226,7 +226,7 @@ public final class LiteralInterpreter
                 throw new SemanticException(TYPE_MISMATCH, node, "No literal form for type %s", type);
             }
             try {
-                return ExpressionInterpreter.invoke(session, operator.getMethodHandle(), ImmutableList.<Object>of(Slices.utf8Slice(node.getValue())));
+                return ExpressionInterpreter.invoke(session, operator.getMethodHandle(), ImmutableList.<Object>of(utf8Slice(node.getValue())));
             }
             catch (Throwable throwable) {
                 throw Throwables.propagate(throwable);

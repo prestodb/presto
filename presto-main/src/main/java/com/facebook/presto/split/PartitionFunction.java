@@ -24,12 +24,12 @@ import com.google.common.base.Function;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Multimap;
 import io.airlift.slice.Slice;
-import io.airlift.slice.Slices;
 
 import java.util.Map;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
+import static io.airlift.slice.Slices.utf8Slice;
 
 public class PartitionFunction
         implements Function<TablePartition, Partition>
@@ -81,7 +81,7 @@ public class PartitionFunction
                 }
             }
             else if (javaType == Slice.class) {
-                builder.put(columnHandle, Domain.singleValue(Slices.utf8Slice(value)));
+                builder.put(columnHandle, Domain.singleValue(utf8Slice(value)));
             }
         }
 

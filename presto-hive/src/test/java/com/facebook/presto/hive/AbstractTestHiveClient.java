@@ -45,7 +45,6 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.net.HostAndPort;
 import io.airlift.log.Logger;
-import io.airlift.slice.Slices;
 import io.airlift.units.Duration;
 import org.joda.time.DateTime;
 import org.joda.time.DateTimeZone;
@@ -71,6 +70,7 @@ import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.collect.Maps.uniqueIndex;
 import static com.google.common.util.concurrent.MoreExecutors.sameThreadExecutor;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
+import static io.airlift.slice.Slices.utf8Slice;
 import static io.airlift.testing.Assertions.assertInstanceOf;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.concurrent.Executors.newCachedThreadPool;
@@ -154,19 +154,19 @@ public abstract class AbstractTestHiveClient
         partitions = ImmutableSet.<Partition>of(
                 new HivePartition(table,
                         "ds=2012-12-29/file_format=rcfile-text/dummy=0",
-                        ImmutableMap.<ColumnHandle, Comparable<?>>of(dsColumn, Slices.utf8Slice("2012-12-29"), fileFormatColumn, Slices.utf8Slice("rcfile-text"), dummyColumn, 0L),
+                        ImmutableMap.<ColumnHandle, Comparable<?>>of(dsColumn, utf8Slice("2012-12-29"), fileFormatColumn, utf8Slice("rcfile-text"), dummyColumn, 0L),
                         Optional.<HiveBucket>absent()),
                 new HivePartition(table,
                         "ds=2012-12-29/file_format=rcfile-binary/dummy=2",
-                        ImmutableMap.<ColumnHandle, Comparable<?>>of(dsColumn, Slices.utf8Slice("2012-12-29"), fileFormatColumn, Slices.utf8Slice("rcfile-binary"), dummyColumn, 2L),
+                        ImmutableMap.<ColumnHandle, Comparable<?>>of(dsColumn, utf8Slice("2012-12-29"), fileFormatColumn, utf8Slice("rcfile-binary"), dummyColumn, 2L),
                         Optional.<HiveBucket>absent()),
                 new HivePartition(table,
                         "ds=2012-12-29/file_format=sequencefile/dummy=4",
-                        ImmutableMap.<ColumnHandle, Comparable<?>>of(dsColumn, Slices.utf8Slice("2012-12-29"), fileFormatColumn, Slices.utf8Slice("sequencefile"), dummyColumn, 4L),
+                        ImmutableMap.<ColumnHandle, Comparable<?>>of(dsColumn, utf8Slice("2012-12-29"), fileFormatColumn, utf8Slice("sequencefile"), dummyColumn, 4L),
                         Optional.<HiveBucket>absent()),
                 new HivePartition(table,
                         "ds=2012-12-29/file_format=textfile/dummy=6",
-                        ImmutableMap.<ColumnHandle, Comparable<?>>of(dsColumn, Slices.utf8Slice("2012-12-29"), fileFormatColumn, Slices.utf8Slice("textfile"), dummyColumn, 6L),
+                        ImmutableMap.<ColumnHandle, Comparable<?>>of(dsColumn, utf8Slice("2012-12-29"), fileFormatColumn, utf8Slice("textfile"), dummyColumn, 6L),
                         Optional.<HiveBucket>absent()));
         unpartitionedPartitions = ImmutableSet.<Partition>of(new HivePartition(tableUnpartitioned));
         invalidPartition = new HivePartition(invalidTable, "unknown", ImmutableMap.<ColumnHandle, Comparable<?>>of(), Optional.<HiveBucket>absent());
@@ -448,7 +448,7 @@ public abstract class AbstractTestHiveClient
         ColumnHandle dsColumn = metadata.getColumnHandle(tableHandle, "ds");
         assertNotNull(dsColumn);
 
-        Domain domain = Domain.singleValue(Slices.utf8Slice("2012-12-30"));
+        Domain domain = Domain.singleValue(utf8Slice("2012-12-30"));
         TupleDomain tupleDomain = TupleDomain.withColumnDomains(ImmutableMap.<ColumnHandle, Domain>of(dsColumn, domain));
         PartitionResult partitionResult = splitManager.getPartitions(tableHandle, tupleDomain);
         for (Partition partition : partitionResult.getPartitions()) {

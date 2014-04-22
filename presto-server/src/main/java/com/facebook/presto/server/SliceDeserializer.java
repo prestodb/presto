@@ -17,9 +17,10 @@ import com.fasterxml.jackson.core.JsonParser;
 import com.fasterxml.jackson.databind.DeserializationContext;
 import com.fasterxml.jackson.databind.JsonDeserializer;
 import io.airlift.slice.Slice;
-import io.airlift.slice.Slices;
 
 import java.io.IOException;
+
+import static io.airlift.slice.Slices.utf8Slice;
 
 public class SliceDeserializer
         extends JsonDeserializer<Slice>
@@ -28,6 +29,6 @@ public class SliceDeserializer
     public Slice deserialize(JsonParser jsonParser, DeserializationContext deserializationContext)
             throws IOException
     {
-        return Slices.utf8Slice(jsonParser.readValueAs(String.class));
+        return utf8Slice(jsonParser.readValueAs(String.class));
     }
 }

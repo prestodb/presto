@@ -17,7 +17,6 @@ import com.facebook.presto.operator.scalar.ScalarOperator;
 import com.facebook.presto.spi.type.IntervalYearMonth;
 import com.facebook.presto.spi.type.IntervalYearMonthType;
 import io.airlift.slice.Slice;
-import io.airlift.slice.Slices;
 
 import static com.facebook.presto.metadata.OperatorInfo.OperatorType.ADD;
 import static com.facebook.presto.metadata.OperatorInfo.OperatorType.BETWEEN;
@@ -33,6 +32,7 @@ import static com.facebook.presto.metadata.OperatorInfo.OperatorType.MULTIPLY;
 import static com.facebook.presto.metadata.OperatorInfo.OperatorType.NEGATION;
 import static com.facebook.presto.metadata.OperatorInfo.OperatorType.NOT_EQUAL;
 import static com.facebook.presto.metadata.OperatorInfo.OperatorType.SUBTRACT;
+import static io.airlift.slice.Slices.utf8Slice;
 
 public final class IntervalYearMonthOperators
 {
@@ -144,7 +144,7 @@ public final class IntervalYearMonthOperators
     @ScalarOperator(CAST)
     public static Slice castToSlice(@SqlType(IntervalYearMonthType.class) long value)
     {
-        return Slices.utf8Slice(IntervalYearMonth.formatMonths(value));
+        return utf8Slice(IntervalYearMonth.formatMonths(value));
     }
 
     @ScalarOperator(HASH_CODE)
