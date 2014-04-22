@@ -83,6 +83,7 @@ class ColumnarTextHiveRecordCursor<K>
 
     private final long totalBytes;
     private final DateTimeZone hiveStorageTimeZone;
+    private final DateTimeZone sessionTimeZone;
 
     private long completedBytes;
     private boolean closed;
@@ -93,7 +94,8 @@ class ColumnarTextHiveRecordCursor<K>
             Properties splitSchema,
             List<HivePartitionKey> partitionKeys,
             List<HiveColumnHandle> columns,
-            DateTimeZone hiveStorageTimeZone)
+            DateTimeZone hiveStorageTimeZone,
+            DateTimeZone sessionTimeZone)
     {
         checkNotNull(recordReader, "recordReader is null");
         checkArgument(totalBytes >= 0, "totalBytes is negative");
@@ -102,12 +104,14 @@ class ColumnarTextHiveRecordCursor<K>
         checkNotNull(columns, "columns is null");
         checkArgument(!columns.isEmpty(), "columns is empty");
         checkNotNull(hiveStorageTimeZone, "hiveStorageTimeZone is null");
+        checkNotNull(sessionTimeZone, "sessionTimeZone is null");
 
         this.recordReader = recordReader;
         this.totalBytes = totalBytes;
         this.key = recordReader.createKey();
         this.value = recordReader.createValue();
         this.hiveStorageTimeZone = hiveStorageTimeZone;
+        this.sessionTimeZone = sessionTimeZone;
 
         int size = columns.size();
 
@@ -485,7 +489,7 @@ class ColumnarTextHiveRecordCursor<K>
             ByteArrayRef byteArrayRef = new ByteArrayRef();
             byteArrayRef.setData(bytes);
             lazyObject.init(byteArrayRef, start, length);
-            slices[column] = Slices.wrappedBuffer(SerDeUtils.getJsonBytes(lazyObject.getObject(), fieldInspectors[column]));
+            slices[column] = Slices.wrappedBuffer(SerDeUtils.getJsonBytes(sessionTimeZone, lazyObject.getObject(), fieldInspectors[column]));
             wasNull = false;
         }
         else {

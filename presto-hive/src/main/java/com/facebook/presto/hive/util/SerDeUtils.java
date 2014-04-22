@@ -36,6 +36,9 @@ import org.apache.hadoop.hive.serde2.objectinspector.primitive.ShortObjectInspec
 import org.apache.hadoop.hive.serde2.objectinspector.primitive.StringObjectInspector;
 import org.apache.hadoop.hive.serde2.objectinspector.primitive.TimestampObjectInspector;
 import org.apache.hadoop.io.BytesWritable;
+import org.joda.time.DateTimeZone;
+import org.joda.time.format.DateTimeFormat;
+import org.joda.time.format.DateTimeFormatter;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
@@ -47,15 +50,17 @@ import static com.google.common.base.Preconditions.checkState;
 
 public final class SerDeUtils
 {
+    private static final DateTimeFormatter TIMESTAMP_FORMATTER = DateTimeFormat.forPattern("yyyy-MM-dd HH:mm:ss.SSS");
+
     private SerDeUtils()
     {
     }
 
-    public static byte[] getJsonBytes(Object object, ObjectInspector objectInspector)
+    public static byte[] getJsonBytes(DateTimeZone sessionTimeZone, Object object, ObjectInspector objectInspector)
     {
         ByteArrayOutputStream out = new ByteArrayOutputStream();
-        try (JsonGenerator generator = new JsonFactory().createGenerator(out);) {
-            buildJsonString(generator, object, objectInspector);
+        try (JsonGenerator generator = new JsonFactory().createGenerator(out)) {
+            buildJsonString(sessionTimeZone, generator, object, objectInspector);
         }
         catch (IOException e) {
             throw Throwables.propagate(e);
@@ -63,7 +68,7 @@ public final class SerDeUtils
         return out.toByteArray();
     }
 
-    private static String getPrimitiveAsString(Object object, PrimitiveObjectInspector objectInspector)
+    private static String getPrimitiveAsString(DateTimeZone sessionTimeZone, Object object, PrimitiveObjectInspector objectInspector)
     {
         if (object == null) {
             return null;
@@ -86,7 +91,7 @@ public final class SerDeUtils
             case STRING:
                 return ((StringObjectInspector) objectInspector).getPrimitiveJavaObject(object);
             case TIMESTAMP:
-                return String.valueOf(getTimestampMillis(object, (TimestampObjectInspector) objectInspector));
+                return String.valueOf(formatTimestamp(sessionTimeZone, object, (TimestampObjectInspector) objectInspector));
             case BINARY:
                 // Using same Base64 encoder which Jackson uses in JsonGenerator.writeBinary().
                 BytesWritable writable = ((BinaryObjectInspector) objectInspector).getPrimitiveWritableObject(object);
@@ -96,7 +101,7 @@ public final class SerDeUtils
         }
     }
 
-    private static void buildJsonString(JsonGenerator generator, Object object, ObjectInspector objectInspector)
+    private static void buildJsonString(DateTimeZone sessionTimeZone, JsonGenerator generator, Object object, ObjectInspector objectInspector)
             throws IOException
     {
         switch (objectInspector.getCategory()) {
@@ -132,7 +137,7 @@ public final class SerDeUtils
                         generator.writeString(((StringObjectInspector) primitiveObjectInspector).getPrimitiveJavaObject(object));
                         break;
                     case TIMESTAMP:
-                        generator.writeNumber(getTimestampMillis(object, (TimestampObjectInspector) objectInspector));
+                        generator.writeString(formatTimestamp(sessionTimeZone, object, (TimestampObjectInspector) objectInspector));
                         break;
                     case BINARY:
                         generator.writeBinary(((BinaryObjectInspector) objectInspector).getPrimitiveJavaObject(object));
@@ -152,7 +157,7 @@ public final class SerDeUtils
                     generator.writeStartArray();
                     ObjectInspector elementInspector = listInspector.getListElementObjectInspector();
                     for (Object element : objectList) {
-                        buildJsonString(generator, element, elementInspector);
+                        buildJsonString(sessionTimeZone, generator, element, elementInspector);
                     }
                     generator.writeEndArray();
                 }
@@ -170,8 +175,8 @@ public final class SerDeUtils
                     checkState(keyInspector instanceof PrimitiveObjectInspector);
                     ObjectInspector valueInspector = mapInspector.getMapValueObjectInspector();
                     for (Map.Entry<?, ?> entry : objectMap.entrySet()) {
-                        generator.writeFieldName(getPrimitiveAsString(entry.getKey(), (PrimitiveObjectInspector) keyInspector));
-                        buildJsonString(generator, entry.getValue(), valueInspector);
+                        generator.writeFieldName(getPrimitiveAsString(sessionTimeZone, entry.getKey(), (PrimitiveObjectInspector) keyInspector));
+                        buildJsonString(sessionTimeZone, generator, entry.getValue(), valueInspector);
                     }
                     generator.writeEndObject();
                 }
@@ -185,9 +190,9 @@ public final class SerDeUtils
                     generator.writeStartObject();
                     StructObjectInspector structInspector = (StructObjectInspector) objectInspector;
                     List<? extends StructField> structFields = structInspector.getAllStructFieldRefs();
-                    for (int i = 0; i < structFields.size(); i++) {
-                        generator.writeFieldName(structFields.get(i).getFieldName());
-                        buildJsonString(generator, structInspector.getStructFieldData(object, structFields.get(i)), structFields.get(i).getFieldObjectInspector());
+                    for (StructField structField : structFields) {
+                        generator.writeFieldName(structField.getFieldName());
+                        buildJsonString(sessionTimeZone, generator, structInspector.getStructFieldData(object, structField), structField.getFieldObjectInspector());
                     }
                     generator.writeEndObject();
                 }
@@ -201,7 +206,7 @@ public final class SerDeUtils
                     generator.writeStartObject();
                     UnionObjectInspector unionInspector = (UnionObjectInspector) objectInspector;
                     generator.writeFieldName(Byte.toString(unionInspector.getTag(object)));
-                    buildJsonString(generator, unionInspector.getField(object), unionInspector.getObjectInspectors().get(unionInspector.getTag(object)));
+                    buildJsonString(sessionTimeZone, generator, unionInspector.getField(object), unionInspector.getObjectInspectors().get(unionInspector.getTag(object)));
                     generator.writeEndObject();
                 }
                 break;
@@ -211,10 +216,15 @@ public final class SerDeUtils
         }
     }
 
-    public static long getTimestampMillis(Object object, TimestampObjectInspector objectInspector)
+    public static String formatTimestamp(DateTimeZone sessionTimeZone, Object object, TimestampObjectInspector objectInspector)
     {
         TimestampWritable timestampWritable = objectInspector.getPrimitiveWritableObject(object);
-        return getTimestampMillis(timestampWritable);
+        return formatTimestamp(sessionTimeZone, timestampWritable);
+    }
+
+    public static String formatTimestamp(DateTimeZone sessionTimeZone, TimestampWritable timestampWritable)
+    {
+        return TIMESTAMP_FORMATTER.withZone(sessionTimeZone).print(getTimestampMillis(timestampWritable));
     }
 
     public static long getTimestampMillis(TimestampWritable timestampWritable)

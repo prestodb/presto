@@ -37,7 +37,8 @@ public class ColumnarBinaryHiveRecordCursorProvider
                     split.getLength(),
                     split.getSchema(),
                     split.getPartitionKeys(),
-                    columns));
+                    columns,
+                    DateTimeZone.forID(split.getSession().getTimeZoneKey().getTimeZoneId())));
         }
         return Optional.absent();
     }
