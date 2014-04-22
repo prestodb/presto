@@ -60,7 +60,6 @@ import com.google.common.collect.Ordering;
 import com.google.inject.Inject;
 import io.airlift.log.Logger;
 import io.airlift.slice.Slice;
-import io.airlift.slice.Slices;
 import io.airlift.units.DataSize;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
@@ -120,6 +119,7 @@ import static com.google.common.base.Predicates.not;
 import static com.google.common.base.Strings.isNullOrEmpty;
 import static com.google.common.collect.Iterables.concat;
 import static com.google.common.collect.Iterables.transform;
+import static io.airlift.slice.Slices.utf8Slice;
 import static java.lang.Boolean.parseBoolean;
 import static java.lang.Double.parseDouble;
 import static java.lang.Long.parseLong;
@@ -945,7 +945,7 @@ public class HiveClient
                             }
                         }
                         else if (VARCHAR.equals(type)) {
-                            builder.put(columnHandle, Slices.utf8Slice(value));
+                            builder.put(columnHandle, utf8Slice(value));
                         }
                     }
 

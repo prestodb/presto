@@ -29,7 +29,6 @@ import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Doubles;
 import io.airlift.slice.Slice;
-import io.airlift.slice.Slices;
 
 import javax.annotation.Nullable;
 
@@ -50,6 +49,7 @@ import static com.fasterxml.jackson.core.JsonToken.VALUE_NUMBER_FLOAT;
 import static com.fasterxml.jackson.core.JsonToken.VALUE_NUMBER_INT;
 import static com.fasterxml.jackson.core.JsonToken.VALUE_STRING;
 import static com.fasterxml.jackson.core.JsonToken.VALUE_TRUE;
+import static io.airlift.slice.Slices.utf8Slice;
 import static java.lang.invoke.MethodHandles.lookup;
 import static java.lang.invoke.MethodType.methodType;
 
@@ -240,7 +240,7 @@ public final class JsonFunctions
                 }
                 if (token == END_ARRAY) {
                     if (tokens != null && count >= index * -1) {
-                        return Slices.utf8Slice(tokens.get(0));
+                        return utf8Slice(tokens.get(0));
                     }
 
                     return null;
@@ -251,7 +251,7 @@ public final class JsonFunctions
                     if (parser.getValueAsString() == null) {
                         return null;
                     }
-                    return Slices.utf8Slice(parser.getValueAsString());
+                    return utf8Slice(parser.getValueAsString());
                 }
 
                 if (tokens != null) {
