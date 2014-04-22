@@ -452,6 +452,9 @@ public class TestDistributedQueries
                     else if (TIMESTAMP_WITH_TIME_ZONE.equals(type)) {
                         row.add(new Timestamp(unpackMillisUtc(parseTimestampWithTimeZone((String) value))));
                     }
+                    else {
+                        throw new AssertionError("unhandled type: " + type);
+                    }
                 }
                 return new MaterializedRow(DEFAULT_PRECISION, row);
             }
