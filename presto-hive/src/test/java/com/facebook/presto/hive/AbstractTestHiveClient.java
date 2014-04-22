@@ -86,7 +86,6 @@ public abstract class AbstractTestHiveClient
 {
     protected static final String INVALID_DATABASE = "totally_invalid_database";
     protected static final String INVALID_COLUMN = "totally_invalid_column_name";
-    protected static final byte[] EMPTY_STRING = new byte[0];
 
     protected String database;
     protected SchemaTableName table;
@@ -495,7 +494,7 @@ public abstract class AbstractTestHiveClient
         boolean rowFound = false;
         try (RecordCursor cursor = recordSetProvider.getRecordSet(splits.get(0), columnHandles).cursor()) {
             while (cursor.advanceNextPosition()) {
-                if (testString.equals(new String(cursor.getString(columnIndex.get("t_string")))) &&
+                if (testString.equals(cursor.getSlice(columnIndex.get("t_string")).toStringUtf8()) &&
                         testInt == cursor.getLong(columnIndex.get("t_int")) &&
                         testSmallint == cursor.getLong(columnIndex.get("t_smallint"))) {
                     rowFound = true;
@@ -534,7 +533,7 @@ public abstract class AbstractTestHiveClient
         boolean rowFound = false;
         try (RecordCursor cursor = recordSetProvider.getRecordSet(splits.get(0), columnHandles).cursor()) {
             while (cursor.advanceNextPosition()) {
-                if (testString.equals(new String(cursor.getString(columnIndex.get("t_string")))) &&
+                if (testString.equals(cursor.getSlice(columnIndex.get("t_string")).toStringUtf8()) &&
                         testBigint == cursor.getLong(columnIndex.get("t_bigint")) &&
                         testBoolean == cursor.getBoolean(columnIndex.get("t_boolean"))) {
                     rowFound = true;
@@ -634,10 +633,10 @@ public abstract class AbstractTestHiveClient
                         assertTrue(cursor.isNull(columnIndex.get("t_string")));
                     }
                     else if (rowNumber % 19 == 1) {
-                        assertEquals(cursor.getString(columnIndex.get("t_string")), EMPTY_STRING);
+                        assertEquals(cursor.getSlice(columnIndex.get("t_string")), "");
                     }
                     else {
-                        assertEquals(cursor.getString(columnIndex.get("t_string")), (fileType + " test").getBytes(Charsets.UTF_8));
+                        assertEquals(cursor.getSlice(columnIndex.get("t_string")), (fileType + " test").getBytes(Charsets.UTF_8));
                     }
 
                     assertEquals(cursor.getLong(columnIndex.get("t_tinyint")), (long) ((byte) (baseValue + 1 + rowNumber)));
@@ -673,7 +672,7 @@ public abstract class AbstractTestHiveClient
                         assertTrue(cursor.isNull(columnIndex.get("t_binary")));
                     }
                     else {
-                        assertEquals(new String(cursor.getString(columnIndex.get("t_binary"))), (fileType + " test"));
+                        assertEquals(cursor.getSlice(columnIndex.get("t_binary")).toStringUtf8(), (fileType + " test"));
                     }
 
                     if (rowNumber % 29 == 0) {
@@ -681,7 +680,7 @@ public abstract class AbstractTestHiveClient
                     }
                     else {
                         String expectedJson = "{\"format\":\"" + fileType + "\"}";
-                        assertEquals(cursor.getString(columnIndex.get("t_map")), expectedJson.getBytes(Charsets.UTF_8));
+                        assertEquals(cursor.getSlice(columnIndex.get("t_map")), expectedJson.getBytes(Charsets.UTF_8));
                     }
 
                     if (rowNumber % 27 == 0) {
@@ -689,7 +688,7 @@ public abstract class AbstractTestHiveClient
                     }
                     else {
                         String expectedJson = "[\"" + fileType + "\",\"test\",\"data\"]";
-                        assertEquals(cursor.getString(columnIndex.get("t_array_string")), expectedJson.getBytes(Charsets.UTF_8));
+                        assertEquals(cursor.getSlice(columnIndex.get("t_array_string")), expectedJson.getBytes(Charsets.UTF_8));
                     }
 
                     if (rowNumber % 31 == 0) {
@@ -697,11 +696,11 @@ public abstract class AbstractTestHiveClient
                     }
                     else {
                         String expectedJson = "{\"1\":[{\"s_string\":\"" + fileType + "-a\",\"s_double\":0.1},{\"s_string\":\"" + fileType + "-b\",\"s_double\":0.2}]}";
-                        assertEquals(cursor.getString(columnIndex.get("t_complex")), expectedJson.getBytes(Charsets.UTF_8));
+                        assertEquals(cursor.getSlice(columnIndex.get("t_complex")), expectedJson.getBytes(Charsets.UTF_8));
                     }
 
-                    assertEquals(cursor.getString(columnIndex.get("ds")), ds.getBytes(Charsets.UTF_8));
-                    assertEquals(cursor.getString(columnIndex.get("file_format")), fileType.getBytes(Charsets.UTF_8));
+                    assertEquals(cursor.getSlice(columnIndex.get("ds")), ds.getBytes(Charsets.UTF_8));
+                    assertEquals(cursor.getSlice(columnIndex.get("file_format")), fileType.getBytes(Charsets.UTF_8));
                     assertEquals(cursor.getLong(columnIndex.get("dummy")), dummy);
 
                     long newCompletedBytes = cursor.getCompletedBytes();
@@ -743,8 +742,8 @@ public abstract class AbstractTestHiveClient
                     rowNumber++;
 
                     assertEquals(cursor.getDouble(columnIndex.get("t_double")), baseValue + 6.2 + rowNumber);
-                    assertEquals(cursor.getString(columnIndex.get("ds")), ds.getBytes(Charsets.UTF_8));
-                    assertEquals(cursor.getString(columnIndex.get("file_format")), fileType.getBytes(Charsets.UTF_8));
+                    assertEquals(cursor.getSlice(columnIndex.get("ds")).toStringUtf8(), ds);
+                    assertEquals(cursor.getSlice(columnIndex.get("file_format")).toStringUtf8(), fileType);
                     assertEquals(cursor.getLong(columnIndex.get("dummy")), dummy);
                 }
             }
@@ -781,10 +780,10 @@ public abstract class AbstractTestHiveClient
                         assertTrue(cursor.isNull(columnIndex.get("t_string")));
                     }
                     else if (rowNumber % 19 == 1) {
-                        assertEquals(cursor.getString(columnIndex.get("t_string")), EMPTY_STRING);
+                        assertEquals(cursor.getSlice(columnIndex.get("t_string")).toStringUtf8(), "");
                     }
                     else {
-                        assertEquals(cursor.getString(columnIndex.get("t_string")), "unpartitioned".getBytes(Charsets.UTF_8));
+                        assertEquals(cursor.getSlice(columnIndex.get("t_string")).toStringUtf8(), "unpartitioned");
                     }
 
                     assertEquals(cursor.getLong(columnIndex.get("t_tinyint")), 1 + rowNumber);
@@ -989,7 +988,7 @@ public abstract class AbstractTestHiveClient
 
             assertTrue(cursor.advanceNextPosition());
             assertEquals(cursor.getLong(0), 1);
-            assertEquals(cursor.getString(1), "hello".getBytes(UTF_8));
+            assertEquals(cursor.getSlice(1).toStringUtf8(), "hello");
             assertEquals(cursor.getLong(2), 123);
             assertEquals(cursor.getDouble(3), 43.5);
             assertEquals(cursor.getBoolean(4), true);
@@ -1003,7 +1002,7 @@ public abstract class AbstractTestHiveClient
 
             assertTrue(cursor.advanceNextPosition());
             assertEquals(cursor.getLong(0), 3);
-            assertEquals(cursor.getString(1), "bye".getBytes(UTF_8));
+            assertEquals(cursor.getSlice(1).toStringUtf8(), "bye");
             assertEquals(cursor.getLong(2), 456);
             assertEquals(cursor.getDouble(3), 98.1);
             assertEquals(cursor.getBoolean(4), false);
@@ -1096,7 +1095,7 @@ public abstract class AbstractTestHiveClient
                 }
                 else if (VARCHAR.equals(column.getType())) {
                     try {
-                        cursor.getString(columnIndex);
+                        cursor.getSlice(columnIndex);
                     }
                     catch (RuntimeException e) {
                         throw new RuntimeException("column " + column, e);

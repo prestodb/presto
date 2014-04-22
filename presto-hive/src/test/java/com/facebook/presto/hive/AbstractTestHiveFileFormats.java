@@ -18,11 +18,12 @@ import com.facebook.presto.spi.type.TimestampType;
 import com.facebook.presto.spi.type.Type;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.google.common.base.Charsets;
 import com.google.common.base.Function;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import io.airlift.slice.Slice;
+import io.airlift.slice.Slices;
 import org.apache.commons.lang3.tuple.Pair;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
@@ -172,8 +173,8 @@ public abstract class AbstractTestHiveFileFormats
     @SuppressWarnings("unchecked")
     private static final List<Pair<Object, Object>>  TEST_VALUES = ImmutableList.of(
                 Pair.<Object, Object>of(null, null),
-                Pair.<Object, Object>of("", new byte[0]),
-                Pair.<Object, Object>of("test", "test".getBytes(Charsets.UTF_8)),
+                Pair.<Object, Object>of("", Slices.EMPTY_SLICE),
+                Pair.<Object, Object>of("test", Slices.utf8Slice("test")),
                 Pair.<Object, Object>of((byte) 1, 1L),
                 Pair.<Object, Object>of((short) 2, 2L),
                 Pair.<Object, Object>of(3, 3L),
@@ -182,7 +183,7 @@ public abstract class AbstractTestHiveFileFormats
                 Pair.<Object, Object>of(6.2, 6.2),
                 Pair.<Object, Object>of(true, true),
                 Pair.<Object, Object>of(new Timestamp(TIMESTAMP), TIMESTAMP),
-                Pair.<Object, Object>of("test2".getBytes(Charsets.UTF_8), "test2".getBytes(Charsets.UTF_8)),
+                Pair.<Object, Object>of(Slices.utf8Slice("test2"), Slices.utf8Slice("test2")),
                 Pair.<Object, Object>of(ImmutableMap.of("test", "test"), "{\"test\":\"test\"}"),
                 Pair.<Object, Object>of(ImmutableMap.of((byte) 1, (byte) 1), "{\"1\":1}"),
                 Pair.<Object, Object>of(ImmutableMap.of((short) 2, (short) 2), "{\"2\":2}"),
@@ -253,7 +254,11 @@ public abstract class AbstractTestHiveFileFormats
 
             for (int rowNumber = 0; rowNumber < NUM_ROWS; rowNumber++) {
                 for (int i = 0; i < TEST_VALUES.size(); i++) {
-                    objectInspector.setStructFieldData(row, fields.get(i), TEST_VALUES.get(i).getKey());
+                    Object key = TEST_VALUES.get(i).getKey();
+                    if (key instanceof Slice) {
+                        key = ((Slice) key).getBytes();
+                    }
+                    objectInspector.setStructFieldData(row, fields.get(i), key);
                 }
 
                 Writable record = serDe.serialize(row, objectInspector);
@@ -290,7 +295,7 @@ public abstract class AbstractTestHiveFileFormats
                     fieldFromCursor = cursor.getDouble(i);
                 }
                 else if (VARCHAR.equals(type)) {
-                    fieldFromCursor = cursor.getString(i);
+                    fieldFromCursor = cursor.getSlice(i);
                 }
                 else if (TimestampType.TIMESTAMP.equals(type)) {
                     fieldFromCursor = cursor.getLong(i);
@@ -309,10 +314,8 @@ public abstract class AbstractTestHiveFileFormats
                 else {
                     ObjectMapper mapper = new ObjectMapper();
                     JsonNode expected = mapper.readTree((String) TEST_VALUES.get(i).getValue());
-                    JsonNode actual = mapper.readTree((byte[]) fieldFromCursor);
-                    if (!expected.equals(actual)) {
-                        assertEquals(actual, expected, String.format("Wrong value for column %s", COLUMN_NAMES.get(i)));
-                    }
+                    JsonNode actual = mapper.readTree(((Slice) fieldFromCursor).getBytes());
+                    assertEquals(actual, expected, String.format("Wrong value for column %s", COLUMN_NAMES.get(i)));
                 }
             }
         }

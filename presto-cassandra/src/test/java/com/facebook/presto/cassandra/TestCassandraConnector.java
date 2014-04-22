@@ -195,25 +195,25 @@ public class TestCassandraConnector
 
                     rowNumber++;
 
-                    String keyValue = toUtf8String(cursor.getString(columnIndex.get("key")));
+                    String keyValue = cursor.getSlice(columnIndex.get("key")).toStringUtf8();
                     assertTrue(keyValue.startsWith("key "));
                     int rowId = Integer.parseInt(keyValue.substring(4));
 
                     assertEquals(keyValue, String.format("key %04d", rowId));
-                    assertEquals(toUtf8String(cursor.getString(columnIndex.get("t_utf8"))), "utf8 " + rowId);
+                    assertEquals(cursor.getSlice(columnIndex.get("t_utf8")).toStringUtf8(), "utf8 " + rowId);
 
                     // bytes are encoded as a hex string for some reason
-                    assertEquals(toUtf8String(cursor.getString(columnIndex.get("t_bytes"))), String.format("0x%08X", rowId));
+                    assertEquals(cursor.getSlice(columnIndex.get("t_bytes")).toStringUtf8(), String.format("0x%08X", rowId));
 
                     // VARINT is returned as a string
-                    assertEquals(toUtf8String(cursor.getString(columnIndex.get("t_integer"))), String.valueOf(rowId));
+                    assertEquals(cursor.getSlice(columnIndex.get("t_integer")).toStringUtf8(), String.valueOf(rowId));
 
                     assertEquals(cursor.getLong(columnIndex.get("t_long")), 1000 + rowId);
 
-                    assertEquals(toUtf8String(cursor.getString(columnIndex.get("t_uuid"))), String.format("00000000-0000-0000-0000-%012d", rowId));
+                    assertEquals(cursor.getSlice(columnIndex.get("t_uuid")).toStringUtf8(), String.format("00000000-0000-0000-0000-%012d", rowId));
 
                     // lexical UUIDs are encoded as a hex string for some reason
-                    assertEquals(toUtf8String(cursor.getString(columnIndex.get("t_lexical_uuid"))), String.format("0x%032X", rowId));
+                    assertEquals(cursor.getSlice(columnIndex.get("t_lexical_uuid")).toStringUtf8(), String.format("0x%032X", rowId));
 
                     long newCompletedBytes = cursor.getCompletedBytes();
                     assertTrue(newCompletedBytes >= completedBytes);
@@ -246,7 +246,7 @@ public class TestCassandraConnector
                 }
                 else if (VARCHAR.equals(type)) {
                     try {
-                        cursor.getString(columnIndex);
+                        cursor.getSlice(columnIndex);
                     }
                     catch (RuntimeException e) {
                         throw new RuntimeException("column " + column, e);

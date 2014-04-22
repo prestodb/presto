@@ -13,13 +13,14 @@
  */
 package com.facebook.presto.sql.planner;
 
-import com.facebook.presto.spi.block.BlockCursor;
 import com.facebook.presto.metadata.FunctionInfo;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.OperatorInfo;
 import com.facebook.presto.metadata.OperatorInfo.OperatorType;
 import com.facebook.presto.spi.RecordCursor;
 import com.facebook.presto.spi.Session;
+import com.facebook.presto.spi.block.BlockCursor;
+import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.tree.ArithmeticExpression;
 import com.facebook.presto.sql.tree.AstVisitor;
 import com.facebook.presto.sql.tree.BetweenPredicate;
@@ -47,7 +48,6 @@ import com.facebook.presto.sql.tree.SearchedCaseExpression;
 import com.facebook.presto.sql.tree.SimpleCaseExpression;
 import com.facebook.presto.sql.tree.StringLiteral;
 import com.facebook.presto.sql.tree.WhenClause;
-import com.facebook.presto.spi.type.Type;
 import com.google.common.base.Charsets;
 import com.google.common.base.Functions;
 import com.google.common.base.Predicate;
@@ -55,7 +55,6 @@ import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import io.airlift.slice.Slice;
-import io.airlift.slice.Slices;
 import org.joni.Regex;
 
 import javax.annotation.Nullable;
@@ -187,7 +186,7 @@ public class ExpressionInterpreter
                     return cursor.getDouble(channel);
                 }
                 else if (javaType == Slice.class) {
-                    return Slices.wrappedBuffer(cursor.getString(channel));
+                    return cursor.getSlice(channel);
                 }
                 else {
                     throw new UnsupportedOperationException("not yet implemented");

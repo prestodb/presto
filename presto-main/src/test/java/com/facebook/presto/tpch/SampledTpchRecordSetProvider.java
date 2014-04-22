@@ -20,6 +20,7 @@ import com.facebook.presto.spi.ConnectorColumnHandle;
 import com.facebook.presto.spi.ConnectorSplit;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
+import io.airlift.slice.Slice;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -154,7 +155,7 @@ public class SampledTpchRecordSetProvider
         }
 
         @Override
-        public byte[] getString(int field)
+        public Slice getSlice(int field)
         {
             throw new RuntimeException("record cursor is empty");
         }
@@ -250,9 +251,9 @@ public class SampledTpchRecordSetProvider
         }
 
         @Override
-        public byte[] getString(int field)
+        public Slice getSlice(int field)
         {
-            return delegate.getString(field);
+            return delegate.getSlice(field);
         }
 
         @Override
