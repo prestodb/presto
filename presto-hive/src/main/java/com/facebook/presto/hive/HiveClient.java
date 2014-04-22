@@ -65,7 +65,6 @@ import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hive.metastore.ProtectMode;
 import org.apache.hadoop.hive.metastore.TableType;
-import org.apache.hadoop.hive.metastore.Warehouse;
 import org.apache.hadoop.hive.metastore.api.Database;
 import org.apache.hadoop.hive.metastore.api.FieldSchema;
 import org.apache.hadoop.hive.metastore.api.MetaException;
@@ -86,7 +85,6 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.Iterator;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -127,6 +125,7 @@ import static java.lang.String.format;
 import static java.util.UUID.randomUUID;
 import static org.apache.hadoop.hive.metastore.ProtectMode.getProtectModeFromString;
 import static org.apache.hadoop.hive.metastore.Warehouse.makePartName;
+import static org.apache.hadoop.hive.metastore.Warehouse.makeSpecFromName;
 
 @SuppressWarnings("deprecation")
 public class HiveClient
@@ -907,9 +906,8 @@ public class HiveClient
                         return new HivePartition(tableName);
                     }
 
-                    LinkedHashMap<String, String> keys = Warehouse.makeSpecFromName(partitionId);
                     ImmutableMap.Builder<ColumnHandle, Comparable<?>> builder = ImmutableMap.builder();
-                    for (Entry<String, String> entry : keys.entrySet()) {
+                    for (Entry<String, String> entry : makeSpecFromName(partitionId).entrySet()) {
                         ColumnHandle columnHandle = columnsByName.get(entry.getKey());
                         checkArgument(columnHandle != null, "Invalid partition key %s in partition %s", entry.getKey(), partitionId);
                         checkArgument(columnHandle instanceof HiveColumnHandle, "columnHandle is not an instance of HiveColumnHandle");
