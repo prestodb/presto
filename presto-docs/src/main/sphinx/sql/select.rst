@@ -65,6 +65,80 @@ Using with joins::
 	ON
 	t1.id = t2.id
 
+GROUP BY Clause
+---------------
+
+The GROUP BY clause divides the output of a select statement into
+groups of rows containing matching values. A GROUP BY clause may
+contain any expression matching an input column, an output column, or
+an ordinal number selecting an output column by position.
+
+The following queries are equivalent. They both group the output by
+the nationkey output column with the first query using the ordinal
+position of the output column and the second query using the output
+column name
+
+.. code-block:: none
+
+    select count(*), nationkey from customer group by 2;
+
+    select count(*), nationkey from customer group by nationkey;
+
+GROUP BY clauses can group output by input column names not appearing
+in the output of a select statement. For example, the following query
+generates row counts for the customer table in the tpch catalog using
+the input column mktsegment.
+
+.. code-block:: none
+
+    presto:sf1> select count(*) from customer group by mktsegment;
+     _col0  
+    -------
+     29968 
+     30142 
+     30189 
+     29949 
+     29752 
+    (5 rows)
+
+When a GROUP BY clause is used in a SELECT statement all output
+expression must be either aggregate functions or columns present in
+the GROUP BY clause.
+
+HAVING Clause
+-------------
+
+The HAVING clause is used in conjunction with aggregate functions and
+the GROUP BY clause to control which groups are selected. A HAVING
+clause eliminates groups that do not satisfy the given
+conditions. HAVING selects groups, after groups and aggregates are
+computed.
+
+The following example queries the customer table from the sf1 schema
+in the tpch catalog selecting groups with an acctbal greater than
+5700000.
+
+.. code-block:: none
+
+    presto:sf1> select count(*), mktsegment, \
+                       nationkey, \
+                       cast(sum(acctbal) as bigint) as totalbal \
+                from customer \
+                group by mktsegment, nationkey \
+                having sum(acctbal) > 5700000 \
+                order by totalbal desc;
+
+     _col0 | mktsegment | nationkey | totalbal 
+    -------+------------+-----------+----------
+      1272 | AUTOMOBILE |        19 |  5856939 
+      1253 | FURNITURE  |        14 |  5794887 
+      1248 | FURNITURE  |         9 |  5784628 
+      1243 | FURNITURE  |        12 |  5757371 
+      1231 | HOUSEHOLD  |         3 |  5753216 
+      1251 | MACHINERY  |         2 |  5719140 
+      1247 | FURNITURE  |         8 |  5701952 
+    (7 rows)
+
 UNION Clause
 ------------
 
