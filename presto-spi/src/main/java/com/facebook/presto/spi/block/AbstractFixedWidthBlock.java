@@ -118,9 +118,7 @@ public abstract class AbstractFixedWidthBlock
     {
         checkReadablePosition(position);
 
-        // TODO: add Slices.copyOf() to airlift
-        Slice copy = Slices.allocate(entrySize);
-        copy.setBytes(0, getRawSlice(), entryOffset(position), entrySize);
+        Slice copy = Slices.copyOf(getRawSlice(), entryOffset(position), entrySize);
 
         return new FixedWidthBlock(type, 1, copy);
     }
