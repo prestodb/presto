@@ -15,6 +15,7 @@ package com.facebook.presto.example;
 
 import com.facebook.presto.spi.Connector;
 import com.facebook.presto.spi.ConnectorFactory;
+import com.facebook.presto.spi.type.TypeManager;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableMap;
 import com.google.inject.Injector;
@@ -28,10 +29,12 @@ import static com.google.common.base.Preconditions.checkNotNull;
 public class ExampleConnectorFactory
         implements ConnectorFactory
 {
+    private final TypeManager typeManager;
     private final Map<String, String> optionalConfig;
 
-    public ExampleConnectorFactory(Map<String, String> optionalConfig)
+    public ExampleConnectorFactory(TypeManager typeManager, Map<String, String> optionalConfig)
     {
+        this.typeManager = checkNotNull(typeManager, "typeManager is null");
         this.optionalConfig = ImmutableMap.copyOf(checkNotNull(optionalConfig, "optionalConfig is null"));
     }
 
@@ -51,9 +54,9 @@ public class ExampleConnectorFactory
             // A plugin is not required to use Guice; it is just very convenient
             Bootstrap app = new Bootstrap(
                     new JsonModule(),
-                    new ExampleModule(connectorId));
+                    new ExampleModule(connectorId, typeManager));
 
-            Injector injector = app
+        Injector injector = app
                     .strictConfig()
                     .doNotInitializeLogging()
                     .setRequiredConfigurationProperties(requiredConfig)
