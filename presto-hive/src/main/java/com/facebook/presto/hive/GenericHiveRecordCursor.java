@@ -19,6 +19,7 @@ import com.facebook.presto.spi.type.Type;
 import com.google.common.base.Charsets;
 import com.google.common.base.Throwables;
 import io.airlift.slice.Slice;
+import io.airlift.slice.Slices;
 import org.apache.hadoop.hive.metastore.MetaStoreUtils;
 import org.apache.hadoop.hive.metastore.api.MetaException;
 import org.apache.hadoop.hive.serde2.Deserializer;
@@ -77,7 +78,7 @@ class GenericHiveRecordCursor<K, V extends Writable>
     private final boolean[] booleans;
     private final long[] longs;
     private final double[] doubles;
-    private final byte[][] strings;
+    private final Slice[] slices;
     private final boolean[] nulls;
 
     private final long totalBytes;
@@ -132,7 +133,7 @@ class GenericHiveRecordCursor<K, V extends Writable>
         this.booleans = new boolean[size];
         this.longs = new long[size];
         this.doubles = new double[size];
-        this.strings = new byte[size][];
+        this.slices = new Slice[size];
         this.nulls = new boolean[size];
 
         // initialize data columns
@@ -188,7 +189,7 @@ class GenericHiveRecordCursor<K, V extends Writable>
                     doubles[columnIndex] = parseDouble(bytes, 0, bytes.length);
                 }
                 else if (VARCHAR.equals(type)) {
-                    strings[columnIndex] = Arrays.copyOf(bytes, bytes.length);
+                    slices[columnIndex] = Slices.wrappedBuffer(Arrays.copyOf(bytes, bytes.length));
                 }
                 else {
                     throw new UnsupportedOperationException("Unsupported column type: " + type);
@@ -371,7 +372,7 @@ class GenericHiveRecordCursor<K, V extends Writable>
     }
 
     @Override
-    public byte[] getString(int fieldId)
+    public Slice getSlice(int fieldId)
     {
         checkState(!closed, "Cursor is closed");
 
@@ -379,7 +380,7 @@ class GenericHiveRecordCursor<K, V extends Writable>
         if (!loaded[fieldId]) {
             parseStringColumn(fieldId);
         }
-        return strings[fieldId];
+        return slices[fieldId];
     }
 
     private void parseStringColumn(int column)
@@ -396,17 +397,17 @@ class GenericHiveRecordCursor<K, V extends Writable>
         }
         else if (hiveTypes[column] == HiveType.MAP || hiveTypes[column] == HiveType.LIST || hiveTypes[column] == HiveType.STRUCT) {
             // temporarily special case MAP, LIST, and STRUCT types as strings
-            strings[column] = SerDeUtils.getJsonBytes(fieldData, fieldInspectors[column]);
+            slices[column] = Slices.wrappedBuffer(SerDeUtils.getJsonBytes(fieldData, fieldInspectors[column]));
             nulls[column] = false;
         }
         else {
             Object fieldValue = ((PrimitiveObjectInspector) fieldInspectors[column]).getPrimitiveJavaObject(fieldData);
             checkState(fieldValue != null, "fieldValue should not be null");
             if (fieldValue instanceof String) {
-                strings[column] = ((String) fieldValue).getBytes(Charsets.UTF_8);
+                slices[column] = Slices.utf8Slice((String) fieldValue);
             }
             else if (fieldValue instanceof byte[]) {
-                strings[column] = (byte[]) fieldValue;
+                slices[column] = Slices.wrappedBuffer((byte[]) fieldValue);
             }
             else {
                 throw new IllegalStateException("unsupported string field type: " + fieldValue.getClass().getName());

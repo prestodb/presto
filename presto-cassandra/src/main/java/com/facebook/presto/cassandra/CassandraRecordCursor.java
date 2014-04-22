@@ -17,9 +17,11 @@ import com.datastax.driver.core.ResultSet;
 import com.datastax.driver.core.Row;
 import com.facebook.presto.spi.RecordCursor;
 import com.facebook.presto.spi.type.Type;
-import com.google.common.base.Charsets;
+import io.airlift.slice.Slice;
 
 import java.util.List;
+
+import static io.airlift.slice.Slices.utf8Slice;
 
 public class CassandraRecordCursor
         implements RecordCursor
@@ -111,10 +113,9 @@ public class CassandraRecordCursor
     }
 
     @Override
-    public byte[] getString(int i)
+    public Slice getSlice(int i)
     {
-        String str = CassandraType.getColumnValue(currentRow, i, fullCassandraTypes.get(i)).toString();
-        return str.getBytes(Charsets.UTF_8);
+        return utf8Slice(CassandraType.getColumnValue(currentRow, i, fullCassandraTypes.get(i)).toString());
     }
 
     @Override

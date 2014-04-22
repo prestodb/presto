@@ -153,14 +153,14 @@ public class AppendingRecordSet
         }
 
         @Override
-        public byte[] getString(int field)
+        public Slice getSlice(int field)
         {
             checkPositionIndex(field, delegateFieldCount + appendedTypes.size());
             if (field < delegateFieldCount) {
-                return delegate.getString(field);
+                return delegate.getSlice(field);
             }
             else {
-                return ((Slice) appendedValues.get(field - delegateFieldCount)).getBytes();
+                return (Slice) appendedValues.get(field - delegateFieldCount);
             }
         }
 

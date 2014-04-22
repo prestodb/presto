@@ -23,13 +23,14 @@ import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.io.InputSupplier;
 import com.google.common.io.LineReader;
+import io.airlift.slice.Slice;
+import io.airlift.slice.Slices;
 
 import java.io.IOException;
 import java.io.Reader;
 import java.util.List;
 
 import static com.facebook.presto.metadata.MetadataUtil.columnTypeGetter;
-import static com.google.common.base.Charsets.UTF_8;
 import static com.google.common.collect.Iterables.transform;
 
 public class DelimitedRecordSet
@@ -151,9 +152,9 @@ public class DelimitedRecordSet
         }
 
         @Override
-        public byte[] getString(int field)
+        public Slice getSlice(int field)
         {
-            return getField(field).getBytes(UTF_8);
+            return Slices.utf8Slice(getField(field));
         }
 
         @Override

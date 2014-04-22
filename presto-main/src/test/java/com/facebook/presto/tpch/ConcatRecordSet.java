@@ -149,11 +149,11 @@ public class ConcatRecordSet
         }
 
         @Override
-        public byte[] getString(int field)
+        public io.airlift.slice.Slice getSlice(int field)
         {
             checkState(!closed);
             checkPositionIndex(field, types.size());
-            return currentCursor.getString(field);
+            return currentCursor.getSlice(field);
         }
 
         @Override

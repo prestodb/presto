@@ -17,8 +17,9 @@ import com.facebook.presto.spi.RecordCursor;
 import com.facebook.presto.spi.RecordSet;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableList;
+import io.airlift.slice.Slice;
+import io.airlift.slice.Slices;
 
-import java.nio.charset.StandardCharsets;
 import java.util.Iterator;
 import java.util.List;
 
@@ -115,9 +116,9 @@ public class MaterializedTupleRecordSet
         }
 
         @Override
-        public byte[] getString(int field)
+        public Slice getSlice(int field)
         {
-            return ((String) outputTuple.getValues().get(field)).getBytes(StandardCharsets.UTF_8);
+            return Slices.utf8Slice((String) outputTuple.getValues().get(field));
         }
 
         @Override

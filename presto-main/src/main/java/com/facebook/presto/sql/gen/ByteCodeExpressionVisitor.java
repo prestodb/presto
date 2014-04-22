@@ -69,7 +69,6 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Lists;
 import com.google.common.primitives.Primitives;
 import io.airlift.slice.Slice;
-import io.airlift.slice.Slices;
 
 import java.lang.invoke.ConstantCallSite;
 import java.lang.invoke.MethodHandle;
@@ -87,11 +86,11 @@ import static com.facebook.presto.byteCode.instruction.Constant.loadBoolean;
 import static com.facebook.presto.byteCode.instruction.Constant.loadDouble;
 import static com.facebook.presto.byteCode.instruction.Constant.loadLong;
 import static com.facebook.presto.byteCode.instruction.JumpInstruction.jump;
-import static com.facebook.presto.type.UnknownType.UNKNOWN;
-import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
-import static com.facebook.presto.sql.gen.SliceConstant.sliceConstant;
 import static com.facebook.presto.spi.type.TimeWithTimeZoneType.TIME_WITH_TIME_ZONE;
 import static com.facebook.presto.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
+import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
+import static com.facebook.presto.sql.gen.SliceConstant.sliceConstant;
+import static com.facebook.presto.type.UnknownType.UNKNOWN;
 import static com.facebook.presto.util.DateTimeUtils.parseDayTimeInterval;
 import static com.facebook.presto.util.DateTimeUtils.parseTimeWithTimeZone;
 import static com.facebook.presto.util.DateTimeUtils.parseTimeWithoutTimeZone;
@@ -260,8 +259,7 @@ public class ByteCodeExpressionVisitor
                 Block isNotNull = new Block(context)
                         .getVariable("cursor")
                         .push(channel)
-                        .invokeInterface(RecordCursor.class, "getString", byte[].class, int.class)
-                        .invokeStatic(Slices.class, "wrappedBuffer", Slice.class, byte[].class);
+                        .invokeInterface(RecordCursor.class, "getSlice", Slice.class, int.class);
                 return new IfStatement(context, isNullCheck, isNull, isNotNull);
             }
             else {

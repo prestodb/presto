@@ -19,6 +19,7 @@ import com.facebook.presto.spi.RecordSet;
 import com.facebook.presto.spi.block.BlockCursor;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableList;
+import io.airlift.slice.Slice;
 import it.unimi.dsi.fastutil.ints.IntArrayList;
 import it.unimi.dsi.fastutil.ints.IntList;
 import it.unimi.dsi.fastutil.ints.IntListIterator;
@@ -180,9 +181,9 @@ public class UnloadedIndexKeyRecordSet
         }
 
         @Override
-        public byte[] getString(int field)
+        public Slice getSlice(int field)
         {
-            return cursors[field].getSlice().getBytes();
+            return cursors[field].getSlice();
         }
 
         @Override

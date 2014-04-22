@@ -66,7 +66,6 @@ import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.DateType.DATE;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
-import static com.facebook.presto.type.UnknownType.UNKNOWN;
 import static com.facebook.presto.spi.type.TimeType.TIME;
 import static com.facebook.presto.spi.type.TimeWithTimeZoneType.TIME_WITH_TIME_ZONE;
 import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
@@ -74,7 +73,7 @@ import static com.facebook.presto.spi.type.TimestampWithTimeZoneType.TIMESTAMP_W
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.tpch.TpchMetadata.TINY_SCHEMA_NAME;
 import static com.facebook.presto.tpch.TpchRecordSet.createTpchRecordSet;
-import static com.google.common.base.Charsets.UTF_8;
+import static com.facebook.presto.type.UnknownType.UNKNOWN;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static io.airlift.tpch.TpchTable.LINE_ITEM;
@@ -354,7 +353,7 @@ public abstract class AbstractTestQueryFramework
                         part.bind(column, cursor.getDouble(column));
                     }
                     else if (VARCHAR.equals(type)) {
-                        part.bind(column, new String(cursor.getString(column), UTF_8));
+                        part.bind(column, cursor.getSlice(column).toStringUtf8());
                     }
                 }
             }

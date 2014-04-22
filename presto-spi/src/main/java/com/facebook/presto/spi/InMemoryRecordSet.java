@@ -14,8 +14,9 @@
 package com.facebook.presto.spi;
 
 import com.facebook.presto.spi.type.Type;
+import io.airlift.slice.Slice;
+import io.airlift.slice.Slices;
 
-import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
@@ -139,16 +140,16 @@ public class InMemoryRecordSet
         }
 
         @Override
-        public byte[] getString(int field)
+        public Slice getSlice(int field)
         {
             checkState(record != null, "no current record");
             Object value = record.get(field);
             checkNotNull(value, "value is null");
             if (value instanceof byte[]) {
-                return (byte[]) value;
+                return Slices.wrappedBuffer((byte[]) value);
             }
             if (value instanceof String) {
-                return ((String) value).getBytes(StandardCharsets.UTF_8);
+                return Slices.utf8Slice((String) value);
             }
             throw new IllegalArgumentException("Field " + field + " is not a String, but is a " + value.getClass().getName());
         }

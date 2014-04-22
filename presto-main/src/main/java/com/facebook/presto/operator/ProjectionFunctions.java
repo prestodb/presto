@@ -20,7 +20,6 @@ import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.tree.Input;
 import com.google.common.base.Preconditions;
 import io.airlift.slice.Slice;
-import io.airlift.slice.Slices;
 
 public final class ProjectionFunctions
 {
@@ -87,7 +86,7 @@ public final class ProjectionFunctions
                     output.appendDouble(cursor.getDouble(channelIndex));
                 }
                 else if (javaType == Slice.class) {
-                    output.appendSlice(Slices.wrappedBuffer(cursor.getString(channelIndex)));
+                    output.appendSlice(cursor.getSlice(channelIndex));
                 }
             }
         }

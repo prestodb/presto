@@ -16,8 +16,9 @@ package com.facebook.presto.util;
 import com.facebook.presto.spi.RecordCursor;
 import com.facebook.presto.spi.RecordSet;
 import com.facebook.presto.spi.type.Type;
-import com.google.common.base.Charsets;
 import com.google.common.collect.ImmutableList;
+import io.airlift.slice.Slice;
+import io.airlift.slice.Slices;
 
 import java.util.List;
 
@@ -111,15 +112,15 @@ public class InfiniteRecordSet
         }
 
         @Override
-        public byte[] getString(int field)
+        public Slice getSlice(int field)
         {
             Object value = record.get(field);
             checkNotNull(value, "value is null");
             if (value instanceof byte[]) {
-                return (byte[]) value;
+                return Slices.wrappedBuffer((byte[]) value);
             }
             if (value instanceof String) {
-                return ((String) value).getBytes(Charsets.UTF_8);
+                return Slices.utf8Slice((String) value);
             }
             throw new IllegalArgumentException("Field " + field + " is not a String, but is a " + value.getClass().getName());
         }

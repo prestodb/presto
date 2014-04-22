@@ -15,12 +15,13 @@ package com.facebook.presto.example;
 
 import com.facebook.presto.spi.RecordCursor;
 import com.facebook.presto.spi.type.Type;
-import com.google.common.base.Charsets;
 import com.google.common.base.Splitter;
 import com.google.common.base.Strings;
 import com.google.common.base.Throwables;
 import com.google.common.io.CountingInputStream;
 import com.google.common.io.InputSupplier;
+import io.airlift.slice.Slice;
+import io.airlift.slice.Slices;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -135,10 +136,10 @@ public class ExampleRecordCursor
     }
 
     @Override
-    public byte[] getString(int field)
+    public Slice getSlice(int field)
     {
         checkFieldType(field, VARCHAR);
-        return getFieldValue(field).getBytes(Charsets.UTF_8);
+        return Slices.utf8Slice(getFieldValue(field));
     }
 
     @Override

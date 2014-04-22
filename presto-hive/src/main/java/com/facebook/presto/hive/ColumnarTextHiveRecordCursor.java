@@ -19,6 +19,7 @@ import com.facebook.presto.spi.type.Type;
 import com.google.common.base.Charsets;
 import com.google.common.base.Throwables;
 import io.airlift.slice.Slice;
+import io.airlift.slice.Slices;
 import org.apache.hadoop.hive.metastore.api.MetaException;
 import org.apache.hadoop.hive.serde2.SerDeException;
 import org.apache.hadoop.hive.serde2.columnar.BytesRefArrayWritable;
@@ -77,7 +78,7 @@ class ColumnarTextHiveRecordCursor<K>
     private final boolean[] booleans;
     private final long[] longs;
     private final double[] doubles;
-    private final byte[][] strings;
+    private final Slice[] slices;
     private final boolean[] nulls;
 
     private final long totalBytes;
@@ -124,7 +125,7 @@ class ColumnarTextHiveRecordCursor<K>
         this.booleans = new boolean[size];
         this.longs = new long[size];
         this.doubles = new double[size];
-        this.strings = new byte[size][];
+        this.slices = new Slice[size];
         this.nulls = new boolean[size];
 
         // initialize data columns
@@ -186,7 +187,7 @@ class ColumnarTextHiveRecordCursor<K>
                     doubles[columnIndex] = parseDouble(bytes, 0, bytes.length);
                 }
                 else if (VARCHAR.equals(type)) {
-                    strings[columnIndex] = Arrays.copyOf(bytes, bytes.length);
+                    slices[columnIndex] = Slices.wrappedBuffer(bytes);
                 }
                 else {
                     throw new UnsupportedOperationException("Unsupported column type: " + type);
@@ -430,7 +431,7 @@ class ColumnarTextHiveRecordCursor<K>
     }
 
     @Override
-    public byte[] getString(int fieldId)
+    public Slice getSlice(int fieldId)
     {
         checkState(!closed, "Cursor is closed");
 
@@ -438,7 +439,7 @@ class ColumnarTextHiveRecordCursor<K>
         if (!loaded[fieldId]) {
             parseStringColumn(fieldId);
         }
-        return strings[fieldId];
+        return slices[fieldId];
     }
 
     private void parseStringColumn(int column)
@@ -484,16 +485,16 @@ class ColumnarTextHiveRecordCursor<K>
             ByteArrayRef byteArrayRef = new ByteArrayRef();
             byteArrayRef.setData(bytes);
             lazyObject.init(byteArrayRef, start, length);
-            strings[column] = SerDeUtils.getJsonBytes(lazyObject.getObject(), fieldInspectors[column]);
+            slices[column] = Slices.wrappedBuffer(SerDeUtils.getJsonBytes(lazyObject.getObject(), fieldInspectors[column]));
             wasNull = false;
         }
         else {
-            strings[column] = Arrays.copyOfRange(bytes, start, start + length);
+            slices[column] = Slices.wrappedBuffer(Arrays.copyOfRange(bytes, start, start + length));
 
             // this is unbelievably stupid but Hive base64 encodes binary data in a binary file format
             if (hiveTypes[column] == HiveType.BINARY) {
                 // and yes we end up with an extra copy here because the Base64 only handles whole arrays
-                strings[column] = Base64.decodeBase64(strings[column]);
+                slices[column] = Slices.wrappedBuffer(Base64.decodeBase64(slices[column].getBytes()));
             }
             wasNull = false;
         }

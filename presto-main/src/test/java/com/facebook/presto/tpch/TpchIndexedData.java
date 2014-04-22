@@ -33,7 +33,6 @@ import io.airlift.tpch.TpchColumn;
 import io.airlift.tpch.TpchEntity;
 import io.airlift.tpch.TpchTable;
 
-import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
@@ -172,7 +171,7 @@ public class TpchIndexedData
             return cursor.getDouble(field);
         }
         else if (javaType == Slice.class) {
-            return new String(cursor.getString(field), StandardCharsets.UTF_8);
+            return cursor.getSlice(field).toStringUtf8();
         }
         throw new AssertionError("Unsupported type: " + type);
     }

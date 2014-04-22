@@ -27,7 +27,6 @@ import java.util.Map;
 
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
-import static com.google.common.base.Charsets.UTF_8;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 
@@ -74,7 +73,7 @@ public class TestExampleRecordSet
 
         Map<String, Long> data = new LinkedHashMap<>();
         while (cursor.advanceNextPosition()) {
-            data.put(new String(cursor.getString(0), UTF_8), cursor.getLong(1));
+            data.put(cursor.getSlice(0).toStringUtf8(), cursor.getLong(1));
             assertFalse(cursor.isNull(0));
             assertFalse(cursor.isNull(1));
         }
@@ -98,7 +97,7 @@ public class TestExampleRecordSet
         Map<String, Long> data = new LinkedHashMap<>();
         while (cursor.advanceNextPosition()) {
             assertEquals(cursor.getLong(0), cursor.getLong(1));
-            data.put(new String(cursor.getString(2), UTF_8), cursor.getLong(0));
+            data.put(cursor.getSlice(2).toStringUtf8(), cursor.getLong(0));
         }
         assertEquals(data, ImmutableMap.<String, Long>builder()
                 .put("ten", 10L)
