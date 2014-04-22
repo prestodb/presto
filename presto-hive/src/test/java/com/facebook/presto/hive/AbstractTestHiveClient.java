@@ -147,7 +147,7 @@ public abstract class AbstractTestHiveClient
         temporaryCreateSampledTable = new SchemaTableName(database, "tmp_presto_test_create_" + random);
         tableOwner = "presto_test";
 
-        invalidTableHandle = new HiveTableHandle("hive", database, "totally_invalid_table_name");
+        invalidTableHandle = new HiveTableHandle("hive", database, "totally_invalid_table_name", SESSION);
 
         dsColumn = new HiveColumnHandle(connectorId, "ds", 0, HiveType.STRING, -1, true);
         fileFormatColumn = new HiveColumnHandle(connectorId, "file_format", 1, HiveType.STRING, -1, true);

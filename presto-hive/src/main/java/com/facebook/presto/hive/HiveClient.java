@@ -229,7 +229,7 @@ public class HiveClient
         checkNotNull(tableName, "tableName is null");
         try {
             metastore.getTable(tableName.getSchemaName(), tableName.getTableName());
-            return new HiveTableHandle(connectorId, tableName.getSchemaName(), tableName.getTableName());
+            return new HiveTableHandle(connectorId, tableName.getSchemaName(), tableName.getTableName(), session);
         }
         catch (NoSuchObjectException e) {
             // table was not found
@@ -728,6 +728,9 @@ public class HiveClient
     @Override
     public ConnectorSplitSource getPartitionSplits(ConnectorTableHandle tableHandle, List<ConnectorPartition> partitions)
     {
+        checkArgument(tableHandle instanceof HiveTableHandle, "tableHandle is not an instance of HiveTableHandle");
+        HiveTableHandle hiveTableHandle = (HiveTableHandle) tableHandle;
+
         checkNotNull(partitions, "partitions is null");
 
         ConnectorPartition partition = Iterables.getFirst(partitions, null);
@@ -763,7 +766,8 @@ public class HiveClient
                 namenodeStats,
                 directoryLister,
                 executor,
-                maxPartitionBatchSize).get();
+                maxPartitionBatchSize,
+                hiveTableHandle.getSession()).get();
     }
 
     private Iterable<org.apache.hadoop.hive.metastore.api.Partition> getPartitions(final Table table, final SchemaTableName tableName, List<String> partitionNames)
