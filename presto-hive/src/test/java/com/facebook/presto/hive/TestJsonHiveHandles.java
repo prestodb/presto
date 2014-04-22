@@ -14,14 +14,18 @@
 package com.facebook.presto.hive;
 
 import com.facebook.presto.spi.SchemaTableName;
+import com.facebook.presto.spi.Session;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.json.ObjectMapperProvider;
 import org.testng.annotations.Test;
 
+import java.util.Locale;
 import java.util.Map;
 
+import static com.facebook.presto.spi.Session.DEFAULT_CATALOG;
+import static com.facebook.presto.spi.type.TimeZoneKey.UTC_KEY;
 import static io.airlift.testing.Assertions.assertEqualsIgnoreOrder;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
@@ -29,10 +33,21 @@ import static org.testng.Assert.assertTrue;
 @Test
 public class TestJsonHiveHandles
 {
+    private static final Session SESSION = new Session("user", "test", DEFAULT_CATALOG, "test", UTC_KEY, Locale.ENGLISH, null, null);
+
     private static final Map<String, Object> TABLE_HANDLE_AS_MAP = ImmutableMap.<String, Object>of(
             "clientId", "hive",
             "schemaName", "hive_schema",
-            "tableName", "hive_table");
+            "tableName", "hive_table",
+            "session", ImmutableMap.builder()
+                    .put("user", SESSION.getUser())
+                    .put("source", SESSION.getSource())
+                    .put("catalog", SESSION.getCatalog())
+                    .put("schema", SESSION.getSchema())
+                    .put("timeZoneKey", (int) SESSION.getTimeZoneKey().getTimeZoneKey())
+                    .put("locale", SESSION.getLocale().toString())
+                    .put("startTime", SESSION.getStartTime())
+                    .build());
 
     private static final Map<String, Object> COLUMN_HANDLE_AS_MAP = ImmutableMap.<String, Object>builder()
             .put("clientId", "hive")
@@ -49,7 +64,7 @@ public class TestJsonHiveHandles
     public void testTableHandleSerialize()
             throws Exception
     {
-        HiveTableHandle tableHandle = new HiveTableHandle("hive", "hive_schema", "hive_table");
+        HiveTableHandle tableHandle = new HiveTableHandle("hive", "hive_schema", "hive_table", SESSION);
 
         assertTrue(objectMapper.canSerialize(HiveTableHandle.class));
         String json = objectMapper.writeValueAsString(tableHandle);

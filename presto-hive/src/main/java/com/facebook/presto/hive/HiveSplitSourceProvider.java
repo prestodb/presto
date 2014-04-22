@@ -21,6 +21,7 @@ import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.ConnectorSplitSource;
 import com.facebook.presto.spi.HostAddress;
 import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.Session;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Optional;
 import com.google.common.base.Throwables;
@@ -110,6 +111,7 @@ class HiveSplitSourceProvider
     private final ClassLoader classLoader;
     private final DataSize maxSplitSize;
     private final int maxPartitionBatchSize;
+    private final Session session;
 
     HiveSplitSourceProvider(String connectorId,
             Table table,
@@ -123,7 +125,8 @@ class HiveSplitSourceProvider
             NamenodeStats namenodeStats,
             DirectoryLister directoryLister,
             Executor executor,
-            int maxPartitionBatchSize)
+            int maxPartitionBatchSize,
+            Session session)
     {
         this.connectorId = connectorId;
         this.table = table;
@@ -138,6 +141,7 @@ class HiveSplitSourceProvider
         this.namenodeStats = namenodeStats;
         this.directoryLister = directoryLister;
         this.executor = executor;
+        this.session = session;
         this.classLoader = Thread.currentThread().getContextClassLoader();
     }
 
@@ -152,7 +156,7 @@ class HiveSplitSourceProvider
             public void run()
             {
                 try {
-                    loadPartitionSplits(hiveSplitSource, suspendingExecutor);
+                    loadPartitionSplits(hiveSplitSource, suspendingExecutor, session);
                 }
                 catch (InterruptedException e) {
                     Thread.currentThread().interrupt();
@@ -162,7 +166,7 @@ class HiveSplitSourceProvider
         return hiveSplitSource;
     }
 
-    private void loadPartitionSplits(final HiveSplitSource hiveSplitSource, SuspendingExecutor suspendingExecutor)
+    private void loadPartitionSplits(final HiveSplitSource hiveSplitSource, SuspendingExecutor suspendingExecutor, final Session session)
             throws InterruptedException
     {
         final Semaphore semaphore = new Semaphore(maxPartitionBatchSize);
@@ -200,7 +204,8 @@ class HiveSplitSourceProvider
                                 split.getLength(),
                                 schema,
                                 partitionKeys,
-                                false));
+                                false,
+                                session));
                     }
                     continue;
                 }
@@ -213,7 +218,7 @@ class HiveSplitSourceProvider
                         BlockLocation[] blockLocations = fs.getFileBlockLocations(file, 0, file.getLen());
                         boolean splittable = isSplittable(inputFormat, fs, file.getPath());
 
-                        hiveSplitSource.addToQueue(createHiveSplits(partitionName, file, blockLocations, 0, file.getLen(), schema, partitionKeys, splittable));
+                        hiveSplitSource.addToQueue(createHiveSplits(partitionName, file, blockLocations, 0, file.getLen(), schema, partitionKeys, splittable, session));
                         continue;
                     }
                 }
@@ -231,7 +236,7 @@ class HiveSplitSourceProvider
                         try {
                             boolean splittable = isSplittable(inputFormat, file.getPath().getFileSystem(configuration), file.getPath());
 
-                            hiveSplitSource.addToQueue(createHiveSplits(partitionName, file, blockLocations, 0, file.getLen(), schema, partitionKeys, splittable));
+                            hiveSplitSource.addToQueue(createHiveSplits(partitionName, file, blockLocations, 0, file.getLen(), schema, partitionKeys, splittable, session));
                         }
                         catch (IOException e) {
                             hiveSplitSource.fail(e);
@@ -329,7 +334,8 @@ class HiveSplitSourceProvider
             long length,
             Properties schema,
             List<HivePartitionKey> partitionKeys,
-            boolean splittable)
+            boolean splittable,
+            Session session)
             throws IOException
     {
         ImmutableList.Builder<HiveSplit> builder = ImmutableList.builder();
@@ -357,7 +363,8 @@ class HiveSplitSourceProvider
                             chunkLength,
                             schema,
                             partitionKeys,
-                            addresses));
+                            addresses,
+                            session));
 
                     chunkOffset += chunkLength;
                 }
@@ -380,7 +387,8 @@ class HiveSplitSourceProvider
                     length,
                     schema,
                     partitionKeys,
-                    addresses));
+                    addresses,
+                    session));
         }
         return builder.build();
     }
