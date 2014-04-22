@@ -156,9 +156,7 @@ public class FixedWidthBlockCursor
     {
         checkReadablePosition();
 
-        // TODO: add Slices.copyOf() to airlift
-        Slice copy = Slices.allocate(entrySize);
-        copy.setBytes(0, slice, offset, entrySize);
+        Slice copy = Slices.copyOf(slice, offset, entrySize);
 
         return new FixedWidthBlock(type, 1, copy);
     }

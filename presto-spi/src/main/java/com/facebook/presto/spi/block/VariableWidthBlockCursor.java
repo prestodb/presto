@@ -177,8 +177,7 @@ public class VariableWidthBlockCursor
     {
         checkReadablePosition();
 
-        Slice copy = Slices.allocate(entrySize);
-        copy.setBytes(0, slice, entryOffset, entrySize);
+        Slice copy = Slices.copyOf(slice, entryOffset, entrySize);
 
         return new VariableWidthRandomAccessBlock(type, 1, copy);
     }
