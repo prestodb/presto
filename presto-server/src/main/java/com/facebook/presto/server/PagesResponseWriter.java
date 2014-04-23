@@ -13,27 +13,22 @@
  */
 package com.facebook.presto.server;
 
-import com.facebook.presto.spi.block.BlockEncodingSerde;
 import com.facebook.presto.operator.Page;
 import com.facebook.presto.serde.PagesSerde;
+import com.facebook.presto.spi.block.BlockEncodingSerde;
 import com.google.common.base.Throwables;
-import com.google.common.collect.ImmutableList;
 import com.google.common.reflect.TypeToken;
-import io.airlift.slice.InputStreamSliceInput;
 import io.airlift.slice.OutputStreamSliceOutput;
 
 import javax.inject.Inject;
-import javax.ws.rs.Consumes;
 import javax.ws.rs.Produces;
 import javax.ws.rs.WebApplicationException;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.MultivaluedMap;
-import javax.ws.rs.ext.MessageBodyReader;
 import javax.ws.rs.ext.MessageBodyWriter;
 import javax.ws.rs.ext.Provider;
 
 import java.io.IOException;
-import java.io.InputStream;
 import java.io.OutputStream;
 import java.lang.annotation.Annotation;
 import java.lang.reflect.Type;
@@ -42,10 +37,9 @@ import java.util.List;
 import static com.facebook.presto.PrestoMediaTypes.PRESTO_PAGES;
 
 @Provider
-@Consumes(PRESTO_PAGES)
 @Produces(PRESTO_PAGES)
-public class PagesMapper
-        implements MessageBodyReader<List<Page>>, MessageBodyWriter<List<Page>>
+public class PagesResponseWriter
+        implements MessageBodyWriter<List<Page>>
 {
     private static final MediaType PRESTO_PAGES_TYPE = MediaType.valueOf(PRESTO_PAGES);
     private static final Type LIST_GENERIC_TOKEN;
@@ -59,32 +53,12 @@ public class PagesMapper
         }
     }
 
-    private BlockEncodingSerde blockEncodingSerde;
+    private final BlockEncodingSerde blockEncodingSerde;
 
     @Inject
-    public PagesMapper(BlockEncodingSerde blockEncodingSerde)
+    public PagesResponseWriter(BlockEncodingSerde blockEncodingSerde)
     {
         this.blockEncodingSerde = blockEncodingSerde;
-    }
-
-    @Override
-    public boolean isReadable(Class<?> type, Type genericType, Annotation[] annotations, MediaType mediaType)
-    {
-        return List.class.isAssignableFrom(type) &&
-                TypeToken.of(genericType).resolveType(LIST_GENERIC_TOKEN).getRawType().equals(Page.class) &&
-                mediaType.isCompatible(PRESTO_PAGES_TYPE);
-    }
-
-    @Override
-    public List<Page> readFrom(Class<List<Page>> type,
-            Type genericType,
-            Annotation[] annotations,
-            MediaType mediaType,
-            MultivaluedMap<String, String> httpHeaders,
-            InputStream input)
-            throws IOException, WebApplicationException
-    {
-        return ImmutableList.copyOf(PagesSerde.readPages(blockEncodingSerde, new InputStreamSliceInput(input)));
     }
 
     @Override

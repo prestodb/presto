@@ -96,7 +96,7 @@ public class TestQueryResourceServer
                         binder.bind(QueryManager.class).to(MockQueryManager.class).in(Scopes.SINGLETON);
                         binder.bind(MockTaskManager.class).in(Scopes.SINGLETON);
                         binder.bind(TaskManager.class).to(Key.get(MockTaskManager.class)).in(Scopes.SINGLETON);
-                        binder.bind(PagesMapper.class).in(Scopes.SINGLETON);
+                        binder.bind(PagesResponseWriter.class).in(Scopes.SINGLETON);
                         binder.bind(InternalNodeManager.class).to(InMemoryNodeManager.class).in(Scopes.SINGLETON);
                         binder.bind(NodeManager.class).to(Key.get(InternalNodeManager.class)).in(Scopes.SINGLETON);
                         binder.bind(LocationFactory.class).to(HttpLocationFactory.class).in(Scopes.SINGLETON);
