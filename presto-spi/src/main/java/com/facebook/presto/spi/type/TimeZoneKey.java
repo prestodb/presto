@@ -231,7 +231,7 @@ public final class TimeZoneKey
 
         }
 
-        if (zoneId.equals("+00:00") | zoneId.equals("-00:00")) {
+        if (zoneId.equals("+00:00") || zoneId.equals("-00:00")) {
             return "UTC";
         }
         return zoneId;
