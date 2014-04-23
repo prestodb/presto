@@ -170,7 +170,7 @@ public class ServerMainModule
         bindConfig(binder).to(TaskManagerConfig.class);
 
         jsonCodecBinder(binder).bindJsonCodec(TaskInfo.class);
-        binder.bind(PagesMapper.class).in(Scopes.SINGLETON);
+        binder.bind(PagesResponseWriter.class).in(Scopes.SINGLETON);
 
         // exchange client
         binder.bind(new TypeLiteral<Supplier<ExchangeClient>>() {}).to(ExchangeClientFactory.class).in(Scopes.SINGLETON);
