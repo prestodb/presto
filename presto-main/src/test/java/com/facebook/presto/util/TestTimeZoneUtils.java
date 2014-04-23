@@ -35,11 +35,13 @@ public class TestTimeZoneUtils
     @Test
     public void test()
     {
+        TimeZoneKey.getTimeZoneKey("GMT-13:00");
+
         TreeSet<String> jodaZones = new TreeSet<>(DateTimeZone.getAvailableIDs());
         TreeSet<String> jdkZones = new TreeSet<>(Arrays.asList(TimeZone.getAvailableIDs()));
 
         for (String zoneId : new TreeSet<>(Sets.intersection(jodaZones, jdkZones))) {
-            if (zoneId.startsWith("Etc/") || zoneId.startsWith("GMT")) {
+            if (zoneId.toLowerCase().startsWith("etc/") || zoneId.toLowerCase().startsWith("gmt")) {
                 continue;
             }
             DateTimeZone dateTimeZone = DateTimeZone.forID(zoneId);
@@ -57,7 +59,7 @@ public class TestTimeZoneUtils
         }
     }
 
-    public void assertTimeZone(String zoneId, DateTimeZone dateTimeZone)
+    public static void assertTimeZone(String zoneId, DateTimeZone dateTimeZone)
     {
         long dateTimeWithTimeZone = packDateTimeWithZone(new DateTime(42, dateTimeZone));
         assertEquals(packDateTimeWithZone((long) 42, dateTimeZone.toTimeZone().getID()), dateTimeWithTimeZone);
