@@ -152,4 +152,10 @@ public class HyperLogLogType
     {
         return slice.getShort(offset);
     }
+
+    @Override
+    public String toString()
+    {
+        return getName();
+    }
 }
