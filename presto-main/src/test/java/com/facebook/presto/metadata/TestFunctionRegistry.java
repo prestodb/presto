@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.metadata;
 
+import com.facebook.presto.metadata.OperatorInfo.OperatorType;
 import com.facebook.presto.operator.scalar.CustomAdd;
 import com.facebook.presto.operator.scalar.ScalarFunction;
 import com.google.common.collect.ImmutableList;
@@ -20,8 +21,21 @@ import org.testng.annotations.Test;
 
 import java.util.List;
 
+import static com.facebook.presto.spi.type.HyperLogLogType.HYPER_LOG_LOG;
+import static org.testng.Assert.assertEquals;
+
 public class TestFunctionRegistry
 {
+    @Test
+    public void testIdentityCast()
+    {
+        FunctionRegistry registry = new FunctionRegistry(true);
+        OperatorInfo exactOperator = registry.getExactOperator(OperatorType.CAST, ImmutableList.of(HYPER_LOG_LOG), HYPER_LOG_LOG);
+        assertEquals(exactOperator.getOperatorType(), OperatorType.CAST);
+        assertEquals(exactOperator.getArgumentTypes(), ImmutableList.of(HYPER_LOG_LOG));
+        assertEquals(exactOperator.getReturnType(), HYPER_LOG_LOG);
+    }
+
     @Test(expectedExceptions = IllegalArgumentException.class, expectedExceptionsMessageRegExp = "\\QFunction already registered: custom_add(bigint,bigint):bigint\\E")
     public void testDuplicateFunctions()
     {

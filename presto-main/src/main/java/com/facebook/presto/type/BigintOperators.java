@@ -137,12 +137,6 @@ public final class BigintOperators
     }
 
     @ScalarOperator(CAST)
-    public static long castToBigint(long value)
-    {
-        return value;
-    }
-
-    @ScalarOperator(CAST)
     public static double castToDouble(long value)
     {
         return value;

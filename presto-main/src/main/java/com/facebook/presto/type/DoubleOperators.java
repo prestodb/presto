@@ -141,12 +141,6 @@ public final class DoubleOperators
     }
 
     @ScalarOperator(CAST)
-    public static double castToDouble(double value)
-    {
-        return value;
-    }
-
-    @ScalarOperator(CAST)
     public static long castToLong(double value)
     {
         return (long) MathFunctions.round(value);

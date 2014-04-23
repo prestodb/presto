@@ -203,7 +203,7 @@ public final class OperatorInfo
     private final MethodHandle methodHandle;
     private final FunctionBinder functionBinder;
 
-    public OperatorInfo(OperatorType operatorType, Type returnType, List<Type> argumentTypes, MethodHandle function, FunctionBinder functionBinder)
+    public OperatorInfo(OperatorType operatorType, Type returnType, List<? extends Type> argumentTypes, MethodHandle function, FunctionBinder functionBinder)
     {
         this.operatorType = checkNotNull(operatorType, "operator is null");
         this.returnType = checkNotNull(returnType, "returnType is null");
@@ -211,7 +211,7 @@ public final class OperatorInfo
         this.functionBinder = checkNotNull(functionBinder, "functionBinder is null");
         this.methodHandle = checkNotNull(function, "function is null");
 
-        operatorType.validateSignature(returnType, argumentTypes);
+        operatorType.validateSignature(returnType, ImmutableList.copyOf(argumentTypes));
     }
 
     public OperatorType getOperatorType()
