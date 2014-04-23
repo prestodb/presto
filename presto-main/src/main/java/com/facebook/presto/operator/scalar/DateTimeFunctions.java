@@ -72,6 +72,7 @@ public final class DateTimeFunctions
     private static final DateTimeField DAY_OF_YEAR = UTC_CHRONOLOGY.dayOfYear();
     private static final DateTimeField WEEK_OF_YEAR = UTC_CHRONOLOGY.weekOfWeekyear();
     private static final DateTimeField MONTH_OF_YEAR = UTC_CHRONOLOGY.monthOfYear();
+    private static final DateTimeField QUARTER = QUARTER_OF_YEAR.getField(UTC_CHRONOLOGY);
     private static final DateTimeField YEAR = UTC_CHRONOLOGY.year();
     private static final int MILLISECONDS_IN_SECOND = 1000;
     private static final int MILLISECONDS_IN_MINUTE = 60 * MILLISECONDS_IN_SECOND;
@@ -707,21 +708,21 @@ public final class DateTimeFunctions
     @ScalarFunction("quarter")
     public static long quarterFromTimestamp(Session session, @SqlType(TimestampType.class) long timestamp)
     {
-        return (getChronology(session.getTimeZoneKey()).monthOfYear().get(timestamp) / 4) + 1;
+        return QUARTER_OF_YEAR.getField(getChronology(session.getTimeZoneKey())).get(timestamp);
     }
 
     @Description("quarter of the year of the given timestamp")
     @ScalarFunction("quarter")
     public static long quarterFromTimestampWithTimeZone(@SqlType(TimestampWithTimeZoneType.class) long timestampWithTimeZone)
     {
-        return (unpackChronology(timestampWithTimeZone).monthOfYear().get(unpackMillisUtc(timestampWithTimeZone)) / 4) + 1;
+        return QUARTER_OF_YEAR.getField(unpackChronology(timestampWithTimeZone)).get(unpackMillisUtc(timestampWithTimeZone));
     }
 
     @Description("quarter of the year of the given date")
     @ScalarFunction("quarter")
     public static long quarterFromDate(@SqlType(DateType.class) long date)
     {
-        return (MONTH_OF_YEAR.get(date) / 4) + 1;
+        return QUARTER.get(date);
     }
 
     @Description("year of the given timestamp")
