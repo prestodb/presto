@@ -24,7 +24,7 @@ public interface BlockBuilder
     BlockBuilder appendBoolean(boolean value);
 
     /**
-     * Appends a boolean value to the block.
+     * Appends a long value to the block.
      */
     BlockBuilder appendLong(long value);
 
@@ -39,7 +39,7 @@ public interface BlockBuilder
     BlockBuilder appendSlice(Slice value);
 
     /**
-     * Appends a Slice value to the block.
+     * Appends a range of a Slice value to the block.
      */
     BlockBuilder appendSlice(Slice value, int offset, int length);
 
@@ -49,7 +49,7 @@ public interface BlockBuilder
     BlockBuilder appendNull();
 
     /**
-     * Builds the block.  This method can be called multiple times.
+     * Builds the block. This method can be called multiple times.
      */
     RandomAccessBlock build();
 
@@ -59,7 +59,7 @@ public interface BlockBuilder
     boolean isEmpty();
 
     /**
-     * Is ths block full?  If true no more values should be added to the block.
+     * Is this block full? If true no more values should be added to the block.
      */
     boolean isFull();
 }

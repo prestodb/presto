@@ -21,7 +21,7 @@ public interface RandomAccessBlock
 {
     /**
      * Returns a block starting at the specified position and extends for the
-     * specified length.  The specified region must be entirely contained
+     * specified length. The specified region must be entirely contained
      * within this block.
      */
     @Override
@@ -70,7 +70,7 @@ public interface RandomAccessBlock
     RandomAccessBlock getSingleValueBlock(int position);
 
     /**
-     * Is the specified position null.
+     * Is the specified position null?
      *
      * @throws IllegalArgumentException if this position is not valid
      */
@@ -111,7 +111,7 @@ public interface RandomAccessBlock
 
     /**
      * Compares the value at the specified position to the value at the other offset
-     * in the other slice?
+     * in the other slice.
      */
     int compareTo(int position, Slice otherSlice, int otherOffset);
 

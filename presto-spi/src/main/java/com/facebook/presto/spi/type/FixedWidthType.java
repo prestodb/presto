@@ -19,11 +19,15 @@ import com.facebook.presto.spi.block.BlockCursor;
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceOutput;
 
+/**
+ * FixedWidthType is a type that has a fixed size for every value.
+ */
 public interface FixedWidthType
         extends Type
 {
     /**
-     * Get the fixed size of this type.
+     * Gets the size of a value of this type is bytes. All values
+     * of a FixedWidthType are the same size.
      */
     int getFixedSize();
 
@@ -35,7 +39,7 @@ public interface FixedWidthType
 
     /**
      * Gets an object representation of the type encoded in the specified slice
-     * at the specified offset.  This is the value returned to the user via the
+     * at the specified offset. This is the value returned to the user via the
      * REST endpoint and therefore must be JSON serializable.
      */
     Object getObjectValue(Session session, Slice slice, int offset);
@@ -98,19 +102,17 @@ public interface FixedWidthType
     int hash(Slice slice, int offset);
 
     /**
-     * Compare the values in the specified slices at the specified offsets equal?
+     * Compare the values in the specified slices at the specified offsets equal.
      */
     int compareTo(Slice leftSlice, int leftOffset, Slice rightSlice, int rightOffset);
 
     /**
-     * Append the value at the specified offset in the specified slice to the
-     * specified block builder
+     * Append the value at {@code offset} in {@code slice} to {@code blockBuilder}.
      */
     void appendTo(Slice slice, int offset, BlockBuilder blockBuilder);
 
     /**
-     * Append the value at the specified offset in the specified slice to the
-     * specified slice output
+     * Append the value at {@code offset} in {@code slice} to {@code sliceOutput}.
      */
     void appendTo(Slice slice, int offset, SliceOutput sliceOutput);
 }

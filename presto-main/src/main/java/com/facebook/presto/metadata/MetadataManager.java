@@ -76,7 +76,7 @@ public class MetadataManager
     @Inject
     public MetadataManager(FeaturesConfig featuresConfig, TypeManager typeManager)
     {
-        functions = new FunctionRegistry(featuresConfig.isExperimentalSyntaxEnabled());
+        functions = new FunctionRegistry(typeManager, featuresConfig.isExperimentalSyntaxEnabled());
         this.typeManager = checkNotNull(typeManager, "types is null");
     }
 

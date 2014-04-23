@@ -208,13 +208,6 @@ public final class ColorFunctions
         return Slices.copiedBuffer(builder.toString(), Charsets.UTF_8);
     }
 
-    @ScalarFunction("__to_color__")
-    @SqlType(ColorType.class)
-    public static long toColor(long color)
-    {
-        return color;
-    }
-
     private static int interpolate(float fraction, long lowRgb, long highRgb)
     {
         float[] lowHsv = Color.RGBtoHSB(getRed(lowRgb), getGreen(lowRgb), getBlue(lowRgb), null);

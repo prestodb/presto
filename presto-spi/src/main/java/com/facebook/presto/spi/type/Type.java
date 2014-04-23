@@ -37,7 +37,7 @@ public interface Type
     Class<?> getJavaType();
 
     /**
-     * Creates a block builder for this type.  This is the builder used to
+     * Creates a block builder for this type. This is the builder used to
      * store values after an expression projection within the query.
      */
     BlockBuilder createBlockBuilder(BlockBuilderStatus blockBuilderStatus);
