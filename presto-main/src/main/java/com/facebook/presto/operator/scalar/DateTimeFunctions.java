@@ -85,48 +85,6 @@ public final class DateTimeFunctions
     {
     }
 
-    @ScalarFunction("__to_time__")
-    @SqlType(TimeType.class)
-    public static long toTime(long time)
-    {
-        return time;
-    }
-
-    @ScalarFunction("__to_time_with_time_zone__")
-    @SqlType(TimeWithTimeZoneType.class)
-    public static long toTimeWithTimeZone(long timeWithTimeZone)
-    {
-        return timeWithTimeZone;
-    }
-
-    @ScalarFunction("__to_timestamp__")
-    @SqlType(TimestampType.class)
-    public static long toTimestamp(long timestamp)
-    {
-        return timestamp;
-    }
-
-    @ScalarFunction("__to_timestamp_with_time_zone__")
-    @SqlType(TimestampWithTimeZoneType.class)
-    public static long toTimestampWithTimeZone(long timestampWithTimeZone)
-    {
-        return timestampWithTimeZone;
-    }
-
-    @ScalarFunction("__to_interval_day_time__")
-    @SqlType(IntervalDayTimeType.class)
-    public static long toIntervalDayTime(long intervalDayTime)
-    {
-        return intervalDayTime;
-    }
-
-    @ScalarFunction("__to_interval_year_month__")
-    @SqlType(IntervalYearMonthType.class)
-    public static long toIntervalYearMonth(long intervalYearMonth)
-    {
-        return intervalYearMonth;
-    }
-
     @Description("current date")
     @ScalarFunction
     @SqlType(DateType.class)

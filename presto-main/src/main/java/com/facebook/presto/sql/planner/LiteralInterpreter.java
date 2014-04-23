@@ -13,17 +13,12 @@
  */
 package com.facebook.presto.sql.planner;
 
+import com.facebook.presto.metadata.FunctionRegistry;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.OperatorInfo;
 import com.facebook.presto.metadata.OperatorInfo.OperatorType;
+import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.spi.Session;
-import com.facebook.presto.spi.type.DateType;
-import com.facebook.presto.spi.type.IntervalDayTimeType;
-import com.facebook.presto.spi.type.IntervalYearMonthType;
-import com.facebook.presto.spi.type.TimeType;
-import com.facebook.presto.spi.type.TimeWithTimeZoneType;
-import com.facebook.presto.spi.type.TimestampType;
-import com.facebook.presto.spi.type.TimestampWithTimeZoneType;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.analyzer.SemanticException;
 import com.facebook.presto.sql.tree.AstVisitor;
@@ -42,7 +37,6 @@ import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.sql.tree.StringLiteral;
 import com.facebook.presto.sql.tree.TimeLiteral;
 import com.facebook.presto.sql.tree.TimestampLiteral;
-import com.facebook.presto.type.ColorType;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
@@ -58,7 +52,6 @@ import static com.facebook.presto.util.DateTimeUtils.parseDayTimeInterval;
 import static com.facebook.presto.util.DateTimeUtils.parseTime;
 import static com.facebook.presto.util.DateTimeUtils.parseTimestamp;
 import static com.facebook.presto.util.DateTimeUtils.parseYearMonthInterval;
-import static com.facebook.presto.util.DateTimeUtils.printDate;
 import static com.google.common.base.Charsets.UTF_8;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
@@ -135,39 +128,9 @@ public final class LiteralInterpreter
             return new BooleanLiteral(object.toString());
         }
 
-        if (type.equals(DateType.DATE)) {
-            return new GenericLiteral("DATE", printDate((Long) object));
-        }
-
-        if (type.equals(TimeType.TIME)) {
-            return new FunctionCall(new QualifiedName("__to_time__"), ImmutableList.<Expression>of(new LongLiteral(object.toString())));
-        }
-
-        if (type.equals(TimeWithTimeZoneType.TIME_WITH_TIME_ZONE)) {
-            return new FunctionCall(new QualifiedName("__to_time_with_time_zone__"), ImmutableList.<Expression>of(new LongLiteral(object.toString())));
-        }
-
-        if (type.equals(TimestampType.TIMESTAMP)) {
-            return new FunctionCall(new QualifiedName("__to_timestamp__"), ImmutableList.<Expression>of(new LongLiteral(object.toString())));
-        }
-
-        if (type.equals(TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE)) {
-            return new FunctionCall(new QualifiedName("__to_timestamp_with_time_zone__"), ImmutableList.<Expression>of(new LongLiteral(object.toString())));
-        }
-
-        if (type.equals(IntervalDayTimeType.INTERVAL_DAY_TIME)) {
-            return new FunctionCall(new QualifiedName("__to_interval_day_time__"), ImmutableList.<Expression>of(new LongLiteral(object.toString())));
-        }
-
-        if (type.equals(IntervalYearMonthType.INTERVAL_YEAR_MONTH)) {
-            return new FunctionCall(new QualifiedName("__to_interval_year_month__"), ImmutableList.<Expression>of(new LongLiteral(object.toString())));
-        }
-
-        if (type.equals(ColorType.COLOR)) {
-            return new FunctionCall(new QualifiedName("__to_color__"), ImmutableList.<Expression>of(new LongLiteral(object.toString())));
-        }
-
-        throw new UnsupportedOperationException("not yet implemented: " + object.getClass().getName());
+        Signature signature = FunctionRegistry.getMagicLiteralFunctionSignature(type);
+        Expression rawLiteral = toExpression(object, FunctionRegistry.type(type.getJavaType()));
+        return new FunctionCall(new QualifiedName(signature.getName()), ImmutableList.of(rawLiteral));
     }
 
     private static class LiteralVisitor

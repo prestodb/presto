@@ -75,7 +75,7 @@ public interface BlockCursor
     /**
      * Creates a block view port starting at the next position and extending
      * the specified length. If the length is greater than the remaining
-     * positions, the length wil be reduced.  This method advances the cursor
+     * positions, the length wil be reduced. This method advances the cursor
      * to the last position in the view port, so repeated calls to this method
      * will result in distinct chunks covering all positions of the cursor.
      * <p/>
@@ -137,14 +137,14 @@ public interface BlockCursor
     Object getObjectValue(Session session);
 
     /**
-     * Is the current value null.
+     * Is the current value null?
      *
      * @throws IllegalStateException if this cursor is not at a valid position
      */
     boolean isNull();
 
     /**
-     * Returns the current position of this cursor
+     * Returns the current position of this cursor.
      *
      * @throws IllegalStateException if this cursor is not at a valid position
      */
@@ -152,7 +152,7 @@ public interface BlockCursor
 
     /**
      * Compares the value at the current position to the value at the other offset
-     * in the other slice?
+     * in the other slice.
      */
     int compareTo(Slice otherSlice, int otherOffset);
 

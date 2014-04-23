@@ -48,6 +48,7 @@ import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.DateType.DATE;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
+import static com.facebook.presto.spi.type.IntervalDayTimeType.INTERVAL_DAY_TIME;
 import static com.facebook.presto.spi.type.TimeType.TIME;
 import static com.facebook.presto.spi.type.TimeZoneKey.UTC_KEY;
 import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
@@ -86,6 +87,7 @@ public class TestExpressionInterpreter
             .put(new Symbol("unbound_date"), DATE)
             .put(new Symbol("unbound_time"), TIME)
             .put(new Symbol("unbound_timestamp"), TIMESTAMP)
+            .put(new Symbol("unbound_interval"), INTERVAL_DAY_TIME)
             .put(new Symbol("unbound_pattern"), VARCHAR)
             .put(new Symbol("unbound_null_string"), VARCHAR)
             .build();
@@ -863,6 +865,19 @@ public class TestExpressionInterpreter
     {
         assertLike(new byte[] {'a', 'b', 'c'}, "%b%", true);
         assertLike(new byte[] {'a', 'b', 'c', (byte) 0xFF, 'x', 'y'}, "%b%", true);
+    }
+
+    @Test
+    public void testLiterals()
+    {
+        optimize("date '2013-04-03' + unbound_interval");
+        optimize("time '03:04:05.321' + unbound_interval");
+        optimize("time '03:04:05.321 UTC' + unbound_interval");
+        optimize("timestamp '2013-04-03 03:04:05.321' + unbound_interval");
+        optimize("timestamp '2013-04-03 03:04:05.321 UTC' + unbound_interval");
+
+        optimize("interval '3' day * unbound_long");
+        optimize("interval '3' year * unbound_long");
     }
 
     private static void assertLike(byte[] value, String pattern, boolean expected)

@@ -18,7 +18,7 @@ import com.facebook.presto.spi.type.Type;
 public interface Block
 {
     /**
-     * Gets the type of this block
+     * Gets the type of this block.
      */
     Type getType();
 
@@ -33,12 +33,12 @@ public interface Block
     int getSizeInBytes();
 
     /**
-     * Gets a cursor over the block
+     * Gets a cursor over the block.
      */
     BlockCursor cursor();
 
     /**
-     * Get the encoding for this block
+     * Get the encoding for this block.
      */
     BlockEncoding getEncoding();
 
@@ -50,7 +50,7 @@ public interface Block
     Block getRegion(int positionOffset, int length);
 
     /**
-     * Converts this block to a random access block
+     * Converts this block to a random access block.
      */
     RandomAccessBlock toRandomAccessBlock();
 }
