@@ -123,13 +123,6 @@ public final class TimestampWithTimeZoneOperators
     }
 
     @ScalarOperator(CAST)
-    @SqlType(TimestampWithTimeZoneType.class)
-    public static long castToTimestampWithTimeZone(@SqlType(TimestampWithTimeZoneType.class) long value)
-    {
-        return value;
-    }
-
-    @ScalarOperator(CAST)
     public static Slice castToSlice(@SqlType(TimestampWithTimeZoneType.class) long value)
     {
         return Slices.copiedBuffer(printTimestampWithTimeZone(value), UTF_8);

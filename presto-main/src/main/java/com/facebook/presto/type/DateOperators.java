@@ -86,13 +86,6 @@ public final class DateOperators
     }
 
     @ScalarOperator(CAST)
-    @SqlType(DateType.class)
-    public static long castToDate(@SqlType(DateType.class) long value)
-    {
-        return value;
-    }
-
-    @ScalarOperator(CAST)
     @SqlType(TimestampType.class)
     public static long castToTimestamp(Session session, @SqlType(DateType.class) long value)
     {

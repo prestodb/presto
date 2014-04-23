@@ -36,6 +36,7 @@ import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.Session;
 import com.facebook.presto.spi.StandardErrorCode;
 import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.sql.gen.DefaultFunctionBinder;
 import com.facebook.presto.sql.gen.FunctionBinder;
 import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.type.BigintOperators;
@@ -73,6 +74,7 @@ import javax.annotation.concurrent.ThreadSafe;
 
 import java.lang.annotation.Annotation;
 import java.lang.invoke.MethodHandle;
+import java.lang.invoke.MethodHandles;
 import java.lang.reflect.AnnotatedElement;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Method;
@@ -334,6 +336,12 @@ public class FunctionRegistry
             if (operatorInfo.getReturnType().equals(returnType) && operatorInfo.getArgumentTypes().equals(argumentTypes)) {
                 return operatorInfo;
             }
+        }
+
+        // if identity cast, return a custom operator info
+        if ((operatorType == OperatorType.CAST) && (argumentTypes.size() == 1) && argumentTypes.get(0).equals(returnType)) {
+            MethodHandle identity = MethodHandles.identity(returnType.getJavaType());
+            return new OperatorInfo(OperatorType.CAST, returnType, argumentTypes, identity, new DefaultFunctionBinder(identity, false));
         }
 
         throw new OperatorNotFoundException(operatorType, argumentTypes, returnType);

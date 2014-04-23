@@ -80,12 +80,6 @@ public final class BooleanOperators
     }
 
     @ScalarOperator(CAST)
-    public static boolean castToBoolean(boolean value)
-    {
-        return value;
-    }
-
-    @ScalarOperator(CAST)
     public static double castToDouble(boolean value)
     {
         return value ? 1 : 0;

@@ -176,6 +176,14 @@ public class TestBigintOperators
     }
 
     @Test
+    public void testCastToBigint()
+            throws Exception
+    {
+        assertFunction("cast(37 as bigint)", 37L);
+        assertFunction("cast(17 as bigint)", 17L);
+    }
+
+    @Test
     public void testCastToVarchar()
             throws Exception
     {
