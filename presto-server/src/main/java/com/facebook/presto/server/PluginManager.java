@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.server;
 
+import com.facebook.presto.block.BlockEncodingManager;
 import com.facebook.presto.connector.ConnectorManager;
 import com.facebook.presto.connector.system.SystemTablesManager;
 import com.facebook.presto.metadata.FunctionFactory;
@@ -20,6 +21,9 @@ import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.spi.ConnectorFactory;
 import com.facebook.presto.spi.Plugin;
 import com.facebook.presto.spi.SystemTable;
+import com.facebook.presto.spi.block.BlockEncodingFactory;
+import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.type.TypeRegistry;
 import com.google.common.base.Function;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -61,6 +65,8 @@ public class PluginManager
     private final ConnectorManager connectorManager;
     private final SystemTablesManager systemTablesManager;
     private final MetadataManager metadataManager;
+    private final BlockEncodingManager blockEncodingManager;
+    private final TypeRegistry typeRegistry;
     private final ArtifactResolver resolver;
     private final File installedPluginsDir;
     private final List<String> plugins;
@@ -75,7 +81,9 @@ public class PluginManager
             ConnectorManager connectorManager,
             ConfigurationFactory configurationFactory,
             SystemTablesManager systemTablesManager,
-            MetadataManager metadataManager)
+            MetadataManager metadataManager,
+            BlockEncodingManager blockEncodingManager,
+            TypeRegistry typeRegistry)
     {
         checkNotNull(injector, "injector is null");
         checkNotNull(nodeInfo, "nodeInfo is null");
@@ -102,6 +110,8 @@ public class PluginManager
         this.connectorManager = checkNotNull(connectorManager, "connectorManager is null");
         this.systemTablesManager = checkNotNull(systemTablesManager, "systemTablesManager is null");
         this.metadataManager = checkNotNull(metadataManager, "metadataManager is null");
+        this.blockEncodingManager = checkNotNull(blockEncodingManager, "blockEncodingManager is null");
+        this.typeRegistry = checkNotNull(typeRegistry, "typeRegistry is null");
     }
 
     public boolean arePluginsLoaded()
@@ -155,6 +165,14 @@ public class PluginManager
         injector.injectMembers(plugin);
 
         plugin.setOptionalConfig(optionalConfig);
+
+        for (BlockEncodingFactory<?> blockEncodingFactory : plugin.getServices(BlockEncodingFactory.class)) {
+            blockEncodingManager.addBlockEncodingFactory(blockEncodingFactory);
+        }
+
+        for (Type type : plugin.getServices(Type.class)) {
+            typeRegistry.addType(type);
+        }
 
         for (ConnectorFactory connectorFactory : plugin.getServices(ConnectorFactory.class)) {
             connectorManager.addConnectorFactory(connectorFactory);
