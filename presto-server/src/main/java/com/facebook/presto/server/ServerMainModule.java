@@ -62,7 +62,6 @@ import com.facebook.presto.operator.ForScheduler;
 import com.facebook.presto.operator.RecordSinkManager;
 import com.facebook.presto.operator.RecordSinkProvider;
 import com.facebook.presto.spi.ConnectorFactory;
-import com.facebook.presto.spi.ConnectorIndexResolver;
 import com.facebook.presto.spi.ConnectorRecordSinkProvider;
 import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.block.BlockEncoding.BlockEncodingFactory;
@@ -212,7 +211,6 @@ public class ServerMainModule
 
         // index manager
         binder.bind(IndexManager.class).in(Scopes.SINGLETON);
-        newSetBinder(binder, ConnectorIndexResolver.class);
 
         // handle resolver
         binder.install(new HandleJsonModule());
