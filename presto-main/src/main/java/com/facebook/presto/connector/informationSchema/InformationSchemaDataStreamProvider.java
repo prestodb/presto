@@ -18,6 +18,8 @@ import com.facebook.presto.metadata.ColumnHandle;
 import com.facebook.presto.metadata.FunctionInfo;
 import com.facebook.presto.metadata.InternalTable;
 import com.facebook.presto.metadata.Metadata;
+import com.facebook.presto.metadata.OperatorInfo;
+import com.facebook.presto.metadata.OperatorNotFoundException;
 import com.facebook.presto.metadata.Partition;
 import com.facebook.presto.metadata.PartitionResult;
 import com.facebook.presto.metadata.QualifiedTableName;
@@ -26,17 +28,19 @@ import com.facebook.presto.metadata.TableHandle;
 import com.facebook.presto.operator.AlignmentOperator;
 import com.facebook.presto.operator.Operator;
 import com.facebook.presto.operator.OperatorContext;
-import com.facebook.presto.spi.ConnectorColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
+import com.facebook.presto.spi.ConnectorColumnHandle;
 import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.TupleDomain;
 import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.spi.type.VarcharType;
 import com.facebook.presto.split.ConnectorDataStreamProvider;
 import com.facebook.presto.split.SplitManager;
 import com.google.common.base.Function;
 import com.google.common.base.Joiner;
 import com.google.common.base.Optional;
+import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableBiMap;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
@@ -227,7 +231,20 @@ public class InformationSchemaDataStreamProvider
             for (Entry<ColumnHandle, Comparable<?>> entry : partition.getTupleDomain().extractFixedValues().entrySet()) {
                 ColumnHandle columnHandle = entry.getKey();
                 String columnName = columnHandles.get(columnHandle);
-                String value = entry.getValue() != null ? String.valueOf(entry.getValue()) : null;
+                String value = null;
+                if (entry.getValue() != null) {
+                    ColumnMetadata columnMetadata  = metadata.getColumnMetadata(tableHandle.get(), columnHandle);
+                    try {
+                        OperatorInfo operator = metadata.getExactOperator(OperatorInfo.OperatorType.CAST, VarcharType.VARCHAR, ImmutableList.of(columnMetadata.getType()));
+                        value = ((Slice) operator.getMethodHandle().invokeWithArguments(entry.getValue())).toStringUtf8();
+                    }
+                    catch (OperatorNotFoundException e) {
+                        value = "<UNREPRESENTABLE VALUE>";
+                    }
+                    catch (Throwable throwable) {
+                        throw Throwables.propagate(throwable);
+                    }
+                }
                 table.add(
                         catalogName,
                         tableName.getSchemaName(),
