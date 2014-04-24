@@ -149,14 +149,19 @@ public class PipelineContext
         // merge the operator stats into the operator summary
         List<OperatorStats> operators = driverStats.getOperatorStats();
         for (OperatorStats operator : operators) {
-            OperatorStats operatorSummary = operatorSummaries.get(operator.getOperatorId());
-            if (operatorSummary != null) {
-                operatorSummary = operatorSummary.add(operator);
+            // TODO: replace with ConcurrentMap.compute() when we migrate to java 8
+            OperatorStats updated;
+            OperatorStats current;
+            do {
+                current = operatorSummaries.get(operator.getOperatorId());
+                if (current != null) {
+                    updated = current.add(operator);
+                }
+                else {
+                    updated = operator;
+                }
             }
-            else {
-                operatorSummary = operator;
-            }
-            operatorSummaries.put(operator.getOperatorId(), operatorSummary);
+            while (!compareAndSet(operatorSummaries, operator.getOperatorId(), current, updated));
         }
 
         rawInputDataSize.update(driverStats.getRawInputDataSize().toBytes());
@@ -360,5 +365,14 @@ public class PipelineContext
                 return pipelineContext.getPipelineStats();
             }
         };
+    }
+
+    private static <K, V> boolean compareAndSet(ConcurrentMap<K, V> map, K key, V oldValue, V newValue)
+    {
+        if (oldValue == null) {
+            return map.putIfAbsent(key, newValue) == null;
+        }
+
+        return map.replace(key, oldValue, newValue);
     }
 }
