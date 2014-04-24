@@ -585,6 +585,27 @@ public class TestUnixTimeFunctions
         assertFunction("date_parse('2013 14', '%Y %y')", toTimestamp(new DateTime(2014, 1, 1, 0, 0, 0, 0, DATE_TIME_ZONE)));
     }
 
+    @Test
+    public void testLocale()
+    {
+        Locale locale = Locale.JAPANESE;
+        session = new Session("user", "test", DEFAULT_CATALOG, DEFAULT_SCHEMA, TIME_ZONE_KEY, locale, null, null);
+
+        functionAssertions = new FunctionAssertions(session);
+
+        String dateTimeLiteral = "TIMESTAMP '2001-01-09 13:04:05.321'";
+
+        assertFunction("date_format(" + dateTimeLiteral + ", '%a')", "火");
+        assertFunction("date_format(" + dateTimeLiteral + ", '%W')", "火曜日");
+        assertFunction("date_format(" + dateTimeLiteral + ", '%p')", "午後");
+        assertFunction("date_format(" + dateTimeLiteral + ", '%r')", "01:04:05 午後");
+        assertFunction("date_format(" + dateTimeLiteral + ", '%b')", "1");
+        assertFunction("date_format(" + dateTimeLiteral + ", '%M')", "1月");
+
+        assertFunction("date_parse('2013-05-17 12:35:10 午後', '%Y-%m-%d %h:%i:%s %p')", toTimestamp(new DateTime(2013, 5, 17, 12, 35, 10, 0, DATE_TIME_ZONE)));
+        assertFunction("date_parse('2013-05-17 12:35:10 午前', '%Y-%m-%d %h:%i:%s %p')", toTimestamp(new DateTime(2013, 5, 17, 0, 35, 10, 0, DATE_TIME_ZONE)));
+    }
+
     private void assertFunction(String projection, Object expected)
     {
         functionAssertions.assertFunction(projection, expected);
