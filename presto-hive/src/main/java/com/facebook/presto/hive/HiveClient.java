@@ -679,7 +679,12 @@ public class HiveClient
                         Comparable<?> value = range.getLow().getValue();
                         checkArgument(value instanceof Boolean || value instanceof Slice || value instanceof Double || value instanceof Long,
                                 "Only Boolean, Slice (UTF8 String), Double and Long partition keys are supported");
-                        filterPrefix.add(value.toString());
+                        if (value instanceof Slice) {
+                            filterPrefix.add(((Slice) value).toStringUtf8());
+                        }
+                        else {
+                            filterPrefix.add(value.toString());
+                        }
                     }
                 }
             }
