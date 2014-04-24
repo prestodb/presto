@@ -624,7 +624,7 @@ public class TaskExecutor
     //
 
     @Managed
-    public int getTasks()
+    public synchronized int getTasks()
     {
         return tasks.size();
     }
@@ -642,7 +642,7 @@ public class TaskExecutor
     }
 
     @Managed
-    public int getTotalSplits()
+    public synchronized int getTotalSplits()
     {
         return allSplits.size();
     }
