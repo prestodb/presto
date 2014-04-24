@@ -172,10 +172,13 @@ public class IndexSourceOperator
     @Override
     public void finish()
     {
-        Operator delegate = getSource();
-        if (delegate == null) {
-            source = new FinishedOperator(operatorContext, types);
-            return;
+        Operator delegate;
+        synchronized (this) {
+            delegate = getSource();
+            if (delegate == null) {
+                source = new FinishedOperator(operatorContext, types);
+                return;
+            }
         }
         delegate.finish();
     }
