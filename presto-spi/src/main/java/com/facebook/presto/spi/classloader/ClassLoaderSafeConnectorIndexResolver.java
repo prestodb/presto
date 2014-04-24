@@ -39,22 +39,6 @@ public class ClassLoaderSafeConnectorIndexResolver
     }
 
     @Override
-    public boolean canHandle(ConnectorTableHandle tableHandle)
-    {
-        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
-            return delegate.canHandle(tableHandle);
-        }
-    }
-
-    @Override
-    public boolean canHandle(ConnectorIndexHandle indexHandle)
-    {
-        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
-            return delegate.canHandle(indexHandle);
-        }
-    }
-
-    @Override
     public ConnectorResolvedIndex resolveIndex(ConnectorTableHandle tableHandle, Set<ConnectorColumnHandle> indexableColumns, TupleDomain<ConnectorColumnHandle> tupleDomain)
     {
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {

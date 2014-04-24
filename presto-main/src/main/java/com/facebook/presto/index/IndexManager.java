@@ -26,45 +26,36 @@ import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
-import com.google.common.collect.Sets;
-
-import javax.inject.Inject;
 
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
 
 import static com.facebook.presto.metadata.ColumnHandle.connectorHandleGetter;
 import static com.facebook.presto.metadata.Util.toConnectorDomain;
+import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkState;
 
 public class IndexManager
 {
-    private final Set<ConnectorIndexResolver> indexResolvers = Sets.newSetFromMap(new ConcurrentHashMap<ConnectorIndexResolver, Boolean>());
+    private final ConcurrentMap<String, ConnectorIndexResolver> resolvers = new ConcurrentHashMap<>();
 
-    @Inject
-    public IndexManager(Set<ConnectorIndexResolver> indexResolvers)
+    public void addIndexResolver(String connectorId, ConnectorIndexResolver resolver)
     {
-        this.indexResolvers.addAll(indexResolvers);
-    }
-
-    public IndexManager()
-    {
-    }
-
-    public void addIndexResolver(ConnectorIndexResolver connectorIndexResolver)
-    {
-        indexResolvers.add(connectorIndexResolver);
+        checkState(resolvers.putIfAbsent(connectorId, resolver) == null, "IndexResolver for connector '%s' is already registered", connectorId);
+        resolvers.put(connectorId, resolver);
     }
 
     public Optional<ResolvedIndex> resolveIndex(TableHandle tableHandle, Set<ColumnHandle> indexableColumns, TupleDomain<ColumnHandle> tupleDomain)
     {
-        Optional<ConnectorIndexResolver> resolver = getConnectorIndexResolver(tableHandle);
-        if (!resolver.isPresent()) {
+        ConnectorIndexResolver resolver = resolvers.get(tableHandle.getConnectorId());
+        if (resolver == null) {
             return Optional.absent();
         }
 
         Set<ConnectorColumnHandle> columns = ImmutableSet.copyOf(Iterables.transform(indexableColumns, ColumnHandle.connectorHandleGetter()));
-        ConnectorResolvedIndex resolved = resolver.get().resolveIndex(tableHandle.getConnectorHandle(), columns, toConnectorDomain(tupleDomain));
+        ConnectorResolvedIndex resolved = resolver.resolveIndex(tableHandle.getConnectorHandle(), columns, toConnectorDomain(tupleDomain));
 
         if (resolved == null) {
             return Optional.absent();
@@ -75,27 +66,16 @@ public class IndexManager
 
     public Index getIndex(IndexHandle indexHandle, List<ColumnHandle> lookupSchema, List<ColumnHandle> outputSchema)
     {
-        return getConnectorIndexResolver(indexHandle)
+        return getResolver(indexHandle)
                 .getIndex(indexHandle.getConnectorHandle(), Lists.transform(lookupSchema, connectorHandleGetter()), Lists.transform(outputSchema, connectorHandleGetter()));
     }
 
-    private Optional<ConnectorIndexResolver> getConnectorIndexResolver(TableHandle handle)
+    private ConnectorIndexResolver getResolver(IndexHandle handle)
     {
-        for (ConnectorIndexResolver indexResolver : indexResolvers) {
-            if (indexResolver.canHandle(handle.getConnectorHandle())) {
-                return Optional.of(indexResolver);
-            }
-        }
-        return Optional.absent();
-    }
+        ConnectorIndexResolver result = resolvers.get(handle.getConnectorId());
 
-    private ConnectorIndexResolver getConnectorIndexResolver(IndexHandle handle)
-    {
-        for (ConnectorIndexResolver resolver : indexResolvers) {
-            if (resolver.canHandle(handle.getConnectorHandle())) {
-                return resolver;
-            }
-        }
-        throw new IllegalArgumentException("Not index resolver for " + handle);
+        checkArgument(result != null, "No index resolver for connector '%s'", handle.getConnectorId());
+
+        return result;
     }
 }

@@ -214,7 +214,7 @@ public class ConnectorManager
         }
 
         if (indexResolver != null) {
-            indexManager.addIndexResolver(indexResolver);
+            indexManager.addIndexResolver(connectorId, indexResolver);
         }
     }
 
