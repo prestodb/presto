@@ -44,7 +44,6 @@ public class IndexManager
     public void addIndexResolver(String connectorId, ConnectorIndexResolver resolver)
     {
         checkState(resolvers.putIfAbsent(connectorId, resolver) == null, "IndexResolver for connector '%s' is already registered", connectorId);
-        resolvers.put(connectorId, resolver);
     }
 
     public Optional<ResolvedIndex> resolveIndex(TableHandle tableHandle, Set<ColumnHandle> indexableColumns, TupleDomain<ColumnHandle> tupleDomain)
