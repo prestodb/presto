@@ -736,7 +736,7 @@ public class SqlStageExecution
                 node,
                 fragment,
                 initialSplits.build(),
-                currentOutputBuffers);
+                getCurrentOutputBuffers());
 
         task.addStateChangeListener(new StateChangeListener<TaskInfo>()
         {
