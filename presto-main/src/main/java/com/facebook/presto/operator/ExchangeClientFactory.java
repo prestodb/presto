@@ -17,7 +17,6 @@ import com.facebook.presto.spi.block.BlockEncodingSerde;
 import com.google.common.base.Supplier;
 import io.airlift.http.client.AsyncHttpClient;
 import io.airlift.units.DataSize;
-import io.airlift.units.DataSize.Unit;
 
 import javax.inject.Inject;
 
@@ -44,7 +43,7 @@ public class ExchangeClientFactory
     {
         this(blockEncodingSerde,
                 config.getExchangeMaxBufferSize(),
-                new DataSize(10, Unit.MEGABYTE),
+                config.getExchangeMaxResponseSize(),
                 config.getExchangeConcurrentRequestMultiplier(),
                 httpClient,
                 executor);
