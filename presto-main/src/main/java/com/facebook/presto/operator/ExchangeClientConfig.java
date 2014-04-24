@@ -14,6 +14,7 @@
 package com.facebook.presto.operator;
 
 import io.airlift.configuration.Config;
+import io.airlift.http.client.HttpClientConfig;
 import io.airlift.units.DataSize;
 import io.airlift.units.DataSize.Unit;
 import io.airlift.units.Duration;
@@ -29,6 +30,7 @@ public class ExchangeClientConfig
     private DataSize maxBufferSize = new DataSize(32, Unit.MEGABYTE);
     private int concurrentRequestMultiplier = 3;
     private Duration minErrorDuration = new Duration(1, TimeUnit.MINUTES);
+    private DataSize maxResponseSize = new HttpClientConfig().getMaxContentLength();
 
     @NotNull
     public DataSize getMaxBufferSize()
@@ -67,6 +69,19 @@ public class ExchangeClientConfig
     public ExchangeClientConfig setMinErrorDuration(Duration minErrorDuration)
     {
         this.minErrorDuration = minErrorDuration;
+        return this;
+    }
+
+    @NotNull
+    public DataSize getMaxResponseSize()
+    {
+        return maxResponseSize;
+    }
+
+    @Config("exchange.max-response-size")
+    public ExchangeClientConfig setMaxResponseSize(DataSize maxResponseSize)
+    {
+        this.maxResponseSize = maxResponseSize;
         return this;
     }
 }

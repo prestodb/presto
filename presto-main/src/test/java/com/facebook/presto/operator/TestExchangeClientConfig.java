@@ -14,6 +14,7 @@
 package com.facebook.presto.operator;
 
 import com.google.common.collect.ImmutableMap;
+import io.airlift.http.client.HttpClientConfig;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import org.testng.annotations.Test;
@@ -34,7 +35,8 @@ public class TestExchangeClientConfig
         assertRecordedDefaults(recordDefaults(ExchangeClientConfig.class)
                 .setMaxBufferSize(new DataSize(32, Unit.MEGABYTE))
                 .setConcurrentRequestMultiplier(3)
-                .setMinErrorDuration(new Duration(1, TimeUnit.MINUTES)));
+                .setMinErrorDuration(new Duration(1, TimeUnit.MINUTES))
+                .setMaxResponseSize(new HttpClientConfig().getMaxContentLength()));
     }
 
     @Test
@@ -44,12 +46,14 @@ public class TestExchangeClientConfig
                 .put("exchange.max-buffer-size", "1GB")
                 .put("exchange.concurrent-request-multiplier", "13")
                 .put("exchange.min-error-duration", "13s")
+                .put("exchange.max-response-size", "1kB")
                 .build();
 
         ExchangeClientConfig expected = new ExchangeClientConfig()
                 .setMaxBufferSize(new DataSize(1, Unit.GIGABYTE))
                 .setConcurrentRequestMultiplier(13)
-                .setMinErrorDuration(new Duration(13, TimeUnit.SECONDS));
+                .setMinErrorDuration(new Duration(13, TimeUnit.SECONDS))
+                .setMaxResponseSize(new DataSize(1, Unit.KILOBYTE));
 
         assertFullMapping(properties, expected);
     }
