@@ -38,7 +38,7 @@ public class BootstrapFunctionBinder
 
     private final Metadata metadata;
 
-    private final ConcurrentMap<Long, FunctionBinding> functionBindings = new ConcurrentHashMap<>();
+    private final ConcurrentMap<Long, CallSite> bindings = new ConcurrentHashMap<>();
 
     public BootstrapFunctionBinder(Metadata metadata)
     {
@@ -58,8 +58,8 @@ public class BootstrapFunctionBinder
         // perform binding
         FunctionBinding functionBinding = defaultFunctionBinder.bindFunction(NEXT_BINDING_ID.getAndIncrement(), name, getSessionByteCode, arguments);
 
-        // record binding
-        functionBindings.put(functionBinding.getBindingId(), functionBinding);
+        // record binding for use by invokedynamic bootstrap call
+        bindings.put(functionBinding.getBindingId(), functionBinding.getCallSite());
 
         return functionBinding;
     }
@@ -83,9 +83,9 @@ public class BootstrapFunctionBinder
 
     public CallSite bootstrap(String name, MethodType type, long bindingId)
     {
-        FunctionBinding functionBinding = functionBindings.get(bindingId);
-        checkArgument(functionBinding != null, "Binding %s for function %s%s not found", bindingId, name, type.parameterList());
+        CallSite callSite = bindings.get(bindingId);
+        checkArgument(callSite != null, "Binding %s for function %s%s not found", bindingId, name, type.parameterList());
 
-        return functionBinding.getCallSite();
+        return callSite;
     }
 }
