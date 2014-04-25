@@ -38,7 +38,7 @@ public class BootstrapFunctionBinder
 
     private final Metadata metadata;
 
-    private final ConcurrentMap<Long, FunctionBinding> functionBindings = new ConcurrentHashMap<>();
+    private final ConcurrentMap<Long, CallSite> bindings = new ConcurrentHashMap<>();
 
     public BootstrapFunctionBinder(Metadata metadata)
     {
@@ -50,9 +50,7 @@ public class BootstrapFunctionBinder
         FunctionInfo function = metadata.resolveFunction(name, argumentTypes, false);
         checkArgument(function != null, "Unknown function %s%s", name, argumentTypes);
 
-        FunctionBinding functionBinding = bindFunction(name.toString(), getSessionByteCode, arguments, function.getFunctionBinder());
-
-        return functionBinding;
+        return bindFunction(name.toString(), getSessionByteCode, arguments, function.getFunctionBinder());
     }
 
     public FunctionBinding bindFunction(String name, ByteCodeNode getSessionByteCode, List<ByteCodeNode> arguments, FunctionBinder defaultFunctionBinder)
@@ -60,8 +58,8 @@ public class BootstrapFunctionBinder
         // perform binding
         FunctionBinding functionBinding = defaultFunctionBinder.bindFunction(NEXT_BINDING_ID.getAndIncrement(), name, getSessionByteCode, arguments);
 
-        // record binding
-        functionBindings.put(functionBinding.getBindingId(), functionBinding);
+        // record binding for use by invokedynamic bootstrap call
+        bindings.put(functionBinding.getBindingId(), functionBinding.getCallSite());
 
         return functionBinding;
     }
@@ -80,25 +78,14 @@ public class BootstrapFunctionBinder
 
     private FunctionBinding bindOperator(OperatorInfo operatorInfo, ByteCodeNode getSessionByteCode, List<ByteCodeNode> arguments)
     {
-        return bindOperator(operatorInfo.getOperatorType().toString(), getSessionByteCode, arguments, operatorInfo.getFunctionBinder());
-    }
-
-    public FunctionBinding bindOperator(String name, ByteCodeNode getSessionByteCode, List<ByteCodeNode> arguments, FunctionBinder defaultFunctionBinder)
-    {
-        // perform binding
-        FunctionBinding functionBinding = defaultFunctionBinder.bindFunction(NEXT_BINDING_ID.getAndIncrement(), name, getSessionByteCode, arguments);
-
-        // record binding
-        functionBindings.put(functionBinding.getBindingId(), functionBinding);
-
-        return functionBinding;
+        return bindFunction(operatorInfo.getOperatorType().toString(), getSessionByteCode, arguments, operatorInfo.getFunctionBinder());
     }
 
     public CallSite bootstrap(String name, MethodType type, long bindingId)
     {
-        FunctionBinding functionBinding = functionBindings.get(bindingId);
-        checkArgument(functionBinding != null, "Binding %s for function %s%s not found", bindingId, name, type.parameterList());
+        CallSite callSite = bindings.get(bindingId);
+        checkArgument(callSite != null, "Binding %s for function %s%s not found", bindingId, name, type.parameterList());
 
-        return functionBinding.getCallSite();
+        return callSite;
     }
 }
