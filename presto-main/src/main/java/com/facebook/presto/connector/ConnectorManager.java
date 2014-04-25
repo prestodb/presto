@@ -193,12 +193,12 @@ public class ConnectorManager
         if (catalogName != null) {
             metadataManager.addConnectorMetadata(connectorId, catalogName, connectorMetadata);
 
-            metadataManager.addInternalSchemaMetadata(makeInformationSchemaConnectorId(connectorId), new InformationSchemaMetadata(catalogName));
+            metadataManager.addInformationSchemaMetadata(makeInformationSchemaConnectorId(connectorId), catalogName, new InformationSchemaMetadata(catalogName));
             splitManager.addConnectorSplitManager(makeInformationSchemaConnectorId(connectorId), new InformationSchemaSplitManager(nodeManager));
             dataStreamManager.addConnectorDataStreamProvider(makeInformationSchemaConnectorId(connectorId), new InformationSchemaDataStreamProvider(metadataManager, splitManager));
         }
         else {
-            metadataManager.addInternalSchemaMetadata(connectorId, connectorMetadata);
+            metadataManager.addGlobalSchemaMetadata(connectorId, connectorMetadata);
         }
 
         splitManager.addConnectorSplitManager(connectorId, connectorSplitManager);

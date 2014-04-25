@@ -390,7 +390,7 @@ public abstract class AbstractTestQueryFramework
     private QueryExplainer getQueryExplainer()
     {
         MetadataManager metadata = new MetadataManager(new FeaturesConfig().setExperimentalSyntaxEnabled(true), new TypeRegistry());
-        metadata.addInternalSchemaMetadata(DualConnector.CONNECTOR_ID, new DualMetadata());
+        metadata.addGlobalSchemaMetadata(DualConnector.CONNECTOR_ID, new DualMetadata());
         SplitManager splitManager = new SplitManager();
         splitManager.addConnectorSplitManager(DualConnector.CONNECTOR_ID, new DualSplitManager(new InMemoryNodeManager()));
         IndexManager indexManager = new IndexManager();

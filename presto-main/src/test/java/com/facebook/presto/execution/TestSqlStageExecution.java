@@ -103,7 +103,7 @@ public class TestSqlStageExecution
             throws Exception
     {
         metadata = new MetadataManager(new FeaturesConfig(), new TypeRegistry());
-        metadata.addInternalSchemaMetadata(DualConnector.CONNECTOR_ID, new DualMetadata());
+        metadata.addGlobalSchemaMetadata(DualConnector.CONNECTOR_ID, new DualMetadata());
     }
 
     @Test
@@ -209,7 +209,7 @@ public class TestSqlStageExecution
         SqlStageExecution stageExecution = null;
         try {
             MetadataManager metadata = new MetadataManager(new FeaturesConfig(), new TypeRegistry());
-            metadata.addInternalSchemaMetadata(DualConnector.CONNECTOR_ID, new DualMetadata());
+            metadata.addGlobalSchemaMetadata(DualConnector.CONNECTOR_ID, new DualMetadata());
 
             StageExecutionPlan joinPlan = createJoinPlan("A", metadata);
 
