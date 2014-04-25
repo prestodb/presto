@@ -96,7 +96,9 @@ public class BootstrapFunctionBinder
 
     public CallSite bootstrap(String name, MethodType type, long bindingId)
     {
-        FunctionBinding functionBinding = functionBindings.get(bindingId);
+        // Each binding is only referenced once in the bytecode since they are specific to each
+        // callsite, so remove it from the map
+        FunctionBinding functionBinding = functionBindings.remove(bindingId);
         checkArgument(functionBinding != null, "Binding %s for function %s%s not found", bindingId, name, type.parameterList());
 
         return functionBinding.getCallSite();
