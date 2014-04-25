@@ -24,9 +24,9 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.base.Function;
 import com.google.common.base.Objects;
 import com.google.common.base.Optional;
+import com.google.common.collect.FluentIterable;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 
 import javax.annotation.Nullable;
@@ -48,9 +48,8 @@ public class TableScanNode
     private final TableHandle table;
     private final List<Symbol> outputSymbols;
     private final Map<Symbol, ColumnHandle> assignments; // symbol -> column
-    private final Optional<GeneratedPartitions> generatedPartitions;
+    private final SummarizedPartition summarizedPartition;
     private final boolean partitionsDroppedBySerialization;
-    private final TupleDomain<ColumnHandle> partitionDomainSummary;
 
     // HACK!
     //
@@ -65,7 +64,12 @@ public class TableScanNode
 
     public TableScanNode(PlanNodeId id, TableHandle table, List<Symbol> outputSymbols, Map<Symbol, ColumnHandle> assignments, @Nullable Expression originalConstraint, Optional<GeneratedPartitions> generatedPartitions)
     {
-        this(id, table, outputSymbols, assignments, originalConstraint, generatedPartitions, false);
+        this(id, table, outputSymbols, assignments, originalConstraint, new SummarizedPartition(generatedPartitions), false);
+    }
+
+    public TableScanNode(PlanNodeId id, TableHandle table, List<Symbol> outputSymbols, Map<Symbol, ColumnHandle> assignments, @Nullable Expression originalConstraint, SummarizedPartition summarizedPartition)
+    {
+        this(id, table, outputSymbols, assignments, originalConstraint, summarizedPartition, false);
     }
 
     @JsonCreator
@@ -75,10 +79,10 @@ public class TableScanNode
             @JsonProperty("assignments") Map<Symbol, ColumnHandle> assignments,
             @JsonProperty("originalConstraint") @Nullable Expression originalConstraint)
     {
-        this(id, table, outputSymbols, assignments, originalConstraint, Optional.<GeneratedPartitions>absent(), true);
+        this(id, table, outputSymbols, assignments, originalConstraint, new SummarizedPartition(Optional.<GeneratedPartitions>absent()), true);
     }
 
-    private TableScanNode(PlanNodeId id, TableHandle table, List<Symbol> outputSymbols, Map<Symbol, ColumnHandle> assignments, @Nullable Expression originalConstraint, Optional<GeneratedPartitions> generatedPartitions, boolean partitionsDroppedBySerialization)
+    private TableScanNode(PlanNodeId id, TableHandle table, List<Symbol> outputSymbols, Map<Symbol, ColumnHandle> assignments, @Nullable Expression originalConstraint, SummarizedPartition summarizedPartition, boolean partitionsDroppedBySerialization)
     {
         super(id);
 
@@ -87,16 +91,15 @@ public class TableScanNode
         checkNotNull(assignments, "assignments is null");
         checkArgument(assignments.keySet().containsAll(outputSymbols), "assignments does not cover all of outputSymbols");
         checkArgument(!assignments.isEmpty(), "assignments is empty");
-        checkNotNull(generatedPartitions, "generatedPartitions is null");
+        checkNotNull(summarizedPartition, "summarizedPartition is null");
 
         this.table = table;
         this.outputSymbols = ImmutableList.copyOf(outputSymbols);
         this.assignments = ImmutableMap.copyOf(assignments);
         this.originalConstraint = originalConstraint;
-        this.generatedPartitions = generatedPartitions;
+        this.summarizedPartition = summarizedPartition;
         this.partitionsDroppedBySerialization = partitionsDroppedBySerialization;
-        this.partitionDomainSummary = computePartitionsDomainSummary(generatedPartitions);
-        checkArgument(partitionDomainSummary.isNone() || assignments.values().containsAll(partitionDomainSummary.getDomains().keySet()), "Assignments do not include all of the ColumnHandles specified by the Partitions");
+        checkArgument(summarizedPartition.getPartitionDomainSummary().isNone() || assignments.values().containsAll(summarizedPartition.getPartitionDomainSummary().getDomains().keySet()), "Assignments do not include all of the ColumnHandles specified by the Partitions");
     }
 
     @JsonProperty("table")
@@ -128,33 +131,17 @@ public class TableScanNode
     {
         // If this exception throws, then we might want to consider making Partitions serializable by Jackson
         checkState(!partitionsDroppedBySerialization, "Can't access partitions after passing through serialization");
-        return generatedPartitions;
+        return summarizedPartition.getGeneratedPartitions();
     }
 
     public TupleDomain<ColumnHandle> getPartitionsDomainSummary()
     {
-        return partitionDomainSummary;
+        return summarizedPartition.getPartitionDomainSummary();
     }
 
-    private static TupleDomain<ColumnHandle> computePartitionsDomainSummary(Optional<GeneratedPartitions> generatedPartitions)
+    public SummarizedPartition getSummarizedPartition()
     {
-        if (!generatedPartitions.isPresent()) {
-            return TupleDomain.all();
-        }
-
-        if (generatedPartitions.get().getPartitions().isEmpty()) {
-            return TupleDomain.none();
-        }
-
-        List<TupleDomain<ColumnHandle>> domains = Lists.transform(generatedPartitions.get().getPartitions(), new Function<Partition, TupleDomain<ColumnHandle>>()
-        {
-            @Override
-            public TupleDomain<ColumnHandle> apply(Partition partition)
-            {
-                return partition.getTupleDomain();
-            }
-        });
-        return TupleDomain.columnWiseUnion(domains);
+        return summarizedPartition;
     }
 
     @JsonProperty("partitionDomainSummary")
@@ -164,14 +151,14 @@ public class TableScanNode
         // If partitions ever become serializable, we can get rid of this method
         StringBuilder builder = new StringBuilder()
                 .append("TupleDomain:");
-        if (partitionDomainSummary.isAll()) {
+        if (summarizedPartition.getPartitionDomainSummary().isAll()) {
             builder.append("ALL");
         }
-        else if (partitionDomainSummary.isNone()) {
+        else if (summarizedPartition.getPartitionDomainSummary().isNone()) {
             builder.append("NONE");
         }
         else {
-            builder.append(Maps.transformValues(columnHandleToSymbol(partitionDomainSummary.getDomains(), assignments), simplifyDomainFunction()));
+            builder.append(Maps.transformValues(columnHandleToSymbol(summarizedPartition.getPartitionDomainSummary().getDomains(), assignments), simplifyDomainFunction()));
         }
         return builder.toString();
     }
@@ -184,6 +171,55 @@ public class TableScanNode
     public <C, R> R accept(PlanVisitor<C, R> visitor, C context)
     {
         return visitor.visitTableScan(this, context);
+    }
+
+    public static final class SummarizedPartition
+    {
+        private final Optional<GeneratedPartitions> generatedPartitions;
+        private final TupleDomain<ColumnHandle> partitionDomainSummary;
+
+        public SummarizedPartition(Optional<GeneratedPartitions> generatedPartitions)
+        {
+            this.generatedPartitions = checkNotNull(generatedPartitions, "generatedPartitions is null");
+            this.partitionDomainSummary = computePartitionsDomainSummary(generatedPartitions);
+
+        }
+
+        private static Function<Partition, TupleDomain<ColumnHandle>> tupleDomainGetter()
+        {
+            return new Function<Partition, TupleDomain<ColumnHandle>>()
+            {
+                @Override
+                public TupleDomain<ColumnHandle> apply(Partition partition)
+                {
+                    return partition.getTupleDomain();
+                }
+            };
+        }
+
+            private static TupleDomain<ColumnHandle> computePartitionsDomainSummary(Optional<GeneratedPartitions> generatedPartitions)
+        {
+            if (!generatedPartitions.isPresent()) {
+                return TupleDomain.all();
+            }
+
+            if (generatedPartitions.get().getPartitions().isEmpty()) {
+                return TupleDomain.none();
+            }
+
+            List<TupleDomain<ColumnHandle>> domains = FluentIterable.from(generatedPartitions.get().getPartitions()).transform(tupleDomainGetter()).toList();
+            return TupleDomain.columnWiseUnion(domains);
+        }
+
+        public TupleDomain<ColumnHandle> getPartitionDomainSummary()
+        {
+            return partitionDomainSummary;
+        }
+
+        public Optional<GeneratedPartitions> getGeneratedPartitions()
+        {
+            return generatedPartitions;
+        }
     }
 
     public static final class GeneratedPartitions
