@@ -37,6 +37,7 @@ import com.google.common.base.Joiner;
 import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.inject.Module;
 import io.airlift.http.client.AsyncHttpClient;
 import io.airlift.http.client.HttpClientConfig;
@@ -59,6 +60,7 @@ import java.util.Map;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 
+import static com.facebook.presto.connector.informationSchema.InformationSchemaMetadata.INFORMATION_SCHEMA;
 import static com.facebook.presto.spi.Session.DEFAULT_CATALOG;
 import static com.facebook.presto.spi.Session.DEFAULT_SCHEMA;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
@@ -104,6 +106,15 @@ public class TestDistributedQueries
     private List<TestingPrestoServer> servers;
     private AsyncHttpClient httpClient;
     private TestingDiscoveryServer discoveryServer;
+
+    @Test
+    public void testShowSchemasFromOther()
+            throws Exception
+    {
+        MaterializedResult result = computeActual(format("SHOW SCHEMAS FROM tpch"));
+        ImmutableSet<String> schemaNames = ImmutableSet.copyOf(transform(result.getMaterializedRows(), onlyColumnGetter()));
+        assertTrue(schemaNames.containsAll(ImmutableSet.of(INFORMATION_SCHEMA, "sys", "tiny")));
+    }
 
     @Test(expectedExceptions = RuntimeException.class, expectedExceptionsMessageRegExp = "statement is too large \\(stack overflow during analysis\\)")
     public void testLargeQueryFailure()

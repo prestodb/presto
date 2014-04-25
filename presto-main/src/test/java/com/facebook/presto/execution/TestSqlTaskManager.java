@@ -109,7 +109,7 @@ public class TestSqlTaskManager
         symbol = new Symbol(DualMetadata.COLUMN_NAME);
 
         MetadataManager metadata = new MetadataManager(new FeaturesConfig(), new TypeRegistry());
-        metadata.addInternalSchemaMetadata(DualConnector.CONNECTOR_ID, dualMetadata);
+        metadata.addGlobalSchemaMetadata(DualConnector.CONNECTOR_ID, dualMetadata);
 
         DualSplitManager dualSplitManager = new DualSplitManager(new InMemoryNodeManager());
         ConnectorPartitionResult partitionResult = dualSplitManager.getPartitions(tableHandle.getConnectorHandle(), TupleDomain.<ConnectorColumnHandle>all());
