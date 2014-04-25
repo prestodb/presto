@@ -178,8 +178,7 @@ public abstract class AbstractVariableWidthRandomAccessBlock
             return true;
         }
 
-        VariableWidthBlockCursor variableWidthBlockCursor = (VariableWidthBlockCursor) cursor;
-        return variableWidthBlockCursor.equalTo(getRawSlice(), valueOffset(offset));
+        return type.equalTo(getRawSlice(), valueOffset(offset), cursor);
     }
 
     @Override
