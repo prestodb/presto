@@ -92,7 +92,7 @@ public class TestHttpPageBufferClient
                 createTestingBlockEncodingManager(),
                 executor);
 
-        assertStatus(client, location, "queued", 0, 0, 0, "queued");
+        assertStatus(client, location, "queued", 0, 0, 0, 0, "queued");
 
         // fetch a page and verify
         processor.addPage(location, expectedPage);
@@ -104,7 +104,7 @@ public class TestHttpPageBufferClient
         assertPageEquals(expectedPage, callback.getPages().get(0));
         assertEquals(callback.getCompletedRequests(), 1);
         assertEquals(callback.getFinishedBuffers(), 0);
-        assertStatus(client, location, "queued", 1, 1, 1, "queued");
+        assertStatus(client, location, "queued", 1, 1, 1, 0, "queued");
 
         // fetch no data and verify
         callback.resetStats();
@@ -114,7 +114,7 @@ public class TestHttpPageBufferClient
         assertEquals(callback.getPages().size(), 0);
         assertEquals(callback.getCompletedRequests(), 1);
         assertEquals(callback.getFinishedBuffers(), 0);
-        assertStatus(client, location, "queued", 1, 2, 2, "queued");
+        assertStatus(client, location, "queued", 1, 2, 2, 0, "queued");
 
         // fetch two more pages and verify
         processor.addPage(location, expectedPage);
@@ -130,7 +130,7 @@ public class TestHttpPageBufferClient
         assertEquals(callback.getFinishedBuffers(), 0);
         assertEquals(callback.getFailedBuffers(), 0);
         callback.resetStats();
-        assertStatus(client, location, "queued", 3, 3, 3, "queued");
+        assertStatus(client, location, "queued", 3, 3, 3, 0, "queued");
 
         // finish and verify
         callback.resetStats();
@@ -142,7 +142,7 @@ public class TestHttpPageBufferClient
         assertEquals(callback.getCompletedRequests(), 0);
         assertEquals(callback.getFinishedBuffers(), 1);
         assertEquals(callback.getFailedBuffers(), 0);
-        assertStatus(client, location, "closed", 3, 4, 4, "queued");
+        assertStatus(client, location, "closed", 3, 4, 4, 0, "queued");
     }
 
     @Test
@@ -165,19 +165,19 @@ public class TestHttpPageBufferClient
                 createTestingBlockEncodingManager(),
                 executor);
 
-        assertStatus(client, location, "queued", 0, 0, 0, "queued");
+        assertStatus(client, location, "queued", 0, 0, 0, 0, "queued");
 
         client.scheduleRequest();
         beforeRequest.await(1, TimeUnit.SECONDS);
-        assertStatus(client, location, "running", 0, 1, 0, "PROCESSING_REQUEST");
+        assertStatus(client, location, "running", 0, 1, 0, 0, "PROCESSING_REQUEST");
         assertEquals(client.isRunning(), true);
         afterRequest.await(1, TimeUnit.SECONDS);
 
         requestComplete.await(1, TimeUnit.SECONDS);
-        assertStatus(client, location, "queued", 0, 1, 1, "queued");
+        assertStatus(client, location, "queued", 0, 1, 1, 1, "queued");
 
         client.close();
-        assertStatus(client, location, "closed", 0, 1, 1, "queued");
+        assertStatus(client, location, "closed", 0, 1, 1, 1, "queued");
     }
 
     @Test
@@ -199,7 +199,7 @@ public class TestHttpPageBufferClient
                 createTestingBlockEncodingManager(),
                 executor);
 
-        assertStatus(client, location, "queued", 0, 0, 0, "queued");
+        assertStatus(client, location, "queued", 0, 0, 0, 0, "queued");
 
         // send not found response and verify response was ignored
         processor.setResponse(new TestingResponse(HttpStatus.NOT_FOUND, ImmutableListMultimap.of(CONTENT_TYPE, PRESTO_PAGES), new byte[0]));
@@ -211,7 +211,7 @@ public class TestHttpPageBufferClient
         assertEquals(callback.getFailedBuffers(), 1);
         assertInstanceOf(callback.getFailure(), PageTransportErrorException.class);
         assertContains(callback.getFailure().getMessage(), "Expected response code to be 200, but was 404 Not Found");
-        assertStatus(client, location, "queued", 0, 1, 1, "queued");
+        assertStatus(client, location, "queued", 0, 1, 1, 1, "queued");
 
         // send invalid content type response and verify response was ignored
         callback.resetStats();
@@ -224,7 +224,7 @@ public class TestHttpPageBufferClient
         assertEquals(callback.getFailedBuffers(), 1);
         assertInstanceOf(callback.getFailure(), PageTransportErrorException.class);
         assertContains(callback.getFailure().getMessage(), "Expected application/x-presto-pages response from server but got INVALID_TYPE");
-        assertStatus(client, location, "queued", 0, 2, 2, "queued");
+        assertStatus(client, location, "queued", 0, 2, 2, 2, "queued");
 
         // send unexpected content type response and verify response was ignored
         callback.resetStats();
@@ -237,11 +237,11 @@ public class TestHttpPageBufferClient
         assertEquals(callback.getFailedBuffers(), 1);
         assertInstanceOf(callback.getFailure(), PageTransportErrorException.class);
         assertContains(callback.getFailure().getMessage(), "Expected application/x-presto-pages response from server but got text/plain");
-        assertStatus(client, location, "queued", 0, 3, 3, "queued");
+        assertStatus(client, location, "queued", 0, 3, 3, 3, "queued");
 
         // close client and verify
         client.close();
-        assertStatus(client, location, "closed", 0, 3, 3, "queued");
+        assertStatus(client, location, "closed", 0, 3, 3, 3, "queued");
     }
 
     @Test
@@ -264,12 +264,12 @@ public class TestHttpPageBufferClient
                 createTestingBlockEncodingManager(),
                 executor);
 
-        assertStatus(client, location, "queued", 0, 0, 0, "queued");
+        assertStatus(client, location, "queued", 0, 0, 0, 0, "queued");
 
         // send request
         client.scheduleRequest();
         beforeRequest.await(1, TimeUnit.SECONDS);
-        assertStatus(client, location, "running", 0, 1, 0, "PROCESSING_REQUEST");
+        assertStatus(client, location, "running", 0, 1, 0, 0, "PROCESSING_REQUEST");
         assertEquals(client.isRunning(), true);
         // request is pending, now close it
         client.close();
@@ -279,7 +279,7 @@ public class TestHttpPageBufferClient
         }
         catch (BrokenBarrierException ignored) {
         }
-        assertStatus(client, location, "closed", 0, 1, 1, "queued");
+        assertStatus(client, location, "closed", 0, 1, 1, 1, "queued");
     }
 
     @Test
@@ -306,7 +306,7 @@ public class TestHttpPageBufferClient
                 createTestingBlockEncodingManager(),
                 executor);
 
-        assertStatus(client, location, "queued", 0, 0, 0, "queued");
+        assertStatus(client, location, "queued", 0, 0, 0, 0, "queued");
 
         // request processor will throw exception, verify the request is marked a completed
         client.scheduleRequest();
@@ -315,7 +315,7 @@ public class TestHttpPageBufferClient
         assertEquals(callback.getCompletedRequests(), 1);
         assertEquals(callback.getFinishedBuffers(), 0);
         assertEquals(callback.getFailedBuffers(), 0);
-        assertStatus(client, location, "queued", 0, 1, 1, "queued");
+        assertStatus(client, location, "queued", 0, 1, 1, 1, "queued");
     }
 
     @Test
@@ -326,7 +326,14 @@ public class TestHttpPageBufferClient
         assertEquals(new PageTransportErrorException("").getErrorCode(), StandardErrorCode.PAGE_TRANSPORT_ERROR.toErrorCode());
     }
 
-    private static void assertStatus(HttpPageBufferClient client, URI location, String status, int pagesReceived, int requestsScheduled, int requestsCompleted, String httpRequestState)
+    private static void assertStatus(
+            HttpPageBufferClient client,
+            URI location, String status,
+            int pagesReceived,
+            int requestsScheduled,
+            int requestsCompleted,
+            int requestsFailed,
+            String httpRequestState)
     {
         PageBufferClientStatus actualStatus = client.getStatus();
         assertEquals(actualStatus.getUri(), location);
@@ -334,6 +341,7 @@ public class TestHttpPageBufferClient
         assertEquals(actualStatus.getPagesReceived(), pagesReceived, "pagesReceived");
         assertEquals(actualStatus.getRequestsScheduled(), requestsScheduled, "requestsScheduled");
         assertEquals(actualStatus.getRequestsCompleted(), requestsCompleted, "requestsCompleted");
+        assertEquals(actualStatus.getRequestsFailed(), requestsFailed, "requestsFailed");
         assertEquals(actualStatus.getHttpRequestState(), httpRequestState, "httpRequestState");
     }
 
