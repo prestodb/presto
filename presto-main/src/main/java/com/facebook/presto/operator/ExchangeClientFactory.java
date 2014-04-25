@@ -43,9 +43,9 @@ public class ExchangeClientFactory
             @ForExchange Executor executor)
     {
         this(blockEncodingSerde,
-                config.getExchangeMaxBufferSize(),
+                config.getMaxBufferSize(),
                 new DataSize(10, Unit.MEGABYTE),
-                config.getExchangeConcurrentRequestMultiplier(),
+                config.getConcurrentRequestMultiplier(),
                 httpClient,
                 executor);
     }
