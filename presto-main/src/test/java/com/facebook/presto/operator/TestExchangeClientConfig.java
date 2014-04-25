@@ -30,8 +30,8 @@ public class TestExchangeClientConfig
     public void testDefaults()
     {
         assertRecordedDefaults(recordDefaults(ExchangeClientConfig.class)
-                .setExchangeMaxBufferSize(new DataSize(32, Unit.MEGABYTE))
-                .setExchangeConcurrentRequestMultiplier(3));
+                .setMaxBufferSize(new DataSize(32, Unit.MEGABYTE))
+                .setConcurrentRequestMultiplier(3));
     }
 
     @Test
@@ -43,8 +43,8 @@ public class TestExchangeClientConfig
                 .build();
 
         ExchangeClientConfig expected = new ExchangeClientConfig()
-                .setExchangeMaxBufferSize(new DataSize(1, Unit.GIGABYTE))
-                .setExchangeConcurrentRequestMultiplier(13);
+                .setMaxBufferSize(new DataSize(1, Unit.GIGABYTE))
+                .setConcurrentRequestMultiplier(13);
 
         assertFullMapping(properties, expected);
     }
