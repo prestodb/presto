@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.metadata;
 
+import com.facebook.presto.connector.informationSchema.InformationSchemaMetadata;
 import com.facebook.presto.metadata.OperatorInfo.OperatorType;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorColumnHandle;
@@ -21,10 +22,10 @@ import com.facebook.presto.spi.ConnectorOutputTableHandle;
 import com.facebook.presto.spi.ConnectorTableHandle;
 import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.SchemaTableName;
-import com.facebook.presto.sql.analyzer.FeaturesConfig;
-import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
+import com.facebook.presto.sql.analyzer.FeaturesConfig;
+import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.type.TypeRegistry;
 import com.google.common.base.Optional;
 import com.google.common.base.Preconditions;
@@ -32,6 +33,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Maps;
+import com.google.common.collect.Sets;
 
 import javax.inject.Inject;
 import javax.inject.Singleton;
@@ -42,6 +44,7 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 
@@ -51,14 +54,14 @@ import static com.facebook.presto.metadata.MetadataUtil.checkColumnName;
 import static com.facebook.presto.metadata.QualifiedTableName.convertFromSchemaTableName;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
-import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.Iterables.transform;
 
 @Singleton
 public class MetadataManager
         implements Metadata
 {
-    private final ConcurrentMap<String, ConnectorMetadata> internalSchemas = new ConcurrentHashMap<>();
+    private final Set<String> globalConnectors = Sets.newConcurrentHashSet();
+    private final ConcurrentMap<String, ConnectorMetadataEntry> informationSchemasByCatalog = new ConcurrentHashMap<>();
     private final ConcurrentMap<String, ConnectorMetadataEntry> connectorsByCatalog = new ConcurrentHashMap<>();
     private final ConcurrentMap<String, ConnectorMetadata> connectorsById = new ConcurrentHashMap<>();
     private final FunctionRegistry functions;
@@ -76,25 +79,44 @@ public class MetadataManager
         this.typeManager = checkNotNull(typeManager, "types is null");
     }
 
-    public void addConnectorMetadata(String connectorId, String catalogName, ConnectorMetadata connectorMetadata)
+    public synchronized void addConnectorMetadata(String connectorId, String catalogName, ConnectorMetadata connectorMetadata)
     {
+        checkNotNull(connectorId, "connectorId is null");
+        checkNotNull(catalogName, "catalogName is null");
+        checkNotNull(connectorMetadata, "connectorMetadata is null");
+
+        checkArgument(!connectorsByCatalog.containsKey(catalogName), "Catalog '%s' is already registered", catalogName);
+        checkArgument(!connectorsById.containsKey(connectorId), "Connector '%s' is already registered", connectorId);
+
         ConnectorMetadataEntry entry = new ConnectorMetadataEntry(connectorId, connectorMetadata);
 
-        synchronized (this) {
-            checkArgument(!connectorsByCatalog.containsKey(catalogName), "Catalog '%s' is already registered", catalogName);
-            checkArgument(!connectorsById.containsKey(connectorId), "Connector '%s' is already registered", connectorId);
-
-            connectorsByCatalog.put(catalogName, entry);
-            connectorsById.put(connectorId, connectorMetadata);
-        }
+        connectorsById.put(connectorId, connectorMetadata);
+        connectorsByCatalog.put(catalogName, entry);
     }
 
-    public void addInternalSchemaMetadata(String connectorId, ConnectorMetadata connectorMetadata)
+    public synchronized void addInformationSchemaMetadata(String connectorId, String catalogName, InformationSchemaMetadata metadata)
+    {
+        checkNotNull(connectorId, "connectorId is null");
+        checkNotNull(catalogName, "catalogName is null");
+        checkNotNull(metadata, "metadata is null");
+
+        checkArgument(!connectorsById.containsKey(connectorId), "Connector '%s' is already registered", connectorId);
+        checkArgument(!informationSchemasByCatalog.containsKey(catalogName), "Information schema for catalog '%s' is already registered", catalogName);
+
+        connectorsById.put(connectorId, metadata);
+        informationSchemasByCatalog.put(catalogName, new ConnectorMetadataEntry(connectorId, metadata));
+    }
+
+    public synchronized void addGlobalSchemaMetadata(String connectorId, ConnectorMetadata connectorMetadata)
     {
         checkNotNull(connectorId, "connectorId is null");
         checkNotNull(connectorMetadata, "connectorMetadata is null");
 
-        checkState(internalSchemas.putIfAbsent(connectorId, connectorMetadata) == null, "Internal schema metadata '%s' is already registered", connectorId);
+        checkArgument(!globalConnectors.contains(connectorId), "Global connector '%s' is already registered", connectorId);
+        checkArgument(!connectorsById.containsKey(connectorId), "Connector '%s' is already registered", connectorId);
+
+        connectorsById.put(connectorId, connectorMetadata);
+        globalConnectors.add(connectorId);
     }
 
     @Override
@@ -311,8 +333,13 @@ public class MetadataManager
     {
         ImmutableList.Builder<ConnectorMetadataEntry> builder = ImmutableList.builder();
 
-        for (Entry<String, ConnectorMetadata> entry : internalSchemas.entrySet()) {
-            builder.add(new ConnectorMetadataEntry(entry.getKey(), entry.getValue()));
+        for (String connectorId : globalConnectors) {
+            builder.add(new ConnectorMetadataEntry(connectorId, connectorsById.get(connectorId)));
+        }
+
+        ConnectorMetadataEntry entry = informationSchemasByCatalog.get(catalogName);
+        if (entry != null) {
+            builder.add(entry);
         }
 
         ConnectorMetadataEntry connector = connectorsByCatalog.get(catalogName);
@@ -327,14 +354,7 @@ public class MetadataManager
     {
         checkNotNull(tableHandle, "tableHandle is null");
 
-        String connectorId = tableHandle.getConnectorId();
-
-        ConnectorMetadata result = internalSchemas.get(connectorId);
-        if (result != null) {
-            return result;
-        }
-
-        result = connectorsById.get(connectorId);
+        ConnectorMetadata result = connectorsById.get(tableHandle.getConnectorId());
         checkArgument(result != null, "No connector for table handle: %s", tableHandle.getConnectorId());
 
         return result;
