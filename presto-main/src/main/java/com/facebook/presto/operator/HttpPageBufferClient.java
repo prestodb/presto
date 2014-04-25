@@ -105,6 +105,7 @@ public class HttpPageBufferClient
 
     private final AtomicInteger requestsScheduled = new AtomicInteger();
     private final AtomicInteger requestsCompleted = new AtomicInteger();
+    private final AtomicInteger requestsFailed = new AtomicInteger();
 
     public HttpPageBufferClient(AsyncHttpClient httpClient,
             DataSize maxResponseSize,
@@ -137,7 +138,15 @@ public class HttpPageBufferClient
         if (future != null) {
             httpRequestState = future.getState();
         }
-        return new PageBufferClientStatus(location, state, lastUpdate, pagesReceived.get(), requestsScheduled.get(), requestsCompleted.get(), httpRequestState);
+        return new PageBufferClientStatus(
+                location,
+                state,
+                lastUpdate,
+                pagesReceived.get(),
+                requestsScheduled.get(),
+                requestsCompleted.get(),
+                requestsFailed.get(),
+                httpRequestState);
     }
 
     public synchronized boolean isRunning()
@@ -249,6 +258,7 @@ public class HttpPageBufferClient
                     clientCallback.clientFailed(HttpPageBufferClient.this, t);
                 }
 
+                requestsFailed.incrementAndGet();
                 requestsCompleted.incrementAndGet();
                 synchronized (HttpPageBufferClient.this) {
                     future = null;
