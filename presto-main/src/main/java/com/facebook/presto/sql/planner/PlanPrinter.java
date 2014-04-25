@@ -452,7 +452,7 @@ public class PlanPrinter
         {
             for (PlanFragmentId planFragmentId : node.getSourceFragmentIds()) {
                 PlanFragment target = fragmentsById.get().get(planFragmentId);
-                target.getRoot().accept(this, indent);
+                target.getRoot().accept(new Visitor(target.getSymbols(), fragmentsById), indent);
             }
             return null;
         }
