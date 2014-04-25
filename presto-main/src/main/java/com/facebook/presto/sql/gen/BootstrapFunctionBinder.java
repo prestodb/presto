@@ -50,9 +50,7 @@ public class BootstrapFunctionBinder
         FunctionInfo function = metadata.resolveFunction(name, argumentTypes, false);
         checkArgument(function != null, "Unknown function %s%s", name, argumentTypes);
 
-        FunctionBinding functionBinding = bindFunction(name.toString(), getSessionByteCode, arguments, function.getFunctionBinder());
-
-        return functionBinding;
+        return bindFunction(name.toString(), getSessionByteCode, arguments, function.getFunctionBinder());
     }
 
     public FunctionBinding bindFunction(String name, ByteCodeNode getSessionByteCode, List<ByteCodeNode> arguments, FunctionBinder defaultFunctionBinder)
@@ -80,18 +78,7 @@ public class BootstrapFunctionBinder
 
     private FunctionBinding bindOperator(OperatorInfo operatorInfo, ByteCodeNode getSessionByteCode, List<ByteCodeNode> arguments)
     {
-        return bindOperator(operatorInfo.getOperatorType().toString(), getSessionByteCode, arguments, operatorInfo.getFunctionBinder());
-    }
-
-    public FunctionBinding bindOperator(String name, ByteCodeNode getSessionByteCode, List<ByteCodeNode> arguments, FunctionBinder defaultFunctionBinder)
-    {
-        // perform binding
-        FunctionBinding functionBinding = defaultFunctionBinder.bindFunction(NEXT_BINDING_ID.getAndIncrement(), name, getSessionByteCode, arguments);
-
-        // record binding
-        functionBindings.put(functionBinding.getBindingId(), functionBinding);
-
-        return functionBinding;
+        return bindFunction(operatorInfo.getOperatorType().toString(), getSessionByteCode, arguments, operatorInfo.getFunctionBinder());
     }
 
     public CallSite bootstrap(String name, MethodType type, long bindingId)
