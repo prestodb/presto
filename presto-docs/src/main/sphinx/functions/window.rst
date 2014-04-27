@@ -36,7 +36,7 @@ Ranking Functions
 
 .. function:: dense_rank() -> bigint
 
-    Returns the rank of a value in in a group of values. This is similar to
+    Returns the rank of a value in a group of values. This is similar to
     :func:`rank`, except that tie values do not produce gaps in the sequence.
 
 .. function:: percent_rank() -> bigint
