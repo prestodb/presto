@@ -175,6 +175,12 @@ public class TaskContext
         return true;
     }
 
+    public synchronized void freeMemory(long bytes)
+    {
+        checkArgument(bytes <= memoryReservation.get(), "tried to free more memory than is reserved");
+        memoryReservation.getAndAdd(-bytes);
+    }
+
     public boolean isCpuTimerEnabled()
     {
         return cpuTimerEnabled;
