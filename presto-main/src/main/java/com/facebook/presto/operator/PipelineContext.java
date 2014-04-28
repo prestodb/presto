@@ -38,6 +38,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 
 import static com.facebook.presto.operator.OperatorContext.operatorStatsGetter;
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.collect.Iterables.transform;
 import static io.airlift.units.DataSize.Unit.BYTE;
@@ -135,7 +136,7 @@ public class PipelineContext
         completedDrivers.getAndIncrement();
 
         // remove the memory reservation
-        memoryReservation.getAndAdd(-driverStats.getMemoryReservation().toBytes());
+        freeMemory(driverStats.getMemoryReservation().toBytes());
 
         queuedTime.add(driverStats.getQueuedTime().roundTo(NANOSECONDS));
         elapsedTime.add(driverStats.getElapsedTime().roundTo(NANOSECONDS));
@@ -206,6 +207,13 @@ public class PipelineContext
             memoryReservation.getAndAdd(bytes);
         }
         return result;
+    }
+
+    private synchronized void freeMemory(long bytes)
+    {
+        checkArgument(bytes <= memoryReservation.get(), "tried to free more memory than is reserved");
+        taskContext.freeMemory(bytes);
+        memoryReservation.getAndAdd(-bytes);
     }
 
     public boolean isCpuTimerEnabled()
