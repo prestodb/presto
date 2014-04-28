@@ -77,6 +77,7 @@ public class GroupByHash
         value = new int[hashSize];
 
         groupAddress = new LongBigArray();
+        groupAddress.ensureCapacity(maxFill);
     }
 
     public long getEstimatedSize()
@@ -105,12 +106,6 @@ public class GroupByHash
     {
         int positionCount = page.getPositionCount();
 
-        int maxPossibleGroupId = nextGroupId + positionCount;
-        groupAddress.ensureCapacity(maxPossibleGroupId);
-        if (maxPossibleGroupId > maxFill) {
-            rehash(maxPossibleGroupId);
-        }
-
         // we know the exact size required for the block
         BlockBuilder blockBuilder = BIGINT.createFixedSizeBlockBuilder(positionCount);
 
@@ -127,7 +122,7 @@ public class GroupByHash
             }
 
             // get the group for the current row
-            int groupId = putIfAbsentInternal(currentRow);
+            int groupId = putIfAbsent(currentRow);
 
             // output the group id for this row
             blockBuilder.appendLong(groupId);
@@ -138,17 +133,6 @@ public class GroupByHash
     }
 
     public int putIfAbsent(BlockCursor[] cursors)
-    {
-        int maxPossibleGroupId = nextGroupId + cursors[0].getRemainingPositions() + 1;
-        groupAddress.ensureCapacity(maxPossibleGroupId);
-        if (maxPossibleGroupId > maxFill) {
-            rehash(maxPossibleGroupId);
-        }
-
-        return putIfAbsentInternal(cursors);
-    }
-
-    private int putIfAbsentInternal(BlockCursor[] cursors)
     {
         int hashPosition = ((int) Murmur3.hash64(hashCursor(cursors))) & mask;
 
@@ -195,6 +179,11 @@ public class GroupByHash
             pageBuilder = new PageBuilder(types);
             pages.add(pageBuilder);
         }
+
+        // increase capacity, if necessary
+        if (nextGroupId >= maxFill) {
+            rehash(maxFill * 2);
+        }
         return groupId;
     }
 
@@ -233,6 +222,7 @@ public class GroupByHash
         this.maxFill = maxFill(newSize, FILL_RATIO);
         this.key = newKey;
         this.value = newValue;
+        groupAddress.ensureCapacity(maxFill);
     }
 
     private static int hashCursor(BlockCursor... cursors)
