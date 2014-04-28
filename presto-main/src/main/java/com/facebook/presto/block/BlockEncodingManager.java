@@ -31,7 +31,7 @@ import java.util.concurrent.ConcurrentMap;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 
-public class BlockEncodingManager
+public final class BlockEncodingManager
         implements BlockEncodingSerde
 {
     private final TypeManager typeManager;
@@ -79,6 +79,7 @@ public class BlockEncodingManager
         String encodingName = encoding.getName();
 
         // look up the encoding factory
+        @SuppressWarnings("unchecked")
         BlockEncodingFactory<T> blockEncoding = (BlockEncodingFactory<T>) blockEncodings.get(encodingName);
         checkArgument(blockEncoding != null, "Unknown block encoding %s", encodingName);
 
@@ -97,9 +98,9 @@ public class BlockEncodingManager
         return new String(bytes, Charsets.UTF_8);
     }
 
-    private static void writeLengthPrefixedString(SliceOutput output, String string)
+    private static void writeLengthPrefixedString(SliceOutput output, String value)
     {
-        byte[] bytes = string.getBytes(Charsets.UTF_8);
+        byte[] bytes = value.getBytes(Charsets.UTF_8);
         output.writeInt(bytes.length);
         output.writeBytes(bytes);
     }
