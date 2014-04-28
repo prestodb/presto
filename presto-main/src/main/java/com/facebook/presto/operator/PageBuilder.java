@@ -20,6 +20,7 @@ import com.facebook.presto.spi.type.Type;
 
 import java.util.List;
 
+import static com.facebook.presto.spi.block.BlockBuilderStatus.DEFAULT_MAX_BLOCK_SIZE_IN_BYTES;
 import static com.facebook.presto.spi.block.BlockBuilderStatus.DEFAULT_MAX_PAGE_SIZE_IN_BYTES;
 
 public class PageBuilder
@@ -33,6 +34,7 @@ public class PageBuilder
         int maxBlockSizeInBytes;
         if (!types.isEmpty()) {
             maxBlockSizeInBytes = (int) (1.0 * DEFAULT_MAX_PAGE_SIZE_IN_BYTES / types.size());
+            maxBlockSizeInBytes = Math.min(DEFAULT_MAX_BLOCK_SIZE_IN_BYTES, maxBlockSizeInBytes);
         }
         else {
             maxBlockSizeInBytes = 0;
