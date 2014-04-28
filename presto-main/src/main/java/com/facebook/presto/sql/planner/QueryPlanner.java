@@ -13,14 +13,8 @@
  */
 package com.facebook.presto.sql.planner;
 
-import com.facebook.presto.metadata.ColumnHandle;
 import com.facebook.presto.metadata.Metadata;
-import com.facebook.presto.metadata.MetadataUtil;
-import com.facebook.presto.metadata.QualifiedTableName;
 import com.facebook.presto.metadata.Signature;
-import com.facebook.presto.metadata.TableHandle;
-import com.facebook.presto.metadata.TableMetadata;
-import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.Session;
 import com.facebook.presto.spi.block.SortOrder;
 import com.facebook.presto.spi.type.Type;
@@ -36,15 +30,14 @@ import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.ProjectNode;
 import com.facebook.presto.sql.planner.plan.SemiJoinNode;
 import com.facebook.presto.sql.planner.plan.SortNode;
-import com.facebook.presto.sql.planner.plan.TableScanNode;
 import com.facebook.presto.sql.planner.plan.TopNNode;
+import com.facebook.presto.sql.planner.plan.ValuesNode;
 import com.facebook.presto.sql.planner.plan.WindowNode;
 import com.facebook.presto.sql.tree.Cast;
 import com.facebook.presto.sql.tree.DefaultTraversalVisitor;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.InPredicate;
-import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.sql.tree.QualifiedNameReference;
 import com.facebook.presto.sql.tree.Query;
 import com.facebook.presto.sql.tree.QuerySpecification;
@@ -72,7 +65,6 @@ import java.util.Map;
 import java.util.Set;
 
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
-import static com.facebook.presto.sql.planner.plan.TableScanNode.GeneratedPartitions;
 import static com.facebook.presto.sql.tree.FunctionCall.argumentsGetter;
 import static com.facebook.presto.sql.tree.FunctionCall.distinctPredicate;
 import static com.facebook.presto.sql.tree.SortItem.sortKeyGetter;
@@ -183,26 +175,11 @@ class QueryPlanner
 
     private RelationPlan planImplicitTable()
     {
-        // TODO: replace this with a table-generating operator that produces 1 row with no columns
-
-        QualifiedTableName name = MetadataUtil.createQualifiedTableName(session, QualifiedName.of("dual"));
-        Optional<TableHandle> optionalHandle = metadata.getTableHandle(name);
-        checkState(optionalHandle.isPresent(), "Dual table provider not installed");
-        TableHandle table = optionalHandle.get();
-        TableMetadata tableMetadata = metadata.getTableMetadata(table);
-        Map<String, ColumnHandle> columnHandles = metadata.getColumnHandles(table);
-        checkState(!metadata.getSampleWeightColumnHandle(table).isPresent(), "dual table should not have a sample weight");
-
-        ImmutableMap.Builder<Symbol, ColumnHandle> columns = ImmutableMap.builder();
-        for (ColumnMetadata column : tableMetadata.getColumns()) {
-            Symbol symbol = symbolAllocator.newSymbol(column.getName(), column.getType());
-            columns.put(symbol, columnHandles.get(column.getName()));
-        }
-
-        ImmutableMap<Symbol, ColumnHandle> assignments = columns.build();
-        PlanNode node = new TableScanNode(idAllocator.getNextId(), table, ImmutableList.copyOf(assignments.keySet()), assignments, null, Optional.<GeneratedPartitions>absent());
-
-        return new RelationPlan(node, new TupleDescriptor(), ImmutableList.<Symbol>of());
+        List<Expression> emptyRow = ImmutableList.of();
+        return new RelationPlan(
+                new ValuesNode(idAllocator.getNextId(), ImmutableList.<Symbol>of(), ImmutableList.of(emptyRow)),
+                new TupleDescriptor(),
+                ImmutableList.<Symbol>of());
     }
 
     private PlanBuilder filter(PlanBuilder subPlan, Expression predicate)
