@@ -92,7 +92,7 @@ public class DistinctLimitOperator
             distinctChannels.add(i);
         }
 
-        this.groupByHash = new GroupByHash(distinctTypes.build(), Ints.toArray(distinctChannels.build()), 10_000);
+        this.groupByHash = new GroupByHash(distinctTypes.build(), Ints.toArray(distinctChannels.build()), Math.min((int) limit, 10_000));
 
         this.cursors = new BlockCursor[types.size()];
         this.pageBuilder = new PageBuilder(getTypes());
