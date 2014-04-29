@@ -133,6 +133,7 @@ class TranslationMap
         if (fieldOrExpression.isFieldReference()) {
             int fieldIndex = fieldOrExpression.getFieldIndex();
             fieldSymbols[fieldIndex] = symbol;
+            expressionMappings.put(new QualifiedNameReference(rewriteBase.getSymbol(fieldIndex).toQualifiedName()), symbol);
         }
         else {
             put(fieldOrExpression.getExpression(), symbol);

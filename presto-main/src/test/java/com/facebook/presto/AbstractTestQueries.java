@@ -1736,6 +1736,22 @@ public abstract class AbstractTestQueries
     }
 
     @Test
+    public void testWindowFunctionWithGroupBy()
+            throws Exception
+    {
+        MaterializedResult actual = computeActual("" +
+                "SELECT *, rank() OVER (PARTITION BY x)\n" +
+                "FROM (SELECT 'foo' x)\n" +
+                "GROUP BY 1");
+
+        MaterializedResult expected = resultBuilder(getSession(), VARCHAR, BIGINT)
+                .row("foo", 1)
+                .build();
+
+        assertEquals(actual, expected);
+    }
+
+    @Test
     public void testOrderByWindowFunctionWithNulls()
             throws Exception
     {
