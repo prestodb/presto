@@ -100,7 +100,7 @@ public class BooleanMaxAggregation
                 output.appendNull();
             }
             else {
-                output.append(value == TRUE_VALUE);
+                output.appendBoolean(value == TRUE_VALUE);
             }
         }
     }
@@ -147,7 +147,7 @@ public class BooleanMaxAggregation
         public void evaluateFinal(BlockBuilder out)
         {
             if (notNull) {
-                out.append(max);
+                out.appendBoolean(max);
             }
             else {
                 out.appendNull();

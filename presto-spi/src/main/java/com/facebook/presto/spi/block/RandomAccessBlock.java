@@ -21,9 +21,10 @@ public interface RandomAccessBlock
 {
     /**
      * Returns a block starting at the specified position and extends for the
-     * specified length.  The specified region must be entirely contained
+     * specified length. The specified region must be entirely contained
      * within this block.
      */
+    @Override
     RandomAccessBlock getRegion(int positionOffset, int length);
 
     /**
@@ -48,18 +49,18 @@ public interface RandomAccessBlock
     double getDouble(int position);
 
     /**
-     * Gets the value at the specified position as an Object.
-     *
-     * @throws IllegalArgumentException if this position is not valid
-     */
-    Object getObjectValue(Session session, int position);
-
-    /**
      * Gets the value at the specified position as a Slice.
      *
      * @throws IllegalArgumentException if this position is not valid
      */
     Slice getSlice(int position);
+
+    /**
+     * Gets the value at the specified position as an Object.
+     *
+     * @throws IllegalArgumentException if this position is not valid
+     */
+    Object getObjectValue(Session session, int position);
 
     /**
      * Gets the value at the specified position as a single element block.
@@ -69,21 +70,53 @@ public interface RandomAccessBlock
     RandomAccessBlock getSingleValueBlock(int position);
 
     /**
-     * Is the specified position null.
+     * Is the specified position null?
      *
      * @throws IllegalArgumentException if this position is not valid
      */
     boolean isNull(int position);
 
-    boolean equals(int position, RandomAccessBlock right, int rightPosition);
-    boolean equals(int position, BlockCursor cursor);
-    boolean equals(int position, Slice slice, int offset);
+    /**
+     * Is the value at the specified position equal to the value at the other position
+     * in the other block?
+     */
+    boolean equalTo(int position, RandomAccessBlock otherBlock, int otherPosition);
 
-    int hashCode(int position);
+    /**
+     * Is the value at the specified position equal to the value at the cursor?
+     */
+    boolean equalTo(int position, BlockCursor cursor);
 
-    int compareTo(SortOrder sortOrder, int position, RandomAccessBlock right, int rightPosition);
+    /**
+     * Is the value at the specified position equal to the value at the other offset
+     * in the other slice?
+     */
+    boolean equalTo(int position, Slice otherSlice, int otherOffset);
+
+    /**
+     * Calculates the hash code of the value at the specified position.
+     */
+    int hash(int position);
+
+    /**
+     * Compares the value at the specified position to the value at the other position
+     * in the other block.
+     */
+    int compareTo(SortOrder sortOrder, int position, RandomAccessBlock otherBlock, int otherPosition);
+
+    /**
+     * Compares the value at the specified position to the value at the cursor.
+     */
     int compareTo(SortOrder sortOrder, int position, BlockCursor cursor);
-    int compareTo(int position, Slice slice, int offset);
 
+    /**
+     * Compares the value at the specified position to the value at the other offset
+     * in the other slice.
+     */
+    int compareTo(int position, Slice otherSlice, int otherOffset);
+
+    /**
+     * Appends the value at the specified position to the block builder.
+     */
     void appendTo(int position, BlockBuilder blockBuilder);
 }

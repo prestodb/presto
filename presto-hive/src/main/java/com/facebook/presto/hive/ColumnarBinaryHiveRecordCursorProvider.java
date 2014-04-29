@@ -29,7 +29,7 @@ public class ColumnarBinaryHiveRecordCursorProvider
         implements HiveRecordCursorProvider
 {
     @Override
-    public Optional<HiveRecordCursor> createHiveRecordCursor(HiveSplit split, RecordReader<?, ?> recordReader, List<HiveColumnHandle> columns, DateTimeZone timeZone)
+    public Optional<HiveRecordCursor> createHiveRecordCursor(HiveSplit split, RecordReader<?, ?> recordReader, List<HiveColumnHandle> columns, DateTimeZone hiveStorageTimeZone)
     {
         if (usesColumnarBinarySerDe(split)) {
             return Optional.<HiveRecordCursor>of(new ColumnarBinaryHiveRecordCursor<>(
@@ -37,7 +37,8 @@ public class ColumnarBinaryHiveRecordCursorProvider
                     split.getLength(),
                     split.getSchema(),
                     split.getPartitionKeys(),
-                    columns));
+                    columns,
+                    DateTimeZone.forID(split.getSession().getTimeZoneKey().getTimeZoneId())));
         }
         return Optional.absent();
     }

@@ -162,16 +162,16 @@ public abstract class AbstractTestApproximateCountDistinct
             else {
                 Class<?> javaType = getValueType().getJavaType();
                 if (javaType == boolean.class) {
-                    blockBuilder.append((Boolean) value);
+                    blockBuilder.appendBoolean((Boolean) value);
                 }
                 else if (javaType == long.class) {
-                    blockBuilder.append((Long) value);
+                    blockBuilder.appendLong((Long) value);
                 }
                 else if (javaType == double.class) {
-                    blockBuilder.append((Double) value);
+                    blockBuilder.appendDouble((Double) value);
                 }
                 else if (javaType == Slice.class) {
-                    blockBuilder.append((Slice) value);
+                    blockBuilder.appendSlice((Slice) value);
                 }
                 else {
                     throw new UnsupportedOperationException("not yet implemented");

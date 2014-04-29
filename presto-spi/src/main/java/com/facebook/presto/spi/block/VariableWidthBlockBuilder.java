@@ -18,13 +18,11 @@ import com.facebook.presto.spi.type.VariableWidthType;
 import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceOutput;
-import io.airlift.slice.Slices;
 
 import java.util.Arrays;
 import java.util.Objects;
 
 import static io.airlift.slice.SizeOf.SIZE_OF_BYTE;
-import static java.nio.charset.StandardCharsets.UTF_8;
 
 public class VariableWidthBlockBuilder
         extends AbstractVariableWidthRandomAccessBlock
@@ -53,6 +51,7 @@ public class VariableWidthBlockBuilder
         return offsets[position];
     }
 
+    @Override
     protected Slice getRawSlice()
     {
         return sliceOutput.getUnderlyingSlice();
@@ -83,85 +82,43 @@ public class VariableWidthBlockBuilder
     }
 
     @Override
-    public int size()
+    public int getSizeInBytes()
     {
         return sliceOutput.size();
     }
 
     @Override
-    public BlockBuilder appendObject(Object value)
-    {
-        if (value == null) {
-            appendNull();
-        }
-        else if (value instanceof Boolean) {
-            append((Boolean) value);
-        }
-        else if (value instanceof Double || value instanceof Float) {
-            append(((Number) value).doubleValue());
-        }
-        else if (value instanceof Number) {
-            append(((Number) value).longValue());
-        }
-        else if (value instanceof byte[]) {
-            append(Slices.wrappedBuffer((byte[]) value));
-        }
-        else if (value instanceof String) {
-            append((String) value);
-        }
-        else if (value instanceof Slice) {
-            append((Slice) value);
-        }
-        else {
-            throw new IllegalArgumentException("Unsupported type: " + value.getClass());
-        }
-        return this;
-    }
-
-    @Override
-    public BlockBuilder append(boolean value)
+    public BlockBuilder appendBoolean(boolean value)
     {
         throw new UnsupportedOperationException();
     }
 
     @Override
-    public BlockBuilder append(long value)
+    public BlockBuilder appendLong(long value)
     {
         throw new UnsupportedOperationException();
     }
 
     @Override
-    public BlockBuilder append(double value)
+    public BlockBuilder appendDouble(double value)
     {
         throw new UnsupportedOperationException();
     }
 
     @Override
-    public BlockBuilder append(byte[] value)
+    public BlockBuilder appendSlice(Slice value)
     {
-        return append(Slices.wrappedBuffer(value));
+        return appendSlice(value, 0, value.length());
     }
 
     @Override
-    public BlockBuilder append(String value)
-    {
-        return append(Slices.copiedBuffer(value, UTF_8));
-    }
-
-    @Override
-    public BlockBuilder append(Slice value)
-    {
-        return append(value, 0, value.length());
-    }
-
-    @Override
-    public BlockBuilder append(Slice value, int offset, int length)
+    public BlockBuilder appendSlice(Slice value, int offset, int length)
     {
         recordNewPosition();
 
         sliceOutput.writeByte(0);
 
-        int bytesWritten = type.setSlice(sliceOutput, value, offset, length);
+        int bytesWritten = type.writeSlice(sliceOutput, value, offset, length);
 
         entryAdded(bytesWritten);
 

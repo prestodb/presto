@@ -46,7 +46,7 @@ public final class OperatorAssertion
             {
                 BlockBuilder builder = BIGINT.createBlockBuilder(new BlockBuilderStatus());
                 for (int i = 0; i < page.getPositionCount(); i++) {
-                    builder.append(sampleWeight);
+                    builder.appendLong(sampleWeight);
                 }
                 Block[] blocks = new Block[page.getChannelCount() + 1];
                 System.arraycopy(page.getBlocks(), 0, blocks, 0, page.getChannelCount());

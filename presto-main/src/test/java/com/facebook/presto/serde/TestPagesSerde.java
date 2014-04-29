@@ -19,6 +19,7 @@ import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
 import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.Slice;
+import io.airlift.slice.Slices;
 import org.testng.annotations.Test;
 
 import java.util.Iterator;
@@ -38,10 +39,10 @@ public class TestPagesSerde
     public void testRoundTrip()
     {
         Block expectedBlock = VARCHAR.createBlockBuilder(new BlockBuilderStatus())
-                .append("alice")
-                .append("bob")
-                .append("charlie")
-                .append("dave")
+                .appendSlice(Slices.utf8Slice("alice"))
+                .appendSlice(Slices.utf8Slice("bob"))
+                .appendSlice(Slices.utf8Slice("charlie"))
+                .appendSlice(Slices.utf8Slice("dave"))
                 .build();
         Page expectedPage = new Page(expectedBlock, expectedBlock, expectedBlock);
 
@@ -65,12 +66,12 @@ public class TestPagesSerde
         assertEquals(pageSize, 26); // page overhead
 
         // page with one value
-        page = new Page(builder.append(123).build());
+        page = new Page(builder.appendLong(123).build());
         int firstValueSize = serializedSize(page) - pageSize;
         assertEquals(firstValueSize, 8 + 1); // value size + value overhead
 
         // page with two values
-        page = new Page(builder.append(456).build());
+        page = new Page(builder.appendLong(456).build());
         int secondValueSize = serializedSize(page) - (pageSize + firstValueSize);
         assertEquals(secondValueSize, 8 + 1); // value size + value overhead
     }
@@ -86,12 +87,12 @@ public class TestPagesSerde
         assertEquals(pageSize, 27); // page overhead
 
         // page with one value
-        page = new Page(builder.append("alice").build());
+        page = new Page(builder.appendSlice(Slices.utf8Slice("alice")).build());
         int firstValueSize = serializedSize(page) - pageSize;
         assertEquals(firstValueSize, 5 + 5); // "alice" + value overhead
 
         // page with two values
-        page = new Page(builder.append("bob").build());
+        page = new Page(builder.appendSlice(Slices.utf8Slice("bob")).build());
         int secondValueSize = serializedSize(page) - (pageSize + firstValueSize);
         assertEquals(secondValueSize, 3 + 5); // "bob" + value overhead
     }

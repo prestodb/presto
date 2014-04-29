@@ -28,7 +28,7 @@ public class TestDoubleSumAggregation
     {
         BlockBuilder blockBuilder = DOUBLE.createBlockBuilder(new BlockBuilderStatus());
         for (int i = start; i < start + length; i++) {
-            blockBuilder.append((double) i);
+            blockBuilder.appendDouble((double) i);
         }
         return blockBuilder.build();
     }

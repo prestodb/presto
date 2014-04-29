@@ -20,6 +20,7 @@ import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.ReadOnlyConnectorMetadata;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.SchemaTablePrefix;
+import com.facebook.presto.spi.Session;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -60,7 +61,7 @@ public class SystemTablesMetadata
     }
 
     @Override
-    public List<String> listSchemaNames()
+    public List<String> listSchemaNames(Session session)
     {
         // remove duplicates
         ImmutableSet<String> schemaNames = ImmutableSet.copyOf(transform(tables.keySet(), schemaNameGetter()));
@@ -68,7 +69,7 @@ public class SystemTablesMetadata
     }
 
     @Override
-    public ConnectorTableHandle getTableHandle(SchemaTableName tableName)
+    public ConnectorTableHandle getTableHandle(Session session, SchemaTableName tableName)
     {
         if (!tables.containsKey(tableName)) {
             return null;
@@ -84,7 +85,7 @@ public class SystemTablesMetadata
     }
 
     @Override
-    public List<SchemaTableName> listTables(final String schemaNameOrNull)
+    public List<SchemaTableName> listTables(Session session, String schemaNameOrNull)
     {
         if (schemaNameOrNull == null) {
             return ImmutableList.copyOf(tables.keySet());
@@ -134,7 +135,7 @@ public class SystemTablesMetadata
     }
 
     @Override
-    public Map<SchemaTableName, List<ColumnMetadata>> listTableColumns(SchemaTablePrefix prefix)
+    public Map<SchemaTableName, List<ColumnMetadata>> listTableColumns(Session session, SchemaTablePrefix prefix)
     {
         checkNotNull(prefix, "prefix is null");
         ImmutableMap.Builder<SchemaTableName, List<ColumnMetadata>> builder = ImmutableMap.builder();

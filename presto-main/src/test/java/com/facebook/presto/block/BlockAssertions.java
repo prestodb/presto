@@ -26,6 +26,7 @@ import com.google.common.collect.DiscreteDomain;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Range;
 import io.airlift.slice.Slice;
+import io.airlift.slice.Slices;
 
 import javax.annotation.Nullable;
 
@@ -42,7 +43,6 @@ import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.TimeZoneKey.UTC_KEY;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
-import static com.google.common.base.Charsets.UTF_8;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
@@ -197,7 +197,7 @@ public final class BlockAssertions
                 builder.appendNull();
             }
             else {
-                builder.append(value.getBytes(UTF_8));
+                builder.appendSlice(Slices.utf8Slice(value));
             }
         }
 
@@ -214,7 +214,7 @@ public final class BlockAssertions
         BlockBuilder builder = VARCHAR.createBlockBuilder(new BlockBuilderStatus());
 
         for (int i = start; i < end; i++) {
-            builder.append(String.valueOf(i));
+            builder.appendSlice(Slices.utf8Slice(String.valueOf(i)));
         }
 
         return builder.build();
@@ -241,7 +241,7 @@ public final class BlockAssertions
                 builder.appendNull();
             }
             else {
-                builder.append(value);
+                builder.appendBoolean(value);
             }
         }
 
@@ -254,7 +254,7 @@ public final class BlockAssertions
         BlockBuilder builder = BIGINT.createBlockBuilder(new BlockBuilderStatus());
 
         for (int value : values) {
-            builder.append((long) value);
+            builder.appendLong((long) value);
         }
 
         return builder.build().toRandomAccessBlock();
@@ -276,7 +276,7 @@ public final class BlockAssertions
                 builder.appendNull();
             }
             else {
-                builder.append(value);
+                builder.appendLong(value);
             }
         }
 
@@ -298,7 +298,7 @@ public final class BlockAssertions
         BlockBuilder builder = BIGINT.createBlockBuilder(new BlockBuilderStatus());
 
         for (int i = start; i < end; i++) {
-            builder.append(i);
+            builder.appendLong(i);
         }
 
         return builder.build();
@@ -309,7 +309,7 @@ public final class BlockAssertions
         BlockBuilder builder = BOOLEAN.createBlockBuilder(new BlockBuilderStatus());
 
         for (int i = start; i < end; i++) {
-            builder.append(i % 2 == 0);
+            builder.appendBoolean(i % 2 == 0);
         }
 
         return builder.build();
@@ -331,7 +331,7 @@ public final class BlockAssertions
                 builder.appendNull();
             }
             else {
-                builder.append(value);
+                builder.appendDouble(value);
             }
         }
 
@@ -348,7 +348,7 @@ public final class BlockAssertions
         BlockBuilder builder = DOUBLE.createBlockBuilder(new BlockBuilderStatus());
 
         for (int i = start; i < end; i++) {
-            builder.append((double) i);
+            builder.appendDouble((double) i);
         }
 
         return builder.build();
@@ -371,31 +371,31 @@ public final class BlockAssertions
 
         public BlockIterableBuilder append(Slice value)
         {
-            blockBuilder.append(value);
+            blockBuilder.appendSlice(value);
             return this;
         }
 
         public BlockIterableBuilder append(double value)
         {
-            blockBuilder.append(value);
+            blockBuilder.appendDouble(value);
             return this;
         }
 
         public BlockIterableBuilder append(long value)
         {
-            blockBuilder.append(value);
+            blockBuilder.appendLong(value);
             return this;
         }
 
         public BlockIterableBuilder append(String value)
         {
-            blockBuilder.append(value.getBytes(UTF_8));
+            blockBuilder.appendSlice(Slices.utf8Slice(value));
             return this;
         }
 
         public BlockIterableBuilder append(byte[] value)
         {
-            blockBuilder.append(value);
+            blockBuilder.appendSlice(Slices.wrappedBuffer(value));
             return this;
         }
 

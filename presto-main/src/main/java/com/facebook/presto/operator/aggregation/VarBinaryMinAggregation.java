@@ -99,7 +99,7 @@ public class VarBinaryMinAggregation
                 output.appendNull();
             }
             else {
-                output.append(value);
+                output.appendSlice(value);
             }
         }
     }
@@ -139,7 +139,7 @@ public class VarBinaryMinAggregation
         public void evaluateFinal(BlockBuilder out)
         {
             if (min != null) {
-                out.append(min);
+                out.appendSlice(min);
             }
             else {
                 out.appendNull();

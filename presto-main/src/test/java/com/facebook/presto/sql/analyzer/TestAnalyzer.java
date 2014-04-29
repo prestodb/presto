@@ -58,6 +58,7 @@ import static org.testng.Assert.fail;
 @Test(singleThreaded = true)
 public class TestAnalyzer
 {
+    private static final Session SESSION = new Session("user", "test", "default", "default", UTC_KEY, Locale.ENGLISH, null, null);
     private Analyzer analyzer;
     private Analyzer approximateDisabledAnalyzer;
 
@@ -561,7 +562,7 @@ public class TestAnalyzer
         metadata.addConnectorMetadata("tpch", "tpch", new InMemoryMetadata());
 
         SchemaTableName table1 = new SchemaTableName("default", "t1");
-        metadata.createTable("tpch", new TableMetadata("tpch", new ConnectorTableMetadata(table1,
+        metadata.createTable(SESSION, "tpch", new TableMetadata("tpch", new ConnectorTableMetadata(table1,
                 ImmutableList.<ColumnMetadata>of(
                         new ColumnMetadata("a", BIGINT, 0, false),
                         new ColumnMetadata("b", BIGINT, 1, false),
@@ -569,13 +570,13 @@ public class TestAnalyzer
                         new ColumnMetadata("d", BIGINT, 3, false)))));
 
         SchemaTableName table2 = new SchemaTableName("default", "t2");
-        metadata.createTable("tpch", new TableMetadata("tpch", new ConnectorTableMetadata(table2,
+        metadata.createTable(SESSION, "tpch", new TableMetadata("tpch", new ConnectorTableMetadata(table2,
                 ImmutableList.<ColumnMetadata>of(
                         new ColumnMetadata("a", BIGINT, 0, false),
                         new ColumnMetadata("b", BIGINT, 1, false)))));
 
         SchemaTableName table3 = new SchemaTableName("default", "t3");
-        metadata.createTable("tpch", new TableMetadata("tpch", new ConnectorTableMetadata(table3,
+        metadata.createTable(SESSION, "tpch", new TableMetadata("tpch", new ConnectorTableMetadata(table3,
                 ImmutableList.<ColumnMetadata>of(
                         new ColumnMetadata("a", BIGINT, 0, false),
                         new ColumnMetadata("b", BIGINT, 1, false)))));

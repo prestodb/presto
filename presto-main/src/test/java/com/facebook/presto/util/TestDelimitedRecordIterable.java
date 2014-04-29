@@ -16,10 +16,10 @@ package com.facebook.presto.util;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.RecordCursor;
 import com.google.common.base.Splitter;
+import io.airlift.slice.Slices;
 import org.testng.annotations.Test;
 
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
-import static com.google.common.base.Charsets.UTF_8;
 import static com.google.common.io.CharStreams.newReaderSupplier;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
@@ -40,16 +40,16 @@ public class TestDelimitedRecordIterable
 
         RecordCursor cursor = recordIterable.cursor();
         assertTrue(cursor.advanceNextPosition());
-        assertEquals(cursor.getString(0), "apple".getBytes(UTF_8));
-        assertEquals(cursor.getString(1), "fuu".getBytes(UTF_8));
-        assertEquals(cursor.getString(2), "123".getBytes(UTF_8));
+        assertEquals(cursor.getSlice(0), Slices.utf8Slice("apple"));
+        assertEquals(cursor.getSlice(1), Slices.utf8Slice("fuu"));
+        assertEquals(cursor.getSlice(2), Slices.utf8Slice("123"));
         assertEquals(cursor.getLong(2), 123L);
         assertEquals(cursor.getDouble(2), 123.0);
 
         assertTrue(cursor.advanceNextPosition());
-        assertEquals(cursor.getString(0), "banana".getBytes(UTF_8));
-        assertEquals(cursor.getString(1), "bar".getBytes(UTF_8));
-        assertEquals(cursor.getString(2), "456".getBytes(UTF_8));
+        assertEquals(cursor.getSlice(0), Slices.utf8Slice("banana"));
+        assertEquals(cursor.getSlice(1), Slices.utf8Slice("bar"));
+        assertEquals(cursor.getSlice(2), Slices.utf8Slice("456"));
         assertEquals(cursor.getLong(2), 456L);
         assertEquals(cursor.getDouble(2), 456.0);
 

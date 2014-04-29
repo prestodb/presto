@@ -145,7 +145,7 @@ public class CountAggregation
         public void evaluateFinal(int groupId, BlockBuilder output)
         {
             long value = counts.get((long) groupId);
-            output.append(value);
+            output.appendLong(value);
         }
     }
 
@@ -233,7 +233,7 @@ public class CountAggregation
         {
             BlockBuilder out = getFinalType().createBlockBuilder(new BlockBuilderStatus());
 
-            out.append(count);
+            out.appendLong(count);
 
             return out.build();
         }

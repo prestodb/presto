@@ -14,10 +14,13 @@
 package com.facebook.presto.block;
 
 import com.facebook.presto.spi.block.Block;
+import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.base.Optional;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Iterators;
+import io.airlift.slice.Slice;
+import io.airlift.slice.Slices;
 import io.airlift.units.DataSize;
 import io.airlift.units.DataSize.Unit;
 
@@ -28,6 +31,34 @@ import static com.facebook.presto.spi.type.BigintType.BIGINT;
 public final class BlockUtils
 {
     private BlockUtils() {}
+
+    public static void appendObject(BlockBuilder blockBuilder, Object value)
+    {
+        if (value == null) {
+            blockBuilder.appendNull();
+        }
+        else if (value instanceof Boolean) {
+            blockBuilder.appendBoolean((Boolean) value);
+        }
+        else if (value instanceof Double || value instanceof Float) {
+            blockBuilder.appendDouble(((Number) value).doubleValue());
+        }
+        else if (value instanceof Number) {
+            blockBuilder.appendLong(((Number) value).longValue());
+        }
+        else if (value instanceof byte[]) {
+            blockBuilder.appendSlice(Slices.wrappedBuffer((byte[]) value));
+        }
+        else if (value instanceof String) {
+            blockBuilder.appendSlice(Slices.utf8Slice((String) value));
+        }
+        else if (value instanceof Slice) {
+            blockBuilder.appendSlice((Slice) value);
+        }
+        else {
+            throw new IllegalArgumentException("Unsupported type: " + value.getClass().getName());
+        }
+    }
 
     // TODO: remove this hack after empty blocks are supported
     public static BlockIterable emptyBlockIterable()

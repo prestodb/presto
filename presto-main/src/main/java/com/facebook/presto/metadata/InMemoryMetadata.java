@@ -21,6 +21,7 @@ import com.facebook.presto.spi.ConnectorTableHandle;
 import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.SchemaTablePrefix;
+import com.facebook.presto.spi.Session;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -42,7 +43,7 @@ public class InMemoryMetadata
     private final ConcurrentMap<SchemaTableName, ConnectorTableMetadata> tables = new ConcurrentHashMap<>();
 
     @Override
-    public List<String> listSchemaNames()
+    public List<String> listSchemaNames(Session session)
     {
         Set<String> schemaNames = new HashSet<>();
 
@@ -54,7 +55,7 @@ public class InMemoryMetadata
     }
 
     @Override
-    public ConnectorTableHandle getTableHandle(SchemaTableName tableName)
+    public ConnectorTableHandle getTableHandle(Session session, SchemaTableName tableName)
     {
         checkNotNull(tableName, "tableName is null");
         if (!tables.containsKey(tableName)) {
@@ -101,18 +102,18 @@ public class InMemoryMetadata
     }
 
     @Override
-    public boolean canCreateSampledTables()
+    public boolean canCreateSampledTables(Session session)
     {
         return false;
     }
 
     @Override
-    public Map<SchemaTableName, List<ColumnMetadata>> listTableColumns(SchemaTablePrefix prefix)
+    public Map<SchemaTableName, List<ColumnMetadata>> listTableColumns(Session session, SchemaTablePrefix prefix)
     {
         checkNotNull(prefix, "prefix is null");
 
         ImmutableMap.Builder<SchemaTableName, List<ColumnMetadata>> tableColumns = ImmutableMap.builder();
-        for (SchemaTableName tableName : listTables(prefix.getSchemaName())) {
+        for (SchemaTableName tableName : listTables(session, prefix.getSchemaName())) {
             int position = 1;
             ImmutableList.Builder<ColumnMetadata> columns = ImmutableList.builder();
             for (ColumnMetadata column : tables.get(tableName).getColumns()) {
@@ -135,7 +136,7 @@ public class InMemoryMetadata
     }
 
     @Override
-    public List<SchemaTableName> listTables(String schemaNameOrNull)
+    public List<SchemaTableName> listTables(Session session, String schemaNameOrNull)
     {
         ImmutableList.Builder<SchemaTableName> builder = ImmutableList.builder();
         for (SchemaTableName tableName : tables.keySet()) {
@@ -147,7 +148,7 @@ public class InMemoryMetadata
     }
 
     @Override
-    public ConnectorTableHandle createTable(ConnectorTableMetadata tableMetadata)
+    public ConnectorTableHandle createTable(Session session, ConnectorTableMetadata tableMetadata)
     {
         ConnectorTableMetadata existingTable = tables.putIfAbsent(tableMetadata.getTable(), tableMetadata);
         checkArgument(existingTable == null, "Table %s already exists", tableMetadata.getTable());
@@ -161,7 +162,7 @@ public class InMemoryMetadata
     }
 
     @Override
-    public ConnectorOutputTableHandle beginCreateTable(ConnectorTableMetadata tableMetadata)
+    public ConnectorOutputTableHandle beginCreateTable(Session session, ConnectorTableMetadata tableMetadata)
     {
         throw new UnsupportedOperationException();
     }

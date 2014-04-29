@@ -33,7 +33,7 @@ public class TestVarBinaryMinAggregation
     {
         BlockBuilder blockBuilder = VARCHAR.createBlockBuilder(new BlockBuilderStatus());
         for (int i = 0; i < length; i++) {
-            blockBuilder.append(Slices.wrappedBuffer(Ints.toByteArray(i)));
+            blockBuilder.appendSlice(Slices.wrappedBuffer(Ints.toByteArray(i)));
         }
         return blockBuilder.build();
     }

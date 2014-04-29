@@ -86,7 +86,7 @@ import static com.facebook.presto.spi.type.DateType.DATE;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.IntervalDayTimeType.INTERVAL_DAY_TIME;
 import static com.facebook.presto.spi.type.IntervalYearMonthType.INTERVAL_YEAR_MONTH;
-import static com.facebook.presto.spi.type.NullType.NULL;
+import static com.facebook.presto.type.UnknownType.UNKNOWN;
 import static com.facebook.presto.spi.type.TimeType.TIME;
 import static com.facebook.presto.spi.type.TimeWithTimeZoneType.TIME_WITH_TIME_ZONE;
 import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
@@ -484,8 +484,8 @@ public class ExpressionAnalyzer
         @Override
         protected Type visitNullLiteral(NullLiteral node, AnalysisContext context)
         {
-            expressionTypes.put(node, NULL);
-            return NULL;
+            expressionTypes.put(node, UNKNOWN);
+            return UNKNOWN;
         }
 
         @Override
@@ -561,7 +561,7 @@ public class ExpressionAnalyzer
             }
 
             Type value = process(node.getExpression(), context);
-            if (value != NULL) {
+            if (value != UNKNOWN) {
                 try {
                     OperatorInfo operator = metadata.getExactOperator(OperatorType.CAST, type, ImmutableList.of(value));
                     resolvedOperators.put(node, operator);
@@ -713,7 +713,7 @@ public class ExpressionAnalyzer
         private Type coerceToSingleType(AnalysisContext context, String message, List<Expression> expressions)
         {
             // determine super type
-            Type superType = NULL;
+            Type superType = UNKNOWN;
             for (Expression expression : expressions) {
                 Optional<Type> newSuperType = getCommonSuperType(superType, process(expression, context));
                 if (!newSuperType.isPresent()) {

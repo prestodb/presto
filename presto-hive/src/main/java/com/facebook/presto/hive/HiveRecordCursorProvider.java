@@ -25,5 +25,5 @@ public interface HiveRecordCursorProvider
             HiveSplit split,
             RecordReader<?, ?> recordReader,
             List<HiveColumnHandle> columns,
-            DateTimeZone timeZone);
+            DateTimeZone hiveStorageTimeZone);
 }

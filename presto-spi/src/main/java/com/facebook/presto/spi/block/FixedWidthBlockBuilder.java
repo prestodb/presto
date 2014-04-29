@@ -19,8 +19,6 @@ import io.airlift.slice.Slice;
 import io.airlift.slice.SliceOutput;
 import io.airlift.slice.Slices;
 
-import static java.nio.charset.StandardCharsets.UTF_8;
-
 public class FixedWidthBlockBuilder
         extends AbstractFixedWidthBlock
         implements BlockBuilder
@@ -47,6 +45,7 @@ public class FixedWidthBlockBuilder
         this.sliceOutput = slice.getOutput();
     }
 
+    @Override
     protected Slice getRawSlice()
     {
         return sliceOutput.getUnderlyingSlice();
@@ -71,88 +70,46 @@ public class FixedWidthBlockBuilder
     }
 
     @Override
-    public int size()
+    public int getSizeInBytes()
     {
         return sliceOutput.size();
     }
 
     @Override
-    public BlockBuilder appendObject(Object value)
-    {
-        if (value == null) {
-            appendNull();
-        }
-        else if (value instanceof Boolean) {
-            append((Boolean) value);
-        }
-        else if (value instanceof Double || value instanceof Float) {
-            append(((Number) value).doubleValue());
-        }
-        else if (value instanceof Number) {
-            append(((Number) value).longValue());
-        }
-        else if (value instanceof byte[]) {
-            append(Slices.wrappedBuffer((byte[]) value));
-        }
-        else if (value instanceof String) {
-            append((String) value);
-        }
-        else if (value instanceof Slice) {
-            append((Slice) value);
-        }
-        else {
-            throw new IllegalArgumentException("Unsupported type: " + value.getClass());
-        }
-        return this;
-    }
-
-    @Override
-    public BlockBuilder append(boolean value)
+    public BlockBuilder appendBoolean(boolean value)
     {
         sliceOutput.writeByte(0);
-        type.setBoolean(sliceOutput, value);
+        type.writeBoolean(sliceOutput, value);
         entryAdded();
         return this;
     }
 
     @Override
-    public BlockBuilder append(long value)
+    public BlockBuilder appendLong(long value)
     {
         sliceOutput.writeByte(0);
-        type.setLong(sliceOutput, value);
+        type.writeLong(sliceOutput, value);
         entryAdded();
         return this;
     }
 
     @Override
-    public BlockBuilder append(double value)
+    public BlockBuilder appendDouble(double value)
     {
         sliceOutput.writeByte(0);
-        type.setDouble(sliceOutput, value);
+        type.writeDouble(sliceOutput, value);
         entryAdded();
         return this;
     }
 
     @Override
-    public BlockBuilder append(byte[] value)
+    public BlockBuilder appendSlice(Slice value)
     {
-        return append(Slices.wrappedBuffer(value));
+        return appendSlice(value, 0, value.length());
     }
 
     @Override
-    public BlockBuilder append(String value)
-    {
-        return append(Slices.copiedBuffer(value, UTF_8));
-    }
-
-    @Override
-    public BlockBuilder append(Slice value)
-    {
-        return append(value, 0, value.length());
-    }
-
-    @Override
-    public BlockBuilder append(Slice value, int offset, int length)
+    public BlockBuilder appendSlice(Slice value, int offset, int length)
     {
         if (length != type.getFixedSize()) {
             throw new IllegalArgumentException("length must be " + type.getFixedSize() + " but is " + length);
@@ -160,7 +117,7 @@ public class FixedWidthBlockBuilder
 
         sliceOutput.writeByte(0);
 
-        type.setSlice(sliceOutput, value, offset);
+        type.writeSlice(sliceOutput, value, offset);
 
         entryAdded();
 

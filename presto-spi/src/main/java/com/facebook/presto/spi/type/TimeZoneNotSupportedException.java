@@ -13,12 +13,12 @@
  */
 package com.facebook.presto.spi.type;
 
-public class TimeZoneNotSupported
+public class TimeZoneNotSupportedException
         extends RuntimeException
 {
     private final String zoneId;
 
-    public TimeZoneNotSupported(String zoneId)
+    public TimeZoneNotSupportedException(String zoneId)
     {
         super("Time zone " + zoneId + " is not supported");
         this.zoneId = zoneId;

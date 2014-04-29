@@ -168,7 +168,7 @@ public class CustomSum
         private Block getBlock(BlockBuilder out)
         {
             if (notNull) {
-                out.append(sum);
+                out.appendLong(sum);
             }
             else {
                 out.appendNull();
@@ -236,7 +236,7 @@ public class CustomSum
         {
             if (notNull.get((long) groupId)) {
                 long value = sums.get((long) groupId);
-                output.append(value);
+                output.appendLong(value);
             }
             else {
                 output.appendNull();

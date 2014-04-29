@@ -36,6 +36,8 @@ import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.Session;
 import com.facebook.presto.spi.StandardErrorCode;
 import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.spi.type.TypeManager;
+import com.facebook.presto.sql.gen.DefaultFunctionBinder;
 import com.facebook.presto.sql.gen.FunctionBinder;
 import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.type.BigintOperators;
@@ -73,6 +75,7 @@ import javax.annotation.concurrent.ThreadSafe;
 
 import java.lang.annotation.Annotation;
 import java.lang.invoke.MethodHandle;
+import java.lang.invoke.MethodHandles;
 import java.lang.reflect.AnnotatedElement;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Method;
@@ -134,15 +137,16 @@ import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.HyperLogLogType.HYPER_LOG_LOG;
-import static com.facebook.presto.spi.type.NullType.NULL;
 import static com.facebook.presto.spi.type.TimeType.TIME;
 import static com.facebook.presto.spi.type.TimeWithTimeZoneType.TIME_WITH_TIME_ZONE;
 import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
+import static com.facebook.presto.type.UnknownType.UNKNOWN;
 import static com.google.common.base.CaseFormat.LOWER_CAMEL;
 import static com.google.common.base.CaseFormat.LOWER_UNDERSCORE;
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 import static java.lang.String.format;
 import static java.lang.invoke.MethodHandles.lookup;
@@ -150,10 +154,15 @@ import static java.lang.invoke.MethodHandles.lookup;
 @ThreadSafe
 public class FunctionRegistry
 {
+    private static final String MAGIC_LITERAL_FUNCTION_PREFIX = "$literal$";
+
+    private final TypeManager typeManager;
     private volatile FunctionMap functions = new FunctionMap();
 
-    public FunctionRegistry(boolean experimentalSyntaxEnabled)
+    public FunctionRegistry(TypeManager typeManager, boolean experimentalSyntaxEnabled)
     {
+        this.typeManager = checkNotNull(typeManager, "typeManager is null");
+
         FunctionListBuilder builder = new FunctionListBuilder()
                 .window("row_number", BIGINT, ImmutableList.<Type>of(), supplier(RowNumberFunction.class))
                 .window("rank", BIGINT, ImmutableList.<Type>of(), supplier(RankFunction.class))
@@ -294,6 +303,33 @@ public class FunctionRegistry
             String expected = Joiner.on(", ").join(expectedParameters);
             message = format("Unexpected parameters (%s) for function %s. Expected: %s", parameters, name, expected);
         }
+
+        if (name.getSuffix().startsWith(MAGIC_LITERAL_FUNCTION_PREFIX)) {
+            // extract type from function name
+            String typeName = name.getSuffix().substring(MAGIC_LITERAL_FUNCTION_PREFIX.length());
+
+            // lookup the type
+            Type type = typeManager.getType(typeName);
+            checkArgument(type != null, "Type %s not registered", typeName);
+
+            // verify we have one parameter of the proper type
+            checkArgument(parameterTypes.size() == 1, "Expected one argument to literal function, but got %s", parameterTypes);
+            Type parameterType = parameterTypes.get(0);
+            checkArgument(parameterType.getJavaType() == type.getJavaType(),
+                    "Expected type %s to use Java type %s, but Java type is %s",
+                    type,
+                    parameterType.getJavaType(),
+                    type.getJavaType());
+
+            MethodHandle identity = MethodHandles.identity(parameterTypes.get(0).getJavaType());
+            return new FunctionInfo(
+                    new Signature(MAGIC_LITERAL_FUNCTION_PREFIX, type, ImmutableList.copyOf(parameterTypes), false),
+                    null,
+                    identity,
+                    true,
+                    new DefaultFunctionBinder(identity, false));
+        }
+
         throw new PrestoException(StandardErrorCode.FUNCTION_NOT_FOUND.toErrorCode(), message);
     }
 
@@ -336,6 +372,12 @@ public class FunctionRegistry
             }
         }
 
+        // if identity cast, return a custom operator info
+        if ((operatorType == OperatorType.CAST) && (argumentTypes.size() == 1) && argumentTypes.get(0).equals(returnType)) {
+            MethodHandle identity = MethodHandles.identity(returnType.getJavaType());
+            return new OperatorInfo(OperatorType.CAST, returnType, argumentTypes, identity, new DefaultFunctionBinder(identity, false));
+        }
+
         throw new OperatorNotFoundException(operatorType, argumentTypes, returnType);
     }
 
@@ -361,7 +403,7 @@ public class FunctionRegistry
             return true;
         }
         // null can be cast to anything
-        if (actualType.equals(NULL)) {
+        if (actualType.equals(UNKNOWN)) {
             return true;
         }
         // widen bigint to double
@@ -381,11 +423,11 @@ public class FunctionRegistry
 
     public static Optional<Type> getCommonSuperType(Type firstType, Type secondType)
     {
-        if (firstType.equals(NULL)) {
+        if (firstType.equals(UNKNOWN)) {
             return Optional.of(secondType);
         }
 
-        if (secondType.equals(NULL)) {
+        if (secondType.equals(UNKNOWN)) {
             return Optional.of(firstType);
         }
 
@@ -455,7 +497,7 @@ public class FunctionRegistry
         }
     }
 
-    private static Type type(Class<?> clazz)
+    public static Type type(Class<?> clazz)
     {
         clazz = Primitives.unwrap(clazz);
         if (clazz == long.class) {
@@ -470,7 +512,15 @@ public class FunctionRegistry
         if (clazz == boolean.class) {
             return BOOLEAN;
         }
-        throw new IllegalArgumentException("Unhandled type: " + clazz.getName());
+        throw new IllegalArgumentException("Unhandled Java type: " + clazz.getName());
+    }
+
+    public static Signature getMagicLiteralFunctionSignature(Type type)
+    {
+        return new Signature(MAGIC_LITERAL_FUNCTION_PREFIX + type.getName(),
+                type,
+                ImmutableList.of(type(type.getJavaType())),
+                false);
     }
 
     public static class FunctionListBuilder

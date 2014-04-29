@@ -46,6 +46,6 @@ public class CustomRank
         else {
             count++;
         }
-        output.append(rank);
+        output.appendLong(rank);
     }
 }

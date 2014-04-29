@@ -13,39 +13,53 @@
  */
 package com.facebook.presto.spi.block;
 
-import com.facebook.presto.spi.type.Type;
 import io.airlift.slice.Slice;
 
 public interface BlockBuilder
         extends RandomAccessBlock
 {
-    BlockBuilder append(boolean value);
+    /**
+     * Appends a boolean value to the block.
+     */
+    BlockBuilder appendBoolean(boolean value);
 
-    BlockBuilder append(long value);
+    /**
+     * Appends a long value to the block.
+     */
+    BlockBuilder appendLong(long value);
 
-    BlockBuilder append(double value);
+    /**
+     * Appends a double value to the block.
+     */
+    BlockBuilder appendDouble(double value);
 
-    BlockBuilder append(byte[] value);
+    /**
+     * Appends a Slice value to the block.
+     */
+    BlockBuilder appendSlice(Slice value);
 
-    BlockBuilder append(String value);
+    /**
+     * Appends a range of a Slice value to the block.
+     */
+    BlockBuilder appendSlice(Slice value, int offset, int length);
 
-    BlockBuilder append(Slice value);
-
-    BlockBuilder append(Slice value, int offset, int length);
-
+    /**
+     * Appends a null value to the block.
+     */
     BlockBuilder appendNull();
 
-    BlockBuilder appendObject(Object value);
-
+    /**
+     * Builds the block. This method can be called multiple times.
+     */
     RandomAccessBlock build();
 
-    int getPositionCount();
-
-    Type getType();
-
+    /**
+     * Have any values been added to the block?
+     */
     boolean isEmpty();
 
+    /**
+     * Is this block full? If true no more values should be added to the block.
+     */
     boolean isFull();
-
-    int size();
 }

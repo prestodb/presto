@@ -20,6 +20,7 @@ import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.ReadOnlyConnectorMetadata;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.SchemaTablePrefix;
+import com.facebook.presto.spi.Session;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -59,13 +60,13 @@ public class TpchMetadata
     }
 
     @Override
-    public List<String> listSchemaNames()
+    public List<String> listSchemaNames(Session session)
     {
         return ImmutableList.of(TINY_SCHEMA_NAME, "sf1", "sf100", "sf300", "sf1000", "sf3000", "sf10000", "sf30000", "sf100000");
     }
 
     @Override
-    public TpchTableHandle getTableHandle(SchemaTableName tableName)
+    public TpchTableHandle getTableHandle(Session session, SchemaTableName tableName)
     {
         checkNotNull(tableName, "tableName is null");
         if (!tableNames.contains(tableName.getTableName())) {
@@ -129,10 +130,10 @@ public class TpchMetadata
     }
 
     @Override
-    public Map<SchemaTableName, List<ColumnMetadata>> listTableColumns(SchemaTablePrefix prefix)
+    public Map<SchemaTableName, List<ColumnMetadata>> listTableColumns(Session session, SchemaTablePrefix prefix)
     {
         ImmutableMap.Builder<SchemaTableName, List<ColumnMetadata>> tableColumns = ImmutableMap.builder();
-        for (String schemaName : getSchemaNames(prefix.getSchemaName())) {
+        for (String schemaName : getSchemaNames(session, prefix.getSchemaName())) {
             for (TpchTable<?> tpchTable : TpchTable.getTables()) {
                 if (prefix.getTableName() == null || tpchTable.getTableName().equals(prefix.getTableName())) {
                     ConnectorTableMetadata tableMetadata = getTableMetadata(schemaName, tpchTable);
@@ -159,10 +160,10 @@ public class TpchMetadata
     }
 
     @Override
-    public List<SchemaTableName> listTables(String schemaNameOrNull)
+    public List<SchemaTableName> listTables(Session session, String schemaNameOrNull)
     {
         ImmutableList.Builder<SchemaTableName> builder = ImmutableList.builder();
-        for (String schemaName : getSchemaNames(schemaNameOrNull)) {
+        for (String schemaName : getSchemaNames(session, schemaNameOrNull)) {
             for (TpchTable<?> tpchTable : TpchTable.getTables()) {
                 builder.add(new SchemaTableName(schemaName, tpchTable.getTableName()));
             }
@@ -170,11 +171,11 @@ public class TpchMetadata
         return builder.build();
     }
 
-    private List<String> getSchemaNames(String schemaNameOrNull)
+    private List<String> getSchemaNames(Session session, String schemaNameOrNull)
     {
         List<String> schemaNames;
         if (schemaNameOrNull == null) {
-            schemaNames = listSchemaNames();
+            schemaNames = listSchemaNames(session);
         }
         else if (schemaNameToScaleFactor(schemaNameOrNull) > 0) {
             schemaNames = ImmutableList.of(schemaNameOrNull);

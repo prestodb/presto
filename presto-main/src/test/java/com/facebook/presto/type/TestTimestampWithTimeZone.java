@@ -39,6 +39,8 @@ public class TestTimestampWithTimeZone
 {
     private static final TimeZoneKey WEIRD_TIME_ZONE_KEY = getTimeZoneKeyForOffset(7 * 60 + 9);
     private static final DateTimeZone WEIRD_ZONE = getDateTimeZone(WEIRD_TIME_ZONE_KEY);
+    private static final TimeZoneKey BERLIN_TIME_ZONE_KEY = getTimeZoneKey("Europe/Berlin");
+    private static final DateTimeZone BERLIN_ZONE = getDateTimeZone(BERLIN_TIME_ZONE_KEY);
 
     private Session session;
     private FunctionAssertions functionAssertions;
@@ -62,10 +64,20 @@ public class TestTimestampWithTimeZone
         assertFunction("TIMESTAMP '2001-01-02 03:04:05 +07:09'", new SqlTimestampWithTimeZone(new DateTime(2001, 1, 2, 3, 4, 5, 0, WEIRD_ZONE).getMillis(), WEIRD_TIME_ZONE_KEY));
         assertFunction("TIMESTAMP '2001-01-02 03:04 +07:09'", new SqlTimestampWithTimeZone(new DateTime(2001, 1, 2, 3, 4, 0, 0, WEIRD_ZONE).getMillis(), WEIRD_TIME_ZONE_KEY));
         assertFunction("TIMESTAMP '2001-01-02 +07:09'", new SqlTimestampWithTimeZone(new DateTime(2001, 1, 2, 0, 0, 0, 0, WEIRD_ZONE).getMillis(), WEIRD_TIME_ZONE_KEY));
+
         assertFunction("TIMESTAMP '2001-1-2 3:4:5.321+07:09'", new SqlTimestampWithTimeZone(new DateTime(2001, 1, 2, 3, 4, 5, 321, WEIRD_ZONE).getMillis(), WEIRD_TIME_ZONE_KEY));
         assertFunction("TIMESTAMP '2001-1-2 3:4:5+07:09'", new SqlTimestampWithTimeZone(new DateTime(2001, 1, 2, 3, 4, 5, 0, WEIRD_ZONE).getMillis(), WEIRD_TIME_ZONE_KEY));
         assertFunction("TIMESTAMP '2001-1-2 3:4+07:09'", new SqlTimestampWithTimeZone(new DateTime(2001, 1, 2, 3, 4, 0, 0, WEIRD_ZONE).getMillis(), WEIRD_TIME_ZONE_KEY));
         assertFunction("TIMESTAMP '2001-1-2+07:09'", new SqlTimestampWithTimeZone(new DateTime(2001, 1, 2, 0, 0, 0, 0, WEIRD_ZONE).getMillis(), WEIRD_TIME_ZONE_KEY));
+
+        assertFunction("TIMESTAMP '2001-01-02 03:04:05.321 Europe/Berlin'",
+                new SqlTimestampWithTimeZone(new DateTime(2001, 1, 2, 3, 4, 5, 321, BERLIN_ZONE).getMillis(), BERLIN_TIME_ZONE_KEY));
+        assertFunction("TIMESTAMP '2001-01-02 03:04:05 Europe/Berlin'",
+                new SqlTimestampWithTimeZone(new DateTime(2001, 1, 2, 3, 4, 5, 0, BERLIN_ZONE).getMillis(), BERLIN_TIME_ZONE_KEY));
+        assertFunction("TIMESTAMP '2001-01-02 03:04 Europe/Berlin'",
+                new SqlTimestampWithTimeZone(new DateTime(2001, 1, 2, 3, 4, 0, 0, BERLIN_ZONE).getMillis(), BERLIN_TIME_ZONE_KEY));
+        assertFunction("TIMESTAMP '2001-01-02 Europe/Berlin'",
+                new SqlTimestampWithTimeZone(new DateTime(2001, 1, 2, 0, 0, 0, 0, BERLIN_ZONE).getMillis(), BERLIN_TIME_ZONE_KEY));
     }
 
     @Test

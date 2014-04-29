@@ -100,33 +100,33 @@ public class GroupByIdBlock
     }
 
     @Override
-    public boolean equals(int position, RandomAccessBlock right, int rightPosition)
+    public boolean equalTo(int position, RandomAccessBlock otherBlock, int otherPosition)
     {
-        return block.equals(position, right, rightPosition);
+        return block.equalTo(position, otherBlock, otherPosition);
     }
 
     @Override
-    public boolean equals(int position, BlockCursor cursor)
+    public boolean equalTo(int position, BlockCursor cursor)
     {
-        return block.equals(position, cursor);
+        return block.equalTo(position, cursor);
     }
 
     @Override
-    public boolean equals(int position, Slice slice, int offset)
+    public boolean equalTo(int position, Slice otherSlice, int otherOffset)
     {
-        return block.equals(position, slice, offset);
+        return block.equalTo(position, otherSlice, otherOffset);
     }
 
     @Override
-    public int hashCode(int position)
+    public int hash(int position)
     {
-        return block.hashCode(position);
+        return block.hash(position);
     }
 
     @Override
-    public int compareTo(SortOrder sortOrder, int position, RandomAccessBlock right, int rightPosition)
+    public int compareTo(SortOrder sortOrder, int position, RandomAccessBlock otherBlock, int otherPosition)
     {
-        return block.compareTo(sortOrder, position, right, rightPosition);
+        return block.compareTo(sortOrder, position, otherBlock, otherPosition);
     }
 
     @Override
@@ -136,9 +136,9 @@ public class GroupByIdBlock
     }
 
     @Override
-    public int compareTo(int position, Slice slice, int offset)
+    public int compareTo(int position, Slice otherSlice, int otherOffset)
     {
-        return block.compareTo(position, slice, offset);
+        return block.compareTo(position, otherSlice, otherOffset);
     }
 
     @Override

@@ -43,7 +43,6 @@ import com.facebook.presto.spi.block.BlockCursor;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.split.DataStreamProvider;
 import com.facebook.presto.sql.analyzer.ExpressionAnalysis;
-import com.facebook.presto.sql.analyzer.SemanticException;
 import com.facebook.presto.sql.gen.ExpressionCompiler;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.InterpretedFilterFunction;
@@ -152,9 +151,10 @@ public final class FunctionAssertions
     private static final DataStreamProvider DATA_STREAM_PROVIDER = new TestDataStreamProvider();
     private static final PlanNodeId SOURCE_ID = new PlanNodeId("scan");
 
-    private final MetadataManager metadataManager = new MetadataManager();
-    private final ExpressionCompiler compiler = new ExpressionCompiler(metadataManager);
     private final Session session;
+    private final LocalQueryRunner runner;
+    private final MetadataManager metadataManager;
+    private final ExpressionCompiler compiler;
 
     public FunctionAssertions()
     {
@@ -163,7 +163,10 @@ public final class FunctionAssertions
 
     public FunctionAssertions(Session session)
     {
-        this.session = session;
+        this.session = checkNotNull(session, "session is null");
+        runner = new LocalQueryRunner(session, EXECUTOR);
+        metadataManager = runner.getMetadata();
+        compiler = new ExpressionCompiler(metadataManager);
     }
 
     public FunctionAssertions addFunctions(List<FunctionInfo> functionInfos)
@@ -222,17 +225,11 @@ public final class FunctionAssertions
         //
         // If the projection does not need bound values, execute query using full engine
         if (!needsBoundValue(projectionExpression)) {
-            try {
-                LocalQueryRunner runner = new LocalQueryRunner(session, EXECUTOR);
-                MaterializedResult result = runner.execute("SELECT " + projection + " FROM dual");
-                assertEquals(result.getTypes().size(), 1);
-                assertEquals(result.getMaterializedRows().size(), 1);
-                Object queryResult = Iterables.getOnlyElement(result.getMaterializedRows()).getField(0);
-                results.add(queryResult);
-            }
-            catch (RuntimeException e) {
-                // todo remove this when analyzer supports null types and full numeric type promotion
-            }
+            MaterializedResult result = runner.execute("SELECT " + projection + " FROM dual");
+            assertEquals(result.getTypes().size(), 1);
+            assertEquals(result.getMaterializedRows().size(), 1);
+            Object queryResult = Iterables.getOnlyElement(result.getMaterializedRows()).getField(0);
+            results.add(queryResult);
         }
 
         // execute as standalone operator
@@ -256,17 +253,11 @@ public final class FunctionAssertions
         //
         // If the projection does not need bound values, execute query using full engine
         if (!needsBoundValue(projectionExpression)) {
-            try {
-                LocalQueryRunner runner = new LocalQueryRunner(session, EXECUTOR);
-                MaterializedResult result = runner.execute("SELECT " + projection + " FROM dual");
-                assertEquals(result.getTypes().size(), 1);
-                assertEquals(result.getMaterializedRows().size(), 1);
-                Object queryResult = Iterables.getOnlyElement(result.getMaterializedRows()).getField(0);
-                results.add(queryResult);
-            }
-            catch (RuntimeException e) {
-                // todo remove this when analyzer supports null types and full numeric type promotion
-            }
+            MaterializedResult result = runner.execute("SELECT " + projection + " FROM dual");
+            assertEquals(result.getTypes().size(), 1);
+            assertEquals(result.getMaterializedRows().size(), 1);
+            Object queryResult = Iterables.getOnlyElement(result.getMaterializedRows()).getField(0);
+            results.add(queryResult);
         }
 
         return results;
@@ -352,24 +343,18 @@ public final class FunctionAssertions
         //
         // If the filter does not need bound values, execute query using full engine
         if (!needsBoundValue(filterExpression)) {
-            try {
-                LocalQueryRunner runner = new LocalQueryRunner(session, EXECUTOR);
-                MaterializedResult result = runner.execute("SELECT TRUE FROM dual WHERE " + filter);
-                assertEquals(result.getTypes().size(), 1);
+            MaterializedResult result = runner.execute("SELECT TRUE FROM dual WHERE " + filter);
+            assertEquals(result.getTypes().size(), 1);
 
-                Boolean queryResult;
-                if (result.getMaterializedRows().isEmpty()) {
-                    queryResult = false;
-                }
-                else {
-                    assertEquals(result.getMaterializedRows().size(), 1);
-                    queryResult = (Boolean) Iterables.getOnlyElement(result.getMaterializedRows()).getField(0);
-                }
-                results.add(queryResult);
+            Boolean queryResult;
+            if (result.getMaterializedRows().isEmpty()) {
+                queryResult = false;
             }
-            catch (SemanticException e) {
-                // todo remove this when analyzer supports null types and full numeric type promotion
+            else {
+                assertEquals(result.getMaterializedRows().size(), 1);
+                queryResult = (Boolean) Iterables.getOnlyElement(result.getMaterializedRows()).getField(0);
             }
+            results.add(queryResult);
         }
 
         return results;

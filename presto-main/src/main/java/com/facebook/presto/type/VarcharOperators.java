@@ -137,12 +137,6 @@ public final class VarcharOperators
         }
     }
 
-    @ScalarOperator(CAST)
-    public static Slice castToVarchar(Slice value)
-    {
-        return value;
-    }
-
     @ScalarOperator(HASH_CODE)
     public static int hashCode(Slice value)
     {

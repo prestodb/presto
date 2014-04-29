@@ -22,6 +22,7 @@ import com.facebook.presto.connector.system.SystemTableHandle;
 import com.facebook.presto.spi.ConnectorHandleResolver;
 import com.facebook.presto.spi.ConnectorTableHandle;
 import com.facebook.presto.spi.SchemaTableName;
+import com.facebook.presto.spi.Session;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableMap;
@@ -37,14 +38,18 @@ import io.airlift.testing.Assertions;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
+import java.util.Locale;
 import java.util.Map;
 
+import static com.facebook.presto.spi.type.TimeZoneKey.UTC_KEY;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
 
 @Test(singleThreaded = true)
 public class TestJsonTableHandle
 {
+    private static final Session SESSION = new Session("user", "test", "default", "default", UTC_KEY, Locale.ENGLISH, null, null);
+
     private static final Map<String, Object> NATIVE_AS_MAP = ImmutableMap.<String, Object>of("type", "native",
             "schemaName", "native_schema",
             "tableName", "native_table",
@@ -61,10 +66,21 @@ public class TestJsonTableHandle
     private static final Map<String, Object> DUAL_AS_MAP = ImmutableMap.<String, Object>of("type", "dual",
             "schemaName", "dual_schema");
 
-    private static final Map<String, Object> INFORMATION_SCHEMA_AS_MAP = ImmutableMap.<String, Object>of("type", "information_schema",
+    private static final Map<String, Object> INFORMATION_SCHEMA_AS_MAP = ImmutableMap.<String, Object>of(
+            "type", "information_schema",
+            "session", ImmutableMap.<String, Object>builder()
+                    .put("user", SESSION.getUser())
+                    .put("source", SESSION.getSource())
+                    .put("catalog", SESSION.getCatalog())
+                    .put("schema", SESSION.getSchema())
+                    .put("timeZoneKey", (int) SESSION.getTimeZoneKey().getTimeZoneKey())
+                    .put("locale", SESSION.getLocale().toString())
+                    .put("startTime", SESSION.getStartTime())
+                    .build(),
             "catalogName", "information_schema_catalog",
             "schemaName", "information_schema_schema",
-            "tableName", "information_schema_table");
+            "tableName", "information_schema_table"
+    );
 
     private ObjectMapper objectMapper;
 
@@ -128,6 +144,7 @@ public class TestJsonTableHandle
             throws Exception
     {
         InformationSchemaTableHandle informationSchemaTableHandle = new InformationSchemaTableHandle(
+                SESSION,
                 "information_schema_catalog",
                 "information_schema_schema",
                 "information_schema_table");

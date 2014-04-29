@@ -21,6 +21,7 @@ import com.google.common.base.Function;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.common.util.concurrent.ListenableFuture;
+import io.airlift.slice.Slices;
 
 import java.util.List;
 
@@ -228,8 +229,8 @@ public class TableWriterOperator
         String fragment = recordSink.commit();
 
         PageBuilder page = new PageBuilder(TYPES);
-        page.getBlockBuilder(0).append(rowCount);
-        page.getBlockBuilder(1).append(fragment);
+        page.getBlockBuilder(0).appendLong(rowCount);
+        page.getBlockBuilder(1).appendSlice(Slices.utf8Slice(fragment));
         return page.build();
     }
 }

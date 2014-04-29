@@ -248,6 +248,33 @@ public class TestUnixTimeFunctions
         assertFunction("extract(month FROM " + DATE_LITERAL + ")", 8);
         assertFunction("extract(quarter FROM " + DATE_LITERAL + ")", 3);
         assertFunction("extract(year FROM " + DATE_LITERAL + ")", 2001);
+
+        assertFunction("extract(quarter FROM DATE '2001-01-01')", 1);
+        assertFunction("extract(quarter FROM DATE '2001-03-31')", 1);
+        assertFunction("extract(quarter FROM DATE '2001-04-01')", 2);
+        assertFunction("extract(quarter FROM DATE '2001-06-30')", 2);
+        assertFunction("extract(quarter FROM DATE '2001-07-01')", 3);
+        assertFunction("extract(quarter FROM DATE '2001-09-30')", 3);
+        assertFunction("extract(quarter FROM DATE '2001-10-01')", 4);
+        assertFunction("extract(quarter FROM DATE '2001-12-31')", 4);
+
+        assertFunction("extract(quarter FROM TIMESTAMP '2001-01-01 00:00:00.000')", 1);
+        assertFunction("extract(quarter FROM TIMESTAMP '2001-03-31 23:59:59.999')", 1);
+        assertFunction("extract(quarter FROM TIMESTAMP '2001-04-01 00:00:00.000')", 2);
+        assertFunction("extract(quarter FROM TIMESTAMP '2001-06-30 23:59:59.999')", 2);
+        assertFunction("extract(quarter FROM TIMESTAMP '2001-07-01 00:00:00.000')", 3);
+        assertFunction("extract(quarter FROM TIMESTAMP '2001-09-30 23:59:59.999')", 3);
+        assertFunction("extract(quarter FROM TIMESTAMP '2001-10-01 00:00:00.000')", 4);
+        assertFunction("extract(quarter FROM TIMESTAMP '2001-12-31 23:59:59.999')", 4);
+
+        assertFunction("extract(quarter FROM TIMESTAMP '2001-01-01 00:00:00.000 +06:00')", 1);
+        assertFunction("extract(quarter FROM TIMESTAMP '2001-03-31 23:59:59.999 +06:00')", 1);
+        assertFunction("extract(quarter FROM TIMESTAMP '2001-04-01 00:00:00.000 +06:00')", 2);
+        assertFunction("extract(quarter FROM TIMESTAMP '2001-06-30 23:59:59.999 +06:00')", 2);
+        assertFunction("extract(quarter FROM TIMESTAMP '2001-07-01 00:00:00.000 +06:00')", 3);
+        assertFunction("extract(quarter FROM TIMESTAMP '2001-09-30 23:59:59.999 +06:00')", 3);
+        assertFunction("extract(quarter FROM TIMESTAMP '2001-10-01 00:00:00.000 +06:00')", 4);
+        assertFunction("extract(quarter FROM TIMESTAMP '2001-12-31 23:59:59.999 +06:00')", 4);
     }
 
     @Test

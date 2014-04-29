@@ -159,7 +159,7 @@ public class HandTpchQuery6
                 pageBuilder.getBlockBuilder(0).appendNull();
             }
             else {
-                pageBuilder.getBlockBuilder(0).append(extendedPriceCursor.getDouble() * discountCursor.getDouble());
+                pageBuilder.getBlockBuilder(0).appendDouble(extendedPriceCursor.getDouble() * discountCursor.getDouble());
             }
         }
 

@@ -224,7 +224,7 @@ public class ApproximatePercentileAggregation
                 sliceOutput.appendDouble(currentValue.getPercentile());
 
                 Slice slice = sliceOutput.slice();
-                output.append(slice);
+                output.appendSlice(slice);
             }
         }
 
@@ -357,7 +357,7 @@ public class ApproximatePercentileAggregation
                 sliceOutput.appendDouble(percentile);
 
                 Slice slice = sliceOutput.slice();
-                out.append(slice);
+                out.appendSlice(slice);
             }
 
             return out.build();
@@ -412,10 +412,10 @@ public class ApproximatePercentileAggregation
             long value = digest.getQuantile(percentile);
 
             if (parameterType == BIGINT) {
-                out.append(value);
+                out.appendLong(value);
             }
             else if (parameterType == DOUBLE) {
-                out.append(longToDouble(value));
+                out.appendDouble(longToDouble(value));
             }
             else {
                 throw new IllegalArgumentException("Expected parameter type to be BIGINT or DOUBLE");

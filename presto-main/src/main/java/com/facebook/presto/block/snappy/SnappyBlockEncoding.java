@@ -15,6 +15,7 @@ package com.facebook.presto.block.snappy;
 
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockEncoding;
+import com.facebook.presto.spi.block.BlockEncodingFactory;
 import com.facebook.presto.spi.block.BlockEncodingSerde;
 import com.facebook.presto.serde.TypeSerde;
 import com.facebook.presto.spi.type.Type;

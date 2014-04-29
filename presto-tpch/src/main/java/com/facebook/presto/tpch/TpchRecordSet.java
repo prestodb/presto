@@ -16,10 +16,11 @@ package com.facebook.presto.tpch;
 import com.facebook.presto.spi.RecordCursor;
 import com.facebook.presto.spi.RecordSet;
 import com.facebook.presto.spi.type.Type;
-import com.google.common.base.Charsets;
 import com.google.common.base.Function;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
+import io.airlift.slice.Slice;
+import io.airlift.slice.Slices;
 import io.airlift.tpch.TpchColumn;
 import io.airlift.tpch.TpchEntity;
 import io.airlift.tpch.TpchTable;
@@ -147,10 +148,10 @@ public class TpchRecordSet<E extends TpchEntity>
         }
 
         @Override
-        public byte[] getString(int field)
+        public Slice getSlice(int field)
         {
             checkState(row != null, "No current row");
-            return getTpchColumn(field).getString(row).getBytes(Charsets.UTF_8);
+            return Slices.utf8Slice(getTpchColumn(field).getString(row));
         }
 
         @Override

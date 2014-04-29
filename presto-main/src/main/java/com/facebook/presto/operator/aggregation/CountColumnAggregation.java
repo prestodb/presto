@@ -107,7 +107,7 @@ public class CountColumnAggregation
         public void evaluateFinal(int groupId, BlockBuilder output)
         {
             long value = counts.get((long) groupId);
-            output.append(value);
+            output.appendLong(value);
         }
     }
 
@@ -166,7 +166,7 @@ public class CountColumnAggregation
         @Override
         public void evaluateFinal(BlockBuilder out)
         {
-            out.append(count);
+            out.appendLong(count);
         }
     }
 }

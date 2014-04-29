@@ -706,25 +706,25 @@ public class ExpressionCompiler
         if (projectionType.getJavaType() == boolean.class) {
             notNullBlock
                     .comment("output.append(<booleanStackValue>);")
-                    .invokeInterface(BlockBuilder.class, "append", BlockBuilder.class, boolean.class)
+                    .invokeInterface(BlockBuilder.class, "appendBoolean", BlockBuilder.class, boolean.class)
                     .pop();
         }
         else if (projectionType.getJavaType() == long.class) {
             notNullBlock
                     .comment("output.append(<longStackValue>);")
-                    .invokeInterface(BlockBuilder.class, "append", BlockBuilder.class, long.class)
+                    .invokeInterface(BlockBuilder.class, "appendLong", BlockBuilder.class, long.class)
                     .pop();
         }
         else if (projectionType.getJavaType() == double.class) {
             notNullBlock
                     .comment("output.append(<doubleStackValue>);")
-                    .invokeInterface(BlockBuilder.class, "append", BlockBuilder.class, double.class)
+                    .invokeInterface(BlockBuilder.class, "appendDouble", BlockBuilder.class, double.class)
                     .pop();
         }
         else if (projectionType.getJavaType() == Slice.class) {
             notNullBlock
                     .comment("output.append(<sliceStackValue>);")
-                    .invokeInterface(BlockBuilder.class, "append", BlockBuilder.class, Slice.class)
+                    .invokeInterface(BlockBuilder.class, "appendSlice", BlockBuilder.class, Slice.class)
                     .pop();
         }
         else {

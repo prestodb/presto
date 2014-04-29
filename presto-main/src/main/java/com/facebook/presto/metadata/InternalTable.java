@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.metadata;
 
+import com.facebook.presto.block.BlockUtils;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.block.BlockIterable;
 import com.facebook.presto.operator.Page;
@@ -106,7 +107,7 @@ public class InternalTable
         public Builder add(Object... values)
         {
             for (int i = 0; i < types.size(); i++) {
-                pageBuilder.getBlockBuilder(i).appendObject(values[i]);
+                BlockUtils.appendObject(pageBuilder.getBlockBuilder(i), values[i]);
             }
 
             if (pageBuilder.isFull()) {

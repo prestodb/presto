@@ -17,6 +17,8 @@ import com.facebook.presto.hive.util.SerDeUtils;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.base.Charsets;
 import com.google.common.base.Throwables;
+import io.airlift.slice.Slice;
+import io.airlift.slice.Slices;
 import org.apache.hadoop.hive.metastore.api.MetaException;
 import org.apache.hadoop.hive.serde2.SerDeException;
 import org.apache.hadoop.hive.serde2.columnar.BytesRefArrayWritable;
@@ -29,6 +31,7 @@ import org.apache.hadoop.hive.serde2.objectinspector.ObjectInspector;
 import org.apache.hadoop.hive.serde2.objectinspector.StructObjectInspector;
 import org.apache.hadoop.io.WritableUtils;
 import org.apache.hadoop.mapred.RecordReader;
+import org.joda.time.DateTimeZone;
 import sun.misc.Unsafe;
 
 import java.io.IOException;
@@ -61,6 +64,7 @@ class ColumnarBinaryHiveRecordCursor<K>
         extends HiveRecordCursor
 {
     private final RecordReader<K, BytesRefArrayWritable> recordReader;
+    private final DateTimeZone sessionTimeZone;
     private final K key;
     private final BytesRefArrayWritable value;
 
@@ -79,7 +83,7 @@ class ColumnarBinaryHiveRecordCursor<K>
     private final boolean[] booleans;
     private final long[] longs;
     private final double[] doubles;
-    private final byte[][] strings;
+    private final Slice[] slices;
     private final boolean[] nulls;
 
     private final long totalBytes;
@@ -89,7 +93,6 @@ class ColumnarBinaryHiveRecordCursor<K>
     private static final Unsafe unsafe;
 
     private static final byte HIVE_EMPTY_STRING_BYTE = (byte) 0xbf;
-    private static final byte[] EMPTY_STRING = new byte[0];
 
     private static final int SIZE_OF_SHORT = 2;
     private static final int SIZE_OF_INT = 4;
@@ -121,7 +124,8 @@ class ColumnarBinaryHiveRecordCursor<K>
             long totalBytes,
             Properties splitSchema,
             List<HivePartitionKey> partitionKeys,
-            List<HiveColumnHandle> columns)
+            List<HiveColumnHandle> columns,
+            DateTimeZone sessionTimeZone)
     {
         checkNotNull(recordReader, "recordReader is null");
         checkArgument(totalBytes >= 0, "totalBytes is negative");
@@ -129,11 +133,13 @@ class ColumnarBinaryHiveRecordCursor<K>
         checkNotNull(partitionKeys, "partitionKeys is null");
         checkNotNull(columns, "columns is null");
         checkArgument(!columns.isEmpty(), "columns is empty");
+        checkNotNull(sessionTimeZone, "sessionTimeZone is null");
 
         this.recordReader = recordReader;
         this.totalBytes = totalBytes;
         this.key = recordReader.createKey();
         this.value = recordReader.createValue();
+        this.sessionTimeZone = sessionTimeZone;
 
         int size = columns.size();
 
@@ -151,7 +157,7 @@ class ColumnarBinaryHiveRecordCursor<K>
         this.booleans = new boolean[size];
         this.longs = new long[size];
         this.doubles = new double[size];
-        this.strings = new byte[size][];
+        this.slices = new Slice[size];
         this.nulls = new boolean[size];
 
         // initialize data columns
@@ -213,7 +219,7 @@ class ColumnarBinaryHiveRecordCursor<K>
                     doubles[columnIndex] = parseDouble(bytes, 0, bytes.length);
                 }
                 else if (VARCHAR.equals(type)) {
-                    strings[columnIndex] = Arrays.copyOf(bytes, bytes.length);
+                    slices[columnIndex] = Slices.wrappedBuffer(bytes);
                 }
                 else {
                     throw new UnsupportedOperationException("Unsupported column type: " + type);
@@ -499,7 +505,7 @@ class ColumnarBinaryHiveRecordCursor<K>
     }
 
     @Override
-    public byte[] getString(int fieldId)
+    public Slice getSlice(int fieldId)
     {
         checkState(!closed, "Cursor is closed");
 
@@ -507,7 +513,7 @@ class ColumnarBinaryHiveRecordCursor<K>
         if (!loaded[fieldId]) {
             parseStringColumn(fieldId);
         }
-        return strings[fieldId];
+        return slices[fieldId];
     }
 
     private void parseStringColumn(int column)
@@ -555,15 +561,15 @@ class ColumnarBinaryHiveRecordCursor<K>
                 ByteArrayRef byteArrayRef = new ByteArrayRef();
                 byteArrayRef.setData(bytes);
                 lazyObject.init(byteArrayRef, start, length);
-                strings[column] = SerDeUtils.getJsonBytes(lazyObject.getObject(), fieldInspectors[column]);
+                slices[column] = Slices.wrappedBuffer(SerDeUtils.getJsonBytes(sessionTimeZone, lazyObject.getObject(), fieldInspectors[column]));
             }
             else {
                 // TODO: zero length BINARY is not supported. See https://issues.apache.org/jira/browse/HIVE-2483
                 if (hiveTypes[column] == HiveType.STRING && (length == 1) && bytes[start] == HIVE_EMPTY_STRING_BYTE) {
-                    strings[column] = EMPTY_STRING;
+                    slices[column] = Slices.EMPTY_SLICE;
                 }
                 else {
-                    strings[column] = Arrays.copyOfRange(bytes, start, start + length);
+                    slices[column] = Slices.wrappedBuffer(Arrays.copyOfRange(bytes, start, start + length));
                 }
             }
         }

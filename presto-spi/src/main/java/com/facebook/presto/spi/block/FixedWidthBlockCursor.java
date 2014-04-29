@@ -156,9 +156,7 @@ public class FixedWidthBlockCursor
     {
         checkReadablePosition();
 
-        // TODO: add Slices.copyOf() to airlift
-        Slice copy = Slices.allocate(entrySize);
-        copy.setBytes(0, slice, offset, entrySize);
+        Slice copy = Slices.copyOf(slice, offset, entrySize);
 
         return new FixedWidthBlock(type, 1, copy);
     }
@@ -209,19 +207,19 @@ public class FixedWidthBlockCursor
     }
 
     @Override
-    public int compareTo(Slice rightSlice, int rightOffset)
+    public int compareTo(Slice otherSlice, int otherOffset)
     {
         checkReadablePosition();
-        return type.compareTo(slice, valueOffset(), rightSlice, rightOffset);
+        return type.compareTo(slice, valueOffset(), otherSlice, otherOffset);
     }
 
     @Override
-    public int calculateHashCode()
+    public int hash()
     {
         if (isNull()) {
             return 0;
         }
-        return type.hashCode(slice, valueOffset());
+        return type.hash(slice, valueOffset());
     }
 
     @Override

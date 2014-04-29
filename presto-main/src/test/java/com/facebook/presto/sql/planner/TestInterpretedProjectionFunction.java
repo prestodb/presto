@@ -14,6 +14,7 @@
 package com.facebook.presto.sql.planner;
 
 import com.facebook.presto.block.BlockAssertions;
+import com.facebook.presto.block.BlockUtils;
 import com.facebook.presto.spi.Session;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
@@ -186,7 +187,9 @@ public class TestInterpretedProjectionFunction
 
     private static BlockCursor createCursor(Type type, Object value)
     {
-        BlockCursor cursor = type.createBlockBuilder(new BlockBuilderStatus()).appendObject(value).build().cursor();
+        BlockBuilder blockBuilder = type.createBlockBuilder(new BlockBuilderStatus());
+        BlockUtils.appendObject(blockBuilder, value);
+        BlockCursor cursor = blockBuilder.build().cursor();
         assertTrue(cursor.advanceNextPosition());
         return cursor;
     }

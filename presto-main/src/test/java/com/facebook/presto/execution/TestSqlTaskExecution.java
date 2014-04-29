@@ -84,6 +84,7 @@ import static org.testng.Assert.assertTrue;
 @Test(singleThreaded = true)
 public class TestSqlTaskExecution
 {
+    private static final Session SESSION = new Session("user", "test", "default", "default", UTC_KEY, Locale.ENGLISH, null, null);
     private TaskExecutor taskExecutor;
     private ConnectorSplit split;
     private ExecutorService taskNotificationExecutor;
@@ -96,7 +97,7 @@ public class TestSqlTaskExecution
             throws Exception
     {
         DualMetadata dualMetadata = new DualMetadata();
-        TableHandle tableHandle = new TableHandle(DualConnector.CONNECTOR_ID, dualMetadata.getTableHandle(new SchemaTableName("default", DualMetadata.NAME)));
+        TableHandle tableHandle = new TableHandle(DualConnector.CONNECTOR_ID, dualMetadata.getTableHandle(SESSION, new SchemaTableName("default", DualMetadata.NAME)));
         assertNotNull(tableHandle, "tableHandle is null");
 
         ColumnHandle columnHandle = new ColumnHandle(DualConnector.CONNECTOR_ID, dualMetadata.getColumnHandle(tableHandle.getConnectorHandle(), DualMetadata.COLUMN_NAME));

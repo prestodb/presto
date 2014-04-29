@@ -161,7 +161,7 @@ public class ApproximateCountAggregation
         @Override
         public void evaluateIntermediate(int groupId, BlockBuilder output)
         {
-            output.append(createIntermediate(counts.get(groupId), samples.get(groupId)));
+            output.appendSlice(createIntermediate(counts.get(groupId), samples.get(groupId)));
         }
 
         @Override
@@ -169,7 +169,8 @@ public class ApproximateCountAggregation
         {
             long count = counts.get(groupId);
             long samples = this.samples.get(groupId);
-            output.append(formatApproximateResult(count, countError(samples, count), confidence, true));
+            String result = formatApproximateResult(count, countError(samples, count), confidence, true);
+            output.appendSlice(Slices.utf8Slice(result));
         }
     }
 
@@ -250,14 +251,15 @@ public class ApproximateCountAggregation
         @Override
         public final Block evaluateIntermediate()
         {
-            return VARCHAR.createBlockBuilder(new BlockBuilderStatus()).append(createIntermediate(count, samples)).build();
+            return VARCHAR.createBlockBuilder(new BlockBuilderStatus()).appendSlice(createIntermediate(count, samples)).build();
         }
 
         @Override
         public final Block evaluateFinal()
         {
+            String result = formatApproximateResult(count, countError(samples, count), confidence, true);
             return getFinalType().createBlockBuilder(new BlockBuilderStatus())
-                    .append(formatApproximateResult(count, countError(samples, count), confidence, true))
+                    .appendSlice(Slices.utf8Slice(result))
                     .build();
         }
     }

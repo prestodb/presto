@@ -20,6 +20,7 @@ import com.facebook.presto.spi.type.Type;
 import com.google.common.base.Joiner;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
+import io.airlift.slice.Slices;
 
 import java.io.IOException;
 import java.util.List;
@@ -62,7 +63,7 @@ public class NativeRecordSink
         checkState(field == -1, "already in record");
         field = 0;
         if (sampleWeightField >= 0) {
-            pageBuilder.getBlockBuilder(sampleWeightField).append(sampleWeight);
+            pageBuilder.getBlockBuilder(sampleWeightField).appendLong(sampleWeight);
         }
     }
 
@@ -93,25 +94,25 @@ public class NativeRecordSink
     @Override
     public void appendBoolean(boolean value)
     {
-        nextColumn().append(value);
+        nextColumn().appendBoolean(value);
     }
 
     @Override
     public void appendLong(long value)
     {
-        nextColumn().append(value);
+        nextColumn().appendLong(value);
     }
 
     @Override
     public void appendDouble(double value)
     {
-        nextColumn().append(value);
+        nextColumn().appendDouble(value);
     }
 
     @Override
     public void appendString(byte[] value)
     {
-        nextColumn().append(value);
+        nextColumn().appendSlice(Slices.wrappedBuffer(value));
     }
 
     @Override

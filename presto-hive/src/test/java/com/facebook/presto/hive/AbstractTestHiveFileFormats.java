@@ -18,11 +18,12 @@ import com.facebook.presto.spi.type.TimestampType;
 import com.facebook.presto.spi.type.Type;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.google.common.base.Charsets;
 import com.google.common.base.Function;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import io.airlift.slice.Slice;
+import io.airlift.slice.Slices;
 import org.apache.commons.lang3.tuple.Pair;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
@@ -41,6 +42,7 @@ import org.apache.hadoop.mapred.FileSplit;
 import org.apache.hadoop.mapred.JobConf;
 import org.apache.hadoop.util.Progressable;
 import org.joda.time.DateTime;
+import org.joda.time.format.DateTimeFormat;
 import org.testng.annotations.Test;
 
 import java.io.File;
@@ -167,13 +169,14 @@ public abstract class AbstractTestHiveFileFormats
     protected static final String COLUMN_NAMES_STRING = Joiner.on(",").join(COLUMN_NAMES);
 
     public static final long TIMESTAMP = new DateTime(2011, 5, 6, 7, 8, 9, 123).getMillis();
+    public static final String TIMESTAMP_STRING = DateTimeFormat.forPattern("yyyy-MM-dd HH:mm:ss.SSS").print(TIMESTAMP);
 
     // Pairs of <value-to-write-to-Hive, value-expected-from-Presto>
     @SuppressWarnings("unchecked")
     private static final List<Pair<Object, Object>>  TEST_VALUES = ImmutableList.of(
                 Pair.<Object, Object>of(null, null),
-                Pair.<Object, Object>of("", new byte[0]),
-                Pair.<Object, Object>of("test", "test".getBytes(Charsets.UTF_8)),
+                Pair.<Object, Object>of("", Slices.EMPTY_SLICE),
+                Pair.<Object, Object>of("test", Slices.utf8Slice("test")),
                 Pair.<Object, Object>of((byte) 1, 1L),
                 Pair.<Object, Object>of((short) 2, 2L),
                 Pair.<Object, Object>of(3, 3L),
@@ -182,7 +185,7 @@ public abstract class AbstractTestHiveFileFormats
                 Pair.<Object, Object>of(6.2, 6.2),
                 Pair.<Object, Object>of(true, true),
                 Pair.<Object, Object>of(new Timestamp(TIMESTAMP), TIMESTAMP),
-                Pair.<Object, Object>of("test2".getBytes(Charsets.UTF_8), "test2".getBytes(Charsets.UTF_8)),
+                Pair.<Object, Object>of(Slices.utf8Slice("test2"), Slices.utf8Slice("test2")),
                 Pair.<Object, Object>of(ImmutableMap.of("test", "test"), "{\"test\":\"test\"}"),
                 Pair.<Object, Object>of(ImmutableMap.of((byte) 1, (byte) 1), "{\"1\":1}"),
                 Pair.<Object, Object>of(ImmutableMap.of((short) 2, (short) 2), "{\"2\":2}"),
@@ -191,7 +194,7 @@ public abstract class AbstractTestHiveFileFormats
                 Pair.<Object, Object>of(ImmutableMap.of(5.0f, 5.0f), "{\"5.0\":5.0}"),
                 Pair.<Object, Object>of(ImmutableMap.of(6.0, 6.0), "{\"6.0\":6.0}"),
                 Pair.<Object, Object>of(ImmutableMap.of(true, true), "{\"true\":true}"),
-                Pair.<Object, Object>of(ImmutableMap.of(new Timestamp(TIMESTAMP), new Timestamp(TIMESTAMP)), String.format("{\"%d\":%d}", TIMESTAMP, TIMESTAMP)),
+                Pair.<Object, Object>of(ImmutableMap.of(new Timestamp(TIMESTAMP), new Timestamp(TIMESTAMP)), String.format("{\"%s\":\"%s\"}", TIMESTAMP_STRING, TIMESTAMP_STRING)),
                 Pair.<Object, Object>of(ImmutableList.of("test"), "[\"test\"]"),
                 Pair.<Object, Object>of(ImmutableList.of((byte) 1), "[1]"),
                 Pair.<Object, Object>of(ImmutableList.of((short) 2), "[2]"),
@@ -200,7 +203,7 @@ public abstract class AbstractTestHiveFileFormats
                 Pair.<Object, Object>of(ImmutableList.of(5.0f), "[5.0]"),
                 Pair.<Object, Object>of(ImmutableList.of(6.0), "[6.0]"),
                 Pair.<Object, Object>of(ImmutableList.of(true), "[true]"),
-                Pair.<Object, Object>of(ImmutableList.of(new Timestamp(TIMESTAMP)), String.format("[%d]", TIMESTAMP)),
+                Pair.<Object, Object>of(ImmutableList.of(new Timestamp(TIMESTAMP)), String.format("[\"%s\"]", TIMESTAMP_STRING)),
                 Pair.<Object, Object>of(ImmutableMap.of("test", ImmutableList.<Object>of(new Integer[] {1})), "{\"test\":[{\"s_int\":1}]}")
         );
 
@@ -253,7 +256,11 @@ public abstract class AbstractTestHiveFileFormats
 
             for (int rowNumber = 0; rowNumber < NUM_ROWS; rowNumber++) {
                 for (int i = 0; i < TEST_VALUES.size(); i++) {
-                    objectInspector.setStructFieldData(row, fields.get(i), TEST_VALUES.get(i).getKey());
+                    Object key = TEST_VALUES.get(i).getKey();
+                    if (key instanceof Slice) {
+                        key = ((Slice) key).getBytes();
+                    }
+                    objectInspector.setStructFieldData(row, fields.get(i), key);
                 }
 
                 Writable record = serDe.serialize(row, objectInspector);
@@ -290,7 +297,7 @@ public abstract class AbstractTestHiveFileFormats
                     fieldFromCursor = cursor.getDouble(i);
                 }
                 else if (VARCHAR.equals(type)) {
-                    fieldFromCursor = cursor.getString(i);
+                    fieldFromCursor = cursor.getSlice(i);
                 }
                 else if (TimestampType.TIMESTAMP.equals(type)) {
                     fieldFromCursor = cursor.getLong(i);
@@ -309,10 +316,8 @@ public abstract class AbstractTestHiveFileFormats
                 else {
                     ObjectMapper mapper = new ObjectMapper();
                     JsonNode expected = mapper.readTree((String) TEST_VALUES.get(i).getValue());
-                    JsonNode actual = mapper.readTree((byte[]) fieldFromCursor);
-                    if (!expected.equals(actual)) {
-                        assertEquals(actual, expected, String.format("Wrong value for column %s", COLUMN_NAMES.get(i)));
-                    }
+                    JsonNode actual = mapper.readTree(((Slice) fieldFromCursor).getBytes());
+                    assertEquals(actual, expected, String.format("Wrong value for column %s", COLUMN_NAMES.get(i)));
                 }
             }
         }

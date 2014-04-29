@@ -17,6 +17,7 @@ import com.facebook.presto.spi.RecordCursor;
 import com.facebook.presto.spi.RecordSet;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableList;
+import io.airlift.slice.Slice;
 
 import java.util.List;
 
@@ -119,9 +120,9 @@ public class MappedRecordSet
         }
 
         @Override
-        public byte[] getString(int field)
+        public Slice getSlice(int field)
         {
-            return delegate.getString(toDelegateField(field));
+            return delegate.getSlice(toDelegateField(field));
         }
 
         @Override

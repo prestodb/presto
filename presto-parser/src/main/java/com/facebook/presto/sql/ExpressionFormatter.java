@@ -44,6 +44,7 @@ import com.facebook.presto.sql.tree.Node;
 import com.facebook.presto.sql.tree.NotExpression;
 import com.facebook.presto.sql.tree.NullIfExpression;
 import com.facebook.presto.sql.tree.NullLiteral;
+import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.sql.tree.QualifiedNameReference;
 import com.facebook.presto.sql.tree.SearchedCaseExpression;
 import com.facebook.presto.sql.tree.SimpleCaseExpression;
@@ -213,8 +214,13 @@ public final class ExpressionFormatter
         @Override
         protected String visitQualifiedNameReference(QualifiedNameReference node, Void context)
         {
+            return formatQualifiedName(node.getName());
+        }
+
+        private static String formatQualifiedName(QualifiedName name)
+        {
             List<String> parts = new ArrayList<>();
-            for (String part : node.getName().getParts()) {
+            for (String part : name.getParts()) {
                 parts.add(formatIdentifier(part));
             }
             return Joiner.on('.').join(parts);
@@ -240,7 +246,7 @@ public final class ExpressionFormatter
                 arguments = "DISTINCT " + arguments;
             }
 
-            builder.append(node.getName())
+            builder.append(formatQualifiedName(node.getName()))
                     .append('(').append(arguments).append(')');
 
             if (node.getWindow().isPresent()) {

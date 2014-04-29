@@ -91,13 +91,6 @@ public final class TimeWithTimeZoneOperators
     }
 
     @ScalarOperator(CAST)
-    @SqlType(TimeWithTimeZoneType.class)
-    public static long castToTimeWithTimeZone(@SqlType(TimeWithTimeZoneType.class) long value)
-    {
-        return value;
-    }
-
-    @ScalarOperator(CAST)
     @SqlType(TimestampType.class)
     public static long castToTimestamp(@SqlType(TimeWithTimeZoneType.class) long value)
     {

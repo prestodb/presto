@@ -75,7 +75,7 @@ import static com.facebook.presto.sql.ExpressionUtils.combineConjuncts;
 import static com.facebook.presto.sql.ExpressionUtils.or;
 import static com.facebook.presto.sql.planner.plan.TableScanNode.GeneratedPartitions;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
-import static com.facebook.presto.spi.type.NullType.NULL;
+import static com.facebook.presto.type.UnknownType.UNKNOWN;
 
 @Test(singleThreaded = true)
 public class TestEffectivePredicateExtractor
@@ -682,7 +682,7 @@ public class TestEffectivePredicateExtractor
 
     private static Signature fakeFunctionHandle(String name)
     {
-        return new Signature(name, NULL, ImmutableList.<Type>of(), false);
+        return new Signature(name, UNKNOWN, ImmutableList.<Type>of(), false);
     }
 
     private Set<Expression> normalizeConjuncts(Expression... conjuncts)
