@@ -37,7 +37,6 @@ import com.facebook.presto.spi.Session;
 import com.facebook.presto.spi.TableNotFoundException;
 import com.facebook.presto.spi.TupleDomain;
 import com.facebook.presto.spi.type.Type;
-import com.google.common.base.Charsets;
 import com.google.common.base.Function;
 import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
@@ -638,10 +637,10 @@ public abstract class AbstractTestHiveClient
                         assertTrue(cursor.isNull(columnIndex.get("t_string")));
                     }
                     else if (rowNumber % 19 == 1) {
-                        assertEquals(cursor.getSlice(columnIndex.get("t_string")), "");
+                        assertEquals(cursor.getSlice(columnIndex.get("t_string")).toStringUtf8(), "");
                     }
                     else {
-                        assertEquals(cursor.getSlice(columnIndex.get("t_string")), (fileType + " test").getBytes(Charsets.UTF_8));
+                        assertEquals(cursor.getSlice(columnIndex.get("t_string")).toStringUtf8(), (fileType + " test"));
                     }
 
                     assertEquals(cursor.getLong(columnIndex.get("t_tinyint")), (long) ((byte) (baseValue + 1 + rowNumber)));
@@ -685,7 +684,7 @@ public abstract class AbstractTestHiveClient
                     }
                     else {
                         String expectedJson = "{\"format\":\"" + fileType + "\"}";
-                        assertEquals(cursor.getSlice(columnIndex.get("t_map")), expectedJson.getBytes(Charsets.UTF_8));
+                        assertEquals(cursor.getSlice(columnIndex.get("t_map")).toStringUtf8(), expectedJson);
                     }
 
                     if (rowNumber % 27 == 0) {
@@ -693,7 +692,7 @@ public abstract class AbstractTestHiveClient
                     }
                     else {
                         String expectedJson = "[\"" + fileType + "\",\"test\",\"data\"]";
-                        assertEquals(cursor.getSlice(columnIndex.get("t_array_string")), expectedJson.getBytes(Charsets.UTF_8));
+                        assertEquals(cursor.getSlice(columnIndex.get("t_array_string")).toStringUtf8(), expectedJson);
                     }
 
                     if (rowNumber % 31 == 0) {
@@ -701,11 +700,11 @@ public abstract class AbstractTestHiveClient
                     }
                     else {
                         String expectedJson = "{\"1\":[{\"s_string\":\"" + fileType + "-a\",\"s_double\":0.1},{\"s_string\":\"" + fileType + "-b\",\"s_double\":0.2}]}";
-                        assertEquals(cursor.getSlice(columnIndex.get("t_complex")), expectedJson.getBytes(Charsets.UTF_8));
+                        assertEquals(cursor.getSlice(columnIndex.get("t_complex")).toStringUtf8(), expectedJson);
                     }
 
-                    assertEquals(cursor.getSlice(columnIndex.get("ds")), ds.getBytes(Charsets.UTF_8));
-                    assertEquals(cursor.getSlice(columnIndex.get("file_format")), fileType.getBytes(Charsets.UTF_8));
+                    assertEquals(cursor.getSlice(columnIndex.get("ds")).toStringUtf8(), ds);
+                    assertEquals(cursor.getSlice(columnIndex.get("file_format")).toStringUtf8(), fileType);
                     assertEquals(cursor.getLong(columnIndex.get("dummy")), dummy);
 
                     long newCompletedBytes = cursor.getCompletedBytes();
