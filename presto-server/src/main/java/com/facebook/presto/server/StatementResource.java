@@ -167,13 +167,7 @@ public class StatementResource
 
         String remoteUserAddress = requestContext.getRemoteAddr();
 
-        Session session;
-        try {
-            session = new Session(user, source, catalog, schema, TimeZoneKey.getTimeZoneKey(timeZoneId), locale, remoteUserAddress, userAgent);
-        }
-        catch (TimeZoneNotSupportedException e) {
-            return Response.status(Status.BAD_REQUEST).entity(e.getMessage()).build();
-        }
+        Session session = new Session(user, source, catalog, schema, getTimeZoneKey(timeZoneId), locale, remoteUserAddress, userAgent);
 
         ExchangeClient exchangeClient = exchangeClientSupplier.get();
         Query query = new Query(session, statement, queryManager, exchangeClient);
@@ -184,13 +178,27 @@ public class StatementResource
     static void assertRequest(boolean expression, String format, Object... args)
     {
         if (!expression) {
-            Response request = Response
-                    .status(Status.BAD_REQUEST)
-                    .type(MediaType.TEXT_PLAIN)
-                    .entity(format(format, args))
-                    .build();
-            throw new WebApplicationException(request);
+            throw badRequest(format(format, args));
         }
+    }
+
+    private static TimeZoneKey getTimeZoneKey(String timeZoneId)
+    {
+        try {
+            return TimeZoneKey.getTimeZoneKey(timeZoneId);
+        }
+        catch (TimeZoneNotSupportedException e) {
+            throw badRequest(e.getMessage());
+        }
+    }
+
+    private static WebApplicationException badRequest(String message)
+    {
+        throw new WebApplicationException(Response
+                .status(Status.BAD_REQUEST)
+                .type(MediaType.TEXT_PLAIN)
+                .entity(message)
+                .build());
     }
 
     @GET
