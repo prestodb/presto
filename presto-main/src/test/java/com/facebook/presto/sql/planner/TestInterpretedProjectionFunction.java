@@ -16,6 +16,7 @@ package com.facebook.presto.sql.planner;
 import com.facebook.presto.block.BlockAssertions;
 import com.facebook.presto.block.BlockUtils;
 import com.facebook.presto.spi.ConnectorSession;
+import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.block.BlockCursor;
@@ -31,7 +32,6 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Map.Entry;
 
-import static com.facebook.presto.connector.dual.DualMetadata.DUAL_METADATA_MANAGER;
 import static com.facebook.presto.operator.scalar.FunctionAssertions.createExpression;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
@@ -166,11 +166,12 @@ public class TestInterpretedProjectionFunction
             symbolTypes.put(entry.getKey(), channels[entry.getValue().getChannel()].getType());
         }
 
+        MetadataManager metadata = new MetadataManager();
         InterpretedProjectionFunction projectionFunction = new InterpretedProjectionFunction(
-                createExpression(expression, DUAL_METADATA_MANAGER, symbolTypes.build()),
+                createExpression(expression, metadata, symbolTypes.build()),
                 symbolTypes.build(),
                 symbolToInputMappings,
-                DUAL_METADATA_MANAGER,
+                metadata,
                 new ConnectorSession("user", "test", "catalog", "schema", UTC_KEY, Locale.ENGLISH, null, null)
         );
 
