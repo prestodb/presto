@@ -13,8 +13,9 @@
  */
 package com.facebook.presto.operator;
 
-import com.facebook.presto.spi.block.BlockEncodingSerde;
 import com.facebook.presto.operator.HttpPageBufferClient.ClientCallback;
+import com.facebook.presto.spi.block.BlockEncodingSerde;
+import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Sets;
 import com.google.common.util.concurrent.Futures;
@@ -42,6 +43,7 @@ import java.util.concurrent.Executor;
 import java.util.concurrent.LinkedBlockingDeque;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicReference;
 
 import static com.facebook.presto.util.Threads.checkNotSameThreadExecutor;
 import static com.google.common.base.Preconditions.checkNotNull;
@@ -85,6 +87,7 @@ public class ExchangeClient
     private long averageBytesPerRequest;
 
     private final AtomicBoolean closed = new AtomicBoolean();
+    private final AtomicReference<Throwable> failure = new AtomicReference<>();
 
     public ExchangeClient(
             BlockEncodingSerde blockEncodingSerde,
@@ -138,6 +141,8 @@ public class ExchangeClient
     {
         checkState(!Thread.holdsLock(this), "Can not get next page while holding a lock on this");
 
+        throwIfFailed();
+
         if (closed.get()) {
             return null;
         }
@@ -152,6 +157,8 @@ public class ExchangeClient
             throws InterruptedException
     {
         checkState(!Thread.holdsLock(this), "Can not get next page while holding a lock on this");
+
+        throwIfFailed();
 
         if (closed.get()) {
             return null;
@@ -219,7 +226,7 @@ public class ExchangeClient
 
     public synchronized void scheduleRequestIfNecessary()
     {
-        if (closed.get()) {
+        if (isClosed() || isFailed()) {
             return;
         }
 
@@ -271,7 +278,7 @@ public class ExchangeClient
 
     public synchronized ListenableFuture<?> isBlocked()
     {
-        if (closed.get() || pageBuffer.peek() != null) {
+        if (isClosed() || isFailed() || pageBuffer.peek() != null) {
             return Futures.immediateFuture(true);
         }
         SettableFuture<?> future = SettableFuture.create();
@@ -281,7 +288,7 @@ public class ExchangeClient
 
     private synchronized void addPage(Page page)
     {
-        if (closed.get()) {
+        if (isClosed() || isFailed()) {
             return;
         }
 
@@ -323,6 +330,29 @@ public class ExchangeClient
         scheduleRequestIfNecessary();
     }
 
+    private synchronized void clientFailed(Throwable cause)
+    {
+        // TODO: properly handle the failed vs closed state
+        // it is important not to treat failures as a successful close
+        if (!isClosed()) {
+            failure.compareAndSet(null, cause);
+            notifyBlockedCallers();
+        }
+    }
+
+    private boolean isFailed()
+    {
+        return failure.get() != null;
+    }
+
+    private void throwIfFailed()
+    {
+        Throwable t = failure.get();
+        if (t != null) {
+            throw Throwables.propagate(t);
+        }
+    }
+
     private class ExchangeClientCallback
             implements ClientCallback
     {
@@ -346,6 +376,14 @@ public class ExchangeClient
         public void clientFinished(HttpPageBufferClient client)
         {
             ExchangeClient.this.clientFinished(client);
+        }
+
+        @Override
+        public void clientFailed(HttpPageBufferClient client, Throwable cause)
+        {
+            checkNotNull(client, "client is null");
+            checkNotNull(cause, "cause is null");
+            ExchangeClient.this.clientFailed(cause);
         }
     }
 
