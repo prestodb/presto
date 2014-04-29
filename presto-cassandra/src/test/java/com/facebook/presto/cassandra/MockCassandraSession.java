@@ -46,8 +46,7 @@ public class MockCassandraSession
     {
         super(connectorId,
                 null,
-                new CassandraClientConfig().getFetchSizeForPartitionKeySelect(),
-                new CassandraClientConfig().getLimitForPartitionKeySelect());
+                new CassandraClientConfig());
     }
 
     public void setThrowException(boolean throwException)

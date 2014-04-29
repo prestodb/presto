@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.cassandra;
 
+import com.datastax.driver.core.Cluster;
 import com.datastax.driver.core.ColumnMetadata;
 import com.datastax.driver.core.DataType;
 import com.datastax.driver.core.Host;
@@ -22,10 +23,10 @@ import com.datastax.driver.core.ResultSetFuture;
 import com.datastax.driver.core.Row;
 import com.datastax.driver.core.Session;
 import com.datastax.driver.core.TableMetadata;
+import com.datastax.driver.core.exceptions.NoHostAvailableException;
 import com.datastax.driver.core.querybuilder.Clause;
 import com.datastax.driver.core.querybuilder.QueryBuilder;
 import com.datastax.driver.core.querybuilder.Select;
-import com.datastax.driver.core.querybuilder.Select.Where;
 import com.facebook.presto.cassandra.util.CassandraCqlUtils;
 import com.facebook.presto.spi.ConnectorColumnHandle;
 import com.facebook.presto.spi.SchemaNotFoundException;
@@ -44,16 +45,18 @@ import java.util.Set;
 public class CassandraSession
 {
     protected final String connectorId;
-    private final Session session;
-    private final int limitForPartitionKeySelect;
-    private final int fetchSizeForPartitionKeySelect;
+    private final CassandraClientConfig config;
+    private final Cluster.Builder clusterBuilder;
+    private Session session;
 
-    public CassandraSession(String connectorId, Session session, int fetchSizeForPartitionKeySelect, int limitForPartitionKeySelect)
+    public CassandraSession(String connectorId, final Cluster.Builder clusterBuilder, CassandraClientConfig config)
     {
         this.connectorId = connectorId;
-        this.session = session;
-        this.fetchSizeForPartitionKeySelect = fetchSizeForPartitionKeySelect;
-        this.limitForPartitionKeySelect = limitForPartitionKeySelect;
+        this.clusterBuilder = clusterBuilder;
+        this.config = config;
+        if (clusterBuilder != null) {
+            this.session = clusterBuilder.build().connect();
+        }
     }
 
     public Set<Host> getReplicas(String schema, ByteBuffer partitionKey)
@@ -63,7 +66,15 @@ public class CassandraSession
 
     public ResultSet executeQuery(String cql)
     {
-        return session.execute(cql);
+        try {
+            return session.execute(cql);
+        }
+        catch (NoHostAvailableException e) {
+            // Something happened with our client connection.  We need to
+            // re-establish the connection using our contact points.
+            session = clusterBuilder.build().connect();
+            return session.execute(cql);
+        }
     }
 
     public Collection<Host> getAllHosts()
@@ -184,7 +195,14 @@ public class CassandraSession
 
     public List<CassandraPartition> getPartitions(CassandraTable table, List<Comparable<?>> filterPrefix)
     {
-        Iterable<Row> rows = queryPartitionKeys(table, filterPrefix);
+        Iterable<Row> rows;
+        try {
+            rows = queryPartitionKeys(table, filterPrefix);
+        }
+        catch (NoHostAvailableException e) {
+            session = clusterBuilder.build().connect();
+            rows = queryPartitionKeys(table, filterPrefix);
+        }
         if (rows == null) {
             // just split the whole partition range
             return ImmutableList.of(CassandraPartition.UNPARTITIONED);
@@ -246,7 +264,7 @@ public class CassandraSession
         boolean fullPartitionKey = filterPrefix.size() == partitionKeyColumns.size();
         ResultSetFuture countFuture;
         if (!fullPartitionKey) {
-            Select countAll = CassandraCqlUtils.selectCountAllFrom(tableHandle).limit(limitForPartitionKeySelect);
+            Select countAll = CassandraCqlUtils.selectCountAllFrom(tableHandle).limit(config.getLimitForPartitionKeySelect());
             countFuture = session.executeAsync(countAll);
         }
         else {
@@ -254,16 +272,16 @@ public class CassandraSession
             countFuture = null;
         }
 
-        int limit = fullPartitionKey ? 1 : limitForPartitionKeySelect;
+        int limit = fullPartitionKey ? 1 : config.getLimitForPartitionKeySelect();
         Select partitionKeys = CassandraCqlUtils.selectDistinctFrom(tableHandle, partitionKeyColumns);
         partitionKeys.limit(limit);
-        partitionKeys.setFetchSize(fetchSizeForPartitionKeySelect);
+        partitionKeys.setFetchSize(config.getFetchSizeForPartitionKeySelect());
         addWhereClause(partitionKeys.where(), partitionKeyColumns, filterPrefix);
         ResultSetFuture partitionKeyFuture = session.executeAsync(partitionKeys);
 
         if (!fullPartitionKey) {
             long count = countFuture.getUninterruptibly().one().getLong(0);
-            if (count == limitForPartitionKeySelect) {
+            if (count == config.getLimitForPartitionKeySelect()) {
                 partitionKeyFuture.cancel(true);
                 return null; // too much effort to query all partition keys
             }
@@ -271,7 +289,7 @@ public class CassandraSession
         return partitionKeyFuture.getUninterruptibly();
     }
 
-    private void addWhereClause(Where where, List<CassandraColumnHandle> partitionKeyColumns, List<Comparable<?>> filterPrefix)
+    private void addWhereClause(Select.Where where, List<CassandraColumnHandle> partitionKeyColumns, List<Comparable<?>> filterPrefix)
     {
         for (int i = 0; i < filterPrefix.size(); i++) {
             CassandraColumnHandle column = partitionKeyColumns.get(i);

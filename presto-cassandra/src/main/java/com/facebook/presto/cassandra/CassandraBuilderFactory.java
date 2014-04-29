@@ -14,9 +14,8 @@
 package com.facebook.presto.cassandra;
 
 import com.datastax.driver.core.Cluster;
-import com.datastax.driver.core.ConsistencyLevel;
 import com.datastax.driver.core.QueryOptions;
-import com.datastax.driver.core.Session;
+import com.datastax.driver.core.policies.ExponentialReconnectionPolicy;
 
 import javax.inject.Inject;
 
@@ -25,19 +24,15 @@ import java.util.List;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 
-public class CassandraSessionFactory
+public class CassandraBuilderFactory
 {
     private final CassandraConnectorId connectorId;
     private final List<String> contactPoints;
 
-    private final int fetchSize;
-    private final ConsistencyLevel consistencyLevel;
-    private final int fetchSizeForPartitionKeySelect;
-    private final int limitForPartitionKeySelect;
-    private final int nativeProtocolPort;
+    private final CassandraClientConfig config;
 
     @Inject
-    public CassandraSessionFactory(CassandraConnectorId connectorId, CassandraClientConfig config)
+    public CassandraBuilderFactory(CassandraConnectorId connectorId, CassandraClientConfig config)
     {
         this.connectorId = checkNotNull(connectorId, "connectorId is null");
         checkNotNull(config, "config is null");
@@ -45,26 +40,21 @@ public class CassandraSessionFactory
         this.contactPoints = checkNotNull(config.getContactPoints(), "contactPoints is null");
         checkArgument(contactPoints.size() > 0, "empty contactPoints");
 
-        nativeProtocolPort = config.getNativeProtocolPort();
-        fetchSize = config.getFetchSize();
-        consistencyLevel = config.getConsistencyLevel();
-        fetchSizeForPartitionKeySelect = config.getFetchSizeForPartitionKeySelect();
-        limitForPartitionKeySelect = config.getLimitForPartitionKeySelect();
+        this.config = config;
     }
 
     public CassandraSession create()
     {
         Cluster.Builder clusterBuilder = Cluster.builder();
         clusterBuilder.addContactPoints(contactPoints.toArray(new String[contactPoints.size()]));
-        clusterBuilder.withPort(nativeProtocolPort);
+        clusterBuilder.withPort(config.getNativeProtocolPort());
+        clusterBuilder.withReconnectionPolicy(new ExponentialReconnectionPolicy(500, 10000));
 
         QueryOptions options = new QueryOptions();
-        options.setFetchSize(fetchSize);
-        options.setConsistencyLevel(consistencyLevel);
+        options.setFetchSize(config.getFetchSize());
+        options.setConsistencyLevel(config.getConsistencyLevel());
         clusterBuilder.withQueryOptions(options);
 
-        Cluster cluster = clusterBuilder.build();
-        Session session = cluster.connect();
-        return new CassandraSession(connectorId.toString(), session, fetchSizeForPartitionKeySelect, limitForPartitionKeySelect);
+        return new CassandraSession(connectorId.toString(), clusterBuilder, config);
     }
 }
