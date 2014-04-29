@@ -15,16 +15,13 @@ package com.facebook.presto.hive;
 
 import com.facebook.presto.spi.ConnectorColumnHandle;
 import com.google.common.base.Optional;
-import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import io.airlift.log.Logger;
-import org.apache.hadoop.hive.metastore.api.MetaException;
 import org.apache.hadoop.hive.metastore.api.Table;
 import org.apache.hadoop.hive.ql.io.DefaultHivePartitioner;
 import org.apache.hadoop.hive.ql.io.HiveKey;
 import org.apache.hadoop.hive.ql.metadata.HiveException;
 import org.apache.hadoop.hive.ql.udf.generic.GenericUDFHash;
-import org.apache.hadoop.hive.serde2.SerDeException;
 import org.apache.hadoop.hive.serde2.objectinspector.ObjectInspector;
 import org.apache.hadoop.hive.serde2.objectinspector.PrimitiveObjectInspector;
 import org.apache.hadoop.hive.serde2.objectinspector.StructField;
@@ -77,13 +74,8 @@ final class HiveBucketing
         Map<String, ObjectInspector> objectInspectors = new HashMap<>();
 
         // Get column name to object inspector mapping
-        try {
-            for (StructField field : getTableStructFields(table)) {
-                objectInspectors.put(field.getFieldName(), field.getFieldObjectInspector());
-            }
-        }
-        catch (MetaException | SerDeException e) {
-            throw Throwables.propagate(e);
+        for (StructField field : getTableStructFields(table)) {
+            objectInspectors.put(field.getFieldName(), field.getFieldObjectInspector());
         }
 
         // Verify the bucket column types are supported
