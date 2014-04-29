@@ -45,6 +45,9 @@
 
         <cli.skip-execute>true</cli.skip-execute>
         <cli.main-class>None</cli.main-class>
+
+        <!-- use a fractional hour timezone offset for tests -->
+        <test.timezone>Asia/Katmandu</test.timezone>
     </properties>
 
     <modules>
@@ -477,7 +480,7 @@
                     <groupId>org.apache.maven.plugins</groupId>
                     <artifactId>maven-surefire-plugin</artifactId>
                     <configuration combine.children="append">
-                        <argLine>-Duser.timezone=UTC -Xmx2g -Xms2g -XX:MaxPermSize=512m</argLine>
+                        <argLine>-Duser.timezone=${test.timezone} -Xmx2g -Xms2g -XX:MaxPermSize=512m</argLine>
                         <parallel>methods</parallel>
                         <threadCount>2</threadCount>
                         <perCoreThreadCount>true</perCoreThreadCount>
