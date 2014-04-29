@@ -20,6 +20,7 @@ public final class PrestoHeaders
     public static final String PRESTO_CATALOG = "X-Presto-Catalog";
     public static final String PRESTO_SCHEMA = "X-Presto-Schema";
     public static final String PRESTO_TIME_ZONE = "X-Presto-Time-Zone";
+    public static final String PRESTO_LANGUAGE = "X-Presto-Language";
 
     public static final String PRESTO_CURRENT_STATE = "X-Presto-Current-State";
     public static final String PRESTO_MAX_WAIT = "X-Presto-Max-Wait";

@@ -38,9 +38,11 @@ import javax.ws.rs.core.Response;
 import java.net.URI;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Locale;
 import java.util.TimeZone;
 
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_CATALOG;
+import static com.facebook.presto.client.PrestoHeaders.PRESTO_LANGUAGE;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_SCHEMA;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_SOURCE;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_TIME_ZONE;
@@ -82,6 +84,7 @@ public class ExecuteResource
             @HeaderParam(PRESTO_CATALOG) String catalog,
             @HeaderParam(PRESTO_SCHEMA) String schema,
             @HeaderParam(PRESTO_TIME_ZONE) String timeZoneId,
+            @HeaderParam(PRESTO_LANGUAGE) String language,
             @Context HttpServletRequest requestContext)
     {
         assertRequest(!isNullOrEmpty(query), "SQL query is empty");
@@ -92,7 +95,13 @@ public class ExecuteResource
         if (timeZoneId == null) {
             timeZoneId = TimeZone.getDefault().getID();
         }
-        ClientSession session = new ClientSession(serverUri(), user, source, catalog, schema, timeZoneId, requestContext.getLocale(), false);
+
+        Locale locale = Locale.getDefault();
+        if (language != null) {
+            locale = Locale.forLanguageTag(language);
+        }
+
+        ClientSession session = new ClientSession(serverUri(), user, source, catalog, schema, timeZoneId, locale, false);
 
         StatementClient client = new StatementClient(httpClient, queryResultsCodec, session, query);
 

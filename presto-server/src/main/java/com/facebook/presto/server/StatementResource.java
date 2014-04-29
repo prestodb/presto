@@ -76,6 +76,7 @@ import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Locale;
 import java.util.Set;
 import java.util.TimeZone;
 import java.util.concurrent.ConcurrentHashMap;
@@ -86,6 +87,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_CATALOG;
+import static com.facebook.presto.client.PrestoHeaders.PRESTO_LANGUAGE;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_SCHEMA;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_SOURCE;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_TIME_ZONE;
@@ -143,6 +145,7 @@ public class StatementResource
             @HeaderParam(PRESTO_CATALOG) String catalog,
             @HeaderParam(PRESTO_SCHEMA) String schema,
             @HeaderParam(PRESTO_TIME_ZONE) String timeZoneId,
+            @HeaderParam(PRESTO_LANGUAGE) String language,
             @HeaderParam(USER_AGENT) String userAgent,
             @Context HttpServletRequest requestContext,
             @Context UriInfo uriInfo)
@@ -157,11 +160,16 @@ public class StatementResource
             timeZoneId = TimeZone.getDefault().getID();
         }
 
+        Locale locale = Locale.getDefault();
+        if (language != null) {
+            locale = Locale.forLanguageTag(language);
+        }
+
         String remoteUserAddress = requestContext.getRemoteAddr();
 
         Session session;
         try {
-            session = new Session(user, source, catalog, schema, TimeZoneKey.getTimeZoneKey(timeZoneId), requestContext.getLocale(), remoteUserAddress, userAgent);
+            session = new Session(user, source, catalog, schema, TimeZoneKey.getTimeZoneKey(timeZoneId), locale, remoteUserAddress, userAgent);
         }
         catch (TimeZoneNotSupportedException e) {
             return Response.status(Status.BAD_REQUEST).entity(e.getMessage()).build();
