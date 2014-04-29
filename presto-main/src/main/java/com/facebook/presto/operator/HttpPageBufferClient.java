@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.operator;
 
+import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.block.BlockEncodingSerde;
-import com.facebook.presto.serde.PagesSerde;
 import com.google.common.base.Objects;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
@@ -30,6 +30,7 @@ import io.airlift.http.client.Response;
 import io.airlift.http.client.ResponseHandler;
 import io.airlift.log.Logger;
 import io.airlift.slice.InputStreamSliceInput;
+import io.airlift.slice.SliceInput;
 import io.airlift.units.DataSize;
 import org.joda.time.DateTime;
 
@@ -48,12 +49,17 @@ import static com.facebook.presto.PrestoMediaTypes.PRESTO_PAGES_TYPE;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_MAX_SIZE;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_PAGE_NEXT_TOKEN;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_PAGE_TOKEN;
+import static com.facebook.presto.operator.HttpPageBufferClient.PagesResponse.createClosedResponse;
+import static com.facebook.presto.operator.HttpPageBufferClient.PagesResponse.createEmptyPagesResponse;
+import static com.facebook.presto.operator.HttpPageBufferClient.PagesResponse.createPagesResponse;
+import static com.facebook.presto.serde.PagesSerde.readPages;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.net.HttpHeaders.CONTENT_TYPE;
 import static io.airlift.http.client.Request.Builder.prepareDelete;
 import static io.airlift.http.client.Request.Builder.prepareGet;
 import static io.airlift.http.client.ResponseHandlerUtils.propagate;
 import static io.airlift.http.client.StatusResponseHandler.createStatusResponseHandler;
+import static java.lang.String.format;
 
 @ThreadSafe
 public class HttpPageBufferClient
@@ -76,6 +82,8 @@ public class HttpPageBufferClient
         void requestComplete(HttpPageBufferClient client);
 
         void clientFinished(HttpPageBufferClient client);
+
+        void clientFailed(HttpPageBufferClient client, Throwable cause);
     }
 
     private final AsyncHttpClient httpClient;
@@ -137,6 +145,7 @@ public class HttpPageBufferClient
         return future != null;
     }
 
+    @Override
     public void close()
     {
         boolean shouldSendDelete;
@@ -235,6 +244,11 @@ public class HttpPageBufferClient
                     log.error("Can not handle callback while holding a lock on this");
                 }
 
+                t = rewriteException(t);
+                if (t instanceof PrestoException) {
+                    clientCallback.clientFailed(HttpPageBufferClient.this, t);
+                }
+
                 requestsCompleted.incrementAndGet();
                 synchronized (HttpPageBufferClient.this) {
                     future = null;
@@ -294,6 +308,16 @@ public class HttpPageBufferClient
                 .toString();
     }
 
+    private static Throwable rewriteException(Throwable t)
+    {
+        // the Jetty HTTP client throws this if the response is too large
+        // TODO: https://bugs.eclipse.org/bugs/show_bug.cgi?id=433680
+        if ((t instanceof IllegalArgumentException) && "Buffering capacity exceeded".equals(t.getMessage())) {
+            return new PageTooLargeException();
+        }
+        return t;
+    }
+
     public static class PageResponseHandler
             implements ResponseHandler<PagesResponse, RuntimeException>
     {
@@ -313,47 +337,64 @@ public class HttpPageBufferClient
         @Override
         public PagesResponse handle(Request request, Response response)
         {
-            String tokenHeader = response.getHeader(PRESTO_PAGE_TOKEN);
-            if (tokenHeader == null) {
-                throw new IllegalStateException("Expected " + PRESTO_PAGE_TOKEN + " header");
-            }
-            long token = Long.parseLong(tokenHeader);
-
-            String nextTokenHeader = response.getHeader(PRESTO_PAGE_NEXT_TOKEN);
-            if (nextTokenHeader == null) {
-                throw new IllegalStateException("Expected " + PRESTO_PAGE_NEXT_TOKEN + " header");
-            }
-            long nextToken = Long.parseLong(nextTokenHeader);
-
             // job is finished when we get a GONE response
             if (response.getStatusCode() == HttpStatus.GONE.code()) {
-                return PagesResponse.createClosedResponse(token, nextToken);
+                return createClosedResponse(getToken(response));
             }
 
             // no content means no content was created within the wait period, but query is still ok
             if (response.getStatusCode() == HttpStatus.NO_CONTENT.code()) {
-                return PagesResponse.createEmptyPagesResponse(token, nextToken);
+                return createEmptyPagesResponse(getToken(response), getNextToken(response));
             }
 
             // otherwise we must have gotten an OK response, everything else is considered fatal
             if (response.getStatusCode() != HttpStatus.OK.code()) {
-                log.debug("Expected response code to be 200, but was %s: request=%s, response=%s", response.getStatusCode(), request, response);
-                return PagesResponse.createEmptyPagesResponse(token, nextToken);
+                throw new PageTransportErrorException(format("Expected response code to be 200, but was %s %s: %s", response.getStatusCode(), response.getStatusMessage(), request.getUri()));
             }
 
             String contentType = response.getHeader(CONTENT_TYPE);
-            if (contentType == null || !MediaType.parse(contentType).is(PRESTO_PAGES_TYPE)) {
+            if ((contentType == null) || !mediaTypeMatches(contentType, PRESTO_PAGES_TYPE)) {
                 // this can happen when an error page is returned, but is unlikely given the above 200
-                log.debug("Expected %s response from server but got %s: uri=%s, response=%s", PRESTO_PAGES_TYPE, contentType, request.getUri(), response);
-                return PagesResponse.createEmptyPagesResponse(token, nextToken);
+                throw new PageTransportErrorException(format("Expected %s response from server but got %s: %s", PRESTO_PAGES_TYPE, contentType, request.getUri()));
             }
 
-            try {
-                InputStreamSliceInput sliceInput = new InputStreamSliceInput(response.getInputStream());
-                return PagesResponse.createPagesResponse(token, nextToken, ImmutableList.copyOf(PagesSerde.readPages(blockEncodingSerde, sliceInput)));
+            long token = getToken(response);
+            long nextToken = getNextToken(response);
+
+            try (SliceInput input = new InputStreamSliceInput(response.getInputStream())) {
+                List<Page> pages = ImmutableList.copyOf(readPages(blockEncodingSerde, input));
+                return createPagesResponse(token, nextToken, pages);
             }
             catch (IOException e) {
                 throw Throwables.propagate(e);
+            }
+        }
+
+        private static long getToken(Response response)
+        {
+            String tokenHeader = response.getHeader(PRESTO_PAGE_TOKEN);
+            if (tokenHeader == null) {
+                throw new PageTransportErrorException(format("Expected %s header", PRESTO_PAGE_TOKEN));
+            }
+            return Long.parseLong(tokenHeader);
+        }
+
+        private static long getNextToken(Response response)
+        {
+            String nextTokenHeader = response.getHeader(PRESTO_PAGE_NEXT_TOKEN);
+            if (nextTokenHeader == null) {
+                throw new PageTransportErrorException(format("Expected %s header", PRESTO_PAGE_NEXT_TOKEN));
+            }
+            return Long.parseLong(nextTokenHeader);
+        }
+
+        private static boolean mediaTypeMatches(String value, MediaType range)
+        {
+            try {
+                return MediaType.parse(value).is(range);
+            }
+            catch (IllegalArgumentException | IllegalStateException e) {
+                return false;
             }
         }
     }
@@ -370,9 +411,9 @@ public class HttpPageBufferClient
             return new PagesResponse(token, nextToken, ImmutableList.<Page>of(), false);
         }
 
-        public static PagesResponse createClosedResponse(long token, long nextToken)
+        public static PagesResponse createClosedResponse(long token)
         {
-            return new PagesResponse(token, nextToken, ImmutableList.<Page>of(), true);
+            return new PagesResponse(token, -1, ImmutableList.<Page>of(), true);
         }
 
         private final long token;
@@ -380,7 +421,7 @@ public class HttpPageBufferClient
         private final List<Page> pages;
         private final boolean clientClosed;
 
-        public PagesResponse(long token, long nextToken, Iterable<Page> pages, boolean clientClosed)
+        private PagesResponse(long token, long nextToken, Iterable<Page> pages, boolean clientClosed)
         {
             this.token = token;
             this.nextToken = nextToken;
@@ -414,7 +455,7 @@ public class HttpPageBufferClient
             return Objects.toStringHelper(this)
                     .add("token", token)
                     .add("nextToken", nextToken)
-                    .add("pages.size()", pages.size())
+                    .add("pagesSize", pages.size())
                     .add("clientClosed", clientClosed)
                     .toString();
         }

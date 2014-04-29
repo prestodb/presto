@@ -14,6 +14,7 @@
 package com.facebook.presto.operator;
 
 import com.facebook.presto.operator.HttpPageBufferClient.ClientCallback;
+import com.facebook.presto.spi.StandardErrorCode;
 import com.google.common.base.Function;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableListMultimap;
@@ -46,6 +47,8 @@ import static com.facebook.presto.PrestoMediaTypes.PRESTO_PAGES;
 import static com.facebook.presto.serde.TestingBlockEncodingManager.createTestingBlockEncodingManager;
 import static com.facebook.presto.util.Threads.daemonThreadsNamed;
 import static com.google.common.net.HttpHeaders.CONTENT_TYPE;
+import static io.airlift.testing.Assertions.assertContains;
+import static io.airlift.testing.Assertions.assertInstanceOf;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static org.testng.Assert.assertEquals;
 
@@ -125,6 +128,7 @@ public class TestHttpPageBufferClient
         assertPageEquals(expectedPage, callback.getPages().get(1));
         assertEquals(callback.getCompletedRequests(), 1);
         assertEquals(callback.getFinishedBuffers(), 0);
+        assertEquals(callback.getFailedBuffers(), 0);
         callback.resetStats();
         assertStatus(client, location, "queued", 3, 3, 3, "queued");
 
@@ -137,6 +141,7 @@ public class TestHttpPageBufferClient
         assertEquals(callback.getPages().size(), 0);
         assertEquals(callback.getCompletedRequests(), 0);
         assertEquals(callback.getFinishedBuffers(), 1);
+        assertEquals(callback.getFailedBuffers(), 0);
         assertStatus(client, location, "closed", 3, 4, 4, "queued");
     }
 
@@ -203,6 +208,9 @@ public class TestHttpPageBufferClient
         assertEquals(callback.getPages().size(), 0);
         assertEquals(callback.getCompletedRequests(), 1);
         assertEquals(callback.getFinishedBuffers(), 0);
+        assertEquals(callback.getFailedBuffers(), 1);
+        assertInstanceOf(callback.getFailure(), PageTransportErrorException.class);
+        assertContains(callback.getFailure().getMessage(), "Expected response code to be 200, but was 404 Not Found");
         assertStatus(client, location, "queued", 0, 1, 1, "queued");
 
         // send invalid content type response and verify response was ignored
@@ -213,6 +221,9 @@ public class TestHttpPageBufferClient
         assertEquals(callback.getPages().size(), 0);
         assertEquals(callback.getCompletedRequests(), 1);
         assertEquals(callback.getFinishedBuffers(), 0);
+        assertEquals(callback.getFailedBuffers(), 1);
+        assertInstanceOf(callback.getFailure(), PageTransportErrorException.class);
+        assertContains(callback.getFailure().getMessage(), "Expected application/x-presto-pages response from server but got INVALID_TYPE");
         assertStatus(client, location, "queued", 0, 2, 2, "queued");
 
         // send unexpected content type response and verify response was ignored
@@ -223,6 +234,9 @@ public class TestHttpPageBufferClient
         assertEquals(callback.getPages().size(), 0);
         assertEquals(callback.getCompletedRequests(), 1);
         assertEquals(callback.getFinishedBuffers(), 0);
+        assertEquals(callback.getFailedBuffers(), 1);
+        assertInstanceOf(callback.getFailure(), PageTransportErrorException.class);
+        assertContains(callback.getFailure().getMessage(), "Expected application/x-presto-pages response from server but got text/plain");
         assertStatus(client, location, "queued", 0, 3, 3, "queued");
 
         // close client and verify
@@ -300,10 +314,19 @@ public class TestHttpPageBufferClient
         assertEquals(callback.getPages().size(), 0);
         assertEquals(callback.getCompletedRequests(), 1);
         assertEquals(callback.getFinishedBuffers(), 0);
+        assertEquals(callback.getFailedBuffers(), 0);
         assertStatus(client, location, "queued", 0, 1, 1, "queued");
     }
 
-    private void assertStatus(HttpPageBufferClient client, URI location, String status, int pagesReceived, int requestsScheduled, int requestsCompleted, String httpRequestState)
+    @Test
+    public void testErrorCodes()
+            throws Exception
+    {
+        assertEquals(new PageTooLargeException().getErrorCode(), StandardErrorCode.PAGE_TOO_LARGE.toErrorCode());
+        assertEquals(new PageTransportErrorException("").getErrorCode(), StandardErrorCode.PAGE_TRANSPORT_ERROR.toErrorCode());
+    }
+
+    private static void assertStatus(HttpPageBufferClient client, URI location, String status, int pagesReceived, int requestsScheduled, int requestsCompleted, String httpRequestState)
     {
         PageBufferClientStatus actualStatus = client.getStatus();
         assertEquals(actualStatus.getUri(), location);
@@ -314,7 +337,7 @@ public class TestHttpPageBufferClient
         assertEquals(actualStatus.getHttpRequestState(), httpRequestState, "httpRequestState");
     }
 
-    private void assertPageEquals(Page expectedPage, Page actualPage)
+    private static void assertPageEquals(Page expectedPage, Page actualPage)
     {
         assertEquals(actualPage.getPositionCount(), expectedPage.getPositionCount());
         assertEquals(actualPage.getChannelCount(), expectedPage.getChannelCount());
@@ -327,6 +350,8 @@ public class TestHttpPageBufferClient
         private final List<Page> pages = Collections.synchronizedList(new ArrayList<Page>());
         private final AtomicInteger completedRequests = new AtomicInteger();
         private final AtomicInteger finishedBuffers = new AtomicInteger();
+        private final AtomicInteger failedBuffers = new AtomicInteger();
+        private final AtomicReference<Throwable> failure = new AtomicReference<>();
 
         public TestingClientCallback(CyclicBarrier done)
         {
@@ -346,6 +371,16 @@ public class TestHttpPageBufferClient
         private int getFinishedBuffers()
         {
             return finishedBuffers.get();
+        }
+
+        public int getFailedBuffers()
+        {
+            return failedBuffers.get();
+        }
+
+        public Throwable getFailure()
+        {
+            return failure.get();
         }
 
         @Override
@@ -386,11 +421,21 @@ public class TestHttpPageBufferClient
             }
         }
 
+        @Override
+        public void clientFailed(HttpPageBufferClient client, Throwable cause)
+        {
+            failedBuffers.getAndIncrement();
+            failure.compareAndSet(null, cause);
+            // requestComplete() will be called after this
+        }
+
         public void resetStats()
         {
             pages.clear();
             completedRequests.set(0);
             finishedBuffers.set(0);
+            failedBuffers.set(0);
+            failure.set(null);
         }
     }
 
@@ -412,6 +457,7 @@ public class TestHttpPageBufferClient
             this.response.set(response);
         }
 
+        @SuppressWarnings("ThrowFromFinallyBlock")
         @Override
         public Response apply(@Nullable Request request)
         {
