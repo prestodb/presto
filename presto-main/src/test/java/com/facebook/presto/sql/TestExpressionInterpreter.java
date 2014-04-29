@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.sql;
 
+import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.operator.scalar.FunctionAssertions;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.PrestoException;
@@ -41,7 +42,6 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
-import static com.facebook.presto.connector.dual.DualMetadata.DUAL_METADATA_MANAGER;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.DateType.DATE;
@@ -824,10 +824,11 @@ public class TestExpressionInterpreter
     {
         assertRoundTrip(expression);
 
-        Expression parsedExpression = FunctionAssertions.createExpression(expression, DUAL_METADATA_MANAGER, SYMBOL_TYPES);
+        MetadataManager metadata = new MetadataManager();
+        Expression parsedExpression = FunctionAssertions.createExpression(expression, metadata, SYMBOL_TYPES);
 
-        IdentityHashMap<Expression, Type> expressionTypes = getExpressionTypes(SESSION, DUAL_METADATA_MANAGER, SYMBOL_TYPES, parsedExpression);
-        ExpressionInterpreter interpreter = expressionOptimizer(parsedExpression, DUAL_METADATA_MANAGER, SESSION, expressionTypes);
+        IdentityHashMap<Expression, Type> expressionTypes = getExpressionTypes(SESSION, metadata, SYMBOL_TYPES, parsedExpression);
+        ExpressionInterpreter interpreter = expressionOptimizer(parsedExpression, metadata, SESSION, expressionTypes);
         return interpreter.optimize(new SymbolResolver()
         {
             @Override
@@ -859,7 +860,7 @@ public class TestExpressionInterpreter
     {
         assertRoundTrip(expression);
 
-        Expression parsedExpression = FunctionAssertions.createExpression(expression, DUAL_METADATA_MANAGER, SYMBOL_TYPES);
+        Expression parsedExpression = FunctionAssertions.createExpression(expression, new MetadataManager(), SYMBOL_TYPES);
 
         return evaluate(parsedExpression);
     }
@@ -871,8 +872,9 @@ public class TestExpressionInterpreter
 
     private static Object evaluate(Expression expression)
     {
-        IdentityHashMap<Expression, Type> expressionTypes = getExpressionTypes(SESSION, DUAL_METADATA_MANAGER, SYMBOL_TYPES, expression);
-        ExpressionInterpreter interpreter = expressionInterpreter(expression, DUAL_METADATA_MANAGER, SESSION, expressionTypes);
+        MetadataManager metadata = new MetadataManager();
+        IdentityHashMap<Expression, Type> expressionTypes = getExpressionTypes(SESSION, metadata, SYMBOL_TYPES, expression);
+        ExpressionInterpreter interpreter = expressionInterpreter(expression, metadata, SESSION, expressionTypes);
 
         return interpreter.evaluate((RecordCursor) null);
     }
