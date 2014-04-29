@@ -227,13 +227,13 @@ public final class SerDeUtils
         }
     }
 
-    public static String formatTimestamp(DateTimeZone sessionTimeZone, Object object, TimestampObjectInspector objectInspector)
+    private static String formatTimestamp(DateTimeZone sessionTimeZone, Object object, TimestampObjectInspector objectInspector)
     {
         TimestampWritable timestampWritable = objectInspector.getPrimitiveWritableObject(object);
         return formatTimestamp(sessionTimeZone, timestampWritable);
     }
 
-    public static String formatTimestamp(DateTimeZone sessionTimeZone, TimestampWritable timestampWritable)
+    private static String formatTimestamp(DateTimeZone sessionTimeZone, TimestampWritable timestampWritable)
     {
         return TIMESTAMP_FORMATTER.withZone(sessionTimeZone).print(getTimestampMillis(timestampWritable));
     }
