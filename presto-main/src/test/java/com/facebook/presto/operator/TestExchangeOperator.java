@@ -39,6 +39,7 @@ import io.airlift.http.client.testing.TestingHttpClient;
 import io.airlift.http.client.testing.TestingResponse;
 import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.units.DataSize;
+import io.airlift.units.Duration;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.BeforeMethod;
@@ -104,7 +105,14 @@ public class TestExchangeOperator
             @Override
             public ExchangeClient get()
             {
-                return new ExchangeClient(createTestingBlockEncodingManager(), new DataSize(32, MEGABYTE), new DataSize(10, MEGABYTE), 3, httpClient, executor);
+                return new ExchangeClient(
+                        createTestingBlockEncodingManager(),
+                        new DataSize(32, MEGABYTE),
+                        new DataSize(10, MEGABYTE),
+                        3,
+                        new Duration(1, TimeUnit.MINUTES),
+                        httpClient,
+                        executor);
             }
         };
     }

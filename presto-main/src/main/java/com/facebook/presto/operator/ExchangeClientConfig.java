@@ -16,38 +16,57 @@ package com.facebook.presto.operator;
 import io.airlift.configuration.Config;
 import io.airlift.units.DataSize;
 import io.airlift.units.DataSize.Unit;
+import io.airlift.units.Duration;
+import io.airlift.units.MinDuration;
 
 import javax.validation.constraints.Min;
 import javax.validation.constraints.NotNull;
 
+import java.util.concurrent.TimeUnit;
+
 public class ExchangeClientConfig
 {
-    private DataSize exchangeMaxBufferSize = new DataSize(32, Unit.MEGABYTE);
-    private int exchangeConcurrentRequestMultiplier = 3;
+    private DataSize maxBufferSize = new DataSize(32, Unit.MEGABYTE);
+    private int concurrentRequestMultiplier = 3;
+    private Duration minErrorDuration = new Duration(1, TimeUnit.MINUTES);
 
     @NotNull
-    public DataSize getExchangeMaxBufferSize()
+    public DataSize getMaxBufferSize()
     {
-        return exchangeMaxBufferSize;
+        return maxBufferSize;
     }
 
     @Config("exchange.max-buffer-size")
-    public ExchangeClientConfig setExchangeMaxBufferSize(DataSize exchangeMaxBufferSize)
+    public ExchangeClientConfig setMaxBufferSize(DataSize maxBufferSize)
     {
-        this.exchangeMaxBufferSize = exchangeMaxBufferSize;
+        this.maxBufferSize = maxBufferSize;
         return this;
     }
 
     @Min(1)
-    public int getExchangeConcurrentRequestMultiplier()
+    public int getConcurrentRequestMultiplier()
     {
-        return exchangeConcurrentRequestMultiplier;
+        return concurrentRequestMultiplier;
     }
 
     @Config("exchange.concurrent-request-multiplier")
-    public ExchangeClientConfig setExchangeConcurrentRequestMultiplier(int exchangeConcurrentRequestMultiplier)
+    public ExchangeClientConfig setConcurrentRequestMultiplier(int concurrentRequestMultiplier)
     {
-        this.exchangeConcurrentRequestMultiplier = exchangeConcurrentRequestMultiplier;
+        this.concurrentRequestMultiplier = concurrentRequestMultiplier;
+        return this;
+    }
+
+    @NotNull
+    @MinDuration("1ms")
+    public Duration getMinErrorDuration()
+    {
+        return minErrorDuration;
+    }
+
+    @Config("exchange.min-error-duration")
+    public ExchangeClientConfig setMinErrorDuration(Duration minErrorDuration)
+    {
+        this.minErrorDuration = minErrorDuration;
         return this;
     }
 }
