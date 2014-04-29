@@ -24,6 +24,7 @@ import org.apache.hadoop.io.BytesWritable;
 import org.joda.time.DateTime;
 import org.joda.time.DateTimeZone;
 import org.joda.time.format.DateTimeFormat;
+import org.joda.time.format.DateTimeFormatter;
 import org.testng.annotations.Test;
 
 import java.lang.reflect.Type;
@@ -44,7 +45,8 @@ import static org.testng.Assert.assertEquals;
 @SuppressWarnings("PackageVisibleField")
 public class TestSerDeUtils
 {
-    private static final DateTimeZone SESSION_TIME_ZONE = DateTimeZone.UTC;
+    private static final DateTimeZone SESSION_TIME_ZONE = DateTimeZone.forID("Europe/Berlin");
+    private static final DateTimeFormatter TIMESTAMP_FORMAT = DateTimeFormat.forPattern("yyyy-MM-dd HH:mm:ss.SSS").withZone(SESSION_TIME_ZONE);
 
     private static class ListHolder
     {
@@ -127,7 +129,7 @@ public class TestSerDeUtils
 
         // timestamp
         DateTime dateTime = new DateTime(2008, 10, 28, 16, 7, 15, 0);
-        String expectedTimestamp = "\"" + DateTimeFormat.forPattern("yyyy-MM-dd HH:mm:ss.SSS").print(dateTime) + "\"";
+        String expectedTimestamp = "\"" + TIMESTAMP_FORMAT.print(dateTime) + "\"";
         String actualTimestamp = toJsonString(new Timestamp(dateTime.getMillis()), getInspector(Timestamp.class));
         assertEquals(actualTimestamp, expectedTimestamp);
 
