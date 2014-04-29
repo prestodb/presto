@@ -31,7 +31,7 @@ import static io.airlift.units.DataSize.Unit.BYTE;
 public class RecordProjectOperator
         implements Operator, Closeable
 {
-    private static final int ROWS_PER_REQUEST = 16384;
+    private static final int ROWS_PER_REQUEST = 4096;
     private final OperatorContext operatorContext;
     private final RecordCursor cursor;
     private final List<Type> types;
