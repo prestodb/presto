@@ -20,8 +20,6 @@ import com.google.common.base.Charsets;
 import com.google.common.base.Throwables;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
-import org.apache.hadoop.hive.metastore.api.MetaException;
-import org.apache.hadoop.hive.serde2.SerDeException;
 import org.apache.hadoop.hive.serde2.columnar.BytesRefArrayWritable;
 import org.apache.hadoop.hive.serde2.columnar.BytesRefWritable;
 import org.apache.hadoop.hive.serde2.lazy.ByteArrayRef;
@@ -133,26 +131,21 @@ class ColumnarTextHiveRecordCursor<K>
         this.nulls = new boolean[size];
 
         // initialize data columns
-        try {
-            StructObjectInspector rowInspector = getTableObjectInspector(splitSchema);
+        StructObjectInspector rowInspector = getTableObjectInspector(splitSchema);
 
-            for (int i = 0; i < columns.size(); i++) {
-                HiveColumnHandle column = columns.get(i);
+        for (int i = 0; i < columns.size(); i++) {
+            HiveColumnHandle column = columns.get(i);
 
-                names[i] = column.getName();
-                types[i] = column.getType();
-                hiveTypes[i] = column.getHiveType();
+            names[i] = column.getName();
+            types[i] = column.getType();
+            hiveTypes[i] = column.getHiveType();
 
-                if (!column.isPartitionKey()) {
-                    fieldInspectors[i] = rowInspector.getStructFieldRef(column.getName()).getFieldObjectInspector();
-                }
-
-                hiveColumnIndexes[i] = column.getHiveColumnIndex();
-                isPartitionColumn[i] = column.isPartitionKey();
+            if (!column.isPartitionKey()) {
+                fieldInspectors[i] = rowInspector.getStructFieldRef(column.getName()).getFieldObjectInspector();
             }
-        }
-        catch (MetaException | SerDeException | RuntimeException e) {
-            throw Throwables.propagate(e);
+
+            hiveColumnIndexes[i] = column.getHiveColumnIndex();
+            isPartitionColumn[i] = column.isPartitionKey();
         }
 
         // parse requested partition columns

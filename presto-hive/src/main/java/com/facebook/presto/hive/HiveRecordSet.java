@@ -19,14 +19,11 @@ import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.RecordSet;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.base.Optional;
-import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
-import org.apache.hadoop.hive.metastore.api.MetaException;
 import org.apache.hadoop.hive.serde2.ColumnProjectionUtils;
-import org.apache.hadoop.hive.serde2.SerDeException;
 import org.apache.hadoop.hive.serde2.objectinspector.ObjectInspector;
 import org.apache.hadoop.hive.serde2.objectinspector.PrimitiveObjectInspector;
 import org.apache.hadoop.hive.serde2.objectinspector.StructField;
@@ -126,19 +123,14 @@ public class HiveRecordSet
 
     private static HiveColumnHandle getFirstPrimitiveColumn(String clientId, Properties schema)
     {
-        try {
-            int index = 0;
-            for (StructField field : getTableObjectInspector(schema).getAllStructFieldRefs()) {
-                if (field.getFieldObjectInspector().getCategory() == ObjectInspector.Category.PRIMITIVE) {
-                    PrimitiveObjectInspector inspector = (PrimitiveObjectInspector) field.getFieldObjectInspector();
-                    HiveType hiveType = HiveType.getSupportedHiveType(inspector.getPrimitiveCategory());
-                    return new HiveColumnHandle(clientId, field.getFieldName(), index, hiveType, index, false);
-                }
-                index++;
+        int index = 0;
+        for (StructField field : getTableObjectInspector(schema).getAllStructFieldRefs()) {
+            if (field.getFieldObjectInspector().getCategory() == ObjectInspector.Category.PRIMITIVE) {
+                PrimitiveObjectInspector inspector = (PrimitiveObjectInspector) field.getFieldObjectInspector();
+                HiveType hiveType = HiveType.getSupportedHiveType(inspector.getPrimitiveCategory());
+                return new HiveColumnHandle(clientId, field.getFieldName(), index, hiveType, index, false);
             }
-        }
-        catch (MetaException | SerDeException | RuntimeException e) {
-            throw Throwables.propagate(e);
+            index++;
         }
 
         throw new IllegalStateException("Table doesn't have any PRIMITIVE columns");
