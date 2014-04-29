@@ -76,6 +76,7 @@ public class TestExchangeClient
                 new DataSize(32, Unit.MEGABYTE),
                 maxResponseSize,
                 1,
+                new Duration(1, TimeUnit.MINUTES),
                 new TestingHttpClient(processor, executor),
                 executor);
 
@@ -110,6 +111,7 @@ public class TestExchangeClient
                 new DataSize(32, Unit.MEGABYTE),
                 maxResponseSize,
                 1,
+                new Duration(1, TimeUnit.MINUTES),
                 new TestingHttpClient(processor, newCachedThreadPool(daemonThreadsNamed("test-%s"))),
                 executor);
 
@@ -166,6 +168,7 @@ public class TestExchangeClient
                 new DataSize(1, Unit.BYTE),
                 maxResponseSize,
                 1,
+                new Duration(1, TimeUnit.MINUTES),
                 new TestingHttpClient(processor, newCachedThreadPool(daemonThreadsNamed("test-%s"))),
                 executor);
 
@@ -249,6 +252,7 @@ public class TestExchangeClient
         ExchangeClient exchangeClient = new ExchangeClient(createTestingBlockEncodingManager(),
                 new DataSize(1, Unit.BYTE),
                 maxResponseSize, 1,
+                new Duration(1, TimeUnit.MINUTES),
                 new TestingHttpClient(processor, newCachedThreadPool(daemonThreadsNamed("test-%s"))),
                 executor);
         exchangeClient.addLocation(location);

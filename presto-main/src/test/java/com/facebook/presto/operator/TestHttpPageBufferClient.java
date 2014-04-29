@@ -16,6 +16,7 @@ package com.facebook.presto.operator;
 import com.facebook.presto.operator.HttpPageBufferClient.ClientCallback;
 import com.facebook.presto.spi.StandardErrorCode;
 import com.google.common.base.Function;
+import com.google.common.base.Stopwatch;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableListMultimap;
 import io.airlift.http.client.HttpStatus;
@@ -23,8 +24,10 @@ import io.airlift.http.client.Request;
 import io.airlift.http.client.Response;
 import io.airlift.http.client.testing.TestingHttpClient;
 import io.airlift.http.client.testing.TestingResponse;
+import io.airlift.testing.TestingTicker;
 import io.airlift.units.DataSize;
 import io.airlift.units.DataSize.Unit;
+import io.airlift.units.Duration;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
@@ -87,10 +90,12 @@ public class TestHttpPageBufferClient
         URI location = URI.create("http://localhost:8080");
         HttpPageBufferClient client = new HttpPageBufferClient(new TestingHttpClient(processor, executor),
                 expectedMaxSize,
+                new Duration(1, TimeUnit.MINUTES),
                 location,
                 callback,
                 createTestingBlockEncodingManager(),
-                executor);
+                executor,
+                Stopwatch.createUnstarted());
 
         assertStatus(client, location, "queued", 0, 0, 0, 0, "queued");
 
@@ -160,10 +165,12 @@ public class TestHttpPageBufferClient
         URI location = URI.create("http://localhost:8080");
         HttpPageBufferClient client = new HttpPageBufferClient(new TestingHttpClient(processor, executor),
                 new DataSize(10, Unit.MEGABYTE),
+                new Duration(1, TimeUnit.MINUTES),
                 location,
                 callback,
                 createTestingBlockEncodingManager(),
-                executor);
+                executor,
+                Stopwatch.createUnstarted());
 
         assertStatus(client, location, "queued", 0, 0, 0, 0, "queued");
 
@@ -194,10 +201,12 @@ public class TestHttpPageBufferClient
         URI location = URI.create("http://localhost:8080");
         HttpPageBufferClient client = new HttpPageBufferClient(new TestingHttpClient(processor, executor),
                 new DataSize(10, Unit.MEGABYTE),
+                new Duration(1, TimeUnit.MINUTES),
                 location,
                 callback,
                 createTestingBlockEncodingManager(),
-                executor);
+                executor,
+                Stopwatch.createUnstarted());
 
         assertStatus(client, location, "queued", 0, 0, 0, 0, "queued");
 
@@ -259,10 +268,12 @@ public class TestHttpPageBufferClient
         URI location = URI.create("http://localhost:8080");
         HttpPageBufferClient client = new HttpPageBufferClient(new TestingHttpClient(processor, executor),
                 new DataSize(10, Unit.MEGABYTE),
+                new Duration(1, TimeUnit.MINUTES),
                 location,
                 callback,
                 createTestingBlockEncodingManager(),
-                executor);
+                executor,
+                Stopwatch.createUnstarted());
 
         assertStatus(client, location, "queued", 0, 0, 0, 0, "queued");
 
@@ -297,18 +308,22 @@ public class TestHttpPageBufferClient
 
         CyclicBarrier requestComplete = new CyclicBarrier(2);
         TestingClientCallback callback = new TestingClientCallback(requestComplete);
+        TestingTicker ticker = new TestingTicker();
 
         URI location = URI.create("http://localhost:8080");
         HttpPageBufferClient client = new HttpPageBufferClient(new TestingHttpClient(processor, executor),
                 new DataSize(10, Unit.MEGABYTE),
+                new Duration(1, TimeUnit.MINUTES),
                 location,
                 callback,
                 createTestingBlockEncodingManager(),
-                executor);
+                executor,
+                Stopwatch.createUnstarted(ticker));
 
         assertStatus(client, location, "queued", 0, 0, 0, 0, "queued");
 
         // request processor will throw exception, verify the request is marked a completed
+        // this starts the error stopwatch
         client.scheduleRequest();
         requestComplete.await(1, TimeUnit.SECONDS);
         assertEquals(callback.getPages().size(), 0);
@@ -316,6 +331,33 @@ public class TestHttpPageBufferClient
         assertEquals(callback.getFinishedBuffers(), 0);
         assertEquals(callback.getFailedBuffers(), 0);
         assertStatus(client, location, "queued", 0, 1, 1, 1, "queued");
+
+        // advance time forward, but not enough to fail the client
+        ticker.increment(30, TimeUnit.SECONDS);
+
+        // verify that the client has not failed
+        client.scheduleRequest();
+        requestComplete.await(1, TimeUnit.SECONDS);
+        assertEquals(callback.getPages().size(), 0);
+        assertEquals(callback.getCompletedRequests(), 2);
+        assertEquals(callback.getFinishedBuffers(), 0);
+        assertEquals(callback.getFailedBuffers(), 0);
+        assertStatus(client, location, "queued", 0, 2, 2, 2, "queued");
+
+        // advance time forward beyond the minimum error duration
+        ticker.increment(31, TimeUnit.SECONDS);
+
+        // verify that the client has failed
+        client.scheduleRequest();
+        requestComplete.await(1, TimeUnit.SECONDS);
+        assertEquals(callback.getPages().size(), 0);
+        assertEquals(callback.getCompletedRequests(), 3);
+        assertEquals(callback.getFinishedBuffers(), 0);
+        assertEquals(callback.getFailedBuffers(), 1);
+        assertInstanceOf(callback.getFailure(), PageTransportTimeoutException.class);
+        assertContains(callback.getFailure().getMessage(), "");
+        assertContains(callback.getFailure().getMessage(), "Requests to http://localhost:8080/0 failed for 61000.00ms");
+        assertStatus(client, location, "queued", 0, 3, 3, 3, "queued");
     }
 
     @Test
@@ -324,6 +366,7 @@ public class TestHttpPageBufferClient
     {
         assertEquals(new PageTooLargeException().getErrorCode(), StandardErrorCode.PAGE_TOO_LARGE.toErrorCode());
         assertEquals(new PageTransportErrorException("").getErrorCode(), StandardErrorCode.PAGE_TRANSPORT_ERROR.toErrorCode());
+        assertEquals(new PageTransportTimeoutException("", null).getErrorCode(), StandardErrorCode.PAGE_TRANSPORT_TIMEOUT.toErrorCode());
     }
 
     private static void assertStatus(

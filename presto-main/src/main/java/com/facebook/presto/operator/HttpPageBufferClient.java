@@ -16,6 +16,7 @@ package com.facebook.presto.operator;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.block.BlockEncodingSerde;
 import com.google.common.base.Objects;
+import com.google.common.base.Stopwatch;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.net.MediaType;
@@ -32,6 +33,7 @@ import io.airlift.log.Logger;
 import io.airlift.slice.InputStreamSliceInput;
 import io.airlift.slice.SliceInput;
 import io.airlift.units.DataSize;
+import io.airlift.units.Duration;
 import org.joda.time.DateTime;
 
 import javax.annotation.concurrent.GuardedBy;
@@ -43,6 +45,7 @@ import java.net.URI;
 import java.util.List;
 import java.util.concurrent.Executor;
 import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import static com.facebook.presto.PrestoMediaTypes.PRESTO_PAGES_TYPE;
@@ -88,10 +91,13 @@ public class HttpPageBufferClient
 
     private final AsyncHttpClient httpClient;
     private final DataSize maxResponseSize;
+    private final Duration minErrorDuration;
     private final URI location;
     private final ClientCallback clientCallback;
     private final BlockEncodingSerde blockEncodingSerde;
     private final Executor executor;
+    private final Stopwatch errorStopwatch;
+
     @GuardedBy("this")
     private boolean closed;
     @GuardedBy("this")
@@ -109,17 +115,21 @@ public class HttpPageBufferClient
 
     public HttpPageBufferClient(AsyncHttpClient httpClient,
             DataSize maxResponseSize,
+            Duration minErrorDuration,
             URI location,
             ClientCallback clientCallback,
             BlockEncodingSerde blockEncodingSerde,
-            Executor executor)
+            Executor executor,
+            Stopwatch errorStopwatch)
     {
         this.httpClient = checkNotNull(httpClient, "httpClient is null");
         this.maxResponseSize = checkNotNull(maxResponseSize, "maxResponseSize is null");
+        this.minErrorDuration = checkNotNull(minErrorDuration, "minErrorDuration is null");
         this.location = checkNotNull(location, "location is null");
         this.clientCallback = checkNotNull(clientCallback, "clientCallback is null");
         this.blockEncodingSerde = checkNotNull(blockEncodingSerde, "blockEncodingManager is null");
         this.executor = checkNotNull(executor, "executor is null");
+        this.errorStopwatch = checkNotNull(errorStopwatch, "errorStopwatch is null").reset();
     }
 
     public synchronized PageBufferClientStatus getStatus()
@@ -207,6 +217,8 @@ public class HttpPageBufferClient
                     log.error("Can not handle callback while holding a lock on this");
                 }
 
+                errorStopwatch.reset();
+
                 requestsCompleted.incrementAndGet();
 
                 List<Page> pages;
@@ -256,6 +268,18 @@ public class HttpPageBufferClient
                 t = rewriteException(t);
                 if (t instanceof PrestoException) {
                     clientCallback.clientFailed(HttpPageBufferClient.this, t);
+                }
+
+                Duration errorDuration = elapsedDuration(errorStopwatch);
+                if (errorDuration.compareTo(minErrorDuration) > 0) {
+                    String message = format("Requests to %s failed for %s", uri, errorDuration);
+                    clientCallback.clientFailed(HttpPageBufferClient.this, new PageTransportTimeoutException(message, t));
+                }
+
+                // Start the error stopwatch if this is the first error. It will keep running
+                // until a request succeeds or the minimum error duration has been reached.
+                if (!errorStopwatch.isRunning()) {
+                    errorStopwatch.start();
                 }
 
                 requestsFailed.incrementAndGet();
@@ -326,6 +350,12 @@ public class HttpPageBufferClient
             return new PageTooLargeException();
         }
         return t;
+    }
+
+    private static Duration elapsedDuration(Stopwatch stopwatch)
+    {
+        long nanos = stopwatch.elapsed(TimeUnit.NANOSECONDS);
+        return new Duration(nanos, TimeUnit.NANOSECONDS).convertTo(TimeUnit.MILLISECONDS);
     }
 
     public static class PageResponseHandler

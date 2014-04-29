@@ -15,6 +15,7 @@ package com.facebook.presto.operator;
 
 import com.facebook.presto.operator.HttpPageBufferClient.ClientCallback;
 import com.facebook.presto.spi.block.BlockEncodingSerde;
+import com.google.common.base.Stopwatch;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Sets;
@@ -59,6 +60,7 @@ public class ExchangeClient
     private final long maxBufferedBytes;
     private final DataSize maxResponseSize;
     private final int concurrentRequestMultiplier;
+    private final Duration minErrorDuration;
     private final AsyncHttpClient httpClient;
     private final Executor executor;
 
@@ -94,6 +96,7 @@ public class ExchangeClient
             DataSize maxBufferedBytes,
             DataSize maxResponseSize,
             int concurrentRequestMultiplier,
+            Duration minErrorDuration,
             AsyncHttpClient httpClient,
             Executor executor)
     {
@@ -101,6 +104,7 @@ public class ExchangeClient
         this.maxBufferedBytes = maxBufferedBytes.toBytes();
         this.maxResponseSize = maxResponseSize;
         this.concurrentRequestMultiplier = concurrentRequestMultiplier;
+        this.minErrorDuration = minErrorDuration;
         this.httpClient = httpClient;
         this.executor = checkNotSameThreadExecutor(executor, "executor");
     }
@@ -245,7 +249,15 @@ public class ExchangeClient
         // add clients for new locations
         for (URI location : locations) {
             if (!allClients.containsKey(location)) {
-                HttpPageBufferClient client = new HttpPageBufferClient(httpClient, maxResponseSize, location, new ExchangeClientCallback(), blockEncodingSerde, executor);
+                HttpPageBufferClient client = new HttpPageBufferClient(
+                        httpClient,
+                        maxResponseSize,
+                        minErrorDuration,
+                        location,
+                        new ExchangeClientCallback(),
+                        blockEncodingSerde,
+                        executor,
+                        Stopwatch.createUnstarted());
                 allClients.put(location, client);
                 queuedClients.add(client);
             }
