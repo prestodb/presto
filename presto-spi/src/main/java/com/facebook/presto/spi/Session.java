@@ -23,9 +23,6 @@ import static java.util.Objects.requireNonNull;
 
 public class Session
 {
-    public static final String DEFAULT_CATALOG = "default";
-    public static final String DEFAULT_SCHEMA = "default";
-
     private final String user;
     private final String source;
     private final TimeZoneKey timeZoneKey;

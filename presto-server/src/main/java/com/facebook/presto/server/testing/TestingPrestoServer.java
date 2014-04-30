@@ -56,6 +56,8 @@ import static com.google.common.base.Preconditions.checkNotNull;
 public class TestingPrestoServer
         implements Closeable
 {
+    public static final String TEST_CATALOG = "default"; // TODO: change this to test_catalog
+
     private final Path baseDataDir;
     private final LifeCycleManager lifeCycleManager;
     private final PluginManager pluginManager;
@@ -133,7 +135,7 @@ public class TestingPrestoServer
         pluginManager = injector.getInstance(PluginManager.class);
 
         connectorManager = injector.getInstance(ConnectorManager.class);
-        connectorManager.createConnection("default", "native", ImmutableMap.<String, String>of());
+        connectorManager.createConnection(TEST_CATALOG, "native", ImmutableMap.<String, String>of());
 
         server = injector.getInstance(TestingHttpServer.class);
         metadata = injector.getInstance(Metadata.class);

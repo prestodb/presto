@@ -29,8 +29,6 @@ import org.testng.annotations.Test;
 
 import java.util.Locale;
 
-import static com.facebook.presto.spi.Session.DEFAULT_CATALOG;
-import static com.facebook.presto.spi.Session.DEFAULT_SCHEMA;
 import static com.facebook.presto.spi.type.TimeZoneKey.getTimeZoneKey;
 import static com.facebook.presto.util.DateTimeZoneIndex.getDateTimeZone;
 
@@ -44,7 +42,7 @@ public class TestTimestamp
     @BeforeClass
     public void setUp()
     {
-        Session session = new Session("user", "test", DEFAULT_CATALOG, DEFAULT_SCHEMA, TIME_ZONE_KEY, Locale.ENGLISH, null, null);
+        Session session = new Session("user", "test", "catalog", "schema", TIME_ZONE_KEY, Locale.ENGLISH, null, null);
         functionAssertions = new FunctionAssertions(session);
     }
 
