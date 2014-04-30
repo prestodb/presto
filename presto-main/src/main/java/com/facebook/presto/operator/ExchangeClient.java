@@ -15,7 +15,6 @@ package com.facebook.presto.operator;
 
 import com.facebook.presto.operator.HttpPageBufferClient.ClientCallback;
 import com.facebook.presto.spi.block.BlockEncodingSerde;
-import com.google.common.base.Stopwatch;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Sets;
@@ -255,8 +254,7 @@ public class ExchangeClient
                         location,
                         new ExchangeClientCallback(),
                         blockEncodingSerde,
-                        executor,
-                        Stopwatch.createUnstarted());
+                        executor);
                 allClients.put(location, client);
                 queuedClients.add(client);
             }
