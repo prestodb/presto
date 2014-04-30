@@ -123,7 +123,20 @@ public final class HttpPageBufferClient
     private final AtomicInteger requestsCompleted = new AtomicInteger();
     private final AtomicInteger requestsFailed = new AtomicInteger();
 
-    public HttpPageBufferClient(AsyncHttpClient httpClient,
+    public HttpPageBufferClient(
+            AsyncHttpClient httpClient,
+            DataSize maxResponseSize,
+            Duration minErrorDuration,
+            URI location,
+            ClientCallback clientCallback,
+            BlockEncodingSerde blockEncodingSerde,
+            ScheduledExecutorService executor)
+    {
+        this(httpClient, maxResponseSize, minErrorDuration, location, clientCallback, blockEncodingSerde, executor, Stopwatch.createUnstarted());
+    }
+
+    public HttpPageBufferClient(
+            AsyncHttpClient httpClient,
             DataSize maxResponseSize,
             Duration minErrorDuration,
             URI location,
