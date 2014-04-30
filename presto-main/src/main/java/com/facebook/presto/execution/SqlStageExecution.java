@@ -618,7 +618,6 @@ public class SqlStageExecution
 
         SplitSource splitSource = this.dataSource.get();
         while (!splitSource.isFinished()) {
-
             // if query has been canceled, exit cleanly; query will never run regardless
             if (getState().isDone()) {
                 break;
