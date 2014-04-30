@@ -41,8 +41,8 @@ public final class DateTimeZoneIndex
         CHRONOLOGIES = new ISOChronology[MAX_TIME_ZONE_KEY + 1];
         FIXED_ZONE_OFFSET = new int[MAX_TIME_ZONE_KEY + 1];
         for (TimeZoneKey timeZoneKey : getTimeZoneKeys()) {
-            short zoneKey = timeZoneKey.getTimeZoneKey();
-            DateTimeZone dateTimeZone = DateTimeZone.forID(timeZoneKey.getTimeZoneId());
+            short zoneKey = timeZoneKey.getKey();
+            DateTimeZone dateTimeZone = DateTimeZone.forID(timeZoneKey.getId());
             DATE_TIME_ZONES[zoneKey] = dateTimeZone;
             CHRONOLOGIES[zoneKey] = ISOChronology.getInstance(dateTimeZone);
             if (dateTimeZone.isFixed() && dateTimeZone.getOffset(0) % 60_000 == 0) {
@@ -56,7 +56,7 @@ public final class DateTimeZoneIndex
 
     public static ISOChronology getChronology(TimeZoneKey zoneKey)
     {
-        return CHRONOLOGIES[zoneKey.getTimeZoneKey()];
+        return CHRONOLOGIES[zoneKey.getKey()];
     }
 
     public static ISOChronology unpackChronology(long timestampWithTimeZone)
@@ -66,7 +66,7 @@ public final class DateTimeZoneIndex
 
     public static DateTimeZone getDateTimeZone(TimeZoneKey zoneKey)
     {
-        return DATE_TIME_ZONES[zoneKey.getTimeZoneKey()];
+        return DATE_TIME_ZONES[zoneKey.getKey()];
     }
 
     public static DateTimeZone unpackDateTimeZone(long dateTimeWithTimeZone)
@@ -81,7 +81,7 @@ public final class DateTimeZoneIndex
 
     public static int extractZoneOffsetMinutes(long dateTimeWithTimeZone)
     {
-        short zoneKey = unpackZoneKey(dateTimeWithTimeZone).getTimeZoneKey();
+        short zoneKey = unpackZoneKey(dateTimeWithTimeZone).getKey();
 
         if (FIXED_ZONE_OFFSET[zoneKey] == VARIABLE_ZONE) {
             return DATE_TIME_ZONES[zoneKey].getOffset(unpackMillisUtc(dateTimeWithTimeZone));

@@ -68,7 +68,7 @@ public final class TimeZoneKey
             }
 
             Map<String, TimeZoneKey> zoneIdToKey = new TreeMap<>();
-            zoneIdToKey.put(UTC_KEY.getTimeZoneId().toLowerCase(), UTC_KEY);
+            zoneIdToKey.put(UTC_KEY.getId().toLowerCase(), UTC_KEY);
 
             short maxZoneKey = 0;
             for (Entry<Object, Object> entry : data.entrySet()) {
@@ -85,7 +85,7 @@ public final class TimeZoneKey
 
             TIME_ZONE_KEYS = new TimeZoneKey[maxZoneKey + 1];
             for (TimeZoneKey timeZoneKey : zoneIdToKey.values()) {
-                TIME_ZONE_KEYS[timeZoneKey.getTimeZoneKey()] = timeZoneKey;
+                TIME_ZONE_KEYS[timeZoneKey.getKey()] = timeZoneKey;
             }
 
             for (short offset = OFFSET_TIME_ZONE_MIN; offset <= OFFSET_TIME_ZONE_MAX; offset++) {
@@ -143,33 +143,34 @@ public final class TimeZoneKey
         return timeZoneKey;
     }
 
-    private final String timeZoneId;
+    private final String id;
 
-    private final short timeZoneKey;
-    TimeZoneKey(String timeZoneId, short timeZoneKey)
+    private final short key;
+
+    TimeZoneKey(String id, short key)
     {
-        this.timeZoneId = requireNonNull(timeZoneId, "timeZoneId is null");
-        if (timeZoneKey < 0) {
-            throw new IllegalArgumentException("timeZoneKey is negative");
+        this.id = requireNonNull(id, "id is null");
+        if (key < 0) {
+            throw new IllegalArgumentException("key is negative");
         }
-        this.timeZoneKey = timeZoneKey;
+        this.key = key;
     }
 
-    public String getTimeZoneId()
+    public String getId()
     {
-        return timeZoneId;
+        return id;
     }
 
     @JsonValue
-    public short getTimeZoneKey()
+    public short getKey()
     {
-        return timeZoneKey;
+        return key;
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(timeZoneId, timeZoneKey);
+        return Objects.hash(id, key);
     }
 
     @Override
@@ -182,13 +183,13 @@ public final class TimeZoneKey
             return false;
         }
         TimeZoneKey other = (TimeZoneKey) obj;
-        return Objects.equals(this.timeZoneId, other.timeZoneId) && Objects.equals(this.timeZoneKey, other.timeZoneKey);
+        return Objects.equals(this.id, other.id) && Objects.equals(this.key, other.key);
     }
 
     @Override
     public String toString()
     {
-        return timeZoneId;
+        return id;
     }
 
     public static boolean isUtcZoneId(String zoneId)
