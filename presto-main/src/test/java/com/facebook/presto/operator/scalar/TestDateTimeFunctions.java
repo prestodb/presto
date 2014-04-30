@@ -45,7 +45,7 @@ import static org.joda.time.Weeks.weeksBetween;
 import static org.joda.time.Years.yearsBetween;
 import static org.testng.Assert.assertEquals;
 
-public class TestUnixTimeFunctions
+public class TestDateTimeFunctions
 {
     private static final TimeZoneKey TIME_ZONE_KEY = getTimeZoneKey("Asia/Kathmandu");
     private static final DateTimeZone DATE_TIME_ZONE = getDateTimeZone(TIME_ZONE_KEY);
