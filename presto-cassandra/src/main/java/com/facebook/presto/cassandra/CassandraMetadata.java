@@ -16,6 +16,7 @@ package com.facebook.presto.cassandra;
 import com.facebook.presto.cassandra.util.CassandraCqlUtils;
 import com.facebook.presto.spi.ConnectorColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
+import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorTableHandle;
 import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.NotFoundException;
@@ -23,7 +24,6 @@ import com.facebook.presto.spi.ReadOnlyConnectorMetadata;
 import com.facebook.presto.spi.SchemaNotFoundException;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.SchemaTablePrefix;
-import com.facebook.presto.spi.Session;
 import com.google.common.base.Objects;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -51,13 +51,13 @@ public class CassandraMetadata
     }
 
     @Override
-    public List<String> listSchemaNames(Session session)
+    public List<String> listSchemaNames(ConnectorSession session)
     {
         return schemaProvider.getAllSchemas();
     }
 
     @Override
-    public CassandraTableHandle getTableHandle(Session session, SchemaTableName tableName)
+    public CassandraTableHandle getTableHandle(ConnectorSession session, SchemaTableName tableName)
     {
         checkNotNull(tableName, "tableName is null");
         try {
@@ -94,7 +94,7 @@ public class CassandraMetadata
     }
 
     @Override
-    public List<SchemaTableName> listTables(Session session, String schemaNameOrNull)
+    public List<SchemaTableName> listTables(ConnectorSession session, String schemaNameOrNull)
     {
         ImmutableList.Builder<SchemaTableName> tableNames = ImmutableList.builder();
         for (String schemaName : listSchemas(session, schemaNameOrNull)) {
@@ -110,7 +110,7 @@ public class CassandraMetadata
         return tableNames.build();
     }
 
-    private List<String> listSchemas(Session session, String schemaNameOrNull)
+    private List<String> listSchemas(ConnectorSession session, String schemaNameOrNull)
     {
         if (schemaNameOrNull == null) {
             return listSchemaNames(session);
@@ -144,7 +144,7 @@ public class CassandraMetadata
     }
 
     @Override
-    public Map<SchemaTableName, List<ColumnMetadata>> listTableColumns(Session session, SchemaTablePrefix prefix)
+    public Map<SchemaTableName, List<ColumnMetadata>> listTableColumns(ConnectorSession session, SchemaTablePrefix prefix)
     {
         checkNotNull(prefix, "prefix is null");
         ImmutableMap.Builder<SchemaTableName, List<ColumnMetadata>> columns = ImmutableMap.builder();
@@ -159,7 +159,7 @@ public class CassandraMetadata
         return columns.build();
     }
 
-    private List<SchemaTableName> listTables(Session session, SchemaTablePrefix prefix)
+    private List<SchemaTableName> listTables(ConnectorSession session, SchemaTablePrefix prefix)
     {
         if (prefix.getSchemaName() == null) {
             return listTables(session, prefix.getSchemaName());

@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.spi.block;
 
-import com.facebook.presto.spi.Session;
+import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.type.FixedWidthType;
 import com.facebook.presto.spi.type.Type;
 import io.airlift.slice.Slice;
@@ -190,7 +190,7 @@ public class FixedWidthBlockCursor
     }
 
     @Override
-    public Object getObjectValue(Session session)
+    public Object getObjectValue(ConnectorSession session)
     {
         checkReadablePosition();
         if (isNull()) {

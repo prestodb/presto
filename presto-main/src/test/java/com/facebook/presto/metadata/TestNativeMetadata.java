@@ -16,11 +16,11 @@ package com.facebook.presto.metadata;
 import com.facebook.presto.spi.ConnectorColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorMetadata;
+import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorTableHandle;
 import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.SchemaTablePrefix;
-import com.facebook.presto.spi.Session;
 import com.facebook.presto.split.NativePartitionKey;
 import com.facebook.presto.type.TypeRegistry;
 import com.google.common.collect.ImmutableList;
@@ -47,7 +47,7 @@ import static org.testng.Assert.assertNull;
 @Test(singleThreaded = true)
 public class TestNativeMetadata
 {
-    private static final Session SESSION = new Session("user", "test", "default", "default", UTC_KEY, Locale.ENGLISH, null, null);
+    private static final ConnectorSession SESSION = new ConnectorSession("user", "test", "default", "default", UTC_KEY, Locale.ENGLISH, null, null);
     private static final SchemaTableName DEFAULT_TEST_ORDERS = new SchemaTableName("test", "orders");
 
     private Handle dummyHandle;

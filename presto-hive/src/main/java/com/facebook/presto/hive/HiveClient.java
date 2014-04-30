@@ -27,6 +27,7 @@ import com.facebook.presto.spi.ConnectorPartition;
 import com.facebook.presto.spi.ConnectorPartitionResult;
 import com.facebook.presto.spi.ConnectorRecordSetProvider;
 import com.facebook.presto.spi.ConnectorRecordSinkProvider;
+import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.ConnectorSplitManager;
 import com.facebook.presto.spi.ConnectorSplitSource;
@@ -40,7 +41,6 @@ import com.facebook.presto.spi.RecordSink;
 import com.facebook.presto.spi.SchemaNotFoundException;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.SchemaTablePrefix;
-import com.facebook.presto.spi.Session;
 import com.facebook.presto.spi.TableNotFoundException;
 import com.facebook.presto.spi.TupleDomain;
 import com.facebook.presto.spi.type.Type;
@@ -217,13 +217,13 @@ public class HiveClient
     }
 
     @Override
-    public List<String> listSchemaNames(Session session)
+    public List<String> listSchemaNames(ConnectorSession session)
     {
         return metastore.getAllDatabases();
     }
 
     @Override
-    public HiveTableHandle getTableHandle(Session session, SchemaTableName tableName)
+    public HiveTableHandle getTableHandle(ConnectorSession session, SchemaTableName tableName)
     {
         checkNotNull(tableName, "tableName is null");
         try {
@@ -263,7 +263,7 @@ public class HiveClient
     }
 
     @Override
-    public List<SchemaTableName> listTables(Session session, String schemaNameOrNull)
+    public List<SchemaTableName> listTables(ConnectorSession session, String schemaNameOrNull)
     {
         ImmutableList.Builder<SchemaTableName> tableNames = ImmutableList.builder();
         for (String schemaName : listSchemas(session, schemaNameOrNull)) {
@@ -279,7 +279,7 @@ public class HiveClient
         return tableNames.build();
     }
 
-    private List<String> listSchemas(Session session, String schemaNameOrNull)
+    private List<String> listSchemas(ConnectorSession session, String schemaNameOrNull)
     {
         if (schemaNameOrNull == null) {
             return listSchemaNames(session);
@@ -314,7 +314,7 @@ public class HiveClient
     }
 
     @Override
-    public boolean canCreateSampledTables(Session session)
+    public boolean canCreateSampledTables(ConnectorSession session)
     {
         return true;
     }
@@ -364,7 +364,7 @@ public class HiveClient
     }
 
     @Override
-    public Map<SchemaTableName, List<ColumnMetadata>> listTableColumns(Session session, SchemaTablePrefix prefix)
+    public Map<SchemaTableName, List<ColumnMetadata>> listTableColumns(ConnectorSession session, SchemaTablePrefix prefix)
     {
         checkNotNull(prefix, "prefix is null");
         ImmutableMap.Builder<SchemaTableName, List<ColumnMetadata>> columns = ImmutableMap.builder();
@@ -379,7 +379,7 @@ public class HiveClient
         return columns.build();
     }
 
-    private List<SchemaTableName> listTables(Session session, SchemaTablePrefix prefix)
+    private List<SchemaTableName> listTables(ConnectorSession session, SchemaTablePrefix prefix)
     {
         if (prefix.getSchemaName() == null) {
             return listTables(session, prefix.getSchemaName());
@@ -398,7 +398,7 @@ public class HiveClient
     }
 
     @Override
-    public ConnectorTableHandle createTable(Session session, ConnectorTableMetadata tableMetadata)
+    public ConnectorTableHandle createTable(ConnectorSession session, ConnectorTableMetadata tableMetadata)
     {
         throw new UnsupportedOperationException();
     }
@@ -410,7 +410,7 @@ public class HiveClient
     }
 
     @Override
-    public HiveOutputTableHandle beginCreateTable(Session session, ConnectorTableMetadata tableMetadata)
+    public HiveOutputTableHandle beginCreateTable(ConnectorSession session, ConnectorTableMetadata tableMetadata)
     {
         checkArgument(!isNullOrEmpty(tableMetadata.getOwner()), "Table owner is null or empty");
 

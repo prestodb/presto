@@ -22,7 +22,7 @@ import com.facebook.presto.execution.TaskId;
 import com.facebook.presto.execution.TaskInfo;
 import com.facebook.presto.metadata.Split;
 import com.facebook.presto.operator.ForScheduler;
-import com.facebook.presto.spi.Session;
+import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.sql.planner.PlanFragment;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.google.common.collect.Multimap;
@@ -76,7 +76,7 @@ public class HttpRemoteTaskFactory
     }
 
     @Override
-    public RemoteTask createRemoteTask(Session session,
+    public RemoteTask createRemoteTask(ConnectorSession session,
             TaskId taskId,
             com.facebook.presto.spi.Node node,
             PlanFragment fragment,

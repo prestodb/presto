@@ -20,7 +20,7 @@ import com.facebook.presto.metadata.QualifiedTableName;
 import com.facebook.presto.metadata.ShardManager;
 import com.facebook.presto.metadata.TableHandle;
 import com.facebook.presto.metadata.TablePartition;
-import com.facebook.presto.spi.Session;
+import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorTableHandle;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.sql.tree.DropTable;
@@ -52,7 +52,7 @@ public class DropTableExecution
 {
     private static final Logger log = Logger.get(DropTableExecution.class);
 
-    private final Session session;
+    private final ConnectorSession session;
     private final DropTable statement;
     private final MetadataManager metadataManager;
     private final ShardManager shardManager;
@@ -60,7 +60,7 @@ public class DropTableExecution
 
     DropTableExecution(QueryId queryId,
             String query,
-            Session session,
+            ConnectorSession session,
             URI self,
             DropTable statement,
             MetadataManager metadataManager,
@@ -190,7 +190,7 @@ public class DropTableExecution
         }
 
         @Override
-        public DropTableExecution createQueryExecution(QueryId queryId, String query, Session session, Statement statement)
+        public DropTableExecution createQueryExecution(QueryId queryId, String query, ConnectorSession session, Statement statement)
         {
             return new DropTableExecution(queryId,
                     query,

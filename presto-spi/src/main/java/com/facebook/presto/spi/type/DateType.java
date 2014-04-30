@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.spi.type;
 
-import com.facebook.presto.spi.Session;
+import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.block.BlockCursor;
@@ -71,7 +71,7 @@ public final class DateType
     }
 
     @Override
-    public Object getObjectValue(Session session, Slice slice, int offset)
+    public Object getObjectValue(ConnectorSession session, Slice slice, int offset)
     {
         // convert date to timestamp at midnight in local time zone
         long date = slice.getLong(offset);

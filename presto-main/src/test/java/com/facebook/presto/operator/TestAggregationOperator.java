@@ -15,7 +15,7 @@ package com.facebook.presto.operator;
 
 import com.facebook.presto.execution.TaskId;
 import com.facebook.presto.operator.AggregationOperator.AggregationOperatorFactory;
-import com.facebook.presto.spi.Session;
+import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.sql.planner.plan.AggregationNode.Step;
 import com.facebook.presto.sql.tree.Input;
 import com.facebook.presto.util.MaterializedResult;
@@ -57,7 +57,7 @@ public class TestAggregationOperator
     public void setUp()
     {
         executor = newCachedThreadPool(daemonThreadsNamed("test"));
-        Session session = new Session("user", "source", "catalog", "schema", UTC_KEY, Locale.ENGLISH, "address", "agent");
+        ConnectorSession session = new ConnectorSession("user", "source", "catalog", "schema", UTC_KEY, Locale.ENGLISH, "address", "agent");
         driverContext = new TaskContext(new TaskId("query", "stage", "task"), executor, session)
                 .addPipelineContext(true, true)
                 .addDriverContext();

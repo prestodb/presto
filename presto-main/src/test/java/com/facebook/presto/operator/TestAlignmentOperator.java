@@ -16,7 +16,7 @@ package com.facebook.presto.operator;
 import com.facebook.presto.block.BlockIterable;
 import com.facebook.presto.execution.TaskId;
 import com.facebook.presto.operator.AlignmentOperator.AlignmentOperatorFactory;
-import com.facebook.presto.spi.Session;
+import com.facebook.presto.spi.ConnectorSession;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
@@ -47,7 +47,7 @@ public class TestAlignmentOperator
     public void setUp()
     {
         executor = newCachedThreadPool(daemonThreadsNamed("test"));
-        Session session = new Session("user", "source", "catalog", "schema", UTC_KEY, Locale.ENGLISH, "address", "agent");
+        ConnectorSession session = new ConnectorSession("user", "source", "catalog", "schema", UTC_KEY, Locale.ENGLISH, "address", "agent");
         driverContext = new TaskContext(new TaskId("query", "stage", "task"), executor, session)
                 .addPipelineContext(true, true)
                 .addDriverContext();

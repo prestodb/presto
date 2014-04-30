@@ -20,9 +20,9 @@ import com.facebook.presto.connector.informationSchema.InformationSchemaTableHan
 import com.facebook.presto.connector.system.SystemHandleResolver;
 import com.facebook.presto.connector.system.SystemTableHandle;
 import com.facebook.presto.spi.ConnectorHandleResolver;
+import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorTableHandle;
 import com.facebook.presto.spi.SchemaTableName;
-import com.facebook.presto.spi.Session;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableMap;
@@ -48,7 +48,7 @@ import static org.testng.Assert.assertTrue;
 @Test(singleThreaded = true)
 public class TestJsonTableHandle
 {
-    private static final Session SESSION = new Session("user", "test", "default", "default", UTC_KEY, Locale.ENGLISH, null, null);
+    private static final ConnectorSession SESSION = new ConnectorSession("user", "test", "default", "default", UTC_KEY, Locale.ENGLISH, null, null);
 
     private static final Map<String, Object> NATIVE_AS_MAP = ImmutableMap.<String, Object>of("type", "native",
             "schemaName", "native_schema",

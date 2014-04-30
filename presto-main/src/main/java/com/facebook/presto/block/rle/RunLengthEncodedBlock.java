@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.block.rle;
 
-import com.facebook.presto.spi.Session;
+import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockCursor;
 import com.facebook.presto.spi.block.RandomAccessBlock;
@@ -109,7 +109,7 @@ public class RunLengthEncodedBlock
     }
 
     @Override
-    public Object getObjectValue(Session session, int position)
+    public Object getObjectValue(ConnectorSession session, int position)
     {
         checkReadablePosition(position);
         return value.getObjectValue(session, 0);

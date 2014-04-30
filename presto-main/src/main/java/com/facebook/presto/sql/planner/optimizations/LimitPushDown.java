@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.sql.planner.optimizations;
 
-import com.facebook.presto.spi.Session;
+import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.SymbolAllocator;
@@ -46,7 +46,7 @@ public class LimitPushDown
         extends PlanOptimizer
 {
     @Override
-    public PlanNode optimize(PlanNode plan, Session session, Map<Symbol, Type> types, SymbolAllocator symbolAllocator, PlanNodeIdAllocator idAllocator)
+    public PlanNode optimize(PlanNode plan, ConnectorSession session, Map<Symbol, Type> types, SymbolAllocator symbolAllocator, PlanNodeIdAllocator idAllocator)
     {
         checkNotNull(plan, "plan is null");
         checkNotNull(session, "session is null");

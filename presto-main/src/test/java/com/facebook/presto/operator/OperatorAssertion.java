@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.operator;
 
-import com.facebook.presto.spi.Session;
+import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
@@ -126,7 +126,7 @@ public final class OperatorAssertion
         assertEquals(operator.getOutput(), null);
     }
 
-    public static MaterializedResult toMaterializedResult(Session session, List<Type> types, List<Page> pages)
+    public static MaterializedResult toMaterializedResult(ConnectorSession session, List<Type> types, List<Page> pages)
     {
         // materialize pages
         MaterializedResult.Builder resultBuilder = MaterializedResult.resultBuilder(session, types);

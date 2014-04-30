@@ -32,8 +32,8 @@ import com.facebook.presto.operator.window.PercentRankFunction;
 import com.facebook.presto.operator.window.RankFunction;
 import com.facebook.presto.operator.window.RowNumberFunction;
 import com.facebook.presto.operator.window.WindowFunction;
+import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.spi.Session;
 import com.facebook.presto.spi.StandardErrorCode;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
@@ -465,7 +465,7 @@ public class FunctionRegistry
         for (int i = 0; i < method.getParameterTypes().length; i++) {
             Class<?> clazz = method.getParameterTypes()[i];
             // skip session parameters
-            if (clazz == Session.class) {
+            if (clazz == ConnectorSession.class) {
                 continue;
             }
 
@@ -486,7 +486,7 @@ public class FunctionRegistry
     private static List<Class<?>> getParameterTypes(Class<?>... types)
     {
         ImmutableList<Class<?>> parameterTypes = ImmutableList.copyOf(types);
-        if (!parameterTypes.isEmpty() && parameterTypes.get(0) == Session.class) {
+        if (!parameterTypes.isEmpty() && parameterTypes.get(0) == ConnectorSession.class) {
             parameterTypes = parameterTypes.subList(1, parameterTypes.size());
         }
         return parameterTypes;
@@ -725,7 +725,7 @@ public class FunctionRegistry
 
         // skip Session argument
         Class<?>[] parameterTypes = method.getParameterTypes();
-        if (parameterTypes.length > 0 && parameterTypes[0] == Session.class) {
+        if (parameterTypes.length > 0 && parameterTypes[0] == ConnectorSession.class) {
             parameterTypes = Arrays.copyOfRange(parameterTypes, 1, parameterTypes.length);
         }
 

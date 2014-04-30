@@ -19,11 +19,11 @@ import com.facebook.presto.connector.dual.DualSplitManager;
 import com.facebook.presto.index.IndexManager;
 import com.facebook.presto.metadata.InMemoryNodeManager;
 import com.facebook.presto.metadata.MetadataManager;
+import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.RecordCursor;
 import com.facebook.presto.spi.RecordSet;
 import com.facebook.presto.spi.SchemaTableName;
-import com.facebook.presto.spi.Session;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.split.SplitManager;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
@@ -87,7 +87,7 @@ import static org.testng.Assert.fail;
 public abstract class AbstractTestQueryFramework
 {
     private Handle handle;
-    private Session session;
+    private ConnectorSession session;
 
     @BeforeClass(alwaysRun = true)
     public void setupDatabase()
@@ -148,14 +148,14 @@ public abstract class AbstractTestQueryFramework
         }
     }
 
-    protected Session getSession()
+    protected ConnectorSession getSession()
     {
         return session;
     }
 
     protected abstract int getNodeCount();
 
-    protected abstract Session setUpQueryFramework()
+    protected abstract ConnectorSession setUpQueryFramework()
             throws Exception;
 
     protected void tearDownQueryFramework()

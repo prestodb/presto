@@ -14,7 +14,7 @@
 package com.facebook.presto.sql.planner.optimizations;
 
 import com.facebook.presto.metadata.Metadata;
-import com.facebook.presto.spi.Session;
+import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.sql.planner.ExpressionInterpreter;
 import com.facebook.presto.sql.planner.LiteralInterpreter;
 import com.facebook.presto.sql.planner.NoOpSymbolResolver;
@@ -51,7 +51,7 @@ public class SimplifyExpressions
     }
 
     @Override
-    public PlanNode optimize(PlanNode plan, Session session, Map<Symbol, Type> types, SymbolAllocator symbolAllocator, PlanNodeIdAllocator idAllocator)
+    public PlanNode optimize(PlanNode plan, ConnectorSession session, Map<Symbol, Type> types, SymbolAllocator symbolAllocator, PlanNodeIdAllocator idAllocator)
     {
         checkNotNull(plan, "plan is null");
         checkNotNull(session, "session is null");
@@ -66,10 +66,10 @@ public class SimplifyExpressions
             extends PlanNodeRewriter<Void>
     {
         private final Metadata metadata;
-        private final Session session;
+        private final ConnectorSession session;
         private final Map<Symbol, Type> types;
 
-        public Rewriter(Metadata metadata, Session session, Map<Symbol, Type> types)
+        public Rewriter(Metadata metadata, ConnectorSession session, Map<Symbol, Type> types)
         {
             this.metadata = metadata;
             this.session = session;

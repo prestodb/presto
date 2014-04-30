@@ -15,12 +15,12 @@ package com.facebook.presto.connector.jmx;
 
 import com.facebook.presto.spi.ConnectorColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
+import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorTableHandle;
 import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.ReadOnlyConnectorMetadata;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.SchemaTablePrefix;
-import com.facebook.presto.spi.Session;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.base.Function;
 import com.google.common.base.Predicate;
@@ -65,13 +65,13 @@ public class JmxMetadata
     }
 
     @Override
-    public List<String> listSchemaNames(Session session)
+    public List<String> listSchemaNames(ConnectorSession session)
     {
         return ImmutableList.of(SCHEMA_NAME);
     }
 
     @Override
-    public JmxTableHandle getTableHandle(Session session, SchemaTableName tableName)
+    public JmxTableHandle getTableHandle(ConnectorSession session, SchemaTableName tableName)
     {
         checkNotNull(tableName, "tableName is null");
         if (!tableName.getSchemaName().equals(SCHEMA_NAME)) {
@@ -108,7 +108,7 @@ public class JmxMetadata
     }
 
     @Override
-    public List<SchemaTableName> listTables(Session session, String schemaNameOrNull)
+    public List<SchemaTableName> listTables(ConnectorSession session, String schemaNameOrNull)
     {
         if (schemaNameOrNull != null && !schemaNameOrNull.equals(SCHEMA_NAME)) {
             return ImmutableList.of();
@@ -172,7 +172,7 @@ public class JmxMetadata
     }
 
     @Override
-    public Map<SchemaTableName, List<ColumnMetadata>> listTableColumns(Session session, SchemaTablePrefix prefix)
+    public Map<SchemaTableName, List<ColumnMetadata>> listTableColumns(ConnectorSession session, SchemaTablePrefix prefix)
     {
         checkNotNull(prefix, "prefix is null");
         if (prefix.getSchemaName() != null && !prefix.getSchemaName().equals(SCHEMA_NAME)) {

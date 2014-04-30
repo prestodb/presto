@@ -15,12 +15,12 @@ package com.facebook.presto.connector.informationSchema;
 
 import com.facebook.presto.spi.ConnectorColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
+import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorTableHandle;
 import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.ReadOnlyConnectorMetadata;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.SchemaTablePrefix;
-import com.facebook.presto.spi.Session;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 
@@ -110,13 +110,13 @@ public class InformationSchemaMetadata
     }
 
     @Override
-    public List<String> listSchemaNames(Session session)
+    public List<String> listSchemaNames(ConnectorSession session)
     {
         return ImmutableList.of(INFORMATION_SCHEMA);
     }
 
     @Override
-    public ConnectorTableHandle getTableHandle(Session session, SchemaTableName tableName)
+    public ConnectorTableHandle getTableHandle(ConnectorSession session, SchemaTableName tableName)
     {
         if (!TABLES.containsKey(tableName)) {
             return null;
@@ -132,7 +132,7 @@ public class InformationSchemaMetadata
     }
 
     @Override
-    public List<SchemaTableName> listTables(Session session, String schemaNameOrNull)
+    public List<SchemaTableName> listTables(ConnectorSession session, String schemaNameOrNull)
     {
         if (schemaNameOrNull == null) {
             return ImmutableList.copyOf(TABLES.keySet());
@@ -184,7 +184,7 @@ public class InformationSchemaMetadata
     }
 
     @Override
-    public Map<SchemaTableName, List<ColumnMetadata>> listTableColumns(Session session, SchemaTablePrefix prefix)
+    public Map<SchemaTableName, List<ColumnMetadata>> listTableColumns(ConnectorSession session, SchemaTablePrefix prefix)
     {
         checkNotNull(prefix, "prefix is null");
         ImmutableMap.Builder<SchemaTableName, List<ColumnMetadata>> builder = ImmutableMap.builder();

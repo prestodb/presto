@@ -25,7 +25,7 @@ import com.facebook.presto.metadata.QualifiedTableName;
 import com.facebook.presto.metadata.QualifiedTablePrefix;
 import com.facebook.presto.metadata.TableHandle;
 import com.facebook.presto.server.testing.TestingPrestoServer;
-import com.facebook.presto.spi.Session;
+import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.tpch.SampledTpchPlugin;
 import com.facebook.presto.tpch.TpchMetadata;
@@ -95,7 +95,7 @@ import static org.testng.Assert.assertTrue;
 public class TestDistributedQueries
         extends AbstractTestSampledQueries
 {
-    private static final Session SESSION = new Session("user", "test", TEST_CATALOG, "test", UTC_KEY, Locale.ENGLISH, null, null);
+    private static final ConnectorSession SESSION = new ConnectorSession("user", "test", TEST_CATALOG, "test", UTC_KEY, Locale.ENGLISH, null, null);
 
     private static final String ENVIRONMENT = "testing";
     private static final Logger log = Logger.get(TestDistributedQueries.class.getSimpleName());
@@ -238,7 +238,7 @@ public class TestDistributedQueries
     }
 
     @Override
-    protected Session setUpQueryFramework()
+    protected ConnectorSession setUpQueryFramework()
             throws Exception
     {
         try {

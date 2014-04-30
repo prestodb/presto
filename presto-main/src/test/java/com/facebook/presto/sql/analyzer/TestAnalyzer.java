@@ -17,9 +17,9 @@ import com.facebook.presto.metadata.InMemoryMetadata;
 import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.metadata.TableMetadata;
 import com.facebook.presto.spi.ColumnMetadata;
+import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.SchemaTableName;
-import com.facebook.presto.spi.Session;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.tree.Statement;
 import com.facebook.presto.type.TypeRegistry;
@@ -58,7 +58,7 @@ import static org.testng.Assert.fail;
 @Test(singleThreaded = true)
 public class TestAnalyzer
 {
-    private static final Session SESSION = new Session("user", "test", "default", "default", UTC_KEY, Locale.ENGLISH, null, null);
+    private static final ConnectorSession SESSION = new ConnectorSession("user", "test", "default", "default", UTC_KEY, Locale.ENGLISH, null, null);
     private Analyzer analyzer;
     private Analyzer approximateDisabledAnalyzer;
 
@@ -581,8 +581,8 @@ public class TestAnalyzer
                         new ColumnMetadata("a", BIGINT, 0, false),
                         new ColumnMetadata("b", BIGINT, 1, false)))));
 
-        analyzer = new Analyzer(new Session("user", "test", "tpch", "default", UTC_KEY, Locale.ENGLISH, null, null), metadata, Optional.<QueryExplainer>absent(), true);
-        approximateDisabledAnalyzer = new Analyzer(new Session("user", "test", "tpch", "default", UTC_KEY, Locale.ENGLISH, null, null), metadata, Optional.<QueryExplainer>absent(), false);
+        analyzer = new Analyzer(new ConnectorSession("user", "test", "tpch", "default", UTC_KEY, Locale.ENGLISH, null, null), metadata, Optional.<QueryExplainer>absent(), true);
+        approximateDisabledAnalyzer = new Analyzer(new ConnectorSession("user", "test", "tpch", "default", UTC_KEY, Locale.ENGLISH, null, null), metadata, Optional.<QueryExplainer>absent(), false);
     }
 
     private void analyze(@Language("SQL") String query)

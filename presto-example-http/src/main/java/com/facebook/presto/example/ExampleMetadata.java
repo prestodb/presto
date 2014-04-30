@@ -15,12 +15,12 @@ package com.facebook.presto.example;
 
 import com.facebook.presto.spi.ConnectorColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
+import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorTableHandle;
 import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.ReadOnlyConnectorMetadata;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.SchemaTablePrefix;
-import com.facebook.presto.spi.Session;
 import com.facebook.presto.spi.TableNotFoundException;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -50,7 +50,7 @@ public class ExampleMetadata
     }
 
     @Override
-    public List<String> listSchemaNames(Session session)
+    public List<String> listSchemaNames(ConnectorSession session)
     {
         return listSchemaNames();
     }
@@ -61,7 +61,7 @@ public class ExampleMetadata
     }
 
     @Override
-    public ExampleTableHandle getTableHandle(Session session, SchemaTableName tableName)
+    public ExampleTableHandle getTableHandle(ConnectorSession session, SchemaTableName tableName)
     {
         if (!listSchemaNames(session).contains(tableName.getSchemaName())) {
             return null;
@@ -87,7 +87,7 @@ public class ExampleMetadata
     }
 
     @Override
-    public List<SchemaTableName> listTables(Session session, String schemaNameOrNull)
+    public List<SchemaTableName> listTables(ConnectorSession session, String schemaNameOrNull)
     {
         Set<String> schemaNames;
         if (schemaNameOrNull != null) {
@@ -139,7 +139,7 @@ public class ExampleMetadata
     }
 
     @Override
-    public Map<SchemaTableName, List<ColumnMetadata>> listTableColumns(Session session, SchemaTablePrefix prefix)
+    public Map<SchemaTableName, List<ColumnMetadata>> listTableColumns(ConnectorSession session, SchemaTablePrefix prefix)
     {
         checkNotNull(prefix, "prefix is null");
         ImmutableMap.Builder<SchemaTableName, List<ColumnMetadata>> columns = ImmutableMap.builder();
@@ -167,7 +167,7 @@ public class ExampleMetadata
         return new ConnectorTableMetadata(tableName, table.getColumnsMetadata());
     }
 
-    private List<SchemaTableName> listTables(Session session, SchemaTablePrefix prefix)
+    private List<SchemaTableName> listTables(ConnectorSession session, SchemaTablePrefix prefix)
     {
         if (prefix.getSchemaName() == null) {
             return listTables(session, prefix.getSchemaName());

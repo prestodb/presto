@@ -14,8 +14,8 @@
 package com.facebook.presto.execution;
 
 import com.facebook.presto.client.FailureInfo;
+import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ErrorCode;
-import com.facebook.presto.spi.Session;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.base.Function;
@@ -35,7 +35,7 @@ import java.util.Set;
 public class QueryInfo
 {
     private final QueryId queryId;
-    private final Session session;
+    private final ConnectorSession session;
     private final QueryState state;
     private final URI self;
     private final List<String> fieldNames;
@@ -49,7 +49,7 @@ public class QueryInfo
     @JsonCreator
     public QueryInfo(
             @JsonProperty("queryId") QueryId queryId,
-            @JsonProperty("session") Session session,
+            @JsonProperty("session") ConnectorSession session,
             @JsonProperty("state") QueryState state,
             @JsonProperty("self") URI self,
             @JsonProperty("fieldNames") List<String> fieldNames,
@@ -95,7 +95,7 @@ public class QueryInfo
     }
 
     @JsonProperty
-    public Session getSession()
+    public ConnectorSession getSession()
     {
         return session;
     }

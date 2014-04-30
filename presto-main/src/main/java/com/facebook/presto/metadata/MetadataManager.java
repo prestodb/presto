@@ -19,10 +19,10 @@ import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorColumnHandle;
 import com.facebook.presto.spi.ConnectorMetadata;
 import com.facebook.presto.spi.ConnectorOutputTableHandle;
+import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorTableHandle;
 import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.SchemaTableName;
-import com.facebook.presto.spi.Session;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
@@ -177,7 +177,7 @@ public class MetadataManager
     }
 
     @Override
-    public List<String> listSchemaNames(Session session, String catalogName)
+    public List<String> listSchemaNames(ConnectorSession session, String catalogName)
     {
         checkCatalogName(catalogName);
         ImmutableSet.Builder<String> schemaNames = ImmutableSet.builder();
@@ -188,7 +188,7 @@ public class MetadataManager
     }
 
     @Override
-    public Optional<TableHandle> getTableHandle(Session session, QualifiedTableName table)
+    public Optional<TableHandle> getTableHandle(ConnectorSession session, QualifiedTableName table)
     {
         checkNotNull(table, "table is null");
 
@@ -228,7 +228,7 @@ public class MetadataManager
     }
 
     @Override
-    public List<QualifiedTableName> listTables(Session session, QualifiedTablePrefix prefix)
+    public List<QualifiedTableName> listTables(ConnectorSession session, QualifiedTablePrefix prefix)
     {
         checkNotNull(prefix, "prefix is null");
 
@@ -271,7 +271,7 @@ public class MetadataManager
     }
 
     @Override
-    public boolean canCreateSampledTables(Session session, String catalogName)
+    public boolean canCreateSampledTables(ConnectorSession session, String catalogName)
     {
         ConnectorMetadataEntry connectorMetadata = connectorsByCatalog.get(catalogName);
         checkArgument(connectorMetadata != null, "Catalog %s does not exist", catalogName);
@@ -279,7 +279,7 @@ public class MetadataManager
     }
 
     @Override
-    public Map<QualifiedTableName, List<ColumnMetadata>> listTableColumns(Session session, QualifiedTablePrefix prefix)
+    public Map<QualifiedTableName, List<ColumnMetadata>> listTableColumns(ConnectorSession session, QualifiedTablePrefix prefix)
     {
         checkNotNull(prefix, "prefix is null");
 
@@ -296,7 +296,7 @@ public class MetadataManager
     }
 
     @Override
-    public TableHandle createTable(Session session, String catalogName, TableMetadata tableMetadata)
+    public TableHandle createTable(ConnectorSession session, String catalogName, TableMetadata tableMetadata)
     {
         ConnectorMetadataEntry connectorMetadata = connectorsByCatalog.get(catalogName);
         checkArgument(connectorMetadata != null, "Catalog %s does not exist", catalogName);
@@ -312,7 +312,7 @@ public class MetadataManager
     }
 
     @Override
-    public OutputTableHandle beginCreateTable(Session session, String catalogName, TableMetadata tableMetadata)
+    public OutputTableHandle beginCreateTable(ConnectorSession session, String catalogName, TableMetadata tableMetadata)
     {
         ConnectorMetadataEntry connectorMetadata = connectorsByCatalog.get(catalogName);
         checkArgument(connectorMetadata != null, "Catalog %s does not exist", catalogName);

@@ -14,7 +14,7 @@
 package com.facebook.presto.type;
 
 import com.facebook.presto.operator.scalar.ScalarOperator;
-import com.facebook.presto.spi.Session;
+import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.type.BooleanType;
 import com.facebook.presto.spi.type.DateType;
 import com.facebook.presto.spi.type.TimestampType;
@@ -96,7 +96,7 @@ public final class DateOperators
 
     @ScalarOperator(CAST)
     @SqlType(TimestampType.class)
-    public static long castToTimestamp(Session session, @SqlType(DateType.class) long value)
+    public static long castToTimestamp(ConnectorSession session, @SqlType(DateType.class) long value)
     {
         // date is encoded as milliseconds at midnight in UTC
         // convert to midnight if the session timezone
@@ -106,7 +106,7 @@ public final class DateOperators
 
     @ScalarOperator(CAST)
     @SqlType(TimestampWithTimeZoneType.class)
-    public static long castToTimestampWithTimeZone(Session session, @SqlType(DateType.class) long value)
+    public static long castToTimestampWithTimeZone(ConnectorSession session, @SqlType(DateType.class) long value)
     {
         // date is encoded as milliseconds at midnight in UTC
         // convert to midnight if the session timezone

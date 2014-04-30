@@ -52,7 +52,7 @@ import com.facebook.presto.operator.TaskContext;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.Connector;
 import com.facebook.presto.spi.ConnectorFactory;
-import com.facebook.presto.spi.Session;
+import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.SystemTable;
 import com.facebook.presto.spi.TupleDomain;
 import com.facebook.presto.spi.type.Type;
@@ -104,7 +104,7 @@ import static org.testng.Assert.assertTrue;
 
 public class LocalQueryRunner
 {
-    private final Session session;
+    private final ConnectorSession session;
     private final ExecutorService executor;
 
     private final InMemoryNodeManager nodeManager;
@@ -121,7 +121,7 @@ public class LocalQueryRunner
 
     private boolean printPlan;
 
-    public LocalQueryRunner(Session session, ExecutorService executor)
+    public LocalQueryRunner(ConnectorSession session, ExecutorService executor)
     {
         this.session = checkNotNull(session, "session is null");
         this.executor = checkNotNull(executor, "executor is null");

@@ -17,9 +17,9 @@ import com.facebook.presto.metadata.ColumnHandle;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.Partition;
 import com.facebook.presto.metadata.PartitionResult;
+import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.TupleDomain;
 import com.facebook.presto.split.SplitManager;
-import com.facebook.presto.spi.Session;
 import com.facebook.presto.sql.planner.DependencyExtractor;
 import com.facebook.presto.sql.planner.DeterminismEvaluator;
 import com.facebook.presto.sql.planner.DomainTranslator;
@@ -119,7 +119,7 @@ public class PredicatePushDown
     }
 
     @Override
-    public PlanNode optimize(PlanNode plan, Session session, Map<Symbol, Type> types, SymbolAllocator symbolAllocator, PlanNodeIdAllocator idAllocator)
+    public PlanNode optimize(PlanNode plan, ConnectorSession session, Map<Symbol, Type> types, SymbolAllocator symbolAllocator, PlanNodeIdAllocator idAllocator)
     {
         checkNotNull(plan, "plan is null");
         checkNotNull(session, "session is null");
@@ -136,10 +136,10 @@ public class PredicatePushDown
         private final PlanNodeIdAllocator idAllocator;
         private final Metadata metadata;
         private final SplitManager splitManager;
-        private final Session session;
+        private final ConnectorSession session;
         private final boolean experimentalSyntaxEnabled;
 
-        private Rewriter(SymbolAllocator symbolAllocator, PlanNodeIdAllocator idAllocator, Metadata metadata, SplitManager splitManager, Session session, boolean experimentalSyntaxEnabled)
+        private Rewriter(SymbolAllocator symbolAllocator, PlanNodeIdAllocator idAllocator, Metadata metadata, SplitManager splitManager, ConnectorSession session, boolean experimentalSyntaxEnabled)
         {
             this.symbolAllocator = checkNotNull(symbolAllocator, "symbolAllocator is null");
             this.idAllocator = checkNotNull(idAllocator, "idAllocator is null");

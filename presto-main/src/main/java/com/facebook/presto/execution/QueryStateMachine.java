@@ -16,9 +16,9 @@ package com.facebook.presto.execution;
 import com.facebook.presto.ErrorCodes;
 import com.facebook.presto.client.FailureInfo;
 import com.facebook.presto.execution.StateMachine.StateChangeListener;
+import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ErrorCode;
 import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.spi.Session;
 import com.facebook.presto.spi.StandardErrorCode;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Predicates;
@@ -59,7 +59,7 @@ public class QueryStateMachine
 
     private final QueryId queryId;
     private final String query;
-    private final Session session;
+    private final ConnectorSession session;
     private final URI self;
 
     @GuardedBy("this")
@@ -90,7 +90,7 @@ public class QueryStateMachine
     @GuardedBy("this")
     private Set<Input> inputs = ImmutableSet.of();
 
-    public QueryStateMachine(QueryId queryId, String query, Session session, URI self, Executor executor)
+    public QueryStateMachine(QueryId queryId, String query, ConnectorSession session, URI self, Executor executor)
     {
         this.queryId = checkNotNull(queryId, "queryId is null");
         this.query = checkNotNull(query, "query is null");
@@ -113,7 +113,7 @@ public class QueryStateMachine
         return queryId;
     }
 
-    public Session getSession()
+    public ConnectorSession getSession()
     {
         return session;
     }

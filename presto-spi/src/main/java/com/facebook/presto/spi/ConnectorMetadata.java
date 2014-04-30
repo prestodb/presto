@@ -22,12 +22,12 @@ public interface ConnectorMetadata
     /**
      * Returns the schemas provided by this connector.
      */
-    List<String> listSchemaNames(Session session);
+    List<String> listSchemaNames(ConnectorSession session);
 
     /**
      * Returns a table handle for the specified table name, or null if the connector does not contain the table.
      */
-    ConnectorTableHandle getTableHandle(Session session, SchemaTableName tableName);
+    ConnectorTableHandle getTableHandle(ConnectorSession session, SchemaTableName tableName);
 
     /**
      * Return the metadata for the specified table handle.
@@ -39,7 +39,7 @@ public interface ConnectorMetadata
     /**
      * Get the names that match the specified table prefix (never null).
      */
-    List<SchemaTableName> listTables(Session session, String schemaNameOrNull);
+    List<SchemaTableName> listTables(ConnectorSession session, String schemaNameOrNull);
 
     /**
      * Returns a handle for the specified table column, or null if the table does not contain the specified column.
@@ -58,7 +58,7 @@ public interface ConnectorMetadata
     /**
      * Returns true iff this catalog supports creation of sampled tables
      */
-    boolean canCreateSampledTables(Session session);
+    boolean canCreateSampledTables(ConnectorSession session);
 
     /**
      * Gets all of the columns on the specified table, or an empty map if the columns can not be enumerated.
@@ -77,12 +77,12 @@ public interface ConnectorMetadata
     /**
      * Gets the metadata for all columns that match the specified table prefix.
      */
-    Map<SchemaTableName, List<ColumnMetadata>> listTableColumns(Session session, SchemaTablePrefix prefix);
+    Map<SchemaTableName, List<ColumnMetadata>> listTableColumns(ConnectorSession session, SchemaTablePrefix prefix);
 
     /**
      * Creates a table using the specified table metadata.
      */
-    ConnectorTableHandle createTable(Session session, ConnectorTableMetadata tableMetadata);
+    ConnectorTableHandle createTable(ConnectorSession session, ConnectorTableMetadata tableMetadata);
 
     /**
      * Drops the specified table
@@ -94,7 +94,7 @@ public interface ConnectorMetadata
     /**
      * Begin the atomic creation of a table with data.
      */
-    ConnectorOutputTableHandle beginCreateTable(Session session, ConnectorTableMetadata tableMetadata);
+    ConnectorOutputTableHandle beginCreateTable(ConnectorSession session, ConnectorTableMetadata tableMetadata);
 
     /**
      * Commit a table creation with data after the data is written.

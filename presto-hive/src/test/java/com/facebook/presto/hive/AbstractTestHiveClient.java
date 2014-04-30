@@ -21,6 +21,7 @@ import com.facebook.presto.spi.ConnectorPartition;
 import com.facebook.presto.spi.ConnectorPartitionResult;
 import com.facebook.presto.spi.ConnectorRecordSetProvider;
 import com.facebook.presto.spi.ConnectorRecordSinkProvider;
+import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.ConnectorSplitManager;
 import com.facebook.presto.spi.ConnectorSplitSource;
@@ -33,7 +34,6 @@ import com.facebook.presto.spi.RecordSink;
 import com.facebook.presto.spi.SchemaNotFoundException;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.SchemaTablePrefix;
-import com.facebook.presto.spi.Session;
 import com.facebook.presto.spi.TableNotFoundException;
 import com.facebook.presto.spi.TupleDomain;
 import com.facebook.presto.spi.type.Type;
@@ -86,7 +86,7 @@ import static org.testng.Assert.fail;
 @Test(groups = "hive")
 public abstract class AbstractTestHiveClient
 {
-    private static final Session SESSION = new Session("user", "test", "default", "default", UTC_KEY, Locale.ENGLISH, null, null);
+    private static final ConnectorSession SESSION = new ConnectorSession("user", "test", "default", "default", UTC_KEY, Locale.ENGLISH, null, null);
 
     protected static final String INVALID_DATABASE = "totally_invalid_database";
     protected static final String INVALID_COLUMN = "totally_invalid_column_name";

@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.block;
 
-import com.facebook.presto.spi.Session;
+import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.block.BlockCursor;
 import com.facebook.presto.spi.type.Type;
 
@@ -33,7 +33,7 @@ import static org.testng.Assert.fail;
 
 public final class BlockCursorAssertions
 {
-    public static final Session SESSION = new Session("user", "source", "catalog", "schema", UTC_KEY, Locale.ENGLISH, "address", "agent");
+    public static final ConnectorSession SESSION = new ConnectorSession("user", "source", "catalog", "schema", UTC_KEY, Locale.ENGLISH, "address", "agent");
 
     private BlockCursorAssertions() {}
 

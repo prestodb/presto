@@ -16,9 +16,9 @@ package com.facebook.presto.operator;
 import com.facebook.presto.ExceededMemoryLimitException;
 import com.facebook.presto.execution.TaskId;
 import com.facebook.presto.operator.HashAggregationOperator.HashAggregationOperatorFactory;
+import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.Session;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.sql.planner.plan.AggregationNode.Step;
 import com.facebook.presto.sql.tree.Input;
@@ -70,7 +70,7 @@ public class TestHashAggregationOperator
     public void setUp()
     {
         executor = newCachedThreadPool(daemonThreadsNamed("test"));
-        Session session = new Session("user", "source", "catalog", "schema", UTC_KEY, Locale.ENGLISH, "address", "agent");
+        ConnectorSession session = new ConnectorSession("user", "source", "catalog", "schema", UTC_KEY, Locale.ENGLISH, "address", "agent");
         driverContext = new TaskContext(new TaskId("query", "stage", "task"), executor, session)
                 .addPipelineContext(true, true)
                 .addDriverContext();
@@ -175,7 +175,7 @@ public class TestHashAggregationOperator
                 .addSequencePage(10, 100, 0, 300, 0)
                 .build();
 
-        Session session = new Session("user", "source", "catalog", "schema", UTC_KEY, Locale.ENGLISH, "address", "agent");
+        ConnectorSession session = new ConnectorSession("user", "source", "catalog", "schema", UTC_KEY, Locale.ENGLISH, "address", "agent");
         DriverContext driverContext = new TaskContext(new TaskId("query", "stage", "task"), executor, session, new DataSize(10, Unit.BYTE))
                 .addPipelineContext(true, true)
                 .addDriverContext();
@@ -208,7 +208,7 @@ public class TestHashAggregationOperator
                 .addSequencePage(10, 100)
                 .build();
 
-        Session session = new Session("user", "source", "catalog", "schema", UTC_KEY, Locale.ENGLISH, "address", "agent");
+        ConnectorSession session = new ConnectorSession("user", "source", "catalog", "schema", UTC_KEY, Locale.ENGLISH, "address", "agent");
         DriverContext driverContext = new TaskContext(new TaskId("query", "stage", "task"), executor, session, new DataSize(3, Unit.MEGABYTE))
                 .addPipelineContext(true, true)
                 .addDriverContext();
@@ -239,7 +239,7 @@ public class TestHashAggregationOperator
                 .addSequencePage(10, 100)
                 .build();
 
-        Session session = new Session("user", "source", "catalog", "schema", UTC_KEY, Locale.ENGLISH, "address", "agent");
+        ConnectorSession session = new ConnectorSession("user", "source", "catalog", "schema", UTC_KEY, Locale.ENGLISH, "address", "agent");
         DriverContext driverContext = new TaskContext(new TaskId("query", "stage", "task"), executor, session, new DataSize(3, Unit.MEGABYTE))
                 .addPipelineContext(true, true)
                 .addDriverContext();

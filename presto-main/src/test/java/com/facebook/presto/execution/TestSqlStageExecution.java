@@ -30,11 +30,11 @@ import com.facebook.presto.metadata.QualifiedTableName;
 import com.facebook.presto.metadata.Split;
 import com.facebook.presto.metadata.TableHandle;
 import com.facebook.presto.operator.TaskContext;
+import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.FixedSplitSource;
 import com.facebook.presto.spi.HostAddress;
 import com.facebook.presto.spi.Node;
-import com.facebook.presto.spi.Session;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.sql.planner.PlanFragment;
@@ -93,7 +93,7 @@ import static org.testng.Assert.fail;
 @Test(singleThreaded = true)
 public class TestSqlStageExecution
 {
-    public static final Session SESSION = new Session("user", "source", "catalog", "schema", UTC_KEY, Locale.ENGLISH, "address", "agent");
+    public static final ConnectorSession SESSION = new ConnectorSession("user", "source", "catalog", "schema", UTC_KEY, Locale.ENGLISH, "address", "agent");
 
     MetadataManager metadata;
     LocationFactory locationFactory = new MockLocationFactory();
@@ -360,7 +360,7 @@ public class TestSqlStageExecution
 
         @Override
         public RemoteTask createRemoteTask(
-                Session session,
+                ConnectorSession session,
                 TaskId taskId,
                 Node node,
                 PlanFragment fragment,
@@ -395,7 +395,7 @@ public class TestSqlStageExecution
             {
                 this.taskStateMachine = new TaskStateMachine(checkNotNull(taskId, "taskId is null"), checkNotNull(executor, "executor is null"));
 
-                Session session = new Session("user", "source", "catalog", "schema", UTC_KEY, Locale.ENGLISH, "address", "agent");
+                ConnectorSession session = new ConnectorSession("user", "source", "catalog", "schema", UTC_KEY, Locale.ENGLISH, "address", "agent");
                 this.taskContext = new TaskContext(taskStateMachine, executor, session, new DataSize(256, MEGABYTE), new DataSize(1, MEGABYTE), true);
 
                 this.location = URI.create("fake://task/" + taskId);

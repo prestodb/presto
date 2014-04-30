@@ -18,7 +18,7 @@ import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.OperatorInfo;
 import com.facebook.presto.metadata.OperatorInfo.OperatorType;
 import com.facebook.presto.metadata.OperatorNotFoundException;
-import com.facebook.presto.spi.Session;
+import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.planner.DependencyExtractor;
 import com.facebook.presto.sql.planner.Symbol;
@@ -109,7 +109,7 @@ public class ExpressionAnalyzer
     private final Analysis analysis;
     private final Metadata metadata;
     private final boolean experimentalSyntaxEnabled;
-    private final Session session;
+    private final ConnectorSession session;
     private final Map<QualifiedName, Integer> resolvedNames = new HashMap<>();
     private final IdentityHashMap<FunctionCall, FunctionInfo> resolvedFunctions = new IdentityHashMap<>();
     private final IdentityHashMap<Expression, OperatorInfo> resolvedOperators = new IdentityHashMap<>();
@@ -117,7 +117,7 @@ public class ExpressionAnalyzer
     private final IdentityHashMap<Expression, Type> expressionCoercions = new IdentityHashMap<>();
     private final Set<InPredicate> subqueryInPredicates = Collections.newSetFromMap(new IdentityHashMap<InPredicate, Boolean>());
 
-    public ExpressionAnalyzer(Analysis analysis, Session session, Metadata metadata, boolean experimentalSyntaxEnabled)
+    public ExpressionAnalyzer(Analysis analysis, ConnectorSession session, Metadata metadata, boolean experimentalSyntaxEnabled)
     {
         this.analysis = checkNotNull(analysis, "analysis is null");
         this.session = checkNotNull(session, "session is null");
@@ -737,27 +737,27 @@ public class ExpressionAnalyzer
         }
     }
 
-    public static IdentityHashMap<Expression, Type> getExpressionTypes(Session session, Metadata metadata, Map<Symbol, Type> types, Expression expression)
+    public static IdentityHashMap<Expression, Type> getExpressionTypes(ConnectorSession session, Metadata metadata, Map<Symbol, Type> types, Expression expression)
     {
         return getExpressionTypes(session, metadata, types, ImmutableList.of(expression));
     }
 
-    public static IdentityHashMap<Expression, Type> getExpressionTypes(Session session, Metadata metadata, Map<Symbol, Type> types, Iterable<? extends Expression> expressions)
+    public static IdentityHashMap<Expression, Type> getExpressionTypes(ConnectorSession session, Metadata metadata, Map<Symbol, Type> types, Iterable<? extends Expression> expressions)
     {
         return analyzeExpressionsWithSymbols(session, metadata, types, expressions).getExpressionTypes();
     }
 
-    public static IdentityHashMap<Expression, Type> getExpressionTypesFromInput(Session session, Metadata metadata, Map<Input, Type> types, Expression expression)
+    public static IdentityHashMap<Expression, Type> getExpressionTypesFromInput(ConnectorSession session, Metadata metadata, Map<Input, Type> types, Expression expression)
     {
         return getExpressionTypesFromInput(session, metadata, types, ImmutableList.of(expression));
     }
 
-    public static IdentityHashMap<Expression, Type> getExpressionTypesFromInput(Session session, Metadata metadata, Map<Input, Type> types, Iterable<? extends Expression> expressions)
+    public static IdentityHashMap<Expression, Type> getExpressionTypesFromInput(ConnectorSession session, Metadata metadata, Map<Input, Type> types, Iterable<? extends Expression> expressions)
     {
         return analyzeExpressionsWithInputs(session, metadata, types, expressions).getExpressionTypes();
     }
 
-    public static ExpressionAnalysis analyzeExpressionsWithSymbols(Session session, Metadata metadata, final Map<Symbol, Type> types, Iterable<? extends Expression> expressions)
+    public static ExpressionAnalysis analyzeExpressionsWithSymbols(ConnectorSession session, Metadata metadata, final Map<Symbol, Type> types, Iterable<? extends Expression> expressions)
     {
         List<Field> fields = IterableTransformer.on(DependencyExtractor.extractUnique(expressions))
                 .transform(new Function<Symbol, Field>()
@@ -775,7 +775,7 @@ public class ExpressionAnalyzer
         return analyzeExpressions(session, metadata, new TupleDescriptor(fields), expressions);
     }
 
-    public static ExpressionAnalysis analyzeExpressionsWithInputs(Session session, Metadata metadata, Map<Input, Type> types, Iterable<? extends Expression> expressions)
+    public static ExpressionAnalysis analyzeExpressionsWithInputs(ConnectorSession session, Metadata metadata, Map<Input, Type> types, Iterable<? extends Expression> expressions)
     {
         Field[] fields = new Field[types.size()];
         for (Entry<Input, Type> entry : types.entrySet()) {
@@ -786,7 +786,7 @@ public class ExpressionAnalyzer
         return analyzeExpressions(session, metadata, tupleDescriptor, expressions);
     }
 
-    private static ExpressionAnalysis analyzeExpressions(Session session, Metadata metadata, TupleDescriptor tupleDescriptor, Iterable<? extends Expression> expressions)
+    private static ExpressionAnalysis analyzeExpressions(ConnectorSession session, Metadata metadata, TupleDescriptor tupleDescriptor, Iterable<? extends Expression> expressions)
     {
         ExpressionAnalyzer analyzer = new ExpressionAnalyzer(new Analysis(), session, metadata, false);
         for (Expression expression : expressions) {
@@ -801,7 +801,7 @@ public class ExpressionAnalyzer
     }
 
     public static ExpressionAnalysis analyzeExpression(
-            Session session,
+            ConnectorSession session,
             Metadata metadata,
             TupleDescriptor tupleDescriptor,
             Analysis analysis,

@@ -15,10 +15,10 @@ package com.facebook.presto.sql.planner;
 
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.ColumnHandle;
+import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.Domain;
 import com.facebook.presto.spi.Marker;
 import com.facebook.presto.spi.Range;
-import com.facebook.presto.spi.Session;
 import com.facebook.presto.spi.SortedRangeSet;
 import com.facebook.presto.spi.TupleDomain;
 import com.facebook.presto.spi.type.DoubleType;
@@ -181,7 +181,7 @@ public final class DomainTranslator
      */
     public static ExtractionResult fromPredicate(
             Metadata metadata,
-            Session session,
+            ConnectorSession session,
             Expression predicate,
             Map<Symbol, Type> types,
             Map<Symbol, ColumnHandle> columnHandleTranslationMap)
@@ -193,11 +193,11 @@ public final class DomainTranslator
             extends AstVisitor<ExtractionResult, Boolean>
     {
         private final Metadata metadata;
-        private final Session session;
+        private final ConnectorSession session;
         private final Map<Symbol, Type> types;
         private final Map<Symbol, ColumnHandle> columnHandles;
 
-        private Visitor(Metadata metadata, Session session, Map<Symbol, Type> types, Map<Symbol, ColumnHandle> columnHandles)
+        private Visitor(Metadata metadata, ConnectorSession session, Map<Symbol, Type> types, Map<Symbol, ColumnHandle> columnHandles)
         {
             this.metadata = checkNotNull(metadata, "metadata is null");
             this.session = checkNotNull(session, "session is null");

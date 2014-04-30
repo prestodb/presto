@@ -24,7 +24,7 @@ import com.facebook.presto.execution.TaskState;
 import com.facebook.presto.execution.TaskStateMachine;
 import com.facebook.presto.operator.Page;
 import com.facebook.presto.operator.TaskContext;
-import com.facebook.presto.spi.Session;
+import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.sql.planner.PlanFragment;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.facebook.presto.execution.ExecutionFailureInfo;
@@ -115,7 +115,7 @@ public class MockTaskManager
     }
 
     @Override
-    public synchronized TaskInfo updateTask(Session session, TaskId taskId, PlanFragment ignored, List<TaskSource> sources, OutputBuffers outputBuffers)
+    public synchronized TaskInfo updateTask(ConnectorSession session, TaskId taskId, PlanFragment ignored, List<TaskSource> sources, OutputBuffers outputBuffers)
     {
         checkNotNull(session, "session is null");
         checkNotNull(taskId, "taskId is null");
@@ -194,7 +194,7 @@ public class MockTaskManager
         private final TaskContext taskContext;
         private final SharedBuffer sharedBuffer;
 
-        public MockTask(Session session,
+        public MockTask(ConnectorSession session,
                 TaskId taskId,
                 URI location,
                 OutputBuffers outputBuffers,

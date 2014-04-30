@@ -14,7 +14,7 @@
 package com.facebook.presto.type;
 
 import com.facebook.presto.operator.scalar.ScalarOperator;
-import com.facebook.presto.spi.Session;
+import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.type.BooleanType;
 import com.facebook.presto.spi.type.DateType;
 import com.facebook.presto.spi.type.TimeType;
@@ -99,7 +99,7 @@ public final class TimestampOperators
 
     @ScalarOperator(CAST)
     @SqlType(DateType.class)
-    public static long castToDate(Session session, @SqlType(TimestampType.class) long value)
+    public static long castToDate(ConnectorSession session, @SqlType(TimestampType.class) long value)
     {
         // round down the current timestamp to days
         ISOChronology chronology = getChronology(session.getTimeZoneKey());
@@ -111,14 +111,14 @@ public final class TimestampOperators
 
     @ScalarOperator(CAST)
     @SqlType(TimeType.class)
-    public static long castToTime(Session session, @SqlType(TimestampType.class) long value)
+    public static long castToTime(ConnectorSession session, @SqlType(TimestampType.class) long value)
     {
         return modulo24Hour(getChronology(session.getTimeZoneKey()), value);
     }
 
     @ScalarOperator(CAST)
     @SqlType(TimeWithTimeZoneType.class)
-    public static long castToTimeWithTimeZone(Session session, @SqlType(TimestampType.class) long value)
+    public static long castToTimeWithTimeZone(ConnectorSession session, @SqlType(TimestampType.class) long value)
     {
         int timeMillis = modulo24Hour(getChronology(session.getTimeZoneKey()), value);
         return packDateTimeWithZone(timeMillis, session.getTimeZoneKey());
@@ -126,21 +126,21 @@ public final class TimestampOperators
 
     @ScalarOperator(CAST)
     @SqlType(TimestampWithTimeZoneType.class)
-    public static long castToTimestampWithTimeZone(Session session, @SqlType(TimestampType.class) long value)
+    public static long castToTimestampWithTimeZone(ConnectorSession session, @SqlType(TimestampType.class) long value)
     {
         return packDateTimeWithZone(value, session.getTimeZoneKey());
     }
 
     @ScalarOperator(CAST)
     @SqlType(VarcharType.class)
-    public static Slice castToSlice(Session session, @SqlType(TimestampType.class) long value)
+    public static Slice castToSlice(ConnectorSession session, @SqlType(TimestampType.class) long value)
     {
         return Slices.copiedBuffer(printTimestampWithoutTimeZone(session.getTimeZoneKey(), value), UTF_8);
     }
 
     @ScalarOperator(CAST)
     @SqlType(TimestampType.class)
-    public static long castFromSlice(Session session, @SqlType(VarcharType.class) Slice value)
+    public static long castFromSlice(ConnectorSession session, @SqlType(VarcharType.class) Slice value)
     {
         return parseTimestampWithoutTimeZone(session.getTimeZoneKey(), value.toStringUtf8());
     }

@@ -32,9 +32,9 @@ import com.facebook.presto.operator.ExchangeClient;
 import com.facebook.presto.operator.RecordSinkManager;
 import com.facebook.presto.spi.ConnectorColumnHandle;
 import com.facebook.presto.spi.ConnectorPartitionResult;
+import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.Node;
 import com.facebook.presto.spi.SchemaTableName;
-import com.facebook.presto.spi.Session;
 import com.facebook.presto.spi.TupleDomain;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.split.DataStreamManager;
@@ -89,7 +89,7 @@ public class TestSqlTaskManager
     private TaskExecutor taskExecutor;
     private LocalExecutionPlanner planner;
     private TaskId taskId;
-    private Session session;
+    private ConnectorSession session;
     private Symbol symbol;
     private ColumnHandle columnHandle;
     private TableHandle tableHandle;
@@ -158,7 +158,7 @@ public class TestSqlTaskManager
                 ImmutableList.<Symbol>of());
 
         taskId = new TaskId("query", "stage", "task");
-        session = new Session("user", "test", "default", "default", UTC_KEY, Locale.ENGLISH, "test", "test");
+        session = new ConnectorSession("user", "test", "default", "default", UTC_KEY, Locale.ENGLISH, "test", "test");
     }
 
     @AfterMethod

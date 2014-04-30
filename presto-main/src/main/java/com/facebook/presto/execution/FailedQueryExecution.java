@@ -14,7 +14,7 @@
 package com.facebook.presto.execution;
 
 import com.facebook.presto.execution.StateMachine.StateChangeListener;
-import com.facebook.presto.spi.Session;
+import com.facebook.presto.spi.ConnectorSession;
 import io.airlift.units.Duration;
 
 import java.net.URI;
@@ -25,7 +25,7 @@ public class FailedQueryExecution
 {
     private final QueryInfo queryInfo;
 
-    public FailedQueryExecution(QueryId queryId, String query, Session session, URI self, Executor executor, Throwable cause)
+    public FailedQueryExecution(QueryId queryId, String query, ConnectorSession session, URI self, Executor executor, Throwable cause)
     {
         QueryStateMachine queryStateMachine = new QueryStateMachine(queryId, query, session, self, executor);
         queryStateMachine.fail(cause);

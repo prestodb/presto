@@ -16,7 +16,7 @@ package com.facebook.presto.sql.planner;
 import com.facebook.presto.metadata.ColumnHandle;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.Signature;
-import com.facebook.presto.spi.Session;
+import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.block.BlockCursor;
 import com.facebook.presto.spi.type.BigintType;
 import com.facebook.presto.metadata.TableHandle;
@@ -81,9 +81,9 @@ class RelationPlanner
     private final SymbolAllocator symbolAllocator;
     private final PlanNodeIdAllocator idAllocator;
     private final Metadata metadata;
-    private final Session session;
+    private final ConnectorSession session;
 
-    RelationPlanner(Analysis analysis, SymbolAllocator symbolAllocator, PlanNodeIdAllocator idAllocator, Metadata metadata, Session session)
+    RelationPlanner(Analysis analysis, SymbolAllocator symbolAllocator, PlanNodeIdAllocator idAllocator, Metadata metadata, ConnectorSession session)
     {
         Preconditions.checkNotNull(analysis, "analysis is null");
         Preconditions.checkNotNull(symbolAllocator, "symbolAllocator is null");

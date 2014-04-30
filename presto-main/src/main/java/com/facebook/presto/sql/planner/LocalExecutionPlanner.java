@@ -56,9 +56,9 @@ import com.facebook.presto.operator.WindowOperator.WindowOperatorFactory;
 import com.facebook.presto.operator.index.IndexLookupSourceSupplier;
 import com.facebook.presto.operator.index.IndexSourceOperator;
 import com.facebook.presto.operator.window.WindowFunction;
+import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.Index;
 import com.facebook.presto.spi.RecordSink;
-import com.facebook.presto.spi.Session;
 import com.facebook.presto.spi.block.BlockCursor;
 import com.facebook.presto.spi.block.SortOrder;
 import com.facebook.presto.spi.type.Type;
@@ -183,7 +183,7 @@ public class LocalExecutionPlanner
         this.compiler = checkNotNull(compiler, "compiler is null");
     }
 
-    public LocalExecutionPlan plan(Session session,
+    public LocalExecutionPlan plan(ConnectorSession session,
             PlanNode plan,
             Map<Symbol, Type> types,
             OutputFactory outputOperatorFactory)
@@ -205,7 +205,7 @@ public class LocalExecutionPlanner
 
     private static class LocalExecutionPlanContext
     {
-        private final Session session;
+        private final ConnectorSession session;
         private final Map<Symbol, Type> types;
         private final List<DriverFactory> driverFactories;
         private final Optional<IndexSourceContext> indexSourceContext;
@@ -213,12 +213,12 @@ public class LocalExecutionPlanner
         private int nextOperatorId;
         private boolean inputDriver = true;
 
-        public LocalExecutionPlanContext(Session session, Map<Symbol, Type> types)
+        public LocalExecutionPlanContext(ConnectorSession session, Map<Symbol, Type> types)
         {
             this(session, types, new ArrayList<DriverFactory>(), Optional.<IndexSourceContext>absent());
         }
 
-        private LocalExecutionPlanContext(Session session, Map<Symbol, Type> types, List<DriverFactory> driverFactories, Optional<IndexSourceContext> indexSourceContext)
+        private LocalExecutionPlanContext(ConnectorSession session, Map<Symbol, Type> types, List<DriverFactory> driverFactories, Optional<IndexSourceContext> indexSourceContext)
         {
             this.session = session;
             this.types = types;
@@ -236,7 +236,7 @@ public class LocalExecutionPlanner
             return ImmutableList.copyOf(driverFactories);
         }
 
-        public Session getSession()
+        public ConnectorSession getSession()
         {
             return session;
         }
@@ -311,9 +311,9 @@ public class LocalExecutionPlanner
     private class Visitor
             extends PlanVisitor<LocalExecutionPlanContext, PhysicalOperation>
     {
-        private final Session session;
+        private final ConnectorSession session;
 
-        private Visitor(Session session)
+        private Visitor(ConnectorSession session)
         {
             this.session = session;
         }

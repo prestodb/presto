@@ -26,8 +26,8 @@ import com.facebook.presto.metadata.NativeMetadata;
 import com.facebook.presto.metadata.NativeRecordSinkProvider;
 import com.facebook.presto.metadata.QualifiedTableName;
 import com.facebook.presto.metadata.TableColumnMapper;
+import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.NodeManager;
-import com.facebook.presto.spi.Session;
 import com.facebook.presto.split.NativeDataStreamProvider;
 import com.facebook.presto.split.NativePartitionKey;
 import com.facebook.presto.split.NativeSplitManager;
@@ -57,7 +57,7 @@ public final class BenchmarkQueryRunner
 
     public static LocalQueryRunner createLocalSampledQueryRunner(ExecutorService executor)
     {
-        Session session = new Session("user", "test", "default", "default", UTC_KEY, Locale.ENGLISH, null, null);
+        ConnectorSession session = new ConnectorSession("user", "test", "default", "default", UTC_KEY, Locale.ENGLISH, null, null);
         LocalQueryRunner localQueryRunner = new LocalQueryRunner(session, executor);
 
         // add sampled tpch
@@ -83,7 +83,7 @@ public final class BenchmarkQueryRunner
 
     public static LocalQueryRunner createLocalQueryRunner(ExecutorService executor)
     {
-        Session session = new Session("user", "test", "default", "default", UTC_KEY, Locale.ENGLISH, null, null);
+        ConnectorSession session = new ConnectorSession("user", "test", "default", "default", UTC_KEY, Locale.ENGLISH, null, null);
         LocalQueryRunner localQueryRunner = new LocalQueryRunner(session, executor);
 
         // add tpch

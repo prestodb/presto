@@ -17,6 +17,7 @@ import com.facebook.presto.hive.shaded.org.apache.thrift.TException;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorColumnHandle;
 import com.facebook.presto.spi.ConnectorPartitionResult;
+import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.ConnectorSplitSource;
 import com.facebook.presto.spi.ConnectorTableHandle;
@@ -24,7 +25,6 @@ import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.RecordCursor;
 import com.facebook.presto.spi.RecordSink;
 import com.facebook.presto.spi.SchemaTableName;
-import com.facebook.presto.spi.Session;
 import com.facebook.presto.spi.TupleDomain;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
@@ -59,7 +59,7 @@ import static org.testng.Assert.assertTrue;
 @Test(groups = "hive-s3")
 public abstract class AbstractTestHiveClientS3
 {
-    private static final Session SESSION = new Session("user", "test", "default", "default", UTC_KEY, Locale.ENGLISH, null, null);
+    private static final ConnectorSession SESSION = new ConnectorSession("user", "test", "default", "default", UTC_KEY, Locale.ENGLISH, null, null);
 
     protected String database;
     protected SchemaTableName tableS3;

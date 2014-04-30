@@ -28,7 +28,7 @@ import com.facebook.presto.execution.StageState;
 import com.facebook.presto.execution.StageStats;
 import com.facebook.presto.execution.TaskId;
 import com.facebook.presto.execution.TaskInfo;
-import com.facebook.presto.spi.Session;
+import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.base.Function;
 import com.google.common.base.Preconditions;
@@ -111,7 +111,7 @@ public class MockQueryManager
     }
 
     @Override
-    public QueryInfo createQuery(Session session, String query)
+    public QueryInfo createQuery(ConnectorSession session, String query)
     {
         Preconditions.checkNotNull(query, "query is null");
 
@@ -178,7 +178,7 @@ public class MockQueryManager
                     throw new IllegalStateException("Unknown task state " + outputTask.getState());
             }
             return new QueryInfo(outputTaskId.getQueryId(),
-                    new Session("user", "test", "test_catalog", "test_schema", UTC_KEY, Locale.ENGLISH, null, null),
+                    new ConnectorSession("user", "test", "test_catalog", "test_schema", UTC_KEY, Locale.ENGLISH, null, null),
                     state,
                     self,
                     ImmutableList.of("out"),

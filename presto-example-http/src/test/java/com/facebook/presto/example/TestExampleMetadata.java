@@ -14,9 +14,9 @@
 package com.facebook.presto.example;
 
 import com.facebook.presto.spi.ColumnMetadata;
+import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.SchemaTableName;
-import com.facebook.presto.spi.Session;
 import com.facebook.presto.spi.TableNotFoundException;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -41,7 +41,7 @@ import static org.testng.Assert.fail;
 @Test(singleThreaded = true)
 public class TestExampleMetadata
 {
-    private static final Session SESSION = new Session("user", "test", "default", "default", UTC_KEY, Locale.ENGLISH, null, null);
+    private static final ConnectorSession SESSION = new ConnectorSession("user", "test", "default", "default", UTC_KEY, Locale.ENGLISH, null, null);
     private static final String CONNECTOR_ID = "TEST";
     private static final ExampleTableHandle NUMBERS_TABLE_HANDLE = new ExampleTableHandle(CONNECTOR_ID, "example", "numbers");
     private ExampleMetadata metadata;

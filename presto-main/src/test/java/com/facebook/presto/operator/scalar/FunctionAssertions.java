@@ -33,11 +33,11 @@ import com.facebook.presto.operator.SourceOperator;
 import com.facebook.presto.operator.SourceOperatorFactory;
 import com.facebook.presto.operator.TaskContext;
 import com.facebook.presto.operator.ValuesOperator;
+import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.HostAddress;
 import com.facebook.presto.spi.InMemoryRecordSet;
 import com.facebook.presto.spi.RecordSet;
-import com.facebook.presto.spi.Session;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockCursor;
 import com.facebook.presto.spi.type.Type;
@@ -103,7 +103,7 @@ import static org.testng.Assert.assertTrue;
 
 public final class FunctionAssertions
 {
-    public static final Session SESSION = new Session("user", "source", "catalog", "schema", UTC_KEY, Locale.ENGLISH, "address", "agent");
+    public static final ConnectorSession SESSION = new ConnectorSession("user", "source", "catalog", "schema", UTC_KEY, Locale.ENGLISH, "address", "agent");
 
     private static final ExecutorService EXECUTOR = Executors.newCachedThreadPool(Threads.daemonThreadsNamed("test-%s"));
 
@@ -151,7 +151,7 @@ public final class FunctionAssertions
     private static final DataStreamProvider DATA_STREAM_PROVIDER = new TestDataStreamProvider();
     private static final PlanNodeId SOURCE_ID = new PlanNodeId("scan");
 
-    private final Session session;
+    private final ConnectorSession session;
     private final LocalQueryRunner runner;
     private final MetadataManager metadataManager;
     private final ExpressionCompiler compiler;
@@ -161,7 +161,7 @@ public final class FunctionAssertions
         this(SESSION);
     }
 
-    public FunctionAssertions(Session session)
+    public FunctionAssertions(ConnectorSession session)
     {
         this.session = checkNotNull(session, "session is null");
         runner = new LocalQueryRunner(session, EXECUTOR);
@@ -203,7 +203,7 @@ public final class FunctionAssertions
         return selectSingleValue(projection, session);
     }
 
-    public Object selectSingleValue(String projection, Session session)
+    public Object selectSingleValue(String projection, ConnectorSession session)
     {
         List<Object> results = executeProjectionWithAll(projection, session);
         HashSet<Object> resultSet = new HashSet<>(results);
@@ -214,7 +214,7 @@ public final class FunctionAssertions
         return Iterables.getOnlyElement(resultSet);
     }
 
-    public List<Object> executeProjectionWithAll(String projection, Session session)
+    public List<Object> executeProjectionWithAll(String projection, ConnectorSession session)
     {
         checkNotNull(projection, "projection is null");
 
@@ -263,13 +263,13 @@ public final class FunctionAssertions
         return results;
     }
 
-    public Object selectSingleValue(OperatorFactory operatorFactory, Session session)
+    public Object selectSingleValue(OperatorFactory operatorFactory, ConnectorSession session)
     {
         Operator operator = operatorFactory.createOperator(createDriverContext(session));
         return selectSingleValue(operator);
     }
 
-    public Object selectSingleValue(SourceOperatorFactory operatorFactory, Split split, Session session)
+    public Object selectSingleValue(SourceOperatorFactory operatorFactory, Split split, ConnectorSession session)
     {
         SourceOperator operator = operatorFactory.createOperator(createDriverContext(session));
         operator.addSplit(split);
@@ -309,7 +309,7 @@ public final class FunctionAssertions
         assertEquals((boolean) Iterables.getOnlyElement(resultSet), expected);
     }
 
-    public List<Boolean> executeFilterWithAll(String filter, Session session, boolean executeWithNoInputColumns)
+    public List<Boolean> executeFilterWithAll(String filter, ConnectorSession session, boolean executeWithNoInputColumns)
     {
         checkNotNull(filter, "filter is null");
 
@@ -385,17 +385,17 @@ public final class FunctionAssertions
         return canonicalizeExpression(rewrittenExpression);
     }
 
-    private static boolean executeFilterWithNoInputColumns(OperatorFactory operatorFactory, Session session)
+    private static boolean executeFilterWithNoInputColumns(OperatorFactory operatorFactory, ConnectorSession session)
     {
         return executeFilterWithNoInputColumns(operatorFactory.createOperator(createDriverContext(session)));
     }
 
-    private static boolean executeFilter(OperatorFactory operatorFactory, Session session)
+    private static boolean executeFilter(OperatorFactory operatorFactory, ConnectorSession session)
     {
         return executeFilter(operatorFactory.createOperator(createDriverContext(session)));
     }
 
-    private static boolean executeFilter(SourceOperatorFactory operatorFactory, Split split, Session session)
+    private static boolean executeFilter(SourceOperatorFactory operatorFactory, Split split, ConnectorSession session)
     {
         SourceOperator operator = operatorFactory.createOperator(createDriverContext(session));
         operator.addSplit(split);
@@ -454,7 +454,7 @@ public final class FunctionAssertions
         return hasQualifiedNameReference.get();
     }
 
-    private Operator interpretedFilterProject(Expression filter, Expression projection, Session session)
+    private Operator interpretedFilterProject(Expression filter, Expression projection, ConnectorSession session)
     {
         FilterFunction filterFunction = new InterpretedFilterFunction(
                 filter,
@@ -565,7 +565,7 @@ public final class FunctionAssertions
         return result;
     }
 
-    private static DriverContext createDriverContext(Session session)
+    private static DriverContext createDriverContext(ConnectorSession session)
     {
         return new TaskContext(new TaskId("query", "stage", "task"), EXECUTOR, session)
                 .addPipelineContext(true, true)

@@ -20,6 +20,7 @@ import com.facebook.presto.spi.ConnectorHandleResolver;
 import com.facebook.presto.spi.ConnectorMetadata;
 import com.facebook.presto.spi.ConnectorPartitionResult;
 import com.facebook.presto.spi.ConnectorRecordSetProvider;
+import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.ConnectorSplitManager;
 import com.facebook.presto.spi.ConnectorSplitSource;
@@ -29,7 +30,6 @@ import com.facebook.presto.spi.RecordCursor;
 import com.facebook.presto.spi.SchemaNotFoundException;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.SchemaTablePrefix;
-import com.facebook.presto.spi.Session;
 import com.facebook.presto.spi.TupleDomain;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.base.Charsets;
@@ -79,7 +79,7 @@ import static org.testng.Assert.fail;
 
 public class TestCassandraConnector
 {
-    private static final Session SESSION = new Session("user", "test", "catalog", "test", UTC_KEY, Locale.ENGLISH, null, null);
+    private static final ConnectorSession SESSION = new ConnectorSession("user", "test", "catalog", "test", UTC_KEY, Locale.ENGLISH, null, null);
     protected static final String INVALID_DATABASE = "totally_invalid_database";
 
     private ConnectorMetadata metadata;
