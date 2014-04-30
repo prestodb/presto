@@ -36,7 +36,7 @@ import static com.facebook.presto.util.DateTimeZoneIndex.getDateTimeZone;
 import static java.util.concurrent.TimeUnit.HOURS;
 import static org.testng.Assert.fail;
 
-public class TestTemporalOperators
+public class TestDateTimeOperators
 {
     private static final TimeZoneKey TIME_ZONE_KEY = getTimeZoneKey("Europe/Berlin");
     private static final DateTimeZone TIME_ZONE = getDateTimeZone(TIME_ZONE_KEY);
