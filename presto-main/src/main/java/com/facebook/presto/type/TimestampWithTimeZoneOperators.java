@@ -14,11 +14,13 @@
 package com.facebook.presto.type;
 
 import com.facebook.presto.operator.scalar.ScalarOperator;
+import com.facebook.presto.spi.type.BooleanType;
 import com.facebook.presto.spi.type.DateType;
 import com.facebook.presto.spi.type.TimeType;
 import com.facebook.presto.spi.type.TimeWithTimeZoneType;
 import com.facebook.presto.spi.type.TimestampType;
 import com.facebook.presto.spi.type.TimestampWithTimeZoneType;
+import com.facebook.presto.spi.type.VarcharType;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import org.joda.time.chrono.ISOChronology;
@@ -47,43 +49,53 @@ public final class TimestampWithTimeZoneOperators
     }
 
     @ScalarOperator(EQUAL)
+    @SqlType(BooleanType.class)
     public static boolean equal(@SqlType(TimestampWithTimeZoneType.class) long left, @SqlType(TimestampWithTimeZoneType.class) long right)
     {
         return unpackMillisUtc(left) == unpackMillisUtc(right);
     }
 
     @ScalarOperator(NOT_EQUAL)
+    @SqlType(BooleanType.class)
     public static boolean notEqual(@SqlType(TimestampWithTimeZoneType.class) long left, @SqlType(TimestampWithTimeZoneType.class) long right)
     {
         return unpackMillisUtc(left) != unpackMillisUtc(right);
     }
 
     @ScalarOperator(LESS_THAN)
+    @SqlType(BooleanType.class)
     public static boolean lessThan(@SqlType(TimestampWithTimeZoneType.class) long left, @SqlType(TimestampWithTimeZoneType.class) long right)
     {
         return unpackMillisUtc(left) < unpackMillisUtc(right);
     }
 
     @ScalarOperator(LESS_THAN_OR_EQUAL)
+    @SqlType(BooleanType.class)
     public static boolean lessThanOrEqual(@SqlType(TimestampWithTimeZoneType.class) long left, @SqlType(TimestampWithTimeZoneType.class) long right)
     {
         return unpackMillisUtc(left) <= unpackMillisUtc(right);
     }
 
     @ScalarOperator(GREATER_THAN)
+    @SqlType(BooleanType.class)
     public static boolean greaterThan(@SqlType(TimestampWithTimeZoneType.class) long left, @SqlType(TimestampWithTimeZoneType.class) long right)
     {
         return unpackMillisUtc(left) > unpackMillisUtc(right);
     }
 
     @ScalarOperator(GREATER_THAN_OR_EQUAL)
+    @SqlType(BooleanType.class)
     public static boolean greaterThanOrEqual(@SqlType(TimestampWithTimeZoneType.class) long left, @SqlType(TimestampWithTimeZoneType.class) long right)
     {
         return unpackMillisUtc(left) >= unpackMillisUtc(right);
     }
 
     @ScalarOperator(BETWEEN)
-    public static boolean between(@SqlType(TimestampWithTimeZoneType.class) long value, @SqlType(TimestampWithTimeZoneType.class) long min, @SqlType(TimestampWithTimeZoneType.class) long max)
+    @SqlType(BooleanType.class)
+    public static boolean between(
+            @SqlType(TimestampWithTimeZoneType.class) long value,
+            @SqlType(TimestampWithTimeZoneType.class) long min,
+            @SqlType(TimestampWithTimeZoneType.class) long max)
     {
         return unpackMillisUtc(min) <= unpackMillisUtc(value) && unpackMillisUtc(value) <= unpackMillisUtc(max);
     }
@@ -123,6 +135,7 @@ public final class TimestampWithTimeZoneOperators
     }
 
     @ScalarOperator(CAST)
+    @SqlType(VarcharType.class)
     public static Slice castToSlice(@SqlType(TimestampWithTimeZoneType.class) long value)
     {
         return Slices.copiedBuffer(printTimestampWithTimeZone(value), UTF_8);

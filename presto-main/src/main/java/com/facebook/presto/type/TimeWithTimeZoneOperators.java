@@ -15,10 +15,12 @@ package com.facebook.presto.type;
 
 import com.facebook.presto.operator.scalar.ScalarOperator;
 import com.facebook.presto.spi.Session;
+import com.facebook.presto.spi.type.BooleanType;
 import com.facebook.presto.spi.type.TimeType;
 import com.facebook.presto.spi.type.TimeWithTimeZoneType;
 import com.facebook.presto.spi.type.TimestampType;
 import com.facebook.presto.spi.type.TimestampWithTimeZoneType;
+import com.facebook.presto.spi.type.VarcharType;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 
@@ -42,42 +44,49 @@ public final class TimeWithTimeZoneOperators
     }
 
     @ScalarOperator(EQUAL)
+    @SqlType(BooleanType.class)
     public static boolean equal(@SqlType(TimeWithTimeZoneType.class) long left, @SqlType(TimeWithTimeZoneType.class) long right)
     {
         return unpackMillisUtc(left) == unpackMillisUtc(right);
     }
 
     @ScalarOperator(NOT_EQUAL)
+    @SqlType(BooleanType.class)
     public static boolean notEqual(@SqlType(TimeWithTimeZoneType.class) long left, @SqlType(TimeWithTimeZoneType.class) long right)
     {
         return unpackMillisUtc(left) != unpackMillisUtc(right);
     }
 
     @ScalarOperator(LESS_THAN)
+    @SqlType(BooleanType.class)
     public static boolean lessThan(@SqlType(TimeWithTimeZoneType.class) long left, @SqlType(TimeWithTimeZoneType.class) long right)
     {
         return unpackMillisUtc(left) < unpackMillisUtc(right);
     }
 
     @ScalarOperator(LESS_THAN_OR_EQUAL)
+    @SqlType(BooleanType.class)
     public static boolean lessThanOrEqual(@SqlType(TimeWithTimeZoneType.class) long left, @SqlType(TimeWithTimeZoneType.class) long right)
     {
         return unpackMillisUtc(left) <= unpackMillisUtc(right);
     }
 
     @ScalarOperator(GREATER_THAN)
+    @SqlType(BooleanType.class)
     public static boolean greaterThan(@SqlType(TimeWithTimeZoneType.class) long left, @SqlType(TimeWithTimeZoneType.class) long right)
     {
         return unpackMillisUtc(left) > unpackMillisUtc(right);
     }
 
     @ScalarOperator(GREATER_THAN_OR_EQUAL)
+    @SqlType(BooleanType.class)
     public static boolean greaterThanOrEqual(@SqlType(TimeWithTimeZoneType.class) long left, @SqlType(TimeWithTimeZoneType.class) long right)
     {
         return unpackMillisUtc(left) >= unpackMillisUtc(right);
     }
 
     @ScalarOperator(BETWEEN)
+    @SqlType(BooleanType.class)
     public static boolean between(@SqlType(TimeWithTimeZoneType.class) long value, @SqlType(TimeWithTimeZoneType.class) long min, @SqlType(TimeWithTimeZoneType.class) long max)
     {
         return unpackMillisUtc(min) <= unpackMillisUtc(value) && unpackMillisUtc(value) <= unpackMillisUtc(max);
@@ -105,6 +114,7 @@ public final class TimeWithTimeZoneOperators
     }
 
     @ScalarOperator(CAST)
+    @SqlType(VarcharType.class)
     public static Slice castToSlice(@SqlType(TimeWithTimeZoneType.class) long value)
     {
         return Slices.copiedBuffer(printTimeWithTimeZone(value), UTF_8);

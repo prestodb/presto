@@ -13,12 +13,16 @@
  */
 package com.facebook.presto.operator.scalar;
 
+import com.facebook.presto.spi.type.BigintType;
+import com.facebook.presto.type.SqlType;
+
 public final class CustomAdd
 {
     private CustomAdd() {}
 
     @ScalarFunction
-    public static long customAdd(long x, long y)
+    @SqlType(BigintType.class)
+    public static long customAdd(@SqlType(BigintType.class) long x, @SqlType(BigintType.class) long y)
     {
         return x + y;
     }

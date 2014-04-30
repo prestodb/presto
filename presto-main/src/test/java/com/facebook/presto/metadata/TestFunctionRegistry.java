@@ -16,7 +16,9 @@ package com.facebook.presto.metadata;
 import com.facebook.presto.metadata.OperatorInfo.OperatorType;
 import com.facebook.presto.operator.scalar.CustomAdd;
 import com.facebook.presto.operator.scalar.ScalarFunction;
+import com.facebook.presto.spi.type.BigintType;
 import com.facebook.presto.sql.tree.QualifiedName;
+import com.facebook.presto.type.SqlType;
 import com.facebook.presto.type.TypeRegistry;
 import com.google.common.collect.ImmutableList;
 import org.testng.annotations.Test;
@@ -85,7 +87,8 @@ public class TestFunctionRegistry
         private ScalarSum() {}
 
         @ScalarFunction
-        public static long sum(long a, long b)
+        @SqlType(BigintType.class)
+        public static long sum(@SqlType(BigintType.class) long a, @SqlType(BigintType.class) long b)
         {
             return a + b;
         }
