@@ -81,6 +81,7 @@ import java.lang.reflect.Constructor;
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
@@ -470,7 +471,8 @@ public class FunctionRegistry
                     break;
                 }
             }
-            types.add(type(explicitType, clazz));
+            checkArgument(explicitType != null, "Method %s argument %s does not have a @SqlType annotation", method, i);
+            types.add(type(explicitType));
         }
         return types.build();
     }
@@ -484,11 +486,8 @@ public class FunctionRegistry
         return parameterTypes;
     }
 
-    private static Type type(SqlType explicitType, Class<?> clazz)
+    private static Type type(SqlType explicitType)
     {
-        if (explicitType == null) {
-            return type(clazz);
-        }
         try {
             return (Type) explicitType.value().getMethod("getInstance").invoke(null);
         }
@@ -598,8 +597,12 @@ public class FunctionRegistry
             if (name.isEmpty()) {
                 name = camelToSnake(method.getName());
             }
-            Type returnType = type(method.getAnnotation(SqlType.class), method.getReturnType());
+            SqlType returnTypeAnnotation = method.getAnnotation(SqlType.class);
+            checkArgument(returnTypeAnnotation != null, "Method %s return type does not have a @SqlType annotation", method);
+            Type returnType = type(returnTypeAnnotation);
             Signature signature = new Signature(name.toLowerCase(), returnType, parameterTypes(method), false);
+
+            verifyMethodSignature(method, signature.getReturnType(), signature.getArgumentTypes());
 
             FunctionBinder functionBinder = createFunctionBinder(method, scalarFunction.functionBinder());
 
@@ -620,18 +623,25 @@ public class FunctionRegistry
             checkValidMethod(method);
             MethodHandle methodHandle = lookup().unreflect(method);
             OperatorType operatorType = scalarOperator.value();
+
+            List<Type> parameterTypes = parameterTypes(method);
+
             Type returnType;
             if (operatorType == OperatorType.HASH_CODE) {
                 // todo hack for hashCode... should be int
                 returnType = BIGINT;
             }
             else {
-                returnType = type(method.getAnnotation(SqlType.class), method.getReturnType());
+                SqlType explicitType = method.getAnnotation(SqlType.class);
+                checkArgument(explicitType != null, "Method %s return type does not have a @SqlType annotation", method);
+                returnType = type(explicitType);
+
+                verifyMethodSignature(method, returnType, parameterTypes);
             }
 
             FunctionBinder functionBinder = createFunctionBinder(method, scalarOperator.functionBinder());
 
-            operator(operatorType, returnType, parameterTypes(method), methodHandle, functionBinder);
+            operator(operatorType, returnType, parameterTypes, methodHandle, functionBinder);
             return true;
         }
 
@@ -696,6 +706,32 @@ public class FunctionRegistry
         public List<OperatorInfo> getOperators()
         {
             return ImmutableList.copyOf(operators);
+        }
+    }
+
+    private static void verifyMethodSignature(Method method, Type returnType, List<Type> argumentTypes)
+    {
+        checkArgument(Primitives.unwrap(method.getReturnType()) == returnType.getJavaType(),
+                "Expected method %s return type to be %s (%s)",
+                method,
+                returnType.getJavaType().getName(),
+                returnType);
+
+        // skip Session argument
+        Class<?>[] parameterTypes = method.getParameterTypes();
+        if (parameterTypes.length > 0 && parameterTypes[0] == Session.class) {
+            parameterTypes = Arrays.copyOfRange(parameterTypes, 1, parameterTypes.length);
+        }
+
+        for (int i = 0; i < parameterTypes.length; i++) {
+            Class<?> actualType = parameterTypes[i];
+            Type expectedType = argumentTypes.get(i);
+            checkArgument(Primitives.unwrap(actualType) == expectedType.getJavaType(),
+                    "Expected method %s parameter %s type to be %s (%s)",
+                    method,
+                    i,
+                    expectedType.getJavaType().getName(),
+                    expectedType);
         }
     }
 
