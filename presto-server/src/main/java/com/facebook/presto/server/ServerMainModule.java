@@ -97,7 +97,6 @@ import com.facebook.presto.type.ColorType;
 import com.facebook.presto.type.TypeDeserializer;
 import com.facebook.presto.type.TypeRegistry;
 import com.facebook.presto.type.UnknownType;
-import com.facebook.presto.util.Threads;
 import com.google.common.base.Supplier;
 import com.google.common.collect.ImmutableSet;
 import com.google.inject.Binder;
@@ -124,11 +123,11 @@ import java.io.File;
 import java.lang.annotation.Annotation;
 import java.util.List;
 import java.util.Set;
-import java.util.concurrent.Executor;
-import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
 
 import static com.facebook.presto.guice.ConditionalModule.installIfPropertyEquals;
 import static com.facebook.presto.guice.DbiProvider.bindDbiToDataSource;
+import static com.facebook.presto.util.Threads.daemonThreadsNamed;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.inject.multibindings.MapBinder.newMapBinder;
 import static com.google.inject.multibindings.Multibinder.newSetBinder;
@@ -138,6 +137,7 @@ import static io.airlift.event.client.EventBinder.eventBinder;
 import static io.airlift.http.client.HttpClientBinder.httpClientBinder;
 import static io.airlift.json.JsonBinder.jsonBinder;
 import static io.airlift.json.JsonCodecBinder.jsonCodecBinder;
+import static java.util.concurrent.Executors.newScheduledThreadPool;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.weakref.jmx.guice.ExportBinder.newExporter;
 
@@ -319,9 +319,9 @@ public class ServerMainModule
     @Provides
     @Singleton
     @ForExchange
-    public Executor createExchangeExecutor()
+    public ScheduledExecutorService createExchangeExecutor()
     {
-        return Executors.newCachedThreadPool(Threads.daemonThreadsNamed("exchange-callback-%s"));
+        return newScheduledThreadPool(4, daemonThreadsNamed("exchange-client-%s"));
     }
 
     @Provides
