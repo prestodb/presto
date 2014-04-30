@@ -182,7 +182,7 @@ public class StatementResource
         }
     }
 
-    private static TimeZoneKey getTimeZoneKey(String timeZoneId)
+    static TimeZoneKey getTimeZoneKey(String timeZoneId)
     {
         try {
             return TimeZoneKey.getTimeZoneKey(timeZoneId);
