@@ -33,6 +33,8 @@ import static com.facebook.presto.operator.aggregation.ApproximateUtils.formatAp
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
+import static io.airlift.slice.SizeOf.SIZE_OF_DOUBLE;
+import static io.airlift.slice.SizeOf.SIZE_OF_INT;
 import static io.airlift.slice.SizeOf.SIZE_OF_LONG;
 
 public class ApproximateCountAggregation
@@ -201,6 +203,12 @@ public class ApproximateCountAggregation
             this.maskChannel = maskChannel;
             this.sampleWeightChannel = sampleWeightChannel;
             this.confidence = confidence;
+        }
+
+        @Override
+        public long getEstimatedSize()
+        {
+            return 3 * SIZE_OF_LONG + SIZE_OF_INT + SIZE_OF_DOUBLE;
         }
 
         @Override
