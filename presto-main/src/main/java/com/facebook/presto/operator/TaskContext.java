@@ -17,7 +17,7 @@ import com.facebook.presto.execution.StateMachine.StateChangeListener;
 import com.facebook.presto.execution.TaskId;
 import com.facebook.presto.execution.TaskState;
 import com.facebook.presto.execution.TaskStateMachine;
-import com.facebook.presto.spi.Session;
+import com.facebook.presto.spi.ConnectorSession;
 import com.google.common.base.Function;
 import com.google.common.collect.ImmutableList;
 import io.airlift.stats.CounterStat;
@@ -47,7 +47,7 @@ public class TaskContext
 {
     private final TaskStateMachine taskStateMachine;
     private final Executor executor;
-    private final Session session;
+    private final ConnectorSession session;
 
     private final long maxMemory;
     private final DataSize operatorPreAllocatedMemory;
@@ -68,7 +68,7 @@ public class TaskContext
 
     private final boolean cpuTimerEnabled;
 
-    public TaskContext(TaskId taskId, Executor executor, Session session)
+    public TaskContext(TaskId taskId, Executor executor, ConnectorSession session)
     {
         this(
                 checkNotNull(taskId, "taskId is null"),
@@ -77,7 +77,7 @@ public class TaskContext
                 new DataSize(256, MEGABYTE));
     }
 
-    public TaskContext(TaskId taskId, Executor executor, Session session, DataSize maxMemory)
+    public TaskContext(TaskId taskId, Executor executor, ConnectorSession session, DataSize maxMemory)
     {
         this(
                 new TaskStateMachine(checkNotNull(taskId, "taskId is null"), checkNotSameThreadExecutor(executor, "executor is null")),
@@ -88,7 +88,7 @@ public class TaskContext
                 true);
     }
 
-    public TaskContext(TaskStateMachine taskStateMachine, Executor executor, Session session, DataSize maxMemory, DataSize operatorPreAllocatedMemory, boolean cpuTimerEnabled)
+    public TaskContext(TaskStateMachine taskStateMachine, Executor executor, ConnectorSession session, DataSize maxMemory, DataSize operatorPreAllocatedMemory, boolean cpuTimerEnabled)
     {
         this.taskStateMachine = checkNotNull(taskStateMachine, "taskStateMachine is null");
         this.executor = checkNotNull(executor, "executor is null");
@@ -128,7 +128,7 @@ public class TaskContext
         return ImmutableList.copyOf(pipelineContexts);
     }
 
-    public Session getSession()
+    public ConnectorSession getSession()
     {
         return session;
     }

@@ -19,7 +19,7 @@ import com.facebook.presto.operator.scalar.JsonFunctions;
 import com.facebook.presto.operator.scalar.MathFunctions;
 import com.facebook.presto.operator.scalar.RegexpFunctions;
 import com.facebook.presto.operator.scalar.StringFunctions;
-import com.facebook.presto.spi.Session;
+import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.type.SqlTimestampWithTimeZone;
 import com.facebook.presto.sql.planner.LikeUtils;
 import com.facebook.presto.sql.tree.Extract.Field;
@@ -963,7 +963,7 @@ public class TestExpressionCompiler
     }
 
     @SuppressWarnings("fallthrough")
-    private static long callExtractFunction(Session session, long value, Field field)
+    private static long callExtractFunction(ConnectorSession session, long value, Field field)
     {
         switch (field) {
             case YEAR:

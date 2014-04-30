@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.hive;
 
+import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.SchemaTableName;
-import com.facebook.presto.spi.Session;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableMap;
@@ -24,7 +24,6 @@ import org.testng.annotations.Test;
 import java.util.Locale;
 import java.util.Map;
 
-import static com.facebook.presto.spi.Session.DEFAULT_CATALOG;
 import static com.facebook.presto.spi.type.TimeZoneKey.UTC_KEY;
 import static io.airlift.testing.Assertions.assertEqualsIgnoreOrder;
 import static org.testng.Assert.assertEquals;
@@ -33,7 +32,7 @@ import static org.testng.Assert.assertTrue;
 @Test
 public class TestJsonHiveHandles
 {
-    private static final Session SESSION = new Session("user", "test", DEFAULT_CATALOG, "test", UTC_KEY, Locale.ENGLISH, null, null);
+    private static final ConnectorSession SESSION = new ConnectorSession("user", "test", "catalog", "test", UTC_KEY, Locale.ENGLISH, null, null);
 
     private static final Map<String, Object> TABLE_HANDLE_AS_MAP = ImmutableMap.<String, Object>of(
             "clientId", "hive",

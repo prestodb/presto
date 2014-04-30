@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.operator.scalar;
 
+import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.spi.Session;
 import com.facebook.presto.spi.type.SqlDate;
 import com.facebook.presto.spi.type.SqlTime;
 import com.facebook.presto.spi.type.SqlTimeWithTimeZone;
@@ -31,8 +31,6 @@ import org.testng.annotations.Test;
 import java.util.Locale;
 import java.util.TimeZone;
 
-import static com.facebook.presto.spi.Session.DEFAULT_CATALOG;
-import static com.facebook.presto.spi.Session.DEFAULT_SCHEMA;
 import static com.facebook.presto.spi.type.TimeZoneKey.getTimeZoneKey;
 import static com.facebook.presto.spi.type.TimeZoneKey.getTimeZoneKeyForOffset;
 import static com.facebook.presto.util.DateTimeZoneIndex.getDateTimeZone;
@@ -66,13 +64,13 @@ public class TestDateTimeFunctions
     private static final String WEIRD_TIMESTAMP_LITERAL = "TIMESTAMP '2001-08-22 03:04:05.321 +07:09'";
 
     private static final TimeZoneKey WEIRD_TIME_ZONE_KEY = getTimeZoneKeyForOffset(7 * 60 + 9);
-    private Session session;
+    private ConnectorSession session;
     private FunctionAssertions functionAssertions;
 
     @BeforeClass
     public void setUp()
     {
-        session = new Session("user", "test", DEFAULT_CATALOG, DEFAULT_SCHEMA, TIME_ZONE_KEY, Locale.ENGLISH, null, null);
+        session = new ConnectorSession("user", "test", "catalog", "schema", TIME_ZONE_KEY, Locale.ENGLISH, null, null);
         functionAssertions = new FunctionAssertions(session);
     }
 
@@ -616,7 +614,7 @@ public class TestDateTimeFunctions
     public void testLocale()
     {
         Locale locale = Locale.JAPANESE;
-        session = new Session("user", "test", DEFAULT_CATALOG, DEFAULT_SCHEMA, TIME_ZONE_KEY, locale, null, null);
+        session = new ConnectorSession("user", "test", "catalog", "schema", TIME_ZONE_KEY, locale, null, null);
 
         functionAssertions = new FunctionAssertions(session);
 

@@ -32,10 +32,10 @@ import com.facebook.presto.metadata.TableHandle;
 import com.facebook.presto.operator.RecordSinkManager;
 import com.facebook.presto.spi.ConnectorColumnHandle;
 import com.facebook.presto.spi.ConnectorPartitionResult;
+import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.ConnectorSplitSource;
 import com.facebook.presto.spi.SchemaTableName;
-import com.facebook.presto.spi.Session;
 import com.facebook.presto.spi.TupleDomain;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.split.DataStreamManager;
@@ -84,7 +84,7 @@ import static org.testng.Assert.assertTrue;
 @Test(singleThreaded = true)
 public class TestSqlTaskExecution
 {
-    private static final Session SESSION = new Session("user", "test", "default", "default", UTC_KEY, Locale.ENGLISH, null, null);
+    private static final ConnectorSession SESSION = new ConnectorSession("user", "test", "default", "default", UTC_KEY, Locale.ENGLISH, null, null);
     private TaskExecutor taskExecutor;
     private ConnectorSplit split;
     private ExecutorService taskNotificationExecutor;
@@ -147,7 +147,7 @@ public class TestSqlTaskExecution
                 ImmutableList.<Symbol>of());
 
         TaskId taskId = new TaskId("query", "stage", "task");
-        Session session = new Session("user", "test", "default", "default", UTC_KEY, Locale.ENGLISH, "test", "test");
+        ConnectorSession session = new ConnectorSession("user", "test", "default", "default", UTC_KEY, Locale.ENGLISH, "test", "test");
 
         taskNotificationExecutor = Executors.newCachedThreadPool(threadsNamed("task-notification-%d"));
 

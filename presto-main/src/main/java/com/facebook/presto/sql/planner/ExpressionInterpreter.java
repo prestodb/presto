@@ -17,8 +17,8 @@ import com.facebook.presto.metadata.FunctionInfo;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.OperatorInfo;
 import com.facebook.presto.metadata.OperatorInfo.OperatorType;
+import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.RecordCursor;
-import com.facebook.presto.spi.Session;
 import com.facebook.presto.spi.block.BlockCursor;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.tree.ArithmeticExpression;
@@ -77,7 +77,7 @@ public class ExpressionInterpreter
 {
     private final Expression expression;
     private final Metadata metadata;
-    private final Session session;
+    private final ConnectorSession session;
     private final boolean optimize;
     private final IdentityHashMap<Expression, Type> expressionTypes;
 
@@ -87,7 +87,7 @@ public class ExpressionInterpreter
     private final IdentityHashMap<LikePredicate, Regex> likePatternCache = new IdentityHashMap<>();
     private final IdentityHashMap<InListExpression, Set<Object>> inListCache = new IdentityHashMap<>();
 
-    public static ExpressionInterpreter expressionInterpreter(Expression expression, Metadata metadata, Session session, IdentityHashMap<Expression, Type> expressionTypes)
+    public static ExpressionInterpreter expressionInterpreter(Expression expression, Metadata metadata, ConnectorSession session, IdentityHashMap<Expression, Type> expressionTypes)
     {
         checkNotNull(expression, "expression is null");
         checkNotNull(metadata, "metadata is null");
@@ -96,7 +96,7 @@ public class ExpressionInterpreter
         return new ExpressionInterpreter(expression, metadata, session, expressionTypes, false);
     }
 
-    public static ExpressionInterpreter expressionOptimizer(Expression expression, Metadata metadata, Session session, IdentityHashMap<Expression, Type> expressionTypes)
+    public static ExpressionInterpreter expressionOptimizer(Expression expression, Metadata metadata, ConnectorSession session, IdentityHashMap<Expression, Type> expressionTypes)
     {
         checkNotNull(expression, "expression is null");
         checkNotNull(metadata, "metadata is null");
@@ -105,7 +105,7 @@ public class ExpressionInterpreter
         return new ExpressionInterpreter(expression, metadata, session, expressionTypes, true);
     }
 
-    private ExpressionInterpreter(Expression expression, Metadata metadata, Session session, IdentityHashMap<Expression, Type> expressionTypes, boolean optimize)
+    private ExpressionInterpreter(Expression expression, Metadata metadata, ConnectorSession session, IdentityHashMap<Expression, Type> expressionTypes, boolean optimize)
     {
         this.expression = expression;
         this.metadata = metadata;
@@ -400,7 +400,7 @@ public class ExpressionInterpreter
             OperatorInfo operatorInfo = metadata.resolveOperator(OperatorType.NEGATION, types(node.getValue()));
 
             MethodHandle handle = operatorInfo.getMethodHandle();
-            if (handle.type().parameterCount() > 0 && handle.type().parameterType(0) == Session.class) {
+            if (handle.type().parameterCount() > 0 && handle.type().parameterType(0) == ConnectorSession.class) {
                 handle = handle.bindTo(session);
             }
             try {
@@ -741,9 +741,9 @@ public class ExpressionInterpreter
         }
     }
 
-    public static Object invoke(Session session, MethodHandle handle, List<Object> argumentValues)
+    public static Object invoke(ConnectorSession session, MethodHandle handle, List<Object> argumentValues)
     {
-        if (handle.type().parameterCount() > 0 && handle.type().parameterType(0) == Session.class) {
+        if (handle.type().parameterCount() > 0 && handle.type().parameterType(0) == ConnectorSession.class) {
             handle = handle.bindTo(session);
         }
         try {

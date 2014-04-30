@@ -17,11 +17,11 @@ import com.facebook.presto.hive.util.AsyncRecursiveWalker;
 import com.facebook.presto.hive.util.BoundedExecutor;
 import com.facebook.presto.hive.util.FileStatusCallback;
 import com.facebook.presto.hive.util.SuspendingExecutor;
+import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.ConnectorSplitSource;
 import com.facebook.presto.spi.HostAddress;
 import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.spi.Session;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Optional;
 import com.google.common.base.Throwables;
@@ -111,7 +111,7 @@ class HiveSplitSourceProvider
     private final ClassLoader classLoader;
     private final DataSize maxSplitSize;
     private final int maxPartitionBatchSize;
-    private final Session session;
+    private final ConnectorSession session;
 
     HiveSplitSourceProvider(String connectorId,
             Table table,
@@ -126,7 +126,7 @@ class HiveSplitSourceProvider
             DirectoryLister directoryLister,
             Executor executor,
             int maxPartitionBatchSize,
-            Session session)
+            ConnectorSession session)
     {
         this.connectorId = connectorId;
         this.table = table;
@@ -166,7 +166,7 @@ class HiveSplitSourceProvider
         return hiveSplitSource;
     }
 
-    private void loadPartitionSplits(final HiveSplitSource hiveSplitSource, SuspendingExecutor suspendingExecutor, final Session session)
+    private void loadPartitionSplits(final HiveSplitSource hiveSplitSource, SuspendingExecutor suspendingExecutor, final ConnectorSession session)
             throws InterruptedException
     {
         final Semaphore semaphore = new Semaphore(maxPartitionBatchSize);
@@ -335,7 +335,7 @@ class HiveSplitSourceProvider
             Properties schema,
             List<HivePartitionKey> partitionKeys,
             boolean splittable,
-            Session session)
+            ConnectorSession session)
             throws IOException
     {
         ImmutableList.Builder<HiveSplit> builder = ImmutableList.builder();

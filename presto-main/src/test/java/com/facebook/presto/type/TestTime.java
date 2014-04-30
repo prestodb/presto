@@ -14,7 +14,7 @@
 package com.facebook.presto.type;
 
 import com.facebook.presto.operator.scalar.FunctionAssertions;
-import com.facebook.presto.spi.Session;
+import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.type.SqlTime;
 import com.facebook.presto.spi.type.SqlTimeWithTimeZone;
 import com.facebook.presto.spi.type.SqlTimestamp;
@@ -27,8 +27,6 @@ import org.testng.annotations.Test;
 
 import java.util.Locale;
 
-import static com.facebook.presto.spi.Session.DEFAULT_CATALOG;
-import static com.facebook.presto.spi.Session.DEFAULT_SCHEMA;
 import static com.facebook.presto.spi.type.TimeZoneKey.getTimeZoneKey;
 import static com.facebook.presto.util.DateTimeZoneIndex.getDateTimeZone;
 
@@ -42,7 +40,7 @@ public class TestTime
     @BeforeClass
     public void setUp()
     {
-        Session session = new Session("user", "test", DEFAULT_CATALOG, DEFAULT_SCHEMA, TIME_ZONE_KEY, Locale.ENGLISH, null, null);
+        ConnectorSession session = new ConnectorSession("user", "test", "catalog", "schema", TIME_ZONE_KEY, Locale.ENGLISH, null, null);
         functionAssertions = new FunctionAssertions(session);
     }
 

@@ -13,9 +13,9 @@
  */
 package com.facebook.presto.hive;
 
+import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorTableHandle;
 import com.facebook.presto.spi.SchemaTableName;
-import com.facebook.presto.spi.Session;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.base.Objects;
@@ -28,14 +28,14 @@ public class HiveTableHandle
     private final String clientId;
     private final String schemaName;
     private final String tableName;
-    private final Session session;
+    private final ConnectorSession session;
 
     @JsonCreator
     public HiveTableHandle(
             @JsonProperty("clientId") String clientId,
             @JsonProperty("schemaName") String schemaName,
             @JsonProperty("tableName") String tableName,
-            @JsonProperty("session") Session session)
+            @JsonProperty("session") ConnectorSession session)
     {
         this.clientId = checkNotNull(clientId, "clientId is null");
         this.schemaName = checkNotNull(schemaName, "schemaName is null");
@@ -56,7 +56,7 @@ public class HiveTableHandle
     }
 
     @JsonProperty
-    public Session getSession()
+    public ConnectorSession getSession()
     {
         return session;
     }

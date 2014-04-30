@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.sql.planner;
 
-import com.facebook.presto.spi.Session;
+import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.tree.ComparisonExpression;
 import com.facebook.presto.sql.tree.Expression;
@@ -25,8 +25,6 @@ import java.util.Locale;
 
 import static com.facebook.presto.connector.dual.DualMetadata.DUAL_METADATA_MANAGER;
 import static com.facebook.presto.operator.scalar.FunctionAssertions.createExpression;
-import static com.facebook.presto.spi.Session.DEFAULT_CATALOG;
-import static com.facebook.presto.spi.Session.DEFAULT_SCHEMA;
 import static com.facebook.presto.spi.type.TimeZoneKey.UTC_KEY;
 import static java.lang.String.format;
 import static org.testng.Assert.assertEquals;
@@ -195,7 +193,7 @@ public class TestInterpretedFilterFunction
     public static void assertFilter(String expression, boolean expectedValue)
     {
         Expression parsed = createExpression(expression, DUAL_METADATA_MANAGER, ImmutableMap.<Symbol, Type>of());
-        Session session = new Session("user", "test", DEFAULT_CATALOG, DEFAULT_SCHEMA, UTC_KEY, Locale.ENGLISH, null, null);
+        ConnectorSession session = new ConnectorSession("user", "test", "catalog", "schema", UTC_KEY, Locale.ENGLISH, null, null);
 
         InterpretedFilterFunction filterFunction = new InterpretedFilterFunction(parsed,
                 ImmutableMap.<Symbol, Type>of(),

@@ -21,11 +21,8 @@ import java.util.Locale;
 
 import static java.util.Objects.requireNonNull;
 
-public class Session
+public class ConnectorSession
 {
-    public static final String DEFAULT_CATALOG = "default";
-    public static final String DEFAULT_SCHEMA = "default";
-
     private final String user;
     private final String source;
     private final TimeZoneKey timeZoneKey;
@@ -36,13 +33,13 @@ public class Session
     private final String schema;
     private final long startTime;
 
-    public Session(String user, String source, String catalog, String schema, TimeZoneKey timeZoneKey, Locale locale, String remoteUserAddress, String userAgent)
+    public ConnectorSession(String user, String source, String catalog, String schema, TimeZoneKey timeZoneKey, Locale locale, String remoteUserAddress, String userAgent)
     {
         this(user, source, catalog, schema, timeZoneKey, locale, remoteUserAddress, userAgent, System.currentTimeMillis());
     }
 
     @JsonCreator
-    public Session(
+    public ConnectorSession(
             @JsonProperty("user") String user,
             @JsonProperty("source") String source,
             @JsonProperty("catalog") String catalog,
@@ -76,12 +73,20 @@ public class Session
         return source;
     }
 
+    /**
+     * DO NOT CALL THIS FROM CONNECTORS. IT WILL BE REMOVED SOON.
+     */
+    @Deprecated
     @JsonProperty
     public String getCatalog()
     {
         return catalog;
     }
 
+    /**
+     * DO NOT CALL THIS FROM CONNECTORS. IT WILL BE REMOVED SOON.
+     */
+    @Deprecated
     @JsonProperty
     public String getSchema()
     {

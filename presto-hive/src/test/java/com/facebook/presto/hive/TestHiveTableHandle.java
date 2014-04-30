@@ -13,19 +13,18 @@
  */
 package com.facebook.presto.hive;
 
-import com.facebook.presto.spi.Session;
+import com.facebook.presto.spi.ConnectorSession;
 import io.airlift.json.JsonCodec;
 import org.testng.annotations.Test;
 
 import java.util.Locale;
 
-import static com.facebook.presto.spi.Session.DEFAULT_CATALOG;
 import static com.facebook.presto.spi.type.TimeZoneKey.UTC_KEY;
 import static org.testng.Assert.assertEquals;
 
 public class TestHiveTableHandle
 {
-    private static final Session SESSION = new Session("user", "test", DEFAULT_CATALOG, "test", UTC_KEY, Locale.ENGLISH, null, null);
+    private static final ConnectorSession SESSION = new ConnectorSession("user", "test", "catalog", "test", UTC_KEY, Locale.ENGLISH, null, null);
     private final JsonCodec<HiveTableHandle> codec = JsonCodec.jsonCodec(HiveTableHandle.class);
 
     @Test

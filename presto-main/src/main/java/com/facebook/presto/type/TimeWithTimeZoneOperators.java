@@ -14,7 +14,7 @@
 package com.facebook.presto.type;
 
 import com.facebook.presto.operator.scalar.ScalarOperator;
-import com.facebook.presto.spi.Session;
+import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.type.BooleanType;
 import com.facebook.presto.spi.type.TimeType;
 import com.facebook.presto.spi.type.TimeWithTimeZoneType;
@@ -94,7 +94,7 @@ public final class TimeWithTimeZoneOperators
 
     @ScalarOperator(CAST)
     @SqlType(TimeType.class)
-    public static long castToTime(Session session, @SqlType(TimeWithTimeZoneType.class) long value)
+    public static long castToTime(ConnectorSession session, @SqlType(TimeWithTimeZoneType.class) long value)
     {
         return unpackMillisUtc(value);
     }

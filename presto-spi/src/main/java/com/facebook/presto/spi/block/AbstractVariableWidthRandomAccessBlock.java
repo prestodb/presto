@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.spi.block;
 
-import com.facebook.presto.spi.Session;
+import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.VariableWidthType;
 import io.airlift.slice.Slice;
@@ -95,7 +95,7 @@ public abstract class AbstractVariableWidthRandomAccessBlock
     }
 
     @Override
-    public Object getObjectValue(Session session, int position)
+    public Object getObjectValue(ConnectorSession session, int position)
     {
         checkReadablePosition(position);
         if (isNull(position)) {

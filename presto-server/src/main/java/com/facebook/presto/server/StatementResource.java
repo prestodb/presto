@@ -30,7 +30,7 @@ import com.facebook.presto.execution.StageState;
 import com.facebook.presto.execution.TaskInfo;
 import com.facebook.presto.operator.ExchangeClient;
 import com.facebook.presto.operator.Page;
-import com.facebook.presto.spi.Session;
+import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.block.BlockCursor;
 import com.facebook.presto.spi.type.TimeZoneKey;
 import com.facebook.presto.spi.type.TimeZoneNotSupportedException;
@@ -167,13 +167,7 @@ public class StatementResource
 
         String remoteUserAddress = requestContext.getRemoteAddr();
 
-        Session session;
-        try {
-            session = new Session(user, source, catalog, schema, TimeZoneKey.getTimeZoneKey(timeZoneId), locale, remoteUserAddress, userAgent);
-        }
-        catch (TimeZoneNotSupportedException e) {
-            return Response.status(Status.BAD_REQUEST).entity(e.getMessage()).build();
-        }
+        ConnectorSession session = new ConnectorSession(user, source, catalog, schema, getTimeZoneKey(timeZoneId), locale, remoteUserAddress, userAgent);
 
         ExchangeClient exchangeClient = exchangeClientSupplier.get();
         Query query = new Query(session, statement, queryManager, exchangeClient);
@@ -184,13 +178,27 @@ public class StatementResource
     static void assertRequest(boolean expression, String format, Object... args)
     {
         if (!expression) {
-            Response request = Response
-                    .status(Status.BAD_REQUEST)
-                    .type(MediaType.TEXT_PLAIN)
-                    .entity(format(format, args))
-                    .build();
-            throw new WebApplicationException(request);
+            throw badRequest(format(format, args));
         }
+    }
+
+    static TimeZoneKey getTimeZoneKey(String timeZoneId)
+    {
+        try {
+            return TimeZoneKey.getTimeZoneKey(timeZoneId);
+        }
+        catch (TimeZoneNotSupportedException e) {
+            throw badRequest(e.getMessage());
+        }
+    }
+
+    private static WebApplicationException badRequest(String message)
+    {
+        throw new WebApplicationException(Response
+                .status(Status.BAD_REQUEST)
+                .type(MediaType.TEXT_PLAIN)
+                .entity(message)
+                .build());
     }
 
     @GET
@@ -235,7 +243,7 @@ public class StatementResource
         private final ExchangeClient exchangeClient;
 
         private final AtomicLong resultId = new AtomicLong();
-        private final Session session;
+        private final ConnectorSession session;
 
         @GuardedBy("this")
         private QueryResults lastResult;
@@ -246,7 +254,7 @@ public class StatementResource
         @GuardedBy("this")
         private List<Column> columns;
 
-        public Query(Session session,
+        public Query(ConnectorSession session,
                 String query,
                 QueryManager queryManager,
                 ExchangeClient exchangeClient)
@@ -608,10 +616,10 @@ public class StatementResource
         private static class RowIterable
                 implements Iterable<List<Object>>
         {
-            private final Session session;
+            private final ConnectorSession session;
             private final Page page;
 
-            private RowIterable(Session session, Page page)
+            private RowIterable(ConnectorSession session, Page page)
             {
                 this.session = session;
                 this.page = checkNotNull(page, "page is null");
@@ -627,10 +635,10 @@ public class StatementResource
         private static class RowIterator
                 extends AbstractIterator<List<Object>>
         {
-            private final Session session;
+            private final ConnectorSession session;
             private final BlockCursor[] cursors;
 
-            private RowIterator(Session session, Page page)
+            private RowIterator(ConnectorSession session, Page page)
             {
                 this.session = session;
                 cursors = new BlockCursor[page.getChannelCount()];

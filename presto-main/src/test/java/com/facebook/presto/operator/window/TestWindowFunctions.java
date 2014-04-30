@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.operator.window;
 
-import com.facebook.presto.spi.Session;
+import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.util.MaterializedResult;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
@@ -34,7 +34,7 @@ import static java.util.concurrent.Executors.newCachedThreadPool;
 @Test(singleThreaded = true)
 public class TestWindowFunctions
 {
-    private static final Session SESSION = new Session("user", "source", "catalog", "schema", UTC_KEY, Locale.ENGLISH, "address", "agent");
+    private static final ConnectorSession SESSION = new ConnectorSession("user", "source", "catalog", "schema", UTC_KEY, Locale.ENGLISH, "address", "agent");
     private ExecutorService executor;
 
     @BeforeMethod

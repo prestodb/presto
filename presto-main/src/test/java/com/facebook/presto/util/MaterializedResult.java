@@ -14,7 +14,7 @@
 package com.facebook.presto.util;
 
 import com.facebook.presto.operator.Page;
-import com.facebook.presto.spi.Session;
+import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockCursor;
 import com.facebook.presto.spi.type.SqlDate;
@@ -126,23 +126,23 @@ public class MaterializedResult
         return new MaterializedRow(prestoRow.getPrecision(), jdbcValues);
     }
 
-    public static Builder resultBuilder(Session session, Type... types)
+    public static Builder resultBuilder(ConnectorSession session, Type... types)
     {
         return resultBuilder(session, ImmutableList.copyOf(types));
     }
 
-    public static Builder resultBuilder(Session session, List<Type> types)
+    public static Builder resultBuilder(ConnectorSession session, List<Type> types)
     {
         return new Builder(session, ImmutableList.copyOf(types));
     }
 
     public static class Builder
     {
-        private final Session session;
+        private final ConnectorSession session;
         private final List<Type> types;
         private final ImmutableList.Builder<MaterializedRow> rows = ImmutableList.builder();
 
-        Builder(Session session, List<Type> types)
+        Builder(ConnectorSession session, List<Type> types)
         {
             this.session = session;
             this.types = ImmutableList.copyOf(types);

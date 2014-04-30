@@ -18,7 +18,7 @@ import com.facebook.presto.metadata.MetadataUtil;
 import com.facebook.presto.metadata.QualifiedTableName;
 import com.facebook.presto.metadata.TableHandle;
 import com.facebook.presto.spi.ColumnMetadata;
-import com.facebook.presto.spi.Session;
+import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.sql.tree.Approximate;
 import com.facebook.presto.sql.tree.BooleanLiteral;
 import com.facebook.presto.sql.tree.Cast;
@@ -93,11 +93,11 @@ class StatementAnalyzer
 {
     private final Analysis analysis;
     private final Metadata metadata;
-    private final Session session;
+    private final ConnectorSession session;
     private final Optional<QueryExplainer> queryExplainer;
     private final boolean experimentalSyntaxEnabled;
 
-    public StatementAnalyzer(Analysis analysis, Metadata metadata, Session session, boolean experimentalSyntaxEnabled, Optional<QueryExplainer> queryExplainer)
+    public StatementAnalyzer(Analysis analysis, Metadata metadata, ConnectorSession session, boolean experimentalSyntaxEnabled, Optional<QueryExplainer> queryExplainer)
     {
         this.analysis = checkNotNull(analysis, "analysis is null");
         this.metadata = checkNotNull(metadata, "metadata is null");

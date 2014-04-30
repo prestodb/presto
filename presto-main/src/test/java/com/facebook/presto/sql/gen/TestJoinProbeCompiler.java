@@ -25,7 +25,7 @@ import com.facebook.presto.operator.PageBuilder;
 import com.facebook.presto.operator.SequencePageBuilder;
 import com.facebook.presto.operator.TaskContext;
 import com.facebook.presto.operator.ValuesOperator;
-import com.facebook.presto.spi.Session;
+import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.block.BlockCursor;
 import com.facebook.presto.spi.block.RandomAccessBlock;
 import com.facebook.presto.sql.gen.JoinCompiler.LookupSourceFactory;
@@ -59,7 +59,7 @@ public class TestJoinProbeCompiler
     public void setUp()
     {
         executor = newCachedThreadPool(daemonThreadsNamed("test"));
-        Session session = new Session("user", "source", "catalog", "schema", UTC_KEY, Locale.ENGLISH, "address", "agent");
+        ConnectorSession session = new ConnectorSession("user", "source", "catalog", "schema", UTC_KEY, Locale.ENGLISH, "address", "agent");
         taskContext = new TaskContext(new TaskId("query", "stage", "task"), executor, session);
     }
 

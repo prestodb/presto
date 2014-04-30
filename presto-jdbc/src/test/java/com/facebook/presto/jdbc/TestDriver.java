@@ -39,6 +39,7 @@ import java.util.GregorianCalendar;
 import java.util.List;
 import java.util.Set;
 
+import static com.facebook.presto.server.testing.TestingPrestoServer.TEST_CATALOG;
 import static java.lang.String.format;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
@@ -203,7 +204,7 @@ public class TestDriver
                 assertGetSchemasResult(rs, 2);
             }
 
-            try (ResultSet rs = connection.getMetaData().getSchemas("default", null)) {
+            try (ResultSet rs = connection.getMetaData().getSchemas(TEST_CATALOG, null)) {
                 assertGetSchemasResult(rs, 2);
             }
 
@@ -212,7 +213,7 @@ public class TestDriver
                 assertGetSchemasResult(rs, 0);
             }
 
-            try (ResultSet rs = connection.getMetaData().getSchemas("default", "sys")) {
+            try (ResultSet rs = connection.getMetaData().getSchemas(TEST_CATALOG, "sys")) {
                 assertGetSchemasResult(rs, 1);
             }
 
@@ -240,7 +241,7 @@ public class TestDriver
                 assertGetSchemasResult(rs, 0);
             }
 
-            try (ResultSet rs = connection.getMetaData().getSchemas("default", "unknown")) {
+            try (ResultSet rs = connection.getMetaData().getSchemas(TEST_CATALOG, "unknown")) {
                 assertGetSchemasResult(rs, 0);
             }
 
@@ -250,7 +251,7 @@ public class TestDriver
         }
     }
 
-    private void assertGetSchemasResult(ResultSet rs, int expectedRows)
+    private static void assertGetSchemasResult(ResultSet rs, int expectedRows)
             throws SQLException
     {
         assertRowCount(rs, expectedRows);
@@ -281,7 +282,7 @@ public class TestDriver
         }
 
         try (Connection connection = createConnection()) {
-            try (ResultSet rs = connection.getMetaData().getTables("default", null, null, null)) {
+            try (ResultSet rs = connection.getMetaData().getTables(TEST_CATALOG, null, null, null)) {
                 assertTableMetadata(rs);
 
                 Set<List<Object>> rows = ImmutableSet.copyOf(readRows(rs));
@@ -302,7 +303,7 @@ public class TestDriver
         }
 
         try (Connection connection = createConnection()) {
-            try (ResultSet rs = connection.getMetaData().getTables("default", "information_schema", null, null)) {
+            try (ResultSet rs = connection.getMetaData().getTables(TEST_CATALOG, "information_schema", null, null)) {
                 assertTableMetadata(rs);
 
                 Set<List<Object>> rows = ImmutableSet.copyOf(readRows(rs));
@@ -313,7 +314,7 @@ public class TestDriver
         }
 
         try (Connection connection = createConnection()) {
-            try (ResultSet rs = connection.getMetaData().getTables("default", "", null, null)) {
+            try (ResultSet rs = connection.getMetaData().getTables(TEST_CATALOG, "", null, null)) {
                 assertTableMetadata(rs);
 
                 Set<List<Object>> rows = ImmutableSet.copyOf(readRows(rs));
@@ -322,7 +323,7 @@ public class TestDriver
         }
 
         try (Connection connection = createConnection()) {
-            try (ResultSet rs = connection.getMetaData().getTables("default", "information_schema", "tables", null)) {
+            try (ResultSet rs = connection.getMetaData().getTables(TEST_CATALOG, "information_schema", "tables", null)) {
                 assertTableMetadata(rs);
 
                 Set<List<Object>> rows = ImmutableSet.copyOf(readRows(rs));
@@ -333,7 +334,7 @@ public class TestDriver
         }
 
         try (Connection connection = createConnection()) {
-            try (ResultSet rs = connection.getMetaData().getTables("default", "information_schema", "tables", new String[] {"BASE TABLE"})) {
+            try (ResultSet rs = connection.getMetaData().getTables(TEST_CATALOG, "information_schema", "tables", new String[] {"BASE TABLE"})) {
                 assertTableMetadata(rs);
 
                 Set<List<Object>> rows = ImmutableSet.copyOf(readRows(rs));
@@ -377,7 +378,7 @@ public class TestDriver
         }
 
         try (Connection connection = createConnection()) {
-            try (ResultSet rs = connection.getMetaData().getTables("default", "inf%", "tables", null)) {
+            try (ResultSet rs = connection.getMetaData().getTables(TEST_CATALOG, "inf%", "tables", null)) {
                 assertTableMetadata(rs);
 
                 Set<List<Object>> rows = ImmutableSet.copyOf(readRows(rs));
@@ -388,7 +389,7 @@ public class TestDriver
         }
 
         try (Connection connection = createConnection()) {
-            try (ResultSet rs = connection.getMetaData().getTables("default", "information_schema", "tab%", null)) {
+            try (ResultSet rs = connection.getMetaData().getTables(TEST_CATALOG, "information_schema", "tab%", null)) {
                 assertTableMetadata(rs);
 
                 Set<List<Object>> rows = ImmutableSet.copyOf(readRows(rs));
@@ -411,7 +412,7 @@ public class TestDriver
 
         // todo why does Presto require that the schema name be lower case
         try (Connection connection = createConnection()) {
-            try (ResultSet rs = connection.getMetaData().getTables("default", "unknown", "tables", new String[] {"BASE TABLE"})) {
+            try (ResultSet rs = connection.getMetaData().getTables(TEST_CATALOG, "unknown", "tables", new String[] {"BASE TABLE"})) {
                 assertTableMetadata(rs);
 
                 Set<List<Object>> rows = ImmutableSet.copyOf(readRows(rs));
@@ -422,7 +423,7 @@ public class TestDriver
         }
 
         try (Connection connection = createConnection()) {
-            try (ResultSet rs = connection.getMetaData().getTables("default", "information_schema", "unknown", new String[] {"BASE TABLE"})) {
+            try (ResultSet rs = connection.getMetaData().getTables(TEST_CATALOG, "information_schema", "unknown", new String[] {"BASE TABLE"})) {
                 assertTableMetadata(rs);
 
                 Set<List<Object>> rows = ImmutableSet.copyOf(readRows(rs));
@@ -433,7 +434,7 @@ public class TestDriver
         }
 
         try (Connection connection = createConnection()) {
-            try (ResultSet rs = connection.getMetaData().getTables("default", "information_schema", "tables", new String[] {"unknown"})) {
+            try (ResultSet rs = connection.getMetaData().getTables(TEST_CATALOG, "information_schema", "tables", new String[] {"unknown"})) {
                 assertTableMetadata(rs);
 
                 Set<List<Object>> rows = ImmutableSet.copyOf(readRows(rs));
@@ -444,7 +445,7 @@ public class TestDriver
         }
 
         try (Connection connection = createConnection()) {
-            try (ResultSet rs = connection.getMetaData().getTables("default", "information_schema", "tables", new String[] {"unknown", "BASE TABLE"})) {
+            try (ResultSet rs = connection.getMetaData().getTables(TEST_CATALOG, "information_schema", "tables", new String[] {"unknown", "BASE TABLE"})) {
                 assertTableMetadata(rs);
 
                 Set<List<Object>> rows = ImmutableSet.copyOf(readRows(rs));
@@ -455,7 +456,7 @@ public class TestDriver
         }
 
         try (Connection connection = createConnection()) {
-            try (ResultSet rs = connection.getMetaData().getTables("default", "information_schema", "tables", new String[] {})) {
+            try (ResultSet rs = connection.getMetaData().getTables(TEST_CATALOG, "information_schema", "tables", new String[] {})) {
                 assertTableMetadata(rs);
 
                 Set<List<Object>> rows = ImmutableSet.copyOf(readRows(rs));
@@ -468,10 +469,10 @@ public class TestDriver
 
     private static List<Object> getTablesRow(String schema, String table)
     {
-        return ImmutableList.<Object>of("default", schema, table, "BASE TABLE", "", "", "", "", "", "");
+        return ImmutableList.<Object>of(TEST_CATALOG, schema, table, "BASE TABLE", "", "", "", "", "", "");
     }
 
-    private void assertTableMetadata(ResultSet rs)
+    private static void assertTableMetadata(ResultSet rs)
             throws SQLException
     {
         ResultSetMetaData metadata = rs.getMetaData();
@@ -538,7 +539,7 @@ public class TestDriver
         }
 
         try (Connection connection = createConnection()) {
-            try (ResultSet rs = connection.getMetaData().getColumns("default", null, "tables", "column_name")) {
+            try (ResultSet rs = connection.getMetaData().getColumns(TEST_CATALOG, null, "tables", "column_name")) {
                 assertColumnMetadata(rs);
             }
         }
@@ -550,31 +551,31 @@ public class TestDriver
         }
 
         try (Connection connection = createConnection()) {
-            try (ResultSet rs = connection.getMetaData().getColumns("default", "information_schema", "tables", "column_name")) {
+            try (ResultSet rs = connection.getMetaData().getColumns(TEST_CATALOG, "information_schema", "tables", "column_name")) {
                 assertColumnMetadata(rs);
             }
         }
 
         try (Connection connection = createConnection()) {
-            try (ResultSet rs = connection.getMetaData().getColumns("default", "inf%", "tables", "column_name")) {
+            try (ResultSet rs = connection.getMetaData().getColumns(TEST_CATALOG, "inf%", "tables", "column_name")) {
                 assertColumnMetadata(rs);
             }
         }
 
         try (Connection connection = createConnection()) {
-            try (ResultSet rs = connection.getMetaData().getColumns("default", "information_schema", "tab%", "column_name")) {
+            try (ResultSet rs = connection.getMetaData().getColumns(TEST_CATALOG, "information_schema", "tab%", "column_name")) {
                 assertColumnMetadata(rs);
             }
         }
 
         try (Connection connection = createConnection()) {
-            try (ResultSet rs = connection.getMetaData().getColumns("default", "information_schema", "tables", "col%")) {
+            try (ResultSet rs = connection.getMetaData().getColumns(TEST_CATALOG, "information_schema", "tables", "col%")) {
                 assertColumnMetadata(rs);
             }
         }
     }
 
-    private void assertColumnMetadata(ResultSet rs)
+    private static void assertColumnMetadata(ResultSet rs)
             throws SQLException
     {
         ResultSetMetaData metadata = rs.getMetaData();
@@ -751,26 +752,26 @@ public class TestDriver
 
         connection = DriverManager.getConnection(prefix + "/a/", "test", null);
         assertEquals(connection.getCatalog(), "a");
-        assertEquals(connection.getSchema(), "default");
+        assertEquals(connection.getSchema(), TEST_CATALOG);
 
         connection = DriverManager.getConnection(prefix + "/a", "test", null);
         assertEquals(connection.getCatalog(), "a");
-        assertEquals(connection.getSchema(), "default");
+        assertEquals(connection.getSchema(), TEST_CATALOG);
 
         connection = DriverManager.getConnection(prefix + "/", "test", null);
-        assertEquals(connection.getCatalog(), "default");
-        assertEquals(connection.getSchema(), "default");
+        assertEquals(connection.getCatalog(), TEST_CATALOG);
+        assertEquals(connection.getSchema(), TEST_CATALOG);
 
-        connection = DriverManager.getConnection(prefix + "", "test", null);
-        assertEquals(connection.getCatalog(), "default");
-        assertEquals(connection.getSchema(), "default");
+        connection = DriverManager.getConnection(prefix, "test", null);
+        assertEquals(connection.getCatalog(), TEST_CATALOG);
+        assertEquals(connection.getSchema(), TEST_CATALOG);
     }
 
     @Test
     public void testConnectionWithCatalogAndSchema()
             throws Exception
     {
-        try (Connection connection = createConnection("default", "information_schema")) {
+        try (Connection connection = createConnection(TEST_CATALOG, "information_schema")) {
             try (Statement statement = connection.createStatement()) {
                 try (ResultSet rs = statement.executeQuery("" +
                         "SELECT table_catalog, table_schema " +
@@ -781,7 +782,7 @@ public class TestDriver
                     assertEquals(metadata.getColumnLabel(1), "table_catalog");
                     assertEquals(metadata.getColumnLabel(2), "table_schema");
                     assertTrue(rs.next());
-                    assertEquals(rs.getString("table_catalog"), "default");
+                    assertEquals(rs.getString("table_catalog"), TEST_CATALOG);
                 }
             }
         }
@@ -791,7 +792,7 @@ public class TestDriver
     public void testConnectionWithCatalog()
             throws Exception
     {
-        try (Connection connection = createConnection("default")) {
+        try (Connection connection = createConnection(TEST_CATALOG)) {
             try (Statement statement = connection.createStatement()) {
                 try (ResultSet rs = statement.executeQuery("" +
                         "SELECT table_catalog, table_schema " +
@@ -802,7 +803,7 @@ public class TestDriver
                     assertEquals(metadata.getColumnLabel(1), "table_catalog");
                     assertEquals(metadata.getColumnLabel(2), "table_schema");
                     assertTrue(rs.next());
-                    assertEquals(rs.getString("table_catalog"), "default");
+                    assertEquals(rs.getString("table_catalog"), TEST_CATALOG);
                 }
             }
         }

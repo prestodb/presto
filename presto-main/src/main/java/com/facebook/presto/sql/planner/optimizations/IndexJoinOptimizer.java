@@ -16,7 +16,7 @@ package com.facebook.presto.sql.planner.optimizations;
 import com.facebook.presto.index.IndexManager;
 import com.facebook.presto.metadata.ColumnHandle;
 import com.facebook.presto.metadata.ResolvedIndex;
-import com.facebook.presto.spi.Session;
+import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.TupleDomain;
 import com.facebook.presto.sql.planner.DomainTranslator;
 import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
@@ -70,7 +70,7 @@ public class IndexJoinOptimizer
     }
 
     @Override
-    public PlanNode optimize(PlanNode plan, Session session, Map<Symbol, com.facebook.presto.spi.type.Type> types, SymbolAllocator symbolAllocator, PlanNodeIdAllocator idAllocator)
+    public PlanNode optimize(PlanNode plan, ConnectorSession session, Map<Symbol, com.facebook.presto.spi.type.Type> types, SymbolAllocator symbolAllocator, PlanNodeIdAllocator idAllocator)
     {
         checkNotNull(plan, "plan is null");
         checkNotNull(session, "session is null");

@@ -17,11 +17,11 @@ import com.facebook.presto.spi.ConnectorColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorMetadata;
 import com.facebook.presto.spi.ConnectorOutputTableHandle;
+import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorTableHandle;
 import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.SchemaTablePrefix;
-import com.facebook.presto.spi.Session;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.base.Predicate;
 import com.google.common.base.Splitter;
@@ -76,13 +76,13 @@ public class NativeMetadata
     }
 
     @Override
-    public List<String> listSchemaNames(Session session)
+    public List<String> listSchemaNames(ConnectorSession session)
     {
         return dao.listSchemaNames(connectorId);
     }
 
     @Override
-    public ConnectorTableHandle getTableHandle(Session session, SchemaTableName tableName)
+    public ConnectorTableHandle getTableHandle(ConnectorSession session, SchemaTableName tableName)
     {
         return getTableHandle(tableName);
     }
@@ -128,7 +128,7 @@ public class NativeMetadata
     }
 
     @Override
-    public List<SchemaTableName> listTables(Session session, @Nullable String schemaNameOrNull)
+    public List<SchemaTableName> listTables(ConnectorSession session, @Nullable String schemaNameOrNull)
     {
         return dao.listTables(connectorId, schemaNameOrNull);
     }
@@ -172,7 +172,7 @@ public class NativeMetadata
     }
 
     @Override
-    public boolean canCreateSampledTables(Session session)
+    public boolean canCreateSampledTables(ConnectorSession session)
     {
         return true;
     }
@@ -194,7 +194,7 @@ public class NativeMetadata
     }
 
     @Override
-    public Map<SchemaTableName, List<ColumnMetadata>> listTableColumns(Session session, SchemaTablePrefix prefix)
+    public Map<SchemaTableName, List<ColumnMetadata>> listTableColumns(ConnectorSession session, SchemaTablePrefix prefix)
     {
         checkNotNull(prefix, "prefix is null");
 
@@ -222,7 +222,7 @@ public class NativeMetadata
     }
 
     @Override
-    public ConnectorTableHandle createTable(Session session, final ConnectorTableMetadata tableMetadata)
+    public ConnectorTableHandle createTable(ConnectorSession session, final ConnectorTableMetadata tableMetadata)
     {
         Long tableId = dbi.inTransaction(new TransactionCallback<Long>()
         {
@@ -279,7 +279,7 @@ public class NativeMetadata
     }
 
     @Override
-    public ConnectorOutputTableHandle beginCreateTable(Session session, ConnectorTableMetadata tableMetadata)
+    public ConnectorOutputTableHandle beginCreateTable(ConnectorSession session, ConnectorTableMetadata tableMetadata)
     {
         ImmutableList.Builder<NativeColumnHandle> columnHandles = ImmutableList.builder();
         ImmutableList.Builder<Type> columnTypes = ImmutableList.builder();

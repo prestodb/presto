@@ -13,12 +13,12 @@
  */
 package com.facebook.presto.sql.planner;
 
+import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockCursor;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.operator.ProjectionFunction;
 import com.facebook.presto.spi.RecordCursor;
-import com.facebook.presto.spi.Session;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.ExpressionTreeRewriter;
 import com.facebook.presto.sql.tree.Input;
@@ -41,7 +41,7 @@ public class InterpretedProjectionFunction
             Map<Symbol, Type> symbolTypes,
             Map<Symbol, Input> symbolToInputMapping,
             Metadata metadata,
-            Session session)
+            ConnectorSession session)
     {
         // analyze expression so we can know the type of every expression in the tree
         IdentityHashMap<Expression, Type> expressionTypes = getExpressionTypes(session, metadata, symbolTypes, expression);

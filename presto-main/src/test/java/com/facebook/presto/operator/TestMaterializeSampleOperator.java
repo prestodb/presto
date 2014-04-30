@@ -15,7 +15,7 @@ package com.facebook.presto.operator;
 
 import com.facebook.presto.execution.TaskId;
 import com.facebook.presto.operator.MaterializeSampleOperator.MaterializeSampleOperatorFactory;
-import com.facebook.presto.spi.Session;
+import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.util.MaterializedResult;
 import com.google.common.collect.ImmutableList;
 import org.testng.annotations.AfterMethod;
@@ -44,7 +44,7 @@ public class TestMaterializeSampleOperator
     public void setUp()
     {
         executor = newCachedThreadPool(daemonThreadsNamed("test"));
-        Session session = new Session("user", "source", "catalog", "schema", UTC_KEY, Locale.ENGLISH, "address", "agent");
+        ConnectorSession session = new ConnectorSession("user", "source", "catalog", "schema", UTC_KEY, Locale.ENGLISH, "address", "agent");
         driverContext = new TaskContext(new TaskId("query", "stage", "task"), executor, session)
                 .addPipelineContext(true, true)
                 .addDriverContext();
