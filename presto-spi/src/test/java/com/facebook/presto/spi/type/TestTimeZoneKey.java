@@ -38,8 +38,8 @@ public class TestTimeZoneKey
     public void testUTC()
             throws Exception
     {
-        assertEquals(UTC_KEY.getTimeZoneKey(), 0);
-        assertEquals(UTC_KEY.getTimeZoneId(), "UTC");
+        assertEquals(UTC_KEY.getKey(), 0);
+        assertEquals(UTC_KEY.getId(), "UTC");
 
         assertSame(TimeZoneKey.getTimeZoneKey((short) 0), UTC_KEY);
         assertSame(TimeZoneKey.getTimeZoneKey("UTC"), UTC_KEY);
@@ -131,10 +131,10 @@ public class TestTimeZoneKey
             throws Exception
     {
         for (TimeZoneKey timeZoneKey : TimeZoneKey.getTimeZoneKeys()) {
-            assertSame(TimeZoneKey.getTimeZoneKey(timeZoneKey.getTimeZoneKey()), timeZoneKey);
-            assertSame(TimeZoneKey.getTimeZoneKey(timeZoneKey.getTimeZoneId()), timeZoneKey);
-            assertSame(TimeZoneKey.getTimeZoneKey(timeZoneKey.getTimeZoneId().toUpperCase()), timeZoneKey);
-            assertSame(TimeZoneKey.getTimeZoneKey(timeZoneKey.getTimeZoneId().toLowerCase()), timeZoneKey);
+            assertSame(TimeZoneKey.getTimeZoneKey(timeZoneKey.getKey()), timeZoneKey);
+            assertSame(TimeZoneKey.getTimeZoneKey(timeZoneKey.getId()), timeZoneKey);
+            assertSame(TimeZoneKey.getTimeZoneKey(timeZoneKey.getId().toUpperCase()), timeZoneKey);
+            assertSame(TimeZoneKey.getTimeZoneKey(timeZoneKey.getId().toLowerCase()), timeZoneKey);
         }
     }
 
@@ -143,8 +143,8 @@ public class TestTimeZoneKey
     {
         boolean foundMax = false;
         for (TimeZoneKey timeZoneKey : TimeZoneKey.getTimeZoneKeys()) {
-            assertTrue(timeZoneKey.getTimeZoneKey() <= MAX_TIME_ZONE_KEY, timeZoneKey + " key is larger than max key " + MAX_TIME_ZONE_KEY);
-            foundMax = foundMax || (timeZoneKey.getTimeZoneKey() == MAX_TIME_ZONE_KEY);
+            assertTrue(timeZoneKey.getKey() <= MAX_TIME_ZONE_KEY, timeZoneKey + " key is larger than max key " + MAX_TIME_ZONE_KEY);
+            foundMax = foundMax || (timeZoneKey.getKey() == MAX_TIME_ZONE_KEY);
         }
         assertTrue(foundMax, "Did not find a time zone with the MAX_TIME_ZONE_KEY");
     }
@@ -156,7 +156,7 @@ public class TestTimeZoneKey
         boolean[] hasValue = new boolean[MAX_TIME_ZONE_KEY + 1];
 
         for (TimeZoneKey timeZoneKey : TimeZoneKey.getTimeZoneKeys()) {
-            short key = timeZoneKey.getTimeZoneKey();
+            short key = timeZoneKey.getKey();
             assertTrue(key >= 0, timeZoneKey + " has a negative time zone key");
             assertFalse(hasValue[key], "Another time zone has the same zone key as " + timeZoneKey);
             hasValue[key] = true;
@@ -178,13 +178,13 @@ public class TestTimeZoneKey
             @Override
             public int compare(TimeZoneKey left, TimeZoneKey right)
             {
-                return Short.compare(left.getTimeZoneKey(), right.getTimeZoneKey());
+                return Short.compare(left.getKey(), right.getKey());
             }
         }, TimeZoneKey.getTimeZoneKeys());
 
         for (TimeZoneKey timeZoneKey : timeZoneKeysSortedByKey) {
-            hasher.putShort(timeZoneKey.getTimeZoneKey());
-            hasher.putString(timeZoneKey.getTimeZoneId(), StandardCharsets.UTF_8);
+            hasher.putShort(timeZoneKey.getKey());
+            hasher.putString(timeZoneKey.getId(), StandardCharsets.UTF_8);
         }
         // Zone file should not (normally) be changed, so let's make is more difficult
         assertEquals(hasher.hash().asLong(), -3500128963570093374L, "zone-index.properties file contents changed!");

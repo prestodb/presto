@@ -44,7 +44,7 @@ public class TestJsonHiveHandles
                     .put("source", SESSION.getSource())
                     .put("catalog", SESSION.getCatalog())
                     .put("schema", SESSION.getSchema())
-                    .put("timeZoneKey", (int) SESSION.getTimeZoneKey().getTimeZoneKey())
+                    .put("timeZoneKey", (int) SESSION.getTimeZoneKey().getKey())
                     .put("locale", SESSION.getLocale().toString())
                     .put("startTime", SESSION.getStartTime())
                     .build());

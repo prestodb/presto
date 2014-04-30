@@ -33,7 +33,7 @@ public class GenericHiveRecordCursorProvider
                 split.getPartitionKeys(),
                 columns,
                 hiveStorageTimeZone,
-                DateTimeZone.forID(split.getSession().getTimeZoneKey().getTimeZoneId())));
+                DateTimeZone.forID(split.getSession().getTimeZoneKey().getId())));
     }
 
     @SuppressWarnings("unchecked")

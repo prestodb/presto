@@ -146,7 +146,7 @@ public class TestDistributedQueriesIndexed
                 SESSION.getSource(),
                 SESSION.getCatalog(),
                 SESSION.getSchema(),
-                SESSION.getTimeZoneKey().getTimeZoneId(),
+                SESSION.getTimeZoneKey().getId(),
                 SESSION.getLocale(),
                 true);
     }

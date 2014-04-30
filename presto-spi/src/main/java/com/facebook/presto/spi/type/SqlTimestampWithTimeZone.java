@@ -83,6 +83,6 @@ public final class SqlTimestampWithTimeZone
     {
         SimpleDateFormat format = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss.SSS");
         format.setTimeZone(getTimeZoneForKey(timeZoneKey));
-        return format.format(new Date(millisUtc)) + " " + timeZoneKey.getTimeZoneId();
+        return format.format(new Date(millisUtc)) + " " + timeZoneKey.getId();
     }
 }
