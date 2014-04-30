@@ -57,6 +57,7 @@
         <module>presto-hive-hadoop1</module>
         <module>presto-hive-hadoop2</module>
         <module>presto-hive-cdh4</module>
+        <module>presto-hive-cdh5</module>
         <module>presto-example-http</module>
         <module>presto-tpch</module>
         <module>presto-client</module>

@@ -8,9 +8,9 @@
         <version>0.66-SNAPSHOT</version>
     </parent>
 
-    <artifactId>presto-hive-cdh4</artifactId>
-    <name>presto-hive-cdh4</name>
-    <description>Presto - Hive Connector - CDH 4</description>
+    <artifactId>presto-hive-cdh5</artifactId>
+    <name>presto-hive-cdh5</name>
+    <description>Presto - Hive Connector - CDH 5</description>
 
     <properties>
         <air.main.basedir>${project.parent.basedir}</air.main.basedir>
@@ -30,7 +30,7 @@
 
         <dependency>
             <groupId>com.facebook.presto.hadoop</groupId>
-            <artifactId>hadoop-cdh4</artifactId>
+            <artifactId>hadoop-apache2</artifactId>
             <scope>runtime</scope>
         </dependency>
 
@@ -87,7 +87,7 @@
 
     <profiles>
         <profile>
-            <id>test-hive-cdh4</id>
+            <id>test-hive-cdh5</id>
             <build>
                 <plugins>
                     <plugin>
@@ -96,9 +96,9 @@
                         <configuration>
                             <excludedGroups>hive-s3</excludedGroups>
                             <systemProperties>
-                                <hive.cdh4.metastoreHost>localhost</hive.cdh4.metastoreHost>
-                                <hive.cdh4.metastorePort>9083</hive.cdh4.metastorePort>
-                                <hive.cdh4.databaseName>default</hive.cdh4.databaseName>
+                                <hive.cdh5.metastoreHost>localhost</hive.cdh5.metastoreHost>
+                                <hive.cdh5.metastorePort>9083</hive.cdh5.metastorePort>
+                                <hive.cdh5.databaseName>default</hive.cdh5.databaseName>
                             </systemProperties>
                         </configuration>
                     </plugin>
