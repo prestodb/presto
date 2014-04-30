@@ -18,6 +18,7 @@ import com.facebook.presto.connector.ConnectorManager;
 import com.facebook.presto.connector.system.SystemTablesManager;
 import com.facebook.presto.metadata.FunctionFactory;
 import com.facebook.presto.metadata.MetadataManager;
+import com.facebook.presto.metadata.OperatorFactory;
 import com.facebook.presto.spi.ConnectorFactory;
 import com.facebook.presto.spi.Plugin;
 import com.facebook.presto.spi.SystemTable;
@@ -184,6 +185,10 @@ public class PluginManager
 
         for (FunctionFactory functionFactory : plugin.getServices(FunctionFactory.class)) {
             metadataManager.addFunctions(functionFactory.listFunctions());
+        }
+
+        for (OperatorFactory operatorFactory : plugin.getServices(OperatorFactory.class)) {
+            metadataManager.addOperators(operatorFactory.listOperators());
         }
     }
 
