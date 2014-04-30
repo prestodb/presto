@@ -82,7 +82,7 @@ public final class DateTimeFunctions
     private DateTimeFunctions() {}
 
     @Description("current date")
-    @ScalarFunction
+    @ScalarFunction(hidden = true)
     @SqlType(DateType.class)
     public static long currentDate(Session session)
     {
@@ -93,7 +93,7 @@ public final class DateTimeFunctions
     }
 
     @Description("current time with time zone")
-    @ScalarFunction
+    @ScalarFunction(hidden = true)
     @SqlType(TimeWithTimeZoneType.class)
     public static long currentTime(Session session)
     {
@@ -104,7 +104,7 @@ public final class DateTimeFunctions
     }
 
     @Description("current time without time zone")
-    @ScalarFunction("localtime")
+    @ScalarFunction(value = "localtime", hidden = true)
     @SqlType(TimeType.class)
     public static long localTime(Session session)
     {
@@ -122,7 +122,7 @@ public final class DateTimeFunctions
     }
 
     @Description("current timestamp without time zone")
-    @ScalarFunction("localtimestamp")
+    @ScalarFunction(value = "localtimestamp", hidden = true)
     @SqlType(TimestampType.class)
     public static long localTimestamp(Session session)
     {
@@ -174,14 +174,14 @@ public final class DateTimeFunctions
         return unpackMillisUtc(timestampWithTimeZone) / 1000.0;
     }
 
-    @ScalarFunction("at_time_zone")
+    @ScalarFunction(value = "at_time_zone", hidden = true)
     @SqlType(TimeWithTimeZoneType.class)
     public static long timeAtTimeZone(@SqlType(TimeWithTimeZoneType.class) long timeWithTimeZone, @SqlType(VarcharType.class) Slice zoneId)
     {
         return packDateTimeWithZone(unpackMillisUtc(timeWithTimeZone), zoneId.toStringUtf8());
     }
 
-    @ScalarFunction("at_time_zone")
+    @ScalarFunction(value = "at_time_zone", hidden = true)
     @SqlType(TimeWithTimeZoneType.class)
     public static long timeAtTimeZone(@SqlType(TimeWithTimeZoneType.class) long timeWithTimeZone, @SqlType(IntervalDayTimeType.class) long zoneOffset)
     {
@@ -193,14 +193,14 @@ public final class DateTimeFunctions
         return packDateTimeWithZone(unpackMillisUtc(timeWithTimeZone), getTimeZoneKeyForOffset(zoneOffsetMinutes));
     }
 
-    @ScalarFunction("at_time_zone")
+    @ScalarFunction(value = "at_time_zone", hidden = true)
     @SqlType(TimestampWithTimeZoneType.class)
     public static long timestampAtTimeZone(@SqlType(TimestampWithTimeZoneType.class) long timestampWithTimeZone, @SqlType(VarcharType.class) Slice zoneId)
     {
         return packDateTimeWithZone(unpackMillisUtc(timestampWithTimeZone), zoneId.toStringUtf8());
     }
 
-    @ScalarFunction("at_time_zone")
+    @ScalarFunction(value = "at_time_zone", hidden = true)
     @SqlType(TimestampWithTimeZoneType.class)
     public static long timestampAtTimeZone(@SqlType(TimestampWithTimeZoneType.class) long timestampWithTimeZone, @SqlType(IntervalDayTimeType.class) long zoneOffset)
     {
