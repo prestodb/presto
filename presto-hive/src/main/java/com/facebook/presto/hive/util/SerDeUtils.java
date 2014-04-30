@@ -42,6 +42,7 @@ import org.joda.time.format.DateTimeFormatter;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.sql.Timestamp;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
@@ -227,21 +228,18 @@ public final class SerDeUtils
         }
     }
 
-    private static String formatTimestamp(DateTimeZone sessionTimeZone, Object object, TimestampObjectInspector objectInspector)
+    private static String formatTimestamp(DateTimeZone sessionTimeZone, Object object, TimestampObjectInspector inspector)
     {
-        TimestampWritable timestampWritable = objectInspector.getPrimitiveWritableObject(object);
-        return formatTimestamp(sessionTimeZone, timestampWritable);
+        Timestamp timestamp = getTimestamp(object, inspector);
+        return TIMESTAMP_FORMATTER.withZone(sessionTimeZone).print(timestamp.getTime());
     }
 
-    private static String formatTimestamp(DateTimeZone sessionTimeZone, TimestampWritable timestampWritable)
+    private static Timestamp getTimestamp(Object object, TimestampObjectInspector inspector)
     {
-        return TIMESTAMP_FORMATTER.withZone(sessionTimeZone).print(getTimestampMillis(timestampWritable));
-    }
-
-    public static long getTimestampMillis(TimestampWritable timestampWritable)
-    {
-        long seconds = timestampWritable.getSeconds();
-        long nanos = timestampWritable.getNanos();
-        return (seconds * 1000) + (nanos / 1_000_000);
+        // handle broken ObjectInspectors
+        if (object instanceof TimestampWritable) {
+            return ((TimestampWritable) object).getTimestamp();
+        }
+        return inspector.getPrimitiveJavaObject(object);
     }
 }
