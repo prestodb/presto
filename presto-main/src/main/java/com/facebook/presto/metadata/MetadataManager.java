@@ -157,6 +157,12 @@ public class MetadataManager
     }
 
     @Override
+    public void addOperators(List<OperatorInfo> operators)
+    {
+        functions.addFunctions(ImmutableList.<FunctionInfo>of(), operators);
+    }
+
+    @Override
     public OperatorInfo resolveOperator(OperatorType operatorType, List<? extends Type> argumentTypes)
             throws OperatorNotFoundException
     {
