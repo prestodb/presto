@@ -224,7 +224,8 @@ Presto includes Hive connectors for multiple versions of Hadoop:
 
 * ``hive-hadoop1``: Apache Hadoop 1.x
 * ``hive-hadoop2``: Apache Hadoop 2.x
-* ``hive-cdh4``: Cloudera CDH4
+* ``hive-cdh4``: Cloudera CDH 4
+* ``hive-cdh5``: Cloudera CDH 5
 
 Create ``etc/catalog/hive.properties`` with the following contents
 to mount the ``hive-cdh4`` connector as the ``hive`` catalog,
