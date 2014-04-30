@@ -21,7 +21,7 @@ import com.facebook.presto.client.QueryResults;
 import com.facebook.presto.client.StatementClient;
 import com.facebook.presto.metadata.AllNodes;
 import com.facebook.presto.server.testing.TestingPrestoServer;
-import com.facebook.presto.spi.Session;
+import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.tpch.IndexedTpchPlugin;
 import com.facebook.presto.tpch.TpchMetadata;
@@ -65,7 +65,7 @@ import static java.util.concurrent.TimeUnit.SECONDS;
 public class TestDistributedQueriesIndexed
         extends AbstractTestIndexedQueries
 {
-    private static final Session SESSION = new Session("user", "test", "tpch_indexed", TpchMetadata.TINY_SCHEMA_NAME, UTC_KEY, Locale.ENGLISH, null, null);
+    private static final ConnectorSession SESSION = new ConnectorSession("user", "test", "tpch_indexed", TpchMetadata.TINY_SCHEMA_NAME, UTC_KEY, Locale.ENGLISH, null, null);
 
     private static final String ENVIRONMENT = "testing";
     private static final Logger log = Logger.get(TestDistributedQueries.class.getSimpleName());
@@ -83,7 +83,7 @@ public class TestDistributedQueriesIndexed
     }
 
     @Override
-    protected Session setUpQueryFramework()
+    protected ConnectorSession setUpQueryFramework()
             throws Exception
     {
         try {

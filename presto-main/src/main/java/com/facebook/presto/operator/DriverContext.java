@@ -14,7 +14,7 @@
 package com.facebook.presto.operator;
 
 import com.facebook.presto.execution.TaskId;
-import com.facebook.presto.spi.Session;
+import com.facebook.presto.spi.ConnectorSession;
 import com.google.common.base.Function;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
@@ -97,7 +97,7 @@ public class DriverContext
         return pipelineContext;
     }
 
-    public Session getSession()
+    public ConnectorSession getSession()
     {
         return pipelineContext.getSession();
     }

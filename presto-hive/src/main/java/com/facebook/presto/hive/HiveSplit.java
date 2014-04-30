@@ -13,9 +13,9 @@
  */
 package com.facebook.presto.hive;
 
+import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.HostAddress;
-import com.facebook.presto.spi.Session;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.base.Objects;
@@ -41,7 +41,7 @@ public class HiveSplit
     private final String database;
     private final String table;
     private final String partitionName;
-    private final Session session;
+    private final ConnectorSession session;
 
     @JsonCreator
     public HiveSplit(
@@ -55,7 +55,7 @@ public class HiveSplit
             @JsonProperty("schema") Properties schema,
             @JsonProperty("partitionKeys") List<HivePartitionKey> partitionKeys,
             @JsonProperty("addresses") List<HostAddress> addresses,
-            @JsonProperty("session") Session session)
+            @JsonProperty("session") ConnectorSession session)
     {
         this.session = session;
         checkNotNull(clientId, "clientId is null");
@@ -143,7 +143,7 @@ public class HiveSplit
     }
 
     @JsonProperty
-    public Session getSession()
+    public ConnectorSession getSession()
     {
         return session;
     }

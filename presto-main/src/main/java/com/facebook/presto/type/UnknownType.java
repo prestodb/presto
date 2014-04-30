@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.type;
 
-import com.facebook.presto.spi.Session;
+import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.block.BlockCursor;
@@ -56,7 +56,7 @@ public final class UnknownType
     }
 
     @Override
-    public Object getObjectValue(Session session, Slice slice, int offset)
+    public Object getObjectValue(ConnectorSession session, Slice slice, int offset)
     {
         // This type is always null, so this method should never be called
         throw new UnsupportedOperationException();

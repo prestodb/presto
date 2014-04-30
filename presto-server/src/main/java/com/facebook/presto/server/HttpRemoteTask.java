@@ -30,8 +30,8 @@ import com.facebook.presto.execution.TaskState;
 import com.facebook.presto.metadata.Split;
 import com.facebook.presto.operator.TaskContext;
 import com.facebook.presto.operator.TaskStats;
+import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.spi.Session;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.planner.PlanFragment;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
@@ -102,7 +102,7 @@ public class HttpRemoteTask
 
     private final TaskId taskId;
 
-    private final Session session;
+    private final ConnectorSession session;
     private final String nodeId;
     private final PlanFragment planFragment;
     private final int maxConsecutiveErrorCount;
@@ -141,7 +141,7 @@ public class HttpRemoteTask
 
     private final AtomicBoolean needsUpdate = new AtomicBoolean(true);
 
-    public HttpRemoteTask(Session session,
+    public HttpRemoteTask(ConnectorSession session,
             TaskId taskId,
             String nodeId,
             URI location,

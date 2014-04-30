@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.sql.planner;
 
-import com.facebook.presto.spi.Session;
+import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.tree.ComparisonExpression;
 import com.facebook.presto.sql.tree.Expression;
@@ -193,7 +193,7 @@ public class TestInterpretedFilterFunction
     public static void assertFilter(String expression, boolean expectedValue)
     {
         Expression parsed = createExpression(expression, DUAL_METADATA_MANAGER, ImmutableMap.<Symbol, Type>of());
-        Session session = new Session("user", "test", "catalog", "schema", UTC_KEY, Locale.ENGLISH, null, null);
+        ConnectorSession session = new ConnectorSession("user", "test", "catalog", "schema", UTC_KEY, Locale.ENGLISH, null, null);
 
         InterpretedFilterFunction filterFunction = new InterpretedFilterFunction(parsed,
                 ImmutableMap.<Symbol, Type>of(),

@@ -14,8 +14,8 @@
 package com.facebook.presto.operator.scalar;
 
 import com.facebook.presto.operator.Description;
+import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.spi.Session;
 import com.facebook.presto.spi.StandardErrorCode;
 import com.facebook.presto.spi.type.BigintType;
 import com.facebook.presto.spi.type.DateType;
@@ -84,7 +84,7 @@ public final class DateTimeFunctions
     @Description("current date")
     @ScalarFunction(hidden = true)
     @SqlType(DateType.class)
-    public static long currentDate(Session session)
+    public static long currentDate(ConnectorSession session)
     {
         // Stack value is the millisecond at midnight on the date in UTC so
         // no we do not want to correct to the local client time zone.  Client
@@ -95,7 +95,7 @@ public final class DateTimeFunctions
     @Description("current time with time zone")
     @ScalarFunction(hidden = true)
     @SqlType(TimeWithTimeZoneType.class)
-    public static long currentTime(Session session)
+    public static long currentTime(ConnectorSession session)
     {
         // Stack value is number of milliseconds from start of the current day,
         // but the start of the day is relative to the current time zone.
@@ -106,7 +106,7 @@ public final class DateTimeFunctions
     @Description("current time without time zone")
     @ScalarFunction(value = "localtime", hidden = true)
     @SqlType(TimeType.class)
-    public static long localTime(Session session)
+    public static long localTime(ConnectorSession session)
     {
         // Stack value is number of milliseconds from start of the current day,
         // but the start of the day is relative to the current time zone.
@@ -116,7 +116,7 @@ public final class DateTimeFunctions
     @Description("current timestamp with time zone")
     @ScalarFunction("now")
     @SqlType(TimestampWithTimeZoneType.class)
-    public static long currentTimestamp(Session session)
+    public static long currentTimestamp(ConnectorSession session)
     {
         return packDateTimeWithZone(session.getStartTime(), session.getTimeZoneKey());
     }
@@ -124,14 +124,14 @@ public final class DateTimeFunctions
     @Description("current timestamp without time zone")
     @ScalarFunction(value = "localtimestamp", hidden = true)
     @SqlType(TimestampType.class)
-    public static long localTimestamp(Session session)
+    public static long localTimestamp(ConnectorSession session)
     {
         return session.getStartTime();
     }
 
     @ScalarFunction
     @SqlType(TimeType.class)
-    public static long millisToTime(Session session, @SqlType(BigintType.class) long millis)
+    public static long millisToTime(ConnectorSession session, @SqlType(BigintType.class) long millis)
     {
         ISOChronology chronology = getChronology(session.getTimeZoneKey());
         return chronology.millisOfDay().get(millis) - chronology.getZone().getOffset(millis);
@@ -215,7 +215,7 @@ public final class DateTimeFunctions
     @Description("truncate to the specified precision in the session timezone")
     @ScalarFunction("date_trunc")
     @SqlType(DateType.class)
-    public static long truncateDate(Session session, @SqlType(VarcharType.class) Slice unit, @SqlType(DateType.class) long time)
+    public static long truncateDate(ConnectorSession session, @SqlType(VarcharType.class) Slice unit, @SqlType(DateType.class) long time)
     {
         return getDateField(UTC_CHRONOLOGY, unit).roundFloor(time);
     }
@@ -223,7 +223,7 @@ public final class DateTimeFunctions
     @Description("truncate to the specified precision in the session timezone")
     @ScalarFunction("date_trunc")
     @SqlType(TimeType.class)
-    public static long truncateTime(Session session, @SqlType(VarcharType.class) Slice unit, @SqlType(TimeType.class) long time)
+    public static long truncateTime(ConnectorSession session, @SqlType(VarcharType.class) Slice unit, @SqlType(TimeType.class) long time)
     {
         return getTimeField(getChronology(session.getTimeZoneKey()), unit).roundFloor(time);
     }
@@ -240,7 +240,7 @@ public final class DateTimeFunctions
     @Description("truncate to the specified precision in the session timezone")
     @ScalarFunction("date_trunc")
     @SqlType(TimestampType.class)
-    public static long truncateTimestamp(Session session, @SqlType(VarcharType.class) Slice unit, @SqlType(TimestampType.class) long timestamp)
+    public static long truncateTimestamp(ConnectorSession session, @SqlType(VarcharType.class) Slice unit, @SqlType(TimestampType.class) long timestamp)
     {
         return getTimestampField(getChronology(session.getTimeZoneKey()), unit).roundFloor(timestamp);
     }
@@ -257,7 +257,7 @@ public final class DateTimeFunctions
     @Description("add the specified amount of date to the given date")
     @ScalarFunction("date_add")
     @SqlType(DateType.class)
-    public static long addFieldValueDate(Session session, @SqlType(VarcharType.class) Slice unit, @SqlType(BigintType.class) long value, @SqlType(DateType.class) long date)
+    public static long addFieldValueDate(ConnectorSession session, @SqlType(VarcharType.class) Slice unit, @SqlType(BigintType.class) long value, @SqlType(DateType.class) long date)
     {
         return getDateField(UTC_CHRONOLOGY, unit).add(date, Ints.checkedCast(value));
     }
@@ -265,7 +265,7 @@ public final class DateTimeFunctions
     @Description("add the specified amount of time to the given time")
     @ScalarFunction("date_add")
     @SqlType(TimeType.class)
-    public static long addFieldValueTime(Session session, @SqlType(VarcharType.class) Slice unit, @SqlType(BigintType.class) long value, @SqlType(TimeType.class) long time)
+    public static long addFieldValueTime(ConnectorSession session, @SqlType(VarcharType.class) Slice unit, @SqlType(BigintType.class) long value, @SqlType(TimeType.class) long time)
     {
         ISOChronology chronology = getChronology(session.getTimeZoneKey());
         return modulo24Hour(chronology, getTimeField(chronology, unit).add(time, Ints.checkedCast(value)));
@@ -288,7 +288,7 @@ public final class DateTimeFunctions
     @ScalarFunction("date_add")
     @SqlType(TimestampType.class)
     public static long addFieldValueTimestamp(
-            Session session,
+            ConnectorSession session,
             @SqlType(VarcharType.class) Slice unit,
             @SqlType(BigintType.class) long value,
             @SqlType(TimestampType.class) long timestamp)
@@ -311,7 +311,7 @@ public final class DateTimeFunctions
     @Description("difference of the given dates in the given unit")
     @ScalarFunction("date_diff")
     @SqlType(BigintType.class)
-    public static long diffDate(Session session, @SqlType(VarcharType.class) Slice unit, @SqlType(DateType.class) long date1, @SqlType(DateType.class) long date2)
+    public static long diffDate(ConnectorSession session, @SqlType(VarcharType.class) Slice unit, @SqlType(DateType.class) long date1, @SqlType(DateType.class) long date2)
     {
         return getDateField(UTC_CHRONOLOGY, unit).getDifference(date2, date1);
     }
@@ -319,7 +319,7 @@ public final class DateTimeFunctions
     @Description("difference of the given times in the given unit")
     @ScalarFunction("date_diff")
     @SqlType(BigintType.class)
-    public static long diffTime(Session session, @SqlType(VarcharType.class) Slice unit, @SqlType(TimeType.class) long time1, @SqlType(TimeType.class) long time2)
+    public static long diffTime(ConnectorSession session, @SqlType(VarcharType.class) Slice unit, @SqlType(TimeType.class) long time1, @SqlType(TimeType.class) long time2)
     {
         ISOChronology chronology = getChronology(session.getTimeZoneKey());
         return getTimeField(chronology, unit).getDifference(time2, time1);
@@ -340,7 +340,7 @@ public final class DateTimeFunctions
     @ScalarFunction("date_diff")
     @SqlType(BigintType.class)
     public static long diffTimestamp(
-            Session session,
+            ConnectorSession session,
             @SqlType(VarcharType.class) Slice unit,
             @SqlType(TimestampType.class) long timestamp1,
             @SqlType(TimestampType.class) long timestamp2)
@@ -421,7 +421,7 @@ public final class DateTimeFunctions
     @Description("parses the specified date/time by the given format")
     @ScalarFunction
     @SqlType(TimestampWithTimeZoneType.class)
-    public static long parseDatetime(Session session, @SqlType(VarcharType.class) Slice datetime, @SqlType(VarcharType.class) Slice formatString)
+    public static long parseDatetime(ConnectorSession session, @SqlType(VarcharType.class) Slice datetime, @SqlType(VarcharType.class) Slice formatString)
     {
         String pattern = formatString.toString(Charsets.UTF_8);
         DateTimeFormatter formatter = DateTimeFormat.forPattern(pattern)
@@ -437,7 +437,7 @@ public final class DateTimeFunctions
     @Description("formats the given time by the given format")
     @ScalarFunction
     @SqlType(VarcharType.class)
-    public static Slice formatDatetime(Session session, @SqlType(TimestampType.class) long timestamp, @SqlType(VarcharType.class) Slice formatString)
+    public static Slice formatDatetime(ConnectorSession session, @SqlType(TimestampType.class) long timestamp, @SqlType(VarcharType.class) Slice formatString)
     {
         return formatDatetime(getChronology(session.getTimeZoneKey()), session.getLocale(), timestamp, formatString);
     }
@@ -446,7 +446,7 @@ public final class DateTimeFunctions
     @ScalarFunction("format_datetime")
     @SqlType(VarcharType.class)
     public static Slice formatDatetimeWithTimeZone(
-            Session session,
+            ConnectorSession session,
             @SqlType(TimestampWithTimeZoneType.class) long timestampWithTimeZone,
             @SqlType(VarcharType.class) Slice formatString)
     {
@@ -466,7 +466,7 @@ public final class DateTimeFunctions
 
     @ScalarFunction
     @SqlType(VarcharType.class)
-    public static Slice dateFormat(Session session, @SqlType(TimestampType.class) long timestamp, @SqlType(VarcharType.class) Slice formatString)
+    public static Slice dateFormat(ConnectorSession session, @SqlType(TimestampType.class) long timestamp, @SqlType(VarcharType.class) Slice formatString)
     {
         return dateFormat(getChronology(session.getTimeZoneKey()), session.getLocale(), timestamp, formatString);
     }
@@ -474,7 +474,7 @@ public final class DateTimeFunctions
     @ScalarFunction("date_format")
     @SqlType(VarcharType.class)
     public static Slice dateFormatWithTimeZone(
-            Session session,
+            ConnectorSession session,
             @SqlType(TimestampWithTimeZoneType.class) long timestampWithTimeZone,
             @SqlType(VarcharType.class) Slice formatString)
     {
@@ -492,7 +492,7 @@ public final class DateTimeFunctions
 
     @ScalarFunction
     @SqlType(TimestampType.class)
-    public static long dateParse(Session session, @SqlType(VarcharType.class) Slice dateTime, @SqlType(VarcharType.class) Slice formatString)
+    public static long dateParse(ConnectorSession session, @SqlType(VarcharType.class) Slice dateTime, @SqlType(VarcharType.class) Slice formatString)
     {
         DateTimeFormatter formatter = DATETIME_FORMATTER_CACHE.get(formatString)
                 .withChronology(getChronology(session.getTimeZoneKey()))
@@ -548,7 +548,7 @@ public final class DateTimeFunctions
     @Description("minute of the hour of the given timestamp")
     @ScalarFunction("minute")
     @SqlType(BigintType.class)
-    public static long minuteFromTimestamp(Session session, @SqlType(TimestampType.class) long timestamp)
+    public static long minuteFromTimestamp(ConnectorSession session, @SqlType(TimestampType.class) long timestamp)
     {
         return getChronology(session.getTimeZoneKey()).minuteOfHour().get(timestamp);
     }
@@ -564,7 +564,7 @@ public final class DateTimeFunctions
     @Description("minute of the hour of the given time")
     @ScalarFunction("minute")
     @SqlType(BigintType.class)
-    public static long minuteFromTime(Session session, @SqlType(TimeType.class) long time)
+    public static long minuteFromTime(ConnectorSession session, @SqlType(TimeType.class) long time)
     {
         return getChronology(session.getTimeZoneKey()).minuteOfHour().get(time);
     }
@@ -588,7 +588,7 @@ public final class DateTimeFunctions
     @Description("hour of the day of the given timestamp")
     @ScalarFunction("hour")
     @SqlType(BigintType.class)
-    public static long hourFromTimestamp(Session session, @SqlType(TimestampType.class) long timestamp)
+    public static long hourFromTimestamp(ConnectorSession session, @SqlType(TimestampType.class) long timestamp)
     {
         return getChronology(session.getTimeZoneKey()).hourOfDay().get(timestamp);
     }
@@ -604,7 +604,7 @@ public final class DateTimeFunctions
     @Description("hour of the day of the given time")
     @ScalarFunction("hour")
     @SqlType(BigintType.class)
-    public static long hourFromTime(Session session, @SqlType(TimeType.class) long time)
+    public static long hourFromTime(ConnectorSession session, @SqlType(TimeType.class) long time)
     {
         return getChronology(session.getTimeZoneKey()).hourOfDay().get(time);
     }
@@ -628,7 +628,7 @@ public final class DateTimeFunctions
     @Description("day of the week of the given timestamp")
     @ScalarFunction(value = "day_of_week", alias = "dow")
     @SqlType(BigintType.class)
-    public static long dayOfWeekFromTimestamp(Session session, @SqlType(TimestampType.class) long timestamp)
+    public static long dayOfWeekFromTimestamp(ConnectorSession session, @SqlType(TimestampType.class) long timestamp)
     {
         return getChronology(session.getTimeZoneKey()).dayOfWeek().get(timestamp);
     }
@@ -652,7 +652,7 @@ public final class DateTimeFunctions
     @Description("day of the month of the given timestamp")
     @ScalarFunction(value = "day", alias = "day_of_month")
     @SqlType(BigintType.class)
-    public static long dayFromTimestamp(Session session, @SqlType(TimestampType.class) long timestamp)
+    public static long dayFromTimestamp(ConnectorSession session, @SqlType(TimestampType.class) long timestamp)
     {
         return getChronology(session.getTimeZoneKey()).dayOfMonth().get(timestamp);
     }
@@ -684,7 +684,7 @@ public final class DateTimeFunctions
     @Description("day of the year of the given timestamp")
     @ScalarFunction(value = "day_of_year", alias = "doy")
     @SqlType(BigintType.class)
-    public static long dayOfYearFromTimestamp(Session session, @SqlType(TimestampType.class) long timestamp)
+    public static long dayOfYearFromTimestamp(ConnectorSession session, @SqlType(TimestampType.class) long timestamp)
     {
         return getChronology(session.getTimeZoneKey()).dayOfYear().get(timestamp);
     }
@@ -708,7 +708,7 @@ public final class DateTimeFunctions
     @Description("week of the year of the given timestamp")
     @ScalarFunction(value = "week", alias = "week_of_year")
     @SqlType(BigintType.class)
-    public static long weekFromTimestamp(Session session, @SqlType(TimestampType.class) long timestamp)
+    public static long weekFromTimestamp(ConnectorSession session, @SqlType(TimestampType.class) long timestamp)
     {
         return getChronology(session.getTimeZoneKey()).weekOfWeekyear().get(timestamp);
     }
@@ -732,7 +732,7 @@ public final class DateTimeFunctions
     @Description("month of the year of the given timestamp")
     @ScalarFunction("month")
     @SqlType(BigintType.class)
-    public static long monthFromTimestamp(Session session, @SqlType(TimestampType.class) long timestamp)
+    public static long monthFromTimestamp(ConnectorSession session, @SqlType(TimestampType.class) long timestamp)
     {
         return getChronology(session.getTimeZoneKey()).monthOfYear().get(timestamp);
     }
@@ -764,7 +764,7 @@ public final class DateTimeFunctions
     @Description("quarter of the year of the given timestamp")
     @ScalarFunction("quarter")
     @SqlType(BigintType.class)
-    public static long quarterFromTimestamp(Session session, @SqlType(TimestampType.class) long timestamp)
+    public static long quarterFromTimestamp(ConnectorSession session, @SqlType(TimestampType.class) long timestamp)
     {
         return QUARTER_OF_YEAR.getField(getChronology(session.getTimeZoneKey())).get(timestamp);
     }
@@ -788,7 +788,7 @@ public final class DateTimeFunctions
     @Description("year of the given timestamp")
     @ScalarFunction("year")
     @SqlType(BigintType.class)
-    public static long yearFromTimestamp(Session session, @SqlType(TimestampType.class) long timestamp)
+    public static long yearFromTimestamp(ConnectorSession session, @SqlType(TimestampType.class) long timestamp)
     {
         return getChronology(session.getTimeZoneKey()).year().get(timestamp);
     }

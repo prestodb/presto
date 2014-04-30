@@ -16,9 +16,9 @@ package com.facebook.presto.sql.planner;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.metadata.ColumnHandle;
+import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.Domain;
 import com.facebook.presto.spi.Range;
-import com.facebook.presto.spi.Session;
 import com.facebook.presto.spi.SortedRangeSet;
 import com.facebook.presto.spi.TupleDomain;
 import com.facebook.presto.spi.type.Type;
@@ -74,7 +74,7 @@ import static io.airlift.slice.Slices.utf8Slice;
 public class TestDomainTranslator
 {
     private static final Metadata MANAGER = new MetadataManager();
-    private static final Session SESSION = new Session("user", "source", "catalog", "schema", UTC_KEY, Locale.ENGLISH, "address", "agent");
+    private static final ConnectorSession SESSION = new ConnectorSession("user", "source", "catalog", "schema", UTC_KEY, Locale.ENGLISH, "address", "agent");
 
     private static final Symbol A = new Symbol("a");
     private static final ColumnHandle ACH = newColumnHandle("a");

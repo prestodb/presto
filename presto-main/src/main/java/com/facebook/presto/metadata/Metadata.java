@@ -15,7 +15,7 @@ package com.facebook.presto.metadata;
 
 import com.facebook.presto.metadata.OperatorInfo.OperatorType;
 import com.facebook.presto.spi.ColumnMetadata;
-import com.facebook.presto.spi.Session;
+import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.base.Optional;
@@ -51,13 +51,13 @@ public interface Metadata
             throws OperatorNotFoundException;
 
     @NotNull
-    List<String> listSchemaNames(Session session, String catalogName);
+    List<String> listSchemaNames(ConnectorSession session, String catalogName);
 
     /**
      * Returns a table handle for the specified table name.
      */
     @NotNull
-    Optional<TableHandle> getTableHandle(Session session, QualifiedTableName tableName);
+    Optional<TableHandle> getTableHandle(ConnectorSession session, QualifiedTableName tableName);
 
     /**
      * Return the metadata for the specified table handle.
@@ -71,7 +71,7 @@ public interface Metadata
      * Get the names that match the specified table prefix (never null).
      */
     @NotNull
-    List<QualifiedTableName> listTables(Session session, QualifiedTablePrefix prefix);
+    List<QualifiedTableName> listTables(ConnectorSession session, QualifiedTablePrefix prefix);
 
     /**
      * Returns a handle for the specified table column.
@@ -93,7 +93,7 @@ public interface Metadata
      * Returns true iff this catalog supports creation of sampled tables
      *
      */
-    boolean canCreateSampledTables(Session session, String catalogName);
+    boolean canCreateSampledTables(ConnectorSession session, String catalogName);
 
     /**
      * Gets all of the columns on the specified table, or an empty map if the columns can not be enumerated.
@@ -115,13 +115,13 @@ public interface Metadata
      * Gets the metadata for all columns that match the specified table prefix.
      */
     @NotNull
-    Map<QualifiedTableName, List<ColumnMetadata>> listTableColumns(Session session, QualifiedTablePrefix prefix);
+    Map<QualifiedTableName, List<ColumnMetadata>> listTableColumns(ConnectorSession session, QualifiedTablePrefix prefix);
 
     /**
      * Creates a table using the specified table metadata.
      */
     @NotNull
-    TableHandle createTable(Session session, String catalogName, TableMetadata tableMetadata);
+    TableHandle createTable(ConnectorSession session, String catalogName, TableMetadata tableMetadata);
 
     /**
      * Drops the specified table
@@ -133,7 +133,7 @@ public interface Metadata
     /**
      * Begin the atomic creation of a table with data.
      */
-    OutputTableHandle beginCreateTable(Session session, String catalogName, TableMetadata tableMetadata);
+    OutputTableHandle beginCreateTable(ConnectorSession session, String catalogName, TableMetadata tableMetadata);
 
     /**
      * Commit a table creation with data after the data is written.

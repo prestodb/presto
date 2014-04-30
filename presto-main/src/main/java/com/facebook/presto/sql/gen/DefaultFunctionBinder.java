@@ -15,7 +15,7 @@ package com.facebook.presto.sql.gen;
 
 import com.facebook.presto.byteCode.ByteCodeNode;
 import com.facebook.presto.byteCode.instruction.Constant;
-import com.facebook.presto.spi.Session;
+import com.facebook.presto.spi.ConnectorSession;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableList.Builder;
 
@@ -51,7 +51,7 @@ public class DefaultFunctionBinder
         int argIndex = 0;
 
         // bind session
-        if (methodHandle.type().parameterCount() > 0 && methodHandle.type().parameterType(0) == Session.class) {
+        if (methodHandle.type().parameterCount() > 0 && methodHandle.type().parameterType(0) == ConnectorSession.class) {
             unboundArguments.add(getSessionByteCode);
             argIndex++;
         }

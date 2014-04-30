@@ -14,7 +14,7 @@
 package com.facebook.presto.operator;
 
 import com.facebook.presto.ExceededMemoryLimitException;
-import com.facebook.presto.spi.Session;
+import com.facebook.presto.spi.ConnectorSession;
 import com.google.common.base.Function;
 import com.google.common.base.Supplier;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -98,7 +98,7 @@ public class OperatorContext
         return driverContext;
     }
 
-    public Session getSession()
+    public ConnectorSession getSession()
     {
         return driverContext.getSession();
     }

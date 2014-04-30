@@ -21,7 +21,7 @@ import com.facebook.presto.operator.OperatorAssertion;
 import com.facebook.presto.operator.Page;
 import com.facebook.presto.operator.TaskContext;
 import com.facebook.presto.spi.ConnectorColumnHandle;
-import com.facebook.presto.spi.Session;
+import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.util.MaterializedResult;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
@@ -73,7 +73,7 @@ public class TestDatabaseLocalStorageManager
         DatabaseLocalStorageManagerConfig config = new DatabaseLocalStorageManagerConfig().setDataDirectory(dataDir);
         storageManager = new DatabaseLocalStorageManager(dbi, createTestingBlockEncodingManager(), config);
         executor = newCachedThreadPool(daemonThreadsNamed("test"));
-        Session session = new Session("user", "source", "catalog", "schema", UTC_KEY, Locale.ENGLISH, "address", "agent");
+        ConnectorSession session = new ConnectorSession("user", "source", "catalog", "schema", UTC_KEY, Locale.ENGLISH, "address", "agent");
         driverContext = new TaskContext(new TaskId("query", "stage", "task"), executor, session)
                 .addPipelineContext(true, true)
                 .addDriverContext();

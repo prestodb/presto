@@ -15,7 +15,7 @@ package com.facebook.presto.sql.planner;
 
 import com.facebook.presto.block.BlockAssertions;
 import com.facebook.presto.block.BlockUtils;
-import com.facebook.presto.spi.Session;
+import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.block.BlockCursor;
@@ -171,7 +171,7 @@ public class TestInterpretedProjectionFunction
                 symbolTypes.build(),
                 symbolToInputMappings,
                 DUAL_METADATA_MANAGER,
-                new Session("user", "test", "catalog", "schema", UTC_KEY, Locale.ENGLISH, null, null)
+                new ConnectorSession("user", "test", "catalog", "schema", UTC_KEY, Locale.ENGLISH, null, null)
         );
 
         // create output

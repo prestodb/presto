@@ -14,7 +14,7 @@
 package com.facebook.presto.type;
 
 import com.facebook.presto.operator.scalar.ScalarOperator;
-import com.facebook.presto.spi.Session;
+import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.type.DateType;
 import com.facebook.presto.spi.type.IntervalDayTimeType;
 import com.facebook.presto.spi.type.IntervalYearMonthType;
@@ -63,14 +63,14 @@ public final class DateTimeOperators
 
     @ScalarOperator(ADD)
     @SqlType(TimeType.class)
-    public static long timePlusIntervalDayToSecond(Session session, @SqlType(TimeType.class) long left, @SqlType(IntervalDayTimeType.class) long right)
+    public static long timePlusIntervalDayToSecond(ConnectorSession session, @SqlType(TimeType.class) long left, @SqlType(IntervalDayTimeType.class) long right)
     {
         return modulo24Hour(getChronology(session.getTimeZoneKey()), left + right);
     }
 
     @ScalarOperator(ADD)
     @SqlType(TimeType.class)
-    public static long intervalDayToSecondPlusTime(Session session, @SqlType(IntervalDayTimeType.class) long left, @SqlType(TimeType.class) long right)
+    public static long intervalDayToSecondPlusTime(ConnectorSession session, @SqlType(IntervalDayTimeType.class) long left, @SqlType(TimeType.class) long right)
     {
         return modulo24Hour(getChronology(session.getTimeZoneKey()), left + right);
     }
@@ -161,14 +161,14 @@ public final class DateTimeOperators
 
     @ScalarOperator(ADD)
     @SqlType(TimestampType.class)
-    public static long timestampPlusIntervalYearToMonth(Session session, @SqlType(TimestampType.class) long left, @SqlType(IntervalYearMonthType.class) long right)
+    public static long timestampPlusIntervalYearToMonth(ConnectorSession session, @SqlType(TimestampType.class) long left, @SqlType(IntervalYearMonthType.class) long right)
     {
         return getChronology(session.getTimeZoneKey()).monthOfYear().add(left, right);
     }
 
     @ScalarOperator(ADD)
     @SqlType(TimestampType.class)
-    public static long intervalYearToMonthPlusTimestamp(Session session, @SqlType(IntervalYearMonthType.class) long left, @SqlType(TimestampType.class) long right)
+    public static long intervalYearToMonthPlusTimestamp(ConnectorSession session, @SqlType(IntervalYearMonthType.class) long left, @SqlType(TimestampType.class) long right)
     {
         return getChronology(session.getTimeZoneKey()).monthOfYear().add(right, left);
     }
@@ -199,7 +199,7 @@ public final class DateTimeOperators
 
     @ScalarOperator(SUBTRACT)
     @SqlType(TimeType.class)
-    public static long timeMinusIntervalDayToSecond(Session session, @SqlType(TimeType.class) long left, @SqlType(IntervalDayTimeType.class) long right)
+    public static long timeMinusIntervalDayToSecond(ConnectorSession session, @SqlType(TimeType.class) long left, @SqlType(IntervalDayTimeType.class) long right)
     {
         return modulo24Hour(getChronology(session.getTimeZoneKey()), left - right);
     }
@@ -227,7 +227,7 @@ public final class DateTimeOperators
 
     @ScalarOperator(SUBTRACT)
     @SqlType(DateType.class)
-    public static long dateMinusIntervalYearToMonth(Session session, @SqlType(DateType.class) long left, @SqlType(IntervalYearMonthType.class) long right)
+    public static long dateMinusIntervalYearToMonth(ConnectorSession session, @SqlType(DateType.class) long left, @SqlType(IntervalYearMonthType.class) long right)
     {
         return MONTH_OF_YEAR_UTC.add(left, -right);
     }
@@ -248,7 +248,7 @@ public final class DateTimeOperators
 
     @ScalarOperator(SUBTRACT)
     @SqlType(TimestampType.class)
-    public static long timestampMinusIntervalYearToMonth(Session session, @SqlType(TimestampType.class) long left, @SqlType(IntervalYearMonthType.class) long right)
+    public static long timestampMinusIntervalYearToMonth(ConnectorSession session, @SqlType(TimestampType.class) long left, @SqlType(IntervalYearMonthType.class) long right)
     {
         return getChronology(session.getTimeZoneKey()).monthOfYear().add(left, -right);
     }

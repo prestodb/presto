@@ -14,7 +14,7 @@
 package com.facebook.presto.type;
 
 import com.facebook.presto.operator.scalar.ColorFunctions;
-import com.facebook.presto.spi.Session;
+import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.block.BlockCursor;
@@ -64,7 +64,7 @@ public class ColorType
     }
 
     @Override
-    public Object getObjectValue(Session session, Slice slice, int offset)
+    public Object getObjectValue(ConnectorSession session, Slice slice, int offset)
     {
         int color = slice.getInt(offset);
         if (color < 0) {

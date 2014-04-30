@@ -14,7 +14,7 @@
 package com.facebook.presto.type;
 
 import com.facebook.presto.operator.scalar.FunctionAssertions;
-import com.facebook.presto.spi.Session;
+import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.type.SqlDate;
 import com.facebook.presto.spi.type.SqlTime;
 import com.facebook.presto.spi.type.SqlTimeWithTimeZone;
@@ -40,13 +40,13 @@ public class TestTimestampWithTimeZone
     private static final TimeZoneKey BERLIN_TIME_ZONE_KEY = getTimeZoneKey("Europe/Berlin");
     private static final DateTimeZone BERLIN_ZONE = getDateTimeZone(BERLIN_TIME_ZONE_KEY);
 
-    private Session session;
+    private ConnectorSession session;
     private FunctionAssertions functionAssertions;
 
     @BeforeClass
     public void setUp()
     {
-        session = new Session("user", "test", "catalog", "schema", getTimeZoneKey("+06:09"), Locale.ENGLISH, null, null);
+        session = new ConnectorSession("user", "test", "catalog", "schema", getTimeZoneKey("+06:09"), Locale.ENGLISH, null, null);
         functionAssertions = new FunctionAssertions(session);
     }
 

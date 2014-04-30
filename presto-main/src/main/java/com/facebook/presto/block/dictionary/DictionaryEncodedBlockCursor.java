@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.block.dictionary;
 
-import com.facebook.presto.spi.Session;
+import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockCursor;
@@ -125,7 +125,7 @@ public class DictionaryEncodedBlockCursor
     }
 
     @Override
-    public Object getObjectValue(Session session)
+    public Object getObjectValue(ConnectorSession session)
     {
         return dictionary.getObjectValue(session, getDictionaryKey());
     }

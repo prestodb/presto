@@ -14,7 +14,7 @@
 package com.facebook.presto.type;
 
 import com.facebook.presto.operator.scalar.ScalarOperator;
-import com.facebook.presto.spi.Session;
+import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.type.BooleanType;
 import com.facebook.presto.spi.type.TimeType;
 import com.facebook.presto.spi.type.TimeWithTimeZoneType;
@@ -95,7 +95,7 @@ public final class TimeOperators
 
     @ScalarOperator(CAST)
     @SqlType(TimeWithTimeZoneType.class)
-    public static long castToTimeWithTimeZone(Session session, @SqlType(TimeType.class) long value)
+    public static long castToTimeWithTimeZone(ConnectorSession session, @SqlType(TimeType.class) long value)
     {
         return packDateTimeWithZone(value, session.getTimeZoneKey());
     }
@@ -109,21 +109,21 @@ public final class TimeOperators
 
     @ScalarOperator(CAST)
     @SqlType(TimestampWithTimeZoneType.class)
-    public static long castToTimestampWithTimeZone(Session session, @SqlType(TimeType.class) long value)
+    public static long castToTimestampWithTimeZone(ConnectorSession session, @SqlType(TimeType.class) long value)
     {
         return packDateTimeWithZone(value, session.getTimeZoneKey());
     }
 
     @ScalarOperator(CAST)
     @SqlType(VarcharType.class)
-    public static Slice castToSlice(Session session, @SqlType(TimeType.class) long value)
+    public static Slice castToSlice(ConnectorSession session, @SqlType(TimeType.class) long value)
     {
         return Slices.copiedBuffer(printTimeWithoutTimeZone(session.getTimeZoneKey(), value), UTF_8);
     }
 
     @ScalarOperator(CAST)
     @SqlType(TimeType.class)
-    public static long castFromSlice(Session session, @SqlType(VarcharType.class) Slice value)
+    public static long castFromSlice(ConnectorSession session, @SqlType(VarcharType.class) Slice value)
     {
         return parseTimeWithoutTimeZone(session.getTimeZoneKey(), value.toStringUtf8());
     }

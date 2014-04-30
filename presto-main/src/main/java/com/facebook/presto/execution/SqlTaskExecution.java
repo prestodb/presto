@@ -27,7 +27,7 @@ import com.facebook.presto.operator.DriverStats;
 import com.facebook.presto.operator.PipelineContext;
 import com.facebook.presto.operator.TaskContext;
 import com.facebook.presto.operator.TaskOutputOperator.TaskOutputFactory;
-import com.facebook.presto.spi.Session;
+import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.sql.planner.LocalExecutionPlanner;
 import com.facebook.presto.sql.planner.LocalExecutionPlanner.LocalExecutionPlan;
 import com.facebook.presto.sql.planner.PlanFragment;
@@ -108,7 +108,7 @@ public class SqlTaskExecution
 
     private final AtomicLong nextTaskInfoVersion = new AtomicLong(TaskInfo.STARTING_VERSION);
 
-    public static SqlTaskExecution createSqlTaskExecution(Session session,
+    public static SqlTaskExecution createSqlTaskExecution(ConnectorSession session,
             TaskId taskId,
             URI location,
             PlanFragment fragment,
@@ -146,7 +146,7 @@ public class SqlTaskExecution
         }
     }
 
-    private SqlTaskExecution(Session session,
+    private SqlTaskExecution(ConnectorSession session,
             TaskId taskId,
             URI location,
             PlanFragment fragment,

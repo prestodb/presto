@@ -21,7 +21,7 @@ import com.facebook.presto.metadata.QualifiedTableName;
 import com.facebook.presto.metadata.TableHandle;
 import com.facebook.presto.metadata.TableMetadata;
 import com.facebook.presto.spi.ColumnMetadata;
-import com.facebook.presto.spi.Session;
+import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.ExpressionUtils;
 import com.facebook.presto.sql.planner.ExpressionInterpreter;
@@ -107,11 +107,11 @@ class TupleAnalyzer
         extends DefaultTraversalVisitor<TupleDescriptor, AnalysisContext>
 {
     private final Analysis analysis;
-    private final Session session;
+    private final ConnectorSession session;
     private final Metadata metadata;
     private final boolean experimentalSyntaxEnabled;
 
-    public TupleAnalyzer(Analysis analysis, Session session, Metadata metadata, boolean experimentalSyntaxEnabled)
+    public TupleAnalyzer(Analysis analysis, ConnectorSession session, Metadata metadata, boolean experimentalSyntaxEnabled)
     {
         checkNotNull(analysis, "analysis is null");
         checkNotNull(session, "session is null");

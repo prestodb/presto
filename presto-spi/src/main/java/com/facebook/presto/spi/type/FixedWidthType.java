@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.spi.type;
 
-import com.facebook.presto.spi.Session;
+import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockCursor;
 import io.airlift.slice.Slice;
@@ -42,7 +42,7 @@ public interface FixedWidthType
      * at the specified offset. This is the value returned to the user via the
      * REST endpoint and therefore must be JSON serializable.
      */
-    Object getObjectValue(Session session, Slice slice, int offset);
+    Object getObjectValue(ConnectorSession session, Slice slice, int offset);
 
     /**
      * Gets the value at the specified offset in the specified slice as a boolean.

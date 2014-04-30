@@ -30,7 +30,7 @@ import com.facebook.presto.execution.StageState;
 import com.facebook.presto.execution.TaskInfo;
 import com.facebook.presto.operator.ExchangeClient;
 import com.facebook.presto.operator.Page;
-import com.facebook.presto.spi.Session;
+import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.block.BlockCursor;
 import com.facebook.presto.spi.type.TimeZoneKey;
 import com.facebook.presto.spi.type.TimeZoneNotSupportedException;
@@ -167,7 +167,7 @@ public class StatementResource
 
         String remoteUserAddress = requestContext.getRemoteAddr();
 
-        Session session = new Session(user, source, catalog, schema, getTimeZoneKey(timeZoneId), locale, remoteUserAddress, userAgent);
+        ConnectorSession session = new ConnectorSession(user, source, catalog, schema, getTimeZoneKey(timeZoneId), locale, remoteUserAddress, userAgent);
 
         ExchangeClient exchangeClient = exchangeClientSupplier.get();
         Query query = new Query(session, statement, queryManager, exchangeClient);
@@ -243,7 +243,7 @@ public class StatementResource
         private final ExchangeClient exchangeClient;
 
         private final AtomicLong resultId = new AtomicLong();
-        private final Session session;
+        private final ConnectorSession session;
 
         @GuardedBy("this")
         private QueryResults lastResult;
@@ -254,7 +254,7 @@ public class StatementResource
         @GuardedBy("this")
         private List<Column> columns;
 
-        public Query(Session session,
+        public Query(ConnectorSession session,
                 String query,
                 QueryManager queryManager,
                 ExchangeClient exchangeClient)
@@ -616,10 +616,10 @@ public class StatementResource
         private static class RowIterable
                 implements Iterable<List<Object>>
         {
-            private final Session session;
+            private final ConnectorSession session;
             private final Page page;
 
-            private RowIterable(Session session, Page page)
+            private RowIterable(ConnectorSession session, Page page)
             {
                 this.session = session;
                 this.page = checkNotNull(page, "page is null");
@@ -635,10 +635,10 @@ public class StatementResource
         private static class RowIterator
                 extends AbstractIterator<List<Object>>
         {
-            private final Session session;
+            private final ConnectorSession session;
             private final BlockCursor[] cursors;
 
-            private RowIterator(Session session, Page page)
+            private RowIterator(ConnectorSession session, Page page)
             {
                 this.session = session;
                 cursors = new BlockCursor[page.getChannelCount()];

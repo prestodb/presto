@@ -43,8 +43,8 @@ import com.facebook.presto.operator.PageBuilder;
 import com.facebook.presto.operator.SourceOperator;
 import com.facebook.presto.operator.SourceOperatorFactory;
 import com.facebook.presto.operator.aggregation.IsolatedClass;
+import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.RecordCursor;
-import com.facebook.presto.spi.Session;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockCursor;
 import com.facebook.presto.spi.type.TimeZoneKey;
@@ -217,7 +217,7 @@ public class ExpressionCompiler
                 type(AbstractFilterAndProjectOperator.class));
 
         // declare fields
-        FieldDefinition sessionField = classDefinition.declareField(a(PRIVATE, FINAL), "session", Session.class);
+        FieldDefinition sessionField = classDefinition.declareField(a(PRIVATE, FINAL), "session", ConnectorSession.class);
 
         // constructor
         classDefinition.declareConstructor(new CompilerContext(bootstrap.getBootstrapMethod()),
@@ -233,7 +233,7 @@ public class ExpressionCompiler
                 .comment("this.session = operatorContext.getSession();")
                 .pushThis()
                 .getVariable("operatorContext")
-                .invokeVirtual(OperatorContext.class, "getSession", Session.class)
+                .invokeVirtual(OperatorContext.class, "getSession", ConnectorSession.class)
                 .putField(sessionField)
                 .ret();
 
@@ -335,7 +335,7 @@ public class ExpressionCompiler
                 type(AbstractScanFilterAndProjectOperator.class));
 
         // declare fields
-        FieldDefinition sessionField = classDefinition.declareField(a(PRIVATE, FINAL), "session", Session.class);
+        FieldDefinition sessionField = classDefinition.declareField(a(PRIVATE, FINAL), "session", ConnectorSession.class);
 
         // constructor
         classDefinition.declareConstructor(new CompilerContext(bootstrap.getBootstrapMethod()),
@@ -357,7 +357,7 @@ public class ExpressionCompiler
                 .comment("this.session = operatorContext.getSession();")
                 .pushThis()
                 .getVariable("operatorContext")
-                .invokeVirtual(OperatorContext.class, "getSession", Session.class)
+                .invokeVirtual(OperatorContext.class, "getSession", ConnectorSession.class)
                 .putField(sessionField)
                 .ret();
 
@@ -637,7 +637,7 @@ public class ExpressionCompiler
         filterMethod.comment("Filter: %s", filter.toString());
 
         filterMethod.getCompilerContext().declareVariable(type(boolean.class), "wasNull");
-        Block getSessionByteCode = new Block(filterMethod.getCompilerContext()).pushThis().getField(classDefinition.getType(), "session", type(Session.class));
+        Block getSessionByteCode = new Block(filterMethod.getCompilerContext()).pushThis().getField(classDefinition.getType(), "session", type(ConnectorSession.class));
         ByteCodeExpressionVisitor visitor = new ByteCodeExpressionVisitor(metadata, bootstrap.getFunctionBinder(), expressionTypes, getSessionByteCode, sourceIsCursor, timeZoneKey);
         ByteCodeNode body = visitor.process(filter, filterMethod.getCompilerContext());
 
@@ -690,7 +690,7 @@ public class ExpressionCompiler
         // generate body code
         CompilerContext context = projectionMethod.getCompilerContext();
         context.declareVariable(type(boolean.class), "wasNull");
-        Block getSessionByteCode = new Block(context).pushThis().getField(classDefinition.getType(), "session", type(Session.class));
+        Block getSessionByteCode = new Block(context).pushThis().getField(classDefinition.getType(), "session", type(ConnectorSession.class));
         ByteCodeExpressionVisitor visitor = new ByteCodeExpressionVisitor(metadata, bootstrap.getFunctionBinder(), expressionTypes, getSessionByteCode, sourceIsCursor, timeZoneKey);
         ByteCodeNode body = visitor.process(projection, context);
 

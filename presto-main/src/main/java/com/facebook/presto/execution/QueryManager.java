@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.execution;
 
-import com.facebook.presto.spi.Session;
+import com.facebook.presto.spi.ConnectorSession;
 import io.airlift.units.Duration;
 
 import java.util.List;
@@ -27,7 +27,7 @@ public interface QueryManager
 
     QueryInfo getQueryInfo(QueryId queryId);
 
-    QueryInfo createQuery(Session session, String query);
+    QueryInfo createQuery(ConnectorSession session, String query);
 
     void cancelQuery(QueryId queryId);
 

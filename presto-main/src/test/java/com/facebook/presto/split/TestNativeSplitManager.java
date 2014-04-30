@@ -26,13 +26,13 @@ import com.facebook.presto.metadata.TableColumnMapper;
 import com.facebook.presto.spi.ConnectorColumnHandle;
 import com.facebook.presto.spi.ConnectorPartition;
 import com.facebook.presto.spi.ConnectorPartitionResult;
+import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorSplitSource;
 import com.facebook.presto.spi.ConnectorTableHandle;
 import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.Domain;
 import com.facebook.presto.spi.PartitionKey;
 import com.facebook.presto.spi.Range;
-import com.facebook.presto.spi.Session;
 import com.facebook.presto.spi.SortedRangeSet;
 import com.facebook.presto.spi.TupleDomain;
 import com.facebook.presto.spi.type.BigintType;
@@ -62,7 +62,7 @@ import static org.testng.Assert.assertTrue;
 @Test(singleThreaded = true)
 public class TestNativeSplitManager
 {
-    private static final Session SESSION = new Session("user", "test", "default", "default", UTC_KEY, Locale.ENGLISH, null, null);
+    private static final ConnectorSession SESSION = new ConnectorSession("user", "test", "default", "default", UTC_KEY, Locale.ENGLISH, null, null);
     private static final ConnectorTableMetadata TEST_TABLE = TableMetadataBuilder.tableMetadataBuilder("demo", "test_table")
             .partitionKeyColumn("ds", VARCHAR)
             .column("foo", VARCHAR)

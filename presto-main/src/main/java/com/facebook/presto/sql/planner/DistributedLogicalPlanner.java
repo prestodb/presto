@@ -17,7 +17,7 @@ import com.facebook.presto.metadata.FunctionInfo;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.OutputTableHandle;
 import com.facebook.presto.metadata.Signature;
-import com.facebook.presto.spi.Session;
+import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.sql.planner.PlanFragment.OutputPartitioning;
 import com.facebook.presto.sql.planner.PlanFragment.PlanDistribution;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
@@ -70,11 +70,11 @@ import static com.google.common.base.Preconditions.checkState;
  */
 public class DistributedLogicalPlanner
 {
-    private final Session session;
+    private final ConnectorSession session;
     private final Metadata metadata;
     private final PlanNodeIdAllocator idAllocator;
 
-    public DistributedLogicalPlanner(Session session, Metadata metadata, PlanNodeIdAllocator idAllocator)
+    public DistributedLogicalPlanner(ConnectorSession session, Metadata metadata, PlanNodeIdAllocator idAllocator)
     {
         this.session = checkNotNull(session, "session is null");
         this.metadata = checkNotNull(metadata, "metadata is null");
