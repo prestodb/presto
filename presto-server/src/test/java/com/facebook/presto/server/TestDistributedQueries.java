@@ -61,8 +61,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 import static com.facebook.presto.connector.informationSchema.InformationSchemaMetadata.INFORMATION_SCHEMA;
-import static com.facebook.presto.spi.Session.DEFAULT_CATALOG;
-import static com.facebook.presto.spi.Session.DEFAULT_SCHEMA;
+import static com.facebook.presto.server.testing.TestingPrestoServer.TEST_CATALOG;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.DateTimeEncoding.unpackMillisUtc;
@@ -96,7 +95,7 @@ import static org.testng.Assert.assertTrue;
 public class TestDistributedQueries
         extends AbstractTestSampledQueries
 {
-    private static final Session SESSION = new Session("user", "test", DEFAULT_CATALOG, "test", UTC_KEY, Locale.ENGLISH, null, null);
+    private static final Session SESSION = new Session("user", "test", TEST_CATALOG, "test", UTC_KEY, Locale.ENGLISH, null, null);
 
     private static final String ENVIRONMENT = "testing";
     private static final Logger log = Logger.get(TestDistributedQueries.class.getSimpleName());
@@ -224,7 +223,7 @@ public class TestDistributedQueries
             assertQuery("SELECT * FROM " + table, expectedQuery);
         }
         finally {
-            QualifiedTableName name = new QualifiedTableName(DEFAULT_CATALOG, DEFAULT_SCHEMA, table);
+            QualifiedTableName name = new QualifiedTableName(TEST_CATALOG, "test", table);
             Optional<TableHandle> handle = coordinator.getMetadata().getTableHandle(SESSION, name);
             if (handle.isPresent()) {
                 coordinator.getMetadata().dropTable(handle.get());

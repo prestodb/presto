@@ -22,13 +22,12 @@ import org.testng.annotations.Test;
 import java.util.Locale;
 import java.util.Properties;
 
-import static com.facebook.presto.spi.Session.DEFAULT_CATALOG;
 import static com.facebook.presto.spi.type.TimeZoneKey.UTC_KEY;
 import static org.testng.Assert.assertEquals;
 
 public class TestHiveSplit
 {
-    private static final Session SESSION = new Session("user", "test", DEFAULT_CATALOG, "test", UTC_KEY, Locale.ENGLISH, null, null);
+    private static final Session SESSION = new Session("user", "test", "catalog", "test", UTC_KEY, Locale.ENGLISH, null, null);
     private final JsonCodec<HiveSplit> codec = JsonCodec.jsonCodec(HiveSplit.class);
 
     @Test

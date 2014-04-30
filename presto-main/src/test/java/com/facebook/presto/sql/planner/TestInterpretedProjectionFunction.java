@@ -171,7 +171,7 @@ public class TestInterpretedProjectionFunction
                 symbolTypes.build(),
                 symbolToInputMappings,
                 DUAL_METADATA_MANAGER,
-                new Session("user", "test", Session.DEFAULT_CATALOG, Session.DEFAULT_SCHEMA, UTC_KEY, Locale.ENGLISH, null, null)
+                new Session("user", "test", "catalog", "schema", UTC_KEY, Locale.ENGLISH, null, null)
         );
 
         // create output

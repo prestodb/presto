@@ -15,7 +15,6 @@ package com.facebook.presto.server;
 
 import com.facebook.presto.client.PrestoHeaders;
 import com.facebook.presto.server.testing.TestingPrestoServer;
-import com.facebook.presto.spi.Session;
 import com.google.common.base.Charsets;
 import com.google.common.net.HttpHeaders;
 import io.airlift.http.client.HttpClient;
@@ -75,8 +74,8 @@ public class TestExecuteResource
         Request request = preparePost()
                 .setUri(server.resolve("/v1/execute"))
                 .setHeader(PrestoHeaders.PRESTO_USER, "test")
-                .setHeader(PrestoHeaders.PRESTO_CATALOG, Session.DEFAULT_CATALOG)
-                .setHeader(PrestoHeaders.PRESTO_SCHEMA, Session.DEFAULT_SCHEMA)
+                .setHeader(PrestoHeaders.PRESTO_CATALOG, "catalog")
+                .setHeader(PrestoHeaders.PRESTO_SCHEMA, "schema")
                 .setHeader(PrestoHeaders.PRESTO_TIME_ZONE, "UTC")
                 .setBodyGenerator(createStaticBodyGenerator(query, Charsets.UTF_8))
                 .build();

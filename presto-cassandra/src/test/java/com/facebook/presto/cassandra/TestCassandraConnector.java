@@ -64,7 +64,6 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.UUID;
 
-import static com.facebook.presto.spi.Session.DEFAULT_CATALOG;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
@@ -80,7 +79,7 @@ import static org.testng.Assert.fail;
 
 public class TestCassandraConnector
 {
-    private static final Session SESSION = new Session("user", "test", DEFAULT_CATALOG, "test", UTC_KEY, Locale.ENGLISH, null, null);
+    private static final Session SESSION = new Session("user", "test", "catalog", "test", UTC_KEY, Locale.ENGLISH, null, null);
     protected static final String INVALID_DATABASE = "totally_invalid_database";
 
     private ConnectorMetadata metadata;
