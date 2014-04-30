@@ -43,8 +43,8 @@ import java.io.Closeable;
 import java.io.IOException;
 import java.net.URI;
 import java.util.List;
-import java.util.concurrent.Executor;
 import java.util.concurrent.Future;
+import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -62,12 +62,17 @@ import static io.airlift.http.client.Request.Builder.prepareDelete;
 import static io.airlift.http.client.Request.Builder.prepareGet;
 import static io.airlift.http.client.ResponseHandlerUtils.propagate;
 import static io.airlift.http.client.StatusResponseHandler.createStatusResponseHandler;
+import static java.lang.Math.max;
+import static java.lang.Math.min;
 import static java.lang.String.format;
 
 @ThreadSafe
 public class HttpPageBufferClient
         implements Closeable
 {
+    private static final int INITIAL_DELAY_MILLIS = 1;
+    private static final int MAX_DELAY_MILLIS = 100;
+
     private static final Logger log = Logger.get(HttpPageBufferClient.class);
 
     /**
@@ -95,7 +100,7 @@ public class HttpPageBufferClient
     private final URI location;
     private final ClientCallback clientCallback;
     private final BlockEncodingSerde blockEncodingSerde;
-    private final Executor executor;
+    private final ScheduledExecutorService executor;
     private final Stopwatch errorStopwatch;
 
     @GuardedBy("this")
@@ -106,6 +111,10 @@ public class HttpPageBufferClient
     private DateTime lastUpdate = DateTime.now();
     @GuardedBy("this")
     private long token;
+    @GuardedBy("this")
+    private boolean scheduled;
+    @GuardedBy("this")
+    private long errorDelayMillis;
 
     private final AtomicInteger pagesReceived = new AtomicInteger();
 
@@ -119,7 +128,7 @@ public class HttpPageBufferClient
             URI location,
             ClientCallback clientCallback,
             BlockEncodingSerde blockEncodingSerde,
-            Executor executor,
+            ScheduledExecutorService executor,
             Stopwatch errorStopwatch)
     {
         this.httpClient = checkNotNull(httpClient, "httpClient is null");
@@ -141,10 +150,13 @@ public class HttpPageBufferClient
         else if (future != null) {
             state = "running";
         }
+        else if (scheduled) {
+            state = "scheduled";
+        }
         else {
             state = "queued";
         }
-        String httpRequestState = "queued";
+        String httpRequestState = "not scheduled";
         if (future != null) {
             httpRequestState = future.getState();
         }
@@ -192,12 +204,34 @@ public class HttpPageBufferClient
 
     public synchronized void scheduleRequest()
     {
-        if (closed) {
-            log.debug("scheduleRequest() called, but client has been closed");
+        if (closed || (future != null) || scheduled) {
             return;
         }
-        if (future != null) {
-            log.debug("scheduleRequest() called, but future is not null");
+        scheduled = true;
+
+        executor.schedule(new Runnable()
+        {
+            @Override
+            public void run()
+            {
+                try {
+                    initiateRequest();
+                }
+                catch (Throwable t) {
+                    // should not happen, but be safe and fail the operator
+                    clientCallback.clientFailed(HttpPageBufferClient.this, t);
+                }
+            }
+        }, errorDelayMillis, TimeUnit.MILLISECONDS);
+
+        lastUpdate = DateTime.now();
+        requestsScheduled.incrementAndGet();
+    }
+
+    private synchronized void initiateRequest()
+    {
+        scheduled = false;
+        if (closed || (future != null)) {
             return;
         }
 
@@ -218,6 +252,7 @@ public class HttpPageBufferClient
                 }
 
                 errorStopwatch.reset();
+                errorDelayMillis = 0;
 
                 requestsCompleted.incrementAndGet();
 
@@ -281,6 +316,7 @@ public class HttpPageBufferClient
                 if (!errorStopwatch.isRunning()) {
                     errorStopwatch.start();
                 }
+                errorDelayMillis = min(max(errorDelayMillis * 2, INITIAL_DELAY_MILLIS), MAX_DELAY_MILLIS);
 
                 requestsFailed.incrementAndGet();
                 requestsCompleted.incrementAndGet();
@@ -293,7 +329,6 @@ public class HttpPageBufferClient
         }, executor);
 
         lastUpdate = DateTime.now();
-        requestsScheduled.incrementAndGet();
     }
 
     @Override

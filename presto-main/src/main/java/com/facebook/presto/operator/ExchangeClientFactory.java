@@ -21,7 +21,7 @@ import io.airlift.units.Duration;
 
 import javax.inject.Inject;
 
-import java.util.concurrent.Executor;
+import java.util.concurrent.ScheduledExecutorService;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
@@ -35,13 +35,13 @@ public class ExchangeClientFactory
     private final Duration minErrorDuration;
     private final AsyncHttpClient httpClient;
     private final DataSize maxResponseSize;
-    private final Executor executor;
+    private final ScheduledExecutorService executor;
 
     @Inject
     public ExchangeClientFactory(BlockEncodingSerde blockEncodingSerde,
             ExchangeClientConfig config,
             @ForExchange AsyncHttpClient httpClient,
-            @ForExchange Executor executor)
+            @ForExchange ScheduledExecutorService executor)
     {
         this(blockEncodingSerde,
                 config.getMaxBufferSize(),
@@ -59,7 +59,7 @@ public class ExchangeClientFactory
             int concurrentRequestMultiplier,
             Duration minErrorDuration,
             AsyncHttpClient httpClient,
-            Executor executor)
+            ScheduledExecutorService executor)
     {
         this.blockEncodingSerde = blockEncodingSerde;
         this.maxBufferedBytes = checkNotNull(maxBufferedBytes, "maxBufferedBytes is null");

@@ -40,13 +40,12 @@ import java.util.List;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
-import java.util.concurrent.Executor;
 import java.util.concurrent.LinkedBlockingDeque;
+import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 
-import static com.facebook.presto.util.Threads.checkNotSameThreadExecutor;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 
@@ -62,7 +61,7 @@ public class ExchangeClient
     private final int concurrentRequestMultiplier;
     private final Duration minErrorDuration;
     private final AsyncHttpClient httpClient;
-    private final Executor executor;
+    private final ScheduledExecutorService executor;
 
     @GuardedBy("this")
     private final Set<URI> locations = new HashSet<>();
@@ -98,7 +97,7 @@ public class ExchangeClient
             int concurrentRequestMultiplier,
             Duration minErrorDuration,
             AsyncHttpClient httpClient,
-            Executor executor)
+            ScheduledExecutorService executor)
     {
         this.blockEncodingSerde = blockEncodingSerde;
         this.maxBufferedBytes = maxBufferedBytes.toBytes();
@@ -106,7 +105,7 @@ public class ExchangeClient
         this.concurrentRequestMultiplier = concurrentRequestMultiplier;
         this.minErrorDuration = minErrorDuration;
         this.httpClient = httpClient;
-        this.executor = checkNotSameThreadExecutor(executor, "executor");
+        this.executor = executor;
     }
 
     public synchronized ExchangeClientStatus getStatus()
