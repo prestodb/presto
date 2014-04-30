@@ -40,7 +40,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.BrokenBarrierException;
 import java.util.concurrent.CyclicBarrier;
-import java.util.concurrent.ExecutorService;
+import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -52,17 +52,17 @@ import static com.facebook.presto.util.Threads.daemonThreadsNamed;
 import static com.google.common.net.HttpHeaders.CONTENT_TYPE;
 import static io.airlift.testing.Assertions.assertContains;
 import static io.airlift.testing.Assertions.assertInstanceOf;
-import static java.util.concurrent.Executors.newCachedThreadPool;
+import static java.util.concurrent.Executors.newScheduledThreadPool;
 import static org.testng.Assert.assertEquals;
 
 public class TestHttpPageBufferClient
 {
-    private ExecutorService executor;
+    private ScheduledExecutorService executor;
 
     @BeforeClass
     public void setUp()
     {
-        executor = newCachedThreadPool(daemonThreadsNamed("test-%s"));
+        executor = newScheduledThreadPool(4, daemonThreadsNamed("test-%s"));
     }
 
     @AfterClass
@@ -297,18 +297,22 @@ public class TestHttpPageBufferClient
     public void testExceptionFromResponseHandler()
             throws Exception
     {
+        final TestingTicker ticker = new TestingTicker();
+        final AtomicReference<Duration> tickerIncrement = new AtomicReference<>(new Duration(0, TimeUnit.SECONDS));
+
         Function<Request, Response> processor = new Function<Request, Response>()
         {
             @Override
             public Response apply(Request input)
             {
+                Duration delta = tickerIncrement.get();
+                ticker.increment(delta.toMillis(), TimeUnit.MILLISECONDS);
                 throw new RuntimeException("Foo");
             }
         };
 
         CyclicBarrier requestComplete = new CyclicBarrier(2);
         TestingClientCallback callback = new TestingClientCallback(requestComplete);
-        TestingTicker ticker = new TestingTicker();
 
         URI location = URI.create("http://localhost:8080");
         HttpPageBufferClient client = new HttpPageBufferClient(new TestingHttpClient(processor, executor),
@@ -333,7 +337,7 @@ public class TestHttpPageBufferClient
         assertStatus(client, location, "queued", 0, 1, 1, 1, "queued");
 
         // advance time forward, but not enough to fail the client
-        ticker.increment(30, TimeUnit.SECONDS);
+        tickerIncrement.set(new Duration(30, TimeUnit.SECONDS));
 
         // verify that the client has not failed
         client.scheduleRequest();
@@ -345,7 +349,7 @@ public class TestHttpPageBufferClient
         assertStatus(client, location, "queued", 0, 2, 2, 2, "queued");
 
         // advance time forward beyond the minimum error duration
-        ticker.increment(31, TimeUnit.SECONDS);
+        tickerIncrement.set(new Duration(31, TimeUnit.SECONDS));
 
         // verify that the client has failed
         client.scheduleRequest();

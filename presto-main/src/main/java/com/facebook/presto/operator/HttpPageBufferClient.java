@@ -43,8 +43,8 @@ import java.io.Closeable;
 import java.io.IOException;
 import java.net.URI;
 import java.util.List;
-import java.util.concurrent.Executor;
 import java.util.concurrent.Future;
+import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -62,12 +62,16 @@ import static io.airlift.http.client.Request.Builder.prepareDelete;
 import static io.airlift.http.client.Request.Builder.prepareGet;
 import static io.airlift.http.client.ResponseHandlerUtils.propagate;
 import static io.airlift.http.client.StatusResponseHandler.createStatusResponseHandler;
+import static java.lang.Math.min;
 import static java.lang.String.format;
 
 @ThreadSafe
-public class HttpPageBufferClient
+public final class HttpPageBufferClient
         implements Closeable
 {
+    private static final int INITIAL_DELAY_MILLIS = 1;
+    private static final int MAX_DELAY_MILLIS = 100;
+
     private static final Logger log = Logger.get(HttpPageBufferClient.class);
 
     /**
@@ -95,7 +99,9 @@ public class HttpPageBufferClient
     private final URI location;
     private final ClientCallback clientCallback;
     private final BlockEncodingSerde blockEncodingSerde;
-    private final Executor executor;
+    private final ScheduledExecutorService executor;
+
+    @GuardedBy("this")
     private final Stopwatch errorStopwatch;
 
     @GuardedBy("this")
@@ -106,6 +112,10 @@ public class HttpPageBufferClient
     private DateTime lastUpdate = DateTime.now();
     @GuardedBy("this")
     private long token;
+    @GuardedBy("this")
+    private boolean scheduled;
+    @GuardedBy("this")
+    private long errorDelayMillis;
 
     private final AtomicInteger pagesReceived = new AtomicInteger();
 
@@ -113,13 +123,26 @@ public class HttpPageBufferClient
     private final AtomicInteger requestsCompleted = new AtomicInteger();
     private final AtomicInteger requestsFailed = new AtomicInteger();
 
-    public HttpPageBufferClient(AsyncHttpClient httpClient,
+    public HttpPageBufferClient(
+            AsyncHttpClient httpClient,
             DataSize maxResponseSize,
             Duration minErrorDuration,
             URI location,
             ClientCallback clientCallback,
             BlockEncodingSerde blockEncodingSerde,
-            Executor executor,
+            ScheduledExecutorService executor)
+    {
+        this(httpClient, maxResponseSize, minErrorDuration, location, clientCallback, blockEncodingSerde, executor, Stopwatch.createUnstarted());
+    }
+
+    public HttpPageBufferClient(
+            AsyncHttpClient httpClient,
+            DataSize maxResponseSize,
+            Duration minErrorDuration,
+            URI location,
+            ClientCallback clientCallback,
+            BlockEncodingSerde blockEncodingSerde,
+            ScheduledExecutorService executor,
             Stopwatch errorStopwatch)
     {
         this.httpClient = checkNotNull(httpClient, "httpClient is null");
@@ -141,10 +164,13 @@ public class HttpPageBufferClient
         else if (future != null) {
             state = "running";
         }
+        else if (scheduled) {
+            state = "scheduled";
+        }
         else {
             state = "queued";
         }
-        String httpRequestState = "queued";
+        String httpRequestState = "not scheduled";
         if (future != null) {
             httpRequestState = future.getState();
         }
@@ -192,12 +218,37 @@ public class HttpPageBufferClient
 
     public synchronized void scheduleRequest()
     {
-        if (closed) {
-            log.debug("scheduleRequest() called, but client has been closed");
+        if (closed || (future != null) || scheduled) {
             return;
         }
-        if (future != null) {
-            log.debug("scheduleRequest() called, but future is not null");
+        scheduled = true;
+
+        // start before scheduling to include error delay
+        errorStopwatch.start();
+
+        executor.schedule(new Runnable()
+        {
+            @Override
+            public void run()
+            {
+                try {
+                    initiateRequest();
+                }
+                catch (Throwable t) {
+                    // should not happen, but be safe and fail the operator
+                    clientCallback.clientFailed(HttpPageBufferClient.this, t);
+                }
+            }
+        }, errorDelayMillis, TimeUnit.MILLISECONDS);
+
+        lastUpdate = DateTime.now();
+        requestsScheduled.incrementAndGet();
+    }
+
+    private synchronized void initiateRequest()
+    {
+        scheduled = false;
+        if (closed || (future != null)) {
             return;
         }
 
@@ -217,7 +268,7 @@ public class HttpPageBufferClient
                     log.error("Can not handle callback while holding a lock on this");
                 }
 
-                errorStopwatch.reset();
+                resetErrors();
 
                 requestsCompleted.incrementAndGet();
 
@@ -270,17 +321,13 @@ public class HttpPageBufferClient
                     clientCallback.clientFailed(HttpPageBufferClient.this, t);
                 }
 
-                Duration errorDuration = elapsedDuration(errorStopwatch);
+                Duration errorDuration = elapsedErrorDuration();
                 if (errorDuration.compareTo(minErrorDuration) > 0) {
                     String message = format("Requests to %s failed for %s", uri, errorDuration);
                     clientCallback.clientFailed(HttpPageBufferClient.this, new PageTransportTimeoutException(message, t));
                 }
 
-                // Start the error stopwatch if this is the first error. It will keep running
-                // until a request succeeds or the minimum error duration has been reached.
-                if (!errorStopwatch.isRunning()) {
-                    errorStopwatch.start();
-                }
+                increaseErrorDelay();
 
                 requestsFailed.incrementAndGet();
                 requestsCompleted.incrementAndGet();
@@ -293,7 +340,6 @@ public class HttpPageBufferClient
         }, executor);
 
         lastUpdate = DateTime.now();
-        requestsScheduled.incrementAndGet();
     }
 
     @Override
@@ -352,10 +398,28 @@ public class HttpPageBufferClient
         return t;
     }
 
-    private static Duration elapsedDuration(Stopwatch stopwatch)
+    private synchronized Duration elapsedErrorDuration()
     {
-        long nanos = stopwatch.elapsed(TimeUnit.NANOSECONDS);
+        if (errorStopwatch.isRunning()) {
+            errorStopwatch.stop();
+        }
+        long nanos = errorStopwatch.elapsed(TimeUnit.NANOSECONDS);
         return new Duration(nanos, TimeUnit.NANOSECONDS).convertTo(TimeUnit.MILLISECONDS);
+    }
+
+    private synchronized void increaseErrorDelay()
+    {
+        if (errorDelayMillis == 0) {
+            errorDelayMillis = INITIAL_DELAY_MILLIS;
+        }
+        else {
+            errorDelayMillis = min(errorDelayMillis * 2, MAX_DELAY_MILLIS);
+        }
+    }
+
+    private synchronized void resetErrors()
+    {
+        errorStopwatch.reset();
     }
 
     public static class PageResponseHandler
