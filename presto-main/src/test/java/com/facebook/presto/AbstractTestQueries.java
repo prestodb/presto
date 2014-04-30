@@ -3269,4 +3269,17 @@ public abstract class AbstractTestQueries
         assertEquals(row.getField(1), Double.POSITIVE_INFINITY);
         assertEquals(row.getField(2), Double.NEGATIVE_INFINITY);
     }
+
+    @Test
+    public void testValuesWithTimestamp()
+            throws Exception
+    {
+        MaterializedResult actual = computeActual("VALUES (current_timestamp, now())");
+
+        List<MaterializedRow> rows = actual.getMaterializedRows();
+        assertEquals(rows.size(), 1);
+
+        MaterializedRow row = rows.get(0);
+        assertEquals(row.getField(0), row.getField(1));
+    }
 }
