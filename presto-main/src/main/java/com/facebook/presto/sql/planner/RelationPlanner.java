@@ -42,7 +42,6 @@ import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.InPredicate;
 import com.facebook.presto.sql.tree.Join;
-import com.facebook.presto.sql.tree.Literal;
 import com.facebook.presto.sql.tree.QualifiedNameReference;
 import com.facebook.presto.sql.tree.Query;
 import com.facebook.presto.sql.tree.QuerySpecification;
@@ -276,7 +275,7 @@ class RelationPlanner
         return new RelationPlan(valuesNode, descriptor, outputSymbolsBuilder.build());
     }
 
-    private Literal evaluateConstantExpression(final Expression expression)
+    private Expression evaluateConstantExpression(final Expression expression)
     {
         try {
             // verify the expression is constant (has no inputs)
@@ -292,8 +291,7 @@ class RelationPlanner
             Object result = ExpressionInterpreter.expressionInterpreter(expression, metadata, session, analysis.getTypes()).evaluate(new BlockCursor[0]);
             checkState(!(result instanceof Expression), "Expression interpreter returned an unresolved expression");
 
-            // convert result to a literal
-            return (Literal) LiteralInterpreter.toExpression(result, analysis.getType(expression));
+            return LiteralInterpreter.toExpression(result, analysis.getType(expression));
         }
         catch (Exception e) {
             throw new SemanticException(EXPRESSION_NOT_CONSTANT, expression, "Error evaluating constant expression: %s", e.getMessage());

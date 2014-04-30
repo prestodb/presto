@@ -3254,4 +3254,19 @@ public abstract class AbstractTestQueries
 
         assertEquals(actual.getMaterializedRows(), expected.getMaterializedRows());
     }
+
+    @Test
+    public void testValuesWithNonTrivialType()
+            throws Exception
+    {
+        MaterializedResult actual = computeActual("VALUES (0.0/0.0, 1.0/0.0, -1.0/0.0)");
+
+        List<MaterializedRow> rows = actual.getMaterializedRows();
+        assertEquals(rows.size(), 1);
+
+        MaterializedRow row = rows.get(0);
+        assertTrue(((Double) row.getField(0)).isNaN());
+        assertEquals(row.getField(1), Double.POSITIVE_INFINITY);
+        assertEquals(row.getField(2), Double.NEGATIVE_INFINITY);
+    }
 }
