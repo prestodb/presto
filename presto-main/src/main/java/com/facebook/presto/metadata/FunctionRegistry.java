@@ -59,6 +59,7 @@ import com.google.common.base.Optional;
 import com.google.common.base.Predicate;
 import com.google.common.base.Supplier;
 import com.google.common.base.Throwables;
+import com.google.common.collect.FluentIterable;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMap;
@@ -88,6 +89,7 @@ import java.util.Map;
 import java.util.Set;
 
 import static com.facebook.presto.metadata.FunctionInfo.isAggregationPredicate;
+import static com.facebook.presto.metadata.FunctionInfo.isHiddenPredicate;
 import static com.facebook.presto.operator.aggregation.ApproximateAverageAggregations.DOUBLE_APPROXIMATE_AVERAGE_AGGREGATION;
 import static com.facebook.presto.operator.aggregation.ApproximateAverageAggregations.LONG_APPROXIMATE_AVERAGE_AGGREGATION;
 import static com.facebook.presto.operator.aggregation.ApproximateCountAggregation.APPROXIMATE_COUNT_AGGREGATION;
@@ -149,6 +151,7 @@ import static com.google.common.base.CaseFormat.LOWER_UNDERSCORE;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.base.Predicates.not;
 import static java.lang.String.format;
 import static java.lang.invoke.MethodHandles.lookup;
 
@@ -262,7 +265,9 @@ public class FunctionRegistry
 
     public List<FunctionInfo> list()
     {
-        return functions.list();
+        return FluentIterable.from(functions.list())
+                .filter(not(isHiddenPredicate()))
+                .toList();
     }
 
     public boolean isAggregationFunction(QualifiedName name)
@@ -326,6 +331,7 @@ public class FunctionRegistry
             return new FunctionInfo(
                     new Signature(MAGIC_LITERAL_FUNCTION_PREFIX, type, ImmutableList.copyOf(parameterTypes), false),
                     null,
+                    true,
                     identity,
                     true,
                     new DefaultFunctionBinder(identity, false));
@@ -556,9 +562,9 @@ public class FunctionRegistry
             return this;
         }
 
-        public FunctionListBuilder scalar(Signature signature, MethodHandle function, boolean deterministic, FunctionBinder functionBinder, String description)
+        public FunctionListBuilder scalar(Signature signature, MethodHandle function, boolean deterministic, FunctionBinder functionBinder, String description, boolean hidden)
         {
-            functions.add(new FunctionInfo(signature, description, function, deterministic, functionBinder));
+            functions.add(new FunctionInfo(signature, description, hidden, function, deterministic, functionBinder));
             return this;
         }
 
@@ -606,9 +612,9 @@ public class FunctionRegistry
 
             FunctionBinder functionBinder = createFunctionBinder(method, scalarFunction.functionBinder());
 
-            scalar(signature, methodHandle, scalarFunction.deterministic(), functionBinder, getDescription(method));
+            scalar(signature, methodHandle, scalarFunction.deterministic(), functionBinder, getDescription(method), scalarFunction.hidden());
             for (String alias : scalarFunction.alias()) {
-                scalar(signature.withAlias(alias.toLowerCase()), methodHandle, scalarFunction.deterministic(), functionBinder, getDescription(method));
+                scalar(signature.withAlias(alias.toLowerCase()), methodHandle, scalarFunction.deterministic(), functionBinder, getDescription(method), scalarFunction.hidden());
             }
             return true;
         }

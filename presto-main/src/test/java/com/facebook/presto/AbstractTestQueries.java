@@ -53,6 +53,7 @@ import static io.airlift.tpch.TpchTable.ORDERS;
 import static io.airlift.tpch.TpchTable.tableNameGetter;
 import static java.lang.String.format;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 
 public abstract class AbstractTestQueries
@@ -2315,6 +2316,8 @@ public abstract class AbstractTestQueries
         assertEquals(functions.get("split_part").asList().get(0).getField(1), "varchar");
         assertEquals(functions.get("split_part").asList().get(0).getField(2), "varchar, varchar, bigint");
         assertEquals(functions.get("split_part").asList().get(0).getField(3), "scalar");
+
+        assertFalse(functions.containsKey("localtime"), "Expected function names " + functions + " not to contain 'localtime'");
     }
 
     @Test
