@@ -142,15 +142,18 @@ final class HiveUtil
     }
 
     public static StructObjectInspector getTableObjectInspector(Properties schema)
-            throws MetaException, SerDeException
     {
-        ObjectInspector inspector = getDeserializer(null, schema).getObjectInspector();
-        checkArgument(inspector.getCategory() == Category.STRUCT, "expected STRUCT: %s", inspector.getCategory());
-        return (StructObjectInspector) inspector;
+        try {
+            ObjectInspector inspector = getDeserializer(null, schema).getObjectInspector();
+            checkArgument(inspector.getCategory() == Category.STRUCT, "expected STRUCT: %s", inspector.getCategory());
+            return (StructObjectInspector) inspector;
+        }
+        catch (SerDeException | MetaException e) {
+            throw Throwables.propagate(e);
+        }
     }
 
     public static List<? extends StructField> getTableStructFields(Table table)
-            throws MetaException, SerDeException
     {
         return getTableObjectInspector(getTableMetadata(table)).getAllStructFieldRefs();
     }
