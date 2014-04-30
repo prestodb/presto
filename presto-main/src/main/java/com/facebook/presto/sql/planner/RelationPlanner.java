@@ -26,6 +26,7 @@ import com.facebook.presto.sql.analyzer.Field;
 import com.facebook.presto.sql.analyzer.FieldOrExpression;
 import com.facebook.presto.sql.analyzer.SemanticException;
 import com.facebook.presto.sql.analyzer.TupleDescriptor;
+import com.facebook.presto.sql.planner.optimizations.CanonicalizeExpressions;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.planner.plan.JoinNode;
 import com.facebook.presto.sql.planner.plan.MaterializeSampleNode;
@@ -278,8 +279,12 @@ class RelationPlanner
     private Expression evaluateConstantExpression(final Expression expression)
     {
         try {
+            // expressionInterpreter/optimizer only understands a subset of expression types
+            // TODO: remove this when the new expression tree is implemented
+            Expression canonicalized = CanonicalizeExpressions.canonicalizeExpression(expression);
+
             // verify the expression is constant (has no inputs)
-            ExpressionInterpreter.expressionOptimizer(expression, metadata, session, analysis.getTypes()).optimize(new SymbolResolver() {
+            ExpressionInterpreter.expressionOptimizer(canonicalized, metadata, session, analysis.getTypes()).optimize(new SymbolResolver() {
                 @Override
                 public Object getValue(Symbol symbol)
                 {
@@ -288,7 +293,7 @@ class RelationPlanner
             });
 
             // evaluate the expression
-            Object result = ExpressionInterpreter.expressionInterpreter(expression, metadata, session, analysis.getTypes()).evaluate(new BlockCursor[0]);
+            Object result = ExpressionInterpreter.expressionInterpreter(canonicalized, metadata, session, analysis.getTypes()).evaluate(new BlockCursor[0]);
             checkState(!(result instanceof Expression), "Expression interpreter returned an unresolved expression");
 
             return LiteralInterpreter.toExpression(result, analysis.getType(expression));
