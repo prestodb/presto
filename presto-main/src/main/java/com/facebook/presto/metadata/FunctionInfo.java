@@ -16,10 +16,10 @@ package com.facebook.presto.metadata;
 import com.facebook.presto.operator.AggregationFunctionDefinition;
 import com.facebook.presto.operator.aggregation.AggregationFunction;
 import com.facebook.presto.operator.window.WindowFunction;
+import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.gen.FunctionBinder;
 import com.facebook.presto.sql.tree.Input;
 import com.facebook.presto.sql.tree.QualifiedName;
-import com.facebook.presto.spi.type.Type;
 import com.google.common.base.Function;
 import com.google.common.base.Objects;
 import com.google.common.base.Optional;
@@ -37,6 +37,7 @@ public final class FunctionInfo
 {
     private final Signature signature;
     private final String description;
+    private final boolean hidden;
 
     private final boolean isAggregate;
     private final Type intermediateType;
@@ -53,6 +54,7 @@ public final class FunctionInfo
     {
         this.signature = signature;
         this.description = description;
+        this.hidden = false;
         this.deterministic = true;
 
         this.isAggregate = false;
@@ -69,6 +71,7 @@ public final class FunctionInfo
     {
         this.signature = signature;
         this.description = description;
+        this.hidden = false;
         this.intermediateType = intermediateType;
         this.aggregationFunction = function;
         this.isAggregate = true;
@@ -79,10 +82,11 @@ public final class FunctionInfo
         this.windowFunction = null;
     }
 
-    public FunctionInfo(Signature signature, String description, MethodHandle function, boolean deterministic, FunctionBinder functionBinder)
+    public FunctionInfo(Signature signature, String description, boolean hidden, MethodHandle function, boolean deterministic, FunctionBinder functionBinder)
     {
         this.signature = signature;
         this.description = description;
+        this.hidden = hidden;
         this.deterministic = deterministic;
         this.functionBinder = functionBinder;
 
@@ -108,6 +112,11 @@ public final class FunctionInfo
     public String getDescription()
     {
         return description;
+    }
+
+    public boolean isHidden()
+    {
+        return hidden;
     }
 
     public boolean isAggregate()
@@ -242,6 +251,18 @@ public final class FunctionInfo
             public boolean apply(FunctionInfo functionInfo)
             {
                 return functionInfo.isAggregate();
+            }
+        };
+    }
+
+    public static Predicate<FunctionInfo> isHiddenPredicate()
+    {
+        return new Predicate<FunctionInfo>()
+        {
+            @Override
+            public boolean apply(FunctionInfo functionInfo)
+            {
+                return functionInfo.isHidden();
             }
         };
     }

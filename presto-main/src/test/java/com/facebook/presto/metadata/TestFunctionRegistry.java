@@ -25,11 +25,16 @@ import org.testng.annotations.Test;
 
 import java.util.List;
 
+import static com.facebook.presto.metadata.FunctionInfo.nameGetter;
 import static com.facebook.presto.metadata.FunctionRegistry.getMagicLiteralFunctionSignature;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.HyperLogLogType.HYPER_LOG_LOG;
 import static com.facebook.presto.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
+import static com.google.common.base.Functions.toStringFunction;
+import static com.google.common.collect.Lists.transform;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertFalse;
+import static org.testng.Assert.assertTrue;
 
 public class TestFunctionRegistry
 {
@@ -80,6 +85,20 @@ public class TestFunctionRegistry
 
         FunctionRegistry registry = new FunctionRegistry(new TypeRegistry(), true);
         registry.addFunctions(functions, ImmutableList.<OperatorInfo>of());
+    }
+
+    @Test
+    public void testListingHiddenFunctions()
+            throws Exception
+    {
+        FunctionRegistry registry = new FunctionRegistry(new TypeRegistry(), true);
+        List<FunctionInfo> functions = registry.list();
+        List<String> names = transform(transform(functions, nameGetter()), toStringFunction());
+
+        assertTrue(names.contains("length"), "Expected function names " + names + " to contain 'length'");
+        assertTrue(names.contains("stddev"), "Expected function names " + names + " to contain 'stddev'");
+        assertTrue(names.contains("rank"), "Expected function names " + names + " to contain 'rank'");
+        assertFalse(names.contains("localtime"), "Expected function names " + names + " not to contain 'localtime'");
     }
 
     public static final class ScalarSum

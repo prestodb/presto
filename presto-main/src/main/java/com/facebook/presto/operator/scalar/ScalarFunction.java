@@ -29,6 +29,8 @@ public @interface ScalarFunction
 
     String[] alias() default {};
 
+    boolean hidden() default false;
+
     boolean deterministic() default true;
 
     Class<? extends FunctionBinder> functionBinder() default DefaultFunctionBinder.class;
