@@ -97,7 +97,7 @@ public class TestHttpPageBufferClient
                 executor,
                 Stopwatch.createUnstarted());
 
-        assertStatus(client, location, "queued", 0, 0, 0, 0, "queued");
+        assertStatus(client, location, "queued", 0, 0, 0, 0, "not scheduled");
 
         // fetch a page and verify
         processor.addPage(location, expectedPage);
@@ -109,7 +109,7 @@ public class TestHttpPageBufferClient
         assertPageEquals(expectedPage, callback.getPages().get(0));
         assertEquals(callback.getCompletedRequests(), 1);
         assertEquals(callback.getFinishedBuffers(), 0);
-        assertStatus(client, location, "queued", 1, 1, 1, 0, "queued");
+        assertStatus(client, location, "queued", 1, 1, 1, 0, "not scheduled");
 
         // fetch no data and verify
         callback.resetStats();
@@ -119,7 +119,7 @@ public class TestHttpPageBufferClient
         assertEquals(callback.getPages().size(), 0);
         assertEquals(callback.getCompletedRequests(), 1);
         assertEquals(callback.getFinishedBuffers(), 0);
-        assertStatus(client, location, "queued", 1, 2, 2, 0, "queued");
+        assertStatus(client, location, "queued", 1, 2, 2, 0, "not scheduled");
 
         // fetch two more pages and verify
         processor.addPage(location, expectedPage);
@@ -135,7 +135,7 @@ public class TestHttpPageBufferClient
         assertEquals(callback.getFinishedBuffers(), 0);
         assertEquals(callback.getFailedBuffers(), 0);
         callback.resetStats();
-        assertStatus(client, location, "queued", 3, 3, 3, 0, "queued");
+        assertStatus(client, location, "queued", 3, 3, 3, 0, "not scheduled");
 
         // finish and verify
         callback.resetStats();
@@ -147,7 +147,7 @@ public class TestHttpPageBufferClient
         assertEquals(callback.getCompletedRequests(), 0);
         assertEquals(callback.getFinishedBuffers(), 1);
         assertEquals(callback.getFailedBuffers(), 0);
-        assertStatus(client, location, "closed", 3, 4, 4, 0, "queued");
+        assertStatus(client, location, "closed", 3, 4, 4, 0, "not scheduled");
     }
 
     @Test
@@ -172,7 +172,7 @@ public class TestHttpPageBufferClient
                 executor,
                 Stopwatch.createUnstarted());
 
-        assertStatus(client, location, "queued", 0, 0, 0, 0, "queued");
+        assertStatus(client, location, "queued", 0, 0, 0, 0, "not scheduled");
 
         client.scheduleRequest();
         beforeRequest.await(1, TimeUnit.SECONDS);
@@ -181,10 +181,10 @@ public class TestHttpPageBufferClient
         afterRequest.await(1, TimeUnit.SECONDS);
 
         requestComplete.await(1, TimeUnit.SECONDS);
-        assertStatus(client, location, "queued", 0, 1, 1, 1, "queued");
+        assertStatus(client, location, "queued", 0, 1, 1, 1, "not scheduled");
 
         client.close();
-        assertStatus(client, location, "closed", 0, 1, 1, 1, "queued");
+        assertStatus(client, location, "closed", 0, 1, 1, 1, "not scheduled");
     }
 
     @Test
@@ -208,7 +208,7 @@ public class TestHttpPageBufferClient
                 executor,
                 Stopwatch.createUnstarted());
 
-        assertStatus(client, location, "queued", 0, 0, 0, 0, "queued");
+        assertStatus(client, location, "queued", 0, 0, 0, 0, "not scheduled");
 
         // send not found response and verify response was ignored
         processor.setResponse(new TestingResponse(HttpStatus.NOT_FOUND, ImmutableListMultimap.of(CONTENT_TYPE, PRESTO_PAGES), new byte[0]));
@@ -220,7 +220,7 @@ public class TestHttpPageBufferClient
         assertEquals(callback.getFailedBuffers(), 1);
         assertInstanceOf(callback.getFailure(), PageTransportErrorException.class);
         assertContains(callback.getFailure().getMessage(), "Expected response code to be 200, but was 404 Not Found");
-        assertStatus(client, location, "queued", 0, 1, 1, 1, "queued");
+        assertStatus(client, location, "queued", 0, 1, 1, 1, "not scheduled");
 
         // send invalid content type response and verify response was ignored
         callback.resetStats();
@@ -233,7 +233,7 @@ public class TestHttpPageBufferClient
         assertEquals(callback.getFailedBuffers(), 1);
         assertInstanceOf(callback.getFailure(), PageTransportErrorException.class);
         assertContains(callback.getFailure().getMessage(), "Expected application/x-presto-pages response from server but got INVALID_TYPE");
-        assertStatus(client, location, "queued", 0, 2, 2, 2, "queued");
+        assertStatus(client, location, "queued", 0, 2, 2, 2, "not scheduled");
 
         // send unexpected content type response and verify response was ignored
         callback.resetStats();
@@ -246,11 +246,11 @@ public class TestHttpPageBufferClient
         assertEquals(callback.getFailedBuffers(), 1);
         assertInstanceOf(callback.getFailure(), PageTransportErrorException.class);
         assertContains(callback.getFailure().getMessage(), "Expected application/x-presto-pages response from server but got text/plain");
-        assertStatus(client, location, "queued", 0, 3, 3, 3, "queued");
+        assertStatus(client, location, "queued", 0, 3, 3, 3, "not scheduled");
 
         // close client and verify
         client.close();
-        assertStatus(client, location, "closed", 0, 3, 3, 3, "queued");
+        assertStatus(client, location, "closed", 0, 3, 3, 3, "not scheduled");
     }
 
     @Test
@@ -275,7 +275,7 @@ public class TestHttpPageBufferClient
                 executor,
                 Stopwatch.createUnstarted());
 
-        assertStatus(client, location, "queued", 0, 0, 0, 0, "queued");
+        assertStatus(client, location, "queued", 0, 0, 0, 0, "not scheduled");
 
         // send request
         client.scheduleRequest();
@@ -290,7 +290,7 @@ public class TestHttpPageBufferClient
         }
         catch (BrokenBarrierException ignored) {
         }
-        assertStatus(client, location, "closed", 0, 1, 1, 1, "queued");
+        assertStatus(client, location, "closed", 0, 1, 1, 1, "not scheduled");
     }
 
     @Test
@@ -324,7 +324,7 @@ public class TestHttpPageBufferClient
                 executor,
                 Stopwatch.createUnstarted(ticker));
 
-        assertStatus(client, location, "queued", 0, 0, 0, 0, "queued");
+        assertStatus(client, location, "queued", 0, 0, 0, 0, "not scheduled");
 
         // request processor will throw exception, verify the request is marked a completed
         // this starts the error stopwatch
@@ -334,7 +334,7 @@ public class TestHttpPageBufferClient
         assertEquals(callback.getCompletedRequests(), 1);
         assertEquals(callback.getFinishedBuffers(), 0);
         assertEquals(callback.getFailedBuffers(), 0);
-        assertStatus(client, location, "queued", 0, 1, 1, 1, "queued");
+        assertStatus(client, location, "queued", 0, 1, 1, 1, "not scheduled");
 
         // advance time forward, but not enough to fail the client
         tickerIncrement.set(new Duration(30, TimeUnit.SECONDS));
@@ -346,7 +346,7 @@ public class TestHttpPageBufferClient
         assertEquals(callback.getCompletedRequests(), 2);
         assertEquals(callback.getFinishedBuffers(), 0);
         assertEquals(callback.getFailedBuffers(), 0);
-        assertStatus(client, location, "queued", 0, 2, 2, 2, "queued");
+        assertStatus(client, location, "queued", 0, 2, 2, 2, "not scheduled");
 
         // advance time forward beyond the minimum error duration
         tickerIncrement.set(new Duration(31, TimeUnit.SECONDS));
@@ -361,7 +361,7 @@ public class TestHttpPageBufferClient
         assertInstanceOf(callback.getFailure(), PageTransportTimeoutException.class);
         assertContains(callback.getFailure().getMessage(), "");
         assertContains(callback.getFailure().getMessage(), "Requests to http://localhost:8080/0 failed for 61000.00ms");
-        assertStatus(client, location, "queued", 0, 3, 3, 3, "queued");
+        assertStatus(client, location, "queued", 0, 3, 3, 3, "not scheduled");
     }
 
     @Test
