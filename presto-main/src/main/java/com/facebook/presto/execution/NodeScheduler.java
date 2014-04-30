@@ -20,6 +20,7 @@ import com.facebook.presto.spi.NodeManager;
 import com.google.common.base.Supplier;
 import com.google.common.base.Suppliers;
 import com.google.common.collect.AbstractIterator;
+import com.google.common.collect.FluentIterable;
 import com.google.common.collect.HashMultimap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSetMultimap;
@@ -33,8 +34,6 @@ import javax.inject.Inject;
 
 import java.net.InetAddress;
 import java.net.UnknownHostException;
-import java.util.ArrayList;
-import java.util.Collections;
 import java.util.Iterator;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -55,12 +54,14 @@ public class NodeScheduler
     private final AtomicLong scheduleRack = new AtomicLong();
     private final AtomicLong scheduleRandom = new AtomicLong();
     private final int minCandidates;
+    private final boolean locationAwareScheduling;
 
     @Inject
     public NodeScheduler(NodeManager nodeManager, NodeSchedulerConfig config)
     {
         this.nodeManager = nodeManager;
         this.minCandidates = config.getMinCandidates();
+        this.locationAwareScheduling = config.isLocationAwareSchedulingEnabled();
     }
 
     @Managed
@@ -164,14 +165,7 @@ public class NodeScheduler
         {
             checkArgument(limit > 0, "limit must be at least 1");
 
-            List<Node> nodes = new ArrayList<>(nodeMap.get().get().getNodesByHostAndPort().values());
-
-            if (nodes.size() > limit) {
-                Collections.shuffle(nodes, ThreadLocalRandom.current());
-                nodes = nodes.subList(0, limit);
-            }
-
-            return ImmutableList.copyOf(nodes);
+            return ImmutableList.copyOf(FluentIterable.from(lazyShuffle(nodeMap.get().get().getNodesByHostAndPort().values())).limit(limit));
         }
 
         public Multimap<Node, Split> computeAssignments(Set<Split> splits)
@@ -179,7 +173,13 @@ public class NodeScheduler
             Multimap<Node, Split> assignment = HashMultimap.create();
 
             for (Split split : splits) {
-                List<Node> candidateNodes = selectCandidateNodes(nodeMap.get().get(), split);
+                List<Node> candidateNodes;
+                if (locationAwareScheduling) {
+                    candidateNodes = selectCandidateNodes(nodeMap.get().get(), split);
+                }
+                else {
+                    candidateNodes = selectRandomNodes(minCandidates);
+                }
                 checkState(!candidateNodes.isEmpty(), "No nodes available to run query");
 
                 Node chosen = null;
