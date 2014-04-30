@@ -310,6 +310,14 @@
                                 </artifactItem>
                                 <artifactItem>
                                     <groupId>com.facebook.presto</groupId>
+                                    <artifactId>presto-hive-cdh5</artifactId>
+                                    <version>${project.version}</version>
+                                    <type>zip</type>
+                                    <overWrite>false</overWrite>
+                                    <outputDirectory>${project.build.directory}/plugin/hive-cdh5</outputDirectory>
+                                </artifactItem>
+                                <artifactItem>
+                                    <groupId>com.facebook.presto</groupId>
                                     <artifactId>presto-cassandra</artifactId>
                                     <version>${project.version}</version>
                                     <type>zip</type>
