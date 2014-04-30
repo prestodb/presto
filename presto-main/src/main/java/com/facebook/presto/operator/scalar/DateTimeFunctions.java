@@ -28,6 +28,7 @@ import com.facebook.presto.spi.type.TimestampType;
 import com.facebook.presto.spi.type.TimestampWithTimeZoneType;
 import com.facebook.presto.spi.type.VarcharType;
 import com.facebook.presto.type.SqlType;
+import com.facebook.presto.util.DateTimeZoneIndex;
 import com.facebook.presto.util.ThreadLocalCache;
 import com.google.common.base.Charsets;
 import com.google.common.primitives.Ints;
@@ -51,7 +52,6 @@ import static com.facebook.presto.spi.type.TimeZoneKey.getTimeZoneKeyForOffset;
 import static com.facebook.presto.type.DateTimeOperators.modulo24Hour;
 import static com.facebook.presto.util.DateTimeZoneIndex.extractZoneOffsetMinutes;
 import static com.facebook.presto.util.DateTimeZoneIndex.getChronology;
-import static com.facebook.presto.util.DateTimeZoneIndex.packDateTimeWithZone;
 import static com.facebook.presto.util.DateTimeZoneIndex.unpackChronology;
 
 public final class DateTimeFunctions
@@ -66,10 +66,7 @@ public final class DateTimeFunctions
     };
 
     private static final ISOChronology UTC_CHRONOLOGY = ISOChronology.getInstance(DateTimeZone.UTC);
-    private static final DateTimeField MILLIS_OF_DAY = UTC_CHRONOLOGY.millisOfDay();
     private static final DateTimeField SECOND_OF_MINUTE = UTC_CHRONOLOGY.secondOfMinute();
-    private static final DateTimeField MINUTE_OF_HOUR = UTC_CHRONOLOGY.minuteOfHour();
-    private static final DateTimeField HOUR_OF_DAY = UTC_CHRONOLOGY.hourOfDay();
     private static final DateTimeField DAY_OF_WEEK = UTC_CHRONOLOGY.dayOfWeek();
     private static final DateTimeField DAY_OF_MONTH = UTC_CHRONOLOGY.dayOfMonth();
     private static final DateTimeField DAY_OF_YEAR = UTC_CHRONOLOGY.dayOfYear();
@@ -81,13 +78,8 @@ public final class DateTimeFunctions
     private static final int MILLISECONDS_IN_MINUTE = 60 * MILLISECONDS_IN_SECOND;
     private static final int MILLISECONDS_IN_HOUR = 60 * MILLISECONDS_IN_MINUTE;
     private static final int MILLISECONDS_IN_DAY = 24 * MILLISECONDS_IN_HOUR;
-    private static final int MAX_TIME_ZONE_OFFSET = 13 * 60;
-    private static final int MIN_TIME_ZONE_OFFSET = -(12 * 60 + 59);
-    private static final int MONTHS_IN_QUARTER = 3;
 
-    private DateTimeFunctions()
-    {
-    }
+    private DateTimeFunctions() {}
 
     @Description("current date")
     @ScalarFunction
@@ -142,8 +134,7 @@ public final class DateTimeFunctions
     public static long millisToTime(Session session, @SqlType(BigintType.class) long millis)
     {
         ISOChronology chronology = getChronology(session.getTimeZoneKey());
-        int timeMillis = chronology.millisOfDay().get(millis) - chronology.getZone().getOffset(millis);
-        return timeMillis;
+        return chronology.millisOfDay().get(millis) - chronology.getZone().getOffset(millis);
     }
 
     @ScalarFunction
@@ -440,7 +431,7 @@ public final class DateTimeFunctions
 
         String datetimeString = datetime.toString(Charsets.UTF_8);
         DateTime dateTime = formatter.parseDateTime(datetimeString);
-        return packDateTimeWithZone(dateTime);
+        return DateTimeZoneIndex.packDateTimeWithZone(dateTime);
     }
 
     @Description("formats the given time by the given format")
