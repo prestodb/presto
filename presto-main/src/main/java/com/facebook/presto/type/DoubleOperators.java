@@ -17,6 +17,10 @@ import com.facebook.presto.operator.scalar.MathFunctions;
 import com.facebook.presto.operator.scalar.ScalarOperator;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.StandardErrorCode;
+import com.facebook.presto.spi.type.BigintType;
+import com.facebook.presto.spi.type.BooleanType;
+import com.facebook.presto.spi.type.DoubleType;
+import com.facebook.presto.spi.type.VarcharType;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 
@@ -45,25 +49,29 @@ public final class DoubleOperators
     }
 
     @ScalarOperator(ADD)
-    public static double add(double left, double right)
+    @SqlType(DoubleType.class)
+    public static double add(@SqlType(DoubleType.class) double left, @SqlType(DoubleType.class) double right)
     {
         return left + right;
     }
 
     @ScalarOperator(SUBTRACT)
-    public static double subtract(double left, double right)
+    @SqlType(DoubleType.class)
+    public static double subtract(@SqlType(DoubleType.class) double left, @SqlType(DoubleType.class) double right)
     {
         return left - right;
     }
 
     @ScalarOperator(MULTIPLY)
-    public static double multiply(double left, double right)
+    @SqlType(DoubleType.class)
+    public static double multiply(@SqlType(DoubleType.class) double left, @SqlType(DoubleType.class) double right)
     {
         return left * right;
     }
 
     @ScalarOperator(DIVIDE)
-    public static double divide(double left, double right)
+    @SqlType(DoubleType.class)
+    public static double divide(@SqlType(DoubleType.class) double left, @SqlType(DoubleType.class) double right)
     {
         try {
             return left / right;
@@ -74,7 +82,8 @@ public final class DoubleOperators
     }
 
     @ScalarOperator(MODULUS)
-    public static double modulus(double left, double right)
+    @SqlType(DoubleType.class)
+    public static double modulus(@SqlType(DoubleType.class) double left, @SqlType(DoubleType.class) double right)
     {
         try {
             return left % right;
@@ -85,75 +94,86 @@ public final class DoubleOperators
     }
 
     @ScalarOperator(NEGATION)
-    public static double negate(double value)
+    @SqlType(DoubleType.class)
+    public static double negate(@SqlType(DoubleType.class) double value)
     {
         return -value;
     }
 
     @ScalarOperator(EQUAL)
     @SuppressWarnings("FloatingPointEquality")
-    public static boolean equal(double left, double right)
+    @SqlType(BooleanType.class)
+    public static boolean equal(@SqlType(DoubleType.class) double left, @SqlType(DoubleType.class) double right)
     {
         return left == right;
     }
 
     @ScalarOperator(NOT_EQUAL)
     @SuppressWarnings("FloatingPointEquality")
-    public static boolean notEqual(double left, double right)
+    @SqlType(BooleanType.class)
+    public static boolean notEqual(@SqlType(DoubleType.class) double left, @SqlType(DoubleType.class) double right)
     {
         return left != right;
     }
 
     @ScalarOperator(LESS_THAN)
-    public static boolean lessThan(double left, double right)
+    @SqlType(BooleanType.class)
+    public static boolean lessThan(@SqlType(DoubleType.class) double left, @SqlType(DoubleType.class) double right)
     {
         return left < right;
     }
 
     @ScalarOperator(LESS_THAN_OR_EQUAL)
-    public static boolean lessThanOrEqual(double left, double right)
+    @SqlType(BooleanType.class)
+    public static boolean lessThanOrEqual(@SqlType(DoubleType.class) double left, @SqlType(DoubleType.class) double right)
     {
         return left <= right;
     }
 
     @ScalarOperator(GREATER_THAN)
-    public static boolean greaterThan(double left, double right)
+    @SqlType(BooleanType.class)
+    public static boolean greaterThan(@SqlType(DoubleType.class) double left, @SqlType(DoubleType.class) double right)
     {
         return left > right;
     }
 
     @ScalarOperator(GREATER_THAN_OR_EQUAL)
-    public static boolean greaterThanOrEqual(double left, double right)
+    @SqlType(BooleanType.class)
+    public static boolean greaterThanOrEqual(@SqlType(DoubleType.class) double left, @SqlType(DoubleType.class) double right)
     {
         return left >= right;
     }
 
     @ScalarOperator(BETWEEN)
-    public static boolean between(double value, double min, double max)
+    @SqlType(BooleanType.class)
+    public static boolean between(@SqlType(DoubleType.class) double value, @SqlType(DoubleType.class) double min, @SqlType(DoubleType.class) double max)
     {
         return min <= value && value <= max;
     }
 
     @ScalarOperator(CAST)
-    public static boolean castToBoolean(double value)
+    @SqlType(BooleanType.class)
+    public static boolean castToBoolean(@SqlType(DoubleType.class) double value)
     {
         return value != 0;
     }
 
     @ScalarOperator(CAST)
-    public static long castToLong(double value)
+    @SqlType(BigintType.class)
+    public static long castToLong(@SqlType(DoubleType.class) double value)
     {
         return (long) MathFunctions.round(value);
     }
 
     @ScalarOperator(CAST)
-    public static Slice castToVarchar(double value)
+    @SqlType(VarcharType.class)
+    public static Slice castToVarchar(@SqlType(DoubleType.class) double value)
     {
         return Slices.copiedBuffer(String.valueOf(value), UTF_8);
     }
 
     @ScalarOperator(HASH_CODE)
-    public static int hashCode(double value)
+    public static int hashCode(@SqlType(DoubleType.class) double value)
     {
         long bits = doubleToLongBits(value);
         return (int) (bits ^ (bits >>> 32));

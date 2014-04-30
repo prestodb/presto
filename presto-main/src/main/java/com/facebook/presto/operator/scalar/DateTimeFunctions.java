@@ -17,13 +17,16 @@ import com.facebook.presto.operator.Description;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.Session;
 import com.facebook.presto.spi.StandardErrorCode;
+import com.facebook.presto.spi.type.BigintType;
 import com.facebook.presto.spi.type.DateType;
+import com.facebook.presto.spi.type.DoubleType;
 import com.facebook.presto.spi.type.IntervalDayTimeType;
 import com.facebook.presto.spi.type.IntervalYearMonthType;
 import com.facebook.presto.spi.type.TimeType;
 import com.facebook.presto.spi.type.TimeWithTimeZoneType;
 import com.facebook.presto.spi.type.TimestampType;
 import com.facebook.presto.spi.type.TimestampWithTimeZoneType;
+import com.facebook.presto.spi.type.VarcharType;
 import com.facebook.presto.type.SqlType;
 import com.facebook.presto.util.ThreadLocalCache;
 import com.google.common.base.Charsets;
@@ -136,7 +139,7 @@ public final class DateTimeFunctions
 
     @ScalarFunction
     @SqlType(TimeType.class)
-    public static long millisToTime(Session session, long millis)
+    public static long millisToTime(Session session, @SqlType(BigintType.class) long millis)
     {
         ISOChronology chronology = getChronology(session.getTimeZoneKey());
         int timeMillis = chronology.millisOfDay().get(millis) - chronology.getZone().getOffset(millis);
@@ -145,7 +148,7 @@ public final class DateTimeFunctions
 
     @ScalarFunction
     @SqlType(TimeWithTimeZoneType.class)
-    public static long millisToTime(long millis, long hoursOffset, long minutesOffset)
+    public static long millisToTime(@SqlType(BigintType.class) long millis, @SqlType(BigintType.class) long hoursOffset, @SqlType(BigintType.class) long minutesOffset)
     {
         ISOChronology chronology = ISOChronology.getInstance(DateTimeZone.forOffsetHoursMinutes((int) hoursOffset, (int) minutesOffset));
         int timeMillis = chronology.millisOfDay().get(millis) - chronology.getZone().getOffset(millis);
@@ -154,25 +157,27 @@ public final class DateTimeFunctions
 
     @ScalarFunction("from_unixtime")
     @SqlType(TimestampType.class)
-    public static long fromUnixTime(double unixTime)
+    public static long fromUnixTime(@SqlType(DoubleType.class) double unixTime)
     {
         return Math.round(unixTime * 1000);
     }
 
     @ScalarFunction("from_unixtime")
     @SqlType(TimestampWithTimeZoneType.class)
-    public static long fromUnixTime(double unixTime, long hoursOffset, long minutesOffset)
+    public static long fromUnixTime(@SqlType(DoubleType.class) double unixTime, @SqlType(BigintType.class) long hoursOffset, @SqlType(BigintType.class) long minutesOffset)
     {
         return packDateTimeWithZone(Math.round(unixTime * 1000), (int) (hoursOffset * 60 + minutesOffset));
     }
 
     @ScalarFunction("to_unixtime")
+    @SqlType(DoubleType.class)
     public static double toUnixTime(@SqlType(TimestampType.class) long timestamp)
     {
         return timestamp / 1000.0;
     }
 
     @ScalarFunction("to_unixtime")
+    @SqlType(DoubleType.class)
     public static double toUnixTimeFromTimestampWithTimeZone(@SqlType(TimestampWithTimeZoneType.class) long timestampWithTimeZone)
     {
         return unpackMillisUtc(timestampWithTimeZone) / 1000.0;
@@ -180,7 +185,7 @@ public final class DateTimeFunctions
 
     @ScalarFunction("at_time_zone")
     @SqlType(TimeWithTimeZoneType.class)
-    public static long timeAtTimeZone(@SqlType(TimeWithTimeZoneType.class) long timeWithTimeZone, Slice zoneId)
+    public static long timeAtTimeZone(@SqlType(TimeWithTimeZoneType.class) long timeWithTimeZone, @SqlType(VarcharType.class) Slice zoneId)
     {
         return packDateTimeWithZone(unpackMillisUtc(timeWithTimeZone), zoneId.toStringUtf8());
     }
@@ -199,7 +204,7 @@ public final class DateTimeFunctions
 
     @ScalarFunction("at_time_zone")
     @SqlType(TimestampWithTimeZoneType.class)
-    public static long timestampAtTimeZone(@SqlType(TimestampWithTimeZoneType.class) long timestampWithTimeZone, Slice zoneId)
+    public static long timestampAtTimeZone(@SqlType(TimestampWithTimeZoneType.class) long timestampWithTimeZone, @SqlType(VarcharType.class) Slice zoneId)
     {
         return packDateTimeWithZone(unpackMillisUtc(timestampWithTimeZone), zoneId.toStringUtf8());
     }
@@ -219,7 +224,7 @@ public final class DateTimeFunctions
     @Description("truncate to the specified precision in the session timezone")
     @ScalarFunction("date_trunc")
     @SqlType(DateType.class)
-    public static long truncateDate(Session session, Slice unit, @SqlType(DateType.class) long time)
+    public static long truncateDate(Session session, @SqlType(VarcharType.class) Slice unit, @SqlType(DateType.class) long time)
     {
         return getDateField(UTC_CHRONOLOGY, unit).roundFloor(time);
     }
@@ -227,7 +232,7 @@ public final class DateTimeFunctions
     @Description("truncate to the specified precision in the session timezone")
     @ScalarFunction("date_trunc")
     @SqlType(TimeType.class)
-    public static long truncateTime(Session session, Slice unit, @SqlType(TimeType.class) long time)
+    public static long truncateTime(Session session, @SqlType(VarcharType.class) Slice unit, @SqlType(TimeType.class) long time)
     {
         return getTimeField(getChronology(session.getTimeZoneKey()), unit).roundFloor(time);
     }
@@ -235,7 +240,7 @@ public final class DateTimeFunctions
     @Description("truncate to the specified precision")
     @ScalarFunction("date_trunc")
     @SqlType(TimeWithTimeZoneType.class)
-    public static long truncateTimeWithTimeZone(Slice unit, @SqlType(TimeWithTimeZoneType.class) long timeWithTimeZone)
+    public static long truncateTimeWithTimeZone(@SqlType(VarcharType.class) Slice unit, @SqlType(TimeWithTimeZoneType.class) long timeWithTimeZone)
     {
         long millis = getTimeField(unpackChronology(timeWithTimeZone), unit).roundFloor(unpackMillisUtc(timeWithTimeZone));
         return updateMillisUtc(millis, timeWithTimeZone);
@@ -244,7 +249,7 @@ public final class DateTimeFunctions
     @Description("truncate to the specified precision in the session timezone")
     @ScalarFunction("date_trunc")
     @SqlType(TimestampType.class)
-    public static long truncateTimestamp(Session session, Slice unit, @SqlType(TimestampType.class) long timestamp)
+    public static long truncateTimestamp(Session session, @SqlType(VarcharType.class) Slice unit, @SqlType(TimestampType.class) long timestamp)
     {
         return getTimestampField(getChronology(session.getTimeZoneKey()), unit).roundFloor(timestamp);
     }
@@ -252,7 +257,7 @@ public final class DateTimeFunctions
     @Description("truncate to the specified precision")
     @ScalarFunction("date_trunc")
     @SqlType(TimestampWithTimeZoneType.class)
-    public static long truncateTimestampWithTimezone(Slice unit, @SqlType(TimestampWithTimeZoneType.class) long timestampWithTimeZone)
+    public static long truncateTimestampWithTimezone(@SqlType(VarcharType.class) Slice unit, @SqlType(TimestampWithTimeZoneType.class) long timestampWithTimeZone)
     {
         long millis = getTimestampField(unpackChronology(timestampWithTimeZone), unit).roundFloor(unpackMillisUtc(timestampWithTimeZone));
         return updateMillisUtc(millis, timestampWithTimeZone);
@@ -261,7 +266,7 @@ public final class DateTimeFunctions
     @Description("add the specified amount of date to the given date")
     @ScalarFunction("date_add")
     @SqlType(DateType.class)
-    public static long addFieldValueDate(Session session, Slice unit, long value, @SqlType(DateType.class) long date)
+    public static long addFieldValueDate(Session session, @SqlType(VarcharType.class) Slice unit, @SqlType(BigintType.class) long value, @SqlType(DateType.class) long date)
     {
         return getDateField(UTC_CHRONOLOGY, unit).add(date, Ints.checkedCast(value));
     }
@@ -269,7 +274,7 @@ public final class DateTimeFunctions
     @Description("add the specified amount of time to the given time")
     @ScalarFunction("date_add")
     @SqlType(TimeType.class)
-    public static long addFieldValueTime(Session session, Slice unit, long value, @SqlType(TimeType.class) long time)
+    public static long addFieldValueTime(Session session, @SqlType(VarcharType.class) Slice unit, @SqlType(BigintType.class) long value, @SqlType(TimeType.class) long time)
     {
         ISOChronology chronology = getChronology(session.getTimeZoneKey());
         return modulo24Hour(chronology, getTimeField(chronology, unit).add(time, Ints.checkedCast(value)));
@@ -278,7 +283,10 @@ public final class DateTimeFunctions
     @Description("add the specified amount of time to the given time")
     @ScalarFunction("date_add")
     @SqlType(TimeWithTimeZoneType.class)
-    public static long addFieldValueTimeWithTimeZone(Slice unit, long value, @SqlType(TimeWithTimeZoneType.class) long timeWithTimeZone)
+    public static long addFieldValueTimeWithTimeZone(
+            @SqlType(VarcharType.class) Slice unit,
+            @SqlType(BigintType.class) long value,
+            @SqlType(TimeWithTimeZoneType.class) long timeWithTimeZone)
     {
         ISOChronology chronology = unpackChronology(timeWithTimeZone);
         long millis = modulo24Hour(chronology, getTimeField(chronology, unit).add(unpackMillisUtc(timeWithTimeZone), Ints.checkedCast(value)));
@@ -288,7 +296,11 @@ public final class DateTimeFunctions
     @Description("add the specified amount of time to the given timestamp")
     @ScalarFunction("date_add")
     @SqlType(TimestampType.class)
-    public static long addFieldValueTimestamp(Session session, Slice unit, long value, @SqlType(TimestampType.class) long timestamp)
+    public static long addFieldValueTimestamp(
+            Session session,
+            @SqlType(VarcharType.class) Slice unit,
+            @SqlType(BigintType.class) long value,
+            @SqlType(TimestampType.class) long timestamp)
     {
         return getTimestampField(getChronology(session.getTimeZoneKey()), unit).add(timestamp, Ints.checkedCast(value));
     }
@@ -296,7 +308,10 @@ public final class DateTimeFunctions
     @Description("add the specified amount of time to the given timestamp")
     @ScalarFunction("date_add")
     @SqlType(TimestampWithTimeZoneType.class)
-    public static long addFieldValueTimestampWithTimeZone(Slice unit, long value, @SqlType(TimestampWithTimeZoneType.class) long timestampWithTimeZone)
+    public static long addFieldValueTimestampWithTimeZone(
+            @SqlType(VarcharType.class) Slice unit,
+            @SqlType(BigintType.class) long value,
+            @SqlType(TimestampWithTimeZoneType.class) long timestampWithTimeZone)
     {
         long millis = getTimestampField(unpackChronology(timestampWithTimeZone), unit).add(unpackMillisUtc(timestampWithTimeZone), Ints.checkedCast(value));
         return updateMillisUtc(millis, timestampWithTimeZone);
@@ -304,14 +319,16 @@ public final class DateTimeFunctions
 
     @Description("difference of the given dates in the given unit")
     @ScalarFunction("date_diff")
-    public static long diffDate(Session session, Slice unit, @SqlType(DateType.class) long date1, @SqlType(DateType.class) long date2)
+    @SqlType(BigintType.class)
+    public static long diffDate(Session session, @SqlType(VarcharType.class) Slice unit, @SqlType(DateType.class) long date1, @SqlType(DateType.class) long date2)
     {
         return getDateField(UTC_CHRONOLOGY, unit).getDifference(date2, date1);
     }
 
     @Description("difference of the given times in the given unit")
     @ScalarFunction("date_diff")
-    public static long diffTime(Session session, Slice unit, @SqlType(TimeType.class) long time1, @SqlType(TimeType.class) long time2)
+    @SqlType(BigintType.class)
+    public static long diffTime(Session session, @SqlType(VarcharType.class) Slice unit, @SqlType(TimeType.class) long time1, @SqlType(TimeType.class) long time2)
     {
         ISOChronology chronology = getChronology(session.getTimeZoneKey());
         return getTimeField(chronology, unit).getDifference(time2, time1);
@@ -319,8 +336,9 @@ public final class DateTimeFunctions
 
     @Description("difference of the given times in the given unit")
     @ScalarFunction("date_diff")
+    @SqlType(BigintType.class)
     public static long diffTimeWithTimeZone(
-            Slice unit,
+            @SqlType(VarcharType.class) Slice unit,
             @SqlType(TimeWithTimeZoneType.class) long timeWithTimeZone1,
             @SqlType(TimeWithTimeZoneType.class) long timeWithTimeZone2)
     {
@@ -329,15 +347,21 @@ public final class DateTimeFunctions
 
     @Description("difference of the given times in the given unit")
     @ScalarFunction("date_diff")
-    public static long diffTimestamp(Session session, Slice unit, @SqlType(TimestampType.class) long timestamp1, @SqlType(TimestampType.class) long timestamp2)
+    @SqlType(BigintType.class)
+    public static long diffTimestamp(
+            Session session,
+            @SqlType(VarcharType.class) Slice unit,
+            @SqlType(TimestampType.class) long timestamp1,
+            @SqlType(TimestampType.class) long timestamp2)
     {
         return getTimestampField(getChronology(session.getTimeZoneKey()), unit).getDifference(timestamp2, timestamp1);
     }
 
     @Description("difference of the given times in the given unit")
     @ScalarFunction("date_diff")
+    @SqlType(BigintType.class)
     public static long diffTimestampWithTimeZone(
-            Slice unit,
+            @SqlType(VarcharType.class) Slice unit,
             @SqlType(TimestampWithTimeZoneType.class) long timestampWithTimeZone1,
             @SqlType(TimestampWithTimeZoneType.class) long timestampWithTimeZone2)
     {
@@ -406,7 +430,7 @@ public final class DateTimeFunctions
     @Description("parses the specified date/time by the given format")
     @ScalarFunction
     @SqlType(TimestampWithTimeZoneType.class)
-    public static long parseDatetime(Session session, Slice datetime, Slice formatString)
+    public static long parseDatetime(Session session, @SqlType(VarcharType.class) Slice datetime, @SqlType(VarcharType.class) Slice formatString)
     {
         String pattern = formatString.toString(Charsets.UTF_8);
         DateTimeFormatter formatter = DateTimeFormat.forPattern(pattern)
@@ -421,14 +445,19 @@ public final class DateTimeFunctions
 
     @Description("formats the given time by the given format")
     @ScalarFunction
-    public static Slice formatDatetime(Session session, @SqlType(TimestampType.class) long timestamp, Slice formatString)
+    @SqlType(VarcharType.class)
+    public static Slice formatDatetime(Session session, @SqlType(TimestampType.class) long timestamp, @SqlType(VarcharType.class) Slice formatString)
     {
         return formatDatetime(getChronology(session.getTimeZoneKey()), session.getLocale(), timestamp, formatString);
     }
 
     @Description("formats the given time by the given format")
     @ScalarFunction("format_datetime")
-    public static Slice formatDatetimeWithTimeZone(Session session, @SqlType(TimestampWithTimeZoneType.class) long timestampWithTimeZone, Slice formatString)
+    @SqlType(VarcharType.class)
+    public static Slice formatDatetimeWithTimeZone(
+            Session session,
+            @SqlType(TimestampWithTimeZoneType.class) long timestampWithTimeZone,
+            @SqlType(VarcharType.class) Slice formatString)
     {
         return formatDatetime(unpackChronology(timestampWithTimeZone), session.getLocale(), unpackMillisUtc(timestampWithTimeZone), formatString);
     }
@@ -445,13 +474,18 @@ public final class DateTimeFunctions
     }
 
     @ScalarFunction
-    public static Slice dateFormat(Session session, @SqlType(TimestampType.class) long timestamp, Slice formatString)
+    @SqlType(VarcharType.class)
+    public static Slice dateFormat(Session session, @SqlType(TimestampType.class) long timestamp, @SqlType(VarcharType.class) Slice formatString)
     {
         return dateFormat(getChronology(session.getTimeZoneKey()), session.getLocale(), timestamp, formatString);
     }
 
     @ScalarFunction("date_format")
-    public static Slice dateFormatWithTimeZone(Session session, @SqlType(TimestampWithTimeZoneType.class) long timestampWithTimeZone, Slice formatString)
+    @SqlType(VarcharType.class)
+    public static Slice dateFormatWithTimeZone(
+            Session session,
+            @SqlType(TimestampWithTimeZoneType.class) long timestampWithTimeZone,
+            @SqlType(VarcharType.class) Slice formatString)
     {
         return dateFormat(unpackChronology(timestampWithTimeZone), session.getLocale(), unpackMillisUtc(timestampWithTimeZone), formatString);
     }
@@ -467,7 +501,7 @@ public final class DateTimeFunctions
 
     @ScalarFunction
     @SqlType(TimestampType.class)
-    public static long dateParse(Session session, Slice dateTime, Slice formatString)
+    public static long dateParse(Session session, @SqlType(VarcharType.class) Slice dateTime, @SqlType(VarcharType.class) Slice formatString)
     {
         DateTimeFormatter formatter = DATETIME_FORMATTER_CACHE.get(formatString)
                 .withChronology(getChronology(session.getTimeZoneKey()))
@@ -478,6 +512,7 @@ public final class DateTimeFunctions
 
     @Description("second of the minute of the given timestamp")
     @ScalarFunction("second")
+    @SqlType(BigintType.class)
     public static long secondFromTimestamp(@SqlType(TimestampType.class) long timestamp)
     {
         // Time is effectively UTC so no need for a custom chronology
@@ -486,6 +521,7 @@ public final class DateTimeFunctions
 
     @Description("second of the minute of the given timestamp")
     @ScalarFunction("second")
+    @SqlType(BigintType.class)
     public static long secondFromTimestampWithTimeZone(@SqlType(TimestampWithTimeZoneType.class) long timestampWithTimeZone)
     {
         // Time is effectively UTC so no need for a custom chronology
@@ -494,6 +530,7 @@ public final class DateTimeFunctions
 
     @Description("second of the minute of the given time")
     @ScalarFunction("second")
+    @SqlType(BigintType.class)
     public static long secondFromTime(@SqlType(TimeType.class) long time)
     {
         // Time is effectively UTC so no need for a custom chronology
@@ -502,6 +539,7 @@ public final class DateTimeFunctions
 
     @Description("second of the minute of the given time")
     @ScalarFunction("second")
+    @SqlType(BigintType.class)
     public static long secondFromTimeWithTimeZone(@SqlType(TimeWithTimeZoneType.class) long time)
     {
         // Time is effectively UTC so no need for a custom chronology
@@ -510,6 +548,7 @@ public final class DateTimeFunctions
 
     @Description("second of the minute of the given interval")
     @ScalarFunction("second")
+    @SqlType(BigintType.class)
     public static long secondFromInterval(@SqlType(IntervalDayTimeType.class) long milliseconds)
     {
         return (milliseconds % MILLISECONDS_IN_MINUTE) / MILLISECONDS_IN_SECOND;
@@ -517,6 +556,7 @@ public final class DateTimeFunctions
 
     @Description("minute of the hour of the given timestamp")
     @ScalarFunction("minute")
+    @SqlType(BigintType.class)
     public static long minuteFromTimestamp(Session session, @SqlType(TimestampType.class) long timestamp)
     {
         return getChronology(session.getTimeZoneKey()).minuteOfHour().get(timestamp);
@@ -524,6 +564,7 @@ public final class DateTimeFunctions
 
     @Description("minute of the hour of the given timestamp")
     @ScalarFunction("minute")
+    @SqlType(BigintType.class)
     public static long minuteFromTimestampWithTimeZone(@SqlType(TimestampWithTimeZoneType.class) long timestampWithTimeZone)
     {
         return unpackChronology(timestampWithTimeZone).minuteOfHour().get(unpackMillisUtc(timestampWithTimeZone));
@@ -531,6 +572,7 @@ public final class DateTimeFunctions
 
     @Description("minute of the hour of the given time")
     @ScalarFunction("minute")
+    @SqlType(BigintType.class)
     public static long minuteFromTime(Session session, @SqlType(TimeType.class) long time)
     {
         return getChronology(session.getTimeZoneKey()).minuteOfHour().get(time);
@@ -538,6 +580,7 @@ public final class DateTimeFunctions
 
     @Description("minute of the hour of the given time")
     @ScalarFunction("minute")
+    @SqlType(BigintType.class)
     public static long minuteFromTimeWithTimeZone(@SqlType(TimeWithTimeZoneType.class) long timeWithTimeZone)
     {
         return unpackChronology(timeWithTimeZone).minuteOfHour().get(unpackMillisUtc(timeWithTimeZone));
@@ -545,6 +588,7 @@ public final class DateTimeFunctions
 
     @Description("minute of the hour of the given interval")
     @ScalarFunction("minute")
+    @SqlType(BigintType.class)
     public static long minuteFromInterval(@SqlType(IntervalDayTimeType.class) long milliseconds)
     {
         return (milliseconds % MILLISECONDS_IN_HOUR) / MILLISECONDS_IN_MINUTE;
@@ -552,6 +596,7 @@ public final class DateTimeFunctions
 
     @Description("hour of the day of the given timestamp")
     @ScalarFunction("hour")
+    @SqlType(BigintType.class)
     public static long hourFromTimestamp(Session session, @SqlType(TimestampType.class) long timestamp)
     {
         return getChronology(session.getTimeZoneKey()).hourOfDay().get(timestamp);
@@ -559,6 +604,7 @@ public final class DateTimeFunctions
 
     @Description("hour of the day of the given timestamp")
     @ScalarFunction("hour")
+    @SqlType(BigintType.class)
     public static long hourFromTimestampWithTimeZone(@SqlType(TimestampWithTimeZoneType.class) long timestampWithTimeZone)
     {
         return unpackChronology(timestampWithTimeZone).hourOfDay().get(unpackMillisUtc(timestampWithTimeZone));
@@ -566,6 +612,7 @@ public final class DateTimeFunctions
 
     @Description("hour of the day of the given time")
     @ScalarFunction("hour")
+    @SqlType(BigintType.class)
     public static long hourFromTime(Session session, @SqlType(TimeType.class) long time)
     {
         return getChronology(session.getTimeZoneKey()).hourOfDay().get(time);
@@ -573,6 +620,7 @@ public final class DateTimeFunctions
 
     @Description("hour of the day of the given time")
     @ScalarFunction("hour")
+    @SqlType(BigintType.class)
     public static long hourFromTimeWithTimeZone(@SqlType(TimeWithTimeZoneType.class) long timeWithTimeZone)
     {
         return unpackChronology(timeWithTimeZone).hourOfDay().get(unpackMillisUtc(timeWithTimeZone));
@@ -580,6 +628,7 @@ public final class DateTimeFunctions
 
     @Description("hour of the day of the given interval")
     @ScalarFunction("hour")
+    @SqlType(BigintType.class)
     public static long hourFromInterval(@SqlType(IntervalDayTimeType.class) long milliseconds)
     {
         return (milliseconds % MILLISECONDS_IN_DAY) / MILLISECONDS_IN_HOUR;
@@ -587,6 +636,7 @@ public final class DateTimeFunctions
 
     @Description("day of the week of the given timestamp")
     @ScalarFunction(value = "day_of_week", alias = "dow")
+    @SqlType(BigintType.class)
     public static long dayOfWeekFromTimestamp(Session session, @SqlType(TimestampType.class) long timestamp)
     {
         return getChronology(session.getTimeZoneKey()).dayOfWeek().get(timestamp);
@@ -594,6 +644,7 @@ public final class DateTimeFunctions
 
     @Description("day of the week of the given timestamp")
     @ScalarFunction(value = "day_of_week", alias = "dow")
+    @SqlType(BigintType.class)
     public static long dayOfWeekFromTimestampWithTimeZone(@SqlType(TimestampWithTimeZoneType.class) long timestampWithTimeZone)
     {
         return unpackChronology(timestampWithTimeZone).dayOfWeek().get(unpackMillisUtc(timestampWithTimeZone));
@@ -601,6 +652,7 @@ public final class DateTimeFunctions
 
     @Description("day of the week of the given date")
     @ScalarFunction(value = "day_of_week", alias = "dow")
+    @SqlType(BigintType.class)
     public static long dayOfWeekFromDate(@SqlType(DateType.class) long date)
     {
         return DAY_OF_WEEK.get(date);
@@ -608,6 +660,7 @@ public final class DateTimeFunctions
 
     @Description("day of the month of the given timestamp")
     @ScalarFunction(value = "day", alias = "day_of_month")
+    @SqlType(BigintType.class)
     public static long dayFromTimestamp(Session session, @SqlType(TimestampType.class) long timestamp)
     {
         return getChronology(session.getTimeZoneKey()).dayOfMonth().get(timestamp);
@@ -615,6 +668,7 @@ public final class DateTimeFunctions
 
     @Description("day of the month of the given timestamp")
     @ScalarFunction(value = "day", alias = "day_of_month")
+    @SqlType(BigintType.class)
     public static long dayFromTimestampWithTimeZone(@SqlType(TimestampWithTimeZoneType.class) long timestampWithTimeZone)
     {
         return unpackChronology(timestampWithTimeZone).dayOfMonth().get(unpackMillisUtc(timestampWithTimeZone));
@@ -622,6 +676,7 @@ public final class DateTimeFunctions
 
     @Description("day of the month of the given date")
     @ScalarFunction(value = "day", alias = "day_of_month")
+    @SqlType(BigintType.class)
     public static long dayFromDate(@SqlType(DateType.class) long date)
     {
         return DAY_OF_MONTH.get(date);
@@ -629,6 +684,7 @@ public final class DateTimeFunctions
 
     @Description("day of the month of the given interval")
     @ScalarFunction(value = "day", alias = "day_of_month")
+    @SqlType(BigintType.class)
     public static long dayFromInterval(@SqlType(IntervalDayTimeType.class) long milliseconds)
     {
         return milliseconds / MILLISECONDS_IN_DAY;
@@ -636,6 +692,7 @@ public final class DateTimeFunctions
 
     @Description("day of the year of the given timestamp")
     @ScalarFunction(value = "day_of_year", alias = "doy")
+    @SqlType(BigintType.class)
     public static long dayOfYearFromTimestamp(Session session, @SqlType(TimestampType.class) long timestamp)
     {
         return getChronology(session.getTimeZoneKey()).dayOfYear().get(timestamp);
@@ -643,6 +700,7 @@ public final class DateTimeFunctions
 
     @Description("day of the year of the given timestamp")
     @ScalarFunction(value = "day_of_year", alias = "doy")
+    @SqlType(BigintType.class)
     public static long dayOfYearFromTimestampWithTimeZone(@SqlType(TimestampWithTimeZoneType.class) long timestampWithTimeZone)
     {
         return unpackChronology(timestampWithTimeZone).dayOfYear().get(unpackMillisUtc(timestampWithTimeZone));
@@ -650,6 +708,7 @@ public final class DateTimeFunctions
 
     @Description("day of the year of the given date")
     @ScalarFunction(value = "day_of_year", alias = "doy")
+    @SqlType(BigintType.class)
     public static long dayOfYearFromDate(@SqlType(DateType.class) long date)
     {
         return DAY_OF_YEAR.get(date);
@@ -657,6 +716,7 @@ public final class DateTimeFunctions
 
     @Description("week of the year of the given timestamp")
     @ScalarFunction(value = "week", alias = "week_of_year")
+    @SqlType(BigintType.class)
     public static long weekFromTimestamp(Session session, @SqlType(TimestampType.class) long timestamp)
     {
         return getChronology(session.getTimeZoneKey()).weekOfWeekyear().get(timestamp);
@@ -664,6 +724,7 @@ public final class DateTimeFunctions
 
     @Description("week of the year of the given timestamp")
     @ScalarFunction(value = "week", alias = "week_of_year")
+    @SqlType(BigintType.class)
     public static long weekFromTimestampWithTimeZone(@SqlType(TimestampWithTimeZoneType.class) long timestampWithTimeZone)
     {
         return unpackChronology(timestampWithTimeZone).weekOfWeekyear().get(unpackMillisUtc(timestampWithTimeZone));
@@ -671,6 +732,7 @@ public final class DateTimeFunctions
 
     @Description("week of the year of the given date")
     @ScalarFunction(value = "week", alias = "week_of_year")
+    @SqlType(BigintType.class)
     public static long weekFromDate(@SqlType(DateType.class) long date)
     {
         return WEEK_OF_YEAR.get(date);
@@ -678,6 +740,7 @@ public final class DateTimeFunctions
 
     @Description("month of the year of the given timestamp")
     @ScalarFunction("month")
+    @SqlType(BigintType.class)
     public static long monthFromTimestamp(Session session, @SqlType(TimestampType.class) long timestamp)
     {
         return getChronology(session.getTimeZoneKey()).monthOfYear().get(timestamp);
@@ -685,6 +748,7 @@ public final class DateTimeFunctions
 
     @Description("month of the year of the given timestamp")
     @ScalarFunction("month")
+    @SqlType(BigintType.class)
     public static long monthFromTimestampWithTimeZone(@SqlType(TimestampWithTimeZoneType.class) long timestampWithTimeZone)
     {
         return unpackChronology(timestampWithTimeZone).monthOfYear().get(unpackMillisUtc(timestampWithTimeZone));
@@ -692,6 +756,7 @@ public final class DateTimeFunctions
 
     @Description("month of the year of the given date")
     @ScalarFunction("month")
+    @SqlType(BigintType.class)
     public static long monthFromDate(@SqlType(DateType.class) long date)
     {
         return MONTH_OF_YEAR.get(date);
@@ -699,6 +764,7 @@ public final class DateTimeFunctions
 
     @Description("month of the year of the given interval")
     @ScalarFunction("month")
+    @SqlType(BigintType.class)
     public static long monthFromInterval(@SqlType(IntervalYearMonthType.class) long months)
     {
         return months % 12;
@@ -706,6 +772,7 @@ public final class DateTimeFunctions
 
     @Description("quarter of the year of the given timestamp")
     @ScalarFunction("quarter")
+    @SqlType(BigintType.class)
     public static long quarterFromTimestamp(Session session, @SqlType(TimestampType.class) long timestamp)
     {
         return QUARTER_OF_YEAR.getField(getChronology(session.getTimeZoneKey())).get(timestamp);
@@ -713,6 +780,7 @@ public final class DateTimeFunctions
 
     @Description("quarter of the year of the given timestamp")
     @ScalarFunction("quarter")
+    @SqlType(BigintType.class)
     public static long quarterFromTimestampWithTimeZone(@SqlType(TimestampWithTimeZoneType.class) long timestampWithTimeZone)
     {
         return QUARTER_OF_YEAR.getField(unpackChronology(timestampWithTimeZone)).get(unpackMillisUtc(timestampWithTimeZone));
@@ -720,6 +788,7 @@ public final class DateTimeFunctions
 
     @Description("quarter of the year of the given date")
     @ScalarFunction("quarter")
+    @SqlType(BigintType.class)
     public static long quarterFromDate(@SqlType(DateType.class) long date)
     {
         return QUARTER.get(date);
@@ -727,6 +796,7 @@ public final class DateTimeFunctions
 
     @Description("year of the given timestamp")
     @ScalarFunction("year")
+    @SqlType(BigintType.class)
     public static long yearFromTimestamp(Session session, @SqlType(TimestampType.class) long timestamp)
     {
         return getChronology(session.getTimeZoneKey()).year().get(timestamp);
@@ -734,6 +804,7 @@ public final class DateTimeFunctions
 
     @Description("year of the given timestamp")
     @ScalarFunction("year")
+    @SqlType(BigintType.class)
     public static long yearFromTimestampWithTimeZone(@SqlType(TimestampWithTimeZoneType.class) long timestampWithTimeZone)
     {
         return unpackChronology(timestampWithTimeZone).year().get(unpackMillisUtc(timestampWithTimeZone));
@@ -741,6 +812,7 @@ public final class DateTimeFunctions
 
     @Description("year of the given date")
     @ScalarFunction("year")
+    @SqlType(BigintType.class)
     public static long yearFromDate(@SqlType(DateType.class) long date)
     {
         return YEAR.get(date);
@@ -748,6 +820,7 @@ public final class DateTimeFunctions
 
     @Description("year of the given interval")
     @ScalarFunction("year")
+    @SqlType(BigintType.class)
     public static long yearFromInterval(@SqlType(IntervalYearMonthType.class) long months)
     {
         return months / 12;
@@ -755,6 +828,7 @@ public final class DateTimeFunctions
 
     @Description("time zone minute of the given timestamp")
     @ScalarFunction("timezone_minute")
+    @SqlType(BigintType.class)
     public static long timeZoneMinuteFromTimestampWithTimeZone(@SqlType(TimestampWithTimeZoneType.class) long timestampWithTimeZone)
     {
         return extractZoneOffsetMinutes(timestampWithTimeZone) % 60;
@@ -762,6 +836,7 @@ public final class DateTimeFunctions
 
     @Description("time zone hour of the given timestamp")
     @ScalarFunction("timezone_hour")
+    @SqlType(BigintType.class)
     public static long timeZoneHourFromTimestampWithTimeZone(@SqlType(TimestampWithTimeZoneType.class) long timestampWithTimeZone)
     {
         return extractZoneOffsetMinutes(timestampWithTimeZone) / 60;

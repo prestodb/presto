@@ -17,9 +17,14 @@ import com.facebook.presto.byteCode.ByteCodeNode;
 import com.facebook.presto.byteCode.instruction.Constant;
 import com.facebook.presto.operator.scalar.JsonExtract.JsonExtractCache;
 import com.facebook.presto.operator.scalar.JsonExtract.JsonExtractor;
+import com.facebook.presto.spi.type.BigintType;
+import com.facebook.presto.spi.type.BooleanType;
+import com.facebook.presto.spi.type.DoubleType;
+import com.facebook.presto.spi.type.VarcharType;
 import com.facebook.presto.sql.gen.DefaultFunctionBinder;
 import com.facebook.presto.sql.gen.FunctionBinder;
 import com.facebook.presto.sql.gen.FunctionBinding;
+import com.facebook.presto.type.SqlType;
 import com.facebook.presto.util.ThreadLocalCache;
 import com.fasterxml.jackson.core.JsonFactory;
 import com.fasterxml.jackson.core.JsonParser;
@@ -65,7 +70,8 @@ public final class JsonFunctions
 
     @Nullable
     @ScalarFunction
-    public static Long jsonArrayLength(Slice json)
+    @SqlType(BigintType.class)
+    public static Long jsonArrayLength(@SqlType(VarcharType.class) Slice json)
     {
         try (JsonParser parser = JSON_FACTORY.createJsonParser(json.getInput())) {
             if (parser.nextToken() != START_ARRAY) {
@@ -93,7 +99,8 @@ public final class JsonFunctions
 
     @Nullable
     @ScalarFunction
-    public static Boolean jsonArrayContains(Slice json, boolean value)
+    @SqlType(BooleanType.class)
+    public static Boolean jsonArrayContains(@SqlType(VarcharType.class) Slice json, @SqlType(BooleanType.class) boolean value)
     {
         try (JsonParser parser = JSON_FACTORY.createJsonParser(json.getInput())) {
             if (parser.nextToken() != START_ARRAY) {
@@ -123,7 +130,8 @@ public final class JsonFunctions
 
     @Nullable
     @ScalarFunction
-    public static Boolean jsonArrayContains(Slice json, long value)
+    @SqlType(BooleanType.class)
+    public static Boolean jsonArrayContains(@SqlType(VarcharType.class) Slice json, @SqlType(BigintType.class) long value)
     {
         try (JsonParser parser = JSON_FACTORY.createJsonParser(json.getInput())) {
             if (parser.nextToken() != START_ARRAY) {
@@ -154,7 +162,8 @@ public final class JsonFunctions
 
     @Nullable
     @ScalarFunction
-    public static Boolean jsonArrayContains(Slice json, double value)
+    @SqlType(BooleanType.class)
+    public static Boolean jsonArrayContains(@SqlType(VarcharType.class) Slice json, @SqlType(DoubleType.class) double value)
     {
         if (!Doubles.isFinite(value)) {
             return false;
@@ -189,7 +198,8 @@ public final class JsonFunctions
 
     @Nullable
     @ScalarFunction
-    public static Boolean jsonArrayContains(Slice json, Slice value)
+    @SqlType(BooleanType.class)
+    public static Boolean jsonArrayContains(@SqlType(VarcharType.class) Slice json, @SqlType(VarcharType.class) Slice value)
     {
         String valueString = value.toString(Charsets.UTF_8);
 
@@ -220,7 +230,8 @@ public final class JsonFunctions
 
     @Nullable
     @ScalarFunction
-    public static Slice jsonArrayGet(Slice json, long index)
+    @SqlType(VarcharType.class)
+    public static Slice jsonArrayGet(@SqlType(VarcharType.class) Slice json, @SqlType(BigintType.class) long index)
     {
         try (JsonParser parser = JSON_FACTORY.createJsonParser(json.getInput())) {
             if (parser.nextToken() != START_ARRAY) {
@@ -271,7 +282,8 @@ public final class JsonFunctions
     }
 
     @ScalarFunction(value = JSON_EXTRACT_SCALAR_FUNCTION_NAME, functionBinder = JsonFunctionBinder.class)
-    public static Slice jsonExtractScalar(Slice json, Slice jsonPath)
+    @SqlType(VarcharType.class)
+    public static Slice jsonExtractScalar(@SqlType(VarcharType.class) Slice json, @SqlType(VarcharType.class) Slice jsonPath)
     {
         try {
             return JsonExtract.extractScalar(json, jsonPath);
@@ -282,7 +294,8 @@ public final class JsonFunctions
     }
 
     @ScalarFunction(value = JSON_EXTRACT_FUNCTION_NAME, functionBinder = JsonFunctionBinder.class)
-    public static Slice jsonExtract(Slice json, Slice jsonPath)
+    @SqlType(VarcharType.class)
+    public static Slice jsonExtract(@SqlType(VarcharType.class) Slice json, @SqlType(VarcharType.class) Slice jsonPath)
     {
         try {
             return JsonExtract.extractJson(json, jsonPath);

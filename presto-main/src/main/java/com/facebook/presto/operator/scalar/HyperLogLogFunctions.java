@@ -14,6 +14,7 @@
 package com.facebook.presto.operator.scalar;
 
 import com.facebook.presto.operator.Description;
+import com.facebook.presto.spi.type.BigintType;
 import com.facebook.presto.spi.type.HyperLogLogType;
 import com.facebook.presto.type.SqlType;
 import io.airlift.slice.Slice;
@@ -25,6 +26,7 @@ public final class HyperLogLogFunctions
 
     @ScalarFunction
     @Description("compute the cardinality of a HyperLogLog instance")
+    @SqlType(BigintType.class)
     public static long cardinality(@SqlType(HyperLogLogType.class) Slice serializedHll)
     {
         return HyperLogLog.newInstance(serializedHll).cardinality();

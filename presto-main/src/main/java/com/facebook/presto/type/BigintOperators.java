@@ -16,6 +16,10 @@ package com.facebook.presto.type;
 import com.facebook.presto.operator.scalar.ScalarOperator;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.StandardErrorCode;
+import com.facebook.presto.spi.type.BigintType;
+import com.facebook.presto.spi.type.BooleanType;
+import com.facebook.presto.spi.type.DoubleType;
+import com.facebook.presto.spi.type.VarcharType;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 
@@ -43,25 +47,29 @@ public final class BigintOperators
     }
 
     @ScalarOperator(ADD)
-    public static long add(long left, long right)
+    @SqlType(BigintType.class)
+    public static long add(@SqlType(BigintType.class) long left, @SqlType(BigintType.class) long right)
     {
         return left + right;
     }
 
     @ScalarOperator(SUBTRACT)
-    public static long subtract(long left, long right)
+    @SqlType(BigintType.class)
+    public static long subtract(@SqlType(BigintType.class) long left, @SqlType(BigintType.class) long right)
     {
         return left - right;
     }
 
     @ScalarOperator(MULTIPLY)
-    public static long multiply(long left, long right)
+    @SqlType(BigintType.class)
+    public static long multiply(@SqlType(BigintType.class) long left, @SqlType(BigintType.class) long right)
     {
         return left * right;
     }
 
     @ScalarOperator(DIVIDE)
-    public static long divide(long left, long right)
+    @SqlType(BigintType.class)
+    public static long divide(@SqlType(BigintType.class) long left, @SqlType(BigintType.class) long right)
     {
         try {
             return left / right;
@@ -72,7 +80,8 @@ public final class BigintOperators
     }
 
     @ScalarOperator(MODULUS)
-    public static long modulus(long left, long right)
+    @SqlType(BigintType.class)
+    public static long modulus(@SqlType(BigintType.class) long left, @SqlType(BigintType.class) long right)
     {
         try {
             return left % right;
@@ -83,74 +92,85 @@ public final class BigintOperators
     }
 
     @ScalarOperator(NEGATION)
-    public static long negate(long value)
+    @SqlType(BigintType.class)
+    public static long negate(@SqlType(BigintType.class) long value)
     {
         return -value;
     }
 
     @ScalarOperator(EQUAL)
-    public static boolean equal(long left, long right)
+    @SqlType(BooleanType.class)
+    public static boolean equal(@SqlType(BigintType.class) long left, @SqlType(BigintType.class) long right)
     {
         return left == right;
     }
 
     @ScalarOperator(NOT_EQUAL)
-    public static boolean notEqual(long left, long right)
+    @SqlType(BooleanType.class)
+    public static boolean notEqual(@SqlType(BigintType.class) long left, @SqlType(BigintType.class) long right)
     {
         return left != right;
     }
 
     @ScalarOperator(LESS_THAN)
-    public static boolean lessThan(long left, long right)
+    @SqlType(BooleanType.class)
+    public static boolean lessThan(@SqlType(BigintType.class) long left, @SqlType(BigintType.class) long right)
     {
         return left < right;
     }
 
     @ScalarOperator(LESS_THAN_OR_EQUAL)
-    public static boolean lessThanOrEqual(long left, long right)
+    @SqlType(BooleanType.class)
+    public static boolean lessThanOrEqual(@SqlType(BigintType.class) long left, @SqlType(BigintType.class) long right)
     {
         return left <= right;
     }
 
     @ScalarOperator(GREATER_THAN)
-    public static boolean greaterThan(long left, long right)
+    @SqlType(BooleanType.class)
+    public static boolean greaterThan(@SqlType(BigintType.class) long left, @SqlType(BigintType.class) long right)
     {
         return left > right;
     }
 
     @ScalarOperator(GREATER_THAN_OR_EQUAL)
-    public static boolean greaterThanOrEqual(long left, long right)
+    @SqlType(BooleanType.class)
+    public static boolean greaterThanOrEqual(@SqlType(BigintType.class) long left, @SqlType(BigintType.class) long right)
     {
         return left >= right;
     }
 
     @ScalarOperator(BETWEEN)
-    public static boolean between(long value, long min, long max)
+    @SqlType(BooleanType.class)
+    public static boolean between(@SqlType(BigintType.class) long value, @SqlType(BigintType.class) long min, @SqlType(BigintType.class) long max)
     {
         return min <= value && value <= max;
     }
 
     @ScalarOperator(CAST)
-    public static boolean castToBoolean(long value)
+    @SqlType(BooleanType.class)
+    public static boolean castToBoolean(@SqlType(BigintType.class) long value)
     {
         return value != 0;
     }
 
     @ScalarOperator(CAST)
-    public static double castToDouble(long value)
+    @SqlType(DoubleType.class)
+    public static double castToDouble(@SqlType(BigintType.class) long value)
     {
         return value;
     }
 
     @ScalarOperator(CAST)
-    public static Slice castToVarchar(long value)
+    @SqlType(VarcharType.class)
+    public static Slice castToVarchar(@SqlType(BigintType.class) long value)
     {
         // todo optimize me
         return Slices.copiedBuffer(String.valueOf(value), UTF_8);
     }
 
     @ScalarOperator(HASH_CODE)
-    public static int hashCode(long value)
+    public static int hashCode(@SqlType(BigintType.class) long value)
     {
         return (int) (value ^ (value >>> 32));
     }

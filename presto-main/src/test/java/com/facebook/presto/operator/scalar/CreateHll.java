@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.operator.scalar;
 
+import com.facebook.presto.spi.type.BigintType;
 import com.facebook.presto.spi.type.HyperLogLogType;
 import com.facebook.presto.type.SqlType;
 import io.airlift.slice.Slice;
@@ -24,7 +25,7 @@ public final class CreateHll
 
     @ScalarFunction
     @SqlType(HyperLogLogType.class)
-    public static Slice createHll(long value)
+    public static Slice createHll(@SqlType(BigintType.class) long value)
     {
         HyperLogLog hll = HyperLogLog.newInstance(4096);
         hll.add(value);

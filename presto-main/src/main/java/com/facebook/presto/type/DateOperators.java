@@ -15,9 +15,11 @@ package com.facebook.presto.type;
 
 import com.facebook.presto.operator.scalar.ScalarOperator;
 import com.facebook.presto.spi.Session;
+import com.facebook.presto.spi.type.BooleanType;
 import com.facebook.presto.spi.type.DateType;
 import com.facebook.presto.spi.type.TimestampType;
 import com.facebook.presto.spi.type.TimestampWithTimeZoneType;
+import com.facebook.presto.spi.type.VarcharType;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import org.joda.time.chrono.ISOChronology;
@@ -44,42 +46,49 @@ public final class DateOperators
     }
 
     @ScalarOperator(EQUAL)
+    @SqlType(BooleanType.class)
     public static boolean equal(@SqlType(DateType.class) long left, @SqlType(DateType.class) long right)
     {
         return left == right;
     }
 
     @ScalarOperator(NOT_EQUAL)
+    @SqlType(BooleanType.class)
     public static boolean notEqual(@SqlType(DateType.class) long left, @SqlType(DateType.class) long right)
     {
         return left != right;
     }
 
     @ScalarOperator(LESS_THAN)
+    @SqlType(BooleanType.class)
     public static boolean lessThan(@SqlType(DateType.class) long left, @SqlType(DateType.class) long right)
     {
         return left < right;
     }
 
     @ScalarOperator(LESS_THAN_OR_EQUAL)
+    @SqlType(BooleanType.class)
     public static boolean lessThanOrEqual(@SqlType(DateType.class) long left, @SqlType(DateType.class) long right)
     {
         return left <= right;
     }
 
     @ScalarOperator(GREATER_THAN)
+    @SqlType(BooleanType.class)
     public static boolean greaterThan(@SqlType(DateType.class) long left, @SqlType(DateType.class) long right)
     {
         return left > right;
     }
 
     @ScalarOperator(GREATER_THAN_OR_EQUAL)
+    @SqlType(BooleanType.class)
     public static boolean greaterThanOrEqual(@SqlType(DateType.class) long left, @SqlType(DateType.class) long right)
     {
         return left >= right;
     }
 
     @ScalarOperator(BETWEEN)
+    @SqlType(BooleanType.class)
     public static boolean between(@SqlType(DateType.class) long value, @SqlType(DateType.class) long min, @SqlType(DateType.class) long max)
     {
         return min <= value && value <= max;
@@ -107,6 +116,7 @@ public final class DateOperators
     }
 
     @ScalarOperator(CAST)
+    @SqlType(VarcharType.class)
     public static Slice castToSlice(@SqlType(DateType.class) long value)
     {
         return Slices.copiedBuffer(printDate(value), UTF_8);
@@ -114,7 +124,7 @@ public final class DateOperators
 
     @ScalarOperator(CAST)
     @SqlType(DateType.class)
-    public static long castFromSlice(Slice value)
+    public static long castFromSlice(@SqlType(VarcharType.class) Slice value)
     {
         return parseDate(value.toStringUtf8());
     }

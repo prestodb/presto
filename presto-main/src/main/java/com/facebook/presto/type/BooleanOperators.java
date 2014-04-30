@@ -14,6 +14,10 @@
 package com.facebook.presto.type;
 
 import com.facebook.presto.operator.scalar.ScalarOperator;
+import com.facebook.presto.spi.type.BigintType;
+import com.facebook.presto.spi.type.BooleanType;
+import com.facebook.presto.spi.type.DoubleType;
+import com.facebook.presto.spi.type.VarcharType;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 
@@ -38,67 +42,77 @@ public final class BooleanOperators
     }
 
     @ScalarOperator(EQUAL)
-    public static boolean equal(boolean left, boolean right)
+    @SqlType(BooleanType.class)
+    public static boolean equal(@SqlType(BooleanType.class) boolean left, @SqlType(BooleanType.class) boolean right)
     {
         return left == right;
     }
 
     @ScalarOperator(NOT_EQUAL)
-    public static boolean notEqual(boolean left, boolean right)
+    @SqlType(BooleanType.class)
+    public static boolean notEqual(@SqlType(BooleanType.class) boolean left, @SqlType(BooleanType.class) boolean right)
     {
         return left != right;
     }
 
     @ScalarOperator(LESS_THAN)
-    public static boolean lessThan(boolean left, boolean right)
+    @SqlType(BooleanType.class)
+    public static boolean lessThan(@SqlType(BooleanType.class) boolean left, @SqlType(BooleanType.class) boolean right)
     {
         return !left && right;
     }
 
     @ScalarOperator(LESS_THAN_OR_EQUAL)
-    public static boolean lessThanOrEqual(boolean left, boolean right)
+    @SqlType(BooleanType.class)
+    public static boolean lessThanOrEqual(@SqlType(BooleanType.class) boolean left, @SqlType(BooleanType.class) boolean right)
     {
         return !left || right;
     }
 
     @ScalarOperator(GREATER_THAN)
-    public static boolean greaterThan(boolean left, boolean right)
+    @SqlType(BooleanType.class)
+    public static boolean greaterThan(@SqlType(BooleanType.class) boolean left, @SqlType(BooleanType.class) boolean right)
     {
         return left && !right;
     }
 
     @ScalarOperator(GREATER_THAN_OR_EQUAL)
-    public static boolean greaterThanOrEqual(boolean left, boolean right)
+    @SqlType(BooleanType.class)
+    public static boolean greaterThanOrEqual(@SqlType(BooleanType.class) boolean left, @SqlType(BooleanType.class) boolean right)
     {
         return left || !right;
     }
 
     @ScalarOperator(BETWEEN)
-    public static boolean between(boolean value, boolean min, boolean max)
+    @SqlType(BooleanType.class)
+    public static boolean between(@SqlType(BooleanType.class) boolean value, @SqlType(BooleanType.class) boolean min, @SqlType(BooleanType.class) boolean max)
     {
         return (value && max) || (!value && !min);
     }
 
     @ScalarOperator(CAST)
-    public static double castToDouble(boolean value)
+    @SqlType(DoubleType.class)
+    public static double castToDouble(@SqlType(BooleanType.class) boolean value)
     {
         return value ? 1 : 0;
     }
 
     @ScalarOperator(CAST)
-    public static long castToBigint(boolean value)
+    @SqlType(BigintType.class)
+    public static long castToBigint(@SqlType(BooleanType.class) boolean value)
     {
         return value ? 1 : 0;
     }
 
     @ScalarOperator(CAST)
-    public static Slice castToVarchar(boolean value)
+    @SqlType(VarcharType.class)
+    public static Slice castToVarchar(@SqlType(BooleanType.class) boolean value)
     {
         return value ? TRUE : FALSE;
     }
 
     @ScalarOperator(HASH_CODE)
-    public static int hashCode(boolean value)
+    public static int hashCode(@SqlType(BooleanType.class) boolean value)
     {
         return value ? 1231 : 1237;
     }
