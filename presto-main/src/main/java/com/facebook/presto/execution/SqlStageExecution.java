@@ -615,18 +615,19 @@ public class SqlStageExecution
             throws InterruptedException
     {
         AtomicInteger nextTaskId = new AtomicInteger(0);
-        long getSplitStart = System.nanoTime();
 
         SplitSource splitSource = this.dataSource.get();
         while (!splitSource.isFinished()) {
-            getSplitDistribution.add(System.nanoTime() - getSplitStart);
 
             // if query has been canceled, exit cleanly; query will never run regardless
             if (getState().isDone()) {
                 break;
             }
 
+            long start = System.nanoTime();
             Set<Split> pendingSplits = ImmutableSet.copyOf(splitSource.getNextBatch(splitBatchSize));
+            getSplitDistribution.add(System.nanoTime() - start);
+
             while (!pendingSplits.isEmpty() && !getState().isDone()) {
                 Multimap<Node, Split> splitAssignment = nodeSelector.computeAssignments(pendingSplits);
                 pendingSplits = ImmutableSet.copyOf(Sets.difference(pendingSplits, ImmutableSet.copyOf(splitAssignment.values())));
