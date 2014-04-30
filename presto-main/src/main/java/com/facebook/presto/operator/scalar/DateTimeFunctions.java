@@ -129,23 +129,6 @@ public final class DateTimeFunctions
         return session.getStartTime();
     }
 
-    @ScalarFunction
-    @SqlType(TimeType.class)
-    public static long millisToTime(ConnectorSession session, @SqlType(BigintType.class) long millis)
-    {
-        ISOChronology chronology = getChronology(session.getTimeZoneKey());
-        return chronology.millisOfDay().get(millis) - chronology.getZone().getOffset(millis);
-    }
-
-    @ScalarFunction
-    @SqlType(TimeWithTimeZoneType.class)
-    public static long millisToTime(@SqlType(BigintType.class) long millis, @SqlType(BigintType.class) long hoursOffset, @SqlType(BigintType.class) long minutesOffset)
-    {
-        ISOChronology chronology = ISOChronology.getInstance(DateTimeZone.forOffsetHoursMinutes((int) hoursOffset, (int) minutesOffset));
-        int timeMillis = chronology.millisOfDay().get(millis) - chronology.getZone().getOffset(millis);
-        return packDateTimeWithZone((long) timeMillis, (int) (hoursOffset * 60 + minutesOffset));
-    }
-
     @ScalarFunction("from_unixtime")
     @SqlType(TimestampType.class)
     public static long fromUnixTime(@SqlType(DoubleType.class) double unixTime)
