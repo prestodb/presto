@@ -327,7 +327,7 @@ public class TestDistributedQueries
                 SESSION.getSource(),
                 SESSION.getCatalog(),
                 SESSION.getSchema(),
-                SESSION.getTimeZoneKey().getTimeZoneId(),
+                SESSION.getTimeZoneKey().getId(),
                 SESSION.getLocale(),
                 true);
     }
@@ -340,7 +340,7 @@ public class TestDistributedQueries
                 SESSION.getSource(),
                 SESSION.getCatalog(),
                 "sampled",
-                SESSION.getTimeZoneKey().getTimeZoneId(),
+                SESSION.getTimeZoneKey().getId(),
                 SESSION.getLocale(),
                 true);
     }

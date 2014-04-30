@@ -44,7 +44,7 @@ public final class DateTimeEncoding
     public static long packDateTimeWithZone(long millisUtc, TimeZoneKey timeZoneKey)
     {
         requireNonNull(timeZoneKey, "timeZoneKey is null");
-        return pack(millisUtc, timeZoneKey.getTimeZoneKey());
+        return pack(millisUtc, timeZoneKey.getKey());
     }
 
     public static long unpackMillisUtc(long dateTimeWithTimeZone)

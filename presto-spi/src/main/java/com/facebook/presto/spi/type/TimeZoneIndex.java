@@ -29,7 +29,7 @@ public final class TimeZoneIndex
     static {
         TIME_ZONES = new TimeZone[MAX_TIME_ZONE_KEY + 1];
         for (TimeZoneKey timeZoneKey : TimeZoneKey.getTimeZoneKeys()) {
-            String zoneId = timeZoneKey.getTimeZoneId();
+            String zoneId = timeZoneKey.getId();
             TimeZone timeZone;
             // zone class is totally broken...
             if (zoneId.charAt(0) == '-' || zoneId.charAt(0) == '+') {
@@ -38,13 +38,13 @@ public final class TimeZoneIndex
             else {
                 timeZone = TimeZone.getTimeZone(zoneId);
             }
-            TIME_ZONES[timeZoneKey.getTimeZoneKey()] = timeZone;
+            TIME_ZONES[timeZoneKey.getKey()] = timeZone;
         }
     }
 
     public static TimeZone getTimeZoneForKey(TimeZoneKey timeZoneKey)
     {
         requireNonNull(timeZoneKey, "timeZoneKey is null");
-        return (TimeZone) TIME_ZONES[timeZoneKey.getTimeZoneKey()].clone();
+        return (TimeZone) TIME_ZONES[timeZoneKey.getKey()].clone();
     }
 }
