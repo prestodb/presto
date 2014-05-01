@@ -152,7 +152,7 @@ public class CanonicalizeExpressions
                 case LOCALTIME:
                     return new FunctionCall(new QualifiedName("localtime"), ImmutableList.<Expression>of());
                 case TIMESTAMP:
-                    return new FunctionCall(new QualifiedName("now"), ImmutableList.<Expression>of());
+                    return new FunctionCall(new QualifiedName("current_timestamp"), ImmutableList.<Expression>of());
                 case LOCALTIMESTAMP:
                     return new FunctionCall(new QualifiedName("localtimestamp"), ImmutableList.<Expression>of());
                 default:
