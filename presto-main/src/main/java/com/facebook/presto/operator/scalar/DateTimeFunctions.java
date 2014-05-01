@@ -82,7 +82,7 @@ public final class DateTimeFunctions
     private DateTimeFunctions() {}
 
     @Description("current date")
-    @ScalarFunction(hidden = true)
+    @ScalarFunction
     @SqlType(DateType.class)
     public static long currentDate(ConnectorSession session)
     {
@@ -93,7 +93,7 @@ public final class DateTimeFunctions
     }
 
     @Description("current time with time zone")
-    @ScalarFunction(hidden = true)
+    @ScalarFunction
     @SqlType(TimeWithTimeZoneType.class)
     public static long currentTime(ConnectorSession session)
     {
@@ -104,7 +104,7 @@ public final class DateTimeFunctions
     }
 
     @Description("current time without time zone")
-    @ScalarFunction(value = "localtime", hidden = true)
+    @ScalarFunction("localtime")
     @SqlType(TimeType.class)
     public static long localTime(ConnectorSession session)
     {
@@ -114,7 +114,7 @@ public final class DateTimeFunctions
     }
 
     @Description("current timestamp with time zone")
-    @ScalarFunction("now")
+    @ScalarFunction(value = "current_timestamp", alias = "now")
     @SqlType(TimestampWithTimeZoneType.class)
     public static long currentTimestamp(ConnectorSession session)
     {
@@ -122,7 +122,7 @@ public final class DateTimeFunctions
     }
 
     @Description("current timestamp without time zone")
-    @ScalarFunction(value = "localtimestamp", hidden = true)
+    @ScalarFunction("localtimestamp")
     @SqlType(TimestampType.class)
     public static long localTimestamp(ConnectorSession session)
     {
