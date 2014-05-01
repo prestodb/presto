@@ -8,7 +8,7 @@ See the [User Manual](http://prestodb.io/docs/current/) for deployment instructi
 
 * Mac OS X or Linux
 * Java 7, 64-bit
-* Maven 3 (for building)
+* Maven 3.1.1+ (for building)
 * Python 2.4+ (for running with the launcher script)
 
 ## Building Presto
