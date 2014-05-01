@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.cli;
 
-import com.facebook.presto.client.ClientSession;
 import com.facebook.presto.client.QueryResults;
 import com.facebook.presto.client.StatementClient;
 import com.google.common.cache.CacheBuilder;
@@ -43,15 +42,13 @@ public class TableNameCompleter
 {
     private static final long RELOAD_TIME_MINUTES = 2;
 
-    private final ClientSession clientSession;
     private final ExecutorService executor = newCachedThreadPool(daemonThreadsNamed("completer-%d"));
     private final QueryRunner queryRunner;
     private final LoadingCache<String, List<String>> tableCache;
     private final LoadingCache<String, List<String>> functionCache;
 
-    public TableNameCompleter(ClientSession clientSession, QueryRunner queryRunner)
+    public TableNameCompleter(QueryRunner queryRunner)
     {
-        this.clientSession = checkNotNull(clientSession, "clientSession was null!");
         this.queryRunner = checkNotNull(queryRunner, "queryRunner session was null!");
 
         ListeningExecutorService listeningExecutor = MoreExecutors.listeningDecorator(executor);
@@ -93,9 +90,9 @@ public class TableNameCompleter
         return cache.build();
     }
 
-    public void populateCache(final String schemaName)
+    public void populateCache()
     {
-        checkNotNull(schemaName, "schemaName is null");
+        final String schemaName = queryRunner.getSession().getSchema();
         executor.execute(new Runnable()
         {
             @Override
@@ -115,7 +112,7 @@ public class TableNameCompleter
         }
         int blankPos = findLastBlank(buffer.substring(0, cursor));
         String prefix = buffer.substring(blankPos + 1, cursor);
-        String schemaName = clientSession.getSchema();
+        String schemaName = queryRunner.getSession().getSchema();
         List<String> functionNames = functionCache.getIfPresent(schemaName);
         List<String> tableNames = tableCache.getIfPresent(schemaName);
 
