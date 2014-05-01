@@ -897,6 +897,9 @@ public final class DateTimeFunctions
                     case 'v': // %v Week (01..53), where Monday is the first day of the week; used with %x
                         builder.appendWeekOfWeekyear(2);
                         break;
+                    case 'x': // %x Year for the week, where Monday is the first day of the week, numeric, four digits; used with %v
+                        builder.appendWeekyear(4, 4);
+                        break;
                     case 'W': // %W Weekday name (Sunday..Saturday)
                         builder.appendDayOfWeekText();
                         break;
@@ -913,7 +916,6 @@ public final class DateTimeFunctions
                     case 'u': // %u Week (00..53), where Monday is the first day of the week
                     case 'V': // %V Week (01..53), where Sunday is the first day of the week; used with %X
                     case 'X': // %X Year for the week where Sunday is the first day of the week, numeric, four digits; used with %V
-                    case 'x': // %x Year for the week, where Monday is the first day of the week, numeric, four digits; used with %v
                     case 'D': // %D Day of the month with English suffix (0th, 1st, 2nd, 3rd, …)
                         throw new PrestoException(StandardErrorCode.INVALID_FUNCTION_ARGUMENT.toErrorCode(), String.format("%%%s not supported in date format string", character));
                     case '%': // %% A literal “%” character
