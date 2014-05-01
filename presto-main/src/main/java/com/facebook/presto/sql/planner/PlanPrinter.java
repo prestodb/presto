@@ -13,9 +13,18 @@
  */
 package com.facebook.presto.sql.planner;
 
-import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.ColumnHandle;
+import com.facebook.presto.metadata.Metadata;
+import com.facebook.presto.metadata.OperatorInfo;
+import com.facebook.presto.metadata.OperatorNotFoundException;
+import com.facebook.presto.metadata.TableHandle;
+import com.facebook.presto.spi.ColumnMetadata;
+import com.facebook.presto.spi.Domain;
+import com.facebook.presto.spi.Marker;
+import com.facebook.presto.spi.Range;
 import com.facebook.presto.spi.TupleDomain;
+import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.spi.type.VarcharType;
 import com.facebook.presto.sql.planner.PlanFragment.OutputPartitioning;
 import com.facebook.presto.sql.planner.PlanFragment.PlanDistribution;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
@@ -47,7 +56,6 @@ import com.facebook.presto.sql.tree.ComparisonExpression;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.QualifiedNameReference;
-import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.util.GraphvizPrinter;
 import com.facebook.presto.util.JsonPlanPrinter;
 import com.google.common.base.Function;
@@ -55,11 +63,14 @@ import com.google.common.base.Functions;
 import com.google.common.base.Joiner;
 import com.google.common.base.Optional;
 import com.google.common.base.Strings;
+import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
+import io.airlift.slice.Slice;
 
+import java.lang.invoke.MethodHandle;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -71,12 +82,17 @@ import static java.lang.String.format;
 public class PlanPrinter
 {
     private final StringBuilder output = new StringBuilder();
+    private final Metadata metadata;
 
-    private PlanPrinter(PlanNode plan, Map<Symbol, Type> types, Optional<Map<PlanFragmentId, PlanFragment>> fragmentsById)
+    private PlanPrinter(PlanNode plan, Map<Symbol, Type> types, Metadata metadata, Optional<Map<PlanFragmentId, PlanFragment>> fragmentsById)
     {
         checkNotNull(plan, "plan is null");
         checkNotNull(types, "types is null");
         checkNotNull(fragmentsById, "fragmentsById is null");
+        checkNotNull(metadata, "metadata is null");
+
+        this.metadata = metadata;
+
         Visitor visitor = new Visitor(types, fragmentsById);
         plan.accept(visitor, 0);
     }
@@ -87,9 +103,9 @@ public class PlanPrinter
         return output.toString();
     }
 
-    public static String textLogicalPlan(PlanNode plan, Map<Symbol, Type> types)
+    public static String textLogicalPlan(PlanNode plan, Map<Symbol, Type> types, Metadata metadata)
     {
-        return new PlanPrinter(plan, types, Optional.<Map<PlanFragmentId, PlanFragment>>absent()).toString();
+        return new PlanPrinter(plan, types, metadata, Optional.<Map<PlanFragmentId, PlanFragment>>absent()).toString();
     }
 
     public static String getJsonPlanSource(PlanNode plan, Metadata metadata)
@@ -97,12 +113,12 @@ public class PlanPrinter
         return JsonPlanPrinter.getPlan(plan, metadata);
     }
 
-    public static String textDistributedPlan(SubPlan plan)
+    public static String textDistributedPlan(SubPlan plan, Metadata metadata)
     {
         List<PlanFragment> fragments = plan.getAllFragments();
         Map<PlanFragmentId, PlanFragment> fragmentsById = Maps.uniqueIndex(fragments, PlanFragment.idGetter());
         PlanFragment fragment = plan.getFragment();
-        return new PlanPrinter(fragment.getRoot(), fragment.getSymbols(), Optional.of(fragmentsById)).toString();
+        return new PlanPrinter(fragment.getRoot(), fragment.getSymbols(), metadata, Optional.of(fragmentsById)).toString();
     }
 
     public static String graphvizLogicalPlan(PlanNode plan, Map<Symbol, Type> types)
@@ -292,7 +308,7 @@ public class PlanPrinter
                 if (isOutputSymbol || isInOriginalConstraint || isInDomainSummary) {
                     print(indent + 2, "%s := %s", entry.getKey(), entry.getValue());
                     if (isInDomainSummary) {
-                        print(indent + 3, ":: %s", simplifyDomain(partitionsDomainSummary.getDomains().get(entry.getValue())));
+                        print(indent + 3, ":: %s", formatDomain(node.getTable(), entry.getValue(), simplifyDomain(partitionsDomainSummary.getDomains().get(entry.getValue()))));
                     }
                     else if (partitionsDomainSummary.isNone()) {
                         print(indent + 3, ":: NONE");
@@ -468,5 +484,58 @@ public class PlanPrinter
                 }
             }));
         }
+    }
+
+    private String formatDomain(TableHandle table, ColumnHandle column, Domain domain)
+    {
+        ImmutableList.Builder<String> parts = ImmutableList.builder();
+
+        if (domain.isNullAllowed()) {
+            parts.add("NULL");
+        }
+
+        try {
+            ColumnMetadata columnMetadata  = metadata.getColumnMetadata(table, column);
+            MethodHandle method = metadata.getExactOperator(OperatorInfo.OperatorType.CAST, VarcharType.VARCHAR, ImmutableList.of(columnMetadata.getType()))
+                    .getMethodHandle();
+
+            for (Range range : domain.getRanges()) {
+                StringBuilder builder = new StringBuilder();
+                if (range.isSingleValue()) {
+                    String value = ((Slice) method.invokeWithArguments(range.getSingleValue())).toStringUtf8();
+                    builder.append('[').append(value).append(']');
+                }
+                else {
+                    builder.append((range.getLow().getBound() == Marker.Bound.EXACTLY) ? '[' : '(');
+
+                    if (range.getLow().isLowerUnbounded()) {
+                        builder.append("<min>");
+                    }
+                    else {
+                        builder.append(((Slice) method.invokeWithArguments(range.getLow().getValue())).toStringUtf8());
+                    }
+
+                    builder.append(", ");
+
+                    if (range.getHigh().isUpperUnbounded()) {
+                        builder.append("<max>");
+                    }
+                    else {
+                        builder.append(((Slice) method.invokeWithArguments(range.getHigh().getValue())).toStringUtf8());
+                    }
+
+                    builder.append((range.getHigh().getBound() == Marker.Bound.EXACTLY) ? ']' : ')');
+                }
+                parts.add(builder.toString());
+            }
+        }
+        catch (OperatorNotFoundException e) {
+            parts.add("<UNREPRESENTABLE VALUE>");
+        }
+        catch (Throwable e) {
+            throw Throwables.propagate(e);
+        }
+
+        return "[" + Joiner.on(", ").join(parts.build()) + "]";
     }
 }
