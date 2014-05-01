@@ -60,6 +60,15 @@ import static com.google.common.base.Preconditions.checkNotNull;
 @ThreadSafe
 public class PluginManager
 {
+    private static final List<String> HIDDEN_CLASSES = ImmutableList.<String>builder()
+            .add("org.slf4j")
+            .build();
+
+    private static final ImmutableList<String> PARENT_FIRST_CLASSES = ImmutableList.<String>builder()
+            .add("com.facebook.presto")
+            .add("com.fasterxml.jackson")
+            .build();
+
     private static final Logger log = Logger.get(PluginManager.class);
 
     private final Injector injector;
@@ -199,12 +208,10 @@ public class PluginManager
         if (file.isFile() && (file.getName().equals("pom.xml") || file.getName().endsWith(".pom"))) {
             return buildClassLoaderFromPom(file);
         }
-        else if (file.isDirectory()) {
+        if (file.isDirectory()) {
             return buildClassLoaderFromDirectory(file);
         }
-        else {
-            return buildClassLoaderFromCoordinates(plugin);
-        }
+        return buildClassLoaderFromCoordinates(plugin);
     }
 
     private URLClassLoader buildClassLoaderFromPom(File pomFile)
@@ -262,13 +269,11 @@ public class PluginManager
 
     private URLClassLoader createClassLoader(List<URL> urls)
     {
-        return new SimpleChildFirstClassLoader(urls,
-                getClass().getClassLoader(),
-                ImmutableList.of("org.slf4j"),
-                ImmutableList.of("com.facebook.presto", "com.fasterxml.jackson"));
+        ClassLoader parent = getClass().getClassLoader();
+        return new SimpleChildFirstClassLoader(urls, parent, HIDDEN_CLASSES, PARENT_FIRST_CLASSES);
     }
 
-    private List<File> listFiles(File installedPluginsDir)
+    private static List<File> listFiles(File installedPluginsDir)
     {
         if (installedPluginsDir != null && installedPluginsDir.isDirectory()) {
             File[] files = installedPluginsDir.listFiles();
