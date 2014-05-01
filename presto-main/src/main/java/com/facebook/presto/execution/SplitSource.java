@@ -15,14 +15,19 @@ package com.facebook.presto.execution;
 
 import com.facebook.presto.metadata.Split;
 
+import java.io.Closeable;
 import java.util.List;
 
 public interface SplitSource
+    extends Closeable
 {
     String getDataSourceName();
 
     List<Split> getNextBatch(int maxSize)
             throws InterruptedException;
+
+    @Override
+    void close();
 
     boolean isFinished();
 }

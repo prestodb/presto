@@ -60,6 +60,12 @@ public class SampledSplitSource
     }
 
     @Override
+    public void close()
+    {
+        splitSource.close();
+    }
+
+    @Override
     public boolean isFinished()
     {
         return splitSource.isFinished();
