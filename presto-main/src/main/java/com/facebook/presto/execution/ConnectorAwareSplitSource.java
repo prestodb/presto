@@ -47,6 +47,12 @@ public class ConnectorAwareSplitSource
     }
 
     @Override
+    public void close()
+    {
+        source.close();
+    }
+
+    @Override
     public boolean isFinished()
     {
         return source.isFinished();
