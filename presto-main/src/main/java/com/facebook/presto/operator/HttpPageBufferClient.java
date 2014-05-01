@@ -29,6 +29,7 @@ import io.airlift.http.client.HttpUriBuilder;
 import io.airlift.http.client.Request;
 import io.airlift.http.client.Response;
 import io.airlift.http.client.ResponseHandler;
+import io.airlift.http.client.ResponseTooLargeException;
 import io.airlift.log.Logger;
 import io.airlift.slice.InputStreamSliceInput;
 import io.airlift.slice.SliceInput;
@@ -390,9 +391,7 @@ public final class HttpPageBufferClient
 
     private static Throwable rewriteException(Throwable t)
     {
-        // the Jetty HTTP client throws this if the response is too large
-        // TODO: https://bugs.eclipse.org/bugs/show_bug.cgi?id=433680
-        if ((t instanceof IllegalArgumentException) && "Buffering capacity exceeded".equals(t.getMessage())) {
+        if (t instanceof ResponseTooLargeException) {
             return new PageTooLargeException();
         }
         return t;
