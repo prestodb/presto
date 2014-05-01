@@ -23,7 +23,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.ListeningExecutorService;
 import com.google.common.util.concurrent.MoreExecutors;
-import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import jline.console.completer.Completer;
 
 import java.io.Closeable;
@@ -32,20 +31,20 @@ import java.util.SortedSet;
 import java.util.TreeSet;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.TimeUnit;
 
 import static com.google.common.base.Preconditions.checkNotNull;
+import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static java.lang.String.format;
+import static java.util.concurrent.Executors.newCachedThreadPool;
 
 public class TableNameCompleter
         implements Completer, Closeable
 {
     private static final long RELOAD_TIME_MINUTES = 2;
 
-    private final ExecutorService executor = Executors.newCachedThreadPool(daemonThreadsNamed("completer-%d"));
     private final ClientSession clientSession;
+    private final ExecutorService executor = newCachedThreadPool(daemonThreadsNamed("completer-%d"));
     private final QueryRunner queryRunner;
     private final LoadingCache<String, List<String>> tableCache;
     private final LoadingCache<String, List<String>> functionCache;
@@ -132,7 +131,7 @@ public class TableNameCompleter
         return blankPos + 1;
     }
 
-    private int findLastBlank(String buffer)
+    private static int findLastBlank(String buffer)
     {
         for (int i = buffer.length() - 1; i >= 0; i--) {
             if (Character.isWhitespace(buffer.charAt(i))) {
@@ -159,12 +158,7 @@ public class TableNameCompleter
         executor.shutdownNow();
     }
 
-    private static ThreadFactory daemonThreadsNamed(String nameFormat)
-    {
-        return new ThreadFactoryBuilder().setNameFormat(nameFormat).setDaemon(true).build();
-    }
-
-    abstract static class BackgroundCacheLoader<K, V>
+    private abstract static class BackgroundCacheLoader<K, V>
             extends CacheLoader<K, V>
     {
         private final ListeningExecutorService executor;

@@ -179,7 +179,7 @@ public class Console
         }
     }
 
-    private Optional<Object> getParsedStatement(String statement)
+    private static Optional<Object> getParsedStatement(String statement)
     {
         try {
             return Optional.of((Object) SqlParser.createStatement(statement));
@@ -192,12 +192,12 @@ public class Console
     static ClientSession processSessionParameterChange(Object parsedStatement, ClientSession session)
     {
         if (parsedStatement instanceof UseCollection) {
-            UseCollection useCollection = (UseCollection) parsedStatement;
-            if (useCollection.getType() == UseCollection.CollectionType.CATALOG) {
-                return ClientSession.withCatalog(session, useCollection.getCollection());
-            }
-            else if (useCollection.getType() == UseCollection.CollectionType.SCHEMA) {
-                return ClientSession.withSchema(session, useCollection.getCollection());
+            UseCollection use = (UseCollection) parsedStatement;
+            switch (use.getType()) {
+                case CATALOG:
+                    return ClientSession.withCatalog(session, use.getCollection());
+                case SCHEMA:
+                    return ClientSession.withSchema(session, use.getCollection());
             }
         }
         return session;
