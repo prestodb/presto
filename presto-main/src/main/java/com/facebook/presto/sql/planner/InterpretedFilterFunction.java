@@ -43,8 +43,8 @@ public class InterpretedFilterFunction
 
         // analyze expression so we can know the type of every expression in the tree
         ImmutableMap.Builder<Input, Type> inputTypes = ImmutableMap.builder();
-        for (Entry<Symbol, Type> entry : symbolTypes.entrySet()) {
-            inputTypes.put(symbolToInputMappings.get(entry.getKey()), entry.getValue());
+        for (Map.Entry<Symbol, Input> entry : symbolToInputMappings.entrySet()) {
+            inputTypes.put(entry.getValue(), symbolTypes.get(entry.getKey()));
         }
         IdentityHashMap<Expression, Type> expressionTypes = getExpressionTypesFromInput(session, metadata, inputTypes.build(), rewritten);
 

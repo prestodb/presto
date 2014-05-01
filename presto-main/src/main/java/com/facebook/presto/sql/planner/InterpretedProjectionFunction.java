@@ -13,22 +13,23 @@
  */
 package com.facebook.presto.sql.planner;
 
-import com.facebook.presto.spi.ConnectorSession;
-import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.block.BlockCursor;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.operator.ProjectionFunction;
+import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.RecordCursor;
+import com.facebook.presto.spi.block.BlockBuilder;
+import com.facebook.presto.spi.block.BlockCursor;
+import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.ExpressionTreeRewriter;
 import com.facebook.presto.sql.tree.Input;
-import com.facebook.presto.spi.type.Type;
+import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.Slice;
 
 import java.util.IdentityHashMap;
 import java.util.Map;
 
-import static com.facebook.presto.sql.analyzer.ExpressionAnalyzer.getExpressionTypes;
+import static com.facebook.presto.sql.analyzer.ExpressionAnalyzer.getExpressionTypesFromInput;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 public class InterpretedProjectionFunction
@@ -39,16 +40,20 @@ public class InterpretedProjectionFunction
 
     public InterpretedProjectionFunction(Expression expression,
             Map<Symbol, Type> symbolTypes,
-            Map<Symbol, Input> symbolToInputMapping,
+            Map<Symbol, Input> symbolToInputMappings,
             Metadata metadata,
             ConnectorSession session)
     {
-        // analyze expression so we can know the type of every expression in the tree
-        IdentityHashMap<Expression, Type> expressionTypes = getExpressionTypes(session, metadata, symbolTypes, expression);
-        this.type = checkNotNull(expressionTypes.get(expression), "type is null");
-
         // pre-compute symbol -> input mappings and replace the corresponding nodes in the tree
-        Expression rewritten = ExpressionTreeRewriter.rewriteWith(new SymbolToInputRewriter(symbolToInputMapping), expression);
+        Expression rewritten = ExpressionTreeRewriter.rewriteWith(new SymbolToInputRewriter(symbolToInputMappings), expression);
+
+        // analyze expression so we can know the type of every expression in the tree
+        ImmutableMap.Builder<Input, Type> inputTypes = ImmutableMap.builder();
+        for (Map.Entry<Symbol, Input> entry : symbolToInputMappings.entrySet()) {
+            inputTypes.put(entry.getValue(), symbolTypes.get(entry.getKey()));
+        }
+        IdentityHashMap<Expression, Type> expressionTypes = getExpressionTypesFromInput(session, metadata, inputTypes.build(), rewritten);
+        this.type = checkNotNull(expressionTypes.get(rewritten), "type is null");
 
         evaluator = ExpressionInterpreter.expressionInterpreter(rewritten, metadata, session, expressionTypes);
     }
