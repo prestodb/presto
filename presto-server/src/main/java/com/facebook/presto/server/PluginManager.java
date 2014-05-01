@@ -67,6 +67,7 @@ public class PluginManager
     private static final ImmutableList<String> PARENT_FIRST_CLASSES = ImmutableList.<String>builder()
             .add("com.facebook.presto")
             .add("com.fasterxml.jackson")
+            .add("io.airlift.slice")
             .build();
 
     private static final Logger log = Logger.get(PluginManager.class);
