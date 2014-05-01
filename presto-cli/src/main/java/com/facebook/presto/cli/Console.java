@@ -99,9 +99,9 @@ public class Console
     @SuppressWarnings("fallthrough")
     private void runConsole(QueryRunner queryRunner, ClientSession session)
     {
-        try (TableNameCompleter tableNameCompleter = new TableNameCompleter(clientOptions.toClientSession(), queryRunner);
+        try (TableNameCompleter tableNameCompleter = new TableNameCompleter(queryRunner);
                 LineReader reader = new LineReader(getHistory(), tableNameCompleter)) {
-            tableNameCompleter.populateCache(session.getSchema());
+            tableNameCompleter.populateCache();
             StringBuilder buffer = new StringBuilder();
             while (true) {
                 // read a line of input from user
@@ -153,7 +153,8 @@ public class Console
                     Optional<Object> statement = getParsedStatement(split.statement());
                     if (statement.isPresent() && isSessionParameterChange(statement.get())) {
                         session = processSessionParameterChange(statement.get(), session);
-                        queryRunner = QueryRunner.create(session);
+                        queryRunner.setSession(session);
+                        tableNameCompleter.populateCache();
                     }
                     else {
                         OutputFormat outputFormat = OutputFormat.ALIGNED;
