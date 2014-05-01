@@ -83,6 +83,7 @@ public abstract class AbstractTestHiveFileFormats
 
     private static final List<ObjectInspector> FIELD_INSPECTORS = ImmutableList.of(
                 javaStringObjectInspector,
+                getStandardListObjectInspector(javaIntObjectInspector),
                 javaStringObjectInspector,
                 javaStringObjectInspector,
                 javaByteObjectInspector,
@@ -134,6 +135,7 @@ public abstract class AbstractTestHiveFileFormats
 
     protected static final List<String> COLUMN_NAMES = ImmutableList.of(
                 "t_null_string",
+                "t_null_array_int",
                 "t_empty_string",
                 "t_string",
                 "t_tinyint",
@@ -174,6 +176,7 @@ public abstract class AbstractTestHiveFileFormats
     // Pairs of <value-to-write-to-Hive, value-expected-from-Presto>
     @SuppressWarnings("unchecked")
     private static final List<Pair<Object, Object>>  TEST_VALUES = ImmutableList.of(
+                Pair.<Object, Object>of(null, null),
                 Pair.<Object, Object>of(null, null),
                 Pair.<Object, Object>of("", Slices.EMPTY_SLICE),
                 Pair.<Object, Object>of("test", Slices.utf8Slice("test")),
@@ -283,7 +286,8 @@ public abstract class AbstractTestHiveFileFormats
         for (int row = 0; row < NUM_ROWS; row++) {
             assertTrue(cursor.advanceNextPosition());
             assertTrue(cursor.isNull(0));
-            for (int i = 1; i < TEST_VALUES.size(); i++) {
+            assertTrue(cursor.isNull(1));
+            for (int i = 2; i < TEST_VALUES.size(); i++) {
                 Object fieldFromCursor;
 
                 Type type = HiveType.getHiveType(FIELD_INSPECTORS.get(i)).getNativeType();
