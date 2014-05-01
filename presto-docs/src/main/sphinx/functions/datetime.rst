@@ -2,27 +2,25 @@
 Date and Time Functions and Operators
 =====================================
 
-.. warning::
-
-    Timestamps are currently represented as UNIX timestamps using the
-    ``bigint`` type. This will change in a future release. Timestamps
-    should be treated as opaque values and only used with the functions
-    and operators in this chapter. Performing integer math on timestamp
-    values is guaranteed to break in a future release.
-
 Date and Time Operators
 -----------------------
 
-======== =======
-Operator Example
-======== =======
-``+``    ``date '2012-08-08' + interval '1' hour``
-``+``    ``time '01:00' + interval '3' hour``
-``+``    ``timestamp '2012-08-08 01:00' + interval '23' hour``
-``-``    ``date '2012-08-08' - interval '1' hour``
-``-``    ``time '01:00' - interval '3' hour``
-``-``    ``timestamp '2012-08-08 01:00' - interval '23' hour``
-======== =======
+======== ===================================================== ===========================
+Operator Example                                               Result
+======== ===================================================== ===========================
+``+``    ``date '2012-08-08' + interval '2' day``              ``2012-08-10``
+``+``    ``time '01:00' + interval '3' hour``                  ``04:00:00.000``
+``+``    ``timestamp '2012-08-08 01:00' + interval '29' hour`` ``2012-08-09 06:00:00.000``
+``+``    ``timestamp '2012-10-31 01:00' + interval '1' month`` ``2012-11-30 01:00:00.000``
+``+``    ``interval '2' day + interval '3' hour``              ``2 03:00:00.000``
+``+``    ``interval '3' year + interval '5' month``            ``3-5``
+``-``    ``date '2012-08-08' - interval '2' day``              ``2012-08-06``
+``-``    ``time '01:00' - interval '3' hour``                  ``22:00:00.000``
+``-``    ``timestamp '2012-08-08 01:00' - interval '29' hour`` ``2012-08-06 20:00:00.000``
+``-``    ``timestamp '2012-10-31 01:00' - interval '1' month`` ``2012-09-30 01:00:00.000``
+``-``    ``interval '2' day - interval '3' hour``              ``1 21:00:00.000``
+``-``    ``interval '3' year - interval '5' month``            ``2-7``
+======== ===================================================== ===========================
 
 Date and Time Functions
 -----------------------
@@ -31,35 +29,70 @@ Date and Time Functions
 
     Returns the current date as of the start of the query.
 
-    .. note:: This SQL-standard function does not use parenthesis.
-
-    .. note:: This function is not yet supported.
-
-.. function:: current_time -> time
+.. function:: current_time -> time with time zone
 
     Returns the current time as of the start of the query.
 
-    .. note:: This SQL-standard function does not use parenthesis.
-
-    .. note:: This function is not yet supported.
-
-.. function:: current_timestamp -> timestamp
+.. function:: current_timestamp -> timestamp with time zone
 
     Returns the current timestamp as of the start of the query.
-
-    .. note:: This SQL-standard function does not use parenthesis.
 
 .. function:: from_unixtime(unixtime) -> timestamp
 
     Returns the UNIX timestamp ``unixtime`` as a timestamp.
 
-.. function:: now() -> timestamp
+.. function:: from_unixtime(unixtime, hours, minutes) -> timestamp with time zone
+
+    Returns the UNIX timestamp ``unixtime`` as a timestamp with time zone
+    using ``hours`` and ``minutes`` for the time zone offset.
+
+.. function:: localtime -> time
+
+    Returns the current time as of the start of the query.
+
+.. function:: localtimestamp -> time
+
+    Returns the current timestamp as of the start of the query.
+
+.. function:: now() -> timestamp with time zone
 
     This is an alias for ``current_timestamp``.
 
 .. function:: to_unixtime(timestamp) -> double
 
     Returns ``timestamp`` as a UNIX timestamp.
+
+.. note:: The following SQL-standard functions do not use parenthesis:
+
+    - ``current_date``
+    - ``current_time``
+    - ``current_timestamp``
+    - ``localtime``
+    - ``localtimestamp``
+
+Truncation Function
+-------------------
+
+The ``date_trunc`` function supports the following units:
+
+=========== ===========================
+Unit        Example Truncated Value
+=========== ===========================
+``second``  ``2001-08-22 03:04:05.000``
+``minute``  ``2001-08-22 03:04:00.000``
+``hour``    ``2001-08-22 03:00:00.000``
+``day``     ``2001-08-22 00:00:00.000``
+``week``    ``2001-08-20 00:00:00.000``
+``month``   ``2001-08-01 00:00:00.000``
+``quarter`` ``2001-07-01 00:00:00.000``
+``year``    ``2001-01-01 00:00:00.000``
+=========== ===========================
+
+The above examples use the timestamp ``2001-08-22 03:04:05.321`` as the input.
+
+.. function:: date_trunc(unit, x) -> [same as input]
+
+    Returns ``x`` truncated to ``unit``.
 
 Interval Functions
 ------------------
@@ -79,7 +112,7 @@ Unit        Description
 ``year``    Years
 =========== ==================
 
-.. function:: date_add(unit, value, timestamp) -> timestamp
+.. function:: date_add(unit, value, timestamp) -> [same as input]
 
     Adds an interval ``value`` of type ``unit`` to ``timestamp``.
     Subtraction can be performed by using a negative value.
@@ -133,7 +166,7 @@ Specifier Description
 ``%x``    ``x``, for any ``x`` not listed above
 ========= ===========
 
-.. warning:: The following specifiers are not currently supported: ``%D %U %u %V %X %x``
+.. warning:: The following specifiers are not currently supported: ``%D %U %u %V %X``
 
 .. function:: date_format(timestamp, format) -> varchar
 
@@ -151,13 +184,13 @@ the Java `SimpleDateFormat`_ pattern format.
 
 .. _SimpleDateFormat: http://docs.oracle.com/javase/7/docs/api/java/text/SimpleDateFormat.html
 
-.. function:: format_datetime(timestamp, format) -> timestamp
+.. function:: format_datetime(timestamp, format) -> varchar
 
     Formats ``timestamp`` as a string using ``format``.
 
-.. function:: parse_datetime(string, format) -> timestamp
+.. function:: parse_datetime(string, format) -> timestamp with time zone
 
-    Parses ``string`` into a timestamp using ``format``.
+    Parses ``string`` into a timestamp with time zone using ``format``.
 
 Extraction Function
 -------------------
@@ -180,78 +213,89 @@ Field               Description
 ``HOUR``            :func:`hour`
 ``MINUTE``          :func:`minute`
 ``SECOND``          :func:`second`
-``TIMEZONE_HOUR``   Hour component of the time zone offset
-``TIMEZONE_MINUTE`` Minute component of the time zone offset
+``TIMEZONE_HOUR``   :func:`timezone_hour`
+``TIMEZONE_MINUTE`` :func:`timezone_minute`
 =================== ===========
 
-.. function:: extract(field FROM timestamp) -> bigint
+The types supported by the ``extract`` fuction vary depending on the
+field to be extracted. Most fields support all date and time types.
 
-    Returns ``field`` from ``timestamp``.
+.. function:: extract(field FROM x) -> bigint
+
+    Returns ``field`` from ``x``.
 
     .. note:: This SQL-standard function uses special syntax for specifying the arguments.
 
 Convenience Extraction Functions
 --------------------------------
 
-.. function:: day(timestamp) -> bigint
+.. function:: day(x) -> bigint
 
-    Returns the day of the month from ``timestamp``.
+    Returns the day of the month from ``x``.
 
-.. function:: day_of_month(timestamp) -> bigint
+.. function:: day_of_month(x) -> bigint
 
     This is an alias for :func:`day`.
 
-.. function:: day_of_week(timestamp) -> bigint
+.. function:: day_of_week(x) -> bigint
 
-    Returns the ISO day of the week from ``timestamp``.
+    Returns the ISO day of the week from ``x``.
     The value ranges from ``1`` (Monday) to ``7`` (Sunday).
 
-.. function:: day_of_year(timestamp) -> bigint
+.. function:: day_of_year(x) -> bigint
 
-    Returns the day of the year from ``timestamp``.
+    Returns the day of the year from ``x``.
     The value ranges from ``1`` to ``366``.
 
-.. function:: dow(timestamp) -> bigint
+.. function:: dow(x) -> bigint
 
     This is an alias for :func:`day_of_week`.
 
-.. function:: doy(timestamp) -> bigint
+.. function:: doy(x) -> bigint
 
     This is an alias for :func:`day_of_year`.
 
-.. function:: hour(timestamp) -> bigint
+.. function:: hour(x) -> bigint
 
-    Returns the hour of the day from ``timestamp``.
+    Returns the hour of the day from ``x``.
     The value ranges from ``0`` to ``23``.
 
-.. function:: minute(timestamp) -> bigint
+.. function:: minute(x) -> bigint
 
-    Returns the minute of the hour from ``timestamp``.
+    Returns the minute of the hour from ``x``.
 
-.. function:: month(timestamp) -> bigint
+.. function:: month(x) -> bigint
 
-    Returns the month of the year from ``timestamp``.
+    Returns the month of the year from ``x``.
 
-.. function:: quarter(timestamp) -> bigint
+.. function:: quarter(x) -> bigint
 
-    Returns the quarter of the year from ``timestamp``.
+    Returns the quarter of the year from ``x``.
     The value ranges from ``1`` to ``4``.
 
-.. function:: second(timestamp) -> bigint
+.. function:: second(x) -> bigint
 
-    Returns the second of the hour from ``timestamp``.
+    Returns the second of the hour from ``x``.
 
-.. function:: week(timestamp) -> bigint
+.. function:: timezone_hour(timestamp) -> bigint
 
-    Returns the `ISO week`_ of the year from ``timestamp``.
+    Returns the hour of the time zone offset from ``timestamp``.
+
+.. function:: timezone_minute(timestamp) -> bigint
+
+    Returns the minute of the time zone offset from ``timestamp``.
+
+.. function:: week(x) -> bigint
+
+    Returns the `ISO week`_ of the year from ``x``.
     The value ranges from ``1`` to ``53``.
 
     .. _ISO week: https://en.wikipedia.org/wiki/ISO_week_date
 
-.. function:: week_of_year(timestamp) -> bigint
+.. function:: week_of_year(x) -> bigint
 
     This is an alias for :func:`week`.
 
-.. function:: year(timestamp) -> bigint
+.. function:: year(x) -> bigint
 
-    Returns the year from ``timestamp``.
+    Returns the year from ``x``.
