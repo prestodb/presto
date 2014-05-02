@@ -26,3 +26,56 @@ VARCHAR
 -------
 
     Variable length character data.
+
+DATE
+----
+
+    Calendar date (year, month, day).
+
+    Example: ``DATE '2001-08-22'``
+
+TIME
+----
+
+    Time of day (hour, minute, second, millisecond) without a time zone.
+    Values of this type are parsed and rendered in the session time zone.
+
+    Example: ``TIME '01:02:03.456'``
+
+TIME WITH TIME ZONE
+-------------------
+
+    Time of day (hour, minute, second, millisecond) with a time zone.
+    Values of this type are rendered using the time zone from the value.
+
+    Example: ``TIME '01:02:03.456 America/Los_Angeles'``
+
+TIMESTAMP
+---------
+
+    Instant in time that includes the date and time of day without a time zone.
+    Values of this type are parsed and rendered in the session time zone.
+
+    Example: ``TIMESTAMP '2001-08-22 03:04:05.321'``
+
+TIMESTAMP WITH TIME ZONE
+------------------------
+
+    Instant in time that includes the date and time of day with a time zone.
+    Values of this type are rendered using the time zone from the value.
+
+    Example: ``TIMESTAMP '2001-08-22 03:04:05.321 America/Los_Angeles'``
+
+INTERVAL YEAR TO MONTH
+----------------------
+
+    Span of years and months.
+
+    Example: ``INTERVAL '3' MONTH``
+
+INTERVAL DAY TO SECOND
+----------------------
+
+    Span of days, hours, minutes, seconds and milliseconds.
+
+    Example: ``INTERVAL '2' DAY``
