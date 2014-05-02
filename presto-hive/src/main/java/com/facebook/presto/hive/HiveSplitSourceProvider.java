@@ -16,6 +16,7 @@ package com.facebook.presto.hive;
 import com.facebook.presto.hive.util.AsyncRecursiveWalker;
 import com.facebook.presto.hive.util.BoundedExecutor;
 import com.facebook.presto.hive.util.FileStatusCallback;
+import com.facebook.presto.hive.util.SetThreadName;
 import com.facebook.presto.hive.util.SuspendingExecutor;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorSplit;
@@ -160,7 +161,7 @@ class HiveSplitSourceProvider
             @Override
             public void run()
             {
-                try {
+                try (SetThreadName ignored = new SetThreadName("HiveSplitProducer")) {
                     loadPartitionSplits(splitSource, suspendingExecutor, session);
                 }
             }
