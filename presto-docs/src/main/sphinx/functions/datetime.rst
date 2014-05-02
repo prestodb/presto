@@ -217,7 +217,7 @@ Field               Description
 ``TIMEZONE_MINUTE`` :func:`timezone_minute`
 =================== ===========
 
-The types supported by the ``extract`` fuction vary depending on the
+The types supported by the ``extract`` function vary depending on the
 field to be extracted. Most fields support all date and time types.
 
 .. function:: extract(field FROM x) -> bigint
