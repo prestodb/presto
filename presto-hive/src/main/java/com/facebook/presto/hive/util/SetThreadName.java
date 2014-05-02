@@ -11,23 +11,25 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.execution;
-
-import com.facebook.presto.metadata.Split;
+package com.facebook.presto.hive.util;
 
 import java.io.Closeable;
-import java.util.List;
 
-public interface SplitSource
-    extends Closeable
+// copied from com.facebook.presto.util.SetThreadName
+public class SetThreadName
+        implements Closeable
 {
-    String getDataSourceName();
+    private final String originalThreadName;
 
-    List<Split> getNextBatch(int maxSize)
-            throws InterruptedException;
+    public SetThreadName(String format, Object... args)
+    {
+        originalThreadName = Thread.currentThread().getName();
+        Thread.currentThread().setName(String.format(format, args) + "-" + Thread.currentThread().getId());
+    }
 
     @Override
-    void close();
-
-    boolean isFinished();
+    public void close()
+    {
+        Thread.currentThread().setName(originalThreadName);
+    }
 }

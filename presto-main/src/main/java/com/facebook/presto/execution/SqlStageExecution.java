@@ -616,25 +616,26 @@ public class SqlStageExecution
     {
         AtomicInteger nextTaskId = new AtomicInteger(0);
 
-        SplitSource splitSource = this.dataSource.get();
-        while (!splitSource.isFinished()) {
-            // if query has been canceled, exit cleanly; query will never run regardless
-            if (getState().isDone()) {
-                break;
-            }
+        try (SplitSource splitSource = this.dataSource.get()) {
+            while (!splitSource.isFinished()) {
+                // if query has been canceled, exit cleanly; query will never run regardless
+                if (getState().isDone()) {
+                    break;
+                }
 
-            long start = System.nanoTime();
-            Set<Split> pendingSplits = ImmutableSet.copyOf(splitSource.getNextBatch(splitBatchSize));
-            getSplitDistribution.add(System.nanoTime() - start);
+                long start = System.nanoTime();
+                Set<Split> pendingSplits = ImmutableSet.copyOf(splitSource.getNextBatch(splitBatchSize));
+                getSplitDistribution.add(System.nanoTime() - start);
 
-            while (!pendingSplits.isEmpty() && !getState().isDone()) {
-                Multimap<Node, Split> splitAssignment = nodeSelector.computeAssignments(pendingSplits);
-                pendingSplits = ImmutableSet.copyOf(Sets.difference(pendingSplits, ImmutableSet.copyOf(splitAssignment.values())));
+                while (!pendingSplits.isEmpty() && !getState().isDone()) {
+                    Multimap<Node, Split> splitAssignment = nodeSelector.computeAssignments(pendingSplits);
+                    pendingSplits = ImmutableSet.copyOf(Sets.difference(pendingSplits, ImmutableSet.copyOf(splitAssignment.values())));
 
-                assignSplits(nextTaskId, splitAssignment);
+                    assignSplits(nextTaskId, splitAssignment);
 
-                if (!pendingSplits.isEmpty()) {
-                    waitForFreeNode(nextTaskId);
+                    if (!pendingSplits.isEmpty()) {
+                        waitForFreeNode(nextTaskId);
+                    }
                 }
             }
         }

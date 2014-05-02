@@ -16,6 +16,7 @@ package com.facebook.presto.hive;
 import com.facebook.presto.hive.util.AsyncRecursiveWalker;
 import com.facebook.presto.hive.util.BoundedExecutor;
 import com.facebook.presto.hive.util.FileStatusCallback;
+import com.facebook.presto.hive.util.SetThreadName;
 import com.facebook.presto.hive.util.SuspendingExecutor;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorSplit;
@@ -47,6 +48,8 @@ import org.apache.hadoop.mapred.InputFormat;
 import org.apache.hadoop.mapred.InputSplit;
 import org.apache.hadoop.mapred.JobConf;
 
+import javax.annotation.concurrent.GuardedBy;
+
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.util.ArrayList;
@@ -58,6 +61,8 @@ import java.util.Map;
 import java.util.Properties;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.Executor;
+import java.util.concurrent.Future;
+import java.util.concurrent.FutureTask;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -149,25 +154,26 @@ class HiveSplitSourceProvider
     {
         // Each iterator has its own bounded executor and can be independently suspended
         final SuspendingExecutor suspendingExecutor = new SuspendingExecutor(new BoundedExecutor(executor, maxThreads));
-        final HiveSplitSource hiveSplitSource = new HiveSplitSource(connectorId, maxOutstandingSplits, suspendingExecutor);
-        executor.execute(new Runnable()
+        final HiveSplitSource splitSource = new HiveSplitSource(connectorId, maxOutstandingSplits, suspendingExecutor);
+
+        FutureTask<?> producer = new FutureTask<>(new Runnable()
         {
             @Override
             public void run()
             {
-                try {
-                    loadPartitionSplits(hiveSplitSource, suspendingExecutor, session);
-                }
-                catch (InterruptedException e) {
-                    Thread.currentThread().interrupt();
+                try (SetThreadName ignored = new SetThreadName("HiveSplitProducer")) {
+                    loadPartitionSplits(splitSource, suspendingExecutor, session);
                 }
             }
-        });
-        return hiveSplitSource;
+        }, null);
+
+        executor.execute(producer);
+        splitSource.setProducerFuture(producer);
+
+        return splitSource;
     }
 
     private void loadPartitionSplits(final HiveSplitSource hiveSplitSource, SuspendingExecutor suspendingExecutor, final ConnectorSession session)
-            throws InterruptedException
     {
         final Semaphore semaphore = new Semaphore(maxPartitionBatchSize);
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
@@ -226,7 +232,13 @@ class HiveSplitSourceProvider
                 // Acquire semaphore so that we only have a fixed number of outstanding partitions being processed asynchronously
                 // NOTE: there must not be any calls that throw in the space between acquiring the semaphore and setting the Future
                 // callback to release it. Otherwise, we will need a try-finally block around this section.
-                semaphore.acquire();
+                try {
+                    semaphore.acquire();
+                }
+                catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                    return;
+                }
 
                 ListenableFuture<Void> partitionFuture = createRecursiveWalker(fs, suspendingExecutor).beginWalk(path, new FileStatusCallback()
                 {
@@ -412,6 +424,10 @@ class HiveSplitSourceProvider
         private final AtomicReference<Throwable> throwable = new AtomicReference<>();
         private final int maxOutstandingSplits;
         private final SuspendingExecutor suspendingExecutor;
+        private volatile boolean closed;
+
+        @GuardedBy("this")
+        private Future<?> producerFuture;
 
         @VisibleForTesting
         HiveSplitSource(String connectorId, int maxOutstandingSplits, SuspendingExecutor suspendingExecutor)
@@ -476,6 +492,8 @@ class HiveSplitSourceProvider
         public List<ConnectorSplit> getNextBatch(int maxSize)
                 throws InterruptedException
         {
+            checkState(!closed, "Provider is already closed");
+
             // wait for at least one split and then take as may extra splits as possible
             // if an error has been registered, the take will succeed immediately because
             // will be at least one finished marker in the queue
@@ -519,6 +537,31 @@ class HiveSplitSourceProvider
                 throw propagatePrestoException(throwable.get());
             }
             return isFinished;
+        }
+
+        @Override
+        public void close()
+        {
+            queue.add(FINISHED_MARKER);
+            suspendingExecutor.suspend();
+
+            synchronized (this) {
+                closed = true;
+
+                if (producerFuture != null) {
+                    producerFuture.cancel(true);
+                }
+            }
+        }
+
+        public synchronized void setProducerFuture(Future<?> future)
+        {
+            producerFuture = future;
+
+            // someone may have called close before calling this method
+            if (closed) {
+                producerFuture.cancel(true);
+            }
         }
 
         private RuntimeException propagatePrestoException(Throwable throwable)

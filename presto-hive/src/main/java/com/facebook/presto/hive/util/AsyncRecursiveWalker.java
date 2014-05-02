@@ -73,7 +73,7 @@ public class AsyncRecursiveWalker
 
     private void doWalk(Path path, FileStatusCallback callback, AtomicLong taskCount, SettableFuture<Void> future)
     {
-        try {
+        try (SetThreadName ignored = new SetThreadName("HiveHdfsWalker")) {
             RemoteIterator<LocatedFileStatus> iterator = getLocatedFileStatusRemoteIterator(path);
 
             while (iterator.hasNext()) {

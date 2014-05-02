@@ -13,14 +13,19 @@
  */
 package com.facebook.presto.spi;
 
+import java.io.Closeable;
 import java.util.List;
 
 public interface ConnectorSplitSource
+    extends Closeable
 {
     String getDataSourceName();
 
     List<ConnectorSplit> getNextBatch(int maxSize)
             throws InterruptedException;
+
+    @Override
+    void close();
 
     boolean isFinished();
 }

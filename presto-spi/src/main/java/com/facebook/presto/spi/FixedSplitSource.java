@@ -59,4 +59,9 @@ public class FixedSplitSource
     {
         return offset >= splits.size();
     }
+
+    @Override
+    public void close()
+    {
+    }
 }
