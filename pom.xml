@@ -40,7 +40,7 @@
         <air.check.skip-license>false</air.check.skip-license>
 
         <dep.antlr.version>3.4</dep.antlr.version>
-        <dep.airlift.version>0.88-SNAPSHOT</dep.airlift.version>
+        <dep.airlift.version>0.88</dep.airlift.version>
         <dep.packaging.version>${dep.airlift.version}</dep.packaging.version>
 
         <cli.skip-execute>true</cli.skip-execute>
