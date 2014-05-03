@@ -70,6 +70,7 @@ import org.apache.hadoop.hive.metastore.api.Database;
 import org.apache.hadoop.hive.metastore.api.FieldSchema;
 import org.apache.hadoop.hive.metastore.api.MetaException;
 import org.apache.hadoop.hive.metastore.api.NoSuchObjectException;
+import org.apache.hadoop.hive.metastore.api.Partition;
 import org.apache.hadoop.hive.metastore.api.SerDeInfo;
 import org.apache.hadoop.hive.metastore.api.StorageDescriptor;
 import org.apache.hadoop.hive.metastore.api.Table;
@@ -302,7 +303,7 @@ public class HiveClient
         try {
             Table table = metastore.getTable(tableName.getSchemaName(), tableName.getTableName());
             for (HiveColumnHandle columnHandle : getColumnHandles(table, true)) {
-                if (columnHandle.getName().equals(HiveColumnHandle.SAMPLE_WEIGHT_COLUMN_NAME)) {
+                if (columnHandle.getName().equals(SAMPLE_WEIGHT_COLUMN_NAME)) {
                     return columnHandle;
                 }
             }
@@ -739,7 +740,7 @@ public class HiveClient
         Collections.sort(partitionNames, Ordering.natural().reverse());
 
         Table table;
-        Iterable<org.apache.hadoop.hive.metastore.api.Partition> hivePartitions;
+        Iterable<Partition> hivePartitions;
         try {
             table = metastore.getTable(tableName.getSchemaName(), tableName.getTableName());
             hivePartitions = getPartitions(table, tableName, partitionNames);
@@ -764,7 +765,7 @@ public class HiveClient
                 hiveTableHandle.getSession()).get();
     }
 
-    private Iterable<org.apache.hadoop.hive.metastore.api.Partition> getPartitions(final Table table, final SchemaTableName tableName, List<String> partitionNames)
+    private Iterable<Partition> getPartitions(final Table table, final SchemaTableName tableName, List<String> partitionNames)
             throws NoSuchObjectException
     {
         if (partitionNames.equals(ImmutableList.of(UNPARTITIONED_ID))) {
@@ -772,19 +773,19 @@ public class HiveClient
         }
 
         Iterable<List<String>> partitionNameBatches = partitionExponentially(partitionNames, minPartitionBatchSize, maxPartitionBatchSize);
-        Iterable<List<org.apache.hadoop.hive.metastore.api.Partition>> partitionBatches = transform(partitionNameBatches, new Function<List<String>, List<org.apache.hadoop.hive.metastore.api.Partition>>()
+        Iterable<List<Partition>> partitionBatches = transform(partitionNameBatches, new Function<List<String>, List<Partition>>()
         {
             @Override
-            public List<org.apache.hadoop.hive.metastore.api.Partition> apply(List<String> partitionNameBatch)
+            public List<Partition> apply(List<String> partitionNameBatch)
             {
                 Exception exception = null;
                 for (int attempt = 0; attempt < 10; attempt++) {
                     try {
-                        List<org.apache.hadoop.hive.metastore.api.Partition> partitions = metastore.getPartitionsByNames(tableName.getSchemaName(), tableName.getTableName(), partitionNameBatch);
+                        List<Partition> partitions = metastore.getPartitionsByNames(tableName.getSchemaName(), tableName.getTableName(), partitionNameBatch);
                         checkState(partitionNameBatch.size() == partitions.size(), "expected %s partitions but found %s", partitionNameBatch.size(), partitions.size());
 
                         // verify all partitions are online
-                        for (org.apache.hadoop.hive.metastore.api.Partition partition : partitions) {
+                        for (Partition partition : partitions) {
                             String protectMode = partition.getParameters().get(ProtectMode.PARAMETER_NAME);
                             if (protectMode != null && getProtectModeFromString(protectMode).offline) {
                                 throw new PartitionOfflineException(tableName, makePartName(table.getPartitionKeys(), partition.getValues()));
@@ -809,6 +810,7 @@ public class HiveClient
                         throw Throwables.propagate(e);
                     }
                 }
+                assert exception != null; // impossible
                 throw Throwables.propagate(exception);
             }
         });
