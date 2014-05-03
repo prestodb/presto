@@ -17,7 +17,7 @@ import org.testng.annotations.Test;
 
 import java.util.concurrent.ExecutorService;
 
-import static com.facebook.presto.util.Threads.daemonThreadsNamed;
+import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 
 public class TestBenchmarks

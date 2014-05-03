@@ -127,10 +127,10 @@ import java.util.concurrent.ScheduledExecutorService;
 
 import static com.facebook.presto.guice.ConditionalModule.installIfPropertyEquals;
 import static com.facebook.presto.guice.DbiProvider.bindDbiToDataSource;
-import static com.facebook.presto.util.Threads.daemonThreadsNamed;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.inject.multibindings.MapBinder.newMapBinder;
 import static com.google.inject.multibindings.Multibinder.newSetBinder;
+import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.airlift.configuration.ConfigurationModule.bindConfig;
 import static io.airlift.discovery.client.DiscoveryBinder.discoveryBinder;
 import static io.airlift.event.client.EventBinder.eventBinder;
