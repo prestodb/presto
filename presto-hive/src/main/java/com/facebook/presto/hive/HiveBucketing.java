@@ -33,6 +33,7 @@ import java.util.Map;
 import java.util.Set;
 
 import static com.facebook.presto.hive.HiveUtil.getTableStructFields;
+import static com.facebook.presto.hive.util.Types.checkType;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.Maps.immutableEntry;
 import static com.google.common.collect.Sets.immutableEnumSet;
@@ -127,8 +128,7 @@ final class HiveBucketing
             }
 
             ObjectInspector udfInspector = udf.initialize(objectInspectors);
-            checkArgument(udfInspector instanceof IntObjectInspector, "expected IntObjectInspector: %s", udfInspector);
-            IntObjectInspector inspector = (IntObjectInspector) udfInspector;
+            IntObjectInspector inspector = checkType(udfInspector, IntObjectInspector.class, "udfInspector");
 
             Object result = udf.evaluate(deferredObjects);
             HiveKey hiveKey = new HiveKey();
