@@ -48,8 +48,8 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 
 import static com.facebook.presto.metadata.PrestoNode.getIdentifierFunction;
-import static com.facebook.presto.util.Threads.daemonThreadsNamed;
 import static com.google.common.base.Preconditions.checkNotNull;
+import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.airlift.http.client.StatusResponseHandler.createStatusResponseHandler;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
 import static java.util.concurrent.Executors.newSingleThreadScheduledExecutor;
