@@ -81,7 +81,6 @@ import java.util.Set;
 import java.util.TimeZone;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
-import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
@@ -105,6 +104,7 @@ import static io.airlift.concurrent.Threads.threadsNamed;
 import static io.airlift.http.client.HttpUriBuilder.uriBuilderFrom;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static java.lang.String.format;
+import static java.util.concurrent.Executors.newSingleThreadScheduledExecutor;
 
 @Path("/v1/statement")
 public class StatementResource
@@ -119,7 +119,7 @@ public class StatementResource
     private final Supplier<ExchangeClient> exchangeClientSupplier;
 
     private final ConcurrentMap<QueryId, Query> queries = new ConcurrentHashMap<>();
-    private final ScheduledExecutorService queryPurger = Executors.newSingleThreadScheduledExecutor(threadsNamed("query-purger-%d"));
+    private final ScheduledExecutorService queryPurger = newSingleThreadScheduledExecutor(threadsNamed("query-purger"));
 
     @Inject
     public StatementResource(QueryManager queryManager, Supplier<ExchangeClient> exchangeClientSupplier)
