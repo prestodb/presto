@@ -61,6 +61,7 @@ import java.util.concurrent.ExecutorService;
 
 import static com.facebook.presto.hive.HiveBucketing.HiveBucket;
 import static com.facebook.presto.hive.HiveUtil.partitionIdGetter;
+import static com.facebook.presto.hive.util.Types.checkType;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
@@ -1129,8 +1130,7 @@ public abstract class AbstractTestHiveClient
         ImmutableMap.Builder<String, Integer> index = ImmutableMap.builder();
         int i = 0;
         for (ConnectorColumnHandle columnHandle : columnHandles) {
-            checkArgument(columnHandle instanceof HiveColumnHandle, "columnHandle is not an instance of HiveColumnHandle");
-            HiveColumnHandle hiveColumnHandle = (HiveColumnHandle) columnHandle;
+            HiveColumnHandle hiveColumnHandle = checkType(columnHandle, HiveColumnHandle.class, "columnHandle");
             index.put(hiveColumnHandle.getName(), i);
             i++;
         }
