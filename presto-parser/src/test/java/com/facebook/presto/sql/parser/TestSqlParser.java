@@ -44,8 +44,8 @@ import com.google.common.collect.ImmutableList;
 import org.testng.annotations.Test;
 
 import static com.facebook.presto.sql.SqlFormatter.formatSql;
-import static com.facebook.presto.sql.tree.QueryUtil.selectList;
-import static com.facebook.presto.sql.tree.QueryUtil.table;
+import static com.facebook.presto.sql.QueryUtil.selectList;
+import static com.facebook.presto.sql.QueryUtil.table;
 import static java.lang.String.format;
 import static java.util.Collections.nCopies;
 import static org.testng.Assert.assertEquals;
