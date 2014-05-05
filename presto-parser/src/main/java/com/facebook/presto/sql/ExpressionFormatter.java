@@ -48,6 +48,7 @@ import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.sql.tree.QualifiedNameReference;
 import com.facebook.presto.sql.tree.SearchedCaseExpression;
 import com.facebook.presto.sql.tree.SimpleCaseExpression;
+import com.facebook.presto.sql.tree.SortItem;
 import com.facebook.presto.sql.tree.StringLiteral;
 import com.facebook.presto.sql.tree.SubqueryExpression;
 import com.facebook.presto.sql.tree.TimeLiteral;
@@ -63,7 +64,6 @@ import java.util.ArrayList;
 import java.util.List;
 
 import static com.facebook.presto.sql.SqlFormatter.formatSql;
-import static com.facebook.presto.sql.SqlFormatter.orderByFormatterFunction;
 import static com.google.common.collect.Iterables.transform;
 
 public final class ExpressionFormatter
@@ -434,7 +434,7 @@ public final class ExpressionFormatter
                 parts.add("PARTITION BY " + joinExpressions(node.getPartitionBy()));
             }
             if (!node.getOrderBy().isEmpty()) {
-                parts.add("ORDER BY " + Joiner.on(", ").join(transform(node.getOrderBy(), orderByFormatterFunction())));
+                parts.add("ORDER BY " + formatSortItems(node.getOrderBy()));
             }
             if (node.getFrame().isPresent()) {
                 parts.add(process(node.getFrame().get(), null));
@@ -503,5 +503,51 @@ public final class ExpressionFormatter
             // TODO: handle escaping properly
             return '"' + s + '"';
         }
+    }
+
+    static String formatSortItems(List<SortItem> sortItems)
+    {
+        return Joiner.on(", ").join(transform(sortItems, sortItemFormatterFunction()));
+    }
+
+    private static Function<SortItem, String> sortItemFormatterFunction()
+    {
+        return new Function<SortItem, String>()
+        {
+            @Override
+            public String apply(SortItem input)
+            {
+                StringBuilder builder = new StringBuilder();
+
+                builder.append(formatExpression(input.getSortKey()));
+
+                switch (input.getOrdering()) {
+                    case ASCENDING:
+                        builder.append(" ASC");
+                        break;
+                    case DESCENDING:
+                        builder.append(" DESC");
+                        break;
+                    default:
+                        throw new UnsupportedOperationException("unknown ordering: " + input.getOrdering());
+                }
+
+                switch (input.getNullOrdering()) {
+                    case FIRST:
+                        builder.append(" NULLS FIRST");
+                        break;
+                    case LAST:
+                        builder.append(" NULLS LAST");
+                        break;
+                    case UNDEFINED:
+                        // no op
+                        break;
+                    default:
+                        throw new UnsupportedOperationException("unknown null ordering: " + input.getNullOrdering());
+                }
+
+                return builder.toString();
+            }
+        };
     }
 }
