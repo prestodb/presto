@@ -144,7 +144,7 @@ public final class ExpressionFormatter
         @Override
         protected String visitStringLiteral(StringLiteral node, Void context)
         {
-            return "'" + node.getValue().replace("'", "''") + "'";
+            return formatStringLiteral(node.getValue());
         }
 
         @Override
@@ -503,6 +503,11 @@ public final class ExpressionFormatter
             // TODO: handle escaping properly
             return '"' + s + '"';
         }
+    }
+
+    static String formatStringLiteral(String s)
+    {
+        return "'" + s.replace("'", "''") + "'";
     }
 
     static String formatSortItems(List<SortItem> sortItems)
