@@ -14,6 +14,7 @@
 package com.facebook.presto.hive;
 
 import com.facebook.presto.spi.ConnectorColumnHandle;
+import com.google.common.base.Objects;
 import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
 import io.airlift.log.Logger;
@@ -209,6 +210,15 @@ final class HiveBucketing
         public int getBucketCount()
         {
             return bucketCount;
+        }
+
+        @Override
+        public String toString()
+        {
+            return Objects.toStringHelper(this)
+                    .add("bucketNumber", bucketNumber)
+                    .add("bucketCount", bucketCount)
+                    .toString();
         }
     }
 }
