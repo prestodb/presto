@@ -15,6 +15,7 @@ package com.facebook.presto.type;
 
 import com.facebook.presto.operator.scalar.ScalarOperator;
 import com.facebook.presto.spi.ConnectorSession;
+import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.type.BooleanType;
 import com.facebook.presto.spi.type.DateType;
 import com.facebook.presto.spi.type.TimestampType;
@@ -33,6 +34,7 @@ import static com.facebook.presto.metadata.OperatorInfo.OperatorType.HASH_CODE;
 import static com.facebook.presto.metadata.OperatorInfo.OperatorType.LESS_THAN;
 import static com.facebook.presto.metadata.OperatorInfo.OperatorType.LESS_THAN_OR_EQUAL;
 import static com.facebook.presto.metadata.OperatorInfo.OperatorType.NOT_EQUAL;
+import static com.facebook.presto.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
 import static com.facebook.presto.spi.type.DateTimeEncoding.packDateTimeWithZone;
 import static com.facebook.presto.util.DateTimeUtils.parseDate;
 import static com.facebook.presto.util.DateTimeUtils.printDate;
@@ -126,7 +128,12 @@ public final class DateOperators
     @SqlType(DateType.class)
     public static long castFromSlice(@SqlType(VarcharType.class) Slice value)
     {
-        return parseDate(value.toStringUtf8());
+        try {
+            return parseDate(value.toStringUtf8());
+        }
+        catch (IllegalArgumentException e) {
+            throw new PrestoException(INVALID_CAST_ARGUMENT.toErrorCode(), e);
+        }
     }
 
     @ScalarOperator(HASH_CODE)
