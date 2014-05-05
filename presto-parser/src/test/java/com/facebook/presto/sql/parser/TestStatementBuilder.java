@@ -14,7 +14,6 @@
 package com.facebook.presto.sql.parser;
 
 import com.facebook.presto.sql.SqlFormatter;
-import com.facebook.presto.sql.tree.Query;
 import com.facebook.presto.sql.tree.Statement;
 import com.google.common.base.Charsets;
 import com.google.common.io.Resources;
@@ -37,6 +36,7 @@ public class TestStatementBuilder
     {
         printStatement("select * from foo");
         printStatement("explain select * from foo");
+        printStatement("explain (type distributed, format graphviz) select * from foo");
 
         printStatement("select * from foo a (x, y, z)");
 
@@ -69,6 +69,11 @@ public class TestStatementBuilder
 
         printStatement("select * from information_schema.tables");
 
+        printStatement("show catalogs");
+
+        printStatement("show schemas");
+        printStatement("show schemas from sys");
+
         printStatement("show tables");
         printStatement("show tables from information_schema");
         printStatement("show tables like '%'");
@@ -79,6 +84,8 @@ public class TestStatementBuilder
         printStatement("show partitions from foo order by x");
         printStatement("show partitions from foo limit 10");
         printStatement("show partitions from foo order by x desc limit 10");
+
+        printStatement("show functions");
 
         printStatement("select * from a.b.c@d");
 
@@ -145,12 +152,9 @@ public class TestStatementBuilder
         println(statement.toString());
         println("");
 
-        // TODO: support formatting all statement types
-        if (statement instanceof Query) {
-            println(SqlFormatter.formatSql(statement));
-            println("");
-            assertFormattedSql(statement);
-        }
+        println(SqlFormatter.formatSql(statement));
+        println("");
+        assertFormattedSql(statement);
 
         println(repeat("=", 60));
         println("");
