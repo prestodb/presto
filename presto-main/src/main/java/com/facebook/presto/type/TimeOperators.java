@@ -15,6 +15,7 @@ package com.facebook.presto.type;
 
 import com.facebook.presto.operator.scalar.ScalarOperator;
 import com.facebook.presto.spi.ConnectorSession;
+import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.type.BooleanType;
 import com.facebook.presto.spi.type.TimeType;
 import com.facebook.presto.spi.type.TimeWithTimeZoneType;
@@ -33,6 +34,7 @@ import static com.facebook.presto.metadata.OperatorInfo.OperatorType.HASH_CODE;
 import static com.facebook.presto.metadata.OperatorInfo.OperatorType.LESS_THAN;
 import static com.facebook.presto.metadata.OperatorInfo.OperatorType.LESS_THAN_OR_EQUAL;
 import static com.facebook.presto.metadata.OperatorInfo.OperatorType.NOT_EQUAL;
+import static com.facebook.presto.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
 import static com.facebook.presto.spi.type.DateTimeEncoding.packDateTimeWithZone;
 import static com.facebook.presto.util.DateTimeUtils.parseTimeWithoutTimeZone;
 import static com.facebook.presto.util.DateTimeUtils.printTimeWithoutTimeZone;
@@ -125,7 +127,12 @@ public final class TimeOperators
     @SqlType(TimeType.class)
     public static long castFromSlice(ConnectorSession session, @SqlType(VarcharType.class) Slice value)
     {
-        return parseTimeWithoutTimeZone(session.getTimeZoneKey(), value.toStringUtf8());
+        try {
+            return parseTimeWithoutTimeZone(session.getTimeZoneKey(), value.toStringUtf8());
+        }
+        catch (IllegalArgumentException e) {
+            throw new PrestoException(INVALID_CAST_ARGUMENT.toErrorCode(), e);
+        }
     }
 
     @ScalarOperator(HASH_CODE)
