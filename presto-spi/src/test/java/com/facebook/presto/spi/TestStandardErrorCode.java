@@ -11,32 +11,26 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto;
+package com.facebook.presto.spi;
 
-import com.facebook.presto.spi.StandardErrorCode;
-import com.facebook.presto.util.IterableTransformer;
-import com.google.common.base.Function;
 import org.testng.annotations.Test;
 
+import java.util.HashSet;
 import java.util.Set;
 
 import static io.airlift.testing.Assertions.assertLessThanOrEqual;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertTrue;
 
-public class TestErrorCodes
+public class TestStandardErrorCode
 {
     @Test
     public void testUnique()
     {
-        Set<Integer> codes = IterableTransformer.on(StandardErrorCode.values()).transform(new Function<StandardErrorCode, Integer>()
-        {
-            @Override
-            public Integer apply(StandardErrorCode input)
-            {
-                return input.toErrorCode().getCode();
-            }
-        }).set();
-
+        Set<Integer> codes = new HashSet<>();
+        for (StandardErrorCode code : StandardErrorCode.values()) {
+            assertTrue(codes.add(code.toErrorCode().getCode()), "Code already exists: " + code);
+        }
         assertEquals(codes.size(), StandardErrorCode.values().length);
     }
 
