@@ -16,9 +16,16 @@ package com.facebook.presto.spi;
 import org.testng.annotations.Test;
 
 import java.util.HashSet;
+import java.util.Iterator;
 import java.util.Set;
 
+import static com.facebook.presto.spi.StandardErrorCode.EXTERNAL;
+import static com.facebook.presto.spi.StandardErrorCode.INSUFFICIENT_RESOURCES;
+import static com.facebook.presto.spi.StandardErrorCode.INTERNAL;
+import static com.facebook.presto.spi.StandardErrorCode.USER_ERROR;
+import static io.airlift.testing.Assertions.assertGreaterThan;
 import static io.airlift.testing.Assertions.assertLessThanOrEqual;
+import static java.util.Arrays.asList;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
 
@@ -29,7 +36,7 @@ public class TestStandardErrorCode
     {
         Set<Integer> codes = new HashSet<>();
         for (StandardErrorCode code : StandardErrorCode.values()) {
-            assertTrue(codes.add(code.toErrorCode().getCode()), "Code already exists: " + code);
+            assertTrue(codes.add(code(code)), "Code already exists: " + code);
         }
         assertEquals(codes.size(), StandardErrorCode.values().length);
     }
@@ -38,7 +45,43 @@ public class TestStandardErrorCode
     public void testReserved()
     {
         for (StandardErrorCode errorCode : StandardErrorCode.values()) {
-            assertLessThanOrEqual(errorCode.toErrorCode().getCode(), StandardErrorCode.EXTERNAL.toErrorCode().getCode());
+            assertLessThanOrEqual(code(errorCode), code(EXTERNAL));
         }
+    }
+
+    @Test
+    public void testOrdering()
+            throws Exception
+    {
+        Iterator<StandardErrorCode> iterator = asList(StandardErrorCode.values()).iterator();
+
+        assertTrue(iterator.hasNext());
+        int previous = code(iterator.next());
+
+        while (iterator.hasNext()) {
+            StandardErrorCode code = iterator.next();
+            int current = code(code);
+            assertGreaterThan(current, previous, "Code is out of order: " + code);
+            if ((code != INTERNAL) && (code != INSUFFICIENT_RESOURCES) && (code != EXTERNAL)) {
+                assertEquals(current, previous + 1, "Code is not sequential: " + code);
+            }
+            previous = current;
+        }
+        assertEquals(previous, code(EXTERNAL), "Last code is not EXTERNAL");
+    }
+
+    @Test
+    public void testCategoryCodes()
+            throws Exception
+    {
+        assertEquals(code(USER_ERROR), 0);
+        assertGreaterThan(code(INTERNAL), code(USER_ERROR));
+        assertGreaterThan(code(INSUFFICIENT_RESOURCES), code(INTERNAL));
+        assertGreaterThan(code(EXTERNAL), code(INSUFFICIENT_RESOURCES));
+    }
+
+    private static int code(StandardErrorCode error)
+    {
+        return error.toErrorCode().getCode();
     }
 }
