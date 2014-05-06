@@ -44,8 +44,9 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 
+import static com.facebook.presto.spi.StandardErrorCode.NO_NODES_AVAILABLE;
+import static com.facebook.presto.util.Failures.checkCondition;
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkState;
 
 public class NodeScheduler
 {
@@ -180,7 +181,7 @@ public class NodeScheduler
                 else {
                     candidateNodes = selectRandomNodes(minCandidates);
                 }
-                checkState(!candidateNodes.isEmpty(), "No nodes available to run query");
+                checkCondition(!candidateNodes.isEmpty(), NO_NODES_AVAILABLE, "No nodes available to run query");
 
                 Node chosen = null;
                 int min = Integer.MAX_VALUE;
