@@ -77,10 +77,10 @@ public final class TupleDomain<T>
      * Convert a map of columns to values into the TupleDomain which requires
      * those columns to be fixed to those values.
      */
-    public static TupleDomain<ConnectorColumnHandle> withFixedValues(Map<ConnectorColumnHandle, Comparable<?>> fixedValues)
+    public static <T> TupleDomain<T> withFixedValues(Map<T, Comparable<?>> fixedValues)
     {
-        Map<ConnectorColumnHandle, Domain> domains = new HashMap<>();
-        for (Map.Entry<ConnectorColumnHandle, Comparable<?>> entry : fixedValues.entrySet()) {
+        Map<T, Domain> domains = new HashMap<>();
+        for (Map.Entry<T, Comparable<?>> entry : fixedValues.entrySet()) {
             domains.put(entry.getKey(), Domain.singleValue(entry.getValue()));
         }
         return withColumnDomains(domains);
