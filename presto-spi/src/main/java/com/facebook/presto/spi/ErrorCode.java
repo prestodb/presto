@@ -16,6 +16,8 @@ package com.facebook.presto.spi;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
+import static java.util.Objects.requireNonNull;
+
 public final class ErrorCode
 {
     private final int code;
@@ -24,8 +26,11 @@ public final class ErrorCode
     @JsonCreator
     public ErrorCode(@JsonProperty("code") int code, @JsonProperty("name") String name)
     {
+        if (code < 0) {
+            throw new IllegalArgumentException("code is negative");
+        }
         this.code = code;
-        this.name = name;
+        this.name = requireNonNull(name, "name is null");
     }
 
     @JsonProperty
@@ -38,5 +43,11 @@ public final class ErrorCode
     public String getName()
     {
         return name;
+    }
+
+    @Override
+    public String toString()
+    {
+        return name + ":" + code;
     }
 }
