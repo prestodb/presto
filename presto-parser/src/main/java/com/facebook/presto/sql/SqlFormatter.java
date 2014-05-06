@@ -16,6 +16,11 @@ package com.facebook.presto.sql;
 import com.facebook.presto.sql.tree.AliasedRelation;
 import com.facebook.presto.sql.tree.AllColumns;
 import com.facebook.presto.sql.tree.AstVisitor;
+import com.facebook.presto.sql.tree.CreateTable;
+import com.facebook.presto.sql.tree.Explain;
+import com.facebook.presto.sql.tree.ExplainFormat;
+import com.facebook.presto.sql.tree.ExplainOption;
+import com.facebook.presto.sql.tree.ExplainType;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.Join;
 import com.facebook.presto.sql.tree.JoinCriteria;
@@ -30,23 +35,30 @@ import com.facebook.presto.sql.tree.Row;
 import com.facebook.presto.sql.tree.SampledRelation;
 import com.facebook.presto.sql.tree.Select;
 import com.facebook.presto.sql.tree.SelectItem;
+import com.facebook.presto.sql.tree.ShowCatalogs;
+import com.facebook.presto.sql.tree.ShowColumns;
+import com.facebook.presto.sql.tree.ShowFunctions;
+import com.facebook.presto.sql.tree.ShowPartitions;
+import com.facebook.presto.sql.tree.ShowSchemas;
+import com.facebook.presto.sql.tree.ShowTables;
 import com.facebook.presto.sql.tree.SingleColumn;
-import com.facebook.presto.sql.tree.SortItem;
 import com.facebook.presto.sql.tree.Table;
 import com.facebook.presto.sql.tree.TableSubquery;
 import com.facebook.presto.sql.tree.Values;
 import com.facebook.presto.sql.tree.With;
 import com.facebook.presto.sql.tree.WithQuery;
-import com.google.common.base.Function;
 import com.google.common.base.Joiner;
 import com.google.common.base.Strings;
 import com.google.common.collect.Iterables;
 
+import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
 
 import static com.facebook.presto.sql.ExpressionFormatter.expressionFormatterFunction;
 import static com.facebook.presto.sql.ExpressionFormatter.formatExpression;
+import static com.facebook.presto.sql.ExpressionFormatter.formatSortItems;
+import static com.facebook.presto.sql.ExpressionFormatter.formatStringLiteral;
 import static com.google.common.base.Preconditions.checkArgument;
 
 public final class SqlFormatter
@@ -113,7 +125,7 @@ public final class SqlFormatter
             process(node.getQueryBody(), indent);
 
             if (!node.getOrderBy().isEmpty()) {
-                append(indent, "ORDER BY " + Joiner.on(", ").join(Iterables.transform(node.getOrderBy(), orderByFormatterFunction())))
+                append(indent, "ORDER BY " + formatSortItems(node.getOrderBy()))
                         .append('\n');
             }
 
@@ -168,7 +180,7 @@ public final class SqlFormatter
             }
 
             if (!node.getOrderBy().isEmpty()) {
-                append(indent, "ORDER BY " + Joiner.on(", ").join(Iterables.transform(node.getOrderBy(), orderByFormatterFunction())))
+                append(indent, "ORDER BY " + formatSortItems(node.getOrderBy()))
                         .append('\n');
             }
 
@@ -350,6 +362,130 @@ public final class SqlFormatter
             return null;
         }
 
+        @Override
+        protected Void visitExplain(Explain node, Integer indent)
+        {
+            builder.append("EXPLAIN ");
+
+            List<String> options = new ArrayList<>();
+
+            for (ExplainOption option : node.getOptions()) {
+                if (option instanceof ExplainType) {
+                    options.add("TYPE " + ((ExplainType) option).getType());
+                }
+                else if (option instanceof ExplainFormat) {
+                    options.add("FORMAT " + ((ExplainFormat) option).getType());
+                }
+                else {
+                    throw new UnsupportedOperationException("unhandled explain option: " + option);
+                }
+            }
+
+            if (!options.isEmpty()) {
+                builder.append("(");
+                Joiner.on(", ").appendTo(builder, options);
+                builder.append(")");
+            }
+
+            builder.append("\n");
+
+            process(node.getStatement(), indent);
+
+            return null;
+        }
+
+        @Override
+        protected Void visitShowCatalogs(ShowCatalogs node, Integer context)
+        {
+            builder.append("SHOW CATALOGS");
+
+            return null;
+        }
+
+        @Override
+        protected Void visitShowSchemas(ShowSchemas node, Integer context)
+        {
+            builder.append("SHOW SCHEMAS");
+
+            if (node.getCatalog().isPresent()) {
+                builder.append(" FROM ")
+                        .append(node.getCatalog().get());
+            }
+
+            return null;
+        }
+
+        @Override
+        protected Void visitShowTables(ShowTables node, Integer context)
+        {
+            builder.append("SHOW TABLES");
+
+            if (node.getSchema() != null) {
+                builder.append(" FROM ")
+                        .append(node.getSchema());
+            }
+
+            if (node.getLikePattern() != null) {
+                builder.append(" LIKE ")
+                        .append(formatStringLiteral(node.getLikePattern()));
+            }
+
+            return null;
+        }
+
+        @Override
+        protected Void visitShowColumns(ShowColumns node, Integer context)
+        {
+            builder.append("SHOW COLUMNS FROM ")
+                    .append(node.getTable());
+
+            return null;
+        }
+
+        @Override
+        protected Void visitShowPartitions(ShowPartitions node, Integer context)
+        {
+            builder.append("SHOW PARTITIONS FROM ")
+                    .append(node.getTable());
+
+            if (node.getWhere().isPresent()) {
+                builder.append(" WHERE ")
+                        .append(formatExpression(node.getWhere().get()));
+            }
+
+            if (!node.getOrderBy().isEmpty()) {
+                builder.append(" ORDER BY ")
+                        .append(formatSortItems(node.getOrderBy()));
+            }
+
+            if (node.getLimit().isPresent()) {
+                builder.append(" LIMIT ")
+                        .append(node.getLimit().get());
+            }
+
+            return null;
+        }
+
+        @Override
+        protected Void visitShowFunctions(ShowFunctions node, Integer context)
+        {
+            builder.append("SHOW FUNCTIONS");
+
+            return null;
+        }
+
+        @Override
+        protected Void visitCreateTable(CreateTable node, Integer indent)
+        {
+            builder.append("CREATE TABLE ")
+                    .append(node.getName())
+                    .append(" AS ");
+
+            process(node.getQuery(), indent);
+
+            return null;
+        }
+
         private StringBuilder append(int indent, String value)
         {
             return builder.append(indentString(indent))
@@ -360,47 +496,6 @@ public final class SqlFormatter
         {
             return Strings.repeat(INDENT, indent);
         }
-    }
-
-    static Function<SortItem, String> orderByFormatterFunction()
-    {
-        return new Function<SortItem, String>()
-        {
-            @Override
-            public String apply(SortItem input)
-            {
-                StringBuilder builder = new StringBuilder();
-
-                builder.append(formatExpression(input.getSortKey()));
-
-                switch (input.getOrdering()) {
-                    case ASCENDING:
-                        builder.append(" ASC");
-                        break;
-                    case DESCENDING:
-                        builder.append(" DESC");
-                        break;
-                    default:
-                        throw new UnsupportedOperationException("unknown ordering: " + input.getOrdering());
-                }
-
-                switch (input.getNullOrdering()) {
-                    case FIRST:
-                        builder.append(" NULLS FIRST");
-                        break;
-                    case LAST:
-                        builder.append(" NULLS LAST");
-                        break;
-                    case UNDEFINED:
-                        // no op
-                        break;
-                    default:
-                        throw new UnsupportedOperationException("unknown null ordering: " + input.getNullOrdering());
-                }
-
-                return builder.toString();
-            }
-        };
     }
 
     private static void appendAliasColumns(StringBuilder builder, List<String> columns)

@@ -11,8 +11,37 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.sql.tree;
+package com.facebook.presto.sql;
 
+import com.facebook.presto.sql.tree.AliasedRelation;
+import com.facebook.presto.sql.tree.AllColumns;
+import com.facebook.presto.sql.tree.ArithmeticExpression;
+import com.facebook.presto.sql.tree.AstVisitor;
+import com.facebook.presto.sql.tree.BooleanLiteral;
+import com.facebook.presto.sql.tree.ComparisonExpression;
+import com.facebook.presto.sql.tree.DefaultTraversalVisitor;
+import com.facebook.presto.sql.tree.Expression;
+import com.facebook.presto.sql.tree.FunctionCall;
+import com.facebook.presto.sql.tree.InPredicate;
+import com.facebook.presto.sql.tree.LikePredicate;
+import com.facebook.presto.sql.tree.LogicalBinaryExpression;
+import com.facebook.presto.sql.tree.LongLiteral;
+import com.facebook.presto.sql.tree.Node;
+import com.facebook.presto.sql.tree.QualifiedName;
+import com.facebook.presto.sql.tree.QualifiedNameReference;
+import com.facebook.presto.sql.tree.Query;
+import com.facebook.presto.sql.tree.QuerySpecification;
+import com.facebook.presto.sql.tree.Relation;
+import com.facebook.presto.sql.tree.Row;
+import com.facebook.presto.sql.tree.SampledRelation;
+import com.facebook.presto.sql.tree.Select;
+import com.facebook.presto.sql.tree.SingleColumn;
+import com.facebook.presto.sql.tree.SortItem;
+import com.facebook.presto.sql.tree.StringLiteral;
+import com.facebook.presto.sql.tree.SubqueryExpression;
+import com.facebook.presto.sql.tree.Table;
+import com.facebook.presto.sql.tree.TableSubquery;
+import com.facebook.presto.sql.tree.Values;
 import com.google.common.base.Joiner;
 import com.google.common.base.Strings;
 
