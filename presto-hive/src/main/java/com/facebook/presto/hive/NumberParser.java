@@ -13,6 +13,10 @@
  */
 package com.facebook.presto.hive;
 
+import com.facebook.presto.spi.PrestoException;
+
+import static com.facebook.presto.hive.HiveErrorCode.HIVE_BAD_DATA;
+
 public final class NumberParser
 {
     private NumberParser() {}
@@ -44,6 +48,11 @@ public final class NumberParser
             chars[pos] = (char) bytes[start + pos];
         }
         String string = new String(chars);
-        return Double.parseDouble(string);
+        try {
+            return Double.parseDouble(string);
+        }
+        catch (NumberFormatException e) {
+            throw new PrestoException(HIVE_BAD_DATA.toErrorCode(), e);
+        }
     }
 }
