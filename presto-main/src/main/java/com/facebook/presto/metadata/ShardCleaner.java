@@ -48,8 +48,8 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 
 import static com.facebook.presto.metadata.PrestoNode.getIdentifierFunction;
-import static com.facebook.presto.util.Threads.daemonThreadsNamed;
 import static com.google.common.base.Preconditions.checkNotNull;
+import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.airlift.http.client.StatusResponseHandler.createStatusResponseHandler;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
 import static java.util.concurrent.Executors.newSingleThreadScheduledExecutor;
@@ -68,7 +68,7 @@ public class ShardCleaner
     private final AtomicBoolean started = new AtomicBoolean();
     private final AtomicBoolean stopped = new AtomicBoolean();
 
-    private final ScheduledExecutorService executorService = newSingleThreadScheduledExecutor(daemonThreadsNamed("shard-cleaner-%s"));
+    private final ScheduledExecutorService executorService = newSingleThreadScheduledExecutor(daemonThreadsNamed("shard-cleaner"));
     private final AtomicReference<ScheduledFuture<?>> scheduledFuture = new AtomicReference<>();
 
     private final KeyBoundedExecutor<String> nodeBoundedExecutor;

@@ -14,7 +14,6 @@
 package com.facebook.presto.failureDetector;
 
 import com.facebook.presto.util.IterableTransformer;
-import com.facebook.presto.util.Threads;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Function;
@@ -62,6 +61,7 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Predicates.compose;
 import static com.google.common.base.Predicates.in;
 import static com.google.common.base.Predicates.not;
+import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.airlift.http.client.Request.Builder.prepareHead;
 
 public class HeartbeatFailureDetector
@@ -73,7 +73,7 @@ public class HeartbeatFailureDetector
     private final AsyncHttpClient httpClient;
     private final NodeInfo nodeInfo;
 
-    private final ScheduledExecutorService executor = Executors.newSingleThreadScheduledExecutor(Threads.daemonThreadsNamed("failure-detector"));
+    private final ScheduledExecutorService executor = Executors.newSingleThreadScheduledExecutor(daemonThreadsNamed("failure-detector"));
 
     // monitoring tasks by service id
     private final ConcurrentMap<UUID, MonitoringTask> tasks = new ConcurrentHashMap<>();

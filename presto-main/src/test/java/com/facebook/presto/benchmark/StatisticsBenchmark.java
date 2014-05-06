@@ -16,7 +16,7 @@ package com.facebook.presto.benchmark;
 import com.facebook.presto.util.LocalQueryRunner;
 
 import static com.facebook.presto.benchmark.BenchmarkQueryRunner.createLocalQueryRunner;
-import static com.facebook.presto.util.Threads.daemonThreadsNamed;
+import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 
 public abstract class StatisticsBenchmark

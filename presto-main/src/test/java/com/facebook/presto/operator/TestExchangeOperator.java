@@ -61,7 +61,7 @@ import static com.facebook.presto.operator.SequencePageBuilder.createSequencePag
 import static com.facebook.presto.serde.TestingBlockEncodingManager.createTestingBlockEncodingManager;
 import static com.facebook.presto.spi.type.TimeZoneKey.UTC_KEY;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
-import static com.facebook.presto.util.Threads.daemonThreadsNamed;
+import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
 import static javax.ws.rs.core.HttpHeaders.CONTENT_TYPE;

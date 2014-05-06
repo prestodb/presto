@@ -22,6 +22,7 @@ import com.google.common.base.Function;
 import com.google.common.base.Objects;
 import com.google.common.base.Predicate;
 
+import static com.facebook.presto.hive.util.Types.checkType;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 
@@ -145,9 +146,7 @@ public class HiveColumnHandle
             @Override
             public HiveColumnHandle apply(ConnectorColumnHandle columnHandle)
             {
-                checkNotNull(columnHandle, "columnHandle is null");
-                checkArgument(columnHandle instanceof HiveColumnHandle, "columnHandle is not an instance of HiveColumnHandle");
-                return (HiveColumnHandle) columnHandle;
+                return checkType(columnHandle, HiveColumnHandle.class, "columnHandle");
             }
         };
     }

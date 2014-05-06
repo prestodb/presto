@@ -70,6 +70,7 @@ import org.apache.hadoop.hive.metastore.api.Database;
 import org.apache.hadoop.hive.metastore.api.FieldSchema;
 import org.apache.hadoop.hive.metastore.api.MetaException;
 import org.apache.hadoop.hive.metastore.api.NoSuchObjectException;
+import org.apache.hadoop.hive.metastore.api.Partition;
 import org.apache.hadoop.hive.metastore.api.SerDeInfo;
 import org.apache.hadoop.hive.metastore.api.StorageDescriptor;
 import org.apache.hadoop.hive.metastore.api.Table;
@@ -105,6 +106,7 @@ import static com.facebook.presto.hive.HiveType.hiveTypeNameGetter;
 import static com.facebook.presto.hive.HiveUtil.getTableStructFields;
 import static com.facebook.presto.hive.HiveUtil.parseHiveTimestamp;
 import static com.facebook.presto.hive.UnpartitionedPartition.UNPARTITIONED_PARTITION;
+import static com.facebook.presto.hive.util.Types.checkType;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
@@ -238,8 +240,7 @@ public class HiveClient
 
     private static SchemaTableName getTableName(ConnectorTableHandle tableHandle)
     {
-        checkArgument(tableHandle instanceof HiveTableHandle, "tableHandle is not an instance of HiveTableHandle");
-        return ((HiveTableHandle) tableHandle).getSchemaTableName();
+        return checkType(tableHandle, HiveTableHandle.class, "tableHandle").getSchemaTableName();
     }
 
     @Override
@@ -302,7 +303,7 @@ public class HiveClient
         try {
             Table table = metastore.getTable(tableName.getSchemaName(), tableName.getTableName());
             for (HiveColumnHandle columnHandle : getColumnHandles(table, true)) {
-                if (columnHandle.getName().equals(HiveColumnHandle.SAMPLE_WEIGHT_COLUMN_NAME)) {
+                if (columnHandle.getName().equals(SAMPLE_WEIGHT_COLUMN_NAME)) {
                     return columnHandle;
                 }
             }
@@ -390,11 +391,8 @@ public class HiveClient
     @Override
     public ColumnMetadata getColumnMetadata(ConnectorTableHandle tableHandle, ConnectorColumnHandle columnHandle)
     {
-        checkNotNull(tableHandle, "tableHandle is null");
-        checkNotNull(columnHandle, "columnHandle is null");
-        checkArgument(tableHandle instanceof HiveTableHandle, "tableHandle is not an instance of HiveTableHandle");
-        checkArgument(columnHandle instanceof HiveColumnHandle, "columnHandle is not an instance of HiveColumnHandle");
-        return ((HiveColumnHandle) columnHandle).getColumnMetadata();
+        checkType(tableHandle, HiveTableHandle.class, "tableHandle");
+        return checkType(columnHandle, HiveColumnHandle.class, "columnHandle").getColumnMetadata();
     }
 
     @Override
@@ -484,9 +482,7 @@ public class HiveClient
     @Override
     public void commitCreateTable(ConnectorOutputTableHandle tableHandle, Collection<String> fragments)
     {
-        checkNotNull(tableHandle, "tableHandle is null");
-        checkArgument(tableHandle instanceof HiveOutputTableHandle, "tableHandle is not an instance of HiveOutputTableHandle");
-        HiveOutputTableHandle handle = (HiveOutputTableHandle) tableHandle;
+        HiveOutputTableHandle handle = checkType(tableHandle, HiveOutputTableHandle.class, "tableHandle");
 
         // verify no one raced us to create the target directory
         Path targetPath = new Path(handle.getTargetPath());
@@ -550,9 +546,7 @@ public class HiveClient
     @Override
     public RecordSink getRecordSink(ConnectorOutputTableHandle tableHandle)
     {
-        checkNotNull(tableHandle, "tableHandle is null");
-        checkArgument(tableHandle instanceof HiveOutputTableHandle, "tableHandle is not an instance of HiveOutputTableHandle");
-        HiveOutputTableHandle handle = (HiveOutputTableHandle) tableHandle;
+        HiveOutputTableHandle handle = checkType(tableHandle, HiveOutputTableHandle.class, "tableHandle");
 
         Path target = new Path(handle.getTemporaryPath(), randomUUID().toString());
         JobConf conf = new JobConf(hdfsEnvironment.getConfiguration(target));
@@ -722,8 +716,7 @@ public class HiveClient
     @Override
     public ConnectorSplitSource getPartitionSplits(ConnectorTableHandle tableHandle, List<ConnectorPartition> partitions)
     {
-        checkArgument(tableHandle instanceof HiveTableHandle, "tableHandle is not an instance of HiveTableHandle");
-        HiveTableHandle hiveTableHandle = (HiveTableHandle) tableHandle;
+        HiveTableHandle hiveTableHandle = checkType(tableHandle, HiveTableHandle.class, "tableHandle");
 
         checkNotNull(partitions, "partitions is null");
 
@@ -731,15 +724,15 @@ public class HiveClient
         if (partition == null) {
             return new FixedSplitSource(connectorId, ImmutableList.<ConnectorSplit>of());
         }
-        checkArgument(partition instanceof HivePartition, "Partition must be a hive partition");
-        SchemaTableName tableName = ((HivePartition) partition).getTableName();
-        Optional<HiveBucket> bucket = ((HivePartition) partition).getBucket();
+        HivePartition hivePartition = checkType(partition, HivePartition.class, "partition");
+        SchemaTableName tableName = hivePartition.getTableName();
+        Optional<HiveBucket> bucket = hivePartition.getBucket();
 
         List<String> partitionNames = new ArrayList<>(Lists.transform(partitions, HiveUtil.partitionIdGetter()));
         Collections.sort(partitionNames, Ordering.natural().reverse());
 
         Table table;
-        Iterable<org.apache.hadoop.hive.metastore.api.Partition> hivePartitions;
+        Iterable<Partition> hivePartitions;
         try {
             table = metastore.getTable(tableName.getSchemaName(), tableName.getTableName());
             hivePartitions = getPartitions(table, tableName, partitionNames);
@@ -764,7 +757,7 @@ public class HiveClient
                 hiveTableHandle.getSession()).get();
     }
 
-    private Iterable<org.apache.hadoop.hive.metastore.api.Partition> getPartitions(final Table table, final SchemaTableName tableName, List<String> partitionNames)
+    private Iterable<Partition> getPartitions(final Table table, final SchemaTableName tableName, List<String> partitionNames)
             throws NoSuchObjectException
     {
         if (partitionNames.equals(ImmutableList.of(UNPARTITIONED_ID))) {
@@ -772,19 +765,19 @@ public class HiveClient
         }
 
         Iterable<List<String>> partitionNameBatches = partitionExponentially(partitionNames, minPartitionBatchSize, maxPartitionBatchSize);
-        Iterable<List<org.apache.hadoop.hive.metastore.api.Partition>> partitionBatches = transform(partitionNameBatches, new Function<List<String>, List<org.apache.hadoop.hive.metastore.api.Partition>>()
+        Iterable<List<Partition>> partitionBatches = transform(partitionNameBatches, new Function<List<String>, List<Partition>>()
         {
             @Override
-            public List<org.apache.hadoop.hive.metastore.api.Partition> apply(List<String> partitionNameBatch)
+            public List<Partition> apply(List<String> partitionNameBatch)
             {
                 Exception exception = null;
                 for (int attempt = 0; attempt < 10; attempt++) {
                     try {
-                        List<org.apache.hadoop.hive.metastore.api.Partition> partitions = metastore.getPartitionsByNames(tableName.getSchemaName(), tableName.getTableName(), partitionNameBatch);
+                        List<Partition> partitions = metastore.getPartitionsByNames(tableName.getSchemaName(), tableName.getTableName(), partitionNameBatch);
                         checkState(partitionNameBatch.size() == partitions.size(), "expected %s partitions but found %s", partitionNameBatch.size(), partitions.size());
 
                         // verify all partitions are online
-                        for (org.apache.hadoop.hive.metastore.api.Partition partition : partitions) {
+                        for (Partition partition : partitions) {
                             String protectMode = partition.getParameters().get(ProtectMode.PARAMETER_NAME);
                             if (protectMode != null && getProtectModeFromString(protectMode).offline) {
                                 throw new PartitionOfflineException(tableName, makePartName(table.getPartitionKeys(), partition.getValues()));
@@ -809,6 +802,7 @@ public class HiveClient
                         throw Throwables.propagate(e);
                     }
                 }
+                assert exception != null; // impossible
                 throw Throwables.propagate(exception);
             }
         });
@@ -818,12 +812,10 @@ public class HiveClient
     @Override
     public RecordSet getRecordSet(ConnectorSplit split, List<? extends ConnectorColumnHandle> columns)
     {
-        checkNotNull(split, "split is null");
-        checkNotNull(columns, "columns is null");
-        checkArgument(split instanceof HiveSplit, "expected instance of %s: %s", HiveSplit.class, split.getClass());
+        HiveSplit hiveSplit = checkType(split, HiveSplit.class, "split");
 
         List<HiveColumnHandle> hiveColumns = ImmutableList.copyOf(transform(columns, hiveColumnHandle()));
-        return new HiveRecordSet(hdfsEnvironment, (HiveSplit) split, hiveColumns, HiveRecordCursorProviders.getDefaultProviders(), timeZone);
+        return new HiveRecordSet(hdfsEnvironment, hiveSplit, hiveColumns, HiveRecordCursorProviders.getDefaultProviders(), timeZone);
     }
 
     @Override
@@ -912,13 +904,12 @@ public class HiveClient
 
                     ImmutableMap.Builder<ConnectorColumnHandle, Comparable<?>> builder = ImmutableMap.builder();
                     for (Entry<String, String> entry : makeSpecFromName(partitionId).entrySet()) {
-                        ConnectorColumnHandle columnHandle = columnsByName.get(entry.getKey());
-                        checkArgument(columnHandle != null, "Invalid partition key %s in partition %s", entry.getKey(), partitionId);
-                        checkArgument(columnHandle instanceof HiveColumnHandle, "columnHandle is not an instance of HiveColumnHandle");
-                        HiveColumnHandle hiveColumnHandle = (HiveColumnHandle) columnHandle;
+                        ConnectorColumnHandle handle = columnsByName.get(entry.getKey());
+                        checkArgument(handle != null, "Invalid partition key %s in partition %s", entry.getKey(), partitionId);
+                        HiveColumnHandle columnHandle = checkType(handle, HiveColumnHandle.class, "handle");
 
                         String value = entry.getValue();
-                        Type type = hiveColumnHandle.getType();
+                        Type type = columnHandle.getType();
                         if (BOOLEAN.equals(type)) {
                             if (value.isEmpty()) {
                                 builder.put(columnHandle, false);
@@ -931,7 +922,7 @@ public class HiveClient
                             if (value.isEmpty()) {
                                 builder.put(columnHandle, 0L);
                             }
-                            else if (hiveColumnHandle.getHiveType() == HiveType.TIMESTAMP) {
+                            else if (columnHandle.getHiveType() == HiveType.TIMESTAMP) {
                                 builder.put(columnHandle, parseHiveTimestamp(value, timeZone));
                             }
                             else {

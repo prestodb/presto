@@ -43,9 +43,9 @@ import java.util.concurrent.ThreadPoolExecutor;
 
 import static com.facebook.presto.metadata.MetadataUtil.createQualifiedTableName;
 import static com.facebook.presto.spi.StandardErrorCode.CANNOT_DROP_TABLE;
-import static com.facebook.presto.util.Threads.daemonThreadsNamed;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
+import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 
 public class DropTableExecution
         implements QueryExecution
