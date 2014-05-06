@@ -45,6 +45,7 @@ import org.joda.time.format.DateTimeFormatterBuilder;
 import java.util.Locale;
 
 import static com.facebook.presto.operator.scalar.QuarterOfYearDateTimeField.QUARTER_OF_YEAR;
+import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static com.facebook.presto.spi.type.DateTimeEncoding.packDateTimeWithZone;
 import static com.facebook.presto.spi.type.DateTimeEncoding.unpackMillisUtc;
 import static com.facebook.presto.spi.type.DateTimeEncoding.updateMillisUtc;
@@ -413,8 +414,17 @@ public final class DateTimeFunctions
                 .withLocale(session.getLocale());
 
         String datetimeString = datetime.toString(Charsets.UTF_8);
-        DateTime dateTime = formatter.parseDateTime(datetimeString);
-        return DateTimeZoneIndex.packDateTimeWithZone(dateTime);
+        return DateTimeZoneIndex.packDateTimeWithZone(parseDateTimeHelper(formatter, datetimeString));
+    }
+
+    private static DateTime parseDateTimeHelper(DateTimeFormatter formatter, String datetimeString)
+    {
+        try {
+            return formatter.parseDateTime(datetimeString);
+        }
+        catch (IllegalArgumentException e) {
+            throw new PrestoException(INVALID_FUNCTION_ARGUMENT.toErrorCode(), e);
+        }
     }
 
     @Description("formats the given time by the given format")
@@ -481,7 +491,12 @@ public final class DateTimeFunctions
                 .withChronology(getChronology(session.getTimeZoneKey()))
                 .withLocale(session.getLocale());
 
-        return formatter.parseMillis(dateTime.toString(Charsets.UTF_8));
+        try {
+            return formatter.parseMillis(dateTime.toString(Charsets.UTF_8));
+        }
+        catch (IllegalArgumentException e) {
+            throw new PrestoException(StandardErrorCode.INVALID_FUNCTION_ARGUMENT.toErrorCode(), e);
+        }
     }
 
     @Description("second of the minute of the given timestamp")
@@ -917,7 +932,7 @@ public final class DateTimeFunctions
                     case 'V': // %V Week (01..53), where Sunday is the first day of the week; used with %X
                     case 'X': // %X Year for the week where Sunday is the first day of the week, numeric, four digits; used with %V
                     case 'D': // %D Day of the month with English suffix (0th, 1st, 2nd, 3rd, …)
-                        throw new PrestoException(StandardErrorCode.INVALID_FUNCTION_ARGUMENT.toErrorCode(), String.format("%%%s not supported in date format string", character));
+                        throw new PrestoException(INVALID_FUNCTION_ARGUMENT.toErrorCode(), String.format("%%%s not supported in date format string", character));
                     case '%': // %% A literal “%” character
                         builder.appendLiteral('%');
                         break;
@@ -939,7 +954,7 @@ public final class DateTimeFunctions
             return builder.toFormatter();
         }
         catch (UnsupportedOperationException e) {
-            throw new PrestoException(StandardErrorCode.INVALID_FUNCTION_ARGUMENT.toErrorCode(), e);
+            throw new PrestoException(INVALID_FUNCTION_ARGUMENT.toErrorCode(), e);
         }
     }
 }
