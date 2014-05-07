@@ -41,6 +41,7 @@ import java.util.Properties;
 
 import static com.facebook.presto.hive.HiveBooleanParser.isFalse;
 import static com.facebook.presto.hive.HiveBooleanParser.isTrue;
+import static com.facebook.presto.hive.HiveErrorCode.HIVE_CURSOR_ERROR;
 import static com.facebook.presto.hive.NumberParser.parseDouble;
 import static com.facebook.presto.hive.NumberParser.parseLong;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
@@ -252,8 +253,8 @@ class GenericHiveRecordCursor<K, V extends Writable>
             return true;
         }
         catch (IOException | SerDeException | RuntimeException e) {
-            close();
-            throw new PrestoException(HiveErrorCode.HIVE_CURSOR_ERROR.toErrorCode(), e);
+            closeWithSuppression(e);
+            throw new PrestoException(HIVE_CURSOR_ERROR.toErrorCode(), e);
         }
     }
 
