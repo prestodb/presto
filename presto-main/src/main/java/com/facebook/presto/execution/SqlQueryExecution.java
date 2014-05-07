@@ -37,10 +37,7 @@ import com.facebook.presto.util.SetThreadName;
 import com.google.common.base.Optional;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Throwables;
-import io.airlift.concurrent.ThreadPoolExecutorMBean;
 import io.airlift.units.Duration;
-import org.weakref.jmx.Managed;
-import org.weakref.jmx.Nested;
 
 import javax.annotation.concurrent.ThreadSafe;
 import javax.inject.Inject;
@@ -48,14 +45,11 @@ import javax.inject.Inject;
 import java.net.URI;
 import java.util.List;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.atomic.AtomicReference;
 
 import static com.facebook.presto.OutputBuffers.INITIAL_EMPTY_OUTPUT_BUFFERS;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
-import static io.airlift.concurrent.Threads.threadsNamed;
 
 @ThreadSafe
 public class SqlQueryExecution
@@ -393,9 +387,7 @@ public class SqlQueryExecution
         private final List<PlanOptimizer> planOptimizers;
         private final RemoteTaskFactory remoteTaskFactory;
         private final LocationFactory locationFactory;
-
         private final ExecutorService executor;
-        private final ThreadPoolExecutorMBean executorMBean;
 
         @Inject
         SqlQueryExecutionFactory(QueryManagerConfig config,
@@ -405,7 +397,8 @@ public class SqlQueryExecution
                 SplitManager splitManager,
                 NodeScheduler nodeScheduler,
                 List<PlanOptimizer> planOptimizers,
-                RemoteTaskFactory remoteTaskFactory)
+                RemoteTaskFactory remoteTaskFactory,
+                @ForQueryExecution ExecutorService executor)
         {
             checkNotNull(config, "config is null");
             this.scheduleSplitBatchSize = config.getScheduleSplitBatchSize();
@@ -418,16 +411,7 @@ public class SqlQueryExecution
             this.planOptimizers = checkNotNull(planOptimizers, "planOptimizers is null");
             this.remoteTaskFactory = checkNotNull(remoteTaskFactory, "remoteTaskFactory is null");
             this.experimentalSyntaxEnabled = checkNotNull(featuresConfig, "featuresConfig is null").isExperimentalSyntaxEnabled();
-
-            this.executor = Executors.newCachedThreadPool(threadsNamed("query-scheduler-%d"));
-            this.executorMBean = new ThreadPoolExecutorMBean((ThreadPoolExecutor) executor);
-        }
-
-        @Managed
-        @Nested
-        public ThreadPoolExecutorMBean getExecutor()
-        {
-            return executorMBean;
+            this.executor = checkNotNull(executor, "executor is null");
         }
 
         @Override

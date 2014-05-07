@@ -23,23 +23,17 @@ import com.facebook.presto.sql.analyzer.SemanticException;
 import com.facebook.presto.sql.tree.DropTable;
 import com.facebook.presto.sql.tree.Statement;
 import com.google.common.base.Optional;
-import io.airlift.concurrent.ThreadPoolExecutorMBean;
 import io.airlift.units.Duration;
-import org.weakref.jmx.Managed;
-import org.weakref.jmx.Nested;
 
 import javax.inject.Inject;
 
 import java.net.URI;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.ThreadPoolExecutor;
 
 import static com.facebook.presto.metadata.MetadataUtil.createQualifiedTableName;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MISSING_TABLE;
 import static com.google.common.base.Preconditions.checkNotNull;
-import static io.airlift.concurrent.Threads.daemonThreadsNamed;
-import static java.util.concurrent.Executors.newCachedThreadPool;
 
 public class DropTableExecution
         implements QueryExecution
@@ -145,24 +139,16 @@ public class DropTableExecution
         private final LocationFactory locationFactory;
         private final MetadataManager metadataManager;
         private final ExecutorService executor;
-        private final ThreadPoolExecutorMBean executorMBean;
 
         @Inject
         DropTableExecutionFactory(LocationFactory locationFactory,
                 MetadataManager metadataManager,
-                ShardManager shardManager)
+                ShardManager shardManager,
+                @ForQueryExecution ExecutorService executor)
         {
             this.locationFactory = checkNotNull(locationFactory, "locationFactory is null");
             this.metadataManager = checkNotNull(metadataManager, "metadataManager is null");
-            this.executor = newCachedThreadPool(daemonThreadsNamed("drop-table-scheduler-%d"));
-            this.executorMBean = new ThreadPoolExecutorMBean((ThreadPoolExecutor) executor);
-        }
-
-        @Managed
-        @Nested
-        public ThreadPoolExecutorMBean getExecutor()
-        {
-            return executorMBean;
+            this.executor = checkNotNull(executor, "executor is null");
         }
 
         @Override
