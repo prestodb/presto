@@ -337,8 +337,8 @@ public class StatementResource
                     // so statements without results produce an error in the client otherwise.
                     //
                     // TODO: add support to the API for non-query statements.
-                    columns = ImmutableList.of(new Column("result", "varchar"));
-                    data = ImmutableSet.<List<Object>>of(ImmutableList.<Object>of("true"));
+                    columns = ImmutableList.of(new Column("result", "boolean"));
+                    data = ImmutableSet.<List<Object>>of(ImmutableList.<Object>of(true));
                 }
             }
 

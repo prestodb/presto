@@ -27,6 +27,7 @@ import com.facebook.presto.metadata.TableHandle;
 import com.facebook.presto.server.testing.TestingPrestoServer;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.tpch.SampledTpchPlugin;
 import com.facebook.presto.tpch.TpchMetadata;
 import com.facebook.presto.tpch.TpchPlugin;
@@ -61,6 +62,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 import static com.facebook.presto.connector.informationSchema.InformationSchemaMetadata.INFORMATION_SCHEMA;
+import static com.facebook.presto.metadata.MetadataUtil.createQualifiedTableName;
 import static com.facebook.presto.server.testing.TestingPrestoServer.TEST_CATALOG;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
@@ -90,6 +92,7 @@ import static java.util.Collections.nCopies;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 
 public class TestDistributedQueries
@@ -218,17 +221,13 @@ public class TestDistributedQueries
     private void assertCreateTable(String table, @Language("SQL") String query, @Language("SQL") String expectedQuery, @Language("SQL") String rowCountQuery)
            throws Exception
     {
-        try {
-            assertQuery("CREATE TABLE " +  table + " AS " + query, rowCountQuery);
-            assertQuery("SELECT * FROM " + table, expectedQuery);
-        }
-        finally {
-            QualifiedTableName name = new QualifiedTableName(TEST_CATALOG, "test", table);
-            Optional<TableHandle> handle = coordinator.getMetadata().getTableHandle(SESSION, name);
-            if (handle.isPresent()) {
-                coordinator.getMetadata().dropTable(handle.get());
-            }
-        }
+        assertQuery("CREATE TABLE " + table + " AS " + query, rowCountQuery);
+        assertQuery("SELECT * FROM " + table, expectedQuery);
+        assertQueryTrue("DROP TABLE " + table);
+
+        QualifiedTableName name = createQualifiedTableName(SESSION, QualifiedName.of(table));
+        Optional<TableHandle> handle = coordinator.getMetadata().getTableHandle(SESSION, name);
+        assertFalse(handle.isPresent());
     }
 
     @Override

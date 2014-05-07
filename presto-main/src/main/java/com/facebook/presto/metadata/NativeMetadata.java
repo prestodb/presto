@@ -43,6 +43,7 @@ import java.util.Collection;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.Callable;
 
@@ -264,16 +265,19 @@ public class NativeMetadata
     @Override
     public void dropTable(ConnectorTableHandle tableHandle)
     {
-        checkNotNull(tableHandle, "tableHandle is null");
-        checkArgument(tableHandle instanceof NativeTableHandle, "tableHandle is not an instance of NativeTableHandle");
-        final long tableId = ((NativeTableHandle) tableHandle).getTableId();
+        final NativeTableHandle nativeHandle = checkType(tableHandle, NativeTableHandle.class, "tableHandle");
         dbi.inTransaction(new VoidTransactionCallback()
         {
             @Override
             protected void execute(Handle handle, TransactionStatus status)
                     throws Exception
             {
-                MetadataDaoUtils.dropTable(dao, tableId);
+                Set<TablePartition> partitions = shardManager.getPartitions(nativeHandle);
+                for (TablePartition partition : partitions) {
+                    shardManager.dropPartition(nativeHandle, partition.getPartitionName());
+                }
+
+                MetadataDaoUtils.dropTable(dao, nativeHandle.getTableId());
             }
         });
     }

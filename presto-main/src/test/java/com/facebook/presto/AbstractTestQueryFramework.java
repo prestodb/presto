@@ -189,6 +189,12 @@ public abstract class AbstractTestQueryFramework
         assertQuery(actual, expected, true);
     }
 
+    protected void assertQueryTrue(@Language("SQL") String sql)
+            throws Exception
+    {
+        assertQuery(sql, "SELECT true");
+    }
+
     private static final Logger log = Logger.get(AbstractTestQueries.class);
 
     public void assertQuery(@Language("SQL") String actual, @Language("SQL") String expected, boolean ensureOrdering)
