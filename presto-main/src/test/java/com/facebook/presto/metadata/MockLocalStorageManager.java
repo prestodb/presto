@@ -15,13 +15,16 @@ package com.facebook.presto.metadata;
 
 import com.facebook.presto.block.BlockIterable;
 import com.facebook.presto.metadata.ColumnFileHandle.Builder;
-import com.facebook.presto.spi.ColumnHandle;
+import com.facebook.presto.spi.ConnectorColumnHandle;
 import com.google.common.base.Throwables;
 import com.google.common.io.Files;
 
 import java.io.File;
 import java.io.IOException;
 import java.util.List;
+import java.util.UUID;
+
+import static com.facebook.presto.serde.TestingBlockEncodingManager.createTestingBlockEncodingManager;
 
 public class MockLocalStorageManager
         implements LocalStorageManager
@@ -53,34 +56,34 @@ public class MockLocalStorageManager
     }
 
     @Override
-    public BlockIterable getBlocks(long shardId, ColumnHandle columnHandle)
+    public BlockIterable getBlocks(UUID shardUuid, ConnectorColumnHandle columnHandle)
     {
         throw new UnsupportedOperationException();
     }
 
     @Override
-    public boolean shardExists(long shardId)
+    public boolean shardExists(UUID shardUuid)
     {
         return false;
     }
 
     @Override
-    public void dropShard(long shardId)
+    public void dropShard(UUID shardUuid)
     {
     }
 
     @Override
-    public boolean isShardActive(long shardId)
+    public boolean isShardActive(UUID shardUuid)
     {
         return false;
     }
 
     @Override
-    public ColumnFileHandle createStagingFileHandles(long shardId, List<? extends ColumnHandle> columnHandles)
+    public ColumnFileHandle createStagingFileHandles(UUID shardUuid, List<? extends ConnectorColumnHandle> columnHandles)
             throws IOException
     {
-        Builder builder = ColumnFileHandle.builder(shardId);
-        for (ColumnHandle handle : columnHandles) {
+            Builder builder = ColumnFileHandle.builder(shardUuid, createTestingBlockEncodingManager());
+            for (ConnectorColumnHandle handle : columnHandles) {
             File tmpfile = File.createTempFile("mock-storage", "mock", storageFolder);
             tmpfile.deleteOnExit();
             builder.addColumn(handle, tmpfile);

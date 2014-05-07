@@ -14,10 +14,15 @@
 package com.facebook.presto.sql.planner;
 
 import com.facebook.presto.sql.planner.plan.AggregationNode;
+import com.facebook.presto.sql.planner.plan.DistinctLimitNode;
+import com.facebook.presto.sql.planner.plan.MaterializeSampleNode;
 import com.facebook.presto.sql.planner.plan.ExchangeNode;
 import com.facebook.presto.sql.planner.plan.FilterNode;
+import com.facebook.presto.sql.planner.plan.IndexJoinNode;
+import com.facebook.presto.sql.planner.plan.IndexSourceNode;
 import com.facebook.presto.sql.planner.plan.JoinNode;
 import com.facebook.presto.sql.planner.plan.LimitNode;
+import com.facebook.presto.sql.planner.plan.MarkDistinctNode;
 import com.facebook.presto.sql.planner.plan.OutputNode;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
@@ -27,24 +32,31 @@ import com.facebook.presto.sql.planner.plan.SampleNode;
 import com.facebook.presto.sql.planner.plan.SemiJoinNode;
 import com.facebook.presto.sql.planner.plan.SinkNode;
 import com.facebook.presto.sql.planner.plan.SortNode;
+import com.facebook.presto.sql.planner.plan.TableCommitNode;
 import com.facebook.presto.sql.planner.plan.TableScanNode;
 import com.facebook.presto.sql.planner.plan.TableWriterNode;
 import com.facebook.presto.sql.planner.plan.TopNNode;
 import com.facebook.presto.sql.planner.plan.UnionNode;
+import com.facebook.presto.sql.planner.plan.ValuesNode;
 import com.facebook.presto.sql.planner.plan.WindowNode;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.FunctionCall;
 import com.google.common.base.Preconditions;
+import com.google.common.collect.FluentIterable;
 
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
 
+import static com.facebook.presto.sql.planner.optimizations.IndexJoinOptimizer.IndexKeyTracer;
+
 /**
  * Ensures that all dependencies (i.e., symbols in expressions) for a plan node are provided by its source nodes
  */
-public class PlanSanityChecker
+public final class PlanSanityChecker
 {
+    private PlanSanityChecker() {}
+
     public static void validate(PlanNode plan)
     {
         plan.accept(new Visitor(), null);
@@ -58,7 +70,7 @@ public class PlanSanityChecker
         @Override
         protected Void visitPlan(PlanNode node, Void context)
         {
-            throw new UnsupportedOperationException("not yet implemented");
+            throw new UnsupportedOperationException("not yet implemented: " + node.getClass().getName());
         }
 
         @Override
@@ -71,9 +83,30 @@ public class PlanSanityChecker
 
             Preconditions.checkArgument(source.getOutputSymbols().containsAll(node.getGroupBy()), "Invalid node. Group by symbols (%s) not in source plan output (%s)", node.getGroupBy(), node.getSource().getOutputSymbols());
 
+            if (node.getSampleWeight().isPresent()) {
+                Preconditions.checkArgument(source.getOutputSymbols().contains(node.getSampleWeight().get()), "Invalid node. Sample weight symbol (%s) is not in source plan output (%s)", node.getSampleWeight().get(), node.getSource().getOutputSymbols());
+            }
+
             for (FunctionCall call : node.getAggregations().values()) {
                 Set<Symbol> dependencies = DependencyExtractor.extractUnique(call);
                 Preconditions.checkArgument(source.getOutputSymbols().containsAll(dependencies), "Invalid node. Aggregation dependencies (%s) not in source plan output (%s)", dependencies, node.getSource().getOutputSymbols());
+            }
+
+            return null;
+        }
+
+        @Override
+        public Void visitMarkDistinct(MarkDistinctNode node, Void context)
+        {
+            PlanNode source = node.getSource();
+            source.accept(this, context); // visit child
+
+            verifyUniqueId(node);
+
+            Preconditions.checkArgument(source.getOutputSymbols().containsAll(node.getDistinctSymbols()), "Invalid node. Mark distinct symbols (%s) not in source plan output (%s)", node.getDistinctSymbols(), source.getOutputSymbols());
+
+            if (node.getSampleWeightSymbol().isPresent()) {
+                Preconditions.checkArgument(source.getOutputSymbols().contains(node.getSampleWeightSymbol().get()), "Invalid node. Sample weight symbol (%s) is not in source plan output (%s)", node.getSampleWeightSymbol().get(), node.getSource().getOutputSymbols());
             }
 
             return null;
@@ -151,7 +184,14 @@ public class PlanSanityChecker
             verifyUniqueId(node);
 
             Preconditions.checkArgument(source.getOutputSymbols().containsAll(node.getOutputSymbols()), "Invalid node. Output symbols (%s) not in source plan output (%s)", node.getOutputSymbols(), node.getSource().getOutputSymbols());
-            Preconditions.checkArgument(source.getOutputSymbols().containsAll(node.getOrderBy()), "Invalid node. Order by dependencies (%s) not in source plan output (%s)", node.getOrderBy(), node.getSource().getOutputSymbols());
+            Preconditions.checkArgument(source.getOutputSymbols().containsAll(node.getOrderBy()),
+                    "Invalid node. Order by dependencies (%s) not in source plan output (%s)",
+                    node.getOrderBy(),
+                    node.getSource().getOutputSymbols());
+
+            if (node.getSampleWeight().isPresent()) {
+                Preconditions.checkArgument(source.getOutputSymbols().contains(node.getSampleWeight().get()), "Invalid node. Sample weight symbol (%s) is not in source plan output (%s)", node.getSampleWeight().get(), node.getSource().getOutputSymbols());
+            }
 
             return null;
         }
@@ -167,6 +207,17 @@ public class PlanSanityChecker
             Preconditions.checkArgument(source.getOutputSymbols().containsAll(node.getOutputSymbols()), "Invalid node. Output symbols (%s) not in source plan output (%s)", node.getOutputSymbols(), node.getSource().getOutputSymbols());
             Preconditions.checkArgument(source.getOutputSymbols().containsAll(node.getOrderBy()), "Invalid node. Order by dependencies (%s) not in source plan output (%s)", node.getOrderBy(), node.getSource().getOutputSymbols());
 
+            return null;
+        }
+
+        @Override
+        public Void visitMaterializeSample(MaterializeSampleNode node, Void context)
+        {
+            PlanNode source = node.getSource();
+            source.accept(this, context);
+            verifyUniqueId(node);
+
+            Preconditions.checkArgument(source.getOutputSymbols().contains(node.getSampleWeightSymbol()), "Invalid node. Sample weight symbol (%s) not in source plan output (%s)", node.getSampleWeightSymbol(), source.getOutputSymbols());
             return null;
         }
 
@@ -191,6 +242,20 @@ public class PlanSanityChecker
 
             verifyUniqueId(node);
 
+            if (node.getSampleWeight().isPresent()) {
+                Preconditions.checkArgument(source.getOutputSymbols().contains(node.getSampleWeight().get()), "Invalid node. Sample weight symbol (%s) is not in source plan output (%s)", node.getSampleWeight().get(), node.getSource().getOutputSymbols());
+            }
+
+            return null;
+        }
+
+        @Override
+        public Void visitDistinctLimit(DistinctLimitNode node, Void context)
+        {
+            PlanNode source = node.getSource();
+            source.accept(this, context); // visit child
+
+            verifyUniqueId(node);
             return null;
         }
 
@@ -221,7 +286,44 @@ public class PlanSanityChecker
             Preconditions.checkArgument(node.getSource().getOutputSymbols().contains(node.getSourceJoinSymbol()), "Symbol from semi join clause (%s) not in source (%s)", node.getSourceJoinSymbol(), node.getSource().getOutputSymbols());
             Preconditions.checkArgument(node.getFilteringSource().getOutputSymbols().contains(node.getFilteringSourceJoinSymbol()), "Symbol from semi join clause (%s) not in filtering source (%s)", node.getSourceJoinSymbol(), node.getFilteringSource().getOutputSymbols());
             Preconditions.checkArgument(node.getOutputSymbols().containsAll(node.getSource().getOutputSymbols()), "Semi join output symbols (%s) must contain all of the source symbols (%s)", node.getOutputSymbols(), node.getSource().getOutputSymbols());
-            Preconditions.checkArgument(node.getOutputSymbols().contains(node.getSemiJoinOutput()), "Semi join output symbols (%s) must contain join result (%s)", node.getOutputSymbols(), node.getSemiJoinOutput());
+            Preconditions.checkArgument(node.getOutputSymbols().contains(node.getSemiJoinOutput()),
+                    "Semi join output symbols (%s) must contain join result (%s)",
+                    node.getOutputSymbols(),
+                    node.getSemiJoinOutput());
+
+            return null;
+        }
+
+        @Override
+        public Void visitIndexJoin(IndexJoinNode node, Void context)
+        {
+            node.getProbeSource().accept(this, context);
+            node.getIndexSource().accept(this, context);
+
+            verifyUniqueId(node);
+
+            for (IndexJoinNode.EquiJoinClause clause : node.getCriteria()) {
+                Preconditions.checkArgument(node.getProbeSource().getOutputSymbols().contains(clause.getProbe()), "Probe symbol from index join clause (%s) not in probe source (%s)", clause.getProbe(), node.getProbeSource().getOutputSymbols());
+                Preconditions.checkArgument(node.getIndexSource().getOutputSymbols().contains(clause.getIndex()), "Index symbol from index join clause (%s) not in index source (%s)", clause.getIndex(), node.getIndexSource().getOutputSymbols());
+            }
+
+            Set<Symbol> lookupSymbols = FluentIterable.from(node.getCriteria())
+                    .transform(IndexJoinNode.EquiJoinClause.indexGetter())
+                    .toSet();
+            Preconditions.checkArgument(IndexKeyTracer.trace(node.getIndexSource(), lookupSymbols).keySet().containsAll(lookupSymbols),
+                    "Index lookup symbols are not traceable to index source: %s",
+                    lookupSymbols);
+
+            return null;
+        }
+
+        @Override
+        public Void visitIndexSource(IndexSourceNode node, Void context)
+        {
+            verifyUniqueId(node);
+
+            Preconditions.checkArgument(node.getOutputSymbols().containsAll(node.getLookupSymbols()), "Lookup symbols must be part of output symbols");
+            Preconditions.checkArgument(node.getAssignments().keySet().containsAll(node.getOutputSymbols()), "Assignments must contain mappings for output symbols");
 
             return null;
         }
@@ -232,8 +334,16 @@ public class PlanSanityChecker
             verifyUniqueId(node);
 
             Preconditions.checkArgument(node.getAssignments().keySet().containsAll(node.getOutputSymbols()), "Assignments must contain mappings for output symbols");
-            Set<Symbol> predicateSymbols = DependencyExtractor.extractUnique(node.getPartitionPredicate());
-            Preconditions.checkArgument(node.getAssignments().keySet().containsAll(predicateSymbols), "Assignments must contain mappings for all partition predicate symbols");
+
+            return null;
+        }
+
+        @Override
+        public Void visitValues(ValuesNode node, Void context)
+        {
+            verifyUniqueId(node);
+
+            Preconditions.checkArgument(node.getOutputSymbols().containsAll(node.getOutputSymbols()), "Assignments must contain mappings for output symbols");
 
             return null;
         }
@@ -261,6 +371,22 @@ public class PlanSanityChecker
         public Void visitTableWriter(TableWriterNode node, Void context)
         {
             PlanNode source = node.getSource();
+            source.accept(this, context); // visit child
+
+            verifyUniqueId(node);
+
+            if (node.getSampleWeightSymbol().isPresent()) {
+                Preconditions.checkArgument(source.getOutputSymbols().contains(node.getSampleWeightSymbol().get()), "Invalid node. Sample weight symbol (%s) is not in source plan output (%s)", node.getSampleWeightSymbol().get(), node.getSource().getOutputSymbols());
+            }
+
+            return null;
+        }
+
+        @Override
+        public Void visitTableCommit(TableCommitNode node, Void context)
+        {
+            PlanNode source = node.getSource();
+            Preconditions.checkArgument(source instanceof TableWriterNode, "Invalid node. TableCommit source must be a TableWriter not %s", source.getClass().getSimpleName());
             source.accept(this, context); // visit child
 
             verifyUniqueId(node);

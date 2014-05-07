@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.sql.gen;
 
+import com.facebook.presto.byteCode.ByteCodeNode;
 import com.google.common.base.Objects;
 
 import java.lang.invoke.CallSite;
@@ -23,10 +24,10 @@ public class FunctionBinding
     private final long bindingId;
     private final String name;
     private final CallSite callSite;
-    private final List<TypedByteCodeNode> arguments;
+    private final List<ByteCodeNode> arguments;
     private final boolean nullable;
 
-    public FunctionBinding(long bindingId, String name, CallSite callSite, List<TypedByteCodeNode> arguments, boolean nullable)
+    public FunctionBinding(long bindingId, String name, CallSite callSite, List<ByteCodeNode> arguments, boolean nullable)
     {
         this.bindingId = bindingId;
         this.name = name;
@@ -50,7 +51,7 @@ public class FunctionBinding
         return callSite;
     }
 
-    public List<TypedByteCodeNode> getArguments()
+    public List<ByteCodeNode> getArguments()
     {
         return arguments;
     }

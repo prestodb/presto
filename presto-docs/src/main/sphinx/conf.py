@@ -71,8 +71,6 @@ source_suffix = '.rst'
 master_doc = 'index'
 
 project = u'Presto'
-# noinspection PyShadowingBuiltins
-copyright = u'2013, Facebook'
 
 version = get_version()
 release = version
@@ -95,3 +93,5 @@ html_theme = 'presto'
 html_title = '%s %s Documentation' % (project, release)
 
 html_add_permalinks = None
+html_show_copyright = False
+html_show_sphinx = False

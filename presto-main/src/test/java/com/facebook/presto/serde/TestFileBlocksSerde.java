@@ -13,61 +13,75 @@
  */
 package com.facebook.presto.serde;
 
-import com.facebook.presto.block.BlockBuilder;
-import com.facebook.presto.block.uncompressed.UncompressedBlock;
+import com.facebook.presto.block.BlockAssertions;
+import com.facebook.presto.spi.block.Block;
+import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.google.common.collect.ImmutableList;
 import com.google.common.io.OutputSupplier;
 import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.Slice;
+import io.airlift.slice.Slices;
 import org.testng.annotations.Test;
 
 import java.util.List;
 
-import static com.facebook.presto.block.BlockAssertions.toValues;
 import static com.facebook.presto.serde.BlocksFileReader.readBlocks;
-import static com.facebook.presto.serde.BlocksFileWriter.writeBlocks;
-import static com.facebook.presto.tuple.TupleInfo.SINGLE_VARBINARY;
+import static com.facebook.presto.serde.TestingBlockEncodingManager.createTestingBlockEncodingManager;
+import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static org.testng.Assert.assertEquals;
 
 public class TestFileBlocksSerde
 {
-    private final List<ImmutableList<String>> expectedValues = ImmutableList.of(
-            ImmutableList.of("alice"),
-            ImmutableList.of("bob"),
-            ImmutableList.of("charlie"),
-            ImmutableList.of("dave"),
-            ImmutableList.of("alice"),
-            ImmutableList.of("bob"),
-            ImmutableList.of("charlie"),
-            ImmutableList.of("dave"),
-            ImmutableList.of("alice"),
-            ImmutableList.of("bob"),
-            ImmutableList.of("charlie"),
-            ImmutableList.of("dave"));
+    private final List<String> expectedValues = ImmutableList.of(
+            "alice",
+            "bob",
+            "charlie",
+            "dave",
+            "alice",
+            "bob",
+            "charlie",
+            "dave",
+            "alice",
+            "bob",
+            "charlie",
+            "dave");
 
-    private final UncompressedBlock expectedBlock = new BlockBuilder(SINGLE_VARBINARY)
-            .append("alice")
-            .append("bob")
-            .append("charlie")
-            .append("dave")
+    private final Block expectedBlock = VARCHAR.createBlockBuilder(new BlockBuilderStatus())
+            .appendSlice(Slices.utf8Slice("alice"))
+            .appendSlice(Slices.utf8Slice("bob"))
+            .appendSlice(Slices.utf8Slice("charlie"))
+            .appendSlice(Slices.utf8Slice("dave"))
             .build();
 
     @Test
     public void testRoundTrip()
     {
         for (BlocksFileEncoding encoding : BlocksFileEncoding.values()) {
-            testRoundTrip(encoding);
+            try {
+                testRoundTrip(encoding);
+            }
+            catch (Throwable e) {
+                throw new RuntimeException("Round trip failed for encoding: " + encoding, e);
+            }
         }
     }
 
     public void testRoundTrip(BlocksFileEncoding encoding)
     {
         DynamicSliceOutputSupplier sliceOutput = new DynamicSliceOutputSupplier(1024);
-        writeBlocks(encoding, sliceOutput, expectedBlock, expectedBlock, expectedBlock);
-        Slice slice = sliceOutput.getLastSlice();
-        BlocksFileReader actualBlocks = readBlocks(slice);
 
-        List<List<Object>> actualValues = toValues(actualBlocks);
+        // write 3 copies the expected block
+        BlocksFileWriter fileWriter = new BlocksFileWriter(createTestingBlockEncodingManager(), encoding, sliceOutput);
+        fileWriter.append(expectedBlock);
+        fileWriter.append(expectedBlock);
+        fileWriter.append(expectedBlock);
+        fileWriter.close();
+
+        // read the block
+        Slice slice = sliceOutput.getLastSlice();
+        BlocksFileReader actualBlocks = readBlocks(createTestingBlockEncodingManager(), slice);
+
+        List<Object> actualValues = BlockAssertions.toValues(actualBlocks);
 
         assertEquals(actualValues, expectedValues);
 

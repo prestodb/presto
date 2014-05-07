@@ -31,6 +31,7 @@ public class TestTaskStats
     public static final TaskStats EXPECTED = new TaskStats(
             new DateTime(1),
             new DateTime(2),
+            new DateTime(100),
             new DateTime(3),
             new Duration(4, NANOSECONDS),
             new Duration(5, NANOSECONDS),
@@ -71,7 +72,8 @@ public class TestTaskStats
     public static void assertExpectedTaskStats(TaskStats actual)
     {
         assertEquals(actual.getCreateTime(), new DateTime(1, UTC));
-        assertEquals(actual.getStartTime(), new DateTime(2, UTC));
+        assertEquals(actual.getFirstStartTime(), new DateTime(2, UTC));
+        assertEquals(actual.getLastStartTime(), new DateTime(100, UTC));
         assertEquals(actual.getEndTime(), new DateTime(3, UTC));
         assertEquals(actual.getElapsedTime(), new Duration(4, NANOSECONDS));
         assertEquals(actual.getQueuedTime(), new Duration(5, NANOSECONDS));

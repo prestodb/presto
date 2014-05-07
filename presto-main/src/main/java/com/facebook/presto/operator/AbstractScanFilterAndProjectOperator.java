@@ -13,13 +13,12 @@
  */
 package com.facebook.presto.operator;
 
-import com.facebook.presto.block.Block;
-import com.facebook.presto.spi.ColumnHandle;
+import com.facebook.presto.metadata.ColumnHandle;
+import com.facebook.presto.metadata.Split;
 import com.facebook.presto.spi.RecordCursor;
-import com.facebook.presto.spi.Split;
 import com.facebook.presto.split.DataStreamProvider;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
-import com.facebook.presto.tuple.TupleInfo;
+import com.facebook.presto.spi.type.Type;
 import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -40,7 +39,7 @@ public abstract class AbstractScanFilterAndProjectOperator
     private final OperatorContext operatorContext;
     private final PlanNodeId planNodeId;
     private final DataStreamProvider dataStreamProvider;
-    private final List<TupleInfo> tupleInfos;
+    private final List<Type> types;
     private final List<ColumnHandle> columns;
     private final PageBuilder pageBuilder;
 
@@ -53,24 +52,25 @@ public abstract class AbstractScanFilterAndProjectOperator
     private boolean finishing;
 
     private long completedBytes;
+    private long readTimeNanos;
 
     protected AbstractScanFilterAndProjectOperator(
             OperatorContext operatorContext,
             PlanNodeId sourceId,
             DataStreamProvider dataStreamProvider,
             Iterable<ColumnHandle> columns,
-            Iterable<TupleInfo> tupleInfos)
+            Iterable<Type> types)
     {
         this.operatorContext = checkNotNull(operatorContext, "operatorContext is null");
         this.planNodeId = checkNotNull(sourceId, "sourceId is null");
         this.dataStreamProvider = checkNotNull(dataStreamProvider, "dataStreamProvider is null");
-        this.tupleInfos = ImmutableList.copyOf(checkNotNull(tupleInfos, "tupleInfos is null"));
+        this.types = ImmutableList.copyOf(checkNotNull(types, "types is null"));
         this.columns = ImmutableList.copyOf(checkNotNull(columns, "columns is null"));
 
-        this.pageBuilder = new PageBuilder(getTupleInfos());
+        this.pageBuilder = new PageBuilder(getTypes());
     }
 
-    protected abstract void filterAndProjectRowOriented(Block[] blocks, PageBuilder pageBuilder);
+    protected abstract void filterAndProjectRowOriented(Page page, PageBuilder pageBuilder);
 
     protected abstract int filterAndProjectRowOriented(RecordCursor cursor, PageBuilder pageBuilder);
 
@@ -87,7 +87,7 @@ public abstract class AbstractScanFilterAndProjectOperator
     }
 
     @Override
-    public synchronized void addSplit(final Split split)
+    public synchronized void addSplit(Split split)
     {
         checkNotNull(split, "split is null");
         checkState(cursor == null && operator == null, "split already set");
@@ -115,9 +115,9 @@ public abstract class AbstractScanFilterAndProjectOperator
     }
 
     @Override
-    public final List<TupleInfo> getTupleInfos()
+    public final List<Type> getTypes()
     {
-        return tupleInfos;
+        return types;
     }
 
     @Override
@@ -126,6 +126,7 @@ public abstract class AbstractScanFilterAndProjectOperator
         close();
     }
 
+    @Override
     public void close()
     {
         if (operator != null) {
@@ -153,9 +154,7 @@ public abstract class AbstractScanFilterAndProjectOperator
         if (operator != null) {
             return operator.isBlocked();
         }
-        else {
-            return NOT_BLOCKED;
-        }
+        return NOT_BLOCKED;
     }
 
     @Override
@@ -177,8 +176,9 @@ public abstract class AbstractScanFilterAndProjectOperator
             if (cursor != null) {
                 int rowsProcessed = filterAndProjectRowOriented(cursor, pageBuilder);
                 long bytesProcessed = cursor.getCompletedBytes() - completedBytes;
-                operatorContext.recordGeneratedInput(new DataSize(bytesProcessed, BYTE), rowsProcessed);
+                operatorContext.recordGeneratedInput(new DataSize(bytesProcessed, BYTE), rowsProcessed, cursor.getReadTimeNanos() - readTimeNanos);
                 completedBytes += bytesProcessed;
+                readTimeNanos = cursor.getReadTimeNanos();
 
                 if (rowsProcessed == 0) {
                     finishing = true;
@@ -187,7 +187,7 @@ public abstract class AbstractScanFilterAndProjectOperator
             else {
                 Page output = operator.getOutput();
                 if (output != null) {
-                    filterAndProjectRowOriented(output.getBlocks(), pageBuilder);
+                    filterAndProjectRowOriented(output, pageBuilder);
                 }
             }
         }

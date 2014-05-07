@@ -13,22 +13,28 @@
  */
 package com.facebook.presto;
 
-import com.facebook.presto.sql.analyzer.Session;
+import com.facebook.presto.spi.ConnectorSession;
+import com.facebook.presto.tpch.SampledTpchConnectorFactory;
+import com.facebook.presto.tpch.TpchConnectorFactory;
+import com.facebook.presto.tpch.TpchMetadata;
 import com.facebook.presto.util.LocalQueryRunner;
 import com.facebook.presto.util.MaterializedResult;
+import com.google.common.collect.ImmutableMap;
 import org.intellij.lang.annotations.Language;
 import org.testng.annotations.AfterClass;
 
+import java.util.Locale;
 import java.util.concurrent.ExecutorService;
 
-import static com.facebook.presto.util.LocalQueryRunner.createTpchLocalQueryRunner;
-import static com.facebook.presto.util.Threads.daemonThreadsNamed;
+import static com.facebook.presto.spi.type.TimeZoneKey.UTC_KEY;
+import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 
 public class TestLocalQueries
-        extends AbstractTestQueries
+        extends AbstractTestSampledQueries
 {
-    private LocalQueryRunner tpchLocalQueryRunner;
+    private LocalQueryRunner localQueryRunner;
+    private LocalQueryRunner localSampledQueryRunner;
     private ExecutorService executor;
 
     public ExecutorService getExecutor()
@@ -54,17 +60,34 @@ public class TestLocalQueries
     }
 
     @Override
-    protected void setUpQueryFramework(String catalog, String schema)
+    protected ConnectorSession setUpQueryFramework()
     {
-        tpchLocalQueryRunner = createTpchLocalQueryRunner(new Session("user", "test", catalog, schema, null, null), getExecutor());
+        ConnectorSession session = new ConnectorSession("user", "test", "local", TpchMetadata.TINY_SCHEMA_NAME, UTC_KEY, Locale.ENGLISH, null, null);
+        localQueryRunner = new LocalQueryRunner(session, getExecutor());
+        localSampledQueryRunner = new LocalQueryRunner(session, getExecutor());
+
+        // add the tpch catalog
+        // local queries run directly against the generator
+        localQueryRunner.createCatalog(session.getCatalog(), new TpchConnectorFactory(localQueryRunner.getNodeManager(), 1), ImmutableMap.<String, String>of());
+        localSampledQueryRunner.createCatalog(session.getCatalog(), new SampledTpchConnectorFactory(localSampledQueryRunner.getNodeManager(), 1, 2), ImmutableMap.<String, String>of());
+
+        localQueryRunner.getMetadata().addFunctions(CUSTOM_FUNCTIONS);
 
         // dump query plan to console (for debugging)
-        // tpchLocalQueryRunner.textLogicalPlan();
+        // tpchLocalQueryRunner.printPlan();
+
+        return session;
     }
 
     @Override
     protected MaterializedResult computeActual(@Language("SQL") String sql)
     {
-        return tpchLocalQueryRunner.execute(sql);
+        return localQueryRunner.execute(sql).toJdbcTypes();
+    }
+
+    @Override
+    protected MaterializedResult computeActualSampled(@Language("SQL") String sql)
+    {
+        return localSampledQueryRunner.execute(sql).toJdbcTypes();
     }
 }

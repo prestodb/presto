@@ -18,28 +18,18 @@ import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListeningExecutorService;
 import com.google.common.util.concurrent.MoreExecutors;
 import com.google.common.util.concurrent.SettableFuture;
-import com.google.common.util.concurrent.ThreadFactoryBuilder;
 
 import java.util.concurrent.Executor;
-import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.TimeUnit;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 
-public class Threads
+public final class Threads
 {
     private static final Class<? extends ListeningExecutorService> GUAVA_SAME_THREAD_EXECUTOR_CLASS = MoreExecutors.sameThreadExecutor().getClass();
 
-    public static ThreadFactory threadsNamed(String nameFormat)
-    {
-        return new ThreadFactoryBuilder().setNameFormat(nameFormat).build();
-    }
-
-    public static ThreadFactory daemonThreadsNamed(String nameFormat)
-    {
-        return new ThreadFactoryBuilder().setNameFormat(nameFormat).setDaemon(true).build();
-    }
+    private Threads() {}
 
     public static Executor checkNotSameThreadExecutor(Executor executor, String name)
     {

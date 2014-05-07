@@ -20,11 +20,11 @@ import com.facebook.presto.execution.QueryState;
 import com.facebook.presto.execution.TaskInfo;
 import com.facebook.presto.execution.TaskManager;
 import com.facebook.presto.metadata.InMemoryNodeManager;
-import com.facebook.presto.metadata.NodeManager;
+import com.facebook.presto.metadata.InternalNodeManager;
 import com.facebook.presto.operator.HttpPageBufferClient.PageResponseHandler;
 import com.facebook.presto.operator.HttpPageBufferClient.PagesResponse;
 import com.facebook.presto.operator.Page;
-import com.google.common.base.Throwables;
+import com.facebook.presto.spi.NodeManager;
 import com.google.inject.Binder;
 import com.google.inject.Injector;
 import com.google.inject.Key;
@@ -33,7 +33,6 @@ import com.google.inject.Scopes;
 import io.airlift.bootstrap.Bootstrap;
 import io.airlift.bootstrap.LifeCycleManager;
 import io.airlift.event.client.InMemoryEventModule;
-import io.airlift.http.client.ApacheHttpClient;
 import io.airlift.http.client.FullJsonResponseHandler.JsonResponse;
 import io.airlift.http.client.HttpClient;
 import io.airlift.http.client.HttpStatus;
@@ -42,6 +41,7 @@ import io.airlift.http.client.Response;
 import io.airlift.http.client.ResponseHandler;
 import io.airlift.http.client.StatusResponseHandler.StatusResponse;
 import io.airlift.http.client.UnexpectedResponseException;
+import io.airlift.http.client.jetty.JettyHttpClient;
 import io.airlift.http.server.testing.TestingHttpServer;
 import io.airlift.http.server.testing.TestingHttpServerModule;
 import io.airlift.jaxrs.JaxrsModule;
@@ -54,6 +54,7 @@ import org.testng.annotations.Test;
 import java.net.URI;
 import java.util.List;
 
+import static com.facebook.presto.serde.TestingBlockEncodingManager.createTestingBlockEncodingManager;
 import static com.google.common.base.Charsets.UTF_8;
 import static io.airlift.http.client.FullJsonResponseHandler.createFullJsonResponseHandler;
 import static io.airlift.http.client.HttpUriBuilder.uriBuilderFrom;
@@ -61,11 +62,13 @@ import static io.airlift.http.client.JsonResponseHandler.createJsonResponseHandl
 import static io.airlift.http.client.Request.Builder.prepareDelete;
 import static io.airlift.http.client.Request.Builder.prepareGet;
 import static io.airlift.http.client.Request.Builder.preparePost;
+import static io.airlift.http.client.ResponseHandlerUtils.propagate;
 import static io.airlift.http.client.StaticBodyGenerator.createStaticBodyGenerator;
 import static io.airlift.http.client.StatusResponseHandler.createStatusResponseHandler;
 import static io.airlift.json.JsonCodec.jsonCodec;
 import static org.testng.Assert.assertEquals;
 
+@Test(singleThreaded = true)
 public class TestQueryResourceServer
 {
     private HttpClient client;
@@ -93,8 +96,9 @@ public class TestQueryResourceServer
                         binder.bind(QueryManager.class).to(MockQueryManager.class).in(Scopes.SINGLETON);
                         binder.bind(MockTaskManager.class).in(Scopes.SINGLETON);
                         binder.bind(TaskManager.class).to(Key.get(MockTaskManager.class)).in(Scopes.SINGLETON);
-                        binder.bind(PagesMapper.class).in(Scopes.SINGLETON);
-                        binder.bind(NodeManager.class).to(InMemoryNodeManager.class).in(Scopes.SINGLETON);
+                        binder.bind(PagesResponseWriter.class).in(Scopes.SINGLETON);
+                        binder.bind(InternalNodeManager.class).to(InMemoryNodeManager.class).in(Scopes.SINGLETON);
+                        binder.bind(NodeManager.class).to(Key.get(InternalNodeManager.class)).in(Scopes.SINGLETON);
                         binder.bind(LocationFactory.class).to(HttpLocationFactory.class).in(Scopes.SINGLETON);
                     }
                 });
@@ -108,7 +112,7 @@ public class TestQueryResourceServer
 
         server = injector.getInstance(TestingHttpServer.class);
 
-        client = new ApacheHttpClient();
+        client = new JettyHttpClient();
     }
 
     @AfterMethod
@@ -137,23 +141,23 @@ public class TestQueryResourceServer
         long sequenceId = 0;
         PagesResponse response = client.execute(
                 prepareGet().setUri(uriBuilderFrom(outputLocation).appendPath(String.valueOf(sequenceId)).build()).build(),
-                new PageResponseHandler());
-        List<Page> pages = response.getPages(sequenceId);
+                new PageResponseHandler(createTestingBlockEncodingManager()));
+        List<Page> pages = response.getPages();
         assertEquals(countPositions(pages), 220);
         assertQueryStatus(location, QueryState.RUNNING);
 
         sequenceId += pages.size();
         response = client.execute(
                 prepareGet().setUri(uriBuilderFrom(outputLocation).appendPath(String.valueOf(sequenceId)).build()).build(),
-                new PageResponseHandler());
-        pages = response.getPages(sequenceId);
+                new PageResponseHandler(createTestingBlockEncodingManager()));
+        pages = response.getPages();
         assertEquals(countPositions(pages), 44 + 48);
 
         sequenceId += pages.size();
         response = client.execute(
                 prepareGet().setUri(uriBuilderFrom(outputLocation).appendPath(String.valueOf(sequenceId)).build()).build(),
-                new PageResponseHandler());
-        pages = response.getPages(sequenceId);
+                new PageResponseHandler(createTestingBlockEncodingManager()));
+        pages = response.getPages();
         assertEquals(countPositions(pages), 0);
 
         assertQueryStatus(location, QueryState.FINISHED);
@@ -196,7 +200,7 @@ public class TestQueryResourceServer
         @Override
         public URI handleException(Request request, Exception exception)
         {
-            throw Throwables.propagate(exception);
+            throw propagate(request, exception);
         }
 
         @Override

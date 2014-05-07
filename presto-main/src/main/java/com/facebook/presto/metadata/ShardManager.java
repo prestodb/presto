@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.metadata;
 
+import com.facebook.presto.spi.ConnectorTableHandle;
 import com.facebook.presto.spi.PartitionKey;
-import com.facebook.presto.spi.TableHandle;
 import com.google.common.base.Optional;
 import com.google.common.collect.Multimap;
 
@@ -24,19 +24,10 @@ import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
+import java.util.UUID;
 
 public interface ShardManager
 {
-    /**
-     * Allocate a new shard id for a table.
-     */
-    long allocateShard(TableHandle tableHandle);
-
-    /**
-     * Mark shard as complete with data residing on given node
-     */
-    void commitShard(long shardId, String nodeIdentifier);
-
     /**
      * Remove a shard from a node. When this method returns successfully, the shard will be no longer retrieved
      * from that node.
@@ -51,48 +42,48 @@ public interface ShardManager
     /**
      * Commit a partition for a table.
      */
-    void commitPartition(TableHandle tableHandle, String partition, List<? extends PartitionKey> partitionKeys, Map<Long, String> shards);
+    void commitPartition(ConnectorTableHandle tableHandle, String partition, List<? extends PartitionKey> partitionKeys, Map<UUID, String> shards);
+
+    /**
+     * Commit an unpartitioned table.
+     */
+    void commitUnpartitionedTable(ConnectorTableHandle tableHandle, Map<UUID, String> shards);
 
     /**
      * Get the names of all partitions that have been successfully imported.
      *
      * @return list of partition names
      */
-    Set<TablePartition> getPartitions(TableHandle tableHandle);
+    Set<TablePartition> getPartitions(ConnectorTableHandle tableHandle);
 
     /**
      * Get all partition keys by Partition for a given table handle.
      */
-    Multimap<String, ? extends PartitionKey> getAllPartitionKeys(TableHandle tableHandle);
+    Multimap<String, ? extends PartitionKey> getAllPartitionKeys(ConnectorTableHandle tableHandle);
 
     /**
-     * Return a map with all partition names to committed shard nodes for a given table.
-     */
-    Multimap<Long, Entry<Long, String>> getCommittedPartitionShardNodes(TableHandle tableHandle);
-
-    /**
-     * Get all complete shards in a table
+     * Return a map of shard nodes by partition for a given table.
      *
-     * @return mapping of shard ID to node identifier
+     * @return partitionId -> (shardUuid -> nodeIdentifier)
      */
-    Multimap<Long, String> getCommittedShardNodesByTableId(TableHandle tableHandle);
+    Multimap<Long, Entry<UUID, String>> getShardNodesByPartition(ConnectorTableHandle tableHandle);
 
     /**
-     * Get all complete shards in table partition
+     * Return list of nodes used by table shards.
      *
-     * @return mapping of shard ID to node identifier
+     * @return shardUuid -> nodeIdentifier
      */
-    Multimap<Long, String> getShardNodes(long tableId, String partitionName);
+    Set<String> getTableNodes(ConnectorTableHandle tableHandle);
 
     /**
      * Return a collection of all nodes that were used in this shard manager.
      */
-    public Iterable<String> getAllNodesInUse();
+    Iterable<String> getAllNodesInUse();
 
     /**
      * Drop all record of the specified partition
      */
-    void dropPartition(TableHandle tableHandle, String partitionName);
+    void dropPartition(ConnectorTableHandle tableHandle, String partitionName);
 
     /**
      * remove all partitions that are no longer referred from any shard.

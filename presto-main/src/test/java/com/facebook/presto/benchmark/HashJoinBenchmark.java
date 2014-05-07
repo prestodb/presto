@@ -13,35 +13,34 @@
  */
 package com.facebook.presto.benchmark;
 
-import com.facebook.presto.block.BlockIterable;
-import com.facebook.presto.operator.AlignmentOperator.AlignmentOperatorFactory;
 import com.facebook.presto.operator.Driver;
 import com.facebook.presto.operator.DriverContext;
 import com.facebook.presto.operator.DriverFactory;
 import com.facebook.presto.operator.HashBuilderOperator.HashBuilderOperatorFactory;
-import com.facebook.presto.operator.HashBuilderOperator.HashSupplier;
-import com.facebook.presto.operator.HashJoinOperator;
-import com.facebook.presto.operator.HashJoinOperator.HashJoinOperatorFactory;
+import com.facebook.presto.operator.LookupJoinOperators;
+import com.facebook.presto.operator.LookupSourceSupplier;
 import com.facebook.presto.operator.NullOutputOperator.NullOutputOperatorFactory;
+import com.facebook.presto.operator.OperatorFactory;
 import com.facebook.presto.operator.TaskContext;
-import com.facebook.presto.serde.BlocksFileEncoding;
-import com.facebook.presto.tpch.TpchBlocksProvider;
+import com.facebook.presto.util.LocalQueryRunner;
 import com.google.common.collect.ImmutableList;
+import com.google.common.primitives.Ints;
 
 import java.util.List;
 import java.util.concurrent.ExecutorService;
 
-import static com.facebook.presto.util.Threads.daemonThreadsNamed;
+import static com.facebook.presto.benchmark.BenchmarkQueryRunner.createLocalQueryRunner;
+import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 
 public class HashJoinBenchmark
         extends AbstractOperatorBenchmark
 {
-    private HashSupplier hashSupplier;
+    private LookupSourceSupplier lookupSourceSupplier;
 
-    public HashJoinBenchmark(ExecutorService executor, TpchBlocksProvider tpchBlocksProvider)
+    public HashJoinBenchmark(LocalQueryRunner localQueryRunner)
     {
-        super(executor, tpchBlocksProvider, "hash_join", 4, 5);
+        super(localQueryRunner, "hash_join", 4, 50);
     }
 
     /*
@@ -52,28 +51,23 @@ public class HashJoinBenchmark
     @Override
     protected List<Driver> createDrivers(TaskContext taskContext)
     {
-        if (hashSupplier == null) {
-            BlockIterable orderOrderKey = getBlockIterable("orders", "orderkey", BlocksFileEncoding.RAW);
-            BlockIterable totalPrice = getBlockIterable("orders", "totalprice", BlocksFileEncoding.RAW);
-
-            AlignmentOperatorFactory ordersTableScan = new AlignmentOperatorFactory(0, orderOrderKey, totalPrice);
-            HashBuilderOperatorFactory hashBuilder = new HashBuilderOperatorFactory(1, ordersTableScan.getTupleInfos(), 0, 1_500_000);
+        if (lookupSourceSupplier == null) {
+            OperatorFactory ordersTableScan = createTableScanOperator(0, "orders", "orderkey", "totalprice");
+            HashBuilderOperatorFactory hashBuilder = new HashBuilderOperatorFactory(1, ordersTableScan.getTypes(), Ints.asList(0), 1_500_000);
 
             DriverContext driverContext = taskContext.addPipelineContext(false, false).addDriverContext();
             Driver driver = new DriverFactory(false, false, ordersTableScan, hashBuilder).createDriver(driverContext);
             while (!driver.isFinished()) {
                 driver.process();
             }
-            hashSupplier = hashBuilder.getHashSupplier();
+            lookupSourceSupplier = hashBuilder.getLookupSourceSupplier();
         }
 
-        BlockIterable lineItemOrderKey = getBlockIterable("lineitem", "orderkey", BlocksFileEncoding.RAW);
-        BlockIterable lineNumber = getBlockIterable("lineitem", "quantity", BlocksFileEncoding.RAW);
-        AlignmentOperatorFactory lineItemTableScan = new AlignmentOperatorFactory(0, lineItemOrderKey, lineNumber);
+        OperatorFactory lineItemTableScan = createTableScanOperator(0, "lineitem", "orderkey", "quantity");
 
-        HashJoinOperatorFactory joinOperator = HashJoinOperator.innerJoin(1, hashSupplier, lineItemTableScan.getTupleInfos(), 0);
+        OperatorFactory joinOperator = LookupJoinOperators.innerJoin(1, lookupSourceSupplier, lineItemTableScan.getTypes(), Ints.asList(0));
 
-        NullOutputOperatorFactory output = new NullOutputOperatorFactory(2, joinOperator.getTupleInfos());
+        NullOutputOperatorFactory output = new NullOutputOperatorFactory(2, joinOperator.getTypes());
 
         DriverFactory driverFactory = new DriverFactory(true, true, lineItemTableScan, joinOperator, output);
         DriverContext driverContext = taskContext.addPipelineContext(true, true).addDriverContext();
@@ -84,7 +78,7 @@ public class HashJoinBenchmark
     public static void main(String[] args)
     {
         ExecutorService executor = newCachedThreadPool(daemonThreadsNamed("test"));
-        new HashJoinBenchmark(executor, DEFAULT_TPCH_BLOCKS_PROVIDER).runBenchmark(
+        new HashJoinBenchmark(createLocalQueryRunner(executor)).runBenchmark(
                 new SimpleLineBenchmarkResultWriter(System.out)
         );
     }

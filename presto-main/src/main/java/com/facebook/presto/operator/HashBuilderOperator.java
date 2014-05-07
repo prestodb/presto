@@ -13,13 +13,10 @@
  */
 package com.facebook.presto.operator;
 
-import com.facebook.presto.tuple.TupleInfo;
-import com.google.common.base.Function;
+import com.facebook.presto.spi.type.Type;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
-import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
-import com.google.common.util.concurrent.SettableFuture;
 
 import javax.annotation.concurrent.ThreadSafe;
 
@@ -32,87 +29,39 @@ import static com.google.common.base.Preconditions.checkState;
 public class HashBuilderOperator
         implements Operator
 {
-    public static class HashSupplier
-    {
-        private final List<TupleInfo> tupleInfos;
-        private final SettableFuture<HashData> hashFuture = SettableFuture.create();
-
-        public HashSupplier(List<TupleInfo> tupleInfos)
-        {
-            this.tupleInfos = ImmutableList.copyOf(checkNotNull(tupleInfos, "tupleInfos is null"));
-        }
-
-        public List<TupleInfo> getTupleInfos()
-        {
-            return tupleInfos;
-        }
-
-        public ListenableFuture<SourceHash> getSourceHash()
-        {
-            return Futures.transform(hashFuture, new Function<HashData, SourceHash>()
-            {
-                @Override
-                public SourceHash apply(HashData hashData)
-                {
-                    return new SourceHash(new ChannelHash(hashData.channelHash), hashData.pagesIndex);
-                }
-            });
-        }
-
-        void setHash(ChannelHash channelHash, PagesIndex pagesIndex)
-        {
-            HashData hashData = new HashData(
-                    checkNotNull(channelHash, "channelHash is null"),
-                    checkNotNull(pagesIndex, "pagesIndex is null"));
-
-            boolean wasSet = hashFuture.set(hashData);
-            checkState(wasSet, "Hash already set");
-        }
-
-        private static class HashData
-        {
-            private final ChannelHash channelHash;
-            private final PagesIndex pagesIndex;
-
-            private HashData(ChannelHash channelHash, PagesIndex pagesIndex)
-            {
-                this.channelHash = channelHash;
-                this.pagesIndex = pagesIndex;
-            }
-        }
-    }
-
     public static class HashBuilderOperatorFactory
             implements OperatorFactory
     {
         private final int operatorId;
-        private final HashSupplier hashSupplier;
-        private final int hashChannel;
+        private final SettableLookupSourceSupplier lookupSourceSupplier;
+        private final List<Integer> hashChannels;
         private final int expectedPositions;
         private boolean closed;
 
         public HashBuilderOperatorFactory(
                 int operatorId,
-                List<TupleInfo> tupleInfos,
-                int hashChannel,
+                List<Type> types,
+                List<Integer> hashChannels,
                 int expectedPositions)
         {
             this.operatorId = operatorId;
-            this.hashSupplier = new HashSupplier(checkNotNull(tupleInfos, "tupleInfos is null"));
-            Preconditions.checkArgument(hashChannel >= 0, "hashChannel is negative");
-            this.hashChannel = hashChannel;
+            this.lookupSourceSupplier = new SettableLookupSourceSupplier(checkNotNull(types, "types is null"));
+
+            Preconditions.checkArgument(!hashChannels.isEmpty(), "hashChannels is empty");
+            this.hashChannels = ImmutableList.copyOf(checkNotNull(hashChannels, "hashChannels is null"));
+
             this.expectedPositions = checkNotNull(expectedPositions, "expectedPositions is null");
         }
 
-        public HashSupplier getHashSupplier()
+        public LookupSourceSupplier getLookupSourceSupplier()
         {
-            return hashSupplier;
+            return lookupSourceSupplier;
         }
 
         @Override
-        public List<TupleInfo> getTupleInfos()
+        public List<Type> getTypes()
         {
-            return hashSupplier.tupleInfos;
+            return lookupSourceSupplier.getTypes();
         }
 
         @Override
@@ -122,8 +71,8 @@ public class HashBuilderOperator
             OperatorContext operatorContext = driverContext.addOperatorContext(operatorId, HashBuilderOperator.class.getSimpleName());
             return new HashBuilderOperator(
                     operatorContext,
-                    hashSupplier,
-                    hashChannel,
+                    lookupSourceSupplier,
+                    hashChannels,
                     expectedPositions);
         }
 
@@ -135,8 +84,8 @@ public class HashBuilderOperator
     }
 
     private final OperatorContext operatorContext;
-    private final HashSupplier hashSupplier;
-    private final int hashChannel;
+    private final SettableLookupSourceSupplier lookupSourceSupplier;
+    private final List<Integer> hashChannels;
 
     private final PagesIndex pagesIndex;
 
@@ -144,14 +93,18 @@ public class HashBuilderOperator
 
     public HashBuilderOperator(
             OperatorContext operatorContext,
-            HashSupplier hashSupplier,
-            int hashChannel,
+            SettableLookupSourceSupplier lookupSourceSupplier,
+            List<Integer> hashChannels,
             int expectedPositions)
     {
         this.operatorContext = checkNotNull(operatorContext, "operatorContext is null");
-        this.hashSupplier = checkNotNull(hashSupplier, "hashSupplier is null");
-        this.hashChannel = hashChannel;
-        this.pagesIndex = new PagesIndex(hashSupplier.getTupleInfos(), expectedPositions, operatorContext);
+
+        this.lookupSourceSupplier = checkNotNull(lookupSourceSupplier, "hashSupplier is null");
+
+        Preconditions.checkArgument(!hashChannels.isEmpty(), "hashChannels is empty");
+        this.hashChannels = ImmutableList.copyOf(checkNotNull(hashChannels, "hashChannels is null"));
+
+        this.pagesIndex = new PagesIndex(lookupSourceSupplier.getTypes(), expectedPositions, operatorContext);
     }
 
     @Override
@@ -161,9 +114,9 @@ public class HashBuilderOperator
     }
 
     @Override
-    public List<TupleInfo> getTupleInfos()
+    public List<Type> getTypes()
     {
-        return hashSupplier.getTupleInfos();
+        return lookupSourceSupplier.getTypes();
     }
 
     @Override
@@ -173,8 +126,8 @@ public class HashBuilderOperator
             return;
         }
 
-        ChannelHash channelHash = new ChannelHash(pagesIndex.getIndex(hashChannel), operatorContext);
-        hashSupplier.setHash(channelHash, pagesIndex);
+        LookupSource lookupSource = pagesIndex.createLookupSource(hashChannels);
+        lookupSourceSupplier.setLookupSource(lookupSource);
         finished = true;
     }
 

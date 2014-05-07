@@ -13,6 +13,10 @@
  */
 package com.facebook.presto.server;
 
+import com.facebook.presto.block.BlockEncodingManager;
+import com.facebook.presto.block.dictionary.DictionaryBlockEncoding;
+import com.facebook.presto.block.rle.RunLengthBlockEncoding;
+import com.facebook.presto.block.snappy.SnappyBlockEncoding;
 import com.facebook.presto.client.QueryResults;
 import com.facebook.presto.connector.ConnectorManager;
 import com.facebook.presto.connector.NativeConnectorFactory;
@@ -35,8 +39,10 @@ import com.facebook.presto.execution.TaskManagerConfig;
 import com.facebook.presto.failureDetector.FailureDetector;
 import com.facebook.presto.failureDetector.FailureDetectorModule;
 import com.facebook.presto.guice.AbstractConfigurationAwareModule;
+import com.facebook.presto.index.IndexManager;
 import com.facebook.presto.metadata.CatalogManager;
 import com.facebook.presto.metadata.CatalogManagerConfig;
+import com.facebook.presto.metadata.ColumnMetadataMapper;
 import com.facebook.presto.metadata.DatabaseLocalStorageManager;
 import com.facebook.presto.metadata.DatabaseLocalStorageManagerConfig;
 import com.facebook.presto.metadata.ForLocalStorageManager;
@@ -47,25 +53,50 @@ import com.facebook.presto.metadata.LocalStorageManager;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.metadata.NodeVersion;
+import com.facebook.presto.metadata.TableColumnMapper;
 import com.facebook.presto.operator.ExchangeClient;
 import com.facebook.presto.operator.ExchangeClientConfig;
 import com.facebook.presto.operator.ExchangeClientFactory;
 import com.facebook.presto.operator.ForExchange;
 import com.facebook.presto.operator.ForScheduler;
+import com.facebook.presto.operator.RecordSinkManager;
+import com.facebook.presto.operator.RecordSinkProvider;
 import com.facebook.presto.spi.ConnectorFactory;
-import com.facebook.presto.spi.Split;
+import com.facebook.presto.spi.ConnectorRecordSinkProvider;
+import com.facebook.presto.spi.ConnectorSplit;
+import com.facebook.presto.spi.block.BlockEncodingFactory;
+import com.facebook.presto.spi.block.BlockEncodingSerde;
+import com.facebook.presto.spi.type.BigintType;
+import com.facebook.presto.spi.type.BooleanType;
+import com.facebook.presto.spi.type.DateType;
+import com.facebook.presto.spi.type.DoubleType;
+import com.facebook.presto.spi.type.HyperLogLogType;
+import com.facebook.presto.spi.type.IntervalDayTimeType;
+import com.facebook.presto.spi.type.IntervalYearMonthType;
+import com.facebook.presto.spi.type.TimeType;
+import com.facebook.presto.spi.type.TimeWithTimeZoneType;
+import com.facebook.presto.spi.type.TimestampType;
+import com.facebook.presto.spi.type.TimestampWithTimeZoneType;
+import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.spi.type.TypeManager;
+import com.facebook.presto.spi.type.VarcharType;
+import com.facebook.presto.split.ConnectorDataStreamProvider;
 import com.facebook.presto.split.DataStreamManager;
 import com.facebook.presto.split.DataStreamProvider;
+import com.facebook.presto.split.NativePartitionKey;
 import com.facebook.presto.sql.gen.ExpressionCompiler;
 import com.facebook.presto.sql.planner.LocalExecutionPlanner;
 import com.facebook.presto.sql.planner.PlanOptimizersFactory;
 import com.facebook.presto.sql.planner.optimizations.PlanOptimizer;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.FunctionCall;
-import com.facebook.presto.sql.tree.Serialization.ExpressionDeserializer;
-import com.facebook.presto.sql.tree.Serialization.ExpressionSerializer;
-import com.facebook.presto.sql.tree.Serialization.FunctionCallDeserializer;
-import com.facebook.presto.util.Threads;
+import com.facebook.presto.sql.Serialization.ExpressionDeserializer;
+import com.facebook.presto.sql.Serialization.ExpressionSerializer;
+import com.facebook.presto.sql.Serialization.FunctionCallDeserializer;
+import com.facebook.presto.type.ColorType;
+import com.facebook.presto.type.TypeDeserializer;
+import com.facebook.presto.type.TypeRegistry;
+import com.facebook.presto.type.UnknownType;
 import com.google.common.base.Supplier;
 import com.google.common.collect.ImmutableSet;
 import com.google.inject.Binder;
@@ -73,15 +104,18 @@ import com.google.inject.Provides;
 import com.google.inject.Scopes;
 import com.google.inject.TypeLiteral;
 import com.google.inject.multibindings.MapBinder;
+import com.google.inject.multibindings.Multibinder;
 import io.airlift.dbpool.H2EmbeddedDataSource;
 import io.airlift.dbpool.H2EmbeddedDataSourceConfig;
 import io.airlift.dbpool.H2EmbeddedDataSourceModule;
 import io.airlift.dbpool.MySqlDataSourceModule;
 import io.airlift.discovery.client.ServiceAnnouncement.ServiceAnnouncementBuilder;
 import io.airlift.discovery.client.ServiceDescriptor;
+import io.airlift.slice.Slice;
 import io.airlift.units.Duration;
 import org.skife.jdbi.v2.DBI;
 import org.skife.jdbi.v2.IDBI;
+import org.skife.jdbi.v2.tweak.ResultSetMapper;
 
 import javax.inject.Singleton;
 
@@ -89,19 +123,21 @@ import java.io.File;
 import java.lang.annotation.Annotation;
 import java.util.List;
 import java.util.Set;
-import java.util.concurrent.Executor;
-import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
 
 import static com.facebook.presto.guice.ConditionalModule.installIfPropertyEquals;
 import static com.facebook.presto.guice.DbiProvider.bindDbiToDataSource;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.inject.multibindings.MapBinder.newMapBinder;
+import static com.google.inject.multibindings.Multibinder.newSetBinder;
+import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.airlift.configuration.ConfigurationModule.bindConfig;
 import static io.airlift.discovery.client.DiscoveryBinder.discoveryBinder;
 import static io.airlift.event.client.EventBinder.eventBinder;
 import static io.airlift.http.client.HttpClientBinder.httpClientBinder;
 import static io.airlift.json.JsonBinder.jsonBinder;
 import static io.airlift.json.JsonCodecBinder.jsonCodecBinder;
+import static java.util.concurrent.Executors.newScheduledThreadPool;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.weakref.jmx.guice.ExportBinder.newExporter;
 
@@ -130,10 +166,11 @@ public class ServerMainModule
         newExporter(binder).export(TaskExecutor.class).withGeneratedName();
         binder.bind(LocalExecutionPlanner.class).in(Scopes.SINGLETON);
         binder.bind(ExpressionCompiler.class).in(Scopes.SINGLETON);
+        newExporter(binder).export(ExpressionCompiler.class).withGeneratedName();
         bindConfig(binder).to(TaskManagerConfig.class);
 
         jsonCodecBinder(binder).bindJsonCodec(TaskInfo.class);
-        binder.bind(PagesMapper.class).in(Scopes.SINGLETON);
+        binder.bind(PagesResponseWriter.class).in(Scopes.SINGLETON);
 
         // exchange client
         binder.bind(new TypeLiteral<Supplier<ExchangeClient>>() {}).to(ExchangeClientFactory.class).in(Scopes.SINGLETON);
@@ -153,12 +190,27 @@ public class ServerMainModule
         // data stream provider
         binder.bind(DataStreamManager.class).in(Scopes.SINGLETON);
         binder.bind(DataStreamProvider.class).to(DataStreamManager.class).in(Scopes.SINGLETON);
+        newSetBinder(binder, ConnectorDataStreamProvider.class);
+
+        // record sink provider
+        binder.bind(RecordSinkManager.class).in(Scopes.SINGLETON);
+        binder.bind(RecordSinkProvider.class).to(RecordSinkManager.class).in(Scopes.SINGLETON);
+        newSetBinder(binder, ConnectorRecordSinkProvider.class);
 
         // metadata
         binder.bind(CatalogManager.class).in(Scopes.SINGLETON);
         bindConfig(binder).to(CatalogManagerConfig.class);
         binder.bind(MetadataManager.class).in(Scopes.SINGLETON);
         binder.bind(Metadata.class).to(MetadataManager.class).in(Scopes.SINGLETON);
+
+        // type
+        binder.bind(TypeRegistry.class).in(Scopes.SINGLETON);
+        binder.bind(TypeManager.class).to(TypeRegistry.class).in(Scopes.SINGLETON);
+        jsonBinder(binder).addDeserializerBinding(Type.class).to(TypeDeserializer.class);
+        newSetBinder(binder, Type.class);
+
+        // index manager
+        binder.bind(IndexManager.class).in(Scopes.SINGLETON);
 
         // handle resolver
         binder.install(new HandleJsonModule());
@@ -184,7 +236,9 @@ public class ServerMainModule
 
         // splits
         jsonCodecBinder(binder).bindJsonCodec(TaskUpdateRequest.class);
-        jsonCodecBinder(binder).bindJsonCodec(Split.class);
+        jsonCodecBinder(binder).bindJsonCodec(ConnectorSplit.class);
+        jsonBinder(binder).addSerializerBinding(Slice.class).to(SliceSerializer.class);
+        jsonBinder(binder).addDeserializerBinding(Slice.class).to(SliceDeserializer.class);
         jsonBinder(binder).addSerializerBinding(Expression.class).to(ExpressionSerializer.class);
         jsonBinder(binder).addDeserializerBinding(Expression.class).to(ExpressionDeserializer.class);
         jsonBinder(binder).addDeserializerBinding(FunctionCall.class).to(FunctionCallDeserializer.class);
@@ -214,6 +268,10 @@ public class ServerMainModule
         }
 
         bindDataSource(binder, "presto-metastore", ForMetadata.class, ForShardManager.class);
+        Multibinder<ResultSetMapper<?>> resultSetMapperBinder = newSetBinder(binder, new TypeLiteral<ResultSetMapper<?>>() {}, ForMetadata.class);
+        resultSetMapperBinder.addBinding().to(TableColumnMapper.class).in(Scopes.SINGLETON);
+        resultSetMapperBinder.addBinding().to(ColumnMetadataMapper.class).in(Scopes.SINGLETON);
+        resultSetMapperBinder.addBinding().to(NativePartitionKey.Mapper.class).in(Scopes.SINGLETON);
 
         // statement resource
         jsonCodecBinder(binder).bindJsonCodec(QueryInfo.class);
@@ -231,14 +289,39 @@ public class ServerMainModule
 
         // optimizers
         binder.bind(new TypeLiteral<List<PlanOptimizer>>() {}).toProvider(PlanOptimizersFactory.class).in(Scopes.SINGLETON);
+
+        // block encodings
+        binder.bind(BlockEncodingManager.class).in(Scopes.SINGLETON);
+        binder.bind(BlockEncodingSerde.class).to(BlockEncodingManager.class).in(Scopes.SINGLETON);
+        Multibinder<BlockEncodingFactory<?>> blockEncodingFactoryBinder = newSetBinder(binder, new TypeLiteral<BlockEncodingFactory<?>>() {});
+        blockEncodingFactoryBinder.addBinding().toInstance(UnknownType.BLOCK_ENCODING_FACTORY);
+        blockEncodingFactoryBinder.addBinding().toInstance(BooleanType.BLOCK_ENCODING_FACTORY);
+        blockEncodingFactoryBinder.addBinding().toInstance(BigintType.BLOCK_ENCODING_FACTORY);
+        blockEncodingFactoryBinder.addBinding().toInstance(DoubleType.BLOCK_ENCODING_FACTORY);
+        blockEncodingFactoryBinder.addBinding().toInstance(VarcharType.BLOCK_ENCODING_FACTORY);
+        blockEncodingFactoryBinder.addBinding().toInstance(DateType.BLOCK_ENCODING_FACTORY);
+        blockEncodingFactoryBinder.addBinding().toInstance(TimeType.BLOCK_ENCODING_FACTORY);
+        blockEncodingFactoryBinder.addBinding().toInstance(TimeWithTimeZoneType.BLOCK_ENCODING_FACTORY);
+        blockEncodingFactoryBinder.addBinding().toInstance(TimestampType.BLOCK_ENCODING_FACTORY);
+        blockEncodingFactoryBinder.addBinding().toInstance(TimestampWithTimeZoneType.BLOCK_ENCODING_FACTORY);
+        blockEncodingFactoryBinder.addBinding().toInstance(IntervalYearMonthType.BLOCK_ENCODING_FACTORY);
+        blockEncodingFactoryBinder.addBinding().toInstance(IntervalDayTimeType.BLOCK_ENCODING_FACTORY);
+        blockEncodingFactoryBinder.addBinding().toInstance(RunLengthBlockEncoding.FACTORY);
+        blockEncodingFactoryBinder.addBinding().toInstance(DictionaryBlockEncoding.FACTORY);
+        blockEncodingFactoryBinder.addBinding().toInstance(SnappyBlockEncoding.FACTORY);
+        blockEncodingFactoryBinder.addBinding().toInstance(HyperLogLogType.BLOCK_ENCODING_FACTORY);
+        blockEncodingFactoryBinder.addBinding().toInstance(ColorType.BLOCK_ENCODING_FACTORY);
+
+        // thread visualizer
+        binder.bind(ThreadResource.class).in(Scopes.SINGLETON);
     }
 
     @Provides
     @Singleton
     @ForExchange
-    public Executor createExchangeExecutor()
+    public ScheduledExecutorService createExchangeExecutor()
     {
-        return Executors.newCachedThreadPool(Threads.daemonThreadsNamed("exchange-callback-%s"));
+        return newScheduledThreadPool(4, daemonThreadsNamed("exchange-client-%s"));
     }
 
     @Provides
@@ -278,9 +361,11 @@ public class ServerMainModule
         // TODO: this is a hack until the coordinator module works correctly
         if (coordinator) {
             binder.install(new FailureDetectorModule());
+            binder.bind(NodeResource.class).in(Scopes.SINGLETON);
         }
         else {
-            binder.bind(FailureDetector.class).toInstance(new FailureDetector() {
+            binder.bind(FailureDetector.class).toInstance(new FailureDetector()
+            {
                 @Override
                 public Set<ServiceDescriptor> getFailed()
                 {

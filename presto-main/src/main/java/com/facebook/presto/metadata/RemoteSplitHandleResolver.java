@@ -13,48 +13,61 @@
  */
 package com.facebook.presto.metadata;
 
-import com.facebook.presto.spi.ColumnHandle;
+import com.facebook.presto.spi.ConnectorColumnHandle;
 import com.facebook.presto.spi.ConnectorHandleResolver;
-import com.facebook.presto.spi.Split;
-import com.facebook.presto.spi.TableHandle;
+import com.facebook.presto.spi.ConnectorIndexHandle;
+import com.facebook.presto.spi.ConnectorSplit;
+import com.facebook.presto.spi.ConnectorTableHandle;
 import com.facebook.presto.split.RemoteSplit;
 
 public class RemoteSplitHandleResolver
         implements ConnectorHandleResolver
 {
     @Override
-    public boolean canHandle(TableHandle tableHandle)
+    public boolean canHandle(ConnectorTableHandle tableHandle)
     {
         return false;
     }
 
     @Override
-    public boolean canHandle(ColumnHandle columnHandle)
+    public boolean canHandle(ConnectorColumnHandle columnHandle)
     {
         return false;
     }
 
     @Override
-    public boolean canHandle(Split split)
+    public boolean canHandle(ConnectorSplit split)
     {
         return split instanceof RemoteSplit;
     }
 
     @Override
-    public Class<? extends TableHandle> getTableHandleClass()
+    public boolean canHandle(ConnectorIndexHandle indexHandle)
+    {
+        return false;
+    }
+
+    @Override
+    public Class<? extends ConnectorTableHandle> getTableHandleClass()
     {
         throw new UnsupportedOperationException();
     }
 
     @Override
-    public Class<? extends ColumnHandle> getColumnHandleClass()
+    public Class<? extends ConnectorColumnHandle> getColumnHandleClass()
     {
         throw new UnsupportedOperationException();
     }
 
     @Override
-    public Class<? extends Split> getSplitClass()
+    public Class<? extends ConnectorSplit> getSplitClass()
     {
         return RemoteSplit.class;
+    }
+
+    @Override
+    public Class<? extends ConnectorIndexHandle> getIndexHandleClass()
+    {
+        throw new UnsupportedOperationException();
     }
 }

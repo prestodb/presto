@@ -13,115 +13,147 @@
  */
 package com.facebook.presto.operator.aggregation;
 
-import com.facebook.presto.block.Block;
-import com.facebook.presto.block.BlockBuilder;
-import com.facebook.presto.block.BlockCursor;
-import com.facebook.presto.tuple.TupleInfo;
-import io.airlift.slice.Slice;
+import com.facebook.presto.spi.block.Block;
+import com.facebook.presto.spi.block.BlockBuilder;
+import com.facebook.presto.spi.block.BlockCursor;
+import com.facebook.presto.operator.GroupByIdBlock;
+import com.facebook.presto.util.array.ByteBigArray;
+import com.google.common.base.Optional;
 
-import static com.facebook.presto.tuple.TupleInfo.SINGLE_BOOLEAN;
+import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
+import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkState;
 
 public class BooleanMinAggregation
-        implements FixedWidthAggregationFunction
+        extends SimpleAggregationFunction
 {
     public static final BooleanMinAggregation BOOLEAN_MIN = new BooleanMinAggregation();
 
-    @Override
-    public int getFixedSize()
+    public BooleanMinAggregation()
     {
-        return SINGLE_BOOLEAN.getFixedSize();
+        super(BOOLEAN, BOOLEAN, BOOLEAN);
     }
 
     @Override
-    public TupleInfo getFinalTupleInfo()
+    protected GroupedAccumulator createGroupedAccumulator(Optional<Integer> maskChannel, Optional<Integer> sampleWeightChannel, double confidence, int valueChannel)
     {
-        return SINGLE_BOOLEAN;
+        // Min/max are not effected by distinct, so ignore it.
+        checkArgument(confidence == 1.0, "min does not support approximate queries");
+        return new BooleanMinGroupedAccumulator(valueChannel);
     }
 
-    @Override
-    public TupleInfo getIntermediateTupleInfo()
+    public static class BooleanMinGroupedAccumulator
+            extends SimpleGroupedAccumulator
     {
-        return SINGLE_BOOLEAN;
-    }
+        // null flag is zero so the default value in the min array is null
+        private static final byte NULL_VALUE = 0;
+        private static final byte TRUE_VALUE = 1;
+        private static final byte FALSE_VALUE = -1;
 
-    @Override
-    public void initialize(Slice valueSlice, int valueOffset)
-    {
-        // mark value null
-        SINGLE_BOOLEAN.setNull(valueSlice, valueOffset, 0);
-        SINGLE_BOOLEAN.setBoolean(valueSlice, valueOffset, 0, Boolean.TRUE);
-    }
+        private final ByteBigArray minValues;
 
-    @Override
-    public void addInput(BlockCursor cursor, int field, Slice valueSlice, int valueOffset)
-    {
-        if (cursor.isNull(field)) {
-            return;
+        public BooleanMinGroupedAccumulator(int valueChannel)
+        {
+            // Min/max are not effected by distinct, so ignore it.
+            super(valueChannel, BOOLEAN, BOOLEAN, Optional.<Integer>absent(), Optional.<Integer>absent());
+            this.minValues = new ByteBigArray();
         }
 
-        // mark value not null
-        SINGLE_BOOLEAN.setNotNull(valueSlice, valueOffset, 0);
+        @Override
+        public long getEstimatedSize()
+        {
+            return minValues.sizeOf();
+        }
 
-        // update current value
-        boolean newValue = cursor.getBoolean(field);
-        if (newValue == false) {
-            SINGLE_BOOLEAN.setBoolean(valueSlice, valueOffset, 0, false);
+        @Override
+        protected void processInput(GroupByIdBlock groupIdsBlock, Block valuesBlock, Optional<Block> maskBlock, Optional<Block> sampleWeightBlock)
+        {
+            minValues.ensureCapacity(groupIdsBlock.getGroupCount());
+
+            BlockCursor values = valuesBlock.cursor();
+
+            for (int position = 0; position < groupIdsBlock.getPositionCount(); position++) {
+                checkState(values.advanceNextPosition());
+
+                // skip null values
+                if (!values.isNull()) {
+                    long groupId = groupIdsBlock.getGroupId(position);
+
+                    // if value is false, update the min to false
+                    if (!values.getBoolean()) {
+                        minValues.set(groupId, FALSE_VALUE);
+                    }
+                    else {
+                        // if the current value is null, set the min to true
+                        if (minValues.get(groupId) == NULL_VALUE) {
+                            minValues.set(groupId, TRUE_VALUE);
+                        }
+                    }
+                }
+            }
+            checkState(!values.advanceNextPosition());
+        }
+
+        @Override
+        public void evaluateFinal(int groupId, BlockBuilder output)
+        {
+            byte value = minValues.get((long) groupId);
+            if (value == NULL_VALUE) {
+                output.appendNull();
+            }
+            else {
+                output.appendBoolean(value == TRUE_VALUE);
+            }
         }
     }
 
     @Override
-    public void addInput(int positionCount, Block block, int field, Slice valueSlice, int valueOffset)
+    protected Accumulator createAccumulator(Optional<Integer> maskChannel, Optional<Integer> sampleWeightChannel, double confidence, int valueChannel)
     {
-        // initialize
-        boolean hasNonNull = !SINGLE_BOOLEAN.isNull(valueSlice, valueOffset);
+        // Min/max are not effected by distinct, so ignore it.
+        checkArgument(confidence == 1.0, "min does not support approximate queries");
+        return new BooleanMinAccumulator(valueChannel);
+    }
 
-        // if we already have FALSE for the min value, don't process the block
-        if (hasNonNull && SINGLE_BOOLEAN.getBoolean(valueSlice, valueOffset, field) == false) {
-            return;
+    public static class BooleanMinAccumulator
+            extends SimpleAccumulator
+    {
+        private boolean notNull;
+        private boolean min = true;
+
+        public BooleanMinAccumulator(int valueChannel)
+        {
+            // Min/max are not effected by distinct, so ignore it.
+            super(valueChannel, BOOLEAN, BOOLEAN, Optional.<Integer>absent(), Optional.<Integer>absent());
         }
 
-        boolean min = true;
+        @Override
+        protected void processInput(Block block, Optional<Block> maskBlock, Optional<Block> sampleWeightBlock)
+        {
+            BlockCursor values = block.cursor();
 
-        // process block
-        BlockCursor cursor = block.cursor();
-        while (cursor.advanceNextPosition()) {
-            if (!cursor.isNull(field)) {
-                hasNonNull = true;
-                if (cursor.getBoolean(field) == false) {
-                    min = false;
-                    break;
+            for (int position = 0; position < block.getPositionCount(); position++) {
+                checkState(values.advanceNextPosition());
+                if (!values.isNull()) {
+                    notNull = true;
+
+                    // if value is false, update the max to false
+                    if (!values.getBoolean()) {
+                        min = false;
+                    }
                 }
             }
         }
 
-        // write new value
-        if (hasNonNull) {
-            SINGLE_BOOLEAN.setNotNull(valueSlice, valueOffset, 0);
-            SINGLE_BOOLEAN.setBoolean(valueSlice, valueOffset, 0, min);
-        }
-    }
-
-    @Override
-    public void addIntermediate(BlockCursor cursor, int field, Slice valueSlice, int valueOffset)
-    {
-        addInput(cursor, field, valueSlice, valueOffset);
-    }
-
-    @Override
-    public void evaluateIntermediate(Slice valueSlice, int valueOffset, BlockBuilder output)
-    {
-        evaluateFinal(valueSlice, valueOffset, output);
-    }
-
-    @Override
-    public void evaluateFinal(Slice valueSlice, int valueOffset, BlockBuilder output)
-    {
-        if (!SINGLE_BOOLEAN.isNull(valueSlice, valueOffset, 0)) {
-            boolean currentValue = SINGLE_BOOLEAN.getBoolean(valueSlice, valueOffset, 0);
-            output.append(currentValue);
-        }
-        else {
-            output.appendNull();
+        @Override
+        public void evaluateFinal(BlockBuilder out)
+        {
+            if (notNull) {
+                out.appendBoolean(min);
+            }
+            else {
+                out.appendNull();
+            }
         }
     }
 }

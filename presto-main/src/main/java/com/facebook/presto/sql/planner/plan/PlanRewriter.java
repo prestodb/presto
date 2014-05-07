@@ -104,7 +104,45 @@ public final class PlanRewriter<C>
             PlanNode source = rewrite(node.getSource(), context.get());
 
             if (source != node.getSource()) {
-                return new AggregationNode(node.getId(), source, node.getGroupBy(), node.getAggregations(), node.getFunctions(), node.getStep());
+                return new AggregationNode(node.getId(), source, node.getGroupBy(), node.getAggregations(), node.getFunctions(), node.getMasks(), node.getStep(), node.getSampleWeight(), node.getConfidence());
+            }
+
+            return node;
+        }
+
+        @Override
+        public PlanNode visitMaterializeSample(MaterializeSampleNode node, Context<C> context)
+        {
+            if (!context.isDefaultRewrite()) {
+                PlanNode result = nodeRewriter.rewriteMaterializeSample(node, context.get(), PlanRewriter.this);
+                if (result != null) {
+                    return result;
+                }
+            }
+
+            PlanNode source = rewrite(node.getSource(), context.get());
+
+            if (source != node.getSource()) {
+                return new MaterializeSampleNode(node.getId(), source, node.getSampleWeightSymbol());
+            }
+
+            return node;
+        }
+
+        @Override
+        public PlanNode visitMarkDistinct(MarkDistinctNode node, Context<C> context)
+        {
+            if (!context.isDefaultRewrite()) {
+                PlanNode result = nodeRewriter.rewriteMarkDistinct(node, context.get(), PlanRewriter.this);
+                if (result != null) {
+                    return result;
+                }
+            }
+
+            PlanNode source = rewrite(node.getSource(), context.get());
+
+            if (source != node.getSource()) {
+                return new MarkDistinctNode(node.getId(), source, node.getMarkerSymbol(), node.getDistinctSymbols(), node.getSampleWeightSymbol());
             }
 
             return node;
@@ -123,7 +161,7 @@ public final class PlanRewriter<C>
             PlanNode source = rewrite(node.getSource(), context.get());
 
             if (source != node.getSource()) {
-                return new WindowNode(node.getId(), source, node.getPartitionBy(), node.getOrderBy(), node.getOrderings(), node.getWindowFunctions(), node.getFunctionHandles());
+                return new WindowNode(node.getId(), source, node.getPartitionBy(), node.getOrderBy(), node.getOrderings(), node.getWindowFunctions(), node.getSignatures());
             }
 
             return node;
@@ -161,7 +199,7 @@ public final class PlanRewriter<C>
             PlanNode source = rewrite(node.getSource(), context.get());
 
             if (source != node.getSource()) {
-                return new SampleNode(node.getId(), source, node.getSampleRatio(), node.getSampleType());
+                return new SampleNode(node.getId(), source, node.getSampleRatio(), node.getSampleType(), node.isRescaled(), node.getSampleWeightSymbol());
             }
 
             return node;
@@ -199,7 +237,7 @@ public final class PlanRewriter<C>
             PlanNode source = rewrite(node.getSource(), context.get());
 
             if (source != node.getSource()) {
-                return new TopNNode(node.getId(), source, node.getCount(), node.getOrderBy(), node.getOrderings(), node.isPartial());
+                return new TopNNode(node.getId(), source, node.getCount(), node.getOrderBy(), node.getOrderings(), node.isPartial(), node.getSampleWeight());
             }
 
             return node;
@@ -237,7 +275,26 @@ public final class PlanRewriter<C>
             PlanNode source = rewrite(node.getSource(), context.get());
 
             if (source != node.getSource()) {
-                return new LimitNode(node.getId(), source, node.getCount());
+                return new LimitNode(node.getId(), source, node.getCount(), node.getSampleWeight());
+            }
+
+            return node;
+        }
+
+        @Override
+        public PlanNode visitDistinctLimit(DistinctLimitNode node, Context<C> context)
+        {
+            if (!context.isDefaultRewrite()) {
+                PlanNode result = nodeRewriter.rewriteDistinctLimit(node, context.get(), PlanRewriter.this);
+                if (result != null) {
+                    return result;
+                }
+            }
+
+            PlanNode source = rewrite(node.getSource(), context.get());
+
+            if (source != node.getSource()) {
+                return new DistinctLimitNode(node.getId(), source, node.getLimit());
             }
 
             return node;
@@ -248,6 +305,19 @@ public final class PlanRewriter<C>
         {
             if (!context.isDefaultRewrite()) {
                 PlanNode result = nodeRewriter.rewriteTableScan(node, context.get(), PlanRewriter.this);
+                if (result != null) {
+                    return result;
+                }
+            }
+
+            return node;
+        }
+
+        @Override
+        public PlanNode visitValues(ValuesNode node, Context<C> context)
+        {
+            if (!context.isDefaultRewrite()) {
+                PlanNode result = nodeRewriter.rewriteValues(node, context.get(), PlanRewriter.this);
                 if (result != null) {
                     return result;
                 }
@@ -269,11 +339,39 @@ public final class PlanRewriter<C>
             PlanNode source = rewrite(node.getSource(), context.get());
 
             if (source != node.getSource()) {
-                return new TableWriterNode(node.getId(),
-                        source,
-                        node.getTable(),
-                        node.getColumns(),
-                        node.getOutput());
+                return new TableWriterNode(node.getId(), source, node.getTarget(), node.getColumns(), node.getColumnNames(), node.getOutputSymbols(), node.getSampleWeightSymbol(), node.getCatalog(), node.getTableMetadata(), node.isSampleWeightSupported());
+            }
+
+            return node;
+        }
+
+        @Override
+        public PlanNode visitTableCommit(TableCommitNode node, Context<C> context)
+        {
+            if (!context.isDefaultRewrite()) {
+                PlanNode result = nodeRewriter.rewriteTableCommit(node, context.get(), PlanRewriter.this);
+                if (result != null) {
+                    return result;
+                }
+            }
+
+            PlanNode source = rewrite(node.getSource(), context.get());
+
+            if (source != node.getSource()) {
+                return new TableCommitNode(node.getId(), source, node.getTarget(), node.getOutputSymbols());
+            }
+
+            return node;
+        }
+
+        @Override
+        public PlanNode visitIndexSource(IndexSourceNode node, Context<C> context)
+        {
+            if (!context.isDefaultRewrite()) {
+                PlanNode result = nodeRewriter.rewriteIndexSource(node, context.get(), PlanRewriter.this);
+                if (result != null) {
+                    return result;
+                }
             }
 
             return node;
@@ -314,6 +412,26 @@ public final class PlanRewriter<C>
 
             if (source != node.getSource() || filteringSource != node.getFilteringSource()) {
                 return new SemiJoinNode(node.getId(), source, filteringSource, node.getSourceJoinSymbol(), node.getFilteringSourceJoinSymbol(), node.getSemiJoinOutput());
+            }
+
+            return node;
+        }
+
+        @Override
+        public PlanNode visitIndexJoin(IndexJoinNode node, Context<C> context)
+        {
+            if (!context.isDefaultRewrite()) {
+                PlanNode result = nodeRewriter.rewriteIndexJoin(node, context.get(), PlanRewriter.this);
+                if (result != null) {
+                    return result;
+                }
+            }
+
+            PlanNode probeSource = rewrite(node.getProbeSource(), context.get());
+            PlanNode indexSource = rewrite(node.getIndexSource(), context.get());
+
+            if (probeSource != node.getProbeSource() || indexSource != node.getIndexSource()) {
+                return new IndexJoinNode(node.getId(), node.getType(), probeSource, indexSource, node.getCriteria());
             }
 
             return node;

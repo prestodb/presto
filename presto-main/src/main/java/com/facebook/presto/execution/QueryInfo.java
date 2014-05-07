@@ -14,25 +14,28 @@
 package com.facebook.presto.execution;
 
 import com.facebook.presto.client.FailureInfo;
-import com.facebook.presto.sql.analyzer.Session;
+import com.facebook.presto.spi.ConnectorSession;
+import com.facebook.presto.spi.ErrorCode;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.base.Function;
 import com.google.common.base.Objects;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 
 import javax.annotation.Nullable;
 import javax.annotation.concurrent.Immutable;
 
 import java.net.URI;
 import java.util.List;
+import java.util.Set;
 
 @Immutable
 public class QueryInfo
 {
     private final QueryId queryId;
-    private final Session session;
+    private final ConnectorSession session;
     private final QueryState state;
     private final URI self;
     private final List<String> fieldNames;
@@ -40,17 +43,22 @@ public class QueryInfo
     private final QueryStats queryStats;
     private final StageInfo outputStage;
     private final FailureInfo failureInfo;
+    private final ErrorCode errorCode;
+    private final Set<Input> inputs;
 
     @JsonCreator
-    public QueryInfo(@JsonProperty("queryId") QueryId queryId,
-            @JsonProperty("session") Session session,
+    public QueryInfo(
+            @JsonProperty("queryId") QueryId queryId,
+            @JsonProperty("session") ConnectorSession session,
             @JsonProperty("state") QueryState state,
             @JsonProperty("self") URI self,
             @JsonProperty("fieldNames") List<String> fieldNames,
             @JsonProperty("query") String query,
             @JsonProperty("queryStats") QueryStats queryStats,
             @JsonProperty("outputStage") StageInfo outputStage,
-            @JsonProperty("failureInfo") FailureInfo failureInfo)
+            @JsonProperty("failureInfo") FailureInfo failureInfo,
+            @JsonProperty("errorCode") ErrorCode errorCode,
+            @JsonProperty("inputs") Set<Input> inputs)
     {
         Preconditions.checkNotNull(queryId, "queryId is null");
         Preconditions.checkNotNull(session, "session is null");
@@ -59,6 +67,7 @@ public class QueryInfo
         Preconditions.checkNotNull(fieldNames, "fieldNames is null");
         Preconditions.checkNotNull(queryStats, "queryStats is null");
         Preconditions.checkNotNull(query, "query is null");
+        Preconditions.checkNotNull(inputs, "inputs is null");
 
         this.queryId = queryId;
         this.session = session;
@@ -69,6 +78,14 @@ public class QueryInfo
         this.queryStats = queryStats;
         this.outputStage = outputStage;
         this.failureInfo = failureInfo;
+        this.errorCode = errorCode;
+        this.inputs = ImmutableSet.copyOf(inputs);
+    }
+
+    @JsonProperty
+    public ErrorCode getErrorCode()
+    {
+        return errorCode;
     }
 
     @JsonProperty
@@ -78,7 +95,7 @@ public class QueryInfo
     }
 
     @JsonProperty
-    public Session getSession()
+    public ConnectorSession getSession()
     {
         return session;
     }
@@ -124,6 +141,12 @@ public class QueryInfo
     public FailureInfo getFailureInfo()
     {
         return failureInfo;
+    }
+
+    @JsonProperty
+    public Set<Input> getInputs()
+    {
+        return inputs;
     }
 
     @Override

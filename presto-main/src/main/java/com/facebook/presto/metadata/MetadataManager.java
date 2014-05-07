@@ -14,71 +14,128 @@
 package com.facebook.presto.metadata;
 
 import com.facebook.presto.connector.informationSchema.InformationSchemaMetadata;
-import com.facebook.presto.spi.ColumnHandle;
+import com.facebook.presto.metadata.OperatorInfo.OperatorType;
 import com.facebook.presto.spi.ColumnMetadata;
+import com.facebook.presto.spi.ConnectorColumnHandle;
 import com.facebook.presto.spi.ConnectorMetadata;
+import com.facebook.presto.spi.ConnectorOutputTableHandle;
+import com.facebook.presto.spi.ConnectorSession;
+import com.facebook.presto.spi.ConnectorTableHandle;
+import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.SchemaTableName;
-import com.facebook.presto.spi.TableHandle;
-import com.facebook.presto.spi.TableMetadata;
-import com.facebook.presto.sql.analyzer.Type;
+import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.spi.type.TypeManager;
+import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.sql.tree.QualifiedName;
+import com.facebook.presto.type.TypeRegistry;
 import com.google.common.base.Optional;
+import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Maps;
+import com.google.common.collect.Sets;
 
+import javax.inject.Inject;
 import javax.inject.Singleton;
 
+import java.util.Collection;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
-import java.util.concurrent.CopyOnWriteArrayList;
 
+import static com.facebook.presto.metadata.ColumnHandle.fromConnectorHandle;
 import static com.facebook.presto.metadata.MetadataUtil.checkCatalogName;
 import static com.facebook.presto.metadata.MetadataUtil.checkColumnName;
 import static com.facebook.presto.metadata.QualifiedTableName.convertFromSchemaTableName;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
-import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.Iterables.transform;
 
 @Singleton
 public class MetadataManager
         implements Metadata
 {
-    // Note this must be a list to assure dual is always checked first
-    private final CopyOnWriteArrayList<ConnectorMetadata> internalSchemas = new CopyOnWriteArrayList<>();
-    private final ConcurrentMap<String, ConnectorMetadata> connectors = new ConcurrentHashMap<>();
-    private final ConcurrentMap<String, ConnectorMetadata> informationSchemas = new ConcurrentHashMap<>();
-    private final FunctionRegistry functions = new FunctionRegistry();
+    private final Set<String> globalConnectors = Sets.newConcurrentHashSet();
+    private final ConcurrentMap<String, ConnectorMetadataEntry> informationSchemasByCatalog = new ConcurrentHashMap<>();
+    private final ConcurrentMap<String, ConnectorMetadataEntry> connectorsByCatalog = new ConcurrentHashMap<>();
+    private final ConcurrentMap<String, ConnectorMetadata> connectorsById = new ConcurrentHashMap<>();
+    private final FunctionRegistry functions;
+    private final TypeManager typeManager;
 
-    public void addConnectorMetadata(String catalogName, ConnectorMetadata connectorMetadata)
+    public MetadataManager()
     {
-        checkState(connectors.putIfAbsent(catalogName, connectorMetadata) == null,
-                "Catalog '%s' is already registered", catalogName);
-
-        informationSchemas.put(catalogName, new InformationSchemaMetadata(catalogName));
+        this(new FeaturesConfig(), new TypeRegistry());
     }
 
-    public void addInternalSchemaMetadata(ConnectorMetadata connectorMetadata)
+    @Inject
+    public MetadataManager(FeaturesConfig featuresConfig, TypeManager typeManager)
     {
-        internalSchemas.add(checkNotNull(connectorMetadata, "connectorMetadata is null"));
+        functions = new FunctionRegistry(typeManager, featuresConfig.isExperimentalSyntaxEnabled());
+        this.typeManager = checkNotNull(typeManager, "types is null");
+    }
+
+    public synchronized void addConnectorMetadata(String connectorId, String catalogName, ConnectorMetadata connectorMetadata)
+    {
+        checkNotNull(connectorId, "connectorId is null");
+        checkNotNull(catalogName, "catalogName is null");
+        checkNotNull(connectorMetadata, "connectorMetadata is null");
+
+        checkArgument(!connectorsByCatalog.containsKey(catalogName), "Catalog '%s' is already registered", catalogName);
+        checkArgument(!connectorsById.containsKey(connectorId), "Connector '%s' is already registered", connectorId);
+
+        ConnectorMetadataEntry entry = new ConnectorMetadataEntry(connectorId, connectorMetadata);
+
+        connectorsById.put(connectorId, connectorMetadata);
+        connectorsByCatalog.put(catalogName, entry);
+    }
+
+    public synchronized void addInformationSchemaMetadata(String connectorId, String catalogName, InformationSchemaMetadata metadata)
+    {
+        checkNotNull(connectorId, "connectorId is null");
+        checkNotNull(catalogName, "catalogName is null");
+        checkNotNull(metadata, "metadata is null");
+
+        checkArgument(!connectorsById.containsKey(connectorId), "Connector '%s' is already registered", connectorId);
+        checkArgument(!informationSchemasByCatalog.containsKey(catalogName), "Information schema for catalog '%s' is already registered", catalogName);
+
+        connectorsById.put(connectorId, metadata);
+        informationSchemasByCatalog.put(catalogName, new ConnectorMetadataEntry(connectorId, metadata));
+    }
+
+    public synchronized void addGlobalSchemaMetadata(String connectorId, ConnectorMetadata connectorMetadata)
+    {
+        checkNotNull(connectorId, "connectorId is null");
+        checkNotNull(connectorMetadata, "connectorMetadata is null");
+
+        checkArgument(!globalConnectors.contains(connectorId), "Global connector '%s' is already registered", connectorId);
+        checkArgument(!connectorsById.containsKey(connectorId), "Connector '%s' is already registered", connectorId);
+
+        connectorsById.put(connectorId, connectorMetadata);
+        globalConnectors.add(connectorId);
     }
 
     @Override
-    public FunctionInfo getFunction(QualifiedName name, List<Type> parameterTypes)
+    public Type getType(String typeName)
     {
-        return functions.get(name, parameterTypes);
+        return typeManager.getType(typeName);
     }
 
     @Override
-    public FunctionInfo getFunction(FunctionHandle handle)
+    public FunctionInfo resolveFunction(QualifiedName name, List<? extends Type> parameterTypes, boolean approximate)
     {
-        return functions.get(handle);
+        return functions.resolveFunction(name, parameterTypes, approximate);
+    }
+
+    @Override
+    public FunctionInfo getExactFunction(Signature handle)
+    {
+        return functions.getExactFunction(handle);
     }
 
     @Override
@@ -94,26 +151,52 @@ public class MetadataManager
     }
 
     @Override
-    public List<String> listSchemaNames(String catalogName)
+    public void addFunctions(List<FunctionInfo> functionInfos)
+    {
+        functions.addFunctions(functionInfos, ImmutableList.<OperatorInfo>of());
+    }
+
+    @Override
+    public void addOperators(List<OperatorInfo> operators)
+    {
+        functions.addFunctions(ImmutableList.<FunctionInfo>of(), operators);
+    }
+
+    @Override
+    public OperatorInfo resolveOperator(OperatorType operatorType, List<? extends Type> argumentTypes)
+            throws OperatorNotFoundException
+    {
+        return functions.resolveOperator(operatorType, argumentTypes);
+    }
+
+    @Override
+    public OperatorInfo getExactOperator(OperatorType operatorType, Type returnType, List<? extends Type> argumentTypes)
+            throws OperatorNotFoundException
+    {
+        return functions.getExactOperator(operatorType, argumentTypes, returnType);
+    }
+
+    @Override
+    public List<String> listSchemaNames(ConnectorSession session, String catalogName)
     {
         checkCatalogName(catalogName);
         ImmutableSet.Builder<String> schemaNames = ImmutableSet.builder();
-        for (ConnectorMetadata metadata : allConnectorsFor(catalogName)) {
-            schemaNames.addAll(metadata.listSchemaNames());
+        for (ConnectorMetadataEntry entry : allConnectorsFor(catalogName)) {
+            schemaNames.addAll(entry.getMetadata().listSchemaNames(session));
         }
         return ImmutableList.copyOf(schemaNames.build());
     }
 
     @Override
-    public Optional<TableHandle> getTableHandle(QualifiedTableName table)
+    public Optional<TableHandle> getTableHandle(ConnectorSession session, QualifiedTableName table)
     {
         checkNotNull(table, "table is null");
 
         SchemaTableName tableName = table.asSchemaTableName();
-        for (ConnectorMetadata connectorMetadata : allConnectorsFor(table.getCatalogName())) {
-            TableHandle tableHandle = connectorMetadata.getTableHandle(tableName);
+        for (ConnectorMetadataEntry entry : allConnectorsFor(table.getCatalogName())) {
+            ConnectorTableHandle tableHandle = entry.getMetadata().getTableHandle(session, tableName);
             if (tableHandle != null) {
-                return Optional.of(tableHandle);
+                return Optional.of(new TableHandle(entry.getConnectorId(), tableHandle));
             }
         }
         return Optional.absent();
@@ -122,13 +205,17 @@ public class MetadataManager
     @Override
     public TableMetadata getTableMetadata(TableHandle tableHandle)
     {
-        return lookupConnectorFor(tableHandle).getTableMetadata(tableHandle);
+        ConnectorTableMetadata tableMetadata = lookupConnectorFor(tableHandle).getTableMetadata(tableHandle.getConnectorHandle());
+
+        return new TableMetadata(tableHandle.getConnectorId(), tableMetadata);
     }
 
     @Override
     public Map<String, ColumnHandle> getColumnHandles(TableHandle tableHandle)
     {
-        return lookupConnectorFor(tableHandle).getColumnHandles(tableHandle);
+        Map<String, ConnectorColumnHandle> columns = lookupConnectorFor(tableHandle).getColumnHandles(tableHandle.getConnectorHandle());
+
+        return Maps.transformValues(columns, fromConnectorHandle(tableHandle.getConnectorId()));
     }
 
     @Override
@@ -137,18 +224,18 @@ public class MetadataManager
         checkNotNull(tableHandle, "tableHandle is null");
         checkNotNull(columnHandle, "columnHandle is null");
 
-        return lookupConnectorFor(tableHandle).getColumnMetadata(tableHandle, columnHandle);
+        return lookupConnectorFor(tableHandle).getColumnMetadata(tableHandle.getConnectorHandle(), columnHandle.getConnectorHandle());
     }
 
     @Override
-    public List<QualifiedTableName> listTables(QualifiedTablePrefix prefix)
+    public List<QualifiedTableName> listTables(ConnectorSession session, QualifiedTablePrefix prefix)
     {
         checkNotNull(prefix, "prefix is null");
 
         String schemaNameOrNull = prefix.getSchemaName().orNull();
         LinkedHashSet<QualifiedTableName> tables = new LinkedHashSet<>();
-        for (ConnectorMetadata internalSchemaMetadata : allConnectorsFor(prefix.getCatalogName())) {
-            for (QualifiedTableName tableName : transform(internalSchemaMetadata.listTables(schemaNameOrNull), convertFromSchemaTableName(prefix.getCatalogName()))) {
+        for (ConnectorMetadataEntry entry : allConnectorsFor(prefix.getCatalogName())) {
+            for (QualifiedTableName tableName : transform(entry.getMetadata().listTables(session, schemaNameOrNull), convertFromSchemaTableName(prefix.getCatalogName()))) {
                 tables.add(tableName);
             }
         }
@@ -161,17 +248,44 @@ public class MetadataManager
         checkNotNull(tableHandle, "tableHandle is null");
         checkColumnName(columnName);
 
-        return Optional.fromNullable(lookupConnectorFor(tableHandle).getColumnHandle(tableHandle, columnName));
+        ConnectorColumnHandle handle = lookupConnectorFor(tableHandle).getColumnHandle(tableHandle.getConnectorHandle(), columnName);
+
+        if (handle == null) {
+            return Optional.absent();
+        }
+
+        return Optional.of(new ColumnHandle(tableHandle.getConnectorId(), handle));
     }
 
     @Override
-    public Map<QualifiedTableName, List<ColumnMetadata>> listTableColumns(QualifiedTablePrefix prefix)
+    public Optional<ColumnHandle> getSampleWeightColumnHandle(TableHandle tableHandle)
+    {
+        checkNotNull(tableHandle, "tableHandle is null");
+        ConnectorColumnHandle handle = lookupConnectorFor(tableHandle).getSampleWeightColumnHandle(tableHandle.getConnectorHandle());
+
+        if (handle == null) {
+            return Optional.absent();
+        }
+
+        return Optional.of(new ColumnHandle(tableHandle.getConnectorId(), handle));
+    }
+
+    @Override
+    public boolean canCreateSampledTables(ConnectorSession session, String catalogName)
+    {
+        ConnectorMetadataEntry connectorMetadata = connectorsByCatalog.get(catalogName);
+        checkArgument(connectorMetadata != null, "Catalog %s does not exist", catalogName);
+        return connectorMetadata.getMetadata().canCreateSampledTables(session);
+    }
+
+    @Override
+    public Map<QualifiedTableName, List<ColumnMetadata>> listTableColumns(ConnectorSession session, QualifiedTablePrefix prefix)
     {
         checkNotNull(prefix, "prefix is null");
 
         LinkedHashMap<QualifiedTableName, List<ColumnMetadata>> tableColumns = new LinkedHashMap<>();
-        for (ConnectorMetadata connectorMetadata : allConnectorsFor(prefix.getCatalogName())) {
-            for (Entry<SchemaTableName, List<ColumnMetadata>> entry : connectorMetadata.listTableColumns(prefix.asSchemaTablePrefix()).entrySet()) {
+        for (ConnectorMetadataEntry connectorMetadata : allConnectorsFor(prefix.getCatalogName())) {
+            for (Entry<SchemaTableName, List<ColumnMetadata>> entry : connectorMetadata.getMetadata().listTableColumns(session, prefix.asSchemaTablePrefix()).entrySet()) {
                 QualifiedTableName tableName = new QualifiedTableName(prefix.getCatalogName(), entry.getKey().getSchemaName(), entry.getKey().getTableName());
                 if (!tableColumns.containsKey(tableName)) {
                     tableColumns.put(tableName, entry.getValue());
@@ -182,53 +296,64 @@ public class MetadataManager
     }
 
     @Override
-    public TableHandle createTable(String catalogName, TableMetadata tableMetadata)
+    public TableHandle createTable(ConnectorSession session, String catalogName, TableMetadata tableMetadata)
     {
-        ConnectorMetadata connectorMetadata = connectors.get(catalogName);
+        ConnectorMetadataEntry connectorMetadata = connectorsByCatalog.get(catalogName);
         checkArgument(connectorMetadata != null, "Catalog %s does not exist", catalogName);
-        return connectorMetadata.createTable(tableMetadata);
+
+        ConnectorTableHandle handle = connectorMetadata.getMetadata().createTable(session, tableMetadata.getMetadata());
+        return new TableHandle(connectorMetadata.getConnectorId(), handle);
     }
 
     @Override
     public void dropTable(TableHandle tableHandle)
     {
-        lookupConnectorFor(tableHandle).dropTable(tableHandle);
+        lookupConnectorFor(tableHandle).dropTable(tableHandle.getConnectorHandle());
     }
 
     @Override
-    public Optional<String> getConnectorId(TableHandle tableHandle)
+    public OutputTableHandle beginCreateTable(ConnectorSession session, String catalogName, TableMetadata tableMetadata)
     {
-        for (Entry<String, ConnectorMetadata> entry : connectors.entrySet()) {
-            if (entry.getValue().canHandle(tableHandle)) {
-                return Optional.of(entry.getKey());
-            }
-        }
-        return Optional.absent();
+        ConnectorMetadataEntry connectorMetadata = connectorsByCatalog.get(catalogName);
+        checkArgument(connectorMetadata != null, "Catalog %s does not exist", catalogName);
+        ConnectorOutputTableHandle handle = connectorMetadata.getMetadata().beginCreateTable(session, tableMetadata.getMetadata());
+        return new OutputTableHandle(connectorMetadata.getConnectorId(), handle);
     }
 
     @Override
-    public Optional<TableHandle> getTableHandle(String connectorId, SchemaTableName tableName)
+    public void commitCreateTable(OutputTableHandle tableHandle, Collection<String> fragments)
     {
-        // use catalog name in place of connector id
-        ConnectorMetadata metadata = connectors.get(connectorId);
-        if (metadata == null) {
-            return Optional.absent();
-        }
-        return Optional.fromNullable(metadata.getTableHandle(tableName));
+        lookupConnectorFor(tableHandle).commitCreateTable(tableHandle.getConnectorHandle(), fragments);
     }
 
-    private List<ConnectorMetadata> allConnectorsFor(String catalogName)
+    @Override
+    public Map<String, String> getCatalogNames()
     {
-        ImmutableList.Builder<ConnectorMetadata> builder = ImmutableList.builder();
-        builder.addAll(internalSchemas);
-        ConnectorMetadata connector = connectors.get(catalogName);
+        ImmutableMap.Builder<String, String> catalogsMap = ImmutableMap.builder();
+        for (Map.Entry<String, ConnectorMetadataEntry> entry : connectorsByCatalog.entrySet()) {
+            catalogsMap.put(entry.getKey(), entry.getValue().getConnectorId());
+        }
+        return catalogsMap.build();
+    }
+
+    private List<ConnectorMetadataEntry> allConnectorsFor(String catalogName)
+    {
+        ImmutableList.Builder<ConnectorMetadataEntry> builder = ImmutableList.builder();
+
+        for (String connectorId : globalConnectors) {
+            builder.add(new ConnectorMetadataEntry(connectorId, connectorsById.get(connectorId)));
+        }
+
+        ConnectorMetadataEntry entry = informationSchemasByCatalog.get(catalogName);
+        if (entry != null) {
+            builder.add(entry);
+        }
+
+        ConnectorMetadataEntry connector = connectorsByCatalog.get(catalogName);
         if (connector != null) {
             builder.add(connector);
         }
-        ConnectorMetadata informationSchema = informationSchemas.get(catalogName);
-        if (informationSchema != null) {
-            builder.add(informationSchema);
-        }
+
         return builder.build();
     }
 
@@ -236,24 +361,41 @@ public class MetadataManager
     {
         checkNotNull(tableHandle, "tableHandle is null");
 
-        for (ConnectorMetadata metadata : informationSchemas.values()) {
-            if (metadata.canHandle(tableHandle)) {
-                return metadata;
-            }
+        ConnectorMetadata result = connectorsById.get(tableHandle.getConnectorId());
+        checkArgument(result != null, "No connector for table handle: %s", tableHandle.getConnectorId());
+
+        return result;
+    }
+
+    private ConnectorMetadata lookupConnectorFor(OutputTableHandle tableHandle)
+    {
+        ConnectorMetadata metadata = connectorsById.get(tableHandle.getConnectorId());
+        checkArgument(metadata != null, "No connector for output table handle: %s", tableHandle.getConnectorId());
+        return metadata;
+    }
+
+    private static class ConnectorMetadataEntry
+    {
+        private final String connectorId;
+        private final ConnectorMetadata metadata;
+
+        private ConnectorMetadataEntry(String connectorId, ConnectorMetadata metadata)
+        {
+            Preconditions.checkNotNull(connectorId, "connectorId is null");
+            Preconditions.checkNotNull(metadata, "metadata is null");
+
+            this.connectorId = connectorId;
+            this.metadata = metadata;
         }
 
-        for (ConnectorMetadata internalSchemaMetadata : internalSchemas) {
-            if (internalSchemaMetadata.canHandle(tableHandle)) {
-                return internalSchemaMetadata;
-            }
+        private String getConnectorId()
+        {
+            return connectorId;
         }
 
-        for (ConnectorMetadata metadata : connectors.values()) {
-            if (metadata.canHandle(tableHandle)) {
-                return metadata;
-            }
+        private ConnectorMetadata getMetadata()
+        {
+            return metadata;
         }
-
-        throw new IllegalArgumentException("Table %s does not exist: " + tableHandle);
     }
 }

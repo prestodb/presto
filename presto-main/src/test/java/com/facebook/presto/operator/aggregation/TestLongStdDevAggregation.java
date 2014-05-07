@@ -13,11 +13,13 @@
  */
 package com.facebook.presto.operator.aggregation;
 
-import com.facebook.presto.block.Block;
-import com.facebook.presto.block.BlockBuilder;
-import org.apache.commons.math.stat.descriptive.moment.StandardDeviation;
+import com.facebook.presto.spi.block.Block;
+import com.facebook.presto.spi.block.BlockBuilder;
+import com.facebook.presto.spi.block.BlockBuilderStatus;
+import org.apache.commons.math3.stat.descriptive.moment.StandardDeviation;
 
-import static com.facebook.presto.tuple.TupleInfo.SINGLE_LONG;
+import static com.facebook.presto.operator.aggregation.VarianceAggregations.LONG_STDDEV_INSTANCE;
+import static com.facebook.presto.spi.type.BigintType.BIGINT;
 
 public class TestLongStdDevAggregation
         extends AbstractTestAggregationFunction
@@ -25,9 +27,9 @@ public class TestLongStdDevAggregation
     @Override
     public Block getSequenceBlock(int start, int length)
     {
-        BlockBuilder blockBuilder = new BlockBuilder(SINGLE_LONG);
+        BlockBuilder blockBuilder = BIGINT.createBlockBuilder(new BlockBuilderStatus());
         for (int i = start; i < start + length; i++) {
-            blockBuilder.append(i);
+            blockBuilder.appendLong(i);
         }
         return blockBuilder.build();
     }
@@ -35,7 +37,7 @@ public class TestLongStdDevAggregation
     @Override
     public AggregationFunction getFunction()
     {
-        return LongStdDevAggregation.STDDEV_INSTANCE;
+        return LONG_STDDEV_INSTANCE;
     }
 
     @Override

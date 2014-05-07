@@ -13,9 +13,13 @@
  */
 package com.facebook.presto.execution;
 
+import com.facebook.presto.ErrorCodes;
 import com.facebook.presto.client.FailureInfo;
 import com.facebook.presto.execution.StateMachine.StateChangeListener;
-import com.facebook.presto.sql.analyzer.Session;
+import com.facebook.presto.spi.ConnectorSession;
+import com.facebook.presto.spi.ErrorCode;
+import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.StandardErrorCode;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
@@ -31,6 +35,7 @@ import javax.annotation.concurrent.ThreadSafe;
 
 import java.net.URI;
 import java.util.List;
+import java.util.Set;
 import java.util.concurrent.Executor;
 
 import static com.facebook.presto.execution.QueryState.CANCELED;
@@ -54,7 +59,7 @@ public class QueryStateMachine
 
     private final QueryId queryId;
     private final String query;
-    private final Session session;
+    private final ConnectorSession session;
     private final URI self;
 
     @GuardedBy("this")
@@ -71,6 +76,9 @@ public class QueryStateMachine
     @GuardedBy("this")
     private Duration distributedPlanningTime;
 
+    @GuardedBy("this")
+    private Duration totalPlanningTime;
+
     private final StateMachine<QueryState> queryState;
 
     @GuardedBy("this")
@@ -79,7 +87,10 @@ public class QueryStateMachine
     @GuardedBy("this")
     private List<String> outputFieldNames = ImmutableList.of();
 
-    public QueryStateMachine(QueryId queryId, String query, Session session, URI self, Executor executor)
+    @GuardedBy("this")
+    private Set<Input> inputs = ImmutableSet.of();
+
+    public QueryStateMachine(QueryId queryId, String query, ConnectorSession session, URI self, Executor executor)
     {
         this.queryId = checkNotNull(queryId, "queryId is null");
         this.query = checkNotNull(query, "query is null");
@@ -102,7 +113,7 @@ public class QueryStateMachine
         return queryId;
     }
 
-    public Session getSession()
+    public ConnectorSession getSession()
     {
         return session;
     }
@@ -126,8 +137,10 @@ public class QueryStateMachine
 
         // don't report failure info is query is marked as success
         FailureInfo failureInfo = null;
+        ErrorCode errorCode = null;
         if (state != FINISHED) {
-            failureInfo = toFailure(failureCause);
+            failureInfo = failureCause == null ? null : toFailure(failureCause).toFailureInfo();
+            errorCode = ErrorCodes.toErrorCode(failureCause);
         }
 
         int totalTasks = 0;
@@ -198,6 +211,7 @@ public class QueryStateMachine
                 queuedTime,
                 analysisTime,
                 distributedPlanningTime,
+                totalPlanningTime,
 
                 totalTasks,
                 runningTasks,
@@ -228,13 +242,21 @@ public class QueryStateMachine
                 query,
                 queryStats,
                 rootStage,
-                failureInfo);
+                failureInfo,
+                errorCode,
+                inputs);
     }
 
     public synchronized void setOutputFieldNames(List<String> outputFieldNames)
     {
         checkNotNull(outputFieldNames, "outputFieldNames is null");
         this.outputFieldNames = ImmutableList.copyOf(outputFieldNames);
+    }
+
+    public synchronized void setInputs(List<Input> inputs)
+    {
+        checkNotNull(inputs, "inputs is null");
+        this.inputs = ImmutableSet.copyOf(inputs);
     }
 
     public synchronized QueryState getQueryState()
@@ -265,7 +287,11 @@ public class QueryStateMachine
     public synchronized boolean starting()
     {
         // transition from queued or planning to starting
-        return queryState.setIf(QueryState.STARTING, Predicates.in(ImmutableSet.of(QueryState.QUEUED, QueryState.PLANNING)));
+        boolean changed = queryState.setIf(QueryState.STARTING, Predicates.in(ImmutableSet.of(QueryState.QUEUED, QueryState.PLANNING)));
+        if (changed) {
+            totalPlanningTime = Duration.nanosSince(createNanos);
+        }
+        return changed;
     }
 
     public synchronized boolean running()
@@ -293,7 +319,7 @@ public class QueryStateMachine
         }
         synchronized (this) {
             if (failureCause == null) {
-                failureCause = new RuntimeException("Query was canceled");
+                failureCause = new PrestoException(StandardErrorCode.USER_CANCELED.toErrorCode(), "Query was canceled");
             }
         }
         return queryState.setIf(CANCELED, Predicates.not(inDoneState()));

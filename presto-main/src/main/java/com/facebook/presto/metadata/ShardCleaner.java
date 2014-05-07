@@ -13,6 +13,8 @@
  */
 package com.facebook.presto.metadata;
 
+import com.facebook.presto.spi.Node;
+import com.facebook.presto.spi.NodeManager;
 import com.facebook.presto.util.KeyBoundedExecutor;
 import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
@@ -45,9 +47,9 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 
-import static com.facebook.presto.metadata.Node.getIdentifierFunction;
-import static com.facebook.presto.util.Threads.daemonThreadsNamed;
+import static com.facebook.presto.metadata.PrestoNode.getIdentifierFunction;
 import static com.google.common.base.Preconditions.checkNotNull;
+import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.airlift.http.client.StatusResponseHandler.createStatusResponseHandler;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
 import static java.util.concurrent.Executors.newSingleThreadScheduledExecutor;
@@ -66,7 +68,7 @@ public class ShardCleaner
     private final AtomicBoolean started = new AtomicBoolean();
     private final AtomicBoolean stopped = new AtomicBoolean();
 
-    private final ScheduledExecutorService executorService = newSingleThreadScheduledExecutor(daemonThreadsNamed("shard-cleaner-%s"));
+    private final ScheduledExecutorService executorService = newSingleThreadScheduledExecutor(daemonThreadsNamed("shard-cleaner"));
     private final AtomicReference<ScheduledFuture<?>> scheduledFuture = new AtomicReference<>();
 
     private final KeyBoundedExecutor<String> nodeBoundedExecutor;
@@ -116,7 +118,7 @@ public class ShardCleaner
         public void run()
         {
             try {
-                Map<String, Node> activeNodes = Maps.uniqueIndex(nodeManager.getAllNodes().getActiveNodes(), getIdentifierFunction());
+                Map<String, Node> activeNodes = Maps.uniqueIndex(nodeManager.getActiveNodes(), getIdentifierFunction());
                 Iterable<String> shardNodes = shardManager.getAllNodesInUse();
 
                 ImmutableList.Builder<ListenableFuture<Void>> builder = ImmutableList.builder();

@@ -13,10 +13,12 @@
  */
 package com.facebook.presto.operator;
 
-import com.facebook.presto.block.Block;
-import com.facebook.presto.block.BlockBuilder;
-import com.facebook.presto.tuple.TupleInfo;
+import com.facebook.presto.spi.block.Block;
+import com.facebook.presto.spi.block.BlockBuilder;
+import com.facebook.presto.spi.block.BlockBuilderStatus;
+import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableList;
+import io.airlift.slice.Slices;
 
 import java.util.List;
 
@@ -25,28 +27,28 @@ import static com.google.common.base.Preconditions.checkNotNull;
 
 public class RowPageBuilder
 {
-    public static RowPageBuilder rowPageBuilder(TupleInfo... tupleInfos)
+    public static RowPageBuilder rowPageBuilder(Type... types)
     {
-        return rowPageBuilder(ImmutableList.copyOf(tupleInfos));
+        return rowPageBuilder(ImmutableList.copyOf(types));
     }
 
-    public static RowPageBuilder rowPageBuilder(Iterable<TupleInfo> tupleInfos)
+    public static RowPageBuilder rowPageBuilder(Iterable<Type> types)
     {
-        return new RowPageBuilder(tupleInfos);
+        return new RowPageBuilder(types);
     }
 
     private final List<BlockBuilder> builders;
     private long rowCount;
 
-    RowPageBuilder(Iterable<TupleInfo> tupleInfos)
+    RowPageBuilder(Iterable<Type> types)
     {
-        checkNotNull(tupleInfos, "tupleInfos is null");
+        checkNotNull(types, "types is null");
         ImmutableList.Builder<BlockBuilder> builders = ImmutableList.builder();
-        for (TupleInfo tupleInfo : tupleInfos) {
-            builders.add(new BlockBuilder(tupleInfo));
+        for (Type type : types) {
+            builders.add(type.createBlockBuilder(new BlockBuilderStatus()));
         }
         this.builders = builders.build();
-        checkArgument(!this.builders.isEmpty(), "At least one tuple info is required");
+        checkArgument(!this.builders.isEmpty(), "At least one value info is required");
     }
 
     public boolean isEmpty()
@@ -56,18 +58,10 @@ public class RowPageBuilder
 
     public RowPageBuilder row(Object... values)
     {
-        int channel = 0;
-        int field = 0;
+        checkArgument(values.length == builders.size(), "Expected %s values, but got %s", builders.size(), values.length);
 
-        for (Object value : values) {
-            BlockBuilder builder = builders.get(channel);
-            append(builder, value);
-
-            field++;
-            if (field >= builder.getTupleInfo().getFieldCount()) {
-                channel++;
-                field = 0;
-            }
+        for (int channel = 0; channel < values.length; channel++) {
+            append(builders.get(channel), values[channel]);
         }
         rowCount++;
         return this;
@@ -88,16 +82,16 @@ public class RowPageBuilder
             builder.appendNull();
         }
         else if (value instanceof Boolean) {
-            builder.append((Boolean) value);
+            builder.appendBoolean((Boolean) value);
         }
         else if ((value instanceof Long) || (value instanceof Integer)) {
-            builder.append(((Number) value).longValue());
+            builder.appendLong(((Number) value).longValue());
         }
         else if (value instanceof Double) {
-            builder.append((Double) value);
+            builder.appendDouble((Double) value);
         }
         else if (value instanceof String) {
-            builder.append((String) value);
+            builder.appendSlice(Slices.utf8Slice((String) value));
         }
         else {
             throw new IllegalArgumentException("bad value: " + value.getClass().getName());

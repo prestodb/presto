@@ -14,12 +14,13 @@
 package com.facebook.presto.operator;
 
 import com.facebook.presto.execution.TaskId;
+import com.facebook.presto.metadata.Split;
 import com.facebook.presto.operator.ExchangeOperator.ExchangeOperatorFactory;
 import com.facebook.presto.serde.PagesSerde;
+import com.facebook.presto.spi.ConnectorSession;
+import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.split.RemoteSplit;
-import com.facebook.presto.sql.analyzer.Session;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
-import com.facebook.presto.tuple.TupleInfo;
 import com.google.common.base.Function;
 import com.google.common.base.Splitter;
 import com.google.common.base.Supplier;
@@ -38,84 +39,88 @@ import io.airlift.http.client.testing.TestingHttpClient;
 import io.airlift.http.client.testing.TestingResponse;
 import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.units.DataSize;
-import org.testng.annotations.AfterMethod;
+import io.airlift.units.Duration;
+import org.testng.annotations.AfterClass;
+import org.testng.annotations.BeforeClass;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
-import java.io.Closeable;
 import java.net.URI;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
-import java.util.concurrent.ExecutorService;
+import java.util.Locale;
+import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 
 import static com.facebook.presto.PrestoMediaTypes.PRESTO_PAGES;
-import static com.facebook.presto.client.PrestoHeaders.PRESTO_PAGE_SEQUENCE_ID;
+import static com.facebook.presto.client.PrestoHeaders.PRESTO_PAGE_NEXT_TOKEN;
+import static com.facebook.presto.client.PrestoHeaders.PRESTO_PAGE_TOKEN;
 import static com.facebook.presto.operator.PageAssertions.assertPageEquals;
 import static com.facebook.presto.operator.SequencePageBuilder.createSequencePage;
-import static com.facebook.presto.tuple.TupleInfo.SINGLE_VARBINARY;
-import static com.facebook.presto.util.Threads.daemonThreadsNamed;
+import static com.facebook.presto.serde.TestingBlockEncodingManager.createTestingBlockEncodingManager;
+import static com.facebook.presto.spi.type.TimeZoneKey.UTC_KEY;
+import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
+import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
-import static java.util.concurrent.Executors.newCachedThreadPool;
+import static java.util.concurrent.Executors.newScheduledThreadPool;
 import static javax.ws.rs.core.HttpHeaders.CONTENT_TYPE;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNull;
 
+@Test(singleThreaded = true)
 public class TestExchangeOperator
 {
-    private static final List<TupleInfo> TUPLE_INFOS = ImmutableList.of(SINGLE_VARBINARY);
-    private static final Page PAGE = createSequencePage(TUPLE_INFOS, 10, 100);
+    private static final List<Type> TYPES = ImmutableList.<Type>of(VARCHAR);
+    private static final Page PAGE = createSequencePage(TYPES, 10, 100);
 
     private static final String TASK_1_ID = "task1";
     private static final String TASK_2_ID = "task2";
     private static final String TASK_3_ID = "task3";
 
-    private LoadingCache<String, TaskBuffer> taskBuffers;
-    private ExecutorService executor;
-    private AsyncHttpClient httpClient;
+    private final LoadingCache<String, TaskBuffer> taskBuffers = CacheBuilder.newBuilder().build(new CacheLoader<String, TaskBuffer>()
+    {
+        @Override
+        public TaskBuffer load(String key)
+                throws Exception
+        {
+            return new TaskBuffer();
+        }
+    });
 
-    private DriverContext driverContext;
+    private ScheduledExecutorService executor;
+    private AsyncHttpClient httpClient;
     private Supplier<ExchangeClient> exchangeClientSupplier;
 
-    @BeforeMethod
+    @BeforeClass
     public void setUp()
             throws Exception
     {
-        taskBuffers = CacheBuilder.newBuilder().build(new CacheLoader<String, TaskBuffer>()
-        {
-            @Override
-            public TaskBuffer load(String key)
-                    throws Exception
-            {
-                return new TaskBuffer();
-            }
-        });
-        executor = newCachedThreadPool(daemonThreadsNamed("test-%s"));
+        executor = newScheduledThreadPool(4, daemonThreadsNamed("test-%s"));
 
-        httpClient = new TestingHttpClient(new HttpClientHandler(), executor);
-
-        Session session = new Session("user", "source", "catalog", "schema", "address", "agent");
-        driverContext = new TaskContext(new TaskId("query", "stage", "task"), executor, session)
-                .addPipelineContext(true, true)
-                .addDriverContext();
+        httpClient = new TestingHttpClient(new HttpClientHandler(taskBuffers), executor);
 
         exchangeClientSupplier = new Supplier<ExchangeClient>()
         {
             @Override
             public ExchangeClient get()
             {
-                return new ExchangeClient(new DataSize(32, MEGABYTE), new DataSize(10, MEGABYTE), 3, httpClient, executor);
+                return new ExchangeClient(
+                        createTestingBlockEncodingManager(),
+                        new DataSize(32, MEGABYTE),
+                        new DataSize(10, MEGABYTE),
+                        3,
+                        new Duration(1, TimeUnit.MINUTES),
+                        httpClient,
+                        executor);
             }
         };
     }
 
-    @AfterMethod
+    @AfterClass
     public void tearDown()
             throws Exception
     {
-        taskBuffers = null;
-
         httpClient.close();
         httpClient = null;
 
@@ -123,16 +128,21 @@ public class TestExchangeOperator
         executor = null;
     }
 
+    @BeforeMethod
+    public void setUpMethod()
+    {
+        taskBuffers.invalidateAll();
+    }
+
     @Test
     public void testSimple()
             throws Exception
     {
-        ExchangeOperatorFactory operatorFactory = new ExchangeOperatorFactory(0, new PlanNodeId("test"), exchangeClientSupplier, TUPLE_INFOS);
-        SourceOperator operator = operatorFactory.createOperator(driverContext);
+        SourceOperator operator = createExchangeOperator();
 
-        operator.addSplit(new RemoteSplit(URI.create("http://localhost/" + TASK_1_ID), TUPLE_INFOS));
-        operator.addSplit(new RemoteSplit(URI.create("http://localhost/" + TASK_2_ID), TUPLE_INFOS));
-        operator.addSplit(new RemoteSplit(URI.create("http://localhost/" + TASK_3_ID), TUPLE_INFOS));
+        operator.addSplit(newRemoteSplit(TASK_1_ID));
+        operator.addSplit(newRemoteSplit(TASK_2_ID));
+        operator.addSplit(newRemoteSplit(TASK_3_ID));
         operator.noMoreSplits();
 
         // add pages and close the buffers
@@ -147,16 +157,20 @@ public class TestExchangeOperator
         waitForFinished(operator);
     }
 
+    private Split newRemoteSplit(String taskId)
+    {
+        return new Split("remote", new RemoteSplit(URI.create("http://localhost/" + taskId)));
+    }
+
     @Test
     public void testWaitForClose()
             throws Exception
     {
-        ExchangeOperatorFactory operatorFactory = new ExchangeOperatorFactory(0, new PlanNodeId("test"), exchangeClientSupplier, TUPLE_INFOS);
-        SourceOperator operator = operatorFactory.createOperator(driverContext);
+        SourceOperator operator = createExchangeOperator();
 
-        operator.addSplit(new RemoteSplit(URI.create("http://localhost/" + TASK_1_ID), TUPLE_INFOS));
-        operator.addSplit(new RemoteSplit(URI.create("http://localhost/" + TASK_2_ID), TUPLE_INFOS));
-        operator.addSplit(new RemoteSplit(URI.create("http://localhost/" + TASK_3_ID), TUPLE_INFOS));
+        operator.addSplit(newRemoteSplit(TASK_1_ID));
+        operator.addSplit(newRemoteSplit(TASK_2_ID));
+        operator.addSplit(newRemoteSplit(TASK_3_ID));
         operator.noMoreSplits();
 
         // add pages and leave buffers open
@@ -188,11 +202,10 @@ public class TestExchangeOperator
     public void testWaitForNoMoreSplits()
             throws Exception
     {
-        ExchangeOperatorFactory operatorFactory = new ExchangeOperatorFactory(0, new PlanNodeId("test"), exchangeClientSupplier, TUPLE_INFOS);
-        SourceOperator operator = operatorFactory.createOperator(driverContext);
+        SourceOperator operator = createExchangeOperator();
 
-        operator.addSplit(new RemoteSplit(URI.create("http://localhost/" + TASK_1_ID), TUPLE_INFOS));
-
+        // add a buffer location containing one page and close the buffer
+        operator.addSplit(newRemoteSplit(TASK_1_ID));
         // add pages and leave buffers open
         taskBuffers.getUnchecked(TASK_1_ID).addPages(1, true);
 
@@ -204,9 +217,11 @@ public class TestExchangeOperator
         assertEquals(operator.needsInput(), false);
         assertEquals(operator.getOutput(), null);
 
-        // add more pages and close the buffers
-        operator.addSplit(new RemoteSplit(URI.create("http://localhost/" + TASK_2_ID), TUPLE_INFOS));
+        // add a buffer location
+        operator.addSplit(newRemoteSplit(TASK_2_ID));
+        // set no more splits (buffer locations)
         operator.noMoreSplits();
+        // add two pages and close the last buffer
         taskBuffers.getUnchecked(TASK_2_ID).addPages(2, true);
 
         // read all pages
@@ -220,12 +235,11 @@ public class TestExchangeOperator
     public void testFinish()
             throws Exception
     {
-        ExchangeOperatorFactory operatorFactory = new ExchangeOperatorFactory(0, new PlanNodeId("test"), exchangeClientSupplier, TUPLE_INFOS);
-        SourceOperator operator = operatorFactory.createOperator(driverContext);
+        SourceOperator operator = createExchangeOperator();
 
-        operator.addSplit(new RemoteSplit(URI.create("http://localhost/" + TASK_1_ID), TUPLE_INFOS));
-        operator.addSplit(new RemoteSplit(URI.create("http://localhost/" + TASK_2_ID), TUPLE_INFOS));
-        operator.addSplit(new RemoteSplit(URI.create("http://localhost/" + TASK_3_ID), TUPLE_INFOS));
+        operator.addSplit(newRemoteSplit(TASK_1_ID));
+        operator.addSplit(newRemoteSplit(TASK_2_ID));
+        operator.addSplit(newRemoteSplit(TASK_3_ID));
         operator.noMoreSplits();
 
         // add pages and leave buffers open
@@ -246,6 +260,18 @@ public class TestExchangeOperator
 
         // wait for finished
         waitForFinished(operator);
+    }
+
+    private SourceOperator createExchangeOperator()
+    {
+        ExchangeOperatorFactory operatorFactory = new ExchangeOperatorFactory(0, new PlanNodeId("test"), exchangeClientSupplier, TYPES);
+
+        ConnectorSession session = new ConnectorSession("user", "source", "catalog", "schema", UTC_KEY, Locale.ENGLISH, "address", "agent");
+        DriverContext driverContext = new TaskContext(new TaskId("query", "stage", "task"), executor, session)
+                .addPipelineContext(true, true)
+                .addDriverContext();
+
+        return operatorFactory.createOperator(driverContext);
     }
 
     private List<Page> waitForPages(Operator operator, int expectedPageCount)
@@ -305,44 +331,54 @@ public class TestExchangeOperator
         assertNull(operator.getOutput());
     }
 
-    private class HttpClientHandler
+    private static class HttpClientHandler
             implements Function<Request, Response>
     {
+        private final LoadingCache<String, TaskBuffer> taskBuffers;
+
+        public HttpClientHandler(LoadingCache<String, TaskBuffer> taskBuffers)
+        {
+            this.taskBuffers = taskBuffers;
+        }
+
         @Override
         public Response apply(Request request)
         {
             ImmutableList<String> parts = ImmutableList.copyOf(Splitter.on("/").omitEmptyStrings().split(request.getUri().getPath()));
             assertEquals(parts.size(), 2);
             String taskId = parts.get(0);
-            int pageSequenceId = Integer.parseInt(parts.get(1));
+            int pageToken = Integer.parseInt(parts.get(1));
 
             Builder<String, String> headers = ImmutableListMultimap.builder();
-            headers.put(PRESTO_PAGE_SEQUENCE_ID, String.valueOf(pageSequenceId));
+            headers.put(PRESTO_PAGE_TOKEN, String.valueOf(pageToken));
 
             TaskBuffer taskBuffer = taskBuffers.getUnchecked(taskId);
-            Page page = taskBuffer.getPage(pageSequenceId);
+            Page page = taskBuffer.getPage(pageToken);
             if (page != null) {
                 headers.put(CONTENT_TYPE, PRESTO_PAGES);
+                headers.put(PRESTO_PAGE_NEXT_TOKEN, String.valueOf(pageToken + 1));
                 DynamicSliceOutput output = new DynamicSliceOutput(256);
-                PagesSerde.writePages(output, page);
+                PagesSerde.writePages(createTestingBlockEncodingManager(), output, page);
                 return new TestingResponse(HttpStatus.OK, headers.build(), output.slice().getInput());
             }
-            else if (taskBuffer.isClosed()) {
+            else if (taskBuffer.isFinished()) {
+                headers.put(PRESTO_PAGE_NEXT_TOKEN, String.valueOf(pageToken));
                 return new TestingResponse(HttpStatus.GONE, headers.build(), new byte[0]);
             }
             else {
+                headers.put(PRESTO_PAGE_NEXT_TOKEN, String.valueOf(pageToken));
                 return new TestingResponse(HttpStatus.NO_CONTENT, headers.build(), new byte[0]);
             }
         }
     }
 
     private static class TaskBuffer
-            implements Closeable
     {
         private final List<Page> buffer = new ArrayList<>();
+        private int acknowledgedPages;
         private boolean closed;
 
-        private void addPages(int pages, boolean close)
+        private synchronized void addPages(int pages, boolean close)
         {
             addPages(Collections.nCopies(pages, PAGE));
             if (close) {
@@ -350,28 +386,23 @@ public class TestExchangeOperator
             }
         }
 
-        public void addPages(Iterable<Page> pages)
+        public synchronized void addPages(Iterable<Page> pages)
         {
             Iterables.addAll(buffer, pages);
         }
 
-        public Page getPage(int pageSequenceId)
+        public synchronized Page getPage(int pageSequenceId)
         {
+            acknowledgedPages = Math.max(acknowledgedPages, pageSequenceId);
             if (pageSequenceId >= buffer.size()) {
                 return null;
             }
             return buffer.get(pageSequenceId);
         }
 
-        private boolean isClosed()
+        private synchronized boolean isFinished()
         {
-            return closed;
-        }
-
-        @Override
-        public void close()
-        {
-            closed = true;
+            return closed && acknowledgedPages == buffer.size();
         }
     }
 }

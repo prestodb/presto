@@ -13,87 +13,77 @@
  */
 package com.facebook.presto.operator;
 
-import com.facebook.presto.block.Block;
-import com.facebook.presto.block.BlockBuilder;
-import com.facebook.presto.metadata.ColumnFileHandle;
-import com.facebook.presto.metadata.LocalStorageManager;
-import com.facebook.presto.spi.ColumnHandle;
-import com.facebook.presto.spi.Split;
-import com.facebook.presto.split.NativeSplit;
-import com.facebook.presto.sql.planner.plan.PlanNodeId;
-import com.facebook.presto.tuple.TupleInfo;
-import com.google.common.base.Suppliers;
-import com.google.common.base.Throwables;
+import com.facebook.presto.spi.block.BlockCursor;
+import com.facebook.presto.spi.RecordSink;
+import com.google.common.base.Optional;
+import com.facebook.presto.spi.type.Type;
+import com.google.common.base.Function;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Iterables;
 import com.google.common.util.concurrent.ListenableFuture;
+import io.airlift.slice.Slices;
 
-import java.io.IOException;
 import java.util.List;
-import java.util.concurrent.atomic.AtomicReference;
 
-import static com.facebook.presto.tuple.TupleInfo.SINGLE_LONG;
+import static com.facebook.presto.spi.type.BigintType.BIGINT;
+import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
+import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
+import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 
 public class TableWriterOperator
-        implements SourceOperator
+        implements Operator
 {
+    public static final List<Type> TYPES = ImmutableList.of(BIGINT, VARCHAR);
+
     public static class TableWriterOperatorFactory
-            implements SourceOperatorFactory
+            implements OperatorFactory
     {
         private final int operatorId;
-        private final PlanNodeId sourceId;
-        private final LocalStorageManager storageManager;
-        private final String nodeIdentifier;
-        private final List<ColumnHandle> columnHandles;
+        private final RecordSink recordSink;
+        private final List<Integer> inputChannels;
+        private final List<Type> recordTypes;
+        private final Optional<Integer> sampleWeightChannel;
+        private boolean closed;
 
-        public TableWriterOperatorFactory(
-                int operatorId,
-                PlanNodeId sourceId,
-                LocalStorageManager storageManager,
-                String nodeIdentifier,
-                List<ColumnHandle> columnHandles)
+        public TableWriterOperatorFactory(int operatorId, RecordSink recordSink, List<Type> recordTypes, List<Integer> inputChannels, Optional<Integer> sampleWeightChannel)
         {
             this.operatorId = operatorId;
-            this.sourceId = checkNotNull(sourceId, "sourceId is null");
-            this.storageManager = checkNotNull(storageManager, "storageManager is null");
-            this.nodeIdentifier = checkNotNull(nodeIdentifier, "nodeIdentifier is null");
-            this.columnHandles = ImmutableList.copyOf(checkNotNull(columnHandles, "columnHandles is null"));
+            this.inputChannels = checkNotNull(inputChannels, "inputChannels is null");
+            this.recordSink = checkNotNull(recordSink, "recordSink is null");
+
+            checkNotNull(recordTypes, "types is null");
+            this.recordTypes = ImmutableList.copyOf(Iterables.transform(recordTypes, new Function<Type, Type>()
+            {
+                public Type apply(Type type)
+                {
+                    return type;
+                }
+            }));
+
+            this.sampleWeightChannel = checkNotNull(sampleWeightChannel, "sampleWeightChannel is null");
         }
 
         @Override
-        public PlanNodeId getSourceId()
+        public List<Type> getTypes()
         {
-            return sourceId;
+            return TYPES;
         }
 
         @Override
-        public List<TupleInfo> getTupleInfos()
+        public Operator createOperator(DriverContext driverContext)
         {
-            return ImmutableList.of(SINGLE_LONG);
-        }
-
-        @Override
-        public SourceOperator createOperator(DriverContext driverContext)
-        {
-            try {
-                OperatorContext operatorContext = driverContext.addOperatorContext(operatorId, TableWriterOperator.class.getSimpleName());
-                return new TableWriterOperator(
-                        operatorContext,
-                        sourceId,
-                        storageManager,
-                        nodeIdentifier,
-                        columnHandles);
-            }
-            catch (IOException e) {
-                throw Throwables.propagate(e);
-            }
+            checkState(!closed, "Factory is already closed");
+            OperatorContext context = driverContext.addOperatorContext(operatorId, TableWriterOperator.class.getSimpleName());
+            return new TableWriterOperator(context, recordSink, recordTypes, inputChannels, sampleWeightChannel);
         }
 
         @Override
         public void close()
         {
+            closed = true;
         }
     }
 
@@ -103,31 +93,25 @@ public class TableWriterOperator
     }
 
     private final OperatorContext operatorContext;
-    private final PlanNodeId sourceId;
-    private final LocalStorageManager storageManager;
-    private final String nodeIdentifier;
-    private final List<ColumnHandle> columnHandles;
-
-    private ColumnFileHandle columnFileHandle;
-
-    private final AtomicReference<NativeSplit> input = new AtomicReference<>();
+    private final RecordSink recordSink;
+    private final Optional<Integer> sampleWeightChannel;
+    private final List<Type> recordTypes;
+    private final List<Integer> inputChannels;
 
     private State state = State.RUNNING;
     private long rowCount;
 
-    public TableWriterOperator(
-            OperatorContext operatorContext,
-            PlanNodeId sourceId,
-            LocalStorageManager storageManager,
-            String nodeIdentifier,
-            List<ColumnHandle> columnHandles)
-            throws IOException
+    public TableWriterOperator(OperatorContext operatorContext,
+            RecordSink recordSink,
+            List<Type> recordTypes,
+            List<Integer> inputChannels,
+            Optional<Integer> sampleWeightChannel)
     {
         this.operatorContext = checkNotNull(operatorContext, "operatorContext is null");
-        this.sourceId = checkNotNull(sourceId, "sourceId is null");
-        this.storageManager = checkNotNull(storageManager, "storageManager is null");
-        this.nodeIdentifier = checkNotNull(nodeIdentifier, "nodeIdentifier is null");
-        this.columnHandles = ImmutableList.copyOf(columnHandles);
+        this.recordSink = checkNotNull(recordSink, "recordSink is null");
+        this.recordTypes = recordTypes;
+        this.sampleWeightChannel = checkNotNull(sampleWeightChannel, "sampleWeightChannel is null");
+        this.inputChannels = checkNotNull(inputChannels, "inputChannels is null");
     }
 
     @Override
@@ -137,35 +121,9 @@ public class TableWriterOperator
     }
 
     @Override
-    public PlanNodeId getSourceId()
+    public List<Type> getTypes()
     {
-        return sourceId;
-    }
-
-    @Override
-    public void addSplit(final Split split)
-    {
-        checkNotNull(split, "split is null");
-        checkState(split instanceof NativeSplit, "Non-native split added!");
-        checkState(input.get() == null, "Shard Id %s was already set!", input.get());
-        input.set((NativeSplit) split);
-
-        Object splitInfo = split.getInfo();
-        if (splitInfo != null) {
-            operatorContext.setInfoSupplier(Suppliers.ofInstance(splitInfo));
-        }
-    }
-
-    @Override
-    public void noMoreSplits()
-    {
-        checkState(input.get() != null, "No shard id was set!");
-    }
-
-    @Override
-    public List<TupleInfo> getTupleInfos()
-    {
-        return ImmutableList.of(SINGLE_LONG);
+        return TYPES;
     }
 
     @Override
@@ -198,16 +156,66 @@ public class TableWriterOperator
     public void addInput(Page page)
     {
         checkNotNull(page, "page is null");
-        checkState(state == State.RUNNING, "Operator is finishing");
-        if (columnFileHandle == null) {
-            try {
-                columnFileHandle = storageManager.createStagingFileHandles(input.get().getShardId(), columnHandles);
-            }
-            catch (IOException e) {
-                throw Throwables.propagate(e);
-            }
+        checkState(state == State.RUNNING, "Operator is %s", state);
+
+        BlockCursor[] cursors;
+        BlockCursor sampleWeightCursor = null;
+        if (sampleWeightChannel.isPresent()) {
+            cursors = new BlockCursor[page.getChannelCount() - 1];
+            sampleWeightCursor = page.getBlock(sampleWeightChannel.get()).cursor();
         }
-        rowCount += columnFileHandle.append(page);
+        else {
+            cursors = new BlockCursor[recordTypes.size()];
+        }
+
+        for (int outputChannel = 0; outputChannel < cursors.length; outputChannel++) {
+            cursors[outputChannel] = page.getBlock(inputChannels.get(outputChannel)).cursor();
+        }
+
+        int rows = 0;
+        for (int position = 0; position < page.getPositionCount(); position++) {
+            long sampleWeight = 1;
+            if (sampleWeightCursor != null) {
+                checkArgument(sampleWeightCursor.advanceNextPosition());
+                sampleWeight = sampleWeightCursor.getLong();
+            }
+            rows += sampleWeight;
+            recordSink.beginRecord(sampleWeight);
+            for (int i = 0; i < cursors.length; i++) {
+                checkArgument(cursors[i].advanceNextPosition());
+                writeField(cursors[i], recordTypes.get(i));
+            }
+            recordSink.finishRecord();
+        }
+        rowCount += rows;
+
+        for (BlockCursor cursor : cursors) {
+            checkArgument(!cursor.advanceNextPosition());
+        }
+    }
+
+    private void writeField(BlockCursor cursor, Type type)
+    {
+        if (cursor.isNull()) {
+            recordSink.appendNull();
+            return;
+        }
+
+        if (type.equals(BOOLEAN)) {
+            recordSink.appendBoolean(cursor.getBoolean());
+        }
+        else if (type.equals(BIGINT)) {
+            recordSink.appendLong(cursor.getLong());
+        }
+        else if (type.equals(DOUBLE)) {
+            recordSink.appendDouble(cursor.getDouble());
+        }
+        else if (type.equals(VARCHAR)) {
+            recordSink.appendString(cursor.getSlice().getBytes());
+        }
+        else {
+            throw new AssertionError("unimplemented type: " + type);
+        }
     }
 
     @Override
@@ -216,21 +224,13 @@ public class TableWriterOperator
         if (state != State.FINISHING) {
             return null;
         }
-
         state = State.FINISHED;
 
-        if (columnFileHandle != null) {
-            try {
-                storageManager.commit(columnFileHandle);
-            }
-            catch (IOException e) {
-                throw Throwables.propagate(e);
-            }
+        String fragment = recordSink.commit();
 
-            operatorContext.addOutputItems(sourceId, ImmutableSet.of(new TableWriterResult(input.get().getShardId(), nodeIdentifier)));
-        }
-
-        Block block = new BlockBuilder(SINGLE_LONG).append(rowCount).build();
-        return new Page(block);
+        PageBuilder page = new PageBuilder(TYPES);
+        page.getBlockBuilder(0).appendLong(rowCount);
+        page.getBlockBuilder(1).appendSlice(Slices.utf8Slice(fragment));
+        return page.build();
     }
 }

@@ -14,8 +14,7 @@
 package com.facebook.presto.operator;
 
 import com.facebook.presto.execution.TaskId;
-import com.facebook.presto.sql.analyzer.Session;
-import com.facebook.presto.sql.planner.plan.PlanNodeId;
+import com.facebook.presto.spi.ConnectorSession;
 import com.google.common.base.Function;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
@@ -24,8 +23,9 @@ import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import org.joda.time.DateTime;
 
+import javax.annotation.concurrent.ThreadSafe;
+
 import java.util.List;
-import java.util.Set;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -39,8 +39,10 @@ import static com.google.common.collect.Iterables.getFirst;
 import static com.google.common.collect.Iterables.getLast;
 import static com.google.common.collect.Iterables.transform;
 import static io.airlift.units.DataSize.Unit.BYTE;
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
 
+@ThreadSafe
 public class DriverContext
 {
     private final PipelineContext pipelineContext;
@@ -90,7 +92,12 @@ public class DriverContext
         return ImmutableList.copyOf(operatorContexts);
     }
 
-    public Session getSession()
+    public PipelineContext getPipelineContext()
+    {
+        return pipelineContext;
+    }
+
+    public ConnectorSession getSession()
     {
         return pipelineContext.getSession();
     }
@@ -157,7 +164,8 @@ public class DriverContext
         OperatorContext inputOperator = getFirst(operatorContexts, null);
         if (inputOperator != null) {
             return inputOperator.getInputDataSize();
-        } else {
+        }
+        else {
             return new CounterStat();
         }
     }
@@ -167,7 +175,8 @@ public class DriverContext
         OperatorContext inputOperator = getFirst(operatorContexts, null);
         if (inputOperator != null) {
             return inputOperator.getInputPositions();
-        } else {
+        }
+        else {
             return new CounterStat();
         }
     }
@@ -177,7 +186,8 @@ public class DriverContext
         OperatorContext inputOperator = getLast(operatorContexts, null);
         if (inputOperator != null) {
             return inputOperator.getOutputDataSize();
-        } else {
+        }
+        else {
             return new CounterStat();
         }
     }
@@ -187,15 +197,10 @@ public class DriverContext
         OperatorContext inputOperator = getLast(operatorContexts, null);
         if (inputOperator != null) {
             return inputOperator.getOutputPositions();
-        } else {
+        }
+        else {
             return new CounterStat();
         }
-    }
-
-    @Deprecated
-    public void addOutputItems(PlanNodeId id, Set<?> output)
-    {
-        pipelineContext.addOutputItems(id, output);
     }
 
     public DriverStats getDriverStats()
@@ -225,6 +230,7 @@ public class DriverContext
         OperatorStats inputOperator = getFirst(operators, null);
         DataSize rawInputDataSize;
         long rawInputPositions;
+        Duration rawInputReadTime;
         DataSize processedInputDataSize;
         long processedInputPositions;
         DataSize outputDataSize;
@@ -232,6 +238,7 @@ public class DriverContext
         if (inputOperator != null) {
             rawInputDataSize = inputOperator.getInputDataSize();
             rawInputPositions = inputOperator.getInputPositions();
+            rawInputReadTime = inputOperator.getAddInputWall();
 
             processedInputDataSize = inputOperator.getOutputDataSize();
             processedInputPositions = inputOperator.getOutputPositions();
@@ -243,6 +250,7 @@ public class DriverContext
         else {
             rawInputDataSize = new DataSize(0, BYTE);
             rawInputPositions = 0;
+            rawInputReadTime = new Duration(0, MILLISECONDS);
 
             processedInputDataSize = new DataSize(0, BYTE);
             processedInputPositions = 0;
@@ -279,6 +287,7 @@ public class DriverContext
                 new Duration(totalBlockedTime, NANOSECONDS).convertToMostSuccinctTimeUnit(),
                 rawInputDataSize.convertToMostSuccinctDataSize(),
                 rawInputPositions,
+                rawInputReadTime,
                 processedInputDataSize.convertToMostSuccinctDataSize(),
                 processedInputPositions,
                 outputDataSize.convertToMostSuccinctDataSize(),

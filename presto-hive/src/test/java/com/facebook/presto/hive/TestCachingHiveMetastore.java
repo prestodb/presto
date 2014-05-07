@@ -33,6 +33,7 @@ import static com.facebook.presto.hive.MockHiveMetastoreClient.TEST_TABLE;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotNull;
 
+@Test(singleThreaded = true)
 public class TestCachingHiveMetastore
 {
     private MockHiveMetastoreClient mockClient;

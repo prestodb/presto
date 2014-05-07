@@ -35,6 +35,8 @@ tokens {
     SELECT_ITEM;
     ALIASED_COLUMNS;
     TABLE_SUBQUERY;
+    TABLE_VALUE;
+    ROW_VALUE;
     EXPLAIN_OPTIONS;
     EXPLAIN_FORMAT;
     EXPLAIN_TYPE;
@@ -54,6 +56,8 @@ tokens {
     SIMPLE_CASE;
     SEARCHED_CASE;
     FUNCTION_CALL;
+    LITERAL;
+    TIME_ZONE_CONVERSION;
     WINDOW;
     PARTITION_BY;
     UNBOUNDED_PRECEDING;
@@ -63,15 +67,13 @@ tokens {
     QNAME;
     SHOW_TABLES;
     SHOW_SCHEMAS;
+    SHOW_CATALOGS;
     SHOW_COLUMNS;
     SHOW_PARTITIONS;
     SHOW_FUNCTIONS;
+    USE_CATALOG;
+    USE_SCHEMA;
     CREATE_TABLE;
-    CREATE_MATERIALIZED_VIEW;
-    REFRESH_MATERIALIZED_VIEW;
-    VIEW_REFRESH;
-    CREATE_ALIAS;
-    DROP_ALIAS;
     DROP_TABLE;
     TABLE_ELEMENT_LIST;
     COLUMN_DEF;
@@ -79,6 +81,7 @@ tokens {
     ALIASED_RELATION;
     SAMPLED_RELATION;
     QUERY_SPEC;
+    STRATIFY_ON;
 }
 
 @header {
@@ -148,15 +151,13 @@ statement
     | explainStmt
     | showTablesStmt
     | showSchemasStmt
+    | showCatalogsStmt
     | showColumnsStmt
     | showPartitionsStmt
     | showFunctionsStmt
+    | useCollectionStmt
     | createTableStmt
     | dropTableStmt
-    | createMaterializedViewStmt
-    | refreshMaterializedViewStmt
-    | createAliasStmt
-    | dropAliasStmt
     ;
 
 query
@@ -168,6 +169,7 @@ queryExpr
       ( (orderOrLimitQuerySpec) => orderOrLimitQuerySpec
       | queryExprBody orderClause? limitClause?
       )
+      approximateClause?
     ;
 
 orderOrLimitQuerySpec
@@ -190,10 +192,19 @@ queryPrimary
     : simpleQuery -> ^(QUERY_SPEC simpleQuery)
     | tableSubquery
     | explicitTable
+    | tableValue
     ;
 
 explicitTable
     : TABLE table -> table
+    ;
+
+tableValue
+    : VALUES rowValue (',' rowValue)*  -> ^(TABLE_VALUE rowValue+)
+    ;
+
+rowValue
+    : '(' expr (',' expr)* ')' -> ^(ROW_VALUE expr+)
     ;
 
 simpleQuery
@@ -207,6 +218,10 @@ simpleQuery
 restrictedSelectStmt
     : selectClause
       fromClause
+    ;
+
+approximateClause
+    : APPROXIMATE AT number CONFIDENCE -> ^(APPROXIMATE number)
     ;
 
 withClause
@@ -279,11 +294,16 @@ tableRef
 sampleType
     : BERNOULLI
     | SYSTEM
+    | POISSONIZED
+    ;
+
+stratifyOn
+    : STRATIFY ON '(' expr (',' expr)* ')' -> ^(STRATIFY_ON expr+)
     ;
 
 tableFactor
     : ( tablePrimary -> tablePrimary )
-      ( TABLESAMPLE sampleType '(' expr ')' -> ^(SAMPLED_RELATION $tableFactor sampleType expr) )?
+      ( TABLESAMPLE sampleType '(' expr ')' RESCALED? stratifyOn? -> ^(SAMPLED_RELATION $tableFactor sampleType expr RESCALED? stratifyOn?) )?
     ;
 
 tablePrimary
@@ -380,19 +400,27 @@ numericTerm
     ;
 
 numericFactor
-    : '+'? exprPrimary -> exprPrimary
-    | '-' exprPrimary  -> ^(NEGATIVE exprPrimary)
+    : '+'? exprWithTimeZone -> exprWithTimeZone
+    | '-' exprWithTimeZone  -> ^(NEGATIVE exprWithTimeZone)
+    ;
+
+exprWithTimeZone
+    : (exprPrimary -> exprPrimary)
+      (
+        // todo this should have a full tree node to preserve the syntax
+        AT TIME ZONE STRING           -> ^(FUNCTION_CALL ^(QNAME IDENT["at_time_zone"]) $exprWithTimeZone STRING)
+      | AT TIME ZONE intervalLiteral    -> ^(FUNCTION_CALL ^(QNAME IDENT["at_time_zone"]) $exprWithTimeZone intervalLiteral)
+      )?
     ;
 
 exprPrimary
     : NULL
+    | (literal) => literal
     | qnameOrFunction
     | specialFunction
     | number
     | bool
     | STRING
-    | dateValue
-    | intervalValue
     | caseExpression
     | ('(' expr ')') => ('(' expr ')' -> expr)
     | subquery
@@ -433,14 +461,20 @@ subquery
     : '(' query ')' -> query
     ;
 
-dateValue
-    : DATE STRING      -> ^(DATE STRING)
-    | TIME STRING      -> ^(TIME STRING)
-    | TIMESTAMP STRING -> ^(TIMESTAMP STRING)
+literal
+    : (VARCHAR) => VARCHAR STRING     -> ^(LITERAL IDENT["VARCHAR"] STRING)
+    | (BIGINT) => BIGINT STRING       -> ^(LITERAL IDENT["BIGINT"] STRING)
+    | (DOUBLE) => DOUBLE STRING       -> ^(LITERAL IDENT["DOUBLE"] STRING)
+    | (BOOLEAN) => BOOLEAN STRING     -> ^(LITERAL IDENT["BOOLEAN"] STRING)
+    | (DATE) => DATE STRING           -> ^(LITERAL IDENT["DATE"] STRING)
+    | (TIME) => TIME STRING           -> ^(TIME STRING)
+    | (TIMESTAMP) => TIMESTAMP STRING -> ^(TIMESTAMP STRING)
+    | (INTERVAL) => intervalLiteral
+    | ident STRING                    -> ^(LITERAL ident STRING)
     ;
 
-intervalValue
-    : INTERVAL intervalSign? STRING intervalQualifier -> ^(INTERVAL STRING intervalQualifier intervalSign?)
+intervalLiteral
+    : INTERVAL intervalSign? STRING s=intervalField ( TO e=intervalField )? -> ^(INTERVAL STRING intervalSign? $s $e?)
     ;
 
 intervalSign
@@ -448,30 +482,30 @@ intervalSign
     | '-' -> NEGATIVE
     ;
 
-intervalQualifier
-    : nonSecond ('(' integer ')')?                 -> ^(nonSecond integer?)
-    | SECOND ('(' p=integer (',' s=integer)? ')')? -> ^(SECOND $p? $s?)
-    ;
-
-nonSecond
-    : YEAR | MONTH | DAY | HOUR | MINUTE
+intervalField
+    : YEAR | MONTH | DAY | HOUR | MINUTE | SECOND
     ;
 
 specialFunction
     : CURRENT_DATE
     | CURRENT_TIME ('(' integer ')')?              -> ^(CURRENT_TIME integer?)
     | CURRENT_TIMESTAMP ('(' integer ')')?         -> ^(CURRENT_TIMESTAMP integer?)
+    | LOCALTIME ('(' integer ')')?                 -> ^(LOCALTIME integer?)
+    | LOCALTIMESTAMP ('(' integer ')')?            -> ^(LOCALTIMESTAMP integer?)
     | SUBSTRING '(' expr FROM expr (FOR expr)? ')' -> ^(FUNCTION_CALL ^(QNAME IDENT["substr"]) expr expr expr?)
     | EXTRACT '(' ident FROM expr ')'              -> ^(EXTRACT ident expr)
-    | CAST '(' expr AS type ')'                    -> ^(CAST expr IDENT[$type.text])
+    | CAST '(' expr AS type ')'                    -> ^(CAST expr type)
     ;
 
 // TODO: this should be 'dataType', which supports arbitrary type specifications. For now we constrain to simple types
 type
-    : VARCHAR
-    | BIGINT
-    | DOUBLE
-    | BOOLEAN
+    : VARCHAR                    -> IDENT["VARCHAR"]
+    | BIGINT                     -> IDENT["BIGINT"]
+    | DOUBLE                     -> IDENT["DOUBLE"]
+    | BOOLEAN                    -> IDENT["BOOLEAN"]
+    | TIME WITH TIME ZONE        -> IDENT["TIME WITH TIME ZONE"]
+    | TIMESTAMP WITH TIME ZONE   -> IDENT["TIMESTAMP WITH TIME ZONE"]
+    | ident
     ;
 
 caseExpression
@@ -519,8 +553,13 @@ frameBound
       )
     ;
 
+useCollectionStmt
+    : USE CATALOG ident -> ^(USE_CATALOG ident)
+    | USE SCHEMA ident -> ^(USE_SCHEMA ident)
+    ;
+
 explainStmt
-    : EXPLAIN explainOptions? query -> ^(EXPLAIN explainOptions? query)
+    : EXPLAIN explainOptions? statement -> ^(EXPLAIN explainOptions? statement)
     ;
 
 explainOptions
@@ -530,6 +569,7 @@ explainOptions
 explainOption
     : FORMAT TEXT      -> ^(EXPLAIN_FORMAT TEXT)
     | FORMAT GRAPHVIZ  -> ^(EXPLAIN_FORMAT GRAPHVIZ)
+    | FORMAT JSON      -> ^(EXPLAIN_FORMAT JSON)
     | TYPE LOGICAL     -> ^(EXPLAIN_TYPE LOGICAL)
     | TYPE DISTRIBUTED -> ^(EXPLAIN_TYPE DISTRIBUTED)
     ;
@@ -547,7 +587,15 @@ showTablesLike
     ;
 
 showSchemasStmt
-    : SHOW SCHEMAS -> SHOW_SCHEMAS
+    : SHOW SCHEMAS from=showSchemasFrom? -> ^(SHOW_SCHEMAS $from?)
+    ;
+
+showSchemasFrom
+    : (FROM | IN) ident -> ^(FROM ident)
+    ;
+
+showCatalogsStmt
+    : SHOW CATALOGS -> SHOW_CATALOGS
     ;
 
 showColumnsStmt
@@ -566,30 +614,6 @@ showFunctionsStmt
 
 dropTableStmt
     : DROP TABLE qname -> ^(DROP_TABLE qname)
-    ;
-
-createMaterializedViewStmt
-    : CREATE MATERIALIZED VIEW qname r=viewRefresh? AS s=restrictedSelectStmt -> ^(CREATE_MATERIALIZED_VIEW qname $r? $s)
-    ;
-
-refreshMaterializedViewStmt
-    : REFRESH MATERIALIZED VIEW qname -> ^(REFRESH_MATERIALIZED_VIEW qname)
-    ;
-
-viewRefresh
-    : REFRESH r=integer -> ^(REFRESH $r)
-    ;
-
-createAliasStmt
-    : CREATE ALIAS qname forRemote -> ^(CREATE_ALIAS qname forRemote)
-    ;
-
-dropAliasStmt
-    : DROP ALIAS qname -> ^(DROP_ALIAS qname)
-    ;
-
-forRemote
-    : FOR qname -> ^(FOR qname)
     ;
 
 createTableStmt
@@ -675,12 +699,13 @@ integer
     ;
 
 nonReserved
-    : SHOW | TABLES | COLUMNS | PARTITIONS | FUNCTIONS | SCHEMAS
+    : SHOW | TABLES | COLUMNS | PARTITIONS | FUNCTIONS | SCHEMAS | CATALOGS
     | OVER | PARTITION | RANGE | ROWS | PRECEDING | FOLLOWING | CURRENT | ROW
-    | REFRESH | MATERIALIZED | VIEW | ALIAS
+    | DATE | TIME | TIMESTAMP | INTERVAL
     | YEAR | MONTH | DAY | HOUR | MINUTE | SECOND
     | EXPLAIN | FORMAT | TYPE | TEXT | GRAPHVIZ | LOGICAL | DISTRIBUTED
-    | TABLESAMPLE | SYSTEM | BERNOULLI
+    | TABLESAMPLE | SYSTEM | BERNOULLI | POISSONIZED | USE | SCHEMA | CATALOG | JSON | TO
+    | RESCALED | APPROXIMATE | AT | CONFIDENCE
     ;
 
 SELECT: 'SELECT';
@@ -694,6 +719,9 @@ BY: 'BY';
 ORDER: 'ORDER';
 HAVING: 'HAVING';
 LIMIT: 'LIMIT';
+APPROXIMATE: 'APPROXIMATE';
+AT: 'AT';
+CONFIDENCE: 'CONFIDENCE';
 OR: 'OR';
 AND: 'AND';
 IN: 'IN';
@@ -723,9 +751,12 @@ DAY: 'DAY';
 HOUR: 'HOUR';
 MINUTE: 'MINUTE';
 SECOND: 'SECOND';
+ZONE: 'ZONE';
 CURRENT_DATE: 'CURRENT_DATE';
 CURRENT_TIME: 'CURRENT_TIME';
 CURRENT_TIMESTAMP: 'CURRENT_TIMESTAMP';
+LOCALTIME: 'LOCALTIME';
+LOCALTIMESTAMP: 'LOCALTIMESTAMP';
 EXTRACT: 'EXTRACT';
 COALESCE: 'COALESCE';
 NULLIF: 'NULLIF';
@@ -756,6 +787,7 @@ CURRENT: 'CURRENT';
 ROW: 'ROW';
 WITH: 'WITH';
 RECURSIVE: 'RECURSIVE';
+VALUES: 'VALUES';
 CREATE: 'CREATE';
 TABLE: 'TABLE';
 CHAR: 'CHAR';
@@ -778,26 +810,31 @@ FORMAT: 'FORMAT';
 TYPE: 'TYPE';
 TEXT: 'TEXT';
 GRAPHVIZ: 'GRAPHVIZ';
+JSON: 'JSON';
 LOGICAL: 'LOGICAL';
 DISTRIBUTED: 'DISTRIBUTED';
 CAST: 'CAST';
 SHOW: 'SHOW';
 TABLES: 'TABLES';
+SCHEMA: 'SCHEMA';
 SCHEMAS: 'SCHEMAS';
+CATALOG: 'CATALOG';
+CATALOGS: 'CATALOGS';
 COLUMNS: 'COLUMNS';
+USE: 'USE';
 PARTITIONS: 'PARTITIONS';
 FUNCTIONS: 'FUNCTIONS';
-MATERIALIZED: 'MATERIALIZED';
-VIEW: 'VIEW';
-REFRESH: 'REFRESH';
 DROP: 'DROP';
-ALIAS: 'ALIAS';
 UNION: 'UNION';
 EXCEPT: 'EXCEPT';
 INTERSECT: 'INTERSECT';
+TO: 'TO';
 SYSTEM: 'SYSTEM';
 BERNOULLI: 'BERNOULLI';
+POISSONIZED: 'POISSONIZED';
 TABLESAMPLE: 'TABLESAMPLE';
+RESCALED: 'RESCALED';
+STRATIFY: 'STRATIFY';
 
 EQ  : '=';
 NEQ : '<>' | '!=';

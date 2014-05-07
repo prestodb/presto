@@ -23,7 +23,8 @@ public class ExplainFormat
     public enum Type
     {
         TEXT,
-        GRAPHVIZ
+        GRAPHVIZ,
+        JSON
     }
 
     private final Type type;

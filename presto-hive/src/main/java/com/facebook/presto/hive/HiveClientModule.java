@@ -51,16 +51,17 @@ public class HiveClientModule
         binder.bind(HiveConnectorId.class).toInstance(new HiveConnectorId(connectorId));
         binder.bind(HiveClient.class).in(Scopes.SINGLETON);
 
-        binder.bind(FileSystemCache.class).in(Scopes.SINGLETON);
         binder.bind(HdfsConfiguration.class).in(Scopes.SINGLETON);
-        binder.bind(FileSystemWrapper.class).toProvider(FileSystemWrapperProvider.class).in(Scopes.SINGLETON);
         binder.bind(HdfsEnvironment.class).in(Scopes.SINGLETON);
+        binder.bind(DirectoryLister.class).to(HadoopDirectoryLister.class).in(Scopes.SINGLETON);
         bindConfig(binder).to(HiveClientConfig.class);
         bindConfig(binder).to(HivePluginConfig.class);
 
         binder.bind(CachingHiveMetastore.class).in(Scopes.SINGLETON);
         newExporter(binder).export(CachingHiveMetastore.class)
                 .as(generatedNameOf(CachingHiveMetastore.class, connectorId));
+        binder.bind(NamenodeStats.class).in(Scopes.SINGLETON);
+        newExporter(binder).export(NamenodeStats.class).as(generatedNameOf(NamenodeStats.class));
 
         binder.bind(DiscoveryLocatedHiveCluster.class).in(Scopes.SINGLETON);
         binder.bind(HiveMetastoreClientFactory.class).in(Scopes.SINGLETON);

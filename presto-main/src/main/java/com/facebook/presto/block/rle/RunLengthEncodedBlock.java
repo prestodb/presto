@@ -13,33 +13,39 @@
  */
 package com.facebook.presto.block.rle;
 
-import com.facebook.presto.block.Block;
-import com.facebook.presto.serde.RunLengthBlockEncoding;
-import com.facebook.presto.tuple.Tuple;
-import com.facebook.presto.tuple.TupleInfo;
+import com.facebook.presto.spi.ConnectorSession;
+import com.facebook.presto.spi.block.BlockBuilder;
+import com.facebook.presto.spi.block.BlockCursor;
+import com.facebook.presto.spi.block.RandomAccessBlock;
+import com.facebook.presto.spi.block.SortOrder;
+import com.facebook.presto.spi.type.Type;
 import com.google.common.base.Objects;
-import com.google.common.base.Preconditions;
-import io.airlift.units.DataSize;
-import io.airlift.units.DataSize.Unit;
+import io.airlift.slice.Slice;
+
+import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Preconditions.checkPositionIndexes;
+import static com.google.common.base.Preconditions.checkState;
 
 public class RunLengthEncodedBlock
-        implements Block
+        implements RandomAccessBlock
 {
-    private final Tuple value;
+    private final RandomAccessBlock value;
     private final int positionCount;
 
-    public RunLengthEncodedBlock(Tuple value, int positionCount)
+    public RunLengthEncodedBlock(RandomAccessBlock value, int positionCount)
     {
-        this.value = value;
-        this.positionCount = positionCount;
+        this.value = checkNotNull(value, "value is null");
+        checkArgument(value.getPositionCount() == 1, "Expected value to contain a single position but has %s positions", value.getPositionCount());
+
+        // value can not be a RunLengthEncodedBlock because this could cause stack overflow in some of the methods
+        checkArgument(!(value instanceof RunLengthEncodedBlock), "Value can not be an instance of a %s", getClass().getName());
+
+        checkArgument(positionCount >= 0, "positionCount is negative");
+        this.positionCount = checkNotNull(positionCount, "positionCount is null");
     }
 
-    public Tuple getValue()
-    {
-        return value;
-    }
-
-    public Tuple getSingleValue()
+    public RandomAccessBlock getValue()
     {
         return value;
     }
@@ -51,28 +57,138 @@ public class RunLengthEncodedBlock
     }
 
     @Override
-    public DataSize getDataSize()
+    public int getSizeInBytes()
     {
-        return new DataSize(value.getTupleSlice().length(), Unit.BYTE);
+        return value.getSizeInBytes();
     }
 
     @Override
     public RunLengthBlockEncoding getEncoding()
     {
-        return new RunLengthBlockEncoding(value.getTupleInfo());
+        return new RunLengthBlockEncoding(value.getEncoding());
     }
 
     @Override
-    public Block getRegion(int positionOffset, int length)
+    public RandomAccessBlock getRegion(int positionOffset, int length)
     {
-        Preconditions.checkPositionIndexes(positionOffset, positionOffset + length, positionCount);
+        checkPositionIndexes(positionOffset, positionOffset + length, positionCount);
         return new RunLengthEncodedBlock(value, length);
     }
 
     @Override
-    public TupleInfo getTupleInfo()
+    public RandomAccessBlock toRandomAccessBlock()
     {
-        return value.getTupleInfo();
+        return this;
+    }
+
+    @Override
+    public Type getType()
+    {
+        return value.getType();
+    }
+
+    @Override
+    public boolean getBoolean(int position)
+    {
+        checkReadablePosition(position);
+        return value.getBoolean(0);
+    }
+
+    @Override
+    public long getLong(int position)
+    {
+        checkReadablePosition(position);
+        return value.getLong(0);
+    }
+
+    @Override
+    public double getDouble(int position)
+    {
+        checkReadablePosition(position);
+        return value.getDouble(0);
+    }
+
+    @Override
+    public Object getObjectValue(ConnectorSession session, int position)
+    {
+        checkReadablePosition(position);
+        return value.getObjectValue(session, 0);
+    }
+
+    @Override
+    public Slice getSlice(int position)
+    {
+        checkReadablePosition(position);
+        return value.getSlice(0);
+    }
+
+    @Override
+    public RandomAccessBlock getSingleValueBlock(int position)
+    {
+        checkReadablePosition(position);
+        return value;
+    }
+
+    @Override
+    public boolean isNull(int position)
+    {
+        checkReadablePosition(position);
+        return value.isNull(0);
+    }
+
+    @Override
+    public boolean equalTo(int position, RandomAccessBlock otherBlock, int otherPosition)
+    {
+        checkReadablePosition(position);
+        return value.equalTo(0, otherBlock, otherPosition);
+    }
+
+    @Override
+    public boolean equalTo(int position, BlockCursor cursor)
+    {
+        checkReadablePosition(position);
+        return this.value.equalTo(0, cursor);
+    }
+
+    @Override
+    public boolean equalTo(int position, Slice otherSlice, int otherOffset)
+    {
+        checkReadablePosition(position);
+        return value.equalTo(0, otherSlice, otherOffset);
+    }
+
+    @Override
+    public int hash(int position)
+    {
+        checkReadablePosition(position);
+        return value.hash(0);
+    }
+
+    @Override
+    public int compareTo(SortOrder sortOrder, int position, RandomAccessBlock otherBlock, int otherPosition)
+    {
+        checkReadablePosition(position);
+        return value.compareTo(sortOrder, 0, otherBlock, otherPosition);
+    }
+
+    @Override
+    public int compareTo(SortOrder sortOrder, int position, BlockCursor cursor)
+    {
+        checkReadablePosition(position);
+        return value.compareTo(sortOrder, 0, cursor);
+    }
+
+    @Override
+    public int compareTo(int position, Slice otherSlice, int otherOffset)
+    {
+        checkReadablePosition(position);
+        return value.compareTo(0, otherSlice, otherOffset);
+    }
+
+    @Override
+    public void appendTo(int position, BlockBuilder blockBuilder)
+    {
+        value.appendTo(0, blockBuilder);
     }
 
     @Override
@@ -88,5 +204,10 @@ public class RunLengthEncodedBlock
     public RunLengthEncodedBlockCursor cursor()
     {
         return new RunLengthEncodedBlockCursor(value, positionCount);
+    }
+
+    private void checkReadablePosition(int position)
+    {
+        checkState(position >= 0 && position < positionCount, "position is not valid");
     }
 }

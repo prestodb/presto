@@ -13,13 +13,14 @@
  */
 package com.facebook.presto.operator;
 
-import com.facebook.presto.spi.Split;
+import com.facebook.presto.metadata.Split;
 import com.facebook.presto.split.RemoteSplit;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
-import com.facebook.presto.tuple.TupleInfo;
+import com.facebook.presto.spi.type.Type;
 import com.google.common.base.Supplier;
 import com.google.common.util.concurrent.ListenableFuture;
 
+import java.io.Closeable;
 import java.net.URI;
 import java.util.List;
 
@@ -28,7 +29,7 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 
 public class ExchangeOperator
-        implements SourceOperator
+        implements SourceOperator, Closeable
 {
     public static class ExchangeOperatorFactory
             implements SourceOperatorFactory
@@ -36,15 +37,15 @@ public class ExchangeOperator
         private final int operatorId;
         private final PlanNodeId sourceId;
         private final Supplier<ExchangeClient> exchangeClientSupplier;
-        private final List<TupleInfo> tupleInfos;
+        private final List<Type> types;
         private boolean closed;
 
-        public ExchangeOperatorFactory(int operatorId, PlanNodeId sourceId, Supplier<ExchangeClient> exchangeClientSupplier, List<TupleInfo> tupleInfos)
+        public ExchangeOperatorFactory(int operatorId, PlanNodeId sourceId, Supplier<ExchangeClient> exchangeClientSupplier, List<Type> types)
         {
             this.operatorId = operatorId;
             this.sourceId = sourceId;
             this.exchangeClientSupplier = exchangeClientSupplier;
-            this.tupleInfos = tupleInfos;
+            this.types = types;
         }
 
         @Override
@@ -54,9 +55,9 @@ public class ExchangeOperator
         }
 
         @Override
-        public List<TupleInfo> getTupleInfos()
+        public List<Type> getTypes()
         {
-            return tupleInfos;
+            return types;
         }
 
         @Override
@@ -67,7 +68,7 @@ public class ExchangeOperator
             OperatorContext operatorContext = driverContext.addOperatorContext(operatorId, ExchangeOperator.class.getSimpleName());
             return new ExchangeOperator(
                     operatorContext,
-                    tupleInfos,
+                    types,
                     sourceId,
                     exchangeClientSupplier.get());
         }
@@ -82,18 +83,18 @@ public class ExchangeOperator
     private final OperatorContext operatorContext;
     private final PlanNodeId sourceId;
     private final ExchangeClient exchangeClient;
-    private final List<TupleInfo> tupleInfos;
+    private final List<Type> types;
 
     public ExchangeOperator(
             OperatorContext operatorContext,
-            List<TupleInfo> tupleInfos,
+            List<Type> types,
             PlanNodeId sourceId,
             final ExchangeClient exchangeClient)
     {
         this.operatorContext = checkNotNull(operatorContext, "operatorContext is null");
         this.sourceId = checkNotNull(sourceId, "sourceId is null");
         this.exchangeClient = checkNotNull(exchangeClient, "exchangeClient is null");
-        this.tupleInfos = checkNotNull(tupleInfos, "tupleInfos is null");
+        this.types = checkNotNull(types, "types is null");
 
         operatorContext.setInfoSupplier(new Supplier<Object>()
         {
@@ -115,9 +116,9 @@ public class ExchangeOperator
     public void addSplit(Split split)
     {
         checkNotNull(split, "split is null");
-        checkArgument(split instanceof RemoteSplit, "split is not a remote split");
+        checkArgument(split.getConnectorId().equals("remote"), "split is not a remote split");
 
-        URI location = ((RemoteSplit) split).getLocation();
+        URI location = ((RemoteSplit) split.getConnectorSplit()).getLocation();
         exchangeClient.addLocation(location);
     }
 
@@ -134,15 +135,15 @@ public class ExchangeOperator
     }
 
     @Override
-    public List<TupleInfo> getTupleInfos()
+    public List<Type> getTypes()
     {
-        return tupleInfos;
+        return types;
     }
 
     @Override
     public void finish()
     {
-        exchangeClient.close();
+        close();
     }
 
     @Override
@@ -181,5 +182,11 @@ public class ExchangeOperator
             operatorContext.recordGeneratedInput(page.getDataSize(), page.getPositionCount());
         }
         return page;
+    }
+
+    @Override
+    public void close()
+    {
+        exchangeClient.close();
     }
 }

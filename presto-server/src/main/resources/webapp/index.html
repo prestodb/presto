@@ -2,7 +2,7 @@
 <head>
     <meta charset="utf-8">
 
-    <script src="vendor/d3/d3.v3.js"></script>
+    <script src="vendor/d3/d3-3.3.4.js"></script>
 
     <link href="vendor/bootstrap/css/bootstrap.css" rel="stylesheet" type="text/css">
 
@@ -111,17 +111,18 @@ function renderDoneQueries(queries)
 
     rows.selectAll("td")
             .data(function (queryInfo) {
-                      var stages = allStages(queryInfo.outputStage);
+                      var splits = queryInfo.totalDrivers;
+                      var completedSplits = queryInfo.completedDrivers;
 
-                      var tasks = queryInfo.queryStats.totalTasks;
-
-                      var splits = queryInfo.queryStats.totalDrivers;
-                      var completedSplits = queryInfo.queryStats.completedDrivers;
+                      var query = queryInfo.query;
+                      if (query.length > 200) {
+                          query = query.substring(0, 200) + "...";
+                      }
 
                       return [
                           queryInfo.queryId,
-                          queryInfo.queryStats.elapsedTime,
-                          queryInfo.query,
+                          queryInfo.elapsedTime,
+                          query,
                           queryInfo.session.source,
                           queryInfo.session.user,
                           queryInfo.state,
@@ -138,7 +139,7 @@ function renderDoneQueries(queries)
                   });
 
     tbody.selectAll("tr")
-            .sort(function (a, b) { return d3.descending(a.queryStats.endTime, b.queryStats.endTime); });
+            .sort(function (a, b) { return d3.descending(a.endTime, b.endTime); });
 }
 
 function renderRunningQueries(queries)
@@ -159,20 +160,21 @@ function renderRunningQueries(queries)
     var cells = rows.selectAll("td")
             .data(function (queryInfo)
                   {
-                      var stages = allStages(queryInfo.outputStage);
+                      var splits = queryInfo.totalDrivers;
+                      var completedSplits = queryInfo.completedDrivers;
 
-                      var tasks = queryInfo.queryStats.totalTasks;
+                      var runningSplits = queryInfo.runningDrivers;
+                      var queuedSplits = queryInfo.queuedDrivers;
 
-                      var splits = queryInfo.queryStats.totalDrivers;
-                      var completedSplits = queryInfo.queryStats.completedDrivers;
-
-                      var runningSplits = queryInfo.queryStats.runningDrivers;
-                      var queuedSplits = queryInfo.queryStats.queuedDrivers;
+                      var query = queryInfo.query;
+                      if (query.length > 200) {
+                          query = query.substring(0, 200) + "...";
+                      }
 
                       return [
                           queryInfo.queryId,
-                          queryInfo.queryStats.elapsedTime,
-                          queryInfo.query,
+                          queryInfo.elapsedTime,
+                          query,
                           queryInfo.session.source,
                           queryInfo.session.user,
                           queryInfo.state,
@@ -190,7 +192,7 @@ function renderRunningQueries(queries)
             .text(function (d) { return d; });
 
     tbody.selectAll("tr")
-            .sort(function (a, b) { return d3.descending(a.queryStats.createTime, b.queryStats.createTime); });
+            .sort(function (a, b) { return d3.descending(a.createTime, b.createTime); });
 }
 
 function allStages(stage)

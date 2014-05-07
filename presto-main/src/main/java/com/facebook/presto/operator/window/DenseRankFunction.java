@@ -13,8 +13,10 @@
  */
 package com.facebook.presto.operator.window;
 
-import com.facebook.presto.block.BlockBuilder;
-import com.facebook.presto.tuple.TupleInfo;
+import com.facebook.presto.spi.block.BlockBuilder;
+import com.facebook.presto.spi.type.Type;
+
+import static com.facebook.presto.spi.type.BigintType.BIGINT;
 
 public class DenseRankFunction
         implements WindowFunction
@@ -22,9 +24,9 @@ public class DenseRankFunction
     private long rank;
 
     @Override
-    public TupleInfo getTupleInfo()
+    public Type getType()
     {
-        return TupleInfo.SINGLE_LONG;
+        return BIGINT;
     }
 
     @Override
@@ -39,6 +41,6 @@ public class DenseRankFunction
         if (newPeerGroup) {
             rank++;
         }
-        output.append(rank);
+        output.appendLong(rank);
     }
 }

@@ -13,33 +13,54 @@
  */
 package com.facebook.presto.block.rle;
 
-import com.facebook.presto.block.Block;
-import com.facebook.presto.block.BlockBuilder;
-import com.facebook.presto.block.BlockCursor;
-import com.facebook.presto.tuple.Tuple;
-import com.facebook.presto.tuple.TupleInfo;
+import com.facebook.presto.spi.ConnectorSession;
+import com.facebook.presto.spi.block.Block;
+import com.facebook.presto.spi.block.BlockBuilder;
+import com.facebook.presto.spi.block.BlockCursor;
+import com.facebook.presto.spi.block.RandomAccessBlock;
+import com.facebook.presto.spi.type.Type;
 import com.google.common.base.Preconditions;
 import io.airlift.slice.Slice;
+
+import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkNotNull;
 
 public final class RunLengthEncodedBlockCursor
         implements BlockCursor
 {
-    private final Tuple value;
+    private final RandomAccessBlock value;
     private final int positionCount;
 
     private int position = -1;
 
-    public RunLengthEncodedBlockCursor(Tuple value, int positionCount)
+    public RunLengthEncodedBlockCursor(RandomAccessBlock value, int positionCount)
     {
-        this.value = value;
+        this.value = checkNotNull(value, "value is null");
+        checkArgument(value.getPositionCount() == 1, "Expected value to contain a single position but has %s positions", value.getPositionCount());
+
+        checkArgument(positionCount >= 0, "positionCount is negative");
         this.positionCount = positionCount;
+
         position = -1;
     }
 
-    @Override
-    public TupleInfo getTupleInfo()
+    public RunLengthEncodedBlockCursor(RunLengthEncodedBlockCursor cursor)
     {
-        return value.getTupleInfo();
+        this.value = cursor.value;
+        this.positionCount = cursor.positionCount;
+        this.position = cursor.position;
+    }
+
+    @Override
+    public BlockCursor duplicate()
+    {
+        return new RunLengthEncodedBlockCursor(this);
+    }
+
+    @Override
+    public Type getType()
+    {
+        return value.getType();
     }
 
     @Override
@@ -103,45 +124,52 @@ public final class RunLengthEncodedBlockCursor
     }
 
     @Override
-    public Tuple getTuple()
+    public RandomAccessBlock getSingleValueBlock()
     {
         checkReadablePosition();
         return value;
     }
 
     @Override
-    public boolean getBoolean(int field)
+    public boolean getBoolean()
     {
         checkReadablePosition();
-        return value.getBoolean(field);
+        return value.getBoolean(0);
     }
 
     @Override
-    public long getLong(int field)
+    public long getLong()
     {
         checkReadablePosition();
-        return value.getLong(field);
+        return value.getLong(0);
     }
 
     @Override
-    public double getDouble(int field)
+    public double getDouble()
     {
         checkReadablePosition();
-        return value.getDouble(field);
+        return value.getDouble(0);
     }
 
     @Override
-    public Slice getSlice(int field)
+    public Slice getSlice()
     {
         checkReadablePosition();
-        return value.getSlice(field);
+        return value.getSlice(0);
     }
 
     @Override
-    public boolean isNull(int field)
+    public Object getObjectValue(ConnectorSession session)
     {
         checkReadablePosition();
-        return value.isNull(field);
+        return value.getObjectValue(session, 0);
+    }
+
+    @Override
+    public boolean isNull()
+    {
+        checkReadablePosition();
+        return value.isNull(0);
     }
 
     @Override
@@ -152,27 +180,21 @@ public final class RunLengthEncodedBlockCursor
     }
 
     @Override
-    public boolean currentTupleEquals(Tuple value)
+    public int compareTo(Slice otherSlice, int otherOffset)
     {
         checkReadablePosition();
-        return this.value.equals(value);
+        return value.compareTo(0, otherSlice, otherOffset);
     }
 
     @Override
-    public int getRawOffset()
+    public int hash()
     {
-        return 0;
+        return value.hash(0);
     }
 
     @Override
-    public Slice getRawSlice()
+    public void appendTo(BlockBuilder blockBuilder)
     {
-        return value.getTupleSlice();
-    }
-
-    @Override
-    public void appendTupleTo(BlockBuilder blockBuilder)
-    {
-        blockBuilder.append(value);
+        value.appendTo(0, blockBuilder);
     }
 }

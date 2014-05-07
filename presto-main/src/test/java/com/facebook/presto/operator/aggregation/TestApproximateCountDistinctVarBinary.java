@@ -13,24 +13,27 @@
  */
 package com.facebook.presto.operator.aggregation;
 
-import com.facebook.presto.tuple.TupleInfo;
+import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.spi.type.VarcharType;
 import io.airlift.slice.Slices;
 
 import java.util.concurrent.ThreadLocalRandom;
+
+import static com.facebook.presto.operator.aggregation.ApproximateCountDistinctAggregations.VARBINARY_APPROXIMATE_COUNT_DISTINCT_AGGREGATIONS;
 
 public class TestApproximateCountDistinctVarBinary
         extends AbstractTestApproximateCountDistinct
 {
     @Override
-    public ApproximateCountDistinctAggregation getAggregationFunction()
+    public AggregationFunction getAggregationFunction()
     {
-        return ApproximateCountDistinctAggregation.VARBINARY_INSTANCE;
+        return VARBINARY_APPROXIMATE_COUNT_DISTINCT_AGGREGATIONS;
     }
 
     @Override
-    public TupleInfo.Type getValueType()
+    public Type getValueType()
     {
-        return TupleInfo.Type.VARIABLE_BINARY;
+        return VarcharType.VARCHAR;
     }
 
     @Override

@@ -14,6 +14,9 @@
 package com.facebook.presto.operator.scalar;
 
 import com.facebook.presto.operator.Description;
+import com.facebook.presto.spi.type.BigintType;
+import com.facebook.presto.spi.type.VarcharType;
+import com.facebook.presto.type.SqlType;
 import com.google.common.base.Charsets;
 import com.google.common.base.Splitter;
 import io.airlift.slice.Slice;
@@ -37,7 +40,8 @@ public final class UrlFunctions
     @Nullable
     @Description("extract protocol from url")
     @ScalarFunction
-    public static Slice urlExtractProtocol(Slice url)
+    @SqlType(VarcharType.class)
+    public static Slice urlExtractProtocol(@SqlType(VarcharType.class) Slice url)
     {
         URI uri = parseUrl(url);
         return (uri == null) ? null : slice(uri.getScheme());
@@ -46,7 +50,8 @@ public final class UrlFunctions
     @Nullable
     @Description("extract host from url")
     @ScalarFunction
-    public static Slice urlExtractHost(Slice url)
+    @SqlType(VarcharType.class)
+    public static Slice urlExtractHost(@SqlType(VarcharType.class) Slice url)
     {
         URI uri = parseUrl(url);
         return (uri == null) ? null : slice(uri.getHost());
@@ -55,7 +60,8 @@ public final class UrlFunctions
     @Nullable
     @Description("extract port from url")
     @ScalarFunction
-    public static Long urlExtractPort(Slice url)
+    @SqlType(BigintType.class)
+    public static Long urlExtractPort(@SqlType(VarcharType.class) Slice url)
     {
         URI uri = parseUrl(url);
         if ((uri == null) || (uri.getPort() < 0)) {
@@ -67,7 +73,8 @@ public final class UrlFunctions
     @Nullable
     @Description("extract part from url")
     @ScalarFunction
-    public static Slice urlExtractPath(Slice url)
+    @SqlType(VarcharType.class)
+    public static Slice urlExtractPath(@SqlType(VarcharType.class) Slice url)
     {
         URI uri = parseUrl(url);
         return (uri == null) ? null : slice(uri.getPath());
@@ -76,7 +83,8 @@ public final class UrlFunctions
     @Nullable
     @Description("extract query from url")
     @ScalarFunction
-    public static Slice urlExtractQuery(Slice url)
+    @SqlType(VarcharType.class)
+    public static Slice urlExtractQuery(@SqlType(VarcharType.class) Slice url)
     {
         URI uri = parseUrl(url);
         return (uri == null) ? null : slice(uri.getQuery());
@@ -85,7 +93,8 @@ public final class UrlFunctions
     @Nullable
     @Description("extract fragment from url")
     @ScalarFunction
-    public static Slice urlExtractFragment(Slice url)
+    @SqlType(VarcharType.class)
+    public static Slice urlExtractFragment(@SqlType(VarcharType.class) Slice url)
     {
         URI uri = parseUrl(url);
         return (uri == null) ? null : slice(uri.getFragment());
@@ -94,7 +103,8 @@ public final class UrlFunctions
     @Nullable
     @Description("extract query parameter from url")
     @ScalarFunction
-    public static Slice urlExtractParameter(Slice url, Slice parameterName)
+    @SqlType(VarcharType.class)
+    public static Slice urlExtractParameter(@SqlType(VarcharType.class) Slice url, @SqlType(VarcharType.class) Slice parameterName)
     {
         URI uri = parseUrl(url);
         if ((uri == null) || (uri.getQuery() == null)) {

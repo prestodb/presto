@@ -13,20 +13,24 @@
  */
 package com.facebook.presto.sql.planner;
 
-import com.facebook.presto.block.BlockBuilder;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.operator.ProjectionFunction;
+import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.RecordCursor;
-import com.facebook.presto.sql.analyzer.Session;
-import com.facebook.presto.sql.analyzer.Type;
+import com.facebook.presto.spi.block.BlockBuilder;
+import com.facebook.presto.spi.block.BlockCursor;
+import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.ExpressionTreeRewriter;
 import com.facebook.presto.sql.tree.Input;
-import com.facebook.presto.tuple.TupleInfo;
-import com.facebook.presto.tuple.TupleReadable;
+import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.Slice;
 
+import java.util.IdentityHashMap;
 import java.util.Map;
+
+import static com.facebook.presto.sql.analyzer.ExpressionAnalyzer.getExpressionTypesFromInput;
+import static com.google.common.base.Preconditions.checkNotNull;
 
 public class InterpretedProjectionFunction
         implements ProjectionFunction
@@ -34,24 +38,34 @@ public class InterpretedProjectionFunction
     private final Type type;
     private final ExpressionInterpreter evaluator;
 
-    public InterpretedProjectionFunction(Type type, Expression expression, Map<Symbol, Input> symbolToInputMapping, Metadata metadata, Session session)
+    public InterpretedProjectionFunction(Expression expression,
+            Map<Symbol, Type> symbolTypes,
+            Map<Symbol, Input> symbolToInputMappings,
+            Metadata metadata,
+            ConnectorSession session)
     {
-        this.type = type;
-
         // pre-compute symbol -> input mappings and replace the corresponding nodes in the tree
-        Expression rewritten = ExpressionTreeRewriter.rewriteWith(new SymbolToInputRewriter(symbolToInputMapping), expression);
+        Expression rewritten = ExpressionTreeRewriter.rewriteWith(new SymbolToInputRewriter(symbolToInputMappings), expression);
 
-        evaluator = ExpressionInterpreter.expressionInterpreter(rewritten, metadata, session);
+        // analyze expression so we can know the type of every expression in the tree
+        ImmutableMap.Builder<Input, Type> inputTypes = ImmutableMap.builder();
+        for (Map.Entry<Symbol, Input> entry : symbolToInputMappings.entrySet()) {
+            inputTypes.put(entry.getValue(), symbolTypes.get(entry.getKey()));
+        }
+        IdentityHashMap<Expression, Type> expressionTypes = getExpressionTypesFromInput(session, metadata, inputTypes.build(), rewritten);
+        this.type = checkNotNull(expressionTypes.get(rewritten), "type is null");
+
+        evaluator = ExpressionInterpreter.expressionInterpreter(rewritten, metadata, session, expressionTypes);
     }
 
     @Override
-    public TupleInfo getTupleInfo()
+    public Type getType()
     {
-        return new TupleInfo(type.getRawType());
+        return type;
     }
 
     @Override
-    public void project(TupleReadable[] cursors, BlockBuilder output)
+    public void project(BlockCursor[] cursors, BlockBuilder output)
     {
         Object value = evaluator.evaluate(cursors);
         append(output, value);
@@ -68,24 +82,24 @@ public class InterpretedProjectionFunction
     {
         if (value == null) {
             output.appendNull();
+            return;
+        }
+
+        Class<?> javaType = type.getJavaType();
+        if (javaType == boolean.class) {
+            output.appendBoolean((Boolean) value);
+        }
+        else if (javaType == long.class) {
+            output.appendLong((Long) value);
+        }
+        else if (javaType == double.class) {
+            output.appendDouble((Double) value);
+        }
+        else if (javaType == Slice.class) {
+            output.appendSlice((Slice) value);
         }
         else {
-            switch (type) {
-                case BOOLEAN:
-                    output.append((Boolean) value);
-                    break;
-                case BIGINT:
-                    output.append((Long) value);
-                    break;
-                case DOUBLE:
-                    output.append((Double) value);
-                    break;
-                case VARCHAR:
-                    output.append((Slice) value);
-                    break;
-                default:
-                    throw new UnsupportedOperationException("not yet implemented: " + type);
-            }
+            throw new UnsupportedOperationException("not yet implemented: " + type);
         }
     }
 }

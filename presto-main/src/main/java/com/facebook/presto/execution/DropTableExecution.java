@@ -14,20 +14,18 @@
 package com.facebook.presto.execution;
 
 import com.facebook.presto.execution.StateMachine.StateChangeListener;
-import com.facebook.presto.importer.PeriodicImportManager;
-import com.facebook.presto.importer.PersistentPeriodicImportJob;
 import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.metadata.NativeTableHandle;
 import com.facebook.presto.metadata.QualifiedTableName;
 import com.facebook.presto.metadata.ShardManager;
+import com.facebook.presto.metadata.TableHandle;
 import com.facebook.presto.metadata.TablePartition;
-import com.facebook.presto.spi.TableHandle;
-import com.facebook.presto.sql.analyzer.Session;
+import com.facebook.presto.spi.ConnectorSession;
+import com.facebook.presto.spi.ConnectorTableHandle;
+import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.sql.tree.DropTable;
 import com.facebook.presto.sql.tree.Statement;
-import com.facebook.presto.storage.StorageManager;
 import com.google.common.base.Optional;
-import com.google.common.base.Predicate;
 import io.airlift.concurrent.ThreadPoolExecutorMBean;
 import io.airlift.log.Logger;
 import io.airlift.units.Duration;
@@ -44,38 +42,35 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.ThreadPoolExecutor;
 
 import static com.facebook.presto.metadata.MetadataUtil.createQualifiedTableName;
-import static com.facebook.presto.util.Threads.daemonThreadsNamed;
+import static com.facebook.presto.spi.StandardErrorCode.CANNOT_DROP_TABLE;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
+import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 
 public class DropTableExecution
         implements QueryExecution
 {
     private static final Logger log = Logger.get(DropTableExecution.class);
 
+    private final ConnectorSession session;
     private final DropTable statement;
     private final MetadataManager metadataManager;
-    private final StorageManager storageManager;
     private final ShardManager shardManager;
-    private final PeriodicImportManager periodicImportManager;
     private final QueryStateMachine stateMachine;
 
     DropTableExecution(QueryId queryId,
             String query,
-            Session session,
+            ConnectorSession session,
             URI self,
             DropTable statement,
             MetadataManager metadataManager,
-            StorageManager storageManager,
             ShardManager shardManager,
-            PeriodicImportManager periodicImportManager,
             Executor executor)
     {
+        this.session = checkNotNull(session, "session is null");
         this.statement = statement;
         this.metadataManager = metadataManager;
-        this.storageManager = storageManager;
         this.shardManager = shardManager;
-        this.periodicImportManager = periodicImportManager;
         this.stateMachine = new QueryStateMachine(queryId, query, session, self, executor);
     }
 
@@ -149,24 +144,16 @@ public class DropTableExecution
 
         log.debug("Dropping %s", tableName);
 
-        final Optional<TableHandle> tableHandle = metadataManager.getTableHandle(tableName);
+        final Optional<TableHandle> tableHandle = metadataManager.getTableHandle(session, tableName);
         checkState(tableHandle.isPresent(), "Table %s does not exist", tableName);
-        checkState(tableHandle.get() instanceof NativeTableHandle, "Can drop only native tables");
+        final ConnectorTableHandle connectorHandle = tableHandle.get().getConnectorHandle();
+        if (!(connectorHandle instanceof NativeTableHandle)) {
+            throw new PrestoException(CANNOT_DROP_TABLE.toErrorCode(), "Can only drop native tables");
+        }
 
-        storageManager.dropTableSource((NativeTableHandle) tableHandle.get());
-
-        periodicImportManager.dropJobs(new Predicate<PersistentPeriodicImportJob>()
-        {
-            @Override
-            public boolean apply(PersistentPeriodicImportJob job)
-            {
-                return job.getDstTable().equals(tableHandle.get());
-            }
-        });
-
-        Set<TablePartition> partitions = shardManager.getPartitions(tableHandle.get());
+        Set<TablePartition> partitions = shardManager.getPartitions(tableHandle.get().getConnectorHandle());
         for (TablePartition partition : partitions) {
-            shardManager.dropPartition(tableHandle.get(), partition.getPartitionName());
+            shardManager.dropPartition(connectorHandle, partition.getPartitionName());
         }
 
         metadataManager.dropTable(tableHandle.get());
@@ -179,24 +166,18 @@ public class DropTableExecution
     {
         private final LocationFactory locationFactory;
         private final MetadataManager metadataManager;
-        private final StorageManager storageManager;
         private final ShardManager shardManager;
-        private final PeriodicImportManager periodicImportManager;
         private final ExecutorService executor;
         private final ThreadPoolExecutorMBean executorMBean;
 
         @Inject
         DropTableExecutionFactory(LocationFactory locationFactory,
                 MetadataManager metadataManager,
-                StorageManager storageManager,
-                ShardManager shardManager,
-                PeriodicImportManager periodicImportManager)
+                ShardManager shardManager)
         {
             this.locationFactory = checkNotNull(locationFactory, "locationFactory is null");
             this.metadataManager = checkNotNull(metadataManager, "metadataManager is null");
-            this.storageManager = checkNotNull(storageManager, "storageManager is null");
             this.shardManager = checkNotNull(shardManager, "shardManager is null");
-            this.periodicImportManager = checkNotNull(periodicImportManager, "periodicImportManager is null");
             this.executor = Executors.newCachedThreadPool(daemonThreadsNamed("drop-table-scheduler-%d"));
             this.executorMBean = new ThreadPoolExecutorMBean((ThreadPoolExecutor) executor);
         }
@@ -209,7 +190,7 @@ public class DropTableExecution
         }
 
         @Override
-        public DropTableExecution createQueryExecution(QueryId queryId, String query, Session session, Statement statement)
+        public DropTableExecution createQueryExecution(QueryId queryId, String query, ConnectorSession session, Statement statement)
         {
             return new DropTableExecution(queryId,
                     query,
@@ -217,9 +198,7 @@ public class DropTableExecution
                     locationFactory.createQueryLocation(queryId),
                     (DropTable) statement,
                     metadataManager,
-                    storageManager,
                     shardManager,
-                    periodicImportManager,
                     executor);
         }
     }

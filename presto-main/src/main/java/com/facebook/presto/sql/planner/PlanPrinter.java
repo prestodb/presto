@@ -13,13 +13,30 @@
  */
 package com.facebook.presto.sql.planner;
 
-import com.facebook.presto.spi.ColumnHandle;
-import com.facebook.presto.sql.analyzer.Type;
+import com.facebook.presto.metadata.ColumnHandle;
+import com.facebook.presto.metadata.Metadata;
+import com.facebook.presto.metadata.OperatorInfo;
+import com.facebook.presto.metadata.OperatorNotFoundException;
+import com.facebook.presto.metadata.TableHandle;
+import com.facebook.presto.spi.ColumnMetadata;
+import com.facebook.presto.spi.Domain;
+import com.facebook.presto.spi.Marker;
+import com.facebook.presto.spi.Range;
+import com.facebook.presto.spi.TupleDomain;
+import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.spi.type.VarcharType;
+import com.facebook.presto.sql.planner.PlanFragment.OutputPartitioning;
+import com.facebook.presto.sql.planner.PlanFragment.PlanDistribution;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
+import com.facebook.presto.sql.planner.plan.DistinctLimitNode;
 import com.facebook.presto.sql.planner.plan.ExchangeNode;
 import com.facebook.presto.sql.planner.plan.FilterNode;
+import com.facebook.presto.sql.planner.plan.IndexJoinNode;
+import com.facebook.presto.sql.planner.plan.IndexSourceNode;
 import com.facebook.presto.sql.planner.plan.JoinNode;
 import com.facebook.presto.sql.planner.plan.LimitNode;
+import com.facebook.presto.sql.planner.plan.MarkDistinctNode;
+import com.facebook.presto.sql.planner.plan.MaterializeSampleNode;
 import com.facebook.presto.sql.planner.plan.OutputNode;
 import com.facebook.presto.sql.planner.plan.PlanFragmentId;
 import com.facebook.presto.sql.planner.plan.PlanNode;
@@ -28,42 +45,54 @@ import com.facebook.presto.sql.planner.plan.ProjectNode;
 import com.facebook.presto.sql.planner.plan.SemiJoinNode;
 import com.facebook.presto.sql.planner.plan.SinkNode;
 import com.facebook.presto.sql.planner.plan.SortNode;
+import com.facebook.presto.sql.planner.plan.TableCommitNode;
 import com.facebook.presto.sql.planner.plan.TableScanNode;
 import com.facebook.presto.sql.planner.plan.TableWriterNode;
 import com.facebook.presto.sql.planner.plan.TopNNode;
 import com.facebook.presto.sql.planner.plan.UnionNode;
+import com.facebook.presto.sql.planner.plan.ValuesNode;
 import com.facebook.presto.sql.planner.plan.WindowNode;
 import com.facebook.presto.sql.tree.ComparisonExpression;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.QualifiedNameReference;
 import com.facebook.presto.util.GraphvizPrinter;
+import com.facebook.presto.util.JsonPlanPrinter;
 import com.google.common.base.Function;
 import com.google.common.base.Functions;
 import com.google.common.base.Joiner;
 import com.google.common.base.Optional;
 import com.google.common.base.Strings;
+import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
+import io.airlift.slice.Slice;
 
+import java.lang.invoke.MethodHandle;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
+import static com.facebook.presto.sql.planner.DomainUtils.simplifyDomain;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static java.lang.String.format;
 
 public class PlanPrinter
 {
     private final StringBuilder output = new StringBuilder();
+    private final Metadata metadata;
 
-    private PlanPrinter(PlanNode plan, Map<Symbol, Type> types, Optional<Map<PlanFragmentId, PlanFragment>> fragmentsById)
+    private PlanPrinter(PlanNode plan, Map<Symbol, Type> types, Metadata metadata, Optional<Map<PlanFragmentId, PlanFragment>> fragmentsById)
     {
         checkNotNull(plan, "plan is null");
         checkNotNull(types, "types is null");
         checkNotNull(fragmentsById, "fragmentsById is null");
+        checkNotNull(metadata, "metadata is null");
+
+        this.metadata = metadata;
+
         Visitor visitor = new Visitor(types, fragmentsById);
         plan.accept(visitor, 0);
     }
@@ -74,22 +103,27 @@ public class PlanPrinter
         return output.toString();
     }
 
-    public static String textLogicalPlan(PlanNode plan, Map<Symbol, Type> types)
+    public static String textLogicalPlan(PlanNode plan, Map<Symbol, Type> types, Metadata metadata)
     {
-        return new PlanPrinter(plan, types, Optional.<Map<PlanFragmentId, PlanFragment>>absent()).toString();
+        return new PlanPrinter(plan, types, metadata, Optional.<Map<PlanFragmentId, PlanFragment>>absent()).toString();
     }
 
-    public static String textDistributedPlan(SubPlan plan)
+    public static String getJsonPlanSource(PlanNode plan, Metadata metadata)
+    {
+        return JsonPlanPrinter.getPlan(plan, metadata);
+    }
+
+    public static String textDistributedPlan(SubPlan plan, Metadata metadata)
     {
         List<PlanFragment> fragments = plan.getAllFragments();
         Map<PlanFragmentId, PlanFragment> fragmentsById = Maps.uniqueIndex(fragments, PlanFragment.idGetter());
         PlanFragment fragment = plan.getFragment();
-        return new PlanPrinter(fragment.getRoot(), fragment.getSymbols(), Optional.of(fragmentsById)).toString();
+        return new PlanPrinter(fragment.getRoot(), fragment.getSymbols(), metadata, Optional.of(fragmentsById)).toString();
     }
 
     public static String graphvizLogicalPlan(PlanNode plan, Map<Symbol, Type> types)
     {
-        PlanFragment fragment = new PlanFragment(new PlanFragmentId("graphviz_plan"), plan.getId(), types, plan);
+        PlanFragment fragment = new PlanFragment(new PlanFragmentId("graphviz_plan"), plan, types, PlanDistribution.NONE, plan.getId(), OutputPartitioning.NONE, ImmutableList.<Symbol>of());
         return GraphvizPrinter.printLogical(ImmutableList.of(fragment));
     }
 
@@ -151,9 +185,45 @@ public class PlanPrinter
         }
 
         @Override
+        public Void visitIndexSource(IndexSourceNode node, Integer indent)
+        {
+            print(indent, "- IndexSource[%s, lookup = %s] => [%s]", node.getIndexHandle(), node.getLookupSymbols(), formatOutputs(node.getOutputSymbols()));
+            for (Map.Entry<Symbol, ColumnHandle> entry : node.getAssignments().entrySet()) {
+                if (node.getOutputSymbols().contains(entry.getKey())) {
+                    print(indent + 2, "%s := %s", entry.getKey(), entry.getValue());
+                }
+            }
+            return null;
+        }
+
+        @Override
+        public Void visitIndexJoin(IndexJoinNode node, Integer indent)
+        {
+            List<Expression> joinExpressions = new ArrayList<>();
+            for (IndexJoinNode.EquiJoinClause clause : node.getCriteria()) {
+                joinExpressions.add(new ComparisonExpression(ComparisonExpression.Type.EQUAL,
+                        new QualifiedNameReference(clause.getProbe().toQualifiedName()),
+                        new QualifiedNameReference(clause.getIndex().toQualifiedName())));
+            }
+
+            print(indent, "- %sIndexJoin[%s] => [%s]", node.getType().getJoinLabel(), Joiner.on(" AND ").join(joinExpressions), formatOutputs(node.getOutputSymbols()));
+            node.getProbeSource().accept(this, indent + 1);
+            node.getIndexSource().accept(this, indent + 1);
+
+            return null;
+        }
+
+        @Override
         public Void visitLimit(LimitNode node, Integer indent)
         {
             print(indent, "- Limit[%s] => [%s]", node.getCount(), formatOutputs(node.getOutputSymbols()));
+            return processChildren(node, indent + 1);
+        }
+
+        @Override
+        public Void visitDistinctLimit(DistinctLimitNode node, Integer indent)
+        {
+            print(indent, "- DistinctLimit[%s] => [%s]", node.getLimit(), formatOutputs(node.getOutputSymbols()));
             return processChildren(node, indent + 1);
         }
 
@@ -168,13 +238,29 @@ public class PlanPrinter
             if (!node.getGroupBy().isEmpty()) {
                 key = node.getGroupBy().toString();
             }
-
-            print(indent, "- Aggregate%s%s => [%s]", type, key, formatOutputs(node.getOutputSymbols()));
-
-            for (Map.Entry<Symbol, FunctionCall> entry : node.getAggregations().entrySet()) {
-                print(indent + 2, "%s := %s", entry.getKey(), entry.getValue());
+            String sampleWeight = "";
+            if (node.getSampleWeight().isPresent()) {
+                sampleWeight = format("[sampleWeight = %s]", node.getSampleWeight().get());
             }
 
+            print(indent, "- Aggregate%s%s%s => [%s]", type, key, sampleWeight, formatOutputs(node.getOutputSymbols()));
+
+            for (Map.Entry<Symbol, FunctionCall> entry : node.getAggregations().entrySet()) {
+                if (node.getMasks().containsKey(entry.getKey())) {
+                    print(indent + 2, "%s := %s (mask = %s)", entry.getKey(), entry.getValue(), node.getMasks().get(entry.getKey()));
+                }
+                else {
+                    print(indent + 2, "%s := %s", entry.getKey(), entry.getValue());
+                }
+            }
+
+            return processChildren(node, indent + 1);
+        }
+
+        @Override
+        public Void visitMarkDistinct(MarkDistinctNode node, Integer indent)
+        {
+            print(indent, "- MarkDistinct[distinct=%s marker=%s] => [%s]", formatOutputs(node.getDistinctSymbols()), node.getMarkerSymbol(), formatOutputs(node.getOutputSymbols()));
             return processChildren(node, indent + 1);
         }
 
@@ -212,11 +298,33 @@ public class PlanPrinter
         @Override
         public Void visitTableScan(TableScanNode node, Integer indent)
         {
-            print(indent, "- TableScan[%s, partition predicate=%s, upstream predicate=%s] => [%s]", node.getTable(), node.getPartitionPredicate(), node.getUpstreamPredicateHint(), formatOutputs(node.getOutputSymbols()));
+            TupleDomain<ColumnHandle> partitionsDomainSummary = node.getPartitionsDomainSummary();
+            print(indent, "- TableScan[%s, original constraint=%s] => [%s]", node.getTable(), node.getOriginalConstraint(), formatOutputs(node.getOutputSymbols()));
             for (Map.Entry<Symbol, ColumnHandle> entry : node.getAssignments().entrySet()) {
-                print(indent + 2, "%s := %s", entry.getKey(), entry.getValue());
-            }
+                boolean isOutputSymbol = node.getOutputSymbols().contains(entry.getKey());
+                boolean isInOriginalConstraint = node.getOriginalConstraint() == null ? false : DependencyExtractor.extractUnique(node.getOriginalConstraint()).contains(entry.getKey());
+                boolean isInDomainSummary = !partitionsDomainSummary.isNone() && partitionsDomainSummary.getDomains().keySet().contains(entry.getValue());
 
+                if (isOutputSymbol || isInOriginalConstraint || isInDomainSummary) {
+                    print(indent + 2, "%s := %s", entry.getKey(), entry.getValue());
+                    if (isInDomainSummary) {
+                        print(indent + 3, ":: %s", formatDomain(node.getTable(), entry.getValue(), simplifyDomain(partitionsDomainSummary.getDomains().get(entry.getValue()))));
+                    }
+                    else if (partitionsDomainSummary.isNone()) {
+                        print(indent + 3, ":: NONE");
+                    }
+                }
+            }
+            return null;
+        }
+
+        @Override
+        public Void visitValues(ValuesNode node, Integer indent)
+        {
+            print(indent, "- Values => [%s]", formatOutputs(node.getOutputSymbols()));
+            for (List<Expression> row : node.getRows()) {
+                print(indent + 2, Joiner.on(", ").join(row));
+            }
             return null;
         }
 
@@ -274,6 +382,13 @@ public class PlanPrinter
         }
 
         @Override
+        public Void visitMaterializeSample(final MaterializeSampleNode node, Integer indent)
+        {
+            print(indent, "- MaterializeSample[%s] => [%s]", node.getSampleWeightSymbol(), formatOutputs(node.getOutputSymbols()));
+            return processChildren(node, indent + 1);
+        }
+
+        @Override
         public Void visitSort(final SortNode node, Integer indent)
         {
             Iterable<String> keys = Iterables.transform(node.getOrderBy(), new Function<Symbol, String>()
@@ -286,17 +401,6 @@ public class PlanPrinter
             });
 
             print(indent, "- Sort[%s] => [%s]", Joiner.on(", ").join(keys), formatOutputs(node.getOutputSymbols()));
-            return processChildren(node, indent + 1);
-        }
-
-        @Override
-        public Void visitTableWriter(TableWriterNode node, Integer indent)
-        {
-            print(indent, "- TableWrite[%s] => [%s]", node.getTable(), formatOutputs(node.getOutputSymbols()));
-            for (Map.Entry<Symbol, ColumnHandle> entry : node.getColumns().entrySet()) {
-                print(indent + 2, "%s := %s", entry.getValue(), entry.getKey());
-            }
-
             return processChildren(node, indent + 1);
         }
 
@@ -325,9 +429,30 @@ public class PlanPrinter
         }
 
         @Override
+        public Void visitTableWriter(TableWriterNode node, Integer indent)
+        {
+            print(indent, "- TableWriter => [%s]", formatOutputs(node.getOutputSymbols()));
+            for (int i = 0; i < node.getColumnNames().size(); i++) {
+                String name = node.getColumnNames().get(i);
+                Symbol symbol = node.getColumns().get(i);
+                print(indent + 2, "%s := %s", name, symbol);
+            }
+
+            return processChildren(node, indent + 1);
+        }
+
+        @Override
+        public Void visitTableCommit(TableCommitNode node, Integer indent)
+        {
+            print(indent, "- TableCommit[%s] => [%s]", node.getTarget(), formatOutputs(node.getOutputSymbols()));
+
+            return processChildren(node, indent + 1);
+        }
+
+        @Override
         protected Void visitPlan(PlanNode node, Integer context)
         {
-            throw new UnsupportedOperationException("not yet implemented");
+            throw new UnsupportedOperationException("not yet implemented: " + node.getClass().getName());
         }
 
         private Void processChildren(PlanNode node, int indent)
@@ -343,7 +468,7 @@ public class PlanPrinter
         {
             for (PlanFragmentId planFragmentId : node.getSourceFragmentIds()) {
                 PlanFragment target = fragmentsById.get().get(planFragmentId);
-                target.getRoot().accept(this, indent);
+                target.getRoot().accept(new Visitor(target.getSymbols(), fragmentsById), indent);
             }
             return null;
         }
@@ -359,5 +484,58 @@ public class PlanPrinter
                 }
             }));
         }
+    }
+
+    private String formatDomain(TableHandle table, ColumnHandle column, Domain domain)
+    {
+        ImmutableList.Builder<String> parts = ImmutableList.builder();
+
+        if (domain.isNullAllowed()) {
+            parts.add("NULL");
+        }
+
+        try {
+            ColumnMetadata columnMetadata  = metadata.getColumnMetadata(table, column);
+            MethodHandle method = metadata.getExactOperator(OperatorInfo.OperatorType.CAST, VarcharType.VARCHAR, ImmutableList.of(columnMetadata.getType()))
+                    .getMethodHandle();
+
+            for (Range range : domain.getRanges()) {
+                StringBuilder builder = new StringBuilder();
+                if (range.isSingleValue()) {
+                    String value = ((Slice) method.invokeWithArguments(range.getSingleValue())).toStringUtf8();
+                    builder.append('[').append(value).append(']');
+                }
+                else {
+                    builder.append((range.getLow().getBound() == Marker.Bound.EXACTLY) ? '[' : '(');
+
+                    if (range.getLow().isLowerUnbounded()) {
+                        builder.append("<min>");
+                    }
+                    else {
+                        builder.append(((Slice) method.invokeWithArguments(range.getLow().getValue())).toStringUtf8());
+                    }
+
+                    builder.append(", ");
+
+                    if (range.getHigh().isUpperUnbounded()) {
+                        builder.append("<max>");
+                    }
+                    else {
+                        builder.append(((Slice) method.invokeWithArguments(range.getHigh().getValue())).toStringUtf8());
+                    }
+
+                    builder.append((range.getHigh().getBound() == Marker.Bound.EXACTLY) ? ']' : ')');
+                }
+                parts.add(builder.toString());
+            }
+        }
+        catch (OperatorNotFoundException e) {
+            parts.add("<UNREPRESENTABLE VALUE>");
+        }
+        catch (Throwable e) {
+            throw Throwables.propagate(e);
+        }
+
+        return "[" + Joiner.on(", ").join(parts.build()) + "]";
     }
 }

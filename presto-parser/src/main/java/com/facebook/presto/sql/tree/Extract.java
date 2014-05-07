@@ -26,7 +26,6 @@ public class Extract
 
     public enum Field
     {
-        CENTURY,
         YEAR,
         QUARTER,
         MONTH,
@@ -40,8 +39,8 @@ public class Extract
         HOUR,
         MINUTE,
         SECOND,
-        TIMEZONE_HOUR,
-        TIMEZONE_MINUTE
+        TIMEZONE_MINUTE,
+        TIMEZONE_HOUR
     }
 
     public Extract(Expression expression, Field field)

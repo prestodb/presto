@@ -13,35 +13,41 @@
  */
 package com.facebook.presto.metadata;
 
-import com.facebook.presto.spi.ColumnHandle;
+import com.facebook.presto.spi.ConnectorColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorMetadata;
+import com.facebook.presto.spi.ConnectorSession;
+import com.facebook.presto.spi.ConnectorTableHandle;
+import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.SchemaTablePrefix;
-import com.facebook.presto.spi.TableHandle;
-import com.facebook.presto.spi.TableMetadata;
+import com.facebook.presto.split.NativePartitionKey;
+import com.facebook.presto.type.TypeRegistry;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import org.skife.jdbi.v2.DBI;
 import org.skife.jdbi.v2.Handle;
-import org.skife.jdbi.v2.IDBI;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 
 import static com.facebook.presto.metadata.MetadataUtil.TableMetadataBuilder.tableMetadataBuilder;
-import static com.facebook.presto.spi.ColumnType.DOUBLE;
-import static com.facebook.presto.spi.ColumnType.LONG;
-import static com.facebook.presto.spi.ColumnType.STRING;
+import static com.facebook.presto.spi.type.BigintType.BIGINT;
+import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
+import static com.facebook.presto.spi.type.TimeZoneKey.UTC_KEY;
+import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static io.airlift.testing.Assertions.assertInstanceOf;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNull;
 
+@Test(singleThreaded = true)
 public class TestNativeMetadata
 {
+    private static final ConnectorSession SESSION = new ConnectorSession("user", "test", "default", "default", UTC_KEY, Locale.ENGLISH, null, null);
     private static final SchemaTableName DEFAULT_TEST_ORDERS = new SchemaTableName("test", "orders");
 
     private Handle dummyHandle;
@@ -51,9 +57,13 @@ public class TestNativeMetadata
     public void setupDatabase()
             throws Exception
     {
-        IDBI dbi = new DBI("jdbc:h2:mem:test" + System.nanoTime());
+        TypeRegistry typeRegistry = new TypeRegistry();
+        DBI dbi = new DBI("jdbc:h2:mem:test" + System.nanoTime());
+        dbi.registerMapper(new TableColumnMapper(typeRegistry));
+        dbi.registerMapper(new ColumnMetadataMapper(typeRegistry));
+        dbi.registerMapper(new NativePartitionKey.Mapper(typeRegistry));
         dummyHandle = dbi.open();
-        metadata = new NativeMetadata("default", dbi);
+        metadata = new NativeMetadata(new NativeConnectorId("default"), dbi, new DatabaseShardManager(dbi));
     }
 
     @AfterMethod
@@ -65,16 +75,16 @@ public class TestNativeMetadata
     @Test
     public void testCreateTable()
     {
-        assertNull(metadata.getTableHandle(DEFAULT_TEST_ORDERS));
+        assertNull(metadata.getTableHandle(SESSION, DEFAULT_TEST_ORDERS));
 
-        TableHandle tableHandle = metadata.createTable(getOrdersTable());
+        ConnectorTableHandle tableHandle = metadata.createTable(SESSION, getOrdersTable());
         assertInstanceOf(tableHandle, NativeTableHandle.class);
         assertEquals(((NativeTableHandle) tableHandle).getTableId(), 1);
 
-        TableMetadata table = metadata.getTableMetadata(tableHandle);
+        ConnectorTableMetadata table = metadata.getTableMetadata(tableHandle);
         assertTableEqual(table, getOrdersTable());
 
-        ColumnHandle columnHandle = metadata.getColumnHandle(tableHandle, "orderkey");
+        ConnectorColumnHandle columnHandle = metadata.getColumnHandle(tableHandle, "orderkey");
         assertInstanceOf(columnHandle, NativeColumnHandle.class);
         assertEquals(((NativeColumnHandle) columnHandle).getColumnId(), 1);
     }
@@ -82,41 +92,41 @@ public class TestNativeMetadata
     @Test
     public void testListTables()
     {
-        metadata.createTable(getOrdersTable());
-        List<SchemaTableName> tables = metadata.listTables(null);
+        metadata.createTable(SESSION, getOrdersTable());
+        List<SchemaTableName> tables = metadata.listTables(SESSION, null);
         assertEquals(tables, ImmutableList.of(DEFAULT_TEST_ORDERS));
     }
 
     @Test
     public void testListTableColumns()
     {
-        metadata.createTable(getOrdersTable());
-        Map<SchemaTableName, List<ColumnMetadata>> columns = metadata.listTableColumns(new SchemaTablePrefix());
+        metadata.createTable(SESSION, getOrdersTable());
+        Map<SchemaTableName, List<ColumnMetadata>> columns = metadata.listTableColumns(SESSION, new SchemaTablePrefix());
         assertEquals(columns, ImmutableMap.of(DEFAULT_TEST_ORDERS, getOrdersTable().getColumns()));
     }
 
     @Test
     public void testListTableColumnsFiltering()
     {
-        metadata.createTable(getOrdersTable());
-        Map<SchemaTableName, List<ColumnMetadata>> filterCatalog = metadata.listTableColumns(new SchemaTablePrefix());
-        Map<SchemaTableName, List<ColumnMetadata>> filterSchema = metadata.listTableColumns(new SchemaTablePrefix("test"));
-        Map<SchemaTableName, List<ColumnMetadata>> filterTable = metadata.listTableColumns(new SchemaTablePrefix("test", "orders"));
+        metadata.createTable(SESSION, getOrdersTable());
+        Map<SchemaTableName, List<ColumnMetadata>> filterCatalog = metadata.listTableColumns(SESSION, new SchemaTablePrefix());
+        Map<SchemaTableName, List<ColumnMetadata>> filterSchema = metadata.listTableColumns(SESSION, new SchemaTablePrefix("test"));
+        Map<SchemaTableName, List<ColumnMetadata>> filterTable = metadata.listTableColumns(SESSION, new SchemaTablePrefix("test", "orders"));
         assertEquals(filterCatalog, filterSchema);
         assertEquals(filterCatalog, filterTable);
     }
 
-    private static TableMetadata getOrdersTable()
+    private static ConnectorTableMetadata getOrdersTable()
     {
         return tableMetadataBuilder(DEFAULT_TEST_ORDERS)
-                .column("orderkey", LONG)
-                .column("custkey", LONG)
+                .column("orderkey", BIGINT)
+                .column("custkey", BIGINT)
                 .column("totalprice", DOUBLE)
-                .column("orderdate", STRING)
+                .column("orderdate", VARCHAR)
                 .build();
     }
 
-    private static void assertTableEqual(TableMetadata actual, TableMetadata expected)
+    private static void assertTableEqual(ConnectorTableMetadata actual, ConnectorTableMetadata expected)
     {
         assertEquals(actual.getTable(), expected.getTable());
 

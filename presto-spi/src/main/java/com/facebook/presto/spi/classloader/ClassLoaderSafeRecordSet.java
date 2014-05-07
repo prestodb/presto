@@ -13,11 +13,13 @@
  */
 package com.facebook.presto.spi.classloader;
 
-import com.facebook.presto.spi.ColumnType;
 import com.facebook.presto.spi.RecordCursor;
 import com.facebook.presto.spi.RecordSet;
+import com.facebook.presto.spi.type.Type;
 
 import java.util.List;
+
+import static java.util.Objects.requireNonNull;
 
 public class ClassLoaderSafeRecordSet
         implements RecordSet
@@ -27,14 +29,14 @@ public class ClassLoaderSafeRecordSet
 
     public ClassLoaderSafeRecordSet(RecordSet delegate, ClassLoader classLoader)
     {
-        this.delegate = delegate;
-        this.classLoader = classLoader;
+        this.delegate = requireNonNull(delegate, "delegate is null");
+        this.classLoader = requireNonNull(classLoader, "classLoader is null");
     }
 
     @Override
-    public List<ColumnType> getColumnTypes()
+    public List<Type> getColumnTypes()
     {
-        try (ThreadContextClassLoader threadContextClassLoader = new ThreadContextClassLoader(classLoader)) {
+        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
             return delegate.getColumnTypes();
         }
     }
@@ -42,7 +44,7 @@ public class ClassLoaderSafeRecordSet
     @Override
     public RecordCursor cursor()
     {
-        try (ThreadContextClassLoader threadContextClassLoader = new ThreadContextClassLoader(classLoader)) {
+        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
             return delegate.cursor();
         }
     }
@@ -50,7 +52,7 @@ public class ClassLoaderSafeRecordSet
     @Override
     public String toString()
     {
-        try (ThreadContextClassLoader threadContextClassLoader = new ThreadContextClassLoader(classLoader)) {
+        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
             return delegate.toString();
         }
     }

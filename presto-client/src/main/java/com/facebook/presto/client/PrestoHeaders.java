@@ -19,13 +19,14 @@ public final class PrestoHeaders
     public static final String PRESTO_SOURCE = "X-Presto-Source";
     public static final String PRESTO_CATALOG = "X-Presto-Catalog";
     public static final String PRESTO_SCHEMA = "X-Presto-Schema";
+    public static final String PRESTO_TIME_ZONE = "X-Presto-Time-Zone";
+    public static final String PRESTO_LANGUAGE = "X-Presto-Language";
 
     public static final String PRESTO_CURRENT_STATE = "X-Presto-Current-State";
     public static final String PRESTO_MAX_WAIT = "X-Presto-Max-Wait";
     public static final String PRESTO_MAX_SIZE = "X-Presto-Max-Size";
-    public static final String PRESTO_PAGE_SEQUENCE_ID = "X-Presto-Page-Sequence-Id";
+    public static final String PRESTO_PAGE_TOKEN = "X-Presto-Page-Sequence-Id";
+    public static final String PRESTO_PAGE_NEXT_TOKEN = "X-Presto-Page-End-Sequence-Id";
 
-    public PrestoHeaders()
-    {
-    }
+    private PrestoHeaders() {}
 }

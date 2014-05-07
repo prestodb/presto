@@ -13,34 +13,37 @@
  */
 package com.facebook.presto.block;
 
+import com.facebook.presto.spi.block.BlockBuilderStatus;
+import com.facebook.presto.spi.block.BlockCursor;
 import org.testng.annotations.Test;
 
-import static com.facebook.presto.tuple.TupleInfo.SINGLE_LONG;
+import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
 
 public class TestBlockBuilder
 {
     @Test
-    public void testMultipleTuplesWithNull()
+    public void testMultipleValuesWithNull()
     {
-        BlockCursor cursor = new BlockBuilder(SINGLE_LONG).appendNull()
-                .append(42)
+        BlockCursor cursor = BIGINT.createBlockBuilder(new BlockBuilderStatus())
                 .appendNull()
-                .append(42)
+                .appendLong(42)
+                .appendNull()
+                .appendLong(42)
                 .build()
                 .cursor();
 
         assertTrue(cursor.advanceNextPosition());
-        assertTrue(cursor.isNull(0));
+        assertTrue(cursor.isNull());
 
         assertTrue(cursor.advanceNextPosition());
-        assertEquals(cursor.getLong(0), 42L);
+        assertEquals(cursor.getLong(), 42L);
 
         assertTrue(cursor.advanceNextPosition());
-        assertTrue(cursor.isNull(0));
+        assertTrue(cursor.isNull());
 
         assertTrue(cursor.advanceNextPosition());
-        assertEquals(cursor.getLong(0), 42L);
+        assertEquals(cursor.getLong(), 42L);
     }
 }

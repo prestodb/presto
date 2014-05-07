@@ -15,18 +15,24 @@ package com.facebook.presto.sql.analyzer;
 
 import com.facebook.presto.metadata.InMemoryMetadata;
 import com.facebook.presto.metadata.MetadataManager;
+import com.facebook.presto.metadata.TableMetadata;
 import com.facebook.presto.spi.ColumnMetadata;
-import com.facebook.presto.spi.ColumnType;
+import com.facebook.presto.spi.ConnectorSession;
+import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.SchemaTableName;
-import com.facebook.presto.spi.TableMetadata;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.tree.Statement;
+import com.facebook.presto.type.TypeRegistry;
 import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
 import org.intellij.lang.annotations.Language;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
+import java.util.Locale;
+
+import static com.facebook.presto.spi.type.BigintType.BIGINT;
+import static com.facebook.presto.spi.type.TimeZoneKey.UTC_KEY;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.AMBIGUOUS_ATTRIBUTE;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.CANNOT_HAVE_AGGREGATIONS_OR_WINDOWS;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.DUPLICATE_RELATION;
@@ -34,6 +40,8 @@ import static com.facebook.presto.sql.analyzer.SemanticErrorCode.INVALID_ORDINAL
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MISMATCHED_COLUMN_ALIASES;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MISMATCHED_SET_COLUMN_TYPES;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MISSING_ATTRIBUTE;
+import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MISSING_CATALOG;
+import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MISSING_SCHEMA;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MISSING_TABLE;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MUST_BE_AGGREGATE_OR_GROUP_BY;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.NESTED_AGGREGATION;
@@ -47,9 +55,12 @@ import static com.facebook.presto.sql.analyzer.SemanticErrorCode.WILDCARD_WITHOU
 import static java.lang.String.format;
 import static org.testng.Assert.fail;
 
+@Test(singleThreaded = true)
 public class TestAnalyzer
 {
+    private static final ConnectorSession SESSION = new ConnectorSession("user", "test", "default", "default", UTC_KEY, Locale.ENGLISH, null, null);
     private Analyzer analyzer;
+    private Analyzer approximateDisabledAnalyzer;
 
     @Test
     public void testDuplicateRelation()
@@ -126,6 +137,8 @@ public class TestAnalyzer
     public void testInvalidTable()
             throws Exception
     {
+        assertFails(MISSING_CATALOG, "SELECT * FROM foo.default.t");
+        assertFails(MISSING_SCHEMA, "SELECT * FROM foo.t");
         assertFails(MISSING_TABLE, "SELECT * FROM foo");
     }
 
@@ -170,10 +183,40 @@ public class TestAnalyzer
     }
 
     @Test
+    public void testApproximateNotEnabled()
+            throws Exception
+    {
+        try {
+            Statement statement = SqlParser.createStatement("SELECT AVG(a) FROM t1 APPROXIMATE AT 99.0 CONFIDENCE");
+            approximateDisabledAnalyzer.analyze(statement);
+            fail(format("Expected error %s, but analysis succeeded", NOT_SUPPORTED));
+        }
+        catch (SemanticException e) {
+            if (e.getCode() != NOT_SUPPORTED) {
+                fail(format("Expected error %s, but found %s: %s", NOT_SUPPORTED, e.getCode(), e.getMessage()), e);
+            }
+        }
+    }
+
+    @Test
+    public void testApproximateQuery()
+            throws Exception
+    {
+        analyze("SELECT AVG(a) FROM t1 APPROXIMATE AT 99.0 CONFIDENCE");
+    }
+
+    @Test
     public void testDistinctAggregations()
             throws Exception
     {
-        assertFails(NOT_SUPPORTED, "SELECT COUNT(DISTINCT a) FROM t1");
+        analyze("SELECT COUNT(DISTINCT a), SUM(a) FROM t1");
+    }
+
+    @Test
+    public void testMultipleDistinctAggregations()
+            throws Exception
+    {
+        analyze("SELECT COUNT(DISTINCT a), COUNT(DISTINCT b) FROM t1");
     }
 
     @Test
@@ -210,7 +253,14 @@ public class TestAnalyzer
     public void testJoinOnConstantExpression()
             throws Exception
     {
-        assertFails(NOT_SUPPORTED, "SELECT * FROM t1 JOIN t2 ON 1 = 1");
+        analyze("SELECT * FROM t1 JOIN t2 ON 1 = 1");
+    }
+
+    @Test
+    public void testJoinOnNonBooleanExpression()
+            throws Exception
+    {
+        assertFails(TYPE_MISMATCH, "SELECT * FROM t1 JOIN t2 ON 5");
     }
 
     @Test
@@ -241,6 +291,12 @@ public class TestAnalyzer
             throws Exception
     {
         assertFails(AMBIGUOUS_ATTRIBUTE, "SELECT a x, b x FROM t1 ORDER BY x");
+    }
+
+    @Test
+    public void testImplicitCrossJoinNotSupported()
+    {
+        assertFails(NOT_SUPPORTED, "SELECT * FROM a, b");
     }
 
     @Test
@@ -339,10 +395,6 @@ public class TestAnalyzer
     public void testExpressions()
             throws Exception
     {
-        assertFails(NOT_SUPPORTED, "SELECT CURRENT_TIME FROM t1");
-        assertFails(NOT_SUPPORTED, "SELECT CURRENT_TIMESTAMP (1) FROM t1");
-        assertFails(NOT_SUPPORTED, "SELECT CURRENT_DATE FROM t1");
-
         // logical not
         assertFails(TYPE_MISMATCH, "SELECT NOT 1 FROM t1");
 
@@ -495,34 +547,42 @@ public class TestAnalyzer
         assertFails(SAMPLE_PERCENTAGE_OUT_OF_RANGE, "SELECT * FROM t1 TABLESAMPLE BERNOULLI (-101)");
     }
 
+    @Test
+    public void testUseCollection()
+            throws Exception
+    {
+        assertFails(NOT_SUPPORTED, "USE CATALOG default");
+    }
+
     @BeforeMethod(alwaysRun = true)
     public void setup()
             throws Exception
     {
-        MetadataManager metadata = new MetadataManager();
-        metadata.addConnectorMetadata("tpch", new InMemoryMetadata());
+        MetadataManager metadata = new MetadataManager(new FeaturesConfig().setExperimentalSyntaxEnabled(true), new TypeRegistry());
+        metadata.addConnectorMetadata("tpch", "tpch", new InMemoryMetadata());
 
         SchemaTableName table1 = new SchemaTableName("default", "t1");
-        metadata.createTable("tpch", new TableMetadata(table1,
+        metadata.createTable(SESSION, "tpch", new TableMetadata("tpch", new ConnectorTableMetadata(table1,
                 ImmutableList.<ColumnMetadata>of(
-                        new ColumnMetadata("a", ColumnType.LONG, 0, false),
-                        new ColumnMetadata("b", ColumnType.LONG, 1, false),
-                        new ColumnMetadata("c", ColumnType.LONG, 2, false),
-                        new ColumnMetadata("d", ColumnType.LONG, 3, false))));
+                        new ColumnMetadata("a", BIGINT, 0, false),
+                        new ColumnMetadata("b", BIGINT, 1, false),
+                        new ColumnMetadata("c", BIGINT, 2, false),
+                        new ColumnMetadata("d", BIGINT, 3, false)))));
 
         SchemaTableName table2 = new SchemaTableName("default", "t2");
-        metadata.createTable("tpch", new TableMetadata(table2,
+        metadata.createTable(SESSION, "tpch", new TableMetadata("tpch", new ConnectorTableMetadata(table2,
                 ImmutableList.<ColumnMetadata>of(
-                        new ColumnMetadata("a", ColumnType.LONG, 0, false),
-                        new ColumnMetadata("b", ColumnType.LONG, 1, false))));
+                        new ColumnMetadata("a", BIGINT, 0, false),
+                        new ColumnMetadata("b", BIGINT, 1, false)))));
 
         SchemaTableName table3 = new SchemaTableName("default", "t3");
-        metadata.createTable("tpch", new TableMetadata(table3,
+        metadata.createTable(SESSION, "tpch", new TableMetadata("tpch", new ConnectorTableMetadata(table3,
                 ImmutableList.<ColumnMetadata>of(
-                        new ColumnMetadata("a", ColumnType.LONG, 0, false),
-                        new ColumnMetadata("b", ColumnType.LONG, 1, false))));
+                        new ColumnMetadata("a", BIGINT, 0, false),
+                        new ColumnMetadata("b", BIGINT, 1, false)))));
 
-        analyzer = new Analyzer(new Session("user", "test", "tpch", "default", null, null), metadata, Optional.<QueryExplainer>absent());
+        analyzer = new Analyzer(new ConnectorSession("user", "test", "tpch", "default", UTC_KEY, Locale.ENGLISH, null, null), metadata, Optional.<QueryExplainer>absent(), true);
+        approximateDisabledAnalyzer = new Analyzer(new ConnectorSession("user", "test", "tpch", "default", UTC_KEY, Locale.ENGLISH, null, null), metadata, Optional.<QueryExplainer>absent(), false);
     }
 
     private void analyze(@Language("SQL") String query)

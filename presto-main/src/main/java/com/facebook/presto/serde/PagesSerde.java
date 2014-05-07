@@ -13,16 +13,14 @@
  */
 package com.facebook.presto.serde;
 
-import com.facebook.presto.block.Block;
 import com.facebook.presto.operator.Page;
-import com.google.common.base.Preconditions;
-import com.google.common.base.Throwables;
+import com.facebook.presto.spi.block.Block;
+import com.facebook.presto.spi.block.BlockEncoding;
+import com.facebook.presto.spi.block.BlockEncodingSerde;
 import com.google.common.collect.AbstractIterator;
-import com.google.common.io.InputSupplier;
 import io.airlift.slice.SliceInput;
 import io.airlift.slice.SliceOutput;
 
-import java.io.IOException;
 import java.util.Iterator;
 
 import static com.google.common.base.Preconditions.checkNotNull;
@@ -30,86 +28,67 @@ import static java.util.Arrays.asList;
 
 public final class PagesSerde
 {
-    private PagesSerde()
+    private PagesSerde() {}
+
+    public static void writePages(BlockEncodingSerde blockEncodingSerde, SliceOutput sliceOutput, Page... pages)
     {
+        writePages(blockEncodingSerde, sliceOutput, asList(pages).iterator());
     }
 
-    public static PagesWriter createPagesWriter(final SliceOutput sliceOutput)
+    public static void writePages(BlockEncodingSerde blockEncodingSerde, SliceOutput sliceOutput, Iterable<Page> pages)
     {
-        checkNotNull(sliceOutput, "sliceOutput is null");
-        return new PagesWriter()
-        {
-            private BlockEncoding[] blockEncodings;
-
-            @Override
-            public PagesWriter append(Page page)
-            {
-                Preconditions.checkNotNull(page, "page is null");
-
-                if (blockEncodings == null) {
-                    Block[] blocks = page.getBlocks();
-                    blockEncodings = new BlockEncoding[blocks.length];
-                    sliceOutput.writeInt(blocks.length);
-                    for (int i = 0; i < blocks.length; i++) {
-                        Block block = blocks[i];
-                        BlockEncoding blockEncoding = block.getEncoding();
-                        blockEncodings[i] = blockEncoding;
-                        BlockEncodings.writeBlockEncoding(sliceOutput, blockEncoding);
-                    }
-                }
-
-                sliceOutput.writeInt(page.getPositionCount());
-                Block[] blocks = page.getBlocks();
-                for (int i = 0; i < blocks.length; i++) {
-                    blockEncodings[i].writeBlock(sliceOutput, blocks[i]);
-                }
-
-                return this;
-            }
-        };
+        writePages(blockEncodingSerde, sliceOutput, pages.iterator());
     }
 
-    public static void writePages(SliceOutput sliceOutput, Page... pages)
+    public static void writePages(BlockEncodingSerde blockEncodingSerde, SliceOutput sliceOutput, Iterator<Page> pages)
     {
-        writePages(sliceOutput, asList(pages).iterator());
-    }
-
-    public static void writePages(SliceOutput sliceOutput, Iterable<Page> pages)
-    {
-        writePages(sliceOutput, pages.iterator());
-    }
-
-    public static void writePages(SliceOutput sliceOutput, Iterator<Page> pages)
-    {
-        PagesWriter pagesWriter = createPagesWriter(sliceOutput);
+        PagesWriter pagesWriter = new PagesWriter(blockEncodingSerde, sliceOutput);
         while (pages.hasNext()) {
             pagesWriter.append(pages.next());
         }
     }
 
-    public Iterable<Page> readPages(final InputSupplier<SliceInput> sliceInputSupplier)
+    public static Iterator<Page> readPages(BlockEncodingSerde blockEncodingSerde, SliceInput sliceInput)
     {
-        Preconditions.checkNotNull(sliceInputSupplier, "sliceInputSupplier is null");
-
-        return new Iterable<Page>()
-        {
-            @Override
-            public Iterator<Page> iterator()
-            {
-                try {
-                    return readPages(sliceInputSupplier.getInput());
-                }
-                catch (IOException e) {
-                    throw Throwables.propagate(e);
-                }
-            }
-        };
+        return new PagesReader(blockEncodingSerde, sliceInput);
     }
 
-    public static Iterator<Page> readPages(SliceInput sliceInput)
+    private static class PagesWriter
     {
-        Preconditions.checkNotNull(sliceInput, "sliceInput is null");
-        return new PagesReader(sliceInput);
+        private final BlockEncodingSerde blockEncodingSerde;
+        private final SliceOutput sliceOutput;
+        private BlockEncoding[] blockEncodings;
+
+        private PagesWriter(BlockEncodingSerde blockEncodingSerde, SliceOutput sliceOutput)
+        {
+            this.blockEncodingSerde = checkNotNull(blockEncodingSerde, "blockEncodingSerde is null");
+            this.sliceOutput = checkNotNull(sliceOutput, "sliceOutput is null");
+        }
+
+        public PagesWriter append(Page page)
+        {
+            checkNotNull(page, "page is null");
+
+            if (blockEncodings == null) {
+                Block[] blocks = page.getBlocks();
+                blockEncodings = new BlockEncoding[blocks.length];
+                sliceOutput.writeInt(blocks.length);
+                for (int i = 0; i < blocks.length; i++) {
+                    Block block = blocks[i];
+                    BlockEncoding blockEncoding = block.getEncoding();
+                    blockEncodings[i] = blockEncoding;
+                    blockEncodingSerde.writeBlockEncoding(sliceOutput, blockEncoding);
+                }
+            }
+
+            sliceOutput.writeInt(page.getPositionCount());
+            Block[] blocks = page.getBlocks();
+            for (int i = 0; i < blocks.length; i++) {
+                blockEncodings[i].writeBlock(sliceOutput, blocks[i]);
+            }
+
+            return this;
+        }
     }
 
     private static class PagesReader
@@ -118,15 +97,21 @@ public final class PagesSerde
         private final BlockEncoding[] blockEncodings;
         private final SliceInput sliceInput;
 
-        public PagesReader(SliceInput sliceInput)
+        public PagesReader(BlockEncodingSerde blockEncodingSerde, SliceInput sliceInput)
         {
             this.sliceInput = sliceInput;
+
+            if (!sliceInput.isReadable()) {
+                endOfData();
+                blockEncodings = new BlockEncoding[0];
+                return;
+            }
 
             int channelCount = sliceInput.readInt();
 
             blockEncodings = new BlockEncoding[channelCount];
             for (int i = 0; i < blockEncodings.length; i++) {
-                blockEncodings[i] = BlockEncodings.readBlockEncoding(sliceInput);
+                blockEncodings[i] = blockEncodingSerde.readBlockEncoding(sliceInput);
             }
         }
 
@@ -142,6 +127,8 @@ public final class PagesSerde
             for (int i = 0; i < blocks.length; i++) {
                 blocks[i] = blockEncodings[i].readBlock(sliceInput);
             }
+
+            @SuppressWarnings("UnnecessaryLocalVariable")
             Page page = new Page(positions, blocks);
             return page;
         }

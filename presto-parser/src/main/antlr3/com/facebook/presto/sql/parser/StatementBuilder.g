@@ -60,14 +60,12 @@ statement returns [Statement value]
     | explain                   { $value = $explain.value; }
     | showTables                { $value = $showTables.value; }
     | showSchemas               { $value = $showSchemas.value; }
+    | showCatalogs              { $value = $showCatalogs.value; }
     | showColumns               { $value = $showColumns.value; }
     | showPartitions            { $value = $showPartitions.value; }
     | showFunctions             { $value = $showFunctions.value; }
+    | useCollection             { $value = $useCollection.value; }
     | createTable               { $value = $createTable.value; }
-    | createMaterializedView    { $value = $createMaterializedView.value; }
-    | refreshMaterializedView   { $value = $refreshMaterializedView.value; }
-    | createAlias               { $value = $createAlias.value; }
-    | dropAlias                 { $value = $dropAlias.value; }
     | dropTable                 { $value = $dropTable.value; }
     ;
 
@@ -80,11 +78,13 @@ queryExpr returns [Query value]
       queryBody
       orderClause?
       limitClause?
+      approximateClause?
         { $value = new Query(
             Optional.fromNullable($withClause.value),
             $queryBody.value,
             Objects.firstNonNull($orderClause.value, ImmutableList.<SortItem>of()),
-            Optional.fromNullable($limitClause.value));
+            Optional.fromNullable($limitClause.value),
+            Optional.fromNullable($approximateClause.value));
         }
     ;
 
@@ -93,6 +93,7 @@ queryBody returns [QueryBody value]
     | setOperation          { $value = $setOperation.value; }
     | tableSubquery         { $value = $tableSubquery.value; }
     | namedTable            { $value = $namedTable.value; }
+    | tableValue            { $value = $tableValue.value; }
     ;
 
 querySpec returns [QuerySpecification value]
@@ -134,12 +135,18 @@ restrictedSelectStmt returns [Query value]
                 ImmutableList.<SortItem>of(),
                 Optional.<String>absent()),
             ImmutableList.<SortItem>of(),
-            Optional.<String>absent());
+            Optional.<String>absent(),
+            Optional.<Approximate>absent());
         }
     ;
 
 withClause returns [With value]
     : ^(WITH recursive withList) { $value = new With($recursive.value, $withList.value); }
+    ;
+
+approximateClause returns [Approximate value]
+    : ^(APPROXIMATE decimal) { $value = new Approximate($decimal.value); }
+    | ^(APPROXIMATE integer) { $value = new Approximate($integer.value); }
     ;
 
 recursive returns [boolean value]
@@ -218,6 +225,16 @@ limitClause returns [String value]
 sampleType returns [SampledRelation.Type value]
     : BERNOULLI { $value = SampledRelation.Type.BERNOULLI; }
     | SYSTEM    { $value = SampledRelation.Type.SYSTEM; }
+    | POISSONIZED    { $value = SampledRelation.Type.POISSONIZED; }
+    ;
+
+rescaled returns [boolean value]
+    : RESCALED  { $value = true; }
+    |           { $value = false; }
+    ;
+
+stratifyOn returns [List<Expression> value]
+    : ^(STRATIFY_ON exprList) { $value = $exprList.value; }
     ;
 
 relationList returns [List<Relation> value = new ArrayList<>()]
@@ -246,8 +263,8 @@ joinedTable returns [Relation value]
     ;
 
 joinRelation returns [Join value]
-    : ^(CROSS_JOIN a=relation b=relation)                               { $value = new Join(Join.Type.CROSS, $a.value, $b.value, null); }
-    | ^(QUALIFIED_JOIN t=joinType c=joinCriteria a=relation b=relation) { $value = new Join($t.value, $a.value, $b.value, $c.value); }
+    : ^(CROSS_JOIN a=relation b=relation)                               { $value = new Join(Join.Type.CROSS, $a.value, $b.value, Optional.<JoinCriteria>absent()); }
+    | ^(QUALIFIED_JOIN t=joinType c=joinCriteria a=relation b=relation) { $value = new Join($t.value, $a.value, $b.value, Optional.fromNullable($c.value)); }
     ;
 
 aliasedRelation returns [AliasedRelation value]
@@ -255,7 +272,7 @@ aliasedRelation returns [AliasedRelation value]
     ;
 
 sampledRelation returns [SampledRelation value]
-    : ^(SAMPLED_RELATION r=relation t=sampleType p=expr) { $value = new SampledRelation($r.value, $t.value, $p.value); }
+    : ^(SAMPLED_RELATION r=relation t=sampleType p=expr s=rescaled st=stratifyOn?) { $value = new SampledRelation($r.value, $t.value, $p.value, $s.value, Optional.fromNullable($st.value)); }
     ;
 
 aliasedColumns returns [List<String> value]
@@ -279,36 +296,48 @@ tableSubquery returns [TableSubquery value]
     : ^(TABLE_SUBQUERY query) { $value = new TableSubquery($query.value); }
     ;
 
+tableValue returns [Values value]
+    :  ^(TABLE_VALUE rowList) { $value = new Values($rowList.value); }
+    ;
+
+rowList returns [List<Row> value = new ArrayList<>()]
+    :  ( rowValue { $value.add($rowValue.value); } )+
+    ;
+
+rowValue returns [Row value]
+    : ^(ROW_VALUE exprList) { $value = new Row($exprList.value); }
+    ;
+
 singleExpression returns [Expression value]
     : expr EOF { $value = $expr.value; }
     ;
 
 expr returns [Expression value]
-    : NULL                  { $value = new NullLiteral(); }
-    | qname                 { $value = new QualifiedNameReference($qname.value); }
-    | functionCall          { $value = $functionCall.value; }
-    | arithmeticExpression  { $value = $arithmeticExpression.value; }
-    | comparisonExpression  { $value = $comparisonExpression.value; }
-    | ^(AND a=expr b=expr)  { $value = LogicalBinaryExpression.and($a.value, $b.value); }
-    | ^(OR a=expr b=expr)   { $value = LogicalBinaryExpression.or($a.value, $b.value); }
-    | ^(NOT e=expr)         { $value = new NotExpression($e.value); }
-    | ^(DATE string)        { $value = new DateLiteral($string.value); }
-    | ^(TIME string)        { $value = new TimeLiteral($string.value); }
-    | ^(TIMESTAMP string)   { $value = new TimestampLiteral($string.value); }
-    | string                { $value = new StringLiteral($string.value); }
-    | integer               { $value = new LongLiteral($integer.value); }
-    | decimal               { $value = new DoubleLiteral($decimal.value); }
-    | TRUE                  { $value = BooleanLiteral.TRUE_LITERAL; }
-    | FALSE                 { $value = BooleanLiteral.FALSE_LITERAL; }
-    | intervalValue         { $value = $intervalValue.value; }
-    | predicate             { $value = $predicate.value; }
-    | ^(IN_LIST exprList)   { $value = new InListExpression($exprList.value); }
-    | ^(NEGATIVE e=expr)    { $value = new NegativeExpression($e.value); }
-    | caseExpression        { $value = $caseExpression.value; }
-    | query                 { $value = new SubqueryExpression($query.value); }
-    | extract               { $value = $extract.value; }
-    | current_time          { $value = $current_time.value; }
-    | cast                  { $value = $cast.value; }
+    : NULL                    { $value = new NullLiteral(); }
+    | qname                   { $value = new QualifiedNameReference($qname.value); }
+    | functionCall            { $value = $functionCall.value; }
+    | arithmeticExpression    { $value = $arithmeticExpression.value; }
+    | comparisonExpression    { $value = $comparisonExpression.value; }
+    | ^(AND a=expr b=expr)    { $value = LogicalBinaryExpression.and($a.value, $b.value); }
+    | ^(OR a=expr b=expr)     { $value = LogicalBinaryExpression.or($a.value, $b.value); }
+    | ^(NOT e=expr)           { $value = new NotExpression($e.value); }
+    | ^(LITERAL ident string) { $value = new GenericLiteral($ident.value, $string.value); }
+    | ^(TIME string)          { $value = new TimeLiteral($string.value); }
+    | ^(TIMESTAMP string)     { $value = new TimestampLiteral($string.value); }
+    | string                  { $value = new StringLiteral($string.value); }
+    | integer                 { $value = new LongLiteral($integer.value); }
+    | decimal                 { $value = new DoubleLiteral($decimal.value); }
+    | TRUE                    { $value = BooleanLiteral.TRUE_LITERAL; }
+    | FALSE                   { $value = BooleanLiteral.FALSE_LITERAL; }
+    | intervalValue           { $value = $intervalValue.value; }
+    | predicate               { $value = $predicate.value; }
+    | ^(IN_LIST exprList)     { $value = new InListExpression($exprList.value); }
+    | ^(NEGATIVE e=expr)      { $value = new NegativeExpression($e.value); }
+    | caseExpression          { $value = $caseExpression.value; }
+    | query                   { $value = new SubqueryExpression($query.value); }
+    | extract                 { $value = $extract.value; }
+    | current_time            { $value = $current_time.value; }
+    | cast                    { $value = $cast.value; }
     ;
 
 exprList returns [List<Expression> value = new ArrayList<>()]
@@ -382,8 +411,12 @@ current_time returns [CurrentTime value]
     : CURRENT_DATE                   { $value = new CurrentTime(CurrentTime.Type.DATE); }
     | CURRENT_TIME                   { $value = new CurrentTime(CurrentTime.Type.TIME); }
     | CURRENT_TIMESTAMP              { $value = new CurrentTime(CurrentTime.Type.TIMESTAMP); }
+    | LOCALTIME                      { $value = new CurrentTime(CurrentTime.Type.LOCALTIME); }
+    | LOCALTIMESTAMP                 { $value = new CurrentTime(CurrentTime.Type.LOCALTIMESTAMP); }
     | ^(CURRENT_TIME integer)        { $value = new CurrentTime(CurrentTime.Type.TIME, Integer.valueOf($integer.value)); }
     | ^(CURRENT_TIMESTAMP integer)   { $value = new CurrentTime(CurrentTime.Type.TIMESTAMP, Integer.valueOf($integer.value)); }
+    | ^(LOCALTIME integer)           { $value = new CurrentTime(CurrentTime.Type.LOCALTIME, Integer.valueOf($integer.value)); }
+    | ^(LOCALTIMESTAMP integer)      { $value = new CurrentTime(CurrentTime.Type.LOCALTIMESTAMP, Integer.valueOf($integer.value)); }
     ;
 
 arithmeticExpression returns [ArithmeticExpression value]
@@ -413,25 +446,21 @@ comparisonType returns [ComparisonExpression.Type value]
     ;
 
 intervalValue returns [IntervalLiteral value]
-    : ^(INTERVAL s=string q=intervalQualifier g=intervalSign) { $value = new IntervalLiteral($s.value, $q.value, $g.value); }
-    ;
-
-// TODO: this needs to be structured data
-intervalQualifier returns [String value]
-    : t=nonSecond                   { $value = $t.value; }
-    | ^(t=nonSecond p=integer)      { $value = String.format("\%s (\%s)", $t.value, $p.value); }
-    | SECOND                        { $value = "SECOND"; }
-    | ^(SECOND p=integer)           { $value = String.format("SECOND (\%s)", $p.value); }
-    | ^(SECOND p=integer s=integer) { $value = String.format("SECOND (\%s, \%s)", $p.value, $s.value); }
-    ;
-
-nonSecond returns [String value]
-    : t=(YEAR | MONTH | DAY | HOUR | MINUTE) { $value = $t.text; }
+    : ^(INTERVAL v=string g=intervalSign s=intervalField e=intervalField? ) { $value = new IntervalLiteral($v.value, $g.value, $s.value, $e.value); }
     ;
 
 intervalSign returns [IntervalLiteral.Sign value]
     : NEGATIVE { $value = IntervalLiteral.Sign.NEGATIVE; }
     |          { $value = IntervalLiteral.Sign.POSITIVE; }
+    ;
+
+intervalField returns [IntervalLiteral.IntervalField value]
+    : YEAR          { $value = IntervalLiteral.IntervalField.YEAR; }
+    | MONTH         { $value = IntervalLiteral.IntervalField.MONTH; }
+    | DAY           { $value = IntervalLiteral.IntervalField.DAY; }
+    | HOUR          { $value = IntervalLiteral.IntervalField.HOUR; }
+    | MINUTE        { $value = IntervalLiteral.IntervalField.MINUTE; }
+    | SECOND        { $value = IntervalLiteral.IntervalField.SECOND; }
     ;
 
 predicate returns [Expression value]
@@ -456,7 +485,7 @@ whenList returns [List<WhenClause> value = new ArrayList<>()]
     ;
 
 explain returns [Statement value]
-    : ^(EXPLAIN explainOptions? query) { $value = new Explain($query.value, $explainOptions.value); }
+    : ^(EXPLAIN explainOptions? statement) { $value = new Explain($statement.value, $explainOptions.value); }
     ;
 
 explainOptions returns [List<ExplainOption> value = new ArrayList<>()]
@@ -466,6 +495,7 @@ explainOptions returns [List<ExplainOption> value = new ArrayList<>()]
 explainOption returns [ExplainOption value]
     : ^(EXPLAIN_FORMAT TEXT)      { $value = new ExplainFormat(ExplainFormat.Type.TEXT); }
     | ^(EXPLAIN_FORMAT GRAPHVIZ)  { $value = new ExplainFormat(ExplainFormat.Type.GRAPHVIZ); }
+    | ^(EXPLAIN_FORMAT JSON)      { $value = new ExplainFormat(ExplainFormat.Type.JSON); }
     | ^(EXPLAIN_TYPE LOGICAL)     { $value = new ExplainType(ExplainType.Type.LOGICAL); }
     | ^(EXPLAIN_TYPE DISTRIBUTED) { $value = new ExplainType(ExplainType.Type.DISTRIBUTED); }
     ;
@@ -483,7 +513,15 @@ showTablesLike returns [String value]
     ;
 
 showSchemas returns [Statement value]
-    : SHOW_SCHEMAS { $value = new ShowSchemas(); }
+    : ^(SHOW_SCHEMAS from=showSchemasFrom?) { $value = new ShowSchemas(Optional.fromNullable($from.value)); }
+    ;
+
+showSchemasFrom returns [String value]
+    : ^(FROM ident) { $value = $ident.value; }
+    ;
+
+showCatalogs returns [Statement value]
+    : SHOW_CATALOGS { $value = new ShowCatalogs(); }
     ;
 
 showColumns returns [Statement value]
@@ -504,33 +542,13 @@ showFunctions returns [Statement value]
     : SHOW_FUNCTIONS { $value = new ShowFunctions(); }
     ;
 
+useCollection returns [Statement value]
+    : ^(USE_CATALOG ident) { $value = new UseCollection($ident.value, UseCollection.CollectionType.CATALOG); }
+    | ^(USE_SCHEMA ident) { $value = new UseCollection($ident.value, UseCollection.CollectionType.SCHEMA); }
+    ;
+
 createTable returns [Statement value]
     : ^(CREATE_TABLE qname query) { $value = new CreateTable($qname.value, $query.value); }
-    ;
-
-createMaterializedView returns [Statement value]
-    : ^(CREATE_MATERIALIZED_VIEW qname refresh=viewRefresh? select=restrictedSelectStmt)
-        { $value = new CreateMaterializedView($qname.value, Optional.fromNullable($refresh.value), $select.value); }
-    ;
-
-refreshMaterializedView returns [Statement value]
-    : ^(REFRESH_MATERIALIZED_VIEW qname) { $value = new RefreshMaterializedView($qname.value); }
-    ;
-
-viewRefresh returns [String value]
-    : ^(REFRESH integer) { $value = $integer.value; }
-    ;
-
-createAlias returns [Statement value]
-    : ^(CREATE_ALIAS qname remote=forRemote) { $value = new CreateAlias($qname.value, $remote.value); }
-    ;
-
-dropAlias returns [Statement value]
-    : ^(DROP_ALIAS qname) { $value = new DropAlias($qname.value); }
-    ;
-
-forRemote returns [QualifiedName value]
-    : ^(FOR qname) { $value = $qname.value; }
     ;
 
 dropTable returns [Statement value]

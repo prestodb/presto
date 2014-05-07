@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.hive;
 
-import com.facebook.presto.spi.Partition;
+import com.facebook.presto.spi.ConnectorPartition;
 import com.google.common.base.Function;
 import com.google.common.base.Throwables;
 import org.apache.hadoop.conf.Configuration;
@@ -32,6 +32,7 @@ import org.apache.hadoop.mapred.InputFormat;
 import org.apache.hadoop.mapred.JobConf;
 import org.apache.hadoop.mapred.TextInputFormat;
 import org.apache.hadoop.util.ReflectionUtils;
+import org.joda.time.DateTimeZone;
 import org.joda.time.format.DateTimeFormat;
 import org.joda.time.format.DateTimeFormatter;
 import org.joda.time.format.DateTimeFormatterBuilder;
@@ -42,7 +43,6 @@ import java.util.List;
 import java.util.Properties;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static org.apache.hadoop.hive.metastore.MetaStoreUtils.getDeserializer;
 import static org.apache.hadoop.hive.metastore.MetaStoreUtils.getTableMetadata;
 import static org.apache.hadoop.hive.metastore.api.hive_metastoreConstants.FILE_INPUT_FORMAT;
@@ -50,7 +50,6 @@ import static org.apache.hadoop.hive.serde2.objectinspector.ObjectInspector.Cate
 
 final class HiveUtil
 {
-    // timestamps are stored in local time
     private static final DateTimeFormatter HIVE_TIMESTAMP_PARSER = new DateTimeFormatterBuilder()
             .append(DateTimeFormat.forPattern("yyyy-MM-dd HH:mm:ss"))
             .appendOptional(DateTimeFormat.forPattern(".SSSSSSSSS").getParser())
@@ -79,12 +78,13 @@ final class HiveUtil
         }
     }
 
-    @SuppressWarnings("unchecked")
+    @SuppressWarnings({"unchecked", "RedundantCast"})
     private static Class<? extends InputFormat<?, ?>> getInputFormatClass(JobConf conf, String inputFormatName)
             throws ClassNotFoundException
     {
         Class<?> clazz = conf.getClassByName(inputFormatName);
-        return (Class<? extends InputFormat<?, ?>>) clazz.asSubclass(InputFormat.class);
+        // TODO: remove redundant cast to Object after IDEA-118533 is fixed
+        return (Class<? extends InputFormat<?, ?>>) (Object) clazz.asSubclass(InputFormat.class);
     }
 
     static String getInputFormatName(Properties schema)
@@ -99,21 +99,21 @@ final class HiveUtil
         return PrimitiveObjectInspectorUtils.getTypeEntryFromTypeName(type).primitiveCategory;
     }
 
-    public static Function<Partition, String> partitionIdGetter()
+    public static Function<ConnectorPartition, String> partitionIdGetter()
     {
-        return new Function<Partition, String>()
+        return new Function<ConnectorPartition, String>()
         {
             @Override
-            public String apply(Partition input)
+            public String apply(ConnectorPartition input)
             {
                 return input.getPartitionId();
             }
         };
     }
 
-    public static long parseHiveTimestamp(String value)
+    public static long parseHiveTimestamp(String value, DateTimeZone timeZone)
     {
-        return MILLISECONDS.toSeconds(HIVE_TIMESTAMP_PARSER.parseMillis(value));
+        return HIVE_TIMESTAMP_PARSER.withZone(timeZone).parseMillis(value);
     }
 
     static boolean isSplittable(InputFormat<?, ?> inputFormat, FileSystem fileSystem, Path path)
@@ -142,15 +142,18 @@ final class HiveUtil
     }
 
     public static StructObjectInspector getTableObjectInspector(Properties schema)
-            throws MetaException, SerDeException
     {
-        ObjectInspector inspector = getDeserializer(null, schema).getObjectInspector();
-        checkArgument(inspector.getCategory() == Category.STRUCT, "expected STRUCT: %s", inspector.getCategory());
-        return (StructObjectInspector) inspector;
+        try {
+            ObjectInspector inspector = getDeserializer(null, schema).getObjectInspector();
+            checkArgument(inspector.getCategory() == Category.STRUCT, "expected STRUCT: %s", inspector.getCategory());
+            return (StructObjectInspector) inspector;
+        }
+        catch (SerDeException | MetaException e) {
+            throw Throwables.propagate(e);
+        }
     }
 
     public static List<? extends StructField> getTableStructFields(Table table)
-            throws MetaException, SerDeException
     {
         return getTableObjectInspector(getTableMetadata(table)).getAllStructFieldRefs();
     }

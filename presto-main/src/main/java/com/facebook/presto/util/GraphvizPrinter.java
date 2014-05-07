@@ -17,10 +17,15 @@ import com.facebook.presto.sql.planner.PlanFragment;
 import com.facebook.presto.sql.planner.SubPlan;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
+import com.facebook.presto.sql.planner.plan.DistinctLimitNode;
 import com.facebook.presto.sql.planner.plan.ExchangeNode;
 import com.facebook.presto.sql.planner.plan.FilterNode;
+import com.facebook.presto.sql.planner.plan.IndexJoinNode;
+import com.facebook.presto.sql.planner.plan.IndexSourceNode;
 import com.facebook.presto.sql.planner.plan.JoinNode;
 import com.facebook.presto.sql.planner.plan.LimitNode;
+import com.facebook.presto.sql.planner.plan.MarkDistinctNode;
+import com.facebook.presto.sql.planner.plan.MaterializeSampleNode;
 import com.facebook.presto.sql.planner.plan.OutputNode;
 import com.facebook.presto.sql.planner.plan.PlanFragmentId;
 import com.facebook.presto.sql.planner.plan.PlanNode;
@@ -30,9 +35,9 @@ import com.facebook.presto.sql.planner.plan.SemiJoinNode;
 import com.facebook.presto.sql.planner.plan.SinkNode;
 import com.facebook.presto.sql.planner.plan.SortNode;
 import com.facebook.presto.sql.planner.plan.TableScanNode;
-import com.facebook.presto.sql.planner.plan.TableWriterNode;
 import com.facebook.presto.sql.planner.plan.TopNNode;
 import com.facebook.presto.sql.planner.plan.UnionNode;
+import com.facebook.presto.sql.planner.plan.ValuesNode;
 import com.facebook.presto.sql.planner.plan.WindowNode;
 import com.facebook.presto.sql.tree.ComparisonExpression;
 import com.facebook.presto.sql.tree.Expression;
@@ -66,12 +71,15 @@ public final class GraphvizPrinter
         OUTPUT,
         LIMIT,
         TABLESCAN,
-        TABLEWRITER,
+        VALUES,
         JOIN,
         SINK,
         WINDOW,
         UNION,
-        SORT
+        SORT,
+        MARK_DISTINCT,
+        MATERIALIZE_SAMPLE,
+        INDEX_SOURCE
     }
 
     private static final Map<NodeType, String> NODE_COLORS = immutableEnumMap(ImmutableMap.<NodeType, String>builder()
@@ -83,17 +91,22 @@ public final class GraphvizPrinter
             .put(NodeType.OUTPUT, "white")
             .put(NodeType.LIMIT, "gray83")
             .put(NodeType.TABLESCAN, "deepskyblue")
-            .put(NodeType.TABLEWRITER, "lightslateblue")
+            .put(NodeType.VALUES, "deepskyblue")
             .put(NodeType.JOIN, "orange")
             .put(NodeType.SORT, "aliceblue")
             .put(NodeType.SINK, "indianred1")
             .put(NodeType.WINDOW, "darkolivegreen4")
             .put(NodeType.UNION, "turquoise4")
+            .put(NodeType.MARK_DISTINCT, "violet")
+            .put(NodeType.MATERIALIZE_SAMPLE, "hotpink")
+            .put(NodeType.INDEX_SOURCE, "dodgerblue3")
             .build());
 
     static {
         Preconditions.checkState(NODE_COLORS.size() == NodeType.values().length);
     }
+
+    private GraphvizPrinter() {}
 
     public static String printLogical(List<PlanFragment> fragments)
     {
@@ -158,7 +171,7 @@ public final class GraphvizPrinter
                 .append(" {")
                 .append('\n');
 
-        output.append(format("label = \"%s\"", fragment.isPartitioned() ? "Partitioned" : "Unpartitioned"))
+        output.append(format("label = \"%s\"", fragment.getDistribution()))
                 .append('\n');
 
         PlanNode plan = fragment.getRoot();
@@ -188,6 +201,13 @@ public final class GraphvizPrinter
         }
 
         @Override
+        public Void visitMaterializeSample(MaterializeSampleNode node, Void context)
+        {
+            printNode(node, format("MaterializeSample[%s]", node.getSampleWeightSymbol()), NODE_COLORS.get(NodeType.MATERIALIZE_SAMPLE));
+            return node.getSource().accept(this, context);
+        }
+
+        @Override
         public Void visitSort(SortNode node, Void context)
         {
             printNode(node, format("Sort[%s]", Joiner.on(", ").join(node.getOrderBy())), NODE_COLORS.get(NodeType.SORT));
@@ -195,9 +215,9 @@ public final class GraphvizPrinter
         }
 
         @Override
-        public Void visitTableWriter(TableWriterNode node, Void context)
+        public Void visitMarkDistinct(MarkDistinctNode node, Void context)
         {
-            printNode(node, format("TableWriter[%s]", node.getTable()), format("output = %s", node.getOutput()), NODE_COLORS.get(NodeType.TABLEWRITER));
+            printNode(node, format("MarkDistinct[%s]", node.getMarkerSymbol()), format("%s => %s", node.getDistinctSymbols(), node.getMarkerSymbol()), NODE_COLORS.get(NodeType.MARK_DISTINCT));
             return node.getSource().accept(this, context);
         }
 
@@ -239,7 +259,12 @@ public final class GraphvizPrinter
         {
             StringBuilder builder = new StringBuilder();
             for (Map.Entry<Symbol, FunctionCall> entry : node.getAggregations().entrySet()) {
-                builder.append(format("%s := %s\\n", entry.getKey(), entry.getValue()));
+                if (node.getMasks().containsKey(entry.getKey())) {
+                    builder.append(format("%s := %s (mask = %s)\\n", entry.getKey(), entry.getValue(), node.getMasks().get(entry.getKey())));
+                }
+                else {
+                    builder.append(format("%s := %s\\n", entry.getKey(), entry.getValue()));
+                }
             }
             printNode(node, format("Aggregate[%s]", node.getStep()), builder.toString(), NODE_COLORS.get(NodeType.AGGREGATE));
             return node.getSource().accept(this, context);
@@ -294,6 +319,13 @@ public final class GraphvizPrinter
         }
 
         @Override
+        public Void visitDistinctLimit(final DistinctLimitNode node, Void context)
+        {
+            printNode(node, format("DistinctLimit[%s]", node.getLimit()), NODE_COLORS.get(NodeType.LIMIT));
+            return node.getSource().accept(this, context);
+        }
+
+        @Override
         public Void visitLimit(LimitNode node, Void context)
         {
             printNode(node, format("Limit[%s]", node.getCount()), NODE_COLORS.get(NodeType.LIMIT));
@@ -303,7 +335,14 @@ public final class GraphvizPrinter
         @Override
         public Void visitTableScan(TableScanNode node, Void context)
         {
-            printNode(node, format("TableScan[%s]", node.getTable()), format("partition predicate=%s", node.getPartitionPredicate()), NODE_COLORS.get(NodeType.TABLESCAN));
+            printNode(node, format("TableScan[%s]", node.getTable()), format("original constraint=%s", node.getOriginalConstraint()), NODE_COLORS.get(NodeType.TABLESCAN));
+            return null;
+        }
+
+        @Override
+        public Void visitValues(ValuesNode node, Void context)
+        {
+            printNode(node, "Values", NODE_COLORS.get(NodeType.TABLESCAN));
             return null;
         }
 
@@ -333,6 +372,33 @@ public final class GraphvizPrinter
 
             node.getSource().accept(this, context);
             node.getFilteringSource().accept(this, context);
+
+            return null;
+        }
+
+        @Override
+        public Void visitIndexSource(IndexSourceNode node, Void context)
+        {
+            printNode(node, format("IndexSource[%s]", node.getIndexHandle()), NODE_COLORS.get(NodeType.INDEX_SOURCE));
+            return null;
+        }
+
+        @Override
+        public Void visitIndexJoin(IndexJoinNode node, Void context)
+        {
+            List<Expression> joinExpressions = new ArrayList<>();
+            for (IndexJoinNode.EquiJoinClause clause : node.getCriteria()) {
+                joinExpressions.add(new ComparisonExpression(ComparisonExpression.Type.EQUAL,
+                        new QualifiedNameReference(clause.getProbe().toQualifiedName()),
+                        new QualifiedNameReference(clause.getIndex().toQualifiedName())));
+            }
+
+            String criteria = Joiner.on(" AND ").join(joinExpressions);
+            String joinLabel = format("%sIndexJoin", node.getType().getJoinLabel());
+            printNode(node, joinLabel, criteria, NODE_COLORS.get(NodeType.JOIN));
+
+            node.getProbeSource().accept(this, context);
+            node.getIndexSource().accept(this, context);
 
             return null;
         }

@@ -13,9 +13,9 @@
  */
 package com.facebook.presto.metadata;
 
-import com.facebook.presto.spi.ColumnType;
 import com.facebook.presto.spi.PartitionKey;
 import com.facebook.presto.split.NativePartitionKey;
+import com.facebook.presto.type.TypeRegistry;
 import com.google.common.collect.Collections2;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
@@ -33,10 +33,13 @@ import java.util.List;
 import java.util.Set;
 import java.util.UUID;
 
+import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotEquals;
 import static org.testng.Assert.assertNotNull;
+import static org.testng.Assert.fail;
 
+@Test(singleThreaded = true)
 public class TestShardManagerDao
 {
     private ShardManagerDao dao;
@@ -49,6 +52,7 @@ public class TestShardManagerDao
         H2EmbeddedDataSourceConfig dataSourceConfig = new H2EmbeddedDataSourceConfig().setFilename("mem:");
         DataSource dataSource = new H2EmbeddedDataSource(dataSourceConfig);
         DBI h2Dbi = new DBI(dataSource);
+        h2Dbi.registerMapper(new NativePartitionKey.Mapper(new TypeRegistry()));
         handle = h2Dbi.open();
         dao = handle.attach(ShardManagerDao.class);
 
@@ -102,26 +106,39 @@ public class TestShardManagerDao
         long partitionId1 = dao.insertPartition(tableId, "part_1");
         long partitionId2 = dao.insertPartition(tableId, "part_2");
 
-        long shardId0 = dao.insertShard(tableId, true);
-        long shardId1 = dao.insertShard(tableId, true);
-        long shardId2 = dao.insertShard(tableId, true);
+        UUID shardUuid0 = UUID.randomUUID();
+        UUID shardUuid1 = UUID.randomUUID();
+        UUID shardUuid2a = UUID.randomUUID();
+        UUID shardUuid2b = UUID.randomUUID();
+
+        long shardId0 = dao.insertShard(shardUuid0);
+        long shardId1 = dao.insertShard(shardUuid1);
+        long shardId2a = dao.insertShard(shardUuid2a);
+        long shardId2b = dao.insertShard(shardUuid2b);
 
         dao.insertShardNode(shardId0, nodeId);
         dao.insertShardNode(shardId1, nodeId);
-        dao.insertShardNode(shardId2, nodeId);
+        dao.insertShardNode(shardId2a, nodeId);
+        dao.insertShardNode(shardId2b, nodeId);
 
         dao.insertPartitionShard(shardId0, tableId, partitionId0);
         dao.insertPartitionShard(shardId1, tableId, partitionId1);
-        dao.insertPartitionShard(shardId2, tableId, partitionId2);
+        dao.insertPartitionShard(shardId2a, tableId, partitionId2);
+        dao.insertPartitionShard(shardId2b, tableId, partitionId2);
 
         Set<TablePartition> partitions = dao.getPartitions(tableId);
         assertEquals(partitions.size(), 3);
 
-        List<ShardNode> partitionNodes = dao.getCommittedShardNodesByPartitionId(partitionId1);
-        assertEquals(partitionNodes.size(), 1);
+        List<ShardNode> shardNodes = dao.getShardNodes(tableId);
+        assertEquals(shardNodes.size(), 4);
 
-        List<ShardNode> tableNodes = dao.getCommittedShardNodesByTableId(tableId);
-        assertEquals(tableNodes.size(), 3);
+        assertContainsShardNode(shardNodes, tableId, nodeName, partitionId0, shardUuid0);
+        assertContainsShardNode(shardNodes, tableId, nodeName, partitionId1, shardUuid1);
+        assertContainsShardNode(shardNodes, tableId, nodeName, partitionId2, shardUuid2a);
+        assertContainsShardNode(shardNodes, tableId, nodeName, partitionId2, shardUuid2b);
+
+        Set<String> nodes = dao.getTableNodes(tableId);
+        assertEquals(nodes, ImmutableSet.of(nodeName));
     }
 
     @Test
@@ -136,8 +153,8 @@ public class TestShardManagerDao
         dao.insertPartition(tableId0, partitionName0);
         dao.insertPartition(tableId1, partitionName1);
 
-        PartitionKey testKey0 = new NativePartitionKey(partitionName0, "ds", ColumnType.STRING, "2013-06-01");
-        PartitionKey testKey1 = new NativePartitionKey(partitionName1, "foo", ColumnType.STRING, "bar");
+        PartitionKey testKey0 = new NativePartitionKey(partitionName0, "ds", VARCHAR, "2013-06-01");
+        PartitionKey testKey1 = new NativePartitionKey(partitionName1, "foo", VARCHAR, "bar");
 
         long keyId0 = dao.insertPartitionKey(tableId0, partitionName0, testKey0.getName(), testKey0.getType().toString(), testKey0.getValue());
 
@@ -154,5 +171,24 @@ public class TestShardManagerDao
         assertNotNull(retrievedKeys);
         assertEquals(retrievedKeys.size(), 1);
         assertEquals(Iterables.getOnlyElement(retrievedKeys), testKey1);
+    }
+
+    private static void assertContainsShardNode(List<ShardNode> nodes, long tableId, String nodeName, long partitionId, UUID shardUuid)
+    {
+        ShardNode expected = new ShardNode(shardUuid, nodeName, tableId, partitionId);
+        for (ShardNode node : nodes) {
+            if (shardNodesEqual(node, expected)) {
+                return;
+            }
+        }
+        fail(expected.toString());
+    }
+
+    private static boolean shardNodesEqual(ShardNode a, ShardNode b)
+    {
+        return (a.getTableId() == b.getTableId()) &&
+                (a.getPartitionId() == b.getPartitionId()) &&
+                a.getNodeIdentifier().equals(b.getNodeIdentifier()) &&
+                a.getShardUuid().equals(b.getShardUuid());
     }
 }

@@ -13,52 +13,77 @@
  */
 package com.facebook.presto.operator;
 
-import com.facebook.presto.block.Block;
-import com.facebook.presto.block.BlockBuilder;
-import com.facebook.presto.block.uncompressed.UncompressedBlock;
-import com.facebook.presto.tuple.TupleInfo;
-import com.facebook.presto.tuple.TupleInfo.Type;
-import io.airlift.slice.Slice;
+import com.facebook.presto.spi.block.BlockBuilder;
+import com.facebook.presto.spi.block.BlockCursor;
+import com.facebook.presto.spi.block.RandomAccessBlock;
+import com.facebook.presto.spi.block.SortOrder;
+import com.facebook.presto.sql.gen.JoinCompiler;
+import com.facebook.presto.sql.gen.JoinCompiler.LookupSourceFactory;
+import com.facebook.presto.sql.gen.OrderingCompiler;
+import com.facebook.presto.spi.type.Type;
+import com.google.common.collect.ImmutableList;
+import io.airlift.log.Logger;
 import io.airlift.units.DataSize;
 import io.airlift.units.DataSize.Unit;
-import it.unimi.dsi.fastutil.Arrays;
 import it.unimi.dsi.fastutil.Swapper;
 import it.unimi.dsi.fastutil.ints.AbstractIntComparator;
+import it.unimi.dsi.fastutil.ints.IntComparator;
+import it.unimi.dsi.fastutil.longs.LongArrayList;
+import it.unimi.dsi.fastutil.objects.ObjectArrayList;
 
 import java.util.List;
+
+import static com.facebook.presto.operator.SyntheticAddress.decodePosition;
+import static com.facebook.presto.operator.SyntheticAddress.decodeSliceIndex;
+import static com.facebook.presto.operator.SyntheticAddress.encodeSyntheticAddress;
+import static com.google.common.base.Preconditions.checkNotNull;
+import static io.airlift.slice.SizeOf.sizeOf;
 
 /**
  * PagesIndex a low-level data structure which contains the address of every value position of every channel.
  * This data structure is not general purpose and is designed for a few specific uses:
  * <ul>
  * <li>Sort via the {@link #sort} method</li>
- * <li>Hash build via the {@link #getIndex} method</li>
- * <li>Positional output via the {@link #appendTupleTo} method</li>
+ * <li>Hash build via the {@link #createLookupSource} method</li>
+ * <li>Positional output via the {@link #appendTo} method</li>
  * </ul>
  */
 public class PagesIndex
         implements Swapper
 {
-    private final ChannelIndex[] indexes;
-    private final List<TupleInfo> tupleInfos;
+    private static final Logger log = Logger.get(PagesIndex.class);
+
+    // todo this should be a services assigned in the constructor
+    private static final OrderingCompiler orderingCompiler = new OrderingCompiler();
+
+    // todo this should be a services assigned in the constructor
+    private static final JoinCompiler joinCompiler = new JoinCompiler();
+
+    private final List<Type> types;
     private final OperatorContext operatorContext;
+    private final LongArrayList valueAddresses;
+    private final ObjectArrayList<RandomAccessBlock>[] channels;
 
     private int positionCount;
+    private long pagesMemorySize;
     private long estimatedSize;
 
-    public PagesIndex(List<TupleInfo> tupleInfos, int expectedPositions, OperatorContext operatorContext)
+    public PagesIndex(List<Type> types, int expectedPositions, OperatorContext operatorContext)
     {
-        this.tupleInfos = tupleInfos;
-        this.operatorContext = operatorContext;
-        this.indexes = new ChannelIndex[tupleInfos.size()];
-        for (int channel = 0; channel < indexes.length; channel++) {
-            indexes[channel] = new ChannelIndex(expectedPositions, tupleInfos.get(channel));
+        this.types = ImmutableList.copyOf(checkNotNull(types, "types is null"));
+        this.operatorContext = checkNotNull(operatorContext, "operatorContext is null");
+        this.valueAddresses = new LongArrayList(expectedPositions);
+
+        //noinspection rawtypes
+        channels = (ObjectArrayList<RandomAccessBlock>[]) new ObjectArrayList[types.size()];
+        for (int i = 0; i < channels.length; i++) {
+            channels[i] = ObjectArrayList.wrap(new RandomAccessBlock[1024], 0);
         }
     }
 
-    public List<TupleInfo> getTupleInfos()
+    public List<Type> getTypes()
     {
-        return tupleInfos;
+        return types;
     }
 
     public int getPositionCount()
@@ -66,12 +91,31 @@ public class PagesIndex
         return positionCount;
     }
 
+    public LongArrayList getValueAddresses()
+    {
+        return valueAddresses;
+    }
+
+    public ObjectArrayList<RandomAccessBlock> getChannel(int channel)
+    {
+        return channels[channel];
+    }
+
     public void addPage(Page page)
     {
         positionCount += page.getPositionCount();
-        Block[] blocks = page.getBlocks();
-        for (int channel = 0; channel < indexes.length; channel++) {
-            indexes[channel].indexBlock((UncompressedBlock) blocks[channel]);
+
+        int pageIndex = channels[0].size();
+        RandomAccessPage randomAccessPage = page.toRandomAccessPage();
+        for (int i = 0; i < channels.length; i++) {
+            RandomAccessBlock block = randomAccessPage.getBlock(i);
+            channels[i].add(block);
+            pagesMemorySize += block.getSizeInBytes();
+        }
+
+        for (int position = 0; position < page.getPositionCount(); position++) {
+            long sliceAddress = encodeSyntheticAddress(pageIndex, position);
+            valueAddresses.add(sliceAddress);
         }
 
         estimatedSize = operatorContext.setMemoryReservation(calculateEstimatedSize());
@@ -84,114 +128,148 @@ public class PagesIndex
 
     private long calculateEstimatedSize()
     {
-        long size = 0;
-        for (ChannelIndex channelIndex : indexes) {
-            size += channelIndex.getEstimatedSize().toBytes();
-        }
-        return size;
+        long channelsArraySize = sizeOf(channels[0].elements()) * channels.length;
+        long addressesArraySize = sizeOf(valueAddresses.elements());
+        return pagesMemorySize + channelsArraySize + addressesArraySize;
     }
 
-    public TupleInfo getTupleInfo(int channel)
+    public Type getType(int channel)
     {
-        return indexes[channel].getTupleInfo();
-    }
-
-    public ChannelIndex getIndex(int channel)
-    {
-        return indexes[channel];
+        return types.get(channel);
     }
 
     @Override
     public void swap(int a, int b)
     {
-        for (ChannelIndex index : indexes) {
-            index.swap(a, b);
-        }
+        long[] elements = valueAddresses.elements();
+        long temp = elements[a];
+        elements[a] = elements[b];
+        elements[b] = temp;
     }
 
-    public void appendTupleTo(int channel, int position, BlockBuilder output)
+    public int buildPage(int position, int[] outputChannels, PageBuilder pageBuilder)
     {
-        indexes[channel].appendTo(position, output);
-    }
+        while (!pageBuilder.isFull() && position < positionCount) {
+            long pageAddress = valueAddresses.getLong(position);
+            int blockIndex = decodeSliceIndex(pageAddress);
+            int blockPosition = decodePosition(pageAddress);
 
-    public void sort(int orderByChannel, int[] sortFields, boolean[] sortOrder)
-    {
-        ChannelIndex index = indexes[orderByChannel];
-        MultiSliceFieldOrderedTupleComparator comparator = new MultiSliceFieldOrderedTupleComparator(sortFields, sortOrder, index);
-        Arrays.quickSort(0, indexes[0].getValueAddresses().size(), comparator, this);
-    }
-
-    public static class MultiSliceFieldOrderedTupleComparator
-            extends AbstractIntComparator
-    {
-        private final TupleInfo tupleInfo;
-        private final long[] sliceAddresses;
-        private final Slice[] slices;
-        private final Type[] types;
-        private final int[] sortFields;
-        private final boolean[] sortOrder;
-
-        public MultiSliceFieldOrderedTupleComparator(int[] sortFields, boolean[] sortOrder, ChannelIndex index)
-        {
-            this(sortFields, sortOrder, index.getTupleInfo(), index.getValueAddresses().elements(), index.getSlices().elements());
-        }
-
-        public MultiSliceFieldOrderedTupleComparator(int[] sortFields, boolean[] sortOrder, TupleInfo tupleInfo, long[] sliceAddresses, Slice... slices)
-        {
-            this.sortFields = sortFields;
-            this.sortOrder = sortOrder;
-            this.tupleInfo = tupleInfo;
-            this.sliceAddresses = sliceAddresses;
-            this.slices = slices;
-            List<Type> types = tupleInfo.getTypes();
-            this.types = types.toArray(new Type[types.size()]);
-        }
-
-        @Override
-        public int compare(int leftPosition, int rightPosition)
-        {
-            long leftSliceAddress = sliceAddresses[leftPosition];
-            Slice leftSlice = slices[((int) (leftSliceAddress >> 32))];
-            int leftOffset = (int) leftSliceAddress;
-
-            long rightSliceAddress = sliceAddresses[rightPosition];
-            Slice rightSlice = slices[((int) (rightSliceAddress >> 32))];
-            int rightOffset = (int) rightSliceAddress;
-
-            for (int i = 0; i < sortFields.length; i++) {
-                int field = sortFields[i];
-                Type type = types[field];
-
-                // todo add support for nulls first, nulls last
-                int comparison;
-                switch (type) {
-                    case BOOLEAN:
-                        comparison = Boolean.compare(
-                                tupleInfo.getBoolean(leftSlice, leftOffset, field),
-                                tupleInfo.getBoolean(rightSlice, rightOffset, field));
-                        break;
-                    case FIXED_INT_64:
-                        comparison = Long.compare(
-                                tupleInfo.getLong(leftSlice, leftOffset, field),
-                                tupleInfo.getLong(rightSlice, rightOffset, field));
-                        break;
-                    case DOUBLE:
-                        comparison = Double.compare(
-                                tupleInfo.getDouble(leftSlice, leftOffset, field),
-                                tupleInfo.getDouble(rightSlice, rightOffset, field));
-                        break;
-                    case VARIABLE_BINARY:
-                        comparison = tupleInfo.getSlice(leftSlice, leftOffset, field)
-                                .compareTo(tupleInfo.getSlice(rightSlice, rightOffset, field));
-                        break;
-                    default:
-                        throw new AssertionError("unimplemented type: " + type);
-                }
-                if (comparison != 0) {
-                    return sortOrder[i] ? comparison : -comparison;
-                }
+            // append the row
+            for (int i = 0; i < outputChannels.length; i++) {
+                int outputChannel = outputChannels[i];
+                RandomAccessBlock block = this.channels[outputChannel].get(blockIndex);
+                block.appendTo(blockPosition, pageBuilder.getBlockBuilder(i));
             }
-            return 0;
+
+            position++;
         }
+
+        return position;
+    }
+
+    public void appendTo(int channel, int position, BlockBuilder output)
+    {
+        long pageAddress = valueAddresses.getLong(position);
+
+        RandomAccessBlock block = channels[channel].get(decodeSliceIndex(pageAddress));
+        int blockPosition = decodePosition(pageAddress);
+        block.appendTo(blockPosition, output);
+    }
+
+    public boolean equals(int[] channels, int leftPosition, int rightPosition)
+    {
+        if (leftPosition == rightPosition) {
+            return true;
+        }
+
+        long leftPageAddress = valueAddresses.getLong(leftPosition);
+        int leftBlockIndex = decodeSliceIndex(leftPageAddress);
+        int leftBlockPosition = decodePosition(leftPageAddress);
+
+        long rightPageAddress = valueAddresses.getLong(rightPosition);
+        int rightBlockIndex = decodeSliceIndex(rightPageAddress);
+        int rightBlockPosition = decodePosition(rightPageAddress);
+
+        for (int channel : channels) {
+            RandomAccessBlock leftBlock = this.channels[channel].get(leftBlockIndex);
+            RandomAccessBlock rightBlock = this.channels[channel].get(rightBlockIndex);
+
+            if (!leftBlock.equalTo(leftBlockPosition, rightBlock, rightBlockPosition)) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    public boolean equals(int[] channels, int position, BlockCursor[] cursors)
+    {
+        long pageAddress = valueAddresses.getLong(position);
+        int blockIndex = decodeSliceIndex(pageAddress);
+        int blockPosition = decodePosition(pageAddress);
+
+        for (int i = 0; i < channels.length; i++) {
+            int channel = channels[i];
+            BlockCursor cursor = cursors[i];
+
+            RandomAccessBlock block = this.channels[channel].get(blockIndex);
+
+            if (!block.equalTo(blockPosition, cursor)) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    public int hashCode(int[] channels, int position)
+    {
+        long pageAddress = valueAddresses.getLong(position);
+        int blockIndex = decodeSliceIndex(pageAddress);
+        int blockPosition = decodePosition(pageAddress);
+
+        int result = 0;
+        for (int channel : channels) {
+            RandomAccessBlock block = this.channels[channel].get(blockIndex);
+            result = 31 * result + block.hash(blockPosition);
+        }
+        return result;
+    }
+
+    public void sort(List<Integer> sortChannels, List<SortOrder> sortOrders)
+    {
+        orderingCompiler.compilePagesIndexOrdering(sortChannels, sortOrders).sort(this);
+    }
+
+    public IntComparator createComparator(final List<Integer> sortChannels, final List<SortOrder> sortOrders)
+    {
+        return new AbstractIntComparator()
+        {
+            private final PagesIndexComparator comparator = orderingCompiler.compilePagesIndexOrdering(sortChannels, sortOrders).getComparator();
+
+            public int compare(int leftPosition, int rightPosition)
+            {
+                return comparator.compareTo(PagesIndex.this, leftPosition, rightPosition);
+            }
+        };
+    }
+
+    public LookupSource createLookupSource(List<Integer> joinChannels)
+    {
+        try {
+            LookupSourceFactory lookupSourceFactory = joinCompiler.compileLookupSourceFactory(types, joinChannels);
+            LookupSource lookupSource = lookupSourceFactory.createLookupSource(
+                    valueAddresses,
+                    ImmutableList.<List<RandomAccessBlock>>copyOf(channels),
+                    operatorContext);
+
+            return lookupSource;
+        }
+        catch (Exception e) {
+            log.error(e, "Lookup source compile failed for types=%s error=%s", types, e);
+        }
+
+        PagesHashStrategy hashStrategy = new SimplePagesHashStrategy(
+                ImmutableList.<List<RandomAccessBlock>>copyOf(channels),
+                joinChannels);
+        return new InMemoryJoinHash(valueAddresses, hashStrategy, operatorContext);
     }
 }

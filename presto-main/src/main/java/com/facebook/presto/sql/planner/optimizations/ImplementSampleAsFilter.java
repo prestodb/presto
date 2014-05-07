@@ -13,8 +13,7 @@
  */
 package com.facebook.presto.sql.planner.optimizations;
 
-import com.facebook.presto.sql.analyzer.Session;
-import com.facebook.presto.sql.analyzer.Type;
+import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.SymbolAllocator;
@@ -28,6 +27,7 @@ import com.facebook.presto.sql.tree.DoubleLiteral;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.QualifiedName;
+import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableList;
 
 import java.util.Map;
@@ -38,7 +38,7 @@ public class ImplementSampleAsFilter
         extends PlanOptimizer
 {
     @Override
-    public PlanNode optimize(PlanNode plan, Session session, Map<Symbol, Type> types, SymbolAllocator symbolAllocator, PlanNodeIdAllocator idAllocator)
+    public PlanNode optimize(PlanNode plan, ConnectorSession session, Map<Symbol, Type> types, SymbolAllocator symbolAllocator, PlanNodeIdAllocator idAllocator)
     {
         checkNotNull(plan, "plan is null");
         checkNotNull(session, "session is null");
@@ -63,6 +63,9 @@ public class ImplementSampleAsFilter
                         new FunctionCall(QualifiedName.of("rand"), ImmutableList.<Expression>of()),
                         new DoubleLiteral(Double.toString(node.getSampleRatio())));
                 return new FilterNode(node.getId(), rewrittenSource, expression);
+            }
+            else if (node.getSampleType() == SampleNode.Type.POISSONIZED) {
+                return rewriteNode(node, context, planRewriter);
             }
             else if (node.getSampleType() == SampleNode.Type.SYSTEM) {
                 return rewriteNode(node, context, planRewriter);

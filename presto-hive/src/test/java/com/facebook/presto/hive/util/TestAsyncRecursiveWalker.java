@@ -13,6 +13,9 @@
  */
 package com.facebook.presto.hive.util;
 
+import com.facebook.presto.hive.DirectoryLister;
+import com.facebook.presto.hive.HadoopDirectoryLister;
+import com.facebook.presto.hive.NamenodeStats;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -42,6 +45,8 @@ import java.util.Map;
 
 public class TestAsyncRecursiveWalker
 {
+    private static final DirectoryLister DIRECTORY_LISTER = new HadoopDirectoryLister();
+
     @Test
     public void testSanity()
             throws Exception
@@ -51,7 +56,7 @@ public class TestAsyncRecursiveWalker
                 .put("/a", ImmutableList.of(fileStatus("/a/file2", false), fileStatus("/a/file3", false)))
                 .build();
 
-        AsyncRecursiveWalker walker = new AsyncRecursiveWalker(createMockFileSystem(paths), MoreExecutors.sameThreadExecutor());
+        AsyncRecursiveWalker walker = new AsyncRecursiveWalker(createMockFileSystem(paths), MoreExecutors.sameThreadExecutor(), DIRECTORY_LISTER, new NamenodeStats());
 
         MockFileStatusCallback callback = new MockFileStatusCallback();
         ListenableFuture<Void> listenableFuture = walker.beginWalk(new Path("/"), callback);
@@ -71,13 +76,36 @@ public class TestAsyncRecursiveWalker
                 .put("/", ImmutableList.<FileStatus>of())
                 .build();
 
-        AsyncRecursiveWalker walker = new AsyncRecursiveWalker(createMockFileSystem(paths), MoreExecutors.sameThreadExecutor());
+        AsyncRecursiveWalker walker = new AsyncRecursiveWalker(createMockFileSystem(paths), MoreExecutors.sameThreadExecutor(), DIRECTORY_LISTER, new NamenodeStats());
 
         MockFileStatusCallback callback = new MockFileStatusCallback();
         ListenableFuture<Void> listenableFuture = walker.beginWalk(new Path("/"), callback);
 
         Assert.assertTrue(listenableFuture.isDone());
         Assert.assertTrue(callback.getProcessedFiles().isEmpty());
+
+        // Should not have an exception
+        listenableFuture.get();
+    }
+
+    @Test
+    public void testHiddenFiles()
+            throws Exception
+    {
+        ImmutableMap<String, List<FileStatus>> paths = ImmutableMap.<String, List<FileStatus>>builder()
+                .put("/", ImmutableList.of(fileStatus("/.a", true), fileStatus("/_b", true), fileStatus("/c", true), fileStatus("/file1", false), fileStatus("/_file2", false), fileStatus("/.file3", false)))
+                .put("/.a", ImmutableList.of(fileStatus("/.a/file4", false), fileStatus("/.a/file5", false)))
+                .put("/_b", ImmutableList.of(fileStatus("/_b/file6", false), fileStatus("/_b/file7", false)))
+                .put("/c", ImmutableList.of(fileStatus("/c/file8", false), fileStatus("/c/.file9", false), fileStatus("/c/_file10", false)))
+                .build();
+
+        AsyncRecursiveWalker walker = new AsyncRecursiveWalker(createMockFileSystem(paths), MoreExecutors.sameThreadExecutor(), DIRECTORY_LISTER, new NamenodeStats());
+
+        MockFileStatusCallback callback = new MockFileStatusCallback();
+        ListenableFuture<Void> listenableFuture = walker.beginWalk(new Path("/"), callback);
+
+        Assert.assertTrue(listenableFuture.isDone());
+        Assert.assertEquals(ImmutableSet.copyOf(callback.getProcessedFiles()), ImmutableSet.of("/file1", "/c/file8"));
 
         // Should not have an exception
         listenableFuture.get();
@@ -95,7 +123,7 @@ public class TestAsyncRecursiveWalker
             {
                 throw new IOException();
             }
-        }, MoreExecutors.sameThreadExecutor());
+        }, MoreExecutors.sameThreadExecutor(), DIRECTORY_LISTER, new NamenodeStats());
 
         MockFileStatusCallback callback = new MockFileStatusCallback();
         ListenableFuture<Void> listenableFuture1 = walker.beginWalk(new Path("/"), callback);
@@ -228,7 +256,7 @@ public class TestAsyncRecursiveWalker
         }
 
         @Override
-        public void setWorkingDirectory(Path new_dir)
+        public void setWorkingDirectory(Path path)
         {
             throw new UnsupportedOperationException();
         }

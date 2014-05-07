@@ -13,39 +13,73 @@
  */
 package com.facebook.presto.server;
 
-import com.facebook.presto.AbstractTestQueries;
+import com.facebook.presto.AbstractTestSampledQueries;
 import com.facebook.presto.client.ClientSession;
 import com.facebook.presto.client.Column;
 import com.facebook.presto.client.QueryError;
 import com.facebook.presto.client.QueryResults;
 import com.facebook.presto.client.StatementClient;
 import com.facebook.presto.metadata.AllNodes;
+import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.QualifiedTableName;
 import com.facebook.presto.metadata.QualifiedTablePrefix;
-import com.facebook.presto.tuple.Tuple;
-import com.facebook.presto.tuple.TupleInfo;
-import com.facebook.presto.tuple.TupleInfo.Type;
+import com.facebook.presto.metadata.TableHandle;
+import com.facebook.presto.server.testing.TestingPrestoServer;
+import com.facebook.presto.spi.ConnectorSession;
+import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.tpch.SampledTpchPlugin;
+import com.facebook.presto.tpch.TpchMetadata;
+import com.facebook.presto.tpch.TpchPlugin;
 import com.facebook.presto.util.MaterializedResult;
+import com.facebook.presto.util.MaterializedRow;
 import com.google.common.base.Function;
 import com.google.common.base.Joiner;
+import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.io.Closeables;
+import com.google.common.collect.ImmutableSet;
+import com.google.inject.Module;
 import io.airlift.http.client.AsyncHttpClient;
 import io.airlift.http.client.HttpClientConfig;
-import io.airlift.http.client.netty.StandaloneNettyAsyncHttpClient;
+import io.airlift.http.client.jetty.JettyHttpClient;
 import io.airlift.json.JsonCodec;
 import io.airlift.log.Logger;
+import io.airlift.testing.Closeables;
 import io.airlift.units.Duration;
 import org.intellij.lang.annotations.Language;
 import org.testng.annotations.Test;
 
 import java.net.URI;
+import java.sql.Date;
+import java.sql.Time;
+import java.sql.Timestamp;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 
+import static com.facebook.presto.connector.informationSchema.InformationSchemaMetadata.INFORMATION_SCHEMA;
+import static com.facebook.presto.server.testing.TestingPrestoServer.TEST_CATALOG;
+import static com.facebook.presto.spi.type.BigintType.BIGINT;
+import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
+import static com.facebook.presto.spi.type.DateTimeEncoding.unpackMillisUtc;
+import static com.facebook.presto.spi.type.DateType.DATE;
+import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
+import static com.facebook.presto.spi.type.TimeType.TIME;
+import static com.facebook.presto.spi.type.TimeWithTimeZoneType.TIME_WITH_TIME_ZONE;
+import static com.facebook.presto.spi.type.TimeZoneKey.UTC_KEY;
+import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
+import static com.facebook.presto.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
+import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
+import static com.facebook.presto.util.DateTimeUtils.parseDate;
+import static com.facebook.presto.util.DateTimeUtils.parseTime;
+import static com.facebook.presto.util.DateTimeUtils.parseTimeWithTimeZone;
+import static com.facebook.presto.util.DateTimeUtils.parseTimestamp;
+import static com.facebook.presto.util.DateTimeUtils.parseTimestampWithTimeZone;
+import static com.facebook.presto.util.MaterializedResult.DEFAULT_PRECISION;
+import static com.facebook.presto.util.Types.checkType;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.Iterables.transform;
 import static io.airlift.json.JsonCodec.jsonCodec;
@@ -59,8 +93,10 @@ import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
 
 public class TestDistributedQueries
-        extends AbstractTestQueries
+        extends AbstractTestSampledQueries
 {
+    private static final ConnectorSession SESSION = new ConnectorSession("user", "test", TEST_CATALOG, "test", UTC_KEY, Locale.ENGLISH, null, null);
+
     private static final String ENVIRONMENT = "testing";
     private static final Logger log = Logger.get(TestDistributedQueries.class.getSimpleName());
     private final JsonCodec<QueryResults> queryResultsCodec = jsonCodec(QueryResults.class);
@@ -69,6 +105,15 @@ public class TestDistributedQueries
     private List<TestingPrestoServer> servers;
     private AsyncHttpClient httpClient;
     private TestingDiscoveryServer discoveryServer;
+
+    @Test
+    public void testShowSchemasFromOther()
+            throws Exception
+    {
+        MaterializedResult result = computeActual(format("SHOW SCHEMAS FROM tpch"));
+        ImmutableSet<String> schemaNames = ImmutableSet.copyOf(transform(result.getMaterializedRows(), onlyColumnGetter()));
+        assertTrue(schemaNames.containsAll(ImmutableSet.of(INFORMATION_SCHEMA, "sys", "tiny")));
+    }
 
     @Test(expectedExceptions = RuntimeException.class, expectedExceptionsMessageRegExp = "statement is too large \\(stack overflow during analysis\\)")
     public void testLargeQueryFailure()
@@ -88,11 +133,11 @@ public class TestDistributedQueries
     public void testTableSampleSystem()
             throws Exception
     {
-        int total = computeActual("SELECT orderkey FROM orders").getMaterializedTuples().size();
+        int total = computeActual("SELECT orderkey FROM orders").getMaterializedRows().size();
 
         boolean sampleSizeFound = false;
         for (int i = 0; i < 100; i++) {
-            int sampleSize = computeActual("SELECT orderkey FROM ORDERS TABLESAMPLE SYSTEM (50)").getMaterializedTuples().size();
+            int sampleSize = computeActual("SELECT orderkey FROM ORDERS TABLESAMPLE SYSTEM (50)").getMaterializedRows().size();
             if (sampleSize > 0 && sampleSize < total) {
                 sampleSizeFound = true;
                 break;
@@ -109,8 +154,81 @@ public class TestDistributedQueries
         MaterializedResult emptySample = computeActual("SELECT orderkey FROM orders TABLESAMPLE SYSTEM (0)");
         MaterializedResult all = computeActual("SELECT orderkey FROM orders");
 
-        assertTrue(all.getMaterializedTuples().containsAll(fullSample.getMaterializedTuples()));
-        assertEquals(emptySample.getMaterializedTuples().size(), 0);
+        assertTrue(all.getMaterializedRows().containsAll(fullSample.getMaterializedRows()));
+        assertEquals(emptySample.getMaterializedRows().size(), 0);
+    }
+
+    @Test
+    public void testCreateTableAsSelect()
+            throws Exception
+    {
+        assertCreateTable(
+                "test_simple",
+                "SELECT orderdate, orderkey, totalprice FROM orders",
+                "SELECT count(*) FROM orders");
+    }
+
+    @Test
+    public void testCreateTableAsSelectGroupBy()
+            throws Exception
+    {
+        assertCreateTable(
+                "test_group",
+                "SELECT orderstatus, sum(totalprice) x FROM orders GROUP BY orderstatus",
+                "SELECT count(DISTINCT orderstatus) FROM orders");
+    }
+
+    @Test
+    public void testCreateTableAsSelectLimit()
+            throws Exception
+    {
+        assertCreateTable(
+                "test_limit",
+                "SELECT orderkey FROM orders ORDER BY orderkey LIMIT 10",
+                "SELECT 10");
+    }
+
+    @Test
+    public void testCreateTableAsSelectJoin()
+            throws Exception
+    {
+        assertCreateTable(
+                "test_join",
+                "SELECT count(*) x FROM lineitem JOIN orders ON lineitem.orderkey = orders.orderkey",
+                "SELECT 1");
+    }
+
+    @Test
+    public void testCreateSampledTableAsSelectLimit()
+            throws Exception
+    {
+        assertCreateTable(
+                "test_limit_sampled",
+                "SELECT orderkey FROM tpch_sampled.tiny.orders ORDER BY orderkey LIMIT 10",
+                "SELECT orderkey FROM (SELECT orderkey FROM orders) UNION ALL (SELECT orderkey FROM orders) ORDER BY orderkey LIMIT 10",
+                "SELECT 10");
+    }
+
+    private void assertCreateTable(String table, @Language("SQL") String query, @Language("SQL") String rowCountQuery)
+            throws Exception
+    {
+        assertCreateTable(table, query, query, rowCountQuery);
+    }
+
+    private void assertCreateTable(String table, @Language("SQL") String query, @Language("SQL") String expectedQuery, @Language("SQL") String rowCountQuery)
+           throws Exception
+    {
+        try {
+            assertQuery("CREATE TABLE " +  table + " AS " + query, rowCountQuery);
+            assertQuery("SELECT * FROM " + table, expectedQuery);
+        }
+        finally {
+            QualifiedTableName name = new QualifiedTableName(TEST_CATALOG, "test", table);
+            Optional<TableHandle> handle = coordinator.getMetadata().getTableHandle(SESSION, name);
+            if (handle.isPresent()) {
+                coordinator.getMetadata().dropTable(handle.get());
+            }
+        }
     }
 
     @Override
@@ -120,7 +238,7 @@ public class TestDistributedQueries
     }
 
     @Override
-    protected void setUpQueryFramework(String catalog, String schema)
+    protected ConnectorSession setUpQueryFramework()
             throws Exception
     {
         try {
@@ -137,7 +255,7 @@ public class TestDistributedQueries
             throw e;
         }
 
-        this.httpClient = new StandaloneNettyAsyncHttpClient("test",
+        this.httpClient = new JettyHttpClient(
                 new HttpClientConfig()
                         .setConnectTimeout(new Duration(1, TimeUnit.DAYS))
                         .setReadTimeout(new Duration(10, TimeUnit.DAYS)));
@@ -148,10 +266,17 @@ public class TestDistributedQueries
             MILLISECONDS.sleep(10);
         }
 
+        for (TestingPrestoServer server : servers) {
+            server.getMetadata().addFunctions(CUSTOM_FUNCTIONS);
+        }
+
         log.info("Loading data...");
         long startTime = System.nanoTime();
-        distributeData(catalog, schema);
-        log.info("Loading complete in %.2fs", nanosSince(startTime).getValue(SECONDS));
+        distributeData("tpch", TpchMetadata.TINY_SCHEMA_NAME, getClientSession());
+        distributeData("tpch_sampled", TpchMetadata.TINY_SCHEMA_NAME, getSampledClientSession());
+        log.info("Loading complete in %s", nanosSince(startTime).toString(SECONDS));
+
+        return SESSION;
     }
 
     private boolean allNodesGloballyVisible()
@@ -179,31 +304,64 @@ public class TestDistributedQueries
         Closeables.closeQuietly(discoveryServer);
     }
 
-    private void distributeData(String catalog, String schema)
+    private void distributeData(String catalog, String schema, ClientSession session)
             throws Exception
     {
-        List<QualifiedTableName> qualifiedTableNames = coordinator.getMetadata().listTables(new QualifiedTablePrefix(catalog, schema));
-        for (QualifiedTableName qualifiedTableName : qualifiedTableNames) {
-            if (qualifiedTableName.getTableName().equalsIgnoreCase("dual")) {
+        for (QualifiedTableName table : coordinator.getMetadata().listTables(SESSION, new QualifiedTablePrefix(catalog, schema))) {
+            if (table.getTableName().equalsIgnoreCase("dual")) {
                 continue;
             }
-            log.info("Running import for %s", qualifiedTableName.getTableName());
-            MaterializedResult importResult = computeActual(format("CREATE MATERIALIZED VIEW default.default.%s AS SELECT * FROM %s",
-                    qualifiedTableName.getTableName(),
-                    qualifiedTableName));
-            log.info("Imported %s rows for %s", importResult.getMaterializedTuples().get(0).getField(0), qualifiedTableName.getTableName());
+            log.info("Running import for %s", table.getTableName());
+            @Language("SQL") String sql = format("CREATE TABLE %s AS SELECT * FROM %s", table.getTableName(), table);
+            long rows = checkType(compute(sql, session).getMaterializedRows().get(0).getField(0), Long.class, "rows");
+            log.info("Imported %s rows for %s", rows, table.getTableName());
         }
+    }
+
+    protected ClientSession getClientSession()
+    {
+        return new ClientSession(
+                coordinator.getBaseUrl(),
+                SESSION.getUser(),
+                SESSION.getSource(),
+                SESSION.getCatalog(),
+                SESSION.getSchema(),
+                SESSION.getTimeZoneKey().getId(),
+                SESSION.getLocale(),
+                true);
+    }
+
+    protected ClientSession getSampledClientSession()
+    {
+        return new ClientSession(
+                coordinator.getBaseUrl(),
+                SESSION.getUser(),
+                SESSION.getSource(),
+                SESSION.getCatalog(),
+                "sampled",
+                SESSION.getTimeZoneKey().getId(),
+                SESSION.getLocale(),
+                true);
+    }
+
+    @Override
+    protected MaterializedResult computeActualSampled(@Language("SQL") String sql)
+    {
+        return compute(sql, getSampledClientSession());
     }
 
     @Override
     protected MaterializedResult computeActual(@Language("SQL") String sql)
     {
-        ClientSession session = new ClientSession(coordinator.getBaseUrl(), "testuser", "test", "default", "default", true);
+        return compute(sql, getClientSession());
+    }
 
+    private MaterializedResult compute(@Language("SQL") String sql, ClientSession session)
+    {
         try (StatementClient client = new StatementClient(httpClient, queryResultsCodec, session, sql)) {
             AtomicBoolean loggedUri = new AtomicBoolean(false);
-            ImmutableList.Builder<Tuple> rows = ImmutableList.builder();
-            TupleInfo tupleInfo = null;
+            ImmutableList.Builder<MaterializedRow> rows = ImmutableList.builder();
+            List<Type> types = null;
 
             while (client.isValid()) {
                 QueryResults results = client.current();
@@ -211,18 +369,18 @@ public class TestDistributedQueries
                     log.info("Query %s: %s?pretty", results.getId(), results.getInfoUri());
                 }
 
-                if ((tupleInfo == null) && (results.getColumns() != null)) {
-                    tupleInfo = getTupleInfo(results.getColumns());
+                if ((types == null) && (results.getColumns() != null)) {
+                    types = getTypes(coordinator.getMetadata(), results.getColumns());
                 }
                 if (results.getData() != null) {
-                    rows.addAll(transform(results.getData(), dataToTuple(tupleInfo)));
+                    rows.addAll(transform(results.getData(), dataToRow(types)));
                 }
 
                 client.advance();
             }
 
             if (!client.isFailed()) {
-                return new MaterializedResult(rows.build(), tupleInfo);
+                return new MaterializedResult(rows.build(), types);
             }
 
             QueryError error = client.finalResults().getError();
@@ -238,67 +396,77 @@ public class TestDistributedQueries
         }
     }
 
-    private static TupleInfo getTupleInfo(List<Column> columns)
+    private static List<Type> getTypes(Metadata metadata, List<Column> columns)
     {
-        return new TupleInfo(transform(transform(columns, Column.typeGetter()), tupleType()));
+        return ImmutableList.copyOf(transform(columns, columnTypeGetter(metadata)));
     }
 
-    private static Function<String, Type> tupleType()
+    private static Function<Column, Type> columnTypeGetter(final Metadata metadata)
     {
-        return new Function<String, Type>()
+        return new Function<Column, Type>()
         {
             @Override
-            public Type apply(String type)
+            public Type apply(Column column)
             {
-                switch (type) {
-                    case "boolean":
-                        return Type.BOOLEAN;
-                    case "bigint":
-                        return Type.FIXED_INT_64;
-                    case "double":
-                        return Type.DOUBLE;
-                    case "varchar":
-                        return Type.VARIABLE_BINARY;
+                String typeName = column.getType();
+                Type type = metadata.getType(typeName);
+                if (type == null) {
+                    throw new AssertionError("Unhandled type: " + typeName);
                 }
-                throw new AssertionError("Unhandled type: " + type);
+                return type;
             }
         };
     }
 
-    private static Function<List<Object>, Tuple> dataToTuple(final TupleInfo tupleInfo)
+    private Function<List<Object>, MaterializedRow> dataToRow(final List<Type> types)
     {
-        return new Function<List<Object>, Tuple>()
+        return new Function<List<Object>, MaterializedRow>()
         {
             @Override
-            public Tuple apply(List<Object> data)
+            public MaterializedRow apply(List<Object> data)
             {
-                checkArgument(data.size() == tupleInfo.getTypes().size(), "columns size does not match tuple info");
-                TupleInfo.Builder tuple = tupleInfo.builder();
+                checkArgument(data.size() == types.size(), "columns size does not match types size");
+                List<Object> row = new ArrayList<>();
                 for (int i = 0; i < data.size(); i++) {
                     Object value = data.get(i);
                     if (value == null) {
-                        tuple.appendNull();
+                        row.add(null);
                         continue;
                     }
-                    Type type = tupleInfo.getTypes().get(i);
-                    switch (type) {
-                        case BOOLEAN:
-                            tuple.append((Boolean) value);
-                            break;
-                        case FIXED_INT_64:
-                            tuple.append(((Number) value).longValue());
-                            break;
-                        case DOUBLE:
-                            tuple.append(((Number) value).doubleValue());
-                            break;
-                        case VARIABLE_BINARY:
-                            tuple.append((String) value);
-                            break;
-                        default:
-                            throw new AssertionError("unhandled type: " + type);
+
+                    Type type = types.get(i);
+                    if (BOOLEAN.equals(type)) {
+                        row.add(value);
+                    }
+                    else if (BIGINT.equals(type)) {
+                        row.add(((Number) value).longValue());
+                    }
+                    else if (DOUBLE.equals(type)) {
+                        row.add(((Number) value).doubleValue());
+                    }
+                    else if (VARCHAR.equals(type)) {
+                        row.add(value);
+                    }
+                    else if (DATE.equals(type)) {
+                        row.add(new Date(parseDate((String) value)));
+                    }
+                    else if (TIME.equals(type)) {
+                        row.add(new Time(parseTime(getSession().getTimeZoneKey(), (String) value)));
+                    }
+                    else if (TIME_WITH_TIME_ZONE.equals(type)) {
+                        row.add(new Time(unpackMillisUtc(parseTimeWithTimeZone((String) value))));
+                    }
+                    else if (TIMESTAMP.equals(type)) {
+                        row.add(new Timestamp(parseTimestamp(getSession().getTimeZoneKey(), (String) value)));
+                    }
+                    else if (TIMESTAMP_WITH_TIME_ZONE.equals(type)) {
+                        row.add(new Timestamp(unpackMillisUtc(parseTimestampWithTimeZone((String) value))));
+                    }
+                    else {
+                        throw new AssertionError("unhandled type: " + type);
                     }
                 }
-                return tuple.build();
+                return new MaterializedRow(DEFAULT_PRECISION, row);
             }
         };
     }
@@ -309,9 +477,12 @@ public class TestDistributedQueries
         Map<String, String> properties = ImmutableMap.<String, String>builder()
                 .put("query.client.timeout", "10m")
                 .put("exchange.http-client.read-timeout", "1h")
-                .put("datasources", "native,tpch")
+                .put("datasources", "native,tpch,tpch_sampled")
                 .build();
 
-        return new TestingPrestoServer(coordinator, properties, ENVIRONMENT, discoveryUri);
+        TestingPrestoServer server = new TestingPrestoServer(coordinator, properties, ENVIRONMENT, discoveryUri, ImmutableList.<Module>of());
+        server.installPlugin(new TpchPlugin(), "tpch", "tpch");
+        server.installPlugin(new SampledTpchPlugin(), "tpch_sampled", "tpch_sampled");
+        return server;
     }
 }

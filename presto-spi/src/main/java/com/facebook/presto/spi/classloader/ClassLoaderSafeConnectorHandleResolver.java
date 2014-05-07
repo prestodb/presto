@@ -13,12 +13,14 @@
  */
 package com.facebook.presto.spi.classloader;
 
-import com.facebook.presto.spi.ColumnHandle;
+import com.facebook.presto.spi.ConnectorColumnHandle;
 import com.facebook.presto.spi.ConnectorHandleResolver;
-import com.facebook.presto.spi.Split;
-import com.facebook.presto.spi.TableHandle;
+import com.facebook.presto.spi.ConnectorIndexHandle;
+import com.facebook.presto.spi.ConnectorSplit;
+import com.facebook.presto.spi.ConnectorTableHandle;
 
-@SuppressWarnings("UnusedDeclaration")
+import static java.util.Objects.requireNonNull;
+
 public class ClassLoaderSafeConnectorHandleResolver
         implements ConnectorHandleResolver
 {
@@ -27,54 +29,62 @@ public class ClassLoaderSafeConnectorHandleResolver
 
     public ClassLoaderSafeConnectorHandleResolver(ConnectorHandleResolver delegate, ClassLoader classLoader)
     {
-        this.delegate = delegate;
-        this.classLoader = classLoader;
+        this.delegate = requireNonNull(delegate, "delegate is null");
+        this.classLoader = requireNonNull(classLoader, "classLoader is null");
     }
 
     @Override
-    public boolean canHandle(TableHandle tableHandle)
+    public boolean canHandle(ConnectorTableHandle tableHandle)
     {
-        try (ThreadContextClassLoader threadContextClassLoader = new ThreadContextClassLoader(classLoader)) {
+        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
             return delegate.canHandle(tableHandle);
         }
     }
 
     @Override
-    public boolean canHandle(ColumnHandle columnHandle)
+    public boolean canHandle(ConnectorColumnHandle columnHandle)
     {
-        try (ThreadContextClassLoader threadContextClassLoader = new ThreadContextClassLoader(classLoader)) {
+        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
             return delegate.canHandle(columnHandle);
         }
     }
 
     @Override
-    public boolean canHandle(Split split)
+    public boolean canHandle(ConnectorSplit split)
     {
-        try (ThreadContextClassLoader threadContextClassLoader = new ThreadContextClassLoader(classLoader)) {
+        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
             return delegate.canHandle(split);
         }
     }
 
     @Override
-    public Class<? extends TableHandle> getTableHandleClass()
+    public boolean canHandle(ConnectorIndexHandle indexHandle)
     {
-        try (ThreadContextClassLoader threadContextClassLoader = new ThreadContextClassLoader(classLoader)) {
+        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
+            return delegate.canHandle(indexHandle);
+        }
+    }
+
+    @Override
+    public Class<? extends ConnectorTableHandle> getTableHandleClass()
+    {
+        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
             return delegate.getTableHandleClass();
         }
     }
 
     @Override
-    public Class<? extends ColumnHandle> getColumnHandleClass()
+    public Class<? extends ConnectorColumnHandle> getColumnHandleClass()
     {
-        try (ThreadContextClassLoader threadContextClassLoader = new ThreadContextClassLoader(classLoader)) {
+        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
             return delegate.getColumnHandleClass();
         }
     }
 
     @Override
-    public Class<? extends Split> getSplitClass()
+    public Class<? extends ConnectorSplit> getSplitClass()
     {
-        try (ThreadContextClassLoader threadContextClassLoader = new ThreadContextClassLoader(classLoader)) {
+        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
             return delegate.getSplitClass();
         }
     }
@@ -82,8 +92,16 @@ public class ClassLoaderSafeConnectorHandleResolver
     @Override
     public String toString()
     {
-        try (ThreadContextClassLoader threadContextClassLoader = new ThreadContextClassLoader(classLoader)) {
+        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
             return delegate.toString();
+        }
+    }
+
+    @Override
+    public Class<? extends ConnectorIndexHandle> getIndexHandleClass()
+    {
+        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
+            return delegate.getIndexHandleClass();
         }
     }
 }

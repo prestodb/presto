@@ -13,58 +13,51 @@
  */
 package com.facebook.presto.operator;
 
-import com.facebook.presto.block.Block;
-import com.facebook.presto.block.BlockBuilder;
-import com.facebook.presto.tuple.TupleInfo;
-import io.airlift.slice.DynamicSliceOutput;
-import io.airlift.units.DataSize;
-import io.airlift.units.DataSize.Unit;
+import com.facebook.presto.spi.block.Block;
+import com.facebook.presto.spi.block.BlockBuilder;
+import com.facebook.presto.spi.block.BlockBuilderStatus;
+import com.facebook.presto.spi.type.Type;
 
 import java.util.List;
 
-import static com.google.common.base.Preconditions.checkNotNull;
+import static com.facebook.presto.spi.block.BlockBuilderStatus.DEFAULT_MAX_BLOCK_SIZE_IN_BYTES;
+import static com.facebook.presto.spi.block.BlockBuilderStatus.DEFAULT_MAX_PAGE_SIZE_IN_BYTES;
 
 public class PageBuilder
 {
-    public static final DataSize DEFAULT_MAX_PAGE_SIZE = new DataSize(1, Unit.MEGABYTE);
-
     private final BlockBuilder[] blockBuilders;
-    private final long maxSizeInBytes;
-    private final int maxBlockSize;
+    private BlockBuilderStatus blockBuilderStatus;
     private int declaredPositions;
 
-    public PageBuilder(List<TupleInfo> tupleInfos)
+    public PageBuilder(List<? extends Type> types)
     {
-        this(tupleInfos, DEFAULT_MAX_PAGE_SIZE);
-    }
-
-    public PageBuilder(List<TupleInfo> tupleInfos, DataSize maxSize)
-    {
-        if (!tupleInfos.isEmpty()) {
-            maxBlockSize = (int) (maxSize.toBytes() / tupleInfos.size());
+        int maxBlockSizeInBytes;
+        if (!types.isEmpty()) {
+            maxBlockSizeInBytes = (int) (1.0 * DEFAULT_MAX_PAGE_SIZE_IN_BYTES / types.size());
+            maxBlockSizeInBytes = Math.min(DEFAULT_MAX_BLOCK_SIZE_IN_BYTES, maxBlockSizeInBytes);
         }
         else {
-            maxBlockSize = 0;
+            maxBlockSizeInBytes = 0;
         }
+        blockBuilderStatus = new BlockBuilderStatus(DEFAULT_MAX_PAGE_SIZE_IN_BYTES, maxBlockSizeInBytes);
 
-        blockBuilders = new BlockBuilder[tupleInfos.size()];
+        blockBuilders = new BlockBuilder[types.size()];
         for (int i = 0; i < blockBuilders.length; i++) {
-            blockBuilders[i] = new BlockBuilder(tupleInfos.get(i), maxBlockSize, new DynamicSliceOutput((int) (maxBlockSize * 1.5)));
+            blockBuilders[i] = types.get(i).createBlockBuilder(blockBuilderStatus);
         }
-        this.maxSizeInBytes = checkNotNull(maxSize, "maxSize is null").toBytes();
     }
 
     public void reset()
     {
-        declaredPositions = 0;
         if (isEmpty()) {
             return;
         }
+        declaredPositions = 0;
+        blockBuilderStatus = new BlockBuilderStatus(blockBuilderStatus);
 
         for (int i = 0; i < blockBuilders.length; i++) {
             BlockBuilder blockBuilder = blockBuilders[i];
-            int estimatedSize = (int) (blockBuilder.size() * 1.5);
-            blockBuilders[i] = new BlockBuilder(blockBuilder.getTupleInfo(), maxBlockSize, new DynamicSliceOutput(estimatedSize));
+            blockBuilders[i] = blockBuilder.getType().createBlockBuilder(blockBuilderStatus);
         }
     }
 
@@ -83,33 +76,19 @@ public class PageBuilder
 
     public boolean isFull()
     {
-        if (declaredPositions == Integer.MAX_VALUE) {
-            return true;
-        }
-
-        long sizeInBytes = 0;
-        for (BlockBuilder blockBuilder : blockBuilders) {
-            if (blockBuilder.isFull()) {
-                return true;
-            }
-            sizeInBytes += blockBuilder.size();
-            if (sizeInBytes > maxSizeInBytes) {
-                return true;
-            }
-        }
-        return false;
+        return declaredPositions == Integer.MAX_VALUE || blockBuilderStatus.isFull();
     }
 
     public boolean isEmpty()
     {
-        return blockBuilders.length == 0 ? declaredPositions == 0 : blockBuilders[0].isEmpty();
+        return blockBuilders.length == 0 ? declaredPositions == 0 : blockBuilderStatus.isEmpty();
     }
 
     public long getSize()
     {
         long sizeInBytes = 0;
         for (BlockBuilder blockBuilder : blockBuilders) {
-            sizeInBytes += blockBuilder.size();
+            sizeInBytes += blockBuilder.getSizeInBytes();
         }
         return sizeInBytes;
     }

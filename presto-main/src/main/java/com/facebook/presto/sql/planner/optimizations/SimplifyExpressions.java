@@ -14,9 +14,9 @@
 package com.facebook.presto.sql.planner.optimizations;
 
 import com.facebook.presto.metadata.Metadata;
-import com.facebook.presto.sql.analyzer.Session;
-import com.facebook.presto.sql.analyzer.Type;
+import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.sql.planner.ExpressionInterpreter;
+import com.facebook.presto.sql.planner.LiteralInterpreter;
 import com.facebook.presto.sql.planner.NoOpSymbolResolver;
 import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
 import com.facebook.presto.sql.planner.Symbol;
@@ -29,12 +29,15 @@ import com.facebook.presto.sql.planner.plan.ProjectNode;
 import com.facebook.presto.sql.planner.plan.TableScanNode;
 import com.facebook.presto.sql.tree.BooleanLiteral;
 import com.facebook.presto.sql.tree.Expression;
+import com.facebook.presto.spi.type.Type;
 import com.google.common.base.Function;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Maps;
 
+import java.util.IdentityHashMap;
 import java.util.Map;
 
+import static com.facebook.presto.sql.analyzer.ExpressionAnalyzer.getExpressionTypes;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 public class SimplifyExpressions
@@ -48,7 +51,7 @@ public class SimplifyExpressions
     }
 
     @Override
-    public PlanNode optimize(PlanNode plan, Session session, Map<Symbol, Type> types, SymbolAllocator symbolAllocator, PlanNodeIdAllocator idAllocator)
+    public PlanNode optimize(PlanNode plan, ConnectorSession session, Map<Symbol, Type> types, SymbolAllocator symbolAllocator, PlanNodeIdAllocator idAllocator)
     {
         checkNotNull(plan, "plan is null");
         checkNotNull(session, "session is null");
@@ -56,19 +59,21 @@ public class SimplifyExpressions
         checkNotNull(symbolAllocator, "symbolAllocator is null");
         checkNotNull(idAllocator, "idAllocator is null");
 
-        return PlanRewriter.rewriteWith(new Rewriter(metadata, session), plan);
+        return PlanRewriter.rewriteWith(new Rewriter(metadata, session, types), plan);
     }
 
     private static class Rewriter
             extends PlanNodeRewriter<Void>
     {
         private final Metadata metadata;
-        private final Session session;
+        private final ConnectorSession session;
+        private final Map<Symbol, Type> types;
 
-        public Rewriter(Metadata metadata, Session session)
+        public Rewriter(Metadata metadata, ConnectorSession session, Map<Symbol, Type> types)
         {
             this.metadata = metadata;
             this.session = session;
+            this.types = types;
         }
 
         @Override
@@ -93,7 +98,11 @@ public class SimplifyExpressions
         @Override
         public PlanNode rewriteTableScan(TableScanNode node, Void context, PlanRewriter<Void> planRewriter)
         {
-            return new TableScanNode(node.getId(), node.getTable(), node.getOutputSymbols(), node.getAssignments(), simplifyExpression(node.getPartitionPredicate()), simplifyExpression(node.getUpstreamPredicateHint()));
+            Expression originalConstraint = null;
+            if (node.getOriginalConstraint() != null) {
+                originalConstraint = simplifyExpression(node.getOriginalConstraint());
+            }
+            return new TableScanNode(node.getId(), node.getTable(), node.getOutputSymbols(), node.getAssignments(), originalConstraint, node.getSummarizedPartition());
         }
 
         private Function<Expression, Expression> simplifyExpressionFunction()
@@ -110,8 +119,9 @@ public class SimplifyExpressions
 
         private Expression simplifyExpression(Expression input)
         {
-            ExpressionInterpreter interpreter = ExpressionInterpreter.expressionOptimizer(input, metadata, session);
-            return ExpressionInterpreter.toExpression(interpreter.optimize(NoOpSymbolResolver.INSTANCE));
+            IdentityHashMap<Expression, Type> expressionTypes = getExpressionTypes(session, metadata, types, input);
+            ExpressionInterpreter interpreter = ExpressionInterpreter.expressionOptimizer(input, metadata, session, expressionTypes);
+            return LiteralInterpreter.toExpression(interpreter.optimize(NoOpSymbolResolver.INSTANCE), expressionTypes.get(input));
         }
     }
 }

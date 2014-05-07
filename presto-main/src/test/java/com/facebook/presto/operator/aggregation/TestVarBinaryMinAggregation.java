@@ -13,8 +13,9 @@
  */
 package com.facebook.presto.operator.aggregation;
 
-import com.facebook.presto.block.Block;
-import com.facebook.presto.block.BlockBuilder;
+import com.facebook.presto.spi.block.Block;
+import com.facebook.presto.spi.block.BlockBuilder;
+import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.google.common.base.Charsets;
 import com.google.common.collect.Ordering;
 import com.google.common.primitives.Ints;
@@ -22,7 +23,7 @@ import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 
 import static com.facebook.presto.operator.aggregation.VarBinaryMinAggregation.VAR_BINARY_MIN;
-import static com.facebook.presto.tuple.TupleInfo.SINGLE_VARBINARY;
+import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 
 public class TestVarBinaryMinAggregation
         extends AbstractTestAggregationFunction
@@ -30,9 +31,9 @@ public class TestVarBinaryMinAggregation
     @Override
     public Block getSequenceBlock(int start, int length)
     {
-        BlockBuilder blockBuilder = new BlockBuilder(SINGLE_VARBINARY);
+        BlockBuilder blockBuilder = VARCHAR.createBlockBuilder(new BlockBuilderStatus());
         for (int i = 0; i < length; i++) {
-            blockBuilder.append(Slices.wrappedBuffer(Ints.toByteArray(i)));
+            blockBuilder.appendSlice(Slices.wrappedBuffer(Ints.toByteArray(i)));
         }
         return blockBuilder.build();
     }

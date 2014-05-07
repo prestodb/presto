@@ -13,20 +13,24 @@
  */
 package com.facebook.presto.split;
 
-import com.facebook.presto.metadata.Metadata;
+import com.facebook.presto.metadata.NativeMetadata;
 import com.facebook.presto.metadata.NativeTableHandle;
-import com.facebook.presto.metadata.Node;
-import com.facebook.presto.metadata.NodeManager;
 import com.facebook.presto.metadata.ShardManager;
 import com.facebook.presto.metadata.TablePartition;
-import com.facebook.presto.spi.ColumnHandle;
+import com.facebook.presto.spi.ConnectorColumnHandle;
+import com.facebook.presto.spi.ConnectorPartition;
+import com.facebook.presto.spi.ConnectorPartitionResult;
+import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.ConnectorSplitManager;
+import com.facebook.presto.spi.ConnectorSplitSource;
+import com.facebook.presto.spi.ConnectorTableHandle;
+import com.facebook.presto.spi.ConnectorTableMetadata;
+import com.facebook.presto.spi.FixedSplitSource;
 import com.facebook.presto.spi.HostAddress;
-import com.facebook.presto.spi.Partition;
+import com.facebook.presto.spi.Node;
+import com.facebook.presto.spi.NodeManager;
 import com.facebook.presto.spi.PartitionKey;
-import com.facebook.presto.spi.Split;
-import com.facebook.presto.spi.TableHandle;
-import com.facebook.presto.spi.TableMetadata;
+import com.facebook.presto.spi.TupleDomain;
 import com.google.common.base.Objects;
 import com.google.common.base.Stopwatch;
 import com.google.common.collect.Collections2;
@@ -44,9 +48,11 @@ import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
+import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 
-import static com.facebook.presto.metadata.Node.hostAndPortGetter;
+import static com.facebook.presto.metadata.PrestoNode.getIdentifierFunction;
+import static com.facebook.presto.metadata.PrestoNode.hostAndPortGetter;
 import static com.google.common.base.Functions.forMap;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
@@ -61,10 +67,10 @@ public class NativeSplitManager
 
     private final NodeManager nodeManager;
     private final ShardManager shardManager;
-    private final Metadata metadata;
+    private final NativeMetadata metadata;
 
     @Inject
-    public NativeSplitManager(NodeManager nodeManager, ShardManager shardManager, Metadata metadata)
+    public NativeSplitManager(NodeManager nodeManager, ShardManager shardManager, NativeMetadata metadata)
     {
         this.nodeManager = checkNotNull(nodeManager, "nodeManager is null");
         this.shardManager = checkNotNull(shardManager, "shardManager is null");
@@ -78,20 +84,14 @@ public class NativeSplitManager
     }
 
     @Override
-    public boolean canHandle(TableHandle handle)
-    {
-        return handle instanceof NativeTableHandle;
-    }
-
-    @Override
-    public List<Partition> getPartitions(TableHandle tableHandle, Map<ColumnHandle, Object> bindings)
+    public ConnectorPartitionResult getPartitions(ConnectorTableHandle tableHandle, TupleDomain<ConnectorColumnHandle> tupleDomain)
     {
         Stopwatch partitionTimer = new Stopwatch();
         partitionTimer.start();
 
         checkArgument(tableHandle instanceof NativeTableHandle, "Table must be a native table");
 
-        TableMetadata tableMetadata = metadata.getTableMetadata(tableHandle);
+        ConnectorTableMetadata tableMetadata = metadata.getTableMetadata(tableHandle);
 
         checkState(tableMetadata != null, "no metadata for %s found", tableHandle);
 
@@ -100,47 +100,47 @@ public class NativeSplitManager
         log.debug("Partition retrieval, native table %s (%d partitions): %dms", tableHandle, tablePartitions.size(), partitionTimer.elapsed(TimeUnit.MILLISECONDS));
 
         Multimap<String, ? extends PartitionKey> allPartitionKeys = shardManager.getAllPartitionKeys(tableHandle);
-        Map<String, ColumnHandle> columnHandles = metadata.getColumnHandles(tableHandle);
+        Map<String, ConnectorColumnHandle> columnHandles = metadata.getColumnHandles(tableHandle);
 
         log.debug("Partition key retrieval, native table %s (%d keys): %dms", tableHandle, allPartitionKeys.size(), partitionTimer.elapsed(TimeUnit.MILLISECONDS));
 
-        List<Partition> partitions = ImmutableList.copyOf(Collections2.transform(tablePartitions, new PartitionFunction(columnHandles, allPartitionKeys)));
+        List<ConnectorPartition> partitions = ImmutableList.copyOf(Collections2.transform(tablePartitions, new PartitionFunction(columnHandles, allPartitionKeys)));
 
         log.debug("Partition generation, native table %s (%d partitions): %dms", tableHandle, partitions.size(), partitionTimer.elapsed(TimeUnit.MILLISECONDS));
 
-        return partitions;
+        return new ConnectorPartitionResult(partitions, tupleDomain);
     }
 
     @Override
-    public Iterable<Split> getPartitionSplits(TableHandle tableHandle, List<Partition> partitions)
+    public ConnectorSplitSource getPartitionSplits(ConnectorTableHandle tableHandle, List<ConnectorPartition> partitions)
     {
         Stopwatch splitTimer = new Stopwatch();
         splitTimer.start();
 
         checkNotNull(partitions, "partitions is null");
         if (partitions.isEmpty()) {
-            return ImmutableList.of();
+            return new FixedSplitSource(getConnectorId(), ImmutableList.<ConnectorSplit>of());
         }
 
-        Map<String, Node> nodesById = uniqueIndex(nodeManager.getAllNodes().getActiveNodes(), Node.getIdentifierFunction());
+        Map<String, Node> nodesById = uniqueIndex(nodeManager.getActiveNodes(), getIdentifierFunction());
 
-        List<Split> splits = new ArrayList<>();
+        List<ConnectorSplit> splits = new ArrayList<>();
 
-        Multimap<Long, Entry<Long, String>> partitionShardNodes = shardManager.getCommittedPartitionShardNodes(tableHandle);
+        Multimap<Long, Entry<UUID, String>> partitionShardNodes = shardManager.getShardNodesByPartition(tableHandle);
 
-        for (Partition partition : partitions) {
+        for (ConnectorPartition partition : partitions) {
             checkArgument(partition instanceof NativePartition, "Partition must be a native partition");
             NativePartition nativePartition = (NativePartition) partition;
 
-            ImmutableMultimap.Builder<Long, String> shardNodes = ImmutableMultimap.builder();
-            for (Entry<Long, String> partitionShardNode : partitionShardNodes.get(nativePartition.getNativePartitionId())) {
-                shardNodes.put(partitionShardNode.getKey(), partitionShardNode.getValue());
+            ImmutableMultimap.Builder<UUID, String> shardNodes = ImmutableMultimap.builder();
+            for (Entry<UUID, String> shardNode : partitionShardNodes.get(nativePartition.getNativePartitionId())) {
+                shardNodes.put(shardNode.getKey(), shardNode.getValue());
             }
 
-            for (Map.Entry<Long, Collection<String>> entry : shardNodes.build().asMap().entrySet()) {
+            for (Map.Entry<UUID, Collection<String>> entry : shardNodes.build().asMap().entrySet()) {
                 List<HostAddress> addresses = getAddressesForNodes(nodesById, entry.getValue());
                 checkState(addresses.size() > 0, "no host for shard %s found", entry.getKey());
-                Split split = new NativeSplit(entry.getKey(), addresses);
+                ConnectorSplit split = new NativeSplit(entry.getKey(), addresses);
                 splits.add(split);
             }
         }
@@ -152,7 +152,7 @@ public class NativeSplitManager
         // set of nodes is fired up. Shuffle the splits to ensure random distribution.
         Collections.shuffle(splits);
 
-        return ImmutableList.copyOf(splits);
+        return new FixedSplitSource(getConnectorId(), splits);
     }
 
     private static List<HostAddress> getAddressesForNodes(Map<String, Node> nodeMap, Iterable<String> nodeIdentifiers)
@@ -161,15 +161,15 @@ public class NativeSplitManager
     }
 
     public static class NativePartition
-            implements Partition
+            implements ConnectorPartition
     {
         private final long partitionId;
-        private Map<ColumnHandle, Object> keys;
+        private final TupleDomain<ConnectorColumnHandle> tupleDomain;
 
-        public NativePartition(long partitionId, Map<ColumnHandle, Object> keys)
+        public NativePartition(long partitionId, TupleDomain<ConnectorColumnHandle> tupleDomain)
         {
             this.partitionId = partitionId;
-            this.keys = keys;
+            this.tupleDomain = checkNotNull(tupleDomain, "tupleDomain is null");
         }
 
         @Override
@@ -184,15 +184,15 @@ public class NativeSplitManager
         }
 
         @Override
-        public Map<ColumnHandle, Object> getKeys()
+        public TupleDomain<ConnectorColumnHandle> getTupleDomain()
         {
-            return keys;
+            return tupleDomain;
         }
 
         @Override
         public int hashCode()
         {
-            return Objects.hashCode(partitionId, keys);
+            return Objects.hashCode(partitionId, tupleDomain);
         }
 
         @Override
@@ -206,7 +206,7 @@ public class NativeSplitManager
             }
             final NativePartition other = (NativePartition) obj;
             return this.partitionId == other.partitionId
-                    && Objects.equal(this.keys, other.keys);
+                    && Objects.equal(this.tupleDomain, other.tupleDomain);
         }
 
         @Override
@@ -214,7 +214,7 @@ public class NativeSplitManager
         {
             return Objects.toStringHelper(this)
                     .add("partitionId", partitionId)
-                    .add("keys", keys)
+                    .add("tupleDomain", tupleDomain)
                     .toString();
         }
     }

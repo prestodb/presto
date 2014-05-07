@@ -13,9 +13,9 @@
  */
 package com.facebook.presto.server;
 
-import com.facebook.presto.OutputBuffers;
 import com.facebook.presto.TaskSource;
-import com.facebook.presto.client.FailureInfo;
+import com.facebook.presto.UnpartitionedPagePartitionFunction;
+import com.facebook.presto.execution.ExecutionFailureInfo;
 import com.facebook.presto.execution.LocationFactory;
 import com.facebook.presto.execution.QueryId;
 import com.facebook.presto.execution.QueryInfo;
@@ -28,13 +28,12 @@ import com.facebook.presto.execution.StageState;
 import com.facebook.presto.execution.StageStats;
 import com.facebook.presto.execution.TaskId;
 import com.facebook.presto.execution.TaskInfo;
-import com.facebook.presto.sql.analyzer.Session;
-import com.facebook.presto.tuple.TupleInfo;
+import com.facebook.presto.spi.ConnectorSession;
+import com.facebook.presto.spi.type.Type;
 import com.google.common.base.Function;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableSet;
 import io.airlift.units.Duration;
 
 import javax.annotation.concurrent.ThreadSafe;
@@ -42,12 +41,15 @@ import javax.inject.Inject;
 
 import java.net.URI;
 import java.util.List;
+import java.util.Locale;
 import java.util.NoSuchElementException;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.atomic.AtomicInteger;
 
-import static com.facebook.presto.tuple.TupleInfo.SINGLE_VARBINARY;
+import static com.facebook.presto.OutputBuffers.INITIAL_EMPTY_OUTPUT_BUFFERS;
+import static com.facebook.presto.spi.type.TimeZoneKey.UTC_KEY;
+import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.google.common.collect.Iterables.filter;
 import static com.google.common.collect.Iterables.transform;
 
@@ -55,7 +57,7 @@ import static com.google.common.collect.Iterables.transform;
 public class MockQueryManager
         implements QueryManager
 {
-    public static final List<TupleInfo> TUPLE_INFOS = ImmutableList.of(SINGLE_VARBINARY);
+    public static final List<Type> TYPES = ImmutableList.<Type>of(VARCHAR);
 
     private final MockTaskManager mockTaskManager;
     private final LocationFactory locationFactory;
@@ -109,7 +111,7 @@ public class MockQueryManager
     }
 
     @Override
-    public QueryInfo createQuery(Session session, String query)
+    public QueryInfo createQuery(ConnectorSession session, String query)
     {
         Preconditions.checkNotNull(query, "query is null");
 
@@ -119,7 +121,7 @@ public class MockQueryManager
                 outputTaskId,
                 null,
                 ImmutableList.<TaskSource>of(),
-                new OutputBuffers(ImmutableSet.<String>of("out"), true));
+                INITIAL_EMPTY_OUTPUT_BUFFERS.withBuffer("out", new UnpartitionedPagePartitionFunction()).withNoMoreBufferIds());
 
         SimpleQuery simpleQuery = new SimpleQuery(outputTaskId, locationFactory.createQueryLocation(outputTaskId.getQueryId()), mockTaskManager, locationFactory);
         queries.put(outputTaskId.getQueryId(), simpleQuery);
@@ -176,7 +178,7 @@ public class MockQueryManager
                     throw new IllegalStateException("Unknown task state " + outputTask.getState());
             }
             return new QueryInfo(outputTaskId.getQueryId(),
-                    new Session("user", "test", "test_catalog", "test_schema", null, null),
+                    new ConnectorSession("user", "test", "test_catalog", "test_schema", UTC_KEY, Locale.ENGLISH, null, null),
                     state,
                     self,
                     ImmutableList.of("out"),
@@ -186,11 +188,13 @@ public class MockQueryManager
                             StageState.FINISHED,
                             locationFactory.createStageLocation(outputTaskId.getStageId()),
                             null,
-                            TUPLE_INFOS,
+                            TYPES,
                             new StageStats(),
-                            ImmutableList.<TaskInfo>of(outputTask),
+                            ImmutableList.of(outputTask),
                             ImmutableList.<StageInfo>of(),
-                            ImmutableList.<FailureInfo>of()),
+                            ImmutableList.<ExecutionFailureInfo>of()),
+                    null,
+                    null,
                     null);
         }
     }

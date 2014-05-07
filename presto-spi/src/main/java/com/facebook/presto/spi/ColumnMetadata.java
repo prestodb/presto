@@ -13,16 +13,18 @@
  */
 package com.facebook.presto.spi;
 
+import com.facebook.presto.spi.type.Type;
+
 import java.util.Objects;
 
 public class ColumnMetadata
 {
     private final String name;
-    private final ColumnType type;
+    private final Type type;
     private final int ordinalPosition;
     private final boolean partitionKey;
 
-    public ColumnMetadata(String name, ColumnType type, int ordinalPosition, boolean partitionKey)
+    public ColumnMetadata(String name, Type type, int ordinalPosition, boolean partitionKey)
     {
         if (name == null || name.isEmpty()) {
             throw new NullPointerException("name is null or empty");
@@ -45,7 +47,7 @@ public class ColumnMetadata
         return name;
     }
 
-    public ColumnType getType()
+    public Type getType()
     {
         return type;
     }

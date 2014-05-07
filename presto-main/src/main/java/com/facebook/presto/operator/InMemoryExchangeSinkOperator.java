@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.operator;
 
-import com.facebook.presto.tuple.TupleInfo;
+import com.facebook.presto.spi.type.Type;
 import com.google.common.util.concurrent.ListenableFuture;
 
 import java.util.List;
@@ -41,9 +41,9 @@ public class InMemoryExchangeSinkOperator
     }
 
     @Override
-    public List<TupleInfo> getTupleInfos()
+    public List<Type> getTypes()
     {
-        return inMemoryExchange.getTupleInfos();
+        return inMemoryExchange.getTypes();
     }
 
     @Override
@@ -67,13 +67,17 @@ public class InMemoryExchangeSinkOperator
     @Override
     public ListenableFuture<?> isBlocked()
     {
-        return NOT_BLOCKED;
+        ListenableFuture<?> blocked = inMemoryExchange.waitForWriting();
+        if (blocked.isDone()) {
+            return NOT_BLOCKED;
+        }
+        return blocked;
     }
 
     @Override
     public boolean needsInput()
     {
-        return !isFinished();
+        return !isFinished() && isBlocked().isDone();
     }
 
     @Override

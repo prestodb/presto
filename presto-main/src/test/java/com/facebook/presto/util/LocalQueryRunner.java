@@ -15,24 +15,30 @@ package com.facebook.presto.util;
 
 import com.facebook.presto.ScheduledSplit;
 import com.facebook.presto.TaskSource;
-import com.facebook.presto.connector.dual.DualDataStreamProvider;
-import com.facebook.presto.connector.dual.DualMetadata;
-import com.facebook.presto.connector.dual.DualSplitManager;
-import com.facebook.presto.connector.informationSchema.InformationSchemaDataStreamProvider;
-import com.facebook.presto.connector.informationSchema.InformationSchemaSplitManager;
+import com.facebook.presto.connector.ConnectorManager;
+import com.facebook.presto.connector.dual.DualConnector;
+import com.facebook.presto.connector.system.CatalogSystemTable;
 import com.facebook.presto.connector.system.NodesSystemTable;
+import com.facebook.presto.connector.system.SystemConnector;
 import com.facebook.presto.connector.system.SystemDataStreamProvider;
 import com.facebook.presto.connector.system.SystemSplitManager;
 import com.facebook.presto.connector.system.SystemTablesManager;
 import com.facebook.presto.connector.system.SystemTablesMetadata;
-import com.facebook.presto.execution.DataSource;
+import com.facebook.presto.execution.SplitSource;
 import com.facebook.presto.execution.TaskId;
-import com.facebook.presto.importer.MockPeriodicImportManager;
+import com.facebook.presto.index.IndexManager;
+import com.facebook.presto.metadata.ColumnHandle;
+import com.facebook.presto.metadata.HandleResolver;
 import com.facebook.presto.metadata.InMemoryNodeManager;
 import com.facebook.presto.metadata.LocalStorageManager;
-import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.metadata.MockLocalStorageManager;
+import com.facebook.presto.metadata.OutputTableHandleResolver;
+import com.facebook.presto.metadata.Partition;
+import com.facebook.presto.metadata.PartitionResult;
+import com.facebook.presto.metadata.QualifiedTableName;
+import com.facebook.presto.metadata.Split;
+import com.facebook.presto.metadata.TableHandle;
 import com.facebook.presto.operator.Driver;
 import com.facebook.presto.operator.DriverContext;
 import com.facebook.presto.operator.DriverFactory;
@@ -41,18 +47,21 @@ import com.facebook.presto.operator.Operator;
 import com.facebook.presto.operator.OperatorContext;
 import com.facebook.presto.operator.OperatorFactory;
 import com.facebook.presto.operator.OutputFactory;
+import com.facebook.presto.operator.RecordSinkManager;
 import com.facebook.presto.operator.TaskContext;
-import com.facebook.presto.spi.ConnectorSplitManager;
-import com.facebook.presto.spi.Partition;
-import com.facebook.presto.spi.Split;
+import com.facebook.presto.spi.ColumnMetadata;
+import com.facebook.presto.spi.Connector;
+import com.facebook.presto.spi.ConnectorFactory;
+import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.SystemTable;
+import com.facebook.presto.spi.TupleDomain;
+import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.split.DataStreamManager;
-import com.facebook.presto.split.DataStreamProvider;
 import com.facebook.presto.split.SplitManager;
 import com.facebook.presto.sql.analyzer.Analysis;
 import com.facebook.presto.sql.analyzer.Analyzer;
+import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.sql.analyzer.QueryExplainer;
-import com.facebook.presto.sql.analyzer.Session;
 import com.facebook.presto.sql.gen.ExpressionCompiler;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.DistributedLogicalPlanner;
@@ -67,17 +76,15 @@ import com.facebook.presto.sql.planner.SubPlan;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.facebook.presto.sql.planner.plan.TableScanNode;
+import com.facebook.presto.sql.planner.plan.ValuesNode;
 import com.facebook.presto.sql.tree.Statement;
-import com.facebook.presto.storage.MockStorageManager;
-import com.facebook.presto.tpch.TpchBlocksProvider;
-import com.facebook.presto.tpch.TpchDataStreamProvider;
-import com.facebook.presto.tpch.TpchMetadata;
-import com.facebook.presto.tpch.TpchSplitManager;
-import com.facebook.presto.tuple.TupleInfo;
+import com.facebook.presto.type.TypeRegistry;
 import com.google.common.base.Optional;
-import com.google.common.base.Predicates;
+import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Iterables;
 import io.airlift.node.NodeConfig;
 import io.airlift.node.NodeInfo;
 import org.intellij.lang.annotations.Language;
@@ -87,41 +94,100 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.atomic.AtomicReference;
 
-import static com.facebook.presto.sql.analyzer.Session.DEFAULT_CATALOG;
-import static com.facebook.presto.sql.analyzer.Session.DEFAULT_SCHEMA;
 import static com.facebook.presto.sql.parser.TreeAssertions.assertFormattedSql;
-import static com.facebook.presto.tpch.TpchMetadata.TPCH_CATALOG_NAME;
-import static com.facebook.presto.tpch.TpchMetadata.TPCH_SCHEMA_NAME;
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 import static org.testng.Assert.assertTrue;
 
 public class LocalQueryRunner
 {
-    private final Metadata metadata;
-    private final SplitManager splitManager;
-    private final DataStreamProvider dataStreamProvider;
-    private final LocalStorageManager storageManager;
-    private final Session session;
+    private final ConnectorSession session;
     private final ExecutorService executor;
+
+    private final InMemoryNodeManager nodeManager;
+    private final TypeRegistry typeRegistry;
+    private final MetadataManager metadata;
+    private final SplitManager splitManager;
+    private final DataStreamManager dataStreamProvider;
+    private final IndexManager indexManager;
+    private final LocalStorageManager storageManager;
+    private final RecordSinkManager recordSinkManager;
+
     private final ExpressionCompiler compiler;
+    private final ConnectorManager connectorManager;
+
     private boolean printPlan;
 
-    public LocalQueryRunner(Metadata metadata,
-            SplitManager splitManager,
-            DataStreamProvider dataStreamProvider,
-            LocalStorageManager storageManager,
-            Session session,
-            ExecutorService executor)
+    public LocalQueryRunner(ConnectorSession session, ExecutorService executor)
     {
-        this.metadata = checkNotNull(metadata, "metadata is null");
-        this.splitManager = checkNotNull(splitManager, "splitManager is null");
-        this.dataStreamProvider = checkNotNull(dataStreamProvider, "dataStreamProvider is null");
-        this.storageManager = checkNotNull(storageManager, "storageManager is null");
         this.session = checkNotNull(session, "session is null");
         this.executor = checkNotNull(executor, "executor is null");
+
+        this.nodeManager = new InMemoryNodeManager();
+        this.typeRegistry = new TypeRegistry();
+        this.metadata = new MetadataManager(new FeaturesConfig().setExperimentalSyntaxEnabled(true), typeRegistry);
+        this.splitManager = new SplitManager();
+        this.dataStreamProvider = new DataStreamManager();
+        this.indexManager = new IndexManager();
+        this.recordSinkManager = new RecordSinkManager();
+        this.storageManager = MockLocalStorageManager.createMockLocalStorageManager();
+
         this.compiler = new ExpressionCompiler(metadata);
+
+        // sys schema
+        SystemTablesMetadata systemTablesMetadata = new SystemTablesMetadata();
+        SystemSplitManager systemSplitManager = new SystemSplitManager(nodeManager);
+        SystemDataStreamProvider systemDataStreamProvider = new SystemDataStreamProvider();
+        SystemTablesManager systemTablesManager = new SystemTablesManager(systemTablesMetadata, systemSplitManager, systemDataStreamProvider, ImmutableSet.<SystemTable>of());
+
+        // sys.node
+        systemTablesManager.addTable(new NodesSystemTable(nodeManager));
+
+        // sys.catalog
+        systemTablesManager.addTable(new CatalogSystemTable(metadata));
+
+        this.connectorManager = new ConnectorManager(
+                metadata,
+                splitManager,
+                dataStreamProvider,
+                indexManager,
+                recordSinkManager,
+                new HandleResolver(),
+                new OutputTableHandleResolver(),
+                ImmutableMap.<String, ConnectorFactory>of(),
+                ImmutableMap.<String, Connector>of(
+                        DualConnector.CONNECTOR_ID, new DualConnector(nodeManager),
+                        SystemConnector.CONNECTOR_ID, new SystemConnector(systemTablesMetadata, systemSplitManager, systemDataStreamProvider)),
+                nodeManager);
+    }
+
+    public InMemoryNodeManager getNodeManager()
+    {
+        return nodeManager;
+    }
+
+    public TypeRegistry getTypeManager()
+    {
+        return typeRegistry;
+    }
+
+    public MetadataManager getMetadata()
+    {
+        return metadata;
+    }
+
+    public ExecutorService getExecutor()
+    {
+        return executor;
+    }
+
+    public void createCatalog(String catalogName, ConnectorFactory connectorFactory, Map<String, String> properties)
+    {
+        nodeManager.addCurrentNodeDatasource(catalogName);
+        connectorManager.createConnection(catalogName, connectorFactory, properties);
     }
 
     public LocalQueryRunner printPlan()
@@ -133,23 +199,24 @@ public class LocalQueryRunner
     private static class MaterializedOutputFactory
             implements OutputFactory
     {
-        private MaterializingOperator materializingOperator;
+        private final AtomicReference<MaterializingOperator> materializingOperator = new AtomicReference<>();
 
         private MaterializingOperator getMaterializingOperator()
         {
-            checkState(materializingOperator != null, "Output not created");
-            return materializingOperator;
+            MaterializingOperator operator = materializingOperator.get();
+            checkState(operator != null, "Output not created");
+            return operator;
         }
 
         @Override
-        public OperatorFactory createOutputOperator(final int operatorId, final List<TupleInfo> sourceTupleInfo)
+        public OperatorFactory createOutputOperator(final int operatorId, final List<Type> sourceType)
         {
-            checkNotNull(sourceTupleInfo, "sourceTupleInfo is null");
+            checkNotNull(sourceType, "sourceType is null");
 
             return new OperatorFactory()
             {
                 @Override
-                public List<TupleInfo> getTupleInfos()
+                public List<Type> getTypes()
                 {
                     return ImmutableList.of();
                 }
@@ -157,10 +224,13 @@ public class LocalQueryRunner
                 @Override
                 public Operator createOperator(DriverContext driverContext)
                 {
-                    checkState(materializingOperator == null, "Output already created");
                     OperatorContext operatorContext = driverContext.addOperatorContext(operatorId, MaterializingOperator.class.getSimpleName());
-                    materializingOperator = new MaterializingOperator(operatorContext, sourceTupleInfo);
-                    return materializingOperator;
+                    MaterializingOperator operator = new MaterializingOperator(operatorContext, sourceType);
+
+                    if (!materializingOperator.compareAndSet(null, operator)) {
+                        throw new IllegalArgumentException("Output already created");
+                    }
+                    return operator;
                 }
 
                 @Override
@@ -205,19 +275,20 @@ public class LocalQueryRunner
         }
 
         PlanNodeIdAllocator idAllocator = new PlanNodeIdAllocator();
-        PlanOptimizersFactory planOptimizersFactory = new PlanOptimizersFactory(metadata);
+        FeaturesConfig featuresConfig = new FeaturesConfig().setExperimentalSyntaxEnabled(true);
+        PlanOptimizersFactory planOptimizersFactory = new PlanOptimizersFactory(metadata, splitManager, indexManager, featuresConfig);
 
-        QueryExplainer queryExplainer = new QueryExplainer(session, planOptimizersFactory.get(), metadata, new MockPeriodicImportManager(), new MockStorageManager());
-        Analyzer analyzer = new Analyzer(session, metadata, Optional.of(queryExplainer));
+        QueryExplainer queryExplainer = new QueryExplainer(session, planOptimizersFactory.get(), metadata, featuresConfig.isExperimentalSyntaxEnabled());
+        Analyzer analyzer = new Analyzer(session, metadata, Optional.of(queryExplainer), featuresConfig.isExperimentalSyntaxEnabled());
 
         Analysis analysis = analyzer.analyze(statement);
 
-        Plan plan = new LogicalPlanner(session, planOptimizersFactory.get(), idAllocator, metadata, new MockPeriodicImportManager(), new MockStorageManager()).plan(analysis);
+        Plan plan = new LogicalPlanner(session, planOptimizersFactory.get(), idAllocator, metadata).plan(analysis);
         if (printPlan) {
-            System.out.println(PlanPrinter.textLogicalPlan(plan.getRoot(), plan.getTypes()));
+            System.out.println(PlanPrinter.textLogicalPlan(plan.getRoot(), plan.getTypes(), metadata));
         }
 
-        SubPlan subplan = new DistributedLogicalPlanner(metadata, idAllocator).createSubplans(plan, true);
+        SubPlan subplan = new DistributedLogicalPlanner(session, metadata, idAllocator).createSubPlans(plan, true);
         assertTrue(subplan.getChildren().isEmpty(), "Expected subplan to have no children");
 
         LocalExecutionPlanner executionPlanner = new LocalExecutionPlanner(
@@ -226,7 +297,9 @@ public class LocalQueryRunner
                         .setNodeId("test-node")),
                 metadata,
                 dataStreamProvider,
+                indexManager,
                 storageManager,
+                recordSinkManager,
                 null,
                 compiler);
 
@@ -240,18 +313,25 @@ public class LocalQueryRunner
         List<TaskSource> sources = new ArrayList<>();
         long sequenceId = 0;
         for (PlanNode sourceNode : subplan.getFragment().getSources()) {
+            if (sourceNode instanceof ValuesNode) {
+                continue;
+            }
+
             TableScanNode tableScan = (TableScanNode) sourceNode;
 
-            DataSource dataSource = splitManager.getSplits(session,
-                    tableScan.getTable(),
-                    tableScan.getPartitionPredicate(),
-                    tableScan.getUpstreamPredicateHint(),
-                    Predicates.<Partition>alwaysTrue(),
-                    tableScan.getAssignments());
+            SplitSource splitSource = splitManager.getPartitionSplits(tableScan.getTable(), getPartitions(tableScan));
 
             ImmutableSet.Builder<ScheduledSplit> scheduledSplits = ImmutableSet.builder();
-            for (Split split : dataSource.getSplits()) {
-                scheduledSplits.add(new ScheduledSplit(sequenceId++, split));
+            while (!splitSource.isFinished()) {
+                try {
+                    for (Split split : splitSource.getNextBatch(1000)) {
+                        scheduledSplits.add(new ScheduledSplit(sequenceId++, split));
+                    }
+                }
+                catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                    throw Throwables.propagate(e);
+                }
             }
 
             sources.add(new TaskSource(tableScan.getId(), scheduledSplits.build(), true));
@@ -280,93 +360,73 @@ public class LocalQueryRunner
         return ImmutableList.copyOf(drivers);
     }
 
-    public static LocalQueryRunner createDualLocalQueryRunner(ExecutorService executor)
+    private List<Partition> getPartitions(TableScanNode node)
     {
-        return createDualLocalQueryRunner(new Session("user", "test", DEFAULT_CATALOG, DEFAULT_SCHEMA, null, null), executor);
+        if (node.getGeneratedPartitions().isPresent()) {
+            return node.getGeneratedPartitions().get().getPartitions();
+        }
+
+        // Otherwise return all partitions
+        PartitionResult matchingPartitions = splitManager.getPartitions(node.getTable(), Optional.<TupleDomain<ColumnHandle>>absent());
+        return matchingPartitions.getPartitions();
     }
 
-    public static LocalQueryRunner createDualLocalQueryRunner(Session session, ExecutorService executor)
+    public OperatorFactory createTableScanOperator(final int operatorId, String tableName, String... columnNames)
     {
-        InMemoryNodeManager nodeManager = new InMemoryNodeManager();
+        // look up the table
+        TableHandle tableHandle = metadata.getTableHandle(session, new QualifiedTableName(session.getCatalog(), session.getSchema(), tableName)).orNull();
+        checkArgument(tableHandle != null, "Table %s does not exist", tableName);
 
-        MetadataManager metadataManager = new MetadataManager();
-        SplitManager splitManager = new SplitManager(metadataManager, ImmutableSet.<ConnectorSplitManager>of());
-        DataStreamManager dataStreamManager = new DataStreamManager();
+        // lookup the columns
+        ImmutableList.Builder<ColumnHandle> columnHandlesBuilder = ImmutableList.builder();
+        ImmutableList.Builder<Type> columnTypesBuilder = ImmutableList.builder();
+        for (String columnName : columnNames) {
+            ColumnHandle columnHandle = metadata.getColumnHandle(tableHandle, columnName).orNull();
+            checkArgument(columnHandle != null, "Table %s does not have a column %s", tableName, columnName);
+            columnHandlesBuilder.add(columnHandle);
+            ColumnMetadata columnMetadata = metadata.getColumnMetadata(tableHandle, columnHandle);
+            columnTypesBuilder.add(columnMetadata.getType());
+        }
+        final List<ColumnHandle> columnHandles = columnHandlesBuilder.build();
+        final List<Type> columnTypes = columnTypesBuilder.build();
 
-        addDual(nodeManager, metadataManager, splitManager, dataStreamManager);
-        addInformationSchema(nodeManager, metadataManager, splitManager, dataStreamManager);
+        // get the split for this table
+        final Split split = getLocalQuerySplit(tableHandle);
 
-        return new LocalQueryRunner(metadataManager, splitManager, dataStreamManager, MockLocalStorageManager.createMockLocalStorageManager(), session, executor);
+        return new OperatorFactory()
+        {
+            @Override
+            public List<Type> getTypes()
+            {
+                return columnTypes;
+            }
+
+            @Override
+            public Operator createOperator(DriverContext driverContext)
+            {
+                OperatorContext operatorContext = driverContext.addOperatorContext(operatorId, "BenchmarkSource");
+                return dataStreamProvider.createNewDataStream(operatorContext, split, columnHandles);
+            }
+
+            @Override
+            public void close()
+            {
+            }
+        };
     }
 
-    public static LocalQueryRunner createTpchLocalQueryRunner(ExecutorService executor)
+    private Split getLocalQuerySplit(TableHandle tableHandle)
     {
-        return createTpchLocalQueryRunner(new Session("user", "test", TPCH_CATALOG_NAME, TPCH_SCHEMA_NAME, null, null), executor);
-    }
-
-    public static LocalQueryRunner createTpchLocalQueryRunner(Session session, ExecutorService executor)
-    {
-        return createTpchLocalQueryRunner(session, new InMemoryTpchBlocksProvider(), executor);
-    }
-
-    public static LocalQueryRunner createTpchLocalQueryRunner(TpchBlocksProvider tpchBlocksProvider, ExecutorService executor)
-    {
-        return createTpchLocalQueryRunner(new Session("user", "test", TPCH_CATALOG_NAME, TPCH_SCHEMA_NAME, null, null), tpchBlocksProvider, executor);
-    }
-
-    public static LocalQueryRunner createTpchLocalQueryRunner(Session session, TpchBlocksProvider tpchBlocksProvider, ExecutorService executor)
-    {
-        InMemoryNodeManager nodeManager = new InMemoryNodeManager();
-
-        MetadataManager metadataManager = new MetadataManager();
-        SplitManager splitManager = new SplitManager(metadataManager, ImmutableSet.<ConnectorSplitManager>of());
-        DataStreamManager dataStreamManager = new DataStreamManager();
-
-        addDual(nodeManager, metadataManager, splitManager, dataStreamManager);
-        addSystem(nodeManager, metadataManager, splitManager, dataStreamManager);
-        addInformationSchema(nodeManager, metadataManager, splitManager, dataStreamManager);
-        addTpch(nodeManager, metadataManager, splitManager, dataStreamManager, tpchBlocksProvider);
-
-        return new LocalQueryRunner(metadataManager, splitManager, dataStreamManager, MockLocalStorageManager.createMockLocalStorageManager(), session, executor);
-    }
-
-    private static void addSystem(InMemoryNodeManager nodeManager, MetadataManager metadataManager, SplitManager splitManager, DataStreamManager dataStreamManager)
-    {
-        SystemTablesMetadata systemTablesMetadata = new SystemTablesMetadata();
-        metadataManager.addInternalSchemaMetadata(systemTablesMetadata);
-
-        SystemSplitManager systemSplitManager = new SystemSplitManager(nodeManager);
-        splitManager.addConnectorSplitManager(systemSplitManager);
-
-        SystemDataStreamProvider systemDataStreamProvider = new SystemDataStreamProvider();
-        dataStreamManager.addConnectorDataStreamProvider(systemDataStreamProvider);
-
-        SystemTablesManager systemTablesManager = new SystemTablesManager(systemTablesMetadata, systemSplitManager, systemDataStreamProvider, ImmutableSet.<SystemTable>of());
-
-        systemTablesManager.addTable(new NodesSystemTable(nodeManager));
-    }
-
-    private static void addTpch(InMemoryNodeManager nodeManager,
-            MetadataManager metadataManager,
-            SplitManager splitManager,
-            DataStreamManager dataStreamManager,
-            TpchBlocksProvider tpchBlocksProvider)
-    {
-        metadataManager.addConnectorMetadata(TPCH_CATALOG_NAME, new TpchMetadata());
-        splitManager.addConnectorSplitManager(new TpchSplitManager("tpch", nodeManager));
-        dataStreamManager.addConnectorDataStreamProvider(new TpchDataStreamProvider(tpchBlocksProvider));
-    }
-
-    private static void addInformationSchema(InMemoryNodeManager nodeManager, MetadataManager metadataManager, SplitManager splitManager, DataStreamManager dataStreamManager)
-    {
-        splitManager.addConnectorSplitManager(new InformationSchemaSplitManager(nodeManager));
-        dataStreamManager.addConnectorDataStreamProvider(new InformationSchemaDataStreamProvider(metadataManager, splitManager));
-    }
-
-    private static void addDual(InMemoryNodeManager nodeManager, MetadataManager metadataManager, SplitManager splitManager, DataStreamManager dataStreamManager)
-    {
-        metadataManager.addInternalSchemaMetadata(new DualMetadata());
-        splitManager.addConnectorSplitManager(new DualSplitManager(nodeManager));
-        dataStreamManager.addConnectorDataStreamProvider(new DualDataStreamProvider());
+        try {
+            List<Partition> partitions = splitManager.getPartitions(tableHandle, Optional.<TupleDomain<ColumnHandle>>absent()).getPartitions();
+            SplitSource splitSource = splitManager.getPartitionSplits(tableHandle, partitions);
+            Split split = Iterables.getOnlyElement(splitSource.getNextBatch(1000));
+            checkState(splitSource.isFinished(), "Expected only one split for a local query");
+            return split;
+        }
+        catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw Throwables.propagate(e);
+        }
     }
 }

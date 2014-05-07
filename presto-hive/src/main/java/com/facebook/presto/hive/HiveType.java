@@ -13,7 +13,15 @@
  */
 package com.facebook.presto.hive;
 
-import com.facebook.presto.spi.ColumnType;
+import com.facebook.presto.spi.type.BigintType;
+import com.facebook.presto.spi.type.BooleanType;
+import com.facebook.presto.spi.type.DoubleType;
+import com.facebook.presto.spi.type.TimestampType;
+import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.spi.type.VarcharType;
+import com.google.common.base.Function;
+import com.google.common.collect.BiMap;
+import com.google.common.collect.ImmutableBiMap;
 import org.apache.hadoop.hive.serde2.objectinspector.ObjectInspector;
 import org.apache.hadoop.hive.serde2.objectinspector.PrimitiveObjectInspector;
 
@@ -36,30 +44,35 @@ import static org.apache.hadoop.hive.serde2.objectinspector.PrimitiveObjectInspe
 
 public enum HiveType
 {
-    BOOLEAN(ColumnType.BOOLEAN),
-    BYTE(ColumnType.LONG),
-    SHORT(ColumnType.LONG),
-    INT(ColumnType.LONG),
-    LONG(ColumnType.LONG),
-    FLOAT(ColumnType.DOUBLE),
-    DOUBLE(ColumnType.DOUBLE),
-    STRING(ColumnType.STRING),
-    TIMESTAMP(ColumnType.LONG),
-    BINARY(ColumnType.STRING),
-    LIST(ColumnType.STRING),
-    MAP(ColumnType.STRING),
-    STRUCT(ColumnType.STRING);
+    BOOLEAN(BooleanType.BOOLEAN),
+    BYTE(BigintType.BIGINT),
+    SHORT(BigintType.BIGINT),
+    INT(BigintType.BIGINT),
+    LONG(BigintType.BIGINT),
+    FLOAT(DoubleType.DOUBLE),
+    DOUBLE(DoubleType.DOUBLE),
+    STRING(VarcharType.VARCHAR),
+    TIMESTAMP(TimestampType.TIMESTAMP),
+    BINARY(VarcharType.VARCHAR),
+    LIST(VarcharType.VARCHAR),
+    MAP(VarcharType.VARCHAR),
+    STRUCT(VarcharType.VARCHAR);
 
-    private final ColumnType nativeType;
+    private final Type nativeType;
 
-    HiveType(ColumnType nativeType)
+    HiveType(Type nativeType)
     {
         this.nativeType = checkNotNull(nativeType, "nativeType is null");
     }
 
-    public ColumnType getNativeType()
+    public Type getNativeType()
     {
         return nativeType;
+    }
+
+    public String getHiveTypeName()
+    {
+        return HIVE_TYPE_NAMES.inverse().get(this);
     }
 
     public static HiveType getSupportedHiveType(PrimitiveCategory primitiveCategory)
@@ -104,38 +117,25 @@ public enum HiveType
         return hiveType;
     }
 
+    private static final BiMap<String, HiveType> HIVE_TYPE_NAMES = ImmutableBiMap.<String, HiveType>builder()
+            .put(BOOLEAN_TYPE_NAME, BOOLEAN)
+            .put(TINYINT_TYPE_NAME, BYTE)
+            .put(SMALLINT_TYPE_NAME, SHORT)
+            .put(INT_TYPE_NAME, INT)
+            .put(BIGINT_TYPE_NAME, LONG)
+            .put(FLOAT_TYPE_NAME, FLOAT)
+            .put(DOUBLE_TYPE_NAME, DOUBLE)
+            .put(STRING_TYPE_NAME, STRING)
+            .put(TIMESTAMP_TYPE_NAME, TIMESTAMP)
+            .put(BINARY_TYPE_NAME, BINARY)
+            .put(LIST_TYPE_NAME, LIST)
+            .put(MAP_TYPE_NAME, MAP)
+            .put(STRUCT_TYPE_NAME, STRUCT)
+            .build();
+
     public static HiveType getHiveType(String hiveTypeName)
     {
-        switch (hiveTypeName) {
-            case BOOLEAN_TYPE_NAME:
-                return BOOLEAN;
-            case TINYINT_TYPE_NAME:
-                return BYTE;
-            case SMALLINT_TYPE_NAME:
-                return SHORT;
-            case INT_TYPE_NAME:
-                return INT;
-            case BIGINT_TYPE_NAME:
-                return LONG;
-            case FLOAT_TYPE_NAME:
-                return FLOAT;
-            case DOUBLE_TYPE_NAME:
-                return DOUBLE;
-            case STRING_TYPE_NAME:
-                return STRING;
-            case TIMESTAMP_TYPE_NAME:
-                return TIMESTAMP;
-            case BINARY_TYPE_NAME:
-                return BINARY;
-            case LIST_TYPE_NAME:
-                return LIST;
-            case MAP_TYPE_NAME:
-                return MAP;
-            case STRUCT_TYPE_NAME:
-                return STRUCT;
-            default:
-                return null;
-        }
+        return HIVE_TYPE_NAMES.get(hiveTypeName);
     }
 
     public static HiveType getSupportedHiveType(ObjectInspector fieldInspector)
@@ -159,5 +159,46 @@ public enum HiveType
             default:
                 return null;
         }
+    }
+
+    public static HiveType toHiveType(Type type)
+    {
+        if (BooleanType.BOOLEAN.equals(type)) {
+            return BOOLEAN;
+        }
+        if (BigintType.BIGINT.equals(type)) {
+            return LONG;
+        }
+        if (DoubleType.DOUBLE.equals(type)) {
+            return DOUBLE;
+        }
+        if (VarcharType.VARCHAR.equals(type)) {
+            return STRING;
+        }
+        throw new IllegalArgumentException("unsupported type: " + type);
+    }
+
+    public static Function<Type, HiveType> columnTypeToHiveType()
+    {
+        return new Function<Type, HiveType>()
+        {
+            @Override
+            public HiveType apply(Type type)
+            {
+                return toHiveType(type);
+            }
+        };
+    }
+
+    public static Function<HiveType, String> hiveTypeNameGetter()
+    {
+        return new Function<HiveType, String>()
+        {
+            @Override
+            public String apply(HiveType type)
+            {
+                return type.getHiveTypeName();
+            }
+        };
     }
 }

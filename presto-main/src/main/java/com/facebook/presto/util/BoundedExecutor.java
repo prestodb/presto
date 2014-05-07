@@ -39,7 +39,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 public class BoundedExecutor
         implements Executor
 {
-    private final static Logger log = Logger.get(BoundedExecutor.class);
+    private static final Logger log = Logger.get(BoundedExecutor.class);
 
     private final Queue<Runnable> queue = new LinkedBlockingQueue<>();
     private final AtomicInteger queueSize = new AtomicInteger(0);

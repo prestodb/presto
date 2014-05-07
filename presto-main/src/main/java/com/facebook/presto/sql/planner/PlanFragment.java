@@ -13,61 +13,99 @@
  */
 package com.facebook.presto.sql.planner;
 
-import com.facebook.presto.sql.analyzer.Type;
 import com.facebook.presto.sql.planner.plan.PlanFragmentId;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
-import com.facebook.presto.tuple.TupleInfo;
+import com.facebook.presto.sql.planner.plan.SinkNode;
+import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.util.IterableTransformer;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.base.Function;
 import com.google.common.base.Functions;
 import com.google.common.base.Objects;
-import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableList.Builder;
+import com.google.common.collect.ImmutableSet;
 
 import javax.annotation.concurrent.Immutable;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
+
+import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Preconditions.checkState;
 
 @Immutable
 public class PlanFragment
 {
+    public enum PlanDistribution
+    {
+        NONE,
+        FIXED,
+        SOURCE,
+        COORDINATOR_ONLY
+    }
+
+    public static enum OutputPartitioning
+    {
+        NONE,
+        HASH
+    }
+
     private final PlanFragmentId id;
     private final PlanNode root;
-    private final PlanNodeId partitionedSource;
     private final Map<Symbol, Type> symbols;
+    private final PlanDistribution distribution;
+    private final PlanNodeId partitionedSource;
+    private final List<Type> types;
+    private final List<PlanNode> sources;
+    private final Set<PlanNodeId> sourceIds;
+    private final OutputPartitioning outputPartitioning;
+    private final List<Symbol> partitionBy;
 
     @JsonCreator
-    public PlanFragment(@JsonProperty("id") PlanFragmentId id, @JsonProperty("partitionedSource") PlanNodeId partitionedSource, @JsonProperty("symbols") Map<Symbol, Type> symbols, @JsonProperty("root") PlanNode root)
+    public PlanFragment(
+            @JsonProperty("id") PlanFragmentId id,
+            @JsonProperty("root") PlanNode root,
+            @JsonProperty("symbols") Map<Symbol, Type> symbols,
+            @JsonProperty("distribution") PlanDistribution distribution,
+            @JsonProperty("partitionedSource") PlanNodeId partitionedSource,
+            @JsonProperty("outputPartitioning") OutputPartitioning outputPartitioning,
+            @JsonProperty("partitionBy") List<Symbol> partitionBy)
     {
-        Preconditions.checkNotNull(id, "id is null");
-        Preconditions.checkNotNull(symbols, "symbols is null");
-        Preconditions.checkNotNull(root, "root is null");
-
-        this.id = id;
-        this.root = root;
+        this.id = checkNotNull(id, "id is null");
+        this.root = checkNotNull(root, "root is null");
+        this.symbols = checkNotNull(symbols, "symbols is null");
+        this.distribution = checkNotNull(distribution, "distribution is null");
         this.partitionedSource = partitionedSource;
-        this.symbols = symbols;
+        this.partitionBy = ImmutableList.copyOf(checkNotNull(partitionBy, "partitionBy is null"));
+
+        types = ImmutableList.copyOf(IterableTransformer.on(root.getOutputSymbols())
+                .transform(Functions.forMap(symbols))
+                .list());
+
+        ImmutableList.Builder<PlanNode> sources = ImmutableList.builder();
+        findSources(root, sources, partitionedSource);
+        this.sources = sources.build();
+
+        ImmutableSet.Builder<PlanNodeId> sourceIds = ImmutableSet.builder();
+        for (PlanNode source : this.sources) {
+            sourceIds.add(source.getId());
+        }
+        if (partitionedSource != null) {
+            sourceIds.add(partitionedSource);
+        }
+        this.sourceIds = sourceIds.build();
+
+        this.outputPartitioning = checkNotNull(outputPartitioning, "outputPartitioning is null");
     }
 
     @JsonProperty
     public PlanFragmentId getId()
     {
         return id;
-    }
-
-    public boolean isPartitioned()
-    {
-        return partitionedSource != null;
-    }
-
-    @JsonProperty
-    public PlanNodeId getPartitionedSource()
-    {
-        return partitionedSource;
     }
 
     @JsonProperty
@@ -82,36 +120,67 @@ public class PlanFragment
         return symbols;
     }
 
-    public List<TupleInfo> getTupleInfos()
+    @JsonProperty
+    public PlanDistribution getDistribution()
     {
-        return ImmutableList.copyOf(IterableTransformer.on(getRoot().getOutputSymbols())
-                .transform(Functions.forMap(getSymbols()))
-                .transform(com.facebook.presto.sql.analyzer.Type.toRaw())
-                .transform(new Function<TupleInfo.Type, TupleInfo>()
-                {
-                    @Override
-                    public TupleInfo apply(TupleInfo.Type input)
-                    {
-                        return new TupleInfo(input);
-                    }
-                })
-                .list());
+        return distribution;
+    }
+
+    @JsonProperty
+    public PlanNodeId getPartitionedSource()
+    {
+        return partitionedSource;
+    }
+
+    @JsonProperty
+    public OutputPartitioning getOutputPartitioning()
+    {
+        return outputPartitioning;
+    }
+
+    @JsonProperty
+    public List<Symbol> getPartitionBy()
+    {
+        return partitionBy;
+    }
+
+    public List<Integer> getPartitioningChannels()
+    {
+        checkState(outputPartitioning == OutputPartitioning.HASH, "fragment is not hash partitioned");
+        checkState(root instanceof SinkNode, "root is not an instance of SinkNode");
+        // We can convert the symbols directly into channels, because the root must be a sink and therefore the layout is fixed
+        return IterableTransformer.on(partitionBy).transform(new Function<Symbol, Integer>()
+        {
+            @Override
+            public Integer apply(Symbol input)
+            {
+                return root.getOutputSymbols().indexOf(input);
+            }
+        }).list();
+    }
+
+    public List<Type> getTypes()
+    {
+        return types;
     }
 
     public List<PlanNode> getSources()
     {
-        ImmutableList.Builder<PlanNode> sources = ImmutableList.builder();
-        findSources(root, sources);
-        return sources.build();
+        return sources;
     }
 
-    private void findSources(PlanNode node, ImmutableList.Builder<PlanNode> builder)
+    public Set<PlanNodeId> getSourceIds()
+    {
+        return sourceIds;
+    }
+
+    private static void findSources(PlanNode node, Builder<PlanNode> builder, PlanNodeId partitionedSource)
     {
         for (PlanNode source : node.getSources()) {
-            findSources(source, builder);
+            findSources(source, builder, partitionedSource);
         }
 
-        if (node.getSources().isEmpty()) {
+        if (node.getSources().isEmpty() || node.getId().equals(partitionedSource)) {
             builder.add(node);
         }
     }
@@ -121,7 +190,9 @@ public class PlanFragment
     {
         return Objects.toStringHelper(this)
                 .add("id", id)
+                .add("distribution", distribution)
                 .add("partitionedSource", partitionedSource)
+                .add("outputPartitioning", outputPartitioning)
                 .toString();
     }
 

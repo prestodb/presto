@@ -14,14 +14,14 @@
 package com.facebook.presto.server;
 
 import com.facebook.presto.client.PrestoHeaders;
-import com.facebook.presto.sql.analyzer.Session;
+import com.facebook.presto.server.testing.TestingPrestoServer;
 import com.google.common.base.Charsets;
-import com.google.common.io.Closeables;
 import com.google.common.net.HttpHeaders;
-import io.airlift.http.client.ApacheHttpClient;
 import io.airlift.http.client.HttpClient;
 import io.airlift.http.client.HttpStatus;
 import io.airlift.http.client.Request;
+import io.airlift.testing.Closeables;
+import io.airlift.http.client.jetty.JettyHttpClient;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
@@ -32,6 +32,7 @@ import static io.airlift.http.client.StringResponseHandler.StringResponse;
 import static io.airlift.http.client.StringResponseHandler.createStringResponseHandler;
 import static org.testng.Assert.assertEquals;
 
+@Test(singleThreaded = true)
 public class TestExecuteResource
 {
     private TestingPrestoServer server;
@@ -42,7 +43,7 @@ public class TestExecuteResource
             throws Exception
     {
         server = new TestingPrestoServer();
-        client = new ApacheHttpClient();
+        client = new JettyHttpClient();
     }
 
     @SuppressWarnings("deprecation")
@@ -73,8 +74,9 @@ public class TestExecuteResource
         Request request = preparePost()
                 .setUri(server.resolve("/v1/execute"))
                 .setHeader(PrestoHeaders.PRESTO_USER, "test")
-                .setHeader(PrestoHeaders.PRESTO_CATALOG, Session.DEFAULT_CATALOG)
-                .setHeader(PrestoHeaders.PRESTO_SCHEMA, Session.DEFAULT_SCHEMA)
+                .setHeader(PrestoHeaders.PRESTO_CATALOG, "catalog")
+                .setHeader(PrestoHeaders.PRESTO_SCHEMA, "schema")
+                .setHeader(PrestoHeaders.PRESTO_TIME_ZONE, "UTC")
                 .setBodyGenerator(createStaticBodyGenerator(query, Charsets.UTF_8))
                 .build();
         return client.execute(request, createStringResponseHandler());

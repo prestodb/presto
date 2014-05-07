@@ -13,95 +13,149 @@
  */
 package com.facebook.presto.operator.aggregation;
 
-import com.facebook.presto.block.Block;
-import com.facebook.presto.block.BlockBuilder;
-import com.facebook.presto.block.BlockCursor;
-import com.facebook.presto.tuple.TupleInfo;
-import com.google.common.collect.Ordering;
+import com.facebook.presto.spi.block.Block;
+import com.facebook.presto.spi.block.BlockBuilder;
+import com.facebook.presto.spi.block.BlockCursor;
+import com.facebook.presto.operator.GroupByIdBlock;
+import com.facebook.presto.util.array.ObjectBigArray;
+import com.google.common.base.Optional;
 import io.airlift.slice.Slice;
 
+import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
+import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkState;
+
 public class VarBinaryMaxAggregation
-        implements VariableWidthAggregationFunction<Slice>
+        extends SimpleAggregationFunction
 {
     public static final VarBinaryMaxAggregation VAR_BINARY_MAX = new VarBinaryMaxAggregation();
 
-    @Override
-    public TupleInfo getFinalTupleInfo()
+    public VarBinaryMaxAggregation()
     {
-        return TupleInfo.SINGLE_VARBINARY;
+        super(VARCHAR, VARCHAR, VARCHAR);
     }
 
     @Override
-    public TupleInfo getIntermediateTupleInfo()
+    protected GroupedAccumulator createGroupedAccumulator(Optional<Integer> maskChannel, Optional<Integer> sampleWeightChannel, double confidence, int valueChannel)
     {
-        return TupleInfo.SINGLE_VARBINARY;
+        // Min/max are not effected by distinct, so ignore it.
+        checkArgument(confidence == 1.0, "max does not support approximate queries");
+        return new VarBinaryMaxGroupedAccumulator(valueChannel);
     }
 
-    @Override
-    public Slice initialize()
+    public static class VarBinaryMaxGroupedAccumulator
+            extends SimpleGroupedAccumulator
     {
-        return null;
-    }
+        private final ObjectBigArray<Slice> maxValues;
+        private long sizeOfValues;
 
-    @Override
-    public Slice addInput(int positionCount, Block[] blocks, int[] fields, Slice currentMax)
-    {
-        BlockCursor cursor = blocks[0].cursor();
+        public VarBinaryMaxGroupedAccumulator(int valueChannel)
+        {
+            super(valueChannel, VARCHAR, VARCHAR, Optional.<Integer>absent(), Optional.<Integer>absent());
 
-        while (cursor.advanceNextPosition()) {
-            currentMax = addInternal(cursor, fields[0], currentMax);
+            this.maxValues = new ObjectBigArray<>();
         }
 
-        return currentMax;
+        @Override
+        public long getEstimatedSize()
+        {
+            return maxValues.sizeOf() + sizeOfValues;
+        }
+
+        @Override
+        protected void processInput(GroupByIdBlock groupIdsBlock, Block valuesBlock, Optional<Block> maskBlock, Optional<Block> sampleWeightBlock)
+        {
+            maxValues.ensureCapacity(groupIdsBlock.getGroupCount());
+
+            BlockCursor values = valuesBlock.cursor();
+
+            for (int position = 0; position < groupIdsBlock.getPositionCount(); position++) {
+                checkState(values.advanceNextPosition());
+
+                // skip null values
+                if (!values.isNull()) {
+                    long groupId = groupIdsBlock.getGroupId(position);
+
+                    Slice value = values.getSlice();
+                    Slice currentValue = maxValues.get(groupId);
+                    if (currentValue == null || value.compareTo(currentValue) > 0) {
+                        maxValues.set(groupId, value);
+
+                        // update size
+                        if (currentValue != null) {
+                            sizeOfValues -= currentValue.length();
+                        }
+                        sizeOfValues += value.length();
+                    }
+                }
+            }
+            checkState(!values.advanceNextPosition());
+        }
+
+        @Override
+        public void evaluateFinal(int groupId, BlockBuilder output)
+        {
+            Slice value = maxValues.get((long) groupId);
+            if (value == null) {
+                output.appendNull();
+            }
+            else {
+                output.appendSlice(value);
+            }
+        }
     }
 
     @Override
-    public Slice addInput(BlockCursor[] cursors, int[] fields, Slice currentMax)
+    protected Accumulator createAccumulator(Optional<Integer> maskChannel, Optional<Integer> sampleWeightChannel, double confidence, int valueChannel)
     {
-        return addInternal(cursors[0], fields[0], currentMax);
+        // Min/max are not effected by distinct, so ignore it.
+        checkArgument(confidence == 1.0, "max does not support approximate queries");
+        return new VarBinaryMaxAccumulator(valueChannel);
     }
 
-    @Override
-    public Slice addIntermediate(BlockCursor[] cursors, int[] fields, Slice currentMax)
+    public static class VarBinaryMaxAccumulator
+            extends SimpleAccumulator
     {
-        return addInternal(cursors[0], fields[0], currentMax);
+        private Slice max;
+
+        public VarBinaryMaxAccumulator(int valueChannel)
+        {
+            super(valueChannel, VARCHAR, VARCHAR, Optional.<Integer>absent(), Optional.<Integer>absent());
+        }
+
+        @Override
+        protected void processInput(Block block, Optional<Block> maskBlock, Optional<Block> sampleWeightBlock)
+        {
+            BlockCursor values = block.cursor();
+
+            for (int position = 0; position < block.getPositionCount(); position++) {
+                checkState(values.advanceNextPosition());
+                if (!values.isNull()) {
+                    max = max(max, values.getSlice());
+                }
+            }
+        }
+
+        @Override
+        public void evaluateFinal(BlockBuilder out)
+        {
+            if (max != null) {
+                out.appendSlice(max);
+            }
+            else {
+                out.appendNull();
+            }
+        }
     }
 
-    @Override
-    public void evaluateIntermediate(Slice currentValue, BlockBuilder output)
+    private static Slice max(Slice a, Slice b)
     {
-        evaluateFinal(currentValue, output);
-    }
-
-    @Override
-    public void evaluateFinal(Slice currentValue, BlockBuilder output)
-    {
-        if (currentValue != null) {
-            output.append(currentValue);
+        if (a == null) {
+            return b;
         }
-        else {
-            output.appendNull();
+        if (b == null) {
+            return a;
         }
-    }
-
-    @Override
-    public long estimateSizeInBytes(Slice value)
-    {
-        return value.length();
-    }
-
-    private Slice addInternal(BlockCursor cursor, int field, Slice currentMax)
-    {
-        if (cursor.isNull(field)) {
-            return currentMax;
-        }
-
-        Slice value = cursor.getSlice(field);
-        if (currentMax == null) {
-            return value;
-        }
-        else {
-            return Ordering.natural().max(currentMax, value);
-        }
+        return a.compareTo(b) > 0 ? a : b;
     }
 }

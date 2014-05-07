@@ -17,13 +17,9 @@ import com.facebook.presto.execution.StateMachine.StateChangeListener;
 import com.facebook.presto.execution.TaskId;
 import com.facebook.presto.execution.TaskState;
 import com.facebook.presto.execution.TaskStateMachine;
-import com.facebook.presto.sql.analyzer.Session;
-import com.facebook.presto.sql.planner.plan.PlanNodeId;
+import com.facebook.presto.spi.ConnectorSession;
 import com.google.common.base.Function;
-import com.google.common.collect.HashMultimap;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Multimaps;
-import com.google.common.collect.SetMultimap;
 import io.airlift.stats.CounterStat;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
@@ -32,8 +28,6 @@ import org.joda.time.DateTime;
 import javax.annotation.concurrent.ThreadSafe;
 
 import java.util.List;
-import java.util.Map;
-import java.util.Set;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicLong;
@@ -53,7 +47,7 @@ public class TaskContext
 {
     private final TaskStateMachine taskStateMachine;
     private final Executor executor;
-    private final Session session;
+    private final ConnectorSession session;
 
     private final long maxMemory;
     private final DataSize operatorPreAllocatedMemory;
@@ -67,15 +61,14 @@ public class TaskContext
     private final AtomicLong endNanos = new AtomicLong();
 
     private final AtomicReference<DateTime> executionStartTime = new AtomicReference<>();
+    private final AtomicReference<DateTime> lastExecutionStartTime = new AtomicReference<>();
     private final AtomicReference<DateTime> executionEndTime = new AtomicReference<>();
-
-    private final SetMultimap<PlanNodeId, Object> outputItems = Multimaps.synchronizedSetMultimap(HashMultimap.<PlanNodeId, Object>create());
 
     private final List<PipelineContext> pipelineContexts = new CopyOnWriteArrayList<>();
 
     private final boolean cpuTimerEnabled;
 
-    public TaskContext(TaskId taskId, Executor executor, Session session)
+    public TaskContext(TaskId taskId, Executor executor, ConnectorSession session)
     {
         this(
                 checkNotNull(taskId, "taskId is null"),
@@ -84,7 +77,7 @@ public class TaskContext
                 new DataSize(256, MEGABYTE));
     }
 
-    public TaskContext(TaskId taskId, Executor executor, Session session, DataSize maxMemory)
+    public TaskContext(TaskId taskId, Executor executor, ConnectorSession session, DataSize maxMemory)
     {
         this(
                 new TaskStateMachine(checkNotNull(taskId, "taskId is null"), checkNotSameThreadExecutor(executor, "executor is null")),
@@ -95,7 +88,7 @@ public class TaskContext
                 true);
     }
 
-    public TaskContext(TaskStateMachine taskStateMachine, Executor executor, Session session, DataSize maxMemory, DataSize operatorPreAllocatedMemory, boolean cpuTimerEnabled)
+    public TaskContext(TaskStateMachine taskStateMachine, Executor executor, ConnectorSession session, DataSize maxMemory, DataSize operatorPreAllocatedMemory, boolean cpuTimerEnabled)
     {
         this.taskStateMachine = checkNotNull(taskStateMachine, "taskStateMachine is null");
         this.executor = checkNotNull(executor, "executor is null");
@@ -135,7 +128,7 @@ public class TaskContext
         return ImmutableList.copyOf(pipelineContexts);
     }
 
-    public Session getSession()
+    public ConnectorSession getSession()
     {
         return session;
     }
@@ -146,7 +139,9 @@ public class TaskContext
             // already started
             return;
         }
-        executionStartTime.set(DateTime.now());
+        DateTime now = DateTime.now();
+        executionStartTime.compareAndSet(null, now);
+        lastExecutionStartTime.set(now);
     }
 
     public void failed(Throwable cause)
@@ -178,6 +173,12 @@ public class TaskContext
         }
         memoryReservation.getAndAdd(bytes);
         return true;
+    }
+
+    public synchronized void freeMemory(long bytes)
+    {
+        checkArgument(bytes <= memoryReservation.get(), "tried to free more memory than is reserved");
+        memoryReservation.getAndAdd(-bytes);
     }
 
     public boolean isCpuTimerEnabled()
@@ -229,27 +230,13 @@ public class TaskContext
         return stat;
     }
 
-    @Deprecated
-    public Map<PlanNodeId, Set<?>> getOutputItems()
-    {
-        // generics are broken
-        return (Map<PlanNodeId, Set<?>>) (Object) outputItems.asMap();
-    }
-
-    @Deprecated
-    public void addOutputItems(PlanNodeId id, Iterable<?> outputItems)
-    {
-        checkNotNull(id, "id is null");
-        checkNotNull(outputItems, "outputItems is null");
-
-        this.outputItems.putAll(id, outputItems);
-    }
-
     public TaskStats getTaskStats()
     {
         // check for end state to avoid callback ordering problems
         if (taskStateMachine.getState().isDone()) {
-            if (executionEndTime.compareAndSet(null, DateTime.now())) {
+            DateTime now = DateTime.now();
+            if (executionEndTime.compareAndSet(null, now)) {
+                lastExecutionStartTime.set(now);
                 endNanos.set(System.nanoTime());
             }
         }
@@ -318,6 +305,7 @@ public class TaskContext
         return new TaskStats(
                 createdTime,
                 executionStartTime.get(),
+                lastExecutionStartTime.get(),
                 executionEndTime.get(),
                 elapsedTime.convertToMostSuccinctTimeUnit(),
                 queuedTime.convertToMostSuccinctTimeUnit(),

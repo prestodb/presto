@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.operator.scalar;
 
+import com.facebook.presto.spi.PrestoException;
 import com.fasterxml.jackson.core.JsonFactory;
 import com.fasterxml.jackson.core.JsonParser;
 import com.google.common.base.Charsets;
@@ -154,21 +155,21 @@ public class TestJsonExtract
         assertEquals(doJsonExtract("null", "$"), "null");
     }
 
-    @Test(expectedExceptions = IllegalArgumentException.class)
+    @Test(expectedExceptions = PrestoException.class)
     public void testInvalidJsonPath1()
             throws Exception
     {
         doScalarExtract("{}", "$.");
     }
 
-    @Test(expectedExceptions = IllegalArgumentException.class)
+    @Test(expectedExceptions = PrestoException.class)
     public void testInvalidJsonPath2()
             throws Exception
     {
         doScalarExtract("{}", "$.fuu..bar");
     }
 
-    @Test(expectedExceptions = IllegalArgumentException.class)
+    @Test(expectedExceptions = PrestoException.class)
     public void testInvalidJsonPath3()
             throws Exception
     {

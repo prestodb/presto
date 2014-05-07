@@ -8,7 +8,7 @@ Invoking a window function requires special syntax using the ``OVER``
 clause to specify the window. A window has three components:
 
 * The partition specification, which separates the input rows into different
-  partitions. This is analgous to how the ``GROUP BY`` clause separates rows
+  partitions. This is analogous to how the ``GROUP BY`` clause separates rows
   into different groups for aggregate functions.
 * The ordering specification, which determines the order in which input rows
   will be processed by the window function.
@@ -36,7 +36,7 @@ Ranking Functions
 
 .. function:: dense_rank() -> bigint
 
-    Returns the rank of a value in in a group of values. This is similar to
+    Returns the rank of a value in a group of values. This is similar to
     :func:`rank`, except that tie values do not produce gaps in the sequence.
 
 .. function:: percent_rank() -> bigint

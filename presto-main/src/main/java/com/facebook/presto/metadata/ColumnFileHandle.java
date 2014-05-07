@@ -13,11 +13,12 @@
  */
 package com.facebook.presto.metadata;
 
-import com.facebook.presto.block.Block;
+import com.facebook.presto.spi.block.Block;
+import com.facebook.presto.spi.block.BlockEncodingSerde;
 import com.facebook.presto.operator.Page;
 import com.facebook.presto.serde.BlocksFileEncoding;
 import com.facebook.presto.serde.BlocksFileWriter;
-import com.facebook.presto.spi.ColumnHandle;
+import com.facebook.presto.spi.ConnectorColumnHandle;
 import com.google.common.base.Throwables;
 import com.google.common.io.OutputSupplier;
 import com.google.common.primitives.Ints;
@@ -29,9 +30,9 @@ import java.io.IOException;
 import java.io.OutputStream;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.UUID;
 import java.util.concurrent.atomic.AtomicBoolean;
 
-import static com.facebook.presto.block.BlockUtils.toTupleIterable;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
@@ -42,56 +43,61 @@ public class ColumnFileHandle
 {
     private static final DataSize OUTPUT_BUFFER_SIZE = new DataSize(64, KILOBYTE);
 
-    private final long shardId;
-    private final Map<ColumnHandle, File> files;
-    private final Map<ColumnHandle, BlocksFileWriter> writers;
+    private final UUID shardUuid;
+    private final Map<ConnectorColumnHandle, File> files;
+    private final Map<ConnectorColumnHandle, BlocksFileWriter> writers;
 
     private final AtomicBoolean committed = new AtomicBoolean();
 
-    public static Builder builder(long shardId)
+    public static Builder builder(UUID shardUuid, BlockEncodingSerde blockEncodingSerde)
     {
-        return new Builder(shardId);
+        return new Builder(shardUuid, blockEncodingSerde);
     }
 
     private ColumnFileHandle(Builder builder)
     {
-        this.shardId = builder.getShardId();
+        this.shardUuid = builder.getShardUuid();
         this.files = new LinkedHashMap<>(builder.getFiles());
         this.writers = new LinkedHashMap<>(builder.getWriters());
     }
 
-    public Map<ColumnHandle, File> getFiles()
+    public int getFieldCount()
+    {
+        return files.size();
+    }
+
+    public Map<ConnectorColumnHandle, File> getFiles()
     {
         return files;
     }
 
-    public long getShardId()
+    public UUID getShardUuid()
     {
-        return shardId;
+        return shardUuid;
     }
 
     public int append(Page page)
     {
         checkNotNull(page, "page is null");
-        checkState(!committed.get(), "already committed!");
+        checkState(!committed.get(), "already committed: %s", shardUuid);
 
         Block[] blocks = page.getBlocks();
-        int[] tupleCount = new int[blocks.length];
+        int[] positionCount = new int[blocks.length];
 
         checkState(blocks.length == writers.size(), "Block count does not match writer count (%s vs %s)!", blocks.length, writers.size());
 
         int i = 0;
         for (BlocksFileWriter writer : writers.values()) {
             Block block = blocks[i];
-            writer.append(toTupleIterable(block));
-            tupleCount[i] = block.getPositionCount();
+            writer.append(block);
+            positionCount[i] = block.getPositionCount();
             if (i > 0) {
-                checkState(tupleCount[i] == tupleCount[i - 1], "different tuple count (%s vs. %s) for block!", tupleCount[i], tupleCount[i - 1]);
+                checkState(positionCount[i] == positionCount[i - 1], "different position count (%s vs. %s) for block!", positionCount[i], positionCount[i - 1]);
             }
             i++;
         }
 
-        return tupleCount[0]; // they are all the same. And [0] is guaranteed to exist...
+        return positionCount[0]; // they are all the same. And [0] is guaranteed to exist...
     }
 
     public void commit()
@@ -99,7 +105,7 @@ public class ColumnFileHandle
     {
         Throwable firstThrowable = null;
 
-        checkState(!committed.getAndSet(true), "already committed!");
+        checkState(!committed.getAndSet(true), "already committed: %s", shardUuid);
 
         for (BlocksFileWriter writer : writers.values()) {
             try {
@@ -112,26 +118,32 @@ public class ColumnFileHandle
             }
         }
 
-        Throwables.propagateIfInstanceOf(firstThrowable, IOException.class);
+        if (firstThrowable != null) {
+            Throwables.propagateIfInstanceOf(firstThrowable, IOException.class);
+            throw Throwables.propagate(firstThrowable);
+        }
     }
 
     public static class Builder
     {
-        private final long shardId;
+        private final UUID shardUuid;
+        private final BlockEncodingSerde blockEncodingSerde;
+
         // both of these Maps are ordered by the column handles. The writer map
         // may contain less writers than files.
-        private final Map<ColumnHandle, File> files = new LinkedHashMap<>();
-        private final Map<ColumnHandle, BlocksFileWriter> writers = new LinkedHashMap<>();
+        private final Map<ConnectorColumnHandle, File> files = new LinkedHashMap<>();
+        private final Map<ConnectorColumnHandle, BlocksFileWriter> writers = new LinkedHashMap<>();
 
-        public Builder(long shardId)
+        public Builder(UUID shardUuid, BlockEncodingSerde blockEncodingSerde)
         {
-            this.shardId = shardId;
+            this.shardUuid = checkNotNull(shardUuid, "shardUuid is null");
+            this.blockEncodingSerde = checkNotNull(blockEncodingSerde, "blockEncodingManager is null");
         }
 
         /**
          * Register a file as part of the column set with a given encoding.
          */
-        public Builder addColumn(ColumnHandle columnHandle, File targetFile, BlocksFileEncoding encoding)
+        public Builder addColumn(ConnectorColumnHandle columnHandle, File targetFile, BlocksFileEncoding encoding)
         {
             checkNotNull(columnHandle, "columnHandle is null");
             checkNotNull(targetFile, "targetFile is null");
@@ -143,7 +155,7 @@ public class ColumnFileHandle
             checkState(!targetFile.exists(), "Can not write to existing file %s", targetFile.getAbsolutePath());
 
             files.put(columnHandle, targetFile);
-            writers.put(columnHandle, new BlocksFileWriter(encoding, new BufferedOutputSupplier(newOutputStreamSupplier(targetFile), OUTPUT_BUFFER_SIZE)));
+            writers.put(columnHandle, new BlocksFileWriter(blockEncodingSerde, encoding, new BufferedOutputSupplier(newOutputStreamSupplier(targetFile), OUTPUT_BUFFER_SIZE)));
 
             return this;
         }
@@ -151,7 +163,7 @@ public class ColumnFileHandle
         /**
          * Register a file as part of the column set which does not get written.
          */
-        public Builder addColumn(ColumnHandle columnHandle, File targetFile)
+        public Builder addColumn(ConnectorColumnHandle columnHandle, File targetFile)
         {
             checkNotNull(columnHandle, "columnHandle is null");
             checkNotNull(targetFile, "targetFile is null");
@@ -163,21 +175,21 @@ public class ColumnFileHandle
 
         public ColumnFileHandle build()
         {
-            checkArgument(files.size() > 0, "must have at least one column");
+            checkArgument(!files.isEmpty(), "must have at least one column");
             return new ColumnFileHandle(this);
         }
 
-        private long getShardId()
+        private UUID getShardUuid()
         {
-            return shardId;
+            return shardUuid;
         }
 
-        private Map<ColumnHandle, File> getFiles()
+        private Map<ConnectorColumnHandle, File> getFiles()
         {
             return files;
         }
 
-        private Map<ColumnHandle, BlocksFileWriter> getWriters()
+        private Map<ConnectorColumnHandle, BlocksFileWriter> getWriters()
         {
             return writers;
         }

@@ -5,7 +5,7 @@
     <parent>
         <groupId>com.facebook.presto</groupId>
         <artifactId>presto-root</artifactId>
-        <version>0.53-SNAPSHOT</version>
+        <version>0.67-SNAPSHOT</version>
     </parent>
 
     <artifactId>presto-jdbc</artifactId>
@@ -13,6 +13,7 @@
 
     <properties>
         <air.main.basedir>${project.parent.basedir}</air.main.basedir>
+        <shadeBase>com.facebook.presto.jdbc.internal</shadeBase>
     </properties>
 
     <dependencies>
@@ -24,6 +25,37 @@
         <dependency>
             <groupId>io.airlift</groupId>
             <artifactId>http-client</artifactId>
+            <exclusions>
+                <!-- configuration is not used -->
+                <exclusion>
+                    <groupId>io.airlift</groupId>
+                    <artifactId>configuration</artifactId>
+                </exclusion>
+                <!-- trace-token is not used -->
+                <exclusion>
+                    <groupId>io.airlift</groupId>
+                    <artifactId>trace-token</artifactId>
+                </exclusion>
+                <!-- guice is not used -->
+                <exclusion>
+                    <groupId>com.google.inject</groupId>
+                    <artifactId>guice</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>com.google.inject.extensions</groupId>
+                    <artifactId>guice-multibindings</artifactId>
+                </exclusion>
+                <!-- jmxutils is not used -->
+                <exclusion>
+                    <groupId>org.weakref</groupId>
+                    <artifactId>jmxutils</artifactId>
+                </exclusion>
+                <!-- TODO: remove when fixed in airlift -->
+                <exclusion>
+                    <groupId>org.eclipse.jetty</groupId>
+                    <artifactId>jetty-servlet</artifactId>
+                </exclusion>
+            </exclusions>
         </dependency>
 
         <dependency>
@@ -34,6 +66,25 @@
         <dependency>
             <groupId>io.airlift</groupId>
             <artifactId>json</artifactId>
+            <exclusions>
+                <exclusion>
+                    <groupId>javax.inject</groupId>
+                    <artifactId>javax.inject</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>com.google.inject</groupId>
+                    <artifactId>guice</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>com.google.inject.extensions</groupId>
+                    <artifactId>guice-multibindings</artifactId>
+                </exclusion>
+            </exclusions>
+        </dependency>
+
+        <dependency>
+            <groupId>joda-time</groupId>
+            <artifactId>joda-time</artifactId>
         </dependency>
 
         <dependency>
@@ -46,6 +97,12 @@
             <artifactId>annotations</artifactId>
         </dependency>
 
+        <!-- TODO: fix this in Airlift and remove this dependency -->
+        <dependency>
+            <groupId>org.eclipse.jetty</groupId>
+            <artifactId>jetty-util</artifactId>
+        </dependency>
+
         <!-- for testing -->
         <dependency>
             <groupId>com.facebook.presto</groupId>
@@ -55,15 +112,7 @@
 
         <dependency>
             <groupId>com.facebook.presto</groupId>
-            <artifactId>presto-server</artifactId>
-            <type>test-jar</type>
-            <scope>test</scope>
-        </dependency>
-
-        <dependency>
-            <groupId>com.facebook.presto</groupId>
-            <artifactId>presto-main</artifactId>
-            <type>test-jar</type>
+            <artifactId>presto-tpch</artifactId>
             <scope>test</scope>
         </dependency>
 
@@ -73,10 +122,15 @@
             <scope>test</scope>
         </dependency>
 
-        <!-- for TestingPrestoServer -->
         <dependency>
             <groupId>io.airlift</groupId>
             <artifactId>testing</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>io.airlift</groupId>
+            <artifactId>log-manager</artifactId>
             <scope>test</scope>
         </dependency>
     </dependencies>
@@ -93,13 +147,93 @@
                             <goal>shade</goal>
                         </goals>
                         <configuration>
-                            <shadedArtifactAttached>true</shadedArtifactAttached>
-                            <shadedClassifierName>standalone</shadedClassifierName>
-                            <artifactSet>
-                                <excludes>
-                                    <exclude>io.airlift:launcher</exclude>
-                                </excludes>
-                            </artifactSet>
+                            <createSourcesJar>true</createSourcesJar>
+                            <shadeSourcesContent>true</shadeSourcesContent>
+                            <dependencyReducedPomLocation>${project.build.directory}/pom.xml</dependencyReducedPomLocation>
+                            <relocations>
+                                <relocation>
+                                    <pattern>com.facebook.presto.client</pattern>
+                                    <shadedPattern>${shadeBase}.client</shadedPattern>
+                                </relocation>
+                                <relocation>
+                                    <pattern>com.fasterxml.jackson</pattern>
+                                    <shadedPattern>${shadeBase}.jackson</shadedPattern>
+                                </relocation>
+                                <relocation>
+                                    <pattern>com.google.common</pattern>
+                                    <shadedPattern>${shadeBase}.guava</shadedPattern>
+                                </relocation>
+                                <relocation>
+                                    <pattern>com.google.thirdparty</pattern>
+                                    <shadedPattern>${shadeBase}.guava</shadedPattern>
+                                </relocation>
+                                <relocation>
+                                    <pattern>io.airlift</pattern>
+                                    <shadedPattern>${shadeBase}.airlift</shadedPattern>
+                                </relocation>
+                                <relocation>
+                                    <pattern>javax.inject</pattern>
+                                    <shadedPattern>${shadeBase}.inject</shadedPattern>
+                                </relocation>
+                                <relocation>
+                                    <pattern>org.openjdk.jol</pattern>
+                                    <shadedPattern>${shadeBase}.jol</shadedPattern>
+                                </relocation>
+                                <relocation>
+                                    <pattern>org.joda.time</pattern>
+                                    <shadedPattern>${shadeBase}.joda.time</shadedPattern>
+                                </relocation>
+                                <relocation>
+                                    <pattern>org.eclipse.jetty</pattern>
+                                    <shadedPattern>${shadeBase}.jetty</shadedPattern>
+                                </relocation>
+                            </relocations>
+                            <filters>
+                                <filter>
+                                    <artifact>*:*</artifact>
+                                    <excludes>
+                                        <exclude>META-INF/maven/**</exclude>
+                                        <exclude>META-INF/*.xml</exclude>
+                                        <exclude>LICENSE</exclude>
+                                    </excludes>
+                                </filter>
+                                <filter>
+                                    <artifact>com.fasterxml.jackson.core:*</artifact>
+                                    <excludes>
+                                        <exclude>META-INF/services/**</exclude>
+                                    </excludes>
+                                </filter>
+                                <filter>
+                                    <artifact>com.google.code.findbugs:annotations</artifact>
+                                    <excludes>
+                                        <exclude>**</exclude>
+                                    </excludes>
+                                </filter>
+                                <filter>
+                                    <artifact>javax.validation:validation-api</artifact>
+                                    <excludes>
+                                        <exclude>**</exclude>
+                                    </excludes>
+                                </filter>
+                                <filter>
+                                    <artifact>io.airlift</artifact>
+                                    <excludes>
+                                        <exclude>jetty-logging.properties</exclude>
+                                    </excludes>
+                                </filter>
+                                <filter>
+                                    <artifact>org.eclipse.jetty:jetty-util</artifact>
+                                    <excludes>
+                                        <exclude>jetty-dir.css</exclude>
+                                    </excludes>
+                                </filter>
+                                <filter>
+                                    <artifact>org.eclipse.jetty:*</artifact>
+                                    <excludes>
+                                        <exclude>about.html</exclude>
+                                    </excludes>
+                                </filter>
+                            </filters>
                         </configuration>
                     </execution>
                 </executions>

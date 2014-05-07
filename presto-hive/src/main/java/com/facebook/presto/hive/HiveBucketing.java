@@ -13,18 +13,16 @@
  */
 package com.facebook.presto.hive;
 
-import com.facebook.presto.spi.ColumnHandle;
+import com.facebook.presto.spi.ConnectorColumnHandle;
+import com.google.common.base.Objects;
 import com.google.common.base.Optional;
-import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import io.airlift.log.Logger;
-import org.apache.hadoop.hive.metastore.api.MetaException;
 import org.apache.hadoop.hive.metastore.api.Table;
 import org.apache.hadoop.hive.ql.io.DefaultHivePartitioner;
 import org.apache.hadoop.hive.ql.io.HiveKey;
 import org.apache.hadoop.hive.ql.metadata.HiveException;
 import org.apache.hadoop.hive.ql.udf.generic.GenericUDFHash;
-import org.apache.hadoop.hive.serde2.SerDeException;
 import org.apache.hadoop.hive.serde2.objectinspector.ObjectInspector;
 import org.apache.hadoop.hive.serde2.objectinspector.PrimitiveObjectInspector;
 import org.apache.hadoop.hive.serde2.objectinspector.StructField;
@@ -36,6 +34,7 @@ import java.util.Map;
 import java.util.Set;
 
 import static com.facebook.presto.hive.HiveUtil.getTableStructFields;
+import static com.facebook.presto.hive.util.Types.checkType;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.Maps.immutableEntry;
 import static com.google.common.collect.Sets.immutableEnumSet;
@@ -65,10 +64,10 @@ final class HiveBucketing
 
     private HiveBucketing() {}
 
-    public static Optional<Integer> getBucketNumber(Table table, Map<ColumnHandle, Object> bindings)
+    public static Optional<HiveBucket> getHiveBucket(Table table, Map<ConnectorColumnHandle, ?> bindings)
     {
         if (!table.getSd().isSetBucketCols() || table.getSd().getBucketCols().isEmpty() ||
-                !table.getSd().isSetNumBuckets() || table.getSd().getNumBuckets() <= 0 ||
+                !table.getSd().isSetNumBuckets() || (table.getSd().getNumBuckets() <= 0) ||
                 bindings.isEmpty()) {
             return Optional.absent();
         }
@@ -77,19 +76,14 @@ final class HiveBucketing
         Map<String, ObjectInspector> objectInspectors = new HashMap<>();
 
         // Get column name to object inspector mapping
-        try {
-            for (StructField field : getTableStructFields(table)) {
-                objectInspectors.put(field.getFieldName(), field.getFieldObjectInspector());
-            }
-        }
-        catch (MetaException | SerDeException e) {
-            throw Throwables.propagate(e);
+        for (StructField field : getTableStructFields(table)) {
+            objectInspectors.put(field.getFieldName(), field.getFieldObjectInspector());
         }
 
         // Verify the bucket column types are supported
         for (String column : bucketColumns) {
             ObjectInspector inspector = objectInspectors.get(column);
-            if (inspector.getCategory() != Category.PRIMITIVE) {
+            if ((inspector == null) || (inspector.getCategory() != Category.PRIMITIVE)) {
                 return Optional.absent();
             }
             if (!SUPPORTED_TYPES.contains(((PrimitiveObjectInspector) inspector).getPrimitiveCategory())) {
@@ -99,7 +93,7 @@ final class HiveBucketing
 
         // Get bindings for bucket columns
         Map<String, Object> bucketBindings = new HashMap<>();
-        for (Entry<ColumnHandle, Object> entry : bindings.entrySet()) {
+        for (Entry<ConnectorColumnHandle, ?> entry : bindings.entrySet()) {
             HiveColumnHandle colHandle = (HiveColumnHandle) entry.getKey();
             if (bucketColumns.contains(colHandle.getName())) {
                 bucketBindings.put(colHandle.getName(), entry.getValue());
@@ -117,10 +111,10 @@ final class HiveBucketing
             columnBindings.add(immutableEntry(objectInspectors.get(column), bucketBindings.get(column)));
         }
 
-        return getBucketNumber(columnBindings.build(), table.getSd().getNumBuckets());
+        return getHiveBucket(columnBindings.build(), table.getSd().getNumBuckets());
     }
 
-    public static Optional<Integer> getBucketNumber(List<Entry<ObjectInspector, Object>> columnBindings, int bucketCount)
+    public static Optional<HiveBucket> getHiveBucket(List<Entry<ObjectInspector, Object>> columnBindings, int bucketCount)
     {
         try {
             GenericUDFHash udf = new GenericUDFHash();
@@ -135,14 +129,15 @@ final class HiveBucketing
             }
 
             ObjectInspector udfInspector = udf.initialize(objectInspectors);
-            checkArgument(udfInspector instanceof IntObjectInspector, "expected IntObjectInspector: %s", udfInspector);
-            IntObjectInspector inspector = (IntObjectInspector) udfInspector;
+            IntObjectInspector inspector = checkType(udfInspector, IntObjectInspector.class, "udfInspector");
 
             Object result = udf.evaluate(deferredObjects);
             HiveKey hiveKey = new HiveKey();
             hiveKey.setHashCode(inspector.get(result));
 
-            return Optional.of(new DefaultHivePartitioner<>().getBucket(hiveKey, null, bucketCount));
+            int bucketNumber = new DefaultHivePartitioner<>().getBucket(hiveKey, null, bucketCount);
+
+            return Optional.of(new HiveBucket(bucketNumber, bucketCount));
         }
         catch (HiveException e) {
             log.debug(e, "Error evaluating bucket number");
@@ -190,5 +185,40 @@ final class HiveBucketing
                 return new DeferredJavaObject(object);
         }
         throw new RuntimeException("Unsupported type: " + poi.getPrimitiveCategory());
+    }
+
+    public static class HiveBucket
+    {
+        private final int bucketNumber;
+        private final int bucketCount;
+
+        public HiveBucket(int bucketNumber, int bucketCount)
+        {
+            checkArgument(bucketCount > 0, "bucketCount must be greater than zero");
+            checkArgument(bucketNumber >= 0, "bucketCount must be positive");
+            checkArgument(bucketNumber < bucketCount, "bucketNumber must be less than bucketCount");
+
+            this.bucketNumber = bucketNumber;
+            this.bucketCount = bucketCount;
+        }
+
+        public int getBucketNumber()
+        {
+            return bucketNumber;
+        }
+
+        public int getBucketCount()
+        {
+            return bucketCount;
+        }
+
+        @Override
+        public String toString()
+        {
+            return Objects.toStringHelper(this)
+                    .add("bucketNumber", bucketNumber)
+                    .add("bucketCount", bucketCount)
+                    .toString();
+        }
     }
 }

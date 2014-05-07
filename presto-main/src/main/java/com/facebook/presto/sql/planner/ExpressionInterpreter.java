@@ -15,11 +15,12 @@ package com.facebook.presto.sql.planner;
 
 import com.facebook.presto.metadata.FunctionInfo;
 import com.facebook.presto.metadata.Metadata;
-import com.facebook.presto.operator.scalar.UnixTimeFunctions;
+import com.facebook.presto.metadata.OperatorInfo;
+import com.facebook.presto.metadata.OperatorInfo.OperatorType;
+import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.RecordCursor;
-import com.facebook.presto.sql.Casts;
-import com.facebook.presto.sql.analyzer.Session;
-import com.facebook.presto.sql.analyzer.Type;
+import com.facebook.presto.spi.block.BlockCursor;
+import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.tree.ArithmeticExpression;
 import com.facebook.presto.sql.tree.AstVisitor;
 import com.facebook.presto.sql.tree.BetweenPredicate;
@@ -27,51 +28,37 @@ import com.facebook.presto.sql.tree.BooleanLiteral;
 import com.facebook.presto.sql.tree.Cast;
 import com.facebook.presto.sql.tree.CoalesceExpression;
 import com.facebook.presto.sql.tree.ComparisonExpression;
-import com.facebook.presto.sql.tree.CurrentTime;
-import com.facebook.presto.sql.tree.DateLiteral;
-import com.facebook.presto.sql.tree.DoubleLiteral;
 import com.facebook.presto.sql.tree.Expression;
-import com.facebook.presto.sql.tree.Extract;
 import com.facebook.presto.sql.tree.FunctionCall;
-import com.facebook.presto.sql.tree.IfExpression;
 import com.facebook.presto.sql.tree.InListExpression;
 import com.facebook.presto.sql.tree.InPredicate;
 import com.facebook.presto.sql.tree.Input;
 import com.facebook.presto.sql.tree.InputReference;
-import com.facebook.presto.sql.tree.IntervalLiteral;
-import com.facebook.presto.sql.tree.IsNotNullPredicate;
 import com.facebook.presto.sql.tree.IsNullPredicate;
 import com.facebook.presto.sql.tree.LikePredicate;
 import com.facebook.presto.sql.tree.Literal;
 import com.facebook.presto.sql.tree.LogicalBinaryExpression;
-import com.facebook.presto.sql.tree.LongLiteral;
 import com.facebook.presto.sql.tree.NegativeExpression;
 import com.facebook.presto.sql.tree.Node;
 import com.facebook.presto.sql.tree.NotExpression;
 import com.facebook.presto.sql.tree.NullIfExpression;
 import com.facebook.presto.sql.tree.NullLiteral;
-import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.sql.tree.QualifiedNameReference;
 import com.facebook.presto.sql.tree.SearchedCaseExpression;
 import com.facebook.presto.sql.tree.SimpleCaseExpression;
 import com.facebook.presto.sql.tree.StringLiteral;
-import com.facebook.presto.sql.tree.TimeLiteral;
-import com.facebook.presto.sql.tree.TimestampLiteral;
 import com.facebook.presto.sql.tree.WhenClause;
-import com.facebook.presto.tuple.TupleReadable;
 import com.google.common.base.Charsets;
-import com.google.common.base.Function;
-import com.google.common.base.Preconditions;
+import com.google.common.base.Functions;
 import com.google.common.base.Predicate;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
-import com.google.common.collect.Lists;
 import io.airlift.slice.Slice;
-import io.airlift.slice.Slices;
 import org.joni.Regex;
 
 import javax.annotation.Nullable;
+
 import java.lang.invoke.MethodHandle;
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -79,47 +66,51 @@ import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Set;
 
-import static com.google.common.base.Charsets.UTF_8;
-import static com.google.common.base.Preconditions.checkArgument;
+import static com.facebook.presto.sql.planner.LiteralInterpreter.toExpression;
+import static com.facebook.presto.sql.planner.LiteralInterpreter.toExpressions;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.base.Predicates.instanceOf;
+import static com.google.common.collect.Iterables.any;
 
 public class ExpressionInterpreter
 {
     private final Expression expression;
     private final Metadata metadata;
-    private final Session session;
+    private final ConnectorSession session;
     private final boolean optimize;
+    private final IdentityHashMap<Expression, Type> expressionTypes;
 
     private final Visitor visitor;
 
     // identity-based cache for LIKE expressions with constant pattern and escape char
-    private final IdentityHashMap<LikePredicate, Regex> LIKE_PATTERN_CACHE = new IdentityHashMap<>();
-    private final IdentityHashMap<InListExpression, Set<Object>> IN_LIST_CACHE = new IdentityHashMap<>();
+    private final IdentityHashMap<LikePredicate, Regex> likePatternCache = new IdentityHashMap<>();
+    private final IdentityHashMap<InListExpression, Set<Object>> inListCache = new IdentityHashMap<>();
 
-    public static ExpressionInterpreter expressionInterpreter(Expression expression, Metadata metadata, Session session)
+    public static ExpressionInterpreter expressionInterpreter(Expression expression, Metadata metadata, ConnectorSession session, IdentityHashMap<Expression, Type> expressionTypes)
     {
         checkNotNull(expression, "expression is null");
         checkNotNull(metadata, "metadata is null");
         checkNotNull(session, "session is null");
 
-        return new ExpressionInterpreter(expression, metadata, session, false);
+        return new ExpressionInterpreter(expression, metadata, session, expressionTypes, false);
     }
 
-    public static ExpressionInterpreter expressionOptimizer(Expression expression, Metadata metadata, Session session)
+    public static ExpressionInterpreter expressionOptimizer(Expression expression, Metadata metadata, ConnectorSession session, IdentityHashMap<Expression, Type> expressionTypes)
     {
         checkNotNull(expression, "expression is null");
         checkNotNull(metadata, "metadata is null");
         checkNotNull(session, "session is null");
 
-        return new ExpressionInterpreter(expression, metadata, session, true);
+        return new ExpressionInterpreter(expression, metadata, session, expressionTypes, true);
     }
 
-    private ExpressionInterpreter(Expression expression, Metadata metadata, Session session, boolean optimize)
+    private ExpressionInterpreter(Expression expression, Metadata metadata, ConnectorSession session, IdentityHashMap<Expression, Type> expressionTypes, boolean optimize)
     {
         this.expression = expression;
         this.metadata = metadata;
         this.session = session;
+        this.expressionTypes = expressionTypes;
         this.optimize = optimize;
 
         this.visitor = new Visitor();
@@ -127,85 +118,78 @@ public class ExpressionInterpreter
 
     public Object evaluate(RecordCursor inputs)
     {
-        Preconditions.checkState(!optimize, "evaluate(RecordCursor) not allowed for optimizer");
+        checkState(!optimize, "evaluate(RecordCursor) not allowed for optimizer");
         return visitor.process(expression, inputs);
     }
 
-    public Object evaluate(TupleReadable[] inputs)
+    public Object evaluate(BlockCursor[] inputs)
     {
-        Preconditions.checkState(!optimize, "evaluate(TupleReadable[]) not allowed for optimizer");
+        checkState(!optimize, "evaluate(BlockCursor[]) not allowed for optimizer");
         return visitor.process(expression, inputs);
     }
 
     public Object optimize(SymbolResolver inputs)
     {
-        Preconditions.checkState(optimize, "evaluate(SymbolResolver) not allowed for interpreter");
+        checkState(optimize, "evaluate(SymbolResolver) not allowed for interpreter");
         return visitor.process(expression, inputs);
     }
 
+    @SuppressWarnings("FloatingPointEquality")
     private class Visitor
             extends AstVisitor<Object, Object>
     {
-        @Override
-        protected Object visitCurrentTime(CurrentTime node, Object context)
-        {
-            if (node.getType() != CurrentTime.Type.TIMESTAMP) {
-                throw new UnsupportedOperationException("not yet implemented: " + node.getType());
-            }
-            else if (node.getPrecision() != null) {
-                throw new UnsupportedOperationException("not yet implemented: non-default precision");
-            }
-
-            return UnixTimeFunctions.currentTimestamp(session);
-        }
-
         @Override
         public Object visitInputReference(InputReference node, Object context)
         {
             Input input = node.getInput();
 
             int channel = input.getChannel();
-            if (context instanceof TupleReadable[]) {
-                TupleReadable[] inputs = (TupleReadable[]) context;
-                TupleReadable tuple = inputs[channel];
-                int field = input.getField();
+            if (context instanceof BlockCursor[]) {
+                BlockCursor[] inputs = (BlockCursor[]) context;
+                BlockCursor cursor = inputs[channel];
 
-                if (tuple.isNull(field)) {
+                if (cursor.isNull()) {
                     return null;
                 }
 
-                switch (tuple.getTupleInfo().getTypes().get(field)) {
-                    case BOOLEAN:
-                        return tuple.getBoolean(field);
-                    case FIXED_INT_64:
-                        return tuple.getLong(field);
-                    case DOUBLE:
-                        return tuple.getDouble(field);
-                    case VARIABLE_BINARY:
-                        return tuple.getSlice(field);
-                    default:
-                        throw new UnsupportedOperationException("not yet implemented");
+                Class<?> javaType = cursor.getType().getJavaType();
+                if (javaType == boolean.class) {
+                    return cursor.getBoolean();
+                }
+                else if (javaType == long.class) {
+                    return cursor.getLong();
+                }
+                else if (javaType == double.class) {
+                    return cursor.getDouble();
+                }
+                else if (javaType == Slice.class) {
+                    return cursor.getSlice();
+                }
+                else {
+                    throw new UnsupportedOperationException("not yet implemented");
                 }
             }
             else if (context instanceof RecordCursor) {
                 RecordCursor cursor = (RecordCursor) context;
-                checkArgument(input.getField() == 0, "Field for cursor must be 0 but is %s", input.getField());
-
                 if (cursor.isNull(channel)) {
                     return null;
                 }
 
-                switch (cursor.getType(input.getChannel())) {
-                    case BOOLEAN:
-                        return cursor.getBoolean(channel);
-                    case LONG:
-                        return cursor.getLong(channel);
-                    case DOUBLE:
-                        return cursor.getDouble(channel);
-                    case STRING:
-                        return Slices.wrappedBuffer(cursor.getString(channel));
-                    default:
-                        throw new UnsupportedOperationException("not yet implemented");
+                Class<?> javaType = cursor.getType(input.getChannel()).getJavaType();
+                if (javaType == boolean.class) {
+                    return cursor.getBoolean(channel);
+                }
+                else if (javaType == long.class) {
+                    return cursor.getLong(channel);
+                }
+                else if (javaType == double.class) {
+                    return cursor.getDouble(channel);
+                }
+                else if (javaType == Slice.class) {
+                    return cursor.getSlice(channel);
+                }
+                else {
+                    throw new UnsupportedOperationException("not yet implemented");
                 }
             }
             throw new UnsupportedOperationException("Inputs or cursor myst be set");
@@ -224,54 +208,9 @@ public class ExpressionInterpreter
         }
 
         @Override
-        protected Long visitLongLiteral(LongLiteral node, Object context)
+        protected Object visitLiteral(Literal node, Object context)
         {
-            return node.getValue();
-        }
-
-        @Override
-        protected Double visitDoubleLiteral(DoubleLiteral node, Object context)
-        {
-            return node.getValue();
-        }
-
-        @Override
-        protected Slice visitStringLiteral(StringLiteral node, Object context)
-        {
-            return node.getSlice();
-        }
-
-        @Override
-        protected Object visitDateLiteral(DateLiteral node, Object context)
-        {
-            return node.getUnixTime();
-        }
-
-        @Override
-        protected Object visitTimeLiteral(TimeLiteral node, Object context)
-        {
-            return node.getUnixTime();
-        }
-
-        @Override
-        protected Long visitTimestampLiteral(TimestampLiteral node, Object context)
-        {
-            return node.getUnixTime();
-        }
-
-        @Override
-        protected Long visitIntervalLiteral(IntervalLiteral node, Object context)
-        {
-            if (node.isYearToMonth()) {
-                throw new UnsupportedOperationException("Month based intervals not supported yet: " + node.getType());
-            }
-            return node.getSeconds();
-        }
-
-        @Override
-        protected Object visitNullLiteral(NullLiteral node, Object context)
-        {
-            return null;
+            return LiteralInterpreter.evaluate(metadata, session, node);
         }
 
         @Override
@@ -280,22 +219,10 @@ public class ExpressionInterpreter
             Object value = process(node.getValue(), context);
 
             if (value instanceof Expression) {
-                return node;
+                return new IsNullPredicate(toExpression(value, expressionTypes.get(node.getValue())));
             }
 
             return value == null;
-        }
-
-        @Override
-        protected Object visitIsNotNullPredicate(IsNotNullPredicate node, Object context)
-        {
-            Object value = process(node.getValue(), context);
-
-            if (value instanceof Expression) {
-                return node;
-            }
-
-            return value != null;
         }
 
         @Override
@@ -339,24 +266,15 @@ public class ExpressionInterpreter
             if (operand != null) {
                 for (WhenClause whenClause : node.getWhenClauses()) {
                     Object value = process(whenClause.getOperand(), context);
+                    if (value == null) {
+                        continue;
+                    }
                     if (value instanceof Expression) {
                         // TODO: optimize this case
                         return node;
                     }
 
-                    if (operand instanceof Long && value instanceof Long) {
-                        if (((Long) operand).longValue() == ((Long) value).longValue()) {
-                            resultClause = whenClause.getResult();
-                            break;
-                        }
-                    }
-                    else if (operand instanceof Number && value instanceof Number) {
-                        if (((Number) operand).doubleValue() == ((Number) value).doubleValue()) {
-                            resultClause = whenClause.getResult();
-                            break;
-                        }
-                    }
-                    else if (operand.equals(value)) {
+                    if ((Boolean) invokeOperator(OperatorType.EQUAL, types(node.getOperand(), whenClause.getOperand()), ImmutableList.of(operand, value))) {
                         resultClause = whenClause.getResult();
                         break;
                     }
@@ -408,12 +326,12 @@ public class ExpressionInterpreter
             }
             InListExpression valueList = (InListExpression) valueListExpression;
 
-            Set<Object> set = IN_LIST_CACHE.get(valueList);
+            Set<Object> set = inListCache.get(valueList);
 
             // We use the presence of the node in the map to indicate that we've already done
             // the analysis below. If the value is null, it means that we can't apply the HashSet
             // optimization
-            if (!IN_LIST_CACHE.containsKey(valueList)) {
+            if (!inListCache.containsKey(valueList)) {
                 if (Iterables.all(valueList.getValues(), isNonNullLiteralPredicate())) {
                     // if all elements are constant, create a set with them
                     set = new HashSet<>();
@@ -421,7 +339,7 @@ public class ExpressionInterpreter
                         set.add(process(expression, context));
                     }
                 }
-                IN_LIST_CACHE.put(valueList, set);
+                inListCache.put(valueList, set);
             }
 
             if (set != null && !(value instanceof Expression)) {
@@ -436,18 +354,20 @@ public class ExpressionInterpreter
             boolean hasNullValue = false;
             boolean found = false;
             List<Object> values = new ArrayList<>(valueList.getValues().size());
+            List<Type> types = new ArrayList<>(valueList.getValues().size());
             for (Expression expression : valueList.getValues()) {
                 Object inValue = process(expression, context);
                 if (value instanceof Expression || inValue instanceof Expression) {
                     hasUnresolvedValue = true;
                     values.add(inValue);
+                    types.add(expressionTypes.get(expression));
                     continue;
                 }
 
                 if (inValue == null) {
                     hasNullValue = true;
                 }
-                else if (!found && value.equals(inValue)) {
+                else if (!found && (Boolean) invokeOperator(OperatorType.EQUAL, types(node.getValue(), expression), ImmutableList.of(value, inValue))) {
                     // in does not short-circuit so we must evaluate all value in the list
                     found = true;
                 }
@@ -457,7 +377,8 @@ public class ExpressionInterpreter
             }
 
             if (hasUnresolvedValue) {
-                return new InPredicate(toExpression(value), new InListExpression(toExpressions(values)));
+                Type type = expressionTypes.get(node.getValue());
+                return new InPredicate(toExpression(value, type), new InListExpression(toExpressions(values, types)));
             }
             if (hasNullValue) {
                 return null;
@@ -473,13 +394,23 @@ public class ExpressionInterpreter
                 return null;
             }
             if (value instanceof Expression) {
-                return node;
+                return new NegativeExpression(toExpression(value, expressionTypes.get(node.getValue())));
             }
 
-            if (value instanceof Long) {
-                return -((long) value);
+            OperatorInfo operatorInfo = metadata.resolveOperator(OperatorType.NEGATION, types(node.getValue()));
+
+            MethodHandle handle = operatorInfo.getMethodHandle();
+            if (handle.type().parameterCount() > 0 && handle.type().parameterType(0) == ConnectorSession.class) {
+                handle = handle.bindTo(session);
             }
-            return -((double) value);
+            try {
+                return handle.invokeWithArguments(value);
+            }
+            catch (Throwable throwable) {
+                Throwables.propagateIfInstanceOf(throwable, RuntimeException.class);
+                Throwables.propagateIfInstanceOf(throwable, Error.class);
+                throw new RuntimeException(throwable.getMessage(), throwable);
+            }
         }
 
         @Override
@@ -494,156 +425,45 @@ public class ExpressionInterpreter
                 return null;
             }
 
-            if (left instanceof Expression || right instanceof Expression) {
-                return node;
+            if (hasUnresolvedValue(left, right)) {
+                return new ArithmeticExpression(node.getType(), toExpression(left, expressionTypes.get(node.getLeft())), toExpression(right, expressionTypes.get(node.getRight())));
             }
 
-            Number leftNumber = (Number) left;
-            Number rightNumber = (Number) right;
-            switch (node.getType()) {
-                case ADD:
-                    if (leftNumber instanceof Long && rightNumber instanceof Long) {
-                        return leftNumber.longValue() + rightNumber.longValue();
-                    }
-                    else {
-                        return leftNumber.doubleValue() + rightNumber.doubleValue();
-                    }
-                case SUBTRACT:
-                    if (leftNumber instanceof Long && rightNumber instanceof Long) {
-                        return leftNumber.longValue() - rightNumber.longValue();
-                    }
-                    else {
-                        return leftNumber.doubleValue() - rightNumber.doubleValue();
-                    }
-                case DIVIDE:
-                    if (leftNumber instanceof Long && rightNumber instanceof Long) {
-                        return leftNumber.longValue() / rightNumber.longValue();
-                    }
-                    else {
-                        return leftNumber.doubleValue() / rightNumber.doubleValue();
-                    }
-                case MULTIPLY:
-                    if (leftNumber instanceof Long && rightNumber instanceof Long) {
-                        return leftNumber.longValue() * rightNumber.longValue();
-                    }
-                    else {
-                        return leftNumber.doubleValue() * rightNumber.doubleValue();
-                    }
-                case MODULUS:
-                    if (leftNumber instanceof Long && rightNumber instanceof Long) {
-                        return leftNumber.longValue() % rightNumber.longValue();
-                    }
-                    else {
-                        return leftNumber.doubleValue() % rightNumber.doubleValue();
-                    }
-                default:
-                    throw new UnsupportedOperationException("not yet implemented: " + node.getType());
-            }
+            return invokeOperator(OperatorType.valueOf(node.getType().name()), types(node.getLeft(), node.getRight()), ImmutableList.of(left, right));
         }
 
         @Override
         protected Object visitComparisonExpression(ComparisonExpression node, Object context)
         {
-            if (node.getType() == ComparisonExpression.Type.IS_DISTINCT_FROM) {
-                Object left = process(node.getLeft(), context);
-                Object right = process(node.getRight(), context);
+            ComparisonExpression.Type type = node.getType();
 
+            Object left = process(node.getLeft(), context);
+            if (left == null && !(type == ComparisonExpression.Type.IS_DISTINCT_FROM)) {
+                return null;
+            }
+
+            Object right = process(node.getRight(), context);
+            if (type == ComparisonExpression.Type.IS_DISTINCT_FROM) {
                 if (left == null && right == null) {
                     return false;
                 }
                 else if (left == null || right == null) {
                     return true;
                 }
-                else if (left instanceof Long && right instanceof Long) {
-                    return ((Number) left).longValue() != ((Number) right).longValue();
-                }
-                else if (left instanceof Number && right instanceof Number) {
-                    return ((Number) left).doubleValue() != ((Number) right).doubleValue();
-                }
-                else if (left instanceof Boolean && right instanceof Boolean) {
-                    return !left.equals(right);
-                }
-                else if (left instanceof Slice && right instanceof Slice) {
-                    return !left.equals(right);
-                }
-
-                return new ComparisonExpression(node.getType(), toExpression(left), toExpression(right));
             }
-
-            Object left = process(node.getLeft(), context);
-            if (left == null) {
-                return null;
-            }
-            Object right = process(node.getRight(), context);
-            if (right == null) {
+            else if (right == null) {
                 return null;
             }
 
-            if (left instanceof Long && right instanceof Long) {
-                switch (node.getType()) {
-                    case EQUAL:
-                        return ((Number) left).longValue() == ((Number) right).longValue();
-                    case NOT_EQUAL:
-                        return ((Number) left).longValue() != ((Number) right).longValue();
-                    case LESS_THAN:
-                        return ((Number) left).longValue() < ((Number) right).longValue();
-                    case LESS_THAN_OR_EQUAL:
-                        return ((Number) left).longValue() <= ((Number) right).longValue();
-                    case GREATER_THAN:
-                        return ((Number) left).longValue() > ((Number) right).longValue();
-                    case GREATER_THAN_OR_EQUAL:
-                        return ((Number) left).longValue() >= ((Number) right).longValue();
-                }
-                throw new UnsupportedOperationException("unhandled type: " + node.getType());
+            if (hasUnresolvedValue(left, right)) {
+                return new ComparisonExpression(type, toExpression(left, expressionTypes.get(node.getLeft())), toExpression(right, expressionTypes.get(node.getRight())));
             }
 
-            if (left instanceof Number && right instanceof Number) {
-                switch (node.getType()) {
-                    case EQUAL:
-                        return ((Number) left).doubleValue() == ((Number) right).doubleValue();
-                    case NOT_EQUAL:
-                        return ((Number) left).doubleValue() != ((Number) right).doubleValue();
-                    case LESS_THAN:
-                        return ((Number) left).doubleValue() < ((Number) right).doubleValue();
-                    case LESS_THAN_OR_EQUAL:
-                        return ((Number) left).doubleValue() <= ((Number) right).doubleValue();
-                    case GREATER_THAN:
-                        return ((Number) left).doubleValue() > ((Number) right).doubleValue();
-                    case GREATER_THAN_OR_EQUAL:
-                        return ((Number) left).doubleValue() >= ((Number) right).doubleValue();
-                }
-                throw new UnsupportedOperationException("unhandled type: " + node.getType());
+            if (type == ComparisonExpression.Type.IS_DISTINCT_FROM) {
+                type = ComparisonExpression.Type.NOT_EQUAL;
             }
 
-            if (left instanceof Slice && right instanceof Slice) {
-                switch (node.getType()) {
-                    case EQUAL:
-                        return left.equals(right);
-                    case NOT_EQUAL:
-                        return !left.equals(right);
-                    case LESS_THAN:
-                        return ((Slice) left).compareTo((Slice) right) < 0;
-                    case LESS_THAN_OR_EQUAL:
-                        return ((Slice) left).compareTo((Slice) right) <= 0;
-                    case GREATER_THAN:
-                        return ((Slice) left).compareTo((Slice) right) > 0;
-                    case GREATER_THAN_OR_EQUAL:
-                        return ((Slice) left).compareTo((Slice) right) >= 0;
-                }
-                throw new UnsupportedOperationException("unhandled type: " + node.getType());
-            }
-
-            if (left instanceof Boolean && right instanceof Boolean) {
-                switch (node.getType()) {
-                    case EQUAL:
-                        return left.equals(right);
-                    case NOT_EQUAL:
-                        return !left.equals(right);
-                }
-                throw new UnsupportedOperationException("unhandled type: " + node.getType());
-            }
-
-            return new ComparisonExpression(node.getType(), toExpression(left), toExpression(right));
+            return invokeOperator(OperatorType.valueOf(type.name()), types(node.getLeft(), node.getRight()), ImmutableList.of(left, right));
         }
 
         @Override
@@ -662,14 +482,14 @@ public class ExpressionInterpreter
                 return null;
             }
 
-            if (value instanceof Number && min instanceof Number && max instanceof Number) {
-                return ((Number) min).doubleValue() <= ((Number) value).doubleValue() && ((Number) value).doubleValue() <= ((Number) max).doubleValue();
-            }
-            else if (value instanceof Slice && min instanceof Slice && max instanceof Slice) {
-                return ((Slice) min).compareTo((Slice) value) <= 0 && ((Slice) value).compareTo((Slice) max) <= 0;
+            if (hasUnresolvedValue(value, min, max)) {
+                return new BetweenPredicate(
+                        toExpression(value, expressionTypes.get(node.getValue())),
+                        toExpression(min, expressionTypes.get(node.getMin())),
+                        toExpression(max, expressionTypes.get(node.getMax())));
             }
 
-            return new BetweenPredicate(toExpression(value), toExpression(min), toExpression(max));
+            return invokeOperator(OperatorType.BETWEEN, types(node.getValue(), node.getMin(), node.getMax()), ImmutableList.of(value, min, max));
         }
 
         @Override
@@ -684,45 +504,16 @@ public class ExpressionInterpreter
                 return first;
             }
 
-            if (first instanceof Long && second instanceof Long) {
-                return ((Long) first).longValue() == ((Long) second).longValue() ? null : first;
-            }
-            else if (first instanceof Number && second instanceof Number) {
-                return ((Number) first).doubleValue() == ((Number) second).doubleValue() ? null : first;
-            }
-            else if (first instanceof Boolean && second instanceof Boolean) {
-                return first.equals(second) ? null : first;
-            }
-            else if (first instanceof Slice && second instanceof Slice) {
-                return first.equals(second) ? null : first;
+            if (hasUnresolvedValue(first, second)) {
+                return new NullIfExpression(toExpression(first, expressionTypes.get(node.getFirst())), toExpression(second, expressionTypes.get(node.getSecond())));
             }
 
-            return node;
-        }
-
-        @Override
-        protected Object visitIfExpression(IfExpression node, Object context)
-        {
-            Object condition = process(node.getCondition(), context);
-
-            if (Boolean.TRUE.equals(condition)) {
-                return process(node.getTrueValue(), context);
-            }
-
-            if ((condition == null) || (Boolean.FALSE.equals(condition))) {
-                if (node.getFalseValue().isPresent()) {
-                    return process(node.getFalseValue().get(), context);
-                }
+            if ((Boolean) invokeOperator(OperatorType.EQUAL, types(node.getFirst(), node.getSecond()), ImmutableList.of(first, second))) {
                 return null;
             }
-
-            Object trueValue = optimize(node.getTrueValue(), context);
-            Object falseValue = null;
-            if (node.getFalseValue().isPresent()) {
-                falseValue = optimize(node.getFalseValue().get(), context);
+            else {
+                return first;
             }
-
-            return new IfExpression(toExpression(condition), toExpression(trueValue), toExpression(falseValue));
         }
 
         @Override
@@ -734,7 +525,7 @@ public class ExpressionInterpreter
             }
 
             if (value instanceof Expression) {
-                return node;
+                return new NotExpression(toExpression(value, expressionTypes.get(node.getValue())));
             }
 
             return !(Boolean) value;
@@ -773,7 +564,9 @@ public class ExpressionInterpreter
                 return null;
             }
 
-            return node;
+            return new LogicalBinaryExpression(node.getType(),
+                    toExpression(left, expressionTypes.get(node.getLeft())),
+                    toExpression(right, expressionTypes.get(node.getRight())));
         }
 
         @Override
@@ -785,7 +578,6 @@ public class ExpressionInterpreter
         @Override
         protected Object visitFunctionCall(FunctionCall node, Object context)
         {
-            // TODO: remove this huge hack
             List<Type> argumentTypes = new ArrayList<>();
             List<Object> argumentValues = new ArrayList<>();
             for (Expression expression : node.getArguments()) {
@@ -793,46 +585,17 @@ public class ExpressionInterpreter
                 if (value == null) {
                     return null;
                 }
-                Type type;
-                if (value instanceof Double) {
-                    type = Type.DOUBLE;
-                }
-                else if (value instanceof Long) {
-                    type = Type.BIGINT;
-                }
-                else if (value instanceof Slice) {
-                    type = Type.VARCHAR;
-                }
-                else if (value instanceof Boolean) {
-                    type = Type.BOOLEAN;
-                }
-                else if (value instanceof Expression) {
-                    // TODO when we know the type of this expression, construct new FunctionCall node with optimized arguments
-                    return node;
-                }
-                else {
-                    throw new UnsupportedOperationException("Unhandled value type: " + value.getClass().getName());
-                }
+                Type type = expressionTypes.get(expression);
                 argumentValues.add(value);
                 argumentTypes.add(type);
             }
-            FunctionInfo function = metadata.getFunction(node.getName(), argumentTypes);
+            FunctionInfo function = metadata.resolveFunction(node.getName(), argumentTypes, false);
+
             // do not optimize non-deterministic functions
-            if (optimize && !function.isDeterministic()) {
-                return new FunctionCall(node.getName(), node.getWindow().orNull(), node.isDistinct(), toExpressions(argumentValues));
+            if (optimize && (!function.isDeterministic() || hasUnresolvedValue(argumentValues))) {
+                return new FunctionCall(node.getName(), node.getWindow().orNull(), node.isDistinct(), toExpressions(argumentValues, argumentTypes));
             }
-            MethodHandle handle = function.getScalarFunction();
-            if (handle.type().parameterCount() > 0 && handle.type().parameterType(0) == Session.class) {
-                handle = handle.bindTo(session);
-            }
-            try {
-                return handle.invokeWithArguments(argumentValues);
-            }
-            catch (Throwable throwable) {
-                Throwables.propagateIfInstanceOf(throwable, RuntimeException.class);
-                Throwables.propagateIfInstanceOf(throwable, Error.class);
-                throw new RuntimeException(throwable.getMessage(), throwable);
-            }
+            return invoke(session, function.getScalarFunction(), argumentValues);
         }
 
         @Override
@@ -878,21 +641,26 @@ public class ExpressionInterpreter
             if (pattern instanceof Slice && escape == null) {
                 String stringPattern = ((Slice) pattern).toString(Charsets.UTF_8);
                 if (!stringPattern.contains("%") && !stringPattern.contains("_")) {
-                    return new ComparisonExpression(ComparisonExpression.Type.EQUAL, toExpression(value), toExpression(pattern));
+                    return new ComparisonExpression(ComparisonExpression.Type.EQUAL,
+                            toExpression(value, expressionTypes.get(node.getValue())),
+                            toExpression(pattern, expressionTypes.get(node.getPattern())));
                 }
             }
 
             Expression optimizedEscape = null;
             if (node.getEscape() != null) {
-                optimizedEscape = toExpression(escape);
+                optimizedEscape = toExpression(escape, expressionTypes.get(node.getEscape()));
             }
 
-            return new LikePredicate(toExpression(value), toExpression(pattern), optimizedEscape);
+            return new LikePredicate(
+                    toExpression(value, expressionTypes.get(node.getValue())),
+                    toExpression(pattern, expressionTypes.get(node.getPattern())),
+                    optimizedEscape);
         }
 
         private Regex getConstantPattern(LikePredicate node)
         {
-            Regex result = LIKE_PATTERN_CACHE.get(node);
+            Regex result = likePatternCache.get(node);
 
             if (result == null) {
                 StringLiteral pattern = (StringLiteral) node.getPattern();
@@ -900,58 +668,10 @@ public class ExpressionInterpreter
 
                 result = LikeUtils.likeToPattern(pattern.getSlice(), escape == null ? null : escape.getSlice());
 
-                LIKE_PATTERN_CACHE.put(node, result);
+                likePatternCache.put(node, result);
             }
 
             return result;
-        }
-
-        @Override
-        @SuppressWarnings("fallthrough")
-        protected Object visitExtract(Extract node, Object context)
-        {
-            Object value = process(node.getExpression(), context);
-            if (value == null) {
-                return null;
-            }
-
-            if (value instanceof Expression) {
-                return new Extract(toExpression(value), node.getField());
-            }
-
-            long time = (long) value;
-            switch (node.getField()) {
-                case CENTURY:
-                    return UnixTimeFunctions.century(time);
-                case YEAR:
-                    return UnixTimeFunctions.year(time);
-                case QUARTER:
-                    return UnixTimeFunctions.quarter(time);
-                case MONTH:
-                    return UnixTimeFunctions.month(time);
-                case WEEK:
-                    return UnixTimeFunctions.week(time);
-                case DAY:
-                case DAY_OF_MONTH:
-                    return UnixTimeFunctions.day(time);
-                case DAY_OF_WEEK:
-                case DOW:
-                    return UnixTimeFunctions.dayOfWeek(time);
-                case DAY_OF_YEAR:
-                case DOY:
-                    return UnixTimeFunctions.dayOfYear(time);
-                case HOUR:
-                    return UnixTimeFunctions.hour(time);
-                case MINUTE:
-                    return UnixTimeFunctions.minute(time);
-                case SECOND:
-                    return UnixTimeFunctions.second(time);
-                case TIMEZONE_HOUR:
-                case TIMEZONE_MINUTE:
-                    return 0L; // we assume all times are UTC for now  TODO
-            }
-
-            throw new UnsupportedOperationException("not yet implemented: " + node.getField());
         }
 
         @Override
@@ -967,18 +687,13 @@ public class ExpressionInterpreter
                 return null;
             }
 
-            switch (node.getType()) {
-                case "BOOLEAN":
-                    return Casts.toBoolean(value);
-                case "VARCHAR":
-                    return Casts.toSlice(value);
-                case "DOUBLE":
-                    return Casts.toDouble(value);
-                case "BIGINT":
-                    return Casts.toLong(value);
+            Type type = metadata.getType(node.getType());
+            if (type == null) {
+                throw new IllegalArgumentException("Unsupported type: " + node.getType());
             }
 
-            throw new UnsupportedOperationException("Unsupported type: " + node.getType());
+            OperatorInfo operatorInfo = metadata.getExactOperator(OperatorType.CAST, type, types(node.getExpression()));
+            return invoke(session, operatorInfo.getMethodHandle(), ImmutableList.of(value));
         }
 
         @Override
@@ -993,6 +708,27 @@ public class ExpressionInterpreter
             throw new UnsupportedOperationException("Evaluator visitor can only handle Expression nodes");
         }
 
+        private List<Type> types(Expression... types)
+        {
+            return ImmutableList.copyOf(Iterables.transform(ImmutableList.copyOf(types), Functions.forMap(expressionTypes)));
+        }
+
+        private boolean hasUnresolvedValue(Object... values)
+        {
+            return hasUnresolvedValue(ImmutableList.copyOf(values));
+        }
+
+        private boolean hasUnresolvedValue(List<Object> values)
+        {
+            return any(values, instanceOf(Expression.class));
+        }
+
+        private Object invokeOperator(OperatorType operatorType, List<? extends Type> argumentTypes, List<Object> argumentValues)
+        {
+            OperatorInfo operatorInfo = metadata.resolveOperator(operatorType, argumentTypes);
+            return invoke(session, operatorInfo.getMethodHandle(), argumentValues);
+        }
+
         private Object optimize(Node node, Object context)
         {
             checkState(optimize, "not optimizing");
@@ -1005,56 +741,19 @@ public class ExpressionInterpreter
         }
     }
 
-    private static List<Expression> toExpressions(List<?> objects)
+    public static Object invoke(ConnectorSession session, MethodHandle handle, List<Object> argumentValues)
     {
-        return ImmutableList.copyOf(Lists.transform(objects, new Function<Object, Expression>()
-        {
-            public Expression apply(@Nullable Object value)
-            {
-                return toExpression(value);
-            }
-        }));
-    }
-
-    public static Expression toExpression(Object object)
-    {
-        if (object instanceof Expression) {
-            return (Expression) object;
+        if (handle.type().parameterCount() > 0 && handle.type().parameterType(0) == ConnectorSession.class) {
+            handle = handle.bindTo(session);
         }
-
-        if (object instanceof Long) {
-            return new LongLiteral(object.toString());
+        try {
+            return handle.invokeWithArguments(argumentValues);
         }
-
-        if (object instanceof Double) {
-            Double value = (Double) object;
-            if (value.isNaN()) {
-                return new FunctionCall(new QualifiedName("nan"), ImmutableList.<Expression>of());
-            }
-            else if (value == Double.NEGATIVE_INFINITY) {
-                return new NegativeExpression(new FunctionCall(new QualifiedName("infinity"), ImmutableList.<Expression>of()));
-            }
-            else if (value == Double.POSITIVE_INFINITY) {
-                return new FunctionCall(new QualifiedName("infinity"), ImmutableList.<Expression>of());
-            }
-            else {
-                return new DoubleLiteral(object.toString());
-            }
+        catch (Throwable throwable) {
+            Throwables.propagateIfInstanceOf(throwable, RuntimeException.class);
+            Throwables.propagateIfInstanceOf(throwable, Error.class);
+            throw new RuntimeException(throwable.getMessage(), throwable);
         }
-
-        if (object instanceof Slice) {
-            return new StringLiteral(((Slice) object).toString(UTF_8));
-        }
-
-        if (object instanceof Boolean) {
-            return new BooleanLiteral(object.toString());
-        }
-
-        if (object == null) {
-            return new NullLiteral();
-        }
-
-        throw new UnsupportedOperationException("not yet implemented: " + object.getClass().getName());
     }
 
     private static Predicate<Expression> isNonNullLiteralPredicate()

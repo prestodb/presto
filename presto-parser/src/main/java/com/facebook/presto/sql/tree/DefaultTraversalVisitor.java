@@ -351,6 +351,24 @@ public abstract class DefaultTraversalVisitor<R, C>
     }
 
     @Override
+    protected R visitValues(Values node, C context)
+    {
+        for (Row row : node.getRows()) {
+            process(row, context);
+        }
+        return null;
+    }
+
+    @Override
+    protected R visitRow(Row node, C context)
+    {
+        for (Expression expression : node.getItems()) {
+            process(expression, context);
+        }
+        return null;
+    }
+
+    @Override
     protected R visitTableSubquery(TableSubquery node, C context)
     {
         return process(node.getQuery(), context);
@@ -367,6 +385,11 @@ public abstract class DefaultTraversalVisitor<R, C>
     {
         process(node.getRelation(), context);
         process(node.getSamplePercentage(), context);
+        if (node.getColumnsToStratifyOn().isPresent()) {
+            for (Expression expression : node.getColumnsToStratifyOn().get()) {
+                process(expression, context);
+            }
+        }
         return null;
     }
 
@@ -376,8 +399,8 @@ public abstract class DefaultTraversalVisitor<R, C>
         process(node.getLeft(), context);
         process(node.getRight(), context);
 
-        if (node.getCriteria() instanceof JoinOn) {
-            process(((JoinOn) node.getCriteria()).getExpression(), context);
+        if (node.getCriteria().get() instanceof JoinOn) {
+            process(((JoinOn) node.getCriteria().get()).getExpression(), context);
         }
 
         return null;

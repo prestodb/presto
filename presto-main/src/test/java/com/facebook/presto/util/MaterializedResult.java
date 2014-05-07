@@ -13,57 +13,50 @@
  */
 package com.facebook.presto.util;
 
-import com.facebook.presto.block.Block;
-import com.facebook.presto.block.BlockBuilder;
-import com.facebook.presto.block.BlockCursor;
 import com.facebook.presto.operator.Page;
-import com.facebook.presto.tuple.Tuple;
-import com.facebook.presto.tuple.TupleInfo;
-import com.facebook.presto.tuple.TupleInfo.Type;
-import com.google.common.base.Function;
+import com.facebook.presto.spi.ConnectorSession;
+import com.facebook.presto.spi.block.Block;
+import com.facebook.presto.spi.block.BlockCursor;
+import com.facebook.presto.spi.type.SqlDate;
+import com.facebook.presto.spi.type.SqlTime;
+import com.facebook.presto.spi.type.SqlTimeWithTimeZone;
+import com.facebook.presto.spi.type.SqlTimestamp;
+import com.facebook.presto.spi.type.SqlTimestampWithTimeZone;
+import com.facebook.presto.spi.type.Type;
 import com.google.common.base.Objects;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Lists;
 
+import java.sql.Date;
+import java.sql.Time;
+import java.sql.Timestamp;
 import java.util.ArrayList;
 import java.util.List;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 
 public class MaterializedResult
 {
-    private static final int DEFAULT_PRECISION = 5;
+    public static final int DEFAULT_PRECISION = 5;
 
-    private final List<MaterializedTuple> tuples;
-    private final TupleInfo tupleInfo;
+    private final List<MaterializedRow> rows;
+    private final List<Type> types;
 
-    public MaterializedResult(List<Tuple> tuples, TupleInfo tupleInfo, final int precision)
+    public MaterializedResult(List<MaterializedRow> rows, List<? extends Type> types)
     {
-        this.tuples = Lists.transform(checkNotNull(tuples, "tuples is null"), new Function<Tuple, MaterializedTuple>()
-        {
-            @Override
-            public MaterializedTuple apply(Tuple input)
-            {
-                return new MaterializedTuple(input, precision);
-            }
-        });
-        this.tupleInfo = checkNotNull(tupleInfo, "tupleInfo is null");
+        this.rows = ImmutableList.copyOf(checkNotNull(rows, "rows is null"));
+        this.types = ImmutableList.copyOf(checkNotNull(types, "types is null"));
     }
 
-    public MaterializedResult(List<Tuple> tuples, TupleInfo tupleInfo)
+    public List<MaterializedRow> getMaterializedRows()
     {
-        this(tuples, tupleInfo, DEFAULT_PRECISION);
+        return rows;
     }
 
-    public List<MaterializedTuple> getMaterializedTuples()
+    public List<Type> getTypes()
     {
-        return tuples;
-    }
-
-    public TupleInfo getTupleInfo()
-    {
-        return tupleInfo;
+        return types;
     }
 
     @Override
@@ -76,64 +69,104 @@ public class MaterializedResult
             return false;
         }
         MaterializedResult o = (MaterializedResult) obj;
-        return Objects.equal(tupleInfo, o.tupleInfo) &&
-                Objects.equal(tuples, o.tuples);
+        return Objects.equal(types, o.types) &&
+                Objects.equal(rows, o.rows);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hashCode(tuples, tupleInfo);
+        return Objects.hashCode(rows, types);
     }
 
     @Override
     public String toString()
     {
         return Objects.toStringHelper(this)
-                .add("tuples", tuples)
-                .add("tupleInfo", tupleInfo)
+                .add("rows", rows)
+                .add("types", types)
                 .toString();
     }
 
-    public static Builder resultBuilder(TupleInfo.Type... types)
+    public MaterializedResult toJdbcTypes()
     {
-        return resultBuilder(new TupleInfo(types));
-    }
-
-    public static Builder resultBuilder(TupleInfo... tupleInfos)
-    {
-        return resultBuilder(ImmutableList.copyOf(tupleInfos));
-    }
-
-    public static Builder resultBuilder(List<TupleInfo> tupleInfos)
-    {
-        ImmutableList.Builder<Type> types = ImmutableList.builder();
-        for (TupleInfo sourceTupleInfo : checkNotNull(tupleInfos, "sourceTupleInfos is null")) {
-            types.addAll(sourceTupleInfo.getTypes());
+        ImmutableList.Builder<MaterializedRow> jdbcRows = ImmutableList.builder();
+        for (MaterializedRow row : rows) {
+            jdbcRows.add(convertToJdbcTypes(row));
         }
-        return new Builder(new TupleInfo(types.build()));
+        return new MaterializedResult(jdbcRows.build(), types);
+    }
+
+    private static MaterializedRow convertToJdbcTypes(MaterializedRow prestoRow)
+    {
+        List<Object> jdbcValues = new ArrayList<>();
+        for (int field = 0; field < prestoRow.getFieldCount(); field++) {
+            Object prestoValue = prestoRow.getField(field);
+            Object jdbcValue;
+            if (prestoValue instanceof SqlDate) {
+                jdbcValue = new Date(((SqlDate) prestoValue).getMillisAtMidnight());
+            }
+            else if (prestoValue instanceof SqlTime) {
+                jdbcValue = new Time(((SqlTime) prestoValue).getMillisUtc());
+            }
+            else if (prestoValue instanceof SqlTimeWithTimeZone) {
+                jdbcValue = new Time(((SqlTimeWithTimeZone) prestoValue).getMillisUtc());
+            }
+            else if (prestoValue instanceof SqlTimestamp) {
+                jdbcValue = new Timestamp(((SqlTimestamp) prestoValue).getMillisUtc());
+            }
+            else if (prestoValue instanceof SqlTimestampWithTimeZone) {
+                jdbcValue = new Timestamp(((SqlTimestampWithTimeZone) prestoValue).getMillisUtc());
+            }
+            else {
+                jdbcValue = prestoValue;
+            }
+            jdbcValues.add(jdbcValue);
+        }
+        return new MaterializedRow(prestoRow.getPrecision(), jdbcValues);
+    }
+
+    public static Builder resultBuilder(ConnectorSession session, Type... types)
+    {
+        return resultBuilder(session, ImmutableList.copyOf(types));
+    }
+
+    public static Builder resultBuilder(ConnectorSession session, List<Type> types)
+    {
+        return new Builder(session, ImmutableList.copyOf(types));
     }
 
     public static class Builder
     {
-        private final BlockBuilder builder;
+        private final ConnectorSession session;
+        private final List<Type> types;
+        private final ImmutableList.Builder<MaterializedRow> rows = ImmutableList.builder();
 
-        Builder(TupleInfo tupleInfo)
+        Builder(ConnectorSession session, List<Type> types)
         {
-            this.builder = new BlockBuilder(tupleInfo);
+            this.session = session;
+            this.types = ImmutableList.copyOf(types);
         }
 
         public Builder row(Object... values)
         {
-            for (Object value : values) {
-                append(value);
+            rows.add(new MaterializedRow(DEFAULT_PRECISION, values));
+            return this;
+        }
+
+        public Builder pages(Iterable<Page> pages)
+        {
+            for (Page page : pages) {
+                this.page(page);
             }
+
             return this;
         }
 
         public Builder page(Page page)
         {
             checkNotNull(page, "page is null");
+            checkArgument(page.getChannelCount() == types.size(), "Expected a page with %s columns, but got %s columns", page.getChannelCount(), types.size());
 
             List<BlockCursor> cursors = new ArrayList<>();
             for (Block block : page.getBlocks()) {
@@ -141,54 +174,25 @@ public class MaterializedResult
             }
 
             while (true) {
-                boolean hasResults = false;
+                List<Object> values = new ArrayList<>(types.size());
                 for (BlockCursor cursor : cursors) {
                     if (cursor.advanceNextPosition()) {
-                        builder.append(cursor.getTuple());
-                        hasResults = true;
+                        values.add(cursor.getObjectValue(session));
                     }
                     else {
-                        checkState(!hasResults, "unaligned cursors");
+                        checkState(values.isEmpty(), "unaligned cursors");
                     }
                 }
-                if (!hasResults) {
+                if (values.isEmpty()) {
                     return this;
                 }
+                rows.add(new MaterializedRow(DEFAULT_PRECISION, values));
             }
         }
 
         public MaterializedResult build()
         {
-            ImmutableList.Builder<Tuple> tuples = ImmutableList.builder();
-            if (!builder.isEmpty()) {
-                BlockCursor cursor = builder.build().cursor();
-                while (cursor.advanceNextPosition()) {
-                    tuples.add(cursor.getTuple());
-                }
-            }
-            return new MaterializedResult(tuples.build(), builder.getTupleInfo());
-        }
-
-        private void append(Object value)
-        {
-            if (value == null) {
-                builder.appendNull();
-            }
-            else if (value instanceof Boolean) {
-                builder.append((Boolean) value);
-            }
-            else if ((value instanceof Long) || (value instanceof Integer)) {
-                builder.append(((Number) value).longValue());
-            }
-            else if (value instanceof Double) {
-                builder.append((Double) value);
-            }
-            else if (value instanceof String) {
-                builder.append((String) value);
-            }
-            else {
-                throw new IllegalArgumentException("bad value: " + value.getClass().getName());
-            }
+            return new MaterializedResult(rows.build(), types);
         }
     }
 }

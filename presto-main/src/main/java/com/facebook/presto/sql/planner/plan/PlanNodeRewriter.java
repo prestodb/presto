@@ -25,6 +25,11 @@ public class PlanNodeRewriter<C>
         return rewriteNode(node, context, planRewriter);
     }
 
+    public PlanNode rewriteDistinctLimit(DistinctLimitNode node, C context, PlanRewriter<C> planRewriter)
+    {
+        return rewriteNode(node, context, planRewriter);
+    }
+
     public PlanNode rewriteExchange(ExchangeNode node, C context, PlanRewriter<C> planRewriter)
     {
         return rewriteNode(node, context, planRewriter);
@@ -36,6 +41,11 @@ public class PlanNodeRewriter<C>
     }
 
     public PlanNode rewriteTableScan(TableScanNode node, C context, PlanRewriter<C> planRewriter)
+    {
+        return rewriteNode(node, context, planRewriter);
+    }
+
+    public PlanNode rewriteValues(ValuesNode node, C context, PlanRewriter<C> planRewriter)
     {
         return rewriteNode(node, context, planRewriter);
     }
@@ -55,6 +65,11 @@ public class PlanNodeRewriter<C>
         return rewriteNode(node, context, planRewriter);
     }
 
+    public PlanNode rewriteIndexSource(IndexSourceNode node, C context, PlanRewriter<C> planRewriter)
+    {
+        return rewriteNode(node, context, planRewriter);
+    }
+
     public PlanNode rewriteJoin(JoinNode node, C context, PlanRewriter<C> planRewriter)
     {
         return rewriteNode(node, context, planRewriter);
@@ -65,7 +80,22 @@ public class PlanNodeRewriter<C>
         return rewriteNode(node, context, planRewriter);
     }
 
+    public PlanNode rewriteIndexJoin(IndexJoinNode node, C context, PlanRewriter<C> planRewriter)
+    {
+        return rewriteNode(node, context, planRewriter);
+    }
+
     public PlanNode rewriteAggregation(AggregationNode node, C context, PlanRewriter<C> planRewriter)
+    {
+        return rewriteNode(node, context, planRewriter);
+    }
+
+    public PlanNode rewriteMarkDistinct(MarkDistinctNode node, C context, PlanRewriter<C> planRewriter)
+    {
+        return rewriteNode(node, context, planRewriter);
+    }
+
+    public PlanNode rewriteMaterializeSample(MaterializeSampleNode node, C context, PlanRewriter<C> planRewriter)
     {
         return rewriteNode(node, context, planRewriter);
     }
@@ -86,6 +116,11 @@ public class PlanNodeRewriter<C>
     }
 
     public PlanNode rewriteTableWriter(TableWriterNode node, C context, PlanRewriter<C> planRewriter)
+    {
+        return rewriteNode(node, context, planRewriter);
+    }
+
+    public PlanNode rewriteTableCommit(TableCommitNode node, C context, PlanRewriter<C> planRewriter)
     {
         return rewriteNode(node, context, planRewriter);
     }

@@ -15,7 +15,6 @@ package com.facebook.presto.client;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 
 import javax.annotation.Nullable;
@@ -25,6 +24,8 @@ import javax.validation.constraints.NotNull;
 import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+
+import static com.google.common.base.Preconditions.checkNotNull;
 
 @Immutable
 public class FailureInfo
@@ -47,9 +48,9 @@ public class FailureInfo
             @JsonProperty("stack") List<String> stack,
             @JsonProperty("errorLocation") @Nullable ErrorLocation errorLocation)
     {
-        Preconditions.checkNotNull(type, "type is null");
-        Preconditions.checkNotNull(suppressed, "suppressed is null");
-        Preconditions.checkNotNull(stack, "stack is null");
+        checkNotNull(type, "type is null");
+        checkNotNull(suppressed, "suppressed is null");
+        checkNotNull(stack, "stack is null");
 
         this.type = type;
         this.message = message;
@@ -106,12 +107,12 @@ public class FailureInfo
         return toException(this);
     }
 
-    private static Failure toException(FailureInfo failureInfo)
+    private static FailureException toException(FailureInfo failureInfo)
     {
         if (failureInfo == null) {
             return null;
         }
-        Failure failure = new Failure(failureInfo.getType(), failureInfo.getMessage(), toException(failureInfo.getCause()));
+        FailureException failure = new FailureException(failureInfo.getType(), failureInfo.getMessage(), toException(failureInfo.getCause()));
         for (FailureInfo suppressed : failureInfo.getSuppressed()) {
             failure.addSuppressed(toException(suppressed));
         }
@@ -142,5 +143,32 @@ public class FailureInfo
             return new StackTraceElement(declaringClass, methodName, fileName, number);
         }
         return new StackTraceElement("Unknown", stack, null, -1);
+    }
+
+    private static class FailureException
+            extends RuntimeException
+    {
+        private final String type;
+
+        FailureException(String type, String message, FailureException cause)
+        {
+            super(message, cause, true, true);
+            this.type = checkNotNull(type, "type is null");
+        }
+
+        public String getType()
+        {
+            return type;
+        }
+
+        @Override
+        public String toString()
+        {
+            String message = getMessage();
+            if (message != null) {
+                return type + ": " + message;
+            }
+            return type;
+        }
     }
 }

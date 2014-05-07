@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.metadata;
 
+import com.facebook.presto.spi.Node;
 import com.google.common.collect.ImmutableSet;
 
 import java.util.Set;

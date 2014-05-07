@@ -14,6 +14,10 @@
 package com.facebook.presto.operator.scalar;
 
 import com.facebook.presto.operator.Description;
+import com.facebook.presto.spi.type.BigintType;
+import com.facebook.presto.spi.type.BooleanType;
+import com.facebook.presto.spi.type.DoubleType;
+import com.facebook.presto.type.SqlType;
 import com.google.common.primitives.Doubles;
 
 import java.util.concurrent.ThreadLocalRandom;
@@ -24,83 +28,95 @@ public final class MathFunctions
 
     @Description("absolute value")
     @ScalarFunction
-    public static long abs(long num)
+    @SqlType(BigintType.class)
+    public static long abs(@SqlType(BigintType.class) long num)
     {
         return Math.abs(num);
     }
 
     @Description("absolute value")
     @ScalarFunction
-    public static double abs(double num)
+    @SqlType(DoubleType.class)
+    public static double abs(@SqlType(DoubleType.class) double num)
     {
         return Math.abs(num);
     }
 
     @Description("arc cosine")
     @ScalarFunction
-    public static double acos(double num)
+    @SqlType(DoubleType.class)
+    public static double acos(@SqlType(DoubleType.class) double num)
     {
         return Math.acos(num);
     }
 
     @Description("arc sine")
     @ScalarFunction
-    public static double asin(double num)
+    @SqlType(DoubleType.class)
+    public static double asin(@SqlType(DoubleType.class) double num)
     {
         return Math.asin(num);
     }
 
     @Description("arc tangent")
     @ScalarFunction
-    public static double atan(double num)
+    @SqlType(DoubleType.class)
+    public static double atan(@SqlType(DoubleType.class) double num)
     {
         return Math.atan(num);
     }
 
     @Description("arc tangent of given fraction")
     @ScalarFunction
-    public static double atan2(double num1, double num2)
+    @SqlType(DoubleType.class)
+    public static double atan2(@SqlType(DoubleType.class) double num1, @SqlType(DoubleType.class) double num2)
     {
         return Math.atan2(num1, num2);
     }
 
     @Description("cube root")
     @ScalarFunction
-    public static double cbrt(double num)
+    @SqlType(DoubleType.class)
+    public static double cbrt(@SqlType(DoubleType.class) double num)
     {
         return Math.cbrt(num);
     }
 
     @Description("round up to nearest integer")
     @ScalarFunction(alias = "ceil")
-    public static long ceiling(long num)
+    @SqlType(BigintType.class)
+    public static long ceiling(@SqlType(BigintType.class) long num)
     {
         return num;
     }
 
     @Description("round up to nearest integer")
     @ScalarFunction(alias = "ceil")
-    public static double ceiling(double num)
+    @SqlType(DoubleType.class)
+    public static double ceiling(@SqlType(DoubleType.class) double num)
     {
         return Math.ceil(num);
     }
 
     @Description("cosine")
     @ScalarFunction
-    public static double cos(double num)
+    @SqlType(DoubleType.class)
+    public static double cos(@SqlType(DoubleType.class) double num)
     {
         return Math.cos(num);
     }
 
     @Description("hyperbolic cosine")
     @ScalarFunction
-    public static double cosh(double num)
+    @SqlType(DoubleType.class)
+    public static double cosh(@SqlType(DoubleType.class) double num)
     {
         return Math.cosh(num);
     }
 
     @Description("Euler's number")
     @ScalarFunction
+    @SqlType(DoubleType.class)
     public static double e()
     {
         return Math.E;
@@ -108,69 +124,79 @@ public final class MathFunctions
 
     @Description("Euler's number raised to the given power")
     @ScalarFunction
-    public static double exp(double num)
+    @SqlType(DoubleType.class)
+    public static double exp(@SqlType(DoubleType.class) double num)
     {
         return Math.exp(num);
     }
 
     @Description("round down to nearest integer")
     @ScalarFunction
-    public static long floor(long num)
+    @SqlType(BigintType.class)
+    public static long floor(@SqlType(BigintType.class) long num)
     {
         return num;
     }
 
     @Description("round down to nearest integer")
     @ScalarFunction
-    public static double floor(double num)
+    @SqlType(DoubleType.class)
+    public static double floor(@SqlType(DoubleType.class) double num)
     {
         return Math.floor(num);
     }
 
     @Description("natural logarithm")
     @ScalarFunction
-    public static double ln(double num)
+    @SqlType(DoubleType.class)
+    public static double ln(@SqlType(DoubleType.class) double num)
     {
         return Math.log(num);
     }
 
     @Description("logarithm to base 2")
     @ScalarFunction
-    public static double log2(double num)
+    @SqlType(DoubleType.class)
+    public static double log2(@SqlType(DoubleType.class) double num)
     {
         return Math.log(num) / Math.log(2);
     }
 
     @Description("logarithm to base 10")
     @ScalarFunction
-    public static double log10(double num)
+    @SqlType(DoubleType.class)
+    public static double log10(@SqlType(DoubleType.class) double num)
     {
         return Math.log10(num);
     }
 
     @Description("logarithm to given base")
     @ScalarFunction
-    public static double log(double num, double base)
+    @SqlType(DoubleType.class)
+    public static double log(@SqlType(DoubleType.class) double num, @SqlType(DoubleType.class) double base)
     {
         return Math.log(num) / Math.log(base);
     }
 
     @Description("remainder of given quotient")
     @ScalarFunction
-    public static long mod(long num1, long num2)
+    @SqlType(BigintType.class)
+    public static long mod(@SqlType(BigintType.class) long num1, @SqlType(BigintType.class) long num2)
     {
         return num1 % num2;
     }
 
     @Description("remainder of given quotient")
     @ScalarFunction
-    public static double mod(double num1, double num2)
+    @SqlType(DoubleType.class)
+    public static double mod(@SqlType(DoubleType.class) double num1, @SqlType(DoubleType.class) double num2)
     {
         return num1 % num2;
     }
 
     @Description("the constant Pi")
     @ScalarFunction
+    @SqlType(DoubleType.class)
     public static double pi()
     {
         return Math.PI;
@@ -178,13 +204,15 @@ public final class MathFunctions
 
     @Description("value raised to the power of exponent")
     @ScalarFunction
-    public static double pow(double num, double exponent)
+    @SqlType(DoubleType.class)
+    public static double pow(@SqlType(DoubleType.class) double num, @SqlType(DoubleType.class) double exponent)
     {
         return Math.pow(num, exponent);
     }
 
     @Description("a pseudo-random value")
     @ScalarFunction(alias = "rand", deterministic = false)
+    @SqlType(DoubleType.class)
     public static double random()
     {
         return ThreadLocalRandom.current().nextDouble();
@@ -192,28 +220,32 @@ public final class MathFunctions
 
     @Description("round to nearest integer")
     @ScalarFunction
-    public static long round(long num)
+    @SqlType(BigintType.class)
+    public static long round(@SqlType(BigintType.class) long num)
     {
         return round(num, 0);
     }
 
     @Description("round to nearest integer")
     @ScalarFunction
-    public static long round(long num, long decimals)
+    @SqlType(BigintType.class)
+    public static long round(@SqlType(BigintType.class) long num, @SqlType(BigintType.class) long decimals)
     {
         return num;
     }
 
     @Description("round to nearest integer")
     @ScalarFunction
-    public static double round(double num)
+    @SqlType(DoubleType.class)
+    public static double round(@SqlType(DoubleType.class) double num)
     {
         return round(num, 0);
     }
 
     @Description("round to given number of decimal places")
     @ScalarFunction
-    public static double round(double num, long decimals)
+    @SqlType(DoubleType.class)
+    public static double round(@SqlType(DoubleType.class) double num, @SqlType(BigintType.class) long decimals)
     {
         if (num == 0.0) {
             return 0;
@@ -228,55 +260,63 @@ public final class MathFunctions
 
     @Description("sine")
     @ScalarFunction
-    public static double sin(double num)
+    @SqlType(DoubleType.class)
+    public static double sin(@SqlType(DoubleType.class) double num)
     {
         return Math.sin(num);
     }
 
     @Description("square root")
     @ScalarFunction
-    public static double sqrt(double num)
+    @SqlType(DoubleType.class)
+    public static double sqrt(@SqlType(DoubleType.class) double num)
     {
         return Math.sqrt(num);
     }
 
     @Description("tangent")
     @ScalarFunction
-    public static double tan(double num)
+    @SqlType(DoubleType.class)
+    public static double tan(@SqlType(DoubleType.class) double num)
     {
         return Math.tan(num);
     }
 
     @Description("hyperbolic tangent")
     @ScalarFunction
-    public static double tanh(double num)
+    @SqlType(DoubleType.class)
+    public static double tanh(@SqlType(DoubleType.class) double num)
     {
         return Math.tanh(num);
     }
 
     @Description("test if value is not-a-number")
     @ScalarFunction("is_nan")
-    public static boolean isNaN(double num)
+    @SqlType(BooleanType.class)
+    public static boolean isNaN(@SqlType(DoubleType.class) double num)
     {
         return Double.isNaN(num);
     }
 
     @Description("test if value is finite")
     @ScalarFunction
-    public static boolean isFinite(double num)
+    @SqlType(BooleanType.class)
+    public static boolean isFinite(@SqlType(DoubleType.class) double num)
     {
         return Doubles.isFinite(num);
     }
 
     @Description("test if value is infinite")
     @ScalarFunction
-    public static boolean isInfinite(double num)
+    @SqlType(BooleanType.class)
+    public static boolean isInfinite(@SqlType(DoubleType.class) double num)
     {
         return Double.isInfinite(num);
     }
 
     @Description("constant representing not-a-number")
     @ScalarFunction("nan")
+    @SqlType(DoubleType.class)
     public static double NaN()
     {
         return Double.NaN;
@@ -284,6 +324,7 @@ public final class MathFunctions
 
     @Description("Infinity")
     @ScalarFunction
+    @SqlType(DoubleType.class)
     public static double infinity()
     {
         return Double.POSITIVE_INFINITY;

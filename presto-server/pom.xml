@@ -5,7 +5,7 @@
     <parent>
         <groupId>com.facebook.presto</groupId>
         <artifactId>presto-root</artifactId>
-        <version>0.53-SNAPSHOT</version>
+        <version>0.67-SNAPSHOT</version>
     </parent>
 
     <artifactId>presto-server</artifactId>
@@ -179,6 +179,16 @@
         </dependency>
 
         <dependency>
+            <groupId>com.fasterxml.jackson.core</groupId>
+            <artifactId>jackson-core</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>com.fasterxml.jackson.core</groupId>
+            <artifactId>jackson-databind</artifactId>
+        </dependency>
+
+        <dependency>
             <groupId>com.sun.jersey</groupId>
             <artifactId>jersey-core</artifactId>
         </dependency>
@@ -213,10 +223,23 @@
             <artifactId>discovery-server</artifactId>
         </dependency>
 
+        <!-- should be scope test but is needed transitively -->
+        <dependency>
+            <groupId>org.apache.commons</groupId>
+            <artifactId>commons-math3</artifactId>
+            <scope>runtime</scope>
+        </dependency>
+
         <!-- for testing -->
         <dependency>
             <groupId>org.testng</groupId>
             <artifactId>testng</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>com.facebook.presto</groupId>
+            <artifactId>presto-tpch</artifactId>
             <scope>test</scope>
         </dependency>
 
@@ -229,12 +252,6 @@
         <dependency>
             <groupId>io.airlift</groupId>
             <artifactId>testing</artifactId>
-            <scope>test</scope>
-        </dependency>
-
-        <dependency>
-            <groupId>commons-math</groupId>
-            <artifactId>commons-math</artifactId>
             <scope>test</scope>
         </dependency>
 
@@ -261,11 +278,59 @@
                             <artifactItems>
                                 <artifactItem>
                                     <groupId>com.facebook.presto</groupId>
+                                    <artifactId>presto-tpch</artifactId>
+                                    <version>${project.version}</version>
+                                    <type>zip</type>
+                                    <overWrite>false</overWrite>
+                                    <outputDirectory>${project.build.directory}/plugin/tpch</outputDirectory>
+                                </artifactItem>
+                                <artifactItem>
+                                    <groupId>com.facebook.presto</groupId>
+                                    <artifactId>presto-hive-hadoop1</artifactId>
+                                    <version>${project.version}</version>
+                                    <type>zip</type>
+                                    <overWrite>false</overWrite>
+                                    <outputDirectory>${project.build.directory}/plugin/hive-hadoop1</outputDirectory>
+                                </artifactItem>
+                                <artifactItem>
+                                    <groupId>com.facebook.presto</groupId>
+                                    <artifactId>presto-hive-hadoop2</artifactId>
+                                    <version>${project.version}</version>
+                                    <type>zip</type>
+                                    <overWrite>false</overWrite>
+                                    <outputDirectory>${project.build.directory}/plugin/hive-hadoop2</outputDirectory>
+                                </artifactItem>
+                                <artifactItem>
+                                    <groupId>com.facebook.presto</groupId>
                                     <artifactId>presto-hive-cdh4</artifactId>
                                     <version>${project.version}</version>
                                     <type>zip</type>
                                     <overWrite>false</overWrite>
                                     <outputDirectory>${project.build.directory}/plugin/hive-cdh4</outputDirectory>
+                                </artifactItem>
+                                <artifactItem>
+                                    <groupId>com.facebook.presto</groupId>
+                                    <artifactId>presto-hive-cdh5</artifactId>
+                                    <version>${project.version}</version>
+                                    <type>zip</type>
+                                    <overWrite>false</overWrite>
+                                    <outputDirectory>${project.build.directory}/plugin/hive-cdh5</outputDirectory>
+                                </artifactItem>
+                                <artifactItem>
+                                    <groupId>com.facebook.presto</groupId>
+                                    <artifactId>presto-cassandra</artifactId>
+                                    <version>${project.version}</version>
+                                    <type>zip</type>
+                                    <overWrite>false</overWrite>
+                                    <outputDirectory>${project.build.directory}/plugin/cassandra</outputDirectory>
+                                </artifactItem>
+                                <artifactItem>
+                                    <groupId>com.facebook.presto</groupId>
+                                    <artifactId>presto-example-http</artifactId>
+                                    <version>${project.version}</version>
+                                    <type>zip</type>
+                                    <overWrite>false</overWrite>
+                                    <outputDirectory>${project.build.directory}/plugin/example-http</outputDirectory>
                                 </artifactItem>
                             </artifactItems>
                         </configuration>

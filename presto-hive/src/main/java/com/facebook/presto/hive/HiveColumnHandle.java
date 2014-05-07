@@ -13,21 +13,24 @@
  */
 package com.facebook.presto.hive;
 
-import com.facebook.presto.spi.ColumnHandle;
+import com.facebook.presto.spi.ConnectorColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
-import com.facebook.presto.spi.ColumnType;
+import com.facebook.presto.spi.type.Type;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.base.Function;
 import com.google.common.base.Objects;
 import com.google.common.base.Predicate;
 
+import static com.facebook.presto.hive.util.Types.checkType;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 public class HiveColumnHandle
-        implements ColumnHandle
+        implements ConnectorColumnHandle
 {
+    public static final String SAMPLE_WEIGHT_COLUMN_NAME = "__presto__sample_weight__";
+
     private final String clientId;
     private final String name;
     private final int ordinalPosition;
@@ -95,7 +98,7 @@ public class HiveColumnHandle
         return new ColumnMetadata(name, hiveType.getNativeType(), ordinalPosition, partitionKey);
     }
 
-    public ColumnType getType()
+    public Type getType()
     {
         return hiveType.getNativeType();
     }
@@ -136,16 +139,14 @@ public class HiveColumnHandle
                 .toString();
     }
 
-    public static Function<ColumnHandle, HiveColumnHandle> hiveColumnHandle()
+    public static Function<ConnectorColumnHandle, HiveColumnHandle> hiveColumnHandle()
     {
-        return new Function<ColumnHandle, HiveColumnHandle>()
+        return new Function<ConnectorColumnHandle, HiveColumnHandle>()
         {
             @Override
-            public HiveColumnHandle apply(ColumnHandle columnHandle)
+            public HiveColumnHandle apply(ConnectorColumnHandle columnHandle)
             {
-                checkNotNull(columnHandle, "columnHandle is null");
-                checkArgument(columnHandle instanceof HiveColumnHandle, "columnHandle is not an instance of HiveColumnHandle");
-                return (HiveColumnHandle) columnHandle;
+                return checkType(columnHandle, HiveColumnHandle.class, "columnHandle");
             }
         };
     }
@@ -174,12 +175,12 @@ public class HiveColumnHandle
         };
     }
 
-    public static Function<HiveColumnHandle, ColumnType> nativeTypeGetter()
+    public static Function<HiveColumnHandle, Type> nativeTypeGetter()
     {
-        return new Function<HiveColumnHandle, ColumnType>()
+        return new Function<HiveColumnHandle, Type>()
         {
             @Override
-            public ColumnType apply(HiveColumnHandle input)
+            public Type apply(HiveColumnHandle input)
             {
                 return input.getType();
             }

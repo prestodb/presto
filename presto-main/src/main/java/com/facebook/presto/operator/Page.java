@@ -13,7 +13,9 @@
  */
 package com.facebook.presto.operator;
 
-import com.facebook.presto.block.Block;
+import com.facebook.presto.spi.block.Block;
+import com.google.common.base.Function;
+import com.facebook.presto.spi.block.RandomAccessBlock;
 import com.google.common.base.Objects;
 import com.google.common.base.Preconditions;
 import io.airlift.units.DataSize;
@@ -52,7 +54,7 @@ public class Page
     {
         long dataSize = 0;
         for (Block block : blocks) {
-            dataSize += block.getDataSize().toBytes();
+            dataSize += block.getSizeInBytes();
         }
         return new DataSize(dataSize, Unit.BYTE);
     }
@@ -67,6 +69,15 @@ public class Page
         return blocks[channel];
     }
 
+    public RandomAccessPage toRandomAccessPage()
+    {
+        RandomAccessBlock[] randomAccessBlocks = new RandomAccessBlock[blocks.length];
+        for (int channel = 0; channel < blocks.length; channel++) {
+            randomAccessBlocks[channel] = blocks[channel].toRandomAccessBlock();
+        }
+        return new RandomAccessPage(positionCount, randomAccessBlocks);
+    }
+
     @Override
     public String toString()
     {
@@ -75,5 +86,17 @@ public class Page
                 .add("channelCount", getChannelCount())
                 .addValue("@" + Integer.toHexString(System.identityHashCode(this)))
                 .toString();
+    }
+
+    public Function<Integer, Block> blockGetter()
+    {
+        return new Function<Integer, Block>()
+        {
+            @Override
+            public Block apply(Integer input)
+            {
+                return getBlock(input);
+            }
+        };
     }
 }

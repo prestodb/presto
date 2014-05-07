@@ -21,6 +21,7 @@ GROUP_ID = 'com.facebook.presto'
 ARTIFACTS = {
     'server': ('presto-server', 'tar.gz', None),
     'cli': ('presto-cli', 'jar', 'executable'),
+    'jdbc': ('presto-jdbc', 'jar', None),
 }
 
 
@@ -30,7 +31,7 @@ def maven_filename(artifact, version, packaging, classifier):
 
 
 def maven_download(group, artifact, version, packaging, classifier):
-    base = 'http://search.maven.org/remotecontent?filepath='
+    base = 'http://central.maven.org/maven2/'
     group_path = group.replace('.', '/')
     filename = maven_filename(artifact, version, packaging, classifier)
     return base + '/'.join((group_path, artifact, version, filename))

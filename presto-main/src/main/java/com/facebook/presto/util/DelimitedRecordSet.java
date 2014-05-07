@@ -14,23 +14,23 @@
 package com.facebook.presto.util;
 
 import com.facebook.presto.spi.ColumnMetadata;
-import com.facebook.presto.spi.ColumnType;
 import com.facebook.presto.spi.RecordCursor;
 import com.facebook.presto.spi.RecordSet;
+import com.facebook.presto.spi.type.Type;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Splitter;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
-import com.google.common.io.Closeables;
 import com.google.common.io.InputSupplier;
 import com.google.common.io.LineReader;
+import io.airlift.slice.Slice;
+import io.airlift.slice.Slices;
 
 import java.io.IOException;
 import java.io.Reader;
 import java.util.List;
 
 import static com.facebook.presto.metadata.MetadataUtil.columnTypeGetter;
-import static com.google.common.base.Charsets.UTF_8;
 import static com.google.common.collect.Iterables.transform;
 
 public class DelimitedRecordSet
@@ -39,7 +39,7 @@ public class DelimitedRecordSet
     private final InputSupplier<? extends Reader> readerSupplier;
     private final Splitter columnSplitter;
     private final List<ColumnMetadata> columns;
-    private final List<ColumnType> columnTypes;
+    private final List<Type> columnTypes;
 
     public DelimitedRecordSet(InputSupplier<? extends Reader> readerSupplier, Splitter columnSplitter, ColumnMetadata... columns)
     {
@@ -59,7 +59,7 @@ public class DelimitedRecordSet
     }
 
     @Override
-    public List<ColumnType> getColumnTypes()
+    public List<Type> getColumnTypes()
     {
         return columnTypes;
     }
@@ -105,7 +105,13 @@ public class DelimitedRecordSet
         }
 
         @Override
-        public ColumnType getType(int field)
+        public long getReadTimeNanos()
+        {
+            return 0;
+        }
+
+        @Override
+        public Type getType(int field)
         {
             return columns.get(field).getType();
         }
@@ -146,9 +152,9 @@ public class DelimitedRecordSet
         }
 
         @Override
-        public byte[] getString(int field)
+        public Slice getSlice(int field)
         {
-            return getField(field).getBytes(UTF_8);
+            return Slices.utf8Slice(getField(field));
         }
 
         @Override
@@ -166,7 +172,12 @@ public class DelimitedRecordSet
         @Override
         public void close()
         {
-            Closeables.closeQuietly(reader);
+            try {
+                reader.close();
+            }
+            catch (IOException e) {
+                // ignored
+            }
         }
     }
 }

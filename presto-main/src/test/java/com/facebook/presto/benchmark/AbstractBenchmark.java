@@ -52,6 +52,16 @@ public abstract class AbstractBenchmark
         return benchmarkName;
     }
 
+    protected int getWarmupIterations()
+    {
+        return warmupIterations;
+    }
+
+    protected int getMeasuredIterations()
+    {
+        return measuredIterations;
+    }
+
     /**
      * Initialize any state necessary to run benchmark. This is run once at start up.
      */
@@ -93,6 +103,9 @@ public abstract class AbstractBenchmark
                 }
                 averageBenchmarkResults.addResults(results);
             }
+        }
+        catch (Throwable t) {
+            throw new RuntimeException("Exception in " + getBenchmarkName(), t);
         }
         finally {
             tearDown();

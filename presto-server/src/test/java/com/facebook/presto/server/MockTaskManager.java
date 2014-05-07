@@ -15,7 +15,6 @@ package com.facebook.presto.server;
 
 import com.facebook.presto.OutputBuffers;
 import com.facebook.presto.TaskSource;
-import com.facebook.presto.client.FailureInfo;
 import com.facebook.presto.execution.BufferResult;
 import com.facebook.presto.execution.SharedBuffer;
 import com.facebook.presto.execution.TaskId;
@@ -25,10 +24,10 @@ import com.facebook.presto.execution.TaskState;
 import com.facebook.presto.execution.TaskStateMachine;
 import com.facebook.presto.operator.Page;
 import com.facebook.presto.operator.TaskContext;
-import com.facebook.presto.sql.analyzer.Session;
+import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.sql.planner.PlanFragment;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
-import com.facebook.presto.util.Threads;
+import com.facebook.presto.execution.ExecutionFailureInfo;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -55,13 +54,14 @@ import static com.facebook.presto.block.BlockAssertions.createStringsBlock;
 import static com.facebook.presto.util.Failures.toFailures;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
+import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.airlift.http.client.HttpUriBuilder.uriBuilderFrom;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 
 public class MockTaskManager
         implements TaskManager
 {
-    private final Executor executor = Executors.newCachedThreadPool(Threads.daemonThreadsNamed("test-%d"));
+    private final Executor executor = Executors.newCachedThreadPool(daemonThreadsNamed("test-%d"));
 
     private final HttpServerInfo httpServerInfo;
     private final DataSize maxBufferSize;
@@ -115,7 +115,7 @@ public class MockTaskManager
     }
 
     @Override
-    public synchronized TaskInfo updateTask(Session session, TaskId taskId, PlanFragment ignored, List<TaskSource> sources, OutputBuffers outputBuffers)
+    public synchronized TaskInfo updateTask(ConnectorSession session, TaskId taskId, PlanFragment ignored, List<TaskSource> sources, OutputBuffers outputBuffers)
     {
         checkNotNull(session, "session is null");
         checkNotNull(taskId, "taskId is null");
@@ -124,8 +124,13 @@ public class MockTaskManager
 
         MockTask task = tasks.get(taskId);
         if (task == null) {
-            task = new MockTask(session, taskId,
-                    uriBuilderFrom(httpServerInfo.getHttpUri()).appendPath("v1/task").appendPath(taskId.toString()).build(), maxBufferSize, initialPages, executor
+            task = new MockTask(session,
+                    taskId,
+                    uriBuilderFrom(httpServerInfo.getHttpUri()).appendPath("v1/task").appendPath(taskId.toString()).build(),
+                    outputBuffers,
+                    maxBufferSize,
+                    initialPages,
+                    executor
             );
             tasks.put(taskId, task);
         }
@@ -189,9 +194,10 @@ public class MockTaskManager
         private final TaskContext taskContext;
         private final SharedBuffer sharedBuffer;
 
-        public MockTask(Session session,
+        public MockTask(ConnectorSession session,
                 TaskId taskId,
                 URI location,
+                OutputBuffers outputBuffers,
                 DataSize maxBufferSize,
                 int initialPages,
                 Executor executor)
@@ -201,7 +207,7 @@ public class MockTaskManager
 
             this.location = checkNotNull(location, "location is null");
 
-            this.sharedBuffer = new SharedBuffer(checkNotNull(maxBufferSize, "maxBufferSize is null"));
+            this.sharedBuffer = new SharedBuffer(taskId, executor, checkNotNull(maxBufferSize, "maxBufferSize is null"), outputBuffers);
 
             List<String> data = ImmutableList.of("apple", "banana", "cherry", "date");
 
@@ -219,12 +225,7 @@ public class MockTaskManager
 
         public void addOutputBuffers(OutputBuffers outputBuffers)
         {
-            for (String outputId : outputBuffers.getBufferIds()) {
-                sharedBuffer.addQueue(outputId);
-            }
-            if (outputBuffers.isNoMoreBufferIds()) {
-                sharedBuffer.noMoreQueues();
-            }
+            sharedBuffer.setOutputBuffers(outputBuffers);
         }
 
         public void cancel()
@@ -241,7 +242,7 @@ public class MockTaskManager
         public TaskInfo getTaskInfo()
         {
             TaskState state = taskStateMachine.getState();
-            List<FailureInfo> failures = ImmutableList.of();
+            List<ExecutionFailureInfo> failures = ImmutableList.of();
             if (state == TaskState.FAILED) {
                 failures = toFailures(taskStateMachine.getFailureCauses());
             }
@@ -255,8 +256,7 @@ public class MockTaskManager
                     sharedBuffer.getInfo(),
                     ImmutableSet.<PlanNodeId>of(),
                     taskContext.getTaskStats(),
-                    failures,
-                    taskContext.getOutputItems());
+                    failures);
         }
     }
 }

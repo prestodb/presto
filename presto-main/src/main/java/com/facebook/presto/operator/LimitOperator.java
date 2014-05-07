@@ -13,12 +13,18 @@
  */
 package com.facebook.presto.operator;
 
-import com.facebook.presto.block.Block;
-import com.facebook.presto.tuple.TupleInfo;
+import com.facebook.presto.spi.block.Block;
+import com.facebook.presto.spi.block.BlockBuilder;
+import com.facebook.presto.spi.block.BlockBuilderStatus;
+import com.facebook.presto.spi.block.BlockCursor;
+import com.facebook.presto.spi.type.Type;
+import com.google.common.base.Optional;
+import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListenableFuture;
 
 import java.util.List;
 
+import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
@@ -30,21 +36,23 @@ public class LimitOperator
             implements OperatorFactory
     {
         private final int operatorId;
-        private final List<TupleInfo> tupleInfos;
+        private final List<Type> types;
         private final long limit;
+        private final Optional<Integer> sampleWeightChannel;
         private boolean closed;
 
-        public LimitOperatorFactory(int operatorId, List<TupleInfo> tupleInfos, long limit)
+        public LimitOperatorFactory(int operatorId, List<? extends Type> types, long limit, Optional<Integer> sampleWeightChannel)
         {
             this.operatorId = operatorId;
-            this.tupleInfos = tupleInfos;
+            this.types = ImmutableList.copyOf(types);
             this.limit = limit;
+            this.sampleWeightChannel = sampleWeightChannel;
         }
 
         @Override
-        public List<TupleInfo> getTupleInfos()
+        public List<Type> getTypes()
         {
-            return tupleInfos;
+            return types;
         }
 
         @Override
@@ -52,7 +60,7 @@ public class LimitOperator
         {
             checkState(!closed, "Factory is already closed");
             OperatorContext operatorContext = driverContext.addOperatorContext(operatorId, LimitOperator.class.getSimpleName());
-            return new LimitOperator(operatorContext, tupleInfos, limit);
+            return new LimitOperator(operatorContext, types, limit, sampleWeightChannel);
         }
 
         @Override
@@ -63,17 +71,19 @@ public class LimitOperator
     }
 
     private final OperatorContext operatorContext;
-    private final List<TupleInfo> tupleInfos;
+    private final List<Type> types;
+    private final Optional<Integer> sampleWeightChannel;
     private Page nextPage;
     private long remainingLimit;
 
-    public LimitOperator(OperatorContext operatorContext, List<TupleInfo> tupleInfos, long limit)
+    public LimitOperator(OperatorContext operatorContext, List<Type> types, long limit, Optional<Integer> sampleWeightChannel)
     {
         this.operatorContext = checkNotNull(operatorContext, "operatorContext is null");
-        this.tupleInfos = checkNotNull(tupleInfos, "tupleInfos is null");
+        this.types = checkNotNull(types, "types is null");
 
         checkArgument(limit >= 0, "limit must be at least zero");
         this.remainingLimit = limit;
+        this.sampleWeightChannel = checkNotNull(sampleWeightChannel, "sampleWeightChannel is null");
     }
 
     @Override
@@ -83,9 +93,9 @@ public class LimitOperator
     }
 
     @Override
-    public List<TupleInfo> getTupleInfos()
+    public List<Type> getTypes()
     {
-        return tupleInfos;
+        return types;
     }
 
     @Override
@@ -117,6 +127,16 @@ public class LimitOperator
     {
         checkState(needsInput());
 
+        if (sampleWeightChannel.isPresent()) {
+            addInputWithSampling(page, sampleWeightChannel.get());
+        }
+        else {
+            addInputWithoutSampling(page);
+        }
+    }
+
+    private void addInputWithoutSampling(Page page)
+    {
         if (page.getPositionCount() <= remainingLimit) {
             remainingLimit -= page.getPositionCount();
             nextPage = page;
@@ -127,8 +147,45 @@ public class LimitOperator
                 Block block = page.getBlock(channel);
                 blocks[channel] = block.getRegion(0, (int) remainingLimit);
             }
+            nextPage = new Page((int) remainingLimit, blocks);
             remainingLimit = 0;
-            nextPage = new Page(blocks);
+        }
+    }
+
+    private void addInputWithSampling(Page page, int sampleWeightChannel)
+    {
+        BlockCursor cursor = page.getBlock(sampleWeightChannel).cursor();
+        BlockBuilder builder = BIGINT.createBlockBuilder(new BlockBuilderStatus());
+
+        int rowsToCopy = 0;
+        // Build the sample weight block, and count how many rows of data to copy
+        while (remainingLimit > 0 && cursor.advanceNextPosition()) {
+            rowsToCopy++;
+            long sampleWeight = cursor.getLong();
+            if (sampleWeight <= remainingLimit) {
+                builder.appendLong(sampleWeight);
+            }
+            else {
+                builder.appendLong(remainingLimit);
+            }
+            remainingLimit -= sampleWeight;
+        }
+
+        if (remainingLimit >= 0 && rowsToCopy == page.getPositionCount()) {
+            nextPage = page;
+        }
+        else {
+            Block[] blocks = new Block[page.getChannelCount()];
+            blocks[sampleWeightChannel] = builder.build();
+            for (int channel = 0; channel < page.getChannelCount(); channel++) {
+                if (channel == sampleWeightChannel) {
+                    continue;
+                }
+                Block block = page.getBlock(channel);
+                blocks[channel] = block.getRegion(0, rowsToCopy);
+            }
+            nextPage = new Page(rowsToCopy, blocks);
+            remainingLimit = 0;
         }
     }
 

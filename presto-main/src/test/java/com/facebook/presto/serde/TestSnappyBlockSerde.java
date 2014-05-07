@@ -13,19 +13,19 @@
  */
 package com.facebook.presto.serde;
 
-import com.facebook.presto.block.Block;
 import com.facebook.presto.block.BlockAssertions;
-import com.facebook.presto.block.uncompressed.UncompressedBlock;
-import com.facebook.presto.tuple.Tuple;
-import com.facebook.presto.tuple.TupleInfo;
-import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableSet;
+import com.facebook.presto.spi.block.Block;
+import com.facebook.presto.spi.block.BlockBuilder;
+import com.facebook.presto.spi.block.BlockBuilderStatus;
+import com.facebook.presto.spi.block.BlockEncoding;
+import com.facebook.presto.spi.block.RandomAccessBlock;
 import io.airlift.slice.DynamicSliceOutput;
+import io.airlift.slice.Slices;
 import org.testng.annotations.Test;
 
-import java.util.Random;
+import java.util.concurrent.ThreadLocalRandom;
 
-import static com.facebook.presto.tuple.Tuples.createTuple;
+import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static org.testng.Assert.assertTrue;
 
 public class TestSnappyBlockSerde
@@ -33,56 +33,56 @@ public class TestSnappyBlockSerde
     @Test
     public void testRoundTrip()
     {
-        ImmutableList<Tuple> tuples = ImmutableList.of(
-                createTuple("alice"),
-                createTuple("bob"),
-                createTuple("charlie"),
-                createTuple("dave"));
-
-        DynamicSliceOutput blockSlice = new DynamicSliceOutput(1024);
+        Block block = VARCHAR.createBlockBuilder(new BlockBuilderStatus())
+                .appendSlice(Slices.utf8Slice("alice"))
+                .appendSlice(Slices.utf8Slice("bob"))
+                .appendSlice(Slices.utf8Slice("charlie"))
+                .appendSlice(Slices.utf8Slice("dave"))
+                .build();
 
         DynamicSliceOutput compressedOutput = new DynamicSliceOutput(1024);
         Encoder encoder = BlocksFileEncoding.SNAPPY.createBlocksWriter(compressedOutput);
 
-        for (Tuple tuple : tuples) {
-            tuple.writeTo(blockSlice);
-        }
-        Block expectedBlock = new UncompressedBlock(tuples.size(), TupleInfo.SINGLE_VARBINARY, blockSlice.slice());
-
-        encoder.append(tuples);
+        encoder.append(block);
         BlockEncoding snappyEncoding = encoder.finish();
         Block actualBlock = snappyEncoding.readBlock(compressedOutput.slice().getInput());
-        BlockAssertions.assertBlockEquals(actualBlock, expectedBlock);
+        BlockAssertions.assertBlockEquals(actualBlock, block);
     }
 
     @Test
     public void testLotsOfStuff()
     {
-        ImmutableList<Tuple> tuples = ImmutableList.of(
-                createTuple("alice"),
-                createTuple("bob"),
-                createTuple("charlie"),
-                createTuple("dave"));
+        RandomAccessBlock block = VARCHAR.createBlockBuilder(new BlockBuilderStatus())
+                .appendSlice(Slices.utf8Slice("alice"))
+                .appendSlice(Slices.utf8Slice("bob"))
+                .appendSlice(Slices.utf8Slice("charlie"))
+                .appendSlice(Slices.utf8Slice("dave"))
+                .build()
+                .toRandomAccessBlock();
 
-        DynamicSliceOutput blockSlice = new DynamicSliceOutput(1024);
+        DynamicSliceOutput encoderOutput = new DynamicSliceOutput(1024);
+        Encoder encoder = BlocksFileEncoding.SNAPPY.createBlocksWriter(encoderOutput);
 
-        DynamicSliceOutput compressedOutput = new DynamicSliceOutput(1024);
-        Encoder encoder = BlocksFileEncoding.SNAPPY.createBlocksWriter(compressedOutput);
+        BlockBuilder expectedBlockBuilder = VARCHAR.createBlockBuilder(new BlockBuilderStatus());
 
         int count = 1000;
-        Random r = new Random();
         for (int i = 0; i < count; i++) {
-            int x = r.nextInt(tuples.size());
-            tuples.get(x).writeTo(blockSlice);
-            encoder.append(ImmutableSet.of(tuples.get(x)));
+            // select a random position
+            int position = ThreadLocalRandom.current().nextInt(block.getPositionCount());
+
+            // add to expected block
+            block.appendTo(position, expectedBlockBuilder);
+
+            // create block with single value and add to encoder
+            encoder.append(block.getSingleValueBlock(position));
         }
 
-        Block expectedBlock = new UncompressedBlock(count, TupleInfo.SINGLE_VARBINARY, blockSlice.slice());
+        Block expectedBlock = expectedBlockBuilder.build();
 
         BlockEncoding snappyEncoding = encoder.finish();
-        assertTrue(compressedOutput.size() < blockSlice.size());
+        assertTrue(encoderOutput.size() < expectedBlock.getSizeInBytes());
 
-        Block actualBlock = snappyEncoding.readBlock(compressedOutput.slice().getInput());
+        Block actualBlock = snappyEncoding.readBlock(encoderOutput.slice().getInput());
 
         BlockAssertions.assertBlockEquals(actualBlock, expectedBlock);
     }

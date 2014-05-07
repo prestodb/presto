@@ -13,47 +13,60 @@
  */
 package com.facebook.presto.connector.jmx;
 
-import com.facebook.presto.spi.ColumnHandle;
+import com.facebook.presto.spi.ConnectorColumnHandle;
 import com.facebook.presto.spi.ConnectorHandleResolver;
-import com.facebook.presto.spi.Split;
-import com.facebook.presto.spi.TableHandle;
+import com.facebook.presto.spi.ConnectorIndexHandle;
+import com.facebook.presto.spi.ConnectorSplit;
+import com.facebook.presto.spi.ConnectorTableHandle;
 
 public class JmxHandleResolver
         implements ConnectorHandleResolver
 {
     @Override
-    public boolean canHandle(TableHandle tableHandle)
+    public boolean canHandle(ConnectorTableHandle tableHandle)
     {
         return tableHandle instanceof JmxTableHandle;
     }
 
     @Override
-    public boolean canHandle(ColumnHandle columnHandle)
+    public boolean canHandle(ConnectorColumnHandle columnHandle)
     {
         return columnHandle instanceof JmxColumnHandle;
     }
 
     @Override
-    public boolean canHandle(Split split)
+    public boolean canHandle(ConnectorSplit split)
     {
         return split instanceof JmxSplit;
     }
 
     @Override
-    public Class<? extends TableHandle> getTableHandleClass()
+    public boolean canHandle(ConnectorIndexHandle indexHandle)
+    {
+        return false;
+    }
+
+    @Override
+    public Class<? extends ConnectorTableHandle> getTableHandleClass()
     {
         return JmxTableHandle.class;
     }
 
     @Override
-    public Class<? extends ColumnHandle> getColumnHandleClass()
+    public Class<? extends ConnectorColumnHandle> getColumnHandleClass()
     {
         return JmxColumnHandle.class;
     }
 
     @Override
-    public Class<? extends Split> getSplitClass()
+    public Class<? extends ConnectorSplit> getSplitClass()
     {
         return JmxSplit.class;
+    }
+
+    @Override
+    public Class<? extends ConnectorIndexHandle> getIndexHandleClass()
+    {
+        throw new UnsupportedOperationException();
     }
 }

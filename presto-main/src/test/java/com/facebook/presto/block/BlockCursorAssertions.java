@@ -13,18 +13,30 @@
  */
 package com.facebook.presto.block;
 
-import com.facebook.presto.tuple.Tuple;
-import com.facebook.presto.tuple.TupleInfo;
-import com.google.common.collect.ImmutableSortedMap;
+import com.facebook.presto.spi.ConnectorSession;
+import com.facebook.presto.spi.block.BlockCursor;
+import com.facebook.presto.spi.type.Type;
 
+import java.util.Locale;
 import java.util.SortedMap;
+import java.util.TreeMap;
 
+import static com.facebook.presto.spi.type.BigintType.BIGINT;
+import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
+import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
+import static com.facebook.presto.spi.type.TimeZoneKey.UTC_KEY;
+import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
+import static java.util.Collections.unmodifiableSortedMap;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
 import static org.testng.Assert.fail;
 
-public class BlockCursorAssertions
+public final class BlockCursorAssertions
 {
+    public static final ConnectorSession SESSION = new ConnectorSession("user", "source", "catalog", "schema", UTC_KEY, Locale.ENGLISH, "address", "agent");
+
+    private BlockCursorAssertions() {}
+
     public static void assertAdvanceNextPosition(BlockCursor cursor)
     {
         assertTrue(cursor.advanceNextPosition());
@@ -35,94 +47,101 @@ public class BlockCursorAssertions
         assertTrue(cursor.advanceToPosition(position));
     }
 
-    public static void assertNextPosition(BlockCursor cursor, int position, Tuple tuple)
+    public static void assertNextPosition(BlockCursor cursor, int position, Object value)
     {
         assertAdvanceNextPosition(cursor);
-        assertCurrentValue(cursor, position, tuple);
+        assertCurrentValue(cursor, position, value);
     }
 
-    public static void assertCurrentValue(BlockCursor cursor, int position, Tuple tuple)
+    public static void assertCurrentValue(BlockCursor cursor, int position, Object value)
     {
-        TupleInfo tupleInfo = tuple.getTupleInfo();
-        assertEquals(cursor.getTupleInfo(), tupleInfo);
-
-        assertEquals(cursor.getTuple(), tuple);
         assertEquals(cursor.getPosition(), position);
-        assertTrue(cursor.currentTupleEquals(tuple));
+        assertEquals(cursor.getObjectValue(SESSION), value);
+        assertEquals(cursor.getObjectValue(SESSION), value);
 
-        for (int index = 0; index < tupleInfo.getFieldCount(); index++) {
-            assertEquals(cursor.isNull(index), tuple.isNull(index));
-            switch (tupleInfo.getTypes().get(index)) {
-                case BOOLEAN:
-                    assertEquals(cursor.getBoolean(index), tuple.getBoolean(index));
-                    try {
-                        cursor.getSlice(index);
-                        fail("Expected IllegalStateException or UnsupportedOperationException");
-                    }
-                    catch (IllegalStateException | UnsupportedOperationException expected) {
-                    }
-                    try {
-                        cursor.getSlice(index);
-                        fail("Expected IllegalStateException or UnsupportedOperationException");
-                    }
-                    catch (IllegalStateException | UnsupportedOperationException expected) {
-                    }
-                    break;
-                case FIXED_INT_64:
-                    assertEquals(cursor.getLong(index), tuple.getLong(index));
-                    try {
-                        cursor.getDouble(index);
-                        fail("Expected IllegalStateException or UnsupportedOperationException");
-                    }
-                    catch (IllegalStateException | UnsupportedOperationException expected) {
-                    }
-                    try {
-                        cursor.getSlice(index);
-                        fail("Expected IllegalStateException or UnsupportedOperationException");
-                    }
-                    catch (IllegalStateException | UnsupportedOperationException expected) {
-                    }
-                    break;
-                case VARIABLE_BINARY:
-                    assertEquals(cursor.getSlice(index), tuple.getSlice(index));
-                    try {
-                        cursor.getDouble(index);
-                        fail("Expected IllegalStateException or UnsupportedOperationException");
-                    }
-                    catch (IllegalStateException | UnsupportedOperationException expected) {
-                    }
-                    try {
-                        cursor.getLong(index);
-                        fail("Expected IllegalStateException or UnsupportedOperationException");
-                    }
-                    catch (IllegalStateException | UnsupportedOperationException expected) {
-                    }
-                    break;
-                case DOUBLE:
-                    assertEquals(cursor.getDouble(index), tuple.getDouble(index));
-                    try {
-                        cursor.getSlice(index);
-                        fail("Expected IllegalStateException or UnsupportedOperationException");
-                    }
-                    catch (IllegalStateException | UnsupportedOperationException expected) {
-                    }
-                    try {
-                        cursor.getSlice(index);
-                        fail("Expected IllegalStateException or UnsupportedOperationException");
-                    }
-                    catch (IllegalStateException | UnsupportedOperationException expected) {
-                    }
-                    break;
+        assertEquals(cursor.isNull(), value == null);
+        if (cursor.isNull()) {
+            return;
+        }
+
+        Type type = cursor.getType();
+        if (type == BOOLEAN) {
+            assertEquals(cursor.getBoolean(), value);
+            try {
+                cursor.getLong();
+                fail("Expected IllegalStateException or UnsupportedOperationException");
+            }
+            catch (IllegalStateException | UnsupportedOperationException expected) {
+            }
+            try {
+                cursor.getDouble();
+                fail("Expected IllegalStateException or UnsupportedOperationException");
+            }
+            catch (IllegalStateException | UnsupportedOperationException expected) {
             }
         }
+        else if (type == BIGINT) {
+            assertEquals(cursor.getLong(), value);
+            try {
+                cursor.getBoolean();
+                fail("Expected IllegalStateException or UnsupportedOperationException");
+            }
+            catch (IllegalStateException | UnsupportedOperationException expected) {
+            }
+            try {
+                cursor.getDouble();
+                fail("Expected IllegalStateException or UnsupportedOperationException");
+            }
+            catch (IllegalStateException | UnsupportedOperationException expected) {
+            }
+
+        }
+        else if (type == DOUBLE) {
+            assertEquals(cursor.getDouble(), value);
+            try {
+                cursor.getBoolean();
+                fail("Expected IllegalStateException or UnsupportedOperationException");
+            }
+            catch (IllegalStateException | UnsupportedOperationException expected) {
+            }
+            try {
+                cursor.getLong();
+                fail("Expected IllegalStateException or UnsupportedOperationException");
+            }
+            catch (IllegalStateException | UnsupportedOperationException expected) {
+            }
+
+        }
+        else if (type == VARCHAR) {
+            assertEquals(cursor.getSlice().toStringUtf8(), value);
+            try {
+                cursor.getBoolean();
+                fail("Expected IllegalStateException or UnsupportedOperationException");
+            }
+            catch (IllegalStateException | UnsupportedOperationException expected) {
+            }
+            try {
+                cursor.getLong();
+                fail("Expected IllegalStateException or UnsupportedOperationException");
+            }
+            catch (IllegalStateException | UnsupportedOperationException expected) {
+            }
+            try {
+                cursor.getDouble();
+                fail("Expected IllegalStateException or UnsupportedOperationException");
+            }
+            catch (IllegalStateException | UnsupportedOperationException expected) {
+            }
+
+        }
     }
 
-    public static SortedMap<Integer, Tuple> toTuplesMap(BlockCursor cursor)
+    public static SortedMap<Integer, Object> toValuesMap(BlockCursor cursor)
     {
-        ImmutableSortedMap.Builder<Integer, Tuple> tuples = ImmutableSortedMap.naturalOrder();
+        SortedMap<Integer, Object> values = new TreeMap<>();
         while (cursor.advanceNextPosition()) {
-            tuples.put(cursor.getPosition(), cursor.getTuple());
+            values.put(cursor.getPosition(), cursor.getObjectValue(SESSION));
         }
-        return tuples.build();
+        return unmodifiableSortedMap(values);
     }
 }

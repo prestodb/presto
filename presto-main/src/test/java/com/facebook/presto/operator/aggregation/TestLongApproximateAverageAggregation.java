@@ -13,56 +13,46 @@
  */
 package com.facebook.presto.operator.aggregation;
 
-import com.facebook.presto.block.Block;
-import com.facebook.presto.block.BlockBuilder;
+import com.facebook.presto.spi.type.Type;
 
-import static com.facebook.presto.operator.aggregation.LongApproximateAverageAggregation.LONG_APPROX_AVERAGE;
-import static com.facebook.presto.tuple.TupleInfo.SINGLE_LONG;
+import java.util.List;
+
+import static com.facebook.presto.operator.aggregation.ApproximateAverageAggregations.LONG_APPROXIMATE_AVERAGE_AGGREGATION;
+import static com.facebook.presto.spi.type.BigintType.BIGINT;
 
 public class TestLongApproximateAverageAggregation
-        extends AbstractTestAggregationFunction
+        extends AbstractTestApproximateAggregationFunction
 {
-    @Override
-    public Block getSequenceBlock(int start, int length)
-    {
-        BlockBuilder blockBuilder = new BlockBuilder(SINGLE_LONG);
-        for (int i = start; i < start + length; i++) {
-            blockBuilder.append(i);
-        }
-        return blockBuilder.build();
-    }
-
     @Override
     public AggregationFunction getFunction()
     {
-        return LONG_APPROX_AVERAGE;
+        return LONG_APPROXIMATE_AVERAGE_AGGREGATION;
     }
 
     @Override
-    public String getExpectedValue(int start, int length)
+    protected Type getType()
     {
+        return BIGINT;
+    }
+
+    @Override
+    protected Double getExpectedValue(List<Number> values)
+    {
+        int length = 0;
+        long sum = 0;
+
+        for (Number value : values) {
+            if (value == null) {
+                continue;
+            }
+            length++;
+            sum += value.longValue();
+        }
+
         if (length == 0) {
             return null;
         }
 
-        double sum = 0;
-        for (int i = start; i < start + length; i++) {
-            sum += i;
-        }
-
-        double mean = sum / length;
-        double m2 = 0.0;
-        for (int i = start; i < start + length; i++) {
-            m2 += (i - mean) * (i - mean);
-        }
-
-        double variance = m2 / length;
-
-        StringBuilder sb = new StringBuilder();
-        sb.append(mean);
-        sb.append(" +/- ");
-        sb.append((2.575 * Math.sqrt(variance / length)));
-
-        return sb.toString();
+        return (double) sum / length;
     }
 }

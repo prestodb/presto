@@ -13,12 +13,19 @@
  */
 package com.facebook.presto.operator.scalar;
 
+import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
-
-import static com.facebook.presto.operator.scalar.FunctionAssertions.assertFunction;
 
 public class TestRegexpFunctions
 {
+    private FunctionAssertions functionAssertions;
+
+    @BeforeClass
+    public void setUp()
+    {
+        functionAssertions = new FunctionAssertions();
+    }
+
     @Test
     public void testRegexpLike()
     {
@@ -52,5 +59,10 @@ public class TestRegexpFunctions
     {
         assertFunction("REGEXP_EXTRACT('Hello world bye', '\\b[a-z]([a-z]*)')", "world");
         assertFunction("REGEXP_EXTRACT('Hello world bye', '\\b[a-z]([a-z]*)', 1)", "orld");
+    }
+
+    private void assertFunction(String projection, Object expected)
+    {
+        functionAssertions.assertFunction(projection, expected);
     }
 }

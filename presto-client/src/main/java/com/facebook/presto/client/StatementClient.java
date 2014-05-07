@@ -63,6 +63,7 @@ public class StatementClient
     private final AtomicBoolean closed = new AtomicBoolean();
     private final AtomicBoolean gone = new AtomicBoolean();
     private final AtomicBoolean valid = new AtomicBoolean(true);
+    private final String timeZoneId;
 
     public StatementClient(AsyncHttpClient httpClient, JsonCodec<QueryResults> queryResultsCodec, ClientSession session, String query)
     {
@@ -74,6 +75,7 @@ public class StatementClient
         this.httpClient = httpClient;
         this.responseHandler = createFullJsonResponseHandler(queryResultsCodec);
         this.debug = session.isDebug();
+        this.timeZoneId = session.getTimeZoneId();
         this.query = query;
 
         Request request = buildQueryRequest(session, query);
@@ -98,6 +100,8 @@ public class StatementClient
         if (session.getSchema() != null) {
             builder.setHeader(PrestoHeaders.PRESTO_SCHEMA, session.getSchema());
         }
+        builder.setHeader(PrestoHeaders.PRESTO_TIME_ZONE, session.getTimeZoneId());
+        builder.setHeader(PrestoHeaders.PRESTO_LANGUAGE, session.getLocale().toLanguageTag());
         builder.setHeader(USER_AGENT, USER_AGENT_VALUE);
 
         return builder.build();
@@ -106,6 +110,11 @@ public class StatementClient
     public String getQuery()
     {
         return query;
+    }
+
+    public String getTimeZoneId()
+    {
+        return timeZoneId;
     }
 
     public boolean isDebug()
@@ -184,13 +193,17 @@ public class StatementClient
 
             if (response.getStatusCode() != HttpStatus.SERVICE_UNAVAILABLE.code()) {
                 gone.set(true);
+                if (!response.hasValue()) {
+                    throw new RuntimeException(format("Error fetching next at %s returned an invalid response", request.getUri()),
+                            response.getException());
+                }
                 throw new RuntimeException(format("Error fetching next at %s returned %s: %s",
                         request.getUri(),
                         response.getStatusCode(),
                         response.getStatusMessage()));
             }
         }
-        while ((System.nanoTime() - start) < MINUTES.toNanos(2));
+        while ((System.nanoTime() - start) < MINUTES.toNanos(2) && !isClosed());
 
         gone.set(true);
         throw new RuntimeException("Error fetching next", cause);

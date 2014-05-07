@@ -19,6 +19,8 @@ import io.airlift.command.Option;
 
 import java.net.URI;
 import java.net.URISyntaxException;
+import java.util.Locale;
+import java.util.TimeZone;
 
 public class ClientOptions
 {
@@ -27,6 +29,9 @@ public class ClientOptions
 
     @Option(name = "--user", title = "user", description = "Username")
     public String user = System.getProperty("user.name");
+
+    @Option(name = "--source", title = "source", description = "Name of source making query")
+    public String source = "presto-cli";
 
     @Option(name = "--catalog", title = "catalog", description = "Default catalog")
     public String catalog = "default";
@@ -58,17 +63,17 @@ public class ClientOptions
 
     public ClientSession toClientSession()
     {
-        return new ClientSession(parseServer(server), user, "presto-cli", catalog, schema, debug);
+        return new ClientSession(parseServer(server), user, source, catalog, schema, TimeZone.getDefault().getID(), Locale.getDefault(), debug);
     }
 
-    private static URI parseServer(String s)
+    public static URI parseServer(String server)
     {
-        s = s.toLowerCase();
-        if (s.startsWith("http://") || s.startsWith("https://")) {
-            return URI.create(s);
+        server = server.toLowerCase();
+        if (server.startsWith("http://") || server.startsWith("https://")) {
+            return URI.create(server);
         }
 
-        HostAndPort host = HostAndPort.fromString(s);
+        HostAndPort host = HostAndPort.fromString(server);
         try {
             return new URI("http", null, host.getHostText(), host.getPortOrDefault(80), null, null, null);
         }

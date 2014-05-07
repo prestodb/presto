@@ -67,11 +67,6 @@ public abstract class AstVisitor<R, C>
         return visitExpression(node, context);
     }
 
-    protected R visitDateLiteral(DateLiteral node, C context)
-    {
-        return visitLiteral(node, context);
-    }
-
     protected R visitDoubleLiteral(DoubleLiteral node, C context)
     {
         return visitLiteral(node, context);
@@ -102,6 +97,11 @@ public abstract class AstVisitor<R, C>
         return visitStatement(node, context);
     }
 
+    protected R visitShowCatalogs(ShowCatalogs node, C context)
+    {
+        return visitStatement(node, context);
+    }
+
     protected R visitShowColumns(ShowColumns node, C context)
     {
         return visitStatement(node, context);
@@ -117,6 +117,16 @@ public abstract class AstVisitor<R, C>
         return visitStatement(node, context);
     }
 
+    protected R visitUseCollection(UseCollection node, C context)
+    {
+        return visitStatement(node, context);
+    }
+
+    protected R visitGenericLiteral(GenericLiteral node, C context)
+    {
+        return visitLiteral(node, context);
+    }
+
     protected R visitTimeLiteral(TimeLiteral node, C context)
     {
         return visitLiteral(node, context);
@@ -128,6 +138,11 @@ public abstract class AstVisitor<R, C>
     }
 
     protected R visitWith(With node, C context)
+    {
+        return visitNode(node, context);
+    }
+
+    protected R visitApproximate(Approximate node, C context)
     {
         return visitNode(node, context);
     }
@@ -312,6 +327,16 @@ public abstract class AstVisitor<R, C>
         return visitQueryBody(node, context);
     }
 
+    protected R visitValues(Values node, C context)
+    {
+        return visitQueryBody(node, context);
+    }
+
+    protected R visitRow(Row node, C context)
+    {
+        return visitNode(node, context);
+    }
+
     protected R visitTableSubquery(TableSubquery node, C context)
     {
         return visitQueryBody(node, context);
@@ -363,26 +388,6 @@ public abstract class AstVisitor<R, C>
     }
 
     protected R visitCreateTable(CreateTable node, C context)
-    {
-        return visitNode(node, context);
-    }
-
-    protected R visitCreateMaterializedView(CreateMaterializedView node, C context)
-    {
-        return visitNode(node, context);
-    }
-
-    protected R visitRefreshMaterializedView(RefreshMaterializedView node, C context)
-    {
-        return visitNode(node, context);
-    }
-
-    protected R visitCreateAlias(CreateAlias node, C context)
-    {
-        return visitNode(node, context);
-    }
-
-    protected R visitDropAlias(DropAlias node, C context)
     {
         return visitNode(node, context);
     }

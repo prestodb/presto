@@ -25,10 +25,12 @@ import org.apache.hadoop.net.SocksSocketFactory;
 import javax.inject.Inject;
 import javax.net.SocketFactory;
 
+import java.io.File;
 import java.util.List;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
+import static java.lang.String.format;
 
 public class HdfsConfiguration
 {
@@ -37,6 +39,13 @@ public class HdfsConfiguration
     private final Duration dfsConnectTimeout;
     private final int dfsConnectMaxRetries;
     private final String domainSocketPath;
+    private final String s3AwsAccessKey;
+    private final String s3AwsSecretKey;
+    private final boolean s3SslEnabled;
+    private final int s3MaxClientRetries;
+    private final int s3MaxErrorRetries;
+    private final Duration s3ConnectTimeout;
+    private final File s3StagingDirectory;
     private final List<String> resourcePaths;
 
     @SuppressWarnings("ThreadLocalNotStaticFinal")
@@ -60,6 +69,13 @@ public class HdfsConfiguration
         this.dfsConnectTimeout = hiveClientConfig.getDfsConnectTimeout();
         this.dfsConnectMaxRetries = hiveClientConfig.getDfsConnectMaxRetries();
         this.domainSocketPath = hiveClientConfig.getDomainSocketPath();
+        this.s3AwsAccessKey = hiveClientConfig.getS3AwsAccessKey();
+        this.s3AwsSecretKey = hiveClientConfig.getS3AwsSecretKey();
+        this.s3SslEnabled = hiveClientConfig.isS3SslEnabled();
+        this.s3MaxClientRetries = hiveClientConfig.getS3MaxClientRetries();
+        this.s3MaxErrorRetries = hiveClientConfig.getS3MaxErrorRetries();
+        this.s3ConnectTimeout = hiveClientConfig.getS3ConnectTimeout();
+        this.s3StagingDirectory = hiveClientConfig.getS3StagingDirectory();
         this.resourcePaths = hiveClientConfig.getResourceConfigFiles();
     }
 
@@ -88,15 +104,41 @@ public class HdfsConfiguration
             config.set("hadoop.socks.server", socksProxy.toString());
         }
 
-        config.setBoolean("dfs.client.read.shortcircuit", true);
         if (domainSocketPath != null) {
             config.setStrings("dfs.domain.socket.path", domainSocketPath);
+        }
+
+        // only enable short circuit reads if domain socket path is properly configured
+        if (!config.get("dfs.domain.socket.path", "").trim().isEmpty()) {
+            config.setBooleanIfUnset("dfs.client.read.shortcircuit", true);
         }
 
         config.setInt("dfs.socket.timeout", Ints.checkedCast(dfsTimeout.toMillis()));
         config.setInt("ipc.ping.interval", Ints.checkedCast(dfsTimeout.toMillis()));
         config.setInt("ipc.client.connect.timeout", Ints.checkedCast(dfsConnectTimeout.toMillis()));
         config.setInt("ipc.client.connect.max.retries", dfsConnectMaxRetries);
+
+        // re-map filesystem schemes to match Amazon Elastic MapReduce
+        config.set("fs.s3.impl", PrestoS3FileSystem.class.getName());
+        config.set("fs.s3n.impl", PrestoS3FileSystem.class.getName());
+        config.set("fs.s3bfs.impl", "org.apache.hadoop.fs.s3.S3FileSystem");
+
+        // set AWS credentials for S3
+        for (String scheme : ImmutableList.of("s3", "s3bfs", "s3n")) {
+            if (s3AwsAccessKey != null) {
+                config.set(format("fs.%s.awsAccessKeyId", scheme), s3AwsAccessKey);
+            }
+            if (s3AwsSecretKey != null) {
+                config.set(format("fs.%s.awsSecretAccessKey", scheme), s3AwsSecretKey);
+            }
+        }
+
+        // set config for S3
+        config.setBoolean(PrestoS3FileSystem.S3_SSL_ENABLED, s3SslEnabled);
+        config.setInt(PrestoS3FileSystem.S3_MAX_CLIENT_RETRIES, s3MaxClientRetries);
+        config.setInt(PrestoS3FileSystem.S3_MAX_ERROR_RETRIES, s3MaxErrorRetries);
+        config.set(PrestoS3FileSystem.S3_CONNECT_TIMEOUT, s3ConnectTimeout.toString());
+        config.set(PrestoS3FileSystem.S3_STAGING_DIRECTORY, s3StagingDirectory.toString());
 
         updateConfiguration(config);
 

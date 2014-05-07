@@ -15,17 +15,15 @@ package com.facebook.presto.execution;
 
 import com.facebook.presto.OutputBuffers;
 import com.facebook.presto.TaskSource;
-import com.facebook.presto.client.FailureInfo;
 import com.facebook.presto.event.query.QueryMonitor;
 import com.facebook.presto.execution.SharedBuffer.QueueState;
 import com.facebook.presto.operator.TaskContext;
-import com.facebook.presto.sql.analyzer.Session;
+import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.sql.planner.LocalExecutionPlanner;
 import com.facebook.presto.sql.planner.PlanFragment;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.Uninterruptibles;
 import io.airlift.concurrent.ThreadPoolExecutorMBean;
@@ -46,7 +44,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
-import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.ExecutorService;
@@ -55,8 +52,8 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 
-import static com.facebook.presto.util.Threads.threadsNamed;
 import static com.google.common.base.Preconditions.checkNotNull;
+import static io.airlift.concurrent.Threads.threadsNamed;
 
 public class SqlTaskManager
         implements TaskManager
@@ -282,7 +279,7 @@ public class SqlTaskManager
     }
 
     @Override
-    public TaskInfo updateTask(Session session, TaskId taskId, PlanFragment fragment, List<TaskSource> sources, OutputBuffers outputIds)
+    public TaskInfo updateTask(ConnectorSession session, TaskId taskId, PlanFragment fragment, List<TaskSource> sources, OutputBuffers outputBuffers)
     {
         URI location = locationFactory.createLocalTaskLocation(taskId);
 
@@ -300,6 +297,8 @@ public class SqlTaskManager
                         taskId,
                         location,
                         fragment,
+                        sources,
+                        outputBuffers,
                         planner,
                         maxBufferSize,
                         taskExecutor,
@@ -315,7 +314,7 @@ public class SqlTaskManager
 
         taskExecution.recordHeartbeat();
         taskExecution.addSources(sources);
-        taskExecution.addResultQueue(outputIds);
+        taskExecution.addResultQueue(outputBuffers);
 
         return getTaskInfo(taskExecution, false);
     }
@@ -402,8 +401,7 @@ public class SqlTaskManager
                         new SharedBufferInfo(QueueState.FINISHED, 0, 0, ImmutableList.<BufferInfo>of()),
                         ImmutableSet.<PlanNodeId>of(),
                         taskContext.getTaskStats(),
-                        ImmutableList.<FailureInfo>of(),
-                        ImmutableMap.<PlanNodeId, Set<?>>of());
+                        ImmutableList.<ExecutionFailureInfo>of());
                 TaskInfo existingTaskInfo = taskInfos.putIfAbsent(taskId, taskInfo);
                 if (existingTaskInfo != null) {
                     taskInfo = existingTaskInfo;

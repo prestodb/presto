@@ -16,7 +16,7 @@ package com.facebook.presto.execution;
 import com.facebook.presto.event.query.QueryMonitor;
 import com.facebook.presto.execution.QueryExecution.QueryExecutionFactory;
 import com.facebook.presto.execution.StateMachine.StateChangeListener;
-import com.facebook.presto.sql.analyzer.Session;
+import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.sql.parser.ParsingException;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.tree.Statement;
@@ -39,6 +39,7 @@ import javax.annotation.Nullable;
 import javax.annotation.PreDestroy;
 import javax.annotation.concurrent.ThreadSafe;
 import javax.inject.Inject;
+
 import java.net.URI;
 import java.util.List;
 import java.util.Map;
@@ -51,13 +52,13 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 
-import static com.facebook.presto.util.Threads.threadsNamed;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Predicates.compose;
 import static com.google.common.base.Predicates.isNull;
 import static com.google.common.base.Predicates.not;
 import static com.google.common.collect.Iterables.filter;
 import static com.google.common.collect.Iterables.transform;
+import static io.airlift.concurrent.Threads.threadsNamed;
 
 @ThreadSafe
 public class SqlQueryManager
@@ -187,7 +188,7 @@ public class SqlQueryManager
     }
 
     @Override
-    public QueryInfo createQuery(Session session, String query)
+    public QueryInfo createQuery(ConnectorSession session, String query)
     {
         checkNotNull(query, "query is null");
         Preconditions.checkArgument(!query.isEmpty(), "query must not be empty string");
@@ -343,14 +344,16 @@ public class SqlQueryManager
         return lastHeartbeat != null && lastHeartbeat.isBefore(oldestAllowedHeartbeat);
     }
 
-    private QueryInfo createFailedQuery(Session session, String query, QueryId queryId, Throwable cause)
+    private QueryInfo createFailedQuery(ConnectorSession session, String query, QueryId queryId, Throwable cause)
     {
         URI self = locationFactory.createQueryLocation(queryId);
         QueryExecution execution = new FailedQueryExecution(queryId, query, session, self, queryExecutor, cause);
 
         queries.put(queryId, execution);
+        stats.queryStarted();
         queryMonitor.createdEvent(execution.getQueryInfo());
         queryMonitor.completionEvent(execution.getQueryInfo());
+        stats.queryFinished(execution.getQueryInfo());
 
         return execution.getQueryInfo();
     }

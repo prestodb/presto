@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.server;
 
-import com.facebook.presto.block.BlockCursor;
 import com.facebook.presto.client.Column;
 import com.facebook.presto.client.FailureInfo;
 import com.facebook.presto.client.QueryError;
@@ -31,9 +30,11 @@ import com.facebook.presto.execution.StageState;
 import com.facebook.presto.execution.TaskInfo;
 import com.facebook.presto.operator.ExchangeClient;
 import com.facebook.presto.operator.Page;
-import com.facebook.presto.sql.analyzer.Session;
-import com.facebook.presto.tuple.TupleInfo;
-import com.facebook.presto.tuple.TupleInfo.Type;
+import com.facebook.presto.spi.ConnectorSession;
+import com.facebook.presto.spi.block.BlockCursor;
+import com.facebook.presto.spi.type.TimeZoneKey;
+import com.facebook.presto.spi.type.TimeZoneNotSupportedException;
+import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.util.IterableTransformer;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Predicate;
@@ -75,31 +76,35 @@ import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Locale;
 import java.util.Set;
+import java.util.TimeZone;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
-import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_CATALOG;
+import static com.facebook.presto.client.PrestoHeaders.PRESTO_LANGUAGE;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_SCHEMA;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_SOURCE;
+import static com.facebook.presto.client.PrestoHeaders.PRESTO_TIME_ZONE;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_USER;
 import static com.facebook.presto.execution.QueryInfo.queryIdGetter;
 import static com.facebook.presto.execution.StageInfo.getAllStages;
 import static com.facebook.presto.execution.StageInfo.stageStateGetter;
 import static com.facebook.presto.util.Failures.toFailure;
-import static com.facebook.presto.util.Threads.threadsNamed;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Strings.isNullOrEmpty;
 import static com.google.common.collect.Iterables.transform;
 import static com.google.common.net.HttpHeaders.USER_AGENT;
+import static io.airlift.concurrent.Threads.threadsNamed;
 import static io.airlift.http.client.HttpUriBuilder.uriBuilderFrom;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static java.lang.String.format;
+import static java.util.concurrent.Executors.newSingleThreadScheduledExecutor;
 
 @Path("/v1/statement")
 public class StatementResource
@@ -114,7 +119,7 @@ public class StatementResource
     private final Supplier<ExchangeClient> exchangeClientSupplier;
 
     private final ConcurrentMap<QueryId, Query> queries = new ConcurrentHashMap<>();
-    private final ScheduledExecutorService queryPurger = Executors.newSingleThreadScheduledExecutor(threadsNamed("query-purger-%d"));
+    private final ScheduledExecutorService queryPurger = newSingleThreadScheduledExecutor(threadsNamed("query-purger"));
 
     @Inject
     public StatementResource(QueryManager queryManager, Supplier<ExchangeClient> exchangeClientSupplier)
@@ -122,7 +127,7 @@ public class StatementResource
         this.queryManager = checkNotNull(queryManager, "queryManager is null");
         this.exchangeClientSupplier = checkNotNull(exchangeClientSupplier, "exchangeClientSupplier is null");
 
-        queryPurger.scheduleWithFixedDelay(new PurgeQueriesRunnable(queries.keySet(), queryManager), 200, 200, TimeUnit.MILLISECONDS);
+        queryPurger.scheduleWithFixedDelay(new PurgeQueriesRunnable(queries, queryManager), 200, 200, TimeUnit.MILLISECONDS);
     }
 
     @PreDestroy
@@ -139,6 +144,8 @@ public class StatementResource
             @HeaderParam(PRESTO_SOURCE) String source,
             @HeaderParam(PRESTO_CATALOG) String catalog,
             @HeaderParam(PRESTO_SCHEMA) String schema,
+            @HeaderParam(PRESTO_TIME_ZONE) String timeZoneId,
+            @HeaderParam(PRESTO_LANGUAGE) String language,
             @HeaderParam(USER_AGENT) String userAgent,
             @Context HttpServletRequest requestContext,
             @Context UriInfo uriInfo)
@@ -149,9 +156,19 @@ public class StatementResource
         assertRequest(!isNullOrEmpty(catalog), "Catalog (%s) is empty", PRESTO_CATALOG);
         assertRequest(!isNullOrEmpty(schema), "Schema (%s) is empty", PRESTO_SCHEMA);
 
+        if (timeZoneId == null) {
+            timeZoneId = TimeZone.getDefault().getID();
+        }
+
+        Locale locale = Locale.getDefault();
+        if (language != null) {
+            locale = Locale.forLanguageTag(language);
+        }
+
         String remoteUserAddress = requestContext.getRemoteAddr();
 
-        Session session = new Session(user, source, catalog, schema, remoteUserAddress, userAgent);
+        ConnectorSession session = new ConnectorSession(user, source, catalog, schema, getTimeZoneKey(timeZoneId), locale, remoteUserAddress, userAgent);
+
         ExchangeClient exchangeClient = exchangeClientSupplier.get();
         Query query = new Query(session, statement, queryManager, exchangeClient);
         queries.put(query.getQueryId(), query);
@@ -161,13 +178,27 @@ public class StatementResource
     static void assertRequest(boolean expression, String format, Object... args)
     {
         if (!expression) {
-            Response request = Response
-                    .status(Status.BAD_REQUEST)
-                    .type(MediaType.TEXT_PLAIN)
-                    .entity(format(format, args))
-                    .build();
-            throw new WebApplicationException(request);
+            throw badRequest(format(format, args));
         }
+    }
+
+    static TimeZoneKey getTimeZoneKey(String timeZoneId)
+    {
+        try {
+            return TimeZoneKey.getTimeZoneKey(timeZoneId);
+        }
+        catch (TimeZoneNotSupportedException e) {
+            throw badRequest(e.getMessage());
+        }
+    }
+
+    private static WebApplicationException badRequest(String message)
+    {
+        throw new WebApplicationException(Response
+                .status(Status.BAD_REQUEST)
+                .type(MediaType.TEXT_PLAIN)
+                .entity(message)
+                .build());
     }
 
     @GET
@@ -212,6 +243,7 @@ public class StatementResource
         private final ExchangeClient exchangeClient;
 
         private final AtomicLong resultId = new AtomicLong();
+        private final ConnectorSession session;
 
         @GuardedBy("this")
         private QueryResults lastResult;
@@ -222,7 +254,7 @@ public class StatementResource
         @GuardedBy("this")
         private List<Column> columns;
 
-        public Query(Session session,
+        public Query(ConnectorSession session,
                 String query,
                 QueryManager queryManager,
                 ExchangeClient exchangeClient)
@@ -232,6 +264,7 @@ public class StatementResource
             checkNotNull(queryManager, "queryManager is null");
             checkNotNull(exchangeClient, "exchangeClient is null");
 
+            this.session = session;
             this.queryManager = queryManager;
 
             QueryInfo queryInfo = queryManager.createQuery(session, query);
@@ -367,7 +400,7 @@ public class StatementResource
                     break;
                 }
                 bytes += page.getDataSize().toBytes();
-                pages.add(new RowIterable(page));
+                pages.add(new RowIterable(session, page));
 
                 // only wait on first call
                 maxWait = new Duration(0, TimeUnit.MILLISECONDS);
@@ -388,18 +421,21 @@ public class StatementResource
 
         private synchronized void updateExchangeClient(StageInfo outputStage)
         {
-            // update the exchange client with any additional locations
-            for (TaskInfo taskInfo : outputStage.getTasks()) {
-                List<BufferInfo> buffers = taskInfo.getOutputBuffers().getBuffers();
-                Preconditions.checkState(buffers.size() == 1,
-                        "Expected a single output buffer for task %s, but found %s",
-                        taskInfo.getTaskId(),
-                        buffers);
+            // if the output stage is not done, update the exchange client with any additional locations
+            if (!outputStage.getState().isDone()) {
+                for (TaskInfo taskInfo : outputStage.getTasks()) {
+                    List<BufferInfo> buffers = taskInfo.getOutputBuffers().getBuffers();
+                    Preconditions.checkState(buffers.size() == 1,
+                            "Expected a single output buffer for task %s, but found %s",
+                            taskInfo.getTaskId(),
+                            buffers);
 
-                String bufferId = Iterables.getOnlyElement(buffers).getBufferId();
-                URI uri = uriBuilderFrom(taskInfo.getSelf()).appendPath("results").appendPath(bufferId).build();
-                exchangeClient.addLocation(uri);
+                    String bufferId = Iterables.getOnlyElement(buffers).getBufferId();
+                    URI uri = uriBuilderFrom(taskInfo.getSelf()).appendPath("results").appendPath(bufferId).build();
+                    exchangeClient.addLocation(uri);
+                }
             }
+            // if the output stage has finished scheduling, set no more locations
             if ((outputStage.getState() != StageState.PLANNED) && (outputStage.getState() != StageState.SCHEDULING)) {
                 exchangeClient.noMoreLocations();
             }
@@ -419,33 +455,15 @@ public class StatementResource
             }
 
             List<String> names = queryInfo.getFieldNames();
-            ArrayList<Type> types = new ArrayList<>();
-            for (TupleInfo tupleInfo : outputStage.getTupleInfos()) {
-                types.addAll(tupleInfo.getTypes());
-            }
+            List<Type> types = outputStage.getTypes();
 
             checkArgument(names.size() == types.size(), "names and types size mismatch");
 
             ImmutableList.Builder<Column> list = ImmutableList.builder();
             for (int i = 0; i < names.size(); i++) {
                 String name = names.get(i);
-                Type type = types.get(i);
-                switch (type) {
-                    case BOOLEAN:
-                        list.add(new Column(name, "boolean"));
-                        break;
-                    case FIXED_INT_64:
-                        list.add(new Column(name, "bigint"));
-                        break;
-                    case DOUBLE:
-                        list.add(new Column(name, "double"));
-                        break;
-                    case VARIABLE_BINARY:
-                        list.add(new Column(name, "varchar"));
-                        break;
-                    default:
-                        throw new IllegalArgumentException("unhandled type: " + type);
-                }
+                String type = types.get(i).getName();
+                list.add(new Column(name, type));
             }
             return list.build();
         }
@@ -590,7 +608,7 @@ public class StatementResource
                     return null;
                 }
                 log.warn("Query %s in state %s has no failure info", queryInfo.getQueryId(), state);
-                failure = toFailure(new RuntimeException(format("Query is %s (reason unknown)", state)));
+                failure = toFailure(new RuntimeException(format("Query is %s (reason unknown)", state))).toFailureInfo();
             }
             return new QueryError(failure.getMessage(), null, 0, failure.getErrorLocation(), failure);
         }
@@ -598,48 +616,48 @@ public class StatementResource
         private static class RowIterable
                 implements Iterable<List<Object>>
         {
+            private final ConnectorSession session;
             private final Page page;
 
-            private RowIterable(Page page)
+            private RowIterable(ConnectorSession session, Page page)
             {
+                this.session = session;
                 this.page = checkNotNull(page, "page is null");
             }
 
             @Override
             public Iterator<List<Object>> iterator()
             {
-                return new RowIterator(page);
+                return new RowIterator(session, page);
             }
         }
 
         private static class RowIterator
                 extends AbstractIterator<List<Object>>
         {
+            private final ConnectorSession session;
             private final BlockCursor[] cursors;
-            private final int columnCount;
 
-            private RowIterator(Page page)
+            private RowIterator(ConnectorSession session, Page page)
             {
-                int columnCount = 0;
+                this.session = session;
                 cursors = new BlockCursor[page.getChannelCount()];
                 for (int channel = 0; channel < cursors.length; channel++) {
                     cursors[channel] = page.getBlock(channel).cursor();
-                    columnCount = cursors[channel].getTupleInfo().getFieldCount();
                 }
-                this.columnCount = columnCount;
             }
 
             @Override
             protected List<Object> computeNext()
             {
-                List<Object> row = new ArrayList<>(columnCount);
+                List<Object> row = new ArrayList<>(cursors.length);
                 for (BlockCursor cursor : cursors) {
                     if (!cursor.advanceNextPosition()) {
                         Preconditions.checkState(row.isEmpty(), "Page is unaligned");
                         return endOfData();
                     }
 
-                    row.addAll(cursor.getTuple().toValues());
+                    row.add(cursor.getObjectValue(session));
                 }
                 return row;
             }
@@ -649,12 +667,12 @@ public class StatementResource
     private static class PurgeQueriesRunnable
             implements Runnable
     {
-        private final Set<QueryId> queryIds;
+        private final ConcurrentMap<QueryId, Query> queries;
         private final QueryManager queryManager;
 
-        public PurgeQueriesRunnable(Set<QueryId> queryIds, QueryManager queryManager)
+        public PurgeQueriesRunnable(ConcurrentMap<QueryId, Query> queries, QueryManager queryManager)
         {
-            this.queryIds = queryIds;
+            this.queries = queries;
             this.queryManager = queryManager;
         }
 
@@ -668,14 +686,17 @@ public class StatementResource
                 // not live queries set.  If we did this in the other order, a query could be
                 // registered between fetching the live queries and inspecting the queryIds set.
 
-                Set<QueryId> queryIdsSnapshot = ImmutableSet.copyOf(queryIds);
+                Set<QueryId> queryIdsSnapshot = ImmutableSet.copyOf(queries.keySet());
                 // do not call queryManager.getQueryInfo() since it updates the heartbeat time
                 Set<QueryId> liveQueries = ImmutableSet.copyOf(transform(queryManager.getAllQueryInfo(), queryIdGetter()));
 
                 Set<QueryId> deadQueries = Sets.difference(queryIdsSnapshot, liveQueries);
-                for (QueryId deadQuery : deadQueries) {
-                    queryIds.remove(deadQuery);
-                    log.debug("Removed expired query %s", deadQuery);
+                for (QueryId deadQueryId : deadQueries) {
+                    Query query = queries.remove(deadQueryId);
+                    if (query != null) {
+                        query.close();
+                        log.info("Removed expired query %s", deadQueryId);
+                    }
                 }
             }
             catch (Throwable e) {

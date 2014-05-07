@@ -14,14 +14,16 @@
 package com.facebook.presto.block.dictionary;
 
 import com.facebook.presto.block.AbstractTestBlockCursor;
-import com.facebook.presto.block.Block;
-import com.facebook.presto.block.BlockCursor;
-import com.facebook.presto.tuple.TupleInfo;
+import com.facebook.presto.spi.block.Block;
+import com.facebook.presto.spi.block.BlockBuilderStatus;
+import com.facebook.presto.spi.block.BlockCursor;
+import com.facebook.presto.spi.block.RandomAccessBlock;
+import io.airlift.slice.Slices;
 import org.testng.annotations.Test;
 
 import static com.facebook.presto.block.BlockAssertions.createLongsBlock;
 import static com.facebook.presto.block.BlockAssertions.createStringsBlock;
-import static com.facebook.presto.tuple.Tuples.createTuple;
+import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static io.airlift.testing.Assertions.assertInstanceOf;
 
 public class TestDictionaryEncodedBlockCursor
@@ -36,11 +38,13 @@ public class TestDictionaryEncodedBlockCursor
     @Override
     protected BlockCursor createTestCursor()
     {
-        Dictionary dictionary = new Dictionary(TupleInfo.SINGLE_VARBINARY,
-                createTuple("apple").getTupleSlice(),
-                createTuple("banana").getTupleSlice(),
-                createTuple("cherry").getTupleSlice(),
-                createTuple("date").getTupleSlice());
+        RandomAccessBlock dictionary = VARCHAR.createBlockBuilder(new BlockBuilderStatus())
+                .appendSlice(Slices.utf8Slice("apple"))
+                .appendSlice(Slices.utf8Slice("banana"))
+                .appendSlice(Slices.utf8Slice("cherry"))
+                .appendSlice(Slices.utf8Slice("date"))
+                .build()
+                .toRandomAccessBlock();
 
         return new DictionaryEncodedBlock(dictionary, createLongsBlock(0, 0, 0, 1, 1, 1, 1, 1, 2, 2, 3)).cursor();
     }

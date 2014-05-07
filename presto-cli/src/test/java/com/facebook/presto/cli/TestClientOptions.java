@@ -14,6 +14,7 @@
 package com.facebook.presto.cli;
 
 import com.facebook.presto.client.ClientSession;
+import com.facebook.presto.sql.parser.SqlParser;
 import org.testng.annotations.Test;
 
 import static org.testng.Assert.assertEquals;
@@ -25,6 +26,16 @@ public class TestClientOptions
     {
         ClientSession session = new ClientOptions().toClientSession();
         assertEquals(session.getServer().toString(), "http://localhost:8080");
+        assertEquals(session.getSource(), "presto-cli");
+    }
+
+    @Test
+    public void testSource()
+    {
+        ClientOptions options = new ClientOptions();
+        options.source = "test";
+        ClientSession session = options.toClientSession();
+        assertEquals(session.getSource(), "test");
     }
 
     @Test
@@ -69,5 +80,17 @@ public class TestClientOptions
         ClientOptions options = new ClientOptions();
         options.server = "x:y";
         options.toClientSession();
+    }
+
+    @Test
+    public void testUpdateSessionParameters()
+            throws Exception
+    {
+        ClientOptions options = new ClientOptions();
+        ClientSession session = options.toClientSession();
+        session = Console.processSessionParameterChange(SqlParser.createStatement("USE CATALOG test_catalog"), session);
+        assertEquals(session.getCatalog(), "test_catalog");
+        session = Console.processSessionParameterChange(SqlParser.createStatement("USE SCHEMA test_schema"), session);
+        assertEquals(session.getSchema(), "test_schema");
     }
 }

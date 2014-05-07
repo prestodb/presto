@@ -23,8 +23,10 @@ import java.util.Set;
 /**
  * Extracts and returns the set of all expression subtrees within an Expression, including Expression itself
  */
-public class SubExpressionExtractor
+public final class SubExpressionExtractor
 {
+    private SubExpressionExtractor() {}
+
     public static Set<Expression> extract(Expression expression)
     {
         ImmutableSet.Builder<Expression> builder = ImmutableSet.builder();

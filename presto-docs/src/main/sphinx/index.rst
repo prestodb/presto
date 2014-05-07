@@ -8,4 +8,7 @@ Presto Documentation
 
     installation
     functions
+    language
     sql
+    migration
+    release

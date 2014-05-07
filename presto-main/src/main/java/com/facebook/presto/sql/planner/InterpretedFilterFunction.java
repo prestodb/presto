@@ -13,17 +13,22 @@
  */
 package com.facebook.presto.sql.planner;
 
+import com.facebook.presto.spi.ConnectorSession;
+import com.facebook.presto.spi.block.BlockCursor;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.operator.FilterFunction;
 import com.facebook.presto.spi.RecordCursor;
-import com.facebook.presto.sql.analyzer.Session;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.ExpressionTreeRewriter;
 import com.facebook.presto.sql.tree.Input;
-import com.facebook.presto.tuple.TupleReadable;
+import com.facebook.presto.spi.type.Type;
+import com.google.common.collect.ImmutableMap;
 
+import java.util.IdentityHashMap;
 import java.util.Map;
+import java.util.Map.Entry;
 
+import static com.facebook.presto.sql.analyzer.ExpressionAnalyzer.getExpressionTypesFromInput;
 import static java.lang.Boolean.TRUE;
 
 public class InterpretedFilterFunction
@@ -31,15 +36,23 @@ public class InterpretedFilterFunction
 {
     private final ExpressionInterpreter evaluator;
 
-    public InterpretedFilterFunction(Expression predicate, Map<Symbol, Input> symbolToInputMappings, Metadata metadata, Session session)
+    public InterpretedFilterFunction(Expression predicate, Map<Symbol, Type> symbolTypes, Map<Symbol, Input> symbolToInputMappings, Metadata metadata, ConnectorSession session)
     {
         // pre-compute symbol -> input mappings and replace the corresponding nodes in the tree
         Expression rewritten = ExpressionTreeRewriter.rewriteWith(new SymbolToInputRewriter(symbolToInputMappings), predicate);
-        evaluator = ExpressionInterpreter.expressionInterpreter(rewritten, metadata, session);
+
+        // analyze expression so we can know the type of every expression in the tree
+        ImmutableMap.Builder<Input, Type> inputTypes = ImmutableMap.builder();
+        for (Map.Entry<Symbol, Input> entry : symbolToInputMappings.entrySet()) {
+            inputTypes.put(entry.getValue(), symbolTypes.get(entry.getKey()));
+        }
+        IdentityHashMap<Expression, Type> expressionTypes = getExpressionTypesFromInput(session, metadata, inputTypes.build(), rewritten);
+
+        evaluator = ExpressionInterpreter.expressionInterpreter(rewritten, metadata, session, expressionTypes);
     }
 
     @Override
-    public boolean filter(TupleReadable... cursors)
+    public boolean filter(BlockCursor... cursors)
     {
         return evaluator.evaluate(cursors) == TRUE;
     }

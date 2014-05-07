@@ -13,17 +13,16 @@
  */
 package com.facebook.presto.server;
 
+import com.facebook.presto.OutputBuffers;
 import com.facebook.presto.execution.LocationFactory;
 import com.facebook.presto.execution.QueryManagerConfig;
 import com.facebook.presto.execution.RemoteTask;
 import com.facebook.presto.execution.RemoteTaskFactory;
 import com.facebook.presto.execution.TaskId;
 import com.facebook.presto.execution.TaskInfo;
-import com.facebook.presto.metadata.Node;
+import com.facebook.presto.metadata.Split;
 import com.facebook.presto.operator.ForScheduler;
-import com.facebook.presto.spi.Split;
-import com.facebook.presto.sql.analyzer.Session;
-import com.facebook.presto.sql.planner.OutputReceiver;
+import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.sql.planner.PlanFragment;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.google.common.collect.Multimap;
@@ -36,13 +35,10 @@ import org.weakref.jmx.Nested;
 
 import javax.inject.Inject;
 
-import java.net.URI;
-import java.util.Map;
-import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ThreadPoolExecutor;
 
-import static com.facebook.presto.util.Threads.daemonThreadsNamed;
+import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 
 public class HttpRemoteTaskFactory
@@ -80,24 +76,20 @@ public class HttpRemoteTaskFactory
     }
 
     @Override
-    public RemoteTask createRemoteTask(Session session,
+    public RemoteTask createRemoteTask(ConnectorSession session,
             TaskId taskId,
-            Node node,
+            com.facebook.presto.spi.Node node,
             PlanFragment fragment,
-            Split initialSplit,
-            Map<PlanNodeId, OutputReceiver> outputReceivers,
-            Multimap<PlanNodeId, URI> initialExchangeLocations,
-            Set<String> initialOutputIds)
+            Multimap<PlanNodeId, Split> initialSplits,
+            OutputBuffers outputBuffers)
     {
         return new HttpRemoteTask(session,
                 taskId,
-                node,
+                node.getNodeIdentifier(),
                 locationFactory.createTaskLocation(node, taskId),
                 fragment,
-                initialSplit,
-                outputReceivers,
-                initialExchangeLocations,
-                initialOutputIds,
+                initialSplits,
+                outputBuffers,
                 httpClient,
                 executor,
                 maxConsecutiveErrorCount,

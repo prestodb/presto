@@ -13,13 +13,21 @@
  */
 package com.facebook.presto.operator;
 
-import com.facebook.presto.tuple.TupleInfo;
+import com.facebook.presto.spi.ConnectorSession;
+import com.facebook.presto.spi.block.Block;
+import com.facebook.presto.spi.block.BlockBuilder;
+import com.facebook.presto.spi.block.BlockBuilderStatus;
+import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.util.IterableTransformer;
 import com.facebook.presto.util.MaterializedResult;
+import com.google.common.base.Function;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
 
 import static com.facebook.presto.operator.PageAssertions.assertPageEquals;
+import static com.facebook.presto.spi.type.BigintType.BIGINT;
+import static io.airlift.testing.Assertions.assertEqualsIgnoreOrder;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotNull;
 
@@ -27,6 +35,25 @@ public final class OperatorAssertion
 {
     private OperatorAssertion()
     {
+    }
+
+    public static List<Page> appendSampleWeight(List<Page> input, final int sampleWeight)
+    {
+        return IterableTransformer.on(input).transform(new Function<Page, Page>()
+        {
+            @Override
+            public Page apply(Page page)
+            {
+                BlockBuilder builder = BIGINT.createBlockBuilder(new BlockBuilderStatus());
+                for (int i = 0; i < page.getPositionCount(); i++) {
+                    builder.appendLong(sampleWeight);
+                }
+                Block[] blocks = new Block[page.getChannelCount() + 1];
+                System.arraycopy(page.getBlocks(), 0, blocks, 0, page.getChannelCount());
+                blocks[blocks.length - 1] = builder.build();
+                return new Page(blocks);
+            }
+        }).list();
     }
 
     public static List<Page> toPages(Operator operator, List<Page> input)
@@ -99,10 +126,10 @@ public final class OperatorAssertion
         assertEquals(operator.getOutput(), null);
     }
 
-    public static MaterializedResult toMaterializedResult(List<TupleInfo> tupleInfos, List<Page> pages)
+    public static MaterializedResult toMaterializedResult(ConnectorSession session, List<Type> types, List<Page> pages)
     {
         // materialize pages
-        MaterializedResult.Builder resultBuilder = MaterializedResult.resultBuilder(tupleInfos);
+        MaterializedResult.Builder resultBuilder = MaterializedResult.resultBuilder(session, types);
         for (Page outputPage : pages) {
             resultBuilder.page(outputPage);
         }
@@ -130,14 +157,23 @@ public final class OperatorAssertion
     public static void assertOperatorEquals(Operator operator, MaterializedResult expected)
     {
         List<Page> pages = toPages(operator);
-        MaterializedResult actual = toMaterializedResult(operator.getTupleInfos(), pages);
+        MaterializedResult actual = toMaterializedResult(operator.getOperatorContext().getSession(), operator.getTypes(), pages);
         assertEquals(actual, expected);
     }
 
     public static void assertOperatorEquals(Operator operator, List<Page> input, MaterializedResult expected)
     {
         List<Page> pages = toPages(operator, input);
-        MaterializedResult actual = toMaterializedResult(operator.getTupleInfos(), pages);
+        MaterializedResult actual = toMaterializedResult(operator.getOperatorContext().getSession(), operator.getTypes(), pages);
         assertEquals(actual, expected);
+    }
+
+    public static void assertOperatorEqualsIgnoreOrder(Operator operator, List<Page> input, MaterializedResult expected)
+    {
+        List<Page> pages = toPages(operator, input);
+        MaterializedResult actual = toMaterializedResult(operator.getOperatorContext().getSession(), operator.getTypes(), pages);
+
+        assertEquals(actual.getTypes(), expected.getTypes());
+        assertEqualsIgnoreOrder(actual.getMaterializedRows(), expected.getMaterializedRows());
     }
 }

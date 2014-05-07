@@ -13,10 +13,11 @@
  */
 package com.facebook.presto.metadata;
 
-import com.facebook.presto.spi.ColumnHandle;
+import com.facebook.presto.spi.ConnectorColumnHandle;
 import com.facebook.presto.spi.ConnectorHandleResolver;
-import com.facebook.presto.spi.Split;
-import com.facebook.presto.spi.TableHandle;
+import com.facebook.presto.spi.ConnectorIndexHandle;
+import com.facebook.presto.spi.ConnectorSplit;
+import com.facebook.presto.spi.ConnectorTableHandle;
 
 import javax.inject.Inject;
 
@@ -48,7 +49,7 @@ public class HandleResolver
         checkState(existingResolver == null, "Id %s is already assigned to resolver %s", id, existingResolver);
     }
 
-    public String getId(TableHandle tableHandle)
+    public String getId(ConnectorTableHandle tableHandle)
     {
         for (Entry<String, ConnectorHandleResolver> entry : handleIdResolvers.entrySet()) {
             if (entry.getValue().canHandle(tableHandle)) {
@@ -58,7 +59,7 @@ public class HandleResolver
         throw new IllegalArgumentException("No connector for table handle: " + tableHandle);
     }
 
-    public String getId(ColumnHandle columnHandle)
+    public String getId(ConnectorColumnHandle columnHandle)
     {
         for (Entry<String, ConnectorHandleResolver> entry : handleIdResolvers.entrySet()) {
             if (entry.getValue().canHandle(columnHandle)) {
@@ -68,7 +69,7 @@ public class HandleResolver
         throw new IllegalArgumentException("No connector for column handle: " + columnHandle);
     }
 
-    public String getId(Split split)
+    public String getId(ConnectorSplit split)
     {
         for (Entry<String, ConnectorHandleResolver> entry : handleIdResolvers.entrySet()) {
             if (entry.getValue().canHandle(split)) {
@@ -78,24 +79,41 @@ public class HandleResolver
         throw new IllegalArgumentException("No connector for split: " + split);
     }
 
-    public Class<? extends TableHandle> getTableHandleClass(String id)
+    public String getId(ConnectorIndexHandle indexHandle)
+    {
+        for (Entry<String, ConnectorHandleResolver> entry : handleIdResolvers.entrySet()) {
+            if (entry.getValue().canHandle(indexHandle)) {
+                return entry.getKey();
+            }
+        }
+        throw new IllegalArgumentException("No connector for index handle: " + indexHandle);
+    }
+
+    public Class<? extends ConnectorTableHandle> getTableHandleClass(String id)
     {
         ConnectorHandleResolver connectorHandleResolver = handleIdResolvers.get(id);
         checkArgument(connectorHandleResolver != null, "No handle resolver for %s", id);
         return connectorHandleResolver.getTableHandleClass();
     }
 
-    public Class<? extends ColumnHandle> getColumnHandleClass(String id)
+    public Class<? extends ConnectorColumnHandle> getColumnHandleClass(String id)
     {
         ConnectorHandleResolver connectorHandleResolver = handleIdResolvers.get(id);
         checkArgument(connectorHandleResolver != null, "No handle resolver for %s", id);
         return connectorHandleResolver.getColumnHandleClass();
     }
 
-    public Class<? extends Split> getSplitClass(String id)
+    public Class<? extends ConnectorSplit> getSplitClass(String id)
     {
         ConnectorHandleResolver connectorHandleResolver = handleIdResolvers.get(id);
         checkArgument(connectorHandleResolver != null, "No handle resolver for %s", id);
         return connectorHandleResolver.getSplitClass();
+    }
+
+    public Class<? extends ConnectorIndexHandle> getIndexHandleClass(String id)
+    {
+        ConnectorHandleResolver connectorHandleResolver = handleIdResolvers.get(id);
+        checkArgument(connectorHandleResolver != null, "No handle resolver for %s", id);
+        return connectorHandleResolver.getIndexHandleClass();
     }
 }

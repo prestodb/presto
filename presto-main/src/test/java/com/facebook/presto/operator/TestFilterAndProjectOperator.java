@@ -15,10 +15,11 @@ package com.facebook.presto.operator;
 
 import com.facebook.presto.execution.TaskId;
 import com.facebook.presto.operator.FilterAndProjectOperator.FilterAndProjectOperatorFactory;
+import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.RecordCursor;
-import com.facebook.presto.sql.analyzer.Session;
-import com.facebook.presto.tuple.TupleInfo;
-import com.facebook.presto.tuple.TupleReadable;
+import com.facebook.presto.spi.block.BlockBuilder;
+import com.facebook.presto.spi.block.BlockCursor;
+import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.util.MaterializedResult;
 import com.google.common.collect.ImmutableList;
 import org.testng.annotations.AfterMethod;
@@ -26,20 +27,19 @@ import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
 import java.util.List;
+import java.util.Locale;
 import java.util.concurrent.ExecutorService;
 
 import static com.facebook.presto.operator.OperatorAssertion.assertOperatorEquals;
-import static com.facebook.presto.operator.ProjectionFunctions.concat;
 import static com.facebook.presto.operator.ProjectionFunctions.singleColumn;
 import static com.facebook.presto.operator.RowPagesBuilder.rowPagesBuilder;
-import static com.facebook.presto.tuple.TupleInfo.SINGLE_LONG;
-import static com.facebook.presto.tuple.TupleInfo.SINGLE_VARBINARY;
-import static com.facebook.presto.tuple.TupleInfo.Type.FIXED_INT_64;
-import static com.facebook.presto.tuple.TupleInfo.Type.VARIABLE_BINARY;
-import static com.facebook.presto.util.MaterializedResult.resultBuilder;
-import static com.facebook.presto.util.Threads.daemonThreadsNamed;
+import static com.facebook.presto.spi.type.BigintType.BIGINT;
+import static com.facebook.presto.spi.type.TimeZoneKey.UTC_KEY;
+import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
+import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 
+@Test(singleThreaded = true)
 public class TestFilterAndProjectOperator
 {
     private ExecutorService executor;
@@ -49,7 +49,7 @@ public class TestFilterAndProjectOperator
     public void setUp()
     {
         executor = newCachedThreadPool(daemonThreadsNamed("test"));
-        Session session = new Session("user", "source", "catalog", "schema", "address", "agent");
+        ConnectorSession session = new ConnectorSession("user", "source", "catalog", "schema", UTC_KEY, Locale.ENGLISH, "address", "agent");
         driverContext = new TaskContext(new TaskId("query", "stage", "task"), executor, session)
                 .addPipelineContext(true, true)
                 .addDriverContext();
@@ -62,10 +62,10 @@ public class TestFilterAndProjectOperator
     }
 
     @Test
-    public void testAlignment()
+    public void test()
             throws Exception
     {
-        List<Page> input = rowPagesBuilder(SINGLE_VARBINARY, SINGLE_LONG)
+        List<Page> input = rowPagesBuilder(VARCHAR, BIGINT)
                 .addSequencePage(100, 0, 0)
                 .build();
 
@@ -74,9 +74,9 @@ public class TestFilterAndProjectOperator
                 new FilterFunction()
                 {
                     @Override
-                    public boolean filter(TupleReadable... cursors)
+                    public boolean filter(BlockCursor... cursors)
                     {
-                        long value = cursors[1].getLong(0);
+                        long value = cursors[1].getLong();
                         return 10 <= value && value < 20;
                     }
 
@@ -87,23 +87,62 @@ public class TestFilterAndProjectOperator
                         return 10 <= value && value < 20;
                     }
                 },
-                ImmutableList.of(concat(singleColumn(VARIABLE_BINARY, 0, 0), singleColumn(FIXED_INT_64, 1, 0))));
+                ImmutableList.of(singleColumn(VARCHAR, 0), new Add5Projection(1)));
 
         Operator operator = operatorFactory.createOperator(driverContext);
 
-        MaterializedResult expected = resultBuilder(new TupleInfo(VARIABLE_BINARY, FIXED_INT_64))
-                .row("10", 10)
-                .row("11", 11)
-                .row("12", 12)
-                .row("13", 13)
-                .row("14", 14)
-                .row("15", 15)
-                .row("16", 16)
-                .row("17", 17)
-                .row("18", 18)
-                .row("19", 19)
+        MaterializedResult expected = MaterializedResult.resultBuilder(driverContext.getSession(), VARCHAR, BIGINT)
+                .row("10", 15)
+                .row("11", 16)
+                .row("12", 17)
+                .row("13", 18)
+                .row("14", 19)
+                .row("15", 20)
+                .row("16", 21)
+                .row("17", 22)
+                .row("18", 23)
+                .row("19", 24)
                 .build();
 
         assertOperatorEquals(operator, input, expected);
+    }
+
+    private static class Add5Projection
+            implements ProjectionFunction
+    {
+        private final int channelIndex;
+
+        public Add5Projection(int channelIndex)
+        {
+            this.channelIndex = channelIndex;
+        }
+
+        @Override
+        public Type getType()
+        {
+            return BIGINT;
+        }
+
+        @Override
+        public void project(BlockCursor[] cursors, BlockBuilder output)
+        {
+            if (cursors[channelIndex].isNull()) {
+                output.appendNull();
+            }
+            else {
+                output.appendLong(cursors[channelIndex].getLong() + 5);
+            }
+        }
+
+        @Override
+        public void project(RecordCursor cursor, BlockBuilder output)
+        {
+            if (cursor.isNull(channelIndex)) {
+                output.appendNull();
+            }
+            else {
+                output.appendLong(cursor.getLong(channelIndex) + 5);
+            }
+        }
     }
 }

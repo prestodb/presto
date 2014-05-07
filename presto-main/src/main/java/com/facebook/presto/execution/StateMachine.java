@@ -18,11 +18,12 @@ import com.google.common.collect.ImmutableList;
 import io.airlift.log.Logger;
 import io.airlift.units.Duration;
 
-import javax.annotation.Nullable;
 import javax.annotation.concurrent.GuardedBy;
+import javax.annotation.concurrent.ThreadSafe;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 import java.util.concurrent.Executor;
 
 import static com.google.common.base.Preconditions.checkNotNull;
@@ -33,6 +34,7 @@ import static java.util.concurrent.TimeUnit.NANOSECONDS;
  * Simple state machine which holds a single value.  Callers can register for
  * state change events, and can wait for the state to change.
  */
+@ThreadSafe
 public class StateMachine<T>
 {
     private static final Logger log = Logger.get(StateMachine.class);
@@ -40,9 +42,8 @@ public class StateMachine<T>
     private final String name;
     private final Executor executor;
 
-    @Nullable
     @GuardedBy("this")
-    private T state;
+    private volatile T state;
 
     @GuardedBy("this")
     private final List<StateChangeListener<T>> stateChangeListeners = new ArrayList<>();
@@ -54,33 +55,33 @@ public class StateMachine<T>
      * @param executor executor for firing state change events; must not be a same thread executor
      * @param initialState the initial value
      */
-    public StateMachine(String name, Executor executor, @Nullable T initialState)
+    public StateMachine(String name, Executor executor, T initialState)
     {
         this.name = checkNotNull(name, "name is null");
         this.executor = checkNotNull(executor, "executor is null");
-        this.state = initialState;
+        this.state = checkNotNull(initialState, "initialState is null");
     }
 
-    @Nullable
-    public synchronized T get()
+    public T get()
     {
         return state;
     }
 
     /**
      * Sets the state.
-     * If the new state does not {@code ==} the current state, listeners and waiters will be notified.
+     * If the new state does not {@code .equals()} the current state, listeners and waiters will be notified.
      *
      * @return the old state
      */
-    public T set(final T newState)
+    public T set(T newState)
     {
         checkState(!Thread.holdsLock(this), "Can not set state while holding a lock on this");
+        checkNotNull(newState, "newState is null");
 
         T oldState;
         ImmutableList<StateChangeListener<T>> stateChangeListeners;
         synchronized (this) {
-            if (state == newState) {
+            if (Objects.equals(state, newState)) {
                 return state;
             }
 
@@ -97,7 +98,7 @@ public class StateMachine<T>
 
     /**
      * Sets the state if the current state satisfies the specified predicate.
-     * If the new state does not {@code ==} the current state, listeners and waiters will be notified.
+     * If the new state does not {@code .equals()} the current state, listeners and waiters will be notified.
      *
      * @return the old state
      */
@@ -121,22 +122,24 @@ public class StateMachine<T>
     }
 
     /**
-     * Sets the state if the current state {@code ==} the specified expected state.
-     * If the new state does not {@code ==} the current state, listeners and waiters will be notified.
+     * Sets the state if the current state {@code .equals()} the specified expected state.
+     * If the new state does not {@code .equals()} the current state, listeners and waiters will be notified.
      *
      * @return the old state
      */
     public boolean compareAndSet(T expectedState, T newState)
     {
         checkState(!Thread.holdsLock(this), "Can not set state while holding a lock on this");
+        checkNotNull(expectedState, "expectedState is null");
+        checkNotNull(newState, "newState is null");
 
         ImmutableList<StateChangeListener<T>> stateChangeListeners;
         synchronized (this) {
-            if (state != expectedState) {
+            if (!Objects.equals(state, expectedState)) {
                 return false;
             }
 
-            if (state == newState) {
+            if (Objects.equals(state, newState)) {
                 // successfully changed to the same state, no need to notify
                 return true;
             }
@@ -153,6 +156,8 @@ public class StateMachine<T>
 
     private void fireStateChanged(final T newState, final ImmutableList<StateChangeListener<T>> stateChangeListeners)
     {
+        checkState(!Thread.holdsLock(this), "Can not fire state change event while holding a lock on this");
+
         executor.execute(new Runnable()
         {
             @Override
@@ -172,7 +177,7 @@ public class StateMachine<T>
     }
 
     /**
-     * Adds a listener to be notified when the state instance changes according to {@code ==}.
+     * Adds a listener to be notified when the state instance changes according to {@code .equals()}.
      */
     public synchronized void addStateChangeListener(StateChangeListener<T> stateChangeListener)
     {
@@ -180,14 +185,14 @@ public class StateMachine<T>
     }
 
     /**
-     * Wait for the state to not be {@code ==} to the specified current state.
+     * Wait for the state to not be {@code .equals()} to the specified current state.
      */
     public Duration waitForStateChange(T currentState, Duration maxWait)
             throws InterruptedException
     {
         checkState(!Thread.holdsLock(this), "Can not wait for state change while holding a lock on this");
 
-        if (state != currentState) {
+        if (!Objects.equals(state, currentState)) {
             return maxWait;
         }
 
@@ -197,7 +202,7 @@ public class StateMachine<T>
         long end = start + remainingNanos;
 
         synchronized (this) {
-            while (remainingNanos > 0 && state == currentState) {
+            while (remainingNanos > 0 && Objects.equals(state, currentState)) {
                 // wait for timeout or notification
                 NANOSECONDS.timedWait(this, remainingNanos);
                 remainingNanos = end - System.nanoTime();

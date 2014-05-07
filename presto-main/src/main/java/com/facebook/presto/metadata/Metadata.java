@@ -13,40 +13,51 @@
  */
 package com.facebook.presto.metadata;
 
-import com.facebook.presto.spi.ColumnHandle;
+import com.facebook.presto.metadata.OperatorInfo.OperatorType;
 import com.facebook.presto.spi.ColumnMetadata;
-import com.facebook.presto.spi.SchemaTableName;
-import com.facebook.presto.spi.TableHandle;
-import com.facebook.presto.spi.TableMetadata;
-import com.facebook.presto.sql.analyzer.Type;
+import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.sql.tree.QualifiedName;
+import com.facebook.presto.spi.type.Type;
 import com.google.common.base.Optional;
 
 import javax.validation.constraints.NotNull;
 
+import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 
 public interface Metadata
 {
-    FunctionInfo getFunction(QualifiedName name, List<Type> parameterTypes);
+    Type getType(String typeName);
+
+    FunctionInfo resolveFunction(QualifiedName name, List<? extends Type> parameterTypes, boolean approximate);
 
     @NotNull
-    FunctionInfo getFunction(FunctionHandle handle);
+    FunctionInfo getExactFunction(Signature handle);
 
     boolean isAggregationFunction(QualifiedName name);
 
     @NotNull
     List<FunctionInfo> listFunctions();
 
+    void addFunctions(List<FunctionInfo> functions);
+
+    void addOperators(List<OperatorInfo> operators);
+
+    OperatorInfo resolveOperator(OperatorType operatorType, List<? extends Type> argumentTypes)
+            throws OperatorNotFoundException;
+
+    OperatorInfo getExactOperator(OperatorType operatorType, Type returnType, List<? extends Type> argumentTypes)
+            throws OperatorNotFoundException;
+
     @NotNull
-    List<String> listSchemaNames(String catalogName);
+    List<String> listSchemaNames(ConnectorSession session, String catalogName);
 
     /**
      * Returns a table handle for the specified table name.
      */
     @NotNull
-    Optional<TableHandle> getTableHandle(QualifiedTableName tableName);
+    Optional<TableHandle> getTableHandle(ConnectorSession session, QualifiedTableName tableName);
 
     /**
      * Return the metadata for the specified table handle.
@@ -60,7 +71,7 @@ public interface Metadata
      * Get the names that match the specified table prefix (never null).
      */
     @NotNull
-    List<QualifiedTableName> listTables(QualifiedTablePrefix prefix);
+    List<QualifiedTableName> listTables(ConnectorSession session, QualifiedTablePrefix prefix);
 
     /**
      * Returns a handle for the specified table column.
@@ -69,6 +80,20 @@ public interface Metadata
      */
     @NotNull
     Optional<ColumnHandle> getColumnHandle(TableHandle tableHandle, String columnName);
+
+    /**
+     * Returns the handle for the sample weight column.
+     *
+     * @throws RuntimeException if the table handle is no longer valid
+     */
+    @NotNull
+    Optional<ColumnHandle> getSampleWeightColumnHandle(TableHandle tableHandle);
+
+    /**
+     * Returns true iff this catalog supports creation of sampled tables
+     *
+     */
+    boolean canCreateSampledTables(ConnectorSession session, String catalogName);
 
     /**
      * Gets all of the columns on the specified table, or an empty map if the columns can not be enumerated.
@@ -90,13 +115,13 @@ public interface Metadata
      * Gets the metadata for all columns that match the specified table prefix.
      */
     @NotNull
-    Map<QualifiedTableName, List<ColumnMetadata>> listTableColumns(QualifiedTablePrefix prefix);
+    Map<QualifiedTableName, List<ColumnMetadata>> listTableColumns(ConnectorSession session, QualifiedTablePrefix prefix);
 
     /**
      * Creates a table using the specified table metadata.
      */
     @NotNull
-    TableHandle createTable(String catalogName, TableMetadata tableMetadata);
+    TableHandle createTable(ConnectorSession session, String catalogName, TableMetadata tableMetadata);
 
     /**
      * Drops the specified table
@@ -106,16 +131,20 @@ public interface Metadata
     void dropTable(TableHandle tableHandle);
 
     /**
-     * HACK: This is here only for table alias support and should be remove when aliases are based on serialized table handles.
+     * Begin the atomic creation of a table with data.
      */
-    @NotNull
-    @Deprecated
-    Optional<String> getConnectorId(TableHandle tableHandle);
+    OutputTableHandle beginCreateTable(ConnectorSession session, String catalogName, TableMetadata tableMetadata);
 
     /**
-     * HACK: This is here only for table alias support and should be remove when aliases are based on serialized table handles.
+     * Commit a table creation with data after the data is written.
+     */
+    void commitCreateTable(OutputTableHandle tableHandle, Collection<String> fragments);
+
+    /**
+     * Gets all the loaded catalogs
+     *
+     * @return Map of catalog name to connector id
      */
     @NotNull
-    @Deprecated
-    Optional<TableHandle> getTableHandle(String connectorId, SchemaTableName tableName);
+    Map<String, String> getCatalogNames();
 }
