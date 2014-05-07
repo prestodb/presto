@@ -15,6 +15,8 @@ package com.facebook.presto.hive;
 
 import com.facebook.presto.spi.RecordCursor;
 
+import static com.google.common.base.Preconditions.checkNotNull;
+
 public abstract class HiveRecordCursor
         implements RecordCursor
 {
@@ -30,5 +32,16 @@ public abstract class HiveRecordCursor
     public void addReadTime(long nanos)
     {
         readTime += nanos;
+    }
+
+    protected void closeWithSuppression(Throwable throwable)
+    {
+        checkNotNull(throwable, "throwable is null");
+        try {
+            close();
+        }
+        catch (RuntimeException e) {
+            throwable.addSuppressed(e);
+        }
     }
 }

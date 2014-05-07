@@ -81,6 +81,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 
+import static com.facebook.presto.spi.StandardErrorCode.REMOTE_TASK_ERROR;
 import static com.facebook.presto.spi.StandardErrorCode.TOO_MANY_REQUESTS_FAILED;
 import static com.facebook.presto.util.Failures.toFailure;
 import static com.google.common.base.Preconditions.checkNotNull;
@@ -734,10 +735,10 @@ public class HttpRemoteTask
                     Exception cause = response.getException();
                     if (cause == null) {
                         if (response.getStatusCode() == HttpStatus.OK.code()) {
-                            cause = new RuntimeException(format("Expected response from %s is empty", uri));
+                            cause = new PrestoException(REMOTE_TASK_ERROR.toErrorCode(), format("Expected response from %s is empty", uri));
                         }
                         else {
-                            cause = new RuntimeException(format("Expected response code from %s to be %s, but was %s: %s",
+                            cause = new PrestoException(REMOTE_TASK_ERROR.toErrorCode(), format("Expected response code from %s to be %s, but was %s: %s",
                                     uri,
                                     HttpStatus.OK.code(),
                                     response.getStatusCode(),
