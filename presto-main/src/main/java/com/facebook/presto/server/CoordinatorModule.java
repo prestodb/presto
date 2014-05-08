@@ -13,6 +13,8 @@
  */
 package com.facebook.presto.server;
 
+import com.facebook.presto.execution.DataDefinitionTask;
+import com.facebook.presto.execution.DropTableTask;
 import com.facebook.presto.execution.ForQueryExecution;
 import com.facebook.presto.execution.NodeScheduler;
 import com.facebook.presto.execution.NodeSchedulerConfig;
@@ -48,7 +50,7 @@ import com.google.inject.multibindings.MapBinder;
 
 import java.util.concurrent.ExecutorService;
 
-import static com.facebook.presto.execution.DropTableExecution.DropTableExecutionFactory;
+import static com.facebook.presto.execution.DataDefinitionExecution.DataDefinitionExecutionFactory;
 import static com.facebook.presto.execution.QueryExecution.QueryExecutionFactory;
 import static com.facebook.presto.execution.SqlQueryExecution.SqlQueryExecutionFactory;
 import static com.google.inject.multibindings.MapBinder.newMapBinder;
@@ -102,9 +104,6 @@ public class CoordinatorModule
         MapBinder<Class<? extends Statement>, QueryExecutionFactory<?>> executionBinder = newMapBinder(binder,
                 new TypeLiteral<Class<? extends Statement>>() {}, new TypeLiteral<QueryExecutionFactory<?>>() {});
 
-        binder.bind(DropTableExecutionFactory.class).in(Scopes.SINGLETON);
-        executionBinder.addBinding(DropTable.class).to(DropTableExecutionFactory.class).in(Scopes.SINGLETON);
-
         binder.bind(SqlQueryExecutionFactory.class).in(Scopes.SINGLETON);
         executionBinder.addBinding(Query.class).to(SqlQueryExecutionFactory.class).in(Scopes.SINGLETON);
         executionBinder.addBinding(Explain.class).to(SqlQueryExecutionFactory.class).in(Scopes.SINGLETON);
@@ -116,5 +115,21 @@ public class CoordinatorModule
         executionBinder.addBinding(ShowCatalogs.class).to(SqlQueryExecutionFactory.class).in(Scopes.SINGLETON);
         executionBinder.addBinding(UseCollection.class).to(SqlQueryExecutionFactory.class).in(Scopes.SINGLETON);
         executionBinder.addBinding(CreateTable.class).to(SqlQueryExecutionFactory.class).in(Scopes.SINGLETON);
+
+        binder.bind(DataDefinitionExecutionFactory.class).in(Scopes.SINGLETON);
+        bindDataDefinitionTask(binder, executionBinder, DropTable.class, DropTableTask.class);
+    }
+
+    private static <T extends Statement> void bindDataDefinitionTask(
+            Binder binder,
+            MapBinder<Class<? extends Statement>, QueryExecutionFactory<?>> executionBinder,
+            Class<T> statement,
+            Class<? extends DataDefinitionTask<T>> task)
+    {
+        MapBinder<Class<? extends Statement>, DataDefinitionTask<?>> taskBinder = newMapBinder(binder,
+                new TypeLiteral<Class<? extends Statement>>() {}, new TypeLiteral<DataDefinitionTask<?>>() {});
+
+        taskBinder.addBinding(statement).to(task).in(Scopes.SINGLETON);
+        executionBinder.addBinding(statement).to(DataDefinitionExecutionFactory.class).in(Scopes.SINGLETON);
     }
 }

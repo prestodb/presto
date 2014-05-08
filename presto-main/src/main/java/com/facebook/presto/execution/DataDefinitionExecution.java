@@ -14,46 +14,42 @@
 package com.facebook.presto.execution;
 
 import com.facebook.presto.execution.StateMachine.StateChangeListener;
+import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.MetadataManager;
-import com.facebook.presto.metadata.QualifiedTableName;
-import com.facebook.presto.metadata.TableHandle;
 import com.facebook.presto.spi.ConnectorSession;
-import com.facebook.presto.sql.analyzer.SemanticException;
-import com.facebook.presto.sql.tree.DropTable;
 import com.facebook.presto.sql.tree.Statement;
-import com.google.common.base.Optional;
 import io.airlift.units.Duration;
 
 import javax.inject.Inject;
 
 import java.net.URI;
-import java.util.concurrent.Executor;
+import java.util.Map;
 import java.util.concurrent.ExecutorService;
 
-import static com.facebook.presto.metadata.MetadataUtil.createQualifiedTableName;
-import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MISSING_TABLE;
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 
-public class DropTableExecution
+public class DataDefinitionExecution<T extends Statement>
         implements QueryExecution
 {
+    private final DataDefinitionTask<T> task;
+    private final T statement;
     private final ConnectorSession session;
-    private final DropTable statement;
-    private final MetadataManager metadataManager;
+    private final Metadata metadata;
     private final QueryStateMachine stateMachine;
 
-    DropTableExecution(QueryId queryId,
-            String query,
+    private DataDefinitionExecution(
+            DataDefinitionTask<T> task,
+            T statement,
             ConnectorSession session,
-            URI self,
-            DropTable statement,
-            MetadataManager metadataManager,
-            Executor executor)
+            Metadata metadata,
+            QueryStateMachine stateMachine)
     {
+        this.task = checkNotNull(task, "task is null");
+        this.statement = checkNotNull(statement, "statement is null");
         this.session = checkNotNull(session, "session is null");
-        this.statement = statement;
-        this.metadataManager = metadataManager;
-        this.stateMachine = new QueryStateMachine(queryId, query, session, self, executor);
+        this.metadata = checkNotNull(metadata, "metadata is null");
+        this.stateMachine = checkNotNull(stateMachine, "stateMachine is null");
     }
 
     @Override
@@ -68,7 +64,7 @@ public class DropTableExecution
 
             stateMachine.recordExecutionStart();
 
-            dropTable();
+            task.execute(statement, session, metadata);
 
             stateMachine.finished();
         }
@@ -120,45 +116,53 @@ public class DropTableExecution
         return stateMachine.getQueryInfoWithoutDetails();
     }
 
-    private void dropTable()
-    {
-        QualifiedTableName tableName = createQualifiedTableName(stateMachine.getSession(), statement.getTableName());
-
-        Optional<TableHandle> tableHandle = metadataManager.getTableHandle(session, tableName);
-        if (!tableHandle.isPresent()) {
-            throw new SemanticException(MISSING_TABLE, statement, "Table '%s' does not exist", tableName);
-        }
-
-        metadataManager.dropTable(tableHandle.get());
-    }
-
-    public static class DropTableExecutionFactory
-            implements QueryExecutionFactory<DropTableExecution>
+    public static class DataDefinitionExecutionFactory
+            implements QueryExecutionFactory<DataDefinitionExecution<?>>
     {
         private final LocationFactory locationFactory;
-        private final MetadataManager metadataManager;
+        private final Metadata metadata;
         private final ExecutorService executor;
+        private final Map<Class<? extends Statement>, DataDefinitionTask<?>> tasks;
 
         @Inject
-        DropTableExecutionFactory(LocationFactory locationFactory,
-                MetadataManager metadataManager,
-                @ForQueryExecution ExecutorService executor)
+        public DataDefinitionExecutionFactory(
+                LocationFactory locationFactory,
+                MetadataManager metadata,
+                @ForQueryExecution ExecutorService executor,
+                Map<Class<? extends Statement>, DataDefinitionTask<?>> tasks)
         {
             this.locationFactory = checkNotNull(locationFactory, "locationFactory is null");
-            this.metadataManager = checkNotNull(metadataManager, "metadataManager is null");
+            this.metadata = checkNotNull(metadata, "metadata is null");
             this.executor = checkNotNull(executor, "executor is null");
+            this.tasks = checkNotNull(tasks, "tasks is null");
         }
 
         @Override
-        public DropTableExecution createQueryExecution(QueryId queryId, String query, ConnectorSession session, Statement statement)
+        public DataDefinitionExecution<?> createQueryExecution(
+                QueryId queryId,
+                String query,
+                ConnectorSession session,
+                Statement statement)
         {
-            return new DropTableExecution(queryId,
-                    query,
-                    session,
-                    locationFactory.createQueryLocation(queryId),
-                    (DropTable) statement,
-                    metadataManager,
-                    executor);
+            URI self = locationFactory.createQueryLocation(queryId);
+            QueryStateMachine stateMachine = new QueryStateMachine(queryId, query, session, self, executor);
+            return createExecution(statement, session, stateMachine);
+        }
+
+        private <T extends Statement> DataDefinitionExecution<?> createExecution(
+                T statement,
+                ConnectorSession session,
+                QueryStateMachine stateMachine)
+        {
+            DataDefinitionTask<T> task = getTask(statement);
+            checkArgument(task != null, "no task for statement: " + statement.getClass());
+            return new DataDefinitionExecution<>(task, statement, session, metadata, stateMachine);
+        }
+
+        @SuppressWarnings("unchecked")
+        private <T extends Statement> DataDefinitionTask<T> getTask(T statement)
+        {
+            return (DataDefinitionTask<T>) tasks.get(statement.getClass());
         }
     }
 }
