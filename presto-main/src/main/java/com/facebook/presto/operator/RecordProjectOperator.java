@@ -170,8 +170,6 @@ public class RecordProjectOperator
         Page page = pageBuilder.build();
         pageBuilder.reset();
 
-        operatorContext.recordGeneratedInput(page.getDataSize(), page.getPositionCount());
-
         return page;
     }
 }
