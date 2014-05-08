@@ -13,9 +13,9 @@
  */
 package com.facebook.presto.sql.analyzer;
 
-import com.facebook.presto.metadata.InMemoryMetadata;
 import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.metadata.TableMetadata;
+import com.facebook.presto.metadata.TestingMetadata;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorTableMetadata;
@@ -559,7 +559,7 @@ public class TestAnalyzer
             throws Exception
     {
         MetadataManager metadata = new MetadataManager(new FeaturesConfig().setExperimentalSyntaxEnabled(true), new TypeRegistry());
-        metadata.addConnectorMetadata("tpch", "tpch", new InMemoryMetadata());
+        metadata.addConnectorMetadata("tpch", "tpch", new TestingMetadata());
 
         SchemaTableName table1 = new SchemaTableName("default", "t1");
         metadata.createTable(SESSION, "tpch", new TableMetadata("tpch", new ConnectorTableMetadata(table1,
