@@ -369,11 +369,10 @@ class StatementAnalyzer
         // verify that all column names are specified and unique
         // TODO: collect errors and return them all at once
         Set<String> names = new HashSet<>();
-        for (int i = 0; i < descriptor.getFields().size(); i++) {
-            Field field = descriptor.getFields().get(i);
+        for (Field field : descriptor.getFields()) {
             Optional<String> fieldName = field.getName();
             if (!fieldName.isPresent()) {
-                throw new SemanticException(COLUMN_NAME_NOT_SPECIFIED, node, "Column name not specified at position %s", i + 1);
+                throw new SemanticException(COLUMN_NAME_NOT_SPECIFIED, node, "Column name not specified at position %s", descriptor.indexOf(field) + 1);
             }
             if (!names.add(fieldName.get())) {
                 throw new SemanticException(DUPLICATE_COLUMN_NAME, node, "Column name '%s' specified more than once", fieldName.get());
@@ -474,7 +473,7 @@ class StatementAnalyzer
     private List<FieldOrExpression> descriptorToFields(TupleDescriptor tupleDescriptor)
     {
         ImmutableList.Builder<FieldOrExpression> builder = ImmutableList.builder();
-        for (int fieldIndex = 0; fieldIndex < tupleDescriptor.getFields().size(); fieldIndex++) {
+        for (int fieldIndex = 0; fieldIndex < tupleDescriptor.getFieldCount(); fieldIndex++) {
             builder.add(new FieldOrExpression(fieldIndex));
         }
         return builder.build();
@@ -524,7 +523,7 @@ class StatementAnalyzer
                     // this is an ordinal in the output tuple
 
                     long ordinal = ((LongLiteral) expression).getValue();
-                    if (ordinal < 1 || ordinal > tupleDescriptor.getFields().size()) {
+                    if (ordinal < 1 || ordinal > tupleDescriptor.getFieldCount()) {
                         throw new SemanticException(INVALID_ORDINAL, expression, "ORDER BY position %s is not in select list", ordinal);
                     }
 

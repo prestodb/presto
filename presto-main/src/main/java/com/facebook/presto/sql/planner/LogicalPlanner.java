@@ -21,6 +21,7 @@ import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.sql.analyzer.Analysis;
 import com.facebook.presto.sql.analyzer.Field;
+import com.facebook.presto.sql.analyzer.TupleDescriptor;
 import com.facebook.presto.sql.planner.optimizations.PlanOptimizer;
 import com.facebook.presto.sql.planner.plan.OutputNode;
 import com.facebook.presto.sql.planner.plan.PlanNode;
@@ -93,7 +94,7 @@ public class LogicalPlanner
         RelationPlanner planner = new RelationPlanner(analysis, symbolAllocator, idAllocator, metadata, session);
         RelationPlan plan = planner.process(analysis.getQuery(), null);
 
-        TableMetadata tableMetadata = createTableMetadata(destination, getTableColumns(plan));
+        TableMetadata tableMetadata = createTableMetadata(destination, getOutputTableColumns(plan));
 
         ImmutableList<Symbol> writerOutputs = ImmutableList.of(
                 symbolAllocator.newSymbol("partialrows", BIGINT),
@@ -124,15 +125,20 @@ public class LogicalPlanner
 
     private PlanNode createOutputPlan(RelationPlan plan, Analysis analysis)
     {
-        ImmutableList.Builder<String> names = ImmutableList.builder();
         ImmutableList.Builder<Symbol> outputs = ImmutableList.builder();
+        ImmutableList.Builder<String> names = ImmutableList.builder();
 
-        for (int i = 0; i < analysis.getOutputDescriptor().getFields().size(); i++) {
-            Field field = analysis.getOutputDescriptor().getFields().get(i);
-            String name = field.getName().or("_col" + i);
-
+        int columnNumber = 0;
+        TupleDescriptor outputDescriptor = analysis.getOutputDescriptor();
+        for (Field field : outputDescriptor.getFields()) {
+            String name = field.getName().or("_col" + columnNumber);
             names.add(name);
-            outputs.add(plan.getSymbol(i));
+
+            int fieldIndex = outputDescriptor.indexOf(field);
+            Symbol symbol = plan.getSymbol(fieldIndex);
+            outputs.add(symbol);
+
+            columnNumber++;
         }
 
         return new OutputNode(idAllocator.getNextId(), plan.getRoot(), names.build(), outputs.build());
@@ -146,13 +152,13 @@ public class LogicalPlanner
         return new TableMetadata(table.getCatalogName(), metadata);
     }
 
-    private static List<ColumnMetadata> getTableColumns(RelationPlan plan)
+    private static List<ColumnMetadata> getOutputTableColumns(RelationPlan plan)
     {
         ImmutableList.Builder<ColumnMetadata> columns = ImmutableList.builder();
-        List<Field> fields = plan.getDescriptor().getFields();
-        for (int i = 0; i < fields.size(); i++) {
-            Field field = fields.get(i);
-            columns.add(new ColumnMetadata(field.getName().get(), field.getType(), i, false));
+        int ordinalPosition = 0;
+        for (Field field : plan.getDescriptor().getFields()) {
+            columns.add(new ColumnMetadata(field.getName().get(), field.getType(), ordinalPosition, false));
+            ordinalPosition++;
         }
         return columns.build();
     }

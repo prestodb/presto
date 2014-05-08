@@ -93,9 +93,9 @@ public class AggregationAnalyzer
                 .transform(expressionGetter())
                 .list();
 
-        ImmutableList.Builder<Integer> fields = ImmutableList.builder();
+        ImmutableList.Builder<Integer> fieldIndexes = ImmutableList.builder();
 
-        fields.addAll(IterableTransformer.on(groupByExpressions)
+        fieldIndexes.addAll(IterableTransformer.on(groupByExpressions)
                 .select(isFieldReferencePredicate())
                 .transform(fieldIndexGetter())
                 .all());
@@ -106,15 +106,16 @@ public class AggregationAnalyzer
         for (Expression expression : Iterables.filter(expressions, instanceOf(QualifiedNameReference.class))) {
             QualifiedName name = ((QualifiedNameReference) expression).getName();
 
-            List<Integer> fieldIndexes = tupleDescriptor.resolveFieldIndexes(name);
-            Preconditions.checkState(fieldIndexes.size() <= 1, "Found more than one field for name '%s': %s", name, fieldIndexes);
+            List<Field> fields = tupleDescriptor.resolveFields(name);
+            Preconditions.checkState(fields.size() <= 1, "Found more than one field for name '%s': %s", name, fields);
 
-            if (fieldIndexes.size() == 1) {
-                fields.add(Iterables.getOnlyElement(fieldIndexes));
+            if (fields.size() == 1) {
+                Field field = Iterables.getOnlyElement(fields);
+                fieldIndexes.add(tupleDescriptor.indexOf(field));
             }
         }
 
-        this.fieldIndexes = fields.build();
+        this.fieldIndexes = fieldIndexes.build();
     }
 
     public boolean analyze(int fieldIndex)
@@ -328,11 +329,12 @@ public class AggregationAnalyzer
         {
             QualifiedName name = node.getName();
 
-            List<Integer> indexes = tupleDescriptor.resolveFieldIndexes(name);
-            Preconditions.checkState(!indexes.isEmpty(), "No fields for name '%s'", name);
-            Preconditions.checkState(indexes.size() <= 1, "Found more than one field for name '%s': %s", name, indexes);
+            List<Field> fields = tupleDescriptor.resolveFields(name);
+            Preconditions.checkState(!fields.isEmpty(), "No fields for name '%s'", name);
+            Preconditions.checkState(fields.size() <= 1, "Found more than one field for name '%s': %s", name, fields);
 
-            return fieldIndexes.contains(Iterables.getOnlyElement(indexes));
+            Field field = Iterables.getOnlyElement(fields);
+            return fieldIndexes.contains(tupleDescriptor.indexOf(field));
         }
 
         @Override

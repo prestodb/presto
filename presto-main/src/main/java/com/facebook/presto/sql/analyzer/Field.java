@@ -139,6 +139,18 @@ public class Field
         };
     }
 
+    public static Predicate<Field> matchesPrefixPredicate(final Optional<QualifiedName> prefix)
+    {
+        return new Predicate<Field>()
+        {
+            @Override
+            public boolean apply(Field input)
+            {
+                return input.matchesPrefix(prefix);
+            }
+        };
+    }
+
     public static Predicate<Field> canResolvePredicate(final QualifiedName name)
     {
         return new Predicate<Field>()
