@@ -74,11 +74,9 @@ import java.util.Collection;
 import java.util.EnumSet;
 import java.util.IdentityHashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
 
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
-import static com.facebook.presto.type.UnknownType.UNKNOWN;
 import static com.facebook.presto.sql.analyzer.ExpressionAnalyzer.getExpressionTypes;
 import static com.facebook.presto.sql.analyzer.Field.typeGetter;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.AMBIGUOUS_ATTRIBUTE;
@@ -98,6 +96,8 @@ import static com.facebook.presto.sql.analyzer.SemanticErrorCode.ORDER_BY_MUST_B
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.TYPE_MISMATCH;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.WILDCARD_WITHOUT_FROM;
 import static com.facebook.presto.sql.planner.ExpressionInterpreter.expressionOptimizer;
+import static com.facebook.presto.type.UnknownType.UNKNOWN;
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.Iterables.elementsEqual;
@@ -166,14 +166,15 @@ class TupleAnalyzer
             throw new SemanticException(MISSING_TABLE, table, "Table %s does not exist", name);
         }
         TableMetadata tableMetadata = metadata.getTableMetadata(tableHandle.get());
-        Map<String, ColumnHandle> columns = metadata.getColumnHandles(tableHandle.get());
 
         // TODO: discover columns lazily based on where they are needed (to support datasources that can't enumerate all tables)
         ImmutableList.Builder<Field> fields = ImmutableList.builder();
         for (ColumnMetadata column : tableMetadata.getColumns()) {
             Field field = Field.newQualified(table.getName(), Optional.of(column.getName()), column.getType());
             fields.add(field);
-            analysis.setColumn(field, columns.get(column.getName()));
+            Optional<ColumnHandle> columnHandle = metadata.getColumnHandle(tableHandle.get(), column.getName());
+            checkArgument(columnHandle.isPresent(), "Unknown field %s", field);
+            analysis.setColumn(field, columnHandle.get());
         }
 
         analysis.registerTable(table, tableHandle.get());
@@ -188,26 +189,15 @@ class TupleAnalyzer
     {
         TupleDescriptor child = process(relation.getRelation(), context);
 
-        ImmutableList.Builder<Field> builder = ImmutableList.builder();
-
+        // todo this check should be inside of TupleDescriptor.withAlias, but the exception needs the node object
         if (relation.getColumnNames() != null) {
-            int totalColumns = child.getFields().size();
+            int totalColumns = child.getFieldCount();
             if (totalColumns != relation.getColumnNames().size()) {
                 throw new SemanticException(MISMATCHED_COLUMN_ALIASES, relation, "Column alias list has %s entries but '%s' has %s columns available", relation.getColumnNames().size(), relation.getAlias(), totalColumns);
             }
         }
 
-        for (int i = 0; i < child.getFields().size(); i++) {
-            Field field = child.getFields().get(i);
-
-            Optional<String> columnAlias = field.getName();
-            if (relation.getColumnNames() != null) {
-                columnAlias = Optional.of(relation.getColumnNames().get(i));
-            }
-            builder.add(Field.newQualified(QualifiedName.of(relation.getAlias()), columnAlias, field.getType()));
-        }
-
-        TupleDescriptor descriptor = new TupleDescriptor(builder.build());
+        TupleDescriptor descriptor = child.withAlias(relation.getAlias(), relation.getColumnNames());
 
         analysis.setOutputDescriptor(relation, descriptor);
         return descriptor;
@@ -346,18 +336,13 @@ class TupleAnalyzer
         TupleDescriptor left = process(node.getLeft(), context);
         TupleDescriptor right = process(node.getRight(), context);
 
+        // todo this check should be inside of TupleDescriptor.join and then remove the public getRelationAlias method, but the exception needs the node object
         Sets.SetView<QualifiedName> duplicateAliases = Sets.intersection(left.getRelationAliases(), right.getRelationAliases());
         if (!duplicateAliases.isEmpty()) {
             throw new SemanticException(DUPLICATE_RELATION, node, "Relations appear more than once: %s", duplicateAliases);
         }
 
-        // compute output descriptor (all fields from left followed by all fields from right)
-        List<Field> outputFields = ImmutableList.<Field>builder()
-                .addAll(left.getFields())
-                .addAll(right.getFields())
-                .build();
-
-        TupleDescriptor output = new TupleDescriptor(outputFields);
+        TupleDescriptor output = left.joinWith(right);
 
         if (node.getType() == Join.Type.CROSS) {
             analysis.setOutputDescriptor(node, output);
@@ -768,7 +753,7 @@ class TupleAnalyzer
                 // expand * and T.*
                 Optional<QualifiedName> starPrefix = ((AllColumns) item).getPrefix();
 
-                List<Integer> fields = tupleDescriptor.resolveFieldIndexesWithPrefix(starPrefix);
+                List<Field> fields = tupleDescriptor.resolveFieldsWithPrefix(starPrefix);
                 if (fields.isEmpty()) {
                     if (starPrefix.isPresent()) {
                         throw new SemanticException(MISSING_TABLE, item, "Table '%s' not found", starPrefix.get());
@@ -778,7 +763,8 @@ class TupleAnalyzer
                     }
                 }
 
-                for (int fieldIndex : fields) {
+                for (Field field : fields) {
+                    int fieldIndex = tupleDescriptor.indexOf(field);
                     outputExpressionBuilder.add(new FieldOrExpression(fieldIndex));
                 }
             }
@@ -906,7 +892,7 @@ class TupleAnalyzer
         else {
             int fieldIndex = fieldOrExpression.getFieldIndex();
             if (!analyzer.analyze(fieldIndex)) {
-                Field field = tupleDescriptor.getFields().get(fieldIndex);
+                Field field = tupleDescriptor.getFieldByIndex(fieldIndex);
 
                 if (field.getRelationAlias().isPresent()) {
                     if (field.getName().isPresent()) {

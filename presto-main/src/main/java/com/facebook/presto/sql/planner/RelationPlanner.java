@@ -114,8 +114,7 @@ class RelationPlanner
 
         ImmutableList.Builder<Symbol> outputSymbolsBuilder = ImmutableList.builder();
         ImmutableMap.Builder<Symbol, ColumnHandle> columns = ImmutableMap.builder();
-        for (int i = 0; i < descriptor.getFields().size(); i++) {
-            Field field = descriptor.getFields().get(i);
+        for (Field field : descriptor.getFields()) {
             Symbol symbol = symbolAllocator.newSymbol(field.getName().get(), field.getType());
 
             outputSymbolsBuilder.add(symbol);
@@ -181,6 +180,9 @@ class RelationPlanner
         PlanBuilder leftPlanBuilder = initializePlanBuilder(leftPlan);
         PlanBuilder rightPlanBuilder = initializePlanBuilder(rightPlan);
 
+        TupleDescriptor outputDescriptor = analysis.getOutputDescriptor(node);
+
+        // NOTE: symbols must be in the same order as the outputDescriptor
         List<Symbol> outputSymbols = ImmutableList.<Symbol>builder()
                 .addAll(leftPlan.getOutputSymbols())
                 .addAll(rightPlan.getOutputSymbols())
@@ -193,7 +195,8 @@ class RelationPlanner
                             leftPlanBuilder.getRoot(),
                             rightPlanBuilder.getRoot(),
                             ImmutableList.<JoinNode.EquiJoinClause>of()),
-                    analysis.getOutputDescriptor(node), outputSymbols);
+                    outputDescriptor,
+                    outputSymbols);
         }
 
         List<EquiJoinClause> criteria = analysis.getJoinCriteria(node);
@@ -217,7 +220,14 @@ class RelationPlanner
             clauses.add(new JoinNode.EquiJoinClause(leftSymbol, rightSymbol));
         }
 
-        return new RelationPlan(new JoinNode(idAllocator.getNextId(), JoinNode.Type.typeConvert(node.getType()), leftPlanBuilder.getRoot(), rightPlanBuilder.getRoot(), clauses.build()), analysis.getOutputDescriptor(node), outputSymbols);
+        return new RelationPlan(
+                new JoinNode(idAllocator.getNextId(),
+                        JoinNode.Type.typeConvert(node.getType()),
+                        leftPlanBuilder.getRoot(),
+                        rightPlanBuilder.getRoot(),
+                        clauses.build()),
+                outputDescriptor,
+                outputSymbols);
     }
 
     @Override
@@ -257,8 +267,7 @@ class RelationPlanner
     {
         TupleDescriptor descriptor = analysis.getOutputDescriptor(node);
         ImmutableList.Builder<Symbol> outputSymbolsBuilder = ImmutableList.builder();
-        for (int i = 0; i < descriptor.getFields().size(); i++) {
-            Field field = descriptor.getFields().get(i);
+        for (Field field : descriptor.getFields()) {
             Symbol symbol = symbolAllocator.newSymbol(field);
             outputSymbolsBuilder.add(symbol);
         }
@@ -316,15 +325,24 @@ class RelationPlanner
 
             if (outputSymbols == null) {
                 // Use the first Relation to derive output symbol names
+                TupleDescriptor descriptor = relationPlan.getDescriptor();
                 ImmutableList.Builder<Symbol> outputSymbolBuilder = ImmutableList.builder();
-                for (Symbol symbol : relationPlan.getOutputSymbols()) {
+                for (Field field : descriptor.getFields()) {
+                    int fieldIndex = descriptor.indexOf(field);
+                    Symbol symbol = relationPlan.getOutputSymbols().get(fieldIndex);
                     outputSymbolBuilder.add(symbolAllocator.newSymbol(symbol.getName(), symbolAllocator.getTypes().get(symbol)));
                 }
                 outputSymbols = outputSymbolBuilder.build();
             }
 
-            for (int i = 0; i < outputSymbols.size(); i++) {
-                symbolMapping.put(outputSymbols.get(i), relationPlan.getOutputSymbols().get(i));
+            TupleDescriptor descriptor = relationPlan.getDescriptor();
+            checkArgument(descriptor.getFieldCount() == outputSymbols.size(),
+                    "Expected relation to have %s symbols but has %s symbols",
+                    descriptor.getFieldCount(),
+                    outputSymbols.size());
+            for (Field field : descriptor.getFields()) {
+                int fieldIndex = descriptor.indexOf(field);
+                symbolMapping.put(outputSymbols.get(fieldIndex), relationPlan.getOutputSymbols().get(fieldIndex));
             }
 
             sources.add(relationPlan.getRoot());

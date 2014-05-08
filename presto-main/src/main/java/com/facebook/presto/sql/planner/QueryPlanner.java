@@ -201,7 +201,7 @@ class QueryPlanner
             Symbol symbol;
 
             if (fieldOrExpression.isFieldReference()) {
-                Field field = subPlan.getRelationPlan().getDescriptor().getFields().get(fieldOrExpression.getFieldIndex());
+                Field field = subPlan.getRelationPlan().getDescriptor().getFieldByIndex(fieldOrExpression.getFieldIndex());
                 symbol = symbolAllocator.newSymbol(field);
             }
             else {
@@ -244,7 +244,7 @@ class QueryPlanner
         for (FieldOrExpression fieldOrExpression : alreadyCoerced) {
             Symbol symbol;
             if (fieldOrExpression.isFieldReference()) {
-                Field field = subPlan.getRelationPlan().getDescriptor().getFields().get(fieldOrExpression.getFieldIndex());
+                Field field = subPlan.getRelationPlan().getDescriptor().getFieldByIndex(fieldOrExpression.getFieldIndex());
                 symbol = symbolAllocator.newSymbol(field);
             }
             else {

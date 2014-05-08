@@ -222,7 +222,7 @@ public class ExpressionAnalyzer
         @Override
         protected Type visitQualifiedNameReference(QualifiedNameReference node, AnalysisContext context)
         {
-            List<Integer> matches = tupleDescriptor.resolveFieldIndexes(node.getName());
+            List<Field> matches = tupleDescriptor.resolveFields(node.getName());
             if (matches.isEmpty()) {
                 throw new SemanticException(MISSING_ATTRIBUTE, node, "Column '%s' cannot be resolved", node.getName());
             }
@@ -230,8 +230,8 @@ public class ExpressionAnalyzer
                 throw new SemanticException(AMBIGUOUS_ATTRIBUTE, node, "Column '%s' is ambiguous", node.getName());
             }
 
-            int fieldIndex = Iterables.getOnlyElement(matches);
-            Field field = tupleDescriptor.getFields().get(fieldIndex);
+            Field field = Iterables.getOnlyElement(matches);
+            int fieldIndex = tupleDescriptor.indexOf(field);
             resolvedNames.put(node.getName(), fieldIndex);
             expressionTypes.put(node, field.getType());
 
@@ -615,8 +615,11 @@ public class ExpressionAnalyzer
             TupleDescriptor descriptor = analyzer.process(node.getQuery(), context);
 
             // Scalar subqueries should only produce one column
-            if (descriptor.getFields().size() != 1) {
-                throw new SemanticException(MULTIPLE_FIELDS_FROM_SCALAR_SUBQUERY, node, "Subquery expression must produce only one field. Found %s", descriptor.getFields().size());
+            if (descriptor.getFieldCount() != 1) {
+                throw new SemanticException(MULTIPLE_FIELDS_FROM_SCALAR_SUBQUERY,
+                        node,
+                        "Subquery expression must produce only one field. Found %s",
+                        descriptor.getFieldCount());
             }
 
             Type type = Iterables.getOnlyElement(descriptor.getFields()).getType();
@@ -628,7 +631,7 @@ public class ExpressionAnalyzer
         @Override
         public Type visitInputReference(InputReference node, AnalysisContext context)
         {
-            Type type = tupleDescriptor.getFields().get(node.getInput().getChannel()).getType();
+            Type type = tupleDescriptor.getFieldByIndex(node.getInput().getChannel()).getType();
             expressionTypes.put(node, type);
             return type;
         }
