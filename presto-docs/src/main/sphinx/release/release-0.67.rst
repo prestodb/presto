@@ -11,10 +11,9 @@ Release 0.67
 SPI changes
 -----------
 
-The ``Connector`` interface now extends ``Closeable``.
+The ``ConnectorSplitSource`` interface now extends ``Closeable``.
 
 .. note::
-    This is a backwards incompatible change to ``Connector`` in the SPI,
+    This is a backwards incompatible change to ``ConnectorSplitSource`` in the SPI,
     so if you have written a connector, you will need to update your code before
     deploying this release.
-
