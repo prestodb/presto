@@ -1,0 +1,139 @@
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>2.7. JSON Functions &mdash; Presto 0.67 Documentation</title>
+    
+    <link rel="stylesheet" href="../_static/presto.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '../',
+        VERSION:     '0.67',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="../_static/jquery.js"></script>
+    <script type="text/javascript" src="../_static/underscore.js"></script>
+    <script type="text/javascript" src="../_static/doctools.js"></script>
+    <link rel="top" title="Presto 0.67 Documentation" href="../index.html" />
+    <link rel="up" title="2. Functions and Operators" href="../functions.html" />
+    <link rel="next" title="2.8. URL Functions" href="url.html" />
+    <link rel="prev" title="2.6. Regular Expression Functions" href="regexp.html" /> 
+  </head>
+  <body>
+<div class="header">
+    <h1 class="heading"><a href="../index.html">
+        <span>Presto 0.67 Documentation</span></a></h1>
+    <h2 class="heading"><span>2.7. JSON Functions</span></h2>
+</div>
+<div class="topnav">
+    
+<p class="nav">
+    <span class="left">
+        &laquo; <a href="regexp.html">2.6. Regular Expression Functions</a>
+    </span>
+    <span class="right">
+        <a href="url.html">2.8. URL Functions</a> &raquo;
+    </span>
+</p>
+
+</div>
+<div class="content">
+    
+  <div class="section" id="json-functions">
+<h1>2.7. JSON Functions</h1>
+<dl class="function">
+<dt id="json_array_contains">
+<tt class="descname">json_array_contains</tt><big>(</big><em>json</em>, <em>value</em><big>)</big> &rarr; boolean</dt>
+<dd><p>Determine if <tt class="docutils literal"><span class="pre">value</span></tt> exists in <tt class="docutils literal"><span class="pre">json</span></tt> (a string containing a JSON array).</p>
+<div class="highlight-sql"><div class="highlight"><pre><span class="k">SELECT</span> <span class="n">json_array_contains</span><span class="p">(</span><span class="s1">&#39;[1, 2, 3]&#39;</span><span class="p">,</span> <span class="mi">2</span><span class="p">);</span>
+</pre></div>
+</div>
+</dd></dl>
+
+<dl class="function">
+<dt id="json_array_length">
+<tt class="descname">json_array_length</tt><big>(</big><em>json</em><big>)</big> &rarr; bigint</dt>
+<dd><p>Returns the array length of <tt class="docutils literal"><span class="pre">json</span></tt> (a string containing a JSON array).</p>
+<div class="highlight-sql"><div class="highlight"><pre><span class="k">SELECT</span> <span class="n">json_array_length</span><span class="p">(</span><span class="s1">&#39;[1, 2, 3]&#39;</span><span class="p">);</span>
+</pre></div>
+</div>
+</dd></dl>
+
+<dl class="function">
+<dt id="json_extract">
+<tt class="descname">json_extract</tt><big>(</big><em>json</em>, <em>json_path</em><big>)</big> &rarr; varchar</dt>
+<dd><p>Evaluates the <a class="reference external" href="http://goessner.net/articles/JsonPath/">JSONPath</a>-like expression <tt class="docutils literal"><span class="pre">json_path</span></tt> on <tt class="docutils literal"><span class="pre">json</span></tt>
+(a string containing JSON) and returns the result as a JSON string.</p>
+<div class="highlight-sql"><div class="highlight"><pre><span class="k">SELECT</span> <span class="n">json_extract</span><span class="p">(</span><span class="n">json</span><span class="p">,</span> <span class="s1">&#39;$.store.book&#39;</span><span class="p">);</span>
+</pre></div>
+</div>
+</dd></dl>
+
+<dl class="function">
+<dt id="json_extract_scalar">
+<tt class="descname">json_extract_scalar</tt><big>(</big><em>json</em>, <em>json_path</em><big>)</big> &rarr; varchar</dt>
+<dd><p>Like <a class="reference internal" href="#json_extract" title="json_extract"><tt class="xref py py-func docutils literal"><span class="pre">json_extract()</span></tt></a>, but returns the result value as a string (as opposed
+to being encoded as JSON). The value referenced by <tt class="docutils literal"><span class="pre">json_path</span></tt> must be a
+scalar (boolean, number or string).</p>
+<div class="highlight-sql"><div class="highlight"><pre><span class="k">SELECT</span> <span class="n">json_extract_scalar</span><span class="p">(</span><span class="s1">&#39;[1, 2, 3]&#39;</span><span class="p">,</span> <span class="s1">&#39;$[2]&#39;</span><span class="p">);</span>
+
+<span class="k">SELECT</span> <span class="n">json_extract_scalar</span><span class="p">(</span><span class="n">json</span><span class="p">,</span> <span class="s1">&#39;$.store.book[0].author&#39;</span><span class="p">);</span>
+</pre></div>
+</div>
+</dd></dl>
+
+<dl class="function">
+<dt id="json_array_get">
+<tt class="descname">json_array_get</tt><big>(</big><em>json_array</em>, <em>index</em><big>)</big> &rarr; varchar</dt>
+<dd><p>Returns the element at the specified index into the <tt class="docutils literal"><span class="pre">json_array</span></tt>.  The
+index is 0-based.  For example:</p>
+<div class="highlight-sql"><div class="highlight"><pre><span class="k">SELECT</span> <span class="n">json_array_get</span><span class="p">(</span><span class="s1">&#39;[&quot;a&quot;, &quot;b&quot;, &quot;c&quot;]&#39;</span><span class="p">,</span> <span class="mi">0</span><span class="p">);</span> <span class="o">=&gt;</span> <span class="ss">&quot;a&quot;</span>
+<span class="k">SELECT</span> <span class="n">json_array_get</span><span class="p">(</span><span class="s1">&#39;[&quot;a&quot;, &quot;b&quot;, &quot;c&quot;]&#39;</span><span class="p">,</span> <span class="mi">1</span><span class="p">);</span> <span class="o">=&gt;</span> <span class="ss">&quot;b&quot;</span>
+</pre></div>
+</div>
+<p>This function also supports negative indexes for fetching element indexed
+from the end of an array.  For example:</p>
+<div class="highlight-sql"><div class="highlight"><pre><span class="k">SELECT</span> <span class="n">json_array_get</span><span class="p">(</span><span class="s1">&#39;[&quot;c&quot;, &quot;b&quot;, &quot;a&quot;]&#39;</span><span class="p">,</span> <span class="o">-</span><span class="mi">1</span><span class="p">);</span> <span class="o">=&gt;</span> <span class="ss">&quot;a&quot;</span>
+<span class="k">SELECT</span> <span class="n">json_array_get</span><span class="p">(</span><span class="s1">&#39;[&quot;c&quot;, &quot;b&quot;, &quot;a&quot;]&#39;</span><span class="p">,</span> <span class="o">-</span><span class="mi">2</span><span class="p">);</span> <span class="o">=&gt;</span> <span class="ss">&quot;b&quot;</span>
+</pre></div>
+</div>
+<p>If the element at the specified index doesn&#8217;t exist, the function returns
+null:</p>
+<div class="highlight-sql"><div class="highlight"><pre><span class="k">SELECT</span> <span class="n">json_array_get</span><span class="p">(</span><span class="s1">&#39;[]&#39;</span><span class="p">,</span> <span class="mi">0</span><span class="p">);</span> <span class="o">=&gt;</span> <span class="k">null</span>
+<span class="k">SELECT</span> <span class="n">json_array_get</span><span class="p">(</span><span class="s1">&#39;[&quot;a&quot;, &quot;b&quot;, &quot;c&quot;]&#39;</span><span class="p">,</span> <span class="mi">10</span><span class="p">);</span> <span class="o">=&gt;</span> <span class="k">null</span>
+<span class="k">SELECT</span> <span class="n">json_array_get</span><span class="p">(</span><span class="s1">&#39;[&quot;c&quot;, &quot;b&quot;, &quot;a&quot;]&#39;</span><span class="p">,</span> <span class="o">-</span><span class="mi">10</span><span class="p">);</span> <span class="o">=&gt;</span> <span class="k">null</span>
+</pre></div>
+</div>
+</dd></dl>
+
+</div>
+
+
+</div>
+<div class="bottomnav">
+    
+<p class="nav">
+    <span class="left">
+        &laquo; <a href="regexp.html">2.6. Regular Expression Functions</a>
+    </span>
+    <span class="right">
+        <a href="url.html">2.8. URL Functions</a> &raquo;
+    </span>
+</p>
+
+</div>
+
+    <div class="footer">
+    </div>
+  </body>
+</html>
