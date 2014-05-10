@@ -16,16 +16,22 @@ package com.facebook.presto.hive;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.type.TypeManager;
 import com.google.common.base.Optional;
+import com.google.common.base.Predicate;
+import com.google.common.collect.ImmutableList;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
-import org.apache.hadoop.io.Writable;
-import org.apache.hadoop.mapred.RecordReader;
+import org.apache.hadoop.hive.ql.io.parquet.serde.ParquetHiveSerDe;
+import org.apache.hadoop.hive.serde2.Deserializer;
 import org.joda.time.DateTimeZone;
 
 import java.util.List;
 import java.util.Properties;
 
-public class GenericHiveRecordCursorProvider
+import static com.facebook.presto.hive.HiveUtil.getDeserializer;
+import static com.google.common.base.Predicates.not;
+import static com.google.common.collect.Iterables.filter;
+
+public class ParquetRecordCursorProvider
         implements HiveRecordCursorProvider
 {
     @Override
@@ -42,22 +48,42 @@ public class GenericHiveRecordCursorProvider
             DateTimeZone hiveStorageTimeZone,
             TypeManager typeManager)
     {
-        RecordReader<?, ?> recordReader = HiveUtil.createRecordReader(clientId, configuration, path, start, length, schema, columns);
+        @SuppressWarnings("deprecation")
+        Deserializer deserializer = getDeserializer(schema);
+        if (!(deserializer instanceof ParquetHiveSerDe)) {
+            return Optional.absent();
+        }
 
-        return Optional.<HiveRecordCursor>of(new GenericHiveRecordCursor<>(
-                genericRecordReader(recordReader),
+        // are all columns supported by Parquet code
+        List<HiveColumnHandle> unsupportedColumns = ImmutableList.copyOf(filter(columns, not(isParquetSupportedType())));
+        if (!unsupportedColumns.isEmpty()) {
+            throw new IllegalArgumentException("Can not read Parquet column: " + unsupportedColumns);
+        }
+
+        return Optional.<HiveRecordCursor>of(new ParquetHiveRecordCursor(
+                configuration,
+                path,
+                start,
                 length,
                 schema,
                 partitionKeys,
                 columns,
-                hiveStorageTimeZone,
                 DateTimeZone.forID(session.getTimeZoneKey().getId()),
                 typeManager));
     }
 
-    @SuppressWarnings("unchecked")
-    private static RecordReader<?, ? extends Writable> genericRecordReader(RecordReader<?, ?> recordReader)
+    private static Predicate<HiveColumnHandle> isParquetSupportedType()
     {
-        return (RecordReader<?, ? extends Writable>) recordReader;
+        return new Predicate<HiveColumnHandle>()
+        {
+            @Override
+            public boolean apply(HiveColumnHandle columnHandle)
+            {
+                HiveType hiveType = columnHandle.getHiveType();
+                return hiveType != HiveType.HIVE_TIMESTAMP &&
+                        hiveType != HiveType.HIVE_DATE &&
+                        hiveType != HiveType.HIVE_BINARY;
+            }
+        };
     }
 }

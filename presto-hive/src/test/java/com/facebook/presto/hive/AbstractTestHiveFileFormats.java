@@ -30,6 +30,7 @@ import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hive.ql.exec.FileSinkOperator.RecordWriter;
 import org.apache.hadoop.hive.ql.io.HiveOutputFormat;
+import org.apache.hadoop.hive.serde2.ReaderWriterProfiler;
 import org.apache.hadoop.hive.serde2.SerDe;
 import org.apache.hadoop.hive.serde2.objectinspector.ObjectInspector;
 import org.apache.hadoop.hive.serde2.objectinspector.ObjectInspector.Category;
@@ -204,13 +205,18 @@ public abstract class AbstractTestHiveFileFormats
         return columns;
     }
 
-    public FileSplit createTestFile(String filePath, HiveOutputFormat<?, ?> outputFormat, @SuppressWarnings("deprecation") SerDe serDe, String compressionCodec, List<TestColumn> testColumns)
+    public FileSplit createTestFile(String filePath,
+            HiveOutputFormat<?, ?> outputFormat,
+            @SuppressWarnings("deprecation") SerDe serDe,
+            String compressionCodec,
+            List<TestColumn> testColumns)
             throws Exception
     {
         // filter out partition keys, which are not written to the file
         testColumns = ImmutableList.copyOf(filter(testColumns, not(partitionKeyFilter())));
 
         JobConf jobConf = new JobConf();
+        ReaderWriterProfiler.setProfilerOptions(jobConf);
 
         Properties tableProperties = new Properties();
         tableProperties.setProperty("columns", Joiner.on(',').join(transform(testColumns, nameGetter())));

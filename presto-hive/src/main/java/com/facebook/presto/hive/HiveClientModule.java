@@ -85,6 +85,9 @@ public class HiveClientModule
         binder.bind(TypeManager.class).toInstance(typeManager);
 
         Multibinder<HiveRecordCursorProvider> recordCursorProviderBinder = Multibinder.newSetBinder(binder, HiveRecordCursorProvider.class);
+        recordCursorProviderBinder.addBinding().to(OrcRecordCursorProvider.class).in(Scopes.SINGLETON);
+        recordCursorProviderBinder.addBinding().to(ParquetRecordCursorProvider.class).in(Scopes.SINGLETON);
+        recordCursorProviderBinder.addBinding().to(DwrfRecordCursorProvider.class).in(Scopes.SINGLETON);
         recordCursorProviderBinder.addBinding().to(ColumnarTextHiveRecordCursorProvider.class).in(Scopes.SINGLETON);
         recordCursorProviderBinder.addBinding().to(ColumnarBinaryHiveRecordCursorProvider.class).in(Scopes.SINGLETON);
         recordCursorProviderBinder.addBinding().to(GenericHiveRecordCursorProvider.class).in(Scopes.SINGLETON);

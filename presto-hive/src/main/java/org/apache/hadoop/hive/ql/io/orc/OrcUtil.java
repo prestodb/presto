@@ -11,21 +11,19 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.hive;
+package org.apache.hadoop.hive.ql.io.orc;
 
-import com.google.common.collect.ImmutableSet;
-
-public final class HiveTestUtils
+public final class OrcUtil
 {
-    public static final ImmutableSet<HiveRecordCursorProvider> DEFAULT_HIVE_RECORD_CURSOR_PROVIDER = ImmutableSet.of(
-            new OrcRecordCursorProvider(),
-            new ParquetRecordCursorProvider(),
-            new DwrfRecordCursorProvider(),
-            new ColumnarTextHiveRecordCursorProvider(),
-            new ColumnarBinaryHiveRecordCursorProvider(),
-            new GenericHiveRecordCursorProvider());
-
-    private HiveTestUtils()
+    private OrcUtil()
     {
+    }
+
+    public static Object getFieldValue(OrcStruct orcStruct, int column)
+    {
+        if (column >= orcStruct.getNumFields()) {
+            return null;
+        }
+        return orcStruct.getFieldValue(column);
     }
 }
