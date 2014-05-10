@@ -1,0 +1,156 @@
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>2.11. Color Functions &mdash; Presto 0.68 Documentation</title>
+    
+    <link rel="stylesheet" href="../_static/presto.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '../',
+        VERSION:     '0.68',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="../_static/jquery.js"></script>
+    <script type="text/javascript" src="../_static/underscore.js"></script>
+    <script type="text/javascript" src="../_static/doctools.js"></script>
+    <link rel="top" title="Presto 0.68 Documentation" href="../index.html" />
+    <link rel="up" title="2. Functions and Operators" href="../functions.html" />
+    <link rel="next" title="2.12. Conversion Functions" href="conversion.html" />
+    <link rel="prev" title="2.10. Window Functions" href="window.html" /> 
+  </head>
+  <body>
+<div class="header">
+    <h1 class="heading"><a href="../index.html">
+        <span>Presto 0.68 Documentation</span></a></h1>
+    <h2 class="heading"><span>2.11. Color Functions</span></h2>
+</div>
+<div class="topnav">
+    
+<p class="nav">
+    <span class="left">
+        &laquo; <a href="window.html">2.10. Window Functions</a>
+    </span>
+    <span class="right">
+        <a href="conversion.html">2.12. Conversion Functions</a> &raquo;
+    </span>
+</p>
+
+</div>
+<div class="content">
+    
+  <div class="section" id="color-functions">
+<h1>2.11. Color Functions</h1>
+<dl class="function">
+<dt id="bar">
+<tt class="descname">bar</tt><big>(</big><em>x</em>, <em>width</em><big>)</big> &rarr; varchar</dt>
+<dd><p>Renders a single bar in an ANSI bar chart using a default
+<tt class="docutils literal"><span class="pre">low_color</span></tt> of red and a <tt class="docutils literal"><span class="pre">high_color</span></tt> of green.  For example,
+if <tt class="docutils literal"><span class="pre">x</span></tt> of 25% and width of 40 are passed to this function. A
+10-character red bar will be drawn followed by 30 spaces to create
+a bar of 40 characters.</p>
+</dd></dl>
+
+<dl class="function">
+<dt>
+<tt class="descname">bar</tt><big>(</big><em>x</em>, <em>width</em>, <em>low_color</em>, <em>high_color</em><big>)</big> &rarr; varchar</dt>
+<dd><p>Renders a single line in an ANSI bar chart of the specified
+<tt class="docutils literal"><span class="pre">width</span></tt>. The parameter <tt class="docutils literal"><span class="pre">x</span></tt> is a double value between [0,1].
+Values of <tt class="docutils literal"><span class="pre">x</span></tt> that fall outside the range [0,1] will be
+truncated to either a 0 or a 1 value. The <tt class="docutils literal"><span class="pre">low_color</span></tt> and
+<tt class="docutils literal"><span class="pre">high_color</span></tt> capture the color to use for either end of
+the horizontal bar chart.  For example, if <tt class="docutils literal"><span class="pre">x</span></tt> is 0.5, <tt class="docutils literal"><span class="pre">width</span></tt>
+is 80, <tt class="docutils literal"><span class="pre">low_color</span></tt> is 0xFF0000, and <tt class="docutils literal"><span class="pre">high_color</span></tt> is 0x00FF00
+this function will return a 40 character bar that varies from red
+(0xFF0000) and yellow (0xFFFF00) and the remainder of the 80
+character bar will be padded with spaces.</p>
+</dd></dl>
+
+<div class="figure align-center">
+<img alt="../_images/functions_color_bar.png" src="../_images/functions_color_bar.png" />
+<p class="caption">Example Output of the <tt class="docutils literal"><span class="pre">bar</span></tt> function</p>
+</div>
+<dl class="function">
+<dt id="color">
+<tt class="descname">color</tt><big>(</big><em>string</em><big>)</big> &rarr; color</dt>
+<dd><p>Returns a color capturing a decoded RGB value from a 4-character
+string of the format &#8220;#000&#8221;.  The input string should be varchar
+containing a CSS-style short rgb string or one of <tt class="docutils literal"><span class="pre">black</span></tt>,
+<tt class="docutils literal"><span class="pre">red</span></tt>, <tt class="docutils literal"><span class="pre">green</span></tt>, <tt class="docutils literal"><span class="pre">yellow</span></tt>, <tt class="docutils literal"><span class="pre">blue</span></tt>, <tt class="docutils literal"><span class="pre">magenta</span></tt>, <tt class="docutils literal"><span class="pre">cyan</span></tt>,
+<tt class="docutils literal"><span class="pre">white</span></tt>.</p>
+</dd></dl>
+
+<dl class="function">
+<dt>
+<tt class="descname">color</tt><big>(</big><em>x</em>, <em>low</em>, <em>high</em>, <em>low_color</em>, <em>high_color</em><big>)</big> &rarr; color</dt>
+<dd><p>Returns a color interpolated between <tt class="docutils literal"><span class="pre">low_color</span></tt> and
+<tt class="docutils literal"><span class="pre">high_color</span></tt> using the double parameters <tt class="docutils literal"><span class="pre">x</span></tt>, <tt class="docutils literal"><span class="pre">low</span></tt>, and
+<tt class="docutils literal"><span class="pre">high</span></tt> to calculate a fraction which is then passed to the
+<tt class="docutils literal"><span class="pre">color(fraction,</span> <span class="pre">low_color,</span> <span class="pre">high_color)</span></tt> function shown below.
+If <tt class="docutils literal"><span class="pre">x</span></tt> falls outside the range defined by <tt class="docutils literal"><span class="pre">low</span></tt> and <tt class="docutils literal"><span class="pre">high</span></tt>
+it&#8217;s value will be truncated to fit within this range.</p>
+</dd></dl>
+
+<dl class="function">
+<dt>
+<tt class="descname">color</tt><big>(</big><em>x</em>, <em>low_color</em>, <em>high_color</em><big>)</big> &rarr; color</dt>
+<dd><p>Returns a color interpolated between <tt class="docutils literal"><span class="pre">low_color</span></tt> and
+<tt class="docutils literal"><span class="pre">high_color</span></tt> according to the double argument <tt class="docutils literal"><span class="pre">x</span></tt> between 0
+and 1.0.  The parameter <tt class="docutils literal"><span class="pre">x</span></tt> is a double value between [0,1].
+Values of <tt class="docutils literal"><span class="pre">x</span></tt> that fall outside the range [0,1] will be
+truncated to either a 0 or a 1 value.</p>
+</dd></dl>
+
+<dl class="function">
+<dt id="render">
+<tt class="descname">render</tt><big>(</big><em>x</em>, <em>color</em><big>)</big> &rarr; varchar</dt>
+<dd><p>Renders value <tt class="docutils literal"><span class="pre">x</span></tt> using the specific color using ANSI
+color codes. <tt class="docutils literal"><span class="pre">x</span></tt> can be either a double, bigint, or varchar.</p>
+</dd></dl>
+
+<dl class="function">
+<dt>
+<tt class="descname">render</tt><big>(</big><em>b</em><big>)</big> &rarr; varchar</dt>
+<dd><p>Accepts boolean value <tt class="docutils literal"><span class="pre">b</span></tt> and renders a green true or a red
+false using ANSI color codes.</p>
+</dd></dl>
+
+<dl class="function">
+<dt id="rgb">
+<tt class="descname">rgb</tt><big>(</big><em>red</em>, <em>green</em>, <em>blue</em><big>)</big> &rarr; color</dt>
+<dd><p>Returns a color value capturing the RGB value of three
+component color values supplied as int parameters ranging from 0
+to 255: <tt class="docutils literal"><span class="pre">red</span></tt>, <tt class="docutils literal"><span class="pre">green</span></tt>, <tt class="docutils literal"><span class="pre">blue</span></tt>.</p>
+</dd></dl>
+
+</div>
+
+
+</div>
+<div class="bottomnav">
+    
+<p class="nav">
+    <span class="left">
+        &laquo; <a href="window.html">2.10. Window Functions</a>
+    </span>
+    <span class="right">
+        <a href="conversion.html">2.12. Conversion Functions</a> &raquo;
+    </span>
+</p>
+
+</div>
+
+    <div class="footer">
+    </div>
+  </body>
+</html>
