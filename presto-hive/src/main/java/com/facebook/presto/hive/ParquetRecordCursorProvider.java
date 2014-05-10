@@ -17,14 +17,16 @@ import com.facebook.presto.spi.ConnectorSession;
 import com.google.common.base.Optional;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
-import org.apache.hadoop.io.Writable;
-import org.apache.hadoop.mapred.RecordReader;
+import org.apache.hadoop.hive.ql.io.parquet.serde.ParquetHiveSerDe;
+import org.apache.hadoop.hive.serde2.Deserializer;
 import org.joda.time.DateTimeZone;
 
 import java.util.List;
 import java.util.Properties;
 
-public class GenericHiveRecordCursorProvider
+import static com.facebook.presto.hive.HiveUtil.getDeserializer;
+
+public class ParquetRecordCursorProvider
         implements HiveRecordCursorProvider
 {
     @Override
@@ -40,21 +42,20 @@ public class GenericHiveRecordCursorProvider
             List<HivePartitionKey> partitionKeys,
             DateTimeZone hiveStorageTimeZone)
     {
-        RecordReader<?, ?> recordReader = HiveUtil.createRecordReader(clientId, configuration, path, start, length, schema, columns);
+        @SuppressWarnings("deprecation")
+        Deserializer deserializer = getDeserializer(schema);
+        if (!(deserializer instanceof ParquetHiveSerDe)) {
+            return Optional.absent();
+        }
 
-        return Optional.<HiveRecordCursor>of(new  GenericHiveRecordCursor<>(
-                genericRecordReader(recordReader),
+        return Optional.<HiveRecordCursor>of(new ParquetHiveRecordCursor(
+                configuration,
+                path,
+                start,
                 length,
                 schema,
                 partitionKeys,
                 columns,
-                hiveStorageTimeZone,
                 DateTimeZone.forID(session.getTimeZoneKey().getId())));
-    }
-
-    @SuppressWarnings("unchecked")
-    private static RecordReader<?, ? extends Writable> genericRecordReader(RecordReader<?, ?> recordReader)
-    {
-        return (RecordReader<?, ? extends Writable>) recordReader;
     }
 }

@@ -1,0 +1,48 @@
+bigint
+                    orc custom  0.61s 18005322964949
+                    orc vector  0.23s 18005322964949
+         rc binary gzip custom  0.54s 18005322964949
+           parquet gzip custom  0.57s 18005322964949
+                   dwrf custom  0.64s 18005322964949
+
+double
+                    orc custom  0.81s 2.2957731090119733E11
+                    orc vector  0.42s 2.2957731090119733E11
+         rc binary gzip custom  0.69s 2.2957731090119733E11
+           parquet gzip custom  0.70s 2.2957731090119733E11
+                   dwrf custom  0.76s 2.2957731090119733E11
+
+varchar
+                    orc custom  0.96s 72006409
+                    orc vector  0.37s 72006409
+         rc binary gzip custom  0.70s 72006409
+           parquet gzip custom  0.58s 72006409
+                   dwrf custom  1.18s 72006409
+
+tpch6
+                    orc custom  2.25s 2.2979070190098962E11
+                    orc vector  1.25s 2.2979070190098962E11
+         rc binary gzip custom  1.65s 2.2979070190098962E11
+           parquet gzip custom  1.96s 2.2979070190098962E11
+                   dwrf custom  2.68s 2.2979070190098962E11
+
+tpch1
+                    orc custom  4.09s 2.298029444569729E11
+                    orc vector  2.16s 2.298029444569729E11
+         rc binary gzip custom  2.46s 2.298029444569729E11
+           parquet gzip custom  3.28s 2.298029444569729E11
+                   dwrf custom  5.36s 2.298029444569729E11
+
+all
+                    orc custom 10.06s 1.886575981009859E13
+                    orc vector  5.39s 1.886575981009859E13
+         rc binary gzip custom  6.49s 1.886575981009859E13
+           parquet gzip custom  9.78s 1.886575981009859E13
+                   dwrf custom 15.28s 1.886575981009859E13
+
+one (load all)
+                    orc custom  6.20s 1.8005322964949E13
+                    orc vector  3.37s 1.8005322964949E13
+         rc binary gzip custom  2.58s 1.8005322964949E13
+           parquet gzip custom  8.93s 1.8005322964949E13
+                   dwrf custom  1.35s 1.8005322964949E13

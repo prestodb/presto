@@ -15,7 +15,6 @@ package com.facebook.presto.hive;
 
 import com.facebook.presto.hadoop.HadoopFileSystemCache;
 import com.facebook.presto.hadoop.HadoopNative;
-import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.RecordSet;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.base.Optional;
@@ -23,30 +22,19 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
-import org.apache.hadoop.hive.serde2.ColumnProjectionUtils;
 import org.apache.hadoop.hive.serde2.objectinspector.ObjectInspector;
 import org.apache.hadoop.hive.serde2.objectinspector.PrimitiveObjectInspector;
 import org.apache.hadoop.hive.serde2.objectinspector.StructField;
-import org.apache.hadoop.mapred.FileSplit;
-import org.apache.hadoop.mapred.InputFormat;
-import org.apache.hadoop.mapred.JobConf;
-import org.apache.hadoop.mapred.RecordReader;
-import org.apache.hadoop.mapred.Reporter;
 import org.joda.time.DateTimeZone;
 
-import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Properties;
-import java.util.concurrent.Callable;
 
 import static com.facebook.presto.hive.HiveColumnHandle.hiveColumnIndexGetter;
 import static com.facebook.presto.hive.HiveColumnHandle.isPartitionKeyPredicate;
 import static com.facebook.presto.hive.HiveColumnHandle.nativeTypeGetter;
-import static com.facebook.presto.hive.HiveUtil.getInputFormat;
-import static com.facebook.presto.hive.HiveUtil.getInputFormatName;
 import static com.facebook.presto.hive.HiveUtil.getTableObjectInspector;
-import static com.facebook.presto.hive.RetryDriver.retry;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Predicates.not;
@@ -105,13 +93,19 @@ public class HiveRecordSet
     @Override
     public HiveRecordCursor cursor()
     {
-        // Tell hive the columns we would like to read, this lets hive optimize reading column oriented files
-        ColumnProjectionUtils.setReadColumnIDs(configuration, readHiveColumnIndexes);
-
-        RecordReader<?, ?> recordReader = createRecordReader(split, configuration, path);
-
         for (HiveRecordCursorProvider provider : cursorProviders) {
-            Optional<HiveRecordCursor> cursor = provider.createHiveRecordCursor(split, recordReader, columns, timeZone);
+            Optional<HiveRecordCursor> cursor = provider.createHiveRecordCursor(
+                    split.getClientId(),
+                    configuration,
+                    split.getSession(),
+                    path,
+                    split.getStart(),
+                    split.getLength(),
+                    split.getSchema(),
+                    columns,
+                    split.getPartitionKeys(),
+                    timeZone);
+
             if (cursor.isPresent()) {
                 return cursor.get();
             }
@@ -133,53 +127,5 @@ public class HiveRecordSet
         }
 
         throw new IllegalStateException("Table doesn't have any PRIMITIVE columns");
-    }
-
-    private static RecordReader<?, ?> createRecordReader(HiveSplit split, Configuration configuration, Path wrappedPath)
-    {
-        final InputFormat<?, ?> inputFormat = getInputFormat(configuration, split.getSchema(), true);
-        final JobConf jobConf = new JobConf(configuration);
-        final FileSplit fileSplit = createFileSplit(wrappedPath, split.getStart(), split.getLength());
-
-        // propagate serialization configuration to getRecordReader
-        for (String name : split.getSchema().stringPropertyNames()) {
-            if (name.startsWith("serialization.")) {
-                jobConf.set(name, split.getSchema().getProperty(name));
-            }
-        }
-
-        try {
-            return retry().stopOnIllegalExceptions().run("createRecordReader", new Callable<RecordReader<?, ?>>()
-            {
-                @Override
-                public RecordReader<?, ?> call()
-                        throws IOException
-                {
-                    return inputFormat.getRecordReader(fileSplit, jobConf, Reporter.NULL);
-                }
-            });
-        }
-        catch (Exception e) {
-            throw new PrestoException(HiveErrorCode.HIVE_CANNOT_OPEN_SPLIT.toErrorCode(), String.format("Error opening Hive split %s (offset=%s, length=%s) using %s: %s",
-                    split.getPath(),
-                    split.getStart(),
-                    split.getLength(),
-                    getInputFormatName(split.getSchema()),
-                    e.getMessage()),
-                    e);
-        }
-    }
-
-    private static FileSplit createFileSplit(final Path path, long start, long length)
-    {
-        return new FileSplit(path, start, length, (String[]) null)
-        {
-            @Override
-            public Path getPath()
-            {
-                // make sure our original path object is returned
-                return path;
-            }
-        };
     }
 }
