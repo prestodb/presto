@@ -121,10 +121,6 @@ public class NativeMetadata
             }
         }));
         checkArgument(!columns.isEmpty(), "Table %s does not have any columns", tableName);
-        if (columns.isEmpty()) {
-            return null;
-        }
-
         return new ConnectorTableMetadata(tableName, columns);
     }
 
