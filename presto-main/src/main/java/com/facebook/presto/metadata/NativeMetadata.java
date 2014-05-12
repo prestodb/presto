@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.metadata;
 
-import com.facebook.presto.spi.ConnectorColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
+import com.facebook.presto.spi.ConnectorColumnHandle;
 import com.facebook.presto.spi.ConnectorMetadata;
 import com.facebook.presto.spi.ConnectorOutputTableHandle;
 import com.facebook.presto.spi.ConnectorSession;
@@ -106,10 +106,7 @@ public class NativeMetadata
     @Override
     public ConnectorTableMetadata getTableMetadata(ConnectorTableHandle tableHandle)
     {
-        checkNotNull(tableHandle, "tableHandle is null");
-        checkArgument(tableHandle instanceof NativeTableHandle, "tableHandle is not an instance of NativeTableHandle");
-        NativeTableHandle nativeTableHandle = (NativeTableHandle) tableHandle;
-
+        NativeTableHandle nativeTableHandle = checkType(tableHandle, NativeTableHandle.class, "tableHandle");
         SchemaTableName tableName = getTableName(tableHandle);
         checkArgument(tableName != null, "Table %s does not exist", tableName);
         List<ColumnMetadata> columns = dao.getTableColumnMetaData(nativeTableHandle.getTableId());
@@ -133,10 +130,7 @@ public class NativeMetadata
     @Override
     public Map<String, ConnectorColumnHandle> getColumnHandles(ConnectorTableHandle tableHandle)
     {
-        checkNotNull(tableHandle, "tableHandle is null");
-        checkArgument(tableHandle instanceof NativeTableHandle, "tableHandle is not an instance of NativeTableHandle");
-        NativeTableHandle nativeTableHandle = (NativeTableHandle) tableHandle;
-
+        NativeTableHandle nativeTableHandle = checkType(tableHandle, NativeTableHandle.class, "tableHandle");
         ImmutableMap.Builder<String, ConnectorColumnHandle> builder = ImmutableMap.builder();
         for (TableColumn tableColumn : dao.listTableColumns(nativeTableHandle.getTableId())) {
             if (tableColumn.getColumnName().equals(NativeColumnHandle.SAMPLE_WEIGHT_COLUMN_NAME)) {
@@ -150,10 +144,7 @@ public class NativeMetadata
     @Override
     public ConnectorColumnHandle getColumnHandle(ConnectorTableHandle tableHandle, String columnName)
     {
-        checkNotNull(tableHandle, "tableHandle is null");
-        checkArgument(tableHandle instanceof NativeTableHandle, "tableHandle is not an instance of NativeTableHandle");
-        NativeTableHandle nativeTableHandle = (NativeTableHandle) tableHandle;
-
+        NativeTableHandle nativeTableHandle = checkType(tableHandle, NativeTableHandle.class, "tableHandle");
         Long columnId = dao.getColumnId(nativeTableHandle.getTableId(), columnName);
         if (columnId == null) {
             return null;
@@ -164,8 +155,7 @@ public class NativeMetadata
     @Override
     public ConnectorColumnHandle getSampleWeightColumnHandle(ConnectorTableHandle tableHandle)
     {
-        checkArgument(tableHandle instanceof NativeTableHandle, "tableHandle is not an instance of NativeTableHandle");
-        return ((NativeTableHandle) tableHandle).getSampleWeightColumnHandle();
+        return checkType(tableHandle, NativeTableHandle.class, "tableHandle").getSampleWeightColumnHandle();
     }
 
     @Override
@@ -177,13 +167,8 @@ public class NativeMetadata
     @Override
     public ColumnMetadata getColumnMetadata(ConnectorTableHandle tableHandle, ConnectorColumnHandle columnHandle)
     {
-        checkNotNull(tableHandle, "tableHandle is null");
-        checkNotNull(columnHandle, "columnHandle is null");
-        checkArgument(tableHandle instanceof NativeTableHandle, "tableHandle is not an instance of NativeTableHandle");
-        checkArgument(columnHandle instanceof NativeColumnHandle, "columnHandle is not an instance of NativeColumnHandle");
-
-        long tableId = ((NativeTableHandle) tableHandle).getTableId();
-        long columnId = ((NativeColumnHandle) columnHandle).getColumnId();
+        long tableId = checkType(tableHandle, NativeTableHandle.class, "tableHandle").getTableId();
+        long columnId = checkType(columnHandle, NativeColumnHandle.class, "columnHandle").getColumnId();
 
         ColumnMetadata columnMetadata = dao.getColumnMetadata(tableId, columnId);
         checkState(columnMetadata != null, "no column with id %s exists", columnId);
@@ -208,11 +193,7 @@ public class NativeMetadata
 
     private SchemaTableName getTableName(ConnectorTableHandle tableHandle)
     {
-        checkNotNull(tableHandle, "tableHandle is null");
-        checkArgument(tableHandle instanceof NativeTableHandle, "tableHandle is not an instance of NativeTableHandle");
-
-        long tableId = ((NativeTableHandle) tableHandle).getTableId();
-
+        long tableId = checkType(tableHandle, NativeTableHandle.class, "tableHandle").getTableId();
         SchemaTableName tableName = dao.getTableName(tableId).asSchemaTableName();
         checkState(tableName != null, "no table with id %s exists", tableId);
         return tableName;
