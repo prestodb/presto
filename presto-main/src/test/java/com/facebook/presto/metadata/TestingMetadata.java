@@ -20,8 +20,10 @@ import com.facebook.presto.spi.ConnectorOutputTableHandle;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorTableHandle;
 import com.facebook.presto.spi.ConnectorTableMetadata;
+import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.SchemaTablePrefix;
+import com.facebook.presto.spi.ViewNotFoundException;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -34,6 +36,7 @@ import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 
+import static com.facebook.presto.spi.StandardErrorCode.ALREADY_EXISTS;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 
@@ -41,6 +44,7 @@ public class TestingMetadata
         implements ConnectorMetadata
 {
     private final ConcurrentMap<SchemaTableName, ConnectorTableMetadata> tables = new ConcurrentHashMap<>();
+    private final ConcurrentMap<SchemaTableName, String> views = new ConcurrentHashMap<>();
 
     @Override
     public List<String> listSchemaNames(ConnectorSession session)
@@ -171,6 +175,49 @@ public class TestingMetadata
     public void commitCreateTable(ConnectorOutputTableHandle tableHandle, Collection<String> fragments)
     {
         throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public void createView(ConnectorSession session, SchemaTableName viewName, String viewData, boolean replace)
+    {
+        if (replace) {
+            views.put(viewName, viewData);
+        }
+        else if (views.putIfAbsent(viewName, viewData) != null) {
+            throw new PrestoException(ALREADY_EXISTS.toErrorCode(), "View already exists: " + viewName);
+        }
+    }
+
+    @Override
+    public void dropView(ConnectorSession session, SchemaTableName viewName)
+    {
+        if (views.remove(viewName) == null) {
+            throw new ViewNotFoundException(viewName);
+        }
+    }
+
+    @Override
+    public List<SchemaTableName> listViews(ConnectorSession session, String schemaNameOrNull)
+    {
+        ImmutableList.Builder<SchemaTableName> builder = ImmutableList.builder();
+        for (SchemaTableName viewName : views.keySet()) {
+            if ((schemaNameOrNull == null) || schemaNameOrNull.equals(viewName.getSchemaName())) {
+                builder.add(viewName);
+            }
+        }
+        return builder.build();
+    }
+
+    @Override
+    public Map<SchemaTableName, String> getViews(ConnectorSession session, SchemaTablePrefix prefix)
+    {
+        ImmutableMap.Builder<SchemaTableName, String> map = ImmutableMap.builder();
+        for (Map.Entry<SchemaTableName, String> entry : views.entrySet()) {
+            if (prefix.matches(entry.getKey())) {
+                map.put(entry);
+            }
+        }
+        return map.build();
     }
 
     private static SchemaTableName getTableName(ConnectorTableHandle tableHandle)

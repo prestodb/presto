@@ -20,6 +20,7 @@ import com.facebook.presto.raptor.metadata.ShardManager;
 import com.facebook.presto.raptor.metadata.Table;
 import com.facebook.presto.raptor.metadata.TableColumn;
 import com.facebook.presto.raptor.metadata.TablePartition;
+import com.facebook.presto.raptor.metadata.ViewResult;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorColumnHandle;
 import com.facebook.presto.spi.ConnectorMetadata;
@@ -27,8 +28,10 @@ import com.facebook.presto.spi.ConnectorOutputTableHandle;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorTableHandle;
 import com.facebook.presto.spi.ConnectorTableMetadata;
+import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.SchemaTablePrefix;
+import com.facebook.presto.spi.ViewNotFoundException;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.base.Predicate;
 import com.google.common.base.Splitter;
@@ -42,6 +45,7 @@ import org.skife.jdbi.v2.IDBI;
 import org.skife.jdbi.v2.TransactionCallback;
 import org.skife.jdbi.v2.TransactionStatus;
 import org.skife.jdbi.v2.VoidTransactionCallback;
+import org.skife.jdbi.v2.exceptions.UnableToExecuteStatementException;
 
 import javax.annotation.Nullable;
 import javax.inject.Inject;
@@ -57,6 +61,7 @@ import java.util.concurrent.Callable;
 import static com.facebook.presto.raptor.RaptorColumnHandle.SAMPLE_WEIGHT_COLUMN_NAME;
 import static com.facebook.presto.raptor.metadata.MetadataDaoUtils.createMetadataTablesWithRetry;
 import static com.facebook.presto.raptor.metadata.SqlUtils.runIgnoringConstraintViolation;
+import static com.facebook.presto.spi.StandardErrorCode.ALREADY_EXISTS;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.util.Types.checkType;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -325,6 +330,68 @@ public class RaptorMetadata
         ConnectorTableHandle tableHandle = getTableHandle(new SchemaTableName(table.getSchemaName(), table.getTableName()));
 
         shardManager.commitUnpartitionedTable(tableHandle, shards.build());
+    }
+
+    @Override
+    public void createView(ConnectorSession session, SchemaTableName viewName, final String viewData, boolean replace)
+    {
+        final String schemaName = viewName.getSchemaName();
+        final String tableName = viewName.getTableName();
+
+        if (replace) {
+            dbi.inTransaction(new VoidTransactionCallback()
+            {
+                @Override
+                protected void execute(Handle handle, TransactionStatus status)
+                        throws Exception
+                {
+                    MetadataDao dao = handle.attach(MetadataDao.class);
+                    dao.dropView(connectorId, schemaName, tableName);
+                    dao.insertView(connectorId, schemaName, tableName, viewData);
+                }
+            });
+            return;
+        }
+
+        try {
+            dao.insertView(connectorId, schemaName, tableName, viewData);
+        }
+        catch (UnableToExecuteStatementException e) {
+            if (viewExists(session, viewName)) {
+                throw new PrestoException(ALREADY_EXISTS.toErrorCode(), "View already exists: " + viewName);
+            }
+            throw e;
+        }
+    }
+
+    @Override
+    public void dropView(ConnectorSession session, SchemaTableName viewName)
+    {
+        if (!viewExists(session, viewName)) {
+            throw new ViewNotFoundException(viewName);
+        }
+        dao.dropView(connectorId, viewName.getSchemaName(), viewName.getTableName());
+    }
+
+    @Override
+    public List<SchemaTableName> listViews(ConnectorSession session, String schemaNameOrNull)
+    {
+        return dao.listViews(connectorId, schemaNameOrNull);
+    }
+
+    @Override
+    public Map<SchemaTableName, String> getViews(ConnectorSession session, SchemaTablePrefix prefix)
+    {
+        ImmutableMap.Builder<SchemaTableName, String> map = ImmutableMap.builder();
+        for (ViewResult view : dao.getViews(connectorId, prefix.getSchemaName(), prefix.getTableName())) {
+            map.put(view.getName(), view.getData());
+        }
+        return map.build();
+    }
+
+    private boolean viewExists(ConnectorSession session, SchemaTableName viewName)
+    {
+        return !getViews(session, viewName.toSchemaTablePrefix()).isEmpty();
     }
 
     private static Predicate<ColumnMetadata> isSampleWeightColumn()

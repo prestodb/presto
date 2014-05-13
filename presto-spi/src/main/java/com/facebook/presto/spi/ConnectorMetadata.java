@@ -37,7 +37,7 @@ public interface ConnectorMetadata
     ConnectorTableMetadata getTableMetadata(ConnectorTableHandle table);
 
     /**
-     * Get the names that match the specified table prefix (never null).
+     * List table names, possibly filtered by schema. An empty list is returned if none match.
      */
     List<SchemaTableName> listTables(ConnectorSession session, String schemaNameOrNull);
 
@@ -56,7 +56,7 @@ public interface ConnectorMetadata
     ConnectorColumnHandle getSampleWeightColumnHandle(ConnectorTableHandle tableHandle);
 
     /**
-     * Returns true iff this catalog supports creation of sampled tables
+     * Returns true if this catalog supports creation of sampled tables
      */
     boolean canCreateSampledTables(ConnectorSession session);
 
@@ -100,4 +100,24 @@ public interface ConnectorMetadata
      * Commit a table creation with data after the data is written.
      */
     void commitCreateTable(ConnectorOutputTableHandle tableHandle, Collection<String> fragments);
+
+    /**
+     * Create the specified view. The data for the view is opaque to the connector.
+     */
+    void createView(ConnectorSession session, SchemaTableName viewName, String viewData, boolean replace);
+
+    /**
+     * Drop the specified view.
+     */
+    void dropView(ConnectorSession session, SchemaTableName viewName);
+
+    /**
+     * List view names, possibly filtered by schema. An empty list is returned if none match.
+     */
+    List<SchemaTableName> listViews(ConnectorSession session, String schemaNameOrNull);
+
+    /**
+     * Gets the view data for views that match the specified table prefix.
+     */
+    Map<SchemaTableName, String> getViews(ConnectorSession session, SchemaTablePrefix prefix);
 }

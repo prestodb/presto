@@ -15,8 +15,8 @@ package com.facebook.presto.metadata;
 
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorSession;
-import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.sql.tree.QualifiedName;
 import com.google.common.base.Optional;
 import com.google.common.collect.Multimap;
 
@@ -147,4 +147,20 @@ public interface Metadata
      */
     @NotNull
     Map<String, String> getCatalogNames();
+
+    /**
+     * Returns the view definition for the specified view name.
+     */
+    @NotNull
+    Optional<String> getView(ConnectorSession session, QualifiedTableName viewName);
+
+    /**
+     * Creates the specified view with the specified view definition.
+     */
+    void createView(ConnectorSession session, QualifiedTableName viewName, String viewData, boolean replace);
+
+    /**
+     * Drops the specified view.
+     */
+    void dropView(ConnectorSession session, QualifiedTableName viewName);
 }

@@ -658,6 +658,30 @@ public class HiveClient
     }
 
     @Override
+    public void createView(ConnectorSession session, SchemaTableName viewName, String viewData, boolean replace)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public void dropView(ConnectorSession session, SchemaTableName viewName)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public List<SchemaTableName> listViews(ConnectorSession session, String schemaNameOrNull)
+    {
+        return ImmutableList.of();
+    }
+
+    @Override
+    public Map<SchemaTableName, String> getViews(ConnectorSession session, SchemaTablePrefix prefix)
+    {
+        return ImmutableMap.of();
+    }
+
+    @Override
     public ConnectorPartitionResult getPartitions(ConnectorTableHandle tableHandle, TupleDomain<ConnectorColumnHandle> tupleDomain)
     {
         checkNotNull(tableHandle, "tableHandle is null");

@@ -22,6 +22,7 @@ import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorTableHandle;
 import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.SchemaTableName;
+import com.facebook.presto.spi.SchemaTablePrefix;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
@@ -334,6 +335,36 @@ public class MetadataManager
             catalogsMap.put(entry.getKey(), entry.getValue().getConnectorId());
         }
         return catalogsMap.build();
+    }
+
+    @Override
+    public Optional<String> getView(ConnectorSession session, QualifiedTableName viewName)
+    {
+        SchemaTablePrefix prefix = viewName.asSchemaTableName().toSchemaTablePrefix();
+        for (ConnectorMetadataEntry entry : allConnectorsFor(viewName.getCatalogName())) {
+            Map<SchemaTableName, String> views = entry.getMetadata().getViews(session, prefix);
+            String view = views.get(viewName.asSchemaTableName());
+            if (view != null) {
+                return Optional.of(view);
+            }
+        }
+        return Optional.absent();
+    }
+
+    @Override
+    public void createView(ConnectorSession session, QualifiedTableName viewName, String viewData, boolean replace)
+    {
+        ConnectorMetadataEntry connectorMetadata = connectorsByCatalog.get(viewName.getCatalogName());
+        checkArgument(connectorMetadata != null, "Catalog %s does not exist", viewName.getCatalogName());
+        connectorMetadata.getMetadata().createView(session, viewName.asSchemaTableName(), viewData, replace);
+    }
+
+    @Override
+    public void dropView(ConnectorSession session, QualifiedTableName viewName)
+    {
+        ConnectorMetadataEntry connectorMetadata = connectorsByCatalog.get(viewName.getCatalogName());
+        checkArgument(connectorMetadata != null, "Catalog %s does not exist", viewName.getCatalogName());
+        connectorMetadata.getMetadata().dropView(session, viewName.asSchemaTableName());
     }
 
     private List<ConnectorMetadataEntry> allConnectorsFor(String catalogName)

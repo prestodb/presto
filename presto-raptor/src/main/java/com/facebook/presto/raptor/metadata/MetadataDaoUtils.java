@@ -51,6 +51,7 @@ public final class MetadataDaoUtils
     {
         dao.createTablesTable();
         dao.createColumnsTable();
+        dao.createViewsTable();
     }
 
     private static void sleep(Duration duration)
