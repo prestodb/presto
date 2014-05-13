@@ -75,6 +75,9 @@ tokens {
     USE_SCHEMA;
     CREATE_TABLE;
     DROP_TABLE;
+    CREATE_VIEW;
+    DROP_VIEW;
+    OR_REPLACE;
     TABLE_ELEMENT_LIST;
     COLUMN_DEF;
     NOT_NULL;
@@ -158,6 +161,8 @@ statement
     | useCollectionStmt
     | createTableStmt
     | dropTableStmt
+    | createViewStmt
+    | dropViewStmt
     ;
 
 query
@@ -621,6 +626,18 @@ createTableStmt
     : CREATE TABLE qname s=tableContentsSource -> ^(CREATE_TABLE qname $s)
     ;
 
+createViewStmt
+    : CREATE r=orReplace? VIEW qname s=tableContentsSource -> ^(CREATE_VIEW qname $s $r?)
+    ;
+
+dropViewStmt
+    : DROP VIEW qname -> ^(DROP_VIEW qname)
+    ;
+
+orReplace
+    : OR REPLACE -> OR_REPLACE
+    ;
+
 tableContentsSource
     : AS query -> query
     ;
@@ -707,6 +724,7 @@ nonReserved
     | EXPLAIN | FORMAT | TYPE | TEXT | GRAPHVIZ | LOGICAL | DISTRIBUTED
     | TABLESAMPLE | SYSTEM | BERNOULLI | POISSONIZED | USE | SCHEMA | CATALOG | JSON | TO
     | RESCALED | APPROXIMATE | AT | CONFIDENCE
+    | VIEW | REPLACE
     ;
 
 SELECT: 'SELECT';
@@ -791,6 +809,8 @@ RECURSIVE: 'RECURSIVE';
 VALUES: 'VALUES';
 CREATE: 'CREATE';
 TABLE: 'TABLE';
+VIEW: 'VIEW';
+REPLACE: 'REPLACE';
 CHAR: 'CHAR';
 CHARACTER: 'CHARACTER';
 VARYING: 'VARYING';

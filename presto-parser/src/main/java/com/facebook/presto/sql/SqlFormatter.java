@@ -16,6 +16,8 @@ package com.facebook.presto.sql;
 import com.facebook.presto.sql.tree.AliasedRelation;
 import com.facebook.presto.sql.tree.AllColumns;
 import com.facebook.presto.sql.tree.AstVisitor;
+import com.facebook.presto.sql.tree.CreateView;
+import com.facebook.presto.sql.tree.DropView;
 import com.facebook.presto.sql.tree.CreateTable;
 import com.facebook.presto.sql.tree.DropTable;
 import com.facebook.presto.sql.tree.Except;
@@ -422,6 +424,31 @@ public final class SqlFormatter
                     }
                 }
             }
+
+            return null;
+        }
+
+        @Override
+        protected Void visitCreateView(CreateView node, Integer indent)
+        {
+            builder.append("CREATE ");
+            if (node.isReplace()) {
+                builder.append("OR REPLACE ");
+            }
+            builder.append("VIEW ")
+                    .append(node.getName())
+                    .append(" AS\n");
+
+            process(node.getQuery(), indent);
+
+            return null;
+        }
+
+        @Override
+        protected Void visitDropView(DropView node, Integer context)
+        {
+            builder.append("DROP VIEW ")
+                    .append(node.getName());
 
             return null;
         }
