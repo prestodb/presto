@@ -214,6 +214,12 @@ public class TestDateTimeOperators
     }
 
     @Test
+    public void testDateToTimestampCoercing()
+    {
+        assertFunction("date_format(DATE '2013-10-27', '%Y-%m-%d %H:%i:%s')", "2013-10-27 00:00:00");
+    }
+
+    @Test
     public void testTimeZoneDuplicate()
     {
         assertFunction("TIMESTAMP '2013-10-27 00:05' + INTERVAL '1' hour",
