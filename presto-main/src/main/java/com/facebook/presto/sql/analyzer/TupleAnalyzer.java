@@ -22,8 +22,11 @@ import com.facebook.presto.metadata.TableHandle;
 import com.facebook.presto.metadata.TableMetadata;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorSession;
+import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.ExpressionUtils;
+import com.facebook.presto.sql.parser.ParsingException;
+import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.ExpressionInterpreter;
 import com.facebook.presto.sql.planner.NoOpSymbolResolver;
 import com.facebook.presto.sql.planner.Symbol;
@@ -53,6 +56,7 @@ import com.facebook.presto.sql.tree.SampledRelation;
 import com.facebook.presto.sql.tree.SelectItem;
 import com.facebook.presto.sql.tree.SingleColumn;
 import com.facebook.presto.sql.tree.SortItem;
+import com.facebook.presto.sql.tree.Statement;
 import com.facebook.presto.sql.tree.Table;
 import com.facebook.presto.sql.tree.TableSubquery;
 import com.facebook.presto.sql.tree.Union;
@@ -76,6 +80,7 @@ import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Set;
 
+import static com.facebook.presto.spi.StandardErrorCode.INVALID_VIEW;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.sql.analyzer.ExpressionAnalyzer.getExpressionTypes;
 import static com.facebook.presto.sql.analyzer.Field.typeGetter;
@@ -97,11 +102,13 @@ import static com.facebook.presto.sql.analyzer.SemanticErrorCode.TYPE_MISMATCH;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.WILDCARD_WITHOUT_FROM;
 import static com.facebook.presto.sql.planner.ExpressionInterpreter.expressionOptimizer;
 import static com.facebook.presto.type.UnknownType.UNKNOWN;
+import static com.facebook.presto.util.Types.checkType;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.Iterables.elementsEqual;
 import static com.google.common.collect.Iterables.transform;
+import static java.lang.String.format;
 
 class TupleAnalyzer
         extends DefaultTraversalVisitor<TupleDescriptor, AnalysisContext>
@@ -148,6 +155,17 @@ class TupleAnalyzer
         }
 
         QualifiedTableName name = MetadataUtil.createQualifiedTableName(session, table.getName());
+
+        Optional<String> view = metadata.getView(session, name);
+        if (view.isPresent()) {
+            Query query = parseView(view.get(), name);
+
+            analysis.registerNamedQuery(table, query);
+
+            TupleDescriptor descriptor = analyzeView(query, name);
+            analysis.setOutputDescriptor(table, descriptor);
+            return descriptor;
+        }
 
         Optional<TableHandle> tableHandle = metadata.getTableHandle(session, name);
         if (!tableHandle.isPresent()) {
@@ -911,6 +929,28 @@ class TupleAnalyzer
                     }
                 }
             }
+        }
+    }
+
+    private TupleDescriptor analyzeView(Query query, QualifiedTableName name)
+    {
+        try {
+            StatementAnalyzer analyzer = new StatementAnalyzer(analysis, metadata, session, experimentalSyntaxEnabled, Optional.<QueryExplainer>absent());
+            return analyzer.process(query, new AnalysisContext());
+        }
+        catch (RuntimeException e) {
+            throw new PrestoException(INVALID_VIEW.toErrorCode(), format("View '%s' is invalid: %s", name, e.getMessage()), e);
+        }
+    }
+
+    private static Query parseView(String view, QualifiedTableName name)
+    {
+        try {
+            Statement statement = SqlParser.createStatement(view);
+            return checkType(statement, Query.class, "parsed view");
+        }
+        catch (ParsingException e) {
+            throw new PrestoException(INVALID_VIEW.toErrorCode(), format("View '%s' is invalid: %s", name, e.getMessage()), e);
         }
     }
 

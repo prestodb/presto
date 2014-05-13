@@ -104,6 +104,29 @@ public abstract class AbstractTestDistributedQueries
                 "SELECT 10");
     }
 
+    @Test
+    public void testView()
+            throws Exception
+    {
+        @Language("SQL") String query = "SELECT orderkey, orderstatus, totalprice / 2 half FROM orders";
+
+        assertQueryTrue("CREATE VIEW test_view AS SELECT 123 x");
+        assertQueryTrue("CREATE OR REPLACE VIEW test_view AS " + query);
+
+        assertQuery("SELECT * FROM test_view", query);
+
+        assertQuery(
+                "SELECT * FROM test_view a JOIN test_view b on a.orderkey = b.orderkey",
+                format("SELECT * FROM (%s) a JOIN (%s) b ON a.orderkey = b.orderkey", query, query));
+
+        assertQuery("WITH orders AS (SELECT * FROM orders LIMIT 0) SELECT * FROM test_view", query);
+
+        String name = format("%s.%s.test_view", getSession().getCatalog(), getSession().getSchema());
+        assertQuery("SELECT * FROM " + name, query);
+
+        assertQueryTrue("DROP VIEW test_view");
+    }
+
     @Test(expectedExceptions = RuntimeException.class, expectedExceptionsMessageRegExp = ".*statement is too large.*")
     public void testLargeQueryFailure()
             throws Exception

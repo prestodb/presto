@@ -101,12 +101,10 @@ class RelationPlanner
     @Override
     protected RelationPlan visitTable(Table node, Void context)
     {
-        if (!node.getName().getPrefix().isPresent()) {
-            Query namedQuery = analysis.getNamedQuery(node);
-            if (namedQuery != null) {
-                RelationPlan subPlan = process(namedQuery, null);
-                return new RelationPlan(subPlan.getRoot(), analysis.getOutputDescriptor(node), subPlan.getOutputSymbols());
-            }
+        Query namedQuery = analysis.getNamedQuery(node);
+        if (namedQuery != null) {
+            RelationPlan subPlan = process(namedQuery, null);
+            return new RelationPlan(subPlan.getRoot(), analysis.getOutputDescriptor(node), subPlan.getOutputSymbols());
         }
 
         TupleDescriptor descriptor = analysis.getOutputDescriptor(node);
