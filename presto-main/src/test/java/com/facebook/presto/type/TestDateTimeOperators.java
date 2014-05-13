@@ -199,6 +199,10 @@ public class TestDateTimeOperators
                 new SqlTimestamp(new DateTime(2001, 1, 19, 3, 4, 5, 321, TIME_ZONE).getMillis(), TIME_ZONE_KEY));
         assertFunction("TIMESTAMP '2001-1-22 03:04:05.321 +05:09' - INTERVAL '3' day",
                 new SqlTimestampWithTimeZone(new DateTime(2001, 1, 19, 3, 4, 5, 321, WEIRD_TIME_ZONE).getMillis(), WEIRD_TIME_ZONE_KEY));
+        assertFunction("TIMESTAMP '2001-1-22 03:04:05.321' - INTERVAL '3' month",
+                new SqlTimestamp(new DateTime(2000, 10, 22, 3, 4, 5, 321, TIME_ZONE).getMillis(), TIME_ZONE_KEY));
+        assertFunction("TIMESTAMP '2001-1-22 03:04:05.321 +05:09' - INTERVAL '3' month",
+                new SqlTimestampWithTimeZone(new DateTime(2000, 10, 22, 3, 4, 5, 321, WEIRD_TIME_ZONE).getMillis(), WEIRD_TIME_ZONE_KEY));
     }
 
     @Test
