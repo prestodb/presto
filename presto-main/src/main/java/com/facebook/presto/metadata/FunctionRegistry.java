@@ -144,6 +144,7 @@ import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.HyperLogLogType.HYPER_LOG_LOG;
 import static com.facebook.presto.spi.type.TimeType.TIME;
+import static com.facebook.presto.spi.type.DateType.DATE;
 import static com.facebook.presto.spi.type.TimeWithTimeZoneType.TIME_WITH_TIME_ZONE;
 import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
@@ -420,6 +421,14 @@ public class FunctionRegistry
         }
         // widen bigint to double
         if (actualType.equals(BIGINT) && expectedType.equals(DOUBLE)) {
+            return true;
+        }
+        // widen date to timestamp
+        if (actualType.equals(DATE) && expectedType.equals(TIMESTAMP)) {
+            return true;
+        }
+        // widen date to timestamp with time zone
+        if (actualType.equals(DATE) && expectedType.equals(TIMESTAMP_WITH_TIME_ZONE)) {
             return true;
         }
         // widen time to time with time zone
