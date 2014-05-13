@@ -96,6 +96,7 @@ import java.util.concurrent.TimeUnit;
 import static com.facebook.presto.hive.HiveBucketing.HiveBucket;
 import static com.facebook.presto.hive.HiveBucketing.getHiveBucket;
 import static com.facebook.presto.hive.HiveColumnHandle.SAMPLE_WEIGHT_COLUMN_NAME;
+import static com.facebook.presto.hive.HiveColumnHandle.columnMetadataGetter;
 import static com.facebook.presto.hive.HiveColumnHandle.hiveColumnHandle;
 import static com.facebook.presto.hive.HivePartition.UNPARTITIONED_ID;
 import static com.facebook.presto.hive.HiveType.columnTypeToHiveType;
@@ -254,7 +255,7 @@ public class HiveClient
     {
         try {
             Table table = metastore.getTable(tableName.getSchemaName(), tableName.getTableName());
-            List<ColumnMetadata> columns = ImmutableList.copyOf(transform(getColumnHandles(table, false), new ColumnMetadataGetter(table)));
+            List<ColumnMetadata> columns = ImmutableList.copyOf(transform(getColumnHandles(table, false), columnMetadataGetter(table)));
             return new ConnectorTableMetadata(tableName, columns, table.getOwner());
         }
         catch (NoSuchObjectException e) {
@@ -886,34 +887,6 @@ public class HiveClient
         return Objects.toStringHelper(this)
                 .add("clientId", connectorId)
                 .toString();
-    }
-
-    private static class ColumnMetadataGetter
-            implements Function<HiveColumnHandle, ColumnMetadata>
-    {
-        private final Map<String, String> columnComment;
-
-        public ColumnMetadataGetter(Table table)
-        {
-            ImmutableMap.Builder<String, String> builder = ImmutableMap.builder();
-            for (FieldSchema field : Iterables.concat(table.getSd().getCols(), table.getPartitionKeys())) {
-                if (field.getComment() != null) {
-                    builder.put(field.getName(), field.getComment());
-                }
-            }
-            columnComment = builder.build();
-        }
-
-        @Override
-        public ColumnMetadata apply(HiveColumnHandle input)
-        {
-            return new ColumnMetadata(
-                    input.getName(),
-                    input.getType(),
-                    input.getOrdinalPosition(),
-                    input.isPartitionKey(),
-                    columnComment.get(input.getName()));
-        }
     }
 
     private static Function<String, HivePartition> toPartition(

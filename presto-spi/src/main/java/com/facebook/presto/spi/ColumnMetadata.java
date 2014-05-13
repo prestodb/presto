@@ -87,7 +87,7 @@ public class ColumnMetadata
         sb.append(", ordinalPosition=").append(ordinalPosition);
         sb.append(", partitionKey=").append(partitionKey);
         if (comment != null) {
-            sb.append(", comment=").append(comment);
+            sb.append(", comment='").append(comment).append('\'');
         }
         sb.append('}');
         return sb.toString();
