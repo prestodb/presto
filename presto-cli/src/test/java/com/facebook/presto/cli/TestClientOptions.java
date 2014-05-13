@@ -15,6 +15,7 @@ package com.facebook.presto.cli;
 
 import com.facebook.presto.client.ClientSession;
 import com.facebook.presto.sql.parser.SqlParser;
+import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;
 
 import static org.testng.Assert.assertEquals;
@@ -80,6 +81,15 @@ public class TestClientOptions
         ClientOptions options = new ClientOptions();
         options.server = "x:y";
         options.toClientSession();
+    }
+
+    @Test
+    public void testExtraOptions()
+    {
+        ClientOptions options = new ClientOptions();
+        options.options = "name1:value1,name2:value2";
+        ClientSession session = options.toClientSession();
+        assertEquals(session.getOptions(), ImmutableMap.<String, String>of("name1", "value1", "name2", "value2"));
     }
 
     @Test

@@ -46,6 +46,7 @@ public class TestJsonHiveHandles
                     .put("timeZoneKey", (int) SESSION.getTimeZoneKey().getKey())
                     .put("locale", SESSION.getLocale().toString())
                     .put("startTime", SESSION.getStartTime())
+                    .put("options", SESSION.getOptions())
                     .build());
 
     private static final Map<String, Object> COLUMN_HANDLE_AS_MAP = ImmutableMap.<String, Object>builder()

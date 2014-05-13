@@ -17,7 +17,9 @@ import com.facebook.presto.spi.type.TimeZoneKey;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
+import java.util.HashMap;
 import java.util.Locale;
+import java.util.Map;
 
 import static java.util.Objects.requireNonNull;
 
@@ -32,10 +34,21 @@ public class ConnectorSession
     private final String catalog;
     private final String schema;
     private final long startTime;
+    private final Map<String, String> options;
 
     public ConnectorSession(String user, String source, String catalog, String schema, TimeZoneKey timeZoneKey, Locale locale, String remoteUserAddress, String userAgent)
     {
         this(user, source, catalog, schema, timeZoneKey, locale, remoteUserAddress, userAgent, System.currentTimeMillis());
+    }
+
+    public ConnectorSession(String user, String source, String catalog, String schema, TimeZoneKey timeZoneKey, Locale locale, String remoteUserAddress, String userAgent, Map<String, String> options)
+    {
+        this(user, source, catalog, schema, timeZoneKey, locale, remoteUserAddress, userAgent, System.currentTimeMillis(), options);
+    }
+
+    public ConnectorSession(String user, String source, String catalog, String schema, TimeZoneKey timeZoneKey, Locale locale, String remoteUserAddress, String userAgent, long startTime)
+    {
+        this(user, source, catalog, schema, timeZoneKey, locale, remoteUserAddress, userAgent, startTime, new HashMap<String, String>());
     }
 
     @JsonCreator
@@ -48,7 +61,8 @@ public class ConnectorSession
             @JsonProperty("locale") Locale locale,
             @JsonProperty("remoteUserAddress") String remoteUserAddress,
             @JsonProperty("userAgent") String userAgent,
-            @JsonProperty("startTime") long startTime)
+            @JsonProperty("startTime") long startTime,
+            @JsonProperty("options") Map<String, String> options)
     {
         this.user = user;
         this.source = source;
@@ -59,6 +73,7 @@ public class ConnectorSession
         this.remoteUserAddress = remoteUserAddress;
         this.userAgent = userAgent;
         this.startTime = startTime;
+        this.options = options;
     }
 
     @JsonProperty
@@ -123,6 +138,12 @@ public class ConnectorSession
         return startTime;
     }
 
+    @JsonProperty
+    public Map<String, String> getOptions()
+    {
+        return options;
+    }
+
     @Override
     public String toString()
     {
@@ -136,6 +157,7 @@ public class ConnectorSession
         builder.append(", timeZoneKey=").append(timeZoneKey);
         builder.append(", locale=").append(locale);
         builder.append(", startTime=").append(startTime);
+        builder.append(", options='").append(options.toString()).append('\'');
         builder.append('}');
         return builder.toString();
     }

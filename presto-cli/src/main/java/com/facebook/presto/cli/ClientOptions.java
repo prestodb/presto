@@ -14,12 +14,14 @@
 package com.facebook.presto.cli;
 
 import com.facebook.presto.client.ClientSession;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.net.HostAndPort;
 import io.airlift.command.Option;
 
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.Locale;
+import java.util.Map;
 import java.util.TimeZone;
 
 public class ClientOptions
@@ -51,6 +53,9 @@ public class ClientOptions
     @Option(name = "--output-format", title = "output-format", description = "Output format for batch mode (default: CSV)")
     public OutputFormat outputFormat = OutputFormat.CSV;
 
+    @Option(name = "--options", title = "options", description = "Extra options for a plugin (ex: name1:value1,name2:value2,...)")
+    public String options = "";
+
     public enum OutputFormat
     {
         ALIGNED,
@@ -63,7 +68,7 @@ public class ClientOptions
 
     public ClientSession toClientSession()
     {
-        return new ClientSession(parseServer(server), user, source, catalog, schema, TimeZone.getDefault().getID(), Locale.getDefault(), debug);
+        return new ClientSession(parseServer(server), user, source, catalog, schema, TimeZone.getDefault().getID(), Locale.getDefault(), parseOptions(options), debug);
     }
 
     public static URI parseServer(String server)
@@ -80,5 +85,23 @@ public class ClientOptions
         catch (URISyntaxException e) {
             throw new IllegalArgumentException(e);
         }
+    }
+
+    public static Map<String, String> parseOptions(String options)
+    {
+        ImmutableMap.Builder<String, String> builder = ImmutableMap.builder();
+        String[] nameValues = options.split(",");
+
+        for (String nameValue : nameValues) {
+            String[] nv = nameValue.trim().split(":", 2);
+            if (nv.length == 1) {
+                builder.put(nv[0].trim(), "");
+            }
+            else {
+                builder.put(nv[0].trim(), nv[1].trim());
+            }
+        }
+
+        return builder.build();
     }
 }
