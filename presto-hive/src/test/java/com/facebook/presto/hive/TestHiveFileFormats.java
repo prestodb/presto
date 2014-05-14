@@ -29,9 +29,14 @@ import org.apache.hadoop.hive.ql.io.parquet.serde.ParquetHiveSerDe;
 import org.apache.hadoop.hive.serde2.SerDe;
 import org.apache.hadoop.hive.serde2.columnar.ColumnarSerDe;
 import org.apache.hadoop.hive.serde2.columnar.LazyBinaryColumnarSerDe;
+import org.apache.hadoop.hive.serde2.objectinspector.ListObjectInspector;
+import org.apache.hadoop.hive.serde2.objectinspector.MapObjectInspector;
+import org.apache.hadoop.hive.serde2.objectinspector.ObjectInspector;
 import org.apache.hadoop.hive.serde2.objectinspector.ObjectInspector.Category;
 import org.apache.hadoop.hive.serde2.objectinspector.PrimitiveObjectInspector;
 import org.apache.hadoop.hive.serde2.objectinspector.PrimitiveObjectInspector.PrimitiveCategory;
+import org.apache.hadoop.hive.serde2.objectinspector.StructField;
+import org.apache.hadoop.hive.serde2.objectinspector.StructObjectInspector;
 import org.apache.hadoop.mapred.FileSplit;
 import org.apache.hadoop.mapred.InputFormat;
 import org.joda.time.DateTimeZone;
@@ -116,6 +121,17 @@ public class TestHiveFileFormats
     public void testDwrf()
             throws Exception
     {
+        List<TestColumn> testColumns = ImmutableList.copyOf(filter(TEST_COLUMNS, new Predicate<TestColumn>()
+        {
+            @Override
+            public boolean apply(TestColumn testColumn)
+            {
+                ObjectInspector objectInspector = testColumn.getObjectInspector();
+                return !hasDateType(objectInspector);
+            }
+
+        }));
+
         HiveOutputFormat<?, ?> outputFormat = new com.facebook.hive.orc.OrcOutputFormat();
         InputFormat<?, ?> inputFormat = new com.facebook.hive.orc.OrcInputFormat();
         @SuppressWarnings("deprecation")
@@ -123,8 +139,8 @@ public class TestHiveFileFormats
         File file = File.createTempFile("presto_test", "dwrf");
         file.delete();
         try {
-            FileSplit split = createTestFile(file.getAbsolutePath(), outputFormat, serde, null, TEST_COLUMNS);
-            testCursorProvider(new DwrfRecordCursorProvider(), split, inputFormat, serde, TEST_COLUMNS);
+            FileSplit split = createTestFile(file.getAbsolutePath(), outputFormat, serde, null, testColumns);
+            testCursorProvider(new DwrfRecordCursorProvider(), split, inputFormat, serde, testColumns);
         }
         finally {
             //noinspection ResultOfMethodCallIgnored
@@ -165,7 +181,8 @@ public class TestHiveFileFormats
                     return false;
                 }
                 PrimitiveObjectInspector objectInspector = (PrimitiveObjectInspector) testColumn.getObjectInspector();
-                return objectInspector.getPrimitiveCategory() != PrimitiveCategory.TIMESTAMP &&
+                return objectInspector.getPrimitiveCategory() != PrimitiveCategory.DATE &&
+                        objectInspector.getPrimitiveCategory() != PrimitiveCategory.TIMESTAMP &&
                         objectInspector.getPrimitiveCategory() != PrimitiveCategory.BINARY;
             }
         }));
@@ -217,5 +234,31 @@ public class TestHiveFileFormats
                 DateTimeZone.getDefault()).get();
 
         checkCursor(cursor, testColumns);
+    }
+
+    private static boolean hasDateType(ObjectInspector objectInspector)
+    {
+        if (objectInspector instanceof PrimitiveObjectInspector) {
+            PrimitiveObjectInspector primitiveInspector = (PrimitiveObjectInspector) objectInspector;
+            return primitiveInspector.getPrimitiveCategory() == PrimitiveCategory.DATE;
+        }
+        if (objectInspector instanceof ListObjectInspector) {
+            ListObjectInspector listInspector = (ListObjectInspector) objectInspector;
+            return hasDateType(listInspector.getListElementObjectInspector());
+        }
+        if (objectInspector instanceof MapObjectInspector) {
+            MapObjectInspector mapInspector = (MapObjectInspector) objectInspector;
+            return hasDateType(mapInspector.getMapKeyObjectInspector()) ||
+                    hasDateType(mapInspector.getMapValueObjectInspector());
+        }
+        if (objectInspector instanceof StructObjectInspector) {
+            for (StructField field : ((StructObjectInspector) objectInspector).getAllStructFieldRefs()) {
+                if (hasDateType(field.getFieldObjectInspector())) {
+                    return true;
+                }
+            }
+            return false;
+        }
+        throw new IllegalArgumentException("Unknown object inspector type " + objectInspector);
     }
 }

@@ -14,6 +14,7 @@
 package com.facebook.presto.hive;
 
 import com.facebook.presto.spi.RecordCursor;
+import com.facebook.presto.spi.type.DateType;
 import com.facebook.presto.spi.type.TimestampType;
 import com.facebook.presto.spi.type.Type;
 import com.fasterxml.jackson.databind.JsonNode;
@@ -49,6 +50,7 @@ import org.testng.annotations.Test;
 
 import java.io.File;
 import java.io.IOException;
+import java.sql.Date;
 import java.sql.Timestamp;
 import java.util.ArrayList;
 import java.util.List;
@@ -73,6 +75,7 @@ import static org.apache.hadoop.hive.serde2.objectinspector.ObjectInspectorFacto
 import static org.apache.hadoop.hive.serde2.objectinspector.primitive.PrimitiveObjectInspectorFactory.javaBooleanObjectInspector;
 import static org.apache.hadoop.hive.serde2.objectinspector.primitive.PrimitiveObjectInspectorFactory.javaByteArrayObjectInspector;
 import static org.apache.hadoop.hive.serde2.objectinspector.primitive.PrimitiveObjectInspectorFactory.javaByteObjectInspector;
+import static org.apache.hadoop.hive.serde2.objectinspector.primitive.PrimitiveObjectInspectorFactory.javaDateObjectInspector;
 import static org.apache.hadoop.hive.serde2.objectinspector.primitive.PrimitiveObjectInspectorFactory.javaDoubleObjectInspector;
 import static org.apache.hadoop.hive.serde2.objectinspector.primitive.PrimitiveObjectInspectorFactory.javaFloatObjectInspector;
 import static org.apache.hadoop.hive.serde2.objectinspector.primitive.PrimitiveObjectInspectorFactory.javaIntObjectInspector;
@@ -82,6 +85,7 @@ import static org.apache.hadoop.hive.serde2.objectinspector.primitive.PrimitiveO
 import static org.apache.hadoop.hive.serde2.objectinspector.primitive.PrimitiveObjectInspectorFactory.javaTimestampObjectInspector;
 import static org.apache.hadoop.mapreduce.lib.output.FileOutputFormat.COMPRESS_CODEC;
 import static org.apache.hadoop.mapreduce.lib.output.FileOutputFormat.COMPRESS_TYPE;
+import static org.joda.time.DateTimeZone.UTC;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
 
@@ -91,6 +95,8 @@ public abstract class AbstractTestHiveFileFormats
     private static final int NUM_ROWS = 1000;
     private static final double EPSILON = 0.001;
 
+    public static final long DATE = new DateTime(2011, 5, 6, 0, 0, UTC).getMillis();
+    public static final String DATE_STRING = DateTimeFormat.forPattern("yyyy-MM-dd").withZone(UTC).print(DATE);
     public static final long TIMESTAMP = new DateTime(2011, 5, 6, 7, 8, 9, 123).getMillis();
     public static final String TIMESTAMP_STRING = DateTimeFormat.forPattern("yyyy-MM-dd HH:mm:ss.SSS").print(TIMESTAMP);
 
@@ -106,6 +112,7 @@ public abstract class AbstractTestHiveFileFormats
             .add(new TestColumn("p_float", javaFloatObjectInspector, "5.1", 5.1, true))
             .add(new TestColumn("p_double", javaDoubleObjectInspector, "6.2", 6.2, true))
             .add(new TestColumn("p_boolean", javaBooleanObjectInspector, "true", true, true))
+            .add(new TestColumn("p_date", javaDateObjectInspector, DATE_STRING, DATE, true))
 //            .add(new TestColumn("p_timestamp", javaTimestampObjectInspector, TIMESTAMP_STRING, TIMESTAMP, true))
 //            .add(new TestColumn("p_binary", javaByteArrayObjectInspector, "test2", Slices.utf8Slice("test2"), true))
             .add(new TestColumn("t_null_string", javaStringObjectInspector, null, null))
@@ -119,6 +126,7 @@ public abstract class AbstractTestHiveFileFormats
             .add(new TestColumn("t_float", javaFloatObjectInspector, 5.1f, 5.1))
             .add(new TestColumn("t_double", javaDoubleObjectInspector, 6.2, 6.2))
             .add(new TestColumn("t_boolean", javaBooleanObjectInspector, true, true))
+            .add(new TestColumn("t_date", javaDateObjectInspector, new Date(DATE), DATE))
             .add(new TestColumn("t_timestamp", javaTimestampObjectInspector, new Timestamp(TIMESTAMP), TIMESTAMP))
             .add(new TestColumn("t_binary", javaByteArrayObjectInspector, Slices.utf8Slice("test2"), Slices.utf8Slice("test2")))
             .add(new TestColumn("t_map_string",
@@ -138,6 +146,10 @@ public abstract class AbstractTestHiveFileFormats
                     getStandardMapObjectInspector(javaBooleanObjectInspector, javaBooleanObjectInspector),
                     ImmutableMap.of(true, true),
                     "{\"true\":true}"))
+            .add(new TestColumn("t_map_date",
+                    getStandardMapObjectInspector(javaDateObjectInspector, javaDateObjectInspector),
+                    ImmutableMap.of(new Date(DATE), new Date(DATE)),
+                    String.format("{\"%s\":\"%s\"}", DATE_STRING, DATE_STRING)))
             .add(new TestColumn("t_map_timestamp",
                     getStandardMapObjectInspector(javaTimestampObjectInspector, javaTimestampObjectInspector),
                     ImmutableMap.of(new Timestamp(TIMESTAMP), new Timestamp(TIMESTAMP)),
@@ -150,6 +162,10 @@ public abstract class AbstractTestHiveFileFormats
             .add(new TestColumn("t_array_float", getStandardListObjectInspector(javaFloatObjectInspector), ImmutableList.of(5.0f), "[5.0]"))
             .add(new TestColumn("t_array_double", getStandardListObjectInspector(javaDoubleObjectInspector), ImmutableList.of(6.0), "[6.0]"))
             .add(new TestColumn("t_array_boolean", getStandardListObjectInspector(javaBooleanObjectInspector), ImmutableList.of(true), "[true]"))
+            .add(new TestColumn("t_array_date",
+                    getStandardListObjectInspector(javaDateObjectInspector),
+                    ImmutableList.of(new Date(DATE)),
+                    String.format("[\"%s\"]", DATE_STRING)))
             .add(new TestColumn("t_array_timestamp",
                     getStandardListObjectInspector(javaTimestampObjectInspector),
                     ImmutableList.of(new Timestamp(TIMESTAMP)),
@@ -279,6 +295,9 @@ public abstract class AbstractTestHiveFileFormats
                 }
                 else if (VARBINARY.equals(type)) {
                     fieldFromCursor = cursor.getSlice(i);
+                }
+                else if (DateType.DATE.equals(type)) {
+                    fieldFromCursor = cursor.getLong(i);
                 }
                 else if (TimestampType.TIMESTAMP.equals(type)) {
                     fieldFromCursor = cursor.getLong(i);

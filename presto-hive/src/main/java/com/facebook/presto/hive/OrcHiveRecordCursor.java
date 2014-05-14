@@ -35,8 +35,10 @@ import org.apache.hadoop.io.IntWritable;
 import org.apache.hadoop.io.LongWritable;
 import org.apache.hadoop.io.Text;
 import org.joda.time.DateTimeZone;
+import org.joda.time.format.ISODateTimeFormat;
 
 import java.io.IOException;
+import java.sql.Date;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
@@ -51,6 +53,7 @@ import static com.facebook.presto.hive.NumberParser.parseLong;
 import static com.facebook.presto.hive.util.SerDeUtils.getJsonBytes;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
+import static com.facebook.presto.spi.type.DateType.DATE;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
@@ -79,6 +82,7 @@ class OrcHiveRecordCursor
     private final int[] hiveColumnIndexes;
 
     private final boolean[] isPartitionColumn;
+    private final DateTimeZone hiveStorageTimeZone;
 
     private OrcStruct row;
 
@@ -98,7 +102,8 @@ class OrcHiveRecordCursor
             Properties splitSchema,
             List<HivePartitionKey> partitionKeys,
             List<HiveColumnHandle> columns,
-            DateTimeZone sessionTimeZone)
+            DateTimeZone sessionTimeZone,
+            DateTimeZone hiveStorageTimeZone)
     {
         checkNotNull(recordReader, "recordReader is null");
         checkArgument(totalBytes >= 0, "totalBytes is negative");
@@ -107,10 +112,12 @@ class OrcHiveRecordCursor
         checkNotNull(columns, "columns is null");
         checkArgument(!columns.isEmpty(), "columns is empty");
         checkNotNull(sessionTimeZone, "sessionTimeZone is null");
+        checkNotNull(hiveStorageTimeZone, "hiveStorageTimeZone is null");
 
         this.recordReader = recordReader;
         this.totalBytes = totalBytes;
         this.sessionTimeZone = sessionTimeZone;
+        this.hiveStorageTimeZone = hiveStorageTimeZone;
 
         int size = columns.size();
 
@@ -185,6 +192,9 @@ class OrcHiveRecordCursor
                 }
                 else if (types[columnIndex].equals(VARCHAR)) {
                     slices[columnIndex] = Slices.wrappedBuffer(bytes);
+                }
+                else if (types[columnIndex].equals(DATE)) {
+                    longs[columnIndex] = ISODateTimeFormat.date().withZone(DateTimeZone.UTC).parseMillis(partitionKey.getValue());
                 }
                 else {
                     throw new UnsupportedOperationException("Unsupported column type: " + types[columnIndex]);
@@ -310,6 +320,11 @@ class OrcHiveRecordCursor
                 case SHORT:
                     ShortWritable shortWritable = (ShortWritable) object;
                     longs[column] = shortWritable.get();
+                    break;
+                case DATE:
+                    long storageTime = ((Date) object).getTime();
+                    long utcTime = storageTime + hiveStorageTimeZone.getOffset(storageTime);
+                    longs[column] = utcTime;
                     break;
                 case TIMESTAMP:
                     TimestampWritable timestampWritable = (TimestampWritable) object;
@@ -444,6 +459,9 @@ class OrcHiveRecordCursor
             parseStringColumn(column);
         }
         else if (types[column].equals(TIMESTAMP)) {
+            parseLongColumn(column);
+        }
+        else if (types[column].equals(DATE)) {
             parseLongColumn(column);
         }
         else {

@@ -72,7 +72,8 @@ public class OrcRecordCursorProvider
                 schema,
                 partitionKeys,
                 columns,
-                DateTimeZone.forID(session.getTimeZoneKey().getId())));
+                DateTimeZone.forID(session.getTimeZoneKey().getId()),
+                hiveStorageTimeZone));
     }
 
     private static boolean[] findIncludedColumns(List<Type> types, List<HiveColumnHandle> columns)
