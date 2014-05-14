@@ -15,6 +15,8 @@ package com.facebook.presto.hive;
 
 import com.facebook.presto.spi.ConnectorSession;
 import com.google.common.base.Optional;
+import com.google.common.base.Predicate;
+import com.google.common.collect.ImmutableList;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hive.ql.io.parquet.serde.ParquetHiveSerDe;
@@ -25,6 +27,8 @@ import java.util.List;
 import java.util.Properties;
 
 import static com.facebook.presto.hive.HiveUtil.getDeserializer;
+import static com.google.common.base.Predicates.not;
+import static com.google.common.collect.Iterables.filter;
 
 public class ParquetRecordCursorProvider
         implements HiveRecordCursorProvider
@@ -48,6 +52,12 @@ public class ParquetRecordCursorProvider
             return Optional.absent();
         }
 
+        // are all columns supported by Parquet code
+        List<HiveColumnHandle> unsupportedColumns = ImmutableList.copyOf(filter(columns, not(isParquetSupportedType())));
+        if (!unsupportedColumns.isEmpty()) {
+            throw new IllegalArgumentException("Can not read Parquet column: " + unsupportedColumns);
+        }
+
         return Optional.<HiveRecordCursor>of(new ParquetHiveRecordCursor(
                 configuration,
                 path,
@@ -57,5 +67,42 @@ public class ParquetRecordCursorProvider
                 partitionKeys,
                 columns,
                 DateTimeZone.forID(session.getTimeZoneKey().getId())));
+    }
+
+    private static Predicate<HiveColumnHandle> isParquetSupportedType()
+    {
+        return new Predicate<HiveColumnHandle>()
+        {
+            @Override
+            public boolean apply(HiveColumnHandle columnHandle)
+            {
+                HiveType hiveType = columnHandle.getHiveType();
+                switch (hiveType) {
+                    case BOOLEAN:
+                    case BYTE:
+                    case SHORT:
+                    case STRING:
+                    case INT:
+                    case LONG:
+                    case FLOAT:
+                    case DOUBLE:
+                        return true;
+                    case TIMESTAMP:
+                        // not supported in Parquet
+                    case DATE:
+                        // not supported in Parquet
+                    case BINARY:
+                        // not supported in Parquet
+                    case STRUCT:
+                        // not implemented in Presto
+                    case LIST:
+                        // not implemented in Presto
+                    case MAP:
+                        // not implemented in Presto
+                    default:
+                        return false;
+                }
+            }
+        };
     }
 }

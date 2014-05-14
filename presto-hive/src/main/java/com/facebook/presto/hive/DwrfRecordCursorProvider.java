@@ -21,12 +21,20 @@ import com.facebook.hive.orc.Reader;
 import com.facebook.hive.orc.RecordReader;
 import com.facebook.presto.spi.ConnectorSession;
 import com.google.common.base.Optional;
+import com.google.common.base.Predicate;
 import com.google.common.base.Throwables;
 import com.google.common.collect.Lists;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hive.serde2.Deserializer;
+import org.apache.hadoop.hive.serde2.objectinspector.ListObjectInspector;
+import org.apache.hadoop.hive.serde2.objectinspector.MapObjectInspector;
+import org.apache.hadoop.hive.serde2.objectinspector.ObjectInspector;
+import org.apache.hadoop.hive.serde2.objectinspector.PrimitiveObjectInspector;
+import org.apache.hadoop.hive.serde2.objectinspector.PrimitiveObjectInspector.PrimitiveCategory;
+import org.apache.hadoop.hive.serde2.objectinspector.StructField;
+import org.apache.hadoop.hive.serde2.objectinspector.StructObjectInspector;
 import org.apache.hadoop.mapred.JobConf;
 import org.joda.time.DateTimeZone;
 
@@ -34,6 +42,8 @@ import java.util.List;
 import java.util.Properties;
 
 import static com.facebook.presto.hive.HiveUtil.getDeserializer;
+import static com.facebook.presto.hive.HiveUtil.getTableObjectInspector;
+import static com.google.common.collect.Iterables.all;
 
 public class DwrfRecordCursorProvider
         implements HiveRecordCursorProvider
@@ -57,6 +67,11 @@ public class DwrfRecordCursorProvider
             return Optional.absent();
         }
 
+        StructObjectInspector rowInspector = getTableObjectInspector(schema);
+        if (!all(rowInspector.getAllStructFieldRefs(), isSupportedDwrfType())) {
+            throw new IllegalArgumentException("DWRF does not support DATE type");
+        }
+
         RecordReader recordReader;
         try {
             FileSystem fileSystem = path.getFileSystem(configuration);
@@ -75,6 +90,18 @@ public class DwrfRecordCursorProvider
                 partitionKeys,
                 columns,
                 DateTimeZone.forID(session.getTimeZoneKey().getId())));
+    }
+
+    private static Predicate<StructField> isSupportedDwrfType()
+    {
+        return new Predicate<StructField>()
+        {
+            @Override
+            public boolean apply(StructField hiveColumnHandle)
+            {
+                return !hasDateType(hiveColumnHandle.getFieldObjectInspector());
+            }
+        };
     }
 
     private static boolean[] findIncludedColumns(List<Type> types, List<HiveColumnHandle> columns)
@@ -107,5 +134,31 @@ public class DwrfRecordCursorProvider
         for (int i = 0; i < children; ++i) {
             includeColumnRecursive(types, result, type.getSubtypes(i));
         }
+    }
+
+    static boolean hasDateType(ObjectInspector objectInspector)
+    {
+        if (objectInspector instanceof PrimitiveObjectInspector) {
+            PrimitiveObjectInspector primitiveInspector = (PrimitiveObjectInspector) objectInspector;
+            return primitiveInspector.getPrimitiveCategory() == PrimitiveCategory.DATE;
+        }
+        if (objectInspector instanceof ListObjectInspector) {
+            ListObjectInspector listInspector = (ListObjectInspector) objectInspector;
+            return hasDateType(listInspector.getListElementObjectInspector());
+        }
+        if (objectInspector instanceof MapObjectInspector) {
+            MapObjectInspector mapInspector = (MapObjectInspector) objectInspector;
+            return hasDateType(mapInspector.getMapKeyObjectInspector()) ||
+                    hasDateType(mapInspector.getMapValueObjectInspector());
+        }
+        if (objectInspector instanceof StructObjectInspector) {
+            for (StructField field : ((StructObjectInspector) objectInspector).getAllStructFieldRefs()) {
+                if (hasDateType(field.getFieldObjectInspector())) {
+                    return true;
+                }
+            }
+            return false;
+        }
+        throw new IllegalArgumentException("Unknown object inspector type " + objectInspector);
     }
 }
