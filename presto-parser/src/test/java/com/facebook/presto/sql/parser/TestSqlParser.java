@@ -225,7 +225,13 @@ public class TestSqlParser
         SqlParser.createStatement("select 1x from dual");
     }
 
-    @Test(expectedExceptions = ParsingException.class, expectedExceptionsMessageRegExp = "line 1:15: identifiers must not contain a colon; use '@' instead of ':' for table links")
+    @Test(expectedExceptions = ParsingException.class, expectedExceptionsMessageRegExp = "line 1:15: identifiers must not contain '@'")
+    public void testIdentifierWithAtSign()
+    {
+        SqlParser.createStatement("select * from foo@bar");
+    }
+
+    @Test(expectedExceptions = ParsingException.class, expectedExceptionsMessageRegExp = "line 1:15: identifiers must not contain ':'")
     public void testIdentifierWithColon()
     {
         SqlParser.createStatement("select * from foo:bar");
@@ -267,6 +273,32 @@ public class TestSqlParser
             assertEquals(e.getErrorMessage(), "no viable alternative at input 'from'");
             assertEquals(e.getLineNumber(), 3);
             assertEquals(e.getColumnNumber(), 7);
+        }
+    }
+
+    @SuppressWarnings("deprecation")
+    @Test
+    public void testAllowIdentifierColon()
+    {
+        try {
+            SqlParser.setAllowIdentifierColon(true);
+            SqlParser.createStatement("select * from foo:bar");
+        }
+        finally {
+            SqlParser.setAllowIdentifierColon(false);
+        }
+    }
+
+    @SuppressWarnings("deprecation")
+    @Test
+    public void testAllowIdentifierAtSign()
+    {
+        try {
+            SqlParser.setAllowIdentifierAtSign(true);
+            SqlParser.createStatement("select * from foo@bar");
+        }
+        finally {
+            SqlParser.setAllowIdentifierAtSign(false);
         }
     }
 

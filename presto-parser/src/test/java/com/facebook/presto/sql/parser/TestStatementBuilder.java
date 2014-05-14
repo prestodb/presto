@@ -87,7 +87,8 @@ public class TestStatementBuilder
 
         printStatement("show functions");
 
-        printStatement("select * from a.b.c@d");
+        printStatement("select * from a.b.c");
+        printStatement("select * from a.b.c.e.f.g");
 
         printStatement("select \"TOTALPRICE\" \"my price\" from \"ORDERS\"");
 
