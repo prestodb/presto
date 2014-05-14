@@ -43,7 +43,7 @@
 
 <div class="content homecontent width clearfix">
     <div class="">
-        <h2>Introduction</h2>
+        <h1>Introduction</h1>
 
         <p>
             Presto is a distributed system that runs on a cluster of machines.
@@ -56,7 +56,7 @@
         <!--suppress CheckImageSize -- larger file for retina -->
         <img src="static/presto-overview.png" width="80%" alt="Presto Installation Overview">
 
-        <h2>Requirements</h2>
+        <h1>Requirements</h1>
 
         <p>
             Presto has a few basic requirements:
@@ -68,27 +68,60 @@
             <li>Python 2.4+</li>
         </ul>
 
+        <h1>Connectors</h1>
+
         <p>
-            Additionally, Presto needs a data source to run queries against.
-            Currently, Presto includes a plugin for querying data from Hive that
-            has the following requirements:
+            Presto supports pluggable connectors that provide data for queries.
+            The requirements vary by connector.
+        </p>
+
+        <h2>Hadoop / Hive</h2>
+
+        <p>
+            Presto supports reading Hive data from the following versions of Hadoop:
         </p>
 
         <ul>
-            <li>Apache Hadoop 1.x or Cloudera CDH4</li>
-            <li>Remote Hive metastore service</li>
+            <li>Apache Hadoop 1.x</li>
+            <li>Apache Hadoop 2.x</li>
+            <li>Cloudera CDH 4</li>
+            <li>Cloudera CDH 5</li>
         </ul>
 
-        <p>Presto does not use MapReduce and thus only requires HDFS.</p>
+        <p>
+            The following file formats are supported: Text, SequenceFile, RCFile, ORC
+        </p>
 
-        <h2>Deployment</h2>
+        <p>
+            Additionally, a remote Hive metastore is required.
+            Local or embedded mode is not supported.
+            Presto does not use MapReduce and thus only requires HDFS.
+        </p>
+
+        <h2>Cassandra</h2>
+
+        <p>
+            Cassandra 2.x is required. This connector is completely
+            independent of the Hive connector and only requires an
+            existing Cassandra installation.
+        </p>
+
+        <h2>TPC-H</h2>
+
+        <p>
+            The TPC-H connector dynamically generates data that can be used
+            for experiementing with and testing Presto. This connector has
+            no external requirements.
+        </p>
+
+        <h1>Deployment</h1>
 
         <p>
             See <a href="docs/current/installation/deployment.html">Deploying Presto</a>
             for complete deployment instructions.
         </p>
 
-        <h2>Running Queries</h2>
+        <h1>Running Queries</h1>
 
         <p>
             You can run queries using the

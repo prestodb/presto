@@ -62,14 +62,9 @@
         <ul>
             <li>Hadoop 1.x via the <code>hive-hadoop1</code> connector</li>
             <li>Hadoop 2.x via the <code>hive-hadoop2</code> connector</li>
-            <li>Cloudera CDH4 via the <code>hive-cdh4</code> connector</li>
+            <li>Cloudera CDH 4 via the <code>hive-cdh4</code> connector</li>
+            <li>Cloudera CDH 5 via the <code>hive-cdh5</code> connector</li>
         </ul>
-
-        <h3>Does Presto connect to HBase?</h3>
-
-        <p>
-            Not yet. A high-performance HBase connector is currently in the works.
-        </p>
 
         <h3>Does Presto connect to Cassandra?</h3>
 
@@ -77,13 +72,20 @@
             Yes, via the <code>cassandra</code> connector.
         </p>
 
+        <h3>Does Presto connect to HBase?</h3>
+
+        <p>
+            Not yet. A high-performance HBase connector is currently in the works.
+        </p>
+
         <h3>Does Presto connect to MySQL / PostgreSQL / Oracle?</h3>
 
         <p>
             Not yet. We have a basic JDBC connector in development.
             Note that this is for connecting to an external JDBC
-            database. Presto already includes a JDBC driver that
-            allows Java applications to connect to Presto.
+            database. Presto already includes a
+            <a href="docs/current/installation/jdbc.html">JDBC driver</a>
+            that allows Java applications to connect to Presto.
         </p>
 
 
