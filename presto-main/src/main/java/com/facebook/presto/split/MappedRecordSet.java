@@ -92,7 +92,7 @@ public class MappedRecordSet
         @Override
         public Type getType(int field)
         {
-            return delegate.getType(field);
+            return delegate.getType(toDelegateField(field));
         }
 
         @Override
