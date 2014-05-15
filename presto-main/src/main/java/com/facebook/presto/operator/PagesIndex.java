@@ -176,6 +176,16 @@ public class PagesIndex
         block.appendTo(blockPosition, output);
     }
 
+    public RandomAccessBlock getSingleValueBlock(int channel, int position)
+    {
+        long pageAddress = valueAddresses.getLong(position);
+
+        RandomAccessBlock block = channels[channel].get(decodeSliceIndex(pageAddress));
+        int blockPosition = decodePosition(pageAddress);
+
+        return block.getSingleValueBlock(blockPosition);
+    }
+
     public boolean equals(int[] channels, int leftPosition, int rightPosition)
     {
         if (leftPosition == rightPosition) {

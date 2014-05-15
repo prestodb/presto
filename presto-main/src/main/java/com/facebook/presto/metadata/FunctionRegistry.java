@@ -28,6 +28,14 @@ import com.facebook.presto.operator.scalar.UrlFunctions;
 import com.facebook.presto.operator.scalar.VarbinaryFunctions;
 import com.facebook.presto.operator.window.CumulativeDistributionFunction;
 import com.facebook.presto.operator.window.DenseRankFunction;
+import com.facebook.presto.operator.window.FirstValueFunction.BigintFirstValueFunction;
+import com.facebook.presto.operator.window.FirstValueFunction.BooleanFirstValueFunction;
+import com.facebook.presto.operator.window.FirstValueFunction.DoubleFirstValueFunction;
+import com.facebook.presto.operator.window.FirstValueFunction.VarcharFirstValueFunction;
+import com.facebook.presto.operator.window.LastValueFunction.BigintLastValueFunction;
+import com.facebook.presto.operator.window.LastValueFunction.BooleanLastValueFunction;
+import com.facebook.presto.operator.window.LastValueFunction.DoubleLastValueFunction;
+import com.facebook.presto.operator.window.LastValueFunction.VarcharLastValueFunction;
 import com.facebook.presto.operator.window.PercentRankFunction;
 import com.facebook.presto.operator.window.RankFunction;
 import com.facebook.presto.operator.window.RowNumberFunction;
@@ -176,6 +184,14 @@ public class FunctionRegistry
                 .window("dense_rank", BIGINT, ImmutableList.<Type>of(), supplier(DenseRankFunction.class))
                 .window("percent_rank", DOUBLE, ImmutableList.<Type>of(), supplier(PercentRankFunction.class))
                 .window("cume_dist", DOUBLE, ImmutableList.<Type>of(), supplier(CumulativeDistributionFunction.class))
+                .window("first_value", BIGINT, ImmutableList.<Type>of(BIGINT), supplier(BigintFirstValueFunction.class))
+                .window("first_value", DOUBLE, ImmutableList.<Type>of(DOUBLE), supplier(DoubleFirstValueFunction.class))
+                .window("first_value", BOOLEAN, ImmutableList.<Type>of(BOOLEAN), supplier(BooleanFirstValueFunction.class))
+                .window("first_value", VARCHAR, ImmutableList.<Type>of(VARCHAR), supplier(VarcharFirstValueFunction.class))
+                .window("last_value", BIGINT, ImmutableList.<Type>of(BIGINT), supplier(BigintLastValueFunction.class))
+                .window("last_value", DOUBLE, ImmutableList.<Type>of(DOUBLE), supplier(DoubleLastValueFunction.class))
+                .window("last_value", BOOLEAN, ImmutableList.<Type>of(BOOLEAN), supplier(BooleanLastValueFunction.class))
+                .window("last_value", VARCHAR, ImmutableList.<Type>of(VARCHAR), supplier(VarcharLastValueFunction.class))
                 .aggregate("count", BIGINT, ImmutableList.<Type>of(), BIGINT, COUNT)
                 .aggregate("count", BIGINT, ImmutableList.of(BOOLEAN), BIGINT, COUNT_BOOLEAN_COLUMN)
                 .aggregate("count", BIGINT, ImmutableList.of(BIGINT), BIGINT, COUNT_LONG_COLUMN)

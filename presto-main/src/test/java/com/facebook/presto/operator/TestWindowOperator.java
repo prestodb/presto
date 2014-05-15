@@ -16,11 +16,13 @@ package com.facebook.presto.operator;
 import com.facebook.presto.ExceededMemoryLimitException;
 import com.facebook.presto.execution.TaskId;
 import com.facebook.presto.operator.WindowOperator.WindowOperatorFactory;
+import com.facebook.presto.operator.window.FirstValueFunction.VarcharFirstValueFunction;
+import com.facebook.presto.operator.window.LastValueFunction.VarcharLastValueFunction;
 import com.facebook.presto.operator.window.RowNumberFunction;
-import com.facebook.presto.operator.window.WindowFunction;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.block.SortOrder;
 import com.facebook.presto.testing.MaterializedResult;
+import com.facebook.presto.sql.tree.Input;
 import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Ints;
 import io.airlift.units.DataSize;
@@ -48,7 +50,13 @@ import static java.util.concurrent.Executors.newCachedThreadPool;
 @Test(singleThreaded = true)
 public class TestWindowOperator
 {
-    private static final List<WindowFunction> ROW_NUMBER = ImmutableList.<WindowFunction>of(new RowNumberFunction());
+    private static final List<WindowFunctionDefinition> ROW_NUMBER = ImmutableList.of(WindowFunctionDefinition.window(new RowNumberFunction()));
+    private static final List<WindowFunctionDefinition> FIRST_VALUE
+                = ImmutableList.of(WindowFunctionDefinition.window(new VarcharFirstValueFunction(),
+                                                                    ImmutableList.of(new Input(1))));
+    private static final List<WindowFunctionDefinition> LAST_VALUE
+                = ImmutableList.of(WindowFunctionDefinition.window(new VarcharLastValueFunction(),
+                                                                    ImmutableList.of(new Input(1))));
 
     private ExecutorService executor;
     private DriverContext driverContext;
@@ -212,5 +220,85 @@ public class TestWindowOperator
         Operator operator = operatorFactory.createOperator(driverContext);
 
         toPages(operator, input);
+    }
+
+    @Test
+    public void testFirstValuePartition()
+            throws Exception
+    {
+        // Find path which goes from A to final destination C
+        // So A.B.C and A.C are selected
+        List<Page> input = rowPagesBuilder(VARCHAR, VARCHAR, BIGINT, BOOLEAN, VARCHAR)
+                .row("b", "A1", 1, true, "")
+                .row("a", "A2", 1, false, "")
+                .row("a", "B1", 2, true, "")
+                .pageBreak()
+                .row("b", "C1", 2, false, "")
+                .row("a", "C2", 3, true, "")
+                .row("c", "A3", 1, true, "")
+                .build();
+
+        WindowOperatorFactory operatorFactory = new WindowOperatorFactory(
+                0,
+                ImmutableList.of(VARCHAR, VARCHAR, BIGINT, BOOLEAN, VARCHAR),
+                Ints.asList(0, 1, 2, 3),
+                FIRST_VALUE,
+                Ints.asList(0),
+                Ints.asList(2),
+                ImmutableList.copyOf(new SortOrder[] {SortOrder.ASC_NULLS_LAST}),
+                100);
+
+        Operator operator = operatorFactory.createOperator(driverContext);
+
+        MaterializedResult expected = resultBuilder(driverContext.getSession(), VARCHAR, VARCHAR, BIGINT, BOOLEAN, VARCHAR)
+                .row("a", "A2", 1, false, "A2")
+                .row("a", "B1", 2, true, "A2")
+                .row("a", "C2", 3, true, "A2")
+                .row("b", "A1", 1, true, "A1")
+                .row("b", "C1", 2, false, "A1")
+                .row("c", "A3", 1, true, "A3")
+                .build();
+
+        assertOperatorEquals(operator, input, expected);
+    }
+
+    @Test
+    public void testLastValuePartition()
+            throws Exception
+    {
+        // Find path which goes from A to final destination C
+        // So A.B.C and A.C are selected
+        List<Page> input = rowPagesBuilder(VARCHAR, VARCHAR, BIGINT, BOOLEAN, VARCHAR)
+                .row("b", "A1", 1, true, "")
+                .row("a", "A2", 1, false, "")
+                .row("a", "B1", 2, true, "")
+                .pageBreak()
+                .row("b", "C1", 2, false, "")
+                .row("a", "C2", 3, true, "")
+                .row("c", "A3", 1, true, "")
+                .build();
+
+        WindowOperatorFactory operatorFactory = new WindowOperatorFactory(
+                0,
+                ImmutableList.of(VARCHAR, VARCHAR, BIGINT, BOOLEAN, VARCHAR),
+                Ints.asList(0, 1, 2, 3),
+                LAST_VALUE,
+                Ints.asList(0),
+                Ints.asList(2),
+                ImmutableList.copyOf(new SortOrder[] {SortOrder.ASC_NULLS_LAST}),
+                100);
+
+        Operator operator = operatorFactory.createOperator(driverContext);
+
+        MaterializedResult expected = resultBuilder(driverContext.getSession(), VARCHAR, VARCHAR, BIGINT, BOOLEAN, VARCHAR)
+                .row("a", "A2", 1, false, "C2")
+                .row("a", "B1", 2, true, "C2")
+                .row("a", "C2", 3, true, "C2")
+                .row("b", "A1", 1, true, "C1")
+                .row("b", "C1", 2, false, "C1")
+                .row("c", "A3", 1, true, "A3")
+                .build();
+
+        assertOperatorEquals(operator, input, expected);
     }
 }
