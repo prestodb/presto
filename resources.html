@@ -44,12 +44,31 @@
 
 <div class="content homecontent width clearfix">
     <div class="leftcol widecol faq">
+        <h2 id="odbc">Presto ODBC</h2>
+
+        <div class="item">
+            <h4>Prestogres</h4>
+            <dl>
+                <dt>Project</dt>
+                <dd><a href="https://github.com/treasure-data/prestogres">GitHub</a></dd>
+                <dt>Maintained by</dt>
+                <dd><a href="https://github.com/frsyuki">Furuhashi Sadayuki</a></dd>
+                <dt>Description</dt>
+                <dd>
+                    Prestogres is a gateway server that allows clients
+                    to use PostgreSQL protocol and thus the
+                    PostgreSQL ODBC driver to run queries on Presto.
+                </dd>
+            </dl>
+        </div>
+
         <h2 id="libraries">Presto Libraries</h2>
 
         <p>
             The following client libraries can be used to run queries from
             several programming languages:
             <a href="#language-c">C</a>,
+            <a href="#language-java">Java</a>,
             <a href="#language-node">Node.js</a>,
             <a href="#language-php">PHP</a>,
             <a href="#language-python">Python</a>,
@@ -70,6 +89,37 @@
                 <dd>C client for Presto.</dd>
                 <dt>Example</dt>
                 <dd><a href="https://github.com/easydatawarehousing/prestoclient/blob/master/C/src/main.c">C Prestoclient Example at GitHub</a></dd>
+            </dl>
+        </div>
+
+        <h3 id="language-java">Language: Java</h3>
+
+        <div class="item">
+            <h4>Presto JDBC Driver</h4>
+            <dl>
+                <dt>Project</dt>
+                <dd><a href="docs/current/installation/jdbc.html">Presto</a></dd>
+                <dt>Maintained by</dt>
+                <dd><a href="https://github.com/facebook/presto">Presto Team</a></dd>
+                <dt>Description</dt>
+                <dd>JDBC driver for Presto.</dd>
+                <dt>Example</dt>
+                <dd>
+<pre>
+String sql = "SELECT * FROM sys.node";
+String url = "jdbc:presto://localhost:8080/catalog/schema";
+try (Connection connection =
+        DriverManager.getConnection(url, "test", null)) {
+    try (Statement statement = connection.createStatement()) {
+        try (ResultSet rs = statement.executeQuery(sql)) {
+            while (rs.next()) {
+                System.out.println(rs.getString("node_id"));
+            }
+        }
+    }
+}
+</pre>
+                </dd>
             </dl>
         </div>
 
@@ -284,6 +334,7 @@ rows.each {|row| p row }
     <div class="rightcol">
     <h3>Presto Resources</h3>
     <ul>
+        <li><a href="#odbc">Presto ODBC</a></li>
         <li><a href="#libraries">Presto Libraries</a></li>
         <li><a href="#hosting">Presto Hosting</a></li>
     </ul>
