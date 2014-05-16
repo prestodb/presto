@@ -79,6 +79,7 @@ import com.facebook.presto.spi.type.TimestampType;
 import com.facebook.presto.spi.type.TimestampWithTimeZoneType;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
+import com.facebook.presto.spi.type.VarbinaryType;
 import com.facebook.presto.spi.type.VarcharType;
 import com.facebook.presto.split.ConnectorDataStreamProvider;
 import com.facebook.presto.split.DataStreamManager;
@@ -299,6 +300,7 @@ public class ServerMainModule
         blockEncodingFactoryBinder.addBinding().toInstance(BigintType.BLOCK_ENCODING_FACTORY);
         blockEncodingFactoryBinder.addBinding().toInstance(DoubleType.BLOCK_ENCODING_FACTORY);
         blockEncodingFactoryBinder.addBinding().toInstance(VarcharType.BLOCK_ENCODING_FACTORY);
+        blockEncodingFactoryBinder.addBinding().toInstance(VarbinaryType.BLOCK_ENCODING_FACTORY);
         blockEncodingFactoryBinder.addBinding().toInstance(DateType.BLOCK_ENCODING_FACTORY);
         blockEncodingFactoryBinder.addBinding().toInstance(TimeType.BLOCK_ENCODING_FACTORY);
         blockEncodingFactoryBinder.addBinding().toInstance(TimeWithTimeZoneType.BLOCK_ENCODING_FACTORY);

@@ -18,6 +18,7 @@ import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.type.BigintType;
 import com.facebook.presto.spi.type.BooleanType;
 import com.facebook.presto.spi.type.DoubleType;
+import com.facebook.presto.spi.type.VarbinaryType;
 import com.facebook.presto.spi.type.VarcharType;
 import io.airlift.slice.Slice;
 
@@ -152,6 +153,13 @@ public final class VarcharOperators
         catch (Exception e) {
             throw new PrestoException(INVALID_CAST_ARGUMENT.toErrorCode(), format("Can not cast '%s' to BIGINT", slice.toString(UTF_8)));
         }
+    }
+
+    @ScalarOperator(CAST)
+    @SqlType(VarbinaryType.class)
+    public static Slice castToBinary(@SqlType(VarcharType.class) Slice slice)
+    {
+        return slice;
     }
 
     @ScalarOperator(HASH_CODE)

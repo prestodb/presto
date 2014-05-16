@@ -29,6 +29,7 @@ import com.facebook.presto.spi.type.TimeType;
 import com.facebook.presto.spi.type.TimeWithTimeZoneType;
 import com.facebook.presto.spi.type.TimestampType;
 import com.facebook.presto.spi.type.TimestampWithTimeZoneType;
+import com.facebook.presto.spi.type.VarbinaryType;
 import com.facebook.presto.spi.type.VarcharType;
 import com.facebook.presto.type.ColorType;
 import com.facebook.presto.type.TypeRegistry;
@@ -49,6 +50,7 @@ public final class TestingBlockEncodingManager
                 BigintType.BLOCK_ENCODING_FACTORY,
                 DoubleType.BLOCK_ENCODING_FACTORY,
                 VarcharType.BLOCK_ENCODING_FACTORY,
+                VarbinaryType.BLOCK_ENCODING_FACTORY,
                 DateType.BLOCK_ENCODING_FACTORY,
                 TimeType.BLOCK_ENCODING_FACTORY,
                 TimeWithTimeZoneType.BLOCK_ENCODING_FACTORY,

@@ -26,6 +26,7 @@ import com.facebook.presto.operator.scalar.ScalarFunction;
 import com.facebook.presto.operator.scalar.ScalarOperator;
 import com.facebook.presto.operator.scalar.StringFunctions;
 import com.facebook.presto.operator.scalar.UrlFunctions;
+import com.facebook.presto.operator.scalar.VarbinaryFunctions;
 import com.facebook.presto.operator.window.CumulativeDistributionFunction;
 import com.facebook.presto.operator.window.DenseRankFunction;
 import com.facebook.presto.operator.window.PercentRankFunction;
@@ -52,6 +53,7 @@ import com.facebook.presto.type.TimeOperators;
 import com.facebook.presto.type.TimeWithTimeZoneOperators;
 import com.facebook.presto.type.TimestampOperators;
 import com.facebook.presto.type.TimestampWithTimeZoneOperators;
+import com.facebook.presto.type.VarbinaryOperators;
 import com.facebook.presto.type.VarcharOperators;
 import com.facebook.presto.util.IterableTransformer;
 import com.google.common.base.Joiner;
@@ -218,6 +220,7 @@ public class FunctionRegistry
                 .aggregate("approx_avg", VARCHAR, ImmutableList.of(BIGINT), VARCHAR, LONG_APPROXIMATE_AVERAGE_AGGREGATION)
                 .aggregate("approx_avg", VARCHAR, ImmutableList.of(DOUBLE), VARCHAR, DOUBLE_APPROXIMATE_AVERAGE_AGGREGATION)
                 .scalar(StringFunctions.class)
+                .scalar(VarbinaryFunctions.class)
                 .scalar(RegexpFunctions.class)
                 .scalar(UrlFunctions.class)
                 .scalar(MathFunctions.class)
@@ -229,6 +232,7 @@ public class FunctionRegistry
                 .scalar(BigintOperators.class)
                 .scalar(DoubleOperators.class)
                 .scalar(VarcharOperators.class)
+                .scalar(VarbinaryOperators.class)
                 .scalar(DateOperators.class)
                 .scalar(TimeOperators.class)
                 .scalar(TimestampOperators.class)
