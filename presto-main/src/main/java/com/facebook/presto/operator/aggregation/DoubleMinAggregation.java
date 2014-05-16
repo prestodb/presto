@@ -13,20 +13,14 @@
  */
 package com.facebook.presto.operator.aggregation;
 
-import com.facebook.presto.spi.block.Block;
+import com.facebook.presto.operator.aggregation.state.NullableDoubleState;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockCursor;
-import com.facebook.presto.operator.GroupByIdBlock;
-import com.facebook.presto.util.array.BooleanBigArray;
-import com.facebook.presto.util.array.DoubleBigArray;
-import com.google.common.base.Optional;
 
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
-import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkState;
 
 public class DoubleMinAggregation
-        extends SimpleAggregationFunction
+        extends AbstractAggregationFunction<NullableDoubleState>
 {
     public static final DoubleMinAggregation DOUBLE_MIN = new DoubleMinAggregation();
 
@@ -36,113 +30,26 @@ public class DoubleMinAggregation
     }
 
     @Override
-    protected GroupedAccumulator createGroupedAccumulator(Optional<Integer> maskChannel, Optional<Integer> sampleWeightChannel, double confidence, int valueChannel)
+    protected void initializeState(NullableDoubleState state)
     {
-        // Min/max are not effected by distinct, so ignore it.
-        checkArgument(confidence == 1.0, "min does not support approximate queries");
-        return new DoubleMinGroupedAccumulator(valueChannel);
-    }
-
-    public static class DoubleMinGroupedAccumulator
-            extends SimpleGroupedAccumulator
-    {
-        private final BooleanBigArray notNull;
-        private final DoubleBigArray minValues;
-
-        public DoubleMinGroupedAccumulator(int valueChannel)
-        {
-            super(valueChannel, DOUBLE, DOUBLE, Optional.<Integer>absent(), Optional.<Integer>absent());
-
-            this.notNull = new BooleanBigArray();
-
-            this.minValues = new DoubleBigArray(Double.POSITIVE_INFINITY);
-        }
-
-        @Override
-        public long getEstimatedSize()
-        {
-            return notNull.sizeOf() + minValues.sizeOf();
-        }
-
-        @Override
-        protected void processInput(GroupByIdBlock groupIdsBlock, Block valuesBlock, Optional<Block> maskBlock, Optional<Block> sampleWeightBlock)
-        {
-            notNull.ensureCapacity(groupIdsBlock.getGroupCount());
-            minValues.ensureCapacity(groupIdsBlock.getGroupCount(), Double.POSITIVE_INFINITY);
-
-            BlockCursor values = valuesBlock.cursor();
-
-            for (int position = 0; position < groupIdsBlock.getPositionCount(); position++) {
-                checkState(values.advanceNextPosition());
-
-                long groupId = groupIdsBlock.getGroupId(position);
-
-                if (!values.isNull()) {
-                    notNull.set(groupId, true);
-
-                    double value = values.getDouble();
-                    value = Math.min(value, minValues.get(groupId));
-                    minValues.set(groupId, value);
-                }
-            }
-            checkState(!values.advanceNextPosition());
-        }
-
-        @Override
-        public void evaluateFinal(int groupId, BlockBuilder output)
-        {
-            if (notNull.get((long) groupId)) {
-                double value = minValues.get((long) groupId);
-                output.appendDouble(value);
-            }
-            else {
-                output.appendNull();
-            }
-        }
+        state.setDouble(Double.POSITIVE_INFINITY);
     }
 
     @Override
-    protected Accumulator createAccumulator(Optional<Integer> maskChannel, Optional<Integer> sampleWeightChannel, double confidence, int valueChannel)
+    public void processInput(NullableDoubleState state, BlockCursor cursor)
     {
-        // Min/max are not effected by distinct, so ignore it.
-        checkArgument(confidence == 1.0, "min does not support approximate queries");
-        return new DoubleMinAccumulator(valueChannel);
+        state.setNotNull(true);
+        state.setDouble(Math.min(state.getDouble(), cursor.getDouble()));
     }
 
-    public static class DoubleMinAccumulator
-            extends SimpleAccumulator
+    @Override
+    public void evaluateFinal(NullableDoubleState state, BlockBuilder out)
     {
-        private boolean notNull;
-        private double min = Double.POSITIVE_INFINITY;
-
-        public DoubleMinAccumulator(int valueChannel)
-        {
-            super(valueChannel, DOUBLE, DOUBLE, Optional.<Integer>absent(), Optional.<Integer>absent());
+        if (state.isNotNull()) {
+            out.appendDouble(state.getDouble());
         }
-
-        @Override
-        protected void processInput(Block block, Optional<Block> maskBlock, Optional<Block> sampleWeightBlock)
-        {
-            BlockCursor values = block.cursor();
-
-            for (int position = 0; position < block.getPositionCount(); position++) {
-                checkState(values.advanceNextPosition());
-                if (!values.isNull()) {
-                    notNull = true;
-                    min = Math.min(min, values.getDouble());
-                }
-            }
-        }
-
-        @Override
-        public void evaluateFinal(BlockBuilder out)
-        {
-            if (notNull) {
-                out.appendDouble(min);
-            }
-            else {
-                out.appendNull();
-            }
+        else {
+            out.appendNull();
         }
     }
 }
