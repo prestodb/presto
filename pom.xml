@@ -358,6 +358,12 @@
             </dependency>
 
             <dependency>
+                <groupId>org.openjdk.jol</groupId>
+                <artifactId>jol-core</artifactId>
+                <version>0.1</version>
+            </dependency>
+
+            <dependency>
                 <groupId>com.intellij</groupId>
                 <artifactId>annotations</artifactId>
                 <version>9.0.4</version>

@@ -13,20 +13,14 @@
  */
 package com.facebook.presto.operator.aggregation;
 
-import com.facebook.presto.spi.block.Block;
+import com.facebook.presto.operator.aggregation.state.NullableDoubleState;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockCursor;
-import com.facebook.presto.operator.GroupByIdBlock;
-import com.facebook.presto.util.array.BooleanBigArray;
-import com.facebook.presto.util.array.DoubleBigArray;
-import com.google.common.base.Optional;
 
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
-import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkState;
 
 public class DoubleMaxAggregation
-        extends SimpleAggregationFunction
+        extends AbstractAggregationFunction<NullableDoubleState>
 {
     public static final DoubleMaxAggregation DOUBLE_MAX = new DoubleMaxAggregation();
 
@@ -36,115 +30,26 @@ public class DoubleMaxAggregation
     }
 
     @Override
-    protected GroupedAccumulator createGroupedAccumulator(Optional<Integer> maskChannel, Optional<Integer> sampleWeightChannel, double confidence, int valueChannel)
+    protected void initializeState(NullableDoubleState state)
     {
-        // Min/max are not effected by distinct, so ignore it.
-        checkArgument(confidence == 1.0, "max does not support approximate queries");
-        return new DoubleMaxGroupedAccumulator(valueChannel);
-    }
-
-    public static class DoubleMaxGroupedAccumulator
-            extends SimpleGroupedAccumulator
-    {
-        private final BooleanBigArray notNull;
-        private final DoubleBigArray maxValues;
-
-        public DoubleMaxGroupedAccumulator(int valueChannel)
-        {
-            // Min/max are not effected by distinct, so ignore it.
-            super(valueChannel, DOUBLE, DOUBLE, Optional.<Integer>absent(), Optional.<Integer>absent());
-
-            this.notNull = new BooleanBigArray();
-
-            this.maxValues = new DoubleBigArray(Double.NEGATIVE_INFINITY);
-        }
-
-        @Override
-        public long getEstimatedSize()
-        {
-            return notNull.sizeOf() + maxValues.sizeOf();
-        }
-
-        @Override
-        protected void processInput(GroupByIdBlock groupIdsBlock, Block valuesBlock, Optional<Block> maskBlock, Optional<Block> sampleWeightBlock)
-        {
-            notNull.ensureCapacity(groupIdsBlock.getGroupCount());
-            maxValues.ensureCapacity(groupIdsBlock.getGroupCount(), Double.NEGATIVE_INFINITY);
-
-            BlockCursor values = valuesBlock.cursor();
-
-            for (int position = 0; position < groupIdsBlock.getPositionCount(); position++) {
-                checkState(values.advanceNextPosition());
-
-                long groupId = groupIdsBlock.getGroupId(position);
-
-                if (!values.isNull()) {
-                    notNull.set(groupId, true);
-
-                    double value = values.getDouble();
-                    value = Math.max(value, maxValues.get(groupId));
-                    maxValues.set(groupId, value);
-                }
-            }
-            checkState(!values.advanceNextPosition());
-        }
-
-        @Override
-        public void evaluateFinal(int groupId, BlockBuilder output)
-        {
-            if (notNull.get((long) groupId)) {
-                double value = maxValues.get((long) groupId);
-                output.appendDouble(value);
-            }
-            else {
-                output.appendNull();
-            }
-        }
+        state.setDouble(Double.NEGATIVE_INFINITY);
     }
 
     @Override
-    protected Accumulator createAccumulator(Optional<Integer> maskChannel, Optional<Integer> sampleWeightChannel, double confidence, int valueChannel)
+    public void processInput(NullableDoubleState state, BlockCursor cursor)
     {
-        // Min/max are not effected by distinct, so ignore it.
-        checkArgument(confidence == 1.0, "max does not support approximate queries");
-        return new DoubleMaxAccumulator(valueChannel);
+        state.setNotNull(true);
+        state.setDouble(Math.max(state.getDouble(), cursor.getDouble()));
     }
 
-    public static class DoubleMaxAccumulator
-            extends SimpleAccumulator
+    @Override
+    public void evaluateFinal(NullableDoubleState state, BlockBuilder out)
     {
-        private boolean notNull;
-        private double max = Double.NEGATIVE_INFINITY;
-
-        public DoubleMaxAccumulator(int valueChannel)
-        {
-            // Min/max are not effected by distinct, so ignore it.
-            super(valueChannel, DOUBLE, DOUBLE, Optional.<Integer>absent(), Optional.<Integer>absent());
+        if (state.isNotNull()) {
+            out.appendDouble(state.getDouble());
         }
-
-        @Override
-        protected void processInput(Block block, Optional<Block> maskBlock, Optional<Block> sampleWeightBlock)
-        {
-            BlockCursor values = block.cursor();
-
-            for (int position = 0; position < block.getPositionCount(); position++) {
-                checkState(values.advanceNextPosition());
-                if (!values.isNull()) {
-                    notNull = true;
-                    max = Math.max(max, values.getDouble());
-                }
-            }
-        }
-
-        @Override
-        public void evaluateFinal(BlockBuilder out)
-        {
-            if (notNull) {
-                out.appendDouble(max);
-            }
-            else {
-                out.appendNull();
-            }
+        else {
+            out.appendNull();
         }
     }
 }

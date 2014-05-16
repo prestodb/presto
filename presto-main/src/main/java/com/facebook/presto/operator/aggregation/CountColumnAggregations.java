@@ -13,13 +13,7 @@
  */
 package com.facebook.presto.operator.aggregation;
 
-import com.facebook.presto.operator.aggregation.CountColumnAggregation.CountColumnAccumulator;
-import com.facebook.presto.operator.aggregation.CountColumnAggregation.CountColumnGroupedAccumulator;
-import com.facebook.presto.operator.aggregation.SimpleAggregationFunction.SimpleAccumulator;
-import com.facebook.presto.operator.aggregation.SimpleAggregationFunction.SimpleGroupedAccumulator;
-import com.facebook.presto.spi.type.Type;
-import com.google.common.base.Throwables;
-
+import static com.facebook.presto.operator.aggregation.AggregationUtils.createIsolatedAggregation;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
@@ -27,34 +21,10 @@ import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 
 public final class CountColumnAggregations
 {
-    public static final AggregationFunction COUNT_BOOLEAN_COLUMN = createIsolatedAggregation(BOOLEAN);
-    public static final AggregationFunction COUNT_LONG_COLUMN = createIsolatedAggregation(BIGINT);
-    public static final AggregationFunction COUNT_DOUBLE_COLUMN = createIsolatedAggregation(DOUBLE);
-    public static final AggregationFunction COUNT_STRING_COLUMN = createIsolatedAggregation(VARCHAR);
+    public static final AggregationFunction COUNT_BOOLEAN_COLUMN = createIsolatedAggregation(CountColumnAggregation.class, BOOLEAN);
+    public static final AggregationFunction COUNT_LONG_COLUMN = createIsolatedAggregation(CountColumnAggregation.class, BIGINT);
+    public static final AggregationFunction COUNT_DOUBLE_COLUMN = createIsolatedAggregation(CountColumnAggregation.class, DOUBLE);
+    public static final AggregationFunction COUNT_STRING_COLUMN = createIsolatedAggregation(CountColumnAggregation.class, VARCHAR);
 
     private CountColumnAggregations() {}
-
-    private static AggregationFunction createIsolatedAggregation(Type parameterType)
-    {
-        Class<? extends AggregationFunction> functionClass = IsolatedClass.isolateClass(
-                AggregationFunction.class,
-
-                CountColumnAggregation.class,
-                SimpleAggregationFunction.class,
-
-                CountColumnGroupedAccumulator.class,
-                SimpleGroupedAccumulator.class,
-
-                CountColumnAccumulator.class,
-                SimpleAccumulator.class);
-
-        try {
-            return functionClass
-                    .getConstructor(Type.class)
-                    .newInstance(parameterType);
-        }
-        catch (Exception e) {
-            throw Throwables.propagate(e);
-        }
-    }
 }
