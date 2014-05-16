@@ -70,6 +70,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -104,6 +105,19 @@ public class TestSqlStageExecution
     {
         metadata = new MetadataManager(new FeaturesConfig(), new TypeRegistry());
         metadata.addGlobalSchemaMetadata(DualConnector.CONNECTOR_ID, new DualMetadata());
+    }
+
+    @Test(expectedExceptions = ExecutionException.class, expectedExceptionsMessageRegExp = ".*No nodes available to run query")
+    public void testExcludeCoordinator()
+            throws Exception
+    {
+        InMemoryNodeManager nodeManager = new InMemoryNodeManager();
+        NodeScheduler nodeScheduler = new NodeScheduler(nodeManager, new NodeSchedulerConfig().setIncludeCoordinator(false));
+
+        // Start sql stage execution
+        SqlStageExecution sqlStageExecution = createSqlStageExecution(nodeScheduler, 2, 20);
+        Future future = sqlStageExecution.start();
+        future.get(1, TimeUnit.SECONDS);
     }
 
     @Test
