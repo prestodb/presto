@@ -85,15 +85,15 @@ import com.facebook.presto.split.ConnectorDataStreamProvider;
 import com.facebook.presto.split.DataStreamManager;
 import com.facebook.presto.split.DataStreamProvider;
 import com.facebook.presto.split.NativePartitionKey;
+import com.facebook.presto.sql.Serialization.ExpressionDeserializer;
+import com.facebook.presto.sql.Serialization.ExpressionSerializer;
+import com.facebook.presto.sql.Serialization.FunctionCallDeserializer;
 import com.facebook.presto.sql.gen.ExpressionCompiler;
 import com.facebook.presto.sql.planner.LocalExecutionPlanner;
 import com.facebook.presto.sql.planner.PlanOptimizersFactory;
 import com.facebook.presto.sql.planner.optimizations.PlanOptimizer;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.FunctionCall;
-import com.facebook.presto.sql.Serialization.ExpressionDeserializer;
-import com.facebook.presto.sql.Serialization.ExpressionSerializer;
-import com.facebook.presto.sql.Serialization.FunctionCallDeserializer;
 import com.facebook.presto.type.ColorType;
 import com.facebook.presto.type.TypeDeserializer;
 import com.facebook.presto.type.TypeRegistry;
@@ -126,6 +126,7 @@ import java.util.List;
 import java.util.Set;
 import java.util.concurrent.ScheduledExecutorService;
 
+import static com.facebook.presto.connector.system.SystemSplitManager.SYSTEM_DATASOURCE;
 import static com.facebook.presto.guice.ConditionalModule.installIfPropertyEquals;
 import static com.facebook.presto.guice.DbiProvider.bindDbiToDataSource;
 import static com.google.common.base.Preconditions.checkState;
@@ -264,8 +265,13 @@ public class ServerMainModule
         ServiceAnnouncementBuilder prestoAnnouncement = discoveryBinder(binder).bindHttpAnnouncement("presto")
                 .addProperty("node_version", nodeVersion.toString());
 
-        if (serverConfig.getDataSources() != null) {
-            prestoAnnouncement.addProperty("datasources", serverConfig.getDataSources());
+        if (serverConfig.getDataSources() != null && !serverConfig.getDataSources().isEmpty()) {
+            if (serverConfig.isCoordinator() && !serverConfig.getDataSources().contains(SYSTEM_DATASOURCE)) {
+                prestoAnnouncement.addProperty("datasources", serverConfig.getDataSources() + "," + SYSTEM_DATASOURCE);
+            }
+            else {
+                prestoAnnouncement.addProperty("datasources", serverConfig.getDataSources());
+            }
         }
 
         bindDataSource(binder, "presto-metastore", ForMetadata.class, ForShardManager.class);
