@@ -62,7 +62,7 @@ public class CassandraSessionFactory
         clusterBuilder.addContactPoints(contactPoints.toArray(new String[contactPoints.size()]));
         clusterBuilder.withPort(nativeProtocolPort);
         clusterBuilder.withReconnectionPolicy(new ExponentialReconnectionPolicy(500, 10000));
-        
+
         if (authUsername != null && authPassword != null) {
             clusterBuilder.withCredentials(authUsername, authPassword);
         }
