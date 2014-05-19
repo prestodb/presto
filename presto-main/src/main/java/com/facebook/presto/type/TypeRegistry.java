@@ -38,6 +38,7 @@ import static com.facebook.presto.spi.type.TimeWithTimeZoneType.TIME_WITH_TIME_Z
 import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
+import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.type.ColorType.COLOR;
 import static com.facebook.presto.type.UnknownType.UNKNOWN;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -68,6 +69,7 @@ public final class TypeRegistry
         addType(BIGINT);
         addType(DOUBLE);
         addType(VARCHAR);
+        addType(VARBINARY);
         addType(DATE);
         addType(TIME);
         addType(TIME_WITH_TIME_ZONE);

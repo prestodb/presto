@@ -18,6 +18,7 @@ import com.facebook.presto.spi.type.BooleanType;
 import com.facebook.presto.spi.type.DoubleType;
 import com.facebook.presto.spi.type.TimestampType;
 import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.spi.type.VarbinaryType;
 import com.facebook.presto.spi.type.VarcharType;
 import com.google.common.base.Function;
 import com.google.common.collect.BiMap;
@@ -53,7 +54,7 @@ public enum HiveType
     DOUBLE(DoubleType.DOUBLE),
     STRING(VarcharType.VARCHAR),
     TIMESTAMP(TimestampType.TIMESTAMP),
-    BINARY(VarcharType.VARCHAR),
+    BINARY(VarbinaryType.VARBINARY),
     LIST(VarcharType.VARCHAR),
     MAP(VarcharType.VARCHAR),
     STRUCT(VarcharType.VARCHAR);
