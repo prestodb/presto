@@ -68,6 +68,7 @@ public class PluginManager
             .add("com.facebook.presto")
             .add("com.fasterxml.jackson")
             .add("io.airlift.slice")
+            .add("javax.inject")
             .build();
 
     private static final Logger log = Logger.get(PluginManager.class);
