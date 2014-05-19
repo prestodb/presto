@@ -24,6 +24,8 @@ public class SqlQueryManagerStats
     private final CounterStat startedQueries = new CounterStat();
     private final CounterStat completedQueries = new CounterStat();
     private final CounterStat failedQueries = new CounterStat();
+    private final CounterStat abandonedQueries = new CounterStat();
+    private final CounterStat canceledQueries = new CounterStat();
     private final CounterStat userErrorFailures = new CounterStat();
     private final CounterStat internalFailures = new CounterStat();
     private final CounterStat externalFailures = new CounterStat();
@@ -54,6 +56,13 @@ public class SqlQueryManagerStats
                 case EXTERNAL:
                     externalFailures.update(1);
                     break;
+            }
+
+            if (info.getErrorCode().getCode() == StandardErrorCode.ABANDONED_QUERY.toErrorCode().getCode()) {
+                abandonedQueries.update(1);
+            }
+            else if (info.getErrorCode().getCode() == StandardErrorCode.USER_CANCELED.toErrorCode().getCode()) {
+                canceledQueries.update(1);
             }
             failedQueries.update(1);
         }
@@ -105,6 +114,20 @@ public class SqlQueryManagerStats
     public CounterStat getInternalFailures()
     {
         return internalFailures;
+    }
+
+    @Managed
+    @Nested
+    public CounterStat getAbandonedQueries()
+    {
+        return abandonedQueries;
+    }
+
+    @Managed
+    @Nested
+    public CounterStat getCanceledQueries()
+    {
+        return canceledQueries;
     }
 
     @Managed
