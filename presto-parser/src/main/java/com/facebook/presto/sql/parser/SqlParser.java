@@ -19,14 +19,21 @@ import com.google.common.annotations.VisibleForTesting;
 import org.antlr.runtime.ANTLRStringStream;
 import org.antlr.runtime.CharStream;
 import org.antlr.runtime.CommonTokenStream;
+import org.antlr.runtime.IntStream;
 import org.antlr.runtime.RecognitionException;
 import org.antlr.runtime.TokenStream;
 import org.antlr.runtime.tree.BufferedTreeNodeStream;
 import org.antlr.runtime.tree.CommonTree;
 import org.antlr.runtime.tree.TreeNodeStream;
 
+import java.util.concurrent.atomic.AtomicBoolean;
+
 public final class SqlParser
 {
+    // TODO: make SqlParser non-static and remove this hack
+    private static final AtomicBoolean ALLOW_IDENTIFIER_COLON = new AtomicBoolean();
+    private static final AtomicBoolean ALLOW_IDENTIFIER_AT_SIGN = new AtomicBoolean();
+
     private SqlParser() {}
 
     public static Statement createStatement(String sql)
@@ -101,5 +108,29 @@ public final class SqlParser
         StatementLexer lexer = new StatementLexer(stream);
         TokenStream tokenStream = new CommonTokenStream(lexer);
         return new StatementParser(tokenStream);
+    }
+
+    @Deprecated
+    public static void setAllowIdentifierColon(boolean value)
+    {
+        ALLOW_IDENTIFIER_COLON.set(value);
+    }
+
+    @Deprecated
+    public static void setAllowIdentifierAtSign(boolean value)
+    {
+        ALLOW_IDENTIFIER_AT_SIGN.set(value);
+    }
+
+    static void validateIdentifier(IntStream input, String name)
+    {
+        if (!ALLOW_IDENTIFIER_COLON.get() && name.contains(":")) {
+            input.rewind();
+            throw new ParsingException("identifiers must not contain ':'", new RecognitionException(input));
+        }
+        if (!ALLOW_IDENTIFIER_AT_SIGN.get() && name.contains("@")) {
+            input.rewind();
+            throw new ParsingException("identifiers must not contain '@'", new RecognitionException(input));
+        }
     }
 }

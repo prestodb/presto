@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.sql.parser;
 
-import com.facebook.presto.sql.tree.AllColumns;
 import com.facebook.presto.sql.tree.Approximate;
 import com.facebook.presto.sql.tree.Cast;
 import com.facebook.presto.sql.tree.CurrentTime;
@@ -28,24 +27,19 @@ import com.facebook.presto.sql.tree.Node;
 import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.sql.tree.Query;
 import com.facebook.presto.sql.tree.QuerySpecification;
-import com.facebook.presto.sql.tree.Relation;
-import com.facebook.presto.sql.tree.Row;
 import com.facebook.presto.sql.tree.SortItem;
 import com.facebook.presto.sql.tree.Statement;
-import com.facebook.presto.sql.tree.StringLiteral;
-import com.facebook.presto.sql.tree.TableSubquery;
 import com.facebook.presto.sql.tree.TimeLiteral;
 import com.facebook.presto.sql.tree.TimestampLiteral;
-import com.facebook.presto.sql.tree.Values;
 import com.facebook.presto.sql.tree.With;
 import com.google.common.base.Joiner;
 import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
 import org.testng.annotations.Test;
 
-import static com.facebook.presto.sql.SqlFormatter.formatSql;
 import static com.facebook.presto.sql.QueryUtil.selectList;
 import static com.facebook.presto.sql.QueryUtil.table;
+import static com.facebook.presto.sql.SqlFormatter.formatSql;
 import static java.lang.String.format;
 import static java.util.Collections.nCopies;
 import static org.testng.Assert.assertEquals;
@@ -113,7 +107,7 @@ public class TestSqlParser
 
     @Test
     public void testCast()
-        throws Exception
+            throws Exception
     {
         assertCast("varchar");
         assertCast("bigint");
@@ -148,63 +142,9 @@ public class TestSqlParser
                                 Optional.<String>absent()),
                         ImmutableList.<SortItem>of(),
                         Optional.<String>absent(),
-                        Optional.<Approximate>absent()));
-    }
-
-    @Test
-    public void testValues()
-    {
-        assertStatement("VALUES ('a', 1, 2.2), ('b', 2, 3.3)",
-                new Query(
-                        Optional.<With>absent(),
-                        new Values(ImmutableList.of(
-                                new Row(ImmutableList.<Expression>of(
-                                        new StringLiteral("a"),
-                                        new LongLiteral("1"),
-                                        new DoubleLiteral("2.2")
-                                )),
-                                new Row(ImmutableList.<Expression>of(
-                                        new StringLiteral("b"),
-                                        new LongLiteral("2"),
-                                        new DoubleLiteral("3.3")
-                                ))
-                        )),
-                        ImmutableList.<SortItem>of(),
-                        Optional.<String>absent(),
-                        Optional.<Approximate>absent()));
-
-        assertStatement("SELECT * FROM (VALUES ('a', 1, 2.2), ('b', 2, 3.3))",
-                new Query(
-                        Optional.<With>absent(),
-                        new QuerySpecification(
-                                selectList(new AllColumns()),
-                                ImmutableList.<Relation>of(new TableSubquery(
-                                        new Query(
-                                                Optional.<With>absent(),
-                                                new Values(ImmutableList.of(
-                                                        new Row(ImmutableList.<Expression>of(
-                                                                new StringLiteral("a"),
-                                                                new LongLiteral("1"),
-                                                                new DoubleLiteral("2.2")
-                                                        )),
-                                                        new Row(ImmutableList.<Expression>of(
-                                                                new StringLiteral("b"),
-                                                                new LongLiteral("2"),
-                                                                new DoubleLiteral("3.3")
-                                                        ))
-                                                )),
-                                                ImmutableList.<SortItem>of(),
-                                                Optional.<String>absent(),
-                                                Optional.<Approximate>absent()))
-                                ),
-                                Optional.<Expression>absent(),
-                                ImmutableList.<Expression>of(),
-                                Optional.<Expression>absent(),
-                                ImmutableList.<SortItem>of(),
-                                Optional.<String>absent()),
-                        ImmutableList.<SortItem>of(),
-                        Optional.<String>absent(),
-                        Optional.<Approximate>absent()));
+                        Optional.<Approximate>absent()
+                )
+        );
     }
 
     @Test(expectedExceptions = ParsingException.class, expectedExceptionsMessageRegExp = "line 1:1: no viable alternative at input '<EOF>'")
@@ -285,7 +225,13 @@ public class TestSqlParser
         SqlParser.createStatement("select 1x from dual");
     }
 
-    @Test(expectedExceptions = ParsingException.class, expectedExceptionsMessageRegExp = "line 1:15: identifiers must not contain a colon; use '@' instead of ':' for table links")
+    @Test(expectedExceptions = ParsingException.class, expectedExceptionsMessageRegExp = "line 1:15: identifiers must not contain '@'")
+    public void testIdentifierWithAtSign()
+    {
+        SqlParser.createStatement("select * from foo@bar");
+    }
+
+    @Test(expectedExceptions = ParsingException.class, expectedExceptionsMessageRegExp = "line 1:15: identifiers must not contain ':'")
     public void testIdentifierWithColon()
     {
         SqlParser.createStatement("select * from foo:bar");
@@ -327,6 +273,32 @@ public class TestSqlParser
             assertEquals(e.getErrorMessage(), "no viable alternative at input 'from'");
             assertEquals(e.getLineNumber(), 3);
             assertEquals(e.getColumnNumber(), 7);
+        }
+    }
+
+    @SuppressWarnings("deprecation")
+    @Test
+    public void testAllowIdentifierColon()
+    {
+        try {
+            SqlParser.setAllowIdentifierColon(true);
+            SqlParser.createStatement("select * from foo:bar");
+        }
+        finally {
+            SqlParser.setAllowIdentifierColon(false);
+        }
+    }
+
+    @SuppressWarnings("deprecation")
+    @Test
+    public void testAllowIdentifierAtSign()
+    {
+        try {
+            SqlParser.setAllowIdentifierAtSign(true);
+            SqlParser.createStatement("select * from foo@bar");
+        }
+        finally {
+            SqlParser.setAllowIdentifierAtSign(false);
         }
     }
 

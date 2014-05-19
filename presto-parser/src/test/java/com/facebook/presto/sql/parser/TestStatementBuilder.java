@@ -87,7 +87,8 @@ public class TestStatementBuilder
 
         printStatement("show functions");
 
-        printStatement("select * from a.b.c@d");
+        printStatement("select * from a.b.c");
+        printStatement("select * from a.b.c.e.f.g");
 
         printStatement("select \"TOTALPRICE\" \"my price\" from \"ORDERS\"");
 
@@ -102,6 +103,7 @@ public class TestStatementBuilder
         printStatement("create table foo as select * from abc");
 
         printStatement("values ('a', 1, 2.2), ('b', 2, 3.3)");
+        printStatement("select * from (values ('a', 1, 2.2), ('b', 2, 3.3))");
     }
 
     @Test
