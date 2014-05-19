@@ -181,7 +181,7 @@ public class CassandraClientConfig
         return this;
     }
 
-    public int getAuthUsername()
+    public String getAuthUsername()
     {
         return authUsername;
     }
@@ -193,7 +193,7 @@ public class CassandraClientConfig
         return this;
     }
 
-    public int getAuthPassword()
+    public String getAuthPassword()
     {
         return authPassword;
     }
