@@ -86,6 +86,12 @@ cassandra.split-size=1024
 # (advanced)
 cassandra.thrift-port=9160
 
+# Authentication with Cassandra
+# These will be used for all connections
+# (optional)
+#cassandra.username=my_username
+#cassandra.password=my_password
+
 ```
 
 ## Notes

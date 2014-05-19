@@ -43,7 +43,9 @@ public class TestCassandraClientConfig
                 .setThriftPort(9160)
                 .setTransportFactoryOptions("")
                 .setThriftConnectionFactoryClassName("org.apache.cassandra.thrift.TFramedTransportFactory")
-                .setAllowDropTable(false));
+                .setAllowDropTable(false)
+                .setUsername(null)
+                .setPassword(null));
     }
 
     @Test
@@ -66,6 +68,8 @@ public class TestCassandraClientConfig
                 .put("cassandra.transport-factory-options", "a=b")
                 .put("cassandra.thrift-connection-factory-class", "org.apache.cassandra.thrift.TFramedTransportFactory1")
                 .put("cassandra.allow-drop-table", "true")
+                .put("cassandra.username", "my_username")
+                .put("cassandra.password", "my_password")
                 .build();
 
         CassandraClientConfig expected = new CassandraClientConfig()
@@ -84,7 +88,9 @@ public class TestCassandraClientConfig
                 .setPartitioner("RandomPartitioner")
                 .setTransportFactoryOptions("a=b")
                 .setThriftConnectionFactoryClassName("org.apache.cassandra.thrift.TFramedTransportFactory1")
-                .setAllowDropTable(true);
+                .setAllowDropTable(true)
+                .setUsername("my_username")
+                .setPassword("my_password");
 
         ConfigAssertions.assertFullMapping(properties, expected);
     }

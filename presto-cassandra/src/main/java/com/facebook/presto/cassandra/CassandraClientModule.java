@@ -101,6 +101,10 @@ public class CassandraClientModule
         clusterBuilder.withPort(config.getNativeProtocolPort());
         clusterBuilder.withReconnectionPolicy(new ExponentialReconnectionPolicy(500, 10000));
 
+        if (config.getUsername() != null && config.getPassword() != null) {
+            clusterBuilder.withCredentials(config.getUsername(), config.getPassword());
+        }
+
         QueryOptions options = new QueryOptions();
         options.setFetchSize(config.getFetchSize());
         options.setConsistencyLevel(config.getConsistencyLevel());
