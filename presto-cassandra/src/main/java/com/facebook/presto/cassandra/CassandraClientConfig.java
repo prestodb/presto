@@ -52,6 +52,8 @@ public class CassandraClientConfig
     private String thriftConnectionFactoryClassName = "org.apache.cassandra.thrift.TFramedTransportFactory";
     private Map<String, String> transportFactoryOptions = new HashMap<>();
     private boolean allowDropTable;
+    private String username;
+    private String password;
 
     @Min(0)
     public int getLimitForPartitionKeySelect()
@@ -262,6 +264,30 @@ public class CassandraClientConfig
     public CassandraClientConfig setAllowDropTable(boolean allowDropTable)
     {
         this.allowDropTable = allowDropTable;
+        return this;
+    }
+
+    public String getUsername()
+    {
+        return username;
+    }
+
+    @Config("cassandra.username")
+    public CassandraClientConfig setUsername(String username)
+    {
+        this.username = username;
+        return this;
+    }
+
+    public String getPassword()
+    {
+        return password;
+    }
+
+    @Config("cassandra.password")
+    public CassandraClientConfig setPassword(String password)
+    {
+        this.password = password;
         return this;
     }
 }
