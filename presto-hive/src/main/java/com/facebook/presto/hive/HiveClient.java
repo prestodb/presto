@@ -255,7 +255,7 @@ public class HiveClient
     {
         try {
             Table table = metastore.getTable(tableName.getSchemaName(), tableName.getTableName());
-            List<ColumnMetadata> columns = ImmutableList.copyOf(transform(getColumnHandles(table, false), columnMetadataGetter()));
+            List<ColumnMetadata> columns = ImmutableList.copyOf(transform(getColumnHandles(table, false), columnMetadataGetter(table)));
             return new ConnectorTableMetadata(tableName, columns, table.getOwner());
         }
         catch (NoSuchObjectException e) {
@@ -388,6 +388,9 @@ public class HiveClient
         return ImmutableList.of(new SchemaTableName(prefix.getSchemaName(), prefix.getTableName()));
     }
 
+    /**
+     * Method does not return column comment
+     */
     @Override
     public ColumnMetadata getColumnMetadata(ConnectorTableHandle tableHandle, ConnectorColumnHandle columnHandle)
     {
