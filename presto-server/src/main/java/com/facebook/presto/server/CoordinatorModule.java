@@ -13,14 +13,14 @@
  */
 package com.facebook.presto.server;
 
-import com.facebook.presto.execution.DropTableExecution;
+import com.facebook.presto.execution.ForQueryExecution;
 import com.facebook.presto.execution.NodeScheduler;
 import com.facebook.presto.execution.NodeSchedulerConfig;
 import com.facebook.presto.execution.QueryExecution;
+import com.facebook.presto.execution.QueryExecutionMBean;
 import com.facebook.presto.execution.QueryIdGenerator;
 import com.facebook.presto.execution.QueryManager;
 import com.facebook.presto.execution.QueryManagerConfig;
-import com.facebook.presto.execution.SqlQueryExecution;
 import com.facebook.presto.execution.SqlQueryManager;
 import com.facebook.presto.guice.AbstractConfigurationAwareModule;
 import com.facebook.presto.metadata.DatabaseShardManager;
@@ -56,11 +56,19 @@ import com.google.inject.Scopes;
 import com.google.inject.TypeLiteral;
 import com.google.inject.multibindings.MapBinder;
 
+import java.util.concurrent.ExecutorService;
+
+import static com.facebook.presto.execution.DropTableExecution.DropTableExecutionFactory;
+import static com.facebook.presto.execution.QueryExecution.QueryExecutionFactory;
+import static com.facebook.presto.execution.SqlQueryExecution.SqlQueryExecutionFactory;
 import static com.google.inject.multibindings.MapBinder.newMapBinder;
+import static io.airlift.concurrent.Threads.threadsNamed;
 import static io.airlift.configuration.ConfigurationModule.bindConfig;
 import static io.airlift.discovery.client.DiscoveryBinder.discoveryBinder;
 import static io.airlift.http.client.HttpClientBinder.httpClientBinder;
 import static io.airlift.http.server.HttpServerBinder.httpServerBinder;
+import static java.util.concurrent.Executors.newCachedThreadPool;
+import static org.weakref.jmx.ObjectNames.generatedNameOf;
 import static org.weakref.jmx.guice.ExportBinder.newExporter;
 
 public class CoordinatorModule
@@ -111,27 +119,27 @@ public class CoordinatorModule
         binder.bind(ShardResource.class).in(Scopes.SINGLETON);
 
         // query execution
-        binder.bind(SqlQueryExecution.SqlQueryExecutionFactory.class).in(Scopes.SINGLETON);
-        newExporter(binder).export(SqlQueryExecution.SqlQueryExecutionFactory.class).withGeneratedName();
+        binder.bind(ExecutorService.class).annotatedWith(ForQueryExecution.class)
+                .toInstance(newCachedThreadPool(threadsNamed("query-execution-%d")));
+        binder.bind(QueryExecutionMBean.class).in(Scopes.SINGLETON);
+        newExporter(binder).export(QueryExecutionMBean.class).as(generatedNameOf(QueryExecution.class));
 
-        MapBinder<Class<? extends Statement>, QueryExecution.QueryExecutionFactory<?>> executionBinder = newMapBinder(binder,
-                new TypeLiteral<Class<? extends Statement>>() {},
-                new TypeLiteral<QueryExecution.QueryExecutionFactory<?>>() {}
-        );
+        MapBinder<Class<? extends Statement>, QueryExecutionFactory<?>> executionBinder = newMapBinder(binder,
+                new TypeLiteral<Class<? extends Statement>>() {}, new TypeLiteral<QueryExecutionFactory<?>>() {});
 
-        binder.bind(DropTableExecution.DropTableExecutionFactory.class).in(Scopes.SINGLETON);
-        executionBinder.addBinding(DropTable.class).to(DropTableExecution.DropTableExecutionFactory.class).in(Scopes.SINGLETON);
-        newExporter(binder).export(DropTableExecution.DropTableExecutionFactory.class).withGeneratedName();
+        binder.bind(DropTableExecutionFactory.class).in(Scopes.SINGLETON);
+        executionBinder.addBinding(DropTable.class).to(DropTableExecutionFactory.class).in(Scopes.SINGLETON);
 
-        executionBinder.addBinding(Query.class).to(SqlQueryExecution.SqlQueryExecutionFactory.class).in(Scopes.SINGLETON);
-        executionBinder.addBinding(Explain.class).to(SqlQueryExecution.SqlQueryExecutionFactory.class).in(Scopes.SINGLETON);
-        executionBinder.addBinding(ShowColumns.class).to(SqlQueryExecution.SqlQueryExecutionFactory.class).in(Scopes.SINGLETON);
-        executionBinder.addBinding(ShowPartitions.class).to(SqlQueryExecution.SqlQueryExecutionFactory.class).in(Scopes.SINGLETON);
-        executionBinder.addBinding(ShowFunctions.class).to(SqlQueryExecution.SqlQueryExecutionFactory.class).in(Scopes.SINGLETON);
-        executionBinder.addBinding(ShowTables.class).to(SqlQueryExecution.SqlQueryExecutionFactory.class).in(Scopes.SINGLETON);
-        executionBinder.addBinding(ShowSchemas.class).to(SqlQueryExecution.SqlQueryExecutionFactory.class).in(Scopes.SINGLETON);
-        executionBinder.addBinding(ShowCatalogs.class).to(SqlQueryExecution.SqlQueryExecutionFactory.class).in(Scopes.SINGLETON);
-        executionBinder.addBinding(UseCollection.class).to(SqlQueryExecution.SqlQueryExecutionFactory.class).in(Scopes.SINGLETON);
-        executionBinder.addBinding(CreateTable.class).to(SqlQueryExecution.SqlQueryExecutionFactory.class).in(Scopes.SINGLETON);
+        binder.bind(SqlQueryExecutionFactory.class).in(Scopes.SINGLETON);
+        executionBinder.addBinding(Query.class).to(SqlQueryExecutionFactory.class).in(Scopes.SINGLETON);
+        executionBinder.addBinding(Explain.class).to(SqlQueryExecutionFactory.class).in(Scopes.SINGLETON);
+        executionBinder.addBinding(ShowColumns.class).to(SqlQueryExecutionFactory.class).in(Scopes.SINGLETON);
+        executionBinder.addBinding(ShowPartitions.class).to(SqlQueryExecutionFactory.class).in(Scopes.SINGLETON);
+        executionBinder.addBinding(ShowFunctions.class).to(SqlQueryExecutionFactory.class).in(Scopes.SINGLETON);
+        executionBinder.addBinding(ShowTables.class).to(SqlQueryExecutionFactory.class).in(Scopes.SINGLETON);
+        executionBinder.addBinding(ShowSchemas.class).to(SqlQueryExecutionFactory.class).in(Scopes.SINGLETON);
+        executionBinder.addBinding(ShowCatalogs.class).to(SqlQueryExecutionFactory.class).in(Scopes.SINGLETON);
+        executionBinder.addBinding(UseCollection.class).to(SqlQueryExecutionFactory.class).in(Scopes.SINGLETON);
+        executionBinder.addBinding(CreateTable.class).to(SqlQueryExecutionFactory.class).in(Scopes.SINGLETON);
     }
 }

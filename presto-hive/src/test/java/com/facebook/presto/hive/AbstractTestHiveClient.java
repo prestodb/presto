@@ -488,7 +488,7 @@ public abstract class AbstractTestHiveClient
         // Reverse the order of bindings as compared to bucketing order
         ImmutableMap<ConnectorColumnHandle, Comparable<?>> bindings = ImmutableMap.<ConnectorColumnHandle, Comparable<?>>builder()
                 .put(columnHandles.get(columnIndex.get("t_int")), testInt)
-                .put(columnHandles.get(columnIndex.get("t_string")), testString)
+                .put(columnHandles.get(columnIndex.get("t_string")), utf8Slice(testString))
                 .put(columnHandles.get(columnIndex.get("t_smallint")), testSmallint)
                 .build();
 
@@ -526,7 +526,7 @@ public abstract class AbstractTestHiveClient
         Boolean testBoolean = true;
 
         ImmutableMap<ConnectorColumnHandle, Comparable<?>> bindings = ImmutableMap.<ConnectorColumnHandle, Comparable<?>>builder()
-                .put(columnHandles.get(columnIndex.get("t_string")), testString)
+                .put(columnHandles.get(columnIndex.get("t_string")), utf8Slice(testString))
                 .put(columnHandles.get(columnIndex.get("t_bigint")), testBigint)
                 .put(columnHandles.get(columnIndex.get("t_boolean")), testBoolean)
                 .build();

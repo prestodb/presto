@@ -10,7 +10,7 @@
 
     <groupId>com.facebook.presto</groupId>
     <artifactId>presto-root</artifactId>
-    <version>0.68-SNAPSHOT</version>
+    <version>0.69-SNAPSHOT</version>
     <packaging>pom</packaging>
 
     <name>presto-root</name>
@@ -63,6 +63,7 @@
         <module>presto-client</module>
         <module>presto-parser</module>
         <module>presto-main</module>
+        <module>presto-ml</module>
         <module>presto-jdbc</module>
         <module>presto-cli</module>
         <module>presto-server</module>
@@ -367,6 +368,12 @@
             </dependency>
 
             <dependency>
+                <groupId>tw.edu.ntu.csie</groupId>
+                <artifactId>libsvm</artifactId>
+                <version>3.17</version>
+            </dependency>
+
+            <dependency>
                 <groupId>org.jruby.jcodings</groupId>
                 <artifactId>jcodings</artifactId>
                 <version>1.0.8</version>
@@ -483,7 +490,7 @@
                     <configuration combine.children="append">
                         <argLine>-Duser.timezone=${test.timezone} -Xmx2g -Xms2g -XX:MaxPermSize=512m</argLine>
                         <parallel>methods</parallel>
-                        <threadCount>2</threadCount>
+                        <threadCount>4</threadCount>
                         <perCoreThreadCount>true</perCoreThreadCount>
                     </configuration>
                 </plugin>

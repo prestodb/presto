@@ -254,8 +254,8 @@ public final class DateTimeOperators
     }
 
     @ScalarOperator(SUBTRACT)
-    @SqlType(TimeWithTimeZoneType.class)
-    public static long timestampWithTimeZoneMinusIntervalYearToMonth(@SqlType(TimeWithTimeZoneType.class) long left, @SqlType(IntervalYearMonthType.class) long right)
+    @SqlType(TimestampWithTimeZoneType.class)
+    public static long timestampWithTimeZoneMinusIntervalYearToMonth(@SqlType(TimestampWithTimeZoneType.class) long left, @SqlType(IntervalYearMonthType.class) long right)
     {
         long dateTimeWithTimeZone = unpackChronology(left).monthOfYear().add(unpackMillisUtc(left), -right);
         return updateMillisUtc(dateTimeWithTimeZone, left);

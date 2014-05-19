@@ -29,7 +29,6 @@ import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.type.TypeRegistry;
 import com.google.common.base.Optional;
-import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -233,7 +232,7 @@ public class MetadataManager
         checkNotNull(prefix, "prefix is null");
 
         String schemaNameOrNull = prefix.getSchemaName().orNull();
-        LinkedHashSet<QualifiedTableName> tables = new LinkedHashSet<>();
+        Set<QualifiedTableName> tables = new LinkedHashSet<>();
         for (ConnectorMetadataEntry entry : allConnectorsFor(prefix.getCatalogName())) {
             for (QualifiedTableName tableName : transform(entry.getMetadata().listTables(session, schemaNameOrNull), convertFromSchemaTableName(prefix.getCatalogName()))) {
                 tables.add(tableName);
@@ -283,7 +282,7 @@ public class MetadataManager
     {
         checkNotNull(prefix, "prefix is null");
 
-        LinkedHashMap<QualifiedTableName, List<ColumnMetadata>> tableColumns = new LinkedHashMap<>();
+        Map<QualifiedTableName, List<ColumnMetadata>> tableColumns = new LinkedHashMap<>();
         for (ConnectorMetadataEntry connectorMetadata : allConnectorsFor(prefix.getCatalogName())) {
             for (Entry<SchemaTableName, List<ColumnMetadata>> entry : connectorMetadata.getMetadata().listTableColumns(session, prefix.asSchemaTablePrefix()).entrySet()) {
                 QualifiedTableName tableName = new QualifiedTableName(prefix.getCatalogName(), entry.getKey().getSchemaName(), entry.getKey().getTableName());
@@ -381,11 +380,8 @@ public class MetadataManager
 
         private ConnectorMetadataEntry(String connectorId, ConnectorMetadata metadata)
         {
-            Preconditions.checkNotNull(connectorId, "connectorId is null");
-            Preconditions.checkNotNull(metadata, "metadata is null");
-
-            this.connectorId = connectorId;
-            this.metadata = metadata;
+            this.connectorId =  checkNotNull(connectorId, "connectorId is null");
+            this.metadata = checkNotNull(metadata, "metadata is null");
         }
 
         private String getConnectorId()

@@ -18,6 +18,7 @@ import com.google.common.base.Objects;
 import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
 import io.airlift.log.Logger;
+import io.airlift.slice.Slice;
 import org.apache.hadoop.hive.metastore.api.Table;
 import org.apache.hadoop.hive.ql.io.DefaultHivePartitioner;
 import org.apache.hadoop.hive.ql.io.HiveKey;
@@ -27,6 +28,7 @@ import org.apache.hadoop.hive.serde2.objectinspector.ObjectInspector;
 import org.apache.hadoop.hive.serde2.objectinspector.PrimitiveObjectInspector;
 import org.apache.hadoop.hive.serde2.objectinspector.StructField;
 import org.apache.hadoop.hive.serde2.objectinspector.primitive.IntObjectInspector;
+import org.apache.hadoop.hive.serde2.typeinfo.PrimitiveTypeSpec;
 
 import java.util.HashMap;
 import java.util.List;
@@ -86,7 +88,7 @@ final class HiveBucketing
             if ((inspector == null) || (inspector.getCategory() != Category.PRIMITIVE)) {
                 return Optional.absent();
             }
-            if (!SUPPORTED_TYPES.contains(((PrimitiveObjectInspector) inspector).getPrimitiveCategory())) {
+            if (!SUPPORTED_TYPES.contains(((PrimitiveTypeSpec) inspector).getPrimitiveCategory())) {
                 return Optional.absent();
             }
         }
@@ -117,6 +119,7 @@ final class HiveBucketing
     public static Optional<HiveBucket> getHiveBucket(List<Entry<ObjectInspector, Object>> columnBindings, int bucketCount)
     {
         try {
+            @SuppressWarnings("resource")
             GenericUDFHash udf = new GenericUDFHash();
             ObjectInspector[] objectInspectors = new ObjectInspector[columnBindings.size()];
             DeferredObject[] deferredObjects = new DeferredObject[columnBindings.size()];
@@ -182,7 +185,7 @@ final class HiveBucketing
             case LONG:
                 return new DeferredJavaObject(object);
             case STRING:
-                return new DeferredJavaObject(object);
+                return new DeferredJavaObject(((Slice) object).toStringUtf8());
         }
         throw new RuntimeException("Unsupported type: " + poi.getPrimitiveCategory());
     }
