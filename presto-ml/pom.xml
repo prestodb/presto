@@ -22,7 +22,7 @@
         </dependency>
 
         <dependency>
-            <groupId>tw.edu.ntu.csie</groupId>
+            <groupId>com.facebook.thirdparty</groupId>
             <artifactId>libsvm</artifactId>
         </dependency>
 
@@ -52,6 +52,12 @@
         <dependency>
             <groupId>io.airlift</groupId>
             <artifactId>slice</artifactId>
+            <scope>provided</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>io.airlift</groupId>
+            <artifactId>concurrent</artifactId>
             <scope>provided</scope>
         </dependency>
 
