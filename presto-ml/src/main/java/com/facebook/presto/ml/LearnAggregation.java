@@ -104,7 +104,6 @@ public class LearnAggregation
         private final int labelChannel;
         private final int featuresChannel;
         private final boolean labelIsLong;
-        //TODO: these could get very big, so they should be reported like the estimated memory for GroupedAccumulator
         private final List<Double> labels = new ArrayList<>();
         private final List<FeatureVector> rows = new ArrayList<>();
 
