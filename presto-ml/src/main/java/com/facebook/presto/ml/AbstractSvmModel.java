@@ -15,6 +15,9 @@ package com.facebook.presto.ml;
 
 import com.google.common.base.Throwables;
 import com.google.common.io.Files;
+import com.google.common.util.concurrent.SimpleTimeLimiter;
+import com.google.common.util.concurrent.TimeLimiter;
+import io.airlift.concurrent.Threads;
 import libsvm.svm;
 import libsvm.svm_model;
 import libsvm.svm_node;
@@ -25,6 +28,10 @@ import java.io.File;
 import java.io.IOException;
 import java.util.List;
 import java.util.SortedMap;
+import java.util.concurrent.Callable;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 
@@ -85,8 +92,34 @@ public abstract class AbstractSvmModel
 
         svm_problem problem = toSvmProblem(dataset);
 
-        //TODO: we should probably run this in another thread, and put a bound on the running time
-        model = svm.svm_train(problem, param);
+        ExecutorService service = Executors.newCachedThreadPool(Threads.threadsNamed("libsvm-trainer-" + System.identityHashCode(this) + "-%d"));
+        try {
+            TimeLimiter limiter = new SimpleTimeLimiter(service);
+            //TODO: this time limit should be configurable
+            model = limiter.callWithTimeout(getTrainingFunction(problem, param), 1, TimeUnit.HOURS, true);
+        }
+        catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw Throwables.propagate(e);
+        }
+        catch (Exception e) {
+            throw Throwables.propagate(e);
+        }
+        finally {
+            service.shutdownNow();
+        }
+    }
+
+    private static Callable<svm_model> getTrainingFunction(final svm_problem problem, final svm_parameter param)
+    {
+        return new Callable<svm_model>() {
+            @Override
+            public svm_model call()
+                    throws Exception
+            {
+                return svm.svm_train(problem, param);
+            }
+        };
     }
 
     protected abstract int getLibsvmType();

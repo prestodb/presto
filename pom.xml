@@ -383,9 +383,9 @@
             </dependency>
 
             <dependency>
-                <groupId>tw.edu.ntu.csie</groupId>
+                <groupId>com.facebook.thirdparty</groupId>
                 <artifactId>libsvm</artifactId>
-                <version>3.17</version>
+                <version>3.18.1</version>
             </dependency>
 
             <dependency>
