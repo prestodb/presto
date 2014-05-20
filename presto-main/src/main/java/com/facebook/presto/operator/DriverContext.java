@@ -142,7 +142,7 @@ public class DriverContext
 
     public DataSize getOperatorPreAllocatedMemory()
     {
-        return pipelineContext.getMaxMemorySize();
+        return pipelineContext.getOperatorPreAllocatedMemory();
     }
 
     public boolean reserveMemory(long bytes)
