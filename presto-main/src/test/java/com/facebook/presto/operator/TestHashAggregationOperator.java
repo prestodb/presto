@@ -152,6 +152,7 @@ public class TestHashAggregationOperator
         toPages(operator, input);
     }
 
+    @Test
     public void testHashBuilderResize()
     {
         BlockBuilder builder = VARCHAR.createBlockBuilder(new BlockBuilderStatus());
@@ -165,7 +166,7 @@ public class TestHashAggregationOperator
                 .build();
 
         ConnectorSession session = new ConnectorSession("user", "source", "catalog", "schema", UTC_KEY, Locale.ENGLISH, "address", "agent");
-        DriverContext driverContext = new TaskContext(new TaskId("query", "stage", "task"), executor, session, new DataSize(3, Unit.MEGABYTE))
+        DriverContext driverContext = new TaskContext(new TaskId("query", "stage", "task"), executor, session, new DataSize(10, Unit.MEGABYTE))
                 .addPipelineContext(true, true)
                 .addDriverContext();
 
