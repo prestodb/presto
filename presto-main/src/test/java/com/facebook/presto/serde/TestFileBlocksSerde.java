@@ -26,7 +26,7 @@ import org.testng.annotations.Test;
 import java.util.List;
 
 import static com.facebook.presto.serde.BlocksFileReader.readBlocks;
-import static com.facebook.presto.serde.TestingBlockEncodingManager.createTestingBlockEncodingManager;
+import static com.facebook.presto.testing.TestingBlockEncodingManager.createTestingBlockEncodingManager;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static org.testng.Assert.assertEquals;
 

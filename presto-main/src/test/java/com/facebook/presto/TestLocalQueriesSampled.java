@@ -14,10 +14,10 @@
 package com.facebook.presto;
 
 import com.facebook.presto.spi.ConnectorSession;
-import com.facebook.presto.tpch.SampledTpchConnectorFactory;
+import com.facebook.presto.tpch.testing.SampledTpchConnectorFactory;
 import com.facebook.presto.tpch.TpchMetadata;
-import com.facebook.presto.util.LocalQueryRunner;
-import com.facebook.presto.util.MaterializedResult;
+import com.facebook.presto.testing.LocalQueryRunner;
+import com.facebook.presto.testing.MaterializedResult;
 import com.google.common.collect.ImmutableMap;
 import org.intellij.lang.annotations.Language;
 import org.testng.annotations.AfterClass;

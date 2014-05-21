@@ -13,8 +13,8 @@
  */
 package com.facebook.presto;
 
-import com.facebook.presto.util.MaterializedResult;
-import com.facebook.presto.util.MaterializedRow;
+import com.facebook.presto.testing.MaterializedResult;
+import com.facebook.presto.testing.MaterializedRow;
 import io.airlift.log.Logger;
 import io.airlift.units.Duration;
 import org.intellij.lang.annotations.Language;
