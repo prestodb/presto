@@ -25,7 +25,7 @@ import java.util.Random;
 import static com.facebook.presto.operator.aggregation.AggregationTestUtils.approximateAggregationWithinErrorBound;
 import static com.facebook.presto.operator.aggregation.AggregationTestUtils.assertApproximateAggregation;
 import static com.facebook.presto.operator.aggregation.LongSumAggregation.LONG_SUM;
-import static com.facebook.presto.serde.TestingBlockEncodingManager.createTestingBlockEncodingManager;
+import static com.facebook.presto.testing.TestingBlockEncodingManager.createTestingBlockEncodingManager;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static org.testng.Assert.assertTrue;
 

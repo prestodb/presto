@@ -64,6 +64,7 @@
         <module>presto-parser</module>
         <module>presto-main</module>
         <module>presto-ml</module>
+        <module>presto-benchmark</module>
         <module>presto-jdbc</module>
         <module>presto-cli</module>
         <module>presto-server</module>
