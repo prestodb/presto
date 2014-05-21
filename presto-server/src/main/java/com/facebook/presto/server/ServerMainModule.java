@@ -234,8 +234,12 @@ public class ServerMainModule
         ServiceAnnouncementBuilder prestoAnnouncement = discoveryBinder(binder).bindHttpAnnouncement("presto")
                 .addProperty("node_version", nodeVersion.toString());
 
-        if (serverConfig.getDataSources() != null && !serverConfig.getDataSources().isEmpty()) {
-            if (serverConfig.isCoordinator() && !serverConfig.getDataSources().contains(SYSTEM_DATASOURCE)) {
+        if (serverConfig.getDataSources() == null || serverConfig.getDataSources().isEmpty()) {
+            prestoAnnouncement.addProperty("datasources", SYSTEM_DATASOURCE);
+        }
+        else {
+            // TODO: this should only be need in the coordinator, but the dual table is considered a system table
+            if (!serverConfig.getDataSources().contains(SYSTEM_DATASOURCE)) {
                 prestoAnnouncement.addProperty("datasources", serverConfig.getDataSources() + "," + SYSTEM_DATASOURCE);
             }
             else {
