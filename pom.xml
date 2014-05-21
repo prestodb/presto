@@ -66,6 +66,7 @@
         <module>presto-main</module>
         <module>presto-ml</module>
         <module>presto-benchmark</module>
+        <module>presto-tests</module>
         <module>presto-jdbc</module>
         <module>presto-cli</module>
         <module>presto-server</module>
@@ -175,6 +176,12 @@
                 <artifactId>presto-server</artifactId>
                 <version>${project.version}</version>
                 <type>test-jar</type>
+            </dependency>
+
+            <dependency>
+                <groupId>com.facebook.presto</groupId>
+                <artifactId>presto-tests</artifactId>
+                <version>${project.version}</version>
             </dependency>
 
             <dependency>

@@ -24,8 +24,8 @@ import org.intellij.lang.annotations.Language;
 import java.util.Locale;
 import java.util.concurrent.ExecutorService;
 
-import static com.facebook.presto.AbstractTestQueries.assertEqualsIgnoreOrder;
 import static com.facebook.presto.spi.type.TimeZoneKey.UTC_KEY;
+import static io.airlift.testing.Assertions.assertEqualsIgnoreOrder;
 import static java.lang.String.format;
 
 public final class WindowAssertions
