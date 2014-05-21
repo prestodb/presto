@@ -31,6 +31,7 @@ import javax.inject.Inject;
 
 import java.util.List;
 
+import static com.facebook.presto.connector.system.SystemSplitManager.SYSTEM_DATASOURCE;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 
@@ -69,7 +70,7 @@ public class DualSplitManager
     {
         checkNotNull(partitions, "partitions is null");
         if (partitions.isEmpty()) {
-            return new FixedSplitSource(null, ImmutableList.<ConnectorSplit>of());
+            return new FixedSplitSource(SYSTEM_DATASOURCE, ImmutableList.<ConnectorSplit>of());
         }
 
         ConnectorPartition partition = Iterables.getOnlyElement(partitions);
@@ -77,7 +78,7 @@ public class DualSplitManager
 
         ConnectorSplit split = new DualSplit(nodeManager.getCurrentNode().getHostAndPort());
 
-        return new FixedSplitSource(null, ImmutableList.of(split));
+        return new FixedSplitSource(SYSTEM_DATASOURCE, ImmutableList.of(split));
     }
 
     public static class DualPartition
