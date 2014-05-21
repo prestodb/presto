@@ -183,11 +183,6 @@
             <artifactId>annotations</artifactId>
         </dependency>
 
-        <dependency>
-            <groupId>com.intellij</groupId>
-            <artifactId>annotations</artifactId>
-        </dependency>
-
         <!-- for testing -->
         <dependency>
             <groupId>org.testng</groupId>
