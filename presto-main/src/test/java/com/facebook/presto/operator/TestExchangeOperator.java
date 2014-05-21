@@ -58,7 +58,7 @@ import static com.facebook.presto.client.PrestoHeaders.PRESTO_PAGE_NEXT_TOKEN;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_PAGE_TOKEN;
 import static com.facebook.presto.operator.PageAssertions.assertPageEquals;
 import static com.facebook.presto.operator.SequencePageBuilder.createSequencePage;
-import static com.facebook.presto.serde.TestingBlockEncodingManager.createTestingBlockEncodingManager;
+import static com.facebook.presto.testing.TestingBlockEncodingManager.createTestingBlockEncodingManager;
 import static com.facebook.presto.spi.type.TimeZoneKey.UTC_KEY;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;

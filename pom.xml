@@ -60,10 +60,12 @@
         <module>presto-hive-cdh5</module>
         <module>presto-example-http</module>
         <module>presto-tpch</module>
+        <module>presto-raptor</module>
         <module>presto-client</module>
         <module>presto-parser</module>
         <module>presto-main</module>
         <module>presto-ml</module>
+        <module>presto-benchmark</module>
         <module>presto-jdbc</module>
         <module>presto-cli</module>
         <module>presto-server</module>
@@ -115,6 +117,12 @@
             <dependency>
                 <groupId>com.facebook.presto</groupId>
                 <artifactId>presto-tpch</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>com.facebook.presto</groupId>
+                <artifactId>presto-raptor</artifactId>
                 <version>${project.version}</version>
             </dependency>
 

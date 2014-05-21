@@ -117,8 +117,6 @@ The following is a minimal configuration for the coordinator:
     coordinator=true
     datasources=jmx
     http-server.http.port=8080
-    presto-metastore.db.type=h2
-    presto-metastore.db.filename=var/db/MetaStore
     task.max-memory=1GB
     discovery-server.enabled=true
     discovery.uri=http://example.net:8080
@@ -130,8 +128,6 @@ And this is a minimal configuration for the workers:
     coordinator=false
     datasources=jmx,hive
     http-server.http.port=8080
-    presto-metastore.db.type=h2
-    presto-metastore.db.filename=var/db/MetaStore
     task.max-memory=1GB
     discovery.uri=http://example.net:8080
 
@@ -148,13 +144,6 @@ These properties require some explanation:
 * ``http-server.http.port``:
   Specifies the port for the HTTP server. Presto uses HTTP for all
   communication, internal and external.
-
-* ``presto-metastore.db.filename``:
-  The location of the local H2 database used for storing metadata.
-  Currently, this is mainly used by features that are still in
-  development and thus a local database suffices.
-  Also, this should only be needed by the coordinator, but currently
-  it is also required for workers.
 
 * ``task.max-memory=1GB``:
   The maximum amount of memory used by a single task

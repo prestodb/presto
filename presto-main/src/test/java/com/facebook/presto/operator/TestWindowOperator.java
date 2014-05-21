@@ -20,7 +20,7 @@ import com.facebook.presto.operator.window.RowNumberFunction;
 import com.facebook.presto.operator.window.WindowFunction;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.block.SortOrder;
-import com.facebook.presto.util.MaterializedResult;
+import com.facebook.presto.testing.MaterializedResult;
 import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Ints;
 import io.airlift.units.DataSize;
@@ -41,7 +41,7 @@ import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.TimeZoneKey.UTC_KEY;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
-import static com.facebook.presto.util.MaterializedResult.resultBuilder;
+import static com.facebook.presto.testing.MaterializedResult.resultBuilder;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 

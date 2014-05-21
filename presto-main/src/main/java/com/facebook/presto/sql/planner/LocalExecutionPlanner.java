@@ -16,7 +16,6 @@ package com.facebook.presto.sql.planner;
 import com.facebook.presto.block.BlockUtils;
 import com.facebook.presto.index.IndexManager;
 import com.facebook.presto.metadata.ColumnHandle;
-import com.facebook.presto.metadata.LocalStorageManager;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.operator.AggregationFunctionDefinition;
@@ -158,7 +157,6 @@ public class LocalExecutionPlanner
 
     private final DataStreamProvider dataStreamProvider;
     private final IndexManager indexManager;
-    private final LocalStorageManager storageManager;
     private final RecordSinkManager recordSinkManager;
     private final Supplier<ExchangeClient> exchangeClientSupplier;
     private final ExpressionCompiler compiler;
@@ -168,7 +166,6 @@ public class LocalExecutionPlanner
             Metadata metadata,
             DataStreamProvider dataStreamProvider,
             IndexManager indexManager,
-            LocalStorageManager storageManager,
             RecordSinkManager recordSinkManager,
             Supplier<ExchangeClient> exchangeClientSupplier,
             ExpressionCompiler compiler)
@@ -178,7 +175,6 @@ public class LocalExecutionPlanner
         this.indexManager = checkNotNull(indexManager, "indexManager is null");
         this.exchangeClientSupplier = exchangeClientSupplier;
         this.metadata = checkNotNull(metadata, "metadata is null");
-        this.storageManager = checkNotNull(storageManager, "storageManager is null");
         this.recordSinkManager = checkNotNull(recordSinkManager, "recordSinkManager is null");
         this.compiler = checkNotNull(compiler, "compiler is null");
     }

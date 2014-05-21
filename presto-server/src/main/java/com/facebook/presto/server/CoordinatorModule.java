@@ -22,20 +22,9 @@ import com.facebook.presto.execution.QueryIdGenerator;
 import com.facebook.presto.execution.QueryManager;
 import com.facebook.presto.execution.QueryManagerConfig;
 import com.facebook.presto.execution.SqlQueryManager;
-import com.facebook.presto.guice.AbstractConfigurationAwareModule;
-import com.facebook.presto.metadata.DatabaseShardManager;
 import com.facebook.presto.metadata.DiscoveryNodeManager;
-import com.facebook.presto.metadata.ForShardCleaner;
 import com.facebook.presto.metadata.InternalNodeManager;
-import com.facebook.presto.metadata.NativeConnectorId;
-import com.facebook.presto.metadata.NativeMetadata;
-import com.facebook.presto.metadata.NativeRecordSinkProvider;
-import com.facebook.presto.metadata.ShardCleaner;
-import com.facebook.presto.metadata.ShardCleanerConfig;
-import com.facebook.presto.metadata.ShardManager;
 import com.facebook.presto.spi.NodeManager;
-import com.facebook.presto.split.NativeDataStreamProvider;
-import com.facebook.presto.split.NativeSplitManager;
 import com.facebook.presto.split.SplitManager;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.sql.tree.CreateTable;
@@ -52,6 +41,7 @@ import com.facebook.presto.sql.tree.Statement;
 import com.facebook.presto.sql.tree.UseCollection;
 import com.google.inject.Binder;
 import com.google.inject.Key;
+import com.google.inject.Module;
 import com.google.inject.Scopes;
 import com.google.inject.TypeLiteral;
 import com.google.inject.multibindings.MapBinder;
@@ -65,17 +55,16 @@ import static com.google.inject.multibindings.MapBinder.newMapBinder;
 import static io.airlift.concurrent.Threads.threadsNamed;
 import static io.airlift.configuration.ConfigurationModule.bindConfig;
 import static io.airlift.discovery.client.DiscoveryBinder.discoveryBinder;
-import static io.airlift.http.client.HttpClientBinder.httpClientBinder;
 import static io.airlift.http.server.HttpServerBinder.httpServerBinder;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static org.weakref.jmx.ObjectNames.generatedNameOf;
 import static org.weakref.jmx.guice.ExportBinder.newExporter;
 
 public class CoordinatorModule
-        extends AbstractConfigurationAwareModule
+        implements Module
 {
     @Override
-    protected void setup(Binder binder)
+    public void configure(Binder binder)
     {
         // TODO: currently, this module is ALWAYS installed (even for non-coordinators)
 
@@ -94,13 +83,6 @@ public class CoordinatorModule
         // analyzer
         bindConfig(binder).to(FeaturesConfig.class);
 
-        // native
-        binder.bind(NativeConnectorId.class).toInstance(new NativeConnectorId("default"));
-        binder.bind(NativeMetadata.class).in(Scopes.SINGLETON);
-        binder.bind(NativeSplitManager.class).in(Scopes.SINGLETON);
-        binder.bind(NativeDataStreamProvider.class).in(Scopes.SINGLETON);
-        binder.bind(NativeRecordSinkProvider.class).in(Scopes.SINGLETON);
-
         // split manager
         binder.bind(SplitManager.class).in(Scopes.SINGLETON);
 
@@ -110,13 +92,6 @@ public class CoordinatorModule
         bindConfig(binder).to(NodeSchedulerConfig.class);
         binder.bind(NodeScheduler.class).in(Scopes.SINGLETON);
         newExporter(binder).export(NodeScheduler.class).withGeneratedName();
-
-        // shard management
-        binder.bind(ShardManager.class).to(DatabaseShardManager.class).in(Scopes.SINGLETON);
-        bindConfig(binder).to(ShardCleanerConfig.class);
-        binder.bind(ShardCleaner.class).in(Scopes.SINGLETON);
-        httpClientBinder(binder).bindHttpClient("shard-cleaner", ForShardCleaner.class);
-        binder.bind(ShardResource.class).in(Scopes.SINGLETON);
 
         // query execution
         binder.bind(ExecutorService.class).annotatedWith(ForQueryExecution.class)
