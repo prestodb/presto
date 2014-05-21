@@ -50,15 +50,6 @@ public class TestJsonTableHandle
 {
     private static final ConnectorSession SESSION = new ConnectorSession("user", "test", "default", "default", UTC_KEY, Locale.ENGLISH, null, null);
 
-    private static final Map<String, Object> NATIVE_AS_MAP = ImmutableMap.<String, Object>of("type", "native",
-            "schemaName", "native_schema",
-            "tableName", "native_table",
-            "tableId", 1,
-            "sampleWeightColumnHandle", ImmutableMap.<String, Object>of("type", "native",
-                "columnName", NativeColumnHandle.SAMPLE_WEIGHT_COLUMN_NAME,
-                "columnId", 1)
-            );
-
     private static final Map<String, Object> SYSTEM_AS_MAP = ImmutableMap.<String, Object>of("type", "system",
             "schemaName", "system_schema",
             "tableName", "system_table");
@@ -96,7 +87,6 @@ public class TestJsonTableHandle
                     public void configure(Binder binder)
                     {
                         MapBinder<String, ConnectorHandleResolver> connectorHandleResolverBinder = MapBinder.newMapBinder(binder, String.class, ConnectorHandleResolver.class);
-                        connectorHandleResolverBinder.addBinding("native").to(NativeHandleResolver.class).in(Scopes.SINGLETON);
                         connectorHandleResolverBinder.addBinding("system").to(SystemHandleResolver.class).in(Scopes.SINGLETON);
                         connectorHandleResolverBinder.addBinding("dual").to(DualHandleResolver.class).in(Scopes.SINGLETON);
                         connectorHandleResolverBinder.addBinding("information_schema").to(InformationSchemaHandleResolver.class).in(Scopes.SINGLETON);
@@ -104,17 +94,6 @@ public class TestJsonTableHandle
                 });
 
         objectMapper = injector.getInstance(ObjectMapper.class);
-    }
-
-    @Test
-    public void testNativeSerialize()
-            throws Exception
-    {
-        NativeTableHandle nativeHandle = new NativeTableHandle("native_schema", "native_table", 1, new NativeColumnHandle(NativeColumnHandle.SAMPLE_WEIGHT_COLUMN_NAME, 1));
-
-        assertTrue(objectMapper.canSerialize(NativeTableHandle.class));
-        String json = objectMapper.writeValueAsString(nativeHandle);
-        testJsonEquals(json, NATIVE_AS_MAP);
     }
 
     @Test
@@ -149,24 +128,9 @@ public class TestJsonTableHandle
                 "information_schema_schema",
                 "information_schema_table");
 
-        assertTrue(objectMapper.canSerialize(NativeTableHandle.class));
+        assertTrue(objectMapper.canSerialize(InformationSchemaTableHandle.class));
         String json = objectMapper.writeValueAsString(informationSchemaTableHandle);
         testJsonEquals(json, INFORMATION_SCHEMA_AS_MAP);
-    }
-
-    @Test
-    public void testNativeDeserialize()
-            throws Exception
-    {
-        String json = objectMapper.writeValueAsString(NATIVE_AS_MAP);
-
-        ConnectorTableHandle tableHandle = objectMapper.readValue(json, ConnectorTableHandle.class);
-        assertEquals(tableHandle.getClass(), NativeTableHandle.class);
-        NativeTableHandle nativeHandle = (NativeTableHandle) tableHandle;
-
-        assertEquals(nativeHandle.getTableId(), 1);
-        assertEquals(nativeHandle.getSchemaName(), "native_schema");
-        assertEquals(nativeHandle.getTableName(), "native_table");
     }
 
     @Test

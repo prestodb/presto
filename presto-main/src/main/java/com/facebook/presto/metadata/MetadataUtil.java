@@ -34,15 +34,6 @@ public final class MetadataUtil
 {
     private MetadataUtil() {}
 
-    public static QualifiedTableName checkTable(QualifiedTableName table)
-    {
-        checkNotNull(table, "table is null");
-        checkCatalogName(table.getCatalogName());
-        checkSchemaName(table.getSchemaName());
-        checkTableName(table.getTableName());
-        return table;
-    }
-
     public static void checkTableName(String catalogName, Optional<String> schemaName, Optional<String> tableName)
     {
         checkCatalogName(catalogName);

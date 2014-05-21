@@ -30,9 +30,7 @@ import com.facebook.presto.index.IndexManager;
 import com.facebook.presto.metadata.ColumnHandle;
 import com.facebook.presto.metadata.HandleResolver;
 import com.facebook.presto.metadata.InMemoryNodeManager;
-import com.facebook.presto.metadata.LocalStorageManager;
 import com.facebook.presto.metadata.MetadataManager;
-import com.facebook.presto.metadata.MockLocalStorageManager;
 import com.facebook.presto.metadata.OutputTableHandleResolver;
 import com.facebook.presto.metadata.Partition;
 import com.facebook.presto.metadata.PartitionResult;
@@ -104,13 +102,13 @@ public class LocalQueryRunner
     private final ConnectorSession session;
     private final ExecutorService executor;
 
+    private final NodeInfo nodeInfo;
     private final InMemoryNodeManager nodeManager;
     private final TypeRegistry typeRegistry;
     private final MetadataManager metadata;
     private final SplitManager splitManager;
     private final DataStreamManager dataStreamProvider;
     private final IndexManager indexManager;
-    private final LocalStorageManager storageManager;
     private final RecordSinkManager recordSinkManager;
 
     private final ExpressionCompiler compiler;
@@ -123,6 +121,7 @@ public class LocalQueryRunner
         this.session = checkNotNull(session, "session is null");
         this.executor = checkNotNull(executor, "executor is null");
 
+        this.nodeInfo = new NodeInfo(new NodeConfig().setEnvironment("test").setNodeId("local"));
         this.nodeManager = new InMemoryNodeManager();
         this.typeRegistry = new TypeRegistry();
         this.metadata = new MetadataManager(new FeaturesConfig().setExperimentalSyntaxEnabled(true), typeRegistry);
@@ -130,7 +129,6 @@ public class LocalQueryRunner
         this.dataStreamProvider = new DataStreamManager();
         this.indexManager = new IndexManager();
         this.recordSinkManager = new RecordSinkManager();
-        this.storageManager = MockLocalStorageManager.createMockLocalStorageManager();
 
         this.compiler = new ExpressionCompiler(metadata);
 
@@ -293,7 +291,6 @@ public class LocalQueryRunner
                 metadata,
                 dataStreamProvider,
                 indexManager,
-                storageManager,
                 recordSinkManager,
                 null,
                 compiler);

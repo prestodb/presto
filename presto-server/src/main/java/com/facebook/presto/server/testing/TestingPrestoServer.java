@@ -87,9 +87,6 @@ public class TestingPrestoServer
         ImmutableMap.Builder<String, String> serverProperties = ImmutableMap.<String, String>builder()
                 .putAll(properties)
                 .put("coordinator", String.valueOf(coordinator))
-                .put("storage-manager.data-directory", baseDataDir.toString())
-                .put("presto-metastore.db.type", "h2")
-                .put("presto-metastore.db.filename", baseDataDir.resolve("db/MetaStore").toString())
                 .put("presto.version", "testversion")
                 .put("analyzer.experimental-syntax-enabled", "true");
 
@@ -135,7 +132,6 @@ public class TestingPrestoServer
         pluginManager = injector.getInstance(PluginManager.class);
 
         connectorManager = injector.getInstance(ConnectorManager.class);
-        connectorManager.createConnection(TEST_CATALOG, "native", ImmutableMap.<String, String>of());
 
         server = injector.getInstance(TestingHttpServer.class);
         metadata = injector.getInstance(Metadata.class);
@@ -161,10 +157,24 @@ public class TestingPrestoServer
         }
     }
 
-    public void installPlugin(Plugin plugin, String catalogName, String connectorName)
+    public void installPlugin(Plugin plugin)
     {
         pluginManager.installPlugin(plugin);
-        connectorManager.createConnection(catalogName, connectorName, ImmutableMap.<String, String>of());
+    }
+
+    public void createConnection(String catalogName, String connectorName)
+    {
+        createConnection(catalogName, connectorName, ImmutableMap.<String, String>of());
+    }
+
+    public void createConnection(String catalogName, String connectorName, Map<String, String> properties)
+    {
+        connectorManager.createConnection(catalogName, connectorName, properties);
+    }
+
+    public Path getBaseDataDir()
+    {
+        return baseDataDir;
     }
 
     public URI getBaseUrl()

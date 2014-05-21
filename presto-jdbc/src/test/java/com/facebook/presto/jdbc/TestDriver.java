@@ -14,6 +14,7 @@
 package com.facebook.presto.jdbc;
 
 import com.facebook.presto.server.testing.TestingPrestoServer;
+import com.facebook.presto.tpch.TpchPlugin;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.log.Logging;
@@ -60,6 +61,8 @@ public class TestDriver
     {
         Logging.initialize();
         server = new TestingPrestoServer();
+        server.installPlugin(new TpchPlugin());
+        server.createConnection("default", "tpch"); // TODO: change catalog name
     }
 
     @AfterClass
@@ -197,15 +200,15 @@ public class TestDriver
     {
         try (Connection connection = createConnection()) {
             try (ResultSet rs = connection.getMetaData().getSchemas()) {
-                assertGetSchemasResult(rs, 2);
+                assertGetSchemasResult(rs, 11);
             }
 
             try (ResultSet rs = connection.getMetaData().getSchemas(null, null)) {
-                assertGetSchemasResult(rs, 2);
+                assertGetSchemasResult(rs, 11);
             }
 
             try (ResultSet rs = connection.getMetaData().getSchemas(TEST_CATALOG, null)) {
-                assertGetSchemasResult(rs, 2);
+                assertGetSchemasResult(rs, 11);
             }
 
             try (ResultSet rs = connection.getMetaData().getSchemas("", null)) {
@@ -225,8 +228,8 @@ public class TestDriver
                 assertGetSchemasResult(rs, 1);
             }
 
-            try (ResultSet rs = connection.getMetaData().getSchemas(null, "%s%")) {
-                assertGetSchemasResult(rs, 2);
+            try (ResultSet rs = connection.getMetaData().getSchemas(null, "sf%")) {
+                assertGetSchemasResult(rs, 8);
             }
 
             try (ResultSet rs = connection.getMetaData().getSchemas("unknown", null)) {
