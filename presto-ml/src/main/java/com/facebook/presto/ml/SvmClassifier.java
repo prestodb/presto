@@ -33,6 +33,12 @@ public class SvmClassifier
 {
     public SvmClassifier()
     {
+        this(LibSvmUtils.parseParameters(""));
+    }
+
+    public SvmClassifier(svm_parameter params)
+    {
+        super(params);
     }
 
     private SvmClassifier(svm_model model)
