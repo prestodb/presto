@@ -16,7 +16,6 @@ package com.facebook.presto.execution;
 import com.facebook.presto.execution.StateMachine.StateChangeListener;
 import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.metadata.QualifiedTableName;
-import com.facebook.presto.metadata.ShardManager;
 import com.facebook.presto.metadata.TableHandle;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.sql.analyzer.SemanticException;
@@ -143,7 +142,6 @@ public class DropTableExecution
         @Inject
         DropTableExecutionFactory(LocationFactory locationFactory,
                 MetadataManager metadataManager,
-                ShardManager shardManager,
                 @ForQueryExecution ExecutorService executor)
         {
             this.locationFactory = checkNotNull(locationFactory, "locationFactory is null");

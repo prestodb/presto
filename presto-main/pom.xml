@@ -88,11 +88,6 @@
 
         <dependency>
             <groupId>io.airlift</groupId>
-            <artifactId>dbpool</artifactId>
-        </dependency>
-
-        <dependency>
-            <groupId>io.airlift</groupId>
             <artifactId>event</artifactId>
         </dependency>
 
@@ -179,13 +174,13 @@
         </dependency>
 
         <dependency>
-            <groupId>org.jdbi</groupId>
-            <artifactId>jdbi</artifactId>
+            <groupId>org.iq80.snappy</groupId>
+            <artifactId>snappy</artifactId>
         </dependency>
 
         <dependency>
-            <groupId>org.iq80.snappy</groupId>
-            <artifactId>snappy</artifactId>
+            <groupId>com.intellij</groupId>
+            <artifactId>annotations</artifactId>
         </dependency>
 
         <dependency>
@@ -203,6 +198,12 @@
         <dependency>
             <groupId>com.facebook.presto</groupId>
             <artifactId>presto-tpch</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>org.jdbi</groupId>
+            <artifactId>jdbi</artifactId>
             <scope>test</scope>
         </dependency>
 

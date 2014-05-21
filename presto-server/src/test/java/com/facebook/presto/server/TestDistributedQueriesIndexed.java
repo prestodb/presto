@@ -272,7 +272,8 @@ public class TestDistributedQueriesIndexed
                 .build();
 
         TestingPrestoServer server = new TestingPrestoServer(coordinator, properties, ENVIRONMENT, discoveryUri, ImmutableList.<Module>of());
-        server.installPlugin(new IndexedTpchPlugin(getTpchIndexSpec()), "tpch_indexed", "tpch_indexed");
+        server.installPlugin(new IndexedTpchPlugin(getTpchIndexSpec()));
+        server.createConnection("tpch_indexed", "tpch_indexed");
         return server;
     }
 }
