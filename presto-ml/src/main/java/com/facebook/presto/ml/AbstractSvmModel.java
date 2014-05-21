@@ -39,9 +39,11 @@ public abstract class AbstractSvmModel
         implements Model
 {
     protected svm_model model;
+    protected svm_parameter params;
 
-    protected AbstractSvmModel()
+    protected AbstractSvmModel(svm_parameter params)
     {
+        this.params = checkNotNull(params, "params is null");
     }
 
     protected AbstractSvmModel(svm_model model)
@@ -72,23 +74,7 @@ public abstract class AbstractSvmModel
     @Override
     public void train(Dataset dataset)
     {
-        svm_parameter param = new svm_parameter();
-        // default values
-        param.svm_type = getLibsvmType();
-        param.kernel_type = svm_parameter.LINEAR;
-        param.degree = 3;
-        param.gamma = 0;
-        param.coef0 = 0;
-        param.nu = 0.5;
-        param.cache_size = 100;
-        param.C = 1;
-        param.eps = 0.1;
-        param.p = 0.1;
-        param.shrinking = 1;
-        param.probability = 0;
-        param.nr_weight = 0;
-        param.weight_label = new int[0];
-        param.weight = new double[0];
+        params.svm_type = getLibsvmType();
 
         svm_problem problem = toSvmProblem(dataset);
 
@@ -96,7 +82,7 @@ public abstract class AbstractSvmModel
         try {
             TimeLimiter limiter = new SimpleTimeLimiter(service);
             //TODO: this time limit should be configurable
-            model = limiter.callWithTimeout(getTrainingFunction(problem, param), 1, TimeUnit.HOURS, true);
+            model = limiter.callWithTimeout(getTrainingFunction(problem, params), 1, TimeUnit.HOURS, true);
         }
         catch (InterruptedException e) {
             Thread.currentThread().interrupt();

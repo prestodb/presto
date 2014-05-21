@@ -33,6 +33,12 @@ public class SvmRegressor
 {
     public SvmRegressor()
     {
+        this(LibSvmUtils.parseParameters(""));
+    }
+
+    public SvmRegressor(svm_parameter params)
+    {
+        super(params);
     }
 
     private SvmRegressor(svm_model model)

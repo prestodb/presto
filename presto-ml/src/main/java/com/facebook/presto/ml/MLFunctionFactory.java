@@ -35,6 +35,10 @@ public class MLFunctionFactory
             .aggregate("learn_classifier", CLASSIFIER, ImmutableList.of(DOUBLE, VARCHAR), UNKNOWN, new LearnAggregation(CLASSIFIER, DOUBLE))
             .aggregate("learn_regressor", REGRESSOR, ImmutableList.of(BIGINT, VARCHAR), UNKNOWN, new LearnAggregation(REGRESSOR, BIGINT))
             .aggregate("learn_regressor", REGRESSOR, ImmutableList.of(DOUBLE, VARCHAR), UNKNOWN, new LearnAggregation(REGRESSOR, DOUBLE))
+            .aggregate("learn_libsvm_classifier", CLASSIFIER, ImmutableList.of(BIGINT, VARCHAR, VARCHAR), UNKNOWN, new LearnLibSvmAggregation(CLASSIFIER, BIGINT))
+            .aggregate("learn_libsvm_classifier", CLASSIFIER, ImmutableList.of(DOUBLE, VARCHAR, VARCHAR), UNKNOWN, new LearnLibSvmAggregation(CLASSIFIER, DOUBLE))
+            .aggregate("learn_libsvm_regressor", REGRESSOR, ImmutableList.of(BIGINT, VARCHAR, VARCHAR), UNKNOWN, new LearnLibSvmAggregation(REGRESSOR, BIGINT))
+            .aggregate("learn_libsvm_regressor", REGRESSOR, ImmutableList.of(DOUBLE, VARCHAR, VARCHAR), UNKNOWN, new LearnLibSvmAggregation(REGRESSOR, DOUBLE))
             .aggregate("evaluate_classifier_predictions", VARCHAR, ImmutableList.of(BIGINT, BIGINT), UNKNOWN, new EvaluateClassifierPredictionsAggregation())
             .scalar(MLFunctions.class)
             .getFunctions();
