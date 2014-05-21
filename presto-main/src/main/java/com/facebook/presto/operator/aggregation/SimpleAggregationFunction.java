@@ -81,7 +81,7 @@ public abstract class SimpleAggregationFunction
         return createGroupedAccumulator(Optional.<Integer>absent(), Optional.<Integer>absent(), confidence, -1);
     }
 
-    protected static long computeSampleWeight(@Nullable BlockCursor masks, @Nullable BlockCursor sampleWeights)
+    public static long computeSampleWeight(@Nullable BlockCursor masks, @Nullable BlockCursor sampleWeights)
     {
         long sampleWeight;
         if (masks != null) {
