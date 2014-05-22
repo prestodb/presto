@@ -24,6 +24,7 @@ import com.facebook.presto.sql.tree.IntervalLiteral;
 import com.facebook.presto.sql.tree.IntervalLiteral.IntervalField;
 import com.facebook.presto.sql.tree.IntervalLiteral.Sign;
 import com.facebook.presto.sql.tree.LongLiteral;
+import com.facebook.presto.sql.tree.NegativeExpression;
 import com.facebook.presto.sql.tree.Node;
 import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.sql.tree.Query;
@@ -130,6 +131,52 @@ public class TestSqlParser
     public void assertCast(String type)
     {
         assertExpression("cast(123 as " + type + ")", new Cast(new LongLiteral("123"), type));
+    }
+
+    @Test
+    public void testPositiveSign()
+            throws Exception
+    {
+        assertExpression("9", new LongLiteral("9"));
+
+        assertExpression("+9", new LongLiteral("9"));
+        assertExpression("++9", new LongLiteral("9"));
+        assertExpression("+++9", new LongLiteral("9"));
+
+        assertExpression("+9", new LongLiteral("9"));
+        assertExpression("+ +9", new LongLiteral("9"));
+        assertExpression("+ + +9", new LongLiteral("9"));
+
+        assertExpression("+ 9", new LongLiteral("9"));
+        assertExpression("+ + 9", new LongLiteral("9"));
+        assertExpression("+ + + 9", new LongLiteral("9"));
+    }
+
+    @Test
+    public void testNegativeSign()
+    {
+        Expression expression = new LongLiteral("9");
+        assertExpression("9", expression);
+
+        expression = new NegativeExpression(expression);
+        assertExpression("-9", expression);
+        assertExpression("- 9", expression);
+        assertExpression("- + 9", expression);
+        assertExpression("+ - + 9", expression);
+        assertExpression("-+9", expression);
+        assertExpression("+-+9", expression);
+
+        expression = new NegativeExpression(expression);
+        assertExpression("- -9", expression);
+        assertExpression("- - 9", expression);
+        assertExpression("- + - + 9", expression);
+        assertExpression("+ - + - + 9", expression);
+        assertExpression("-+-+9", expression);
+        assertExpression("+-+-+9", expression);
+
+        expression = new NegativeExpression(expression);
+        assertExpression("- - -9", expression);
+        assertExpression("- - - 9", expression);
     }
 
     @Test
