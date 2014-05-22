@@ -11,10 +11,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.tests;
+package com.facebook.presto.raptor;
 
-import com.facebook.presto.raptor.RaptorPlugin;
 import com.facebook.presto.spi.ConnectorSession;
+import com.facebook.presto.tests.AbstractTestDistributedQueries;
+import com.facebook.presto.tests.DistributedQueryRunner;
 import com.facebook.presto.tpch.TpchPlugin;
 import com.facebook.presto.tpch.testing.SampledTpchPlugin;
 import com.google.common.collect.ImmutableMap;
@@ -25,7 +26,7 @@ import java.util.Map;
 import static com.facebook.presto.spi.type.TimeZoneKey.UTC_KEY;
 import static java.util.Locale.ENGLISH;
 
-public class TestDistributedQueries
+public class TestRaptorDistributedQueries
         extends AbstractTestDistributedQueries
 {
     private ConnectorSession session;
