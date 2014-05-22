@@ -62,7 +62,7 @@ public class TestDriver
         Logging.initialize();
         server = new TestingPrestoServer();
         server.installPlugin(new TpchPlugin());
-        server.createConnection("default", "tpch"); // TODO: change catalog name
+        server.createCatalog("default", "tpch"); // TODO: change catalog name
     }
 
     @AfterClass
