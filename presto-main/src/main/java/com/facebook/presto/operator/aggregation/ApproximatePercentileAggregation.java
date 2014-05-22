@@ -13,15 +13,15 @@
  */
 package com.facebook.presto.operator.aggregation;
 
+import com.facebook.presto.operator.GroupByIdBlock;
+import com.facebook.presto.operator.Page;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.block.BlockCursor;
-import com.facebook.presto.operator.GroupByIdBlock;
-import com.facebook.presto.operator.Page;
+import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.util.array.ObjectBigArray;
 import com.google.common.base.Optional;
-import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.Slice;
@@ -30,9 +30,11 @@ import io.airlift.stats.QuantileDigest;
 
 import java.util.List;
 
+import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
+import static com.facebook.presto.util.Failures.checkCondition;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static io.airlift.slice.SizeOf.SIZE_OF_DOUBLE;
@@ -414,6 +416,7 @@ public class ApproximatePercentileAggregation
         }
         else {
             checkState(percentile != -1.0, "Percentile is missing");
+            checkCondition(0 <= percentile && percentile <= 1, INVALID_FUNCTION_ARGUMENT, "Percentile must be between 0 and 1");
 
             long value = digest.getQuantile(percentile);
 
