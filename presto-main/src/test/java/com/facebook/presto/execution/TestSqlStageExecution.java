@@ -15,40 +15,34 @@ package com.facebook.presto.execution;
 
 import com.facebook.presto.OutputBuffers;
 import com.facebook.presto.UnpartitionedPagePartitionFunction;
-import com.facebook.presto.connector.dual.DualConnector;
-import com.facebook.presto.connector.dual.DualMetadata;
-import com.facebook.presto.connector.dual.DualSplit;
 import com.facebook.presto.execution.SharedBuffer.QueueState;
 import com.facebook.presto.execution.StateMachine.StateChangeListener;
 import com.facebook.presto.execution.TestSqlTaskManager.MockLocationFactory;
 import com.facebook.presto.metadata.ColumnHandle;
 import com.facebook.presto.metadata.InMemoryNodeManager;
-import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.metadata.NodeVersion;
 import com.facebook.presto.metadata.PrestoNode;
-import com.facebook.presto.metadata.QualifiedTableName;
 import com.facebook.presto.metadata.Split;
 import com.facebook.presto.metadata.TableHandle;
 import com.facebook.presto.operator.TaskContext;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.FixedSplitSource;
-import com.facebook.presto.spi.HostAddress;
 import com.facebook.presto.spi.Node;
 import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.sql.planner.PlanFragment;
 import com.facebook.presto.sql.planner.PlanFragment.OutputPartitioning;
 import com.facebook.presto.sql.planner.PlanFragment.PlanDistribution;
 import com.facebook.presto.sql.planner.StageExecutionPlan;
 import com.facebook.presto.sql.planner.Symbol;
+import com.facebook.presto.sql.planner.TestingColumnHandle;
+import com.facebook.presto.sql.planner.TestingTableHandle;
 import com.facebook.presto.sql.planner.plan.ExchangeNode;
 import com.facebook.presto.sql.planner.plan.JoinNode;
 import com.facebook.presto.sql.planner.plan.JoinNode.EquiJoinClause;
 import com.facebook.presto.sql.planner.plan.PlanFragmentId;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.facebook.presto.sql.planner.plan.TableScanNode;
-import com.facebook.presto.type.TypeRegistry;
 import com.google.common.base.Optional;
 import com.google.common.collect.HashMultimap;
 import com.google.common.collect.ImmutableList;
@@ -59,7 +53,6 @@ import io.airlift.units.DataSize;
 import io.airlift.units.DataSize.Unit;
 import io.airlift.units.Duration;
 import org.joda.time.DateTime;
-import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
 import javax.annotation.concurrent.GuardedBy;
@@ -96,16 +89,7 @@ public class TestSqlStageExecution
 {
     public static final ConnectorSession SESSION = new ConnectorSession("user", "source", "catalog", "schema", UTC_KEY, Locale.ENGLISH, "address", "agent");
 
-    MetadataManager metadata;
     LocationFactory locationFactory = new MockLocationFactory();
-
-    @BeforeMethod
-    public void setUp()
-            throws Exception
-    {
-        metadata = new MetadataManager(new FeaturesConfig(), new TypeRegistry());
-        metadata.addGlobalSchemaMetadata(DualConnector.CONNECTOR_ID, new DualMetadata());
-    }
 
     @Test(expectedExceptions = ExecutionException.class, expectedExceptionsMessageRegExp = ".*No nodes available to run query")
     public void testExcludeCoordinator()
@@ -201,7 +185,7 @@ public class TestSqlStageExecution
                 .withBuffer("out", new UnpartitionedPagePartitionFunction())
                 .withNoMoreBufferIds();
 
-        StageExecutionPlan tableScanPlan = createTableScanPlan("test", metadata, splitCount);
+        StageExecutionPlan tableScanPlan = createTableScanPlan("test", splitCount);
         return new SqlStageExecution(new QueryId("query"),
                 locationFactory,
                 tableScanPlan,
@@ -222,10 +206,7 @@ public class TestSqlStageExecution
         ExecutorService executor = Executors.newCachedThreadPool(daemonThreadsNamed("test"));
         SqlStageExecution stageExecution = null;
         try {
-            MetadataManager metadata = new MetadataManager(new FeaturesConfig(), new TypeRegistry());
-            metadata.addGlobalSchemaMetadata(DualConnector.CONNECTOR_ID, new DualMetadata());
-
-            StageExecutionPlan joinPlan = createJoinPlan("A", metadata);
+            StageExecutionPlan joinPlan = createJoinPlan("A");
 
             InMemoryNodeManager nodeManager = new InMemoryNodeManager();
             nodeManager.addNode("foo", new PrestoNode("other", URI.create("http://127.0.0.1:11"), NodeVersion.UNKNOWN));
@@ -292,10 +273,10 @@ public class TestSqlStageExecution
         }
     }
 
-    private StageExecutionPlan createJoinPlan(String planId, MetadataManager metadata)
+    private StageExecutionPlan createJoinPlan(String planId)
     {
         // create table scan for build data with a single split, so it is only waiting on the no-more buffers call
-        StageExecutionPlan build = createTableScanPlan("build", metadata, 1);
+        StageExecutionPlan build = createTableScanPlan("build", 1);
 
         // create an exchange to read the build data
         ExchangeNode buildExchange = new ExchangeNode(new PlanNodeId(planId + "-build"),
@@ -303,7 +284,7 @@ public class TestSqlStageExecution
                 ImmutableList.copyOf(build.getFragment().getSymbols().keySet()));
 
         // create table scan for probe data with three splits, so it will not send the no-more buffers call
-        StageExecutionPlan probe = createTableScanPlan("probe", metadata, 10);
+        StageExecutionPlan probe = createTableScanPlan("probe", 10);
 
         // create an exchange to read the probe data
         ExchangeNode probeExchange = new ExchangeNode(new PlanNodeId(planId + "-probe"),
@@ -326,11 +307,9 @@ public class TestSqlStageExecution
         );
     }
 
-    private StageExecutionPlan createTableScanPlan(String planId, MetadataManager metadata, int splitCount)
+    private StageExecutionPlan createTableScanPlan(String planId, int splitCount)
     {
-        TableHandle tableHandle = metadata.getTableHandle(SESSION, new QualifiedTableName("default", "default", DualMetadata.NAME)).get();
-        ColumnHandle columnHandle = metadata.getColumnHandle(tableHandle, DualMetadata.COLUMN_NAME).get();
-        Symbol symbol = new Symbol(DualMetadata.COLUMN_NAME);
+        Symbol symbol = new Symbol("column");
 
         // table scan with splitCount splits
         PlanNodeId tableScanNodeId = new PlanNodeId(planId);
@@ -338,9 +317,9 @@ public class TestSqlStageExecution
                 new PlanFragmentId(planId),
                 new TableScanNode(
                         tableScanNodeId,
-                        tableHandle,
+                        new TableHandle("test", new TestingTableHandle()),
                         ImmutableList.of(symbol),
-                        ImmutableMap.of(symbol, columnHandle),
+                        ImmutableMap.of(symbol, new ColumnHandle("test", new TestingColumnHandle("column"))),
                         null,
                         Optional.<GeneratedPartitions>absent()),
                 ImmutableMap.<Symbol, Type>of(symbol, VARCHAR),
@@ -352,9 +331,9 @@ public class TestSqlStageExecution
         ImmutableList.Builder<ConnectorSplit> splits = ImmutableList.builder();
 
         for (int i = 0; i < splitCount; i++) {
-            splits.add(new DualSplit(HostAddress.fromString("127.0.0.1")));
+            splits.add(new TestingSplit());
         }
-        SplitSource splitSource = new ConnectorAwareSplitSource(DualConnector.CONNECTOR_ID, new FixedSplitSource(null, splits.build()));
+        SplitSource splitSource = new ConnectorAwareSplitSource("test", new FixedSplitSource(null, splits.build()));
 
         return new StageExecutionPlan(testFragment,
                 Optional.of(splitSource),
