@@ -76,7 +76,7 @@ public class TpchSplitManager
         TpchTableHandle tableHandle = ((TpchPartition) partition).getTable();
 
         Set<Node> nodes = nodeManager.getActiveDatasourceNodes(connectorId);
-        checkState(!nodes.isEmpty(), "No TPCH nodes available: Add '%s' to the datasources property of each worker node", connectorId);
+        checkState(!nodes.isEmpty(), "No TPCH nodes available");
 
         int totalParts = nodes.size() * splitsPerNode;
         int partNumber = 0;

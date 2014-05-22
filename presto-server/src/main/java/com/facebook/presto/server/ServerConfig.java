@@ -45,11 +45,13 @@ public class ServerConfig
         return this;
     }
 
+    @Deprecated
     public String getDataSources()
     {
         return dataSources;
     }
 
+    @Deprecated
     @Config("datasources")
     public ServerConfig setDataSources(String dataSources)
     {

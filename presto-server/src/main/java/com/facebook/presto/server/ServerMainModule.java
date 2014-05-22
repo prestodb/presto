@@ -96,7 +96,6 @@ import com.google.inject.Scopes;
 import com.google.inject.TypeLiteral;
 import com.google.inject.multibindings.MapBinder;
 import com.google.inject.multibindings.Multibinder;
-import io.airlift.discovery.client.ServiceAnnouncement.ServiceAnnouncementBuilder;
 import io.airlift.discovery.client.ServiceDescriptor;
 import io.airlift.slice.Slice;
 
@@ -106,8 +105,8 @@ import java.util.List;
 import java.util.Set;
 import java.util.concurrent.ScheduledExecutorService;
 
-import static com.facebook.presto.connector.system.SystemSplitManager.SYSTEM_DATASOURCE;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.base.Strings.nullToEmpty;
 import static com.google.inject.multibindings.MapBinder.newMapBinder;
 import static com.google.inject.multibindings.Multibinder.newSetBinder;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
@@ -231,21 +230,9 @@ public class ServerMainModule
         binder.bind(NodeVersion.class).toInstance(nodeVersion);
 
         // presto announcement
-        ServiceAnnouncementBuilder prestoAnnouncement = discoveryBinder(binder).bindHttpAnnouncement("presto")
-                .addProperty("node_version", nodeVersion.toString());
-
-        if (serverConfig.getDataSources() == null || serverConfig.getDataSources().isEmpty()) {
-            prestoAnnouncement.addProperty("datasources", SYSTEM_DATASOURCE);
-        }
-        else {
-            // TODO: this should only be need in the coordinator, but the dual table is considered a system table
-            if (!serverConfig.getDataSources().contains(SYSTEM_DATASOURCE)) {
-                prestoAnnouncement.addProperty("datasources", serverConfig.getDataSources() + "," + SYSTEM_DATASOURCE);
-            }
-            else {
-                prestoAnnouncement.addProperty("datasources", serverConfig.getDataSources());
-            }
-        }
+        discoveryBinder(binder).bindHttpAnnouncement("presto")
+                .addProperty("node_version", nodeVersion.toString())
+                .addProperty("datasources", nullToEmpty(serverConfig.getDataSources()));
 
         // statement resource
         jsonCodecBinder(binder).bindJsonCodec(QueryInfo.class);
