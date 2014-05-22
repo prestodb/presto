@@ -14,13 +14,18 @@
 package com.facebook.presto.server;
 
 import com.facebook.presto.discovery.EmbeddedDiscoveryModule;
+import com.facebook.presto.execution.NodeSchedulerConfig;
 import com.facebook.presto.metadata.CatalogManager;
+import com.facebook.presto.metadata.Metadata;
+import com.google.common.base.Joiner;
+import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
 import com.google.inject.Injector;
 import com.google.inject.Module;
 import io.airlift.bootstrap.Bootstrap;
 import io.airlift.discovery.client.Announcer;
 import io.airlift.discovery.client.DiscoveryModule;
+import io.airlift.discovery.client.ServiceAnnouncement;
 import io.airlift.event.client.HttpEventModule;
 import io.airlift.event.client.JsonEventModule;
 import io.airlift.floatingdecimal.FloatingDecimal;
@@ -35,8 +40,17 @@ import io.airlift.node.NodeModule;
 import io.airlift.tracetoken.TraceTokenModule;
 import org.weakref.jmx.guice.MBeanModule;
 
+import java.util.LinkedHashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+
+import static com.facebook.presto.connector.system.SystemSplitManager.SYSTEM_DATASOURCE;
 import static com.facebook.presto.server.CodeCacheGcTrigger.installCodeCacheGcTrigger;
 import static com.facebook.presto.server.PrestoJvmRequirements.verifyJvmRequirements;
+import static com.google.common.base.Strings.nullToEmpty;
+import static io.airlift.discovery.client.ServiceAnnouncement.ServiceAnnouncementBuilder;
+import static io.airlift.discovery.client.ServiceAnnouncement.serviceAnnouncement;
 
 public class PrestoServer
         implements Runnable
@@ -85,6 +99,13 @@ public class PrestoServer
 
             injector.getInstance(CatalogManager.class).loadCatalogs();
 
+            // TODO: remove this huge hack
+            updateDatasources(
+                    injector.getInstance(Announcer.class),
+                    injector.getInstance(Metadata.class),
+                    injector.getInstance(ServerConfig.class),
+                    injector.getInstance(NodeSchedulerConfig.class));
+
             injector.getInstance(Announcer.class).start();
 
             log.info("======== SERVER STARTED ========");
@@ -100,5 +121,56 @@ public class PrestoServer
     protected Iterable<? extends Module> getAdditionalModules()
     {
         return ImmutableList.of();
+    }
+
+    private static void updateDatasources(Announcer announcer, Metadata metadata, ServerConfig serverConfig, NodeSchedulerConfig schedulerConfig)
+    {
+        // get existing announcement
+        ServiceAnnouncement announcement = getPrestoAnnouncement(announcer.getServiceAnnouncements());
+
+        // get existing sources
+        String property = nullToEmpty(announcement.getProperties().get("datasources"));
+        List<String> values = Splitter.on(',').trimResults().omitEmptyStrings().splitToList(property);
+        Set<String> datasources = new LinkedHashSet<>(values);
+
+        // automatically build sources if not configured
+        if (datasources.isEmpty()) {
+            Set<String> catalogs = metadata.getCatalogNames().keySet();
+            // if this is a dedicated coordinator, only add jmx
+            if (serverConfig.isCoordinator() && !schedulerConfig.isIncludeCoordinator()) {
+                if (catalogs.contains("jmx")) {
+                    datasources.add("jmx");
+                }
+            }
+            else {
+                datasources.addAll(catalogs);
+            }
+        }
+
+        // always add system source
+        datasources.add(SYSTEM_DATASOURCE);
+
+        // build announcement with updated sources
+        ServiceAnnouncementBuilder builder = serviceAnnouncement(announcement.getType());
+        for (Map.Entry<String, String> entry : announcement.getProperties().entrySet()) {
+            if (!entry.getKey().equals("datasources")) {
+                builder.addProperty(entry.getKey(), entry.getValue());
+            }
+        }
+        builder.addProperty("datasources", Joiner.on(',').join(datasources));
+
+        // update announcement
+        announcer.removeServiceAnnouncement(announcement.getId());
+        announcer.addServiceAnnouncement(builder.build());
+    }
+
+    private static ServiceAnnouncement getPrestoAnnouncement(Set<ServiceAnnouncement> announcements)
+    {
+        for (ServiceAnnouncement announcement : announcements) {
+            if (announcement.getType().equals("presto")) {
+                return announcement;
+            }
+        }
+        throw new IllegalArgumentException("Presto announcement not found: " + announcements);
     }
 }

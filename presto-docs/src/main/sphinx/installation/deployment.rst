@@ -115,7 +115,6 @@ The following is a minimal configuration for the coordinator:
 .. code-block:: none
 
     coordinator=true
-    datasources=jmx
     http-server.http.port=8080
     task.max-memory=1GB
     discovery-server.enabled=true
@@ -126,20 +125,11 @@ And this is a minimal configuration for the workers:
 .. code-block:: none
 
     coordinator=false
-    datasources=jmx,hive
     http-server.http.port=8080
     task.max-memory=1GB
     discovery.uri=http://example.net:8080
 
 These properties require some explanation:
-
-* ``datasources``:
-  Specifies the list of catalog names that may have splits processed
-  on this node. Both the coordinator and workers have ``jmx`` enabled
-  because the JMX catalog enables querying JMX properties from all nodes.
-  However, only the workers have ``hive`` enabled, because we do not want
-  to process Hive splits on the coordinator, as this can interfere with
-  query coordination and slow down everything.
 
 * ``http-server.http.port``:
   Specifies the port for the HTTP server. Presto uses HTTP for all

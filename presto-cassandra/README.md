@@ -8,17 +8,7 @@ Please note that this plugin is still in early stage.
 After installation of Presto, you need to deploy to plugin to every presto node.
 
 - On all presto nodes (server & worker nodes):
-  - create a directory `PRESTO_HOME/plugin/cassandra`
-  - unpack the `presto-cassandra-x.xx.zip` file into this directory
   - add `cassandra.properties` to `PRESTO_HOME/etc/catalog` (example see below)
-- On all worker nodes:
-  - change `PRESTO_HOME/etc/config.properties`, add `cassandra` as data source
-
-```
-...
-datasources=jmx,hive,cassandra
-...
-```
 
 ## Configuration
 The configuration for the Cassandra plugin is set in `PRESTO_HOME/etc/catalog/cassandra.properties`
