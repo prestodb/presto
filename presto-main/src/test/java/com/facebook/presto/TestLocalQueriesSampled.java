@@ -14,10 +14,10 @@
 package com.facebook.presto;
 
 import com.facebook.presto.spi.ConnectorSession;
-import com.facebook.presto.tpch.testing.SampledTpchConnectorFactory;
-import com.facebook.presto.tpch.TpchMetadata;
 import com.facebook.presto.testing.LocalQueryRunner;
 import com.facebook.presto.testing.MaterializedResult;
+import com.facebook.presto.tpch.TpchMetadata;
+import com.facebook.presto.tpch.testing.SampledTpchConnectorFactory;
 import com.google.common.collect.ImmutableMap;
 import org.intellij.lang.annotations.Language;
 import org.testng.annotations.AfterClass;
@@ -30,8 +30,9 @@ import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 
 public class TestLocalQueriesSampled
-        extends AbstractTestQueries
+        extends AbstractTestSampledQueries
 {
+    private LocalQueryRunner localQueryRunner;
     private LocalQueryRunner localSampledQueryRunner;
     private ExecutorService executor;
 
@@ -61,12 +62,15 @@ public class TestLocalQueriesSampled
     protected ConnectorSession setUpQueryFramework()
     {
         ConnectorSession session = new ConnectorSession("user", "test", "local", TpchMetadata.TINY_SCHEMA_NAME, UTC_KEY, Locale.ENGLISH, null, null);
+        localQueryRunner = new LocalQueryRunner(session, getExecutor());
         localSampledQueryRunner = new LocalQueryRunner(session, getExecutor());
 
         // add the tpch catalog
         // local queries run directly against the generator
-        localSampledQueryRunner.createCatalog(session.getCatalog(), new SampledTpchConnectorFactory(localSampledQueryRunner.getNodeManager(), 1, 1), ImmutableMap.<String, String>of());
-        localSampledQueryRunner.getMetadata().addFunctions(CUSTOM_FUNCTIONS);
+        localQueryRunner.createCatalog(session.getCatalog(), new SampledTpchConnectorFactory(localQueryRunner.getNodeManager(), 1, 1), ImmutableMap.<String, String>of());
+        localSampledQueryRunner.createCatalog(session.getCatalog(), new SampledTpchConnectorFactory(localSampledQueryRunner.getNodeManager(), 1, 2), ImmutableMap.<String, String>of());
+
+        localQueryRunner.getMetadata().addFunctions(CUSTOM_FUNCTIONS);
 
         // dump query plan to console (for debugging)
         // tpchLocalQueryRunner.printPlan();
@@ -76,6 +80,12 @@ public class TestLocalQueriesSampled
 
     @Override
     protected MaterializedResult computeActual(@Language("SQL") String sql)
+    {
+        return localQueryRunner.execute(sql).toJdbcTypes();
+    }
+
+    @Override
+    protected MaterializedResult computeActualSampled(@Language("SQL") String sql)
     {
         return localSampledQueryRunner.execute(sql).toJdbcTypes();
     }
