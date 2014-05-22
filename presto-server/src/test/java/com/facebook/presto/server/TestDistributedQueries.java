@@ -235,7 +235,7 @@ public class TestDistributedQueries
     @Override
     protected int getNodeCount()
     {
-        return 3;
+        return 4;
     }
 
     @Override
@@ -247,6 +247,7 @@ public class TestDistributedQueries
             coordinator = createTestingPrestoServer(discoveryServer.getBaseUrl(), true);
             servers = ImmutableList.<TestingPrestoServer>builder()
                     .add(coordinator)
+                    .add(createTestingPrestoServer(discoveryServer.getBaseUrl(), false))
                     .add(createTestingPrestoServer(discoveryServer.getBaseUrl(), false))
                     .add(createTestingPrestoServer(discoveryServer.getBaseUrl(), false))
                     .build();
@@ -475,13 +476,15 @@ public class TestDistributedQueries
     private static TestingPrestoServer createTestingPrestoServer(URI discoveryUri, boolean coordinator)
             throws Exception
     {
-        Map<String, String> properties = ImmutableMap.<String, String>builder()
+        ImmutableMap.Builder<String, String> properties = ImmutableMap.<String, String>builder()
                 .put("query.client.timeout", "10m")
                 .put("exchange.http-client.read-timeout", "1h")
-                .put("datasources", "default,tpch,tpch_sampled")
-                .build();
+                .put("datasources", "default,tpch,tpch_sampled");
+        if (coordinator) {
+            properties.put("node-scheduler.include-coordinator", "false");
+        }
 
-        TestingPrestoServer server = new TestingPrestoServer(coordinator, properties, ENVIRONMENT, discoveryUri, ImmutableList.<Module>of());
+        TestingPrestoServer server = new TestingPrestoServer(coordinator, properties.build(), ENVIRONMENT, discoveryUri, ImmutableList.<Module>of());
 
         // install tpch plugins
         server.installPlugin(new TpchPlugin());
