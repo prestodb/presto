@@ -400,8 +400,9 @@ numericTerm
     ;
 
 numericFactor
-    : '+'? exprWithTimeZone -> exprWithTimeZone
-    | '-' exprWithTimeZone  -> ^(NEGATIVE exprWithTimeZone)
+    : exprWithTimeZone
+    | '+' numericFactor -> numericFactor
+    | '-' numericFactor -> ^(NEGATIVE numericFactor)
     ;
 
 exprWithTimeZone
