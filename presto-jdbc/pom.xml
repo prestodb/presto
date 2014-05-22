@@ -106,7 +106,7 @@
         <!-- for testing -->
         <dependency>
             <groupId>com.facebook.presto</groupId>
-            <artifactId>presto-server</artifactId>
+            <artifactId>presto-main</artifactId>
             <scope>test</scope>
         </dependency>
 
