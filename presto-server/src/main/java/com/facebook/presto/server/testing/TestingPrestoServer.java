@@ -19,8 +19,11 @@ import com.facebook.presto.metadata.InternalNodeManager;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.server.PluginManager;
 import com.facebook.presto.server.ServerMainModule;
+import com.facebook.presto.spi.Node;
 import com.facebook.presto.spi.Plugin;
+import com.google.common.base.Joiner;
 import com.google.common.base.Optional;
+import com.google.common.base.Splitter;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -31,6 +34,7 @@ import io.airlift.bootstrap.Bootstrap;
 import io.airlift.bootstrap.LifeCycleManager;
 import io.airlift.discovery.client.Announcer;
 import io.airlift.discovery.client.DiscoveryModule;
+import io.airlift.discovery.client.ServiceAnnouncement;
 import io.airlift.discovery.client.ServiceSelectorManager;
 import io.airlift.discovery.client.testing.TestingDiscoveryModule;
 import io.airlift.event.client.InMemoryEventModule;
@@ -47,11 +51,16 @@ import java.io.Closeable;
 import java.net.URI;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import static com.facebook.presto.server.testing.FileUtils.deleteRecursively;
 import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Strings.nullToEmpty;
+import static io.airlift.discovery.client.ServiceAnnouncement.serviceAnnouncement;
 
 public class TestingPrestoServer
         implements Closeable
@@ -66,6 +75,7 @@ public class TestingPrestoServer
     private final Metadata metadata;
     private final InternalNodeManager nodeManager;
     private final ServiceSelectorManager serviceSelectorManager;
+    private final Announcer announcer;
 
     public TestingPrestoServer()
             throws Exception
@@ -137,6 +147,7 @@ public class TestingPrestoServer
         metadata = injector.getInstance(Metadata.class);
         nodeManager = injector.getInstance(InternalNodeManager.class);
         serviceSelectorManager = injector.getInstance(ServiceSelectorManager.class);
+        announcer = injector.getInstance(Announcer.class);
 
         refreshNodes();
     }
@@ -162,14 +173,15 @@ public class TestingPrestoServer
         pluginManager.installPlugin(plugin);
     }
 
-    public void createConnection(String catalogName, String connectorName)
+    public void createCatalog(String catalogName, String connectorName)
     {
-        createConnection(catalogName, connectorName, ImmutableMap.<String, String>of());
+        createCatalog(catalogName, connectorName, ImmutableMap.<String, String>of());
     }
 
-    public void createConnection(String catalogName, String connectorName, Map<String, String> properties)
+    public void createCatalog(String catalogName, String connectorName, Map<String, String> properties)
     {
         connectorManager.createConnection(catalogName, connectorName, properties);
+        updateDatasourcesAnnouncement(announcer, catalogName);
     }
 
     public Path getBaseDataDir()
@@ -202,5 +214,41 @@ public class TestingPrestoServer
         serviceSelectorManager.forceRefresh();
         nodeManager.refreshNodes();
         return nodeManager.getAllNodes();
+    }
+
+    public Set<Node> getActiveNodesWithConnector(String connectorName)
+    {
+        return nodeManager.getActiveDatasourceNodes(connectorName);
+    }
+
+    private static void updateDatasourcesAnnouncement(Announcer announcer, String connectorId)
+    {
+        //
+        // This code was copied from PrestoServer, and is a hack that should be removed when the data source property is removed
+        //
+
+        // get existing announcement
+        ServiceAnnouncement announcement = getPrestoAnnouncement(announcer.getServiceAnnouncements());
+
+        // update datasources property
+        Map<String, String> properties = new LinkedHashMap<>(announcement.getProperties());
+        String property = nullToEmpty(properties.get("datasources"));
+        Set<String> datasources = new LinkedHashSet<>(Splitter.on(',').trimResults().omitEmptyStrings().splitToList(property));
+        datasources.add(connectorId);
+        properties.put("datasources", Joiner.on(',').join(datasources));
+
+        // update announcement
+        announcer.removeServiceAnnouncement(announcement.getId());
+        announcer.addServiceAnnouncement(serviceAnnouncement(announcement.getType()).addProperties(properties).build());
+    }
+
+    private static ServiceAnnouncement getPrestoAnnouncement(Set<ServiceAnnouncement> announcements)
+    {
+        for (ServiceAnnouncement announcement : announcements) {
+            if (announcement.getType().equals("presto")) {
+                return announcement;
+            }
+        }
+        throw new RuntimeException("Presto announcement not found: " + announcements);
     }
 }
