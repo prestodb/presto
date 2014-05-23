@@ -13,18 +13,16 @@
  */
 package com.facebook.presto.sql.planner;
 
-import com.facebook.presto.connector.dual.DualColumnHandle;
-import com.facebook.presto.connector.dual.DualConnector;
-import com.facebook.presto.connector.dual.DualTableHandle;
 import com.facebook.presto.metadata.ColumnHandle;
 import com.facebook.presto.metadata.Partition;
 import com.facebook.presto.metadata.Signature;
-import com.facebook.presto.spi.block.SortOrder;
 import com.facebook.presto.metadata.TableHandle;
 import com.facebook.presto.spi.ConnectorColumnHandle;
 import com.facebook.presto.spi.ConnectorPartition;
 import com.facebook.presto.spi.Domain;
 import com.facebook.presto.spi.TupleDomain;
+import com.facebook.presto.spi.block.SortOrder;
+import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.planner.plan.FilterNode;
 import com.facebook.presto.sql.planner.plan.JoinNode;
@@ -47,7 +45,6 @@ import com.facebook.presto.sql.tree.IsNullPredicate;
 import com.facebook.presto.sql.tree.LongLiteral;
 import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.sql.tree.QualifiedNameReference;
-import com.facebook.presto.spi.type.Type;
 import com.google.common.base.Optional;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Predicates;
@@ -68,19 +65,18 @@ import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 
-import static com.facebook.presto.connector.dual.DualSplitManager.DualPartition;
 import static com.facebook.presto.metadata.Util.toConnectorDomain;
+import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.sql.ExpressionUtils.and;
 import static com.facebook.presto.sql.ExpressionUtils.combineConjuncts;
 import static com.facebook.presto.sql.ExpressionUtils.or;
 import static com.facebook.presto.sql.planner.plan.TableScanNode.GeneratedPartitions;
-import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.type.UnknownType.UNKNOWN;
 
 @Test(singleThreaded = true)
 public class TestEffectivePredicateExtractor
 {
-    private static final TableHandle DUAL_TABLE_HANDLE = new TableHandle(DualConnector.CONNECTOR_ID, new DualTableHandle("default"));
+    private static final TableHandle DUAL_TABLE_HANDLE = new TableHandle("test", new TestingTableHandle());
 
     private static final Symbol A = new Symbol("a");
     private static final Symbol B = new Symbol("b");
@@ -335,7 +331,7 @@ public class TestEffectivePredicateExtractor
                 null,
                 Optional.<GeneratedPartitions>of(new GeneratedPartitions(
                         TupleDomain.withColumnDomains(ImmutableMap.<ColumnHandle, Domain>of(scanAssignments.get(A), Domain.singleValue(1L))),
-                        ImmutableList.<Partition>of(new Partition(DualConnector.CONNECTOR_ID, new DualPartition())))));
+                        ImmutableList.of(new Partition("test", new TestingPartition())))));
         effectivePredicate = EffectivePredicateExtractor.extract(node, TYPES);
         Assert.assertEquals(normalizeConjuncts(effectivePredicate), normalizeConjuncts(equals(number(1L), AE)));
 
@@ -348,7 +344,7 @@ public class TestEffectivePredicateExtractor
                 null,
                 Optional.<GeneratedPartitions>of(new GeneratedPartitions(
                         TupleDomain.withColumnDomains(ImmutableMap.<ColumnHandle, Domain>of(scanAssignments.get(A), Domain.singleValue(1L))),
-                        ImmutableList.<Partition>of(tupleDomainPartition(DualConnector.CONNECTOR_ID,
+                        ImmutableList.<Partition>of(tupleDomainPartition("test",
                                 TupleDomain.withColumnDomains(ImmutableMap.<ColumnHandle, Domain>of(
                                         scanAssignments.get(A), Domain.singleValue(1L),
                                         scanAssignments.get(B), Domain.singleValue(2L))))))));
@@ -377,7 +373,7 @@ public class TestEffectivePredicateExtractor
                 null,
                 Optional.<GeneratedPartitions>of(new GeneratedPartitions(
                         TupleDomain.<ColumnHandle>all(),
-                        ImmutableList.<Partition>of(new Partition(DualConnector.CONNECTOR_ID, new DualPartition())))));
+                        ImmutableList.of(new Partition("test", new TestingPartition())))));
         effectivePredicate = EffectivePredicateExtractor.extract(node, TYPES);
         Assert.assertEquals(effectivePredicate, BooleanLiteral.TRUE_LITERAL);
 
@@ -390,7 +386,7 @@ public class TestEffectivePredicateExtractor
                 null,
                 Optional.<GeneratedPartitions>of(new GeneratedPartitions(
                         TupleDomain.<ColumnHandle>all(),
-                        ImmutableList.<Partition>of(tupleDomainPartition(DualConnector.CONNECTOR_ID,
+                        ImmutableList.of(tupleDomainPartition("test",
                                 TupleDomain.withColumnDomains(ImmutableMap.<ColumnHandle, Domain>of(
                                         scanAssignments.get(A), Domain.singleValue(1L),
                                         scanAssignments.get(B), Domain.singleValue(2L))))))));
@@ -408,7 +404,7 @@ public class TestEffectivePredicateExtractor
                         TupleDomain.withColumnDomains(ImmutableMap.<ColumnHandle, Domain>of(
                                 scanAssignments.get(A), Domain.singleValue(1L),
                                 scanAssignments.get(D), Domain.singleValue(3L))),
-                        ImmutableList.<Partition>of(tupleDomainPartition(DualConnector.CONNECTOR_ID,
+                        ImmutableList.of(tupleDomainPartition("test",
                                 TupleDomain.withColumnDomains(ImmutableMap.<ColumnHandle, Domain>of(
                                         scanAssignments.get(A), Domain.singleValue(1L),
                                         scanAssignments.get(C), Domain.singleValue(2L))))))));
@@ -632,7 +628,7 @@ public class TestEffectivePredicateExtractor
 
     private static ColumnHandle newColumnHandle(String name)
     {
-        return new ColumnHandle(DualConnector.CONNECTOR_ID, new DualColumnHandle(name));
+        return new ColumnHandle("test", new TestingColumnHandle(name));
     }
 
     private static PlanNodeId newId()
