@@ -13,8 +13,6 @@
  */
 package com.facebook.presto.metadata;
 
-import com.facebook.presto.connector.dual.DualHandleResolver;
-import com.facebook.presto.connector.dual.DualTableHandle;
 import com.facebook.presto.connector.informationSchema.InformationSchemaHandleResolver;
 import com.facebook.presto.connector.informationSchema.InformationSchemaTableHandle;
 import com.facebook.presto.connector.system.SystemHandleResolver;
@@ -54,9 +52,6 @@ public class TestJsonTableHandle
             "schemaName", "system_schema",
             "tableName", "system_table");
 
-    private static final Map<String, Object> DUAL_AS_MAP = ImmutableMap.<String, Object>of("type", "dual",
-            "schemaName", "dual_schema");
-
     private static final Map<String, Object> INFORMATION_SCHEMA_AS_MAP = ImmutableMap.<String, Object>of(
             "type", "information_schema",
             "session", ImmutableMap.<String, Object>builder()
@@ -88,7 +83,6 @@ public class TestJsonTableHandle
                     {
                         MapBinder<String, ConnectorHandleResolver> connectorHandleResolverBinder = MapBinder.newMapBinder(binder, String.class, ConnectorHandleResolver.class);
                         connectorHandleResolverBinder.addBinding("system").to(SystemHandleResolver.class).in(Scopes.SINGLETON);
-                        connectorHandleResolverBinder.addBinding("dual").to(DualHandleResolver.class).in(Scopes.SINGLETON);
                         connectorHandleResolverBinder.addBinding("information_schema").to(InformationSchemaHandleResolver.class).in(Scopes.SINGLETON);
                     }
                 });
@@ -105,17 +99,6 @@ public class TestJsonTableHandle
         assertTrue(objectMapper.canSerialize(SystemTableHandle.class));
         String json = objectMapper.writeValueAsString(internalHandle);
         testJsonEquals(json, SYSTEM_AS_MAP);
-    }
-
-    @Test
-    public void testDualSerialize()
-            throws Exception
-    {
-        DualTableHandle internalHandle = new DualTableHandle("dual_schema");
-
-        assertTrue(objectMapper.canSerialize(DualTableHandle.class));
-        String json = objectMapper.writeValueAsString(internalHandle);
-        testJsonEquals(json, DUAL_AS_MAP);
     }
 
     @Test
@@ -144,19 +127,6 @@ public class TestJsonTableHandle
         SystemTableHandle systemHandle = (SystemTableHandle) tableHandle;
 
         assertEquals(systemHandle.getSchemaTableName(), new SchemaTableName("system_schema", "system_table"));
-    }
-
-    @Test
-    public void testDualDeserialize()
-            throws Exception
-    {
-        String json = objectMapper.writeValueAsString(DUAL_AS_MAP);
-
-        ConnectorTableHandle tableHandle = objectMapper.readValue(json, ConnectorTableHandle.class);
-        assertEquals(tableHandle.getClass(), DualTableHandle.class);
-        DualTableHandle dualHandle = (DualTableHandle) tableHandle;
-
-        assertEquals(dualHandle.getSchemaName(), "dual_schema");
     }
 
     @Test
