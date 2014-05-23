@@ -101,6 +101,8 @@ floating point numbers. This is important because many Hive file formats
 store floating point values as text. Change the path
 ``/var/presto/installation`` to match the Presto installation directory.
 
+.. _config_properties:
+
 Config Properties
 ^^^^^^^^^^^^^^^^^
 
@@ -115,6 +117,7 @@ The following is a minimal configuration for the coordinator:
 .. code-block:: none
 
     coordinator=true
+    node-scheduler.include-coordinator=false
     http-server.http.port=8080
     task.max-memory=1GB
     discovery-server.enabled=true
@@ -130,6 +133,17 @@ And this is a minimal configuration for the workers:
     discovery.uri=http://example.net:8080
 
 These properties require some explanation:
+
+* ``coordinator``:
+  Allow this Presto instance to function as a coordinator
+  (accept queries from clients and manage query execution).
+
+* ``node-scheduler.include-coordinator``:
+  Allow scheduling work on the coordinator.
+  For larger clusters, processing work on the coordinator
+  can impact query performance because the machine's resources are not
+  available for the critical task of scheduling, managing and monitoring
+  query execution.
 
 * ``http-server.http.port``:
   Specifies the port for the HTTP server. Presto uses HTTP for all
