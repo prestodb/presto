@@ -30,7 +30,7 @@ import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 
 public abstract class AbstractTestDistributedQueries
-        extends AbstractTestSampledQueries
+        extends AbstractTestApproximateQueries
 {
     protected AbstractTestDistributedQueries(QueryRunner queryRunner, ConnectorSession defaultSampledSession)
     {
