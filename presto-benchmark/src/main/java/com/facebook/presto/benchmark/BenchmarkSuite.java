@@ -95,7 +95,7 @@ public class BenchmarkSuite
         this.outputDirectory = checkNotNull(outputDirectory, "outputDirectory is null");
     }
 
-    private File createOutputFile(String fileName)
+    private static File createOutputFile(String fileName)
             throws IOException
     {
         File outputFile = new File(fileName);
