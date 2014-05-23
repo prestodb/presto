@@ -19,6 +19,7 @@ import com.facebook.presto.metadata.QualifiedTableName;
 import com.facebook.presto.metadata.TableHandle;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorSession;
+import com.facebook.presto.sql.tree.AllColumns;
 import com.facebook.presto.sql.tree.Approximate;
 import com.facebook.presto.sql.tree.BooleanLiteral;
 import com.facebook.presto.sql.tree.Cast;
@@ -62,6 +63,9 @@ import static com.facebook.presto.connector.informationSchema.InformationSchemaM
 import static com.facebook.presto.connector.informationSchema.InformationSchemaMetadata.TABLE_TABLES;
 import static com.facebook.presto.connector.system.CatalogSystemTable.CATALOG_TABLE_NAME;
 
+import static com.facebook.presto.sql.QueryUtil.aliased;
+import static com.facebook.presto.sql.QueryUtil.row;
+import static com.facebook.presto.sql.QueryUtil.values;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.COLUMN_NAME_NOT_SPECIFIED;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.DUPLICATE_COLUMN_NAME;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.DUPLICATE_RELATION;
@@ -79,6 +83,7 @@ import static com.facebook.presto.sql.QueryUtil.equal;
 import static com.facebook.presto.sql.QueryUtil.functionCall;
 import static com.facebook.presto.sql.QueryUtil.logicalAnd;
 import static com.facebook.presto.sql.QueryUtil.nameReference;
+import static com.facebook.presto.sql.QueryUtil.row;
 import static com.facebook.presto.sql.QueryUtil.selectAll;
 import static com.facebook.presto.sql.QueryUtil.selectList;
 import static com.facebook.presto.sql.QueryUtil.subquery;
@@ -408,9 +413,12 @@ class StatementAnalyzer
         Query query = new Query(
                 Optional.<With>absent(),
                 new QuerySpecification(
-                        selectList(
-                                new SingleColumn(new StringLiteral(queryPlan), "Query Plan")),
-                        null,
+                        selectList(new AllColumns()),
+                        ImmutableList.of(aliased(
+                                values(row(new StringLiteral((queryPlan)))),
+                                "plan",
+                                ImmutableList.of("Query Plan")
+                        )),
                         Optional.<Expression>absent(),
                         ImmutableList.<Expression>of(),
                         Optional.<Expression>absent(),
