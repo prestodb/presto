@@ -17,7 +17,6 @@ import com.facebook.presto.testing.LocalQueryRunner;
 import org.testng.annotations.Test;
 
 import static com.facebook.presto.benchmark.BenchmarkQueryRunner.createLocalQueryRunner;
-import static com.facebook.presto.benchmark.BenchmarkQueryRunner.createLocalSampledQueryRunner;
 import static com.facebook.presto.benchmark.BenchmarkSuite.createBenchmarks;
 
 public class TestBenchmarks
@@ -26,9 +25,8 @@ public class TestBenchmarks
     public void smokeTest()
             throws Exception
     {
-        try (LocalQueryRunner localQueryRunner = createLocalQueryRunner();
-                LocalQueryRunner localSampledQueryRunner = createLocalSampledQueryRunner()) {
-            for (AbstractBenchmark benchmark : createBenchmarks(localQueryRunner, localSampledQueryRunner)) {
+        try (LocalQueryRunner localQueryRunner = createLocalQueryRunner()) {
+            for (AbstractBenchmark benchmark : createBenchmarks(localQueryRunner)) {
                 try {
                     benchmark.runOnce();
                 }
