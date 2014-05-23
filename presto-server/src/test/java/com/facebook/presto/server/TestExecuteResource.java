@@ -63,7 +63,7 @@ public class TestExecuteResource
                 "{\"name\":\"bar\",\"type\":\"varchar\"}]," +
                 "\"data\":[[123,\"abc\"]]}\n";
 
-        StringResponse response = executeQuery("SELECT 123 foo, 'abc' bar FROM dual");
+        StringResponse response = executeQuery("SELECT 123 foo, 'abc' bar");
         assertEquals(response.getStatusCode(), HttpStatus.OK.code());
         assertEquals(response.getHeader(HttpHeaders.CONTENT_TYPE), "application/json");
         assertEquals(response.getBody(), expected);

@@ -16,7 +16,6 @@ package com.facebook.presto.testing;
 import com.facebook.presto.ScheduledSplit;
 import com.facebook.presto.TaskSource;
 import com.facebook.presto.connector.ConnectorManager;
-import com.facebook.presto.connector.dual.DualConnector;
 import com.facebook.presto.connector.system.CatalogSystemTable;
 import com.facebook.presto.connector.system.NodesSystemTable;
 import com.facebook.presto.connector.system.SystemConnector;
@@ -154,7 +153,6 @@ public class LocalQueryRunner
                 new OutputTableHandleResolver(),
                 ImmutableMap.<String, ConnectorFactory>of(),
                 ImmutableMap.<String, Connector>of(
-                        DualConnector.CONNECTOR_ID, new DualConnector(nodeManager),
                         SystemConnector.CONNECTOR_ID, new SystemConnector(systemTablesMetadata, systemSplitManager, systemDataStreamProvider)),
                 nodeManager);
     }
