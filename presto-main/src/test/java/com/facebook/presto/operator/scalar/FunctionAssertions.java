@@ -225,7 +225,7 @@ public final class FunctionAssertions
         //
         // If the projection does not need bound values, execute query using full engine
         if (!needsBoundValue(projectionExpression)) {
-            MaterializedResult result = runner.execute("SELECT " + projection + " FROM dual");
+            MaterializedResult result = runner.execute("SELECT " + projection);
             assertEquals(result.getTypes().size(), 1);
             assertEquals(result.getMaterializedRows().size(), 1);
             Object queryResult = Iterables.getOnlyElement(result.getMaterializedRows()).getField(0);
@@ -253,7 +253,7 @@ public final class FunctionAssertions
         //
         // If the projection does not need bound values, execute query using full engine
         if (!needsBoundValue(projectionExpression)) {
-            MaterializedResult result = runner.execute("SELECT " + projection + " FROM dual");
+            MaterializedResult result = runner.execute("SELECT " + projection);
             assertEquals(result.getTypes().size(), 1);
             assertEquals(result.getMaterializedRows().size(), 1);
             Object queryResult = Iterables.getOnlyElement(result.getMaterializedRows()).getField(0);
@@ -343,7 +343,7 @@ public final class FunctionAssertions
         //
         // If the filter does not need bound values, execute query using full engine
         if (!needsBoundValue(filterExpression)) {
-            MaterializedResult result = runner.execute("SELECT TRUE FROM dual WHERE " + filter);
+            MaterializedResult result = runner.execute("SELECT TRUE WHERE " + filter);
             assertEquals(result.getTypes().size(), 1);
 
             Boolean queryResult;
