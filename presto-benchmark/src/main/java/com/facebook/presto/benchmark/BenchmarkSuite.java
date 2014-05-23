@@ -26,14 +26,13 @@ import java.util.List;
 import java.util.Map;
 
 import static com.facebook.presto.benchmark.BenchmarkQueryRunner.createLocalQueryRunner;
-import static com.facebook.presto.benchmark.BenchmarkQueryRunner.createLocalSampledQueryRunner;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 public class BenchmarkSuite
 {
     private static final Logger LOGGER = Logger.get(BenchmarkSuite.class);
 
-    public static List<AbstractBenchmark> createBenchmarks(LocalQueryRunner localQueryRunner, LocalQueryRunner localSampledQueryRunner)
+    public static List<AbstractBenchmark> createBenchmarks(LocalQueryRunner localQueryRunner)
     {
         return ImmutableList.<AbstractBenchmark>of(
                 // hand built benchmarks
@@ -73,12 +72,6 @@ public class BenchmarkSuite
                 new SqlApproximatePercentileBenchmark(localQueryRunner),
                 new SqlBetweenBenchmark(localQueryRunner),
 
-                // Sampled sql benchmarks
-                new RenamingBenchmark("sampled_", new GroupBySumWithArithmeticSqlBenchmark(localSampledQueryRunner)),
-                new RenamingBenchmark("sampled_", new CountAggregationSqlBenchmark(localSampledQueryRunner)),
-                new RenamingBenchmark("sampled_", new SqlJoinWithPredicateBenchmark(localSampledQueryRunner)),
-                new RenamingBenchmark("sampled_", new SqlDoubleSumAggregationBenchmark(localSampledQueryRunner)),
-
                 // statistics benchmarks
                 new StatisticsBenchmark.LongVarianceBenchmark(localQueryRunner),
                 new StatisticsBenchmark.LongVariancePopBenchmark(localQueryRunner),
@@ -113,9 +106,8 @@ public class BenchmarkSuite
     public void runAllBenchmarks()
             throws IOException
     {
-        try (LocalQueryRunner localQueryRunner = createLocalQueryRunner();
-                LocalQueryRunner localSampledQueryRunner = createLocalSampledQueryRunner()) {
-            List<AbstractBenchmark> benchmarks = createBenchmarks(localQueryRunner, localSampledQueryRunner);
+        try (LocalQueryRunner localQueryRunner = createLocalQueryRunner()) {
+            List<AbstractBenchmark> benchmarks = createBenchmarks(localQueryRunner);
 
             LOGGER.info("=== Pre-running all benchmarks for JVM warmup ===");
             for (AbstractBenchmark benchmark : benchmarks) {
