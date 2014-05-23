@@ -157,6 +157,12 @@ class TupleAnalyzer
             if (!metadata.listSchemaNames(session, name.getCatalogName()).contains(name.getSchemaName())) {
                 throw new SemanticException(MISSING_SCHEMA, table, "Schema %s does not exist", name.getSchemaName());
             }
+
+            if (table.getName().getSuffix().equalsIgnoreCase("DUAL")) {
+                // TODO: remove this in a few releases
+                throw new SemanticException(MISSING_TABLE, table, "DUAL table is no longer supported. Please use VALUES or FROM-less queries instead");
+            }
+
             throw new SemanticException(MISSING_TABLE, table, "Table %s does not exist", name);
         }
         TableMetadata tableMetadata = metadata.getTableMetadata(tableHandle.get());

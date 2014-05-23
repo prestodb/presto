@@ -19,7 +19,6 @@ import com.facebook.presto.block.rle.RunLengthBlockEncoding;
 import com.facebook.presto.block.snappy.SnappyBlockEncoding;
 import com.facebook.presto.client.QueryResults;
 import com.facebook.presto.connector.ConnectorManager;
-import com.facebook.presto.connector.dual.DualModule;
 import com.facebook.presto.connector.informationSchema.InformationSchemaModule;
 import com.facebook.presto.connector.jmx.JmxConnectorFactory;
 import com.facebook.presto.connector.system.SystemTablesModule;
@@ -194,9 +193,6 @@ public class ServerMainModule
 
         // jmx connector
         connectorFactoryBinder.addBinding("jmx").to(JmxConnectorFactory.class);
-
-        // dual
-        binder.install(new DualModule());
 
         // information schema
         binder.install(new InformationSchemaModule());
