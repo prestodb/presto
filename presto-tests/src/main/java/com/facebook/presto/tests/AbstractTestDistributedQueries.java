@@ -13,24 +13,18 @@
  */
 package com.facebook.presto.tests;
 
-import com.facebook.presto.metadata.QualifiedTableName;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.testing.QueryRunner;
-import com.facebook.presto.tpch.TpchMetadata;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableSet;
-import io.airlift.log.Logger;
 import org.intellij.lang.annotations.Language;
 import org.testng.annotations.Test;
 
 import static com.facebook.presto.connector.informationSchema.InformationSchemaMetadata.INFORMATION_SCHEMA;
-import static com.facebook.presto.util.Types.checkType;
 import static com.google.common.collect.Iterables.transform;
-import static io.airlift.units.Duration.nanosSince;
 import static java.lang.String.format;
 import static java.util.Collections.nCopies;
-import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
@@ -38,60 +32,9 @@ import static org.testng.Assert.assertTrue;
 public abstract class AbstractTestDistributedQueries
         extends AbstractTestSampledQueries
 {
-    private static final Logger log = Logger.get("TestQueries");
-
-    private QueryRunner queryRunner;
-
-    public abstract ConnectorSession getSampledSession();
-
-    @Override
-    protected ConnectorSession setUpQueryFramework()
-            throws Exception
+    protected AbstractTestDistributedQueries(QueryRunner queryRunner, ConnectorSession defaultSampledSession)
     {
-        queryRunner = createQueryRunner();
-
-        log.info("Loading data...");
-        long startTime = System.nanoTime();
-        distributeData("tpch", TpchMetadata.TINY_SCHEMA_NAME, getSession());
-        distributeData("tpch_sampled", TpchMetadata.TINY_SCHEMA_NAME, getSampledSession());
-        log.info("Loading complete in %s", nanosSince(startTime).toString(SECONDS));
-
-        return getSession();
-    }
-
-    protected abstract QueryRunner createQueryRunner()
-            throws Exception;
-
-    private void distributeData(String sourceCatalog, String sourceSchema, ConnectorSession session)
-            throws Exception
-    {
-        for (QualifiedTableName table : queryRunner.listTables(session, sourceCatalog, sourceSchema)) {
-            if (table.getTableName().equalsIgnoreCase("dual")) {
-                continue;
-            }
-            log.info("Running import for %s", table.getTableName());
-            @Language("SQL") String sql = format("CREATE TABLE %s AS SELECT * FROM %s", table.getTableName(), table);
-            long rows = checkType(queryRunner.execute(session, sql).getMaterializedRows().get(0).getField(0), Long.class, "rows");
-            log.info("Imported %s rows for %s", rows, table.getTableName());
-        }
-    }
-
-    @Override
-    protected int getNodeCount()
-    {
-        return queryRunner.getNodeCount();
-    }
-
-    @Override
-    protected MaterializedResult computeActual(@Language("SQL") String sql)
-    {
-        return queryRunner.execute(getSession(), sql);
-    }
-
-    @Override
-    protected MaterializedResult computeActualSampled(@Language("SQL") String sql)
-    {
-        return queryRunner.execute(getSampledSession(), sql);
+        super(queryRunner, defaultSampledSession);
     }
 
     private void assertCreateTable(String table, @Language("SQL") String query, @Language("SQL") String rowCountQuery)
@@ -108,14 +51,6 @@ public abstract class AbstractTestDistributedQueries
         assertQueryTrue("DROP TABLE " + table);
 
         assertFalse(queryRunner.tableExists(getSession(), table));
-    }
-
-    @Override
-    protected void tearDownQueryFramework()
-            throws Exception
-    {
-        queryRunner.close();
-        queryRunner = null;
     }
 
     @Test

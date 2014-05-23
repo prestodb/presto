@@ -188,6 +188,12 @@ public class LocalQueryRunner
         return executor;
     }
 
+    @Override
+    public ConnectorSession getDefaultSession()
+    {
+        return defaultSession;
+    }
+
     public void createCatalog(String catalogName, ConnectorFactory connectorFactory, Map<String, String> properties)
     {
         nodeManager.addCurrentNodeDatasource(catalogName);

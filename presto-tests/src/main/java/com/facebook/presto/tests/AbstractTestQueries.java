@@ -19,6 +19,7 @@ import com.facebook.presto.spi.type.TimeZoneKey;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.testing.MaterializedRow;
+import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.util.DateTimeZoneIndex;
 import com.google.common.base.Function;
 import com.google.common.collect.ArrayListMultimap;
@@ -77,6 +78,11 @@ public abstract class AbstractTestQueries
             .scalar(CustomAdd.class)
             .scalar(CreateHll.class)
             .getFunctions();
+
+    public AbstractTestQueries(QueryRunner queryRunner)
+    {
+        super(queryRunner);
+    }
 
     @Test
     public void testValues()

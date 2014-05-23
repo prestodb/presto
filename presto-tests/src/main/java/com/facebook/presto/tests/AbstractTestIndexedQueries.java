@@ -13,7 +13,9 @@
  */
 package com.facebook.presto.tests;
 
+import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.tpch.TpchIndexSpec;
+import com.facebook.presto.tests.tpch.TpchIndexSpec.Builder;
 import com.facebook.presto.tpch.TpchMetadata;
 import com.google.common.collect.ImmutableSet;
 import org.testng.annotations.Test;
@@ -21,21 +23,16 @@ import org.testng.annotations.Test;
 public abstract class AbstractTestIndexedQueries
         extends AbstractTestQueryFramework
 {
-    private final TpchIndexSpec indexSpec;
+    // Generate the indexed data sets
+    public static final TpchIndexSpec INDEX_SPEC = new Builder()
+            .addIndex("orders", TpchMetadata.TINY_SCALE_FACTOR, ImmutableSet.of("orderkey"))
+            .addIndex("orders", TpchMetadata.TINY_SCALE_FACTOR, ImmutableSet.of("orderkey", "orderstatus"))
+            .addIndex("orders", TpchMetadata.TINY_SCALE_FACTOR, ImmutableSet.of("orderkey", "custkey"))
+            .build();
 
-    protected AbstractTestIndexedQueries()
+    protected AbstractTestIndexedQueries(QueryRunner queryRunner)
     {
-        // Generate the indexed data sets
-        this.indexSpec = new TpchIndexSpec.Builder()
-                .addIndex("orders", TpchMetadata.TINY_SCALE_FACTOR, ImmutableSet.of("orderkey"))
-                .addIndex("orders", TpchMetadata.TINY_SCALE_FACTOR, ImmutableSet.of("orderkey", "orderstatus"))
-                .addIndex("orders", TpchMetadata.TINY_SCALE_FACTOR, ImmutableSet.of("orderkey", "custkey"))
-                .build();
-    }
-
-    protected TpchIndexSpec getTpchIndexSpec()
-    {
-        return indexSpec;
+        super(queryRunner);
     }
 
     @Test
