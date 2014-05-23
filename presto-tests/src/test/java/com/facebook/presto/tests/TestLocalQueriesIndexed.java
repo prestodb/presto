@@ -23,7 +23,6 @@ import org.intellij.lang.annotations.Language;
 import org.testng.annotations.AfterClass;
 
 import java.util.Locale;
-import java.util.concurrent.ExecutorService;
 
 import static com.facebook.presto.spi.type.TimeZoneKey.UTC_KEY;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
@@ -32,50 +31,33 @@ import static java.util.concurrent.Executors.newCachedThreadPool;
 public class TestLocalQueriesIndexed
         extends AbstractTestIndexedQueries
 {
-    private LocalQueryRunner localIndexedQueryRunner;
-    private ExecutorService executor;
-
-    public ExecutorService getExecutor()
+    public TestLocalQueriesIndexed()
     {
-        if (executor == null) {
-            executor = newCachedThreadPool(daemonThreadsNamed("test"));
-        }
-        return executor;
+        super(createLocalQueryRunner());
     }
 
-    @AfterClass
-    public void tearDown()
+    @AfterClass(alwaysRun = true)
+    public void destroy()
     {
-        if (executor != null) {
-            executor.shutdownNow();
-        }
-    }
-
-    @Override
-    protected int getNodeCount()
-    {
-        return 1;
-    }
-
-    @Override
-    protected ConnectorSession setUpQueryFramework()
-    {
-        ConnectorSession session = new ConnectorSession("user", "test", "local", TpchMetadata.TINY_SCHEMA_NAME, UTC_KEY, Locale.ENGLISH, null, null);
-        localIndexedQueryRunner = new LocalQueryRunner(session, getExecutor());
-
-        // add the tpch catalog
-        // local queries run directly against the generator
-        localIndexedQueryRunner.createCatalog(session.getCatalog(), new IndexedTpchConnectorFactory(localIndexedQueryRunner.getNodeManager(), getTpchIndexSpec(), 1), ImmutableMap.<String, String>of());
-
-        // dump query plan to console (for debugging)
-        // tpchLocalQueryRunner.printPlan();
-
-        return session;
+        ((LocalQueryRunner) queryRunner).getExecutor().shutdownNow();
     }
 
     @Override
     protected MaterializedResult computeActual(@Language("SQL") String sql)
     {
-        return localIndexedQueryRunner.execute(sql).toJdbcTypes();
+        return queryRunner.execute(sql).toJdbcTypes();
+    }
+
+    private static LocalQueryRunner createLocalQueryRunner()
+    {
+        ConnectorSession defaultSession = new ConnectorSession("user", "test", "local", TpchMetadata.TINY_SCHEMA_NAME, UTC_KEY, Locale.ENGLISH, null, null);
+        LocalQueryRunner localQueryRunner = new LocalQueryRunner(defaultSession, newCachedThreadPool(daemonThreadsNamed("test")));
+
+        // add the tpch catalog
+        // local queries run directly against the generator
+        localQueryRunner.createCatalog(defaultSession.getCatalog(),
+                new IndexedTpchConnectorFactory(localQueryRunner.getNodeManager(), INDEX_SPEC, 1), ImmutableMap.<String, String>of());
+
+        return localQueryRunner;
     }
 }

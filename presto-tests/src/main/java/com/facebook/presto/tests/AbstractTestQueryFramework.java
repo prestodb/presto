@@ -26,17 +26,16 @@ import com.facebook.presto.sql.planner.optimizations.PlanOptimizer;
 import com.facebook.presto.sql.tree.ExplainType;
 import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.testing.MaterializedRow;
+import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.type.TypeRegistry;
 import com.google.common.base.Function;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableMultiset;
 import com.google.common.collect.Iterables;
 import io.airlift.log.Logger;
-import io.airlift.log.Logging;
 import io.airlift.units.Duration;
 import org.intellij.lang.annotations.Language;
 import org.testng.annotations.AfterClass;
-import org.testng.annotations.BeforeClass;
 
 import java.util.List;
 
@@ -47,47 +46,36 @@ import static org.testng.Assert.fail;
 
 public abstract class AbstractTestQueryFramework
 {
-    private H2QueryRunner h2QueryRunner;
-    private ConnectorSession session;
+    private final H2QueryRunner h2QueryRunner;
+    protected final QueryRunner queryRunner;
 
-    @BeforeClass(alwaysRun = true)
-    public void setupDatabase()
-            throws Exception
+    protected AbstractTestQueryFramework(QueryRunner queryRunner)
     {
-        Logging.initialize();
+        this.queryRunner = queryRunner;
         h2QueryRunner = new H2QueryRunner();
-
-        session = setUpQueryFramework();
     }
 
     @AfterClass(alwaysRun = true)
-    public void cleanupDatabase()
+    private void close()
             throws Exception
     {
-        try {
-            tearDownQueryFramework();
-        }
-        finally {
-            h2QueryRunner.close();
-        }
+        h2QueryRunner.close();
     }
 
     protected ConnectorSession getSession()
     {
-        return session;
+        return queryRunner.getDefaultSession();
     }
 
-    protected abstract int getNodeCount();
-
-    protected abstract ConnectorSession setUpQueryFramework()
-            throws Exception;
-
-    protected void tearDownQueryFramework()
-            throws Exception
+    public final int getNodeCount()
     {
+        return queryRunner.getNodeCount();
     }
 
-    protected abstract MaterializedResult computeActual(@Language("SQL") String sql);
+    protected MaterializedResult computeActual(@Language("SQL") String sql)
+    {
+        return queryRunner.execute(getSession(), sql).toJdbcTypes();
+    }
 
     protected void assertQuery(@Language("SQL") String sql)
             throws Exception
@@ -191,6 +179,6 @@ public abstract class AbstractTestQueryFramework
         MetadataManager metadata = new MetadataManager(new FeaturesConfig().setExperimentalSyntaxEnabled(true), new TypeRegistry());
         FeaturesConfig featuresConfig = new FeaturesConfig().setExperimentalSyntaxEnabled(true);
         List<PlanOptimizer> optimizers = new PlanOptimizersFactory(metadata, new SplitManager(), new IndexManager(), featuresConfig).get();
-        return new QueryExplainer(session, optimizers, metadata, featuresConfig.isExperimentalSyntaxEnabled());
+        return new QueryExplainer(queryRunner.getDefaultSession(), optimizers, metadata, featuresConfig.isExperimentalSyntaxEnabled());
     }
 }

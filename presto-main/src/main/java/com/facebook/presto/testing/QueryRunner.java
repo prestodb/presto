@@ -28,6 +28,8 @@ public interface QueryRunner
 
     int getNodeCount();
 
+    ConnectorSession getDefaultSession();
+
     MaterializedResult execute(@Language("SQL") String sql);
 
     MaterializedResult execute(ConnectorSession session, @Language("SQL") String sql);

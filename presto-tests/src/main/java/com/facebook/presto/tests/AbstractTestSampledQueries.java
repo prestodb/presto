@@ -13,8 +13,10 @@
  */
 package com.facebook.presto.tests;
 
+import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.testing.MaterializedRow;
+import com.facebook.presto.testing.QueryRunner;
 import io.airlift.log.Logger;
 import io.airlift.units.Duration;
 import org.intellij.lang.annotations.Language;
@@ -28,6 +30,14 @@ import static org.testng.Assert.assertTrue;
 public abstract class AbstractTestSampledQueries
         extends AbstractTestQueries
 {
+    private final ConnectorSession defaultSampledSession;
+
+    protected AbstractTestSampledQueries(QueryRunner queryRunner, ConnectorSession defaultSampledSession)
+    {
+        super(queryRunner);
+        this.defaultSampledSession = defaultSampledSession;
+    }
+
     @Test
     public void testApproximateQueryCount()
             throws Exception
@@ -282,5 +292,8 @@ public abstract class AbstractTestSampledQueries
         }
     }
 
-    protected abstract MaterializedResult computeActualSampled(@Language("SQL") String sql);
+    protected MaterializedResult computeActualSampled(@Language("SQL") String sql)
+    {
+        return queryRunner.execute(defaultSampledSession, sql);
+    }
 }

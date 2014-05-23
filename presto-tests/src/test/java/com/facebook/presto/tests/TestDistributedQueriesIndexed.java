@@ -19,6 +19,7 @@ import com.facebook.presto.tests.tpch.IndexedTpchPlugin;
 import com.facebook.presto.tpch.TpchMetadata;
 import io.airlift.testing.Closeables;
 import org.intellij.lang.annotations.Language;
+import org.testng.annotations.AfterClass;
 
 import static com.facebook.presto.spi.type.TimeZoneKey.UTC_KEY;
 import static java.util.Locale.ENGLISH;
@@ -26,32 +27,14 @@ import static java.util.Locale.ENGLISH;
 public class TestDistributedQueriesIndexed
         extends AbstractTestIndexedQueries
 {
-    private DistributedQueryRunner queryRunner;
-
-    @Override
-    protected int getNodeCount()
-    {
-        return queryRunner.getNodeCount();
-    }
-
-    @Override
-    protected ConnectorSession setUpQueryFramework()
+    public TestDistributedQueriesIndexed()
             throws Exception
     {
-        ConnectorSession session = new ConnectorSession("user", "test", "tpch_indexed", TpchMetadata.TINY_SCHEMA_NAME, UTC_KEY, ENGLISH, null, null);
-        DistributedQueryRunner queryRunner = new DistributedQueryRunner(session, 3);
-
-        queryRunner.installPlugin(new IndexedTpchPlugin(getTpchIndexSpec()));
-        queryRunner.createCatalog("tpch_indexed", "tpch_indexed");
-
-        this.queryRunner = queryRunner;
-
-        return session;
+        super(createQueryRunner());
     }
 
-    @SuppressWarnings("deprecation")
-    @Override
-    protected void tearDownQueryFramework()
+    @AfterClass
+    public void destroy()
             throws Exception
     {
         Closeables.closeQuietly(queryRunner);
@@ -61,5 +44,16 @@ public class TestDistributedQueriesIndexed
     protected MaterializedResult computeActual(@Language("SQL") String sql)
     {
         return queryRunner.execute(sql);
+    }
+
+    private static DistributedQueryRunner createQueryRunner()
+            throws Exception
+    {
+        ConnectorSession session = new ConnectorSession("user", "test", "tpch_indexed", TpchMetadata.TINY_SCHEMA_NAME, UTC_KEY, ENGLISH, null, null);
+        DistributedQueryRunner queryRunner = new DistributedQueryRunner(session, 3);
+
+        queryRunner.installPlugin(new IndexedTpchPlugin(INDEX_SPEC));
+        queryRunner.createCatalog("tpch_indexed", "tpch_indexed");
+        return queryRunner;
     }
 }

@@ -15,15 +15,12 @@ package com.facebook.presto.tests;
 
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.testing.LocalQueryRunner;
-import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.tpch.TpchConnectorFactory;
 import com.facebook.presto.tpch.TpchMetadata;
 import com.google.common.collect.ImmutableMap;
-import org.intellij.lang.annotations.Language;
 import org.testng.annotations.AfterClass;
 
 import java.util.Locale;
-import java.util.concurrent.ExecutorService;
 
 import static com.facebook.presto.spi.type.TimeZoneKey.UTC_KEY;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
@@ -32,51 +29,31 @@ import static java.util.concurrent.Executors.newCachedThreadPool;
 public class TestLocalQueries
         extends AbstractTestQueries
 {
-    private LocalQueryRunner localQueryRunner;
-    private ExecutorService executor;
-
-    public ExecutorService getExecutor()
+    public TestLocalQueries()
     {
-        if (executor == null) {
-            executor = newCachedThreadPool(daemonThreadsNamed("test"));
-        }
-        return executor;
+        super(createLocalQueryRunner());
     }
 
-    @AfterClass
-    public void tearDown()
+    @AfterClass(alwaysRun = true)
+    public void destroy()
     {
-        if (executor != null) {
-            executor.shutdownNow();
-        }
+        ((LocalQueryRunner) queryRunner).getExecutor().shutdownNow();
     }
 
-    @Override
-    protected int getNodeCount()
+    private static LocalQueryRunner createLocalQueryRunner()
     {
-        return 1;
-    }
-
-    @Override
-    protected ConnectorSession setUpQueryFramework()
-    {
-        ConnectorSession session = new ConnectorSession("user", "test", "local", TpchMetadata.TINY_SCHEMA_NAME, UTC_KEY, Locale.ENGLISH, null, null);
-        localQueryRunner = new LocalQueryRunner(session, getExecutor());
+        ConnectorSession defaultSession = new ConnectorSession("user", "test", "local", TpchMetadata.TINY_SCHEMA_NAME, UTC_KEY, Locale.ENGLISH, null, null);
+        LocalQueryRunner localQueryRunner = new LocalQueryRunner(defaultSession, newCachedThreadPool(daemonThreadsNamed("test")));
 
         // add the tpch catalog
         // local queries run directly against the generator
-        localQueryRunner.createCatalog(session.getCatalog(), new TpchConnectorFactory(localQueryRunner.getNodeManager(), 1), ImmutableMap.<String, String>of());
+        localQueryRunner.createCatalog(
+                defaultSession.getCatalog(),
+                new TpchConnectorFactory(localQueryRunner.getNodeManager(), 1),
+                ImmutableMap.<String, String>of());
+
         localQueryRunner.getMetadata().addFunctions(CUSTOM_FUNCTIONS);
 
-        // dump query plan to console (for debugging)
-        // tpchLocalQueryRunner.printPlan();
-
-        return session;
-    }
-
-    @Override
-    protected MaterializedResult computeActual(@Language("SQL") String sql)
-    {
-        return localQueryRunner.execute(sql).toJdbcTypes();
+        return localQueryRunner;
     }
 }

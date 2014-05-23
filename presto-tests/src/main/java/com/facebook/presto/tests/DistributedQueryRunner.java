@@ -169,6 +169,12 @@ public class DistributedQueryRunner
         return servers.size();
     }
 
+    @Override
+    public ConnectorSession getDefaultSession()
+    {
+        return session;
+    }
+
     public TestingPrestoServer getCoordinator()
     {
         return coordinator;

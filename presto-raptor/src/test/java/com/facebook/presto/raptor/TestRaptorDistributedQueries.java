@@ -13,46 +13,51 @@
  */
 package com.facebook.presto.raptor;
 
+import com.facebook.presto.metadata.QualifiedTableName;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.AbstractTestDistributedQueries;
 import com.facebook.presto.tests.DistributedQueryRunner;
+import com.facebook.presto.tpch.TpchMetadata;
 import com.facebook.presto.tpch.TpchPlugin;
 import com.facebook.presto.tpch.testing.SampledTpchPlugin;
 import com.google.common.collect.ImmutableMap;
+import io.airlift.log.Logger;
+import org.intellij.lang.annotations.Language;
+import org.testng.annotations.AfterClass;
 
 import java.io.File;
 import java.util.Map;
 
 import static com.facebook.presto.spi.type.TimeZoneKey.UTC_KEY;
+import static com.facebook.presto.util.Types.checkType;
+import static io.airlift.units.Duration.nanosSince;
+import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
+import static java.util.concurrent.TimeUnit.SECONDS;
 
 public class TestRaptorDistributedQueries
         extends AbstractTestDistributedQueries
 {
-    private ConnectorSession session;
-    private ConnectorSession sampledSession;
+    private static final Logger log = Logger.get("TestQueries");
+    private static final String TPCH_SAMPLED_SCHEMA = "tpch_sampled";
 
-    @Override
-    public ConnectorSession getSession()
-    {
-        return session;
-    }
-
-    @Override
-    public ConnectorSession getSampledSession()
-    {
-        return sampledSession;
-    }
-
-    @Override
-    protected QueryRunner createQueryRunner()
+    public TestRaptorDistributedQueries()
             throws Exception
     {
-        session = new ConnectorSession("user", "test", "default", "tpch", UTC_KEY, ENGLISH, null, null);
-        sampledSession = new ConnectorSession("user", "test", "default", "tpch_sampled", UTC_KEY, ENGLISH, null, null);
+        super(createQueryRunner(), createSession(TPCH_SAMPLED_SCHEMA));
+    }
 
-        DistributedQueryRunner queryRunner = new DistributedQueryRunner(session, 4);
+    @AfterClass(alwaysRun = true)
+    public void destroy()
+    {
+        queryRunner.close();
+    }
+
+    private static QueryRunner createQueryRunner()
+            throws Exception
+    {
+        DistributedQueryRunner queryRunner = new DistributedQueryRunner(createSession("tpch"), 4);
 
         queryRunner.installPlugin(new TpchPlugin());
         queryRunner.createCatalog("tpch", "tpch");
@@ -61,17 +66,40 @@ public class TestRaptorDistributedQueries
         queryRunner.createCatalog("tpch_sampled", "tpch_sampled");
 
         queryRunner.installPlugin(new RaptorPlugin());
-
-        // install raptor plugin
         File baseDir = queryRunner.getCoordinator().getBaseDataDir().toFile();
-
         Map<String, String> raptorProperties = ImmutableMap.<String, String>builder()
                 .put("metadata.db.type", "h2")
                 .put("metadata.db.filename", new File(baseDir, "db").getAbsolutePath())
                 .put("storage.data-directory", new File(baseDir, "data").getAbsolutePath())
                 .build();
 
-        queryRunner.createCatalog(session.getCatalog(), "raptor", raptorProperties);
+        queryRunner.createCatalog("default", "raptor", raptorProperties);
+
+        log.info("Loading data...");
+        long startTime = System.nanoTime();
+        distributeData(queryRunner, "tpch", TpchMetadata.TINY_SCHEMA_NAME, createSession("tpch"));
+        distributeData(queryRunner, "tpch_sampled", TpchMetadata.TINY_SCHEMA_NAME, createSession(TPCH_SAMPLED_SCHEMA));
+        log.info("Loading complete in %s", nanosSince(startTime).toString(SECONDS));
+
         return queryRunner;
+    }
+
+    private static void distributeData(QueryRunner queryRunner, String catalog, String schema, ConnectorSession session)
+            throws Exception
+    {
+        for (QualifiedTableName table : queryRunner.listTables(session, catalog, schema)) {
+            if (table.getTableName().equalsIgnoreCase("dual")) {
+                continue;
+            }
+            log.info("Running import for %s", table.getTableName());
+            @Language("SQL") String sql = format("CREATE TABLE %s AS SELECT * FROM %s", table.getTableName(), table);
+            long rows = checkType(queryRunner.execute(session, sql).getMaterializedRows().get(0).getField(0), Long.class, "rows");
+            log.info("Imported %s rows for %s", rows, table.getTableName());
+        }
+    }
+
+    private static ConnectorSession createSession(String schema)
+    {
+        return new ConnectorSession("user", "test", "default", schema, UTC_KEY, ENGLISH, null, null);
     }
 }
