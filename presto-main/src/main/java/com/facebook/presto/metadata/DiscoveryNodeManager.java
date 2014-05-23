@@ -35,6 +35,7 @@ import java.net.URISyntaxException;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
 
+import static com.facebook.presto.connector.system.SystemSplitManager.SYSTEM_DATASOURCE;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Predicates.in;
@@ -117,6 +118,9 @@ public final class DiscoveryNodeManager
                             byDataSourceBuilder.put(dataSource, node);
                         }
                     }
+
+                    // always add system data source
+                    byDataSourceBuilder.put(SYSTEM_DATASOURCE, node);
                 }
                 else {
                     inactiveNodesBuilder.add(node);

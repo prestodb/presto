@@ -45,7 +45,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-import static com.facebook.presto.connector.system.SystemSplitManager.SYSTEM_DATASOURCE;
 import static com.facebook.presto.server.CodeCacheGcTrigger.installCodeCacheGcTrigger;
 import static com.facebook.presto.server.PrestoJvmRequirements.verifyJvmRequirements;
 import static com.google.common.base.Strings.nullToEmpty;
@@ -146,9 +145,6 @@ public class PrestoServer
                 datasources.addAll(catalogs);
             }
         }
-
-        // always add system source
-        datasources.add(SYSTEM_DATASOURCE);
 
         // build announcement with updated sources
         ServiceAnnouncementBuilder builder = serviceAnnouncement(announcement.getType());
