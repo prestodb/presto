@@ -500,6 +500,12 @@
                         <parallel>methods</parallel>
                         <threadCount>4</threadCount>
                         <perCoreThreadCount>true</perCoreThreadCount>
+                        <systemPropertyVariables>
+                            <file.encoding>${project.build.sourceEncoding}</file.encoding>
+                            <sun.jnu.encoding>${project.build.sourceEncoding}</sun.jnu.encoding>
+                            <user.timezone>${test.timezone}</user.timezone>
+                            <java.awt.headless>true</java.awt.headless>
+                        </systemPropertyVariables>
                     </configuration>
                 </plugin>
 

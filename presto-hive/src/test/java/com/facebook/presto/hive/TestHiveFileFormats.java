@@ -25,15 +25,29 @@ import org.apache.hadoop.mapred.JobConf;
 import org.apache.hadoop.mapred.RecordReader;
 import org.apache.hadoop.mapred.Reporter;
 import org.joda.time.DateTimeZone;
+import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
 import java.io.File;
 import java.util.ArrayList;
 import java.util.Properties;
+import java.util.TimeZone;
+
+import static org.testng.Assert.assertEquals;
 
 public class TestHiveFileFormats
         extends AbstractTestHiveFileFormats
 {
+    @BeforeMethod(alwaysRun = true)
+    public void setup()
+            throws Exception
+    {
+        // ensure the expected timezone is configured for this VM
+        assertEquals(TimeZone.getDefault().getID(),
+                "Asia/Katmandu",
+                "Timezone not configured correctly. Add -Duser.timezone=Asia/Katmandu to your JVM arguments");
+    }
+
     @Test
     public void testRCText()
             throws Exception

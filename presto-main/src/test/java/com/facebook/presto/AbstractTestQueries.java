@@ -19,9 +19,11 @@ import com.facebook.presto.operator.aggregation.CustomSum;
 import com.facebook.presto.operator.scalar.CreateHll;
 import com.facebook.presto.operator.scalar.CustomAdd;
 import com.facebook.presto.operator.window.CustomRank;
+import com.facebook.presto.spi.type.TimeZoneKey;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.testing.MaterializedRow;
+import com.facebook.presto.util.DateTimeZoneIndex;
 import com.google.common.base.Function;
 import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.ImmutableList;
@@ -34,8 +36,13 @@ import com.google.common.collect.Ordering;
 import io.airlift.tpch.TpchTable;
 import org.apache.commons.math3.stat.descriptive.DescriptiveStatistics;
 import org.intellij.lang.annotations.Language;
+import org.joda.time.DateTime;
+import org.joda.time.DateTimeZone;
 import org.testng.annotations.Test;
 
+import java.sql.Date;
+import java.sql.Time;
+import java.sql.Timestamp;
 import java.util.List;
 import java.util.Set;
 
@@ -43,7 +50,12 @@ import static com.facebook.presto.connector.informationSchema.InformationSchemaM
 import static com.facebook.presto.metadata.FunctionRegistry.supplier;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
+import static com.facebook.presto.spi.type.DateType.DATE;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
+import static com.facebook.presto.spi.type.TimeType.TIME;
+import static com.facebook.presto.spi.type.TimeWithTimeZoneType.TIME_WITH_TIME_ZONE;
+import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
+import static com.facebook.presto.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.sql.tree.ExplainType.Type.DISTRIBUTED;
 import static com.facebook.presto.sql.tree.ExplainType.Type.LOGICAL;
@@ -2987,9 +2999,21 @@ public abstract class AbstractTestQueries
     public void testTimeLiterals()
             throws Exception
     {
-        assertQuery(
-                "SELECT DATE '2013-03-22', TIME '3:04:05', TIME '3:04:05 UTC', TIMESTAMP '1960-01-22 3:04:05', TIMESTAMP '1960-01-22 3:04:05 +06:00'",
-                "SELECT DATE '2013-03-22', TIME '3:04:05', TIME '3:04:05', TIMESTAMP '1960-01-22 3:04:05', TIMESTAMP '1960-01-21 21:04:05'");
+        MaterializedResult.Builder builder = MaterializedResult.resultBuilder(getSession(), DATE, TIME, TIME_WITH_TIME_ZONE, TIMESTAMP, TIMESTAMP_WITH_TIME_ZONE);
+
+        DateTimeZone sessionTimeZone = DateTimeZoneIndex.getDateTimeZone(getSession().getTimeZoneKey());
+        DateTimeZone utcPlus6 = DateTimeZoneIndex.getDateTimeZone(TimeZoneKey.getTimeZoneKeyForOffset(6 * 60));
+
+        builder.row(
+                new Date(new DateTime(2013, 3, 22, 0, 0, sessionTimeZone).getMillis()),
+                new Time(new DateTime(1970, 1, 1, 3, 4, 5, sessionTimeZone).getMillisOfDay()),
+                new Time(new DateTime(1970, 1, 1, 3, 4, 5, utcPlus6).getMillis()), // hack because java.sql.Time compares based on actual number of ms since epoch instead of ms since midnight
+                new Timestamp(new DateTime(1960, 1, 22, 3, 4, 5, sessionTimeZone).getMillis()),
+                new Timestamp(new DateTime(1960, 1, 22, 3, 4, 5, utcPlus6).getMillis()));
+
+        MaterializedResult actual = computeActual("SELECT DATE '2013-03-22', TIME '3:04:05', TIME '3:04:05 +06:00', TIMESTAMP '1960-01-22 3:04:05', TIMESTAMP '1960-01-22 3:04:05 +06:00'");
+
+        assertEquals(actual, builder.build());
     }
 
     @Test
