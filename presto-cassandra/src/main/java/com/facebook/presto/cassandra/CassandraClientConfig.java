@@ -17,6 +17,7 @@ import com.datastax.driver.core.ConsistencyLevel;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
 import io.airlift.configuration.Config;
+import io.airlift.configuration.ConfigDescription;
 import io.airlift.units.Duration;
 
 import javax.validation.constraints.Min;
@@ -50,6 +51,7 @@ public class CassandraClientConfig
     private int thriftPort = 9160;
     private String thriftConnectionFactoryClassName = "org.apache.cassandra.thrift.TFramedTransportFactory";
     private Map<String, String> transportFactoryOptions = new HashMap<>();
+    private boolean allowDropTable;
 
     @Min(0)
     public int getLimitForPartitionKeySelect()
@@ -247,6 +249,19 @@ public class CassandraClientConfig
     {
         checkNotNull(transportFactoryOptions, "transportFactoryOptions is null");
         this.transportFactoryOptions = Splitter.on(',').omitEmptyStrings().trimResults().withKeyValueSeparator("=").split(transportFactoryOptions);
+        return this;
+    }
+
+    public boolean getAllowDropTable()
+    {
+        return this.allowDropTable;
+    }
+
+    @Config("cassandra.allow-drop-table")
+    @ConfigDescription("Allow hive connector to drop table")
+    public CassandraClientConfig setAllowDropTable(boolean allowDropTable)
+    {
+        this.allowDropTable = allowDropTable;
         return this;
     }
 }
