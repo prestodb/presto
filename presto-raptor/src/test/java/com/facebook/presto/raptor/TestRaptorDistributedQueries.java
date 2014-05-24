@@ -14,6 +14,7 @@
 package com.facebook.presto.raptor;
 
 import com.facebook.presto.spi.ConnectorSession;
+import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.AbstractTestDistributedQueries;
 import com.facebook.presto.tests.DistributedQueryRunner;
 import com.facebook.presto.tpch.TpchPlugin;
@@ -45,13 +46,13 @@ public class TestRaptorDistributedQueries
     }
 
     @Override
-    protected DistributedQueryRunner createQueryRunner()
+    protected QueryRunner createQueryRunner()
             throws Exception
     {
         session = new ConnectorSession("user", "test", "default", "tpch", UTC_KEY, ENGLISH, null, null);
-        DistributedQueryRunner queryRunner = new DistributedQueryRunner(session, 4);
-
         sampledSession = new ConnectorSession("user", "test", "default", "tpch_sampled", UTC_KEY, ENGLISH, null, null);
+
+        DistributedQueryRunner queryRunner = new DistributedQueryRunner(session, 4);
 
         queryRunner.installPlugin(new TpchPlugin());
         queryRunner.createCatalog("tpch", "tpch");

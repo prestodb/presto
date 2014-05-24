@@ -16,6 +16,7 @@ package com.facebook.presto.tests;
 import com.facebook.presto.metadata.QualifiedTableName;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.testing.MaterializedResult;
+import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tpch.TpchMetadata;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableSet;
@@ -39,7 +40,7 @@ public abstract class AbstractTestDistributedQueries
 {
     private static final Logger log = Logger.get("TestQueries");
 
-    private DistributedQueryRunner queryRunner;
+    private QueryRunner queryRunner;
 
     public abstract ConnectorSession getSampledSession();
 
@@ -58,7 +59,7 @@ public abstract class AbstractTestDistributedQueries
         return getSession();
     }
 
-    protected abstract DistributedQueryRunner createQueryRunner()
+    protected abstract QueryRunner createQueryRunner()
             throws Exception;
 
     private void distributeData(String sourceCatalog, String sourceSchema, ConnectorSession session)
