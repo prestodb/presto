@@ -1,0 +1,108 @@
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>4.11. DESCRIBE &mdash; Presto 0.69 Documentation</title>
+    
+    <link rel="stylesheet" href="../_static/presto.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '../',
+        VERSION:     '0.69',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="../_static/jquery.js"></script>
+    <script type="text/javascript" src="../_static/underscore.js"></script>
+    <script type="text/javascript" src="../_static/doctools.js"></script>
+    <link rel="top" title="Presto 0.69 Documentation" href="../index.html" />
+    <link rel="up" title="4. SQL Statement Syntax" href="../sql.html" />
+    <link rel="next" title="4.12. USE CATALOG" href="use-catalog.html" />
+    <link rel="prev" title="4.10. EXPLAIN" href="explain.html" /> 
+  </head>
+  <body>
+<div class="header">
+    <h1 class="heading"><a href="../index.html">
+        <span>Presto 0.69 Documentation</span></a></h1>
+    <h2 class="heading"><span>4.11. DESCRIBE</span></h2>
+</div>
+<div class="topnav">
+    
+<p class="nav">
+    <span class="left">
+        &laquo; <a href="explain.html">4.10. EXPLAIN</a>
+    </span>
+    <span class="right">
+        <a href="use-catalog.html">4.12. USE CATALOG</a> &raquo;
+    </span>
+</p>
+
+</div>
+<div class="content">
+    
+  <div class="section" id="describe">
+<h1>4.11. DESCRIBE</h1>
+<div class="section" id="synopsis">
+<h2>Synopsis</h2>
+<div class="highlight-none"><div class="highlight"><pre>DESCRIBE table_name
+</pre></div>
+</div>
+</div>
+<div class="section" id="description">
+<h2>Description</h2>
+<p><tt class="docutils literal"><span class="pre">DESCRIBE</span></tt> is an alias for <a class="reference internal" href="show-columns.html"><em>SHOW COLUMNS</em></a>.</p>
+</div>
+<div class="section" id="parameters">
+<h2>Parameters</h2>
+<p>table_name</p>
+<blockquote>
+<div>The name of a table</div></blockquote>
+</div>
+<div class="section" id="examples">
+<h2>Examples</h2>
+<div class="highlight-none"><div class="highlight"><pre>presto:default&gt; describe airline_origin_destination;
+     Column      |  Type   | Null | Partition Key
+-----------------+---------+------+---------------
+ itinid          | varchar | true | false
+ mktid           | varchar | true | false
+ seqnum          | varchar | true | false
+ coupons         | varchar | true | false
+ year            | varchar | true | false
+ quarter         | varchar | true | false
+ origin          | varchar | true | false
+ originaptind    | varchar | true | false
+ origincitynum   | varchar | true | false
+(9 rows)
+</pre></div>
+</div>
+</div>
+</div>
+
+
+</div>
+<div class="bottomnav">
+    
+<p class="nav">
+    <span class="left">
+        &laquo; <a href="explain.html">4.10. EXPLAIN</a>
+    </span>
+    <span class="right">
+        <a href="use-catalog.html">4.12. USE CATALOG</a> &raquo;
+    </span>
+</p>
+
+</div>
+
+    <div class="footer">
+    </div>
+  </body>
+</html>
