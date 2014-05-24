@@ -34,6 +34,7 @@ import com.facebook.presto.metadata.OutputTableHandleResolver;
 import com.facebook.presto.metadata.Partition;
 import com.facebook.presto.metadata.PartitionResult;
 import com.facebook.presto.metadata.QualifiedTableName;
+import com.facebook.presto.metadata.QualifiedTablePrefix;
 import com.facebook.presto.metadata.Split;
 import com.facebook.presto.metadata.TableHandle;
 import com.facebook.presto.operator.Driver;
@@ -97,11 +98,11 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 
 public class LocalQueryRunner
+    implements QueryRunner
 {
-    private final ConnectorSession session;
+    private final ConnectorSession defaultSession;
     private final ExecutorService executor;
 
-    private final NodeInfo nodeInfo;
     private final InMemoryNodeManager nodeManager;
     private final TypeRegistry typeRegistry;
     private final MetadataManager metadata;
@@ -115,12 +116,11 @@ public class LocalQueryRunner
 
     private boolean printPlan;
 
-    public LocalQueryRunner(ConnectorSession session, ExecutorService executor)
+    public LocalQueryRunner(ConnectorSession defaultSession, ExecutorService executor)
     {
-        this.session = checkNotNull(session, "session is null");
+        this.defaultSession = checkNotNull(defaultSession, "defaultSession is null");
         this.executor = checkNotNull(executor, "executor is null");
 
-        this.nodeInfo = new NodeInfo(new NodeConfig().setEnvironment("test").setNodeId("local"));
         this.nodeManager = new InMemoryNodeManager();
         this.typeRegistry = new TypeRegistry();
         this.metadata = new MetadataManager(new FeaturesConfig().setExperimentalSyntaxEnabled(true), typeRegistry);
@@ -157,6 +157,17 @@ public class LocalQueryRunner
                 nodeManager);
     }
 
+    @Override
+    public void close()
+    {
+    }
+
+    @Override
+    public int getNodeCount()
+    {
+        return 1;
+    }
+
     public InMemoryNodeManager getNodeManager()
     {
         return nodeManager;
@@ -183,7 +194,7 @@ public class LocalQueryRunner
         connectorManager.createConnection(catalogName, connectorFactory, properties);
     }
 
-    public LocalQueryRunner printPlan()
+    public QueryRunner printPlan()
     {
         printPlan = true;
         return this;
@@ -234,10 +245,33 @@ public class LocalQueryRunner
         }
     }
 
+    @Override
+    public List<QualifiedTableName> listTables(ConnectorSession session, String catalog, String schema)
+    {
+        return getMetadata().listTables(session, new QualifiedTablePrefix(catalog, schema));
+    }
+
+    @Override
+    public boolean tableExists(ConnectorSession session, String table)
+    {
+        QualifiedTableName name =  new QualifiedTableName(session.getCatalog(), session.getSchema(), table);
+        Optional<TableHandle> handle = getMetadata().getTableHandle(session, name);
+        return handle.isPresent();
+    }
+
+    @Override
     public MaterializedResult execute(@Language("SQL") String sql)
     {
+        return execute(defaultSession, sql);
+    }
+
+    @Override
+    public MaterializedResult execute(ConnectorSession session, @Language("SQL") String sql)
+    {
         MaterializedOutputFactory outputFactory = new MaterializedOutputFactory();
-        List<Driver> drivers = createDrivers(sql, outputFactory);
+
+        TaskContext taskContext = new TaskContext(new TaskId("query", "stage", "task"), executor, session);
+        List<Driver> drivers = createDrivers(session, sql, outputFactory, taskContext);
 
         boolean done = false;
         while (!done) {
@@ -254,12 +288,12 @@ public class LocalQueryRunner
         return outputFactory.getMaterializingOperator().getMaterializedResult();
     }
 
-    public List<Driver> createDrivers(@Language("SQL") String sql, OutputFactory outputFactory)
+    public List<Driver> createDrivers(@Language("SQL") String sql, OutputFactory outputFactory, TaskContext taskContext)
     {
-        return createDrivers(sql, outputFactory, new TaskContext(new TaskId("query", "stage", "task"), executor, session));
+        return createDrivers(defaultSession, sql, outputFactory, taskContext);
     }
 
-    public List<Driver> createDrivers(@Language("SQL") String sql, OutputFactory outputFactory, TaskContext taskContext)
+    public List<Driver> createDrivers(ConnectorSession session, @Language("SQL") String sql, OutputFactory outputFactory, TaskContext taskContext)
     {
         Statement statement = SqlParser.createStatement(sql);
 
@@ -361,7 +395,16 @@ public class LocalQueryRunner
         return matchingPartitions.getPartitions();
     }
 
-    public OperatorFactory createTableScanOperator(final int operatorId, String tableName, String... columnNames)
+    public OperatorFactory createTableScanOperator(int operatorId, String tableName, String... columnNames)
+    {
+        return createTableScanOperator(defaultSession, operatorId, tableName, columnNames);
+    }
+
+    public OperatorFactory createTableScanOperator(
+            ConnectorSession session,
+            final int operatorId,
+            String tableName,
+            String... columnNames)
     {
         // look up the table
         TableHandle tableHandle = metadata.getTableHandle(session, new QualifiedTableName(session.getCatalog(), session.getSchema(), tableName)).orNull();

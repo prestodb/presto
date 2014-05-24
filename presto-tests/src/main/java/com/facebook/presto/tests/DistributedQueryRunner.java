@@ -31,6 +31,7 @@ import com.facebook.presto.spi.type.TimeZoneKey;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.testing.MaterializedRow;
+import com.facebook.presto.testing.QueryRunner;
 import com.google.common.base.Function;
 import com.google.common.base.Optional;
 import com.google.common.base.Throwables;
@@ -47,7 +48,6 @@ import io.airlift.testing.Closeables;
 import io.airlift.units.Duration;
 import org.intellij.lang.annotations.Language;
 
-import java.io.Closeable;
 import java.net.URI;
 import java.sql.Date;
 import java.sql.Time;
@@ -84,7 +84,7 @@ import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
 
 public class DistributedQueryRunner
-    implements Closeable
+    implements QueryRunner
 {
     private static final Logger log = Logger.get("TestQueries");
 
@@ -163,6 +163,7 @@ public class DistributedQueryRunner
         return true;
     }
 
+    @Override
     public int getNodeCount()
     {
         return servers.size();
@@ -217,11 +218,13 @@ public class DistributedQueryRunner
         return true;
     }
 
+    @Override
     public List<QualifiedTableName> listTables(ConnectorSession session, String catalog, String schema)
     {
         return coordinator.getMetadata().listTables(session, new QualifiedTablePrefix(catalog, schema));
     }
 
+    @Override
     public boolean tableExists(ConnectorSession session, String table)
     {
         QualifiedTableName name =  new QualifiedTableName(session.getCatalog(), session.getSchema(), table);
@@ -229,11 +232,13 @@ public class DistributedQueryRunner
         return handle.isPresent();
     }
 
+    @Override
     public MaterializedResult execute(@Language("SQL") String sql)
     {
         return execute(session, sql);
     }
 
+    @Override
     public MaterializedResult execute(ConnectorSession session, @Language("SQL") String sql)
     {
         try (StatementClient client = new StatementClient(httpClient, QUERY_RESULTS_CODEC, toClientSession(session), sql)) {
