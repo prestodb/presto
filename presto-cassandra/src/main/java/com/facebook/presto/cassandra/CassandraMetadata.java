@@ -22,6 +22,7 @@ import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorTableHandle;
 import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.NotFoundException;
+import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SchemaNotFoundException;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.SchemaTablePrefix;
@@ -39,6 +40,7 @@ import static com.facebook.presto.cassandra.CassandraColumnHandle.SAMPLE_WEIGHT_
 import static com.facebook.presto.cassandra.CassandraColumnHandle.columnMetadataGetter;
 import static com.facebook.presto.cassandra.CassandraType.toCassandraType;
 import static com.facebook.presto.cassandra.util.Types.checkType;
+import static com.facebook.presto.spi.StandardErrorCode.CANNOT_DROP_TABLE;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
@@ -53,13 +55,15 @@ public class CassandraMetadata
     private final String connectorId;
     private final CachingCassandraSchemaProvider schemaProvider;
     private final CassandraSession cassandraSession;
+    private final boolean allowDropTable;
 
     @Inject
-    public CassandraMetadata(CassandraConnectorId connectorId, CachingCassandraSchemaProvider schemaProvider, CassandraSession cassandraSession)
+    public CassandraMetadata(CassandraConnectorId connectorId, CachingCassandraSchemaProvider schemaProvider, CassandraSession cassandraSession, CassandraClientConfig config)
     {
         this.connectorId = checkNotNull(connectorId, "connectorId is null").toString();
         this.schemaProvider = checkNotNull(schemaProvider, "schemaProvider is null");
         this.cassandraSession = checkNotNull(cassandraSession, "cassandraSession is null");
+        allowDropTable = checkNotNull(config, "config is null").getAllowDropTable();
     }
 
     @Override
@@ -220,7 +224,19 @@ public class CassandraMetadata
     @Override
     public void dropTable(ConnectorTableHandle tableHandle)
     {
-        throw new UnsupportedOperationException();
+        checkArgument(tableHandle instanceof CassandraTableHandle, "tableHandle is not an instance of CassandraTableHandle");
+
+        if (!allowDropTable) {
+            throw new PrestoException(CANNOT_DROP_TABLE.toErrorCode(), "DROP TABLE is disabled in this Hive catalog");
+        }
+
+        CassandraTableHandle cassandraTableHandle = (CassandraTableHandle) tableHandle;
+        String schemaName = cassandraTableHandle.getSchemaName();
+        String tableName = cassandraTableHandle.getTableName();
+
+        StringBuilder queryBuilder = new StringBuilder(String.format("DROP TABLE \"%s\".\"%s\"", schemaName, tableName));
+        cassandraSession.executeQuery(queryBuilder.toString());
+        schemaProvider.flushTable(cassandraTableHandle.getSchemaTableName());
     }
 
     @Override

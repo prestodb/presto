@@ -33,6 +33,7 @@ import org.weakref.jmx.Managed;
 import javax.annotation.concurrent.ThreadSafe;
 import javax.inject.Inject;
 
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.Callable;
@@ -251,6 +252,26 @@ public class CachingCassandraSchemaProvider
             throws TableNotFoundException
     {
         return getCacheValue(tableCache, tableHandle.getSchemaTableName(), TableNotFoundException.class);
+    }
+
+    public void flushTable(SchemaTableName tableName)
+    {
+        tableCache.asMap().remove(tableName);
+
+        tableNamesCache.asMap().remove(tableName.getSchemaName());
+
+        for (Iterator<PartitionListKey> iterator = partitionsCache.asMap().keySet().iterator(); iterator.hasNext(); ) {
+            PartitionListKey partitionListKey = iterator.next();
+            if (partitionListKey.getTable().getTableHandle().getSchemaTableName().equals(tableName)) {
+                iterator.remove();
+            }
+        }
+        for (Iterator<PartitionListKey> iterator = partitionsCacheFull.asMap().keySet().iterator(); iterator.hasNext(); ) {
+            PartitionListKey partitionListKey = iterator.next();
+            if (partitionListKey.getTable().getTableHandle().getSchemaTableName().equals(tableName)) {
+                iterator.remove();
+            }
+        }
     }
 
     private CassandraTable loadTable(final SchemaTableName tableName)
