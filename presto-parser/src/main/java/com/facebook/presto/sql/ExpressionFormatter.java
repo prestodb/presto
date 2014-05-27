@@ -82,7 +82,7 @@ public final class ExpressionFormatter
             @Override
             public String apply(Expression input)
             {
-                return ExpressionFormatter.formatExpression(input);
+                return formatExpression(input);
             }
         };
     }
@@ -162,7 +162,7 @@ public final class ExpressionFormatter
         @Override
         protected String visitGenericLiteral(GenericLiteral node, Void context)
         {
-            return "" + node.getType() + " '" + node.getValue() + "'";
+            return node.getType() + " '" + node.getValue() + "'";
         }
 
         @Override

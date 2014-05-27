@@ -49,7 +49,6 @@ import com.facebook.presto.sql.tree.With;
 import com.facebook.presto.sql.tree.WithQuery;
 import com.google.common.base.Joiner;
 import com.google.common.base.Strings;
-import com.google.common.collect.Iterables;
 
 import java.util.ArrayList;
 import java.util.Iterator;
@@ -60,6 +59,8 @@ import static com.facebook.presto.sql.ExpressionFormatter.formatExpression;
 import static com.facebook.presto.sql.ExpressionFormatter.formatSortItems;
 import static com.facebook.presto.sql.ExpressionFormatter.formatStringLiteral;
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.collect.Iterables.getOnlyElement;
+import static com.google.common.collect.Iterables.transform;
 
 public final class SqlFormatter
 {
@@ -158,7 +159,7 @@ public final class SqlFormatter
                 }
                 else {
                     builder.append(' ');
-                    process(Iterables.getOnlyElement(node.getFrom()), indent);
+                    process(getOnlyElement(node.getFrom()), indent);
                 }
             }
 
@@ -170,7 +171,7 @@ public final class SqlFormatter
             }
 
             if (!node.getGroupBy().isEmpty()) {
-                append(indent, "GROUP BY " + Joiner.on(", ").join(Iterables.transform(node.getGroupBy(), expressionFormatterFunction())))
+                append(indent, "GROUP BY " + Joiner.on(", ").join(transform(node.getGroupBy(), expressionFormatterFunction())))
                         .append('\n');
             }
 
@@ -212,7 +213,7 @@ public final class SqlFormatter
             }
             else {
                 builder.append(' ');
-                process(Iterables.getOnlyElement(node.getSelectItems()), indent);
+                process(getOnlyElement(node.getSelectItems()), indent);
             }
 
             builder.append('\n');
@@ -343,7 +344,7 @@ public final class SqlFormatter
         protected Void visitRow(Row node, Integer indent)
         {
             builder.append('(')
-                    .append(Joiner.on(", ").join(Iterables.transform(node.getItems(), expressionFormatterFunction())))
+                    .append(Joiner.on(", ").join(transform(node.getItems(), expressionFormatterFunction())))
                     .append(')');
 
             return null;
