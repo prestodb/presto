@@ -15,11 +15,9 @@ package com.facebook.presto.tests;
 
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.testing.LocalQueryRunner;
-import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.tests.tpch.IndexedTpchConnectorFactory;
 import com.facebook.presto.tpch.TpchMetadata;
 import com.google.common.collect.ImmutableMap;
-import org.intellij.lang.annotations.Language;
 import org.testng.annotations.AfterClass;
 
 import java.util.Locale;
@@ -40,12 +38,6 @@ public class TestLocalQueriesIndexed
     public void destroy()
     {
         ((LocalQueryRunner) queryRunner).getExecutor().shutdownNow();
-    }
-
-    @Override
-    protected MaterializedResult computeActual(@Language("SQL") String sql)
-    {
-        return queryRunner.execute(sql).toJdbcTypes();
     }
 
     private static LocalQueryRunner createLocalQueryRunner()
