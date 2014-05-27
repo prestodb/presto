@@ -27,6 +27,7 @@ import java.io.Closeable;
 import java.net.URI;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.Map;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
@@ -103,6 +104,11 @@ public class StatementClient
         builder.setHeader(PrestoHeaders.PRESTO_TIME_ZONE, session.getTimeZoneId());
         builder.setHeader(PrestoHeaders.PRESTO_LANGUAGE, session.getLocale().toLanguageTag());
         builder.setHeader(USER_AGENT, USER_AGENT_VALUE);
+
+        Map<String, String> options = session.getOptions();
+        for (String name : options.keySet()) {
+            builder.setHeader(PrestoHeaders.PRESTO_OPTION_PREFIX + name, options.get(name));
+        }
 
         return builder.build();
     }

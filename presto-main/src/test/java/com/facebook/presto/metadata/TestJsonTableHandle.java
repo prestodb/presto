@@ -62,6 +62,7 @@ public class TestJsonTableHandle
                     .put("timeZoneKey", (int) SESSION.getTimeZoneKey().getKey())
                     .put("locale", SESSION.getLocale().toString())
                     .put("startTime", SESSION.getStartTime())
+                    .put("options", SESSION.getOptions())
                     .build(),
             "catalogName", "information_schema_catalog",
             "schemaName", "information_schema_schema",
