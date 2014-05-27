@@ -14,11 +14,9 @@
 package com.facebook.presto.tests;
 
 import com.facebook.presto.spi.ConnectorSession;
-import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.tests.tpch.IndexedTpchPlugin;
 import com.facebook.presto.tpch.TpchMetadata;
 import io.airlift.testing.Closeables;
-import org.intellij.lang.annotations.Language;
 import org.testng.annotations.AfterClass;
 
 import static com.facebook.presto.spi.type.TimeZoneKey.UTC_KEY;
@@ -38,12 +36,6 @@ public class TestDistributedQueriesIndexed
             throws Exception
     {
         Closeables.closeQuietly(queryRunner);
-    }
-
-    @Override
-    protected MaterializedResult computeActual(@Language("SQL") String sql)
-    {
-        return queryRunner.execute(sql);
     }
 
     private static DistributedQueryRunner createQueryRunner()
