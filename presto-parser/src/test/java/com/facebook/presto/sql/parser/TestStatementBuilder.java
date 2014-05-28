@@ -22,7 +22,7 @@ import org.testng.annotations.Test;
 
 import java.io.IOException;
 
-import static com.facebook.presto.sql.parser.TreeAssertions.assertFormattedSql;
+import static com.facebook.presto.sql.testing.TreeAssertions.assertFormattedSql;
 import static com.facebook.presto.sql.parser.TreePrinter.treeToString;
 import static com.google.common.base.Strings.repeat;
 import static java.lang.String.format;
@@ -99,9 +99,31 @@ public class TestStatementBuilder
 
         printStatement("select * from foo tablesample poissonized (100)");
 
+        printStatement("select * from foo approximate at 90 confidence");
+
         printStatement("create table foo as select * from abc");
+        printStatement("drop table foo");
 
         printStatement("values ('a', 1, 2.2), ('b', 2, 3.3)");
+
+        printStatement("table foo");
+        printStatement("table foo order by x limit 10");
+        printStatement("(table foo)");
+        printStatement("(table foo) limit 10");
+        printStatement("(table foo limit 5) limit 10");
+
+        printStatement("select * from a union select * from b");
+        printStatement("table a union all table b");
+        printStatement("(table foo) union select * from foo union (table foo order by x)");
+
+        printStatement("table a union table b intersect table c");
+        printStatement("(table a union table b) intersect table c");
+        printStatement("table a union table b except table c intersect table d");
+        printStatement("(table a union table b except table c) intersect table d");
+        printStatement("((table a union table b) except table c) intersect table d");
+        printStatement("(table a union (table b except table c)) intersect table d");
+        printStatement("table a intersect table b union table c");
+        printStatement("table a intersect (table b union table c)");
     }
 
     @Test

@@ -11,11 +11,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.sql.parser;
+package com.facebook.presto.sql.testing;
 
+import com.facebook.presto.sql.parser.ParsingException;
 import com.facebook.presto.sql.tree.DefaultTraversalVisitor;
 import com.facebook.presto.sql.tree.Node;
-import com.facebook.presto.sql.tree.Query;
 import com.facebook.presto.sql.tree.Statement;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
@@ -27,8 +27,6 @@ import java.util.List;
 import static com.facebook.presto.sql.SqlFormatter.formatSql;
 import static com.facebook.presto.sql.parser.SqlParser.createStatement;
 import static java.lang.String.format;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.fail;
 
 public final class TreeAssertions
 {
@@ -36,23 +34,30 @@ public final class TreeAssertions
 
     public static void assertFormattedSql(Node expected)
     {
-        // TODO: support formatting all statement types
-        if (!(expected instanceof Query)) {
-            return;
-        }
-
         String formatted = formatSql(expected);
 
         // verify round-trip of formatting already-formatted SQL
-        assertEquals(formatSql(createStatement(formatted)), formatted);
+        Statement actual = parseFormatted(formatted, expected);
+        assertEquals(formatSql(actual), formatted);
 
         // compare parsed tree with parsed tree of formatted SQL
-        Statement actual = createStatement(formatted);
         if (!actual.equals(expected)) {
             // simplify finding the non-equal part of the tree
             assertListEquals(linearizeTree(actual), linearizeTree(expected));
         }
         assertEquals(actual, expected);
+    }
+
+    private static Statement parseFormatted(String sql, Node tree)
+    {
+        try {
+            return createStatement(sql);
+        }
+        catch (ParsingException e) {
+            throw new AssertionError(format(
+                    "failed to parse formatted SQL: %s\nerror: %s\ntree: %s",
+                    sql, e.getMessage(), tree));
+        }
     }
 
     private static List<Node> linearizeTree(Node tree)
@@ -75,10 +80,18 @@ public final class TreeAssertions
     {
         if (actual.size() != expected.size()) {
             Joiner joiner = Joiner.on("\n    ");
-            fail(format("Lists not equal%nActual [%s]:%n    %s%nExpected [%s]:%n    %s",
+            throw new AssertionError(format(
+                    "Lists not equal%nActual [%s]:%n    %s%nExpected [%s]:%n    %s%n",
                     actual.size(), joiner.join(actual),
                     expected.size(), joiner.join(expected)));
         }
         assertEquals(actual, expected);
+    }
+
+    private static <T> void assertEquals(T actual, T expected)
+    {
+        if (!actual.equals(expected)) {
+            throw new AssertionError(format("expected [%s] but found [%s]", expected, actual));
+        }
     }
 }
