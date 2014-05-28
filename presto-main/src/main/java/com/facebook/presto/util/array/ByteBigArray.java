@@ -21,14 +21,13 @@ import static com.facebook.presto.util.array.BigArrays.INITIAL_SEGMENTS;
 import static com.facebook.presto.util.array.BigArrays.SEGMENT_SIZE;
 import static com.facebook.presto.util.array.BigArrays.offset;
 import static com.facebook.presto.util.array.BigArrays.segment;
-import static sun.misc.Unsafe.ARRAY_BYTE_BASE_OFFSET;
-import static sun.misc.Unsafe.ARRAY_BYTE_INDEX_SCALE;
+import static io.airlift.slice.SizeOf.sizeOfByteArray;
 
 // Note: this code was forked from fastutil (http://fastutil.di.unimi.it/)
 // Copyright (C) 2010-2013 Sebastiano Vigna
 public final class ByteBigArray
 {
-    private static final long SIZE_OF_SEGMENT = ARRAY_BYTE_BASE_OFFSET + ((long) ARRAY_BYTE_INDEX_SCALE * SEGMENT_SIZE);
+    private static final long SIZE_OF_SEGMENT = sizeOfByteArray(SEGMENT_SIZE);
 
     private byte[][] array;
     private int capacity;

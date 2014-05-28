@@ -21,14 +21,13 @@ import static com.facebook.presto.util.array.BigArrays.INITIAL_SEGMENTS;
 import static com.facebook.presto.util.array.BigArrays.SEGMENT_SIZE;
 import static com.facebook.presto.util.array.BigArrays.offset;
 import static com.facebook.presto.util.array.BigArrays.segment;
-import static sun.misc.Unsafe.ARRAY_DOUBLE_BASE_OFFSET;
-import static sun.misc.Unsafe.ARRAY_DOUBLE_INDEX_SCALE;
+import static io.airlift.slice.SizeOf.sizeOfDoubleArray;
 
 // Note: this code was forked from fastutil (http://fastutil.di.unimi.it/)
 // Copyright (C) 2010-2013 Sebastiano Vigna
 public final class DoubleBigArray
 {
-    private static final long SIZE_OF_SEGMENT = ARRAY_DOUBLE_BASE_OFFSET + ((long) ARRAY_DOUBLE_INDEX_SCALE * SEGMENT_SIZE);
+    private static final long SIZE_OF_SEGMENT = sizeOfDoubleArray(SEGMENT_SIZE);
 
     private double[][] array;
     private int capacity;
