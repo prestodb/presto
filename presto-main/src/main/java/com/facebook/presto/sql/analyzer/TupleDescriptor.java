@@ -18,6 +18,8 @@ import com.facebook.presto.util.IterableTransformer;
 import com.google.common.base.Optional;
 import com.google.common.base.Predicate;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Iterables;
 
 import javax.annotation.concurrent.Immutable;
 
@@ -25,6 +27,7 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Set;
 
+import static com.facebook.presto.sql.analyzer.Field.isVisiblePredicate;
 import static com.facebook.presto.sql.analyzer.Field.relationAliasGetter;
 import static com.facebook.presto.sql.analyzer.Optionals.isPresentPredicate;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -34,7 +37,8 @@ import static com.google.common.base.Preconditions.checkNotNull;
 @Immutable
 public class TupleDescriptor
 {
-    private final List<Field> fields;
+    private final List<Field> visibleFields;
+    private final List<Field> allFields;
 
     public TupleDescriptor(Field... fields)
     {
@@ -44,7 +48,8 @@ public class TupleDescriptor
     public TupleDescriptor(List<Field> fields)
     {
         checkNotNull(fields, "fields is null");
-        this.fields = ImmutableList.copyOf(fields);
+        this.allFields = ImmutableList.copyOf(fields);
+        this.visibleFields = ImmutableList.copyOf(Iterables.filter(fields, isVisiblePredicate()));
     }
 
     /**
@@ -52,7 +57,7 @@ public class TupleDescriptor
      */
     public int indexOf(Field field)
     {
-        return fields.indexOf(field);
+        return allFields.indexOf(field);
     }
 
     /**
@@ -60,23 +65,41 @@ public class TupleDescriptor
      */
     public Field getFieldByIndex(int fieldIndex)
     {
-        checkElementIndex(fieldIndex, fields.size(), "fieldIndex");
-        return fields.get(fieldIndex);
+        checkElementIndex(fieldIndex, allFields.size(), "fieldIndex");
+        return allFields.get(fieldIndex);
     }
 
     /**
-     * Gets only the fields.
+     * Gets only the visible fields.
      * No assumptions should be made about the order of the fields returned from this method.
      * To obtain the index of a field, call indexOf.
      */
-    public Collection<Field> getFields()
+    public Collection<Field> getVisibleFields()
     {
-        return fields;
+        return visibleFields;
     }
 
-    public int getFieldCount()
+    public int getVisibleFieldCount()
     {
-        return fields.size();
+        return visibleFields.size();
+    }
+
+    /**
+     * Gets all fields including hidden fields.
+     * No assumptions should be made about the order of the fields returned from this method.
+     * To obtain the index of a field, call indexOf.
+     */
+    public Collection<Field> getAllFields()
+    {
+        return ImmutableSet.copyOf(allFields);
+    }
+
+    /**
+     * Gets the count of all fields including hidden fields.
+     */
+    public int getAllFieldCount()
+    {
+        return allFields.size();
     }
 
     /**
@@ -85,7 +108,7 @@ public class TupleDescriptor
      */
     public Set<QualifiedName> getRelationAliases()
     {
-        return IterableTransformer.on(fields)
+        return IterableTransformer.on(allFields)
                 .transform(relationAliasGetter())
                 .select(isPresentPredicate())
                 .transform(Optionals.<QualifiedName>optionalGetter())
@@ -97,7 +120,7 @@ public class TupleDescriptor
      */
     public List<Field> resolveFieldsWithPrefix(Optional<QualifiedName> prefix)
     {
-        return IterableTransformer.on(fields)
+        return IterableTransformer.on(visibleFields)
                 .select(Field.matchesPrefixPredicate(prefix))
                 .list();
     }
@@ -107,7 +130,7 @@ public class TupleDescriptor
      */
     public List<Field> resolveFields(QualifiedName name)
     {
-        return IterableTransformer.on(fields)
+        return IterableTransformer.on(allFields)
                 .select(Field.canResolvePredicate(name))
                 .list();
     }
@@ -131,8 +154,8 @@ public class TupleDescriptor
     public TupleDescriptor joinWith(TupleDescriptor other)
     {
         List<Field> fields = ImmutableList.<Field>builder()
-                .addAll(this.fields)
-                .addAll(other.fields)
+                .addAll(this.allFields)
+                .addAll(other.allFields)
                 .build();
 
         return new TupleDescriptor(fields);
@@ -144,29 +167,41 @@ public class TupleDescriptor
     public TupleDescriptor withAlias(String relationAlias, List<String> columnAliases)
     {
         if (columnAliases != null) {
-            checkArgument(columnAliases.size() == fields.size(),
+            checkArgument(columnAliases.size() == visibleFields.size(),
                     "Column alias list has %s entries but '%s' has %s columns available",
                     columnAliases.size(),
                     relationAlias,
-                    fields.size());
+                    visibleFields.size());
         }
 
         ImmutableList.Builder<Field> fieldsBuilder = ImmutableList.builder();
-        for (int i = 0; i < fields.size(); i++) {
-            Field field = fields.get(i);
+        for (int i = 0; i < allFields.size(); i++) {
+            Field field = allFields.get(i);
             Optional<String> columnAlias = field.getName();
-            if (columnAliases != null) {
-                columnAlias = Optional.of(columnAliases.get(i));
+            if (columnAliases == null) {
+                fieldsBuilder.add(Field.newQualified(QualifiedName.of(relationAlias), columnAlias, field.getType(), field.isHidden()));
             }
-            fieldsBuilder.add(Field.newQualified(QualifiedName.of(relationAlias), columnAlias, field.getType()));
+            else if (!field.isHidden()) {
+                // hidden fields are not exposed when there are column aliases
+                columnAlias = Optional.of(columnAliases.get(i));
+                fieldsBuilder.add(Field.newQualified(QualifiedName.of(relationAlias), columnAlias, field.getType(), false));
+            }
         }
 
         return new TupleDescriptor(fieldsBuilder.build());
     }
 
+    /**
+     * Creates a new tuple descriptor containing only the visible fields.
+     */
+    public TupleDescriptor withOnlyVisibleFields()
+    {
+        return new TupleDescriptor(visibleFields);
+    }
+
     @Override
     public String toString()
     {
-        return fields.toString();
+        return allFields.toString();
     }
 }

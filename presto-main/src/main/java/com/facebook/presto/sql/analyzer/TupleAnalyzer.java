@@ -137,8 +137,8 @@ class TupleAnalyzer
                 // re-alias the fields with the name assigned to the query in the WITH declaration
                 TupleDescriptor queryDescriptor = analysis.getOutputDescriptor(query);
                 ImmutableList.Builder<Field> fields = ImmutableList.builder();
-                for (Field field : queryDescriptor.getFields()) {
-                    fields.add(Field.newQualified(QualifiedName.of(name), field.getName(), field.getType()));
+                for (Field field : queryDescriptor.getAllFields()) {
+                    fields.add(Field.newQualified(QualifiedName.of(name), field.getName(), field.getType(), false));
                 }
 
                 TupleDescriptor descriptor = new TupleDescriptor(fields.build());
@@ -170,7 +170,7 @@ class TupleAnalyzer
         // TODO: discover columns lazily based on where they are needed (to support datasources that can't enumerate all tables)
         ImmutableList.Builder<Field> fields = ImmutableList.builder();
         for (ColumnMetadata column : tableMetadata.getColumns()) {
-            Field field = Field.newQualified(table.getName(), Optional.of(column.getName()), column.getType());
+            Field field = Field.newQualified(table.getName(), Optional.of(column.getName()), column.getType(), column.isHidden());
             fields.add(field);
             Optional<ColumnHandle> columnHandle = metadata.getColumnHandle(tableHandle.get(), column.getName());
             checkArgument(columnHandle.isPresent(), "Unknown field %s", field);
@@ -191,7 +191,7 @@ class TupleAnalyzer
 
         // todo this check should be inside of TupleDescriptor.withAlias, but the exception needs the node object
         if (relation.getColumnNames() != null) {
-            int totalColumns = child.getFieldCount();
+            int totalColumns = child.getVisibleFieldCount();
             if (totalColumns != relation.getColumnNames().size()) {
                 throw new SemanticException(MISMATCHED_COLUMN_ALIASES, relation, "Column alias list has %s entries but '%s' has %s columns available", relation.getColumnNames().size(), relation.getAlias(), totalColumns);
             }
@@ -296,11 +296,11 @@ class TupleAnalyzer
         TupleAnalyzer analyzer = new TupleAnalyzer(analysis, session, metadata, experimentalSyntaxEnabled);
 
         // Use the first descriptor as the output descriptor for the UNION
-        TupleDescriptor outputDescriptor = analyzer.process(node.getRelations().get(0), context);
+        TupleDescriptor outputDescriptor = analyzer.process(node.getRelations().get(0), context).withOnlyVisibleFields();
 
         for (Relation relation : Iterables.skip(node.getRelations(), 1)) {
             TupleDescriptor descriptor = analyzer.process(relation, context);
-            if (!elementsEqual(transform(outputDescriptor.getFields(), typeGetter()), transform(descriptor.getFields(), typeGetter()))) {
+            if (!elementsEqual(transform(outputDescriptor.getVisibleFields(), typeGetter()), transform(descriptor.getVisibleFields(), typeGetter()))) {
                 throw new SemanticException(MISMATCHED_SET_COLUMN_TYPES, node, "Union query terms have mismatched columns");
             }
         }
@@ -473,12 +473,12 @@ class TupleAnalyzer
         TupleAnalyzer analyzer = new TupleAnalyzer(analysis, session, metadata, experimentalSyntaxEnabled);
 
         // Use the first descriptor as the output descriptor for the VALUES
-        TupleDescriptor outputDescriptor = analyzer.process(node.getRows().get(0), context);
-        Iterable<Type> types = transform(outputDescriptor.getFields(), typeGetter());
+        TupleDescriptor outputDescriptor = analyzer.process(node.getRows().get(0), context).withOnlyVisibleFields();
+        Iterable<Type> types = transform(outputDescriptor.getVisibleFields(), typeGetter());
 
         for (Row row : Iterables.skip(node.getRows(), 1)) {
             TupleDescriptor descriptor = analyzer.process(row, context);
-            Iterable<Type> rowTypes = transform(descriptor.getFields(), typeGetter());
+            Iterable<Type> rowTypes = transform(descriptor.getVisibleFields(), typeGetter());
             if (!elementsEqual(types, rowTypes)) {
                 throw new SemanticException(MISMATCHED_SET_COLUMN_TYPES, node, "Values rows have mismatched types: " +
                         "Expected: (" + Joiner.on(", ").join(types) + "), " +

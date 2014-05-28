@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.tests;
 
+import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.RecordCursor;
 import com.facebook.presto.spi.RecordSet;
@@ -23,6 +24,9 @@ import com.facebook.presto.testing.MaterializedRow;
 import com.facebook.presto.tpch.TpchMetadata;
 import com.facebook.presto.tpch.TpchTableHandle;
 import com.google.common.base.Joiner;
+import com.google.common.base.Predicate;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Iterables;
 import io.airlift.log.Logging;
 import org.intellij.lang.annotations.Language;
 import org.skife.jdbi.v2.DBI;
@@ -215,7 +219,16 @@ public class H2QueryRunner
 
     private static void insertRows(ConnectorTableMetadata tableMetadata, Handle handle, RecordSet data)
     {
-        String vars = Joiner.on(',').join(nCopies(tableMetadata.getColumns().size(), "?"));
+        List<ColumnMetadata> columns = ImmutableList.copyOf(Iterables.filter(tableMetadata.getColumns(), new Predicate<ColumnMetadata>()
+        {
+            @Override
+            public boolean apply(ColumnMetadata columnMetadata)
+            {
+                return !columnMetadata.isHidden();
+            }
+        }));
+
+        String vars = Joiner.on(',').join(nCopies(columns.size(), "?"));
         String sql = format("INSERT INTO %s VALUES (%s)", tableMetadata.getTable().getTableName(), vars);
 
         RecordCursor cursor = data.cursor();
@@ -228,8 +241,8 @@ public class H2QueryRunner
                     return;
                 }
                 PreparedBatchPart part = batch.add();
-                for (int column = 0; column < tableMetadata.getColumns().size(); column++) {
-                    Type type = tableMetadata.getColumns().get(column).getType();
+                for (int column = 0; column < columns.size(); column++) {
+                    Type type = columns.get(column).getType();
                     if (BOOLEAN.equals(type)) {
                         part.bind(column, cursor.getBoolean(column));
                     }

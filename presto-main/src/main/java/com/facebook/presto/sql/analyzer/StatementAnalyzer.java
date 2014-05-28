@@ -369,7 +369,7 @@ class StatementAnalyzer
         // verify that all column names are specified and unique
         // TODO: collect errors and return them all at once
         Set<String> names = new HashSet<>();
-        for (Field field : descriptor.getFields()) {
+        for (Field field : descriptor.getVisibleFields()) {
             Optional<String> fieldName = field.getName();
             if (!fieldName.isPresent()) {
                 throw new SemanticException(COLUMN_NAME_NOT_SPECIFIED, node, "Column name not specified at position %s", descriptor.indexOf(field) + 1);
@@ -473,7 +473,7 @@ class StatementAnalyzer
     private List<FieldOrExpression> descriptorToFields(TupleDescriptor tupleDescriptor)
     {
         ImmutableList.Builder<FieldOrExpression> builder = ImmutableList.builder();
-        for (int fieldIndex = 0; fieldIndex < tupleDescriptor.getFieldCount(); fieldIndex++) {
+        for (int fieldIndex = 0; fieldIndex < tupleDescriptor.getAllFieldCount(); fieldIndex++) {
             builder.add(new FieldOrExpression(fieldIndex));
         }
         return builder.build();
@@ -523,7 +523,7 @@ class StatementAnalyzer
                     // this is an ordinal in the output tuple
 
                     long ordinal = ((LongLiteral) expression).getValue();
-                    if (ordinal < 1 || ordinal > tupleDescriptor.getFieldCount()) {
+                    if (ordinal < 1 || ordinal > tupleDescriptor.getVisibleFieldCount()) {
                         throw new SemanticException(INVALID_ORDINAL, expression, "ORDER BY position %s is not in select list", ordinal);
                     }
 

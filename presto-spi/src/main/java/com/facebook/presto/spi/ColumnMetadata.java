@@ -23,8 +23,14 @@ public class ColumnMetadata
     private final Type type;
     private final int ordinalPosition;
     private final boolean partitionKey;
+    private final boolean hidden;
 
     public ColumnMetadata(String name, Type type, int ordinalPosition, boolean partitionKey)
+    {
+        this(name, type, ordinalPosition, partitionKey, false);
+    }
+
+    public ColumnMetadata(String name, Type type, int ordinalPosition, boolean partitionKey, boolean hidden)
     {
         if (name == null || name.isEmpty()) {
             throw new NullPointerException("name is null or empty");
@@ -40,6 +46,7 @@ public class ColumnMetadata
         this.type = type;
         this.ordinalPosition = ordinalPosition;
         this.partitionKey = partitionKey;
+        this.hidden = hidden;
     }
 
     public String getName()
@@ -62,14 +69,22 @@ public class ColumnMetadata
         return partitionKey;
     }
 
+    public boolean isHidden()
+    {
+        return hidden;
+    }
+
     @Override
     public String toString()
     {
-        final StringBuilder sb = new StringBuilder("ColumnMetadata{");
+        StringBuilder sb = new StringBuilder("ColumnMetadata{");
         sb.append("name='").append(name).append('\'');
         sb.append(", type=").append(type);
         sb.append(", ordinalPosition=").append(ordinalPosition);
         sb.append(", partitionKey=").append(partitionKey);
+        if (hidden) {
+            sb.append(", hidden");
+        }
         sb.append('}');
         return sb.toString();
     }
@@ -77,7 +92,7 @@ public class ColumnMetadata
     @Override
     public int hashCode()
     {
-        return Objects.hash(name, type, ordinalPosition, partitionKey);
+        return Objects.hash(name, type, ordinalPosition, partitionKey, hidden);
     }
 
     @Override
@@ -89,10 +104,11 @@ public class ColumnMetadata
         if (obj == null || getClass() != obj.getClass()) {
             return false;
         }
-        final ColumnMetadata other = (ColumnMetadata) obj;
+        ColumnMetadata other = (ColumnMetadata) obj;
         return Objects.equals(this.name, other.name) &&
                 Objects.equals(this.type, other.type) &&
                 Objects.equals(this.ordinalPosition, other.ordinalPosition) &&
-                Objects.equals(this.partitionKey, other.partitionKey);
+                Objects.equals(this.partitionKey, other.partitionKey) &&
+                Objects.equals(this.hidden, other.hidden);
     }
 }

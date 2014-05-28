@@ -114,7 +114,7 @@ class RelationPlanner
 
         ImmutableList.Builder<Symbol> outputSymbolsBuilder = ImmutableList.builder();
         ImmutableMap.Builder<Symbol, ColumnHandle> columns = ImmutableMap.builder();
-        for (Field field : descriptor.getFields()) {
+        for (Field field : descriptor.getAllFields()) {
             Symbol symbol = symbolAllocator.newSymbol(field.getName().get(), field.getType());
 
             outputSymbolsBuilder.add(symbol);
@@ -267,7 +267,7 @@ class RelationPlanner
     {
         TupleDescriptor descriptor = analysis.getOutputDescriptor(node);
         ImmutableList.Builder<Symbol> outputSymbolsBuilder = ImmutableList.builder();
-        for (Field field : descriptor.getFields()) {
+        for (Field field : descriptor.getVisibleFields()) {
             Symbol symbol = symbolAllocator.newSymbol(field);
             outputSymbolsBuilder.add(symbol);
         }
@@ -327,7 +327,7 @@ class RelationPlanner
                 // Use the first Relation to derive output symbol names
                 TupleDescriptor descriptor = relationPlan.getDescriptor();
                 ImmutableList.Builder<Symbol> outputSymbolBuilder = ImmutableList.builder();
-                for (Field field : descriptor.getFields()) {
+                for (Field field : descriptor.getVisibleFields()) {
                     int fieldIndex = descriptor.indexOf(field);
                     Symbol symbol = relationPlan.getOutputSymbols().get(fieldIndex);
                     outputSymbolBuilder.add(symbolAllocator.newSymbol(symbol.getName(), symbolAllocator.getTypes().get(symbol)));
@@ -336,11 +336,11 @@ class RelationPlanner
             }
 
             TupleDescriptor descriptor = relationPlan.getDescriptor();
-            checkArgument(descriptor.getFieldCount() == outputSymbols.size(),
+            checkArgument(descriptor.getVisibleFieldCount() == outputSymbols.size(),
                     "Expected relation to have %s symbols but has %s symbols",
-                    descriptor.getFieldCount(),
+                    descriptor.getVisibleFieldCount(),
                     outputSymbols.size());
-            for (Field field : descriptor.getFields()) {
+            for (Field field : descriptor.getVisibleFields()) {
                 int fieldIndex = descriptor.indexOf(field);
                 symbolMapping.put(outputSymbols.get(fieldIndex), relationPlan.getOutputSymbols().get(fieldIndex));
             }
