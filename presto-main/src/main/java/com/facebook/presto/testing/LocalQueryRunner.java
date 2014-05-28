@@ -96,6 +96,8 @@ import java.util.concurrent.atomic.AtomicReference;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
+import static io.airlift.concurrent.Threads.daemonThreadsNamed;
+import static java.util.concurrent.Executors.newCachedThreadPool;
 
 public class LocalQueryRunner
     implements QueryRunner
@@ -116,10 +118,10 @@ public class LocalQueryRunner
 
     private boolean printPlan;
 
-    public LocalQueryRunner(ConnectorSession defaultSession, ExecutorService executor)
+    public LocalQueryRunner(ConnectorSession defaultSession)
     {
         this.defaultSession = checkNotNull(defaultSession, "defaultSession is null");
-        this.executor = checkNotNull(executor, "executor is null");
+        this.executor = newCachedThreadPool(daemonThreadsNamed("local-query-runner-%s"));
 
         this.nodeManager = new InMemoryNodeManager();
         this.typeRegistry = new TypeRegistry();
@@ -154,12 +156,14 @@ public class LocalQueryRunner
                 ImmutableMap.<String, ConnectorFactory>of(),
                 ImmutableMap.<String, Connector>of(
                         SystemConnector.CONNECTOR_ID, new SystemConnector(systemTablesMetadata, systemSplitManager, systemDataStreamProvider)),
-                nodeManager);
+                nodeManager
+        );
     }
 
     @Override
     public void close()
     {
+        executor.shutdownNow();
     }
 
     @Override

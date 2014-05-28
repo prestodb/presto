@@ -18,13 +18,10 @@ import com.facebook.presto.testing.LocalQueryRunner;
 import com.facebook.presto.tpch.TpchConnectorFactory;
 import com.facebook.presto.tpch.TpchMetadata;
 import com.google.common.collect.ImmutableMap;
-import org.testng.annotations.AfterClass;
 
 import java.util.Locale;
 
 import static com.facebook.presto.spi.type.TimeZoneKey.UTC_KEY;
-import static io.airlift.concurrent.Threads.daemonThreadsNamed;
-import static java.util.concurrent.Executors.newCachedThreadPool;
 
 public class TestLocalQueries
         extends AbstractTestQueries
@@ -34,16 +31,10 @@ public class TestLocalQueries
         super(createLocalQueryRunner());
     }
 
-    @AfterClass(alwaysRun = true)
-    public void destroy()
-    {
-        ((LocalQueryRunner) queryRunner).getExecutor().shutdownNow();
-    }
-
     private static LocalQueryRunner createLocalQueryRunner()
     {
         ConnectorSession defaultSession = new ConnectorSession("user", "test", "local", TpchMetadata.TINY_SCHEMA_NAME, UTC_KEY, Locale.ENGLISH, null, null);
-        LocalQueryRunner localQueryRunner = new LocalQueryRunner(defaultSession, newCachedThreadPool(daemonThreadsNamed("test")));
+        LocalQueryRunner localQueryRunner = new LocalQueryRunner(defaultSession);
 
         // add the tpch catalog
         // local queries run directly against the generator

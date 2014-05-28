@@ -22,13 +22,10 @@ import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
-import java.util.concurrent.ExecutorService;
 
 import static com.facebook.presto.benchmark.BenchmarkQueryRunner.createLocalQueryRunner;
 import static com.facebook.presto.operator.AggregationFunctionDefinition.aggregation;
 import static com.facebook.presto.operator.aggregation.CountAggregation.COUNT;
-import static io.airlift.concurrent.Threads.daemonThreadsNamed;
-import static java.util.concurrent.Executors.newCachedThreadPool;
 
 public class CountAggregationBenchmark
         extends AbstractSimpleOperatorBenchmark
@@ -48,9 +45,6 @@ public class CountAggregationBenchmark
 
     public static void main(String[] args)
     {
-        ExecutorService executor = newCachedThreadPool(daemonThreadsNamed("test"));
-        new CountAggregationBenchmark(createLocalQueryRunner(executor)).runBenchmark(
-                new SimpleLineBenchmarkResultWriter(System.out)
-        );
+        new CountAggregationBenchmark(createLocalQueryRunner()).runBenchmark(new SimpleLineBenchmarkResultWriter(System.out));
     }
 }

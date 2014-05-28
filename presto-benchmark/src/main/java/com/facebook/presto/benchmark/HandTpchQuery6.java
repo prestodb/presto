@@ -33,7 +33,6 @@ import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 
 import java.util.List;
-import java.util.concurrent.ExecutorService;
 
 import static com.facebook.presto.benchmark.BenchmarkQueryRunner.createLocalQueryRunner;
 import static com.facebook.presto.operator.AggregationFunctionDefinition.aggregation;
@@ -41,8 +40,6 @@ import static com.facebook.presto.operator.aggregation.DoubleSumAggregation.DOUB
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.google.common.base.Charsets.UTF_8;
 import static com.google.common.base.Preconditions.checkState;
-import static io.airlift.concurrent.Threads.daemonThreadsNamed;
-import static java.util.concurrent.Executors.newCachedThreadPool;
 
 public class HandTpchQuery6
         extends AbstractSimpleOperatorBenchmark
@@ -175,9 +172,6 @@ public class HandTpchQuery6
 
     public static void main(String[] args)
     {
-        ExecutorService executor = newCachedThreadPool(daemonThreadsNamed("test"));
-        new HandTpchQuery6(createLocalQueryRunner(executor)).runBenchmark(
-                new SimpleLineBenchmarkResultWriter(System.out)
-        );
+        new HandTpchQuery6(createLocalQueryRunner()).runBenchmark(new SimpleLineBenchmarkResultWriter(System.out));
     }
 }

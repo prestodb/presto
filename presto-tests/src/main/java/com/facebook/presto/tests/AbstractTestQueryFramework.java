@@ -59,7 +59,12 @@ public abstract class AbstractTestQueryFramework
     private void close()
             throws Exception
     {
-        h2QueryRunner.close();
+        try {
+            h2QueryRunner.close();
+        }
+        finally {
+            queryRunner.close();
+        }
     }
 
     protected ConnectorSession getSession()

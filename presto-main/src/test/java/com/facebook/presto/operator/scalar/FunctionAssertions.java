@@ -164,7 +164,7 @@ public final class FunctionAssertions
     public FunctionAssertions(ConnectorSession session)
     {
         this.session = checkNotNull(session, "session is null");
-        runner = new LocalQueryRunner(session, EXECUTOR);
+        runner = new LocalQueryRunner(session);
         metadataManager = runner.getMetadata();
         compiler = new ExpressionCompiler(metadataManager);
     }

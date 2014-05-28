@@ -31,7 +31,6 @@ import com.google.common.collect.ImmutableMap;
 import java.io.File;
 import java.util.Locale;
 import java.util.Map;
-import java.util.concurrent.ExecutorService;
 
 import static com.facebook.presto.spi.type.TimeZoneKey.UTC_KEY;
 import static com.facebook.presto.testing.TestingBlockEncodingManager.createTestingBlockEncodingManager;
@@ -43,10 +42,10 @@ public final class BenchmarkQueryRunner
 
     private BenchmarkQueryRunner() {}
 
-    public static LocalQueryRunner createLocalSampledQueryRunner(ExecutorService executor)
+    public static LocalQueryRunner createLocalSampledQueryRunner()
     {
         ConnectorSession session = new ConnectorSession("user", "test", "default", "default", UTC_KEY, Locale.ENGLISH, null, null);
-        LocalQueryRunner localQueryRunner = new LocalQueryRunner(session, executor);
+        LocalQueryRunner localQueryRunner = new LocalQueryRunner(session);
 
         // add sampled tpch
         InMemoryNodeManager nodeManager = localQueryRunner.getNodeManager();
@@ -66,10 +65,10 @@ public final class BenchmarkQueryRunner
         return localQueryRunner;
     }
 
-    public static LocalQueryRunner createLocalQueryRunner(ExecutorService executor)
+    public static LocalQueryRunner createLocalQueryRunner()
     {
         ConnectorSession session = new ConnectorSession("user", "test", "default", "default", UTC_KEY, Locale.ENGLISH, null, null);
-        LocalQueryRunner localQueryRunner = new LocalQueryRunner(session, executor);
+        LocalQueryRunner localQueryRunner = new LocalQueryRunner(session);
 
         // add tpch
         InMemoryNodeManager nodeManager = localQueryRunner.getNodeManager();

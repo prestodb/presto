@@ -13,12 +13,12 @@
  */
 package com.facebook.presto.benchmark;
 
+import com.facebook.presto.testing.LocalQueryRunner;
 import org.testng.annotations.Test;
 
-import java.util.concurrent.ExecutorService;
-
-import static io.airlift.concurrent.Threads.daemonThreadsNamed;
-import static java.util.concurrent.Executors.newCachedThreadPool;
+import static com.facebook.presto.benchmark.BenchmarkQueryRunner.createLocalQueryRunner;
+import static com.facebook.presto.benchmark.BenchmarkQueryRunner.createLocalSampledQueryRunner;
+import static com.facebook.presto.benchmark.BenchmarkSuite.createBenchmarks;
 
 public class TestBenchmarks
 {
@@ -26,9 +26,9 @@ public class TestBenchmarks
     public void smokeTest()
             throws Exception
     {
-        ExecutorService executor = newCachedThreadPool(daemonThreadsNamed("test"));
-        try {
-            for (AbstractBenchmark benchmark : BenchmarkSuite.createBenchmarks(executor)) {
+        try (LocalQueryRunner localQueryRunner = createLocalQueryRunner();
+                LocalQueryRunner localSampledQueryRunner = createLocalSampledQueryRunner()) {
+            for (AbstractBenchmark benchmark : createBenchmarks(localQueryRunner, localSampledQueryRunner)) {
                 try {
                     benchmark.runOnce();
                 }
@@ -36,9 +36,6 @@ public class TestBenchmarks
                     throw new AssertionError("Error running " + benchmark.getBenchmarkName(), e);
                 }
             }
-        }
-        finally {
-            executor.shutdownNow();
         }
     }
 }

@@ -23,13 +23,10 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Ints;
 
 import java.util.List;
-import java.util.concurrent.ExecutorService;
 
 import static com.facebook.presto.benchmark.BenchmarkQueryRunner.createLocalQueryRunner;
 import static com.facebook.presto.operator.AggregationFunctionDefinition.aggregation;
 import static com.facebook.presto.operator.aggregation.DoubleSumAggregation.DOUBLE_SUM;
-import static io.airlift.concurrent.Threads.daemonThreadsNamed;
-import static java.util.concurrent.Executors.newCachedThreadPool;
 
 public class HashAggregationBenchmark
         extends AbstractSimpleOperatorBenchmark
@@ -54,9 +51,6 @@ public class HashAggregationBenchmark
 
     public static void main(String[] args)
     {
-        ExecutorService executor = newCachedThreadPool(daemonThreadsNamed("test"));
-        new HashAggregationBenchmark(createLocalQueryRunner(executor)).runBenchmark(
-                new SimpleLineBenchmarkResultWriter(System.out)
-        );
+        new HashAggregationBenchmark(createLocalQueryRunner()).runBenchmark(new SimpleLineBenchmarkResultWriter(System.out));
     }
 }

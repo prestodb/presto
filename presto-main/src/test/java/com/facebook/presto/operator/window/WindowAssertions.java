@@ -13,18 +13,10 @@
  */
 package com.facebook.presto.operator.window;
 
-import com.facebook.presto.spi.ConnectorSession;
-import com.facebook.presto.tpch.TpchConnectorFactory;
-import com.facebook.presto.tpch.TpchMetadata;
 import com.facebook.presto.testing.LocalQueryRunner;
 import com.facebook.presto.testing.MaterializedResult;
-import com.google.common.collect.ImmutableMap;
 import org.intellij.lang.annotations.Language;
 
-import java.util.Locale;
-import java.util.concurrent.ExecutorService;
-
-import static com.facebook.presto.spi.type.TimeZoneKey.UTC_KEY;
 import static io.airlift.testing.Assertions.assertEqualsIgnoreOrder;
 import static java.lang.String.format;
 
@@ -32,23 +24,14 @@ public final class WindowAssertions
 {
     private WindowAssertions() {}
 
-    public static MaterializedResult computeActual(@Language("SQL") String sql, ExecutorService executor)
-    {
-        ConnectorSession session = new ConnectorSession("user", "test", "tpch", TpchMetadata.TINY_SCHEMA_NAME, UTC_KEY, Locale.ENGLISH, null, null);
-        LocalQueryRunner localQueryRunner = new LocalQueryRunner(session, executor);
-        localQueryRunner.createCatalog("tpch", new TpchConnectorFactory(localQueryRunner.getNodeManager(), 1), ImmutableMap.<String, String>of());
-
-        return localQueryRunner.execute(sql);
-    }
-
-    public static void assertWindowQuery(@Language("SQL") String sql, MaterializedResult expected, ExecutorService executor)
+    public static void assertWindowQuery(@Language("SQL") String sql, MaterializedResult expected, LocalQueryRunner localQueryRunner)
     {
         @Language("SQL") String query = format("" +
                 "SELECT orderkey, orderstatus,\n%s\n" +
                 "FROM (SELECT * FROM orders ORDER BY orderkey LIMIT 10) x\n" +
                 "ORDER BY orderkey", sql);
 
-        MaterializedResult actual = computeActual(query, executor);
+        MaterializedResult actual = localQueryRunner.execute(query);
         assertEqualsIgnoreOrder(actual.getMaterializedRows(), expected.getMaterializedRows());
     }
 }
