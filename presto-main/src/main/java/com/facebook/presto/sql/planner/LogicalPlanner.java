@@ -130,7 +130,7 @@ public class LogicalPlanner
 
         int columnNumber = 0;
         TupleDescriptor outputDescriptor = analysis.getOutputDescriptor();
-        for (Field field : outputDescriptor.getFields()) {
+        for (Field field : outputDescriptor.getVisibleFields()) {
             String name = field.getName().or("_col" + columnNumber);
             names.add(name);
 
@@ -156,7 +156,7 @@ public class LogicalPlanner
     {
         ImmutableList.Builder<ColumnMetadata> columns = ImmutableList.builder();
         int ordinalPosition = 0;
-        for (Field field : plan.getDescriptor().getFields()) {
+        for (Field field : plan.getDescriptor().getVisibleFields()) {
             columns.add(new ColumnMetadata(field.getName().get(), field.getType(), ordinalPosition, false));
             ordinalPosition++;
         }

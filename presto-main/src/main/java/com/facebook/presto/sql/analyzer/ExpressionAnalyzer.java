@@ -615,14 +615,14 @@ public class ExpressionAnalyzer
             TupleDescriptor descriptor = analyzer.process(node.getQuery(), context);
 
             // Scalar subqueries should only produce one column
-            if (descriptor.getFieldCount() != 1) {
+            if (descriptor.getVisibleFieldCount() != 1) {
                 throw new SemanticException(MULTIPLE_FIELDS_FROM_SCALAR_SUBQUERY,
                         node,
                         "Subquery expression must produce only one field. Found %s",
-                        descriptor.getFieldCount());
+                        descriptor.getVisibleFieldCount());
             }
 
-            Type type = Iterables.getOnlyElement(descriptor.getFields()).getType();
+            Type type = Iterables.getOnlyElement(descriptor.getVisibleFields()).getType();
 
             expressionTypes.put(node, type);
             return type;

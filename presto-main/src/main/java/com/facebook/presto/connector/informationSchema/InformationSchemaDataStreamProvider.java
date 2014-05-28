@@ -128,6 +128,9 @@ public class InformationSchemaDataStreamProvider
         for (Entry<QualifiedTableName, List<ColumnMetadata>> entry : getColumnsList(session, catalogName, filters).entrySet()) {
             QualifiedTableName tableName = entry.getKey();
             for (ColumnMetadata column : entry.getValue()) {
+                if (column.isHidden()) {
+                    continue;
+                }
                 table.add(
                         tableName.getCatalogName(),
                         tableName.getSchemaName(),
