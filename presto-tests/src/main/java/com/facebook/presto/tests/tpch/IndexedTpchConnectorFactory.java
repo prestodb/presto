@@ -53,10 +53,10 @@ public class IndexedTpchConnectorFactory
     }
 
     @Override
-    public Connector create(final String connectorId, final Map<String, String> properties)
+    public Connector create(final String connectorId, Map<String, String> properties)
     {
         final int splitsPerNode = getSplitsPerNode(properties);
-        final TpchIndexedData indexedData = new TpchIndexedData(indexSpec);
+        final TpchIndexedData indexedData = new TpchIndexedData(connectorId, indexSpec);
 
         return new Connector() {
             @Override
@@ -80,7 +80,7 @@ public class IndexedTpchConnectorFactory
             @Override
             public ConnectorRecordSetProvider getRecordSetProvider()
             {
-                return new TpchRecordSetProvider(connectorId);
+                return new TpchRecordSetProvider();
             }
 
             @Override

@@ -146,7 +146,7 @@ public class TpchIndexResolver
         ImmutableList.Builder<Integer> builder = ImmutableList.builder();
         for (String columnName : endSchema) {
             int index = startSchema.indexOf(columnName);
-            checkArgument(index != -1, "Column name in end that is not in the start");
+            checkArgument(index != -1, "Column name in end that is not in the start: %s", columnName);
             builder.add(index);
         }
         return builder.build();

@@ -53,7 +53,7 @@ public class TpchConnectorFactory
     }
 
     @Override
-    public Connector create(final String connectorId, final Map<String, String> properties)
+    public Connector create(final String connectorId, Map<String, String> properties)
     {
         final int splitsPerNode = getSplitsPerNode(properties);
 
@@ -79,7 +79,7 @@ public class TpchConnectorFactory
             @Override
             public ConnectorRecordSetProvider getRecordSetProvider()
             {
-                return new TpchRecordSetProvider(connectorId);
+                return new TpchRecordSetProvider();
             }
 
             @Override
