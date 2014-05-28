@@ -46,6 +46,9 @@ public class TpchMetadata
     public static final String TINY_SCHEMA_NAME = "tiny";
     public static final double TINY_SCALE_FACTOR = 0.01;
 
+    public static final String ROW_NUMBER_COLUMN_NAME = "row_number";
+    private static final TpchColumnHandle ROW_NUMBER_COLUMN_HANDLE = new TpchColumnHandle(ROW_NUMBER_COLUMN_NAME, -1, BIGINT);
+
     private final String connectorId;
     private final Set<String> tableNames;
 
@@ -102,6 +105,7 @@ public class TpchMetadata
         for (TpchColumn<? extends TpchEntity> column : tpchTable.getColumns()) {
             columns.add(new ColumnMetadata(column.getColumnName(), getPrestoType(column.getType()), ordinalPosition++, false));
         }
+        columns.add(new ColumnMetadata(ROW_NUMBER_COLUMN_NAME, BIGINT, ordinalPosition++, false, true));
 
         SchemaTableName tableName = new SchemaTableName(schemaName, tpchTable.getTableName());
         return new ConnectorTableMetadata(tableName, columns.build());
@@ -120,7 +124,22 @@ public class TpchMetadata
     @Override
     public ConnectorColumnHandle getColumnHandle(ConnectorTableHandle tableHandle, String columnName)
     {
-        return getColumnHandles(tableHandle).get(columnName);
+        checkNotNull(tableHandle, "tableHandle is null");
+        checkArgument(tableHandle instanceof TpchTableHandle, "tableHandle is not an instance of TpchTableHandle");
+        TpchTableHandle tpchTableHandle = (TpchTableHandle) tableHandle;
+
+        if (columnName.equalsIgnoreCase(ROW_NUMBER_COLUMN_NAME)) {
+            return ROW_NUMBER_COLUMN_HANDLE;
+        }
+
+        int ordinalPosition = 0;
+        for (TpchColumn<? extends TpchEntity> column : TpchTable.getTable(tpchTableHandle.getTableName()).getColumns()) {
+            if (column.getColumnName().equalsIgnoreCase(columnName)) {
+                return new TpchColumnHandle(column.getColumnName(), ordinalPosition, getPrestoType(column.getType()));
+            }
+            ordinalPosition++;
+        }
+        return null;
     }
 
     @Override

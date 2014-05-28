@@ -13,9 +13,14 @@
  */
 package com.facebook.presto.tests.tpch;
 
+import com.facebook.presto.spi.ConnectorColumnHandle;
 import com.facebook.presto.spi.RecordCursor;
 import com.facebook.presto.spi.RecordSet;
+import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.tpch.TpchMetadata;
+import com.facebook.presto.tpch.TpchRecordSetProvider;
+import com.facebook.presto.tpch.TpchTableHandle;
 import com.google.common.base.Function;
 import com.google.common.base.Optional;
 import com.google.common.collect.AbstractIterator;
@@ -27,18 +32,16 @@ import com.google.common.collect.Iterables;
 import com.google.common.collect.ListMultimap;
 import com.google.common.collect.Lists;
 import io.airlift.slice.Slice;
-import io.airlift.tpch.TpchColumn;
-import io.airlift.tpch.TpchEntity;
 import io.airlift.tpch.TpchTable;
 
 import java.util.ArrayList;
 import java.util.Iterator;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 
-import static com.facebook.presto.tpch.TpchRecordSet.createTpchRecordSet;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkPositionIndex;
@@ -48,14 +51,21 @@ class TpchIndexedData
 {
     private final Map<Set<TpchScaledColumn>, IndexedTable> indexedTables;
 
-    public TpchIndexedData(TpchIndexSpec tpchIndexSpec)
+    public TpchIndexedData(String connectorId, TpchIndexSpec tpchIndexSpec)
     {
+        checkNotNull(connectorId, "connectorId is null");
         checkNotNull(tpchIndexSpec, "tpchIndexSpec is null");
+
+        TpchMetadata tpchMetadata = new TpchMetadata(connectorId);
+        TpchRecordSetProvider tpchRecordSetProvider = new TpchRecordSetProvider();
 
         ImmutableMap.Builder<Set<TpchScaledColumn>, IndexedTable> indexedTablesBuilder = ImmutableMap.builder();
 
         Set<TpchScaledTable> tables = tpchIndexSpec.listIndexedTables();
         for (TpchScaledTable table : tables) {
+            SchemaTableName tableName = new SchemaTableName("sf" + table.getScaleFactor(), table.getTableName());
+            TpchTableHandle tableHandle = tpchMetadata.getTableHandle(null, tableName);
+            Map<String, ConnectorColumnHandle> columnHandles = new LinkedHashMap<>(tpchMetadata.getColumnHandles(tableHandle));
             for (Set<String> columnNames : tpchIndexSpec.getColumnIndexes(table)) {
                 List<String> keyColumnNames = ImmutableList.copyOf(columnNames); // Finalize the key order
                 Set<TpchScaledColumn> keyColumns = FluentIterable.from(keyColumnNames)
@@ -63,15 +73,8 @@ class TpchIndexedData
                         .toSet();
 
                 TpchTable<?> tpchTable = TpchTable.getTable(table.getTableName());
-                List<String> outputColumnNames = Lists.transform(tpchTable.getColumns(), new Function<TpchColumn<? extends TpchEntity>, String>()
-                {
-                    @Override
-                    public String apply(TpchColumn<? extends TpchEntity> tpchColumn)
-                    {
-                        return tpchColumn.getColumnName();
-                    }
-                });
-                IndexedTable indexedTable = indexTable(tpchTable, table.getScaleFactor(), outputColumnNames, keyColumnNames);
+                RecordSet recordSet = tpchRecordSetProvider.getRecordSet(tpchTable, ImmutableList.copyOf(columnHandles.values()), table.getScaleFactor(), 0, 1);
+                IndexedTable indexedTable = indexTable(recordSet, ImmutableList.copyOf(columnHandles.keySet()), keyColumnNames);
                 indexedTablesBuilder.put(keyColumns, indexedTable);
             }
         }
@@ -101,16 +104,7 @@ class TpchIndexedData
         });
     }
 
-    private static <E extends TpchEntity> RecordSet getRecordSet(TpchTable<E> table, double scaleFactor, List<String> columnNames)
-    {
-        ImmutableList.Builder<TpchColumn<E>> builder = ImmutableList.builder();
-        for (String columnName : columnNames) {
-            builder.add(table.getColumn(columnName));
-        }
-        return createTpchRecordSet(table, builder.build(), scaleFactor, 1, 1);
-    }
-
-    private static IndexedTable indexTable(TpchTable table, double scaleFactor, final List<String> outputColumns, List<String> keyColumns)
+    private static IndexedTable indexTable(RecordSet recordSet, final List<String> outputColumns, List<String> keyColumns)
     {
         List<Integer> keyPositions = FluentIterable.from(keyColumns)
                 .transform(new Function<String, Integer>()
@@ -124,8 +118,6 @@ class TpchIndexedData
                     }
                 })
                 .toList();
-
-        RecordSet recordSet = getRecordSet(table, scaleFactor, outputColumns);
 
         ImmutableListMultimap.Builder<MaterializedTuple, MaterializedTuple> indexedValuesBuilder = ImmutableListMultimap.builder();
 

@@ -40,7 +40,6 @@ public class SampledTpchRecordSetProvider
 
     public SampledTpchRecordSetProvider(String connectorId, int sampleWeight)
     {
-        super(connectorId);
         this.metadata = new TpchMetadata(connectorId);
         this.sampleWeight = sampleWeight;
     }

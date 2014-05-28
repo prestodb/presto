@@ -31,13 +31,6 @@ import static com.google.common.base.Preconditions.checkNotNull;
 public class TpchRecordSetProvider
         implements ConnectorRecordSetProvider
 {
-    private final String connectorId;
-
-    public TpchRecordSetProvider(String connectorId)
-    {
-        this.connectorId = connectorId;
-    }
-
     @Override
     public RecordSet getRecordSet(ConnectorSplit split, List<? extends ConnectorColumnHandle> columns)
     {
@@ -52,18 +45,62 @@ public class TpchRecordSetProvider
 
         TpchTable<?> tpchTable = TpchTable.getTable(tableName);
 
-        return getRecordSet(tpchTable, columns, tpchSplit);
+        return getRecordSet(tpchTable, columns, tpchSplit.getTableHandle().getScaleFactor(), tpchSplit.getPartNumber(), tpchSplit.getTotalParts());
     }
 
-    private <E extends TpchEntity> RecordSet getRecordSet(TpchTable<E> table, List<? extends ConnectorColumnHandle> columns, TpchSplit tpchSplit)
+    public <E extends TpchEntity> RecordSet getRecordSet(
+            TpchTable<E> table,
+            List<? extends ConnectorColumnHandle> columns,
+            double scaleFactor,
+            int partNumber,
+            int totalParts)
     {
         ImmutableList.Builder<TpchColumn<E>> builder = ImmutableList.builder();
         for (ConnectorColumnHandle column : columns) {
             checkArgument(column instanceof TpchColumnHandle, "column must be of type TpchColumnHandle, not %s", column.getClass().getName());
             String columnName = ((TpchColumnHandle) column).getColumnName();
-            builder.add(table.getColumn(columnName));
+            if (columnName.equalsIgnoreCase(TpchMetadata.ROW_NUMBER_COLUMN_NAME)) {
+                builder.add(new RowNumberTpchColumn<E>());
+            }
+            else {
+                builder.add(table.getColumn(columnName));
+            }
         }
 
-        return createTpchRecordSet(table, builder.build(), tpchSplit.getTableHandle().getScaleFactor(), tpchSplit.getPartNumber() + 1, tpchSplit.getTotalParts());
+        return createTpchRecordSet(table, builder.build(), scaleFactor, partNumber + 1, totalParts);
+    }
+
+    private static class RowNumberTpchColumn<E extends TpchEntity>
+            implements TpchColumn<E>
+    {
+        @Override
+        public String getColumnName()
+        {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public Class<?> getType()
+        {
+            return Long.class;
+        }
+
+        @Override
+        public double getDouble(E entity)
+        {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public long getLong(E entity)
+        {
+            return entity.getRowNumber();
+        }
+
+        @Override
+        public String getString(E entity)
+        {
+            throw new UnsupportedOperationException();
+        }
     }
 }
