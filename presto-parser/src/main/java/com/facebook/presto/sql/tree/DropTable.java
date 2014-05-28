@@ -33,7 +33,7 @@ public class DropTable
     @Override
     public <R, C> R accept(AstVisitor<R, C> visitor, C context)
     {
-        return visitor.visitStatement(this, context);
+        return visitor.visitDropTable(this, context);
     }
 
     @Override

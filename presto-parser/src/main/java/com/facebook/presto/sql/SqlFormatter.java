@@ -17,11 +17,14 @@ import com.facebook.presto.sql.tree.AliasedRelation;
 import com.facebook.presto.sql.tree.AllColumns;
 import com.facebook.presto.sql.tree.AstVisitor;
 import com.facebook.presto.sql.tree.CreateTable;
+import com.facebook.presto.sql.tree.DropTable;
+import com.facebook.presto.sql.tree.Except;
 import com.facebook.presto.sql.tree.Explain;
 import com.facebook.presto.sql.tree.ExplainFormat;
 import com.facebook.presto.sql.tree.ExplainOption;
 import com.facebook.presto.sql.tree.ExplainType;
 import com.facebook.presto.sql.tree.Expression;
+import com.facebook.presto.sql.tree.Intersect;
 import com.facebook.presto.sql.tree.Join;
 import com.facebook.presto.sql.tree.JoinCriteria;
 import com.facebook.presto.sql.tree.JoinOn;
@@ -44,6 +47,7 @@ import com.facebook.presto.sql.tree.ShowTables;
 import com.facebook.presto.sql.tree.SingleColumn;
 import com.facebook.presto.sql.tree.Table;
 import com.facebook.presto.sql.tree.TableSubquery;
+import com.facebook.presto.sql.tree.Union;
 import com.facebook.presto.sql.tree.Values;
 import com.facebook.presto.sql.tree.With;
 import com.facebook.presto.sql.tree.WithQuery;
@@ -123,7 +127,7 @@ public final class SqlFormatter
                 }
             }
 
-            process(node.getQueryBody(), indent);
+            processRelation(node.getQueryBody(), indent);
 
             if (!node.getOrderBy().isEmpty()) {
                 append(indent, "ORDER BY " + formatSortItems(node.getOrderBy()))
@@ -132,6 +136,12 @@ public final class SqlFormatter
 
             if (node.getLimit().isPresent()) {
                 append(indent, "LIMIT " + node.getLimit().get())
+                        .append('\n');
+            }
+
+            if (node.getApproximate().isPresent()) {
+                String confidence = node.getApproximate().get().getConfidence();
+                append(indent, "APPROXIMATE AT " + confidence + " CONFIDENCE")
                         .append('\n');
             }
 
@@ -358,7 +368,60 @@ public final class SqlFormatter
 
             process(node.getQuery(), indent + 1);
 
-            append(indent, ")");
+            append(indent, ") ");
+
+            return null;
+        }
+
+        @Override
+        protected Void visitUnion(Union node, Integer indent)
+        {
+            Iterator<Relation> relations = node.getRelations().iterator();
+
+            while (relations.hasNext()) {
+                processRelation(relations.next(), indent);
+
+                if (relations.hasNext()) {
+                    builder.append("UNION ");
+                    if (!node.isDistinct()) {
+                        builder.append("ALL ");
+                    }
+                }
+            }
+
+            return null;
+        }
+
+        @Override
+        protected Void visitExcept(Except node, Integer indent)
+        {
+            processRelation(node.getLeft(), indent);
+
+            builder.append("EXCEPT ");
+            if (!node.isDistinct()) {
+                builder.append("ALL ");
+            }
+
+            processRelation(node.getRight(), indent);
+
+            return null;
+        }
+
+        @Override
+        protected Void visitIntersect(Intersect node, Integer indent)
+        {
+            Iterator<Relation> relations = node.getRelations().iterator();
+
+            while (relations.hasNext()) {
+                processRelation(relations.next(), indent);
+
+                if (relations.hasNext()) {
+                    builder.append("INTERSECT ");
+                    if (!node.isDistinct()) {
+                        builder.append("ALL ");
+                    }
+                }
+            }
 
             return null;
         }
@@ -485,6 +548,28 @@ public final class SqlFormatter
             process(node.getQuery(), indent);
 
             return null;
+        }
+
+        @Override
+        protected Void visitDropTable(DropTable node, Integer context)
+        {
+            builder.append("DROP TABLE ")
+                    .append(node.getTableName());
+
+            return null;
+        }
+
+        private void processRelation(Relation relation, Integer indent)
+        {
+            // TODO: handle this properly
+            if (relation instanceof Table) {
+                builder.append("TABLE ")
+                        .append(((Table) relation).getName())
+                        .append('\n');
+            }
+            else {
+                process(relation, indent);
+            }
         }
 
         private StringBuilder append(int indent, String value)

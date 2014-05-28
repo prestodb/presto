@@ -106,19 +106,8 @@ public final class ExpressionFormatter
         protected String visitCurrentTime(CurrentTime node, Void context)
         {
             StringBuilder builder = new StringBuilder();
-            switch (node.getType()) {
-                case TIME:
-                    builder.append("current_time");
-                    break;
-                case DATE:
-                    builder.append("current_date");
-                    break;
-                case TIMESTAMP:
-                    builder.append("current_timestamp");
-                    break;
-                default:
-                    throw new UnsupportedOperationException("not yet implemented: " + node.getType());
-            }
+
+            builder.append(node.getType().getName());
 
             if (node.getPrecision() != null) {
                 builder.append('(')
