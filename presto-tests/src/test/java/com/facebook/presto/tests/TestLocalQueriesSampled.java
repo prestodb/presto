@@ -18,12 +18,9 @@ import com.facebook.presto.testing.LocalQueryRunner;
 import com.facebook.presto.tpch.TpchMetadata;
 import com.facebook.presto.tpch.testing.SampledTpchConnectorFactory;
 import com.google.common.collect.ImmutableMap;
-import org.testng.annotations.AfterClass;
 
 import static com.facebook.presto.spi.type.TimeZoneKey.UTC_KEY;
-import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static java.util.Locale.ENGLISH;
-import static java.util.concurrent.Executors.newCachedThreadPool;
 
 public class TestLocalQueriesSampled
         extends AbstractTestSampledQueries
@@ -35,16 +32,10 @@ public class TestLocalQueriesSampled
         super(createLocalQueryRunner(), createDefaultSampledSession());
     }
 
-    @AfterClass(alwaysRun = true)
-    public void destroy()
-    {
-        ((LocalQueryRunner) queryRunner).getExecutor().shutdownNow();
-    }
-
     private static LocalQueryRunner createLocalQueryRunner()
     {
         ConnectorSession defaultSession = new ConnectorSession("user", "test", "tpch", TpchMetadata.TINY_SCHEMA_NAME, UTC_KEY, ENGLISH, null, null);
-        LocalQueryRunner queryRunner = new LocalQueryRunner(defaultSession, newCachedThreadPool(daemonThreadsNamed("test-sampled")));
+        LocalQueryRunner queryRunner = new LocalQueryRunner(defaultSession);
         queryRunner.createCatalog(defaultSession.getCatalog(), new SampledTpchConnectorFactory(queryRunner.getNodeManager(), 1, 1), ImmutableMap.<String, String>of());
         queryRunner.createCatalog(TPCH_SAMPLED_SCHEMA, new SampledTpchConnectorFactory(queryRunner.getNodeManager(), 1, 2), ImmutableMap.<String, String>of());
         queryRunner.getMetadata().addFunctions(CUSTOM_FUNCTIONS);

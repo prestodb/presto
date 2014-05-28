@@ -14,13 +14,12 @@
 package com.facebook.presto.operator.window;
 
 import com.facebook.presto.spi.ConnectorSession;
+import com.facebook.presto.testing.LocalQueryRunner;
 import com.facebook.presto.testing.MaterializedResult;
-import org.testng.annotations.AfterMethod;
-import org.testng.annotations.BeforeMethod;
+import com.facebook.presto.tpch.TpchConnectorFactory;
+import com.google.common.collect.ImmutableMap;
+import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
-
-import java.util.Locale;
-import java.util.concurrent.ExecutorService;
 
 import static com.facebook.presto.operator.window.WindowAssertions.assertWindowQuery;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
@@ -28,25 +27,24 @@ import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.TimeZoneKey.UTC_KEY;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.testing.MaterializedResult.resultBuilder;
-import static io.airlift.concurrent.Threads.daemonThreadsNamed;
-import static java.util.concurrent.Executors.newCachedThreadPool;
+import static com.facebook.presto.tpch.TpchMetadata.TINY_SCHEMA_NAME;
+import static java.util.Locale.ENGLISH;
 
-@Test(singleThreaded = true)
 public class TestWindowFunctions
 {
-    private static final ConnectorSession SESSION = new ConnectorSession("user", "source", "catalog", "schema", UTC_KEY, Locale.ENGLISH, "address", "agent");
-    private ExecutorService executor;
+    private static final ConnectorSession SESSION = new ConnectorSession("user", "test", "tpch", TINY_SCHEMA_NAME, UTC_KEY, ENGLISH, null, null);
+    private final LocalQueryRunner queryRunner;
 
-    @BeforeMethod
-    public void setUp()
+    public TestWindowFunctions()
     {
-        executor = newCachedThreadPool(daemonThreadsNamed("test"));
+        queryRunner = new LocalQueryRunner(SESSION);
+        queryRunner.createCatalog("tpch", new TpchConnectorFactory(queryRunner.getNodeManager(), 1), ImmutableMap.<String, String>of());
     }
 
-    @AfterMethod
+    @AfterClass
     public void tearDown()
     {
-        executor.shutdownNow();
+        queryRunner.close();
     }
 
     @Test
@@ -65,8 +63,8 @@ public class TestWindowFunctions
                 .row(34, "O", 10)
                 .build();
 
-        assertWindowQuery("row_number() OVER ()", expected, executor);
-        assertWindowQuery("row_number() OVER (ORDER BY orderkey)", expected, executor);
+        assertWindowQuery("row_number() OVER ()", expected, queryRunner);
+        assertWindowQuery("row_number() OVER (ORDER BY orderkey)", expected, queryRunner);
     }
 
     @Test
@@ -84,7 +82,8 @@ public class TestWindowFunctions
                         .row(7, "O", 4)
                         .row(32, "O", 5)
                         .row(34, "O", 6)
-                        .build(), executor);
+                        .build(), queryRunner
+        );
 
         // TODO: add better test for non-deterministic sorting behavior
         assertWindowQuery("row_number() OVER (PARTITION BY orderstatus)",
@@ -99,7 +98,8 @@ public class TestWindowFunctions
                         .row(2, "O", 4)
                         .row(4, "O", 5)
                         .row(7, "O", 6)
-                        .build(), executor);
+                        .build(), queryRunner
+        );
     }
 
     @Test
@@ -117,7 +117,8 @@ public class TestWindowFunctions
                         .row(7, "O", 5)
                         .row(32, "O", 5)
                         .row(34, "O", 5)
-                        .build(), executor);
+                        .build(), queryRunner
+        );
     }
 
     @Test
@@ -135,7 +136,8 @@ public class TestWindowFunctions
                         .row(7, "O", 2)
                         .row(32, "O", 2)
                         .row(34, "O", 2)
-                        .build(), executor);
+                        .build(), queryRunner
+        );
     }
 
     @Test
@@ -153,7 +155,8 @@ public class TestWindowFunctions
                         .row(7, "O", 0.6)
                         .row(32, "O", 0.8)
                         .row(34, "O", 1.0)
-                        .build(), executor);
+                        .build(), queryRunner
+        );
 
         assertWindowQuery("percent_rank() OVER (ORDER BY orderkey)",
                 resultBuilder(SESSION, BIGINT, VARCHAR, DOUBLE)
@@ -167,7 +170,8 @@ public class TestWindowFunctions
                         .row(32, "O", 7 / 9.0)
                         .row(33, "F", 8 / 9.0)
                         .row(34, "O", 1.0)
-                        .build(), executor);
+                        .build(), queryRunner
+        );
 
         assertWindowQuery("percent_rank() OVER (ORDER BY orderstatus)",
                 resultBuilder(SESSION, BIGINT, VARCHAR, DOUBLE)
@@ -181,7 +185,8 @@ public class TestWindowFunctions
                         .row(7, "O", 4 / 9.0)
                         .row(32, "O", 4 / 9.0)
                         .row(34, "O", 4 / 9.0)
-                        .build(), executor);
+                        .build(), queryRunner
+        );
 
         assertWindowQuery("percent_rank() OVER (PARTITION BY orderkey)",
                 resultBuilder(SESSION, BIGINT, VARCHAR, DOUBLE)
@@ -195,7 +200,8 @@ public class TestWindowFunctions
                         .row(32, "O", 0.0)
                         .row(33, "F", 0.0)
                         .row(34, "O", 0.0)
-                        .build(), executor);
+                        .build(), queryRunner
+        );
     }
 
     @Test
@@ -213,7 +219,8 @@ public class TestWindowFunctions
                         .row(7, "O", 4 / 6.0)
                         .row(32, "O", 5 / 6.0)
                         .row(34, "O", 1.0)
-                        .build(), executor);
+                        .build(), queryRunner
+        );
 
         assertWindowQuery("cume_dist() OVER (ORDER BY orderkey)",
                 resultBuilder(SESSION, BIGINT, VARCHAR, DOUBLE)
@@ -227,7 +234,8 @@ public class TestWindowFunctions
                         .row(32, "O", 0.8)
                         .row(33, "F", 0.9)
                         .row(34, "O", 1.0)
-                        .build(), executor);
+                        .build(), queryRunner
+        );
 
         assertWindowQuery("cume_dist() OVER (ORDER BY orderstatus)",
                 resultBuilder(SESSION, BIGINT, VARCHAR, DOUBLE)
@@ -241,7 +249,8 @@ public class TestWindowFunctions
                         .row(7, "O", 1.0)
                         .row(32, "O", 1.0)
                         .row(34, "O", 1.0)
-                        .build(), executor);
+                        .build(), queryRunner
+        );
 
         assertWindowQuery("cume_dist() OVER (PARTITION BY orderkey)",
                 resultBuilder(SESSION, BIGINT, VARCHAR, DOUBLE)
@@ -255,6 +264,7 @@ public class TestWindowFunctions
                         .row(32, "O", 1.0)
                         .row(33, "F", 1.0)
                         .row(34, "O", 1.0)
-                        .build(), executor);
+                        .build(), queryRunner
+        );
     }
 }

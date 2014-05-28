@@ -16,14 +16,12 @@ package com.facebook.presto.benchmark;
 import com.facebook.presto.testing.LocalQueryRunner;
 
 import static com.facebook.presto.benchmark.BenchmarkQueryRunner.createLocalQueryRunner;
-import static io.airlift.concurrent.Threads.daemonThreadsNamed;
-import static java.util.concurrent.Executors.newCachedThreadPool;
 
 public abstract class StatisticsBenchmark
 {
     public static void main(String... args)
     {
-        LocalQueryRunner localQueryRunner = createLocalQueryRunner(newCachedThreadPool(daemonThreadsNamed("test")));
+        LocalQueryRunner localQueryRunner = createLocalQueryRunner();
         new LongVarianceBenchmark(localQueryRunner).runBenchmark(new AverageBenchmarkResults());
         new LongVariancePopBenchmark(localQueryRunner).runBenchmark(new AverageBenchmarkResults());
         new DoubleVarianceBenchmark(localQueryRunner).runBenchmark(new AverageBenchmarkResults());

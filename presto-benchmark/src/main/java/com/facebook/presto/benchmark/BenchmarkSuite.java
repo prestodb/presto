@@ -24,23 +24,17 @@ import java.io.IOException;
 import java.io.OutputStream;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.ExecutorService;
 
 import static com.facebook.presto.benchmark.BenchmarkQueryRunner.createLocalQueryRunner;
 import static com.facebook.presto.benchmark.BenchmarkQueryRunner.createLocalSampledQueryRunner;
 import static com.google.common.base.Preconditions.checkNotNull;
-import static io.airlift.concurrent.Threads.daemonThreadsNamed;
-import static java.util.concurrent.Executors.newCachedThreadPool;
 
 public class BenchmarkSuite
 {
     private static final Logger LOGGER = Logger.get(BenchmarkSuite.class);
 
-    public static List<AbstractBenchmark> createBenchmarks(ExecutorService executor)
+    public static List<AbstractBenchmark> createBenchmarks(LocalQueryRunner localQueryRunner, LocalQueryRunner localSampledQueryRunner)
     {
-        LocalQueryRunner localQueryRunner = createLocalQueryRunner(executor);
-        LocalQueryRunner localSampledQueryRunner = createLocalSampledQueryRunner(executor);
-
         return ImmutableList.<AbstractBenchmark>of(
                 // hand built benchmarks
                 new CountAggregationBenchmark(localQueryRunner),
@@ -119,9 +113,9 @@ public class BenchmarkSuite
     public void runAllBenchmarks()
             throws IOException
     {
-        ExecutorService executor = newCachedThreadPool(daemonThreadsNamed("test"));
-        try {
-            List<AbstractBenchmark> benchmarks = createBenchmarks(executor);
+        try (LocalQueryRunner localQueryRunner = createLocalQueryRunner();
+                LocalQueryRunner localSampledQueryRunner = createLocalSampledQueryRunner()) {
+            List<AbstractBenchmark> benchmarks = createBenchmarks(localQueryRunner, localSampledQueryRunner);
 
             LOGGER.info("=== Pre-running all benchmarks for JVM warmup ===");
             for (AbstractBenchmark benchmark : benchmarks) {
@@ -146,9 +140,6 @@ public class BenchmarkSuite
                     );
                 }
             }
-        }
-        finally {
-            executor.shutdownNow();
         }
     }
 

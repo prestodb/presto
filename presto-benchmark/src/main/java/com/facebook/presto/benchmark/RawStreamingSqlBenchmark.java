@@ -15,11 +15,7 @@ package com.facebook.presto.benchmark;
 
 import com.facebook.presto.testing.LocalQueryRunner;
 
-import java.util.concurrent.ExecutorService;
-
 import static com.facebook.presto.benchmark.BenchmarkQueryRunner.createLocalQueryRunner;
-import static io.airlift.concurrent.Threads.daemonThreadsNamed;
-import static java.util.concurrent.Executors.newCachedThreadPool;
 
 public class RawStreamingSqlBenchmark
         extends AbstractSqlBenchmark
@@ -31,7 +27,6 @@ public class RawStreamingSqlBenchmark
 
     public static void main(String[] args)
     {
-        ExecutorService executor = newCachedThreadPool(daemonThreadsNamed("test"));
-        new RawStreamingSqlBenchmark(createLocalQueryRunner(executor)).runBenchmark(new SimpleLineBenchmarkResultWriter(System.out));
+        new RawStreamingSqlBenchmark(createLocalQueryRunner()).runBenchmark(new SimpleLineBenchmarkResultWriter(System.out));
     }
 }

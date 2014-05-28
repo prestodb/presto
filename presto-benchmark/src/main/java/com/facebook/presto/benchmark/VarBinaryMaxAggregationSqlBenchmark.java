@@ -15,11 +15,7 @@ package com.facebook.presto.benchmark;
 
 import com.facebook.presto.testing.LocalQueryRunner;
 
-import java.util.concurrent.ExecutorService;
-
 import static com.facebook.presto.benchmark.BenchmarkQueryRunner.createLocalQueryRunner;
-import static io.airlift.concurrent.Threads.daemonThreadsNamed;
-import static java.util.concurrent.Executors.newCachedThreadPool;
 
 public class VarBinaryMaxAggregationSqlBenchmark
         extends AbstractSqlBenchmark
@@ -31,7 +27,6 @@ public class VarBinaryMaxAggregationSqlBenchmark
 
     public static void main(String[] args)
     {
-        ExecutorService executor = newCachedThreadPool(daemonThreadsNamed("test"));
-        new VarBinaryMaxAggregationSqlBenchmark(createLocalQueryRunner(executor)).runBenchmark(new SimpleLineBenchmarkResultWriter(System.out));
+        new VarBinaryMaxAggregationSqlBenchmark(createLocalQueryRunner()).runBenchmark(new SimpleLineBenchmarkResultWriter(System.out));
     }
 }
