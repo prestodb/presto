@@ -144,7 +144,7 @@ public abstract class AbstractAggregationFunction<T extends AccumulatorState>
         protected void processInput(GroupByIdBlock groupIdsBlock, Block valuesBlock, Optional<Block> maskBlock, Optional<Block> sampleWeightBlock)
         {
             checkArgument(!sampleWeightBlock.isPresent(), "Sampled data not supported");
-            state.ensureCapacity(groupIdsBlock.getGroupCount());
+            groupedState.ensureCapacity(groupIdsBlock.getGroupCount());
 
             BlockCursor values = valuesBlock.cursor();
             BlockCursor masks = null;
@@ -170,7 +170,7 @@ public abstract class AbstractAggregationFunction<T extends AccumulatorState>
         @Override
         protected void processIntermediate(GroupByIdBlock groupIdsBlock, Block intermediatesBlock)
         {
-            state.ensureCapacity(groupIdsBlock.getGroupCount());
+            groupedState.ensureCapacity(groupIdsBlock.getGroupCount());
 
             BlockCursor intermediates = intermediatesBlock.cursor();
 

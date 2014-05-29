@@ -52,9 +52,4 @@ public final class SingleLongAndDoubleState
     {
         return STATE_SIZE;
     }
-
-    @Override
-    public void ensureCapacity(long size)
-    {
-    }
 }
