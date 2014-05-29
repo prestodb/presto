@@ -24,6 +24,7 @@ import com.facebook.presto.sql.tree.Approximate;
 import com.facebook.presto.sql.tree.BooleanLiteral;
 import com.facebook.presto.sql.tree.Cast;
 import com.facebook.presto.sql.tree.CreateTable;
+import com.facebook.presto.sql.tree.CreateView;
 import com.facebook.presto.sql.tree.DefaultTraversalVisitor;
 import com.facebook.presto.sql.tree.Explain;
 import com.facebook.presto.sql.tree.ExplainFormat;
@@ -45,6 +46,7 @@ import com.facebook.presto.sql.tree.ShowSchemas;
 import com.facebook.presto.sql.tree.ShowTables;
 import com.facebook.presto.sql.tree.SingleColumn;
 import com.facebook.presto.sql.tree.SortItem;
+import com.facebook.presto.sql.tree.Statement;
 import com.facebook.presto.sql.tree.StringLiteral;
 import com.facebook.presto.sql.tree.UseCollection;
 import com.facebook.presto.sql.tree.With;
@@ -366,6 +368,24 @@ class StatementAnalyzer
         // analyze the query that creates the table
         TupleDescriptor descriptor = process(node.getQuery(), context);
 
+        validateColumnNames(node, descriptor);
+
+        return new TupleDescriptor(Field.newUnqualified("rows", BIGINT));
+    }
+
+    @Override
+    protected TupleDescriptor visitCreateView(CreateView node, AnalysisContext context)
+    {
+        // analyze the query that creates the view
+        TupleDescriptor descriptor = process(node.getQuery(), context);
+
+        validateColumnNames(node, descriptor);
+
+        return descriptor;
+    }
+
+    private static void validateColumnNames(Statement node, TupleDescriptor descriptor)
+    {
         // verify that all column names are specified and unique
         // TODO: collect errors and return them all at once
         Set<String> names = new HashSet<>();
@@ -378,8 +398,6 @@ class StatementAnalyzer
                 throw new SemanticException(DUPLICATE_COLUMN_NAME, node, "Column name '%s' specified more than once", fieldName.get());
             }
         }
-
-        return new TupleDescriptor(Field.newUnqualified("rows", BIGINT));
     }
 
     @Override

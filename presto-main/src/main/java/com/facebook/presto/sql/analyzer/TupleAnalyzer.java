@@ -20,9 +20,9 @@ import com.facebook.presto.metadata.MetadataUtil;
 import com.facebook.presto.metadata.QualifiedTableName;
 import com.facebook.presto.metadata.TableHandle;
 import com.facebook.presto.metadata.TableMetadata;
+import com.facebook.presto.metadata.ViewDefinition;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorSession;
-import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.ExpressionUtils;
 import com.facebook.presto.sql.parser.ParsingException;
@@ -80,7 +80,7 @@ import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Set;
 
-import static com.facebook.presto.spi.StandardErrorCode.INVALID_VIEW;
+import static com.facebook.presto.metadata.ViewDefinition.ViewColumn;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.sql.analyzer.ExpressionAnalyzer.getExpressionTypes;
 import static com.facebook.presto.sql.analyzer.Field.typeGetter;
@@ -99,6 +99,9 @@ import static com.facebook.presto.sql.analyzer.SemanticErrorCode.NON_NUMERIC_SAM
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.ORDER_BY_MUST_BE_IN_SELECT;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.TYPE_MISMATCH;
+import static com.facebook.presto.sql.analyzer.SemanticErrorCode.VIEW_ANALYSIS_ERROR;
+import static com.facebook.presto.sql.analyzer.SemanticErrorCode.VIEW_IS_STALE;
+import static com.facebook.presto.sql.analyzer.SemanticErrorCode.VIEW_PARSE_ERROR;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.WILDCARD_WITHOUT_FROM;
 import static com.facebook.presto.sql.planner.ExpressionInterpreter.expressionOptimizer;
 import static com.facebook.presto.type.UnknownType.UNKNOWN;
@@ -108,7 +111,6 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.Iterables.elementsEqual;
 import static com.google.common.collect.Iterables.transform;
-import static java.lang.String.format;
 
 class TupleAnalyzer
         extends DefaultTraversalVisitor<TupleDescriptor, AnalysisContext>
@@ -156,13 +158,20 @@ class TupleAnalyzer
 
         QualifiedTableName name = MetadataUtil.createQualifiedTableName(session, table.getName());
 
-        Optional<String> view = metadata.getView(session, name);
-        if (view.isPresent()) {
-            Query query = parseView(view.get(), name);
+        Optional<ViewDefinition> optionalView = metadata.getView(session, name);
+        if (optionalView.isPresent()) {
+            ViewDefinition view = optionalView.get();
+
+            Query query = parseView(view.getOriginalSql(), name, table);
 
             analysis.registerNamedQuery(table, query);
 
-            TupleDescriptor descriptor = analyzeView(query, name);
+            TupleDescriptor descriptor = analyzeView(query, name, view.getCatalog(), view.getSchema(), table);
+
+            if (isViewStale(view.getColumns(), descriptor.getVisibleFields())) {
+                throw new SemanticException(VIEW_IS_STALE, table, "View '%s' is stale; it must be re-created", name);
+            }
+
             analysis.setOutputDescriptor(table, descriptor);
             return descriptor;
         }
@@ -932,26 +941,55 @@ class TupleAnalyzer
         }
     }
 
-    private TupleDescriptor analyzeView(Query query, QualifiedTableName name)
+    private TupleDescriptor analyzeView(Query query, QualifiedTableName name, String catalog, String schema, Table node)
     {
         try {
-            StatementAnalyzer analyzer = new StatementAnalyzer(analysis, metadata, session, experimentalSyntaxEnabled, Optional.<QueryExplainer>absent());
+            ConnectorSession viewSession = new ConnectorSession(
+                    session.getUser(),
+                    session.getSource(),
+                    catalog,
+                    schema,
+                    session.getTimeZoneKey(),
+                    session.getLocale(),
+                    session.getRemoteUserAddress(),
+                    session.getUserAgent(),
+                    session.getStartTime());
+            StatementAnalyzer analyzer = new StatementAnalyzer(analysis, metadata, viewSession, experimentalSyntaxEnabled, Optional.<QueryExplainer>absent());
             return analyzer.process(query, new AnalysisContext());
         }
         catch (RuntimeException e) {
-            throw new PrestoException(INVALID_VIEW.toErrorCode(), format("View '%s' is invalid: %s", name, e.getMessage()), e);
+            throw new SemanticException(VIEW_ANALYSIS_ERROR, node, "Failed analyzing stored view '%s': %s", name, e.getMessage());
         }
     }
 
-    private static Query parseView(String view, QualifiedTableName name)
+    private static Query parseView(String view, QualifiedTableName name, Table node)
     {
         try {
             Statement statement = SqlParser.createStatement(view);
             return checkType(statement, Query.class, "parsed view");
         }
         catch (ParsingException e) {
-            throw new PrestoException(INVALID_VIEW.toErrorCode(), format("View '%s' is invalid: %s", name, e.getMessage()), e);
+            throw new SemanticException(VIEW_PARSE_ERROR, node, "Failed parsing stored view '%s': %s", name, e.getMessage());
         }
+    }
+
+    private static boolean isViewStale(List<ViewColumn> columns, Collection<Field> fields)
+    {
+        if (columns.size() != fields.size()) {
+            return true;
+        }
+
+        List<Field> fieldList = ImmutableList.copyOf(fields);
+        for (int i = 0; i < columns.size(); i++) {
+            ViewColumn column = columns.get(i);
+            Field field = fieldList.get(i);
+            if (!column.getName().equals(field.getName().orNull()) ||
+                    !column.getType().equals(field.getType())) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     public static class DependencyExtractor
