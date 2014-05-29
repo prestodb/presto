@@ -13,21 +13,20 @@
  */
 package com.facebook.presto.operator.aggregation;
 
-import com.facebook.presto.spi.block.Block;
+import com.facebook.presto.operator.aggregation.state.ByteState;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockCursor;
-import com.facebook.presto.operator.GroupByIdBlock;
-import com.facebook.presto.util.array.ByteBigArray;
-import com.google.common.base.Optional;
 
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
-import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkState;
 
 public class BooleanMaxAggregation
-        extends SimpleAggregationFunction
+        extends AbstractAggregationFunction<ByteState>
 {
     public static final BooleanMaxAggregation BOOLEAN_MAX = new BooleanMaxAggregation();
+
+    private static final byte NULL_VALUE = 0;
+    private static final byte TRUE_VALUE = 1;
+    private static final byte FALSE_VALUE = -1;
 
     public BooleanMaxAggregation()
     {
@@ -35,123 +34,28 @@ public class BooleanMaxAggregation
     }
 
     @Override
-    protected GroupedAccumulator createGroupedAccumulator(Optional<Integer> maskChannel, Optional<Integer> sampleWeightChannel, double confidence, int valueChannel)
+    protected void processInput(ByteState state, BlockCursor cursor)
     {
-        // Min/max are not effected by distinct, so ignore it.
-        checkArgument(confidence == 1.0, "max does not support approximate queries");
-        return new BooleanMinGroupedAccumulator(valueChannel);
-    }
-
-    public static class BooleanMinGroupedAccumulator
-            extends SimpleGroupedAccumulator
-    {
-        private static final byte NULL_VALUE = 0;
-        private static final byte TRUE_VALUE = 1;
-        private static final byte FALSE_VALUE = -1;
-
-        private final ByteBigArray maxValues;
-
-        public BooleanMinGroupedAccumulator(int valueChannel)
-        {
-            // Min/max are not effected by distinct, so ignore it.
-            super(valueChannel, BOOLEAN, BOOLEAN, Optional.<Integer>absent(), Optional.<Integer>absent());
-            this.maxValues = new ByteBigArray();
+        // if value is true, update the max to true
+        if (cursor.getBoolean()) {
+            state.setByte(TRUE_VALUE);
         }
-
-        @Override
-        public long getEstimatedSize()
-        {
-            return maxValues.sizeOf();
-        }
-
-        @Override
-        protected void processInput(GroupByIdBlock groupIdsBlock, Block valuesBlock, Optional<Block> maskBlock, Optional<Block> sampleWeightBlock)
-        {
-            maxValues.ensureCapacity(groupIdsBlock.getGroupCount());
-
-            BlockCursor values = valuesBlock.cursor();
-
-            for (int position = 0; position < groupIdsBlock.getPositionCount(); position++) {
-                checkState(values.advanceNextPosition());
-
-                // skip null values
-                if (!values.isNull()) {
-                    long groupId = groupIdsBlock.getGroupId(position);
-
-                    // if value is true, update the max to true
-                    if (values.getBoolean()) {
-                        maxValues.set(groupId, TRUE_VALUE);
-                    }
-                    else {
-                        // if the current value is null, set the max to false
-                        if (maxValues.get(groupId) == NULL_VALUE) {
-                            maxValues.set(groupId, FALSE_VALUE);
-                        }
-                    }
-                }
-            }
-        }
-
-        @Override
-        public void evaluateFinal(int groupId, BlockBuilder output)
-        {
-            byte value = maxValues.get((long) groupId);
-            if (value == NULL_VALUE) {
-                output.appendNull();
-            }
-            else {
-                output.appendBoolean(value == TRUE_VALUE);
+        else {
+            // if the current value is null, set the max to false
+            if (state.getByte() == NULL_VALUE) {
+                state.setByte(FALSE_VALUE);
             }
         }
     }
 
     @Override
-    protected Accumulator createAccumulator(Optional<Integer> maskChannel, Optional<Integer> sampleWeightChannel, double confidence, int valueChannel)
+    protected void evaluateFinal(ByteState state, BlockBuilder out)
     {
-        // Min/max are not effected by distinct, so ignore it.
-        checkArgument(confidence == 1.0, "max does not support approximate queries");
-        return new BooleanMaxAccumulator(valueChannel);
-    }
-
-    public static class BooleanMaxAccumulator
-            extends SimpleAccumulator
-    {
-        private boolean notNull;
-        private boolean max;
-
-        public BooleanMaxAccumulator(int valueChannel)
-        {
-            // Min/max are not effected by distinct, so ignore it.
-            super(valueChannel, BOOLEAN, BOOLEAN, Optional.<Integer>absent(), Optional.<Integer>absent());
+        if (state.getByte() == NULL_VALUE) {
+            out.appendNull();
         }
-
-        @Override
-        protected void processInput(Block block, Optional<Block> maskBlock, Optional<Block> sampleWeightBlock)
-        {
-            BlockCursor values = block.cursor();
-
-            for (int position = 0; position < block.getPositionCount(); position++) {
-                checkState(values.advanceNextPosition());
-                if (!values.isNull()) {
-                    notNull = true;
-
-                    // if value is true, update the max to true
-                    if (values.getBoolean()) {
-                        max = true;
-                    }
-                }
-            }
-        }
-
-        @Override
-        public void evaluateFinal(BlockBuilder out)
-        {
-            if (notNull) {
-                out.appendBoolean(max);
-            }
-            else {
-                out.appendNull();
-            }
+        else {
+            out.appendBoolean(state.getByte() == TRUE_VALUE);
         }
     }
 }
