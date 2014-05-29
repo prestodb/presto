@@ -14,8 +14,10 @@
 package com.facebook.presto.sql.analyzer;
 
 import com.facebook.presto.metadata.MetadataManager;
+import com.facebook.presto.metadata.QualifiedTableName;
 import com.facebook.presto.metadata.TableMetadata;
 import com.facebook.presto.metadata.TestingMetadata;
+import com.facebook.presto.metadata.ViewDefinition;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorTableMetadata;
@@ -25,14 +27,17 @@ import com.facebook.presto.sql.tree.Statement;
 import com.facebook.presto.type.TypeRegistry;
 import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
+import io.airlift.json.JsonCodec;
 import org.intellij.lang.annotations.Language;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
 import java.util.Locale;
 
+import static com.facebook.presto.metadata.ViewDefinition.ViewColumn;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.TimeZoneKey.UTC_KEY;
+import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.AMBIGUOUS_ATTRIBUTE;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.CANNOT_HAVE_AGGREGATIONS_OR_WINDOWS;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.COLUMN_NAME_NOT_SPECIFIED;
@@ -53,6 +58,7 @@ import static com.facebook.presto.sql.analyzer.SemanticErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.ORDER_BY_MUST_BE_IN_SELECT;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.SAMPLE_PERCENTAGE_OUT_OF_RANGE;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.TYPE_MISMATCH;
+import static com.facebook.presto.sql.analyzer.SemanticErrorCode.VIEW_IS_STALE;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.WILDCARD_WITHOUT_FROM;
 import static java.lang.String.format;
 import static org.testng.Assert.fail;
@@ -558,6 +564,29 @@ public class TestAnalyzer
     }
 
     @Test
+    public void testStaleView()
+            throws Exception
+    {
+        assertFails(VIEW_IS_STALE, "SELECT * FROM v2");
+    }
+
+    @Test
+    public void testStoredViewAnalysisScoping()
+            throws Exception
+    {
+        // the view must not be analyzed using the query context
+        analyze("WITH t1 AS (SELECT 123 x) SELECT * FROM v1");
+    }
+
+    @Test
+    public void testStoredViewResolution()
+            throws Exception
+    {
+        // the view must be analyzed relative to its own catalog/schema
+        analyze("SELECT * FROM c3.s3.v3");
+    }
+
+    @Test
     public void testUseCollection()
             throws Exception
     {
@@ -570,6 +599,8 @@ public class TestAnalyzer
     {
         MetadataManager metadata = new MetadataManager(new FeaturesConfig().setExperimentalSyntaxEnabled(true), new TypeRegistry());
         metadata.addConnectorMetadata("tpch", "tpch", new TestingMetadata());
+        metadata.addConnectorMetadata("c2", "c2", new TestingMetadata());
+        metadata.addConnectorMetadata("c3", "c3", new TestingMetadata());
 
         SchemaTableName table1 = new SchemaTableName("default", "t1");
         metadata.createTable(SESSION, "tpch", new TableMetadata("tpch", new ConnectorTableMetadata(table1,
@@ -590,6 +621,30 @@ public class TestAnalyzer
                 ImmutableList.<ColumnMetadata>of(
                         new ColumnMetadata("a", BIGINT, 0, false),
                         new ColumnMetadata("b", BIGINT, 1, false)))));
+
+        // table in different catalog
+        SchemaTableName table4 = new SchemaTableName("s2", "t4");
+        metadata.createTable(SESSION, "c2", new TableMetadata("tpch", new ConnectorTableMetadata(table4,
+                ImmutableList.<ColumnMetadata>of(
+                        new ColumnMetadata("a", BIGINT, 0, false)))));
+
+        // valid view referencing table in same schema
+        String viewData1 = JsonCodec.jsonCodec(ViewDefinition.class).toJson(
+                new ViewDefinition("select a from t1", "tpch", "default", ImmutableList.of(
+                        new ViewColumn("a", BIGINT))));
+        metadata.createView(SESSION, new QualifiedTableName("tpch", "default", "v1"), viewData1, false);
+
+        // stale view (different column type)
+        String viewData2 = JsonCodec.jsonCodec(ViewDefinition.class).toJson(
+                new ViewDefinition("select a from t1", "tpch", "default", ImmutableList.of(
+                        new ViewColumn("a", VARCHAR))));
+        metadata.createView(SESSION, new QualifiedTableName("tpch", "default", "v2"), viewData2, false);
+
+        // view referencing table in different schema from itself and session
+        String viewData3 = JsonCodec.jsonCodec(ViewDefinition.class).toJson(
+                new ViewDefinition("select a from t4", "c2", "s2", ImmutableList.of(
+                        new ViewColumn("a", BIGINT))));
+        metadata.createView(SESSION, new QualifiedTableName("c3", "s3", "v3"), viewData3, false);
 
         analyzer = new Analyzer(new ConnectorSession("user", "test", "tpch", "default", UTC_KEY, Locale.ENGLISH, null, null), metadata, Optional.<QueryExplainer>absent(), true);
         approximateDisabledAnalyzer = new Analyzer(new ConnectorSession("user", "test", "tpch", "default", UTC_KEY, Locale.ENGLISH, null, null), metadata, Optional.<QueryExplainer>absent(), false);

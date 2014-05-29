@@ -21,13 +21,16 @@ import com.facebook.presto.spi.ConnectorOutputTableHandle;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorTableHandle;
 import com.facebook.presto.spi.ConnectorTableMetadata;
+import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.SchemaTablePrefix;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.sql.tree.QualifiedName;
+import com.facebook.presto.type.TypeDeserializer;
 import com.facebook.presto.type.TypeRegistry;
+import com.fasterxml.jackson.databind.JsonDeserializer;
 import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -36,6 +39,9 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Multimap;
 import com.google.common.collect.Sets;
+import io.airlift.json.JsonCodec;
+import io.airlift.json.JsonCodecFactory;
+import io.airlift.json.ObjectMapperProvider;
 
 import javax.inject.Inject;
 import javax.inject.Singleton;
@@ -54,6 +60,7 @@ import static com.facebook.presto.metadata.ColumnHandle.fromConnectorHandle;
 import static com.facebook.presto.metadata.MetadataUtil.checkCatalogName;
 import static com.facebook.presto.metadata.MetadataUtil.checkColumnName;
 import static com.facebook.presto.metadata.QualifiedTableName.convertFromSchemaTableName;
+import static com.facebook.presto.spi.StandardErrorCode.INVALID_VIEW;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.collect.Iterables.transform;
@@ -68,17 +75,24 @@ public class MetadataManager
     private final ConcurrentMap<String, ConnectorMetadata> connectorsById = new ConcurrentHashMap<>();
     private final FunctionRegistry functions;
     private final TypeManager typeManager;
+    private final JsonCodec<ViewDefinition> viewCodec;
 
     public MetadataManager()
     {
         this(new FeaturesConfig(), new TypeRegistry());
     }
 
-    @Inject
     public MetadataManager(FeaturesConfig featuresConfig, TypeManager typeManager)
+    {
+        this(featuresConfig, typeManager, createTestingViewCodec());
+    }
+
+    @Inject
+    public MetadataManager(FeaturesConfig featuresConfig, TypeManager typeManager, JsonCodec<ViewDefinition> viewCodec)
     {
         functions = new FunctionRegistry(typeManager, featuresConfig.isExperimentalSyntaxEnabled());
         this.typeManager = checkNotNull(typeManager, "types is null");
+        this.viewCodec = checkNotNull(viewCodec, "viewCodec is null");
     }
 
     public synchronized void addConnectorMetadata(String connectorId, String catalogName, ConnectorMetadata connectorMetadata)
@@ -338,14 +352,19 @@ public class MetadataManager
     }
 
     @Override
-    public Optional<String> getView(ConnectorSession session, QualifiedTableName viewName)
+    public Optional<ViewDefinition> getView(ConnectorSession session, QualifiedTableName viewName)
     {
         SchemaTablePrefix prefix = viewName.asSchemaTableName().toSchemaTablePrefix();
         for (ConnectorMetadataEntry entry : allConnectorsFor(viewName.getCatalogName())) {
             Map<SchemaTableName, String> views = entry.getMetadata().getViews(session, prefix);
             String view = views.get(viewName.asSchemaTableName());
             if (view != null) {
-                return Optional.of(view);
+                try {
+                    return Optional.of(viewCodec.fromJson(view));
+                }
+                catch (IllegalArgumentException e) {
+                    throw new PrestoException(INVALID_VIEW.toErrorCode(), "Invalid view JSON: " + view, e);
+                }
             }
         }
         return Optional.absent();
@@ -425,5 +444,12 @@ public class MetadataManager
         {
             return metadata;
         }
+    }
+
+    private static JsonCodec<ViewDefinition> createTestingViewCodec()
+    {
+        ObjectMapperProvider provider = new ObjectMapperProvider();
+        provider.setJsonDeserializers(ImmutableMap.<Class<?>, JsonDeserializer<?>>of(Type.class, new TypeDeserializer(new TypeRegistry())));
+        return new JsonCodecFactory(provider).jsonCodec(ViewDefinition.class);
     }
 }

@@ -15,6 +15,7 @@ package com.facebook.presto.execution;
 
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.QualifiedTableName;
+import com.facebook.presto.metadata.ViewDefinition;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.sql.analyzer.SemanticException;
 import com.facebook.presto.sql.tree.DropView;
@@ -31,7 +32,7 @@ public class DropViewTask
     {
         QualifiedTableName name = createQualifiedTableName(session, statement.getName());
 
-        Optional<String> view = metadata.getView(session, name);
+        Optional<ViewDefinition> view = metadata.getView(session, name);
         if (!view.isPresent()) {
             throw new SemanticException(MISSING_TABLE, statement, "View '%s' does not exist", name);
         }

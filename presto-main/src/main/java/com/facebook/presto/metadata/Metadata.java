@@ -152,7 +152,7 @@ public interface Metadata
      * Returns the view definition for the specified view name.
      */
     @NotNull
-    Optional<String> getView(ConnectorSession session, QualifiedTableName viewName);
+    Optional<ViewDefinition> getView(ConnectorSession session, QualifiedTableName viewName);
 
     /**
      * Creates the specified view with the specified view definition.

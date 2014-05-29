@@ -15,22 +15,104 @@ package com.facebook.presto.execution;
 
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.QualifiedTableName;
+import com.facebook.presto.metadata.ViewDefinition;
 import com.facebook.presto.spi.ConnectorSession;
+import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.sql.analyzer.Analysis;
+import com.facebook.presto.sql.analyzer.Analyzer;
+import com.facebook.presto.sql.analyzer.FeaturesConfig;
+import com.facebook.presto.sql.analyzer.Field;
+import com.facebook.presto.sql.analyzer.QueryExplainer;
+import com.facebook.presto.sql.parser.ParsingException;
+import com.facebook.presto.sql.parser.SqlParser;
+import com.facebook.presto.sql.planner.optimizations.PlanOptimizer;
 import com.facebook.presto.sql.tree.CreateView;
+import com.facebook.presto.sql.tree.Query;
+import com.facebook.presto.sql.tree.Statement;
+import com.google.common.base.Function;
+import com.google.common.base.Optional;
+import com.google.common.collect.FluentIterable;
+import com.google.common.collect.ImmutableList;
+import io.airlift.json.JsonCodec;
+
+import javax.inject.Inject;
+
+import java.util.List;
 
 import static com.facebook.presto.metadata.MetadataUtil.createQualifiedTableName;
+import static com.facebook.presto.metadata.ViewDefinition.ViewColumn;
+import static com.facebook.presto.spi.StandardErrorCode.INTERNAL_ERROR;
 import static com.facebook.presto.sql.SqlFormatter.formatSql;
+import static com.google.common.base.Preconditions.checkNotNull;
 
 public class CreateViewTask
         implements DataDefinitionTask<CreateView>
 {
+    private final JsonCodec<ViewDefinition> codec;
+    private final List<PlanOptimizer> planOptimizers;
+    private final boolean experimentalSyntaxEnabled;
+
+    @Inject
+    public CreateViewTask(JsonCodec<ViewDefinition> codec, List<PlanOptimizer> planOptimizers, FeaturesConfig featuresConfig)
+    {
+        this.codec = checkNotNull(codec, "codec is null");
+        this.planOptimizers = ImmutableList.copyOf(checkNotNull(planOptimizers, "planOptimizers is null"));
+        this.experimentalSyntaxEnabled = checkNotNull(featuresConfig, "featuresConfig is null").isExperimentalSyntaxEnabled();
+    }
+
     @Override
     public void execute(CreateView statement, ConnectorSession session, Metadata metadata)
     {
         QualifiedTableName name = createQualifiedTableName(session, statement.getName());
 
-        String data = formatSql(statement.getQuery());
+        String sql = getFormattedSql(statement);
+
+        Analysis analysis = analyzeStatement(statement, session, metadata);
+        Iterable<Field> fields = analysis.getOutputDescriptor().getVisibleFields();
+
+        List<ViewColumn> columns = FluentIterable.from(fields).transform(fieldToColumn()).toList();
+
+        String data = codec.toJson(new ViewDefinition(sql, session.getCatalog(), session.getSchema(), columns));
 
         metadata.createView(session, name, data, statement.isReplace());
+    }
+
+    public Analysis analyzeStatement(Statement statement, ConnectorSession session, Metadata metadata)
+    {
+        QueryExplainer explainer = new QueryExplainer(session, planOptimizers, metadata, experimentalSyntaxEnabled);
+        Analyzer analyzer = new Analyzer(session, metadata, Optional.of(explainer), experimentalSyntaxEnabled);
+        return analyzer.analyze(statement);
+    }
+
+    private static Function<Field, ViewColumn> fieldToColumn()
+    {
+        return new Function<Field, ViewColumn>()
+        {
+            @Override
+            public ViewColumn apply(Field field)
+            {
+                return new ViewColumn(field.getName().get(), field.getType());
+            }
+        };
+    }
+
+    public static String getFormattedSql(CreateView statement)
+    {
+        Query query = statement.getQuery();
+        String sql = formatSql(query);
+
+        // verify round-trip
+        Statement parsed;
+        try {
+            parsed = SqlParser.createStatement(sql);
+        }
+        catch (ParsingException e) {
+            throw new PrestoException(INTERNAL_ERROR.toErrorCode(), "Formatted query does not parse: " + query);
+        }
+        if (!query.equals(parsed)) {
+            throw new PrestoException(INTERNAL_ERROR.toErrorCode(), "Query does not round-trip: " + query);
+        }
+
+        return sql;
     }
 }
