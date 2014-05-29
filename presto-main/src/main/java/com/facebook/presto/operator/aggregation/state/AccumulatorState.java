@@ -16,6 +16,4 @@ package com.facebook.presto.operator.aggregation.state;
 public interface AccumulatorState
 {
     long getEstimatedSize();
-
-    void ensureCapacity(long size);
 }

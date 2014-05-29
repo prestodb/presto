@@ -52,9 +52,4 @@ public final class SingleNullableLongState
     {
         return STATE_SIZE;
     }
-
-    @Override
-    public void ensureCapacity(long size)
-    {
-    }
 }
