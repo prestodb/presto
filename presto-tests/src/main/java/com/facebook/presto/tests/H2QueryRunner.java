@@ -27,7 +27,6 @@ import com.google.common.base.Joiner;
 import com.google.common.base.Predicate;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
-import io.airlift.log.Logging;
 import org.intellij.lang.annotations.Language;
 import org.skife.jdbi.v2.DBI;
 import org.skife.jdbi.v2.Handle;
@@ -69,8 +68,6 @@ public class H2QueryRunner
 
     public H2QueryRunner()
     {
-        Logging.initialize();
-
         handle = DBI.open("jdbc:h2:mem:test" + System.nanoTime());
         TpchMetadata tpchMetadata = new TpchMetadata("");
 
