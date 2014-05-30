@@ -48,6 +48,7 @@ import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
+import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
@@ -523,7 +524,7 @@ class ColumnarTextHiveRecordCursor<K>
         else if (type.equals(DOUBLE)) {
             parseDoubleColumn(column);
         }
-        else if (type.equals(VARCHAR)) {
+        else if (VARCHAR.equals(type) || VARBINARY.equals(type)) {
             parseStringColumn(column);
         }
         else if (type.equals(TIMESTAMP)) {

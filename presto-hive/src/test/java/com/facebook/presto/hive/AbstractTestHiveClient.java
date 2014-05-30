@@ -67,6 +67,7 @@ import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.TimeZoneKey.UTC_KEY;
 import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
+import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.Iterables.getOnlyElement;
@@ -340,7 +341,7 @@ public abstract class AbstractTestHiveClient
         assertPrimitiveField(map, i++, "t_map", VARCHAR, false); // Currently mapped as a string
         assertPrimitiveField(map, i++, "t_boolean", BOOLEAN, false);
         assertPrimitiveField(map, i++, "t_timestamp", TIMESTAMP, false);
-        assertPrimitiveField(map, i++, "t_binary", VARCHAR, false);
+        assertPrimitiveField(map, i++, "t_binary", VARBINARY, false);
         assertPrimitiveField(map, i++, "t_array_string", VARCHAR, false); // Currently mapped as a string
         assertPrimitiveField(map, i++, "t_complex", VARCHAR, false); // Currently mapped as a string
         assertPrimitiveField(map, i++, "ds", VARCHAR, true);
@@ -1098,7 +1099,7 @@ public abstract class AbstractTestHiveClient
                 else if (DOUBLE.equals(column.getType())) {
                     cursor.getDouble(columnIndex);
                 }
-                else if (VARCHAR.equals(column.getType())) {
+                else if (VARCHAR.equals(column.getType()) || VARBINARY.equals(column.getType())) {
                     try {
                         cursor.getSlice(columnIndex);
                     }
