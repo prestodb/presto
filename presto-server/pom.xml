@@ -21,6 +21,11 @@
     <dependencies>
         <dependency>
             <groupId>com.facebook.presto</groupId>
+            <artifactId>presto-main</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>com.facebook.presto</groupId>
             <artifactId>presto-raptor</artifactId>
             <version>${project.version}</version>
             <type>zip</type>
