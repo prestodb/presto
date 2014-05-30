@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.ml;
 
+import com.facebook.presto.ml.type.RegressorType;
 import com.facebook.presto.operator.Page;
 import com.facebook.presto.operator.aggregation.Accumulator;
 import com.facebook.presto.operator.aggregation.AggregationFunction;
@@ -24,8 +25,6 @@ import com.facebook.presto.spi.block.BlockCursor;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableSet;
-import com.google.common.math.DoubleMath;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -77,7 +76,7 @@ public class LearnAggregation
         checkArgument(!maskChannel.isPresent(), "masking is not supported");
         checkArgument(confidence == 1, "approximation is not supported");
         checkArgument(!sampleWeight.isPresent(), "sample weight is not supported");
-        return new LearnAccumulator(argumentChannels[0], argumentChannels[1], labelType == BIGINT);
+        return new LearnAccumulator(argumentChannels[0], argumentChannels[1], labelType == BIGINT, modelType == RegressorType.REGRESSOR);
     }
 
     @Override
@@ -104,24 +103,23 @@ public class LearnAggregation
         private final int labelChannel;
         private final int featuresChannel;
         private final boolean labelIsLong;
+        private final boolean regression;
         private final List<Double> labels = new ArrayList<>();
         private final List<FeatureVector> rows = new ArrayList<>();
+        private long rowsSize;
 
-        public LearnAccumulator(int labelChannel, int featuresChannel, boolean labelIsLong)
+        public LearnAccumulator(int labelChannel, int featuresChannel, boolean labelIsLong, boolean regression)
         {
             this.labelChannel = labelChannel;
             this.featuresChannel = featuresChannel;
             this.labelIsLong = labelIsLong;
+            this.regression = regression;
         }
 
         @Override
         public long getEstimatedSize()
         {
-            long size = SIZE_OF_DOUBLE * (long) labels.size();
-            for (FeatureVector vector : rows) {
-                size += vector.getEstimatedSize();
-            }
-            return size;
+            return SIZE_OF_DOUBLE * (long) labels.size() + rowsSize;
         }
 
         @Override
@@ -151,7 +149,9 @@ public class LearnAggregation
 
             cursor = page.getBlock(featuresChannel).cursor();
             while (cursor.advanceNextPosition()) {
-                rows.add(ModelUtils.jsonToFeatures(cursor.getSlice()));
+                FeatureVector featureVector = ModelUtils.jsonToFeatures(cursor.getSlice());
+                rowsSize += featureVector.getEstimatedSize();
+                rows.add(featureVector);
             }
         }
 
@@ -171,15 +171,6 @@ public class LearnAggregation
         public Block evaluateFinal()
         {
             Dataset dataset = new Dataset(labels, rows);
-
-            // Heuristic to decide if this is a classification or a regression problem
-            boolean regression = ImmutableSet.copyOf(labels).size() > 100;
-            for (double label : labels) {
-                if (!DoubleMath.isMathematicalInteger(label)) {
-                    regression = true;
-                    break;
-                }
-            }
 
             Model model;
 
