@@ -46,6 +46,8 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.regex.Pattern;
 
+import static com.facebook.presto.cli.Completion.commandCompleter;
+import static com.facebook.presto.cli.Completion.lowerCaseCommandCompleter;
 import static com.facebook.presto.cli.Help.getHelpText;
 import static com.facebook.presto.client.ClientSession.withProperties;
 import static com.facebook.presto.sql.parser.StatementSplitter.Statement;
@@ -122,7 +124,7 @@ public class Console
     private static void runConsole(QueryRunner queryRunner, ClientSession session)
     {
         try (TableNameCompleter tableNameCompleter = new TableNameCompleter(queryRunner);
-                LineReader reader = new LineReader(getHistory(), tableNameCompleter)) {
+                LineReader reader = new LineReader(getHistory(), commandCompleter(), lowerCaseCommandCompleter(), tableNameCompleter)) {
             tableNameCompleter.populateCache();
             StringBuilder buffer = new StringBuilder();
             while (true) {
