@@ -317,32 +317,36 @@ class RelationPlanner
     {
         checkArgument(!node.getRelations().isEmpty(), "No relations specified for UNION");
 
-        List<Symbol> outputSymbols = null;
+        List<Symbol> unionOutputSymbols = null;
         ImmutableList.Builder<PlanNode> sources = ImmutableList.builder();
         ImmutableListMultimap.Builder<Symbol, Symbol> symbolMapping = ImmutableListMultimap.builder();
         for (Relation relation : node.getRelations()) {
             RelationPlan relationPlan = process(relation, context);
 
-            if (outputSymbols == null) {
+            List<Symbol> childOutputSymobls = relationPlan.getOutputSymbols();
+            if (unionOutputSymbols == null) {
                 // Use the first Relation to derive output symbol names
                 TupleDescriptor descriptor = relationPlan.getDescriptor();
                 ImmutableList.Builder<Symbol> outputSymbolBuilder = ImmutableList.builder();
                 for (Field field : descriptor.getVisibleFields()) {
                     int fieldIndex = descriptor.indexOf(field);
-                    Symbol symbol = relationPlan.getOutputSymbols().get(fieldIndex);
+                    Symbol symbol = childOutputSymobls.get(fieldIndex);
                     outputSymbolBuilder.add(symbolAllocator.newSymbol(symbol.getName(), symbolAllocator.getTypes().get(symbol)));
                 }
-                outputSymbols = outputSymbolBuilder.build();
+                unionOutputSymbols = outputSymbolBuilder.build();
             }
 
             TupleDescriptor descriptor = relationPlan.getDescriptor();
-            checkArgument(descriptor.getVisibleFieldCount() == outputSymbols.size(),
+            checkArgument(descriptor.getVisibleFieldCount() == unionOutputSymbols.size(),
                     "Expected relation to have %s symbols but has %s symbols",
                     descriptor.getVisibleFieldCount(),
-                    outputSymbols.size());
+                    unionOutputSymbols.size());
+
+            int unionFieldId = 0;
             for (Field field : descriptor.getVisibleFields()) {
                 int fieldIndex = descriptor.indexOf(field);
-                symbolMapping.put(outputSymbols.get(fieldIndex), relationPlan.getOutputSymbols().get(fieldIndex));
+                symbolMapping.put(unionOutputSymbols.get(unionFieldId), childOutputSymobls.get(fieldIndex));
+                unionFieldId++;
             }
 
             sources.add(relationPlan.getRoot());
