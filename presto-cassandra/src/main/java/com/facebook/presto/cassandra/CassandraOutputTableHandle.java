@@ -32,6 +32,7 @@ public class CassandraOutputTableHandle
     private final String tableName;
     private final List<String> columnNames;
     private final List<Type> columnTypes;
+    private final boolean sampled;
     private final String tableOwner;
 
     @JsonCreator
@@ -41,8 +42,10 @@ public class CassandraOutputTableHandle
             @JsonProperty("tableName") String tableName,
             @JsonProperty("columnNames") List<String> columnNames,
             @JsonProperty("columnTypes") List<Type> columnTypes,
+            @JsonProperty("sampled") boolean sampled,
             @JsonProperty("tableOwner") String tableOwner)
     {
+        this.sampled = sampled;
         this.connectorId = checkNotNull(connectorId, "clientId is null");
         this.schemaName = checkNotNull(schemaName, "schemaName is null");
         this.tableName = checkNotNull(tableName, "tableName is null");
@@ -68,12 +71,6 @@ public class CassandraOutputTableHandle
     }
 
     @JsonProperty
-    public String getTableOwner()
-    {
-        return tableOwner;
-    }
-
-    @JsonProperty
     public String getTableName()
     {
         return tableName;
@@ -89,6 +86,18 @@ public class CassandraOutputTableHandle
     public List<Type> getColumnTypes()
     {
         return columnTypes;
+    }
+
+    @JsonProperty
+    public boolean isSampled()
+    {
+        return sampled;
+    }
+
+    @JsonProperty
+    public String getTableOwner()
+    {
+        return tableOwner;
     }
 
     @Override

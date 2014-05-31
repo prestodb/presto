@@ -17,6 +17,7 @@ import com.datastax.driver.core.Cluster;
 import com.datastax.driver.core.ConsistencyLevel;
 import com.datastax.driver.core.QueryOptions;
 import com.datastax.driver.core.policies.ExponentialReconnectionPolicy;
+import io.airlift.json.JsonCodec;
 
 import javax.inject.Inject;
 
@@ -36,8 +37,10 @@ public class CassandraSessionFactory
     private final int limitForPartitionKeySelect;
     private final int nativeProtocolPort;
 
+    private final JsonCodec<List<ExtraColumnMetadata>> extraColumnMetadataCodec;
+
     @Inject
-    public CassandraSessionFactory(CassandraConnectorId connectorId, CassandraClientConfig config)
+    public CassandraSessionFactory(CassandraConnectorId connectorId, CassandraClientConfig config, JsonCodec<List<ExtraColumnMetadata>> extraColumnMetadataCodec)
     {
         this.connectorId = checkNotNull(connectorId, "connectorId is null");
         checkNotNull(config, "config is null");
@@ -50,6 +53,8 @@ public class CassandraSessionFactory
         consistencyLevel = config.getConsistencyLevel();
         fetchSizeForPartitionKeySelect = config.getFetchSizeForPartitionKeySelect();
         limitForPartitionKeySelect = config.getLimitForPartitionKeySelect();
+
+        this.extraColumnMetadataCodec = checkNotNull(extraColumnMetadataCodec, "extraColumnMetadataCodec is null");
     }
 
     public CassandraSession create()
@@ -64,6 +69,6 @@ public class CassandraSessionFactory
         options.setConsistencyLevel(consistencyLevel);
         clusterBuilder.withQueryOptions(options);
 
-        return new CassandraSession(connectorId.toString(), clusterBuilder, fetchSizeForPartitionKeySelect, limitForPartitionKeySelect);
+        return new CassandraSession(connectorId.toString(), clusterBuilder, fetchSizeForPartitionKeySelect, limitForPartitionKeySelect, extraColumnMetadataCodec);
     }
 }

@@ -68,25 +68,20 @@ public class CassandraTokenSplitManager
 
         // canonical ranges, split into pieces, fetching the splits in parallel
         List<TokenSplit> splits = new ArrayList<>();
-        try {
-            List<Future<List<TokenSplit>>> splitFutures = new ArrayList<>();
-            for (TokenRange range : masterRangeNodes) {
-                // for each range, pick a live owner and ask it to compute bite-sized splits
-                splitFutures.add(executor.submit(new SplitCallable<>(range, keyspace, columnFamily, splitSize, client, partitioner)));
-            }
-
-            // wait until we have all the results back
-            for (Future<List<TokenSplit>> futureInputSplits : splitFutures) {
-                try {
-                    splits.addAll(futureInputSplits.get());
-                }
-                catch (Exception e) {
-                    throw new IOException("Could not get input splits", e);
-                }
-            }
+        List<Future<List<TokenSplit>>> splitFutures = new ArrayList<>();
+        for (TokenRange range : masterRangeNodes) {
+            // for each range, pick a live owner and ask it to compute bite-sized splits
+            splitFutures.add(executor.submit(new SplitCallable<>(range, keyspace, columnFamily, splitSize, client, partitioner)));
         }
-        finally {
-            executor.shutdownNow();
+
+        // wait until we have all the results back
+        for (Future<List<TokenSplit>> futureInputSplits : splitFutures) {
+            try {
+                splits.addAll(futureInputSplits.get());
+            }
+            catch (Exception e) {
+                throw new IOException("Could not get input splits", e);
+            }
         }
 
         checkState(!splits.isEmpty(), "No splits created");
