@@ -100,7 +100,8 @@ public class Console
     private void runConsole(QueryRunner queryRunner, ClientSession session)
     {
         try (TableNameCompleter tableNameCompleter = new TableNameCompleter(queryRunner);
-                LineReader reader = new LineReader(getHistory(), tableNameCompleter)) {
+             CommandCompleter commandCompleter = new CommandCompleter();
+                LineReader reader = new LineReader(getHistory(), commandCompleter, tableNameCompleter)) {
             tableNameCompleter.populateCache();
             StringBuilder buffer = new StringBuilder();
             while (true) {

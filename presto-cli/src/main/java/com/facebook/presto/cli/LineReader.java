@@ -28,8 +28,7 @@ public class LineReader
 {
     private boolean interrupted;
 
-    LineReader(History history,
-            Completer completer)
+    LineReader(History history)
             throws IOException
     {
         setExpandEvents(false);
@@ -37,7 +36,24 @@ public class LineReader
         setHandleUserInterrupt(true);
         setHistory(history);
         setHistoryEnabled(false);
+    }
+
+    LineReader(History history,
+            Completer completer)
+            throws IOException
+    {
+        this(history);
         addCompleter(completer);
+    }
+
+    LineReader(History history,
+            Completer completer1,
+            Completer completer2)
+            throws IOException
+    {
+        this(history);
+        addCompleter(completer1);
+        addCompleter(completer2);
     }
 
     @Override
