@@ -14,25 +14,23 @@
 package com.facebook.presto.cassandra;
 
 import com.facebook.presto.cassandra.util.CassandraCqlUtils;
+import com.google.common.base.Objects;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Iterables;
 
 import java.util.List;
+
+import static com.facebook.presto.cassandra.CassandraColumnHandle.partitionKeyPredicate;
 
 public class CassandraTable
 {
     private final CassandraTableHandle tableHandle;
     private final List<CassandraColumnHandle> columns;
-    private final int partitionKeyColumns;
 
     public CassandraTable(CassandraTableHandle tableHandle, List<CassandraColumnHandle> columns)
     {
         this.tableHandle = tableHandle;
         this.columns = ImmutableList.copyOf(columns);
-        int count = 0;
-        while (count < columns.size() && columns.get(count).isPartitionKey()) {
-            count++;
-        }
-        partitionKeyColumns = count;
     }
 
     public List<CassandraColumnHandle> getColumns()
@@ -47,7 +45,7 @@ public class CassandraTable
 
     public List<CassandraColumnHandle> getPartitionKeyColumns()
     {
-        return columns.subList(0, partitionKeyColumns);
+        return ImmutableList.copyOf(Iterables.filter(columns, partitionKeyPredicate()));
     }
 
     public String getTokenExpression()
@@ -83,5 +81,13 @@ public class CassandraTable
         }
         CassandraTable that = (CassandraTable) obj;
         return this.tableHandle.equals(that.tableHandle);
+    }
+
+    @Override
+    public String toString()
+    {
+        return Objects.toStringHelper(this)
+                .add("tableHandle", tableHandle)
+                .toString();
     }
 }

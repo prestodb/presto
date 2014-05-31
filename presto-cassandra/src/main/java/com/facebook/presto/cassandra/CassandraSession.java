@@ -14,6 +14,7 @@
 package com.facebook.presto.cassandra;
 
 import com.datastax.driver.core.Cluster;
+import com.datastax.driver.core.Cluster.Builder;
 import com.datastax.driver.core.ColumnMetadata;
 import com.datastax.driver.core.DataType;
 import com.datastax.driver.core.Host;
@@ -33,7 +34,14 @@ import com.facebook.presto.spi.SchemaNotFoundException;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.TableNotFoundException;
 import com.facebook.presto.spi.TupleDomain;
+import com.google.common.base.Function;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Iterables;
+import com.google.common.collect.Ordering;
+import io.airlift.json.JsonCodec;
+
+import javax.annotation.Nullable;
 
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
@@ -44,22 +52,35 @@ import java.util.List;
 import java.util.Set;
 
 import static com.datastax.driver.core.querybuilder.Select.Where;
+import static com.facebook.presto.cassandra.ExtraColumnMetadata.hiddenPredicate;
+import static com.facebook.presto.cassandra.ExtraColumnMetadata.nameGetter;
+import static com.google.common.base.Predicates.in;
+import static com.google.common.base.Predicates.not;
+import static com.google.common.collect.Iterables.filter;
+import static com.google.common.collect.Iterables.transform;
 
 public class CassandraSession
 {
+    static final String PRESTO_COMMENT_METADATA = "Presto Metadata:";
     protected final String connectorId;
     private final Cluster.Builder clusterBuilder;
     private final int fetchSizeForPartitionKeySelect;
     private final int limitForPartitionKeySelect;
+    private final JsonCodec<List<ExtraColumnMetadata>> extraColumnMetadataCodec;
 
     private Session session;
 
-    public CassandraSession(String connectorId, Cluster.Builder clusterBuilder, int fetchSizeForPartitionKeySelect, int limitForPartitionKeySelect)
+    public CassandraSession(String connectorId,
+            Builder clusterBuilder,
+            int fetchSizeForPartitionKeySelect,
+            int limitForPartitionKeySelect,
+            JsonCodec<List<ExtraColumnMetadata>> extraColumnMetadataCodec)
     {
         this.connectorId = connectorId;
         this.clusterBuilder = clusterBuilder;
         this.fetchSizeForPartitionKeySelect = fetchSizeForPartitionKeySelect;
         this.limitForPartitionKeySelect = limitForPartitionKeySelect;
+        this.extraColumnMetadataCodec = extraColumnMetadataCodec;
 
         if (clusterBuilder != null) {
             this.session = clusterBuilder.build().connect();
@@ -130,35 +151,69 @@ public class CassandraSession
     {
         TableMetadata tableMeta = getTableMetadata(tableName);
 
+        List<String> columnNames = new ArrayList<>();
+        for (ColumnMetadata columnMetadata : tableMeta.getColumns()) {
+            columnNames.add(columnMetadata.getName());
+        }
+
+        // check if there is a comment to establish column ordering
+        String comment = tableMeta.getOptions().getComment();
+        Set<String> hiddenColumns = ImmutableSet.of();
+        if (comment != null && comment.startsWith(PRESTO_COMMENT_METADATA)) {
+            String columnOrderingString = comment.substring(PRESTO_COMMENT_METADATA.length());
+
+            // column ordering
+            List<ExtraColumnMetadata> extras = extraColumnMetadataCodec.fromJson(columnOrderingString);
+            List<String> explicitColumnOrder = new ArrayList<>(ImmutableList.copyOf(transform(extras, nameGetter())));
+            hiddenColumns = ImmutableSet.copyOf(transform(filter(extras, hiddenPredicate()), nameGetter()));
+
+            // add columns not in the comment to the ordering
+            Iterables.addAll(explicitColumnOrder, filter(columnNames, not(in(explicitColumnOrder))));
+
+            // sort the actual columns names using the explicit column order (this allows for missing columns)
+            columnNames = Ordering.explicit(explicitColumnOrder).sortedCopy(columnNames);
+        }
+
         ImmutableList.Builder<CassandraColumnHandle> columnHandles = ImmutableList.builder();
 
         // add primary keys first
         Set<String> primaryKeySet = new HashSet<>();
-        int index = 0;
         for (ColumnMetadata columnMeta : tableMeta.getPartitionKey()) {
             primaryKeySet.add(columnMeta.getName());
-            CassandraColumnHandle columnHandle = buildColumnHandle(columnMeta, true, false, index++);
+            boolean hidden = hiddenColumns.contains(columnMeta.getName());
+            CassandraColumnHandle columnHandle = buildColumnHandle(columnMeta, true, false, columnNames.indexOf(columnMeta.getName()), hidden);
             columnHandles.add(columnHandle);
         }
 
         // add clustering columns
-        index = 0;
         for (ColumnMetadata columnMeta : tableMeta.getClusteringColumns()) {
             primaryKeySet.add(columnMeta.getName());
-            CassandraColumnHandle columnHandle = buildColumnHandle(columnMeta, false, true, index++);
+            boolean hidden = hiddenColumns.contains(columnMeta.getName());
+            CassandraColumnHandle columnHandle = buildColumnHandle(columnMeta, false, true, columnNames.indexOf(columnMeta.getName()), hidden);
             columnHandles.add(columnHandle);
         }
 
         // add other columns
         for (ColumnMetadata columnMeta : tableMeta.getColumns()) {
             if (!primaryKeySet.contains(columnMeta.getName())) {
-                CassandraColumnHandle columnHandle = buildColumnHandle(columnMeta, false, false, 0);
+                boolean hidden = hiddenColumns.contains(columnMeta.getName());
+                CassandraColumnHandle columnHandle = buildColumnHandle(columnMeta, false, false, columnNames.indexOf(columnMeta.getName()), hidden);
                 columnHandles.add(columnHandle);
             }
         }
 
+        List<CassandraColumnHandle> sortedColumnHandles = Ordering.natural().onResultOf(new Function<CassandraColumnHandle, Integer>()
+        {
+            @Nullable
+            @Override
+            public Integer apply(CassandraColumnHandle columnHandle)
+            {
+                return columnHandle.getOrdinalPosition();
+            }
+        }).sortedCopy(columnHandles.build());
+
         CassandraTableHandle tableHandle = new CassandraTableHandle(connectorId, tableMeta.getKeyspace().getName(), tableMeta.getName());
-        return new CassandraTable(tableHandle, columnHandles.build());
+        return new CassandraTable(tableHandle, sortedColumnHandles);
     }
 
     private TableMetadata getTableMetadata(SchemaTableName schemaTableName)
@@ -180,7 +235,7 @@ public class CassandraSession
         throw new TableNotFoundException(schemaTableName);
     }
 
-    private CassandraColumnHandle buildColumnHandle(ColumnMetadata columnMeta, boolean partitionKey, boolean clusteringKey, int index)
+    private CassandraColumnHandle buildColumnHandle(ColumnMetadata columnMeta, boolean partitionKey, boolean clusteringKey, int ordinalPosition, boolean hidden)
     {
         CassandraType cassandraType = CassandraType.getCassandraType(columnMeta.getType().getName());
         List<CassandraType> typeArguments = null;
@@ -198,7 +253,7 @@ public class CassandraSession
             }
         }
         boolean indexed = columnMeta.getIndex() != null;
-        return new CassandraColumnHandle(connectorId, columnMeta.getName(), index, cassandraType, typeArguments, partitionKey, clusteringKey, indexed);
+        return new CassandraColumnHandle(connectorId, columnMeta.getName(), ordinalPosition, cassandraType, typeArguments, partitionKey, clusteringKey, indexed, hidden);
     }
 
     public List<CassandraPartition> getPartitions(CassandraTable table, List<Comparable<?>> filterPrefix)

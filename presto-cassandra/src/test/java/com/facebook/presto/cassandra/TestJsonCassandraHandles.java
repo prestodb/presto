@@ -43,6 +43,7 @@ public class TestJsonCassandraHandles
             .put("partitionKey", false)
             .put("clusteringKey", true)
             .put("indexed", false)
+            .put("hidden", false)
             .build();
 
     private static final Map<String, Object> COLUMN2_HANDLE_AS_MAP = ImmutableMap.<String, Object>builder()
@@ -54,6 +55,7 @@ public class TestJsonCassandraHandles
             .put("partitionKey", false)
             .put("clusteringKey", false)
             .put("indexed", false)
+            .put("hidden", false)
             .build();
 
     private final ObjectMapper objectMapper = new ObjectMapperProvider().get();
@@ -87,7 +89,7 @@ public class TestJsonCassandraHandles
     public void testColumnHandleSerialize()
             throws Exception
     {
-        CassandraColumnHandle columnHandle = new CassandraColumnHandle("cassandra", "column", 42, CassandraType.BIGINT, null, false, true, false);
+        CassandraColumnHandle columnHandle = new CassandraColumnHandle("cassandra", "column", 42, CassandraType.BIGINT, null, false, true, false, false);
 
         assertTrue(objectMapper.canSerialize(CassandraColumnHandle.class));
         String json = objectMapper.writeValueAsString(columnHandle);
@@ -104,6 +106,7 @@ public class TestJsonCassandraHandles
                 0,
                 CassandraType.SET,
                 ImmutableList.of(CassandraType.INT),
+                false,
                 false,
                 false,
                 false);

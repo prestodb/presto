@@ -18,14 +18,17 @@ import com.google.inject.Binder;
 import com.google.inject.Module;
 import com.google.inject.Provides;
 import com.google.inject.Scopes;
+import io.airlift.json.JsonCodec;
 import org.apache.cassandra.thrift.Cassandra;
 
 import javax.inject.Singleton;
 
+import java.util.List;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
 import static io.airlift.configuration.ConfigurationModule.bindConfig;
+import static io.airlift.json.JsonCodecBinder.jsonCodecBinder;
 import static org.weakref.jmx.ObjectNames.generatedNameOf;
 import static org.weakref.jmx.guice.ExportBinder.newExporter;
 
@@ -58,6 +61,8 @@ public class CassandraClientModule
         newExporter(binder).export(CachingCassandraSchemaProvider.class).as(generatedNameOf(CachingCassandraSchemaProvider.class, connectorId));
 
         binder.bind(CassandraSessionFactory.class).in(Scopes.SINGLETON);
+
+        jsonCodecBinder(binder).bindListJsonCodec(ExtraColumnMetadata.class);
     }
 
     @ForCassandra
@@ -73,9 +78,12 @@ public class CassandraClientModule
 
     @Singleton
     @Provides
-    public static CassandraSession createCassandraSession(CassandraConnectorId connectorId, CassandraClientConfig config)
+    public static CassandraSession createCassandraSession(
+            CassandraConnectorId connectorId,
+            CassandraClientConfig config,
+            JsonCodec<List<ExtraColumnMetadata>> extraColumnMetadataCodec)
     {
-        CassandraSessionFactory factory = new CassandraSessionFactory(connectorId, config);
+        CassandraSessionFactory factory = new CassandraSessionFactory(connectorId, config, extraColumnMetadataCodec);
         return factory.create();
     }
 
