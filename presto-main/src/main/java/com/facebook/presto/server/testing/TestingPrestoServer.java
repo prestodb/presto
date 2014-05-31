@@ -51,6 +51,7 @@ import java.io.Closeable;
 import java.net.URI;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -129,10 +130,16 @@ public class TestingPrestoServer
 
         Bootstrap app = new Bootstrap(modules.build());
 
+        Map<String, String> optionalProperties = new HashMap<>();
+        if (environment != null) {
+            optionalProperties.put("node.environment", environment);
+        }
+
         Injector injector = app
                 .strictConfig()
                 .doNotInitializeLogging()
                 .setRequiredConfigurationProperties(serverProperties.build())
+                .setOptionalConfigurationProperties(optionalProperties)
                 .initialize();
 
         injector.getInstance(Announcer.class).start();
