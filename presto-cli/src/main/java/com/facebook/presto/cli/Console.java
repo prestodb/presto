@@ -96,8 +96,7 @@ public class Console
         }
     }
 
-    @SuppressWarnings("fallthrough")
-    private void runConsole(QueryRunner queryRunner, ClientSession session)
+    private static void runConsole(QueryRunner queryRunner, ClientSession session)
     {
         try (TableNameCompleter tableNameCompleter = new TableNameCompleter(queryRunner);
                 LineReader reader = new LineReader(getHistory(), tableNameCompleter)) {
@@ -204,7 +203,7 @@ public class Console
         return session;
     }
 
-    static boolean isSessionParameterChange(Object statement)
+    private static boolean isSessionParameterChange(Object statement)
     {
         return statement instanceof UseCollection;
     }
