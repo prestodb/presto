@@ -72,7 +72,7 @@ public class FixedWidthBlockBuilder
     @Override
     public int getSizeInBytes()
     {
-        return sliceOutput.size();
+        return getRawSlice().length();
     }
 
     @Override
