@@ -58,12 +58,6 @@ Then add the following to the list of VM options:
 
     -Dhive.metastore.thrift.client.socks-proxy=localhost:1080
 
-### Using HDFS with Federation
-
-If your Hive metastore references files stored on a federated HDFS, you should provide your HDFS config files as a VM option:
-
-    -Dhive.config.resources=/etc/hadoop/conf/core-site.xml,/etc/hadoop/conf/hdfs-site.xml
-
 ### Running the CLI
 
 Start the CLI to connect to the server and run SQL queries:
