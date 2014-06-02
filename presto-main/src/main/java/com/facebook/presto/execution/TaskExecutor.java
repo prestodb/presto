@@ -25,7 +25,7 @@ import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
 import io.airlift.concurrent.ThreadPoolExecutorMBean;
 import io.airlift.log.Logger;
-import io.airlift.stats.DistributionStat;
+import io.airlift.stats.TimeStat;
 import io.airlift.units.Duration;
 import org.weakref.jmx.Managed;
 import org.weakref.jmx.Nested;
@@ -61,6 +61,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 import static io.airlift.concurrent.Threads.threadsNamed;
+import static java.util.concurrent.TimeUnit.NANOSECONDS;
 
 @ThreadSafe
 public class TaskExecutor
@@ -94,8 +95,8 @@ public class TaskExecutor
 
     private final AtomicLongArray completedTasksPerLevel = new AtomicLongArray(5);
 
-    private final DistributionStat queuedTime = new DistributionStat();
-    private final DistributionStat wallTime = new DistributionStat();
+    private final TimeStat queuedTime = new TimeStat(NANOSECONDS);
+    private final TimeStat wallTime = new TimeStat(NANOSECONDS);
 
     private volatile boolean closed;
 
@@ -217,7 +218,7 @@ public class TaskExecutor
             TaskHandle taskHandle = split.getTaskHandle();
             taskHandle.splitComplete(split);
 
-            wallTime.add(System.nanoTime() - split.createdNanos);
+            wallTime.add(Duration.nanosSince(split.createdNanos));
 
             scheduleTaskIfNecessary(taskHandle);
 
@@ -237,7 +238,7 @@ public class TaskExecutor
             PrioritizedSplitRunner split = taskHandle.pollNextSplit();
             if (split != null) {
                 startSplit(split);
-                queuedTime.add(System.nanoTime() - split.createdNanos);
+                queuedTime.add(Duration.nanosSince(split.createdNanos));
             }
         }
     }
@@ -251,7 +252,7 @@ public class TaskExecutor
                 break;
             }
 
-            queuedTime.add(System.nanoTime() - split.createdNanos);
+            queuedTime.add(Duration.nanosSince(split.createdNanos));
             startSplit(split);
         }
     }
@@ -445,7 +446,7 @@ public class TaskExecutor
                 CpuTimer.CpuDuration elapsed = timer.elapsedTime();
 
                 // update priority level base on total thread usage of task
-                long durationNanos = elapsed.getWall().roundTo(TimeUnit.NANOSECONDS);
+                long durationNanos = elapsed.getWall().roundTo(NANOSECONDS);
                 long threadUsageNanos = taskHandle.addThreadUsageNanos(durationNanos);
                 this.threadUsageNanos.set(threadUsageNanos);
                 priorityLevel.set(calculatePriorityLevel(threadUsageNanos));
@@ -453,7 +454,7 @@ public class TaskExecutor
                 // record last run for prioritization within a level
                 lastRun.set(ticker.read());
 
-                cpuTime.addAndGet(elapsed.getCpu().roundTo(TimeUnit.NANOSECONDS));
+                cpuTime.addAndGet(elapsed.getCpu().roundTo(NANOSECONDS));
                 return blocked;
             }
             catch (Throwable e) {
@@ -522,7 +523,7 @@ public class TaskExecutor
 
     private static int calculatePriorityLevel(long threadUsageNanos)
     {
-        long millis = TimeUnit.NANOSECONDS.toMillis(threadUsageNanos);
+        long millis = NANOSECONDS.toMillis(threadUsageNanos);
 
         int priorityLevel;
         if (millis < 1000) {
@@ -727,14 +728,14 @@ public class TaskExecutor
 
     @Managed
     @Nested
-    public DistributionStat getQueuedTime()
+    public TimeStat getQueuedTime()
     {
         return queuedTime;
     }
 
     @Managed
     @Nested
-    public DistributionStat getWallTime()
+    public TimeStat getWallTime()
     {
         return wallTime;
     }

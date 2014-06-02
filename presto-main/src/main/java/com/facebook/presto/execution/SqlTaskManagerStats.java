@@ -14,11 +14,13 @@
 package com.facebook.presto.execution;
 
 import io.airlift.stats.CounterStat;
-import io.airlift.stats.DistributionStat;
+import io.airlift.stats.TimeStat;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import org.weakref.jmx.Managed;
 import org.weakref.jmx.Nested;
+
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 public class SqlTaskManagerStats
 {
@@ -32,10 +34,10 @@ public class SqlTaskManagerStats
     private final CounterStat splitWallTime = new CounterStat();
     private final CounterStat splitCpuTime = new CounterStat();
 
-    private final DistributionStat splitQueuedTime = new DistributionStat();
+    private final TimeStat splitQueuedTime = new TimeStat(MILLISECONDS);
 
-    private final DistributionStat timeToFirstByte = new DistributionStat();
-    private final DistributionStat timeToLastByte = new DistributionStat();
+    private final TimeStat timeToFirstByte = new TimeStat(MILLISECONDS);
+    private final TimeStat timeToLastByte = new TimeStat(MILLISECONDS);
 
     @Managed
     @Nested
@@ -88,21 +90,21 @@ public class SqlTaskManagerStats
 
     @Managed
     @Nested
-    public DistributionStat getTimeToFirstByte()
+    public TimeStat getTimeToFirstByte()
     {
         return timeToFirstByte;
     }
 
     @Managed
     @Nested
-    public DistributionStat getSplitQueuedTime()
+    public TimeStat getSplitQueuedTime()
     {
         return splitQueuedTime;
     }
 
     @Managed
     @Nested
-    public DistributionStat getTimeToLastByte()
+    public TimeStat getTimeToLastByte()
     {
         return timeToLastByte;
     }
@@ -150,16 +152,16 @@ public class SqlTaskManagerStats
 
     public void addSplitQueuedTime(Duration duration)
     {
-        splitQueuedTime.add(duration.toMillis());
+        splitQueuedTime.add(duration);
     }
 
     public void addTimeToFirstByte(Duration duration)
     {
-        timeToFirstByte.add(duration.toMillis());
+        timeToFirstByte.add(duration);
     }
 
     public void addTimeToLastByte(Duration duration)
     {
-        timeToLastByte.add(duration.toMillis());
+        timeToLastByte.add(duration);
     }
 }
