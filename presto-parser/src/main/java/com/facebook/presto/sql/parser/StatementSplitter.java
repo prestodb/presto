@@ -77,17 +77,8 @@ public class StatementSplitter
     {
         TokenSource tokens = getLexer(sql, ImmutableSet.<String>of());
         StringBuilder sb = new StringBuilder();
-        int index = 0;
         while (true) {
-            Token token;
-            try {
-                token = tokens.nextToken();
-                index = ((CommonToken) token).getStopIndex() + 1;
-            }
-            catch (ParsingException e) {
-                sb.append(sql.substring(index));
-                break;
-            }
+            Token token = tokens.nextToken();
             if (token.getType() == Token.EOF) {
                 break;
             }
@@ -99,6 +90,20 @@ public class StatementSplitter
             }
         }
         return sb.toString().trim();
+    }
+
+    public static boolean isEmptyStatement(String sql)
+    {
+        TokenSource tokens = getLexer(sql, ImmutableSet.<String>of());
+        while (true) {
+            Token token = tokens.nextToken();
+            if (token.getType() == Token.EOF) {
+                return true;
+            }
+            if (token.getChannel() != Token.HIDDEN_CHANNEL) {
+                return false;
+            }
+        }
     }
 
     private static String getTokenText(Token token)

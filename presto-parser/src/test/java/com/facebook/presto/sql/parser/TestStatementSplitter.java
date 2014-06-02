@@ -20,9 +20,12 @@ import org.testng.annotations.Test;
 import java.util.List;
 
 import static com.facebook.presto.sql.parser.StatementSplitter.Statement;
+import static com.facebook.presto.sql.parser.StatementSplitter.isEmptyStatement;
 import static com.facebook.presto.sql.parser.StatementSplitter.squeezeStatement;
 import static com.google.common.base.Preconditions.checkArgument;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertFalse;
+import static org.testng.Assert.assertTrue;
 
 public class TestStatementSplitter
 {
@@ -185,6 +188,20 @@ public class TestStatementSplitter
         StatementSplitter splitter = new StatementSplitter(sql);
         assertEquals(splitter.getCompleteStatements(), ImmutableList.of());
         assertEquals(splitter.getPartialStatement(), sql);
+    }
+
+    @Test
+    public void testIsEmptyStatement()
+    {
+        assertTrue(isEmptyStatement(""));
+        assertTrue(isEmptyStatement(" "));
+        assertTrue(isEmptyStatement("\t\n "));
+        assertTrue(isEmptyStatement("--foo\n  --what"));
+        assertTrue(isEmptyStatement("/* oops */"));
+        assertFalse(isEmptyStatement("x"));
+        assertFalse(isEmptyStatement("select"));
+        assertFalse(isEmptyStatement("123"));
+        assertFalse(isEmptyStatement("z#oops"));
     }
 
     @Test
