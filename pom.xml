@@ -650,22 +650,14 @@
     </build>
 
     <profiles>
-        <!-- run console for development: mvn -q -P console compile exec:java -->
+        <!-- run cli for development: mvn -am -pl presto-cli -P cli compile exec:java -->
         <profile>
-            <id>console</id>
+            <id>cli</id>
             <build>
                 <plugins>
                     <plugin>
                         <groupId>org.codehaus.mojo</groupId>
                         <artifactId>exec-maven-plugin</artifactId>
-                        <executions>
-                            <execution>
-                                <id>console</id>
-                                <goals>
-                                    <goal>java</goal>
-                                </goals>
-                            </execution>
-                        </executions>
                         <configuration>
                             <skip>${cli.skip-execute}</skip>
                             <executable>${java.home}/bin/java</executable>
