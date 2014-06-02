@@ -340,4 +340,16 @@ public abstract class AbstractTestIndexedQueries
                 "JOIN orders o\n" +
                 "  ON l.orderkey = o.orderkey AND l.orderkey = o.orderkey");
     }
+
+    /**
+     * Assure nulls in probe readahead does not leak into connectors.
+     */
+    @Test
+    public void testProbeNullInReadahead()
+            throws Exception
+    {
+        assertQuery(
+                "select count(*) from (values (1), (cast(null as bigint))) x(orderkey) join orders using (orderkey)",
+                "select count(*) from orders where orderkey = 1");
+    }
 }

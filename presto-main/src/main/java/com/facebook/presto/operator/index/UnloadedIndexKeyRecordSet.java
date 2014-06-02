@@ -67,7 +67,8 @@ public class UnloadedIndexKeyRecordSet
                     }
                 }
 
-                if (groupByHash.putIfAbsent(cursors) == nextDistinctId) {
+                // We are reading ahead in the cursors, so we need to filter any nulls since they can not join
+                if (!containsNullValue(cursors) && groupByHash.putIfAbsent(cursors) == nextDistinctId) {
                     nextDistinctId++;
 
                     // Only include the key if it is not already in the index
@@ -95,6 +96,16 @@ public class UnloadedIndexKeyRecordSet
     public UnloadedIndexKeyRecordCursor cursor()
     {
         return new UnloadedIndexKeyRecordCursor(types, pageAndPositions);
+    }
+
+    private static boolean containsNullValue(BlockCursor... cursors)
+    {
+        for (BlockCursor cursor : cursors) {
+            if (cursor.isNull()) {
+                return true;
+            }
+        }
+        return false;
     }
 
     public static class UnloadedIndexKeyRecordCursor

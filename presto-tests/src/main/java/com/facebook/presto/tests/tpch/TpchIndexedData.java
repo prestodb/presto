@@ -202,6 +202,11 @@ class TpchIndexedData
                 @Override
                 public RecordSet apply(MaterializedTuple key)
                 {
+                    for (Object value : key.getValues()) {
+                        if (value == null) {
+                            throw new IllegalArgumentException("TPCH index does not support null values");
+                        }
+                    }
                     return lookupKey(key);
                 }
             });
