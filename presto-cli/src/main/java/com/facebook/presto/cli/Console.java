@@ -74,6 +74,10 @@ public class Console
         initializeLogging(session.isDebug());
 
         String query = clientOptions.execute;
+        if (hasQuery) {
+            query += ";";
+        }
+
         if (isFromFile) {
             if (hasQuery) {
                 throw new RuntimeException("both --execute and --file specified");
@@ -211,11 +215,14 @@ public class Console
 
     private static void executeCommand(QueryRunner queryRunner, String query, OutputFormat outputFormat)
     {
-        StatementSplitter splitter = new StatementSplitter(query + ";");
+        StatementSplitter splitter = new StatementSplitter(query);
         for (Statement split : splitter.getCompleteStatements()) {
             if (!isEmptyStatement(split.statement())) {
                 process(queryRunner, split.statement(), outputFormat, false);
             }
+        }
+        if (!isEmptyStatement(splitter.getPartialStatement())) {
+            System.err.println("Non-terminated statement: " + splitter.getPartialStatement());
         }
     }
 
