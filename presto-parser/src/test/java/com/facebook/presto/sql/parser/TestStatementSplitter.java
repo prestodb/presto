@@ -154,6 +154,40 @@ public class TestStatementSplitter
     }
 
     @Test
+    public void testSplitterWithSingleLineComment()
+    {
+        StatementSplitter splitter = new StatementSplitter("--empty\n;-- start\nselect * -- junk\n-- hi\nfrom foo; -- done");
+        assertEquals(splitter.getCompleteStatements(), statements("--empty", ";", "-- start\nselect * -- junk\n-- hi\nfrom foo", ";"));
+        assertEquals(splitter.getPartialStatement(), "-- done");
+    }
+
+    @Test
+    public void testSplitterWithMultiLineComment()
+    {
+        StatementSplitter splitter = new StatementSplitter("/* empty */;/* start */ select * /* middle */ from foo; /* end */");
+        assertEquals(splitter.getCompleteStatements(), statements("/* empty */", ";", "/* start */ select * /* middle */ from foo", ";"));
+        assertEquals(splitter.getPartialStatement(), "/* end */");
+    }
+
+    @Test
+    public void testSplitterWithSingleLineCommentPartial()
+    {
+        String sql = "-- start\nselect * -- junk\n-- hi\nfrom foo -- done";
+        StatementSplitter splitter = new StatementSplitter(sql);
+        assertEquals(splitter.getCompleteStatements(), ImmutableList.of());
+        assertEquals(splitter.getPartialStatement(), sql);
+    }
+
+    @Test
+    public void testSplitterWithMultiLineCommentPartial()
+    {
+        String sql = "/* start */ select * /* middle */ from foo /* end */";
+        StatementSplitter splitter = new StatementSplitter(sql);
+        assertEquals(splitter.getCompleteStatements(), ImmutableList.of());
+        assertEquals(splitter.getPartialStatement(), sql);
+    }
+
+    @Test
     public void testSqueezeStatement()
     {
         String sql = "select   *  from\n foo\n  order by x ; ";
