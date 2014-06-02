@@ -213,6 +213,9 @@ contents to mount the ``jmx`` connector as the ``jmx`` catalog:
 
     connector.name=jmx
 
+Hive
+""""
+
 Presto includes Hive connectors for multiple versions of Hadoop:
 
 * ``hive-hadoop1``: Apache Hadoop 1.x
@@ -231,9 +234,39 @@ for your Hive metastore Thrift service:
     connector.name=hive-cdh4
     hive.metastore.uri=thrift://example.net:9083
 
+If your Hive metastore references files stored on a federated HDFS,
+or if your HDFS cluster requires other non-standard client options
+to access it, add this property to reference your HDFS config files:
+
+.. code-block:: none
+
+    hive.config.resources=/etc/hadoop/conf/core-site.xml,/etc/hadoop/conf/hdfs-site.xml
+
+Note that Presto configures the HDFS client automatically for most
+setups and does not require any configuration files. Only specify
+additional configuration files if absolutely necessary. We also
+recommend minimizing the configuration files to have the minimum set
+of requried properties, as additional properties may cause problems.
+
 You can have as many catalogs as you need, so if you have additional
 Hive clusters, simply add another properties file to ``etc/catalog``
 with a different name (making sure it ends in ``.properties``).
+
+Cassandra
+"""""""""
+
+Create ``etc/catalog/cassandra.properties`` with the following contents
+to mount the ``cassandra`` connector as the ``cassandra`` catalog,
+replacing ``host1,host2`` with a comma-separated list of the Cassandra
+nodes used to discovery the cluster topology:
+
+.. code-block:: none
+
+    connector.name=cassandra
+    cassandra.contact-points=host1,host2
+
+You will also need to set ``cassandra.native-protocol-port`` if your
+Cassandra nodes are not using the default port (9142).
 
 .. _running_presto:
 
