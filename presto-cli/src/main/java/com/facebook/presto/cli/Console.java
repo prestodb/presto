@@ -41,6 +41,7 @@ import java.io.PrintStream;
 
 import static com.facebook.presto.cli.Help.getHelpText;
 import static com.facebook.presto.sql.parser.StatementSplitter.Statement;
+import static com.facebook.presto.sql.parser.StatementSplitter.isEmptyStatement;
 import static com.facebook.presto.sql.parser.StatementSplitter.squeezeStatement;
 import static com.google.common.io.ByteStreams.nullOutputStream;
 import static io.airlift.log.Logging.Level;
@@ -212,7 +213,9 @@ public class Console
     {
         StatementSplitter splitter = new StatementSplitter(query + ";");
         for (Statement split : splitter.getCompleteStatements()) {
-            process(queryRunner, split.statement(), outputFormat, false);
+            if (!isEmptyStatement(split.statement())) {
+                process(queryRunner, split.statement(), outputFormat, false);
+            }
         }
     }
 
