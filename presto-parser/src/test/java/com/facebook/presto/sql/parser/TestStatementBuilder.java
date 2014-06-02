@@ -38,6 +38,11 @@ public class TestStatementBuilder
         printStatement("explain select * from foo");
         printStatement("explain (type distributed, format graphviz) select * from foo");
 
+        printStatement("select * from foo /* end */");
+        printStatement("/* start */ select * from foo");
+        printStatement("/* start */ select * /* middle */ from foo /* end */");
+        printStatement("-- start\nselect * -- junk\n-- hi\nfrom foo -- done");
+
         printStatement("select * from foo a (x, y, z)");
 
         printStatement("select *, 123, * from foo");
