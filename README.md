@@ -40,9 +40,9 @@ Presto comes with sample configuration that should work out-of-the-box for devel
 * Main Class: `com.facebook.presto.server.PrestoServer`
 * VM Options: `-ea -Xmx2G -Dconfig=etc/config.properties -Dlog.levels-file=etc/log.properties`
 * Working directory: `$MODULE_DIR$`
-* Use classpath of module: `presto-server`
+* Use classpath of module: `presto-main`
 
-The working directory should be the `presto-server` subdirectory. In IntelliJ, using `$MODULE_DIR$` accomplishes this automatically.
+The working directory should be the `presto-main` subdirectory. In IntelliJ, using `$MODULE_DIR$` accomplishes this automatically.
 
 Additionally, the Hive plugin must be configured with location of your Hive metastore Thrift service. Add the following to the list of VM options, replacing `localhost:9083` with the correct host and port (or use the below value if you do not have a Hive metastore):
 
