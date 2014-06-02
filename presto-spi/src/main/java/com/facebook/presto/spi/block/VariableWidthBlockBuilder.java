@@ -84,7 +84,7 @@ public class VariableWidthBlockBuilder
     @Override
     public int getSizeInBytes()
     {
-        return sliceOutput.size();
+        return getRawSlice().length();
     }
 
     @Override

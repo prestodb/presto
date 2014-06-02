@@ -44,7 +44,7 @@ public class GroupByHash
     private final List<Type> types;
     private final int[] channels;
 
-    private final List<PageBuilder> pages;
+    private final ObjectArrayList<PageBuilder> pages;
 
     private long completedPagesMemorySize;
 
@@ -82,7 +82,7 @@ public class GroupByHash
 
     public long getEstimatedSize()
     {
-        return completedPagesMemorySize + pages.get(pages.size() - 1).getMemorySize() + sizeOf(key) + sizeOf(value) + groupAddress.sizeOf();
+        return sizeOf(pages.elements()) + completedPagesMemorySize + pages.get(pages.size() - 1).getMemorySize() + sizeOf(key) + sizeOf(value) + groupAddress.sizeOf();
     }
 
     public List<Type> getTypes()
