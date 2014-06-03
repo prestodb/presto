@@ -142,6 +142,11 @@ public class TaskInfo
         return failures;
     }
 
+    public TaskInfo summarize()
+    {
+        return new TaskInfo(taskId, version, state, self, lastHeartbeat, outputBuffers, noMoreSplits, stats.summarize(), failures);
+    }
+
     @Override
     public String toString()
     {
@@ -159,6 +164,18 @@ public class TaskInfo
             public TaskState apply(TaskInfo taskInfo)
             {
                 return taskInfo.getState();
+            }
+        };
+    }
+
+    public static Function<TaskInfo, TaskInfo> summarizeTaskInfo()
+    {
+        return new Function<TaskInfo, TaskInfo>()
+        {
+            @Override
+            public TaskInfo apply(TaskInfo input)
+            {
+                return input.summarize();
             }
         };
     }

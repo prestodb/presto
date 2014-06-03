@@ -21,6 +21,7 @@ import com.facebook.presto.execution.TaskInfo;
 import com.facebook.presto.execution.TaskManager;
 import com.facebook.presto.execution.TaskState;
 import com.facebook.presto.operator.Page;
+import com.google.common.collect.ImmutableList;
 import com.google.common.reflect.TypeToken;
 import io.airlift.units.DataSize;
 import io.airlift.units.DataSize.Unit;
@@ -49,7 +50,9 @@ import static com.facebook.presto.client.PrestoHeaders.PRESTO_CURRENT_STATE;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_MAX_WAIT;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_PAGE_NEXT_TOKEN;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_PAGE_TOKEN;
+import static com.facebook.presto.execution.TaskInfo.summarizeTaskInfo;
 import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.collect.Iterables.transform;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
@@ -75,7 +78,11 @@ public class TaskResource
     @Produces(MediaType.APPLICATION_JSON)
     public List<TaskInfo> getAllTaskInfo(@Context UriInfo uriInfo)
     {
-        return taskManager.getAllTaskInfo();
+        List<TaskInfo> allTaskInfo = taskManager.getAllTaskInfo();
+        if (shouldSummarize(uriInfo)) {
+            allTaskInfo = ImmutableList.copyOf(transform(allTaskInfo, summarizeTaskInfo()));
+        }
+        return allTaskInfo;
     }
 
     @POST
@@ -91,6 +98,10 @@ public class TaskResource
                 taskUpdateRequest.getFragment(),
                 taskUpdateRequest.getSources(),
                 taskUpdateRequest.getOutputIds());
+
+        if (shouldSummarize(uriInfo)) {
+            taskInfo = taskInfo.summarize();
+        }
 
         return Response.ok().entity(taskInfo).build();
     }
@@ -112,6 +123,9 @@ public class TaskResource
 
         try {
             TaskInfo taskInfo = taskManager.getTaskInfo(taskId);
+            if (shouldSummarize(uriInfo)) {
+                taskInfo = taskInfo.summarize();
+            }
             return Response.ok(taskInfo).build();
         }
         catch (NoSuchElementException e) {
@@ -122,13 +136,16 @@ public class TaskResource
     @DELETE
     @Path("{taskId}")
     @Produces(MediaType.APPLICATION_JSON)
-    public Response cancelTask(@PathParam("taskId") TaskId taskId)
+    public Response cancelTask(@PathParam("taskId") TaskId taskId, @Context UriInfo uriInfo)
     {
         checkNotNull(taskId, "taskId is null");
 
         try {
             TaskInfo taskInfo = taskManager.cancelTask(taskId);
             if (taskInfo != null) {
+                if (shouldSummarize(uriInfo)) {
+                    taskInfo = taskInfo.summarize();
+                }
                 return Response.ok(taskInfo).build();
             }
         }
@@ -199,17 +216,25 @@ public class TaskResource
     @DELETE
     @Path("{taskId}/results/{outputId}")
     @Produces(MediaType.APPLICATION_JSON)
-    public Response abortResults(@PathParam("taskId") TaskId taskId, @PathParam("outputId") String outputId)
+    public Response abortResults(@PathParam("taskId") TaskId taskId, @PathParam("outputId") String outputId, @Context UriInfo uriInfo)
     {
         checkNotNull(taskId, "taskId is null");
         checkNotNull(outputId, "outputId is null");
 
         try {
             TaskInfo taskInfo = taskManager.abortTaskResults(taskId, outputId);
+            if (shouldSummarize(uriInfo)) {
+                taskInfo = taskInfo.summarize();
+            }
             return Response.ok(taskInfo).build();
         }
         catch (NoSuchElementException e) {
             return Response.status(Status.NOT_FOUND).build();
         }
+    }
+
+    private static boolean shouldSummarize(UriInfo uriInfo)
+    {
+        return uriInfo.getQueryParameters().containsKey("summarize");
     }
 }
