@@ -25,7 +25,7 @@ public interface TaskExecution
 {
     TaskId getTaskId();
 
-    TaskInfo getTaskInfo(boolean full);
+    TaskInfo getTaskInfo();
 
     TaskContext getTaskContext();
 

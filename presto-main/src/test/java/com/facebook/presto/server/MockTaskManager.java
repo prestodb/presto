@@ -86,7 +86,7 @@ public class MockTaskManager
     }
 
     @Override
-    public synchronized List<TaskInfo> getAllTaskInfo(boolean full)
+    public synchronized List<TaskInfo> getAllTaskInfo()
     {
         ImmutableList.Builder<TaskInfo> builder = ImmutableList.builder();
         for (MockTask task : tasks.values()) {
@@ -102,7 +102,7 @@ public class MockTaskManager
     }
 
     @Override
-    public synchronized TaskInfo getTaskInfo(TaskId taskId, boolean full)
+    public synchronized TaskInfo getTaskInfo(TaskId taskId)
     {
         checkNotNull(taskId, "taskId is null");
 

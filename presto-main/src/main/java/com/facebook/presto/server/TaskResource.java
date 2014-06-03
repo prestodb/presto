@@ -75,7 +75,7 @@ public class TaskResource
     @Produces(MediaType.APPLICATION_JSON)
     public List<TaskInfo> getAllTaskInfo(@Context UriInfo uriInfo)
     {
-        return taskManager.getAllTaskInfo(isFullTaskInfoRequested(uriInfo));
+        return taskManager.getAllTaskInfo();
     }
 
     @POST
@@ -111,7 +111,7 @@ public class TaskResource
         }
 
         try {
-            TaskInfo taskInfo = taskManager.getTaskInfo(taskId, isFullTaskInfoRequested(uriInfo));
+            TaskInfo taskInfo = taskManager.getTaskInfo(taskId);
             return Response.ok(taskInfo).build();
         }
         catch (NoSuchElementException e) {
@@ -211,10 +211,5 @@ public class TaskResource
         catch (NoSuchElementException e) {
             return Response.status(Status.NOT_FOUND).build();
         }
-    }
-
-    private boolean isFullTaskInfoRequested(UriInfo uriInfo)
-    {
-        return uriInfo.getQueryParameters().containsKey("full");
     }
 }

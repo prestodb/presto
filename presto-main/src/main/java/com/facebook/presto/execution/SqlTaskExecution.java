@@ -272,7 +272,7 @@ public class SqlTaskExecution
     }
 
     @Override
-    public TaskInfo getTaskInfo(boolean full)
+    public TaskInfo getTaskInfo()
     {
         try (SetThreadName ignored = new SetThreadName("Task-%s", taskId)) {
             checkTaskCompletion();
