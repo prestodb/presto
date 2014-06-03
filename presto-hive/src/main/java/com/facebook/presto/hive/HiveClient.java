@@ -152,6 +152,8 @@ public class HiveClient
     private final DateTimeZone timeZone;
     private final Executor executor;
     private final DataSize maxSplitSize;
+    private final DataSize maxInitialSplitSize;
+    private final int maxInitialSplits;
 
     @Inject
     public HiveClient(HiveConnectorId connectorId,
@@ -173,7 +175,9 @@ public class HiveClient
                 hiveClientConfig.getMaxOutstandingSplits(),
                 hiveClientConfig.getMaxSplitIteratorThreads(),
                 hiveClientConfig.getMinPartitionBatchSize(),
-                hiveClientConfig.getMaxPartitionBatchSize());
+                hiveClientConfig.getMaxPartitionBatchSize(),
+                hiveClientConfig.getMaxInitialSplitSize(),
+                hiveClientConfig.getMaxInitialSplits());
     }
 
     public HiveClient(HiveConnectorId connectorId,
@@ -187,7 +191,9 @@ public class HiveClient
             int maxOutstandingSplits,
             int maxSplitIteratorThreads,
             int minPartitionBatchSize,
-            int maxPartitionBatchSize)
+            int maxPartitionBatchSize,
+            DataSize maxInitialSplitSize,
+            int maxInitialSplits)
     {
         this.connectorId = checkNotNull(connectorId, "connectorId is null").toString();
 
@@ -197,6 +203,8 @@ public class HiveClient
         this.maxSplitIteratorThreads = maxSplitIteratorThreads;
         this.minPartitionBatchSize = minPartitionBatchSize;
         this.maxPartitionBatchSize = maxPartitionBatchSize;
+        this.maxInitialSplitSize = checkNotNull(maxInitialSplitSize, "maxInitialSplitSize is null");
+        this.maxInitialSplits = maxInitialSplits;
 
         this.metastore = checkNotNull(metastore, "metastore is null");
         this.hdfsEnvironment = checkNotNull(hdfsEnvironment, "hdfsEnvironment is null");
@@ -754,7 +762,9 @@ public class HiveClient
                 directoryLister,
                 executor,
                 maxPartitionBatchSize,
-                hiveTableHandle.getSession()).get();
+                hiveTableHandle.getSession(),
+                maxInitialSplitSize,
+                maxInitialSplits).get();
     }
 
     private Iterable<Partition> getPartitions(final Table table, final SchemaTableName tableName, List<String> partitionNames)

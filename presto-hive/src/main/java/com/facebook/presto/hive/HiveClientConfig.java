@@ -20,7 +20,6 @@ import com.google.common.net.HostAndPort;
 import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigDescription;
 import io.airlift.units.DataSize;
-import io.airlift.units.DataSize.Unit;
 import io.airlift.units.Duration;
 import io.airlift.units.MinDuration;
 
@@ -32,18 +31,22 @@ import java.util.List;
 import java.util.TimeZone;
 import java.util.concurrent.TimeUnit;
 
+import static io.airlift.units.DataSize.Unit.MEGABYTE;
+
 public class HiveClientConfig
 {
     private static final Splitter SPLITTER = Splitter.on(',').trimResults().omitEmptyStrings();
 
     private TimeZone timeZone = TimeZone.getDefault();
 
-    private DataSize maxSplitSize = new DataSize(64, Unit.MEGABYTE);
+    private DataSize maxSplitSize = new DataSize(64, MEGABYTE);
     private int maxOutstandingSplits = 1_000;
     private int maxGlobalSplitIteratorThreads = 1_000;
     private int maxSplitIteratorThreads = 50;
     private int minPartitionBatchSize = 10;
     private int maxPartitionBatchSize = 100;
+    private int maxInitialSplits = 200;
+    private DataSize maxInitialSplitSize;
 
     private Duration metastoreCacheTtl = new Duration(1, TimeUnit.HOURS);
     private Duration metastoreRefreshInterval = new Duration(2, TimeUnit.MINUTES);
@@ -66,6 +69,33 @@ public class HiveClientConfig
     private File s3StagingDirectory = new File(StandardSystemProperty.JAVA_IO_TMPDIR.value());
 
     private List<String> resourceConfigFiles;
+
+    public int getMaxInitialSplits()
+    {
+        return maxInitialSplits;
+    }
+
+    @Config("hive.max-initial-splits")
+    public HiveClientConfig setMaxInitialSplits(int maxInitialSplits)
+    {
+        this.maxInitialSplits = maxInitialSplits;
+        return this;
+    }
+
+    public DataSize getMaxInitialSplitSize()
+    {
+        if (maxInitialSplitSize == null) {
+            return new DataSize(maxSplitSize.getValue() / 2, maxSplitSize.getUnit());
+        }
+        return maxInitialSplitSize;
+    }
+
+    @Config("hive.max-initial-split-size")
+    public HiveClientConfig setMaxInitialSplitSize(DataSize maxInitialSplitSize)
+    {
+        this.maxInitialSplitSize = maxInitialSplitSize;
+        return this;
+    }
 
     @NotNull
     public TimeZone getTimeZone()
