@@ -73,7 +73,7 @@ public class TaskResource
 
     @GET
     @Produces(MediaType.APPLICATION_JSON)
-    public List<TaskInfo> getAllTaskInfo(@Context() UriInfo uriInfo)
+    public List<TaskInfo> getAllTaskInfo(@Context UriInfo uriInfo)
     {
         return taskManager.getAllTaskInfo(isFullTaskInfoRequested(uriInfo));
     }
@@ -101,7 +101,7 @@ public class TaskResource
     public Response getTaskInfo(@PathParam("taskId") TaskId taskId,
             @HeaderParam(PRESTO_CURRENT_STATE) TaskState currentState,
             @HeaderParam(PRESTO_MAX_WAIT) Duration maxWait,
-            @Context() UriInfo uriInfo)
+            @Context UriInfo uriInfo)
             throws InterruptedException
     {
         checkNotNull(taskId, "taskId is null");

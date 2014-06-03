@@ -32,7 +32,6 @@ import com.facebook.presto.operator.TaskContext;
 import com.facebook.presto.operator.TaskStats;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.planner.PlanFragment;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.facebook.presto.util.SetThreadName;
@@ -50,8 +49,8 @@ import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.RateLimiter;
-import io.airlift.http.client.AsyncHttpClient;
 import io.airlift.http.client.FullJsonResponseHandler.JsonResponse;
+import io.airlift.http.client.HttpClient;
 import io.airlift.http.client.HttpStatus;
 import io.airlift.http.client.Request;
 import io.airlift.http.client.StatusResponseHandler.StatusResponse;
@@ -128,11 +127,10 @@ public class HttpRemoteTask
     @GuardedBy("this")
     private ContinuousTaskInfoFetcher continuousTaskInfoFetcher;
 
-    private final AsyncHttpClient httpClient;
+    private final HttpClient httpClient;
     private final Executor executor;
     private final JsonCodec<TaskInfo> taskInfoCodec;
     private final JsonCodec<TaskUpdateRequest> taskUpdateRequestCodec;
-    private final List<Type> types;
 
     private final RateLimiter errorRequestRateLimiter = RateLimiter.create(0.1);
 
@@ -149,7 +147,7 @@ public class HttpRemoteTask
             PlanFragment planFragment,
             Multimap<PlanNodeId, Split> initialSplits,
             OutputBuffers outputBuffers,
-            AsyncHttpClient httpClient,
+            HttpClient httpClient,
             Executor executor,
             int maxConsecutiveErrorCount,
             Duration minErrorDuration,
@@ -167,7 +165,7 @@ public class HttpRemoteTask
         checkNotNull(taskInfoCodec, "taskInfoCodec is null");
         checkNotNull(taskUpdateRequestCodec, "taskUpdateRequestCodec is null");
 
-        try (SetThreadName setThreadName = new SetThreadName("HttpRemoteTask-%s", taskId)) {
+        try (SetThreadName ignored = new SetThreadName("HttpRemoteTask-%s", taskId)) {
             this.taskId = taskId;
             this.session = session;
             this.nodeId = nodeId;
@@ -177,7 +175,6 @@ public class HttpRemoteTask
             this.executor = executor;
             this.taskInfoCodec = taskInfoCodec;
             this.taskUpdateRequestCodec = taskUpdateRequestCodec;
-            this.types = planFragment.getTypes();
             this.maxConsecutiveErrorCount = maxConsecutiveErrorCount;
             this.minErrorDuration = minErrorDuration;
 
@@ -225,7 +222,7 @@ public class HttpRemoteTask
     @Override
     public void start()
     {
-        try (SetThreadName setThreadName = new SetThreadName("HttpRemoteTask-%s", taskId)) {
+        try (SetThreadName ignored = new SetThreadName("HttpRemoteTask-%s", taskId)) {
             // to start we just need to trigger an update
             scheduleUpdate();
         }
@@ -234,7 +231,7 @@ public class HttpRemoteTask
     @Override
     public synchronized void addSplits(PlanNodeId sourceId, Iterable<Split> splits)
     {
-        try (SetThreadName setThreadName = new SetThreadName("HttpRemoteTask-%s", taskId)) {
+        try (SetThreadName ignored = new SetThreadName("HttpRemoteTask-%s", taskId)) {
             checkNotNull(sourceId, "sourceId is null");
             checkNotNull(splits, "splits is null");
             checkState(!noMoreSplits.contains(sourceId), "noMoreSplits has already been set for %s", sourceId);
@@ -254,7 +251,7 @@ public class HttpRemoteTask
     @Override
     public synchronized void noMoreSplits(PlanNodeId sourceId)
     {
-        try (SetThreadName setThreadName = new SetThreadName("HttpRemoteTask-%s", taskId)) {
+        try (SetThreadName ignored = new SetThreadName("HttpRemoteTask-%s", taskId)) {
             if (noMoreSplits.add(sourceId)) {
                 needsUpdate.set(true);
                 scheduleUpdate();
@@ -265,7 +262,7 @@ public class HttpRemoteTask
     @Override
     public synchronized void setOutputBuffers(OutputBuffers newOutputBuffers)
     {
-        try (SetThreadName setThreadName = new SetThreadName("HttpRemoteTask-%s", taskId)) {
+        try (SetThreadName ignored = new SetThreadName("HttpRemoteTask-%s", taskId)) {
             if (getTaskInfo().getState().isDone()) {
                 return;
             }
@@ -281,9 +278,8 @@ public class HttpRemoteTask
     @Override
     public synchronized int getQueuedSplits()
     {
-        try (SetThreadName setThreadName = new SetThreadName("HttpRemoteTask-%s", taskId)) {
-            int pendingSplitCount = 0;
-            pendingSplitCount = pendingSplits.get(planFragment.getPartitionedSource()).size();
+        try (SetThreadName ignored = new SetThreadName("HttpRemoteTask-%s", taskId)) {
+            int pendingSplitCount = pendingSplits.get(planFragment.getPartitionedSource()).size();
             return pendingSplitCount + taskInfo.get().getStats().getQueuedDrivers();
         }
     }
@@ -291,7 +287,7 @@ public class HttpRemoteTask
     @Override
     public void addStateChangeListener(StateChangeListener<TaskInfo> stateChangeListener)
     {
-        try (SetThreadName setThreadName = new SetThreadName("HttpRemoteTask-%s", taskId)) {
+        try (SetThreadName ignored = new SetThreadName("HttpRemoteTask-%s", taskId)) {
             taskInfo.addStateChangeListener(stateChangeListener);
         }
     }
@@ -300,7 +296,7 @@ public class HttpRemoteTask
     public Duration waitForTaskToFinish(Duration maxWait)
             throws InterruptedException
     {
-        try (SetThreadName setThreadName = new SetThreadName("HttpRemoteTask-%s", taskId)) {
+        try (SetThreadName ignored = new SetThreadName("HttpRemoteTask-%s", taskId)) {
             while (true) {
                 TaskInfo currentState = taskInfo.get();
                 if (maxWait.toMillis() <= 1 || currentState.getState().isDone()) {
@@ -321,6 +317,7 @@ public class HttpRemoteTask
         // change to new value if old value is not changed and new value has a newer version
         taskInfo.setIf(newValue, new Predicate<TaskInfo>()
         {
+            @Override
             public boolean apply(TaskInfo oldValue)
             {
                 if (oldValue.getState().isDone()) {
@@ -398,7 +395,7 @@ public class HttpRemoteTask
     @Override
     public synchronized void cancel()
     {
-        try (SetThreadName setThreadName = new SetThreadName("HttpRemoteTask-%s", taskId)) {
+        try (SetThreadName ignored = new SetThreadName("HttpRemoteTask-%s", taskId)) {
             // clear pending splits to free memory
             pendingSplits.clear();
 
@@ -456,7 +453,7 @@ public class HttpRemoteTask
 
     private synchronized void requestSucceeded(TaskInfo newValue, List<TaskSource> sources)
     {
-        try (SetThreadName setThreadName = new SetThreadName("HttpRemoteTask-%s", taskId)) {
+        try (SetThreadName ignored = new SetThreadName("HttpRemoteTask-%s", taskId)) {
             updateTaskInfo(newValue);
             lastSuccessfulRequest.set(System.nanoTime());
             errorCount.set(0);
@@ -562,7 +559,7 @@ public class HttpRemoteTask
         @Override
         public void success(TaskInfo value)
         {
-            try (SetThreadName setThreadName = new SetThreadName("UpdateResponseHandler-%s", taskId)) {
+            try (SetThreadName ignored = new SetThreadName("UpdateResponseHandler-%s", taskId)) {
                 try {
                     requestSucceeded(value, sources);
                 }
@@ -575,7 +572,7 @@ public class HttpRemoteTask
         @Override
         public void failed(Throwable cause)
         {
-            try (SetThreadName setThreadName = new SetThreadName("UpdateResponseHandler-%s", taskId)) {
+            try (SetThreadName ignored = new SetThreadName("UpdateResponseHandler-%s", taskId)) {
                 try {
                     // on failure assume we need to update again
                     needsUpdate.set(true);
@@ -591,7 +588,7 @@ public class HttpRemoteTask
         @Override
         public void fatal(Throwable cause)
         {
-            try (SetThreadName setThreadName = new SetThreadName("UpdateResponseHandler-%s", taskId)) {
+            try (SetThreadName ignored = new SetThreadName("UpdateResponseHandler-%s", taskId)) {
                 failTask(cause);
             }
         }
@@ -632,7 +629,7 @@ public class HttpRemoteTask
 
         private synchronized void scheduleNextRequest()
         {
-            try (SetThreadName setThreadName = new SetThreadName("ContinuousTaskInfoFetcher-%s", taskId)) {
+            try (SetThreadName ignored = new SetThreadName("ContinuousTaskInfoFetcher-%s", taskId)) {
                 // stopped or done?
                 TaskInfo taskInfo = HttpRemoteTask.this.taskInfo.get();
                 if (!running || taskInfo.getState().isDone()) {
@@ -661,7 +658,7 @@ public class HttpRemoteTask
         @Override
         public void success(TaskInfo value)
         {
-            try (SetThreadName setThreadName = new SetThreadName("ContinuousTaskInfoFetcher-%s", taskId)) {
+            try (SetThreadName ignored = new SetThreadName("ContinuousTaskInfoFetcher-%s", taskId)) {
                 synchronized (this) {
                     future = null;
                 }
@@ -678,7 +675,7 @@ public class HttpRemoteTask
         @Override
         public void failed(Throwable cause)
         {
-            try (SetThreadName setThreadName = new SetThreadName("ContinuousTaskInfoFetcher-%s", taskId)) {
+            try (SetThreadName ignored = new SetThreadName("ContinuousTaskInfoFetcher-%s", taskId)) {
                 synchronized (this) {
                     future = null;
                 }
@@ -697,7 +694,7 @@ public class HttpRemoteTask
         @Override
         public void fatal(Throwable cause)
         {
-            try (SetThreadName setThreadName = new SetThreadName("ContinuousTaskInfoFetcher-%s", taskId)) {
+            try (SetThreadName ignored = new SetThreadName("ContinuousTaskInfoFetcher-%s", taskId)) {
                 synchronized (this) {
                     future = null;
                 }
