@@ -16,6 +16,7 @@ package com.facebook.presto.server;
 import com.facebook.presto.OutputBuffers;
 import com.facebook.presto.TaskSource;
 import com.facebook.presto.execution.BufferResult;
+import com.facebook.presto.execution.ExecutionFailureInfo;
 import com.facebook.presto.execution.SharedBuffer;
 import com.facebook.presto.execution.TaskId;
 import com.facebook.presto.execution.TaskInfo;
@@ -27,14 +28,12 @@ import com.facebook.presto.operator.TaskContext;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.sql.planner.PlanFragment;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
-import com.facebook.presto.execution.ExecutionFailureInfo;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import io.airlift.http.server.HttpServerInfo;
 import io.airlift.units.DataSize;
-import io.airlift.units.DataSize.Unit;
 import io.airlift.units.Duration;
 import org.joda.time.DateTime;
 
@@ -72,7 +71,7 @@ public class MockTaskManager
     @Inject
     public MockTaskManager(HttpServerInfo httpServerInfo)
     {
-        this(httpServerInfo, new DataSize(100, Unit.MEGABYTE), 12);
+        this(httpServerInfo, new DataSize(100, MEGABYTE), 12);
     }
 
     public MockTaskManager(HttpServerInfo httpServerInfo, DataSize maxBufferSize, int initialPages)
