@@ -78,4 +78,9 @@ public class SchemaTableName
     {
         return schemaName + '.' + tableName;
     }
+
+    public SchemaTablePrefix toSchemaTablePrefix()
+    {
+        return new SchemaTablePrefix(schemaName, tableName);
+    }
 }
