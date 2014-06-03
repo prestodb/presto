@@ -116,6 +116,8 @@ class HiveSplitSourceProvider
     private final ClassLoader classLoader;
     private final DataSize maxSplitSize;
     private final int maxPartitionBatchSize;
+    private final DataSize maxInitialSplitSize;
+    private long remainingInitialSplits;
     private final ConnectorSession session;
 
     HiveSplitSourceProvider(String connectorId,
@@ -131,7 +133,9 @@ class HiveSplitSourceProvider
             DirectoryLister directoryLister,
             Executor executor,
             int maxPartitionBatchSize,
-            ConnectorSession session)
+            ConnectorSession session,
+            DataSize maxInitialSplitSize,
+            int maxInitialSplits)
     {
         this.connectorId = connectorId;
         this.table = table;
@@ -148,6 +152,8 @@ class HiveSplitSourceProvider
         this.executor = executor;
         this.session = session;
         this.classLoader = Thread.currentThread().getContextClassLoader();
+        this.maxInitialSplitSize = maxInitialSplitSize;
+        this.remainingInitialSplits = maxInitialSplits;
     }
 
     public ConnectorSplitSource get()
@@ -356,8 +362,14 @@ class HiveSplitSourceProvider
                 // get the addresses for the block
                 List<HostAddress> addresses = toHostAddress(blockLocation.getHosts());
 
+                long maxBytes = maxSplitSize.toBytes();
+
+                if (remainingInitialSplits > 0) {
+                    maxBytes = maxInitialSplitSize.toBytes();
+                }
+
                 // divide the block into uniform chunks that are smaller than the max split size
-                int chunks = Math.max(1, (int) (blockLocation.getLength() / maxSplitSize.toBytes()));
+                int chunks = Math.max(1, (int) (blockLocation.getLength() / maxBytes));
                 // when block does not divide evenly into chunks, make the chunk size slightly bigger than necessary
                 long targetChunkSize = (long) Math.ceil(blockLocation.getLength() * 1.0 / chunks);
 
@@ -379,6 +391,7 @@ class HiveSplitSourceProvider
                             session));
 
                     chunkOffset += chunkLength;
+                    remainingInitialSplits--;
                 }
                 checkState(chunkOffset == blockLocation.getLength(), "Error splitting blocks");
             }
