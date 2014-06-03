@@ -165,8 +165,11 @@ public final class SerDeUtils
 
         generator.writeStartObject();
         for (Map.Entry<?, ?> entry : map.entrySet()) {
-            generator.writeFieldName(getPrimitiveAsString(sessionTimeZone, entry.getKey(), keyInspector));
-            serializeObject(sessionTimeZone, generator, entry.getValue(), valueInspector);
+            // Hive skips map entries with null keys
+            if (entry.getKey() != null) {
+                generator.writeFieldName(getPrimitiveAsString(sessionTimeZone, entry.getKey(), keyInspector));
+                serializeObject(sessionTimeZone, generator, entry.getValue(), valueInspector);
+            }
         }
         generator.writeEndObject();
     }
@@ -204,9 +207,6 @@ public final class SerDeUtils
 
     private static String getPrimitiveAsString(DateTimeZone sessionTimeZone, Object object, PrimitiveObjectInspector inspector)
     {
-        if (object == null) {
-            return null;
-        }
         switch (inspector.getPrimitiveCategory()) {
             case BOOLEAN:
             case BYTE:
