@@ -365,7 +365,7 @@ public class HttpRemoteTask
                 outputBuffers.get());
 
         Request request = preparePost()
-                .setUri(uriBuilderFrom(taskInfo.get().getSelf()).build())
+                .setUri(uriBuilderFrom(taskInfo.get().getSelf()).addParameter("summarize").build())
                 .setHeader(HttpHeaders.CONTENT_TYPE, MediaType.JSON_UTF_8.toString())
                 .setBodyGenerator(jsonBodyGenerator(taskUpdateRequestCodec, updateRequest))
                 .build();
@@ -421,7 +421,9 @@ public class HttpRemoteTask
             // fire delete to task and ignore response
             if (taskInfo.getSelf() != null) {
                 final long start = System.nanoTime();
-                final Request request = prepareDelete().setUri(taskInfo.getSelf()).build();
+                final Request request = prepareDelete()
+                        .setUri(uriBuilderFrom(taskInfo.getSelf()).addParameter("summarize").build())
+                        .build();
                 Futures.addCallback(httpClient.executeAsync(request, createStatusResponseHandler()), new FutureCallback<StatusResponse>()
                 {
                     @Override
@@ -644,7 +646,7 @@ public class HttpRemoteTask
                 }
 
                 Request request = prepareGet()
-                        .setUri(taskInfo.getSelf())
+                        .setUri(uriBuilderFrom(taskInfo.getSelf()).addParameter("summarize").build())
                         .setHeader(HttpHeaders.CONTENT_TYPE, MediaType.JSON_UTF_8.toString())
                         .setHeader(PrestoHeaders.PRESTO_CURRENT_STATE, taskInfo.getState().toString())
                         .setHeader(PrestoHeaders.PRESTO_MAX_WAIT, "200ms")
