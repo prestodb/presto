@@ -24,12 +24,12 @@ import java.util.List;
 
 public interface TaskManager
 {
-    List<TaskInfo> getAllTaskInfo(boolean full);
+    List<TaskInfo> getAllTaskInfo();
 
     void waitForStateChange(TaskId taskId, TaskState currentState, Duration maxWait)
             throws InterruptedException;
 
-    TaskInfo getTaskInfo(TaskId taskId, boolean full);
+    TaskInfo getTaskInfo(TaskId taskId);
 
     TaskInfo updateTask(ConnectorSession session, TaskId taskId, PlanFragment fragment, List<TaskSource> sources, OutputBuffers outputIds);
 

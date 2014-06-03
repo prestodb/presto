@@ -153,7 +153,7 @@ public class TestSqlTaskManager
                 INITIAL_EMPTY_OUTPUT_BUFFERS);
         assertEquals(taskInfo.getState(), TaskState.RUNNING);
 
-        taskInfo = sqlTaskManager.getTaskInfo(taskInfo.getTaskId(), false);
+        taskInfo = sqlTaskManager.getTaskInfo(taskInfo.getTaskId());
         assertEquals(taskInfo.getState(), TaskState.RUNNING);
 
         taskInfo = sqlTaskManager.updateTask(session,
@@ -163,7 +163,7 @@ public class TestSqlTaskManager
                 INITIAL_EMPTY_OUTPUT_BUFFERS.withNoMoreBufferIds());
         assertEquals(taskInfo.getState(), TaskState.FINISHED);
 
-        taskInfo = sqlTaskManager.getTaskInfo(taskInfo.getTaskId(), false);
+        taskInfo = sqlTaskManager.getTaskInfo(taskInfo.getTaskId());
         assertEquals(taskInfo.getState(), TaskState.FINISHED);
     }
 
@@ -178,7 +178,7 @@ public class TestSqlTaskManager
                 INITIAL_EMPTY_OUTPUT_BUFFERS.withBuffer("out", new UnpartitionedPagePartitionFunction()).withNoMoreBufferIds());
         assertEquals(taskInfo.getState(), TaskState.RUNNING);
 
-        taskInfo = sqlTaskManager.getTaskInfo(taskInfo.getTaskId(), false);
+        taskInfo = sqlTaskManager.getTaskInfo(taskInfo.getTaskId());
         assertEquals(taskInfo.getState(), TaskState.RUNNING);
 
         BufferResult results = sqlTaskManager.getTaskResults(taskId, "out", 0, new DataSize(1, Unit.MEGABYTE), new Duration(1, TimeUnit.SECONDS));
@@ -192,9 +192,9 @@ public class TestSqlTaskManager
         assertEquals(results.getPages().size(), 0);
 
         sqlTaskManager.waitForStateChange(taskInfo.getTaskId(), taskInfo.getState(), new Duration(1, TimeUnit.SECONDS));
-        taskInfo = sqlTaskManager.getTaskInfo(taskInfo.getTaskId(), false);
+        taskInfo = sqlTaskManager.getTaskInfo(taskInfo.getTaskId());
         assertEquals(taskInfo.getState(), TaskState.FINISHED);
-        taskInfo = sqlTaskManager.getTaskInfo(taskInfo.getTaskId(), false);
+        taskInfo = sqlTaskManager.getTaskInfo(taskInfo.getTaskId());
         assertEquals(taskInfo.getState(), TaskState.FINISHED);
     }
 
@@ -210,7 +210,7 @@ public class TestSqlTaskManager
         assertEquals(taskInfo.getState(), TaskState.RUNNING);
         assertNull(taskInfo.getStats().getEndTime());
 
-        taskInfo = sqlTaskManager.getTaskInfo(taskInfo.getTaskId(), false);
+        taskInfo = sqlTaskManager.getTaskInfo(taskInfo.getTaskId());
         assertEquals(taskInfo.getState(), TaskState.RUNNING);
         assertNull(taskInfo.getStats().getEndTime());
 
@@ -218,7 +218,7 @@ public class TestSqlTaskManager
         assertEquals(taskInfo.getState(), TaskState.CANCELED);
         assertNotNull(taskInfo.getStats().getEndTime());
 
-        taskInfo = sqlTaskManager.getTaskInfo(taskInfo.getTaskId(), false);
+        taskInfo = sqlTaskManager.getTaskInfo(taskInfo.getTaskId());
         assertEquals(taskInfo.getState(), TaskState.CANCELED);
         assertNotNull(taskInfo.getStats().getEndTime());
     }
@@ -234,16 +234,16 @@ public class TestSqlTaskManager
                 INITIAL_EMPTY_OUTPUT_BUFFERS.withBuffer("out", new UnpartitionedPagePartitionFunction()).withNoMoreBufferIds());
         assertEquals(taskInfo.getState(), TaskState.RUNNING);
 
-        taskInfo = sqlTaskManager.getTaskInfo(taskInfo.getTaskId(), false);
+        taskInfo = sqlTaskManager.getTaskInfo(taskInfo.getTaskId());
         assertEquals(taskInfo.getState(), TaskState.RUNNING);
 
         sqlTaskManager.abortTaskResults(taskInfo.getTaskId(), "out");
 
         sqlTaskManager.waitForStateChange(taskInfo.getTaskId(), taskInfo.getState(), new Duration(1, TimeUnit.SECONDS));
-        taskInfo = sqlTaskManager.getTaskInfo(taskInfo.getTaskId(), false);
+        taskInfo = sqlTaskManager.getTaskInfo(taskInfo.getTaskId());
         assertEquals(taskInfo.getState(), TaskState.FINISHED);
 
-        taskInfo = sqlTaskManager.getTaskInfo(taskInfo.getTaskId(), false);
+        taskInfo = sqlTaskManager.getTaskInfo(taskInfo.getTaskId());
         assertEquals(taskInfo.getState(), TaskState.FINISHED);
     }
 
@@ -268,13 +268,13 @@ public class TestSqlTaskManager
         taskInfo = sqlTaskManager.cancelTask(taskId);
         assertEquals(taskInfo.getState(), TaskState.CANCELED);
 
-        taskInfo = sqlTaskManager.getTaskInfo(taskInfo.getTaskId(), false);
+        taskInfo = sqlTaskManager.getTaskInfo(taskInfo.getTaskId());
         assertEquals(taskInfo.getState(), TaskState.CANCELED);
 
         Thread.sleep(100);
         sqlTaskManager.removeOldTasks();
         try {
-            sqlTaskManager.getTaskInfo(taskInfo.getTaskId(), false);
+            sqlTaskManager.getTaskInfo(taskInfo.getTaskId());
             fail("Expected NoSuchElementException");
         }
         catch (NoSuchElementException expected) {

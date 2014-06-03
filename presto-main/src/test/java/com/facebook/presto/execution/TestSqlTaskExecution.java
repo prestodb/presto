@@ -161,7 +161,7 @@ public class TestSqlTaskExecution
         assertFalse(bufferResult.isBufferClosed());
 
         taskExecution.addSources(ImmutableList.of(new TaskSource(tableScanNodeId, ImmutableSet.<ScheduledSplit>of(), true)));
-        assertEquals(taskExecution.getTaskInfo(false).getState(), TaskState.FINISHED);
+        assertEquals(taskExecution.getTaskInfo().getState(), TaskState.FINISHED);
 
         // buffer will be closed by cancel event (wait for 500 MS for event to fire)
         bufferResult = taskExecution.getResults("out", 0, new DataSize(1, Unit.MEGABYTE), new Duration(500, TimeUnit.MILLISECONDS));
@@ -185,7 +185,7 @@ public class TestSqlTaskExecution
         assertFalse(bufferResult.isBufferClosed());
 
         taskExecution.cancel();
-        assertEquals(taskExecution.getTaskInfo(false).getState(), TaskState.CANCELED);
+        assertEquals(taskExecution.getTaskInfo().getState(), TaskState.CANCELED);
 
         // buffer will be closed by cancel event.  event is async so wait for 500 MS for event to fire
         bufferResult = taskExecution.getResults("out", 0, new DataSize(1, Unit.MEGABYTE), new Duration(500, TimeUnit.MILLISECONDS));
@@ -209,7 +209,7 @@ public class TestSqlTaskExecution
         assertFalse(bufferResult.isBufferClosed());
 
         taskExecution.fail(new Exception("test"));
-        assertEquals(taskExecution.getTaskInfo(false).getState(), TaskState.FAILED);
+        assertEquals(taskExecution.getTaskInfo().getState(), TaskState.FAILED);
 
         // buffer will not be closed by fail event.  event is async so wait for 500 MS for event to fire
         bufferResult = taskExecution.getResults("out", 0, new DataSize(1, Unit.MEGABYTE), new Duration(500, TimeUnit.MILLISECONDS));

@@ -109,7 +109,7 @@ public class TaskSystemTable
     public RecordCursor cursor()
     {
         Builder table = InMemoryRecordSet.builder(TASK_TABLE);
-        for (TaskInfo taskInfo : taskManager.getAllTaskInfo(false)) {
+        for (TaskInfo taskInfo : taskManager.getAllTaskInfo()) {
             TaskStats stats = taskInfo.getStats();
             table.addRow(
                     nodeId,
