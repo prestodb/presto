@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.operator.scalar;
 
+import com.facebook.presto.spi.PrestoException;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
@@ -352,6 +353,56 @@ public class TestMathFunctions
         for (double doubleValue : DOUBLE_VALUES) {
             assertFunction("tanh(" + doubleValue + ")", Math.tanh(doubleValue));
         }
+    }
+
+    @Test
+    public void testGreatest()
+            throws Exception
+    {
+        // bigint
+        assertFunction("greatest(1, 2)", 2);
+        assertFunction("greatest(-1, -2)", -1);
+
+        // double
+        assertFunction("greatest(1.5, 2.3)", 2.3);
+        assertFunction("greatest(-1.5, -2.3)", -1.5);
+        assertFunction("greatest(1.5, 1.0 / 0.0)", Double.POSITIVE_INFINITY);
+
+        // mixed
+        assertFunction("greatest(1, 2.0)", 2.0);
+        assertFunction("greatest(1.0, 2)", 2.0);
+    }
+
+    @Test
+    public void testLeast()
+            throws Exception
+    {
+        // bigint
+        assertFunction("least(1, 2)", 1);
+        assertFunction("least(-1, -2)", -2);
+
+        // double
+        assertFunction("least(1.5, 2.3)", 1.5);
+        assertFunction("least(-1.5, -2.3)", -2.3);
+        assertFunction("least(1.5, -1.0 / 0.0)", Double.NEGATIVE_INFINITY);
+
+        // mixed
+        assertFunction("least(1, 2.0)", 1.0);
+        assertFunction("least(1.0, 2)", 1.0);
+    }
+
+    @Test(expectedExceptions = PrestoException.class, expectedExceptionsMessageRegExp = "\\QInvalid argument to greatest(): NaN\\E")
+    public void testGreatestWithNaN()
+            throws Exception
+    {
+        functionAssertions.selectSingleValue("greatest(1.5, 0.0 / 0.0)");
+    }
+
+    @Test(expectedExceptions = PrestoException.class, expectedExceptionsMessageRegExp = "\\QInvalid argument to least(): NaN\\E")
+    public void testLeastWithNaN()
+            throws Exception
+    {
+        functionAssertions.selectSingleValue("least(1.5, 0.0 / 0.0)");
     }
 
     private void assertFunction(String projection, Object expected)
