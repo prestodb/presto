@@ -101,7 +101,6 @@ import com.google.common.base.Function;
 import com.google.common.base.Functions;
 import com.google.common.base.Optional;
 import com.google.common.base.Supplier;
-import com.google.common.base.Throwables;
 import com.google.common.collect.ComparisonChain;
 import com.google.common.collect.FluentIterable;
 import com.google.common.collect.HashMultimap;
@@ -712,7 +711,7 @@ public class LocalExecutionPlanner
             }
             catch (RuntimeException e) {
                 if (!interpreterEnabled) {
-                    throw Throwables.propagate(e);
+                    throw e;
                 }
 
                 // compilation failed, use interpreter
