@@ -260,8 +260,8 @@ public class FunctionRegistry
     public final synchronized void addFunctions(List<FunctionInfo> functions, List<OperatorInfo> operators)
     {
         for (FunctionInfo function : functions) {
-            checkArgument(this.functions.get(function.getHandle()) == null,
-                    "Function already registered: %s", function.getHandle());
+            checkArgument(this.functions.get(function.getSignature()) == null,
+                    "Function already registered: %s", function.getSignature());
         }
 
         this.functions = new FunctionMap(this.functions, functions, operators);
