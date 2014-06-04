@@ -43,7 +43,7 @@ public final class FunctionInfo
     private final Type intermediateType;
     private final AggregationFunction aggregationFunction;
 
-    private final MethodHandle scalarFunction;
+    private final MethodHandle methodHandle;
     private final boolean deterministic;
     private final FunctionBinder functionBinder;
 
@@ -60,7 +60,7 @@ public final class FunctionInfo
         this.isAggregate = false;
         this.intermediateType = null;
         this.aggregationFunction = null;
-        this.scalarFunction = null;
+        this.methodHandle = null;
         this.functionBinder = null;
 
         this.isWindow = true;
@@ -75,7 +75,7 @@ public final class FunctionInfo
         this.intermediateType = intermediateType;
         this.aggregationFunction = function;
         this.isAggregate = true;
-        this.scalarFunction = null;
+        this.methodHandle = null;
         this.deterministic = true;
         this.functionBinder = null;
         this.isWindow = false;
@@ -96,7 +96,7 @@ public final class FunctionInfo
 
         this.isWindow = false;
         this.windowFunction = null;
-        this.scalarFunction = checkNotNull(function, "function is null");
+        this.methodHandle = checkNotNull(function, "function is null");
     }
 
     public Signature getSignature()
@@ -172,10 +172,10 @@ public final class FunctionInfo
         return aggregationFunction;
     }
 
-    public MethodHandle getScalarFunction()
+    public MethodHandle getMethodHandle()
     {
-        checkState(scalarFunction != null, "not a scalar function");
-        return scalarFunction;
+        checkState(methodHandle != null, "not a scalar function or operator");
+        return methodHandle;
     }
 
     public boolean isDeterministic()

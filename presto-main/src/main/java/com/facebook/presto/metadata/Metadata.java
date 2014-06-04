@@ -13,12 +13,12 @@
  */
 package com.facebook.presto.metadata;
 
-import com.facebook.presto.metadata.OperatorInfo.OperatorType;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.base.Optional;
+import com.google.common.collect.Multimap;
 
 import javax.validation.constraints.NotNull;
 
@@ -42,12 +42,12 @@ public interface Metadata
 
     void addFunctions(List<FunctionInfo> functions);
 
-    void addOperators(List<OperatorInfo> operators);
+    void addOperators(Multimap<OperatorType, FunctionInfo> operators);
 
-    OperatorInfo resolveOperator(OperatorType operatorType, List<? extends Type> argumentTypes)
+    FunctionInfo resolveOperator(OperatorType operatorType, List<? extends Type> argumentTypes)
             throws OperatorNotFoundException;
 
-    OperatorInfo getExactOperator(OperatorType operatorType, Type returnType, List<? extends Type> argumentTypes)
+    FunctionInfo getExactOperator(OperatorType operatorType, Type returnType, List<? extends Type> argumentTypes)
             throws OperatorNotFoundException;
 
     @NotNull

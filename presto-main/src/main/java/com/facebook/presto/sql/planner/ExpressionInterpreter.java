@@ -15,8 +15,7 @@ package com.facebook.presto.sql.planner;
 
 import com.facebook.presto.metadata.FunctionInfo;
 import com.facebook.presto.metadata.Metadata;
-import com.facebook.presto.metadata.OperatorInfo;
-import com.facebook.presto.metadata.OperatorInfo.OperatorType;
+import com.facebook.presto.metadata.OperatorType;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.RecordCursor;
 import com.facebook.presto.spi.block.BlockCursor;
@@ -397,7 +396,7 @@ public class ExpressionInterpreter
                 return new NegativeExpression(toExpression(value, expressionTypes.get(node.getValue())));
             }
 
-            OperatorInfo operatorInfo = metadata.resolveOperator(OperatorType.NEGATION, types(node.getValue()));
+            FunctionInfo operatorInfo = metadata.resolveOperator(OperatorType.NEGATION, types(node.getValue()));
 
             MethodHandle handle = operatorInfo.getMethodHandle();
             if (handle.type().parameterCount() > 0 && handle.type().parameterType(0) == ConnectorSession.class) {
@@ -595,7 +594,7 @@ public class ExpressionInterpreter
             if (optimize && (!function.isDeterministic() || hasUnresolvedValue(argumentValues))) {
                 return new FunctionCall(node.getName(), node.getWindow().orNull(), node.isDistinct(), toExpressions(argumentValues, argumentTypes));
             }
-            return invoke(session, function.getScalarFunction(), argumentValues);
+            return invoke(session, function.getMethodHandle(), argumentValues);
         }
 
         @Override
@@ -692,7 +691,7 @@ public class ExpressionInterpreter
                 throw new IllegalArgumentException("Unsupported type: " + node.getType());
             }
 
-            OperatorInfo operatorInfo = metadata.getExactOperator(OperatorType.CAST, type, types(node.getExpression()));
+            FunctionInfo operatorInfo = metadata.getExactOperator(OperatorType.CAST, type, types(node.getExpression()));
             return invoke(session, operatorInfo.getMethodHandle(), ImmutableList.of(value));
         }
 
@@ -725,7 +724,7 @@ public class ExpressionInterpreter
 
         private Object invokeOperator(OperatorType operatorType, List<? extends Type> argumentTypes, List<Object> argumentValues)
         {
-            OperatorInfo operatorInfo = metadata.resolveOperator(operatorType, argumentTypes);
+            FunctionInfo operatorInfo = metadata.resolveOperator(operatorType, argumentTypes);
             return invoke(session, operatorInfo.getMethodHandle(), argumentValues);
         }
 

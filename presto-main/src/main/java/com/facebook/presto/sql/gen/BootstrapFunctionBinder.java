@@ -16,10 +16,9 @@ package com.facebook.presto.sql.gen;
 import com.facebook.presto.byteCode.ByteCodeNode;
 import com.facebook.presto.metadata.FunctionInfo;
 import com.facebook.presto.metadata.Metadata;
-import com.facebook.presto.metadata.OperatorInfo;
-import com.facebook.presto.metadata.OperatorInfo.OperatorType;
-import com.facebook.presto.sql.tree.QualifiedName;
+import com.facebook.presto.metadata.OperatorType;
 import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.sql.tree.QualifiedName;
 import com.google.common.collect.ImmutableList;
 
 import java.lang.invoke.CallSite;
@@ -66,19 +65,19 @@ public class BootstrapFunctionBinder
 
     public FunctionBinding bindOperator(OperatorType operatorType, ByteCodeNode getSessionByteCode, List<ByteCodeNode> arguments, List<Type> argumentTypes)
     {
-        OperatorInfo operatorInfo = metadata.resolveOperator(operatorType, argumentTypes);
+        FunctionInfo operatorInfo = metadata.resolveOperator(operatorType, argumentTypes);
         return bindOperator(operatorInfo, getSessionByteCode, arguments);
     }
 
     public FunctionBinding bindCastOperator(ByteCodeNode getSessionByteCode, ByteCodeNode sourceValue, Type sourceType, Type targetType)
     {
-        OperatorInfo operatorInfo = metadata.getExactOperator(OperatorType.CAST, targetType, ImmutableList.of(sourceType));
+        FunctionInfo operatorInfo = metadata.getExactOperator(OperatorType.CAST, targetType, ImmutableList.of(sourceType));
         return bindOperator(operatorInfo, getSessionByteCode, ImmutableList.of(sourceValue));
     }
 
-    private FunctionBinding bindOperator(OperatorInfo operatorInfo, ByteCodeNode getSessionByteCode, List<ByteCodeNode> arguments)
+    private FunctionBinding bindOperator(FunctionInfo operatorInfo, ByteCodeNode getSessionByteCode, List<ByteCodeNode> arguments)
     {
-        return bindFunction(operatorInfo.getOperatorType().toString(), getSessionByteCode, arguments, operatorInfo.getFunctionBinder());
+        return bindFunction(operatorInfo.getSignature().getName(), getSessionByteCode, arguments, operatorInfo.getFunctionBinder());
     }
 
     public CallSite bootstrap(String name, MethodType type, long bindingId)

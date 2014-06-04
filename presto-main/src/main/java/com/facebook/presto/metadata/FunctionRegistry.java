@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.metadata;
 
-import com.facebook.presto.metadata.OperatorInfo.OperatorType;
 import com.facebook.presto.operator.Description;
 import com.facebook.presto.operator.aggregation.AggregationFunction;
 import com.facebook.presto.operator.scalar.ColorFunctions;
@@ -61,10 +60,12 @@ import com.google.common.base.Optional;
 import com.google.common.base.Predicate;
 import com.google.common.base.Supplier;
 import com.google.common.base.Throwables;
+import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.FluentIterable;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
@@ -257,7 +258,7 @@ public class FunctionRegistry
         addFunctions(builder.getFunctions(), builder.getOperators());
     }
 
-    public final synchronized void addFunctions(List<FunctionInfo> functions, List<OperatorInfo> operators)
+    public final synchronized void addFunctions(List<FunctionInfo> functions, Multimap<OperatorType, FunctionInfo> operators)
     {
         for (FunctionInfo function : functions) {
             checkArgument(this.functions.get(function.getSignature()) == null,
@@ -349,20 +350,20 @@ public class FunctionRegistry
         return functions.get(signature);
     }
 
-    public OperatorInfo resolveOperator(OperatorType operatorType, List<? extends Type> argumentTypes)
+    public FunctionInfo resolveOperator(OperatorType operatorType, List<? extends Type> argumentTypes)
             throws OperatorNotFoundException
     {
-        Iterable<OperatorInfo> candidates = functions.getOperators(operatorType);
+        Iterable<FunctionInfo> candidates = functions.getOperators(operatorType);
 
         // search for exact match
-        for (OperatorInfo operatorInfo : candidates) {
+        for (FunctionInfo operatorInfo : candidates) {
             if (operatorInfo.getArgumentTypes().equals(argumentTypes)) {
                 return operatorInfo;
             }
         }
 
         // search for coerced match
-        for (OperatorInfo operatorInfo : candidates) {
+        for (FunctionInfo operatorInfo : candidates) {
             if (canCoerce(argumentTypes, operatorInfo.getArgumentTypes())) {
                 return operatorInfo;
             }
@@ -371,13 +372,13 @@ public class FunctionRegistry
         throw new OperatorNotFoundException(operatorType, argumentTypes);
     }
 
-    public OperatorInfo getExactOperator(OperatorType operatorType, List<? extends Type> argumentTypes, Type returnType)
+    public FunctionInfo getExactOperator(OperatorType operatorType, List<? extends Type> argumentTypes, Type returnType)
             throws OperatorNotFoundException
     {
-        Iterable<OperatorInfo> candidates = functions.getOperators(operatorType);
+        Iterable<FunctionInfo> candidates = functions.getOperators(operatorType);
 
         // search for exact match
-        for (OperatorInfo operatorInfo : candidates) {
+        for (FunctionInfo operatorInfo : candidates) {
             if (operatorInfo.getReturnType().equals(returnType) && operatorInfo.getArgumentTypes().equals(argumentTypes)) {
                 return operatorInfo;
             }
@@ -386,7 +387,7 @@ public class FunctionRegistry
         // if identity cast, return a custom operator info
         if ((operatorType == OperatorType.CAST) && (argumentTypes.size() == 1) && argumentTypes.get(0).equals(returnType)) {
             MethodHandle identity = MethodHandles.identity(returnType.getJavaType());
-            return new OperatorInfo(OperatorType.CAST, returnType, argumentTypes, identity, new DefaultFunctionBinder(identity, false));
+            return operatorInfo(OperatorType.CAST, returnType, argumentTypes, identity, new DefaultFunctionBinder(identity, false));
         }
 
         throw new OperatorNotFoundException(operatorType, argumentTypes, returnType);
@@ -535,7 +536,7 @@ public class FunctionRegistry
     public static class FunctionListBuilder
     {
         private final List<FunctionInfo> functions = new ArrayList<>();
-        private final List<OperatorInfo> operators = new ArrayList<>();
+        private final Multimap<OperatorType, FunctionInfo> operators = ArrayListMultimap.create();
 
         public FunctionListBuilder window(String name, Type returnType, List<? extends Type> argumentTypes, Supplier<WindowFunction> function)
         {
@@ -574,7 +575,7 @@ public class FunctionRegistry
 
         private FunctionListBuilder operator(OperatorType operatorType, Type returnType, List<Type> parameterTypes, MethodHandle function, FunctionBinder functionBinder)
         {
-            operators.add(new OperatorInfo(operatorType, returnType, parameterTypes, function, functionBinder));
+            operators.put(operatorType, operatorInfo(operatorType, returnType, parameterTypes, function, functionBinder));
             return this;
         }
 
@@ -713,10 +714,18 @@ public class FunctionRegistry
             return ImmutableList.copyOf(functions);
         }
 
-        public List<OperatorInfo> getOperators()
+        public Multimap<OperatorType, FunctionInfo> getOperators()
         {
-            return ImmutableList.copyOf(operators);
+            return ImmutableMultimap.copyOf(operators);
         }
+    }
+
+    private static FunctionInfo operatorInfo(OperatorType operatorType, Type returnType, List<? extends Type> argumentTypes, MethodHandle method, FunctionBinder functionBinder)
+    {
+        operatorType.validateSignature(returnType, ImmutableList.copyOf(argumentTypes));
+
+        Signature signature = new Signature(operatorType.name(), returnType, argumentTypes, false, true);
+        return new FunctionInfo(signature, operatorType.getOperator(), true, method, true, functionBinder);
     }
 
     private static void verifyMethodSignature(Method method, Type returnType, List<Type> argumentTypes)
@@ -766,7 +775,7 @@ public class FunctionRegistry
     {
         private final Multimap<QualifiedName, FunctionInfo> functionsByName;
         private final Map<Signature, FunctionInfo> functionsBySignature;
-        private final Multimap<OperatorType, OperatorInfo> byOperator;
+        private final Multimap<OperatorType, FunctionInfo> byOperator;
 
         public FunctionMap()
         {
@@ -775,7 +784,7 @@ public class FunctionRegistry
             byOperator = ImmutableListMultimap.of();
         }
 
-        public FunctionMap(FunctionMap map, Iterable<FunctionInfo> functions, Iterable<OperatorInfo> operator)
+        public FunctionMap(FunctionMap map, Iterable<FunctionInfo> functions, Multimap<OperatorType, FunctionInfo> operators)
         {
             functionsByName = ImmutableListMultimap.<QualifiedName, FunctionInfo>builder()
                     .putAll(map.functionsByName)
@@ -787,9 +796,9 @@ public class FunctionRegistry
                     .putAll(Maps.uniqueIndex(functions, FunctionInfo.handleGetter()))
                     .build();
 
-            byOperator = ImmutableListMultimap.<OperatorType, OperatorInfo>builder()
+            byOperator = ImmutableListMultimap.<OperatorType, FunctionInfo>builder()
                     .putAll(map.byOperator)
-                    .putAll(Multimaps.index(operator, OperatorInfo.operatorGetter()))
+                    .putAll(operators)
                     .build();
 
             // Make sure all functions with the same name are aggregations or none of them are
@@ -815,7 +824,7 @@ public class FunctionRegistry
             return functionsBySignature.get(signature);
         }
 
-        public Collection<OperatorInfo> getOperators(OperatorType operatorType)
+        public Collection<FunctionInfo> getOperators(OperatorType operatorType)
         {
             return byOperator.get(operatorType);
         }

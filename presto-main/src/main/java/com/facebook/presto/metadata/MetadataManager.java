@@ -14,7 +14,6 @@
 package com.facebook.presto.metadata;
 
 import com.facebook.presto.connector.informationSchema.InformationSchemaMetadata;
-import com.facebook.presto.metadata.OperatorInfo.OperatorType;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorColumnHandle;
 import com.facebook.presto.spi.ConnectorMetadata;
@@ -31,8 +30,10 @@ import com.facebook.presto.type.TypeRegistry;
 import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Maps;
+import com.google.common.collect.Multimap;
 import com.google.common.collect.Sets;
 
 import javax.inject.Inject;
@@ -152,24 +153,24 @@ public class MetadataManager
     @Override
     public void addFunctions(List<FunctionInfo> functionInfos)
     {
-        functions.addFunctions(functionInfos, ImmutableList.<OperatorInfo>of());
+        functions.addFunctions(functionInfos, ImmutableMultimap.<OperatorType, FunctionInfo>of());
     }
 
     @Override
-    public void addOperators(List<OperatorInfo> operators)
+    public void addOperators(Multimap<OperatorType, FunctionInfo> operators)
     {
         functions.addFunctions(ImmutableList.<FunctionInfo>of(), operators);
     }
 
     @Override
-    public OperatorInfo resolveOperator(OperatorType operatorType, List<? extends Type> argumentTypes)
+    public FunctionInfo resolveOperator(OperatorType operatorType, List<? extends Type> argumentTypes)
             throws OperatorNotFoundException
     {
         return functions.resolveOperator(operatorType, argumentTypes);
     }
 
     @Override
-    public OperatorInfo getExactOperator(OperatorType operatorType, Type returnType, List<? extends Type> argumentTypes)
+    public FunctionInfo getExactOperator(OperatorType operatorType, Type returnType, List<? extends Type> argumentTypes)
             throws OperatorNotFoundException
     {
         return functions.getExactOperator(operatorType, argumentTypes, returnType);

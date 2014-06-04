@@ -30,13 +30,15 @@ public final class Signature
     private final Type returnType;
     private final List<Type> argumentTypes;
     private final boolean approximate;
+    private final boolean operator;
 
     @JsonCreator
     public Signature(
             @JsonProperty("name") String name,
             @JsonProperty("returnType") Type returnType,
-            @JsonProperty("argumentTypes") List<Type> argumentTypes,
-            @JsonProperty("approximate") boolean approximate)
+            @JsonProperty("argumentTypes") List<? extends Type> argumentTypes,
+            @JsonProperty("approximate") boolean approximate,
+            @JsonProperty("operator") boolean operator)
     {
         checkNotNull(name, "name is null");
         checkNotNull(returnType, "returnType is null");
@@ -46,6 +48,12 @@ public final class Signature
         this.returnType = returnType;
         this.argumentTypes = ImmutableList.copyOf(argumentTypes);
         this.approximate = approximate;
+        this.operator = operator;
+    }
+
+    public Signature(String name, Type returnType, List<? extends Type> argumentTypes, boolean approximate)
+    {
+        this(name, returnType, argumentTypes, approximate, false);
     }
 
     @JsonProperty
@@ -72,15 +80,21 @@ public final class Signature
         return argumentTypes;
     }
 
+    @JsonProperty
+    public boolean isOperator()
+    {
+        return operator;
+    }
+
     @Override
     public int hashCode()
     {
-        return Objects.hash(name, returnType, argumentTypes, approximate);
+        return Objects.hash(name, returnType, argumentTypes, approximate, operator);
     }
 
     Signature withAlias(String name)
     {
-        return new Signature(name, returnType, argumentTypes, approximate);
+        return new Signature(name, returnType, argumentTypes, approximate, operator);
     }
 
     @Override
@@ -96,11 +110,12 @@ public final class Signature
         return Objects.equals(this.name, other.name) &&
                 Objects.equals(this.returnType, other.returnType) &&
                 Objects.equals(this.argumentTypes, other.argumentTypes) &&
-                Objects.equals(this.approximate, other.approximate);
+                Objects.equals(this.approximate, other.approximate) &&
+                Objects.equals(this.operator, other.operator);
     }
 
     public String toString()
     {
-        return name + (approximate ? "[approximate]" : "") + "(" + Joiner.on(",").join(argumentTypes) + "):" + returnType;
+        return (operator ? "%" : "") + name + (approximate ? "[approximate]" : "") + "(" + Joiner.on(",").join(argumentTypes) + "):" + returnType;
     }
 }
