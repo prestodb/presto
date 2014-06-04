@@ -15,9 +15,11 @@ package com.facebook.presto.cli;
 
 import com.facebook.presto.cli.ClientOptions.OutputFormat;
 import com.facebook.presto.client.Column;
+import com.facebook.presto.client.FailureInfo;
 import com.facebook.presto.client.ErrorLocation;
 import com.facebook.presto.client.QueryResults;
 import com.facebook.presto.client.StatementClient;
+import com.facebook.presto.sql.parser.QueryAutoSuggester;
 import com.google.common.base.Charsets;
 import com.google.common.base.Splitter;
 import com.google.common.base.Strings;
@@ -221,6 +223,7 @@ public class Query
     {
         if (results.getError().getErrorLocation() != null) {
             renderErrorLocation(query, results.getError().getErrorLocation(), out);
+            renderAutoSuggestions(query, results.getError().getFailureInfo(), out);
         }
     }
 
@@ -252,13 +255,27 @@ public class Query
             }
 
             ansi.reset();
-            out.println(ansi);
+            out.print(ansi);
         }
         else {
             String prefix = format("LINE %s: ", location.getLineNumber());
             String padding = Strings.repeat(" ", prefix.length() + (location.getColumnNumber() - 1));
             out.println(prefix + errorLine);
             out.println(padding + "^");
+        }
+    }
+
+    private static void renderAutoSuggestions(String query, FailureInfo failureInfo, PrintStream out)
+    {
+        if (REAL_TERMINAL) {
+            Ansi ansi = Ansi.ansi();
+            List<String> lines = ImmutableList.copyOf(Splitter.on('\n').split(query).iterator());
+            if (lines.size() == 1) {
+                QueryAutoSuggester suggester = new QueryAutoSuggester(query);
+                ansi.a("Perhaps you meant '").fg(Ansi.Color.CYAN).a(suggester.getSuggestion()).reset().a("'").newline();
+                ansi.reset();
+            }
+            out.println(ansi);
         }
     }
 
