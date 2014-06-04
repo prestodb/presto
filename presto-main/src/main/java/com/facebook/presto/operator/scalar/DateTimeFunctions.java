@@ -831,6 +831,54 @@ public final class DateTimeFunctions
         return extractZoneOffsetMinutes(timestampWithTimeZone) / 60;
     }
 
+    @Description("get the largest of the given values")
+    @ScalarFunction("greatest")
+    @SqlType(TimestampType.class)
+    public static long greatestTimestamp(@SqlType(TimestampType.class) long value1, @SqlType(TimestampType.class) long value2)
+    {
+        return value1 > value2 ? value1 : value2;
+    }
+
+    @Description("get the smallest of the given values")
+    @ScalarFunction("least")
+    @SqlType(TimestampType.class)
+    public static long leastTimestamp(@SqlType(TimestampType.class) long value1, @SqlType(TimestampType.class) long value2)
+    {
+        return value1 < value2 ? value1 : value2;
+    }
+
+    @Description("get the largest of the given values")
+    @ScalarFunction("greatest")
+    @SqlType(TimestampWithTimeZoneType.class)
+    public static long greatestTimestampWithTimeZone(@SqlType(TimestampWithTimeZoneType.class) long value1, @SqlType(TimestampWithTimeZoneType.class) long value2)
+    {
+        return unpackMillisUtc(value1) > unpackMillisUtc(value2) ? value1 : value2;
+    }
+
+    @Description("get the smallest of the given values")
+    @ScalarFunction("least")
+    @SqlType(TimestampWithTimeZoneType.class)
+    public static long leastTimestampWithTimeZone(@SqlType(TimestampWithTimeZoneType.class) long value1, @SqlType(TimestampWithTimeZoneType.class) long value2)
+    {
+        return unpackMillisUtc(value1) < unpackMillisUtc(value2) ? value1 : value2;
+    }
+
+    @Description("get the largest of the given values")
+    @ScalarFunction("greatest")
+    @SqlType(DateType.class)
+    public static long greatestDate(@SqlType(DateType.class) long value1, @SqlType(DateType.class) long value2)
+    {
+        return value1 > value2 ? value1 : value2;
+    }
+
+    @Description("get the smallest of the given values")
+    @ScalarFunction("least")
+    @SqlType(DateType.class)
+    public static long leastDate(@SqlType(DateType.class) long value1, @SqlType(DateType.class) long value2)
+    {
+        return value1 < value2 ? value1 : value2;
+    }
+
     @SuppressWarnings("fallthrough")
     public static DateTimeFormatter createDateTimeFormatter(Slice format)
     {

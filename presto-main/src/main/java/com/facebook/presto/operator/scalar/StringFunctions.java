@@ -267,4 +267,20 @@ public final class StringFunctions
         }
         return upper;
     }
+
+    @Description("get the largest of the given values")
+    @ScalarFunction
+    @SqlType(VarcharType.class)
+    public static Slice greatest(@SqlType(VarcharType.class) Slice value1, @SqlType(VarcharType.class) Slice value2)
+    {
+        return value1.compareTo(value2) > 0 ? value1 : value2;
+    }
+
+    @Description("get the smallest of the given values")
+    @ScalarFunction
+    @SqlType(VarcharType.class)
+    public static Slice least(@SqlType(VarcharType.class) Slice value1, @SqlType(VarcharType.class) Slice value2)
+    {
+        return value1.compareTo(value2) < 0 ? value1 : value2;
+    }
 }
