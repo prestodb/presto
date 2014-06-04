@@ -101,6 +101,7 @@ import com.google.common.base.Function;
 import com.google.common.base.Functions;
 import com.google.common.base.Optional;
 import com.google.common.base.Supplier;
+import com.google.common.base.Throwables;
 import com.google.common.collect.ComparisonChain;
 import com.google.common.collect.FluentIterable;
 import com.google.common.collect.HashMultimap;
@@ -160,6 +161,7 @@ public class LocalExecutionPlanner
     private final RecordSinkManager recordSinkManager;
     private final Supplier<ExchangeClient> exchangeClientSupplier;
     private final ExpressionCompiler compiler;
+    private final boolean interpreterEnabled;
 
     @Inject
     public LocalExecutionPlanner(NodeInfo nodeInfo,
@@ -168,8 +170,10 @@ public class LocalExecutionPlanner
             IndexManager indexManager,
             RecordSinkManager recordSinkManager,
             Supplier<ExchangeClient> exchangeClientSupplier,
-            ExpressionCompiler compiler)
+            ExpressionCompiler compiler,
+            CompilerConfig config)
     {
+        checkNotNull(config, "config is null");
         this.nodeInfo = checkNotNull(nodeInfo, "nodeInfo is null");
         this.dataStreamProvider = dataStreamProvider;
         this.indexManager = checkNotNull(indexManager, "indexManager is null");
@@ -177,6 +181,8 @@ public class LocalExecutionPlanner
         this.metadata = checkNotNull(metadata, "metadata is null");
         this.recordSinkManager = checkNotNull(recordSinkManager, "recordSinkManager is null");
         this.compiler = checkNotNull(compiler, "compiler is null");
+
+        interpreterEnabled = config.isInterpreterEnabled();
     }
 
     public LocalExecutionPlan plan(ConnectorSession session,
@@ -705,6 +711,10 @@ public class LocalExecutionPlanner
                 }
             }
             catch (RuntimeException e) {
+                if (!interpreterEnabled) {
+                    throw Throwables.propagate(e);
+                }
+
                 // compilation failed, use interpreter
                 log.error(e, "Compile failed for filter=%s projections=%s sourceTypes=%s error=%s", filterExpression, projectionExpressions, sourceTypes, e);
             }

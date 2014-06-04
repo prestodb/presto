@@ -141,6 +141,7 @@ public class DistributedQueryRunner
         ImmutableMap.Builder<String, String> properties = ImmutableMap.<String, String>builder()
                 .put("query.client.timeout", "10m")
                 .put("exchange.http-client.read-timeout", "1h")
+                .put("compiler.interpreter-enabled", "false")
                 .put("datasources", "system");
         if (coordinator) {
             properties.put("node-scheduler.include-coordinator", "false");
