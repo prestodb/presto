@@ -78,6 +78,7 @@ import com.facebook.presto.sql.Serialization.ExpressionDeserializer;
 import com.facebook.presto.sql.Serialization.ExpressionSerializer;
 import com.facebook.presto.sql.Serialization.FunctionCallDeserializer;
 import com.facebook.presto.sql.gen.ExpressionCompiler;
+import com.facebook.presto.sql.planner.CompilerConfig;
 import com.facebook.presto.sql.planner.LocalExecutionPlanner;
 import com.facebook.presto.sql.planner.PlanOptimizersFactory;
 import com.facebook.presto.sql.planner.optimizations.PlanOptimizer;
@@ -142,6 +143,7 @@ public class ServerMainModule
         binder.bind(TaskExecutor.class).in(Scopes.SINGLETON);
         newExporter(binder).export(TaskExecutor.class).withGeneratedName();
         binder.bind(LocalExecutionPlanner.class).in(Scopes.SINGLETON);
+        bindConfig(binder).to(CompilerConfig.class);
         binder.bind(ExpressionCompiler.class).in(Scopes.SINGLETON);
         newExporter(binder).export(ExpressionCompiler.class).withGeneratedName();
         bindConfig(binder).to(TaskManagerConfig.class);

@@ -61,6 +61,7 @@ import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.sql.analyzer.QueryExplainer;
 import com.facebook.presto.sql.gen.ExpressionCompiler;
 import com.facebook.presto.sql.parser.SqlParser;
+import com.facebook.presto.sql.planner.CompilerConfig;
 import com.facebook.presto.sql.planner.DistributedLogicalPlanner;
 import com.facebook.presto.sql.planner.LocalExecutionPlanner;
 import com.facebook.presto.sql.planner.LocalExecutionPlanner.LocalExecutionPlan;
@@ -338,7 +339,9 @@ public class LocalQueryRunner
                 indexManager,
                 recordSinkManager,
                 null,
-                compiler);
+                compiler,
+                new CompilerConfig().setInterpreterEnabled(false) // make sure tests fail if compiler breaks
+        );
 
         // plan query
         LocalExecutionPlan localExecutionPlan = executionPlanner.plan(session,

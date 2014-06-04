@@ -30,6 +30,7 @@ import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.split.DataStreamManager;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.sql.gen.ExpressionCompiler;
+import com.facebook.presto.sql.planner.CompilerConfig;
 import com.facebook.presto.sql.planner.LocalExecutionPlanner;
 import com.facebook.presto.sql.planner.PlanFragment;
 import com.facebook.presto.sql.planner.PlanFragment.OutputPartitioning;
@@ -100,7 +101,8 @@ public class TestSqlTaskManager
                 new IndexManager(),
                 new RecordSinkManager(),
                 new MockExchangeClientSupplier(),
-                new ExpressionCompiler(metadata));
+                new ExpressionCompiler(metadata),
+                new CompilerConfig());
 
         taskExecutor = new TaskExecutor(8);
         taskExecutor.start();
