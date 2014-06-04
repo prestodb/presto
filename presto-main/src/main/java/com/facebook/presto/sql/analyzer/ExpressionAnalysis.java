@@ -13,11 +13,9 @@
  */
 package com.facebook.presto.sql.analyzer;
 
-import com.facebook.presto.metadata.FunctionInfo;
-import com.facebook.presto.sql.tree.Expression;
-import com.facebook.presto.sql.tree.FunctionCall;
-import com.facebook.presto.sql.tree.InPredicate;
 import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.sql.tree.Expression;
+import com.facebook.presto.sql.tree.InPredicate;
 
 import java.util.IdentityHashMap;
 import java.util.Set;
@@ -28,18 +26,15 @@ public class ExpressionAnalysis
 {
     private final IdentityHashMap<Expression, Type> expressionTypes;
     private final IdentityHashMap<Expression, Type> expressionCoercions;
-    private final IdentityHashMap<FunctionCall, FunctionInfo> resolvedFunctions;
     private final Set<InPredicate> subqueryInPredicates;
 
     public ExpressionAnalysis(
             IdentityHashMap<Expression, Type> expressionTypes,
             IdentityHashMap<Expression, Type> expressionCoercions,
-            IdentityHashMap<FunctionCall, FunctionInfo> resolvedFunctions,
             Set<InPredicate> subqueryInPredicates)
     {
         this.expressionTypes = checkNotNull(expressionTypes, "expressionTypes is null");
         this.expressionCoercions = checkNotNull(expressionCoercions, "expressionCoercions is null");
-        this.resolvedFunctions = checkNotNull(resolvedFunctions, "resolvedFunctions is null");
         this.subqueryInPredicates = checkNotNull(subqueryInPredicates, "subqueryInPredicates is null");
     }
 
@@ -56,16 +51,6 @@ public class ExpressionAnalysis
     public Type getCoercion(Expression expression)
     {
         return expressionCoercions.get(expression);
-    }
-
-    public IdentityHashMap<Expression, Type> getExpressionCoercions()
-    {
-        return expressionCoercions;
-    }
-
-    public IdentityHashMap<FunctionCall, FunctionInfo> getResolvedFunctions()
-    {
-        return resolvedFunctions;
     }
 
     public Set<InPredicate> getSubqueryInPredicates()

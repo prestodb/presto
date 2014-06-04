@@ -111,7 +111,6 @@ public class ExpressionAnalyzer
     private final ConnectorSession session;
     private final Map<QualifiedName, Integer> resolvedNames = new HashMap<>();
     private final IdentityHashMap<FunctionCall, FunctionInfo> resolvedFunctions = new IdentityHashMap<>();
-    private final IdentityHashMap<Expression, FunctionInfo> resolvedOperators = new IdentityHashMap<>();
     private final IdentityHashMap<Expression, Type> expressionTypes = new IdentityHashMap<>();
     private final IdentityHashMap<Expression, Type> expressionCoercions = new IdentityHashMap<>();
     private final Set<InPredicate> subqueryInPredicates = Collections.newSetFromMap(new IdentityHashMap<InPredicate, Boolean>());
@@ -132,11 +131,6 @@ public class ExpressionAnalyzer
     public IdentityHashMap<FunctionCall, FunctionInfo> getResolvedFunctions()
     {
         return resolvedFunctions;
-    }
-
-    public IdentityHashMap<Expression, FunctionInfo> getResolvedOperators()
-    {
-        return resolvedOperators;
     }
 
     public IdentityHashMap<Expression, Type> getExpressionTypes()
@@ -427,8 +421,7 @@ public class ExpressionAnalyzer
             }
 
             try {
-                FunctionInfo operator = metadata.getExactOperator(OperatorType.CAST, type, ImmutableList.of(VARCHAR));
-                resolvedOperators.put(node, operator);
+                metadata.getExactOperator(OperatorType.CAST, type, ImmutableList.of(VARCHAR));
             }
             catch (IllegalArgumentException e) {
                 throw new SemanticException(TYPE_MISMATCH, node, "No literal form for type %s", type);
@@ -562,8 +555,7 @@ public class ExpressionAnalyzer
             Type value = process(node.getExpression(), context);
             if (value != UNKNOWN) {
                 try {
-                    FunctionInfo operator = metadata.getExactOperator(OperatorType.CAST, type, ImmutableList.of(value));
-                    resolvedOperators.put(node, operator);
+                    metadata.getExactOperator(OperatorType.CAST, type, ImmutableList.of(value));
                 }
                 catch (OperatorNotFoundException e) {
                     throw new SemanticException(TYPE_MISMATCH, node, "Cannot cast %s to %s", value, type);
@@ -661,7 +653,6 @@ public class ExpressionAnalyzer
                 Type type = operatorInfo.getArgumentTypes().get(i);
                 coerceType(context, expression, type, String.format("Operator %s argument %d", operatorInfo, i));
             }
-            resolvedOperators.put(node, operatorInfo);
 
             expressionTypes.put(node, operatorInfo.getReturnType());
 
@@ -798,7 +789,6 @@ public class ExpressionAnalyzer
         return new ExpressionAnalysis(
                 analyzer.getExpressionTypes(),
                 analyzer.getExpressionCoercions(),
-                analyzer.getResolvedFunctions(),
                 analyzer.getSubqueryInPredicates());
     }
 
@@ -828,6 +818,6 @@ public class ExpressionAnalyzer
 
         Set<InPredicate> subqueryInPredicates = analyzer.getSubqueryInPredicates();
 
-        return new ExpressionAnalysis(expressionTypes, expressionCoercions, resolvedFunctions, subqueryInPredicates);
+        return new ExpressionAnalysis(expressionTypes, expressionCoercions, subqueryInPredicates);
     }
 }
