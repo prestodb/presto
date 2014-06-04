@@ -29,6 +29,7 @@ import io.airlift.command.Command;
 import io.airlift.command.HelpOption;
 import io.airlift.log.Logging;
 import io.airlift.log.LoggingConfiguration;
+import jline.console.completer.StringsCompleter;
 import jline.console.history.FileHistory;
 import jline.console.history.MemoryHistory;
 import org.fusesource.jansi.AnsiConsole;
@@ -99,9 +100,33 @@ public class Console
     @SuppressWarnings("fallthrough")
     private void runConsole(QueryRunner queryRunner, ClientSession session)
     {
+        // Commands taken from the presto documentation at http://prestodb.io/docs/current/sql.html
+        String[] commands = {
+            "SELECT",
+            "SHOW CATALOGS",
+            "SHOW COLUMNS",
+            "SHOW FUNCTIONS",
+            "SHOW PARTITIONS",
+            "SHOW SCHEMAS",
+            "SHOW TABLES",
+            "CREATE TABLE",
+            "DROP TABLE",
+            "EXPLAIN",
+            "DESCRIBE",
+            "USE CATALOG",
+            "USE SCHEMA",
+            "HELP",
+            "QUIT"
+        };
+        String[] lowerCaseCommands = new String[commands.length];
+        int index = 0;
+        for (String command : commands) {
+            lowerCaseCommands[index++] = command.toLowerCase();
+        }
+        StringsCompleter commandCompleter = new StringsCompleter(commands);
+        StringsCompleter lowerCaseCommandCompleter = new StringsCompleter(lowerCaseCommands);
         try (TableNameCompleter tableNameCompleter = new TableNameCompleter(queryRunner);
-             CommandCompleter commandCompleter = new CommandCompleter();
-                LineReader reader = new LineReader(getHistory(), commandCompleter, tableNameCompleter)) {
+                LineReader reader = new LineReader(getHistory(), commandCompleter, lowerCaseCommandCompleter, tableNameCompleter)) {
             tableNameCompleter.populateCache();
             StringBuilder buffer = new StringBuilder();
             while (true) {
