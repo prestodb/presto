@@ -18,8 +18,8 @@ import com.facebook.presto.metadata.ColumnHandle;
 import com.facebook.presto.metadata.FunctionInfo;
 import com.facebook.presto.metadata.InternalTable;
 import com.facebook.presto.metadata.Metadata;
-import com.facebook.presto.metadata.OperatorInfo;
 import com.facebook.presto.metadata.OperatorNotFoundException;
+import com.facebook.presto.metadata.OperatorType;
 import com.facebook.presto.metadata.Partition;
 import com.facebook.presto.metadata.PartitionResult;
 import com.facebook.presto.metadata.QualifiedTableName;
@@ -239,7 +239,7 @@ public class InformationSchemaDataStreamProvider
                 if (entry.getValue() != null) {
                     ColumnMetadata columnMetadata  = metadata.getColumnMetadata(tableHandle.get(), columnHandle);
                     try {
-                        OperatorInfo operator = metadata.getExactOperator(OperatorInfo.OperatorType.CAST, VarcharType.VARCHAR, ImmutableList.of(columnMetadata.getType()));
+                        FunctionInfo operator = metadata.getExactOperator(OperatorType.CAST, VarcharType.VARCHAR, ImmutableList.of(columnMetadata.getType()));
                         value = ((Slice) operator.getMethodHandle().invokeWithArguments(entry.getValue())).toStringUtf8();
                     }
                     catch (OperatorNotFoundException e) {

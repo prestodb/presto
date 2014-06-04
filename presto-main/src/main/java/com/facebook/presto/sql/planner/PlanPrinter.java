@@ -15,8 +15,8 @@ package com.facebook.presto.sql.planner;
 
 import com.facebook.presto.metadata.ColumnHandle;
 import com.facebook.presto.metadata.Metadata;
-import com.facebook.presto.metadata.OperatorInfo;
 import com.facebook.presto.metadata.OperatorNotFoundException;
+import com.facebook.presto.metadata.OperatorType;
 import com.facebook.presto.metadata.TableHandle;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.Domain;
@@ -505,7 +505,7 @@ public class PlanPrinter
 
         try {
             ColumnMetadata columnMetadata  = metadata.getColumnMetadata(table, column);
-            MethodHandle method = metadata.getExactOperator(OperatorInfo.OperatorType.CAST, VarcharType.VARCHAR, ImmutableList.of(columnMetadata.getType()))
+            MethodHandle method = metadata.getExactOperator(OperatorType.CAST, VarcharType.VARCHAR, ImmutableList.of(columnMetadata.getType()))
                     .getMethodHandle();
 
             for (Range range : domain.getRanges()) {

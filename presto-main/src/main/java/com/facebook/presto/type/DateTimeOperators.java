@@ -25,8 +25,8 @@ import com.facebook.presto.spi.type.TimestampWithTimeZoneType;
 import org.joda.time.DateTimeField;
 import org.joda.time.chrono.ISOChronology;
 
-import static com.facebook.presto.metadata.OperatorInfo.OperatorType.ADD;
-import static com.facebook.presto.metadata.OperatorInfo.OperatorType.SUBTRACT;
+import static com.facebook.presto.metadata.OperatorType.ADD;
+import static com.facebook.presto.metadata.OperatorType.SUBTRACT;
 import static com.facebook.presto.spi.type.DateTimeEncoding.unpackMillisUtc;
 import static com.facebook.presto.spi.type.DateTimeEncoding.updateMillisUtc;
 import static com.facebook.presto.util.DateTimeZoneIndex.getChronology;

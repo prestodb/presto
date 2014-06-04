@@ -15,8 +15,7 @@ package com.facebook.presto.sql.analyzer;
 
 import com.facebook.presto.metadata.FunctionInfo;
 import com.facebook.presto.metadata.Metadata;
-import com.facebook.presto.metadata.OperatorInfo;
-import com.facebook.presto.metadata.OperatorInfo.OperatorType;
+import com.facebook.presto.metadata.OperatorType;
 import com.facebook.presto.metadata.OperatorNotFoundException;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.type.Type;
@@ -112,7 +111,7 @@ public class ExpressionAnalyzer
     private final ConnectorSession session;
     private final Map<QualifiedName, Integer> resolvedNames = new HashMap<>();
     private final IdentityHashMap<FunctionCall, FunctionInfo> resolvedFunctions = new IdentityHashMap<>();
-    private final IdentityHashMap<Expression, OperatorInfo> resolvedOperators = new IdentityHashMap<>();
+    private final IdentityHashMap<Expression, FunctionInfo> resolvedOperators = new IdentityHashMap<>();
     private final IdentityHashMap<Expression, Type> expressionTypes = new IdentityHashMap<>();
     private final IdentityHashMap<Expression, Type> expressionCoercions = new IdentityHashMap<>();
     private final Set<InPredicate> subqueryInPredicates = Collections.newSetFromMap(new IdentityHashMap<InPredicate, Boolean>());
@@ -135,7 +134,7 @@ public class ExpressionAnalyzer
         return resolvedFunctions;
     }
 
-    public IdentityHashMap<Expression, OperatorInfo> getResolvedOperators()
+    public IdentityHashMap<Expression, FunctionInfo> getResolvedOperators()
     {
         return resolvedOperators;
     }
@@ -428,7 +427,7 @@ public class ExpressionAnalyzer
             }
 
             try {
-                OperatorInfo operator = metadata.getExactOperator(OperatorType.CAST, type, ImmutableList.of(VARCHAR));
+                FunctionInfo operator = metadata.getExactOperator(OperatorType.CAST, type, ImmutableList.of(VARCHAR));
                 resolvedOperators.put(node, operator);
             }
             catch (IllegalArgumentException e) {
@@ -563,7 +562,7 @@ public class ExpressionAnalyzer
             Type value = process(node.getExpression(), context);
             if (value != UNKNOWN) {
                 try {
-                    OperatorInfo operator = metadata.getExactOperator(OperatorType.CAST, type, ImmutableList.of(value));
+                    FunctionInfo operator = metadata.getExactOperator(OperatorType.CAST, type, ImmutableList.of(value));
                     resolvedOperators.put(node, operator);
                 }
                 catch (OperatorNotFoundException e) {
@@ -649,7 +648,7 @@ public class ExpressionAnalyzer
                 argumentTypes.add(process(expression, context));
             }
 
-            OperatorInfo operatorInfo;
+            FunctionInfo operatorInfo;
             try {
                 operatorInfo = metadata.resolveOperator(operatorType, argumentTypes.build());
             }

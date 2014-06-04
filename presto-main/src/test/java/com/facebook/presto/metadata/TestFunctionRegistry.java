@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.metadata;
 
-import com.facebook.presto.metadata.OperatorInfo.OperatorType;
 import com.facebook.presto.operator.scalar.CustomAdd;
 import com.facebook.presto.operator.scalar.ScalarFunction;
 import com.facebook.presto.spi.type.BigintType;
@@ -21,6 +20,7 @@ import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.type.SqlType;
 import com.facebook.presto.type.TypeRegistry;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMultimap;
 import org.testng.annotations.Test;
 
 import java.util.List;
@@ -42,8 +42,8 @@ public class TestFunctionRegistry
     public void testIdentityCast()
     {
         FunctionRegistry registry = new FunctionRegistry(new TypeRegistry(), true);
-        OperatorInfo exactOperator = registry.getExactOperator(OperatorType.CAST, ImmutableList.of(HYPER_LOG_LOG), HYPER_LOG_LOG);
-        assertEquals(exactOperator.getOperatorType(), OperatorType.CAST);
+        FunctionInfo exactOperator = registry.getExactOperator(OperatorType.CAST, ImmutableList.of(HYPER_LOG_LOG), HYPER_LOG_LOG);
+        assertEquals(exactOperator.getSignature().getName(), OperatorType.CAST.name());
         assertEquals(exactOperator.getArgumentTypes(), ImmutableList.of(HYPER_LOG_LOG));
         assertEquals(exactOperator.getReturnType(), HYPER_LOG_LOG);
     }
@@ -71,8 +71,8 @@ public class TestFunctionRegistry
                 .getFunctions();
 
         FunctionRegistry registry = new FunctionRegistry(new TypeRegistry(), true);
-        registry.addFunctions(functions, ImmutableList.<OperatorInfo>of());
-        registry.addFunctions(functions, ImmutableList.<OperatorInfo>of());
+        registry.addFunctions(functions, ImmutableMultimap.<OperatorType, FunctionInfo>of());
+        registry.addFunctions(functions, ImmutableMultimap.<OperatorType, FunctionInfo>of());
     }
 
     @Test(expectedExceptions = IllegalStateException.class, expectedExceptionsMessageRegExp = "'sum' is both an aggregation and a scalar function")
@@ -84,7 +84,7 @@ public class TestFunctionRegistry
                 .getFunctions();
 
         FunctionRegistry registry = new FunctionRegistry(new TypeRegistry(), true);
-        registry.addFunctions(functions, ImmutableList.<OperatorInfo>of());
+        registry.addFunctions(functions, ImmutableMultimap.<OperatorType, FunctionInfo>of());
     }
 
     @Test

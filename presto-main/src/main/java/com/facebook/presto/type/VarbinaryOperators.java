@@ -18,14 +18,14 @@ import com.facebook.presto.spi.type.BooleanType;
 import com.facebook.presto.spi.type.VarbinaryType;
 import io.airlift.slice.Slice;
 
-import static com.facebook.presto.metadata.OperatorInfo.OperatorType.BETWEEN;
-import static com.facebook.presto.metadata.OperatorInfo.OperatorType.EQUAL;
-import static com.facebook.presto.metadata.OperatorInfo.OperatorType.GREATER_THAN;
-import static com.facebook.presto.metadata.OperatorInfo.OperatorType.GREATER_THAN_OR_EQUAL;
-import static com.facebook.presto.metadata.OperatorInfo.OperatorType.HASH_CODE;
-import static com.facebook.presto.metadata.OperatorInfo.OperatorType.LESS_THAN;
-import static com.facebook.presto.metadata.OperatorInfo.OperatorType.LESS_THAN_OR_EQUAL;
-import static com.facebook.presto.metadata.OperatorInfo.OperatorType.NOT_EQUAL;
+import static com.facebook.presto.metadata.OperatorType.BETWEEN;
+import static com.facebook.presto.metadata.OperatorType.EQUAL;
+import static com.facebook.presto.metadata.OperatorType.GREATER_THAN;
+import static com.facebook.presto.metadata.OperatorType.GREATER_THAN_OR_EQUAL;
+import static com.facebook.presto.metadata.OperatorType.HASH_CODE;
+import static com.facebook.presto.metadata.OperatorType.LESS_THAN;
+import static com.facebook.presto.metadata.OperatorType.LESS_THAN_OR_EQUAL;
+import static com.facebook.presto.metadata.OperatorType.NOT_EQUAL;
 
 public final class VarbinaryOperators
 {
