@@ -61,7 +61,6 @@ import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Ordering;
 import com.google.common.io.Files;
 import io.airlift.log.Logger;
 import io.airlift.slice.Slice;
@@ -87,7 +86,6 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
-import java.util.Set;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 
@@ -424,15 +422,14 @@ public class ExpressionCompiler
                 .putVariable(rowsVariable);
 
         List<LocalVariableDefinition> cursorVariables = new ArrayList<>();
-
-        List<Integer> inputChannels = getInputChannels(expressionTypes.keySet());
-        for (int channel : inputChannels) {
-            LocalVariableDefinition cursorVariable = compilerContext.declareVariable(BlockCursor.class, "cursor_" + channel);
+        int channels = getMaxInputChannel(expressionTypes) + 1;
+        for (int i = 0; i < channels; i++) {
+            LocalVariableDefinition cursorVariable = compilerContext.declareVariable(BlockCursor.class, "cursor_" + i);
             cursorVariables.add(cursorVariable);
             filterAndProjectMethod.getBody()
-                    .comment("BlockCursor %s = page.getBlock(%s).cursor();", cursorVariable.getName(), channel)
+                    .comment("BlockCursor %s = page.getBlock(%s).cursor();", cursorVariable.getName(), i)
                     .getVariable("page")
-                    .push(channel)
+                    .push(i)
                     .invokeVirtual(com.facebook.presto.operator.Page.class, "getBlock", com.facebook.presto.spi.block.Block.class, int.class)
                     .invokeInterface(com.facebook.presto.spi.block.Block.class, "cursor", BlockCursor.class)
                     .putVariable(cursorVariable);
@@ -467,10 +464,10 @@ public class ExpressionCompiler
                 .comment("if (filter(cursors...)");
         Block condition = new Block(compilerContext);
         condition.pushThis();
-        for (int channel : inputChannels) {
+        for (int channel = 0; channel < channels; channel++) {
             condition.getVariable("cursor_" + channel);
         }
-        condition.invokeVirtual(classDefinition.getType(), "filter", type(boolean.class), nCopies(inputChannels.size(), type(BlockCursor.class)));
+        condition.invokeVirtual(classDefinition.getType(), "filter", type(boolean.class), nCopies(channels, type(BlockCursor.class)));
         ifStatement.condition(condition);
 
         Block trueBlock = new Block(compilerContext);
@@ -485,7 +482,7 @@ public class ExpressionCompiler
             for (int projectionIndex = 0; projectionIndex < projections.size(); projectionIndex++) {
                 trueBlock.comment("project_%s(cursors..., pageBuilder.getBlockBuilder(%s))", projectionIndex, projectionIndex);
                 trueBlock.pushThis();
-                for (int channel : inputChannels) {
+                for (int channel = 0; channel < channels; channel++) {
                     trueBlock.getVariable("cursor_" + channel);
                 }
 
@@ -498,7 +495,7 @@ public class ExpressionCompiler
                 trueBlock.invokeVirtual(classDefinition.getType(),
                         "project_" + projectionIndex,
                         type(void.class),
-                        ImmutableList.<ParameterizedType>builder().addAll(nCopies(inputChannels.size(), type(BlockCursor.class))).add(type(BlockBuilder.class)).build());
+                        ImmutableList.<ParameterizedType>builder().addAll(nCopies(channels, type(BlockCursor.class))).add(type(BlockBuilder.class)).build());
             }
         }
         ifStatement.ifTrue(trueBlock);
@@ -634,7 +631,7 @@ public class ExpressionCompiler
                     a(PUBLIC),
                     "filter",
                     type(boolean.class),
-                    toBlockCursorParameters(getInputChannels(expressionTypes.keySet())));
+                    toBlockCursorParameters(expressionTypes));
         }
 
         filterMethod.comment("Filter: %s", filter.toString());
@@ -678,7 +675,7 @@ public class ExpressionCompiler
         }
         else {
             ImmutableList.Builder<NamedParameterDefinition> parameters = ImmutableList.builder();
-            parameters.addAll(toBlockCursorParameters(getInputChannels(expressionTypes.keySet())));
+            parameters.addAll(toBlockCursorParameters(expressionTypes));
             parameters.add(arg("output", BlockBuilder.class));
 
             projectionMethod = classDefinition.declareMethod(new CompilerContext(bootstrap.getBootstrapMethod()),
@@ -748,15 +745,15 @@ public class ExpressionCompiler
         return projectionType.getJavaType();
     }
 
-    private List<Integer> getInputChannels(Set<Expression> expressions)
+    private Integer getMaxInputChannel(IdentityHashMap<Expression, Type> expressionTypes)
     {
-        ImmutableList.Builder<Integer> builder = ImmutableList.builder();
-        for (Expression expression : expressions) {
+        int maxInputChannel = -1;
+        for (Expression expression : expressionTypes.keySet()) {
             if (expression instanceof InputReference) {
-                builder.add(((InputReference) expression).getInput().getChannel());
+                maxInputChannel = Math.max(maxInputChannel, ((InputReference) expression).getInput().getChannel());
             }
         }
-        return Ordering.natural().sortedCopy(builder.build());
+        return maxInputChannel;
     }
 
     private static class BootstrapEntry
@@ -828,11 +825,12 @@ public class ExpressionCompiler
         }
     }
 
-    private List<NamedParameterDefinition> toBlockCursorParameters(List<Integer> inputChannels)
+    private List<NamedParameterDefinition> toBlockCursorParameters(IdentityHashMap<Expression, Type> expressionTypes)
     {
         ImmutableList.Builder<NamedParameterDefinition> parameters = ImmutableList.builder();
-        for (int channel : inputChannels) {
-            parameters.add(arg("channel_" + channel, BlockCursor.class));
+        int channels = getMaxInputChannel(expressionTypes) + 1;
+        for (int i = 0; i < channels; i++) {
+            parameters.add(arg("channel_" + i, BlockCursor.class));
         }
         return parameters.build();
     }
