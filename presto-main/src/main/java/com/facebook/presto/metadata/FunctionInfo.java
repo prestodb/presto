@@ -99,7 +99,7 @@ public final class FunctionInfo
         this.scalarFunction = checkNotNull(function, "function is null");
     }
 
-    public Signature getHandle()
+    public Signature getSignature()
     {
         return signature;
     }
@@ -238,7 +238,7 @@ public final class FunctionInfo
             @Override
             public Signature apply(FunctionInfo input)
             {
-                return input.getHandle();
+                return input.getSignature();
             }
         };
     }

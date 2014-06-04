@@ -510,7 +510,7 @@ public class ExpressionAnalyzer
             for (int i = 0; i < node.getArguments().size(); i++) {
                 Expression expression = node.getArguments().get(i);
                 Type type = function.getArgumentTypes().get(i);
-                coerceType(context, expression, type, String.format("Function %s argument %d", function.getHandle(), i));
+                coerceType(context, expression, type, String.format("Function %s argument %d", function.getSignature(), i));
             }
             resolvedFunctions.put(node, function);
 

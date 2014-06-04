@@ -309,7 +309,7 @@ class QueryPlanner
             aggregationAssignments.put(newSymbol, (FunctionCall) rewritten);
             translations.put(aggregate, newSymbol);
 
-            functions.put(newSymbol, analysis.getFunctionInfo(aggregate).getHandle());
+            functions.put(newSymbol, analysis.getFunctionInfo(aggregate).getSignature());
         }
 
         // 2.b. Rewrite group by expressions in terms of pre-projected inputs
@@ -422,7 +422,7 @@ class QueryPlanner
             assignments.put(newSymbol, (FunctionCall) rewritten);
             outputTranslations.put(windowFunction, newSymbol);
 
-            signatures.put(newSymbol, analysis.getFunctionInfo(windowFunction).getHandle());
+            signatures.put(newSymbol, analysis.getFunctionInfo(windowFunction).getSignature());
 
             List<Symbol> sourceSymbols = subPlan.getRoot().getOutputSymbols();
 
