@@ -39,7 +39,7 @@ public class DoubleSumAggregation
     @Override
     public void evaluateFinal(NullableDoubleState state, BlockBuilder out)
     {
-        if (state.isNotNull()) {
+        if (state.getNotNull()) {
             out.appendDouble(state.getDouble());
         }
         else {

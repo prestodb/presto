@@ -13,14 +13,19 @@
  */
 package com.facebook.presto.operator.aggregation.state;
 
-public interface NullableLongState
-        extends AccumulatorState
+public abstract class AbstractGroupedAccumulatorState
+        implements GroupedAccumulatorState
 {
-    long getLong();
+    private long groupId;
 
-    void setLong(long value);
+    @Override
+    public final void setGroupId(long groupId)
+    {
+        this.groupId = groupId;
+    }
 
-    boolean getNotNull();
-
-    void setNotNull(boolean value);
+    protected final long getGroupId()
+    {
+        return groupId;
+    }
 }

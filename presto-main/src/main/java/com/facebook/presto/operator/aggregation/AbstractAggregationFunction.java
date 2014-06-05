@@ -15,16 +15,9 @@ package com.facebook.presto.operator.aggregation;
 
 import com.facebook.presto.operator.GroupByIdBlock;
 import com.facebook.presto.operator.aggregation.state.AccumulatorState;
+import com.facebook.presto.operator.aggregation.state.AccumulatorStateFactory;
 import com.facebook.presto.operator.aggregation.state.GroupedAccumulatorState;
-import com.facebook.presto.operator.aggregation.state.GroupedLongAndDoubleState;
-import com.facebook.presto.operator.aggregation.state.GroupedNullableDoubleState;
-import com.facebook.presto.operator.aggregation.state.GroupedNullableLongState;
-import com.facebook.presto.operator.aggregation.state.LongAndDoubleState;
-import com.facebook.presto.operator.aggregation.state.NullableDoubleState;
-import com.facebook.presto.operator.aggregation.state.NullableLongState;
-import com.facebook.presto.operator.aggregation.state.SingleLongAndDoubleState;
-import com.facebook.presto.operator.aggregation.state.SingleNullableDoubleState;
-import com.facebook.presto.operator.aggregation.state.SingleNullableLongState;
+import com.facebook.presto.operator.aggregation.state.StateCompiler;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockCursor;
@@ -38,19 +31,14 @@ import static com.google.common.base.Preconditions.checkState;
 public abstract class AbstractAggregationFunction<T extends AccumulatorState>
         extends SimpleAggregationFunction
 {
-    private final Class<T> stateClass;
+    private final AccumulatorStateFactory<T> stateFactory;
 
     protected AbstractAggregationFunction(Type finalType, Type intermediateType, Type parameterType)
     {
         super(finalType, intermediateType, parameterType);
         java.lang.reflect.Type[] types = TypeParameterUtils.getTypeParameters(AbstractAggregationFunction.class, getClass());
         checkState(types.length == 1 && types[0] instanceof Class);
-        this.stateClass = (Class<T>) types[0];
-    }
-
-    protected void initializeState(T state)
-    {
-        // noop by default
+        stateFactory = new StateCompiler().generateStateFactory((Class<T>) types[0]);
     }
 
     protected abstract void processInput(T state, BlockCursor cursor);
@@ -71,44 +59,12 @@ public abstract class AbstractAggregationFunction<T extends AccumulatorState>
 
     private T createSingleState()
     {
-        // TODO: we should probably generate these classes
-        if (stateClass.equals(NullableDoubleState.class)) {
-            T state = stateClass.cast(new SingleNullableDoubleState());
-            initializeState(state);
-            return state;
-        }
-        if (stateClass.equals(NullableLongState.class)) {
-            T state = stateClass.cast(new SingleNullableLongState());
-            initializeState(state);
-            return state;
-        }
-        if (stateClass.equals(LongAndDoubleState.class)) {
-            T state = stateClass.cast(new SingleLongAndDoubleState());
-            initializeState(state);
-            return state;
-        }
-        throw new IllegalStateException(String.format("Unsupported state type %s", stateClass));
+        return stateFactory.createSingleState();
     }
 
     private T createGroupedState()
     {
-        // TODO: we should probably generate these classes
-        if (stateClass.equals(NullableDoubleState.class)) {
-            NullableDoubleState defaultState = new SingleNullableDoubleState();
-            initializeState(stateClass.cast(defaultState));
-            return stateClass.cast(new GroupedNullableDoubleState(defaultState));
-        }
-        if (stateClass.equals(NullableLongState.class)) {
-            NullableLongState defaultState = new SingleNullableLongState();
-            initializeState(stateClass.cast(defaultState));
-            return stateClass.cast(new GroupedNullableLongState(defaultState));
-        }
-        if (stateClass.equals(LongAndDoubleState.class)) {
-            LongAndDoubleState defaultState = new SingleLongAndDoubleState();
-            initializeState(stateClass.cast(defaultState));
-            return stateClass.cast(new GroupedLongAndDoubleState(defaultState));
-        }
-        throw new IllegalStateException(String.format("Unsupported state type %s", stateClass));
+        return stateFactory.createGroupedState();
     }
 
     @Override
