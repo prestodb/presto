@@ -27,9 +27,11 @@ import com.facebook.presto.util.array.BooleanBigArray;
 import com.facebook.presto.util.array.ByteBigArray;
 import com.facebook.presto.util.array.DoubleBigArray;
 import com.facebook.presto.util.array.LongBigArray;
+import com.facebook.presto.util.array.SliceBigArray;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import io.airlift.slice.Slice;
 import org.objectweb.asm.ClassWriter;
 
 import java.lang.annotation.Annotation;
@@ -107,7 +109,10 @@ public class StateCompiler
         if (type.equals(boolean.class)) {
             return BooleanBigArray.class;
         }
-        // TODO: support reference types
+        if (type.equals(Slice.class)) {
+            return SliceBigArray.class;
+        }
+        // TODO: support more reference types
         throw new IllegalArgumentException("Unsupported type: " + type.getName());
     }
 
@@ -318,7 +323,7 @@ public class StateCompiler
     private static List<StateField> enumerateFields(Class<?> clazz)
     {
         ImmutableList.Builder<StateField> builder = ImmutableList.builder();
-        Set<Class<?>> supportedClasses = ImmutableSet.<Class<?>>of(byte.class, boolean.class, long.class, double.class);
+        Set<Class<?>> supportedClasses = ImmutableSet.<Class<?>>of(byte.class, boolean.class, long.class, double.class, Slice.class);
 
         for (Method method : clazz.getMethods()) {
             if (method.getName().equals("getEstimatedSize")) {
