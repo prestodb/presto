@@ -13,14 +13,12 @@
  */
 package com.facebook.presto.operator.aggregation.state;
 
-public interface NullableLongState
-        extends AccumulatorState
+public interface AccumulatorStateFactory<T>
 {
-    long getLong();
+    T createSingleState();
 
-    void setLong(long value);
-
-    boolean getNotNull();
-
-    void setNotNull(boolean value);
+    /**
+     * Return value is also guaranteed to implement GroupedAccumulatorState
+     */
+    T createGroupedState();
 }

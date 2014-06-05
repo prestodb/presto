@@ -13,14 +13,15 @@
  */
 package com.facebook.presto.operator.aggregation;
 
-import com.facebook.presto.operator.aggregation.state.NullableLongState;
+import com.facebook.presto.operator.aggregation.state.AccumulatorState;
+import com.facebook.presto.operator.aggregation.state.InitialLongValue;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockCursor;
 
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 
 public class LongMinAggregation
-        extends AbstractAggregationFunction<NullableLongState>
+        extends AbstractAggregationFunction<LongMinAggregation.LongMinState>
 {
     public static final LongMinAggregation LONG_MIN = new LongMinAggregation();
 
@@ -30,26 +31,33 @@ public class LongMinAggregation
     }
 
     @Override
-    protected void initializeState(NullableLongState state)
-    {
-        state.setLong(Long.MAX_VALUE);
-    }
-
-    @Override
-    public void processInput(NullableLongState state, BlockCursor cursor)
+    public void processInput(LongMinState state, BlockCursor cursor)
     {
         state.setNotNull(true);
         state.setLong(Math.min(state.getLong(), cursor.getLong()));
     }
 
     @Override
-    public void evaluateFinal(NullableLongState state, BlockBuilder out)
+    public void evaluateFinal(LongMinState state, BlockBuilder out)
     {
-        if (state.isNotNull()) {
+        if (state.getNotNull()) {
             out.appendLong(state.getLong());
         }
         else {
             out.appendNull();
         }
+    }
+
+    public interface LongMinState
+            extends AccumulatorState
+    {
+        @InitialLongValue(Long.MAX_VALUE)
+        long getLong();
+
+        void setLong(long value);
+
+        boolean getNotNull();
+
+        void setNotNull(boolean value);
     }
 }

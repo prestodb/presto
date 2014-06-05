@@ -15,41 +15,14 @@ package com.facebook.presto.operator.aggregation.state;
 
 import org.openjdk.jol.info.ClassLayout;
 
-public final class SingleNullableLongState
-        implements NullableLongState
+public abstract class AbstractAccumulatorState
+        implements AccumulatorState
 {
-    public static final int STATE_SIZE = ClassLayout.parseClass(SingleNullableLongState.class).instanceSize();
-
-    private long value;
-    private boolean isNotNull;
-
-    @Override
-    public long getLong()
-    {
-        return value;
-    }
-
-    @Override
-    public void setLong(long value)
-    {
-        this.value = value;
-    }
-
-    @Override
-    public boolean isNotNull()
-    {
-        return isNotNull;
-    }
-
-    @Override
-    public void setNotNull(boolean value)
-    {
-        this.isNotNull = value;
-    }
+    private final int stateSize = ClassLayout.parseClass(getClass()).instanceSize();
 
     @Override
     public long getEstimatedSize()
     {
-        return STATE_SIZE;
+        return stateSize;
     }
 }

@@ -20,7 +20,7 @@ public interface NullableDoubleState
 
     void setDouble(double value);
 
-    boolean isNotNull();
+    boolean getNotNull();
 
     void setNotNull(boolean value);
 }

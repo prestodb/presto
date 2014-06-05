@@ -39,7 +39,7 @@ public class LongSumAggregation
     @Override
     public void evaluateFinal(NullableLongState state, BlockBuilder out)
     {
-        if (state.isNotNull()) {
+        if (state.getNotNull()) {
             out.appendLong(state.getLong());
         }
         else {

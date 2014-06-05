@@ -13,14 +13,15 @@
  */
 package com.facebook.presto.operator.aggregation;
 
-import com.facebook.presto.operator.aggregation.state.NullableDoubleState;
+import com.facebook.presto.operator.aggregation.state.AccumulatorState;
+import com.facebook.presto.operator.aggregation.state.InitialDoubleValue;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockCursor;
 
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 
 public class DoubleMaxAggregation
-        extends AbstractAggregationFunction<NullableDoubleState>
+        extends AbstractAggregationFunction<DoubleMaxAggregation.DoubleMaxState>
 {
     public static final DoubleMaxAggregation DOUBLE_MAX = new DoubleMaxAggregation();
 
@@ -30,26 +31,33 @@ public class DoubleMaxAggregation
     }
 
     @Override
-    protected void initializeState(NullableDoubleState state)
-    {
-        state.setDouble(Double.NEGATIVE_INFINITY);
-    }
-
-    @Override
-    public void processInput(NullableDoubleState state, BlockCursor cursor)
+    public void processInput(DoubleMaxState state, BlockCursor cursor)
     {
         state.setNotNull(true);
         state.setDouble(Math.max(state.getDouble(), cursor.getDouble()));
     }
 
     @Override
-    public void evaluateFinal(NullableDoubleState state, BlockBuilder out)
+    public void evaluateFinal(DoubleMaxState state, BlockBuilder out)
     {
-        if (state.isNotNull()) {
+        if (state.getNotNull()) {
             out.appendDouble(state.getDouble());
         }
         else {
             out.appendNull();
         }
+    }
+
+    public interface DoubleMaxState
+            extends AccumulatorState
+    {
+        @InitialDoubleValue(Double.NEGATIVE_INFINITY)
+        double getDouble();
+
+        void setDouble(double value);
+
+        boolean getNotNull();
+
+        void setNotNull(boolean value);
     }
 }
