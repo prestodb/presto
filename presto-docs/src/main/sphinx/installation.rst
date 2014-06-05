@@ -9,3 +9,4 @@ Installation
     installation/discovery
     installation/cli
     installation/jdbc
+    installation/verifier
