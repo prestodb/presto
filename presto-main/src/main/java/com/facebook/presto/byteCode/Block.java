@@ -203,6 +203,36 @@ public class Block
         return this;
     }
 
+    public Block longAdd()
+    {
+        nodes.add(OpCodes.LADD);
+        return this;
+    }
+
+    public Block longCompare()
+    {
+        nodes.add(OpCodes.LCMP);
+        return this;
+    }
+
+    /**
+     * Compare two doubles. If either is NaN comparison is -1.
+     */
+    public Block doubleCompareNanLess()
+    {
+        nodes.add(OpCodes.DCMPL);
+        return this;
+    }
+
+    /**
+     * Compare two doubles. If either is NaN comparison is 1.
+     */
+    public Block doubleCompareNanGreater()
+    {
+        nodes.add(OpCodes.DCMPG);
+        return this;
+    }
+
     public Block intLeftShift()
     {
         nodes.add(OpCodes.ISHL);
@@ -527,6 +557,18 @@ public class Block
     public Block retObject()
     {
         nodes.add(OpCodes.ARETURN);
+        return this;
+    }
+
+    public Block retFloat()
+    {
+        nodes.add(OpCodes.FRETURN);
+        return this;
+    }
+
+    public Block retDouble()
+    {
+        nodes.add(OpCodes.DRETURN);
         return this;
     }
 
