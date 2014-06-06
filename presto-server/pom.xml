@@ -16,6 +16,7 @@
         <air.main.basedir>${project.parent.basedir}</air.main.basedir>
         <main-class>com.facebook.presto.server.PrestoServer</main-class>
         <air.check.skip-duplicate-finder>true</air.check.skip-duplicate-finder>
+        <air.check.skip-dependency-version-check>true</air.check.skip-dependency-version-check>
     </properties>
 
     <dependencies>
