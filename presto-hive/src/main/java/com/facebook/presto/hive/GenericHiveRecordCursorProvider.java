@@ -14,6 +14,7 @@
 package com.facebook.presto.hive;
 
 import com.facebook.presto.spi.ConnectorSession;
+import com.facebook.presto.spi.TupleDomain;
 import com.google.common.base.Optional;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
@@ -38,6 +39,7 @@ public class GenericHiveRecordCursorProvider
             Properties schema,
             List<HiveColumnHandle> columns,
             List<HivePartitionKey> partitionKeys,
+            TupleDomain<HiveColumnHandle> tupleDomain,
             DateTimeZone hiveStorageTimeZone)
     {
         RecordReader<?, ?> recordReader = HiveUtil.createRecordReader(clientId, configuration, path, start, length, schema, columns);

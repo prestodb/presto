@@ -14,6 +14,7 @@
 package com.facebook.presto.hive;
 
 import com.facebook.presto.spi.ConnectorSession;
+import com.facebook.presto.spi.TupleDomain;
 import com.google.common.base.Optional;
 import com.google.common.base.Throwables;
 import com.google.common.collect.Lists;
@@ -47,6 +48,7 @@ public class OrcRecordCursorProvider
             Properties schema,
             List<HiveColumnHandle> columns,
             List<HivePartitionKey> partitionKeys,
+            TupleDomain<HiveColumnHandle> tupleDomain,
             DateTimeZone hiveStorageTimeZone)
     {
         @SuppressWarnings("deprecation")

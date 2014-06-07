@@ -16,6 +16,7 @@ package com.facebook.presto.hive;
 import com.facebook.presto.hadoop.HadoopNative;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.HostAddress;
+import com.facebook.presto.spi.TupleDomain;
 import com.google.common.base.Function;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
@@ -375,6 +376,7 @@ public final class BenchmarkHiveFileFormats
                     split.getSchema(),
                     BIGINT_COLUMN,
                     split.getPartitionKeys(),
+                    TupleDomain.<HiveColumnHandle>all(),
                     DateTimeZone.UTC).get();
 
             while (recordCursor.advanceNextPosition()) {
@@ -409,6 +411,7 @@ public final class BenchmarkHiveFileFormats
                     split.getSchema(),
                     DOUBLE_COLUMN,
                     split.getPartitionKeys(),
+                    TupleDomain.<HiveColumnHandle>all(),
                     DateTimeZone.UTC).get();
 
             while (recordCursor.advanceNextPosition()) {
@@ -443,6 +446,7 @@ public final class BenchmarkHiveFileFormats
                     split.getSchema(),
                     VARCHAR_COLUMN,
                     split.getPartitionKeys(),
+                    TupleDomain.<HiveColumnHandle>all(),
                     DateTimeZone.UTC).get();
 
             while (recordCursor.advanceNextPosition()) {
@@ -477,6 +481,7 @@ public final class BenchmarkHiveFileFormats
                     split.getSchema(),
                     TPCH_6_COLUMNS,
                     split.getPartitionKeys(),
+                    TupleDomain.<HiveColumnHandle>all(),
                     DateTimeZone.UTC).get();
 
             while (recordCursor.advanceNextPosition()) {
@@ -520,6 +525,7 @@ public final class BenchmarkHiveFileFormats
                     split.getSchema(),
                     TPCH_1_COLUMNS,
                     split.getPartitionKeys(),
+                    TupleDomain.<HiveColumnHandle>all(),
                     DateTimeZone.UTC).get();
 
             while (recordCursor.advanceNextPosition()) {
@@ -572,6 +578,7 @@ public final class BenchmarkHiveFileFormats
                     split.getSchema(),
                     ALL_COLUMNS,
                     split.getPartitionKeys(),
+                    TupleDomain.<HiveColumnHandle>all(),
                     DateTimeZone.UTC).get();
 
             while (recordCursor.advanceNextPosition()) {
@@ -651,6 +658,7 @@ public final class BenchmarkHiveFileFormats
                     split.getSchema(),
                     ALL_COLUMNS,
                     split.getPartitionKeys(),
+                    TupleDomain.<HiveColumnHandle>all(),
                     DateTimeZone.UTC).get();
 
             while (recordCursor.advanceNextPosition()) {
@@ -768,7 +776,8 @@ public final class BenchmarkHiveFileFormats
                 partitionProperties,
                 ImmutableList.<HivePartitionKey>of(),
                 ImmutableList.<HostAddress>of(),
-                SESSION);
+                SESSION,
+                TupleDomain.<HiveColumnHandle>all());
     }
 
     private static List<HiveColumnHandle> getHiveColumnHandles(TpchColumn<?>... tpchColumns)

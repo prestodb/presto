@@ -14,6 +14,7 @@
 package com.facebook.presto.hive;
 
 import com.facebook.presto.spi.ConnectorSession;
+import com.facebook.presto.spi.TupleDomain;
 import com.google.common.base.Optional;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
@@ -40,6 +41,7 @@ public class ColumnarBinaryHiveRecordCursorProvider
             Properties schema,
             List<HiveColumnHandle> columns,
             List<HivePartitionKey> partitionKeys,
+            TupleDomain<HiveColumnHandle> tupleDomain,
             DateTimeZone hiveStorageTimeZone)
     {
         if (!usesColumnarBinarySerDe(schema)) {

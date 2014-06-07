@@ -15,6 +15,7 @@ package com.facebook.presto.hive;
 
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.HostAddress;
+import com.facebook.presto.spi.TupleDomain;
 import com.google.common.collect.ImmutableList;
 import io.airlift.json.JsonCodec;
 import org.testng.annotations.Test;
@@ -39,7 +40,19 @@ public class TestHiveSplit
 
         ImmutableList<HivePartitionKey> partitionKeys = ImmutableList.of(new HivePartitionKey("a", HiveType.STRING, "apple"), new HivePartitionKey("b", HiveType.LONG, "42"));
         ImmutableList<HostAddress> addresses = ImmutableList.of(HostAddress.fromParts("127.0.0.1", 44), HostAddress.fromParts("127.0.0.1", 45));
-        HiveSplit expected = new HiveSplit("clientId", "db", "table", "partitionId", "path", 42, 88, schema, partitionKeys, addresses, SESSION);
+        HiveSplit expected = new HiveSplit(
+                "clientId",
+                "db",
+                "table",
+                "partitionId",
+                "path",
+                42,
+                88,
+                schema,
+                partitionKeys,
+                addresses,
+                SESSION,
+                TupleDomain.<HiveColumnHandle>all());
 
         String json = codec.toJson(expected);
         HiveSplit actual = codec.fromJson(json);

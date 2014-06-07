@@ -14,6 +14,7 @@
 package com.facebook.presto.hive;
 
 import com.facebook.presto.spi.ConnectorSession;
+import com.facebook.presto.spi.TupleDomain;
 import com.facebook.presto.spi.type.TimeZoneKey;
 import com.google.common.base.Function;
 import com.google.common.base.Joiner;
@@ -50,8 +51,6 @@ import java.util.Locale;
 import java.util.Properties;
 import java.util.TimeZone;
 
-import static org.testng.Assert.assertEquals;
-
 import static com.facebook.presto.hive.AbstractTestHiveFileFormats.TestColumn.nameGetter;
 import static com.facebook.presto.hive.AbstractTestHiveFileFormats.TestColumn.partitionKeyFilter;
 import static com.facebook.presto.hive.AbstractTestHiveFileFormats.TestColumn.typeGetter;
@@ -60,6 +59,7 @@ import static com.google.common.collect.Iterables.filter;
 import static com.google.common.collect.Iterables.transform;
 import static org.apache.hadoop.hive.metastore.api.hive_metastoreConstants.FILE_INPUT_FORMAT;
 import static org.apache.hadoop.hive.serde.serdeConstants.SERIALIZATION_LIB;
+import static org.testng.Assert.assertEquals;
 
 public class TestHiveFileFormats
         extends AbstractTestHiveFileFormats
@@ -231,6 +231,7 @@ public class TestHiveFileFormats
                 splitProperties,
                 getColumnHandles(testColumns),
                 partitionKeys,
+                TupleDomain.<HiveColumnHandle>all(),
                 DateTimeZone.getDefault()).get();
 
         checkCursor(cursor, testColumns);

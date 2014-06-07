@@ -20,6 +20,7 @@ import com.facebook.hive.orc.OrcSerde;
 import com.facebook.hive.orc.Reader;
 import com.facebook.hive.orc.RecordReader;
 import com.facebook.presto.spi.ConnectorSession;
+import com.facebook.presto.spi.TupleDomain;
 import com.google.common.base.Optional;
 import com.google.common.base.Predicate;
 import com.google.common.base.Throwables;
@@ -59,6 +60,7 @@ public class DwrfRecordCursorProvider
             Properties schema,
             List<HiveColumnHandle> columns,
             List<HivePartitionKey> partitionKeys,
+            TupleDomain<HiveColumnHandle> tupleDomain,
             DateTimeZone hiveStorageTimeZone)
     {
         @SuppressWarnings("deprecation")
