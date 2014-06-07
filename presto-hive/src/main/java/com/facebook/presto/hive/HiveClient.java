@@ -60,6 +60,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
+import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Ordering;
 import com.google.inject.Inject;
@@ -128,6 +129,7 @@ import static com.google.common.base.Predicates.in;
 import static com.google.common.base.Predicates.not;
 import static com.google.common.base.Strings.isNullOrEmpty;
 import static com.google.common.collect.Iterables.concat;
+import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.collect.Iterables.transform;
 import static io.airlift.slice.Slices.utf8Slice;
 import static java.lang.Boolean.parseBoolean;
@@ -958,7 +960,7 @@ public class HiveClient
                 Domain domain = tupleDomain.getDomains().get(columnHandle);
                 if (domain != null && domain.getRanges().getRangeCount() == 1) {
                     // We intentionally ignore whether NULL is in the domain since partition keys can never be NULL
-                    Range range = Iterables.getOnlyElement(domain.getRanges());
+                    Range range = getOnlyElement(domain.getRanges());
                     if (range.isSingleValue()) {
                         Comparable<?> value = range.getLow().getValue();
                         checkArgument(value instanceof Boolean || value instanceof Slice || value instanceof Double || value instanceof Long,
@@ -1009,28 +1011,34 @@ public class HiveClient
     }
 
     @Override
-    public ConnectorSplitSource getPartitionSplits(ConnectorTableHandle tableHandle, List<ConnectorPartition> partitions)
+    public ConnectorSplitSource getPartitionSplits(ConnectorTableHandle tableHandle, List<ConnectorPartition> connectorPartitions)
     {
         HiveTableHandle hiveTableHandle = checkType(tableHandle, HiveTableHandle.class, "tableHandle");
 
-        checkNotNull(partitions, "partitions is null");
+        checkNotNull(connectorPartitions, "connectorPartitions is null");
+        List<HivePartition> partitions = Lists.transform(connectorPartitions, new Function<ConnectorPartition, HivePartition>() {
+            @Override
+            public HivePartition apply(ConnectorPartition partition)
+            {
+                return checkType(partition, HivePartition.class, "partition");
+            }
+        });
 
-        ConnectorPartition partition = Iterables.getFirst(partitions, null);
+        HivePartition partition = Iterables.getFirst(partitions, null);
         if (partition == null) {
             return new FixedSplitSource(connectorId, ImmutableList.<ConnectorSplit>of());
         }
-        HivePartition hivePartition = checkType(partition, HivePartition.class, "partition");
-        SchemaTableName tableName = hivePartition.getTableName();
-        Optional<HiveBucket> bucket = hivePartition.getBucket();
+        SchemaTableName tableName = partition.getTableName();
+        Optional<HiveBucket> bucket = partition.getBucket();
 
-        // sort partitions by name
-        List<String> partitionNames = Ordering.natural().reverse().sortedCopy(transform(partitions, partitionIdGetter()));
+        // sort partitions
+        partitions = Ordering.natural().onResultOf(partitionIdGetter()).reverse().sortedCopy(partitions);
 
         Table table;
-        Iterable<Partition> hivePartitions;
+        Iterable<HivePartitionMetadata> hivePartitions;
         try {
             table = metastore.getTable(tableName.getSchemaName(), tableName.getTableName());
-            hivePartitions = getPartitions(table, tableName, partitionNames);
+            hivePartitions = getPartitionMetadata(table, tableName, partitions);
         }
         catch (NoSuchObjectException e) {
             throw new TableNotFoundException(tableName);
@@ -1038,7 +1046,6 @@ public class HiveClient
 
         return new HiveSplitSourceProvider(connectorId,
                 table,
-                partitionNames,
                 hivePartitions,
                 bucket,
                 maxSplitSize,
@@ -1055,27 +1062,41 @@ public class HiveClient
                 recursiveDfsWalkerEnabled).get();
     }
 
-    private Iterable<Partition> getPartitions(final Table table, final SchemaTableName tableName, List<String> partitionNames)
+    private Iterable<HivePartitionMetadata> getPartitionMetadata(final Table table, final SchemaTableName tableName, List<HivePartition> partitions)
             throws NoSuchObjectException
     {
-        if (partitionNames.equals(ImmutableList.of(UNPARTITIONED_ID))) {
-            return ImmutableList.of(UNPARTITIONED_PARTITION);
+        if (partitions.isEmpty()) {
+            return ImmutableList.of();
         }
 
-        Iterable<List<String>> partitionNameBatches = partitionExponentially(partitionNames, minPartitionBatchSize, maxPartitionBatchSize);
-        Iterable<List<Partition>> partitionBatches = transform(partitionNameBatches, new Function<List<String>, List<Partition>>()
+        if (partitions.size() == 1) {
+            HivePartition firstPartition = getOnlyElement(partitions);
+            if (firstPartition.getPartitionId().equals(UNPARTITIONED_ID)) {
+                return ImmutableList.of(new HivePartitionMetadata(firstPartition, UNPARTITIONED_PARTITION));
+            }
+        }
+
+        Iterable<List<HivePartition>> partitionNameBatches = partitionExponentially(partitions, minPartitionBatchSize, maxPartitionBatchSize);
+        Iterable<List<HivePartitionMetadata>> partitionBatches = transform(partitionNameBatches, new Function<List<HivePartition>, List<HivePartitionMetadata>>()
         {
             @Override
-            public List<Partition> apply(List<String> partitionNameBatch)
+            public List<HivePartitionMetadata> apply(List<HivePartition> partitionBatch)
             {
                 Exception exception = null;
                 for (int attempt = 0; attempt < 10; attempt++) {
                     try {
-                        List<Partition> partitions = metastore.getPartitionsByNames(tableName.getSchemaName(), tableName.getTableName(), partitionNameBatch);
-                        checkState(partitionNameBatch.size() == partitions.size(), "expected %s partitions but found %s", partitionNameBatch.size(), partitions.size());
+                        Map<String, Partition> partitions = metastore.getPartitionsByNames(
+                                tableName.getSchemaName(),
+                                tableName.getTableName(),
+                                Lists.transform(partitionBatch, partitionIdGetter()));
+                        checkState(partitionBatch.size() == partitions.size(), "expected %s partitions but found %s", partitionBatch.size(), partitions.size());
 
-                        for (Partition partition : partitions) {
-                            // verify the partition is online
+                        ImmutableList.Builder<HivePartitionMetadata> results = ImmutableList.builder();
+                        for (HivePartition hivePartition : partitionBatch) {
+                            Partition partition = partitions.get(hivePartition.getPartitionId());
+                            checkState(partition != null, "Partition %s was not loaded", hivePartition.getPartitionId());
+
+                            // verify all partition is online
                             String protectMode = partition.getParameters().get(ProtectMode.PARAMETER_NAME);
                             String partName = makePartName(table.getPartitionKeys(), partition.getValues());
                             if (protectMode != null && getProtectModeFromString(protectMode).offline) {
@@ -1106,9 +1127,11 @@ public class HiveClient
                                             tableType));
                                 }
                             }
+
+                            results.add(new HivePartitionMetadata(hivePartition, partition));
                         }
 
-                        return partitions;
+                        return results.build();
                     }
                     catch (PrestoException | NoSuchObjectException | NullPointerException | IllegalStateException | IllegalArgumentException e) {
                         throw Throwables.propagate(e);

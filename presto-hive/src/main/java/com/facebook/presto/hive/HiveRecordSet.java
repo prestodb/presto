@@ -111,6 +111,7 @@ public class HiveRecordSet
                     split.getSchema(),
                     columns,
                     split.getPartitionKeys(),
+                    split.getTupleDomain(),
                     timeZone,
                     typeManager);
 
