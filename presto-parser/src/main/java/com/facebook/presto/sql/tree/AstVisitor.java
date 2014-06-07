@@ -389,11 +389,11 @@ public abstract class AstVisitor<R, C>
 
     protected R visitCreateTable(CreateTable node, C context)
     {
-        return visitNode(node, context);
+        return visitStatement(node, context);
     }
 
     protected R visitDropTable(DropTable node, C context)
     {
-        return visitNode(node, context);
+        return visitStatement(node, context);
     }
 }
