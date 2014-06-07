@@ -58,6 +58,7 @@ import javax.inject.Inject;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
@@ -628,15 +629,17 @@ public class CachingHiveMetastore
         }
     }
 
-    /**
-     * Note: the returned partitions may not be in the same order as the specified partition names.
-     */
-    @Override
-    public List<Partition> getPartitionsByNames(String databaseName, String tableName, List<String> partitionNames)
+    public Map<String, Partition> getPartitionsByNames(String databaseName, String tableName, List<String> partitionNames)
             throws NoSuchObjectException
     {
         Iterable<HivePartitionName> names = transform(partitionNames, partitionNameCreator(databaseName, tableName));
-        return ImmutableList.copyOf(getAll(partitionCache, names, NoSuchObjectException.class).values());
+
+        ImmutableMap.Builder<String, Partition> partitionsByName = ImmutableMap.builder();
+        Map<HivePartitionName, Partition> all = getAll(partitionCache, names, NoSuchObjectException.class);
+        for (Entry<HivePartitionName, Partition> entry : all.entrySet()) {
+            partitionsByName.put(entry.getKey().getPartitionName(), entry.getValue());
+        }
+        return partitionsByName.build();
     }
 
     private Partition loadPartitionByName(final HivePartitionName partitionName)
