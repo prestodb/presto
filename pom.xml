@@ -183,6 +183,12 @@
             </dependency>
 
             <dependency>
+                <groupId>com.facebook.presto</groupId>
+                <artifactId>presto-benchmark</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+
+            <dependency>
                 <groupId>com.facebook.presto.hadoop</groupId>
                 <artifactId>hadoop-apache1</artifactId>
                 <version>0.2</version>
