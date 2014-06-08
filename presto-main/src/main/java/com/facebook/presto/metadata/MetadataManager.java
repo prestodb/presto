@@ -379,13 +379,13 @@ public class MetadataManager
         checkNotNull(prefix, "prefix is null");
 
         String schemaNameOrNull = prefix.getSchemaName().orNull();
-        Set<QualifiedTableName> tables = new LinkedHashSet<>();
+        Set<QualifiedTableName> views = new LinkedHashSet<>();
         for (ConnectorMetadataEntry entry : allConnectorsFor(prefix.getCatalogName())) {
             for (QualifiedTableName tableName : transform(entry.getMetadata().listViews(session, schemaNameOrNull), convertFromSchemaTableName(prefix.getCatalogName()))) {
-                tables.add(tableName);
+                views.add(tableName);
             }
         }
-        return ImmutableList.copyOf(tables);
+        return ImmutableList.copyOf(views);
     }
 
     @Override
