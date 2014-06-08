@@ -67,6 +67,7 @@ import static org.apache.hadoop.hive.metastore.api.hive_metastoreConstants.HIVE_
  */
 @ThreadSafe
 public class CachingHiveMetastore
+        implements HiveMetastore
 {
     private final CachingHiveMetastoreStats stats = new CachingHiveMetastoreStats();
     protected final HiveCluster clientProvider;
@@ -216,6 +217,7 @@ public class CachingHiveMetastore
         return stats;
     }
 
+    @Override
     @Managed
     public void flushCache()
     {
@@ -255,6 +257,7 @@ public class CachingHiveMetastore
         }
     }
 
+    @Override
     public List<String> getAllDatabases()
     {
         return get(databaseNamesCache, "", RuntimeException.class);
@@ -281,6 +284,7 @@ public class CachingHiveMetastore
         }
     }
 
+    @Override
     public Database getDatabase(String databaseName)
             throws NoSuchObjectException
     {
@@ -311,6 +315,7 @@ public class CachingHiveMetastore
         }
     }
 
+    @Override
     public List<String> getAllTables(String databaseName)
             throws NoSuchObjectException
     {
@@ -369,12 +374,14 @@ public class CachingHiveMetastore
         }
     }
 
+    @Override
     public Table getTable(String databaseName, String tableName)
             throws NoSuchObjectException
     {
         return get(tableCache, HiveTableName.table(databaseName, tableName), NoSuchObjectException.class);
     }
 
+    @Override
     public List<String> getAllViews(String databaseName)
             throws NoSuchObjectException
     {
@@ -406,6 +413,7 @@ public class CachingHiveMetastore
         }
     }
 
+    @Override
     public void createTable(final Table table)
     {
         try {
@@ -444,6 +452,7 @@ public class CachingHiveMetastore
         }
     }
 
+    @Override
     public void dropTable(final String databaseName, final String tableName)
     {
         try {
@@ -505,6 +514,7 @@ public class CachingHiveMetastore
         }
     }
 
+    @Override
     public List<String> getPartitionNames(String databaseName, String tableName)
             throws NoSuchObjectException
     {
@@ -535,6 +545,7 @@ public class CachingHiveMetastore
         }
     }
 
+    @Override
     public List<String> getPartitionNamesByParts(String databaseName, String tableName, List<String> parts)
             throws NoSuchObjectException
     {
@@ -571,6 +582,7 @@ public class CachingHiveMetastore
     /**
      * Note: the returned partitions may not be in the same order as the specified partition names.
      */
+    @Override
     public List<Partition> getPartitionsByNames(String databaseName, String tableName, List<String> partitionNames)
             throws NoSuchObjectException
     {

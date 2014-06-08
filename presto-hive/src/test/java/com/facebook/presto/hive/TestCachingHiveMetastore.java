@@ -37,7 +37,7 @@ import static org.testng.Assert.assertNotNull;
 public class TestCachingHiveMetastore
 {
     private MockHiveMetastoreClient mockClient;
-    private CachingHiveMetastore metastore;
+    private HiveMetastore metastore;
 
     @BeforeMethod
     public void setUp()

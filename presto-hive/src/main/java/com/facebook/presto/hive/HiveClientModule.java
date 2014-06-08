@@ -57,8 +57,8 @@ public class HiveClientModule
         bindConfig(binder).to(HiveClientConfig.class);
         bindConfig(binder).to(HivePluginConfig.class);
 
-        binder.bind(CachingHiveMetastore.class).in(Scopes.SINGLETON);
-        newExporter(binder).export(CachingHiveMetastore.class)
+        binder.bind(HiveMetastore.class).to(CachingHiveMetastore.class).in(Scopes.SINGLETON);
+        newExporter(binder).export(HiveMetastore.class)
                 .as(generatedNameOf(CachingHiveMetastore.class, connectorId));
         binder.bind(NamenodeStats.class).in(Scopes.SINGLETON);
         newExporter(binder).export(NamenodeStats.class).as(generatedNameOf(NamenodeStats.class));
