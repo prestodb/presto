@@ -474,7 +474,9 @@ public class LocalQueryRunner
             List<Partition> partitions = splitManager.getPartitions(tableHandle, Optional.<TupleDomain<ColumnHandle>>absent()).getPartitions();
             SplitSource splitSource = splitManager.getPartitionSplits(tableHandle, partitions);
             Split split = Iterables.getOnlyElement(splitSource.getNextBatch(1000));
-            checkState(splitSource.isFinished(), "Expected only one split for a local query");
+            while (!splitSource.isFinished()) {
+                checkState(splitSource.getNextBatch(1000).isEmpty(), "Expected only one split for a local query");
+            }
             return split;
         }
         catch (InterruptedException e) {
