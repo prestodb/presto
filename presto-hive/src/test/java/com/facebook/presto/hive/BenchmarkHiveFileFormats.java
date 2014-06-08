@@ -142,7 +142,8 @@ public final class BenchmarkHiveFileFormats
                         new org.apache.hadoop.hive.ql.io.orc.OrcSerde(),
                         null,
 //                        new GenericHiveRecordCursorProvider()),  // orc needs special splits
-                        new OrcRecordCursorProvider()),
+                        new OrcRecordCursorProvider(),
+                        new OrcVectorRecordCursorProvider()),
 
                 new BenchmarkFile(
                         "rc binary gzip",
@@ -875,6 +876,9 @@ public final class BenchmarkHiveFileFormats
         if (recordCursorProvider instanceof GenericHiveRecordCursorProvider) {
             return "generic";
         }
+        if (recordCursorProvider instanceof OrcVectorRecordCursorProvider) {
+            return "vector";
+        }
         return "custom";
     }
 
@@ -907,6 +911,7 @@ public final class BenchmarkHiveFileFormats
             this.compressionCodec = compressionCodec;
             this.recordCursorProviders = ImmutableList.copyOf(recordCursorProviders);
 
+            serDe.initialize(new Configuration(), createTableProperties(COLUMNS));
             file = new File(DATA_DIR, "line_item." + fileExtension);
 
             Path lineitemPath = new Path(file.toURI());
