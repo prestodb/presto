@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.hive;
 
+import com.facebook.presto.hive.metastore.HiveMetastore;
 import com.facebook.presto.spi.ConnectorFactory;
 import com.facebook.presto.spi.Plugin;
 import com.google.common.collect.ImmutableList;
@@ -30,11 +31,18 @@ public class HivePlugin
 {
     private final String name;
     private Map<String, String> optionalConfig = ImmutableMap.of();
+    private HiveMetastore metastore;
 
     public HivePlugin(String name)
     {
+        this(name, null);
+    }
+
+    public HivePlugin(String name, HiveMetastore metastore)
+    {
         checkArgument(!isNullOrEmpty(name), "name is null or empty");
         this.name = name;
+        this.metastore = metastore;
     }
 
     @Override
@@ -47,7 +55,7 @@ public class HivePlugin
     public <T> List<T> getServices(Class<T> type)
     {
         if (type == ConnectorFactory.class) {
-            return ImmutableList.of(type.cast(new HiveConnectorFactory(name, optionalConfig, getClassLoader())));
+            return ImmutableList.of(type.cast(new HiveConnectorFactory(name, optionalConfig, getClassLoader(), metastore)));
         }
         return ImmutableList.of();
     }
