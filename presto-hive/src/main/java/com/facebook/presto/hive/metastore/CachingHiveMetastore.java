@@ -11,8 +11,17 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.hive;
+package com.facebook.presto.hive.metastore;
 
+import com.facebook.presto.hive.util.BackgroundCacheLoader;
+import com.facebook.presto.hive.CachingHiveMetastoreStats;
+import com.facebook.presto.hive.ForHiveMetastore;
+import com.facebook.presto.hive.HiveClientConfig;
+import com.facebook.presto.hive.HiveCluster;
+import com.facebook.presto.hive.HiveErrorCode;
+import com.facebook.presto.hive.HiveMetastoreClient;
+import com.facebook.presto.hive.HiveViewNotSupportedException;
+import com.facebook.presto.hive.TableAlreadyExistsException;
 import com.facebook.presto.hive.shaded.org.apache.thrift.TException;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SchemaTableName;

@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.hive;
+package com.facebook.presto.hive.util;
 
 import com.google.common.cache.CacheLoader;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -21,7 +21,7 @@ import java.util.concurrent.Callable;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 
-abstract class BackgroundCacheLoader<K, V>
+public abstract class BackgroundCacheLoader<K, V>
         extends CacheLoader<K, V>
 {
     private final ListeningExecutorService executor;

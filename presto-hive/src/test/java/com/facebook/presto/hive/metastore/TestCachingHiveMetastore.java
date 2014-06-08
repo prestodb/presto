@@ -11,8 +11,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.hive;
+package com.facebook.presto.hive.metastore;
 
+import com.facebook.presto.hive.HiveCluster;
+import com.facebook.presto.hive.HiveMetastoreClient;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListeningExecutorService;
 import com.google.common.util.concurrent.MoreExecutors;
@@ -25,11 +27,11 @@ import org.testng.annotations.Test;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 
-import static com.facebook.presto.hive.MockHiveMetastoreClient.BAD_DATABASE;
-import static com.facebook.presto.hive.MockHiveMetastoreClient.TEST_DATABASE;
-import static com.facebook.presto.hive.MockHiveMetastoreClient.TEST_PARTITION1;
-import static com.facebook.presto.hive.MockHiveMetastoreClient.TEST_PARTITION2;
-import static com.facebook.presto.hive.MockHiveMetastoreClient.TEST_TABLE;
+import static com.facebook.presto.hive.metastore.MockHiveMetastoreClient.BAD_DATABASE;
+import static com.facebook.presto.hive.metastore.MockHiveMetastoreClient.TEST_DATABASE;
+import static com.facebook.presto.hive.metastore.MockHiveMetastoreClient.TEST_PARTITION1;
+import static com.facebook.presto.hive.metastore.MockHiveMetastoreClient.TEST_PARTITION2;
+import static com.facebook.presto.hive.metastore.MockHiveMetastoreClient.TEST_TABLE;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotNull;
 
