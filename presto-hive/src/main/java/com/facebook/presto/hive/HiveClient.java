@@ -155,7 +155,7 @@ public class HiveClient
     private final int minPartitionBatchSize;
     private final int maxPartitionBatchSize;
     private final boolean allowDropTable;
-    private final CachingHiveMetastore metastore;
+    private final HiveMetastore metastore;
     private final NamenodeStats namenodeStats;
     private final HdfsEnvironment hdfsEnvironment;
     private final DirectoryLister directoryLister;
@@ -169,7 +169,7 @@ public class HiveClient
     @Inject
     public HiveClient(HiveConnectorId connectorId,
             HiveClientConfig hiveClientConfig,
-            CachingHiveMetastore metastore,
+            HiveMetastore metastore,
             NamenodeStats namenodeStats,
             HdfsEnvironment hdfsEnvironment,
             DirectoryLister directoryLister,
@@ -194,7 +194,7 @@ public class HiveClient
     }
 
     public HiveClient(HiveConnectorId connectorId,
-            CachingHiveMetastore metastore,
+            HiveMetastore metastore,
             NamenodeStats namenodeStats,
             HdfsEnvironment hdfsEnvironment,
             DirectoryLister directoryLister,
@@ -233,7 +233,7 @@ public class HiveClient
         this.recursiveDfsWalkerEnabled = recursiveDfsWalkerEnabled;
     }
 
-    public CachingHiveMetastore getMetastore()
+    public HiveMetastore getMetastore()
     {
         return metastore;
     }

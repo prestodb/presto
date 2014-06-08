@@ -124,7 +124,7 @@ public abstract class AbstractTestHiveClient
 
     protected DateTimeZone timeZone;
 
-    protected CachingHiveMetastore metastoreClient;
+    protected HiveMetastore metastoreClient;
 
     protected ConnectorMetadata metadata;
     protected ConnectorSplitManager splitManager;
