@@ -186,11 +186,17 @@
             <scope>test</scope>
         </dependency>
 
+        <!-- for benchmark -->
+        <dependency>
+            <groupId>com.facebook.presto</groupId>
+            <artifactId>presto-benchmark</artifactId>
+            <scope>test</scope>
+        </dependency>
+
         <dependency>
             <groupId>com.facebook.presto</groupId>
             <artifactId>presto-tpch</artifactId>
             <scope>test</scope>
-            <optional>true</optional>
         </dependency>
 
         <dependency>
