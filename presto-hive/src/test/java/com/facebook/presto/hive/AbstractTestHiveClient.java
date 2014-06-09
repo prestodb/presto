@@ -1130,7 +1130,7 @@ public abstract class AbstractTestHiveClient
         ConnectorSplit split = getOnlyElement(getAllSplits(splitSource));
 
         try (ConnectorPageSource pageSource = pageSourceProvider.createPageSource(split, columnHandles)) {
-            assertPageSourceType(pageSource, "rcfile-binary");
+            assertPageSourceType(pageSource, "orc");
             MaterializedResult result = materializeSourceDataStream(SESSION, pageSource, getTypes(columnHandles));
             assertEquals(result.getRowCount(), 3);
 
@@ -1220,7 +1220,7 @@ public abstract class AbstractTestHiveClient
         ConnectorSplit split = getOnlyElement(getAllSplits(splitSource));
 
         try (ConnectorPageSource pageSource = pageSourceProvider.createPageSource(split, columnHandles)) {
-            assertPageSourceType(pageSource, "rcfile-binary");
+            assertPageSourceType(pageSource, "orc");
             MaterializedResult result = materializeSourceDataStream(SESSION, pageSource, getTypes(columnHandles));
             assertEquals(result.getRowCount(), 3);
 

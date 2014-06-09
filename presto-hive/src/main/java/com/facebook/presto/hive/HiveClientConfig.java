@@ -78,7 +78,7 @@ public class HiveClientConfig
     private DataSize s3MultipartMinFileSize = new DataSize(16, MEGABYTE);
     private DataSize s3MultipartMinPartSize = new DataSize(5, MEGABYTE);
 
-    private HiveStorageFormat hiveStorageFormat = HiveStorageFormat.RCBINARY;
+    private HiveStorageFormat hiveStorageFormat = HiveStorageFormat.ORC;
 
     private List<String> resourceConfigFiles;
 
