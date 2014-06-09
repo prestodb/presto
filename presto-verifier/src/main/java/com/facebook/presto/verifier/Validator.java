@@ -225,6 +225,12 @@ public class Validator
                     List<List<Object>> results = limiter.callWithTimeout(getResultSetConverter(resultSet), timeout.toMillis() - stopwatch.elapsed(TimeUnit.MILLISECONDS), TimeUnit.MILLISECONDS, true);
                     return new QueryResult(State.SUCCESS, null, nanosSince(start), results);
                 }
+                catch (AssertionError e) {
+                    if (e.getMessage().startsWith("unimplemented type:")) {
+                        return new QueryResult(State.INVALID, null, null, ImmutableList.<List<Object>>of());
+                    }
+                    throw e;
+                }
                 catch (SQLException | VerifierException e) {
                     throw e;
                 }
