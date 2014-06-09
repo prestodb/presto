@@ -898,14 +898,22 @@ public class ExpressionCompiler
         private final IdentityHashMap<Expression, Type> expressionTypes;
         private final PlanNodeId sourceId;
         private final TimeZoneKey timeZoneKey;
+        private final List<ExpressionKey> expressionKeys;
 
-        private OperatorCacheKey(Expression expression, List<Expression> projections, IdentityHashMap<Expression, Type> expressionTypes, PlanNodeId sourceId, TimeZoneKey timeZoneKey)
+        private OperatorCacheKey(Expression filter, List<Expression> projections, IdentityHashMap<Expression, Type> expressionTypes, PlanNodeId sourceId, TimeZoneKey timeZoneKey)
         {
-            this.filter = expression;
+            this.filter = filter;
             this.projections = ImmutableList.copyOf(projections);
             this.expressionTypes = expressionTypes;
             this.sourceId = sourceId;
             this.timeZoneKey = timeZoneKey;
+
+            ImmutableList.Builder<ExpressionKey> expressionKeys = ImmutableList.builder();
+            expressionKeys.add(new ExpressionKey(filter, expressionTypes));
+            for (Expression projection : projections) {
+                expressionKeys.add(new ExpressionKey(projection, expressionTypes));
+            }
+            this.expressionKeys = expressionKeys.build();
         }
 
         private Expression getFilter()
@@ -936,7 +944,7 @@ public class ExpressionCompiler
         @Override
         public int hashCode()
         {
-            return Objects.hashCode(filter, projections, expressionTypes, sourceId, timeZoneKey);
+            return Objects.hashCode(expressionKeys, sourceId, timeZoneKey);
         }
 
         @Override
@@ -949,9 +957,7 @@ public class ExpressionCompiler
                 return false;
             }
             OperatorCacheKey other = (OperatorCacheKey) obj;
-            return Objects.equal(this.filter, other.filter) &&
-                    Objects.equal(this.projections, other.projections) &&
-                    Objects.equal(this.expressionTypes, other.expressionTypes) &&
+            return Objects.equal(this.expressionKeys, other.expressionKeys) &&
                     Objects.equal(this.sourceId, other.sourceId) &&
                     Objects.equal(this.timeZoneKey, other.timeZoneKey);
         }
