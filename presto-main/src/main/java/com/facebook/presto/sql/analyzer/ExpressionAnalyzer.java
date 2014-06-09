@@ -320,6 +320,12 @@ public class ExpressionAnalyzer
                     getCaseResultExpressions(node.getWhenClauses(), node.getDefaultValue()));
             expressionTypes.put(node, type);
 
+            for (WhenClause whenClause : node.getWhenClauses()) {
+                Type whenClauseType = process(whenClause.getResult(), context);
+                checkNotNull(whenClauseType, "Expression types does not contain an entry for %s", whenClause);
+                expressionTypes.put(whenClause, whenClauseType);
+            }
+
             return type;
         }
 
@@ -334,6 +340,12 @@ public class ExpressionAnalyzer
                     "All CASE results must be the same type: %s",
                     getCaseResultExpressions(node.getWhenClauses(), node.getDefaultValue()));
             expressionTypes.put(node, type);
+
+            for (WhenClause whenClause : node.getWhenClauses()) {
+                Type whenClauseType = process(whenClause.getResult(), context);
+                checkNotNull(whenClauseType, "Expression types does not contain an entry for %s", whenClause);
+                expressionTypes.put(whenClause, whenClauseType);
+            }
 
             return type;
         }
