@@ -138,6 +138,8 @@ public class HiveClient
         HadoopFileSystemCache.initialize();
     }
 
+    public static final String PRESTO_OFFLINE = "presto_offline";
+
     private static final Logger log = Logger.get(HiveClient.class);
 
     private final String connectorId;
@@ -651,6 +653,11 @@ public class HiveClient
                 throw new TableOfflineException(tableName);
             }
 
+            String prestoOffline = table.getParameters().get(PRESTO_OFFLINE);
+            if (!isNullOrEmpty(prestoOffline)) {
+                throw new TableOfflineException(tableName, format("Table '%s' is offline for Presto: %s", tableName, prestoOffline));
+            }
+
             partitionKeys = table.getPartitionKeys();
             bucket = getHiveBucket(table, tupleDomain.extractFixedValues());
         }
@@ -789,8 +796,13 @@ public class HiveClient
                         // verify all partitions are online
                         for (Partition partition : partitions) {
                             String protectMode = partition.getParameters().get(ProtectMode.PARAMETER_NAME);
+                            String partName = makePartName(table.getPartitionKeys(), partition.getValues());
                             if (protectMode != null && getProtectModeFromString(protectMode).offline) {
-                                throw new PartitionOfflineException(tableName, makePartName(table.getPartitionKeys(), partition.getValues()));
+                                throw new PartitionOfflineException(tableName, partName);
+                            }
+                            String prestoOffline = partition.getParameters().get(PRESTO_OFFLINE);
+                            if (!isNullOrEmpty(prestoOffline)) {
+                                throw new PartitionOfflineException(tableName, partName, format("Partition '%s' is offline for Presto: %s", partName, prestoOffline));
                             }
                         }
 
