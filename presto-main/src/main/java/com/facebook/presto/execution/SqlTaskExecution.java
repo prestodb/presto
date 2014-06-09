@@ -418,7 +418,7 @@ public class SqlTaskExecution
 
                         checkTaskCompletion();
 
-                        queryMonitor.splitCompletionEvent(taskId, splitRunner.getDriverContext().getDriverStats());
+                        queryMonitor.splitCompletionEvent(taskId, getDriverStats());
                     }
                 }
 
@@ -431,19 +431,24 @@ public class SqlTaskExecution
                         // record driver is finished
                         remainingDrivers.decrementAndGet();
 
-                        DriverContext driverContext = splitRunner.getDriverContext();
-                        DriverStats driverStats;
-                        if (driverContext != null) {
-                            driverStats = driverContext.getDriverStats();
-                        }
-                        else {
-                            // split runner did not start successfully
-                            driverStats = new DriverStats();
-                        }
-
                         // fire failed event with cause
-                        queryMonitor.splitFailedEvent(taskId, driverStats, cause);
+                        queryMonitor.splitFailedEvent(taskId, getDriverStats(), cause);
                     }
+                }
+
+                private DriverStats getDriverStats()
+                {
+                    DriverContext driverContext = splitRunner.getDriverContext();
+                    DriverStats driverStats;
+                    if (driverContext != null) {
+                        driverStats = driverContext.getDriverStats();
+                    }
+                    else {
+                        // split runner did not start successfully
+                        driverStats = new DriverStats();
+                    }
+
+                    return driverStats;
                 }
             }, notificationExecutor);
         }
