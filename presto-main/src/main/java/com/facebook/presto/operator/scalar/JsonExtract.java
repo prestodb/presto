@@ -31,6 +31,7 @@ import io.airlift.slice.Slices;
 import javax.annotation.Nullable;
 
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
 import java.util.regex.Matcher;
@@ -204,7 +205,31 @@ public final class JsonExtract
         for (StringReplacer replacer : PATH_STRING_REPLACERS) {
             path = replacer.replace(path);
         }
-        return DOT_SPLITTER.split(path);
+
+        List<String> allPaths = new ArrayList<String>();
+        List<String> matches = new ArrayList<String>();
+        //first split considering anything in double quotes
+        Pattern regex = Pattern.compile("[^\\s\"']+|\"[^\"]*\"|'[^']*'");
+        Matcher regexMatcher = regex.matcher(path);
+        while (regexMatcher.find()) {
+            matches.add(regexMatcher.group());
+        }
+        //then only split paths that do not have double quotes around
+        for (String match : matches) {
+            if (match.contains("\"")) {
+                allPaths.add(match.substring(1, match.length() - 1)); //get rid of leading/trailing double quotes
+            }
+            else {
+                Iterator<String> iter = DOT_SPLITTER.trimResults().split(match).iterator();
+                while (iter.hasNext()) {
+                    String s = iter.next();
+                    if (s.length() > 0) {
+                        allPaths.add(s);
+                    }
+                }
+            }
+        }
+        return allPaths;
     }
 
     public static JsonExtractor generateExtractor(String path, boolean scalarValue)

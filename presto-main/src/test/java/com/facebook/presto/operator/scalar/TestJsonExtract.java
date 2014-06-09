@@ -125,6 +125,10 @@ public class TestJsonExtract
         assertEquals(doScalarExtract("{\"fuu\": [0, [100, 101], 2]}", "$.fuu[1]"), null); // Null b/c value is complex type
         assertEquals(doScalarExtract("{\"fuu\": [0, [100, 101], 2]}", "$.fuu[1][1]"), "101");
         assertEquals(doScalarExtract("{\"fuu\": [0, {\"bar\": {\"key\" : [\"value\"]}}, 2]}", "$.fuu[1].bar.key[0]"), "value");
+        assertEquals(doScalarExtract("{\"dotted.key\": \"value\"}", "$.\"dotted.key\""), "value");
+        assertEquals(doScalarExtract("{\"fuu\":\"\",\"bar\":\"False\",\"x.y\":\"True\"}", "$.\"x.y\""), "True");
+        assertEquals(doScalarExtract("{\"fuu\":\"\",\"bar\":\"False\",\"x.y\": {\"z\":\"True\"}}", "$.\"x.y\".z"), "True");
+        assertEquals(doScalarExtract("{\"fuu\":\"\",\"bar\":\"False\",\"x\": {\"y.z\":\"True\"}}", "$.x.\"y.z\""), "True");
 
         // Test non-object extraction
         assertEquals(doScalarExtract("[0, 1, 2]", "$[0]"), "0");
