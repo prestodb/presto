@@ -17,6 +17,9 @@ import org.apache.hadoop.hive.ql.io.HiveIgnoreKeyTextOutputFormat;
 import org.apache.hadoop.hive.ql.io.HiveSequenceFileOutputFormat;
 import org.apache.hadoop.hive.ql.io.RCFileInputFormat;
 import org.apache.hadoop.hive.ql.io.RCFileOutputFormat;
+import org.apache.hadoop.hive.ql.io.orc.OrcInputFormat;
+import org.apache.hadoop.hive.ql.io.orc.OrcOutputFormat;
+import org.apache.hadoop.hive.ql.io.orc.OrcSerde;
 import org.apache.hadoop.hive.serde2.columnar.ColumnarSerDe;
 import org.apache.hadoop.hive.serde2.columnar.LazyBinaryColumnarSerDe;
 import org.apache.hadoop.hive.serde2.lazy.LazySimpleSerDe;
@@ -27,6 +30,9 @@ import static com.google.common.base.Preconditions.checkNotNull;
 
 public enum HiveStorageFormat
 {
+    ORC(OrcSerde.class.getName(),
+            OrcInputFormat.class.getName(),
+            OrcOutputFormat.class.getName()),
     RCBINARY(LazyBinaryColumnarSerDe.class.getName(),
             RCFileInputFormat.class.getName(),
             RCFileOutputFormat.class.getName()),

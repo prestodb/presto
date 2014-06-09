@@ -34,10 +34,10 @@ import com.google.common.collect.ImmutableList;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hive.ql.io.HiveOutputFormat;
-import org.apache.hadoop.hive.ql.io.RCFileOutputFormat;
+import org.apache.hadoop.hive.ql.io.orc.OrcOutputFormat;
+import org.apache.hadoop.hive.ql.io.orc.OrcSerde;
 import org.apache.hadoop.hive.serde2.SerDeException;
 import org.apache.hadoop.hive.serde2.Serializer;
-import org.apache.hadoop.hive.serde2.columnar.LazyBinaryColumnarSerDe;
 import org.apache.hadoop.hive.serde2.objectinspector.ObjectInspector;
 import org.apache.hadoop.hive.serde2.objectinspector.PrimitiveObjectInspector;
 import org.apache.hadoop.hive.serde2.objectinspector.SettableStructObjectInspector;
@@ -92,8 +92,8 @@ public class HiveRecordSink
         properties.setProperty(META_TABLE_COLUMNS, Joiner.on(',').join(handle.getColumnNames()));
         properties.setProperty(META_TABLE_COLUMN_TYPES, Joiner.on(':').join(hiveTypeNames));
 
-        serializer = initializeSerializer(conf, properties, new LazyBinaryColumnarSerDe());
-        recordWriter = createRecordWriter(target, conf, properties, new RCFileOutputFormat());
+        serializer = initializeSerializer(conf, properties, new OrcSerde());
+        recordWriter = createRecordWriter(target, conf, properties, new OrcOutputFormat());
 
         tableInspector = getStandardStructObjectInspector(handle.getColumnNames(), getJavaObjectInspectors(hiveTypes));
         structFields = ImmutableList.copyOf(tableInspector.getAllStructFieldRefs());
