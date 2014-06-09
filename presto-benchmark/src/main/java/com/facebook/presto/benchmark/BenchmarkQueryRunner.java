@@ -98,6 +98,7 @@ public final class BenchmarkQueryRunner
                     .put("metadata.db.type", "h2")
                     .put("metadata.db.filename", databaseDir.getAbsolutePath())
                     .put("storage.data-directory", dataDir.getAbsolutePath())
+                    .put("storage.compress", "false")
                     .build();
 
             BlockEncodingSerde blockEncodingSerde = createTestingBlockEncodingManager();
