@@ -35,6 +35,7 @@ import com.facebook.presto.spi.ConnectorTableHandle;
 import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.Domain;
 import com.facebook.presto.spi.FixedSplitSource;
+import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.Range;
 import com.facebook.presto.spi.RecordSet;
 import com.facebook.presto.spi.RecordSink;
@@ -107,6 +108,7 @@ import static com.facebook.presto.hive.HiveUtil.getTableStructFields;
 import static com.facebook.presto.hive.HiveUtil.parseHiveTimestamp;
 import static com.facebook.presto.hive.UnpartitionedPartition.UNPARTITIONED_PARTITION;
 import static com.facebook.presto.hive.util.Types.checkType;
+import static com.facebook.presto.spi.StandardErrorCode.CANNOT_DROP_TABLE;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
@@ -147,6 +149,7 @@ public class HiveClient
     private final int maxSplitIteratorThreads;
     private final int minPartitionBatchSize;
     private final int maxPartitionBatchSize;
+    private final boolean allowDropTable;
     private final CachingHiveMetastore metastore;
     private final NamenodeStats namenodeStats;
     private final HdfsEnvironment hdfsEnvironment;
@@ -179,7 +182,8 @@ public class HiveClient
                 hiveClientConfig.getMinPartitionBatchSize(),
                 hiveClientConfig.getMaxPartitionBatchSize(),
                 hiveClientConfig.getMaxInitialSplitSize(),
-                hiveClientConfig.getMaxInitialSplits());
+                hiveClientConfig.getMaxInitialSplits(),
+                hiveClientConfig.getAllowDropTable());
     }
 
     public HiveClient(HiveConnectorId connectorId,
@@ -195,7 +199,8 @@ public class HiveClient
             int minPartitionBatchSize,
             int maxPartitionBatchSize,
             DataSize maxInitialSplitSize,
-            int maxInitialSplits)
+            int maxInitialSplits,
+            boolean allowDropTable)
     {
         this.connectorId = checkNotNull(connectorId, "connectorId is null").toString();
 
@@ -207,6 +212,7 @@ public class HiveClient
         this.maxPartitionBatchSize = maxPartitionBatchSize;
         this.maxInitialSplitSize = checkNotNull(maxInitialSplitSize, "maxInitialSplitSize is null");
         this.maxInitialSplits = maxInitialSplits;
+        this.allowDropTable = allowDropTable;
 
         this.metastore = checkNotNull(metastore, "metastore is null");
         this.hdfsEnvironment = checkNotNull(hdfsEnvironment, "hdfsEnvironment is null");
@@ -414,7 +420,23 @@ public class HiveClient
     @Override
     public void dropTable(ConnectorTableHandle tableHandle)
     {
-        throw new UnsupportedOperationException();
+        HiveTableHandle handle = checkType(tableHandle, HiveTableHandle.class, "tableHandle");
+        SchemaTableName tableName = getTableName(tableHandle);
+
+        if (!allowDropTable) {
+            throw new PrestoException(CANNOT_DROP_TABLE.toErrorCode(), "DROP TABLE is disabled in this Hive catalog");
+        }
+
+        try {
+            Table table = metastore.getTable(handle.getSchemaName(), handle.getTableName());
+            if (!handle.getSession().getUser().equals(table.getOwner())) {
+                throw new PrestoException(CANNOT_DROP_TABLE.toErrorCode(), format("Unable to drop table '%s': owner of the table is different from session user", table));
+            }
+            metastore.dropTable(handle.getSchemaName(), handle.getTableName());
+        }
+        catch (NoSuchObjectException e) {
+            throw new TableNotFoundException(tableName);
+        }
     }
 
     @Override
