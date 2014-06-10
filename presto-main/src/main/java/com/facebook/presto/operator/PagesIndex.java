@@ -13,9 +13,9 @@
  */
 package com.facebook.presto.operator;
 
+import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockCursor;
-import com.facebook.presto.spi.block.RandomAccessBlock;
 import com.facebook.presto.spi.block.SortOrder;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.gen.JoinCompiler;
@@ -63,7 +63,7 @@ public class PagesIndex
     private final List<Type> types;
     private final OperatorContext operatorContext;
     private final LongArrayList valueAddresses;
-    private final ObjectArrayList<RandomAccessBlock>[] channels;
+    private final ObjectArrayList<Block>[] channels;
 
     private int positionCount;
     private long pagesMemorySize;
@@ -76,9 +76,9 @@ public class PagesIndex
         this.valueAddresses = new LongArrayList(expectedPositions);
 
         //noinspection rawtypes
-        channels = (ObjectArrayList<RandomAccessBlock>[]) new ObjectArrayList[types.size()];
+        channels = (ObjectArrayList<Block>[]) new ObjectArrayList[types.size()];
         for (int i = 0; i < channels.length; i++) {
-            channels[i] = ObjectArrayList.wrap(new RandomAccessBlock[1024], 0);
+            channels[i] = ObjectArrayList.wrap(new Block[1024], 0);
         }
     }
 
@@ -97,7 +97,7 @@ public class PagesIndex
         return valueAddresses;
     }
 
-    public ObjectArrayList<RandomAccessBlock> getChannel(int channel)
+    public ObjectArrayList<Block> getChannel(int channel)
     {
         return channels[channel];
     }
@@ -109,7 +109,7 @@ public class PagesIndex
         int pageIndex = channels[0].size();
         RandomAccessPage randomAccessPage = page.toRandomAccessPage();
         for (int i = 0; i < channels.length; i++) {
-            RandomAccessBlock block = randomAccessPage.getBlock(i);
+            Block block = randomAccessPage.getBlock(i);
             channels[i].add(block);
             pagesMemorySize += block.getSizeInBytes();
         }
@@ -158,7 +158,7 @@ public class PagesIndex
             // append the row
             for (int i = 0; i < outputChannels.length; i++) {
                 int outputChannel = outputChannels[i];
-                RandomAccessBlock block = this.channels[outputChannel].get(blockIndex);
+                Block block = this.channels[outputChannel].get(blockIndex);
                 block.appendTo(blockPosition, pageBuilder.getBlockBuilder(i));
             }
 
@@ -172,7 +172,7 @@ public class PagesIndex
     {
         long pageAddress = valueAddresses.getLong(position);
 
-        RandomAccessBlock block = channels[channel].get(decodeSliceIndex(pageAddress));
+        Block block = channels[channel].get(decodeSliceIndex(pageAddress));
         int blockPosition = decodePosition(pageAddress);
         block.appendTo(blockPosition, output);
     }
@@ -181,7 +181,7 @@ public class PagesIndex
     {
         long pageAddress = valueAddresses.getLong(position);
 
-        RandomAccessBlock block = channels[channel].get(decodeSliceIndex(pageAddress));
+        Block block = channels[channel].get(decodeSliceIndex(pageAddress));
         int blockPosition = decodePosition(pageAddress);
         return block.isNull(blockPosition);
     }
@@ -190,7 +190,7 @@ public class PagesIndex
     {
         long pageAddress = valueAddresses.getLong(position);
 
-        RandomAccessBlock block = channels[channel].get(decodeSliceIndex(pageAddress));
+        Block block = channels[channel].get(decodeSliceIndex(pageAddress));
         int blockPosition = decodePosition(pageAddress);
         return block.getBoolean(blockPosition);
     }
@@ -199,7 +199,7 @@ public class PagesIndex
     {
         long pageAddress = valueAddresses.getLong(position);
 
-        RandomAccessBlock block = channels[channel].get(decodeSliceIndex(pageAddress));
+        Block block = channels[channel].get(decodeSliceIndex(pageAddress));
         int blockPosition = decodePosition(pageAddress);
         return block.getLong(blockPosition);
     }
@@ -208,7 +208,7 @@ public class PagesIndex
     {
         long pageAddress = valueAddresses.getLong(position);
 
-        RandomAccessBlock block = channels[channel].get(decodeSliceIndex(pageAddress));
+        Block block = channels[channel].get(decodeSliceIndex(pageAddress));
         int blockPosition = decodePosition(pageAddress);
         return block.getDouble(blockPosition);
     }
@@ -217,7 +217,7 @@ public class PagesIndex
     {
         long pageAddress = valueAddresses.getLong(position);
 
-        RandomAccessBlock block = channels[channel].get(decodeSliceIndex(pageAddress));
+        Block block = channels[channel].get(decodeSliceIndex(pageAddress));
         int blockPosition = decodePosition(pageAddress);
         return block.getSlice(blockPosition);
     }
@@ -237,8 +237,8 @@ public class PagesIndex
         int rightBlockPosition = decodePosition(rightPageAddress);
 
         for (int channel : channels) {
-            RandomAccessBlock leftBlock = this.channels[channel].get(leftBlockIndex);
-            RandomAccessBlock rightBlock = this.channels[channel].get(rightBlockIndex);
+            Block leftBlock = this.channels[channel].get(leftBlockIndex);
+            Block rightBlock = this.channels[channel].get(rightBlockIndex);
 
             if (!leftBlock.equalTo(leftBlockPosition, rightBlock, rightBlockPosition)) {
                 return false;
@@ -257,7 +257,7 @@ public class PagesIndex
             int channel = channels[i];
             BlockCursor cursor = cursors[i];
 
-            RandomAccessBlock block = this.channels[channel].get(blockIndex);
+            Block block = this.channels[channel].get(blockIndex);
 
             if (!block.equalTo(blockPosition, cursor)) {
                 return false;
@@ -274,7 +274,7 @@ public class PagesIndex
 
         int result = 0;
         for (int channel : channels) {
-            RandomAccessBlock block = this.channels[channel].get(blockIndex);
+            Block block = this.channels[channel].get(blockIndex);
             result = 31 * result + block.hash(blockPosition);
         }
         return result;
@@ -304,7 +304,7 @@ public class PagesIndex
             LookupSourceFactory lookupSourceFactory = joinCompiler.compileLookupSourceFactory(types, joinChannels);
             LookupSource lookupSource = lookupSourceFactory.createLookupSource(
                     valueAddresses,
-                    ImmutableList.<List<RandomAccessBlock>>copyOf(channels),
+                    ImmutableList.<List<Block>>copyOf(channels),
                     operatorContext);
 
             return lookupSource;
@@ -314,7 +314,7 @@ public class PagesIndex
         }
 
         PagesHashStrategy hashStrategy = new SimplePagesHashStrategy(
-                ImmutableList.<List<RandomAccessBlock>>copyOf(channels),
+                ImmutableList.<List<Block>>copyOf(channels),
                 joinChannels);
         return new InMemoryJoinHash(valueAddresses, hashStrategy, operatorContext);
     }

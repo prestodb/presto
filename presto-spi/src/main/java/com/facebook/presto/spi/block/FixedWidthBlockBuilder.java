@@ -147,7 +147,7 @@ public class FixedWidthBlockBuilder
     }
 
     @Override
-    public RandomAccessBlock build()
+    public Block build()
     {
         return new FixedWidthBlock(type, positionCount, sliceOutput.slice());
     }

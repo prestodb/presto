@@ -13,10 +13,10 @@
  */
 package com.facebook.presto.operator;
 
+import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.block.BlockCursor;
-import com.facebook.presto.spi.block.RandomAccessBlock;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.util.array.LongBigArray;
 import com.google.common.collect.ImmutableList;
@@ -128,7 +128,7 @@ public class GroupByHash
             blockBuilder.appendLong(groupId);
         }
 
-        RandomAccessBlock block = blockBuilder.build();
+        Block block = blockBuilder.build();
         return new GroupByIdBlock(nextGroupId, block);
     }
 

@@ -162,7 +162,7 @@ public class VariableWidthBlockBuilder
     }
 
     @Override
-    public RandomAccessBlock build()
+    public Block build()
     {
         return new VariableWidthRandomAccessBlock(type, positions, sliceOutput.slice(), Arrays.copyOf(offsets, positions));
     }

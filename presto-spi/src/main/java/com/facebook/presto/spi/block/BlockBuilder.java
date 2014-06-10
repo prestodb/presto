@@ -16,7 +16,7 @@ package com.facebook.presto.spi.block;
 import io.airlift.slice.Slice;
 
 public interface BlockBuilder
-        extends RandomAccessBlock
+        extends Block
 {
     /**
      * Appends a boolean value to the block.
@@ -51,7 +51,7 @@ public interface BlockBuilder
     /**
      * Builds the block. This method can be called multiple times.
      */
-    RandomAccessBlock build();
+    Block build();
 
     /**
      * Have any values been added to the block?

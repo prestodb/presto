@@ -22,7 +22,7 @@ import io.airlift.slice.Slices;
 import static io.airlift.slice.SizeOf.SIZE_OF_BYTE;
 
 public abstract class AbstractVariableWidthRandomAccessBlock
-        implements RandomAccessBlock
+        implements Block
 {
     protected final VariableWidthType type;
 
@@ -62,20 +62,13 @@ public abstract class AbstractVariableWidthRandomAccessBlock
     }
 
     @Override
-    public RandomAccessBlock getRegion(int positionOffset, int length)
+    public Block getRegion(int positionOffset, int length)
     {
         int positionCount = getPositionCount();
         if (positionOffset < 0 || length < 0 || positionOffset + length > positionCount) {
             throw new IndexOutOfBoundsException("Invalid position " + positionOffset + " in block with " + positionCount + " positions");
         }
-        // todo add VariableWidthRandomAccessCursor
-        return cursor().getRegionAndAdvance(length).toRandomAccessBlock();
-    }
-
-    @Override
-    public RandomAccessBlock toRandomAccessBlock()
-    {
-        return this;
+        return cursor().getRegionAndAdvance(length);
     }
 
     @Override
@@ -118,7 +111,7 @@ public abstract class AbstractVariableWidthRandomAccessBlock
     }
 
     @Override
-    public RandomAccessBlock getSingleValueBlock(int position)
+    public Block getSingleValueBlock(int position)
     {
         checkReadablePosition(position);
 
@@ -143,7 +136,7 @@ public abstract class AbstractVariableWidthRandomAccessBlock
     }
 
     @Override
-    public boolean equalTo(int position, RandomAccessBlock otherBlock, int otherPosition)
+    public boolean equalTo(int position, Block otherBlock, int otherPosition)
     {
         checkReadablePosition(position);
         int leftOffset = getPositionOffset(position);
@@ -203,7 +196,7 @@ public abstract class AbstractVariableWidthRandomAccessBlock
     }
 
     @Override
-    public int compareTo(SortOrder sortOrder, int position, RandomAccessBlock otherBlock, int otherPosition)
+    public int compareTo(SortOrder sortOrder, int position, Block otherBlock, int otherPosition)
     {
         checkReadablePosition(position);
         int leftOffset = getPositionOffset(position);

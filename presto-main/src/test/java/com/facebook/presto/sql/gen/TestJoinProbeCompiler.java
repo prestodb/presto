@@ -26,8 +26,8 @@ import com.facebook.presto.operator.SequencePageBuilder;
 import com.facebook.presto.operator.TaskContext;
 import com.facebook.presto.operator.ValuesOperator;
 import com.facebook.presto.spi.ConnectorSession;
+import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockCursor;
-import com.facebook.presto.spi.block.RandomAccessBlock;
 import com.facebook.presto.sql.gen.JoinCompiler.LookupSourceFactory;
 import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Ints;
@@ -79,13 +79,13 @@ public class TestJoinProbeCompiler
         LookupSourceFactory lookupSourceFactoryFactory = joinCompiler.compileLookupSourceFactory(ImmutableList.of(VARCHAR), Ints.asList(0));
 
         // crate hash strategy with a single channel blocks -- make sure there is some overlap in values
-        List<RandomAccessBlock> channel = ImmutableList.of(
-                BlockAssertions.createStringSequenceBlock(10, 20).toRandomAccessBlock(),
-                BlockAssertions.createStringSequenceBlock(20, 30).toRandomAccessBlock(),
-                BlockAssertions.createStringSequenceBlock(15, 25).toRandomAccessBlock());
+        List<Block> channel = ImmutableList.of(
+                BlockAssertions.createStringSequenceBlock(10, 20),
+                BlockAssertions.createStringSequenceBlock(20, 30),
+                BlockAssertions.createStringSequenceBlock(15, 25));
         LongArrayList addresses = new LongArrayList();
         for (int blockIndex = 0; blockIndex < channel.size(); blockIndex++) {
-            RandomAccessBlock block = channel.get(blockIndex);
+            Block block = channel.get(blockIndex);
             for (int positionIndex = 0; positionIndex < block.getPositionCount(); positionIndex++) {
                 addresses.add(encodeSyntheticAddress(blockIndex, positionIndex));
             }

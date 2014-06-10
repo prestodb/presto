@@ -148,7 +148,7 @@ public class VariableWidthRandomAccessBlockCursor
     }
 
     @Override
-    public RandomAccessBlock getSingleValueBlock()
+    public Block getSingleValueBlock()
     {
         checkReadablePosition();
 

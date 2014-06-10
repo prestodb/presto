@@ -98,7 +98,7 @@ public interface BlockCursor
      *
      * @throws IllegalStateException if this cursor is not at a valid position
      */
-    RandomAccessBlock getSingleValueBlock();
+    Block getSingleValueBlock();
 
     /**
      * Gets the current value as a boolean.

@@ -14,9 +14,9 @@
 package com.facebook.presto.block.rle;
 
 import com.facebook.presto.spi.ConnectorSession;
+import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockCursor;
-import com.facebook.presto.spi.block.RandomAccessBlock;
 import com.facebook.presto.spi.block.SortOrder;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.base.Objects;
@@ -28,12 +28,12 @@ import static com.google.common.base.Preconditions.checkPositionIndexes;
 import static com.google.common.base.Preconditions.checkState;
 
 public class RunLengthEncodedBlock
-        implements RandomAccessBlock
+        implements Block
 {
-    private final RandomAccessBlock value;
+    private final Block value;
     private final int positionCount;
 
-    public RunLengthEncodedBlock(RandomAccessBlock value, int positionCount)
+    public RunLengthEncodedBlock(Block value, int positionCount)
     {
         this.value = checkNotNull(value, "value is null");
         checkArgument(value.getPositionCount() == 1, "Expected value to contain a single position but has %s positions", value.getPositionCount());
@@ -45,7 +45,7 @@ public class RunLengthEncodedBlock
         this.positionCount = checkNotNull(positionCount, "positionCount is null");
     }
 
-    public RandomAccessBlock getValue()
+    public Block getValue()
     {
         return value;
     }
@@ -69,16 +69,10 @@ public class RunLengthEncodedBlock
     }
 
     @Override
-    public RandomAccessBlock getRegion(int positionOffset, int length)
+    public Block getRegion(int positionOffset, int length)
     {
         checkPositionIndexes(positionOffset, positionOffset + length, positionCount);
         return new RunLengthEncodedBlock(value, length);
-    }
-
-    @Override
-    public RandomAccessBlock toRandomAccessBlock()
-    {
-        return this;
     }
 
     @Override
@@ -123,7 +117,7 @@ public class RunLengthEncodedBlock
     }
 
     @Override
-    public RandomAccessBlock getSingleValueBlock(int position)
+    public Block getSingleValueBlock(int position)
     {
         checkReadablePosition(position);
         return value;
@@ -137,7 +131,7 @@ public class RunLengthEncodedBlock
     }
 
     @Override
-    public boolean equalTo(int position, RandomAccessBlock otherBlock, int otherPosition)
+    public boolean equalTo(int position, Block otherBlock, int otherPosition)
     {
         checkReadablePosition(position);
         return value.equalTo(0, otherBlock, otherPosition);
@@ -165,7 +159,7 @@ public class RunLengthEncodedBlock
     }
 
     @Override
-    public int compareTo(SortOrder sortOrder, int position, RandomAccessBlock otherBlock, int otherPosition)
+    public int compareTo(SortOrder sortOrder, int position, Block otherBlock, int otherPosition)
     {
         checkReadablePosition(position);
         return value.compareTo(sortOrder, 0, otherBlock, otherPosition);
