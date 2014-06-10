@@ -548,6 +548,36 @@ public class Block
         return this;
     }
 
+    public Block ret(Class<?> type)
+    {
+        if (type == long.class) {
+            retLong();
+        }
+        else if (type == boolean.class) {
+            retBoolean();
+        }
+        else if (type == int.class || type == byte.class || type == char.class || type == short.class) {
+            retInt();
+        }
+        else if (type == float.class) {
+            retFloat();
+        }
+        else if (type == double.class) {
+            retDouble();
+        }
+        else if (type == void.class) {
+            ret();
+        }
+        else if (!type.isPrimitive()) {
+            retObject();
+        }
+        else {
+            throw new IllegalArgumentException("Unsupported type: " + type.getName());
+        }
+
+        return this;
+    }
+
     public Block ret()
     {
         nodes.add(OpCodes.RETURN);
