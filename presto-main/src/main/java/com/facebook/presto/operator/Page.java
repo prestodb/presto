@@ -17,6 +17,7 @@ import com.facebook.presto.spi.block.Block;
 import com.google.common.base.Function;
 import com.google.common.base.Objects;
 import com.google.common.base.Preconditions;
+import io.airlift.slice.Slice;
 import io.airlift.units.DataSize;
 import io.airlift.units.DataSize.Unit;
 
@@ -68,9 +69,29 @@ public class Page
         return blocks[channel];
     }
 
-    public RandomAccessPage toRandomAccessPage()
+    public boolean getBoolean(int channel, int position)
     {
-        return new RandomAccessPage(positionCount, blocks);
+        return getBlock(channel).getBoolean(position);
+    }
+
+    public long getLong(int channel, int position)
+    {
+        return getBlock(channel).getLong(position);
+    }
+
+    public double getDouble(int channel, int position)
+    {
+        return getBlock(channel).getDouble(position);
+    }
+
+    public Slice getSlice(int channel, int position)
+    {
+        return getBlock(channel).getSlice(position);
+    }
+
+    public boolean isNull(int channel, int position)
+    {
+        return getBlock(channel).isNull(position);
     }
 
     @Override
