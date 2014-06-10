@@ -52,6 +52,12 @@ public class VariableWidthBlockBuilder
     }
 
     @Override
+    protected int[] getOffsets()
+    {
+        return offsets;
+    }
+
+    @Override
     protected Slice getRawSlice()
     {
         return sliceOutput.getUnderlyingSlice();
@@ -158,7 +164,7 @@ public class VariableWidthBlockBuilder
     @Override
     public RandomAccessBlock build()
     {
-        return new VariableWidthRandomAccessBlock(type, sliceOutput.slice(), Arrays.copyOf(offsets, positions));
+        return new VariableWidthRandomAccessBlock(type, positions, sliceOutput.slice(), Arrays.copyOf(offsets, positions));
     }
 
     @Override

@@ -19,13 +19,15 @@ import io.airlift.slice.Slice;
 public class VariableWidthRandomAccessBlock
         extends AbstractVariableWidthRandomAccessBlock
 {
+    private final int positionCount;
     private final Slice slice;
     private final int[] offsets;
 
-    public VariableWidthRandomAccessBlock(VariableWidthType type, Slice slice, int[] offsets)
+    public VariableWidthRandomAccessBlock(VariableWidthType type, int positionCount, Slice slice, int[] offsets)
     {
         super(type);
 
+        this.positionCount = positionCount;
         this.slice = slice;
         this.offsets = offsets;
     }
@@ -34,16 +36,23 @@ public class VariableWidthRandomAccessBlock
     {
         super(type);
 
+        this.positionCount = positionCount;
         this.slice = slice;
         this.offsets = new int[positionCount];
 
-        VariableWidthBlockCursor cursor = new VariableWidthBlockCursor(type, getPositionCount(), slice);
+        VariableWidthBlockCursor cursor = new VariableWidthBlockCursor(type, positionCount, slice);
         for (int position = 0; position < positionCount; position++) {
             if (!cursor.advanceNextPosition()) {
                 throw new IllegalStateException();
             }
             offsets[position] = cursor.getRawOffset();
         }
+    }
+
+    @Override
+    protected int[] getOffsets()
+    {
+        return offsets;
     }
 
     @Override
@@ -55,7 +64,7 @@ public class VariableWidthRandomAccessBlock
     @Override
     public int getPositionCount()
     {
-        return offsets.length;
+        return positionCount;
     }
 
     @Override

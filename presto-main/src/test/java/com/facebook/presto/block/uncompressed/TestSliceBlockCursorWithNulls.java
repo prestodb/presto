@@ -14,7 +14,7 @@
 package com.facebook.presto.block.uncompressed;
 
 import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.block.VariableWidthBlockCursor;
+import com.facebook.presto.spi.block.VariableWidthRandomAccessBlockCursor;
 import org.testng.annotations.Test;
 
 import static com.facebook.presto.block.BlockAssertions.createStringsBlock;
@@ -32,6 +32,6 @@ public class TestSliceBlockCursorWithNulls
     @Test
     public void testCursorType()
     {
-        assertInstanceOf(createExpectedValues().cursor(), VariableWidthBlockCursor.class);
+        assertInstanceOf(createExpectedValues().cursor(), VariableWidthRandomAccessBlockCursor.class);
     }
 }

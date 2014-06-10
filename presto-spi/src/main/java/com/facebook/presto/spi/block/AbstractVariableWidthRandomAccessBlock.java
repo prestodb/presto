@@ -35,6 +35,8 @@ public abstract class AbstractVariableWidthRandomAccessBlock
 
     protected abstract int getPositionOffset(int position);
 
+    protected abstract int[] getOffsets();
+
     @Override
     public Type getType()
     {
@@ -50,7 +52,7 @@ public abstract class AbstractVariableWidthRandomAccessBlock
     @Override
     public BlockCursor cursor()
     {
-        return new VariableWidthBlockCursor(type, getPositionCount(), getRawSlice());
+        return new VariableWidthRandomAccessBlockCursor(type, getPositionCount(), getRawSlice(), getOffsets());
     }
 
     @Override
@@ -122,14 +124,14 @@ public abstract class AbstractVariableWidthRandomAccessBlock
 
         int offset = getPositionOffset(position);
         if (isEntryAtOffsetNull(offset)) {
-            return new VariableWidthRandomAccessBlock(type, 1, Slices.wrappedBuffer(new byte[] {1}));
+            return new VariableWidthRandomAccessBlock(type, 1, Slices.wrappedBuffer(new byte[] {1}), new int[] {0});
         }
 
         int entrySize = valueOffset(type.getLength(getRawSlice(), valueOffset(offset)));
 
         Slice copy = Slices.copyOf(getRawSlice(), offset, entrySize);
 
-        return new VariableWidthRandomAccessBlock(type, 1, copy);
+        return new VariableWidthRandomAccessBlock(type, 1, copy, new int[] {0});
     }
 
     @Override
