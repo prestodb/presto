@@ -16,14 +16,14 @@ package com.facebook.presto.spi.block;
 import com.facebook.presto.spi.type.VariableWidthType;
 import io.airlift.slice.Slice;
 
-public class VariableWidthRandomAccessBlock
-        extends AbstractVariableWidthRandomAccessBlock
+public class VariableWidthBlock
+        extends AbstractVariableWidthBlock
 {
     private final int positionCount;
     private final Slice slice;
     private final int[] offsets;
 
-    public VariableWidthRandomAccessBlock(VariableWidthType type, int positionCount, Slice slice, int[] offsets)
+    public VariableWidthBlock(VariableWidthType type, int positionCount, Slice slice, int[] offsets)
     {
         super(type);
 

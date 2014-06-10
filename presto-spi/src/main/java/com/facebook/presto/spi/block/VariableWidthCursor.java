@@ -24,7 +24,7 @@ import java.util.Arrays;
 import static io.airlift.slice.SizeOf.SIZE_OF_BYTE;
 import static java.util.Objects.requireNonNull;
 
-public class VariableWidthRandomAccessBlockCursor
+public class VariableWidthCursor
         implements BlockCursor
 {
     private final VariableWidthType type;
@@ -34,7 +34,7 @@ public class VariableWidthRandomAccessBlockCursor
 
     private int position = -1;
 
-    public VariableWidthRandomAccessBlockCursor(VariableWidthType type, int positionCount, Slice slice, int[] offsets)
+    public VariableWidthCursor(VariableWidthType type, int positionCount, Slice slice, int[] offsets)
     {
         this.type = requireNonNull(type, "type is null");
 
@@ -50,7 +50,7 @@ public class VariableWidthRandomAccessBlockCursor
         position = -1;
     }
 
-    public VariableWidthRandomAccessBlockCursor(VariableWidthRandomAccessBlockCursor cursor)
+    public VariableWidthCursor(VariableWidthCursor cursor)
     {
         this.type = cursor.type;
         this.slice = cursor.slice;
@@ -60,9 +60,9 @@ public class VariableWidthRandomAccessBlockCursor
     }
 
     @Override
-    public VariableWidthRandomAccessBlockCursor duplicate()
+    public VariableWidthCursor duplicate()
     {
-        return new VariableWidthRandomAccessBlockCursor(this);
+        return new VariableWidthCursor(this);
     }
 
     @Override
@@ -137,7 +137,7 @@ public class VariableWidthRandomAccessBlockCursor
         position += length;
 
         int[] newOffsets = Arrays.copyOfRange(offsets, startPosition, startPosition + length);
-        return new VariableWidthRandomAccessBlock(type, length, slice, newOffsets);
+        return new VariableWidthBlock(type, length, slice, newOffsets);
     }
 
     @Override
@@ -153,12 +153,12 @@ public class VariableWidthRandomAccessBlockCursor
         checkReadablePosition();
 
         if (isNull()) {
-            return new VariableWidthRandomAccessBlock(type, 1, Slices.wrappedBuffer(new byte[] {1}), new int[] {0});
+            return new VariableWidthBlock(type, 1, Slices.wrappedBuffer(new byte[] {1}), new int[] {0});
         }
 
         Slice copy = Slices.copyOf(slice, offsets[position], entrySize());
 
-        return new VariableWidthRandomAccessBlock(type, 1, copy, new int[] {0});
+        return new VariableWidthBlock(type, 1, copy, new int[] {0});
     }
 
     @Override
