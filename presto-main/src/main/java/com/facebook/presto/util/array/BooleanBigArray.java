@@ -42,6 +42,12 @@ public final class BooleanBigArray
         allocateNewSegment();
     }
 
+    public BooleanBigArray(boolean defaultValue)
+    {
+        array = new boolean[INITIAL_SEGMENTS][];
+        allocateNewSegment(defaultValue);
+    }
+
     /**
      * Returns the size of this big array in bytes.
      */
@@ -84,6 +90,31 @@ public final class BooleanBigArray
         grow(length);
     }
 
+    public void ensureCapacity(long length, boolean defaultValue)
+    {
+        if (capacity > length) {
+            return;
+        }
+
+        grow(length, defaultValue);
+    }
+
+    private void grow(long length, boolean defaultValue)
+    {
+        // how many segments are required to get to the length?
+        int requiredSegments = segment(length) + 1;
+
+        // grow base array if necessary
+        if (array.length < requiredSegments) {
+            array = Arrays.copyOf(array, requiredSegments);
+        }
+
+        // add new segments
+        while (segments < requiredSegments) {
+            allocateNewSegment(defaultValue);
+        }
+    }
+
     private void grow(long length)
     {
         // how many segments are required to get to the length?
@@ -103,6 +134,15 @@ public final class BooleanBigArray
     private void allocateNewSegment()
     {
         array[segments] = new boolean[SEGMENT_SIZE];
+        capacity += SEGMENT_SIZE;
+        segments++;
+    }
+
+    private void allocateNewSegment(boolean defaultValue)
+    {
+        boolean[] newSegment = new boolean[SEGMENT_SIZE];
+        Arrays.fill(newSegment, defaultValue);
+        array[segments] = newSegment;
         capacity += SEGMENT_SIZE;
         segments++;
     }
