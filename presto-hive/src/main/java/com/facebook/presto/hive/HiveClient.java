@@ -44,6 +44,7 @@ import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.SchemaTablePrefix;
 import com.facebook.presto.spi.TableNotFoundException;
 import com.facebook.presto.spi.TupleDomain;
+import com.facebook.presto.spi.ViewNotFoundException;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.base.Function;
 import com.google.common.base.Objects;
@@ -104,6 +105,9 @@ import static com.facebook.presto.hive.HiveType.columnTypeToHiveType;
 import static com.facebook.presto.hive.HiveType.getHiveType;
 import static com.facebook.presto.hive.HiveType.getSupportedHiveType;
 import static com.facebook.presto.hive.HiveType.hiveTypeNameGetter;
+import static com.facebook.presto.hive.HiveUtil.PRESTO_VIEW_FLAG;
+import static com.facebook.presto.hive.HiveUtil.decodeViewData;
+import static com.facebook.presto.hive.HiveUtil.encodeViewData;
 import static com.facebook.presto.hive.HiveUtil.getTableStructFields;
 import static com.facebook.presto.hive.HiveUtil.parseHiveTimestamp;
 import static com.facebook.presto.hive.UnpartitionedPartition.UNPARTITIONED_PARTITION;
@@ -130,6 +134,7 @@ import static java.util.UUID.randomUUID;
 import static org.apache.hadoop.hive.metastore.ProtectMode.getProtectModeFromString;
 import static org.apache.hadoop.hive.metastore.Warehouse.makePartName;
 import static org.apache.hadoop.hive.metastore.Warehouse.makeSpecFromName;
+import static org.apache.hadoop.hive.serde.serdeConstants.STRING_TYPE_NAME;
 
 @SuppressWarnings("deprecation")
 public class HiveClient
@@ -660,24 +665,92 @@ public class HiveClient
     @Override
     public void createView(ConnectorSession session, SchemaTableName viewName, String viewData, boolean replace)
     {
-        throw new UnsupportedOperationException();
+        if (replace) {
+            try {
+                dropView(session, viewName);
+            }
+            catch (ViewNotFoundException ignored) {
+            }
+        }
+
+        Map<String, String> properties = ImmutableMap.<String, String>builder()
+                .put("comment", "Presto View")
+                .put(PRESTO_VIEW_FLAG, "true")
+                .build();
+
+        FieldSchema dummyColumn = new FieldSchema("dummy", STRING_TYPE_NAME, null);
+
+        StorageDescriptor sd = new StorageDescriptor();
+        sd.setCols(ImmutableList.of(dummyColumn));
+        sd.setSerdeInfo(new SerDeInfo());
+
+        Table table = new Table();
+        table.setDbName(viewName.getSchemaName());
+        table.setTableName(viewName.getTableName());
+        table.setOwner(session.getUser());
+        table.setTableType(TableType.VIRTUAL_VIEW.name());
+        table.setParameters(properties);
+        table.setViewOriginalText(encodeViewData(viewData));
+        table.setViewExpandedText("/* Presto View */");
+        table.setSd(sd);
+
+        try {
+            metastore.createTable(table);
+        }
+        catch (TableAlreadyExistsException e) {
+            throw new ViewAlreadyExistsException(e.getTableName());
+        }
     }
 
     @Override
     public void dropView(ConnectorSession session, SchemaTableName viewName)
     {
-        throw new UnsupportedOperationException();
+        String view = getViews(session, viewName.toSchemaTablePrefix()).get(viewName);
+        if (view == null) {
+            throw new ViewNotFoundException(viewName);
+        }
+
+        try {
+            metastore.dropTable(viewName.getSchemaName(), viewName.getTableName());
+        }
+        catch (TableNotFoundException e) {
+            throw new ViewNotFoundException(e.getTableName());
+        }
     }
 
     @Override
     public List<SchemaTableName> listViews(ConnectorSession session, String schemaNameOrNull)
     {
-        return ImmutableList.of();
+        ImmutableList.Builder<SchemaTableName> tableNames = ImmutableList.builder();
+        for (String schemaName : listSchemas(session, schemaNameOrNull)) {
+            try {
+                for (String tableName : metastore.getAllViews(schemaName)) {
+                    tableNames.add(new SchemaTableName(schemaName, tableName));
+                }
+            }
+            catch (NoSuchObjectException e) {
+                // schema disappeared during listing operation
+            }
+        }
+        return tableNames.build();
     }
 
     @Override
     public Map<SchemaTableName, String> getViews(ConnectorSession session, SchemaTablePrefix prefix)
     {
+        checkArgument(prefix.getSchemaName() != null, "Cannot get views in all schemas");
+        checkArgument(prefix.getTableName() != null, "Cannot get all views");
+        SchemaTableName viewName = new SchemaTableName(prefix.getSchemaName(), prefix.getTableName());
+
+        try {
+            Table table = metastore.getTable(prefix.getSchemaName(), prefix.getTableName());
+            if (HiveUtil.isPrestoView(table)) {
+                return ImmutableMap.of(viewName, decodeViewData(table.getViewOriginalText()));
+            }
+        }
+        catch (NoSuchObjectException ignored) {
+        }
+
         return ImmutableMap.of();
     }
 

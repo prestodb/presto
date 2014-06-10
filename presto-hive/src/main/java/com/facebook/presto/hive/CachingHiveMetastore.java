@@ -16,6 +16,7 @@ package com.facebook.presto.hive;
 import com.facebook.presto.hive.shaded.org.apache.thrift.TException;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SchemaTableName;
+import com.facebook.presto.spi.TableNotFoundException;
 import com.google.common.base.Function;
 import com.google.common.base.Objects;
 import com.google.common.base.Throwables;
@@ -38,6 +39,7 @@ import org.apache.hadoop.hive.metastore.api.MetaException;
 import org.apache.hadoop.hive.metastore.api.NoSuchObjectException;
 import org.apache.hadoop.hive.metastore.api.Partition;
 import org.apache.hadoop.hive.metastore.api.Table;
+import org.apache.hadoop.hive.metastore.api.UnknownDBException;
 import org.weakref.jmx.Flatten;
 import org.weakref.jmx.Managed;
 
@@ -51,11 +53,14 @@ import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 
+import static com.facebook.presto.hive.HiveUtil.PRESTO_VIEW_FLAG;
+import static com.facebook.presto.hive.HiveUtil.isPrestoView;
 import static com.facebook.presto.hive.RetryDriver.retry;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.collect.Iterables.transform;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
+import static org.apache.hadoop.hive.metastore.api.hive_metastoreConstants.HIVE_FILTER_FIELD_PARAMS;
 
 /**
  * Hive Metastore Cache
@@ -68,6 +73,7 @@ public class CachingHiveMetastore
     private final LoadingCache<String, List<String>> databaseNamesCache;
     private final LoadingCache<String, Database> databaseCache;
     private final LoadingCache<String, List<String>> tableNamesCache;
+    private final LoadingCache<String, List<String>> viewNamesCache;
     private final LoadingCache<HiveTableName, List<String>> partitionNamesCache;
     private final LoadingCache<HiveTableName, Table> tableCache;
     private final LoadingCache<HivePartitionName, Partition> partitionCache;
@@ -143,6 +149,19 @@ public class CachingHiveMetastore
                     }
                 });
 
+        viewNamesCache = CacheBuilder.newBuilder()
+                .expireAfterWrite(expiresAfterWriteMillis, MILLISECONDS)
+                .refreshAfterWrite(refreshMills, MILLISECONDS)
+                .build(new BackgroundCacheLoader<String, List<String>>(listeningExecutor)
+                {
+                    @Override
+                    public List<String> load(String databaseName)
+                            throws Exception
+                    {
+                        return loadAllViews(databaseName);
+                    }
+                });
+
         partitionNamesCache = CacheBuilder.newBuilder()
                 .expireAfterWrite(expiresAfterWriteMillis, MILLISECONDS)
                 .refreshAfterWrite(refreshMills, MILLISECONDS)
@@ -202,6 +221,7 @@ public class CachingHiveMetastore
     {
         databaseNamesCache.invalidateAll();
         tableNamesCache.invalidateAll();
+        viewNamesCache.invalidateAll();
         partitionNamesCache.invalidateAll();
         databaseCache.invalidateAll();
         tableCache.invalidateAll();
@@ -355,6 +375,37 @@ public class CachingHiveMetastore
         return get(tableCache, HiveTableName.table(databaseName, tableName), NoSuchObjectException.class);
     }
 
+    public List<String> getAllViews(String databaseName)
+            throws NoSuchObjectException
+    {
+        return get(viewNamesCache, databaseName, NoSuchObjectException.class);
+    }
+
+    private List<String> loadAllViews(final String databaseName)
+            throws Exception
+    {
+        try {
+            return retry().stopOn(UnknownDBException.class).stopOnIllegalExceptions().run("getAllViews", stats.getAllViews().wrap(new Callable<List<String>>()
+            {
+                @Override
+                public List<String> call()
+                        throws Exception
+                {
+                    try (HiveMetastoreClient client = clientProvider.createMetastoreClient()) {
+                        String filter = HIVE_FILTER_FIELD_PARAMS + PRESTO_VIEW_FLAG + " = \"true\"";
+                        return client.get_table_names_by_filter(databaseName, filter, (short) -1);
+                    }
+                }
+            }));
+        }
+        catch (UnknownDBException e) {
+            throw new NoSuchObjectException(e.getMessage());
+        }
+        catch (TException e) {
+            throw new PrestoException(HiveErrorCode.HIVE_METASTORE_ERROR.toErrorCode(), e);
+        }
+    }
+
     public void createTable(final Table table)
     {
         try {
@@ -370,6 +421,8 @@ public class CachingHiveMetastore
                             try (HiveMetastoreClient client = clientProvider.createMetastoreClient()) {
                                 client.create_table(table);
                             }
+                            tableNamesCache.invalidate(table.getDbName());
+                            viewNamesCache.invalidate(table.getDbName());
                             return null;
                         }
                     }));
@@ -403,12 +456,15 @@ public class CachingHiveMetastore
                     try (HiveMetastoreClient client = clientProvider.createMetastoreClient()) {
                         client.drop_table(databaseName, tableName, true);
                     }
+                    tableCache.invalidate(new HiveTableName(databaseName, tableName));
+                    tableNamesCache.invalidate(databaseName);
+                    viewNamesCache.invalidate(databaseName);
                     return null;
                 }
             }));
         }
         catch (NoSuchObjectException e) {
-            throw Throwables.propagate(e);
+            throw new TableNotFoundException(new SchemaTableName(databaseName, tableName));
         }
         catch (TException e) {
             throw new PrestoException(HiveErrorCode.HIVE_METASTORE_ERROR.toErrorCode(), e);
@@ -433,7 +489,7 @@ public class CachingHiveMetastore
                 {
                     try (HiveMetastoreClient client = clientProvider.createMetastoreClient()) {
                         Table table = client.get_table(hiveTableName.getDatabaseName(), hiveTableName.getTableName());
-                        if (table.getTableType().equals(TableType.VIRTUAL_VIEW.toString())) {
+                        if (table.getTableType().equals(TableType.VIRTUAL_VIEW.name()) && (!isPrestoView(table))) {
                             throw new HiveViewNotSupportedException(new SchemaTableName(hiveTableName.getDatabaseName(), hiveTableName.getTableName()));
                         }
                         return table;
