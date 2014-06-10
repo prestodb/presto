@@ -42,6 +42,12 @@ public final class ObjectBigArray<T>
         allocateNewSegment();
     }
 
+    public ObjectBigArray(Object defaultValue)
+    {
+        array = new Object[INITIAL_SEGMENTS][];
+        allocateNewSegment(defaultValue);
+    }
+
     /**
      * Returns the size of this big array in bytes.
      */
@@ -84,6 +90,15 @@ public final class ObjectBigArray<T>
         grow(length);
     }
 
+    public void ensureCapacity(long length, Object defaultValue)
+    {
+        if (capacity > length) {
+            return;
+        }
+
+        grow(length, defaultValue);
+    }
+
     private void grow(long length)
     {
         // how many segments are required to get to the length?
@@ -100,9 +115,34 @@ public final class ObjectBigArray<T>
         }
     }
 
+    private void grow(long length, Object defaultValue)
+    {
+        // how many segments are required to get to the length?
+        int requiredSegments = segment(length) + 1;
+
+        // grow base array if necessary
+        if (array.length < requiredSegments) {
+            array = Arrays.copyOf(array, requiredSegments);
+        }
+
+        // add new segments
+        while (segments < requiredSegments) {
+            allocateNewSegment(defaultValue);
+        }
+    }
+
     private void allocateNewSegment()
     {
         array[segments] = new Object[SEGMENT_SIZE];
+        capacity += SEGMENT_SIZE;
+        segments++;
+    }
+
+    private void allocateNewSegment(Object defaultValue)
+    {
+        Object[] newSegment = new Object[SEGMENT_SIZE];
+        Arrays.fill(newSegment, defaultValue);
+        array[segments] = newSegment;
         capacity += SEGMENT_SIZE;
         segments++;
     }
