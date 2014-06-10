@@ -47,6 +47,7 @@ public class HiveClientConfig
     private int maxPartitionBatchSize = 100;
     private int maxInitialSplits = 200;
     private DataSize maxInitialSplitSize;
+    private boolean allowDropTable;
 
     private Duration metastoreCacheTtl = new Duration(1, TimeUnit.HOURS);
     private Duration metastoreRefreshInterval = new Duration(2, TimeUnit.MINUTES);
@@ -165,6 +166,19 @@ public class HiveClientConfig
     public HiveClientConfig setMaxGlobalSplitIteratorThreads(int maxGlobalSplitIteratorThreads)
     {
         this.maxGlobalSplitIteratorThreads = maxGlobalSplitIteratorThreads;
+        return this;
+    }
+
+    public boolean getAllowDropTable()
+    {
+        return this.allowDropTable;
+    }
+
+    @Config("hive.allow-drop-table")
+    @ConfigDescription("Allow hive connector to drop table")
+    public HiveClientConfig setAllowDropTable(boolean allowDropTable)
+    {
+        this.allowDropTable = allowDropTable;
         return this;
     }
 
