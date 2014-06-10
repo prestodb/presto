@@ -25,7 +25,7 @@ import java.util.Objects;
 import static io.airlift.slice.SizeOf.SIZE_OF_BYTE;
 
 public class VariableWidthBlockBuilder
-        extends AbstractVariableWidthRandomAccessBlock
+        extends AbstractVariableWidthBlock
         implements BlockBuilder
 {
     private final BlockBuilderStatus blockBuilderStatus;
@@ -164,7 +164,7 @@ public class VariableWidthBlockBuilder
     @Override
     public Block build()
     {
-        return new VariableWidthRandomAccessBlock(type, positions, sliceOutput.slice(), Arrays.copyOf(offsets, positions));
+        return new VariableWidthBlock(type, positions, sliceOutput.slice(), Arrays.copyOf(offsets, positions));
     }
 
     @Override

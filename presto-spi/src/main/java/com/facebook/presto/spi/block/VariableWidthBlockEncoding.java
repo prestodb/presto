@@ -52,7 +52,7 @@ public class VariableWidthBlockEncoding
         }
 
         // The down casts here are safe because it is the block itself the provides this encoding implementation.
-        AbstractVariableWidthRandomAccessBlock uncompressedBlock = (AbstractVariableWidthRandomAccessBlock) block;
+        AbstractVariableWidthBlock uncompressedBlock = (AbstractVariableWidthBlock) block;
 
         Slice rawSlice = uncompressedBlock.getRawSlice();
 
@@ -79,7 +79,7 @@ public class VariableWidthBlockEncoding
         int blockSize = sliceInput.readInt();
         Slice slice = sliceInput.readSlice(blockSize);
 
-        return new VariableWidthRandomAccessBlock(type, positionCount, slice, offsets);
+        return new VariableWidthBlock(type, positionCount, slice, offsets);
     }
 
     public static class VariableWidthBlockEncodingFactory
