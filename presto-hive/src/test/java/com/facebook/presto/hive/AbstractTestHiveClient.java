@@ -36,6 +36,7 @@ import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.SchemaTablePrefix;
 import com.facebook.presto.spi.TableNotFoundException;
 import com.facebook.presto.spi.TupleDomain;
+import com.facebook.presto.spi.ViewNotFoundException;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.base.Function;
 import com.google.common.base.Optional;
@@ -106,6 +107,7 @@ public abstract class AbstractTestHiveClient
 
     protected SchemaTableName temporaryCreateTable;
     protected SchemaTableName temporaryCreateSampledTable;
+    protected SchemaTableName temporaryCreateView;
     protected String tableOwner;
 
     protected ConnectorTableHandle invalidTableHandle;
@@ -142,10 +144,9 @@ public abstract class AbstractTestHiveClient
         tableBucketedBigintBoolean = new SchemaTableName(database, "presto_test_bucketed_by_bigint_boolean");
         tableBucketedDoubleFloat = new SchemaTableName(database, "presto_test_bucketed_by_double_float");
 
-        String random = UUID.randomUUID().toString().toLowerCase().replace("-", "");
-        temporaryCreateTable = new SchemaTableName(database, "tmp_presto_test_create_" + random);
-        random = UUID.randomUUID().toString().toLowerCase().replace("-", "");
-        temporaryCreateSampledTable = new SchemaTableName(database, "tmp_presto_test_create_" + random);
+        temporaryCreateTable = new SchemaTableName(database, "tmp_presto_test_create_" + randomName());
+        temporaryCreateSampledTable = new SchemaTableName(database, "tmp_presto_test_create_" + randomName());
+        temporaryCreateView = new SchemaTableName(database, "tmp_presto_test_create_" + randomName());
         tableOwner = "presto_test";
 
         invalidTableHandle = new HiveTableHandle("hive", database, "totally_invalid_table_name", SESSION);
@@ -814,7 +815,7 @@ public abstract class AbstractTestHiveClient
     }
 
     @Test
-    public void testViewsAreNotSupported()
+    public void testHiveViewsAreNotSupported()
             throws Exception
     {
         try {
@@ -848,6 +849,70 @@ public abstract class AbstractTestHiveClient
         finally {
             dropTable(temporaryCreateSampledTable);
         }
+    }
+
+    @Test
+    public void testViewCreation()
+    {
+        try {
+            verifyViewCreation();
+        }
+        finally {
+            try {
+                metadata.dropView(SESSION, temporaryCreateView);
+            }
+            catch (RuntimeException e) {
+                Logger.get(getClass()).warn(e, "Failed to drop view: %s", temporaryCreateView);
+            }
+        }
+    }
+
+    private void verifyViewCreation()
+    {
+        // replace works for new view
+        doCreateView(temporaryCreateView, true);
+
+        // replace works for existing view
+        doCreateView(temporaryCreateView, true);
+
+        // create fails for existing view
+        try {
+            doCreateView(temporaryCreateView, false);
+            fail("create existing should fail");
+        }
+        catch (ViewAlreadyExistsException e) {
+            assertEquals(e.getViewName(), temporaryCreateView);
+        }
+
+        // drop works when view exists
+        metadata.dropView(SESSION, temporaryCreateView);
+        assertEquals(metadata.getViews(SESSION, temporaryCreateView.toSchemaTablePrefix()).size(), 0);
+        assertFalse(metadata.listViews(SESSION, temporaryCreateView.getSchemaName()).contains(temporaryCreateView));
+
+        // drop fails when view does not exist
+        try {
+            metadata.dropView(SESSION, temporaryCreateView);
+            fail("drop non-existing should fail");
+        }
+        catch (ViewNotFoundException e) {
+            assertEquals(e.getViewName(), temporaryCreateView);
+        }
+
+        // create works for new view
+        doCreateView(temporaryCreateView, false);
+    }
+
+    private void doCreateView(SchemaTableName viewName, boolean replace)
+    {
+        String viewData = "test data";
+
+        metadata.createView(SESSION, viewName, viewData, replace);
+
+        Map<SchemaTableName, String> views = metadata.getViews(SESSION, viewName.toSchemaTablePrefix());
+        assertEquals(views.size(), 1);
+        assertEquals(views.get(viewName), viewData);
+
+        assertTrue(metadata.listViews(SESSION, viewName.getSchemaName()).contains(viewName));
     }
 
     private void doCreateSampledTable()
@@ -1139,6 +1204,11 @@ public abstract class AbstractTestHiveClient
             i++;
         }
         return index.build();
+    }
+
+    private static String randomName()
+    {
+        return UUID.randomUUID().toString().toLowerCase().replace("-", "");
     }
 
     private static Function<ColumnMetadata, String> columnNameGetter()

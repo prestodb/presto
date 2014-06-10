@@ -43,6 +43,8 @@ import java.util.List;
 import java.util.Properties;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.io.BaseEncoding.base64;
+import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.apache.hadoop.hive.metastore.MetaStoreUtils.getDeserializer;
 import static org.apache.hadoop.hive.metastore.MetaStoreUtils.getTableMetadata;
 import static org.apache.hadoop.hive.metastore.api.hive_metastoreConstants.FILE_INPUT_FORMAT;
@@ -50,6 +52,11 @@ import static org.apache.hadoop.hive.serde2.objectinspector.ObjectInspector.Cate
 
 final class HiveUtil
 {
+    public static final String PRESTO_VIEW_FLAG = "presto_view";
+
+    private static final String VIEW_PREFIX = "/* Presto View: ";
+    private static final String VIEW_SUFFIX = " */";
+
     private static final DateTimeFormatter HIVE_TIMESTAMP_PARSER = new DateTimeFormatterBuilder()
             .append(DateTimeFormat.forPattern("yyyy-MM-dd HH:mm:ss"))
             .appendOptional(DateTimeFormat.forPattern(".SSSSSSSSS").getParser())
@@ -156,5 +163,24 @@ final class HiveUtil
     public static List<? extends StructField> getTableStructFields(Table table)
     {
         return getTableObjectInspector(getTableMetadata(table)).getAllStructFieldRefs();
+    }
+
+    public static boolean isPrestoView(Table table)
+    {
+        return "true".equals(table.getParameters().get(PRESTO_VIEW_FLAG));
+    }
+
+    public static String encodeViewData(String data)
+    {
+        return VIEW_PREFIX + base64().encode(data.getBytes(UTF_8)) + VIEW_SUFFIX;
+    }
+
+    public static String decodeViewData(String data)
+    {
+        checkArgument(data.startsWith(VIEW_PREFIX), "View data missing prefix: %s", data);
+        checkArgument(data.endsWith(VIEW_SUFFIX), "View data missing suffix: %s", data);
+        data = data.substring(VIEW_PREFIX.length());
+        data = data.substring(0, data.length() - VIEW_SUFFIX.length());
+        return new String(base64().decode(data), UTF_8);
     }
 }

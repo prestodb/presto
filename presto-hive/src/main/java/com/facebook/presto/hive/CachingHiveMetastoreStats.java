@@ -21,6 +21,7 @@ public class CachingHiveMetastoreStats
     private final HiveMetastoreApiStats getAllDatabases = new HiveMetastoreApiStats();
     private final HiveMetastoreApiStats getDatabase = new HiveMetastoreApiStats();
     private final HiveMetastoreApiStats getAllTables = new HiveMetastoreApiStats();
+    private final HiveMetastoreApiStats getAllViews = new HiveMetastoreApiStats();
     private final HiveMetastoreApiStats getTable = new HiveMetastoreApiStats();
     private final HiveMetastoreApiStats getPartitionNames = new HiveMetastoreApiStats();
     private final HiveMetastoreApiStats getPartitionNamesPs = new HiveMetastoreApiStats();
@@ -48,6 +49,13 @@ public class CachingHiveMetastoreStats
     public HiveMetastoreApiStats getGetAllTables()
     {
         return getAllTables;
+    }
+
+    @Managed
+    @Nested
+    public HiveMetastoreApiStats getAllViews()
+    {
+        return getAllViews;
     }
 
     @Managed
