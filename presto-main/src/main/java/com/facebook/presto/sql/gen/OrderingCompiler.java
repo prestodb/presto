@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.sql.gen;
 
-import com.facebook.presto.spi.block.RandomAccessBlock;
 import com.facebook.presto.byteCode.Block;
 import com.facebook.presto.byteCode.ClassDefinition;
 import com.facebook.presto.byteCode.ClassInfoLoader;
@@ -29,8 +28,8 @@ import com.facebook.presto.operator.PagesIndex;
 import com.facebook.presto.operator.PagesIndexComparator;
 import com.facebook.presto.operator.PagesIndexOrdering;
 import com.facebook.presto.operator.SimplePagesIndexComparator;
-import com.facebook.presto.spi.block.SortOrder;
 import com.facebook.presto.operator.SyntheticAddress;
+import com.facebook.presto.spi.block.SortOrder;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Objects;
 import com.google.common.base.Throwables;
@@ -237,7 +236,7 @@ public class OrderingCompiler
                     .invokeVirtual(PagesIndex.class, "getChannel", ObjectArrayList.class, int.class)
                     .getVariable(leftBlockIndex)
                     .invokeVirtual(ObjectArrayList.class, "get", Object.class, int.class)
-                    .checkCast(RandomAccessBlock.class);
+                    .checkCast(com.facebook.presto.spi.block.Block.class);
 
             block.comment("push sortOrder")
                     .getStaticField(SortOrder.class, sortOrder.name(), SortOrder.class);
@@ -251,13 +250,13 @@ public class OrderingCompiler
                     .invokeVirtual(PagesIndex.class, "getChannel", ObjectArrayList.class, int.class)
                     .getVariable(rightBlockIndex)
                     .invokeVirtual(ObjectArrayList.class, "get", Object.class, int.class)
-                    .checkCast(RandomAccessBlock.class);
+                    .checkCast(com.facebook.presto.spi.block.Block.class);
 
             block.comment("push rightBlockPosition")
                     .getVariable(rightBlockPosition);
 
             block.comment("invoke compareTo")
-                    .invokeInterface(RandomAccessBlock.class, "compareTo", int.class, SortOrder.class, int.class, RandomAccessBlock.class, int.class);
+                    .invokeInterface(com.facebook.presto.spi.block.Block.class, "compareTo", int.class, SortOrder.class, int.class, com.facebook.presto.spi.block.Block.class, int.class);
 
             LabelNode equal = new LabelNode("equal");
             block.comment("if (compare != 0) return compare")

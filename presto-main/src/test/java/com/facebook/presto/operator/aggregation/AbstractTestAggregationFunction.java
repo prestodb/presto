@@ -17,7 +17,6 @@ import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.block.BlockCursor;
-import com.facebook.presto.spi.block.RandomAccessBlock;
 import com.facebook.presto.block.rle.RunLengthEncodedBlock;
 import com.facebook.presto.spi.type.Type;
 import org.testng.annotations.Test;
@@ -65,10 +64,9 @@ public abstract class AbstractTestAggregationFunction
             throws Exception
     {
         Type type = getSequenceBlock(0, 10).getType();
-        RandomAccessBlock nullValueBlock = type.createBlockBuilder(new BlockBuilderStatus())
+        Block nullValueBlock = type.createBlockBuilder(new BlockBuilderStatus())
                 .appendNull()
-                .build()
-                .toRandomAccessBlock();
+                .build();
 
         Block block = new RunLengthEncodedBlock(nullValueBlock, 10);
         testAggregation(getExpectedValueIncludingNulls(0, 0, 10), block);

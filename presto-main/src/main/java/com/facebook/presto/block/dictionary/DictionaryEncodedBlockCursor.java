@@ -17,7 +17,6 @@ import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockCursor;
-import com.facebook.presto.spi.block.RandomAccessBlock;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.primitives.Ints;
 import io.airlift.slice.Slice;
@@ -30,10 +29,10 @@ import static com.google.common.base.Preconditions.checkPositionIndex;
 public class DictionaryEncodedBlockCursor
         implements BlockCursor
 {
-    private final RandomAccessBlock dictionary;
+    private final Block dictionary;
     private final BlockCursor idCursor;
 
-    public DictionaryEncodedBlockCursor(RandomAccessBlock dictionary, BlockCursor idCursor)
+    public DictionaryEncodedBlockCursor(Block dictionary, BlockCursor idCursor)
     {
         this.dictionary = checkNotNull(dictionary, "dictionary is null");
         this.idCursor = checkNotNull(idCursor, "idCursor is null");
@@ -91,11 +90,11 @@ public class DictionaryEncodedBlockCursor
     @Override
     public Block getRegionAndAdvance(int length)
     {
-        return new DictionaryEncodedBlock(dictionary, (RandomAccessBlock) idCursor.getRegionAndAdvance(length));
+        return new DictionaryEncodedBlock(dictionary, idCursor.getRegionAndAdvance(length));
     }
 
     @Override
-    public RandomAccessBlock getSingleValueBlock()
+    public Block getSingleValueBlock()
     {
         return dictionary.getSingleValueBlock(getDictionaryKey());
     }

@@ -18,7 +18,6 @@ import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.block.BlockCursor;
-import com.facebook.presto.spi.block.RandomAccessBlock;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.base.Function;
 import com.google.common.collect.ContiguousSet;
@@ -249,7 +248,7 @@ public final class BlockAssertions
     }
 
     // This method makes it easy to create blocks without having to add an L to every value
-    public static RandomAccessBlock createLongsBlock(int... values)
+    public static Block createLongsBlock(int... values)
     {
         BlockBuilder builder = BIGINT.createBlockBuilder(new BlockBuilderStatus());
 
@@ -257,7 +256,7 @@ public final class BlockAssertions
             builder.appendLong((long) value);
         }
 
-        return builder.build().toRandomAccessBlock();
+        return builder.build();
     }
 
     public static Block createLongsBlock(Long... values)

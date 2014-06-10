@@ -15,7 +15,6 @@ package com.facebook.presto.operator;
 
 import com.facebook.presto.spi.block.Block;
 import com.google.common.base.Function;
-import com.facebook.presto.spi.block.RandomAccessBlock;
 import com.google.common.base.Objects;
 import com.google.common.base.Preconditions;
 import io.airlift.units.DataSize;
@@ -71,11 +70,7 @@ public class Page
 
     public RandomAccessPage toRandomAccessPage()
     {
-        RandomAccessBlock[] randomAccessBlocks = new RandomAccessBlock[blocks.length];
-        for (int channel = 0; channel < blocks.length; channel++) {
-            randomAccessBlocks[channel] = blocks[channel].toRandomAccessBlock();
-        }
-        return new RandomAccessPage(positionCount, randomAccessBlocks);
+        return new RandomAccessPage(positionCount, blocks);
     }
 
     @Override

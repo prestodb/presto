@@ -17,7 +17,6 @@ import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockCursor;
 import com.facebook.presto.spi.block.BlockEncoding;
 import com.facebook.presto.spi.block.BlockEncodingSerde;
-import com.facebook.presto.spi.block.RandomAccessBlock;
 import com.google.common.base.Throwables;
 import com.google.common.io.OutputSupplier;
 import io.airlift.slice.OutputStreamSliceOutput;
@@ -131,7 +130,7 @@ public class BlocksFileWriter
 
         private long rowCount;
         private long runsCount;
-        private RandomAccessBlock lastValue;
+        private Block lastValue;
         private DictionaryBuilder dictionaryBuilder;
 
         public void process(Block block)
@@ -145,13 +144,13 @@ public class BlocksFileWriter
             BlockCursor cursor = block.cursor();
             while (cursor.advanceNextPosition()) {
                 // update run length stats
-                RandomAccessBlock randomAccessBlock = cursor.getSingleValueBlock();
+                Block value = cursor.getSingleValueBlock();
                 if (lastValue == null) {
-                    lastValue = randomAccessBlock;
+                    lastValue = value;
                 }
-                else if (!randomAccessBlock.equalTo(0, lastValue, 0)) {
+                else if (!value.equalTo(0, lastValue, 0)) {
                     runsCount++;
-                    lastValue = randomAccessBlock;
+                    lastValue = value;
                 }
 
                 // update dictionary stats

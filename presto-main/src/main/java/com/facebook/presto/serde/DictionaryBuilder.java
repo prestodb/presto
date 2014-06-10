@@ -13,10 +13,10 @@
  */
 package com.facebook.presto.serde;
 
+import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.block.BlockCursor;
-import com.facebook.presto.spi.block.RandomAccessBlock;
 import com.facebook.presto.spi.type.Type;
 import it.unimi.dsi.fastutil.ints.Int2IntOpenCustomHashMap;
 import it.unimi.dsi.fastutil.ints.IntHash.Strategy;
@@ -56,9 +56,9 @@ public class DictionaryBuilder
         return position;
     }
 
-    public RandomAccessBlock build()
+    public Block build()
     {
-        return blockBuilder.build().toRandomAccessBlock();
+        return blockBuilder.build();
     }
 
     private int addNewValue(BlockCursor value)

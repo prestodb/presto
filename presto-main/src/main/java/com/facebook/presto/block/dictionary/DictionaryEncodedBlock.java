@@ -14,10 +14,10 @@
 package com.facebook.presto.block.dictionary;
 
 import com.facebook.presto.spi.ConnectorSession;
+import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockCursor;
 import com.facebook.presto.spi.block.BlockEncoding;
-import com.facebook.presto.spi.block.RandomAccessBlock;
 import com.facebook.presto.spi.block.SortOrder;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.primitives.Ints;
@@ -28,12 +28,12 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 public class DictionaryEncodedBlock
-        implements RandomAccessBlock
+        implements Block
 {
-    private final RandomAccessBlock dictionary;
-    private final RandomAccessBlock idBlock;
+    private final Block dictionary;
+    private final Block idBlock;
 
-    public DictionaryEncodedBlock(RandomAccessBlock dictionary, RandomAccessBlock idBlock)
+    public DictionaryEncodedBlock(Block dictionary, Block idBlock)
     {
         this.dictionary = checkNotNull(dictionary, "dictionary is null");
         this.idBlock = checkNotNull(idBlock, "idBlock is null");
@@ -46,12 +46,12 @@ public class DictionaryEncodedBlock
         return dictionary.getType();
     }
 
-    public RandomAccessBlock getDictionary()
+    public Block getDictionary()
     {
         return dictionary;
     }
 
-    public RandomAccessBlock getIdBlock()
+    public Block getIdBlock()
     {
         return idBlock;
     }
@@ -75,15 +75,9 @@ public class DictionaryEncodedBlock
     }
 
     @Override
-    public RandomAccessBlock getRegion(int positionOffset, int length)
+    public Block getRegion(int positionOffset, int length)
     {
         return new DictionaryEncodedBlock(dictionary, idBlock.getRegion(positionOffset, length));
-    }
-
-    @Override
-    public RandomAccessBlock toRandomAccessBlock()
-    {
-        return this;
     }
 
     @Override
@@ -117,7 +111,7 @@ public class DictionaryEncodedBlock
     }
 
     @Override
-    public RandomAccessBlock getSingleValueBlock(int position)
+    public Block getSingleValueBlock(int position)
     {
         return dictionary.getSingleValueBlock(getDictionaryKey(position));
     }
@@ -135,7 +129,7 @@ public class DictionaryEncodedBlock
     }
 
     @Override
-    public boolean equalTo(int position, RandomAccessBlock otherBlock, int otherPosition)
+    public boolean equalTo(int position, Block otherBlock, int otherPosition)
     {
         return dictionary.equalTo(getDictionaryKey(position), otherBlock, otherPosition);
     }
@@ -159,7 +153,7 @@ public class DictionaryEncodedBlock
     }
 
     @Override
-    public int compareTo(SortOrder sortOrder, int position, RandomAccessBlock otherBlock, int otherPosition)
+    public int compareTo(SortOrder sortOrder, int position, Block otherBlock, int otherPosition)
     {
         return dictionary.compareTo(sortOrder, getDictionaryKey(position), otherBlock, otherPosition);
     }

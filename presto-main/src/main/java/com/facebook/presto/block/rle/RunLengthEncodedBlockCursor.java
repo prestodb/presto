@@ -17,7 +17,6 @@ import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockCursor;
-import com.facebook.presto.spi.block.RandomAccessBlock;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.base.Preconditions;
 import io.airlift.slice.Slice;
@@ -28,12 +27,12 @@ import static com.google.common.base.Preconditions.checkNotNull;
 public final class RunLengthEncodedBlockCursor
         implements BlockCursor
 {
-    private final RandomAccessBlock value;
+    private final Block value;
     private final int positionCount;
 
     private int position = -1;
 
-    public RunLengthEncodedBlockCursor(RandomAccessBlock value, int positionCount)
+    public RunLengthEncodedBlockCursor(Block value, int positionCount)
     {
         this.value = checkNotNull(value, "value is null");
         checkArgument(value.getPositionCount() == 1, "Expected value to contain a single position but has %s positions", value.getPositionCount());
@@ -124,7 +123,7 @@ public final class RunLengthEncodedBlockCursor
     }
 
     @Override
-    public RandomAccessBlock getSingleValueBlock()
+    public Block getSingleValueBlock()
     {
         checkReadablePosition();
         return value;

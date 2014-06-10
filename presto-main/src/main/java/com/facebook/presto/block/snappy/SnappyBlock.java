@@ -14,10 +14,10 @@
 package com.facebook.presto.block.snappy;
 
 import com.facebook.presto.spi.ConnectorSession;
+import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockCursor;
 import com.facebook.presto.spi.block.BlockEncoding;
-import com.facebook.presto.spi.block.RandomAccessBlock;
 import com.facebook.presto.spi.block.SortOrder;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.base.Objects;
@@ -38,7 +38,7 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 
 public class SnappyBlock
-        implements RandomAccessBlock
+        implements Block
 {
     private static final DataSize ENCODING_BUFFER_OVERHEAD = new DataSize(1, Unit.KILOBYTE);
     private final int positionCount;
@@ -47,7 +47,7 @@ public class SnappyBlock
     private final BlockEncoding uncompressedBlockEncoding;
 
     @GuardedBy("this")
-    private RandomAccessBlock uncompressedBlock;
+    private Block uncompressedBlock;
 
     public SnappyBlock(int positionCount, Type type, Slice compressedSlice, BlockEncoding uncompressedBlockEncoding)
     {
@@ -58,7 +58,7 @@ public class SnappyBlock
         this.uncompressedBlockEncoding = checkNotNull(uncompressedBlockEncoding, "uncompressedBlockEncoding is null");
     }
 
-    public SnappyBlock(RandomAccessBlock block)
+    public SnappyBlock(Block block)
     {
         type = block.getType();
         positionCount = block.getPositionCount();
@@ -86,7 +86,7 @@ public class SnappyBlock
         return compressedSlice;
     }
 
-    public synchronized RandomAccessBlock getUncompressedBlock()
+    public synchronized Block getUncompressedBlock()
     {
         if (uncompressedBlock == null) {
             // decompress the slice
@@ -96,7 +96,7 @@ public class SnappyBlock
             Snappy.uncompress(compressedSlice.getBytes(), 0, compressedSlice.length(), output, 0);
 
             // decode the block
-            uncompressedBlock = uncompressedBlockEncoding.readBlock(Slices.wrappedBuffer(output).getInput()).toRandomAccessBlock();
+            uncompressedBlock = uncompressedBlockEncoding.readBlock(Slices.wrappedBuffer(output).getInput());
         }
         return uncompressedBlock;
     }
@@ -126,7 +126,7 @@ public class SnappyBlock
     }
 
     @Override
-    public RandomAccessBlock getRegion(int positionOffset, int length)
+    public Block getRegion(int positionOffset, int length)
     {
         return getUncompressedBlock().getRegion(positionOffset, length);
     }
@@ -162,7 +162,7 @@ public class SnappyBlock
     }
 
     @Override
-    public RandomAccessBlock getSingleValueBlock(int position)
+    public Block getSingleValueBlock(int position)
     {
         return getUncompressedBlock().getSingleValueBlock(position);
     }
@@ -174,7 +174,7 @@ public class SnappyBlock
     }
 
     @Override
-    public boolean equalTo(int position, RandomAccessBlock otherBlock, int otherPosition)
+    public boolean equalTo(int position, Block otherBlock, int otherPosition)
     {
         return getUncompressedBlock().equalTo(position, otherBlock, otherPosition);
     }
@@ -198,7 +198,7 @@ public class SnappyBlock
     }
 
     @Override
-    public int compareTo(SortOrder sortOrder, int position, RandomAccessBlock otherBlock, int otherPosition)
+    public int compareTo(SortOrder sortOrder, int position, Block otherBlock, int otherPosition)
     {
         return getUncompressedBlock().compareTo(sortOrder, position, otherBlock, otherPosition);
     }
@@ -219,12 +219,6 @@ public class SnappyBlock
     public void appendTo(int position, BlockBuilder blockBuilder)
     {
         getUncompressedBlock().appendTo(position, blockBuilder);
-    }
-
-    @Override
-    public RandomAccessBlock toRandomAccessBlock()
-    {
-        return getUncompressedBlock();
     }
 
     @Override

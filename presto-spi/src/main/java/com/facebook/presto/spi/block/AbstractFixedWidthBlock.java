@@ -22,7 +22,7 @@ import static io.airlift.slice.SizeOf.SIZE_OF_BYTE;
 import static java.util.Objects.requireNonNull;
 
 public abstract class AbstractFixedWidthBlock
-        implements RandomAccessBlock
+        implements Block
 {
     protected final FixedWidthType type;
     protected final int entrySize;
@@ -60,19 +60,13 @@ public abstract class AbstractFixedWidthBlock
     }
 
     @Override
-    public RandomAccessBlock getRegion(int positionOffset, int length)
+    public Block getRegion(int positionOffset, int length)
     {
         int positionCount = getPositionCount();
         if (positionOffset < 0 || length < 0 || positionOffset + length > positionCount) {
             throw new IndexOutOfBoundsException("Invalid position " + positionOffset + " in block with " + positionCount + " positions");
         }
-        return (RandomAccessBlock) cursor().getRegionAndAdvance(length);
-    }
-
-    @Override
-    public RandomAccessBlock toRandomAccessBlock()
-    {
-        return this;
+        return cursor().getRegionAndAdvance(length);
     }
 
     @Override
@@ -114,7 +108,7 @@ public abstract class AbstractFixedWidthBlock
     }
 
     @Override
-    public RandomAccessBlock getSingleValueBlock(int position)
+    public Block getSingleValueBlock(int position)
     {
         checkReadablePosition(position);
 
@@ -131,7 +125,7 @@ public abstract class AbstractFixedWidthBlock
     }
 
     @Override
-    public boolean equalTo(int position, RandomAccessBlock otherBlock, int otherPosition)
+    public boolean equalTo(int position, Block otherBlock, int otherPosition)
     {
         checkReadablePosition(position);
         int leftEntryOffset = entryOffset(position);
@@ -190,7 +184,7 @@ public abstract class AbstractFixedWidthBlock
     }
 
     @Override
-    public int compareTo(SortOrder sortOrder, int position, RandomAccessBlock otherBlock, int otherPosition)
+    public int compareTo(SortOrder sortOrder, int position, Block otherBlock, int otherPosition)
     {
         checkReadablePosition(position);
         int leftEntryOffset = entryOffset(position);

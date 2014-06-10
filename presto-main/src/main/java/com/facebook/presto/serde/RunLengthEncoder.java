@@ -16,7 +16,6 @@ package com.facebook.presto.serde;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockCursor;
 import com.facebook.presto.spi.block.BlockEncoding;
-import com.facebook.presto.spi.block.RandomAccessBlock;
 import com.facebook.presto.block.rle.RunLengthBlockEncoding;
 import com.facebook.presto.block.rle.RunLengthEncodedBlock;
 import io.airlift.slice.SliceOutput;
@@ -31,7 +30,7 @@ public class RunLengthEncoder
     private boolean finished;
 
     private int positionCount;
-    private RandomAccessBlock lastValue;
+    private Block lastValue;
     private RunLengthBlockEncoding encoding;
 
     public RunLengthEncoder(SliceOutput sliceOutput)

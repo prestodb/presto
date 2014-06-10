@@ -14,7 +14,6 @@
 package com.facebook.presto.operator;
 
 import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.block.RandomAccessBlock;
 import com.google.common.base.Objects;
 import com.google.common.base.Preconditions;
 import io.airlift.slice.Slice;
@@ -25,15 +24,15 @@ import java.util.Arrays;
 
 public class RandomAccessPage
 {
-    private final RandomAccessBlock[] blocks;
+    private final Block[] blocks;
     private final int positionCount;
 
-    public RandomAccessPage(RandomAccessBlock... blocks)
+    public RandomAccessPage(Block... blocks)
     {
         this(blocks[0].getPositionCount(), blocks);
     }
 
-    public RandomAccessPage(int positionCount, RandomAccessBlock... blocks)
+    public RandomAccessPage(int positionCount, Block... blocks)
     {
         Preconditions.checkNotNull(blocks, "blocks is null");
         this.blocks = Arrays.copyOf(blocks, blocks.length);
@@ -59,12 +58,12 @@ public class RandomAccessPage
         return new DataSize(dataSize, Unit.BYTE);
     }
 
-    public RandomAccessBlock[] getBlocks()
+    public Block[] getBlocks()
     {
         return blocks.clone();
     }
 
-    public RandomAccessBlock getBlock(int channel)
+    public Block getBlock(int channel)
     {
         return blocks[channel];
     }

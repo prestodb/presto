@@ -13,9 +13,9 @@
  */
 package com.facebook.presto.operator;
 
+import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.block.BlockCursor;
-import com.facebook.presto.spi.block.RandomAccessBlock;
 import com.facebook.presto.spi.block.SortOrder;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.base.Optional;
@@ -115,7 +115,7 @@ public class TopNOperator
     private TopNBuilder topNBuilder;
     private boolean finishing;
 
-    private Iterator<RandomAccessBlock[]> outputIterator;
+    private Iterator<Block[]> outputIterator;
 
     public TopNOperator(
             OperatorContext operatorContext,
@@ -221,7 +221,7 @@ public class TopNOperator
 
         pageBuilder.reset();
         while (!pageBuilder.isFull() && outputIterator.hasNext()) {
-            RandomAccessBlock[] next = outputIterator.next();
+            Block[] next = outputIterator.next();
             for (int i = 0; i < next.length; i++) {
                 next[i].appendTo(0, pageBuilder.getBlockBuilder(i));
             }
@@ -237,7 +237,7 @@ public class TopNOperator
         private final List<Integer> sortChannels;
         private final List<SortOrder> sortOrders;
         private final TopNMemoryManager memoryManager;
-        private final PriorityQueue<RandomAccessBlock[]> globalCandidates;
+        private final PriorityQueue<Block[]> globalCandidates;
         private final Optional<Integer> sampleWeightChannel;
 
         private long memorySize;
@@ -252,7 +252,7 @@ public class TopNOperator
             this.memoryManager = memoryManager;
             this.sampleWeightChannel = sampleWeightChannel;
 
-            Ordering<RandomAccessBlock[]> comparator = Ordering.from(new RowComparator(sortChannels, sortOrders)).reverse();
+            Ordering<Block[]> comparator = Ordering.from(new RowComparator(sortChannels, sortOrders)).reverse();
             this.globalCandidates = new PriorityQueue<>(Math.min(n, MAX_INITIAL_PRIORITY_QUEUE_SIZE), comparator);
         }
 
@@ -287,14 +287,14 @@ public class TopNOperator
             return sizeDelta;
         }
 
-        private int compare(BlockCursor[] cursors, RandomAccessBlock[] currentMax)
+        private int compare(BlockCursor[] cursors, Block[] currentMax)
         {
             for (int i = 0; i < sortChannels.size(); i++) {
                 int sortChannel = sortChannels.get(i);
                 SortOrder sortOrder = sortOrders.get(i);
 
                 BlockCursor cursor = cursors[sortChannel];
-                RandomAccessBlock currentMaxValue = currentMax[sortChannel];
+                Block currentMaxValue = currentMax[sortChannel];
 
                 // compare the right value to the left cursor but negate the result since we are evaluating in the opposite order
                 int compare = -currentMaxValue.compareTo(sortOrder, 0, cursor);
@@ -308,7 +308,7 @@ public class TopNOperator
         private long addRow(BlockCursor[] cursors)
         {
             long sizeDelta = 0;
-            RandomAccessBlock[] row = getValues(cursors);
+            Block[] row = getValues(cursors);
             long sampleWeight = 1;
             if (sampleWeightChannel.isPresent()) {
                 sampleWeight = row[sampleWeightChannel.get()].getLong(0);
@@ -325,7 +325,7 @@ public class TopNOperator
             }
 
             while (globalCandidates.size() > n) {
-                RandomAccessBlock[] previous = globalCandidates.remove();
+                Block[] previous = globalCandidates.remove();
                 // We insert sampled rows multiple times, so use reference equality when checking if this row is still in the queue
                 if (previous != globalCandidates.peek()) {
                     sizeDelta -= sizeOfRow(previous);
@@ -337,18 +337,18 @@ public class TopNOperator
             return sizeDelta;
         }
 
-        private long sizeOfRow(RandomAccessBlock[] row)
+        private long sizeOfRow(Block[] row)
         {
             long size = OVERHEAD_PER_VALUE.toBytes();
-            for (RandomAccessBlock value : row) {
+            for (Block value : row) {
                 size += value.getSizeInBytes();
             }
             return size;
         }
 
-        private RandomAccessBlock[] getValues(BlockCursor[] cursors)
+        private Block[] getValues(BlockCursor[] cursors)
         {
-            RandomAccessBlock[] row = new RandomAccessBlock[cursors.length];
+            Block[] row = new Block[cursors.length];
             for (int i = 0; i < cursors.length; i++) {
                 row[i] = cursors[i].getSingleValueBlock();
             }
@@ -360,12 +360,12 @@ public class TopNOperator
             return memoryManager.canUse(memorySize);
         }
 
-        public Iterator<RandomAccessBlock[]> build()
+        public Iterator<Block[]> build()
         {
-            ImmutableList.Builder<RandomAccessBlock[]> minSortedGlobalCandidates = ImmutableList.builder();
+            ImmutableList.Builder<Block[]> minSortedGlobalCandidates = ImmutableList.builder();
             long sampleWeight = 1;
             while (!globalCandidates.isEmpty()) {
-                RandomAccessBlock[] row = globalCandidates.remove();
+                Block[] row = globalCandidates.remove();
                 if (sampleWeightChannel.isPresent()) {
                     // sampled rows are inserted multiple times (we can use identity comparison here)
                     // we could also test for equality to "pack" results further, but that would require another equality function
@@ -385,12 +385,11 @@ public class TopNOperator
             return minSortedGlobalCandidates.build().reverse().iterator();
         }
 
-        private static RandomAccessBlock createBigintBlock(long value)
+        private static Block createBigintBlock(long value)
         {
             return BIGINT.createBlockBuilder(new BlockBuilderStatus())
                     .appendLong(value)
-                    .build()
-                    .toRandomAccessBlock();
+                    .build();
         }
     }
 
@@ -430,7 +429,7 @@ public class TopNOperator
     }
 
     private static class RowComparator
-            implements Comparator<RandomAccessBlock[]>
+            implements Comparator<Block[]>
     {
         private final List<Integer> sortChannels;
         private final List<SortOrder> sortOrders;
@@ -446,14 +445,14 @@ public class TopNOperator
         }
 
         @Override
-        public int compare(RandomAccessBlock[] leftRow, RandomAccessBlock[] rightRow)
+        public int compare(Block[] leftRow, Block[] rightRow)
         {
             for (int index = 0; index < sortChannels.size(); index++) {
                 int channel = sortChannels.get(index);
                 SortOrder sortOrder = sortOrders.get(index);
 
-                RandomAccessBlock left = leftRow[channel];
-                RandomAccessBlock right = rightRow[channel];
+                Block left = leftRow[channel];
+                Block right = rightRow[channel];
 
                 int comparison = left.compareTo(sortOrder, 0, right, 0);
                 if (comparison != 0) {
