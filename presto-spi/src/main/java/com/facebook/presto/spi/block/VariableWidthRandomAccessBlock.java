@@ -32,23 +32,6 @@ public class VariableWidthRandomAccessBlock
         this.offsets = offsets;
     }
 
-    public VariableWidthRandomAccessBlock(VariableWidthType type, int positionCount, Slice slice)
-    {
-        super(type);
-
-        this.positionCount = positionCount;
-        this.slice = slice;
-        this.offsets = new int[positionCount];
-
-        VariableWidthBlockCursor cursor = new VariableWidthBlockCursor(type, positionCount, slice);
-        for (int position = 0; position < positionCount; position++) {
-            if (!cursor.advanceNextPosition()) {
-                throw new IllegalStateException();
-            }
-            offsets[position] = cursor.getRawOffset();
-        }
-    }
-
     @Override
     protected int[] getOffsets()
     {

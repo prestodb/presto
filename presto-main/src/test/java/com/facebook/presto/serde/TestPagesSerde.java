@@ -89,12 +89,12 @@ public class TestPagesSerde
         // page with one value
         page = new Page(builder.appendSlice(Slices.utf8Slice("alice")).build());
         int firstValueSize = serializedSize(page) - pageSize;
-        assertEquals(firstValueSize, 5 + 5); // "alice" + value overhead
+        assertEquals(firstValueSize, 4 + 5 + 5); // "alice" + value overhead
 
         // page with two values
         page = new Page(builder.appendSlice(Slices.utf8Slice("bob")).build());
         int secondValueSize = serializedSize(page) - (pageSize + firstValueSize);
-        assertEquals(secondValueSize, 3 + 5); // "bob" + value overhead
+        assertEquals(secondValueSize, 4 + 3 + 5); // "bob" + value overhead
     }
 
     private static int serializedSize(Page expectedPage)

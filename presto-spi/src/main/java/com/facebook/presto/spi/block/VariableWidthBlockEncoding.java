@@ -52,40 +52,34 @@ public class VariableWidthBlockEncoding
         }
 
         // The down casts here are safe because it is the block itself the provides this encoding implementation.
-        Slice rawSlice;
-        if (block instanceof AbstractVariableWidthRandomAccessBlock) {
-            AbstractVariableWidthRandomAccessBlock uncompressedBlock = (AbstractVariableWidthRandomAccessBlock) block;
-            rawSlice = uncompressedBlock.getRawSlice();
-        }
-        else if (block instanceof VariableWidthBlock) {
-            VariableWidthBlock variableWidthBlock = (VariableWidthBlock) block;
-            rawSlice = variableWidthBlock.getRawSlice();
-        }
-        else {
-            throw new IllegalArgumentException("Unsupported block type " + block.getClass().getName());
+        AbstractVariableWidthRandomAccessBlock uncompressedBlock = (AbstractVariableWidthRandomAccessBlock) block;
+
+        Slice rawSlice = uncompressedBlock.getRawSlice();
+
+        int positionCount = uncompressedBlock.getPositionCount();
+        sliceOutput.appendInt(positionCount);
+        for (int position = 0; position < positionCount; position++) {
+            sliceOutput.appendInt(uncompressedBlock.getPositionOffset(position));
         }
 
-        writeUncompressedBlock(sliceOutput,
-                block.getPositionCount(),
-                rawSlice);
+        sliceOutput
+                .appendInt(rawSlice.length())
+                .writeBytes(rawSlice);
     }
 
     @Override
     public Block readBlock(SliceInput sliceInput)
     {
-        int blockSize = sliceInput.readInt();
         int positionCount = sliceInput.readInt();
+        int[] offsets = new int[positionCount];
+        for (int position = 0; position < positionCount; position++) {
+            offsets[position] = sliceInput.readInt();
+        }
 
+        int blockSize = sliceInput.readInt();
         Slice slice = sliceInput.readSlice(blockSize);
-        return new VariableWidthBlock(type, positionCount, slice);
-    }
 
-    private static void writeUncompressedBlock(SliceOutput destination, int positionCount, Slice slice)
-    {
-        destination
-                .appendInt(slice.length())
-                .appendInt(positionCount)
-                .writeBytes(slice);
+        return new VariableWidthRandomAccessBlock(type, positionCount, slice, offsets);
     }
 
     public static class VariableWidthBlockEncodingFactory
