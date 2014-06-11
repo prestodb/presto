@@ -17,12 +17,13 @@ import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockCursor;
 import com.facebook.presto.spi.block.RandomAccessBlock;
 import com.facebook.presto.spi.block.SortOrder;
+import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.gen.JoinCompiler;
 import com.facebook.presto.sql.gen.JoinCompiler.LookupSourceFactory;
 import com.facebook.presto.sql.gen.OrderingCompiler;
-import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableList;
 import io.airlift.log.Logger;
+import io.airlift.slice.Slice;
 import io.airlift.units.DataSize;
 import io.airlift.units.DataSize.Unit;
 import it.unimi.dsi.fastutil.Swapper;
@@ -174,6 +175,51 @@ public class PagesIndex
         RandomAccessBlock block = channels[channel].get(decodeSliceIndex(pageAddress));
         int blockPosition = decodePosition(pageAddress);
         block.appendTo(blockPosition, output);
+    }
+
+    public boolean isNull(int channel, int position)
+    {
+        long pageAddress = valueAddresses.getLong(position);
+
+        RandomAccessBlock block = channels[channel].get(decodeSliceIndex(pageAddress));
+        int blockPosition = decodePosition(pageAddress);
+        return block.isNull(blockPosition);
+    }
+
+    public boolean getBoolean(int channel, int position)
+    {
+        long pageAddress = valueAddresses.getLong(position);
+
+        RandomAccessBlock block = channels[channel].get(decodeSliceIndex(pageAddress));
+        int blockPosition = decodePosition(pageAddress);
+        return block.getBoolean(blockPosition);
+    }
+
+    public long getLong(int channel, int position)
+    {
+        long pageAddress = valueAddresses.getLong(position);
+
+        RandomAccessBlock block = channels[channel].get(decodeSliceIndex(pageAddress));
+        int blockPosition = decodePosition(pageAddress);
+        return block.getLong(blockPosition);
+    }
+
+    public double getDouble(int channel, int position)
+    {
+        long pageAddress = valueAddresses.getLong(position);
+
+        RandomAccessBlock block = channels[channel].get(decodeSliceIndex(pageAddress));
+        int blockPosition = decodePosition(pageAddress);
+        return block.getDouble(blockPosition);
+    }
+
+    public Slice getSlice(int channel, int position)
+    {
+        long pageAddress = valueAddresses.getLong(position);
+
+        RandomAccessBlock block = channels[channel].get(decodeSliceIndex(pageAddress));
+        int blockPosition = decodePosition(pageAddress);
+        return block.getSlice(blockPosition);
     }
 
     public boolean equals(int[] channels, int leftPosition, int rightPosition)

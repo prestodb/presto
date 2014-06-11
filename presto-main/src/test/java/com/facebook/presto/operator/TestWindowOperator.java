@@ -16,10 +16,11 @@ package com.facebook.presto.operator;
 import com.facebook.presto.ExceededMemoryLimitException;
 import com.facebook.presto.execution.TaskId;
 import com.facebook.presto.operator.WindowOperator.WindowOperatorFactory;
+import com.facebook.presto.operator.window.ReflectionWindowFunctionSupplier;
 import com.facebook.presto.operator.window.RowNumberFunction;
-import com.facebook.presto.operator.window.WindowFunction;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.block.SortOrder;
+import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.testing.MaterializedResult;
 import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Ints;
@@ -36,6 +37,7 @@ import java.util.concurrent.ExecutorService;
 import static com.facebook.presto.operator.OperatorAssertion.assertOperatorEquals;
 import static com.facebook.presto.operator.OperatorAssertion.toPages;
 import static com.facebook.presto.operator.RowPagesBuilder.rowPagesBuilder;
+import static com.facebook.presto.operator.WindowFunctionDefinition.window;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
@@ -48,7 +50,9 @@ import static java.util.concurrent.Executors.newCachedThreadPool;
 @Test(singleThreaded = true)
 public class TestWindowOperator
 {
-    private static final List<WindowFunction> ROW_NUMBER = ImmutableList.<WindowFunction>of(new RowNumberFunction());
+    private static final List<WindowFunctionDefinition> ROW_NUMBER = ImmutableList.of(
+            window(new ReflectionWindowFunctionSupplier<>("row_number", BIGINT, ImmutableList.<Type>of(), RowNumberFunction.class))
+    );
 
     private ExecutorService executor;
     private DriverContext driverContext;

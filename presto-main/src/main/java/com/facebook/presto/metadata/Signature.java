@@ -51,6 +51,11 @@ public final class Signature
         this.operator = operator;
     }
 
+    public Signature(String name, Type returnType, Type... argumentTypes)
+    {
+        this(name.toLowerCase(), returnType, ImmutableList.copyOf(argumentTypes), false, false);
+    }
+
     public Signature(String name, Type returnType, List<? extends Type> argumentTypes, boolean approximate)
     {
         this(name, returnType, argumentTypes, approximate, false);
