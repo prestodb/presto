@@ -60,7 +60,6 @@ import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.Index;
 import com.facebook.presto.spi.RecordSet;
 import com.facebook.presto.spi.RecordSink;
-import com.facebook.presto.spi.block.BlockCursor;
 import com.facebook.presto.spi.block.SortOrder;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.split.DataStreamProvider;
@@ -825,7 +824,7 @@ public class LocalExecutionPlanner
                         ImmutableList.copyOf(row));
                 for (int i = 0; i < row.size(); i++) {
                     // evaluate the literal value
-                    Object result = ExpressionInterpreter.expressionInterpreter(row.get(i), metadata, context.getSession(), expressionTypes).evaluate(new BlockCursor[0]);
+                    Object result = ExpressionInterpreter.expressionInterpreter(row.get(i), metadata, context.getSession(), expressionTypes).evaluate(0);
                     BlockUtils.appendObject(pageBuilder.getBlockBuilder(i), result);
                 }
             }

@@ -13,12 +13,11 @@
  */
 package com.facebook.presto.operator;
 
-import com.facebook.presto.spi.block.BlockCursor;
 import com.facebook.presto.metadata.ColumnHandle;
 import com.facebook.presto.spi.RecordCursor;
+import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.split.DataStreamProvider;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
-import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
@@ -105,31 +104,19 @@ public class ScanFilterAndProjectOperator
         this.projections = ImmutableList.copyOf(checkNotNull(projections, "projections is null"));
     }
 
+    @Override
     protected void filterAndProjectRowOriented(Page page, PageBuilder pageBuilder)
     {
         int rows = page.getPositionCount();
 
-        BlockCursor[] cursors = new BlockCursor[page.getChannelCount()];
-        for (int i = 0; i < page.getChannelCount(); i++) {
-            cursors[i] = page.getBlock(i).cursor();
-        }
-
         for (int position = 0; position < rows; position++) {
-            for (BlockCursor cursor : cursors) {
-                checkState(cursor.advanceNextPosition());
-            }
-
-            if (filterFunction.filter(cursors)) {
+            if (filterFunction.filter(position, page.getBlocks())) {
                 pageBuilder.declarePosition();
                 for (int i = 0; i < projections.size(); i++) {
                     // todo: if the projection function increases the size of the data significantly, this could cause the servers to OOM
-                    projections.get(i).project(cursors, pageBuilder.getBlockBuilder(i));
+                    projections.get(i).project(position, page.getBlocks(), pageBuilder.getBlockBuilder(i));
                 }
             }
-        }
-
-        for (BlockCursor cursor : cursors) {
-            checkState(!cursor.advanceNextPosition());
         }
     }
 

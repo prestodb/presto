@@ -18,7 +18,7 @@ import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.OperatorType;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.RecordCursor;
-import com.facebook.presto.spi.block.BlockCursor;
+import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.tree.ArithmeticExpression;
 import com.facebook.presto.sql.tree.AstVisitor;
@@ -120,10 +120,10 @@ public class ExpressionInterpreter
         return visitor.process(expression, inputs);
     }
 
-    public Object evaluate(BlockCursor[] inputs)
+    public Object evaluate(int position, Block... inputs)
     {
-        checkState(!optimize, "evaluate(BlockCursor[]) not allowed for optimizer");
-        return visitor.process(expression, inputs);
+        checkState(!optimize, "evaluate(int, Block...) not allowed for optimizer");
+        return visitor.process(expression, new PagePositionContext(position, inputs));
     }
 
     public Object optimize(SymbolResolver inputs)
@@ -140,26 +140,27 @@ public class ExpressionInterpreter
         public Object visitInputReference(InputReference node, Object context)
         {
             int channel = node.getChannel();
-            if (context instanceof BlockCursor[]) {
-                BlockCursor[] inputs = (BlockCursor[]) context;
-                BlockCursor cursor = inputs[channel];
+            if (context instanceof PagePositionContext) {
+                PagePositionContext pagePositionContext = (PagePositionContext) context;
+                int position = pagePositionContext.getPosition();
+                Block block = pagePositionContext.getBlock(channel);
 
-                if (cursor.isNull()) {
+                if (block.isNull(position)) {
                     return null;
                 }
 
-                Class<?> javaType = cursor.getType().getJavaType();
+                Class<?> javaType = block.getType().getJavaType();
                 if (javaType == boolean.class) {
-                    return cursor.getBoolean();
+                    return block.getBoolean(position);
                 }
                 else if (javaType == long.class) {
-                    return cursor.getLong();
+                    return block.getLong(position);
                 }
                 else if (javaType == double.class) {
-                    return cursor.getDouble();
+                    return block.getDouble(position);
                 }
                 else if (javaType == Slice.class) {
-                    return cursor.getSlice();
+                    return block.getSlice(position);
                 }
                 else {
                     throw new UnsupportedOperationException("not yet implemented");
@@ -734,6 +735,28 @@ public class ExpressionInterpreter
             catch (RuntimeException e) {
                 return node;
             }
+        }
+    }
+
+    private static class PagePositionContext
+    {
+        private final int position;
+        private final Block[] blocks;
+
+        private PagePositionContext(int position, Block[] blocks)
+        {
+            this.position = position;
+            this.blocks = blocks;
+        }
+
+        public Block getBlock(int channel)
+        {
+            return blocks[channel];
+        }
+
+        public int getPosition()
+        {
+            return position;
         }
     }
 

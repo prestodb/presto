@@ -16,10 +16,9 @@ package com.facebook.presto.sql.planner;
 import com.facebook.presto.metadata.ColumnHandle;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.Signature;
-import com.facebook.presto.spi.ConnectorSession;
-import com.facebook.presto.spi.block.BlockCursor;
-import com.facebook.presto.spi.type.BigintType;
 import com.facebook.presto.metadata.TableHandle;
+import com.facebook.presto.spi.ConnectorSession;
+import com.facebook.presto.spi.type.BigintType;
 import com.facebook.presto.sql.analyzer.Analysis;
 import com.facebook.presto.sql.analyzer.EquiJoinClause;
 import com.facebook.presto.sql.analyzer.Field;
@@ -300,7 +299,7 @@ class RelationPlanner
             });
 
             // evaluate the expression
-            Object result = ExpressionInterpreter.expressionInterpreter(canonicalized, metadata, session, analysis.getTypes()).evaluate(new BlockCursor[0]);
+            Object result = ExpressionInterpreter.expressionInterpreter(canonicalized, metadata, session, analysis.getTypes()).evaluate(0);
             checkState(!(result instanceof Expression), "Expression interpreter returned an unresolved expression");
 
             return LiteralInterpreter.toExpression(result, analysis.getType(expression));

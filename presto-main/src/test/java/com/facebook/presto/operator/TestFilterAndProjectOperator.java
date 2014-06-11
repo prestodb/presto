@@ -17,8 +17,8 @@ import com.facebook.presto.execution.TaskId;
 import com.facebook.presto.operator.FilterAndProjectOperator.FilterAndProjectOperatorFactory;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.RecordCursor;
+import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.block.BlockCursor;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.testing.MaterializedResult;
 import com.google.common.collect.ImmutableList;
@@ -74,9 +74,9 @@ public class TestFilterAndProjectOperator
                 new FilterFunction()
                 {
                     @Override
-                    public boolean filter(BlockCursor... cursors)
+                    public boolean filter(int position, Block... blocks)
                     {
-                        long value = cursors[1].getLong();
+                        long value = blocks[1].getLong(position);
                         return 10 <= value && value < 20;
                     }
 
@@ -124,13 +124,13 @@ public class TestFilterAndProjectOperator
         }
 
         @Override
-        public void project(BlockCursor[] cursors, BlockBuilder output)
+        public void project(int position, Block[] blocks, BlockBuilder output)
         {
-            if (cursors[channelIndex].isNull()) {
+            if (blocks[channelIndex].isNull(position)) {
                 output.appendNull();
             }
             else {
-                output.appendLong(cursors[channelIndex].getLong() + 5);
+                output.appendLong(blocks[channelIndex].getLong(position) + 5);
             }
         }
 
