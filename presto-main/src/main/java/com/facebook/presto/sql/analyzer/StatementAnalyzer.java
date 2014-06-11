@@ -204,7 +204,8 @@ class StatementAnalyzer
     {
         QualifiedTableName tableName = MetadataUtil.createQualifiedTableName(session, showColumns.getTable());
 
-        if (!metadata.getTableHandle(session, tableName).isPresent()) {
+        if (!metadata.getView(session, tableName).isPresent() &&
+                !metadata.getTableHandle(session, tableName).isPresent()) {
             throw new SemanticException(MISSING_TABLE, showColumns, "Table '%s' does not exist", tableName);
         }
 

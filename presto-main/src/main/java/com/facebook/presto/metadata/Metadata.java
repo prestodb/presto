@@ -149,6 +149,18 @@ public interface Metadata
     Map<String, String> getCatalogNames();
 
     /**
+     * Get the names that match the specified table prefix (never null).
+     */
+    @NotNull
+    List<QualifiedTableName> listViews(ConnectorSession session, QualifiedTablePrefix prefix);
+
+    /**
+     * Get the view definitions that match the specified table prefix (never null).
+     */
+    @NotNull
+    Map<QualifiedTableName, ViewDefinition> getViews(ConnectorSession session, QualifiedTablePrefix prefix);
+
+    /**
      * Returns the view definition for the specified view name.
      */
     @NotNull
