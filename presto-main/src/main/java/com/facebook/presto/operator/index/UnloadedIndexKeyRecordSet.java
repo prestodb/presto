@@ -16,7 +16,7 @@ package com.facebook.presto.operator.index;
 import com.facebook.presto.operator.GroupByHash;
 import com.facebook.presto.spi.RecordCursor;
 import com.facebook.presto.spi.RecordSet;
-import com.facebook.presto.spi.block.BlockCursor;
+import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
@@ -55,25 +55,19 @@ public class UnloadedIndexKeyRecordSet
         for (UpdateRequest request : requests) {
             IntList positions = new IntArrayList();
 
-            BlockCursor[] cursors = request.duplicateCursors();
+            int startPosition = request.getStartPosition();
+            Block[] blocks = request.getBlocks();
 
             // Move through the positions while advancing the cursors in lockstep
-            int positionCount = cursors[0].getRemainingPositions() + 1;
-            for (int index = 0; index < positionCount; index++) {
-                // cursors are start at valid position, so we don't need to advance the first time
-                if (index > 0) {
-                    for (BlockCursor cursor : cursors) {
-                        checkState(cursor.advanceNextPosition());
-                    }
-                }
-
+            int positionCount = blocks[0].getPositionCount();
+            for (int position = startPosition; position < positionCount; position++) {
                 // We are reading ahead in the cursors, so we need to filter any nulls since they can not join
-                if (!containsNullValue(cursors) && groupByHash.putIfAbsent(cursors) == nextDistinctId) {
+                if (!containsNullValue(position, blocks) && groupByHash.putIfAbsent(position, blocks) == nextDistinctId) {
                     nextDistinctId++;
 
                     // Only include the key if it is not already in the index
-                    if (existingSnapshot.getJoinPosition(cursors) == UNLOADED_INDEX_KEY) {
-                        positions.add(cursors[0].getPosition());
+                    if (existingSnapshot.getJoinPosition(position, blocks) == UNLOADED_INDEX_KEY) {
+                        positions.add(position);
                     }
                 }
             }
@@ -98,10 +92,10 @@ public class UnloadedIndexKeyRecordSet
         return new UnloadedIndexKeyRecordCursor(types, pageAndPositions);
     }
 
-    private static boolean containsNullValue(BlockCursor... cursors)
+    private static boolean containsNullValue(int position, Block... blocks)
     {
-        for (BlockCursor cursor : cursors) {
-            if (cursor.isNull()) {
+        for (Block block : blocks) {
+            if (block.isNull(position)) {
                 return true;
             }
         }
@@ -113,14 +107,15 @@ public class UnloadedIndexKeyRecordSet
     {
         private final List<Type> types;
         private final Iterator<PageAndPositions> pageAndPositionsIterator;
-        private BlockCursor[] cursors;
+        private Block[] blocks;
         private IntListIterator positionIterator;
+        private int position;
 
         public UnloadedIndexKeyRecordCursor(List<Type> types, List<PageAndPositions> pageAndPositions)
         {
             this.types = ImmutableList.copyOf(checkNotNull(types, "types is null"));
             this.pageAndPositionsIterator = checkNotNull(pageAndPositions, "pageAndPositions is null").iterator();
-            this.cursors = new BlockCursor[types.size()];
+            this.blocks = new Block[types.size()];
         }
 
         @Override
@@ -155,52 +150,54 @@ public class UnloadedIndexKeyRecordSet
                     return false;
                 }
                 PageAndPositions pageAndPositions = pageAndPositionsIterator.next();
-                cursors = pageAndPositions.getUpdateRequest().duplicateCursors();
-                checkState(types.size() == cursors.length);
+                blocks = pageAndPositions.getUpdateRequest().getBlocks();
+                checkState(types.size() == blocks.length);
                 positionIterator = pageAndPositions.getPositions().iterator();
             }
 
-            int position = positionIterator.nextInt();
-            for (BlockCursor cursor : cursors) {
-                checkState(cursor.advanceToPosition(position));
-            }
+            position = positionIterator.nextInt();
 
             return true;
         }
 
-        public BlockCursor[] asBlockCursors()
+        public Block[] getBlocks()
         {
-            return cursors;
+            return blocks;
+        }
+
+        public int getPosition()
+        {
+            return position;
         }
 
         @Override
         public boolean getBoolean(int field)
         {
-            return cursors[field].getBoolean();
+            return blocks[field].getBoolean(position);
         }
 
         @Override
         public long getLong(int field)
         {
-            return cursors[field].getLong();
+            return blocks[field].getLong(position);
         }
 
         @Override
         public double getDouble(int field)
         {
-            return cursors[field].getDouble();
+            return blocks[field].getDouble(position);
         }
 
         @Override
         public Slice getSlice(int field)
         {
-            return cursors[field].getSlice();
+            return blocks[field].getSlice(position);
         }
 
         @Override
         public boolean isNull(int field)
         {
-            return cursors[field].isNull();
+            return blocks[field].isNull(position);
         }
 
         @Override

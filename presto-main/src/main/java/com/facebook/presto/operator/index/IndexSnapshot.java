@@ -15,7 +15,7 @@ package com.facebook.presto.operator.index;
 
 import com.facebook.presto.operator.LookupSource;
 import com.facebook.presto.operator.PageBuilder;
-import com.facebook.presto.spi.block.BlockCursor;
+import com.facebook.presto.spi.block.Block;
 
 import javax.annotation.concurrent.Immutable;
 
@@ -41,11 +41,11 @@ public class IndexSnapshot
      * Returns NO_MORE_POSITIONS if the key has been loaded, but has no values.
      * Returns a valid address if the key has been loaded and has values.
      */
-    public long getJoinPosition(BlockCursor... cursors)
+    public long getJoinPosition(int position, Block... blocks)
     {
-        long joinPosition = values.getJoinPosition(cursors);
+        long joinPosition = values.getJoinPosition(position, blocks);
         if (joinPosition < 0) {
-            if (missingKeys.getJoinPosition(cursors) < 0) {
+            if (missingKeys.getJoinPosition(position, blocks) < 0) {
                 return UNLOADED_INDEX_KEY;
             }
             else {

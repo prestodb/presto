@@ -13,13 +13,13 @@
  */
 package com.facebook.presto.operator;
 
-import com.facebook.presto.spi.block.BlockCursor;
+import com.facebook.presto.spi.block.Block;
 
 public interface LookupSource
 {
     int getChannelCount();
 
-    long getJoinPosition(BlockCursor... cursors);
+    long getJoinPosition(int position, Block... blocks);
 
     long getNextJoinPosition(long currentPosition);
 

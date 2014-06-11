@@ -14,7 +14,6 @@
 package com.facebook.presto.operator;
 
 import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.block.BlockCursor;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
@@ -64,12 +63,12 @@ public class SimplePagesHashStrategy
     }
 
     @Override
-    public boolean positionEqualsCursors(int blockIndex, int blockPosition, BlockCursor[] cursors)
+    public boolean positionEqualsRow(int leftBlockIndex, int leftBlockPosition, int rightPosition, Block[] rightBlocks)
     {
         for (int i = 0; i < hashChannels.size(); i++) {
             List<Block> channel = hashChannels.get(i);
-            Block block = channel.get(blockIndex);
-            if (!block.equalTo(blockPosition, cursors[i])) {
+            Block block = channel.get(leftBlockIndex);
+            if (!block.equalTo(leftBlockPosition, rightBlocks[i], rightPosition)) {
                 return false;
             }
         }

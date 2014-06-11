@@ -33,7 +33,6 @@ import com.facebook.presto.operator.PageBuilder;
 import com.facebook.presto.operator.PagesHashStrategy;
 import com.facebook.presto.operator.aggregation.IsolatedClass;
 import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.block.BlockCursor;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Objects;
@@ -158,7 +157,7 @@ public class JoinCompiler
         generateGetChannelCountMethod(classDefinition, channelFields);
         generateAppendToMethod(classDefinition, channelFields);
         generateHashPositionMethod(classDefinition, joinChannelFields);
-        generatePositionEqualsCursorsMethod(classDefinition, joinChannelFields);
+        generatePositionEqualsRowMethod(classDefinition, joinChannelFields);
         generatePositionEqualsPositionMethod(classDefinition, joinChannelFields);
 
         Class<? extends PagesHashStrategy> pagesHashStrategyClass = defineClass(classDefinition, PagesHashStrategy.class, classLoader);
@@ -278,15 +277,16 @@ public class JoinCompiler
                 .retInt();
     }
 
-    private void generatePositionEqualsCursorsMethod(ClassDefinition classDefinition, List<FieldDefinition> joinChannelFields)
+    private void generatePositionEqualsRowMethod(ClassDefinition classDefinition, List<FieldDefinition> joinChannelFields)
     {
         MethodDefinition hashPositionMethod = classDefinition.declareMethod(new CompilerContext(bootstrapMethod),
                 a(PUBLIC),
-                "positionEqualsCursors",
+                "positionEqualsRow",
                 type(boolean.class),
-                arg("blockIndex", int.class),
-                arg("blockPosition", int.class),
-                arg("cursors", BlockCursor[].class));
+                arg("leftBlockIndex", int.class),
+                arg("leftBlockPosition", int.class),
+                arg("rightPosition", int.class),
+                arg("rightBlocks", com.facebook.presto.spi.block.Block[].class));
 
         for (int index = 0; index < joinChannelFields.size(); index++) {
             LabelNode checkNextField = new LabelNode("checkNextField");
@@ -294,14 +294,15 @@ public class JoinCompiler
                     .getBody()
                     .pushThis()
                     .getField(joinChannelFields.get(index))
-                    .getVariable("blockIndex")
+                    .getVariable("leftBlockIndex")
                     .invokeInterface(List.class, "get", Object.class, int.class)
                     .checkCast(com.facebook.presto.spi.block.Block.class)
-                    .getVariable("blockPosition")
-                    .getVariable("cursors")
+                    .getVariable("leftBlockPosition")
+                    .getVariable("rightBlocks")
                     .push(index)
                     .getObjectArrayElement()
-                    .invokeInterface(com.facebook.presto.spi.block.Block.class, "equalTo", boolean.class, int.class, BlockCursor.class)
+                    .getVariable("rightPosition")
+                    .invokeInterface(com.facebook.presto.spi.block.Block.class, "equalTo", boolean.class, int.class, com.facebook.presto.spi.block.Block.class, int.class)
                     .ifTrueGoto(checkNextField)
                     .push(false)
                     .retBoolean()

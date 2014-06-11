@@ -13,12 +13,10 @@
  */
 package com.facebook.presto.operator.index;
 
-import com.facebook.presto.spi.block.BlockCursor;
-import com.google.common.collect.ImmutableList;
+import com.facebook.presto.spi.block.Block;
 
 import javax.annotation.concurrent.ThreadSafe;
 
-import java.util.List;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 import static com.google.common.base.Preconditions.checkNotNull;
@@ -26,27 +24,24 @@ import static com.google.common.base.Preconditions.checkNotNull;
 @ThreadSafe
 class UpdateRequest
 {
-    private final List<BlockCursor> cursors;
+    private final int startPosition;
+    private final Block[] blocks;
     private final AtomicBoolean finished = new AtomicBoolean();
 
-    public UpdateRequest(BlockCursor... cursors)
+    public UpdateRequest(int startPosition, Block... blocks)
     {
-        this(ImmutableList.copyOf(checkNotNull(cursors, "cursors is null")));
+        this.startPosition = startPosition;
+        this.blocks = checkNotNull(blocks, "blocks is null");
     }
 
-    public UpdateRequest(List<BlockCursor> cursors)
+    public int getStartPosition()
     {
-        this.cursors = ImmutableList.copyOf(checkNotNull(cursors, "cursors is null"));
+        return startPosition;
     }
 
-    public BlockCursor[] duplicateCursors()
+    public Block[] getBlocks()
     {
-        BlockCursor[] duplicates = new BlockCursor[cursors.size()];
-        for (int i = 0; i < cursors.size(); i++) {
-            BlockCursor cursor = cursors.get(i);
-            duplicates[i] = cursor.duplicate();
-        }
-        return duplicates;
+        return blocks;
     }
 
     public void finished()

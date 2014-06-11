@@ -20,10 +20,10 @@ import com.facebook.presto.byteCode.CompilerContext;
 import com.facebook.presto.byteCode.DumpByteCodeVisitor;
 import com.facebook.presto.byteCode.DynamicClassLoader;
 import com.facebook.presto.byteCode.FieldDefinition;
-import com.facebook.presto.byteCode.LocalVariableDefinition;
 import com.facebook.presto.byteCode.ParameterizedType;
 import com.facebook.presto.byteCode.SmartClassWriter;
 import com.facebook.presto.byteCode.control.IfStatement;
+import com.facebook.presto.byteCode.instruction.JumpInstruction;
 import com.facebook.presto.byteCode.instruction.LabelNode;
 import com.facebook.presto.operator.JoinProbe;
 import com.facebook.presto.operator.JoinProbeFactory;
@@ -36,7 +36,6 @@ import com.facebook.presto.operator.Page;
 import com.facebook.presto.operator.PageBuilder;
 import com.facebook.presto.operator.aggregation.IsolatedClass;
 import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.block.BlockCursor;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Objects;
@@ -186,24 +185,26 @@ public class JoinProbeCompiler
 
         // declare fields
         FieldDefinition lookupSourceField = classDefinition.declareField(a(PRIVATE, FINAL), "lookupSource", LookupSource.class);
-        List<FieldDefinition> cursorFields = new ArrayList<>();
+        FieldDefinition positionCountField = classDefinition.declareField(a(PRIVATE, FINAL), "positionCount", int.class);
+        List<FieldDefinition> blockFields = new ArrayList<>();
         for (int i = 0; i < channelCount; i++) {
-            FieldDefinition channelField = classDefinition.declareField(a(PRIVATE, FINAL), "cursor_" + i, BlockCursor.class);
-            cursorFields.add(channelField);
+            FieldDefinition channelField = classDefinition.declareField(a(PRIVATE, FINAL), "block_" + i, com.facebook.presto.spi.block.Block.class);
+            blockFields.add(channelField);
         }
-        List<FieldDefinition> probeCursorFields = new ArrayList<>();
+        List<FieldDefinition> probeBlockFields = new ArrayList<>();
         for (int i = 0; i < probeChannels.size(); i++) {
-            FieldDefinition channelField = classDefinition.declareField(a(PRIVATE, FINAL), "probeCursor_" + i, BlockCursor.class);
-            probeCursorFields.add(channelField);
+            FieldDefinition channelField = classDefinition.declareField(a(PRIVATE, FINAL), "probeBlock_" + i, com.facebook.presto.spi.block.Block.class);
+            probeBlockFields.add(channelField);
         }
-        FieldDefinition probeCursorsArrayField = classDefinition.declareField(a(PRIVATE, FINAL), "probeCursors", BlockCursor[].class);
+        FieldDefinition probeBlocksArrayField = classDefinition.declareField(a(PRIVATE, FINAL), "probeBlocks", com.facebook.presto.spi.block.Block[].class);
+        FieldDefinition positionField = classDefinition.declareField(a(PRIVATE), "position", int.class);
 
-        generateConstructor(classDefinition, probeChannels, lookupSourceField, cursorFields, probeCursorFields, probeCursorsArrayField);
-        generateGetChannelCountMethod(classDefinition, cursorFields.size());
-        generateAppendToMethod(classDefinition, cursorFields);
-        generateAdvanceNextPosition(classDefinition, cursorFields);
-        generateGetCurrentJoinPosition(classDefinition, lookupSourceField, probeCursorsArrayField);
-        generateCurrentRowContainsNull(classDefinition, probeCursorFields);
+        generateConstructor(classDefinition, probeChannels, lookupSourceField, blockFields, probeBlockFields, probeBlocksArrayField, positionField, positionCountField);
+        generateGetChannelCountMethod(classDefinition, blockFields.size());
+        generateAppendToMethod(classDefinition, blockFields, positionField);
+        generateAdvanceNextPosition(classDefinition, positionField, positionCountField);
+        generateGetCurrentJoinPosition(classDefinition, lookupSourceField, probeBlocksArrayField, positionField);
+        generateCurrentRowContainsNull(classDefinition, probeBlockFields, positionField);
 
         Class<? extends JoinProbe> joinProbeClass = defineClass(classDefinition, JoinProbe.class, classLoader);
         return joinProbeClass;
@@ -212,9 +213,11 @@ public class JoinProbeCompiler
     private void generateConstructor(ClassDefinition classDefinition,
             List<Integer> probeChannels,
             FieldDefinition lookupSourceField,
-            List<FieldDefinition> cursorFields,
+            List<FieldDefinition> blockFields,
             List<FieldDefinition> probeChannelFields,
-            FieldDefinition probeCursorsArrayField)
+            FieldDefinition probeBlocksArrayField,
+            FieldDefinition positionField,
+            FieldDefinition positionCountField)
     {
         Block constructor = classDefinition.declareConstructor(new CompilerContext(bootstrapMethod),
                 a(PUBLIC),
@@ -231,15 +234,22 @@ public class JoinProbeCompiler
                 .getVariable("lookupSource")
                 .putField(lookupSourceField);
 
-        constructor.comment("Set cursor fields");
-        for (int index = 0; index < cursorFields.size(); index++) {
+        constructor
+                .comment("this.positionCount = page.getPositionCount();")
+                .pushThis()
+                .pushThis()
+                .getVariable("page")
+                .invokeVirtual(Page.class, "getPositionCount", int.class)
+                .putField(positionCountField);
+
+        constructor.comment("Set block fields");
+        for (int index = 0; index < blockFields.size(); index++) {
             constructor
                     .pushThis()
                     .getVariable("page")
                     .push(index)
                     .invokeVirtual(Page.class, "getBlock", com.facebook.presto.spi.block.Block.class, int.class)
-                    .invokeInterface(com.facebook.presto.spi.block.Block.class, "cursor", BlockCursor.class)
-                    .putField(cursorFields.get(index));
+                    .putField(blockFields.get(index));
         }
 
         constructor.comment("Set probe channel fields");
@@ -247,25 +257,31 @@ public class JoinProbeCompiler
             constructor
                     .pushThis()
                     .pushThis()
-                    .getField(cursorFields.get(probeChannels.get(index)))
+                    .getField(blockFields.get(probeChannels.get(index)))
                     .putField(probeChannelFields.get(index));
         }
 
-        constructor.comment("this.probeCursors = new BlockCursor[<probeChannelCount>];");
+        constructor.comment("this.probeBlocks = new Block[<probeChannelCount>];");
         constructor
                 .pushThis()
                 .push(probeChannelFields.size())
-                .newArray(BlockCursor.class)
-                .putField(probeCursorsArrayField);
+                .newArray(com.facebook.presto.spi.block.Block.class)
+                .putField(probeBlocksArrayField);
         for (int index = 0; index < probeChannelFields.size(); index++) {
             constructor
                     .pushThis()
-                    .getField(probeCursorsArrayField)
+                    .getField(probeBlocksArrayField)
                     .push(index)
                     .pushThis()
                     .getField(probeChannelFields.get(index))
                     .putObjectArrayElement();
         }
+
+        constructor
+                .comment("this.position = -1;")
+                .pushThis()
+                .push(-1)
+                .putField(positionField);
 
         constructor.ret();
     }
@@ -281,7 +297,7 @@ public class JoinProbeCompiler
                 .retInt();
     }
 
-    private void generateAppendToMethod(ClassDefinition classDefinition, List<FieldDefinition> cursorFields)
+    private void generateAppendToMethod(ClassDefinition classDefinition, List<FieldDefinition> blockFields, FieldDefinition positionField)
     {
         Block appendToBody = classDefinition.declareMethod(new CompilerContext(bootstrapMethod),
                 a(PUBLIC),
@@ -290,19 +306,22 @@ public class JoinProbeCompiler
                 arg("pageBuilder", PageBuilder.class))
                 .getBody();
 
-        for (int index = 0; index < cursorFields.size(); index++) {
+        for (int index = 0; index < blockFields.size(); index++) {
             appendToBody
+                    .comment("block_%s.appendTo(position, pageBuilder.getBlockBuilder(%s));", index, index)
                     .pushThis()
-                    .getField(cursorFields.get(index))
+                    .getField(blockFields.get(index))
+                    .pushThis()
+                    .getField(positionField)
                     .getVariable("pageBuilder")
                     .push(index)
                     .invokeVirtual(PageBuilder.class, "getBlockBuilder", BlockBuilder.class, int.class)
-                    .invokeInterface(BlockCursor.class, "appendTo", void.class, BlockBuilder.class);
+                    .invokeInterface(com.facebook.presto.spi.block.Block.class, "appendTo", void.class, int.class, BlockBuilder.class);
         }
         appendToBody.ret();
     }
 
-    private void generateAdvanceNextPosition(ClassDefinition classDefinition, List<FieldDefinition> cursorFields)
+    private void generateAdvanceNextPosition(ClassDefinition classDefinition, FieldDefinition positionField, FieldDefinition positionCountField)
     {
         CompilerContext compilerContext = new CompilerContext(bootstrapMethod);
         Block advanceNextPositionBody = classDefinition.declareMethod(compilerContext,
@@ -310,29 +329,37 @@ public class JoinProbeCompiler
                 "advanceNextPosition",
                 type(boolean.class))
                 .getBody();
-        LocalVariableDefinition advancedVariable = compilerContext.declareVariable(boolean.class, "advanced");
 
         advanceNextPositionBody
+                .comment("this.position = this.position + 1;")
                 .pushThis()
-                .getField(cursorFields.get(0))
-                .invokeInterface(BlockCursor.class, "advanceNextPosition", boolean.class)
-                .putVariable(advancedVariable);
+                .pushThis()
+                .getField(positionField)
+                .push(1)
+                .intAdd()
+                .putField(positionField);
 
-        for (int index = 1; index < cursorFields.size(); index++) {
-            advanceNextPositionBody
-                    .pushThis()
-                    .getField(cursorFields.get(index))
-                    .invokeInterface(BlockCursor.class, "advanceNextPosition", boolean.class)
-                    .getVariable(advancedVariable)
-                    .invokeStatic(JoinProbeCompiler.class, "checkState", void.class, boolean.class, boolean.class);
-        }
-
+        LabelNode lessThan = new LabelNode("lessThan");
+        LabelNode end = new LabelNode("end");
         advanceNextPositionBody
-                .getVariable(advancedVariable)
+                .comment("return position < positionCount;")
+                .pushThis()
+                .getField(positionField)
+                .pushThis()
+                .getField(positionCountField)
+                .append(JumpInstruction.jumpIfIntLessThan(lessThan))
+                .push(false)
+                .gotoLabel(end)
+                .visitLabel(lessThan)
+                .push(true)
+                .visitLabel(end)
                 .retBoolean();
     }
 
-    private void generateGetCurrentJoinPosition(ClassDefinition classDefinition, FieldDefinition lookupSourceField, FieldDefinition probeCursorsArrayField)
+    private void generateGetCurrentJoinPosition(ClassDefinition classDefinition,
+            FieldDefinition lookupSourceField,
+            FieldDefinition probeBlockArrayField,
+            FieldDefinition positionField)
     {
         CompilerContext compilerContext = new CompilerContext(bootstrapMethod);
         classDefinition.declareMethod(compilerContext,
@@ -349,12 +376,14 @@ public class JoinProbeCompiler
                 .pushThis()
                 .getField(lookupSourceField)
                 .pushThis()
-                .getField(probeCursorsArrayField)
-                .invokeInterface(LookupSource.class, "getJoinPosition", long.class, BlockCursor[].class)
+                .getField(positionField)
+                .pushThis()
+                .getField(probeBlockArrayField)
+                .invokeInterface(LookupSource.class, "getJoinPosition", long.class, int.class, com.facebook.presto.spi.block.Block[].class)
                 .retLong();
     }
 
-    private void generateCurrentRowContainsNull(ClassDefinition classDefinition, List<FieldDefinition> probeCursorFields)
+    private void generateCurrentRowContainsNull(ClassDefinition classDefinition, List<FieldDefinition> probeBlockFields, FieldDefinition positionField)
     {
         Block body = classDefinition.declareMethod(new CompilerContext(bootstrapMethod),
                 a(PRIVATE),
@@ -362,12 +391,14 @@ public class JoinProbeCompiler
                 type(boolean.class))
                 .getBody();
 
-        for (FieldDefinition probeCursorField : probeCursorFields) {
+        for (FieldDefinition probeBlockField : probeBlockFields) {
             LabelNode checkNextField = new LabelNode("checkNextField");
             body
                     .pushThis()
-                    .getField(probeCursorField)
-                    .invokeInterface(BlockCursor.class, "isNull", boolean.class)
+                    .getField(probeBlockField)
+                    .pushThis()
+                    .getField(positionField)
+                    .invokeInterface(com.facebook.presto.spi.block.Block.class, "isNull", boolean.class, int.class)
                     .ifFalseGoto(checkNextField)
                     .push(true)
                     .retBoolean()

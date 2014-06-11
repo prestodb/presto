@@ -14,7 +14,6 @@
 package com.facebook.presto.operator;
 
 import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.block.BlockCursor;
 
 import java.util.List;
 
@@ -58,12 +57,12 @@ public class TwoChannelPagesHashStrategy
     }
 
     @Override
-    public boolean positionEqualsCursors(int blockIndex, int blockPosition, BlockCursor[] cursors)
+    public boolean positionEqualsRow(int leftBlockIndex, int leftBlockPosition, int rightPosition, Block[] rightBlocks)
     {
-        if (!hashChannelA.get(blockIndex).equalTo(blockPosition, cursors[0])) {
+        if (!hashChannelA.get(leftBlockIndex).equalTo(leftBlockPosition, rightBlocks[0], rightPosition)) {
             return false;
         }
-        if (!hashChannelB.get(blockIndex).equalTo(blockPosition, cursors[1])) {
+        if (!hashChannelB.get(leftBlockIndex).equalTo(leftBlockPosition, rightBlocks[1], rightPosition)) {
             return false;
         }
         return true;
