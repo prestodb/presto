@@ -30,8 +30,10 @@ import com.facebook.presto.operator.window.CumulativeDistributionFunction;
 import com.facebook.presto.operator.window.DenseRankFunction;
 import com.facebook.presto.operator.window.PercentRankFunction;
 import com.facebook.presto.operator.window.RankFunction;
+import com.facebook.presto.operator.window.ReflectionWindowFunctionSupplier;
 import com.facebook.presto.operator.window.RowNumberFunction;
 import com.facebook.presto.operator.window.WindowFunction;
+import com.facebook.presto.operator.window.WindowFunctionSupplier;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.StandardErrorCode;
@@ -58,7 +60,6 @@ import com.facebook.presto.util.IterableTransformer;
 import com.google.common.base.Joiner;
 import com.google.common.base.Optional;
 import com.google.common.base.Predicate;
-import com.google.common.base.Supplier;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.FluentIterable;
@@ -141,10 +142,10 @@ import static com.facebook.presto.operator.aggregation.VarianceAggregations.LONG
 import static com.facebook.presto.operator.aggregation.VarianceAggregations.LONG_VARIANCE_POP_INSTANCE;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
+import static com.facebook.presto.spi.type.DateType.DATE;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.HyperLogLogType.HYPER_LOG_LOG;
 import static com.facebook.presto.spi.type.TimeType.TIME;
-import static com.facebook.presto.spi.type.DateType.DATE;
 import static com.facebook.presto.spi.type.TimeWithTimeZoneType.TIME_WITH_TIME_ZONE;
 import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
@@ -172,11 +173,11 @@ public class FunctionRegistry
         this.typeManager = checkNotNull(typeManager, "typeManager is null");
 
         FunctionListBuilder builder = new FunctionListBuilder()
-                .window("row_number", BIGINT, ImmutableList.<Type>of(), supplier(RowNumberFunction.class))
-                .window("rank", BIGINT, ImmutableList.<Type>of(), supplier(RankFunction.class))
-                .window("dense_rank", BIGINT, ImmutableList.<Type>of(), supplier(DenseRankFunction.class))
-                .window("percent_rank", DOUBLE, ImmutableList.<Type>of(), supplier(PercentRankFunction.class))
-                .window("cume_dist", DOUBLE, ImmutableList.<Type>of(), supplier(CumulativeDistributionFunction.class))
+                .window("row_number", BIGINT, ImmutableList.<Type>of(), RowNumberFunction.class)
+                .window("rank", BIGINT, ImmutableList.<Type>of(), RankFunction.class)
+                .window("dense_rank", BIGINT, ImmutableList.<Type>of(), DenseRankFunction.class)
+                .window("percent_rank", DOUBLE, ImmutableList.<Type>of(), PercentRankFunction.class)
+                .window("cume_dist", DOUBLE, ImmutableList.<Type>of(), CumulativeDistributionFunction.class)
                 .aggregate("count", BIGINT, ImmutableList.<Type>of(), BIGINT, COUNT)
                 .aggregate("count", BIGINT, ImmutableList.of(BOOLEAN), BIGINT, COUNT_BOOLEAN_COLUMN)
                 .aggregate("count", BIGINT, ImmutableList.of(BIGINT), BIGINT, COUNT_LONG_COLUMN)
@@ -547,12 +548,13 @@ public class FunctionRegistry
         private final List<FunctionInfo> functions = new ArrayList<>();
         private final Multimap<OperatorType, FunctionInfo> operators = ArrayListMultimap.create();
 
-        public FunctionListBuilder window(String name, Type returnType, List<? extends Type> argumentTypes, Supplier<WindowFunction> function)
+        public FunctionListBuilder window(String name, Type returnType, List<? extends Type> argumentTypes, Class<? extends WindowFunction> functionClass)
         {
-            name = name.toLowerCase();
+            WindowFunctionSupplier windowFunctionSupplier = new ReflectionWindowFunctionSupplier<>(
+                    new Signature(name, returnType, ImmutableList.copyOf(argumentTypes), false),
+                    functionClass);
 
-            String description = getDescription(function.getClass());
-            functions.add(new FunctionInfo(new Signature(name, returnType, ImmutableList.copyOf(argumentTypes), false), description, function));
+            functions.add(new FunctionInfo(windowFunctionSupplier.getSignature(), windowFunctionSupplier.getDescription(), windowFunctionSupplier));
             return this;
         }
 
@@ -761,23 +763,6 @@ public class FunctionRegistry
                     expectedType.getJavaType().getName(),
                     expectedType);
         }
-    }
-
-    public static Supplier<WindowFunction> supplier(final Class<? extends WindowFunction> clazz)
-    {
-        return new Supplier<WindowFunction>()
-        {
-            @Override
-            public WindowFunction get()
-            {
-                try {
-                    return clazz.getConstructor().newInstance();
-                }
-                catch (ReflectiveOperationException e) {
-                    throw Throwables.propagate(e);
-                }
-            }
-        };
     }
 
     private static class FunctionMap

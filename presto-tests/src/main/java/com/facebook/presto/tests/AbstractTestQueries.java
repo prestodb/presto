@@ -44,7 +44,6 @@ import java.util.List;
 import java.util.Set;
 
 import static com.facebook.presto.connector.informationSchema.InformationSchemaMetadata.INFORMATION_SCHEMA;
-import static com.facebook.presto.metadata.FunctionRegistry.supplier;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.DateType.DATE;
@@ -74,7 +73,7 @@ public abstract class AbstractTestQueries
                     ImmutableList.of(BIGINT),
                     BIGINT,
                     new CustomSum())
-            .window("custom_rank", BIGINT, ImmutableList.<Type>of(), supplier(CustomRank.class))
+            .window("custom_rank", BIGINT, ImmutableList.<Type>of(), CustomRank.class)
             .scalar(CustomAdd.class)
             .scalar(CreateHll.class)
             .getFunctions();

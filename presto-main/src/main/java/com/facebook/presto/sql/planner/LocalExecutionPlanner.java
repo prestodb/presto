@@ -51,10 +51,10 @@ import com.facebook.presto.operator.SourceOperatorFactory;
 import com.facebook.presto.operator.TableScanOperator.TableScanOperatorFactory;
 import com.facebook.presto.operator.TopNOperator.TopNOperatorFactory;
 import com.facebook.presto.operator.ValuesOperator.ValuesOperatorFactory;
+import com.facebook.presto.operator.WindowFunctionDefinition;
 import com.facebook.presto.operator.WindowOperator.WindowOperatorFactory;
 import com.facebook.presto.operator.index.IndexLookupSourceSupplier;
 import com.facebook.presto.operator.index.IndexSourceOperator;
-import com.facebook.presto.operator.window.WindowFunction;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.Index;
 import com.facebook.presto.spi.RecordSink;
@@ -390,12 +390,17 @@ public class LocalExecutionPlanner
                 outputChannels.add(i);
             }
 
-            ImmutableList.Builder<WindowFunction> windowFunctions = ImmutableList.builder();
+            ImmutableList.Builder<WindowFunctionDefinition> windowFunctions = ImmutableList.builder();
             List<Symbol> windowFunctionOutputSymbols = new ArrayList<>();
             for (Map.Entry<Symbol, FunctionCall> entry : node.getWindowFunctions().entrySet()) {
+                ImmutableList.Builder<Input> arguments = ImmutableList.builder();
+                for (Expression argument : entry.getValue().getArguments()) {
+                    Symbol argumentSymbol = Symbol.fromQualifiedName(((QualifiedNameReference) argument).getName());
+                    arguments.add(source.getLayout().get(argumentSymbol));
+                }
                 Symbol symbol = entry.getKey();
                 Signature signature = node.getSignatures().get(symbol);
-                windowFunctions.add(metadata.getExactFunction(signature).getWindowFunction().get());
+                windowFunctions.add(metadata.getExactFunction(signature).bindWindowFunction(arguments.build()));
                 windowFunctionOutputSymbols.add(symbol);
             }
 
