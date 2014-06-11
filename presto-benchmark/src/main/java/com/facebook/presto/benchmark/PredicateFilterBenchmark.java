@@ -17,7 +17,7 @@ import com.facebook.presto.operator.FilterAndProjectOperator.FilterAndProjectOpe
 import com.facebook.presto.operator.FilterFunction;
 import com.facebook.presto.operator.OperatorFactory;
 import com.facebook.presto.spi.RecordCursor;
-import com.facebook.presto.spi.block.BlockCursor;
+import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.testing.LocalQueryRunner;
 import com.google.common.collect.ImmutableList;
 
@@ -58,9 +58,9 @@ public class PredicateFilterBenchmark
         }
 
         @Override
-        public boolean filter(BlockCursor... cursors)
+        public boolean filter(int position, Block... blocks)
         {
-            return cursors[0].getDouble() >= minValue;
+            return blocks[0].getDouble(position) >= minValue;
         }
 
         @Override

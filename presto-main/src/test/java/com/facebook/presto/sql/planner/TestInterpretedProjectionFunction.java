@@ -17,9 +17,9 @@ import com.facebook.presto.block.BlockAssertions;
 import com.facebook.presto.block.BlockUtils;
 import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.spi.ConnectorSession;
+import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
-import com.facebook.presto.spi.block.BlockCursor;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.tree.ArithmeticExpression;
@@ -39,7 +39,6 @@ import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.TimeZoneKey.UTC_KEY;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertTrue;
 
 public class TestInterpretedProjectionFunction
 {
@@ -139,33 +138,34 @@ public class TestInterpretedProjectionFunction
     @Test
     public void testSymbolReference()
     {
-        assertProjection("symbol", true, ImmutableMap.of(new Symbol("symbol"), 0), createCursor(BOOLEAN, true));
-        assertProjection("symbol", null, ImmutableMap.of(new Symbol("symbol"), 0), createCursor(BOOLEAN, null));
+        assertProjection("symbol", true, ImmutableMap.of(new Symbol("symbol"), 0), 0, createBlock(BOOLEAN, true));
+        assertProjection("symbol", null, ImmutableMap.of(new Symbol("symbol"), 0), 0, createBlock(BOOLEAN, null));
 
-        assertProjection("symbol", 42L, ImmutableMap.of(new Symbol("symbol"), 0), createCursor(BIGINT, 42));
-        assertProjection("symbol", null, ImmutableMap.of(new Symbol("symbol"), 0), createCursor(BIGINT, null));
+        assertProjection("symbol", 42L, ImmutableMap.of(new Symbol("symbol"), 0), 0, createBlock(BIGINT, 42));
+        assertProjection("symbol", null, ImmutableMap.of(new Symbol("symbol"), 0), 0, createBlock(BIGINT, null));
 
-        assertProjection("symbol", 11.1, ImmutableMap.of(new Symbol("symbol"), 0), createCursor(DOUBLE, 11.1));
-        assertProjection("symbol", null, ImmutableMap.of(new Symbol("symbol"), 0), createCursor(DOUBLE, null));
+        assertProjection("symbol", 11.1, ImmutableMap.of(new Symbol("symbol"), 0), 0, createBlock(DOUBLE, 11.1));
+        assertProjection("symbol", null, ImmutableMap.of(new Symbol("symbol"), 0), 0, createBlock(DOUBLE, null));
 
-        assertProjection("symbol", "foo", ImmutableMap.of(new Symbol("symbol"), 0), createCursor(VARCHAR, "foo"));
-        assertProjection("symbol", null, ImmutableMap.of(new Symbol("symbol"), 0), createCursor(VARCHAR, null));
+        assertProjection("symbol", "foo", ImmutableMap.of(new Symbol("symbol"), 0), 0, createBlock(VARCHAR, "foo"));
+        assertProjection("symbol", null, ImmutableMap.of(new Symbol("symbol"), 0), 0, createBlock(VARCHAR, null));
     }
 
     public static void assertProjection(String expression, @Nullable Object expectedValue)
     {
-        assertProjection(expression, expectedValue, ImmutableMap.<Symbol, Integer>of());
+        assertProjection(expression, expectedValue, ImmutableMap.<Symbol, Integer>of(), 0);
     }
 
     private static void assertProjection(
             String expression,
             @Nullable Object expectedValue,
             Map<Symbol, Integer> symbolToInputMappings,
-            BlockCursor... channels)
+            int position,
+            Block... blocks)
     {
         ImmutableMap.Builder<Symbol, Type> symbolTypes = ImmutableMap.builder();
         for (Entry<Symbol, Integer> entry : symbolToInputMappings.entrySet()) {
-            symbolTypes.put(entry.getKey(), channels[entry.getValue()].getType());
+            symbolTypes.put(entry.getKey(), blocks[entry.getValue()].getType());
         }
 
         MetadataManager metadata = new MetadataManager();
@@ -182,19 +182,17 @@ public class TestInterpretedProjectionFunction
         BlockBuilder builder = projectionFunction.getType().createBlockBuilder(new BlockBuilderStatus());
 
         // project
-        projectionFunction.project(channels, builder);
+        projectionFunction.project(position, blocks, builder);
 
         // extract single value
         Object actualValue = BlockAssertions.getOnlyValue(builder.build());
         assertEquals(actualValue, expectedValue);
     }
 
-    private static BlockCursor createCursor(Type type, Object value)
+    private static Block createBlock(Type type, Object value)
     {
         BlockBuilder blockBuilder = type.createBlockBuilder(new BlockBuilderStatus());
         BlockUtils.appendObject(blockBuilder, value);
-        BlockCursor cursor = blockBuilder.build().cursor();
-        assertTrue(cursor.advanceNextPosition());
-        return cursor;
+        return blockBuilder.build();
     }
 }

@@ -206,7 +206,7 @@ public class TestInterpretedFilterFunction
                 session
         );
 
-        boolean result = filterFunction.filter();
+        boolean result = filterFunction.filter(0);
         assertEquals(result, expectedValue);
     }
 }

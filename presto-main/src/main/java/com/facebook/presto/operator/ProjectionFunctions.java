@@ -14,8 +14,8 @@
 package com.facebook.presto.operator;
 
 import com.facebook.presto.spi.RecordCursor;
+import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.block.BlockCursor;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.base.Preconditions;
 import io.airlift.slice.Slice;
@@ -51,13 +51,13 @@ public final class ProjectionFunctions
         }
 
         @Override
-        public void project(BlockCursor[] cursors, BlockBuilder output)
+        public void project(int position, Block[] blocks, BlockBuilder output)
         {
-            if (cursors[channelIndex].isNull()) {
+            if (blocks[channelIndex].isNull(position)) {
                 output.appendNull();
             }
             else {
-                cursors[channelIndex].appendTo(output);
+                blocks[channelIndex].appendTo(position, output);
             }
         }
 

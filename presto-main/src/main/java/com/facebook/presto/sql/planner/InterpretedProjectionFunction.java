@@ -17,8 +17,8 @@ import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.operator.ProjectionFunction;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.RecordCursor;
+import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.block.BlockCursor;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.tree.Expression;
@@ -67,9 +67,9 @@ public class InterpretedProjectionFunction
     }
 
     @Override
-    public void project(BlockCursor[] cursors, BlockBuilder output)
+    public void project(int position, Block[] blocks, BlockBuilder output)
     {
-        Object value = evaluator.evaluate(cursors);
+        Object value = evaluator.evaluate(position, blocks);
         append(output, value);
     }
 

@@ -13,16 +13,16 @@
  */
 package com.facebook.presto.operator;
 
-import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.block.BlockCursor;
 import com.facebook.presto.spi.RecordCursor;
+import com.facebook.presto.spi.block.Block;
+import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.type.Type;
 
 public interface ProjectionFunction
 {
     Type getType();
 
-    void project(BlockCursor[] cursors, BlockBuilder output);
+    void project(int position, Block[] blocks, BlockBuilder output);
 
     void project(RecordCursor cursor, BlockBuilder output);
 }

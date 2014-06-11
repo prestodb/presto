@@ -17,7 +17,7 @@ import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.operator.FilterFunction;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.RecordCursor;
-import com.facebook.presto.spi.block.BlockCursor;
+import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.tree.Expression;
@@ -57,9 +57,9 @@ public class InterpretedFilterFunction
     }
 
     @Override
-    public boolean filter(BlockCursor... cursors)
+    public boolean filter(int position, Block... blocks)
     {
-        return evaluator.evaluate(cursors) == TRUE;
+        return evaluator.evaluate(position, blocks) == TRUE;
     }
 
     @Override

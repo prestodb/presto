@@ -26,7 +26,6 @@ import com.facebook.presto.byteCode.instruction.VariableInstruction;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.OperatorType;
 import com.facebook.presto.spi.RecordCursor;
-import com.facebook.presto.spi.block.BlockCursor;
 import com.facebook.presto.spi.type.TimeZoneKey;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.tree.ArithmeticExpression;
@@ -266,35 +265,40 @@ public class ByteCodeExpressionVisitor
         }
         else {
             Block isNullCheck = new Block(context)
-                    .setDescription(format("channel_%d.get%s()", channel, type))
-                    .getVariable("channel_" + channel)
-                    .invokeInterface(BlockCursor.class, "isNull", boolean.class);
+                    .setDescription(format("block_%d.get%s()", channel, type))
+                    .getVariable("block_" + channel)
+                    .getVariable("position")
+                    .invokeInterface(com.facebook.presto.spi.block.Block.class, "isNull", boolean.class, int.class);
 
             Block isNull = new Block(context)
                     .putVariable("wasNull", true)
                     .pushJavaDefault(javaType);
             if (javaType == boolean.class) {
                 Block isNotNull = new Block(context)
-                        .getVariable("channel_" + channel)
-                        .invokeInterface(BlockCursor.class, "getBoolean", boolean.class);
+                        .getVariable("block_" + channel)
+                        .getVariable("position")
+                        .invokeInterface(com.facebook.presto.spi.block.Block.class, "getBoolean", boolean.class, int.class);
                 return new IfStatement(context, isNullCheck, isNull, isNotNull);
             }
             else if (javaType == long.class) {
                 Block isNotNull = new Block(context)
-                        .getVariable("channel_" + channel)
-                        .invokeInterface(BlockCursor.class, "getLong", long.class);
+                        .getVariable("block_" + channel)
+                        .getVariable("position")
+                        .invokeInterface(com.facebook.presto.spi.block.Block.class, "getLong", long.class, int.class);
                 return new IfStatement(context, isNullCheck, isNull, isNotNull);
             }
             else if (javaType == double.class) {
                 Block isNotNull = new Block(context)
-                        .getVariable("channel_" + channel)
-                        .invokeInterface(BlockCursor.class, "getDouble", double.class);
+                        .getVariable("block_" + channel)
+                        .getVariable("position")
+                        .invokeInterface(com.facebook.presto.spi.block.Block.class, "getDouble", double.class, int.class);
                 return new IfStatement(context, isNullCheck, isNull, isNotNull);
             }
             else if (javaType == Slice.class) {
                 Block isNotNull = new Block(context)
-                        .getVariable("channel_" + channel)
-                        .invokeInterface(BlockCursor.class, "getSlice", Slice.class);
+                        .getVariable("block_" + channel)
+                        .getVariable("position")
+                        .invokeInterface(com.facebook.presto.spi.block.Block.class, "getSlice", Slice.class, int.class);
                 return new IfStatement(context, isNullCheck, isNull, isNotNull);
             }
             else {
