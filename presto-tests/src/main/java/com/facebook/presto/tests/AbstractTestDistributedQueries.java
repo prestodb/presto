@@ -145,7 +145,7 @@ public abstract class AbstractTestDistributedQueries
     public void testShowSchemasFromOther()
             throws Exception
     {
-        MaterializedResult result = computeActual(format("SHOW SCHEMAS FROM tpch"));
+        MaterializedResult result = computeActual("SHOW SCHEMAS FROM tpch");
         ImmutableSet<String> schemaNames = ImmutableSet.copyOf(transform(result.getMaterializedRows(), onlyColumnGetter()));
         assertTrue(schemaNames.containsAll(ImmutableSet.of(INFORMATION_SCHEMA, "sys", "tiny")));
     }
