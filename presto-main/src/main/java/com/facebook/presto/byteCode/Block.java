@@ -203,6 +203,12 @@ public class Block
         return this;
     }
 
+    public Block intAdd()
+    {
+        nodes.add(OpCodes.IADD);
+        return this;
+    }
+
     public Block longAdd()
     {
         nodes.add(OpCodes.LADD);

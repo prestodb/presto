@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.operator;
 
-import com.facebook.presto.spi.block.BlockCursor;
+import com.facebook.presto.spi.block.Block;
 
 public interface PagesHashStrategy
 {
@@ -23,7 +23,7 @@ public interface PagesHashStrategy
 
     int hashPosition(int blockIndex, int blockPosition);
 
-    boolean positionEqualsCursors(int blockIndex, int blockPosition, BlockCursor[] cursors);
+    boolean positionEqualsRow(int leftBlockIndex, int leftBlockPosition, int rightPosition, Block... rightBlocks);
 
     boolean positionEqualsPosition(int leftBlockIndex, int leftBlockPosition, int rightBlockIndex, int rightBlockPosition);
 }

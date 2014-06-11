@@ -16,7 +16,6 @@ package com.facebook.presto.operator;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
-import com.facebook.presto.spi.block.BlockCursor;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.util.array.LongBigArray;
 import com.google.common.collect.ImmutableList;
@@ -109,9 +108,10 @@ public class GroupByHash
         BlockBuilder blockBuilder = BIGINT.createFixedSizeBlockBuilder(positionCount);
 
         // index pages
+        Block[] blocks = page.getBlocks();
         for (int position = 0; position < page.getPositionCount(); position++) {
             // get the group for the current row
-            int groupId = putIfAbsent(page, position);
+            int groupId = putIfAbsent(position, blocks);
 
             // output the group id for this row
             blockBuilder.appendLong(groupId);
@@ -121,15 +121,15 @@ public class GroupByHash
         return new GroupByIdBlock(nextGroupId, block);
     }
 
-    public int putIfAbsent(Page page, int position)
+    public int putIfAbsent(int position, Block... blocks)
     {
-        int hashPosition = ((int) Murmur3.hash64(hashRow(page, position, channels))) & mask;
+        int hashPosition = ((int) Murmur3.hash64(hashRow(position, blocks, channels))) & mask;
 
         // look for an empty slot or a slot containing this key
         int groupId = -1;
         while (key[hashPosition] != -1) {
             long address = key[hashPosition];
-            if (positionEqualsCurrentRow(decodeSliceIndex(address), decodePosition(address), page, position)) {
+            if (positionEqualsCurrentRow(decodeSliceIndex(address), decodePosition(address), position, blocks)) {
                 // found an existing slot for this key
                 groupId = value[hashPosition];
 
@@ -141,72 +141,17 @@ public class GroupByHash
 
         // did we find an existing group?
         if (groupId < 0) {
-            groupId = addNewGroup(hashPosition, page, position);
+            groupId = addNewGroup(hashPosition, position, blocks);
         }
         return groupId;
     }
 
-    public int putIfAbsent(BlockCursor[] cursors)
-    {
-        int hashPosition = ((int) Murmur3.hash64(hashCursor(cursors))) & mask;
-
-        // look for an empty slot or a slot containing this key
-        int groupId = -1;
-        while (key[hashPosition] != -1) {
-            long address = key[hashPosition];
-            if (positionEqualsCurrentRow(decodeSliceIndex(address), decodePosition(address), cursors)) {
-                // found an existing slot for this key
-                groupId = value[hashPosition];
-
-                break;
-            }
-            // increment position and mask to handle wrap around
-            hashPosition = (hashPosition + 1) & mask;
-        }
-
-        // did we find an existing group?
-        if (groupId < 0) {
-            groupId = addNewGroup(hashPosition, cursors);
-        }
-        return groupId;
-    }
-
-    private int addNewGroup(int hashPosition, BlockCursor[] cursors)
+    private int addNewGroup(int hashPosition, int position, Block[] blocks)
     {
         // add the row to the open page
         int pageIndex = pages.size() - 1;
         PageBuilder pageBuilder = pages.get(pageIndex);
-        pageBuilder.append(cursors);
-
-        // record group id in hash
-        int groupId = nextGroupId++;
-        long address = encodeSyntheticAddress(pageIndex, pageBuilder.getPositionCount() - 1);
-
-        key[hashPosition] = address;
-        value[hashPosition] = groupId;
-        groupAddress.set(groupId, address);
-
-        // create new page builder if this page is full
-        if (pageBuilder.isFull()) {
-            completedPagesMemorySize += pageBuilder.getMemorySize();
-
-            pageBuilder = new PageBuilder(types);
-            pages.add(pageBuilder);
-        }
-
-        // increase capacity, if necessary
-        if (nextGroupId >= maxFill) {
-            rehash(maxFill * 2);
-        }
-        return groupId;
-    }
-
-    private int addNewGroup(int hashPosition, Page page, int position)
-    {
-        // add the row to the open page
-        int pageIndex = pages.size() - 1;
-        PageBuilder pageBuilder = pages.get(pageIndex);
-        pageBuilder.append(page, position, channels);
+        pageBuilder.append(position, blocks, channels);
 
         // record group id in hash
         int groupId = nextGroupId++;
@@ -269,20 +214,11 @@ public class GroupByHash
         groupAddress.ensureCapacity(maxFill);
     }
 
-    private static int hashCursor(BlockCursor... cursors)
-      {
-          int result = 0;
-          for (BlockCursor cursor : cursors) {
-              result = result * 31 + cursor.hash();
-          }
-          return result;
-      }
-
-    private static int hashRow(Page page, int position, int[] channels)
+    private static int hashRow(int position, Block[] blocks, int[] channels)
     {
         int result = 0;
         for (int channel : channels) {
-            result = result * 31 + page.getBlock(channel).hash(position);
+            result = result * 31 + blocks[channel].hash(position);
         }
         return result;
     }
@@ -294,14 +230,9 @@ public class GroupByHash
         return pages.get(sliceIndex).hashCode(position);
     }
 
-    private boolean positionEqualsCurrentRow(int sliceIndex, int position, BlockCursor... currentRow)
+    private boolean positionEqualsCurrentRow(int sliceIndex, int slicePosition, int position, Block[] blocks)
     {
-        return pages.get(sliceIndex).equals(position, currentRow);
-    }
-
-    private boolean positionEqualsCurrentRow(int sliceIndex, int slicePosition, Page page, int position)
-    {
-        return pages.get(sliceIndex).equals(slicePosition, page, position, channels);
+        return pages.get(sliceIndex).equals(slicePosition, position, blocks, channels);
     }
 
     private static class PageBuilder
@@ -333,21 +264,11 @@ public class GroupByHash
             return memorySize;
         }
 
-        private void append(BlockCursor... row)
-        {
-            // append to each channel
-            for (int channel = 0; channel < row.length; channel++) {
-                row[channel].appendTo(blockBuilders.get(channel));
-                full = full || blockBuilders.get(channel).isFull();
-            }
-            positionCount++;
-        }
-
-        private void append(Page page, int position, int[] channels)
+        private void append(int position, Block[] blocks, int[] channels)
         {
             // append to each channel
             for (int i = 0; i < channels.length; i++) {
-                page.getBlock(channels[i]).appendTo(position, blockBuilders.get(i));
+                blocks[channels[i]].appendTo(position, blockBuilders.get(i));
                 full = full || blockBuilders.get(i).isFull();
             }
             positionCount++;
@@ -370,23 +291,12 @@ public class GroupByHash
             return result;
         }
 
-        public boolean equals(int thisPosition, Page that, int thatPosition, int[] channels)
+        public boolean equals(int thisPosition, int thatPosition, Block[] thatBlocks, int[] channels)
         {
             for (int i = 0; i < channels.length; i++) {
                 Block thisBlock = blockBuilders.get(i);
-                Block thatBlock = that.getBlock(channels[i]);
+                Block thatBlock = thatBlocks[channels[i]];
                 if (!thisBlock.equalTo(thisPosition, thatBlock, thatPosition)) {
-                    return false;
-                }
-            }
-            return true;
-        }
-
-        public boolean equals(int position, BlockCursor... row)
-        {
-            for (int i = 0; i < blockBuilders.size(); i++) {
-                BlockBuilder thisBlock = this.blockBuilders.get(i);
-                if (!thisBlock.equalTo(position, row[i])) {
                     return false;
                 }
             }

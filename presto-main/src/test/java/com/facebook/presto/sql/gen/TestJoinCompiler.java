@@ -14,12 +14,11 @@
 package com.facebook.presto.sql.gen;
 
 import com.facebook.presto.block.BlockAssertions;
-import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.block.BlockCursor;
 import com.facebook.presto.operator.Page;
 import com.facebook.presto.operator.PageBuilder;
 import com.facebook.presto.operator.PagesHashStrategy;
 import com.facebook.presto.operator.SimplePagesHashStrategy;
+import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.sql.gen.JoinCompiler.PagesHashStrategyFactory;
 import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Ints;
@@ -81,12 +80,10 @@ public class TestJoinCompiler
 
                 // check equality of every position against every other position in the block cursor
                 for (Block rightBlock : channel) {
-                    BlockCursor rightCursor = rightBlock.cursor();
-                    BlockCursor[] rightCursors = new BlockCursor[]{rightCursor};
-                    while (rightCursor.advanceNextPosition()) {
+                    for (int position = 0; position < rightBlock.getPositionCount(); position++) {
                         assertEquals(
-                                hashStrategy.positionEqualsCursors(leftBlockIndex, leftBlockPosition, rightCursors),
-                                leftBlock.equalTo(leftBlockPosition, rightCursor));
+                                hashStrategy.positionEqualsRow(leftBlockIndex, leftBlockPosition, position, rightBlock),
+                                leftBlock.equalTo(leftBlockPosition, rightBlock, position));
                     }
                 }
 
@@ -162,21 +159,17 @@ public class TestJoinCompiler
 
                 // check equality of every position against every other position in the block cursor
                 for (int rightBlockIndex = 0; rightBlockIndex < varcharChannel.size(); rightBlockIndex++) {
-                    BlockCursor[] rightCursors = new BlockCursor[4];
-                    rightCursors[0] = varcharChannel.get(rightBlockIndex).cursor();
-                    rightCursors[1] = longChannel.get(rightBlockIndex).cursor();
-                    rightCursors[2] = doubleChannel.get(rightBlockIndex).cursor();
-                    rightCursors[3] = booleanChannel.get(rightBlockIndex).cursor();
+                    Block[] rightBlocks = new Block[4];
+                    rightBlocks[0] = varcharChannel.get(rightBlockIndex);
+                    rightBlocks[1] = longChannel.get(rightBlockIndex);
+                    rightBlocks[2] = doubleChannel.get(rightBlockIndex);
+                    rightBlocks[3] = booleanChannel.get(rightBlockIndex);
 
                     int rightPositionCount = varcharChannel.get(rightBlockIndex).getPositionCount();
                     for (int rightPosition = 0; rightPosition < rightPositionCount; rightPosition++) {
-                        for (BlockCursor rightCursor : rightCursors) {
-                            assertTrue(rightCursor.advanceNextPosition());
-                        }
-
                         assertEquals(
-                                hashStrategy.positionEqualsCursors(leftBlockIndex, leftBlockPosition, rightCursors),
-                                expectedHashStrategy.positionEqualsCursors(leftBlockIndex, leftBlockPosition, rightCursors));
+                                hashStrategy.positionEqualsRow(leftBlockIndex, leftBlockPosition, rightPosition, rightBlocks),
+                                expectedHashStrategy.positionEqualsRow(leftBlockIndex, leftBlockPosition, rightPosition, rightBlocks));
                     }
                 }
 

@@ -27,7 +27,6 @@ import com.facebook.presto.operator.TaskContext;
 import com.facebook.presto.operator.ValuesOperator;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.block.BlockCursor;
 import com.facebook.presto.sql.gen.JoinCompiler.LookupSourceFactory;
 import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Ints;
@@ -101,15 +100,14 @@ public class TestJoinProbeCompiler
         // verify channel count
         assertEquals(joinProbe.getChannelCount(), 1);
 
-        BlockCursor probeCursor = page.getBlock(0).cursor();
+        Block probeBlock = page.getBlock(0);
         PageBuilder pageBuilder = new PageBuilder(ImmutableList.of(VARCHAR));
         for (int position = 0; position < page.getPositionCount(); position++) {
-            assertTrue(probeCursor.advanceNextPosition());
             assertTrue(joinProbe.advanceNextPosition());
 
             joinProbe.appendTo(pageBuilder);
 
-            assertEquals(joinProbe.getCurrentJoinPosition(), lookupSource.getJoinPosition(probeCursor));
+            assertEquals(joinProbe.getCurrentJoinPosition(), lookupSource.getJoinPosition(position, probeBlock));
         }
         assertFalse(joinProbe.advanceNextPosition());
         assertBlockEquals(pageBuilder.build().getBlock(0), page.getBlock(0));

@@ -26,7 +26,7 @@ import com.facebook.presto.operator.PipelineContext;
 import com.facebook.presto.operator.TaskContext;
 import com.facebook.presto.operator.index.PagesIndexBuilderOperator.PagesIndexBuilderOperatorFactory;
 import com.facebook.presto.operator.index.UnloadedIndexKeyRecordSet.UnloadedIndexKeyRecordCursor;
-import com.facebook.presto.spi.block.BlockCursor;
+import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.google.common.collect.ImmutableList;
@@ -115,9 +115,9 @@ public class IndexLoader
         return indexSnapshot;
     }
 
-    public IndexSnapshot getIndexSnapshotForKeys(BlockCursor[] indexCursors)
+    public IndexSnapshot getIndexSnapshotForKeys(int position, Block[] indexBlocks)
     {
-        UpdateRequest updateRequest = new UpdateRequest(indexCursors);
+        UpdateRequest updateRequest = new UpdateRequest(position, indexBlocks);
         updateRequests.add(updateRequest);
 
         synchronized (this) {
@@ -218,10 +218,11 @@ public class IndexLoader
             PageBuilder missingKeysPageBuilder = new PageBuilder(missingKeysIndex.getTypes());
             UnloadedIndexKeyRecordCursor unloadedKeyRecordCursor = unloadedKeysRecordSet.cursor();
             while (unloadedKeyRecordCursor.advanceNextPosition()) {
-                BlockCursor[] cursors = unloadedKeyRecordCursor.asBlockCursors();
-                if (lookupSource.getJoinPosition(cursors) < 0) {
-                    for (int i = 0; i < cursors.length; i++) {
-                        cursors[i].appendTo(missingKeysPageBuilder.getBlockBuilder(i));
+                Block[] blocks = unloadedKeyRecordCursor.getBlocks();
+                int position = unloadedKeyRecordCursor.getPosition();
+                if (lookupSource.getJoinPosition(position, blocks) < 0) {
+                    for (int i = 0; i < blocks.length; i++) {
+                        blocks[i].appendTo(position, missingKeysPageBuilder.getBlockBuilder(i));
                     }
                 }
             }
@@ -253,7 +254,7 @@ public class IndexLoader
         }
 
         @Override
-        public long getJoinPosition(BlockCursor... cursors)
+        public long getJoinPosition(int position, Block... blocks)
         {
             return IndexSnapshot.UNLOADED_INDEX_KEY;
         }
