@@ -1,0 +1,95 @@
+/*
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package com.facebook.presto.operator.window;
+
+import com.facebook.presto.operator.PagesIndex;
+import com.facebook.presto.spi.block.BlockBuilder;
+import com.facebook.presto.spi.type.Type;
+
+import java.util.List;
+
+import static com.facebook.presto.spi.type.BigintType.BIGINT;
+import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
+import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
+import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
+import static com.google.common.collect.Iterables.getOnlyElement;
+
+public class FirstValueFunction
+        implements WindowFunction
+{
+    public static class BigintFirstValueFunction
+            extends FirstValueFunction
+    {
+        public BigintFirstValueFunction(List<Integer> argumentChannels)
+        {
+            super(BIGINT, argumentChannels);
+        }
+    }
+    public static class BooleanFirstValueFunction
+            extends FirstValueFunction
+    {
+        public BooleanFirstValueFunction(List<Integer> argumentChannels)
+        {
+            super(BOOLEAN, argumentChannels);
+        }
+    }
+    public static class DoubleFirstValueFunction
+            extends FirstValueFunction
+    {
+        public DoubleFirstValueFunction(List<Integer> argumentChannels)
+        {
+            super(DOUBLE, argumentChannels);
+        }
+    }
+    public static class VarcharFirstValueFunction
+            extends FirstValueFunction
+    {
+        public VarcharFirstValueFunction(List<Integer> argumentChannels)
+        {
+            super(VARCHAR, argumentChannels);
+        }
+    }
+
+    private final Type type;
+    private final int argumentChannel;
+    private int rowCount;
+    private PagesIndex pagesIndex;
+    private int valuePosition;
+
+    protected FirstValueFunction(Type type, List<Integer> argumentChannels)
+    {
+        this.type = type;
+        this.argumentChannel = getOnlyElement(argumentChannels);
+    }
+
+    @Override
+    public Type getType()
+    {
+        return type;
+    }
+
+    @Override
+    public void reset(int partitionRowCount, PagesIndex pagesIndex)
+    {
+        this.pagesIndex = pagesIndex;
+        valuePosition = rowCount;
+        rowCount += partitionRowCount;
+    }
+
+    @Override
+    public void processRow(BlockBuilder output, boolean newPeerGroup, int peerGroupCount)
+    {
+        pagesIndex.appendTo(argumentChannel, valuePosition, output);
+    }
+}
