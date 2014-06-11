@@ -47,6 +47,7 @@ import javax.inject.Inject;
 import javax.inject.Singleton;
 
 import java.util.Collection;
+import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -60,6 +61,7 @@ import static com.facebook.presto.metadata.ColumnHandle.fromConnectorHandle;
 import static com.facebook.presto.metadata.MetadataUtil.checkCatalogName;
 import static com.facebook.presto.metadata.MetadataUtil.checkColumnName;
 import static com.facebook.presto.metadata.QualifiedTableName.convertFromSchemaTableName;
+import static com.facebook.presto.metadata.ViewDefinition.ViewColumn;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_VIEW;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
@@ -297,15 +299,37 @@ public class MetadataManager
     public Map<QualifiedTableName, List<ColumnMetadata>> listTableColumns(ConnectorSession session, QualifiedTablePrefix prefix)
     {
         checkNotNull(prefix, "prefix is null");
+        SchemaTablePrefix tablePrefix = prefix.asSchemaTablePrefix();
 
-        Map<QualifiedTableName, List<ColumnMetadata>> tableColumns = new LinkedHashMap<>();
+        Map<QualifiedTableName, List<ColumnMetadata>> tableColumns = new HashMap<>();
         for (ConnectorMetadataEntry connectorMetadata : allConnectorsFor(prefix.getCatalogName())) {
-            for (Entry<SchemaTableName, List<ColumnMetadata>> entry : connectorMetadata.getMetadata().listTableColumns(session, prefix.asSchemaTablePrefix()).entrySet()) {
-                QualifiedTableName tableName = new QualifiedTableName(prefix.getCatalogName(), entry.getKey().getSchemaName(), entry.getKey().getTableName());
-                if (!tableColumns.containsKey(tableName)) {
-                    tableColumns.put(tableName, entry.getValue());
-                }
+            ConnectorMetadata metadata = connectorMetadata.getMetadata();
+
+            for (Entry<SchemaTableName, List<ColumnMetadata>> entry : metadata.listTableColumns(session, tablePrefix).entrySet()) {
+                QualifiedTableName tableName = new QualifiedTableName(
+                        prefix.getCatalogName(),
+                        entry.getKey().getSchemaName(),
+                        entry.getKey().getTableName());
+                tableColumns.put(tableName, entry.getValue());
             }
+
+            // if table and view names overlap, the view wins
+            for (Entry<SchemaTableName, String> entry : metadata.getViews(session, tablePrefix).entrySet()) {
+                QualifiedTableName tableName = new QualifiedTableName(
+                        prefix.getCatalogName(),
+                        entry.getKey().getSchemaName(),
+                        entry.getKey().getTableName());
+
+                int ordinalPosition = 0;
+                ImmutableList.Builder<ColumnMetadata> columns = ImmutableList.builder();
+                for (ViewColumn column : deserializeView(entry.getValue()).getColumns()) {
+                    columns.add(new ColumnMetadata(column.getName(), column.getType(), ordinalPosition, false));
+                    ordinalPosition++;
+                }
+
+                tableColumns.put(tableName, columns.build());
+            }
+
         }
         return ImmutableMap.copyOf(tableColumns);
     }
@@ -352,6 +376,40 @@ public class MetadataManager
     }
 
     @Override
+    public List<QualifiedTableName> listViews(ConnectorSession session, QualifiedTablePrefix prefix)
+    {
+        checkNotNull(prefix, "prefix is null");
+
+        String schemaNameOrNull = prefix.getSchemaName().orNull();
+        Set<QualifiedTableName> tables = new LinkedHashSet<>();
+        for (ConnectorMetadataEntry entry : allConnectorsFor(prefix.getCatalogName())) {
+            for (QualifiedTableName tableName : transform(entry.getMetadata().listViews(session, schemaNameOrNull), convertFromSchemaTableName(prefix.getCatalogName()))) {
+                tables.add(tableName);
+            }
+        }
+        return ImmutableList.copyOf(tables);
+    }
+
+    @Override
+    public Map<QualifiedTableName, ViewDefinition> getViews(ConnectorSession session, QualifiedTablePrefix prefix)
+    {
+        checkNotNull(prefix, "prefix is null");
+        SchemaTablePrefix tablePrefix = prefix.asSchemaTablePrefix();
+
+        Map<QualifiedTableName, ViewDefinition> views = new LinkedHashMap<>();
+        for (ConnectorMetadataEntry metadata : allConnectorsFor(prefix.getCatalogName())) {
+            for (Entry<SchemaTableName, String> entry : metadata.getMetadata().getViews(session, tablePrefix).entrySet()) {
+                QualifiedTableName viewName = new QualifiedTableName(
+                        prefix.getCatalogName(),
+                        entry.getKey().getSchemaName(),
+                        entry.getKey().getTableName());
+                views.put(viewName, deserializeView(entry.getValue()));
+            }
+        }
+        return ImmutableMap.copyOf(views);
+    }
+
+    @Override
     public Optional<ViewDefinition> getView(ConnectorSession session, QualifiedTableName viewName)
     {
         SchemaTablePrefix prefix = viewName.asSchemaTableName().toSchemaTablePrefix();
@@ -359,12 +417,7 @@ public class MetadataManager
             Map<SchemaTableName, String> views = entry.getMetadata().getViews(session, prefix);
             String view = views.get(viewName.asSchemaTableName());
             if (view != null) {
-                try {
-                    return Optional.of(viewCodec.fromJson(view));
-                }
-                catch (IllegalArgumentException e) {
-                    throw new PrestoException(INVALID_VIEW.toErrorCode(), "Invalid view JSON: " + view, e);
-                }
+                return Optional.of(deserializeView(view));
             }
         }
         return Optional.absent();
@@ -384,6 +437,16 @@ public class MetadataManager
         ConnectorMetadataEntry connectorMetadata = connectorsByCatalog.get(viewName.getCatalogName());
         checkArgument(connectorMetadata != null, "Catalog %s does not exist", viewName.getCatalogName());
         connectorMetadata.getMetadata().dropView(session, viewName.asSchemaTableName());
+    }
+
+    private ViewDefinition deserializeView(String data)
+    {
+        try {
+            return viewCodec.fromJson(data);
+        }
+        catch (IllegalArgumentException e) {
+            throw new PrestoException(INVALID_VIEW.toErrorCode(), "Invalid view JSON: " + data, e);
+        }
     }
 
     private List<ConnectorMetadataEntry> allConnectorsFor(String catalogName)

@@ -15,6 +15,7 @@ package com.facebook.presto.tests;
 
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.testing.MaterializedResult;
+import com.facebook.presto.testing.MaterializedRow;
 import com.facebook.presto.testing.QueryRunner;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableSet;
@@ -22,12 +23,18 @@ import org.intellij.lang.annotations.Language;
 import org.testng.annotations.Test;
 
 import static com.facebook.presto.connector.informationSchema.InformationSchemaMetadata.INFORMATION_SCHEMA;
+import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
+import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
+import static com.facebook.presto.sql.SqlFormatter.formatSql;
+import static com.facebook.presto.sql.parser.SqlParser.createStatement;
+import static com.facebook.presto.testing.MaterializedResult.resultBuilder;
 import static com.google.common.collect.Iterables.transform;
 import static java.lang.String.format;
 import static java.util.Collections.nCopies;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
+import static org.testng.Assert.fail;
 
 public abstract class AbstractTestDistributedQueries
         extends AbstractTestApproximateQueries
@@ -127,6 +134,67 @@ public abstract class AbstractTestDistributedQueries
         assertQueryTrue("DROP VIEW test_view");
     }
 
+    @Test
+    public void testViewMetadata()
+            throws Exception
+    {
+        @Language("SQL") String query = "SELECT 123 x, 'foo' y";
+        assertQueryTrue("CREATE VIEW meta_test_view AS " + query);
+
+        // test INFORMATION_SCHEMA.TABLES
+        MaterializedResult actual = computeActual(format(
+                "SELECT table_name, table_type FROM information_schema.tables WHERE table_schema = '%s'",
+                getSession().getSchema()));
+
+        MaterializedResult expected = resultBuilder(getSession(), actual.getTypes())
+                .row("customer", "BASE TABLE")
+                .row("lineitem", "BASE TABLE")
+                .row("meta_test_view", "VIEW")
+                .row("nation", "BASE TABLE")
+                .row("orders", "BASE TABLE")
+                .row("part", "BASE TABLE")
+                .row("partsupp", "BASE TABLE")
+                .row("region", "BASE TABLE")
+                .row("supplier", "BASE TABLE")
+                .build();
+
+        assertContains(actual, expected);
+
+        // test SHOW TABLES
+        actual = computeActual("SHOW TABLES");
+
+        MaterializedResult.Builder builder = resultBuilder(getSession(), actual.getTypes());
+        for (MaterializedRow row : expected.getMaterializedRows()) {
+            builder.row(row.getField(0));
+        }
+        expected = builder.build();
+
+        assertContains(actual, expected);
+
+        // test INFORMATION_SCHEMA.VIEWS
+        actual = computeActual(format(
+                "SELECT table_name, view_definition FROM information_schema.views WHERE table_schema = '%s'",
+                getSession().getSchema()));
+
+        expected = resultBuilder(getSession(), actual.getTypes())
+                .row("meta_test_view", formatSql(createStatement(query)))
+                .build();
+
+        assertContains(actual, expected);
+
+        // test SHOW COLUMNS
+        actual = computeActual("SHOW COLUMNS FROM meta_test_view");
+
+        expected = resultBuilder(getSession(), VARCHAR, VARCHAR, BOOLEAN, BOOLEAN)
+                .row("x", "bigint", true, false)
+                .row("y", "varchar", true, false)
+                .build();
+
+        assertEquals(actual, expected);
+
+        assertQueryTrue("DROP VIEW meta_test_view");
+    }
+
     @Test(expectedExceptions = RuntimeException.class, expectedExceptionsMessageRegExp = ".*statement is too large.*")
     public void testLargeQueryFailure()
             throws Exception
@@ -177,5 +245,14 @@ public abstract class AbstractTestDistributedQueries
 
         assertTrue(all.getMaterializedRows().containsAll(fullSample.getMaterializedRows()));
         assertEquals(emptySample.getMaterializedRows().size(), 0);
+    }
+
+    private static void assertContains(MaterializedResult actual, MaterializedResult expected)
+    {
+        for (MaterializedRow row : expected.getMaterializedRows()) {
+            if (!actual.getMaterializedRows().contains(row)) {
+                fail(format("expected row missing: %s%nActual:%n      %s%nExpected:%n      %s", row, actual, expected));
+            }
+        }
     }
 }

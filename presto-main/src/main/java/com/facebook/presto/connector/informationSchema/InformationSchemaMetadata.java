@@ -48,6 +48,7 @@ public class InformationSchemaMetadata
 
     public static final SchemaTableName TABLE_COLUMNS = new SchemaTableName(INFORMATION_SCHEMA, "columns");
     public static final SchemaTableName TABLE_TABLES = new SchemaTableName(INFORMATION_SCHEMA, "tables");
+    public static final SchemaTableName TABLE_VIEWS = new SchemaTableName(INFORMATION_SCHEMA, "views");
     public static final SchemaTableName TABLE_SCHEMATA = new SchemaTableName(INFORMATION_SCHEMA, "schemata");
     public static final SchemaTableName TABLE_INTERNAL_FUNCTIONS = new SchemaTableName(INFORMATION_SCHEMA, "__internal_functions__");
     public static final SchemaTableName TABLE_INTERNAL_PARTITIONS = new SchemaTableName(INFORMATION_SCHEMA, "__internal_partitions__");
@@ -69,6 +70,12 @@ public class InformationSchemaMetadata
                     .column("table_schema", VARCHAR)
                     .column("table_name", VARCHAR)
                     .column("table_type", VARCHAR)
+                    .build())
+            .table(tableMetadataBuilder(TABLE_VIEWS)
+                    .column("table_catalog", VARCHAR)
+                    .column("table_schema", VARCHAR)
+                    .column("table_name", VARCHAR)
+                    .column("view_definition", VARCHAR)
                     .build())
             .table(tableMetadataBuilder(TABLE_SCHEMATA)
                     .column("catalog_name", VARCHAR)
