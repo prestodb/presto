@@ -1816,6 +1816,72 @@ public abstract class AbstractTestQueries
     }
 
     @Test
+    public void testWindowFirstValueFunction()
+    {
+        MaterializedResult actual = computeActual("" +
+                "SELECT * FROM (\n" +
+                "  SELECT orderkey, orderstatus\n" +
+                "    , first_value(orderkey + 1000) OVER (PARTITION BY orderstatus ORDER BY orderkey) as fvalue\n" +
+                "    FROM (SELECT * FROM orders ORDER BY orderkey LIMIT 10) x\n" +
+                "  ) x\n" +
+                "ORDER BY orderkey LIMIT 5");
+
+        MaterializedResult expected = resultBuilder(getSession(), BIGINT, VARCHAR, BIGINT)
+                .row(1, "O", 1001)
+                .row(2, "O", 1001)
+                .row(3, "F", 1003)
+                .row(4, "O", 1001)
+                .row(5, "F", 1003)
+                .build();
+
+        assertEquals(actual, expected);
+    }
+
+    @Test
+    public void testWindowLastValueFunction()
+    {
+        MaterializedResult actual = computeActual("" +
+                "SELECT * FROM (\n" +
+                "  SELECT orderkey, orderstatus\n" +
+                "    , last_value(orderkey + 1000) OVER (PARTITION BY orderstatus ORDER BY orderkey) as lvalue\n" +
+                "    FROM (SELECT * FROM orders ORDER BY orderkey LIMIT 10) x\n" +
+                "  ) x\n" +
+                "ORDER BY orderkey LIMIT 5");
+
+        MaterializedResult expected = resultBuilder(getSession(), BIGINT, VARCHAR, BIGINT)
+                .row(1, "O", 1034)
+                .row(2, "O", 1034)
+                .row(3, "F", 1033)
+                .row(4, "O", 1034)
+                .row(5, "F", 1033)
+                .build();
+
+        assertEquals(actual, expected);
+    }
+
+    @Test
+    public void testWindowNthValueFunction()
+    {
+        MaterializedResult actual = computeActual("" +
+                "SELECT * FROM (\n" +
+                "  SELECT orderkey, orderstatus\n" +
+                "    , nth_value(orderkey + 1000, 2) OVER (PARTITION BY orderstatus ORDER BY orderkey) as lvalue\n" +
+                "    FROM (SELECT * FROM orders ORDER BY orderkey LIMIT 10) x\n" +
+                "  ) x\n" +
+                "ORDER BY orderkey LIMIT 5");
+
+        MaterializedResult expected = resultBuilder(getSession(), BIGINT, VARCHAR, BIGINT)
+                .row(1, "O", 1002)
+                .row(2, "O", 1002)
+                .row(3, "F", 1005)
+                .row(4, "O", 1002)
+                .row(5, "F", 1005)
+                .build();
+
+        assertEquals(actual, expected);
+    }
+
+    @Test
     public void testScalarFunction()
             throws Exception
     {
