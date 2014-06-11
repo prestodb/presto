@@ -29,6 +29,8 @@ public final class ByteBigArray
 {
     private static final long SIZE_OF_SEGMENT = sizeOfByteArray(SEGMENT_SIZE);
 
+    private final byte initialValue;
+
     private byte[][] array;
     private int capacity;
     private int segments;
@@ -38,14 +40,14 @@ public final class ByteBigArray
      */
     public ByteBigArray()
     {
-        array = new byte[INITIAL_SEGMENTS][];
-        allocateNewSegment();
+        this((byte) 0);
     }
 
-    public ByteBigArray(byte defaultValue)
+    public ByteBigArray(byte initialValue)
     {
+        this.initialValue = initialValue;
         array = new byte[INITIAL_SEGMENTS][];
-        allocateNewSegment(defaultValue);
+        allocateNewSegment();
     }
 
     /**
@@ -90,31 +92,6 @@ public final class ByteBigArray
         grow(length);
     }
 
-    public void ensureCapacity(long length, byte defaultValue)
-    {
-        if (capacity > length) {
-            return;
-        }
-
-        grow(length, defaultValue);
-    }
-
-    private void grow(long length, byte defaultValue)
-    {
-        // how many segments are required to get to the length?
-        int requiredSegments = segment(length) + 1;
-
-        // grow base array if necessary
-        if (array.length < requiredSegments) {
-            array = Arrays.copyOf(array, requiredSegments);
-        }
-
-        // add new segments
-        while (segments < requiredSegments) {
-            allocateNewSegment(defaultValue);
-        }
-    }
-
     private void grow(long length)
     {
         // how many segments are required to get to the length?
@@ -133,15 +110,10 @@ public final class ByteBigArray
 
     private void allocateNewSegment()
     {
-        array[segments] = new byte[SEGMENT_SIZE];
-        capacity += SEGMENT_SIZE;
-        segments++;
-    }
-
-    private void allocateNewSegment(byte defaultValue)
-    {
         byte[] newSegment = new byte[SEGMENT_SIZE];
-        Arrays.fill(newSegment, defaultValue);
+        if (initialValue != 0) {
+            Arrays.fill(newSegment, initialValue);
+        }
         array[segments] = newSegment;
         capacity += SEGMENT_SIZE;
         segments++;

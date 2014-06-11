@@ -29,6 +29,8 @@ public final class BooleanBigArray
 {
     private static final long SIZE_OF_SEGMENT = sizeOfBooleanArray(SEGMENT_SIZE);
 
+    private final boolean initialValue;
+
     private boolean[][] array;
     private int capacity;
     private int segments;
@@ -38,14 +40,14 @@ public final class BooleanBigArray
      */
     public BooleanBigArray()
     {
-        array = new boolean[INITIAL_SEGMENTS][];
-        allocateNewSegment();
+        this(false);
     }
 
-    public BooleanBigArray(boolean defaultValue)
+    public BooleanBigArray(boolean initialValue)
     {
+        this.initialValue = initialValue;
         array = new boolean[INITIAL_SEGMENTS][];
-        allocateNewSegment(defaultValue);
+        allocateNewSegment();
     }
 
     /**
@@ -90,31 +92,6 @@ public final class BooleanBigArray
         grow(length);
     }
 
-    public void ensureCapacity(long length, boolean defaultValue)
-    {
-        if (capacity > length) {
-            return;
-        }
-
-        grow(length, defaultValue);
-    }
-
-    private void grow(long length, boolean defaultValue)
-    {
-        // how many segments are required to get to the length?
-        int requiredSegments = segment(length) + 1;
-
-        // grow base array if necessary
-        if (array.length < requiredSegments) {
-            array = Arrays.copyOf(array, requiredSegments);
-        }
-
-        // add new segments
-        while (segments < requiredSegments) {
-            allocateNewSegment(defaultValue);
-        }
-    }
-
     private void grow(long length)
     {
         // how many segments are required to get to the length?
@@ -133,15 +110,10 @@ public final class BooleanBigArray
 
     private void allocateNewSegment()
     {
-        array[segments] = new boolean[SEGMENT_SIZE];
-        capacity += SEGMENT_SIZE;
-        segments++;
-    }
-
-    private void allocateNewSegment(boolean defaultValue)
-    {
         boolean[] newSegment = new boolean[SEGMENT_SIZE];
-        Arrays.fill(newSegment, defaultValue);
+        if (initialValue) {
+            Arrays.fill(newSegment, initialValue);
+        }
         array[segments] = newSegment;
         capacity += SEGMENT_SIZE;
         segments++;

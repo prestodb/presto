@@ -29,6 +29,8 @@ public final class LongBigArray
 {
     private static final long SIZE_OF_SEGMENT = sizeOfLongArray(SEGMENT_SIZE);
 
+    private final long initialValue;
+
     private long[][] array;
     private int capacity;
     private int segments;
@@ -38,17 +40,17 @@ public final class LongBigArray
      */
     public LongBigArray()
     {
-        array = new long[INITIAL_SEGMENTS][];
-        allocateNewSegment();
+        this(0L);
     }
 
     /**
      * Creates a new big array containing one initial segment filled with the specified default value
      */
-    public LongBigArray(long defaultValue)
+    public LongBigArray(long initialValue)
     {
+        this.initialValue = initialValue;
         array = new long[INITIAL_SEGMENTS][];
-        allocateNewSegment(defaultValue);
+        allocateNewSegment();
     }
 
     /**
@@ -132,47 +134,11 @@ public final class LongBigArray
 
     private void allocateNewSegment()
     {
-        array[segments] = new long[SEGMENT_SIZE];
-        capacity += SEGMENT_SIZE;
-        segments++;
-    }
-
-    /**
-     * Ensures this big array is at least the specified length.  If the array is smaller, segments
-     * are added until the array is larger then the specified length.  New segments are filled
-     * with the specified default value.
-     */
-    public void ensureCapacity(long length, long defaultValue)
-    {
-        if (capacity > length) {
-            return;
-        }
-
-        grow(length, defaultValue);
-    }
-
-    private void grow(long length, long defaultValue)
-    {
-        // how many segments are required to get to the length?
-        int requiredSegments = segment(length) + 1;
-
-        // grow base array if necessary
-        if (array.length < requiredSegments) {
-            array = Arrays.copyOf(array, requiredSegments);
-        }
-
-        // add new segments
-        while (segments < requiredSegments) {
-            allocateNewSegment(defaultValue);
-        }
-    }
-
-    private void allocateNewSegment(long defaultValue)
-    {
         long[] newSegment = new long[SEGMENT_SIZE];
-        Arrays.fill(newSegment, defaultValue);
+        if (initialValue != 0) {
+            Arrays.fill(newSegment, initialValue);
+        }
         array[segments] = newSegment;
-
         capacity += SEGMENT_SIZE;
         segments++;
     }
