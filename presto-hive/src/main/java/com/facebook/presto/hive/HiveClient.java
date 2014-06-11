@@ -147,6 +147,7 @@ public class HiveClient
     private final int maxSplitIteratorThreads;
     private final int minPartitionBatchSize;
     private final int maxPartitionBatchSize;
+    private final boolean allowDropTable;
     private final CachingHiveMetastore metastore;
     private final NamenodeStats namenodeStats;
     private final HdfsEnvironment hdfsEnvironment;
@@ -179,7 +180,8 @@ public class HiveClient
                 hiveClientConfig.getMinPartitionBatchSize(),
                 hiveClientConfig.getMaxPartitionBatchSize(),
                 hiveClientConfig.getMaxInitialSplitSize(),
-                hiveClientConfig.getMaxInitialSplits());
+                hiveClientConfig.getMaxInitialSplits(),
+                hiveClientConfig.getAllowDropTable());
     }
 
     public HiveClient(HiveConnectorId connectorId,
@@ -195,7 +197,8 @@ public class HiveClient
             int minPartitionBatchSize,
             int maxPartitionBatchSize,
             DataSize maxInitialSplitSize,
-            int maxInitialSplits)
+            int maxInitialSplits,
+            boolean allowDropTable)
     {
         this.connectorId = checkNotNull(connectorId, "connectorId is null").toString();
 
@@ -207,6 +210,7 @@ public class HiveClient
         this.maxPartitionBatchSize = maxPartitionBatchSize;
         this.maxInitialSplitSize = checkNotNull(maxInitialSplitSize, "maxInitialSplitSize is null");
         this.maxInitialSplits = maxInitialSplits;
+        this.allowDropTable = allowDropTable;
 
         this.metastore = checkNotNull(metastore, "metastore is null");
         this.hdfsEnvironment = checkNotNull(hdfsEnvironment, "hdfsEnvironment is null");
@@ -414,7 +418,24 @@ public class HiveClient
     @Override
     public void dropTable(ConnectorTableHandle tableHandle)
     {
-        throw new UnsupportedOperationException();
+        HiveTableHandle handle = checkType(tableHandle, HiveTableHandle.class, "tableHandle");
+        SchemaTableName tableName = getTableName(tableHandle);
+
+        // Check that drop table is enable
+        if (!allowDropTable) {
+            throw new RuntimeException(format("Unable to drop table '%s': drop table is disabled for hive connector", handle.getTableName()));
+        }
+        try {
+            Table table = metastore.getTable(handle.getSchemaName(), handle.getTableName());
+            // Check that table owner is the session user
+            if (!handle.getSession().getUser().contentEquals(table.getOwner())) {
+                throw new RuntimeException(format("Unable to drop table '%s': owner of the table is different from session user", table));
+            }
+            metastore.dropTable(handle.getSchemaName(), handle.getTableName());
+        }
+        catch (NoSuchObjectException e) {
+            throw new TableNotFoundException(tableName);
+        }
     }
 
     @Override
