@@ -38,7 +38,7 @@ public class WindowOperator
         private final int operatorId;
         private final List<Type> sourceTypes;
         private final List<Integer> outputChannels;
-        private final List<WindowFunction> windowFunctions;
+        private final List<WindowFunctionDefinition> windowFunctionDefinitions;
         private final List<Integer> partitionChannels;
         private final List<Integer> sortChannels;
         private final List<SortOrder> sortOrder;
@@ -50,7 +50,7 @@ public class WindowOperator
                 int operatorId,
                 List<? extends Type> sourceTypes,
                 List<Integer> outputChannels,
-                List<WindowFunction> windowFunctions,
+                List<WindowFunctionDefinition> windowFunctionDefinitions,
                 List<Integer> partitionChannels,
                 List<Integer> sortChannels,
                 List<SortOrder> sortOrder,
@@ -59,13 +59,13 @@ public class WindowOperator
             this.operatorId = operatorId;
             this.sourceTypes = ImmutableList.copyOf(sourceTypes);
             this.outputChannels = ImmutableList.copyOf(checkNotNull(outputChannels, "outputChannels is null"));
-            this.windowFunctions = windowFunctions;
+            this.windowFunctionDefinitions = windowFunctionDefinitions;
             this.partitionChannels = ImmutableList.copyOf(checkNotNull(partitionChannels, "partitionChannels is null"));
             this.sortChannels = ImmutableList.copyOf(checkNotNull(sortChannels, "sortChannels is null"));
             this.sortOrder = ImmutableList.copyOf(checkNotNull(sortOrder, "sortOrder is null"));
             this.expectedPositions = expectedPositions;
 
-            this.types = toTypes(sourceTypes, outputChannels, windowFunctions);
+            this.types = toTypes(sourceTypes, outputChannels, toWindowFunctions(windowFunctionDefinitions));
         }
 
         @Override
@@ -84,7 +84,7 @@ public class WindowOperator
                     operatorContext,
                     sourceTypes,
                     outputChannels,
-                    windowFunctions,
+                    windowFunctionDefinitions,
                     partitionChannels,
                     sortChannels,
                     sortOrder,
@@ -112,6 +112,7 @@ public class WindowOperator
     private final List<Integer> sortChannels;
     private final List<SortOrder> sortOrder;
     private final List<Type> types;
+    private final List<int[]> argumentChannels;
 
     private final PagesIndex pagesIndex;
 
@@ -132,7 +133,7 @@ public class WindowOperator
             OperatorContext operatorContext,
             List<Type> sourceTypes,
             List<Integer> outputChannels,
-            List<WindowFunction> windowFunctions,
+            List<WindowFunctionDefinition> windowFunctionDefinitions,
             List<Integer> partitionChannels,
             List<Integer> sortChannels,
             List<SortOrder> sortOrder,
@@ -140,7 +141,7 @@ public class WindowOperator
     {
         this.operatorContext = checkNotNull(operatorContext, "operatorContext is null");
         this.outputChannels = Ints.toArray(checkNotNull(outputChannels, "outputChannels is null"));
-        this.windowFunctions = checkNotNull(windowFunctions, "windowFunctions is null");
+        this.windowFunctions = toWindowFunctions(checkNotNull(windowFunctionDefinitions, "windowFunctionDefinitions is null"));
         this.partitionChannels = ImmutableList.copyOf(checkNotNull(partitionChannels, "partitionChannels is null"));
         this.sortChannels = ImmutableList.copyOf(checkNotNull(sortChannels, "sortChannels is null"));
         this.sortOrder = ImmutableList.copyOf(checkNotNull(sortOrder, "sortOrder is null"));
@@ -149,6 +150,8 @@ public class WindowOperator
 
         this.pagesIndex = new PagesIndex(sourceTypes, expectedPositions, operatorContext);
         this.pageBuilder = new PageBuilder(this.types);
+
+        this.argumentChannels = toArgumentChannels(windowFunctionDefinitions);
     }
 
     @Override
@@ -240,8 +243,9 @@ public class WindowOperator
                 }
 
                 // reset functions for new partition
+                int functionIdx = 0;
                 for (WindowFunction function : windowFunctions) {
-                    function.reset(partitionEnd - currentPosition);
+                    function.reset(partitionEnd - currentPosition, pagesIndex, argumentChannels.get(functionIdx++));
                 }
             }
 
@@ -293,5 +297,28 @@ public class WindowOperator
             types.add(function.getType());
         }
         return types.build();
+    }
+
+    private static List<WindowFunction> toWindowFunctions(List<WindowFunctionDefinition> windowFunctions)
+    {
+        ImmutableList.Builder<WindowFunction> windowFunctionsBuilder = ImmutableList.builder();
+        for (WindowFunctionDefinition definition : windowFunctions) {
+            windowFunctionsBuilder.add(definition.getFunction());
+        }
+
+        return windowFunctionsBuilder.build();
+    }
+
+    private static List<int[]> toArgumentChannels(List<WindowFunctionDefinition> windowFunctions)
+    {
+        ImmutableList.Builder<int[]> argumentIndexesBuilder = ImmutableList.builder();
+        for (WindowFunctionDefinition definition : windowFunctions) {
+            int[] channels = new int[definition.getInputs().size()];
+            for (int i = 0; i < channels.length; i++) {
+                channels[i] = definition.getInputs().get(i).getChannel();
+            }
+            argumentIndexesBuilder.add(channels);
+        }
+        return argumentIndexesBuilder.build();
     }
 }

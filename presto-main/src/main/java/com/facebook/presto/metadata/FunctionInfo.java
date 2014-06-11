@@ -14,6 +14,7 @@
 package com.facebook.presto.metadata;
 
 import com.facebook.presto.operator.AggregationFunctionDefinition;
+import com.facebook.presto.operator.WindowFunctionDefinition;
 import com.facebook.presto.operator.aggregation.AggregationFunction;
 import com.facebook.presto.operator.window.WindowFunction;
 import com.facebook.presto.spi.type.Type;
@@ -30,6 +31,7 @@ import java.lang.invoke.MethodHandle;
 import java.util.List;
 
 import static com.facebook.presto.operator.AggregationFunctionDefinition.aggregation;
+import static com.facebook.presto.operator.WindowFunctionDefinition.window;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 
@@ -158,6 +160,12 @@ public final class FunctionInfo
     public Type getIntermediateType()
     {
         return intermediateType;
+    }
+
+    public WindowFunctionDefinition bind(List<Input> inputs)
+    {
+        checkState(isWindow, "not a window function");
+        return window(windowFunction.get(), inputs);
     }
 
     public AggregationFunctionDefinition bind(List<Input> inputs, Optional<Input> mask, Optional<Input> sampleWeight, double confidence)

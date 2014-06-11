@@ -267,4 +267,70 @@ public class TestWindowFunctions
                         .build(), queryRunner
         );
     }
+
+    @Test
+    public void testFirstValue()
+    {
+        assertWindowQuery("first_value(orderdate) OVER (PARTITION BY orderstatus ORDER BY orderkey)",
+                resultBuilder(SESSION, BIGINT, VARCHAR, VARCHAR)
+                        .row(3, "F", "1993-10-14")
+                        .row(5, "F", "1993-10-14")
+                        .row(6, "F", "1993-10-14")
+                        .row(33, "F", "1993-10-14")
+                        .row(1, "O", "1996-01-02")
+                        .row(2, "O", "1996-01-02")
+                        .row(4, "O", "1996-01-02")
+                        .row(7, "O", "1996-01-02")
+                        .row(32, "O", "1996-01-02")
+                        .row(34, "O", "1996-01-02")
+                        .build(), queryRunner);
+
+        assertWindowQuery("first_value(orderkey) OVER (PARTITION BY orderstatus ORDER BY orderkey)",
+                resultBuilder(SESSION, BIGINT, VARCHAR, BIGINT)
+                        .row(3, "F", 3)
+                        .row(5, "F", 3)
+                        .row(6, "F", 3)
+                        .row(33, "F", 3)
+                        .row(1, "O", 1)
+                        .row(2, "O", 1)
+                        .row(4, "O", 1)
+                        .row(7, "O", 1)
+                        .row(32, "O", 1)
+                        .row(34, "O", 1)
+                        .build(), queryRunner);
+
+    }
+
+    @Test
+    public void testLastValue()
+    {
+        assertWindowQuery("last_value(orderdate) OVER (PARTITION BY orderstatus ORDER BY orderkey)",
+                resultBuilder(SESSION, BIGINT, VARCHAR, VARCHAR)
+                        .row(3, "F", "1993-10-27")
+                        .row(5, "F", "1993-10-27")
+                        .row(6, "F", "1993-10-27")
+                        .row(33, "F", "1993-10-27")
+                        .row(1, "O", "1998-07-21")
+                        .row(2, "O", "1998-07-21")
+                        .row(4, "O", "1998-07-21")
+                        .row(7, "O", "1998-07-21")
+                        .row(32, "O", "1998-07-21")
+                        .row(34, "O", "1998-07-21")
+                        .build(), queryRunner);
+
+        assertWindowQuery("last_value(orderkey) OVER (PARTITION BY orderstatus ORDER BY orderkey)",
+                resultBuilder(SESSION, BIGINT, VARCHAR, BIGINT)
+                        .row(3, "F", 33)
+                        .row(5, "F", 33)
+                        .row(6, "F", 33)
+                        .row(33, "F", 33)
+                        .row(1, "O", 34)
+                        .row(2, "O", 34)
+                        .row(4, "O", 34)
+                        .row(7, "O", 34)
+                        .row(32, "O", 34)
+                        .row(34, "O", 34)
+                        .build(), queryRunner);
+
+    }
 }
