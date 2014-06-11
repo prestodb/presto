@@ -288,7 +288,10 @@ public class StateCompiler
                 .invokeVirtual(bigArrayType, "set", void.class, long.class, stateField.getType())
                 .ret();
 
-        generateEnsureCapacityWithDefault(ensureCapacity, stateField.getType(), field, stateField.getDefaultValue());
+        ensureCapacity.pushThis()
+                .getField(field)
+                .getVariable("size")
+                .invokeVirtual(field.getType(), "ensureCapacity", type(void.class), type(long.class));
 
         // Initialize field in constructor
         constructor.pushThis()
@@ -304,20 +307,6 @@ public class StateCompiler
         constructor.putField(field);
 
         return field;
-    }
-
-    private static void generateEnsureCapacityWithDefault(Block body, Class<?> type, FieldDefinition field, Number defaultValue)
-    {
-        body.pushThis()
-                .getField(field)
-                .getVariable("size");
-        if (defaultValue != null) {
-            body.push(defaultValue);
-        }
-        else {
-            body.pushJavaDefault(type);
-        }
-        body.invokeVirtual(field.getType(), "ensureCapacity", type(void.class), type(long.class), type(type));
     }
 
     private static List<StateField> enumerateFields(Class<?> clazz)

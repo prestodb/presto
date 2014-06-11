@@ -29,6 +29,8 @@ public final class DoubleBigArray
 {
     private static final long SIZE_OF_SEGMENT = sizeOfDoubleArray(SEGMENT_SIZE);
 
+    private final double initialValue;
+
     private double[][] array;
     private int capacity;
     private int segments;
@@ -38,17 +40,17 @@ public final class DoubleBigArray
      */
     public DoubleBigArray()
     {
-        array = new double[INITIAL_SEGMENTS][];
-        allocateNewSegment();
+        this(0.0);
     }
 
     /**
      * Creates a new big array containing one initial segment filled with the specified default value
      */
-    public DoubleBigArray(double defaultValue)
+    public DoubleBigArray(double initialValue)
     {
+        this.initialValue = initialValue;
         array = new double[INITIAL_SEGMENTS][];
-        allocateNewSegment(defaultValue);
+        allocateNewSegment();
     }
 
     /**
@@ -122,47 +124,11 @@ public final class DoubleBigArray
 
     private void allocateNewSegment()
     {
-        array[segments] = new double[SEGMENT_SIZE];
-        capacity += SEGMENT_SIZE;
-        segments++;
-    }
-
-    /**
-     * Ensures this big array is at least the specified length.  If the array is smaller, segments
-     * are added until the array is larger then the specified length.  New segments are filled
-     * with the specified default value.
-     */
-    public void ensureCapacity(long length, double defaultValue)
-    {
-        if (capacity > length) {
-            return;
-        }
-
-        grow(length, defaultValue);
-    }
-
-    private void grow(long length, double defaultValue)
-    {
-        // how many segments are required to get to the length?
-        int requiredSegments = segment(length) + 1;
-
-        // grow base array if necessary
-        if (array.length < requiredSegments) {
-            array = Arrays.copyOf(array, requiredSegments);
-        }
-
-        // add new segments
-        while (segments < requiredSegments) {
-            allocateNewSegment(defaultValue);
-        }
-    }
-
-    private void allocateNewSegment(double defaultValue)
-    {
         double[] newSegment = new double[SEGMENT_SIZE];
-        Arrays.fill(newSegment, defaultValue);
+        if (initialValue != 0.0) {
+            Arrays.fill(newSegment, initialValue);
+        }
         array[segments] = newSegment;
-
         capacity += SEGMENT_SIZE;
         segments++;
     }

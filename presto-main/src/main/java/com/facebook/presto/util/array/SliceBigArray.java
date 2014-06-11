@@ -74,9 +74,4 @@ public final class SliceBigArray
     {
         array.ensureCapacity(length);
     }
-
-    public void ensureCapacity(long length, Slice slice)
-    {
-        array.ensureCapacity(length, slice);
-    }
 }
