@@ -253,11 +253,9 @@ public class StateCompiler
                 .putField(field)
                 .ret();
 
-        if (stateField.getInitialValue() != null) {
-            constructor.pushThis()
-                    .push(stateField.getInitialValue())
-                    .putField(field);
-        }
+        constructor.pushThis();
+        pushInitialValue(constructor, stateField);
+        constructor.putField(field);
     }
 
     private static FieldDefinition generateGroupedField(ClassDefinition definition, Block constructor, Block ensureCapacity, StateField stateField)
@@ -297,16 +295,30 @@ public class StateCompiler
         constructor.pushThis()
                 .newObject(field.getType())
                 .dup();
-        if (stateField.getInitialValue() != null) {
-            constructor.push(stateField.getInitialValue());
-        }
-        else {
-            constructor.pushJavaDefault(stateField.getType());
-        }
+        pushInitialValue(constructor, stateField);
         constructor.invokeConstructor(field.getType(), type(stateField.getType()));
         constructor.putField(field);
 
         return field;
+    }
+
+    private static void pushInitialValue(Block block, StateField stateField)
+    {
+        Object initialValue = stateField.getInitialValue();
+        if (initialValue != null) {
+            if (initialValue instanceof Number) {
+                block.push((Number) initialValue);
+            }
+            else if (initialValue instanceof Boolean) {
+                block.push((boolean) initialValue);
+            }
+            else {
+                throw new IllegalArgumentException("Unsupported initial value type: " + initialValue.getClass());
+            }
+        }
+        else {
+            block.pushJavaDefault(stateField.getType());
+        }
     }
 
     private static List<StateField> enumerateFields(Class<?> clazz)
@@ -335,9 +347,9 @@ public class StateCompiler
         return builder.build();
     }
 
-    private static Number getInitialValue(Method method)
+    private static Object getInitialValue(Method method)
     {
-        Number value = null;
+        Object value = null;
 
         for (Annotation annotation : method.getAnnotations()) {
             if (annotation instanceof InitialLongValue) {
@@ -349,6 +361,11 @@ public class StateCompiler
                 checkArgument(value == null, "%s has multiple initialValue annotations", method.getName());
                 checkArgument(method.getReturnType() == double.class, "%s does not return a double, but is annotated with @InitialDoubleValue", method.getName());
                 value = ((InitialDoubleValue) annotation).value();
+            }
+            else if (annotation instanceof InitialBooleanValue) {
+                checkArgument(value == null, "%s has multiple initialValue annotations", method.getName());
+                checkArgument(method.getReturnType() == boolean.class, "%s does not return a boolean, but is annotated with @InitialBooleanValue", method.getName());
+                value = ((InitialBooleanValue) annotation).value();
             }
         }
 
@@ -410,14 +427,14 @@ public class StateCompiler
         private final String name;
         private final String getterName;
         private final Class<?> type;
-        private final Number initialValue;
+        private final Object initialValue;
 
-        private StateField(String name, Class<?> type, Number initialValue)
+        private StateField(String name, Class<?> type, Object initialValue)
         {
             this(name, type, initialValue, "get" + name);
         }
 
-        private StateField(String name, Class<?> type, Number initialValue, String getterName)
+        private StateField(String name, Class<?> type, Object initialValue, String getterName)
         {
             this.name = checkNotNull(name, "name is null");
             checkArgument(!name.isEmpty(), "name is empty");
@@ -446,7 +463,7 @@ public class StateCompiler
             return type;
         }
 
-        public Number getInitialValue()
+        public Object getInitialValue()
         {
             return initialValue;
         }
