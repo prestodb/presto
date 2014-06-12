@@ -86,6 +86,24 @@ public final class TupleDomain<T>
         return withColumnDomains(domains);
     }
 
+    /**
+     * Convert a map of columns to values into the TupleDomain which requires
+     * those columns to be fixed to those values. Null is allowed as a fixed value.
+     */
+    public static <T> TupleDomain<T> withNullableFixedValues(Map<T, SerializableNativeValue> fixedValues)
+    {
+        Map<T, Domain> domains = new HashMap<>();
+        for (Map.Entry<T, SerializableNativeValue> entry : fixedValues.entrySet()) {
+            if (entry.getValue().getValue() != null) {
+                domains.put(entry.getKey(), Domain.singleValue(entry.getValue().getValue()));
+            }
+            else {
+                domains.put(entry.getKey(), Domain.onlyNull(entry.getValue().getType()));
+            }
+        }
+        return withColumnDomains(domains);
+    }
+
     @JsonCreator
     // Available for Jackson deserialization only!
     public static <T> TupleDomain<T> fromNullableColumnDomains(@JsonProperty("nullableColumnDomains") List<ColumnDomain<T>> nullableColumnDomains)
@@ -194,6 +212,27 @@ public final class TupleDomain<T>
             }
         }
         return fixedValues;
+    }
+
+    /**
+    * Extract all column constraints that require exactly one value or only null in their respective Domains.
+    */
+    public Map<T, SerializableNativeValue> extractNullableFixedValues()
+    {
+        if (isNone()) {
+            return Collections.emptyMap();
+        }
+
+        Map<T, SerializableNativeValue> builder = new HashMap<>();
+        for (Map.Entry<T, Domain> entry : getDomains().entrySet()) {
+            if (entry.getValue().isSingleValue()) {
+                builder.put(entry.getKey(), new SerializableNativeValue(entry.getValue().getType(), entry.getValue().getSingleValue()));
+            }
+            else if (entry.getValue().isOnlyNull()) {
+                builder.put(entry.getKey(), new SerializableNativeValue(entry.getValue().getType(), null));
+            }
+        }
+        return builder;
     }
 
     /**
