@@ -19,7 +19,6 @@ import com.facebook.presto.sql.tree.AstVisitor;
 import com.facebook.presto.sql.tree.CreateView;
 import com.facebook.presto.sql.tree.DropView;
 import com.facebook.presto.sql.tree.CreateTable;
-import com.facebook.presto.sql.tree.CreateTempTable;
 import com.facebook.presto.sql.tree.DropTable;
 import com.facebook.presto.sql.tree.Except;
 import com.facebook.presto.sql.tree.Explain;
@@ -69,7 +68,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.collect.Iterables.transform;
 
-public final class SqlFormatter
+public class SqlFormatter
 {
     private static final String INDENT = "   ";
 
@@ -82,10 +81,10 @@ public final class SqlFormatter
         return builder.toString();
     }
 
-    private static class Formatter
+    public static class Formatter
             extends AstVisitor<Void, Integer>
     {
-        private final StringBuilder builder;
+        public final StringBuilder builder;
 
         public Formatter(StringBuilder builder)
         {
@@ -579,18 +578,6 @@ public final class SqlFormatter
         }
 
         @Override
-        protected Void visitCreateTempTable(CreateTempTable node, Integer indent)
-        {
-            builder.append("CREATE TEMP TABLE ")
-                    .append(node.getName())
-                    .append(" AS ");
-
-            process(node.getQuery(), indent);
-
-            return null;
-        }
-
-        @Override
         protected Void visitDropTable(DropTable node, Integer context)
         {
             builder.append("DROP TABLE ")
@@ -612,13 +599,13 @@ public final class SqlFormatter
             }
         }
 
-        private StringBuilder append(int indent, String value)
+        protected StringBuilder append(int indent, String value)
         {
             return builder.append(indentString(indent))
                     .append(value);
         }
 
-        private static String indentString(int indent)
+        protected static String indentString(int indent)
         {
             return Strings.repeat(INDENT, indent);
         }

@@ -235,6 +235,38 @@ public final class ExpressionFormatter
                 arguments = "DISTINCT " + arguments;
             }
 
+            builder.append(formatQualifiedFunctionName(node.getName()))
+                    .append('(').append(arguments).append(')');
+
+            if (node.getWindow().isPresent()) {
+                builder.append(" OVER ").append(visitWindow(node.getWindow().get(), null));
+            }
+
+            return builder.toString();
+        }
+
+        private static String formatQualifiedFunctionName(QualifiedName name)
+        {
+            List<String> parts = new ArrayList<>();
+            for (String part : name.getParts()) {
+                parts.add(part);
+            }
+            return Joiner.on('.').join(parts);
+        }
+        /*
+        @Override
+        protected String visitFunctionCall(FunctionCall node, Void context)
+        {
+            StringBuilder builder = new StringBuilder();
+
+            String arguments = joinExpressions(node.getArguments());
+            if (node.getArguments().isEmpty() && "count".equalsIgnoreCase(node.getName().getSuffix())) {
+                arguments = "*";
+            }
+            if (node.isDistinct()) {
+                arguments = "DISTINCT " + arguments;
+            }
+
             builder.append(formatQualifiedName(node.getName()))
                     .append('(').append(arguments).append(')');
 
@@ -244,6 +276,7 @@ public final class ExpressionFormatter
 
             return builder.toString();
         }
+        */
 
         @Override
         protected String visitLogicalBinaryExpression(LogicalBinaryExpression node, Void context)
@@ -477,7 +510,7 @@ public final class ExpressionFormatter
             return '(' + process(left, null) + ' ' + operator + ' ' + process(right, null) + ')';
         }
 
-        private String joinExpressions(List<Expression> expressions)
+        protected String joinExpressions(List<Expression> expressions)
         {
             return Joiner.on(", ").join(transform(expressions, new Function<Expression, Object>()
             {
