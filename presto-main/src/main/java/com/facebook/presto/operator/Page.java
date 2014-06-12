@@ -94,6 +94,13 @@ public class Page
         return getBlock(channel).isNull(position);
     }
 
+    public void appendTo(int position, PageBuilder pageBuilder)
+    {
+        for (int channel = 0; channel < blocks.length; channel++) {
+            blocks[channel].appendTo(position, pageBuilder.getBlockBuilder(channel));
+        }
+    }
+
     @Override
     public String toString()
     {
