@@ -20,7 +20,8 @@ public interface NullableLongState
 
     void setLong(long value);
 
-    boolean getNotNull();
+    @InitialBooleanValue(true)
+    boolean isNull();
 
-    void setNotNull(boolean value);
+    void setNull(boolean value);
 }
