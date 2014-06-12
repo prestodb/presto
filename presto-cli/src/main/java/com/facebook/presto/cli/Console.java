@@ -15,8 +15,10 @@ package com.facebook.presto.cli;
 
 import com.facebook.presto.cli.ClientOptions.OutputFormat;
 import com.facebook.presto.client.ClientSession;
+import com.facebook.presto.sql.parser.IdentifierSymbol;
 import com.facebook.presto.sql.parser.ParsingException;
 import com.facebook.presto.sql.parser.SqlParser;
+import com.facebook.presto.sql.parser.SqlParserOptions;
 import com.facebook.presto.sql.parser.StatementSplitter;
 import com.facebook.presto.sql.tree.UseCollection;
 import com.google.common.base.Charsets;
@@ -38,6 +40,7 @@ import javax.inject.Inject;
 import java.io.File;
 import java.io.IOException;
 import java.io.PrintStream;
+import java.util.EnumSet;
 
 import static com.facebook.presto.cli.Help.getHelpText;
 import static com.facebook.presto.sql.parser.StatementSplitter.Statement;
@@ -54,7 +57,8 @@ public class Console
 {
     private static final String PROMPT_NAME = "presto";
 
-    private static final SqlParser SQL_PARSER = new SqlParser();
+    // create a parser with all identifier options enabled, since this is only used for USE statements
+    private static final SqlParser SQL_PARSER = new SqlParser(new SqlParserOptions().allowIdentifierSymbol(EnumSet.allOf(IdentifierSymbol.class)));
 
     @Inject
     public HelpOption helpOption;

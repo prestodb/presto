@@ -23,6 +23,7 @@ import org.antlr.runtime.RecognitionException;
 import org.antlr.runtime.Token;
 import org.antlr.runtime.TokenSource;
 
+import java.util.EnumSet;
 import java.util.List;
 import java.util.Set;
 
@@ -145,6 +146,10 @@ public class StatementSplitter
         public ErrorHandlingLexer(CharStream input, Set<String> terminators)
         {
             super(input);
+
+            // allow identifier symbols, since illegal identifiers will be handled by the main parser
+            setAllowedIdentifierSymbols(EnumSet.allOf(IdentifierSymbol.class));
+
             this.terminators = ImmutableSet.copyOf(checkNotNull(terminators, "terminators is null"));
         }
 
