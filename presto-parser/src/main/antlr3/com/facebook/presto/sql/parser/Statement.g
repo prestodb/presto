@@ -74,6 +74,7 @@ tokens {
     USE_CATALOG;
     USE_SCHEMA;
     CREATE_TABLE;
+    CREATE_TEMP_TABLE;
     DROP_TABLE;
     CREATE_VIEW;
     DROP_VIEW;
@@ -160,6 +161,7 @@ statement
     | showFunctionsStmt
     | useCollectionStmt
     | createTableStmt
+    | createTempTableStmt
     | dropTableStmt
     | createViewStmt
     | dropViewStmt
@@ -626,6 +628,10 @@ createTableStmt
     : CREATE TABLE qname s=tableContentsSource -> ^(CREATE_TABLE qname $s)
     ;
 
+createTempTableStmt
+    : CREATE TEMP TABLE qname s=tableContentsSource WITH DATA -> ^(CREATE_TEMP_TABLE qname $s)
+    ;
+
 createViewStmt
     : CREATE r=orReplace? VIEW qname s=tableContentsSource -> ^(CREATE_VIEW qname $s $r?)
     ;
@@ -699,6 +705,7 @@ qname
 ident
     : IDENT
     | QUOTED_IDENT
+    | VIRTUAL_IDENT
     | nonReserved  -> IDENT[$nonReserved.text]
     ;
 
@@ -856,6 +863,8 @@ POISSONIZED: 'POISSONIZED';
 TABLESAMPLE: 'TABLESAMPLE';
 RESCALED: 'RESCALED';
 STRATIFY: 'STRATIFY';
+TEMP: 'TEMP';
+DATA: 'DATA';
 
 EQ  : '=';
 NEQ : '<>' | '!=';
@@ -882,6 +891,10 @@ DECIMAL_VALUE
 
 IDENT
     : (LETTER | '_') (LETTER | DIGIT | '_' | '\@')*
+    ;
+
+VIRTUAL_IDENT
+    : ('\@') ('\{')(IDENT | WS+)+('\}')
     ;
 
 DIGIT_IDENT
@@ -911,7 +924,7 @@ fragment DIGIT
     ;
 
 fragment LETTER
-    : 'A'..'Z'
+    : ('A'..'Z' | 'a'..'z')
     ;
 
 COMMENT

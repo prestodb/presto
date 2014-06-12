@@ -78,7 +78,9 @@ public class QualifiedName
         Preconditions.checkNotNull(parts, "parts");
         Preconditions.checkArgument(!Iterables.isEmpty(parts), "parts is empty");
 
-        this.parts = ImmutableList.copyOf(Iterables.transform(parts, toLowerCase()));
+        // TODO: yulin remain case sensitive
+        //this.parts = ImmutableList.copyOf(Iterables.transform(parts, toLowerCase()));
+        this.parts = ImmutableList.copyOf(parts);
     }
 
     public List<String> getParts()

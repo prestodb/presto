@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.sql.parser;
 
+import com.facebook.presto.sql.SqlFormatter;
 import com.facebook.presto.sql.tree.AllColumns;
 import com.facebook.presto.sql.tree.Approximate;
 import com.facebook.presto.sql.tree.Cast;
@@ -42,6 +43,8 @@ import com.facebook.presto.sql.tree.With;
 import com.google.common.base.Joiner;
 import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
+
+import org.antlr.runtime.tree.CommonTree;
 import org.testng.annotations.Test;
 
 import static com.facebook.presto.sql.SqlFormatter.formatSql;
@@ -54,6 +57,30 @@ import static org.testng.Assert.fail;
 
 public class TestSqlParser
 {
+    @Test
+    public void testYulin()
+    {
+        String sql = "SELECT SUM(@{AA BB}, virt) ccc, aaa c2 FROM dual group by abc";
+
+        CommonTree tree = SqlParser.parseStatement(sql);
+        Statement statement = SqlParser.createStatement(sql);
+        System.out.println("CommonTree: " + TreePrinter.treeToString(tree));
+        System.out.println("Statement: " + statement.toString());
+        System.out.println("Formatter: " + SqlFormatter.formatSql(statement));
+    }
+
+    @Test
+    public void testYulinCreateTempTable()
+    {
+        String sql = "CREATE TEMP TABLE A AS (SELECT SUM(@{AA BB}, virt) ccc, aaa c2 FROM dual group by abc) WITH DATA";
+
+        CommonTree tree = SqlParser.parseStatement(sql);
+        Statement statement = SqlParser.createStatement(sql);
+        System.out.println("CommonTree: " + TreePrinter.treeToString(tree));
+        System.out.println("Statement: " + statement.toString());
+        System.out.println("Formatter: " + SqlFormatter.formatSql(statement));
+    }
+
     @Test
     public void testPossibleExponentialBacktracking()
             throws Exception
@@ -272,6 +299,7 @@ public class TestSqlParser
         SqlParser.createExpression("1 + 1 x");
     }
 
+    /*
     @Test(expectedExceptions = ParsingException.class, expectedExceptionsMessageRegExp = "line 1:1: no viable alternative at character '@'")
     public void testTokenizeErrorStartOfLine()
     {
@@ -283,6 +311,7 @@ public class TestSqlParser
     {
         SqlParser.createStatement("select * from foo where @what");
     }
+    */
 
     @Test(expectedExceptions = ParsingException.class, expectedExceptionsMessageRegExp = "line 1:20: mismatched character '<EOF>' expecting '''")
     public void testTokenizeErrorIncompleteToken()

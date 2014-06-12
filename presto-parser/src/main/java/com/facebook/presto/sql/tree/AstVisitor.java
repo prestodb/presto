@@ -392,6 +392,11 @@ public abstract class AstVisitor<R, C>
         return visitStatement(node, context);
     }
 
+    protected R visitCreateTempTable(CreateTempTable node, C context)
+    {
+        return visitStatement(node, context);
+    }
+
     protected R visitDropTable(DropTable node, C context)
     {
         return visitStatement(node, context);

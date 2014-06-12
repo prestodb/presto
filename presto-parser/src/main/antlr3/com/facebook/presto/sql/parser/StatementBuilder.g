@@ -66,6 +66,7 @@ statement returns [Statement value]
     | showFunctions             { $value = $showFunctions.value; }
     | useCollection             { $value = $useCollection.value; }
     | createTable               { $value = $createTable.value; }
+    | createTempTable           { $value = $createTempTable.value; }
     | dropTable                 { $value = $dropTable.value; }
     | createView                { $value = $createView.value; }
     | dropView                  { $value = $dropView.value; }
@@ -357,6 +358,7 @@ identList returns [List<String> value = new ArrayList<>()]
 ident returns [String value]
     : i=IDENT        { $value = $i.text; }
     | q=QUOTED_IDENT { $value = $q.text; }
+    | v=VIRTUAL_IDENT { $value = $v.text; }
     ;
 
 string returns [String value]
@@ -551,6 +553,10 @@ useCollection returns [Statement value]
 
 createTable returns [Statement value]
     : ^(CREATE_TABLE qname query) { $value = new CreateTable($qname.value, $query.value); }
+    ;
+
+createTempTable returns [Statement value]
+    : ^(CREATE_TEMP_TABLE qname query) { $value = new CreateTempTable($qname.value, $query.value); }
     ;
 
 dropTable returns [Statement value]
