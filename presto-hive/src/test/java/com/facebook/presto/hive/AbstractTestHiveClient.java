@@ -36,6 +36,7 @@ import com.facebook.presto.spi.RecordCursor;
 import com.facebook.presto.spi.RecordSink;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.SchemaTablePrefix;
+import com.facebook.presto.spi.SerializableNativeValue;
 import com.facebook.presto.spi.TableNotFoundException;
 import com.facebook.presto.spi.TupleDomain;
 import com.facebook.presto.spi.ViewNotFoundException;
@@ -50,6 +51,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.net.HostAndPort;
+import io.airlift.slice.Slice;
 import io.airlift.units.Duration;
 import org.joda.time.DateTime;
 import org.joda.time.DateTimeZone;
@@ -194,22 +196,46 @@ public abstract class AbstractTestHiveClient
         partitions = ImmutableSet.<ConnectorPartition>of(
                 new HivePartition(table,
                         "ds=2012-12-29/file_format=rcfile-text/dummy=0",
-                        ImmutableMap.<ConnectorColumnHandle, Comparable<?>>of(dsColumn, utf8Slice("2012-12-29"), fileFormatColumn, utf8Slice("rcfile-text"), dummyColumn, 0L),
+                        ImmutableMap.of(
+                                dsColumn,
+                                new SerializableNativeValue(Slice.class, utf8Slice("2012-12-29")),
+                                fileFormatColumn,
+                                new SerializableNativeValue(Slice.class, utf8Slice("rcfile-text")),
+                                dummyColumn,
+                                new SerializableNativeValue(Long.class, 0L)),
                         Optional.<HiveBucket>absent()),
                 new HivePartition(table,
                         "ds=2012-12-29/file_format=rcfile-binary/dummy=2",
-                        ImmutableMap.<ConnectorColumnHandle, Comparable<?>>of(dsColumn, utf8Slice("2012-12-29"), fileFormatColumn, utf8Slice("rcfile-binary"), dummyColumn, 2L),
+                        ImmutableMap.of(
+                                dsColumn,
+                                new SerializableNativeValue(Slice.class, utf8Slice("2012-12-29")),
+                                fileFormatColumn,
+                                new SerializableNativeValue(Slice.class, utf8Slice("rcfile-binary")),
+                                dummyColumn,
+                                new SerializableNativeValue(Long.class, 2L)),
                         Optional.<HiveBucket>absent()),
                 new HivePartition(table,
                         "ds=2012-12-29/file_format=sequencefile/dummy=4",
-                        ImmutableMap.<ConnectorColumnHandle, Comparable<?>>of(dsColumn, utf8Slice("2012-12-29"), fileFormatColumn, utf8Slice("sequencefile"), dummyColumn, 4L),
+                        ImmutableMap.of(
+                                dsColumn,
+                                new SerializableNativeValue(Slice.class, utf8Slice("2012-12-29")),
+                                fileFormatColumn,
+                                new SerializableNativeValue(Slice.class, utf8Slice("sequencefile")),
+                                dummyColumn,
+                                new SerializableNativeValue(Long.class, 4L)),
                         Optional.<HiveBucket>absent()),
                 new HivePartition(table,
                         "ds=2012-12-29/file_format=textfile/dummy=6",
-                        ImmutableMap.<ConnectorColumnHandle, Comparable<?>>of(dsColumn, utf8Slice("2012-12-29"), fileFormatColumn, utf8Slice("textfile"), dummyColumn, 6L),
+                        ImmutableMap.of(
+                                dsColumn,
+                                new SerializableNativeValue(Slice.class, utf8Slice("2012-12-29")),
+                                fileFormatColumn,
+                                new SerializableNativeValue(Slice.class, utf8Slice("textfile")),
+                                dummyColumn,
+                                new SerializableNativeValue(Long.class, 6L)),
                         Optional.<HiveBucket>absent()));
         unpartitionedPartitions = ImmutableSet.<ConnectorPartition>of(new HivePartition(tableUnpartitioned));
-        invalidPartition = new HivePartition(invalidTable, "unknown", ImmutableMap.<ConnectorColumnHandle, Comparable<?>>of(), Optional.<HiveBucket>absent());
+        invalidPartition = new HivePartition(invalidTable, "unknown", ImmutableMap.<ConnectorColumnHandle, SerializableNativeValue>of(), Optional.<HiveBucket>absent());
         timeZone = DateTimeZone.forTimeZone(TimeZone.getTimeZone(timeZoneId));
     }
 
@@ -300,7 +326,8 @@ public abstract class AbstractTestHiveClient
             throws Exception
     {
         ConnectorTableHandle tableHandle = getTableHandle(table);
-        ConnectorPartitionResult partitionResult = splitManager.getPartitions(tableHandle, TupleDomain.withColumnDomains(ImmutableMap.<ConnectorColumnHandle, Domain>of(intColumn, Domain.singleValue(5L))));
+        ConnectorPartitionResult partitionResult = splitManager.getPartitions(tableHandle, TupleDomain.withColumnDomains(ImmutableMap.<ConnectorColumnHandle, Domain>of(intColumn,
+                Domain.singleValue(5L))));
         assertExpectedPartitions(partitionResult.getPartitions(), partitions);
     }
 
@@ -523,13 +550,13 @@ public abstract class AbstractTestHiveClient
         Long testSmallint = 412L;
 
         // Reverse the order of bindings as compared to bucketing order
-        ImmutableMap<ConnectorColumnHandle, Comparable<?>> bindings = ImmutableMap.<ConnectorColumnHandle, Comparable<?>>builder()
-                .put(columnHandles.get(columnIndex.get("t_int")), testInt)
-                .put(columnHandles.get(columnIndex.get("t_string")), utf8Slice(testString))
-                .put(columnHandles.get(columnIndex.get("t_smallint")), testSmallint)
+        ImmutableMap<ConnectorColumnHandle, SerializableNativeValue> bindings = ImmutableMap.<ConnectorColumnHandle, SerializableNativeValue>builder()
+                .put(columnHandles.get(columnIndex.get("t_int")), new SerializableNativeValue(Long.class, testInt))
+                .put(columnHandles.get(columnIndex.get("t_string")), new SerializableNativeValue(Slice.class, utf8Slice(testString)))
+                .put(columnHandles.get(columnIndex.get("t_smallint")), new SerializableNativeValue(Long.class, testSmallint))
                 .build();
 
-        ConnectorPartitionResult partitionResult = splitManager.getPartitions(tableHandle, TupleDomain.withFixedValues(bindings));
+        ConnectorPartitionResult partitionResult = splitManager.getPartitions(tableHandle, TupleDomain.withNullableFixedValues(bindings));
         List<ConnectorSplit> splits = getAllSplits(splitManager.getPartitionSplits(tableHandle, partitionResult.getPartitions()));
         assertEquals(splits.size(), 1);
 
@@ -568,13 +595,13 @@ public abstract class AbstractTestHiveClient
         Long testBigint = 608L;
         Boolean testBoolean = true;
 
-        ImmutableMap<ConnectorColumnHandle, Comparable<?>> bindings = ImmutableMap.<ConnectorColumnHandle, Comparable<?>>builder()
-                .put(columnHandles.get(columnIndex.get("t_string")), utf8Slice(testString))
-                .put(columnHandles.get(columnIndex.get("t_bigint")), testBigint)
-                .put(columnHandles.get(columnIndex.get("t_boolean")), testBoolean)
+        ImmutableMap<ConnectorColumnHandle, SerializableNativeValue> bindings = ImmutableMap.<ConnectorColumnHandle, SerializableNativeValue>builder()
+                .put(columnHandles.get(columnIndex.get("t_string")), new SerializableNativeValue(Slice.class, utf8Slice(testString)))
+                .put(columnHandles.get(columnIndex.get("t_bigint")), new SerializableNativeValue(Long.class, testBigint))
+                .put(columnHandles.get(columnIndex.get("t_boolean")), new SerializableNativeValue(Boolean.class, testBoolean))
                 .build();
 
-        ConnectorPartitionResult partitionResult = splitManager.getPartitions(tableHandle, TupleDomain.withFixedValues(bindings));
+        ConnectorPartitionResult partitionResult = splitManager.getPartitions(tableHandle, TupleDomain.withNullableFixedValues(bindings));
         List<ConnectorSplit> splits = getAllSplits(splitManager.getPartitionSplits(tableHandle, partitionResult.getPartitions()));
         assertEquals(splits.size(), 1);
 
@@ -608,13 +635,13 @@ public abstract class AbstractTestHiveClient
 
         assertTableIsBucketed(tableHandle);
 
-        ImmutableMap<ConnectorColumnHandle, Comparable<?>> bindings = ImmutableMap.<ConnectorColumnHandle, Comparable<?>>builder()
-                .put(columnHandles.get(columnIndex.get("t_float")), 406.1000061035156)
-                .put(columnHandles.get(columnIndex.get("t_double")), 407.2)
+        ImmutableMap<ConnectorColumnHandle, SerializableNativeValue> bindings = ImmutableMap.<ConnectorColumnHandle, SerializableNativeValue>builder()
+                .put(columnHandles.get(columnIndex.get("t_float")), new SerializableNativeValue(Double.class, 406.1000061035156))
+                .put(columnHandles.get(columnIndex.get("t_double")), new SerializableNativeValue(Double.class, 407.2))
                 .build();
 
         // floats and doubles are not supported, so we should see all splits
-        ConnectorPartitionResult partitionResult = splitManager.getPartitions(tableHandle, TupleDomain.withFixedValues(bindings));
+        ConnectorPartitionResult partitionResult = splitManager.getPartitions(tableHandle, TupleDomain.withNullableFixedValues(bindings));
         List<ConnectorSplit> splits = getAllSplits(splitManager.getPartitionSplits(tableHandle, partitionResult.getPartitions()));
         assertEquals(splits.size(), 32);
 

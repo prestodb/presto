@@ -167,7 +167,10 @@ class GenericHiveRecordCursor<K, V extends Writable>
                 byte[] bytes = partitionKey.getValue().getBytes(Charsets.UTF_8);
 
                 Type type = types[columnIndex];
-                if (BOOLEAN.equals(type)) {
+                if (HiveUtil.isHiveNull(bytes)) {
+                    nulls[columnIndex] = true;
+                }
+                else if (BOOLEAN.equals(type)) {
                     if (isTrue(bytes, 0, bytes.length)) {
                         booleans[columnIndex] = true;
                     }

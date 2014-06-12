@@ -160,7 +160,10 @@ class DwrfHiveRecordCursor
 
                 byte[] bytes = partitionKey.getValue().getBytes(Charsets.UTF_8);
 
-                if (types[columnIndex].equals(BOOLEAN)) {
+                if (HiveUtil.isHiveNull(bytes)) {
+                    nulls[columnIndex] = true;
+                }
+                else if (types[columnIndex].equals(BOOLEAN)) {
                     if (isTrue(bytes, 0, bytes.length)) {
                         booleans[columnIndex] = true;
                     }
@@ -239,10 +242,6 @@ class DwrfHiveRecordCursor
             // reset loaded flags
             // partition keys are already loaded, but everything else is not
             System.arraycopy(isPartitionColumn, 0, loaded, 0, isPartitionColumn.length);
-
-            // reset null flags
-            // todo this shouldn't be needed
-            Arrays.fill(nulls, false);
 
             return true;
         }

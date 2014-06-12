@@ -145,7 +145,10 @@ class ParquetHiveRecordCursor
 
                 byte[] bytes = partitionKey.getValue().getBytes(Charsets.UTF_8);
 
-                if (types[columnIndex].equals(BOOLEAN)) {
+                if (HiveUtil.isHiveNull(bytes)) {
+                    nullsRowDefault[columnIndex] = true;
+                }
+                else if (types[columnIndex].equals(BOOLEAN)) {
                     if (isTrue(bytes, 0, bytes.length)) {
                         booleans[columnIndex] = true;
                     }
