@@ -15,6 +15,7 @@ package com.facebook.presto.sql.analyzer;
 
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.spi.ConnectorSession;
+import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.DistributedLogicalPlanner;
 import com.facebook.presto.sql.planner.LogicalPlanner;
 import com.facebook.presto.sql.planner.Plan;
@@ -32,19 +33,23 @@ import static com.google.common.base.Preconditions.checkNotNull;
 
 public class QueryExplainer
 {
-    public final ConnectorSession session;
-    public final List<PlanOptimizer> planOptimizers;
-    public final Metadata metadata;
-    public final boolean experimentalSyntaxEnabled;
+    private final ConnectorSession session;
+    private final List<PlanOptimizer> planOptimizers;
+    private final Metadata metadata;
+    private final SqlParser sqlParser;
+    private final boolean experimentalSyntaxEnabled;
 
-    public QueryExplainer(ConnectorSession session,
+    public QueryExplainer(
+            ConnectorSession session,
             List<PlanOptimizer> planOptimizers,
             Metadata metadata,
+            SqlParser sqlParser,
             boolean experimentalSyntaxEnabled)
     {
         this.session = checkNotNull(session, "session is null");
         this.planOptimizers = checkNotNull(planOptimizers, "planOptimizers is null");
         this.metadata = checkNotNull(metadata, "metadata is null");
+        this.sqlParser = checkNotNull(sqlParser, "sqlParser is null");
         this.experimentalSyntaxEnabled = experimentalSyntaxEnabled;
     }
 
@@ -83,7 +88,7 @@ public class QueryExplainer
     private Plan getLogicalPlan(Statement statement)
     {
         // analyze statement
-        Analyzer analyzer = new Analyzer(session, metadata, Optional.of(this), experimentalSyntaxEnabled);
+        Analyzer analyzer = new Analyzer(session, metadata, sqlParser, Optional.of(this), experimentalSyntaxEnabled);
 
         Analysis analysis = analyzer.analyze(statement);
         PlanNodeIdAllocator idAllocator = new PlanNodeIdAllocator();
@@ -96,7 +101,7 @@ public class QueryExplainer
     private SubPlan getDistributedPlan(Statement statement)
     {
         // analyze statement
-        Analyzer analyzer = new Analyzer(session, metadata, Optional.of(this), experimentalSyntaxEnabled);
+        Analyzer analyzer = new Analyzer(session, metadata, sqlParser, Optional.of(this), experimentalSyntaxEnabled);
 
         Analysis analysis = analyzer.analyze(statement);
         PlanNodeIdAllocator idAllocator = new PlanNodeIdAllocator();

@@ -23,6 +23,7 @@ import com.facebook.presto.sql.analyzer.Analysis;
 import com.facebook.presto.sql.analyzer.Analyzer;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.sql.analyzer.QueryExplainer;
+import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.DistributedExecutionPlanner;
 import com.facebook.presto.sql.planner.DistributedLogicalPlanner;
 import com.facebook.presto.sql.planner.InputExtractor;
@@ -64,6 +65,7 @@ public class SqlQueryExecution
     private final ConnectorSession session;
     private final Statement statement;
     private final Metadata metadata;
+    private final SqlParser sqlParser;
     private final SplitManager splitManager;
     private final NodeScheduler nodeScheduler;
     private final List<PlanOptimizer> planOptimizers;
@@ -84,6 +86,7 @@ public class SqlQueryExecution
             URI self,
             Statement statement,
             Metadata metadata,
+            SqlParser sqlParser,
             SplitManager splitManager,
             NodeScheduler nodeScheduler,
             List<PlanOptimizer> planOptimizers,
@@ -99,6 +102,7 @@ public class SqlQueryExecution
             this.session = checkNotNull(session, "session is null");
             this.statement = checkNotNull(statement, "statement is null");
             this.metadata = checkNotNull(metadata, "metadata is null");
+            this.sqlParser = checkNotNull(sqlParser, "sqlParser is null");
             this.splitManager = checkNotNull(splitManager, "splitManager is null");
             this.nodeScheduler = checkNotNull(nodeScheduler, "nodeScheduler is null");
             this.planOptimizers = checkNotNull(planOptimizers, "planOptimizers is null");
@@ -122,7 +126,7 @@ public class SqlQueryExecution
             checkNotNull(self, "self is null");
             this.stateMachine = new QueryStateMachine(queryId, query, session, self, queryExecutor);
 
-            this.queryExplainer = new QueryExplainer(session, planOptimizers, metadata, experimentalSyntaxEnabled);
+            this.queryExplainer = new QueryExplainer(session, planOptimizers, metadata, sqlParser, experimentalSyntaxEnabled);
         }
     }
 
@@ -190,7 +194,7 @@ public class SqlQueryExecution
         long analysisStart = System.nanoTime();
 
         // analyze query
-        Analyzer analyzer = new Analyzer(stateMachine.getSession(), metadata, Optional.of(queryExplainer), experimentalSyntaxEnabled);
+        Analyzer analyzer = new Analyzer(stateMachine.getSession(), metadata, sqlParser, Optional.of(queryExplainer), experimentalSyntaxEnabled);
 
         Analysis analysis = analyzer.analyze(statement);
         PlanNodeIdAllocator idAllocator = new PlanNodeIdAllocator();
@@ -382,6 +386,7 @@ public class SqlQueryExecution
         private final int initialHashPartitions;
         private final boolean experimentalSyntaxEnabled;
         private final Metadata metadata;
+        private final SqlParser sqlParser;
         private final SplitManager splitManager;
         private final NodeScheduler nodeScheduler;
         private final List<PlanOptimizer> planOptimizers;
@@ -393,6 +398,7 @@ public class SqlQueryExecution
         SqlQueryExecutionFactory(QueryManagerConfig config,
                 FeaturesConfig featuresConfig,
                 Metadata metadata,
+                SqlParser sqlParser,
                 LocationFactory locationFactory,
                 SplitManager splitManager,
                 NodeScheduler nodeScheduler,
@@ -405,6 +411,7 @@ public class SqlQueryExecution
             this.maxPendingSplitsPerNode = config.getMaxPendingSplitsPerNode();
             this.initialHashPartitions = config.getInitialHashPartitions();
             this.metadata = checkNotNull(metadata, "metadata is null");
+            this.sqlParser = checkNotNull(sqlParser, "sqlParser is null");
             this.locationFactory = checkNotNull(locationFactory, "locationFactory is null");
             this.splitManager = checkNotNull(splitManager, "splitManager is null");
             this.nodeScheduler = checkNotNull(nodeScheduler, "nodeScheduler is null");
@@ -423,6 +430,7 @@ public class SqlQueryExecution
                     locationFactory.createQueryLocation(queryId),
                     statement,
                     metadata,
+                    sqlParser,
                     splitManager,
                     nodeScheduler,
                     planOptimizers,

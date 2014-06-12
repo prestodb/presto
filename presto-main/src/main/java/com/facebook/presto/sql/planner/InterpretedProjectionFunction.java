@@ -20,6 +20,7 @@ import com.facebook.presto.spi.RecordCursor;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockCursor;
 import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.ExpressionTreeRewriter;
 import com.facebook.presto.sql.tree.Input;
@@ -38,10 +39,12 @@ public class InterpretedProjectionFunction
     private final Type type;
     private final ExpressionInterpreter evaluator;
 
-    public InterpretedProjectionFunction(Expression expression,
+    public InterpretedProjectionFunction(
+            Expression expression,
             Map<Symbol, Type> symbolTypes,
             Map<Symbol, Input> symbolToInputMappings,
             Metadata metadata,
+            SqlParser sqlParser,
             ConnectorSession session)
     {
         // pre-compute symbol -> input mappings and replace the corresponding nodes in the tree
@@ -52,7 +55,7 @@ public class InterpretedProjectionFunction
         for (Map.Entry<Symbol, Input> entry : symbolToInputMappings.entrySet()) {
             inputTypes.put(entry.getValue(), symbolTypes.get(entry.getKey()));
         }
-        IdentityHashMap<Expression, Type> expressionTypes = getExpressionTypesFromInput(session, metadata, inputTypes.build(), rewritten);
+        IdentityHashMap<Expression, Type> expressionTypes = getExpressionTypesFromInput(session, metadata, sqlParser, inputTypes.build(), rewritten);
         this.type = checkNotNull(expressionTypes.get(rewritten), "type is null");
 
         evaluator = ExpressionInterpreter.expressionInterpreter(rewritten, metadata, session, expressionTypes);

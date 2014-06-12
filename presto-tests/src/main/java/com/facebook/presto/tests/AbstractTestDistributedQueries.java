@@ -14,6 +14,7 @@
 package com.facebook.presto.tests;
 
 import com.facebook.presto.spi.ConnectorSession;
+import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.testing.MaterializedRow;
 import com.facebook.presto.testing.QueryRunner;
@@ -26,7 +27,6 @@ import static com.facebook.presto.connector.informationSchema.InformationSchemaM
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.sql.SqlFormatter.formatSql;
-import static com.facebook.presto.sql.parser.SqlParser.createStatement;
 import static com.facebook.presto.testing.MaterializedResult.resultBuilder;
 import static com.google.common.collect.Iterables.transform;
 import static java.lang.String.format;
@@ -177,7 +177,7 @@ public abstract class AbstractTestDistributedQueries
                 getSession().getSchema()));
 
         expected = resultBuilder(getSession(), actual.getTypes())
-                .row("meta_test_view", formatSql(createStatement(query)))
+                .row("meta_test_view", formatSql(new SqlParser().createStatement(query)))
                 .build();
 
         assertContains(actual, expected);

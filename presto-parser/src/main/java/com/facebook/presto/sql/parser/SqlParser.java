@@ -25,11 +25,9 @@ import org.antlr.runtime.tree.BufferedTreeNodeStream;
 import org.antlr.runtime.tree.CommonTree;
 import org.antlr.runtime.tree.TreeNodeStream;
 
-public final class SqlParser
+public class SqlParser
 {
-    private SqlParser() {}
-
-    public static Statement createStatement(String sql)
+    public Statement createStatement(String sql)
     {
         try {
             return createStatement(parseStatement(sql));
@@ -39,7 +37,7 @@ public final class SqlParser
         }
     }
 
-    public static Expression createExpression(String expression)
+    public Expression createExpression(String expression)
     {
         try {
             return createExpression(parseExpression(expression));
@@ -50,7 +48,7 @@ public final class SqlParser
     }
 
     @VisibleForTesting
-    static Statement createStatement(CommonTree tree)
+    Statement createStatement(CommonTree tree)
     {
         TreeNodeStream stream = new BufferedTreeNodeStream(tree);
         StatementBuilder builder = new StatementBuilder(stream);
@@ -62,7 +60,7 @@ public final class SqlParser
         }
     }
 
-    private static Expression createExpression(CommonTree tree)
+    private Expression createExpression(CommonTree tree)
     {
         TreeNodeStream stream = new BufferedTreeNodeStream(tree);
         StatementBuilder builder = new StatementBuilder(stream);
@@ -75,7 +73,7 @@ public final class SqlParser
     }
 
     @VisibleForTesting
-    static CommonTree parseStatement(String sql)
+    CommonTree parseStatement(String sql)
     {
         try {
             return (CommonTree) getParser(sql).singleStatement().getTree();
@@ -85,7 +83,7 @@ public final class SqlParser
         }
     }
 
-    private static CommonTree parseExpression(String expression)
+    private CommonTree parseExpression(String expression)
     {
         try {
             return (CommonTree) getParser(expression).singleExpression().getTree();
@@ -95,7 +93,7 @@ public final class SqlParser
         }
     }
 
-    private static StatementParser getParser(String sql)
+    private StatementParser getParser(String sql)
     {
         CharStream stream = new CaseInsensitiveStream(new ANTLRStringStream(sql));
         StatementLexer lexer = new StatementLexer(stream);
