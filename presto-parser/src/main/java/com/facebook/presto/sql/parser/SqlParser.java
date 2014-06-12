@@ -25,8 +25,28 @@ import org.antlr.runtime.tree.BufferedTreeNodeStream;
 import org.antlr.runtime.tree.CommonTree;
 import org.antlr.runtime.tree.TreeNodeStream;
 
+import javax.inject.Inject;
+
+import java.util.EnumSet;
+
+import static com.google.common.base.Preconditions.checkNotNull;
+
 public class SqlParser
 {
+    private final EnumSet<IdentifierSymbol> allowedIdentifierSymbols;
+
+    public SqlParser()
+    {
+        this(new SqlParserOptions());
+    }
+
+    @Inject
+    public SqlParser(SqlParserOptions options)
+    {
+        checkNotNull(options, "options is null");
+        allowedIdentifierSymbols = EnumSet.copyOf(options.getAllowedIdentifierSymbols());
+    }
+
     public Statement createStatement(String sql)
     {
         try {
@@ -97,6 +117,7 @@ public class SqlParser
     {
         CharStream stream = new CaseInsensitiveStream(new ANTLRStringStream(sql));
         StatementLexer lexer = new StatementLexer(stream);
+        lexer.setAllowedIdentifierSymbols(allowedIdentifierSymbols);
         TokenStream tokenStream = new CommonTokenStream(lexer);
         return new StatementParser(tokenStream);
     }

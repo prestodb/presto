@@ -47,6 +47,8 @@ import org.testng.annotations.Test;
 import static com.facebook.presto.sql.SqlFormatter.formatSql;
 import static com.facebook.presto.sql.QueryUtil.selectList;
 import static com.facebook.presto.sql.QueryUtil.table;
+import static com.facebook.presto.sql.parser.IdentifierSymbol.AT_SIGN;
+import static com.facebook.presto.sql.parser.IdentifierSymbol.COLON;
 import static java.lang.String.format;
 import static java.util.Collections.nCopies;
 import static org.testng.Assert.assertEquals;
@@ -334,7 +336,13 @@ public class TestSqlParser
         SQL_PARSER.createStatement("select 1x from dual");
     }
 
-    @Test(expectedExceptions = ParsingException.class, expectedExceptionsMessageRegExp = "line 1:15: identifiers must not contain a colon; use '@' instead of ':' for table links")
+    @Test(expectedExceptions = ParsingException.class, expectedExceptionsMessageRegExp = "line 1:15: identifiers must not contain '@'")
+    public void testIdentifierWithAtSign()
+    {
+        SQL_PARSER.createStatement("select * from foo@bar");
+    }
+
+    @Test(expectedExceptions = ParsingException.class, expectedExceptionsMessageRegExp = "line 1:15: identifiers must not contain ':'")
     public void testIdentifierWithColon()
     {
         SQL_PARSER.createStatement("select * from foo:bar");
@@ -377,6 +385,21 @@ public class TestSqlParser
             assertEquals(e.getLineNumber(), 3);
             assertEquals(e.getColumnNumber(), 7);
         }
+    }
+
+    @Test
+    public void testAllowIdentifierColon()
+    {
+        SqlParser sqlParser = new SqlParser(new SqlParserOptions().allowIdentifierSymbol(COLON));
+        sqlParser.createStatement("select * from foo:bar");
+    }
+
+    @SuppressWarnings("deprecation")
+    @Test
+    public void testAllowIdentifierAtSign()
+    {
+        SqlParser sqlParser = new SqlParser(new SqlParserOptions().allowIdentifierSymbol(AT_SIGN));
+        sqlParser.createStatement("select * from foo@bar");
     }
 
     @Test

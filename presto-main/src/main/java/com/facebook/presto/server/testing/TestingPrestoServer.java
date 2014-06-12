@@ -21,6 +21,7 @@ import com.facebook.presto.server.PluginManager;
 import com.facebook.presto.server.ServerMainModule;
 import com.facebook.presto.spi.Node;
 import com.facebook.presto.spi.Plugin;
+import com.facebook.presto.sql.parser.SqlParserOptions;
 import com.google.common.base.Joiner;
 import com.google.common.base.Optional;
 import com.google.common.base.Splitter;
@@ -115,7 +116,7 @@ public class TestingPrestoServer
                 .add(new TestingJmxModule())
                 .add(new InMemoryEventModule())
                 .add(new TraceTokenModule())
-                .add(new ServerMainModule());
+                .add(new ServerMainModule(new SqlParserOptions()));
 
         if (discoveryUri != null) {
             checkNotNull(environment, "environment required when discoveryUri is present");
