@@ -126,7 +126,12 @@ class OrcPageSource
 
                 BlockBuilder blockBuilder = type.createBlockBuilder(new BlockBuilderStatus());
 
-                if (type.equals(BOOLEAN)) {
+                if (HiveUtil.isHiveNull(bytes)) {
+                    for (int i = 0; i < Vector.MAX_VECTOR_LENGTH; i++) {
+                        blockBuilder.appendNull();
+                    }
+                }
+                else if (type.equals(BOOLEAN)) {
                     boolean value;
                     if (isTrue(bytes, 0, bytes.length)) {
                         value = true;
