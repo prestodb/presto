@@ -13,7 +13,9 @@
  */
 package com.facebook.presto.operator.aggregation;
 
+import com.facebook.presto.operator.aggregation.state.VarianceState;
 import io.airlift.slice.Slice;
+import io.airlift.slice.Slices;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.slice.SizeOf.SIZE_OF_DOUBLE;
@@ -60,7 +62,7 @@ public class OnlineVarianceCalculator
         this.mean = newMean;
     }
 
-    public int sizeOf()
+    public static int sizeOf()
     {
         return SIZE_OF_LONG + 2 * SIZE_OF_DOUBLE;
     }
@@ -102,6 +104,43 @@ public class OnlineVarianceCalculator
         slice.setLong(offset + COUNT_OFFSET, count);
         slice.setDouble(offset + MEAN_OFFSET, mean);
         slice.setDouble(offset + M2_OFFSET, m2);
+    }
+
+    public static void updateState(VarianceState state, double value)
+    {
+        state.setCount(state.getCount() + 1);
+        double delta = value - state.getMean();
+        state.setMean(state.getMean() + delta / state.getCount());
+        state.setM2(state.getM2() + delta * (value - state.getMean()));
+    }
+
+    public static Slice toSlice(VarianceState state)
+    {
+        Slice slice = Slices.allocate(sizeOf());
+        slice.setLong(COUNT_OFFSET, state.getCount());
+        slice.setDouble(MEAN_OFFSET, state.getMean());
+        slice.setDouble(M2_OFFSET, state.getM2());
+
+        return slice;
+    }
+
+    public static void mergeState(VarianceState state, Slice slice)
+    {
+        long count = slice.getLong(COUNT_OFFSET);
+        double mean = slice.getDouble(MEAN_OFFSET);
+        double m2 = slice.getDouble(M2_OFFSET);
+
+        checkArgument(count >= 0, "count is negative");
+        if (count == 0) {
+            return;
+        }
+        long newCount = count + state.getCount();
+        double newMean = ((count * mean) + (state.getCount() * state.getMean())) / (double) newCount;
+        double delta = mean - state.getMean();
+        double m2Delta = m2 + delta * delta * count * state.getCount() / (double) newCount;
+        state.setM2(state.getM2() + m2Delta);
+        state.setCount(newCount);
+        state.setMean(newMean);
     }
 
     public void deserializeFrom(Slice slice, int offset)
