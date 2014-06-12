@@ -324,6 +324,12 @@ public class StateCompiler
                 String name = method.getName().substring(3);
                 builder.add(new StateField(name, type, getInitialValue(method)));
             }
+            if (method.getName().startsWith("is")) {
+                Class<?> type = method.getReturnType();
+                checkArgument(type == boolean.class, "Only boolean is support for 'is' methods");
+                String name = method.getName().substring(2);
+                builder.add(new StateField(name, type, getInitialValue(method), method.getName()));
+            }
         }
 
         return builder.build();
@@ -354,6 +360,7 @@ public class StateCompiler
         checkArgument(clazz.isInterface(), clazz.getName() + " is not an interface");
         Set<String> setters = new HashSet<>();
         Set<String> getters = new HashSet<>();
+        Set<String> isGetters = new HashSet<>();
 
         Map<String, Class<?>> fieldTypes = new HashMap<>();
         for (StateField field : fields) {
@@ -374,6 +381,14 @@ public class StateCompiler
                 checkArgument(method.getParameterTypes().length == 0, "Expected %s to have zero parameters", method.getName());
                 getters.add(name);
             }
+            else if (method.getName().startsWith("is")) {
+                String name = method.getName().substring(2);
+                checkArgument(fieldTypes.get(name) == boolean.class,
+                        "Expected %s to have type boolean, but found %s", name, fieldTypes.get(name));
+                checkArgument(method.getParameterTypes().length == 0, "Expected %s to have zero parameters", method.getName());
+                checkArgument(method.getReturnType() == boolean.class, "Expected %s to return boolean", method.getName());
+                isGetters.add(name);
+            }
             else if (method.getName().startsWith("set")) {
                 String name = method.getName().substring(3);
                 checkArgument(method.getParameterTypes().length == 1, "Expected setter to have one parameter");
@@ -387,26 +402,33 @@ public class StateCompiler
                 throw new IllegalArgumentException("Cannot generate implementation for method: " + method.getName());
             }
         }
-        checkArgument(getters.size() == setters.size() && setters.size() == fields.size(), "Wrong number of getters/setters");
+        checkArgument(getters.size() + isGetters.size() == setters.size() && setters.size() == fields.size(), "Wrong number of getters/setters");
     }
 
     private static final class StateField
     {
         private final String name;
+        private final String getterName;
         private final Class<?> type;
         private final Number initialValue;
 
         private StateField(String name, Class<?> type, Number initialValue)
         {
+            this(name, type, initialValue, "get" + name);
+        }
+
+        private StateField(String name, Class<?> type, Number initialValue, String getterName)
+        {
             this.name = checkNotNull(name, "name is null");
             checkArgument(!name.isEmpty(), "name is empty");
             this.type = checkNotNull(type, "type is null");
+            this.getterName = checkNotNull(getterName, "getterName is null");
             this.initialValue = initialValue;
         }
 
         public String getGetterName()
         {
-            return "get" + getName();
+            return getterName;
         }
 
         public String getSetterName()
