@@ -31,19 +31,26 @@ import java.util.concurrent.atomic.AtomicLong;
 import static com.facebook.presto.hadoop.HadoopFileStatus.isDirectory;
 import static com.google.common.base.Preconditions.checkNotNull;
 
-public class AsyncRecursiveWalker
+public class AsyncWalker
 {
     private final FileSystem fileSystem;
     private final Executor executor;
     private final DirectoryLister directoryLister;
     private final NamenodeStats namenodeStats;
+    private final boolean recursive;
 
-    public AsyncRecursiveWalker(FileSystem fileSystem, Executor executor, DirectoryLister directoryLister, NamenodeStats namenodeStats)
+    public AsyncWalker(
+        FileSystem fileSystem,
+        Executor executor,
+        DirectoryLister directoryLister,
+        NamenodeStats namenodeStats,
+        boolean recursive)
     {
         this.fileSystem = checkNotNull(fileSystem, "fileSystem is null");
         this.executor = checkNotNull(executor, "executor is null");
         this.directoryLister = checkNotNull(directoryLister, "directoryLister is null");
         this.namenodeStats = checkNotNull(namenodeStats, "namenodeStats is null");
+        this.recursive = recursive;
     }
 
     public ListenableFuture<Void> beginWalk(Path path, FileStatusCallback callback)
@@ -84,11 +91,11 @@ public class AsyncRecursiveWalker
                 if (fileName.startsWith("_") || fileName.startsWith(".")) {
                     continue;
                 }
-                if (isDirectory(status)) {
-                    recursiveWalk(status.getPath(), callback, taskCount, future);
-                }
-                else {
+                if (!isDirectory(status)) {
                     callback.process(status, status.getBlockLocations());
+                }
+                else if (recursive) {
+                    recursiveWalk(status.getPath(), callback, taskCount, future);
                 }
                 if (future.isDone()) {
                     return;

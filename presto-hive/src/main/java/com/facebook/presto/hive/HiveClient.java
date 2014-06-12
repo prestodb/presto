@@ -164,6 +164,7 @@ public class HiveClient
     private final DataSize maxSplitSize;
     private final DataSize maxInitialSplitSize;
     private final int maxInitialSplits;
+    private final boolean recursiveDfsWalkerEnabled;
 
     @Inject
     public HiveClient(HiveConnectorId connectorId,
@@ -188,7 +189,8 @@ public class HiveClient
                 hiveClientConfig.getMaxPartitionBatchSize(),
                 hiveClientConfig.getMaxInitialSplitSize(),
                 hiveClientConfig.getMaxInitialSplits(),
-                hiveClientConfig.getAllowDropTable());
+                hiveClientConfig.getAllowDropTable(),
+                false);
     }
 
     public HiveClient(HiveConnectorId connectorId,
@@ -205,7 +207,8 @@ public class HiveClient
             int maxPartitionBatchSize,
             DataSize maxInitialSplitSize,
             int maxInitialSplits,
-            boolean allowDropTable)
+            boolean allowDropTable,
+            boolean recursiveDfsWalkerEnabled)
     {
         this.connectorId = checkNotNull(connectorId, "connectorId is null").toString();
 
@@ -226,6 +229,8 @@ public class HiveClient
         this.timeZone = checkNotNull(timeZone, "timeZone is null");
 
         this.executor = checkNotNull(executor, "executor is null");
+
+        this.recursiveDfsWalkerEnabled = recursiveDfsWalkerEnabled;
     }
 
     public CachingHiveMetastore getMetastore()
@@ -890,7 +895,8 @@ public class HiveClient
                 maxPartitionBatchSize,
                 hiveTableHandle.getSession(),
                 maxInitialSplitSize,
-                maxInitialSplits).get();
+                maxInitialSplits,
+                recursiveDfsWalkerEnabled).get();
     }
 
     private Iterable<Partition> getPartitions(final Table table, final SchemaTableName tableName, List<String> partitionNames)

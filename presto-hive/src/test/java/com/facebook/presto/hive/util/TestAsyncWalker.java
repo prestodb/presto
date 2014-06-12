@@ -43,12 +43,12 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 
-public class TestAsyncRecursiveWalker
+public class TestAsyncWalker
 {
     private static final DirectoryLister DIRECTORY_LISTER = new HadoopDirectoryLister();
 
     @Test
-    public void testSanity()
+    public void testRecursiveSanity()
             throws Exception
     {
         ImmutableMap<String, List<FileStatus>> paths = ImmutableMap.<String, List<FileStatus>>builder()
@@ -56,7 +56,7 @@ public class TestAsyncRecursiveWalker
                 .put("/a", ImmutableList.of(fileStatus("/a/file2", false), fileStatus("/a/file3", false)))
                 .build();
 
-        AsyncRecursiveWalker walker = new AsyncRecursiveWalker(createMockFileSystem(paths), MoreExecutors.sameThreadExecutor(), DIRECTORY_LISTER, new NamenodeStats());
+        AsyncWalker walker = new AsyncWalker(createMockFileSystem(paths), MoreExecutors.sameThreadExecutor(), DIRECTORY_LISTER, new NamenodeStats(), true);
 
         MockFileStatusCallback callback = new MockFileStatusCallback();
         ListenableFuture<Void> listenableFuture = walker.beginWalk(new Path("/"), callback);
@@ -69,6 +69,27 @@ public class TestAsyncRecursiveWalker
     }
 
     @Test
+    public void testNonRecursiveSanity()
+            throws Exception
+    {
+        ImmutableMap<String, List<FileStatus>> paths = ImmutableMap.<String, List<FileStatus>>builder()
+                .put("/", ImmutableList.of(fileStatus("/a", true), fileStatus("/file1", false)))
+                .put("/a", ImmutableList.of(fileStatus("/a/file2", false), fileStatus("/a/file3", false)))
+                .build();
+
+        AsyncWalker walker = new AsyncWalker(createMockFileSystem(paths), MoreExecutors.sameThreadExecutor(), DIRECTORY_LISTER, new NamenodeStats(), false);
+
+        MockFileStatusCallback callback = new MockFileStatusCallback();
+        ListenableFuture<Void> future = walker.beginWalk(new Path("/"), callback);
+
+        Assert.assertTrue(future.isDone());
+        Assert.assertEquals(ImmutableSet.copyOf(callback.getProcessedFiles()), ImmutableSet.of("/file1"));
+
+        // Should not have an exception
+        future.get();
+    }
+
+    @Test
     public void testEmptyPath()
             throws Exception
     {
@@ -76,7 +97,7 @@ public class TestAsyncRecursiveWalker
                 .put("/", ImmutableList.<FileStatus>of())
                 .build();
 
-        AsyncRecursiveWalker walker = new AsyncRecursiveWalker(createMockFileSystem(paths), MoreExecutors.sameThreadExecutor(), DIRECTORY_LISTER, new NamenodeStats());
+        AsyncWalker walker = new AsyncWalker(createMockFileSystem(paths), MoreExecutors.sameThreadExecutor(), DIRECTORY_LISTER, new NamenodeStats(), true);
 
         MockFileStatusCallback callback = new MockFileStatusCallback();
         ListenableFuture<Void> listenableFuture = walker.beginWalk(new Path("/"), callback);
@@ -89,7 +110,7 @@ public class TestAsyncRecursiveWalker
     }
 
     @Test
-    public void testHiddenFiles()
+    public void testHiddenFilesRecursive()
             throws Exception
     {
         ImmutableMap<String, List<FileStatus>> paths = ImmutableMap.<String, List<FileStatus>>builder()
@@ -99,7 +120,7 @@ public class TestAsyncRecursiveWalker
                 .put("/c", ImmutableList.of(fileStatus("/c/file8", false), fileStatus("/c/.file9", false), fileStatus("/c/_file10", false)))
                 .build();
 
-        AsyncRecursiveWalker walker = new AsyncRecursiveWalker(createMockFileSystem(paths), MoreExecutors.sameThreadExecutor(), DIRECTORY_LISTER, new NamenodeStats());
+        AsyncWalker walker = new AsyncWalker(createMockFileSystem(paths), MoreExecutors.sameThreadExecutor(), DIRECTORY_LISTER, new NamenodeStats(), true);
 
         MockFileStatusCallback callback = new MockFileStatusCallback();
         ListenableFuture<Void> listenableFuture = walker.beginWalk(new Path("/"), callback);
@@ -112,10 +133,33 @@ public class TestAsyncRecursiveWalker
     }
 
     @Test
+    public void testHiddenFilesNonRecursive()
+            throws Exception
+    {
+        ImmutableMap<String, List<FileStatus>> paths = ImmutableMap.<String, List<FileStatus>>builder()
+                .put("/", ImmutableList.of(fileStatus("/.a", true), fileStatus("/_b", true), fileStatus("/c", true), fileStatus("/file1", false), fileStatus("/_file2", false), fileStatus("/.file3", false)))
+                .put("/.a", ImmutableList.of(fileStatus("/.a/file4", false), fileStatus("/.a/file5", false)))
+                .put("/_b", ImmutableList.of(fileStatus("/_b/file6", false), fileStatus("/_b/file7", false)))
+                .put("/c", ImmutableList.of(fileStatus("/c/file8", false), fileStatus("/c/.file9", false), fileStatus("/c/_file10", false)))
+                .build();
+
+        AsyncWalker walker = new AsyncWalker(createMockFileSystem(paths), MoreExecutors.sameThreadExecutor(), DIRECTORY_LISTER, new NamenodeStats(), false);
+
+        MockFileStatusCallback callback = new MockFileStatusCallback();
+        ListenableFuture<Void> future = walker.beginWalk(new Path("/"), callback);
+
+        Assert.assertTrue(future.isDone());
+        Assert.assertEquals(ImmutableSet.copyOf(callback.getProcessedFiles()), ImmutableSet.of("/file1"));
+
+        // Should not have an exception
+        future.get();
+    }
+
+    @Test
     public void testDoubleIOException()
             throws Exception
     {
-        AsyncRecursiveWalker walker = new AsyncRecursiveWalker(new StubFileSystem()
+        AsyncWalker walker = new AsyncWalker(new StubFileSystem()
         {
             @Override
             public FileStatus[] listStatus(Path f)
@@ -123,7 +167,7 @@ public class TestAsyncRecursiveWalker
             {
                 throw new IOException();
             }
-        }, MoreExecutors.sameThreadExecutor(), DIRECTORY_LISTER, new NamenodeStats());
+        }, MoreExecutors.sameThreadExecutor(), DIRECTORY_LISTER, new NamenodeStats(), true);
 
         MockFileStatusCallback callback = new MockFileStatusCallback();
         ListenableFuture<Void> listenableFuture1 = walker.beginWalk(new Path("/"), callback);
