@@ -22,6 +22,7 @@ import static com.google.common.base.Preconditions.checkNotNull;
 
 public final class HivePartitionKey
 {
+    public static final String HIVE_DEFAULT_DYNAMIC_PARTITION = "__HIVE_DEFAULT_PARTITION__";
     private final String name;
     private final HiveType hiveType;
     private final String value;
@@ -38,7 +39,7 @@ public final class HivePartitionKey
 
         this.name = name;
         this.hiveType = hiveType;
-        this.value = value;
+        this.value = value.equals(HIVE_DEFAULT_DYNAMIC_PARTITION) ? "\\N" : value;
     }
 
     @JsonProperty

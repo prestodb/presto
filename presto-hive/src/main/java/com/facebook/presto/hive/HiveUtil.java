@@ -315,6 +315,11 @@ public final class HiveUtil
         }
     }
 
+    public static boolean isHiveNull(byte[] bytes)
+    {
+        return bytes.length == 2 && bytes[0] == '\\' && bytes[1] == 'N';
+    }
+
     public static boolean isPrestoView(Table table)
     {
         return "true".equals(table.getParameters().get(PRESTO_VIEW_FLAG));

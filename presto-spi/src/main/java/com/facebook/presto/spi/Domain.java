@@ -118,6 +118,23 @@ public final class Domain
     }
 
     @JsonIgnore
+    public boolean isNullableSingleValue()
+    {
+        if (nullAllowed) {
+            return ranges.isNone();
+        }
+        else {
+            return ranges.isSingleValue();
+        }
+    }
+
+    @JsonIgnore
+    public boolean isOnlyNull()
+    {
+        return equals(onlyNull(getType()));
+    }
+
+    @JsonIgnore
     public Comparable<?> getSingleValue()
     {
         if (!isSingleValue()) {
@@ -126,10 +143,24 @@ public final class Domain
         return ranges.getSingleValue();
     }
 
+    @JsonIgnore
+    public Comparable<?> getNullableSingleValue()
+    {
+        if (!isNullableSingleValue()) {
+            throw new IllegalStateException("Domain is not a single value");
+        }
+
+        if (nullAllowed) {
+            return null;
+        }
+        else {
+            return ranges.getSingleValue();
+        }
+    }
+
     public boolean includesValue(Comparable<?> value)
     {
-        Objects.requireNonNull(value, "value is null");
-        return ranges.includesMarker(Marker.exactly(value));
+        return value == null ? nullAllowed : ranges.includesMarker(Marker.exactly(value));
     }
 
     public boolean overlaps(Domain other)

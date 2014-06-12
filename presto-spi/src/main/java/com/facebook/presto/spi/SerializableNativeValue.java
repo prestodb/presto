@@ -33,7 +33,7 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 
 @JsonSerialize(using = SerializableNativeValue.Serializer.class)
 @JsonDeserialize(using = SerializableNativeValue.Deserializer.class)
-public class SerializableNativeValue
+public final class SerializableNativeValue
 {
     private final Class<?> type;
     private final Comparable<?> value;
@@ -55,6 +55,25 @@ public class SerializableNativeValue
     public Comparable<?> getValue()
     {
         return value;
+    }
+
+    @Override
+    public int hashCode()
+    {
+        return Objects.hash(type, value);
+    }
+
+    @Override
+    public boolean equals(Object obj)
+    {
+        if (this == obj) {
+            return true;
+        }
+        if (obj == null || getClass() != obj.getClass()) {
+            return false;
+        }
+        final SerializableNativeValue other = (SerializableNativeValue) obj;
+        return Objects.equals(this.type, other.type) && Objects.equals(this.value, other.value);
     }
 
     public static class Serializer
