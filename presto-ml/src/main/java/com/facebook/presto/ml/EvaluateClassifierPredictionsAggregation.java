@@ -21,7 +21,6 @@ import com.facebook.presto.operator.aggregation.GroupedAccumulator;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
-import com.facebook.presto.spi.block.BlockCursor;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.util.array.LongBigArray;
 import com.google.common.base.Optional;
@@ -118,13 +117,12 @@ public class EvaluateClassifierPredictionsAggregation
         @Override
         public void addInput(Page page)
         {
-            BlockCursor labelCursor = page.getBlock(labelChannel).cursor();
-            BlockCursor predictionCursor = page.getBlock(predictionChannel).cursor();
+            Block labelBlock = page.getBlock(labelChannel);
+            Block predictionBlock = page.getBlock(predictionChannel);
 
-            while (labelCursor.advanceNextPosition()) {
-                checkState(predictionCursor.advanceNextPosition());
-                long predicted = predictionCursor.getLong();
-                long label = labelCursor.getLong();
+            for (int position = 0; position < labelBlock.getPositionCount(); position++) {
+                long predicted = predictionBlock.getLong(position);
+                long label = labelBlock.getLong(position);
                 checkArgument(predicted == 1 || predicted == 0, "evaluate_predictions only supports binary classifiers");
                 checkArgument(label == 1 || label == 0, "evaluate_predictions only supports binary classifiers");
 
@@ -150,10 +148,8 @@ public class EvaluateClassifierPredictionsAggregation
         @Override
         public void addIntermediate(Block block)
         {
-            BlockCursor cursor = block.cursor();
-            checkState(cursor.advanceNextPosition());
-            Slice slice = cursor.getSlice();
-            checkState(!cursor.advanceNextPosition());
+            checkState(block.getPositionCount() == 1);
+            Slice slice = block.getSlice(0);
             truePositives += slice.getLong(0);
             falsePositives += slice.getLong(SIZE_OF_LONG);
             trueNegatives += slice.getLong(2 * SIZE_OF_LONG);
@@ -242,15 +238,13 @@ public class EvaluateClassifierPredictionsAggregation
             trueNegatives.ensureCapacity(groupIdsBlock.getGroupCount());
             falseNegatives.ensureCapacity(groupIdsBlock.getGroupCount());
 
-            BlockCursor labelCursor = page.getBlock(labelChannel).cursor();
-            BlockCursor predictionCursor = page.getBlock(predictionChannel).cursor();
+            Block labelBlock = page.getBlock(labelChannel);
+            Block predictionBlock = page.getBlock(predictionChannel);
 
             for (int position = 0; position < groupIdsBlock.getPositionCount(); position++) {
                 long groupId = groupIdsBlock.getGroupId(position);
-                checkState(labelCursor.advanceNextPosition());
-                checkState(predictionCursor.advanceNextPosition());
-                long predicted = predictionCursor.getLong();
-                long label = labelCursor.getLong();
+                long predicted = predictionBlock.getLong(position);
+                long label = labelBlock.getLong(position);
                 checkArgument(predicted == 1 || predicted == 0, "evaluate_predictions only supports binary classifiers");
                 checkArgument(label == 1 || label == 0, "evaluate_predictions only supports binary classifiers");
 
@@ -281,17 +275,14 @@ public class EvaluateClassifierPredictionsAggregation
             trueNegatives.ensureCapacity(groupIdsBlock.getGroupCount());
             falseNegatives.ensureCapacity(groupIdsBlock.getGroupCount());
 
-            BlockCursor cursor = block.cursor();
             for (int position = 0; position < groupIdsBlock.getPositionCount(); position++) {
-                checkState(cursor.advanceNextPosition());
                 long groupId = groupIdsBlock.getGroupId(position);
-                Slice slice = cursor.getSlice();
+                Slice slice = block.getSlice(position);
                 truePositives.add(groupId, slice.getLong(0));
                 falsePositives.add(groupId, slice.getLong(SIZE_OF_LONG));
                 trueNegatives.add(groupId, slice.getLong(2 * SIZE_OF_LONG));
                 falseNegatives.add(groupId, slice.getLong(3 * SIZE_OF_LONG));
             }
-            checkState(!cursor.advanceNextPosition());
         }
 
         @Override

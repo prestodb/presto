@@ -18,7 +18,6 @@ import com.facebook.presto.operator.Page;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
-import com.facebook.presto.spi.block.BlockCursor;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.util.array.LongBigArray;
 import com.google.common.base.Optional;
@@ -28,7 +27,6 @@ import java.util.List;
 
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkState;
 
 public class CountAggregation
         implements AggregationFunction
@@ -108,29 +106,24 @@ public class CountAggregation
         public void addInput(GroupByIdBlock groupIdsBlock, Page page)
         {
             counts.ensureCapacity(groupIdsBlock.getGroupCount());
-            BlockCursor masks = maskChannel.isPresent() ? page.getBlock(maskChannel.get()).cursor() : null;
+            Block masks = maskChannel.isPresent() ? page.getBlock(maskChannel.get()) : null;
 
             for (int position = 0; position < groupIdsBlock.getPositionCount(); position++) {
                 long groupId = groupIdsBlock.getGroupId(position);
-                checkState(masks == null || masks.advanceNextPosition());
-                if (masks == null || masks.getBoolean()) {
+                if (masks == null || masks.getBoolean(position)) {
                     counts.increment(groupId);
                 }
             }
         }
 
         @Override
-        public void addIntermediate(GroupByIdBlock groupIdsBlock, Block block)
+        public void addIntermediate(GroupByIdBlock groupIdsBlock, Block intermediates)
         {
             counts.ensureCapacity(groupIdsBlock.getGroupCount());
 
-            BlockCursor intermediates = block.cursor();
-
             for (int position = 0; position < groupIdsBlock.getPositionCount(); position++) {
-                checkState(intermediates.advanceNextPosition());
-
                 long groupId = groupIdsBlock.getGroupId(position);
-                counts.add(groupId, intermediates.getLong());
+                counts.add(groupId, intermediates.getLong(position));
             }
         }
 
@@ -199,10 +192,9 @@ public class CountAggregation
                 count += page.getPositionCount();
             }
             else {
-                BlockCursor masks = page.getBlock(maskChannel.get()).cursor();
-                for (int i = 0; i < page.getPositionCount(); i++) {
-                    checkState(masks == null || masks.advanceNextPosition());
-                    if (masks == null || masks.getBoolean()) {
+                Block masks = page.getBlock(maskChannel.get());
+                for (int position = 0; position < page.getPositionCount(); position++) {
+                    if (masks == null || masks.getBoolean(position)) {
                         count++;
                     }
                 }
@@ -210,13 +202,10 @@ public class CountAggregation
         }
 
         @Override
-        public void addIntermediate(Block block)
+        public void addIntermediate(Block intermediates)
         {
-            BlockCursor intermediates = block.cursor();
-
-            for (int position = 0; position < block.getPositionCount(); position++) {
-                checkState(intermediates.advanceNextPosition());
-                count += intermediates.getLong();
+            for (int position = 0; position < intermediates.getPositionCount(); position++) {
+                count += intermediates.getLong(position);
             }
         }
 

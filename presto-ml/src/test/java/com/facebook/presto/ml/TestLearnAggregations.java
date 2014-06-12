@@ -17,7 +17,7 @@ import com.facebook.presto.ml.type.ClassifierType;
 import com.facebook.presto.operator.Page;
 import com.facebook.presto.operator.RowPageBuilder;
 import com.facebook.presto.operator.aggregation.Accumulator;
-import com.facebook.presto.spi.block.BlockCursor;
+import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.type.BigintType;
 import com.facebook.presto.spi.type.VarcharType;
 import com.fasterxml.jackson.core.JsonProcessingException;
@@ -54,9 +54,8 @@ public class TestLearnAggregations
             throws Exception
     {
         accumulator.addInput(getPage());
-        BlockCursor cursor = accumulator.evaluateFinal().cursor();
-        cursor.advanceNextPosition();
-        Slice slice = cursor.getSlice();
+        Block block = accumulator.evaluateFinal();
+        Slice slice = block.getSlice(0);
         Model deserialized = ModelUtils.deserialize(slice);
         assertNotNull(deserialized, "deserialization failed");
         assertTrue(deserialized instanceof Classifier, "deserialized model is not a classifier");
