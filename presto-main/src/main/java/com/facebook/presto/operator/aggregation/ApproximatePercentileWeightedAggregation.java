@@ -13,12 +13,11 @@
  */
 package com.facebook.presto.operator.aggregation;
 
+import com.facebook.presto.operator.GroupByIdBlock;
+import com.facebook.presto.operator.Page;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
-import com.facebook.presto.spi.block.BlockCursor;
-import com.facebook.presto.operator.GroupByIdBlock;
-import com.facebook.presto.operator.Page;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.util.array.ObjectBigArray;
 import com.google.common.base.Optional;
@@ -132,23 +131,19 @@ public class ApproximatePercentileWeightedAggregation
 
             digests.ensureCapacity(groupIdsBlock.getGroupCount());
 
-            BlockCursor values = page.getBlock(valueChannel).cursor();
-            BlockCursor weights = page.getBlock(weightChannel).cursor();
-            BlockCursor percentiles = page.getBlock(percentileChannel).cursor();
-            BlockCursor masks = null;
+            Block values = page.getBlock(valueChannel);
+            Block weights = page.getBlock(weightChannel);
+            Block percentiles = page.getBlock(percentileChannel);
+            Block masks = null;
             if (maskChannel.isPresent()) {
-                masks = page.getBlock(maskChannel.get()).cursor();
+                masks = page.getBlock(maskChannel.get());
             }
 
             for (int position = 0; position < groupIdsBlock.getPositionCount(); position++) {
-                checkState(values.advanceNextPosition());
-                checkState(weights.advanceNextPosition());
-                checkState(percentiles.advanceNextPosition());
-                checkState(masks == null || masks.advanceNextPosition());
                 long groupId = groupIdsBlock.getGroupId(position);
 
                 // skip null values
-                if (!values.isNull() && !weights.isNull() && (masks == null || masks.getBoolean())) {
+                if (!values.isNull(position) && !weights.isNull(position) && (masks == null || masks.getBoolean(position))) {
                     DigestAndPercentile currentValue = digests.get(groupId);
                     if (currentValue == null) {
                         currentValue = new DigestAndPercentile(new QuantileDigest(0.01));
@@ -157,33 +152,26 @@ public class ApproximatePercentileWeightedAggregation
                     }
 
                     sizeOfValues -= currentValue.getDigest().estimatedInMemorySizeInBytes();
-                    addValue(currentValue.getDigest(), values, weights.getLong(), parameterType);
+                    addValue(currentValue.getDigest(), position, values, weights.getLong(position), parameterType);
                     sizeOfValues += currentValue.getDigest().estimatedInMemorySizeInBytes();
 
                     // use last non-null percentile
-                    if (!percentiles.isNull()) {
-                        currentValue.setPercentile(percentiles.getDouble());
+                    if (!percentiles.isNull(position)) {
+                        currentValue.setPercentile(percentiles.getDouble(position));
                     }
                 }
             }
-            checkState(!values.advanceNextPosition());
-            checkState(!weights.advanceNextPosition());
-            checkState(!percentiles.advanceNextPosition());
         }
 
         @Override
-        public void addIntermediate(GroupByIdBlock groupIdsBlock, Block block)
+        public void addIntermediate(GroupByIdBlock groupIdsBlock, Block intermediates)
         {
             checkArgument(percentileChannel == -1, "Intermediate input is only allowed for a final aggregation");
 
             digests.ensureCapacity(groupIdsBlock.getGroupCount());
 
-            BlockCursor intermediates = block.cursor();
-
             for (int position = 0; position < groupIdsBlock.getPositionCount(); position++) {
-                checkState(intermediates.advanceNextPosition());
-
-                if (!intermediates.isNull()) {
+                if (!intermediates.isNull(position)) {
                     long groupId = groupIdsBlock.getGroupId(position);
 
                     DigestAndPercentile currentValue = digests.get(groupId);
@@ -193,7 +181,7 @@ public class ApproximatePercentileWeightedAggregation
                         sizeOfValues += currentValue.getDigest().estimatedInMemorySizeInBytes();
                     }
 
-                    SliceInput input = intermediates.getSlice().getInput();
+                    SliceInput input = intermediates.getSlice(position).getInput();
 
                     sizeOfValues -= currentValue.getDigest().estimatedInMemorySizeInBytes();
                     currentValue.getDigest().merge(QuantileDigest.deserialize(input));
@@ -292,42 +280,34 @@ public class ApproximatePercentileWeightedAggregation
         {
             checkArgument(valueChannel != -1, "Raw input is not allowed for a final aggregation");
 
-            BlockCursor values = page.getBlock(valueChannel).cursor();
-            BlockCursor weights = page.getBlock(weightChannel).cursor();
-            BlockCursor percentiles = page.getBlock(percentileChannel).cursor();
-            BlockCursor masks = null;
+            Block values = page.getBlock(valueChannel);
+            Block weights = page.getBlock(weightChannel);
+            Block percentiles = page.getBlock(percentileChannel);
+            Block masks = null;
             if (maskChannel.isPresent()) {
-                masks = page.getBlock(maskChannel.get()).cursor();
+                masks = page.getBlock(maskChannel.get());
             }
 
             for (int position = 0; position < page.getPositionCount(); position++) {
-                checkState(values.advanceNextPosition());
-                checkState(weights.advanceNextPosition());
-                checkState(percentiles.advanceNextPosition());
-                checkState(masks == null || masks.advanceNextPosition());
-
-                if (!values.isNull() && !weights.isNull() && (masks == null || masks.getBoolean())) {
-                    addValue(digest, values, weights.getLong(), parameterType);
+                if (!values.isNull(position) && !weights.isNull(position) && (masks == null || masks.getBoolean(position))) {
+                    addValue(digest, position, values, weights.getLong(position), parameterType);
 
                     // use last non-null percentile
-                    if (!percentiles.isNull()) {
-                        percentile = percentiles.getDouble();
+                    if (!percentiles.isNull(position)) {
+                        percentile = percentiles.getDouble(position);
                     }
                 }
             }
         }
 
         @Override
-        public void addIntermediate(Block block)
+        public void addIntermediate(Block intermediates)
         {
             checkArgument(valueChannel == -1, "Intermediate input is only allowed for a final aggregation");
 
-            BlockCursor intermediates = block.cursor();
-
-            for (int position = 0; position < block.getPositionCount(); position++) {
-                checkState(intermediates.advanceNextPosition());
-                if (!intermediates.isNull()) {
-                    SliceInput input = intermediates.getSlice().getInput();
+            for (int position = 0; position < intermediates.getPositionCount(); position++) {
+                if (!intermediates.isNull(position)) {
+                    SliceInput input = intermediates.getSlice(position).getInput();
                     // read digest
                     digest.merge(QuantileDigest.deserialize(input));
                     // read percentile
@@ -382,14 +362,14 @@ public class ApproximatePercentileWeightedAggregation
         }
     }
 
-    private static void addValue(QuantileDigest digest, BlockCursor values, long weight, Type parameterType)
+    private static void addValue(QuantileDigest digest, int position, Block values, long weight, Type parameterType)
     {
         long value;
         if (parameterType == BIGINT) {
-            value = values.getLong();
+            value = values.getLong(position);
         }
         else if (parameterType == DOUBLE) {
-            value = doubleToSortableLong(values.getDouble());
+            value = doubleToSortableLong(values.getDouble(position));
         }
         else {
             throw new IllegalArgumentException("Expected parameter type to be BIGINT or DOUBLE");

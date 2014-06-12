@@ -21,7 +21,6 @@ import com.facebook.presto.operator.aggregation.GroupedAccumulator;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
-import com.facebook.presto.spi.block.BlockCursor;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
@@ -141,27 +140,26 @@ public class LearnLibSvmAggregation
         @Override
         public void addInput(Page page)
         {
-            BlockCursor cursor = page.getBlock(labelChannel).cursor();
-            while (cursor.advanceNextPosition()) {
+            Block block = page.getBlock(labelChannel);
+            for (int position = 0; position < block.getPositionCount(); position++) {
                 if (labelIsLong) {
-                    labels.add((double) cursor.getLong());
+                    labels.add((double) block.getLong(position));
                 }
                 else {
-                    labels.add(cursor.getDouble());
+                    labels.add(block.getDouble(position));
                 }
             }
 
-            cursor = page.getBlock(featuresChannel).cursor();
-            while (cursor.advanceNextPosition()) {
-                FeatureVector featureVector = ModelUtils.jsonToFeatures(cursor.getSlice());
+            block = page.getBlock(featuresChannel);
+            for (int position = 0; position < block.getPositionCount(); position++) {
+                FeatureVector featureVector = ModelUtils.jsonToFeatures(block.getSlice(position));
                 rowsSize += featureVector.getEstimatedSize();
                 rows.add(featureVector);
             }
 
             if (params == null) {
-                cursor = page.getBlock(paramsChannel).cursor();
-                cursor.advanceNextPosition();
-                params = LibSvmUtils.parseParameters(cursor.getSlice().toStringUtf8());
+                block = page.getBlock(paramsChannel);
+                params = LibSvmUtils.parseParameters(block.getSlice(0).toStringUtf8());
             }
         }
 

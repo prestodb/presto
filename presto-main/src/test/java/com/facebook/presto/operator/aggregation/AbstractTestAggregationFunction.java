@@ -13,11 +13,10 @@
  */
 package com.facebook.presto.operator.aggregation;
 
+import com.facebook.presto.block.rle.RunLengthEncodedBlock;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
-import com.facebook.presto.spi.block.BlockCursor;
-import com.facebook.presto.block.rle.RunLengthEncodedBlock;
 import com.facebook.presto.spi.type.Type;
 import org.testng.annotations.Test;
 
@@ -94,12 +93,11 @@ public abstract class AbstractTestAggregationFunction
     public Block createAlternatingNullsBlock(Block sequenceBlock)
     {
         BlockBuilder blockBuilder = sequenceBlock.getType().createBlockBuilder(new BlockBuilderStatus());
-        BlockCursor cursor = sequenceBlock.cursor();
-        while (cursor.advanceNextPosition()) {
+        for (int position = 0; position < sequenceBlock.getPositionCount(); position++) {
             // append null
             blockBuilder.appendNull();
             // append value
-            cursor.appendTo(blockBuilder);
+            sequenceBlock.appendTo(position, blockBuilder);
         }
         return blockBuilder.build();
     }
