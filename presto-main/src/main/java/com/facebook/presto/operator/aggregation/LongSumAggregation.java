@@ -32,18 +32,18 @@ public class LongSumAggregation
     @Override
     public void processInput(NullableLongState state, BlockCursor cursor)
     {
-        state.setNotNull(true);
+        state.setNull(false);
         state.setLong(state.getLong() + cursor.getLong());
     }
 
     @Override
     public void evaluateFinal(NullableLongState state, BlockBuilder out)
     {
-        if (state.getNotNull()) {
-            out.appendLong(state.getLong());
+        if (state.isNull()) {
+            out.appendNull();
         }
         else {
-            out.appendNull();
+            out.appendLong(state.getLong());
         }
     }
 }

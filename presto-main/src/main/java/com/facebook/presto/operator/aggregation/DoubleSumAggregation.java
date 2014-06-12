@@ -32,18 +32,18 @@ public class DoubleSumAggregation
     @Override
     public void processInput(NullableDoubleState state, BlockCursor cursor)
     {
-        state.setNotNull(true);
+        state.setNull(false);
         state.setDouble(state.getDouble() + cursor.getDouble());
     }
 
     @Override
     public void evaluateFinal(NullableDoubleState state, BlockBuilder out)
     {
-        if (state.getNotNull()) {
-            out.appendDouble(state.getDouble());
+        if (state.isNull()) {
+            out.appendNull();
         }
         else {
-            out.appendNull();
+            out.appendDouble(state.getDouble());
         }
     }
 }
