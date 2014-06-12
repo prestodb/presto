@@ -18,8 +18,10 @@ import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockCursor;
 import com.facebook.presto.spi.type.Type;
 import io.airlift.slice.Slice;
-import io.airlift.slice.Slices;
 
+import static com.facebook.presto.operator.aggregation.OnlineVarianceCalculator.mergeState;
+import static com.facebook.presto.operator.aggregation.OnlineVarianceCalculator.toSlice;
+import static com.facebook.presto.operator.aggregation.OnlineVarianceCalculator.updateState;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
@@ -30,8 +32,6 @@ public class VarianceAggregation
     protected final boolean population;
     protected final boolean inputIsLong;
     protected final boolean standardDeviation;
-
-    private static final ThreadLocal<OnlineVarianceCalculator> calculator = new ThreadLocal<>();
 
     public VarianceAggregation(Type parameterType,
             boolean population,
@@ -63,11 +63,7 @@ public class VarianceAggregation
             inputValue = cursor.getDouble();
         }
 
-        getCalculator().reinitialize(state.getCount(), state.getMean(), state.getM2());
-        getCalculator().add(inputValue);
-        state.setCount(getCalculator().getCount());
-        state.setMean(getCalculator().getMean());
-        state.setM2(getCalculator().getM2());
+        updateState(state, inputValue);
     }
 
     @Override
@@ -105,29 +101,13 @@ public class VarianceAggregation
     @Override
     protected void evaluateIntermediate(VarianceState state, BlockBuilder out)
     {
-        getCalculator().reinitialize(state.getCount(), state.getMean(), state.getM2());
-        Slice slice = Slices.allocate(getCalculator().sizeOf());
-        getCalculator().serializeTo(slice, 0);
-        out.appendSlice(slice);
-    }
-
-    private static OnlineVarianceCalculator getCalculator()
-    {
-        if (calculator.get() == null) {
-            calculator.set(new OnlineVarianceCalculator());
-        }
-        return calculator.get();
+        out.appendSlice(toSlice(state));
     }
 
     @Override
     protected void processIntermediate(VarianceState state, BlockCursor cursor)
     {
         Slice slice = cursor.getSlice();
-        getCalculator().deserializeFrom(slice, 0);
-        getCalculator().merge(state.getCount(), state.getMean(), state.getM2());
-
-        state.setCount(getCalculator().getCount());
-        state.setMean(getCalculator().getMean());
-        state.setM2(getCalculator().getM2());
+        mergeState(state, slice);
     }
 }
