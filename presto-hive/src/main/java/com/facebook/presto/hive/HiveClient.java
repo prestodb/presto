@@ -164,6 +164,7 @@ public class HiveClient
     private final DataSize maxSplitSize;
     private final DataSize maxInitialSplitSize;
     private final int maxInitialSplits;
+    private final boolean recursiveDirWalkerEnabled = true;
 
     @Inject
     public HiveClient(HiveConnectorId connectorId,
@@ -890,7 +891,8 @@ public class HiveClient
                 maxPartitionBatchSize,
                 hiveTableHandle.getSession(),
                 maxInitialSplitSize,
-                maxInitialSplits).get();
+                maxInitialSplits,
+                recursiveDirWalkerEnabled).get();
     }
 
     private Iterable<Partition> getPartitions(final Table table, final SchemaTableName tableName, List<String> partitionNames)

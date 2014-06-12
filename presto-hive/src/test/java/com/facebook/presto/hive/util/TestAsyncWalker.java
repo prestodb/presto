@@ -43,7 +43,7 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 
-public class TestAsyncRecursiveWalker
+public class TestAsyncWalker
 {
     private static final DirectoryLister DIRECTORY_LISTER = new HadoopDirectoryLister();
 
@@ -56,16 +56,29 @@ public class TestAsyncRecursiveWalker
                 .put("/a", ImmutableList.of(fileStatus("/a/file2", false), fileStatus("/a/file3", false)))
                 .build();
 
-        AsyncRecursiveWalker walker = new AsyncRecursiveWalker(createMockFileSystem(paths), MoreExecutors.sameThreadExecutor(), DIRECTORY_LISTER, new NamenodeStats());
+        AsyncWalker recursiveWalker = new AsyncWalker(createMockFileSystem(paths), MoreExecutors.sameThreadExecutor(), DIRECTORY_LISTER, new NamenodeStats(), true);
 
-        MockFileStatusCallback callback = new MockFileStatusCallback();
-        ListenableFuture<Void> listenableFuture = walker.beginWalk(new Path("/"), callback);
+        MockFileStatusCallback recursiveCallback = new MockFileStatusCallback();
+        ListenableFuture<Void> recursiveListenableFuture =
+            recursiveWalker.beginWalk(new Path("/"), recursiveCallback);
 
-        Assert.assertTrue(listenableFuture.isDone());
-        Assert.assertEquals(ImmutableSet.copyOf(callback.getProcessedFiles()), ImmutableSet.of("/file1", "/a/file2", "/a/file3"));
+        Assert.assertTrue(recursiveListenableFuture.isDone());
+        Assert.assertEquals(ImmutableSet.copyOf(recursiveCallback.getProcessedFiles()), ImmutableSet.of("/file1", "/a/file2", "/a/file3"));
 
         // Should not have an exception
-        listenableFuture.get();
+        recursiveListenableFuture.get();
+
+        AsyncWalker nonRecursiveWalker = new AsyncWalker(createMockFileSystem(paths), MoreExecutors.sameThreadExecutor(), DIRECTORY_LISTER, new NamenodeStats(), false);
+
+        MockFileStatusCallback nonRecursiveCallback = new MockFileStatusCallback();
+        ListenableFuture<Void> nonRecursiveListenableFuture =
+            nonRecursiveWalker.beginWalk(new Path("/"), nonRecursiveCallback);
+
+        Assert.assertTrue(nonRecursiveListenableFuture.isDone());
+        Assert.assertEquals(ImmutableSet.copyOf(nonRecursiveCallback.getProcessedFiles()), ImmutableSet.of("/file1"));
+
+        // Should not have an exception
+        nonRecursiveListenableFuture.get();
     }
 
     @Test
@@ -76,7 +89,7 @@ public class TestAsyncRecursiveWalker
                 .put("/", ImmutableList.<FileStatus>of())
                 .build();
 
-        AsyncRecursiveWalker walker = new AsyncRecursiveWalker(createMockFileSystem(paths), MoreExecutors.sameThreadExecutor(), DIRECTORY_LISTER, new NamenodeStats());
+        AsyncWalker walker = new AsyncWalker(createMockFileSystem(paths), MoreExecutors.sameThreadExecutor(), DIRECTORY_LISTER, new NamenodeStats(), true);
 
         MockFileStatusCallback callback = new MockFileStatusCallback();
         ListenableFuture<Void> listenableFuture = walker.beginWalk(new Path("/"), callback);
@@ -99,23 +112,36 @@ public class TestAsyncRecursiveWalker
                 .put("/c", ImmutableList.of(fileStatus("/c/file8", false), fileStatus("/c/.file9", false), fileStatus("/c/_file10", false)))
                 .build();
 
-        AsyncRecursiveWalker walker = new AsyncRecursiveWalker(createMockFileSystem(paths), MoreExecutors.sameThreadExecutor(), DIRECTORY_LISTER, new NamenodeStats());
+        AsyncWalker recursiveWalker = new AsyncWalker(createMockFileSystem(paths), MoreExecutors.sameThreadExecutor(), DIRECTORY_LISTER, new NamenodeStats(), true);
 
-        MockFileStatusCallback callback = new MockFileStatusCallback();
-        ListenableFuture<Void> listenableFuture = walker.beginWalk(new Path("/"), callback);
+        MockFileStatusCallback recursiveCallback = new MockFileStatusCallback();
+        ListenableFuture<Void> recursiveListenableFuture =
+            recursiveWalker.beginWalk(new Path("/"), recursiveCallback);
 
-        Assert.assertTrue(listenableFuture.isDone());
-        Assert.assertEquals(ImmutableSet.copyOf(callback.getProcessedFiles()), ImmutableSet.of("/file1", "/c/file8"));
+        Assert.assertTrue(recursiveListenableFuture.isDone());
+        Assert.assertEquals(ImmutableSet.copyOf(recursiveCallback.getProcessedFiles()), ImmutableSet.of("/file1", "/c/file8"));
 
         // Should not have an exception
-        listenableFuture.get();
+        recursiveListenableFuture.get();
+
+        AsyncWalker nonRecursiveWalker = new AsyncWalker(createMockFileSystem(paths), MoreExecutors.sameThreadExecutor(), DIRECTORY_LISTER, new NamenodeStats(), false);
+
+        MockFileStatusCallback nonRecursiveCallback = new MockFileStatusCallback();
+        ListenableFuture<Void> nonRecursivelistenableFuture =
+            nonRecursiveWalker.beginWalk(new Path("/"), nonRecursiveCallback);
+
+        Assert.assertTrue(nonRecursivelistenableFuture.isDone());
+        Assert.assertEquals(ImmutableSet.copyOf(nonRecursiveCallback.getProcessedFiles()), ImmutableSet.of("/file1"));
+
+        // Should not have an exception
+        nonRecursivelistenableFuture.get();
     }
 
     @Test
     public void testDoubleIOException()
             throws Exception
     {
-        AsyncRecursiveWalker walker = new AsyncRecursiveWalker(new StubFileSystem()
+        AsyncWalker walker = new AsyncWalker(new StubFileSystem()
         {
             @Override
             public FileStatus[] listStatus(Path f)
@@ -123,7 +149,7 @@ public class TestAsyncRecursiveWalker
             {
                 throw new IOException();
             }
-        }, MoreExecutors.sameThreadExecutor(), DIRECTORY_LISTER, new NamenodeStats());
+        }, MoreExecutors.sameThreadExecutor(), DIRECTORY_LISTER, new NamenodeStats(), true);
 
         MockFileStatusCallback callback = new MockFileStatusCallback();
         ListenableFuture<Void> listenableFuture1 = walker.beginWalk(new Path("/"), callback);

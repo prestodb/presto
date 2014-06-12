@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.hive;
 
-import com.facebook.presto.hive.util.AsyncRecursiveWalker;
+import com.facebook.presto.hive.util.AsyncWalker;
 import com.facebook.presto.hive.util.BoundedExecutor;
 import com.facebook.presto.hive.util.FileStatusCallback;
 import com.facebook.presto.hive.util.SetThreadName;
@@ -119,6 +119,7 @@ class HiveSplitSourceProvider
     private final DataSize maxInitialSplitSize;
     private long remainingInitialSplits;
     private final ConnectorSession session;
+    private final boolean recursiveDirWalkerEnabled;
 
     HiveSplitSourceProvider(String connectorId,
             Table table,
@@ -135,7 +136,8 @@ class HiveSplitSourceProvider
             int maxPartitionBatchSize,
             ConnectorSession session,
             DataSize maxInitialSplitSize,
-            int maxInitialSplits)
+            int maxInitialSplits,
+            boolean recursiveDirWalkerEnabled)
     {
         this.connectorId = connectorId;
         this.table = table;
@@ -154,6 +156,7 @@ class HiveSplitSourceProvider
         this.classLoader = Thread.currentThread().getContextClassLoader();
         this.maxInitialSplitSize = maxInitialSplitSize;
         this.remainingInitialSplits = maxInitialSplits;
+        this.recursiveDirWalkerEnabled = recursiveDirWalkerEnabled;
     }
 
     public ConnectorSplitSource get()
@@ -246,7 +249,7 @@ class HiveSplitSourceProvider
                     return;
                 }
 
-                ListenableFuture<Void> partitionFuture = createRecursiveWalker(fs, suspendingExecutor).beginWalk(path, new FileStatusCallback()
+                ListenableFuture<Void> partitionFuture = createAsyncWalker(fs, suspendingExecutor).beginWalk(path, new FileStatusCallback()
                 {
                     @Override
                     public void process(FileStatus file, BlockLocation[] blockLocations)
@@ -303,9 +306,9 @@ class HiveSplitSourceProvider
         }
     }
 
-    private AsyncRecursiveWalker createRecursiveWalker(FileSystem fs, SuspendingExecutor suspendingExecutor)
+    private AsyncWalker createAsyncWalker(FileSystem fs, SuspendingExecutor suspendingExecutor)
     {
-        return new AsyncRecursiveWalker(fs, suspendingExecutor, directoryLister, namenodeStats);
+        return new AsyncWalker(fs, suspendingExecutor, directoryLister, namenodeStats, recursiveDirWalkerEnabled);
     }
 
     private static Optional<FileStatus> getBucketFile(HiveBucket bucket, FileSystem fs, Path path)
