@@ -41,11 +41,13 @@ public abstract class AbstractTestQueryFramework
 {
     protected final H2QueryRunner h2QueryRunner;
     protected final QueryRunner queryRunner;
+    private final SqlParser sqlParser;
 
     protected AbstractTestQueryFramework(QueryRunner queryRunner)
     {
         this.queryRunner = queryRunner;
         h2QueryRunner = new H2QueryRunner();
+        sqlParser = new SqlParser();
     }
 
     @AfterClass(alwaysRun = true)
@@ -136,20 +138,20 @@ public abstract class AbstractTestQueryFramework
     public String getExplainPlan(String query, ExplainType.Type planType)
     {
         QueryExplainer explainer = getQueryExplainer();
-        return explainer.getPlan(SqlParser.createStatement(query), planType);
+        return explainer.getPlan(sqlParser.createStatement(query), planType);
     }
 
     public String getGraphvizExplainPlan(String query, ExplainType.Type planType)
     {
         QueryExplainer explainer = getQueryExplainer();
-        return explainer.getGraphvizPlan(SqlParser.createStatement(query), planType);
+        return explainer.getGraphvizPlan(sqlParser.createStatement(query), planType);
     }
 
     private QueryExplainer getQueryExplainer()
     {
         Metadata metadata = new MetadataManager(new FeaturesConfig().setExperimentalSyntaxEnabled(true), new TypeRegistry());
         FeaturesConfig featuresConfig = new FeaturesConfig().setExperimentalSyntaxEnabled(true);
-        List<PlanOptimizer> optimizers = new PlanOptimizersFactory(metadata, new SplitManager(), new IndexManager(), featuresConfig).get();
-        return new QueryExplainer(queryRunner.getDefaultSession(), optimizers, metadata, featuresConfig.isExperimentalSyntaxEnabled());
+        List<PlanOptimizer> optimizers = new PlanOptimizersFactory(metadata, sqlParser, new SplitManager(), new IndexManager(), featuresConfig).get();
+        return new QueryExplainer(queryRunner.getDefaultSession(), optimizers, metadata, sqlParser, featuresConfig.isExperimentalSyntaxEnabled());
     }
 }

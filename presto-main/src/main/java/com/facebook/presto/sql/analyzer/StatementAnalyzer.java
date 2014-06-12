@@ -19,6 +19,7 @@ import com.facebook.presto.metadata.QualifiedTableName;
 import com.facebook.presto.metadata.TableHandle;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorSession;
+import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.tree.AllColumns;
 import com.facebook.presto.sql.tree.Approximate;
 import com.facebook.presto.sql.tree.BooleanLiteral;
@@ -101,11 +102,19 @@ class StatementAnalyzer
     private final ConnectorSession session;
     private final Optional<QueryExplainer> queryExplainer;
     private final boolean experimentalSyntaxEnabled;
+    private final SqlParser sqlParser;
 
-    public StatementAnalyzer(Analysis analysis, Metadata metadata, ConnectorSession session, boolean experimentalSyntaxEnabled, Optional<QueryExplainer> queryExplainer)
+    public StatementAnalyzer(
+            Analysis analysis,
+            Metadata metadata,
+            SqlParser sqlParser,
+            ConnectorSession session,
+            boolean experimentalSyntaxEnabled,
+            Optional<QueryExplainer> queryExplainer)
     {
         this.analysis = checkNotNull(analysis, "analysis is null");
         this.metadata = checkNotNull(metadata, "metadata is null");
+        this.sqlParser = checkNotNull(sqlParser, "sqlParser is null");
         this.session = checkNotNull(session, "session is null");
         this.experimentalSyntaxEnabled = experimentalSyntaxEnabled;
         this.queryExplainer = checkNotNull(queryExplainer, "queryExplainer is null");
@@ -477,7 +486,7 @@ class StatementAnalyzer
 
         analyzeWith(node, context);
 
-        TupleAnalyzer analyzer = new TupleAnalyzer(analysis, session, metadata, experimentalSyntaxEnabled);
+        TupleAnalyzer analyzer = new TupleAnalyzer(analysis, session, metadata, sqlParser, experimentalSyntaxEnabled);
         TupleDescriptor descriptor = analyzer.process(node.getQueryBody(), context);
         analyzeOrderBy(node, descriptor, context);
 
@@ -553,6 +562,7 @@ class StatementAnalyzer
                     orderByField = new FieldOrExpression(expression);
                     ExpressionAnalysis expressionAnalysis = ExpressionAnalyzer.analyzeExpression(session,
                             metadata,
+                            sqlParser,
                             tupleDescriptor,
                             analysis,
                             experimentalSyntaxEnabled,

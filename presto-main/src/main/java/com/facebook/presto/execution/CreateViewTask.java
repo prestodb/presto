@@ -49,13 +49,15 @@ public class CreateViewTask
         implements DataDefinitionTask<CreateView>
 {
     private final JsonCodec<ViewDefinition> codec;
+    private final SqlParser sqlParser;
     private final List<PlanOptimizer> planOptimizers;
     private final boolean experimentalSyntaxEnabled;
 
     @Inject
-    public CreateViewTask(JsonCodec<ViewDefinition> codec, List<PlanOptimizer> planOptimizers, FeaturesConfig featuresConfig)
+    public CreateViewTask(JsonCodec<ViewDefinition> codec, SqlParser sqlParser, List<PlanOptimizer> planOptimizers, FeaturesConfig featuresConfig)
     {
         this.codec = checkNotNull(codec, "codec is null");
+        this.sqlParser = checkNotNull(sqlParser, "sqlParser is null");
         this.planOptimizers = ImmutableList.copyOf(checkNotNull(planOptimizers, "planOptimizers is null"));
         this.experimentalSyntaxEnabled = checkNotNull(featuresConfig, "featuresConfig is null").isExperimentalSyntaxEnabled();
     }
@@ -79,8 +81,8 @@ public class CreateViewTask
 
     public Analysis analyzeStatement(Statement statement, ConnectorSession session, Metadata metadata)
     {
-        QueryExplainer explainer = new QueryExplainer(session, planOptimizers, metadata, experimentalSyntaxEnabled);
-        Analyzer analyzer = new Analyzer(session, metadata, Optional.of(explainer), experimentalSyntaxEnabled);
+        QueryExplainer explainer = new QueryExplainer(session, planOptimizers, metadata, sqlParser, experimentalSyntaxEnabled);
+        Analyzer analyzer = new Analyzer(session, metadata, sqlParser, Optional.of(explainer), experimentalSyntaxEnabled);
         return analyzer.analyze(statement);
     }
 
@@ -96,7 +98,7 @@ public class CreateViewTask
         };
     }
 
-    public static String getFormattedSql(CreateView statement)
+    private String getFormattedSql(CreateView statement)
     {
         Query query = statement.getQuery();
         String sql = formatSql(query);
@@ -104,7 +106,7 @@ public class CreateViewTask
         // verify round-trip
         Statement parsed;
         try {
-            parsed = SqlParser.createStatement(sql);
+            parsed = sqlParser.createStatement(sql);
         }
         catch (ParsingException e) {
             throw new PrestoException(INTERNAL_ERROR.toErrorCode(), "Formatted query does not parse: " + query);

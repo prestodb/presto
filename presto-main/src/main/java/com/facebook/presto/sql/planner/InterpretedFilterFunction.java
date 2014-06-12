@@ -18,6 +18,7 @@ import com.facebook.presto.spi.block.BlockCursor;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.operator.FilterFunction;
 import com.facebook.presto.spi.RecordCursor;
+import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.ExpressionTreeRewriter;
 import com.facebook.presto.sql.tree.Input;
@@ -26,7 +27,6 @@ import com.google.common.collect.ImmutableMap;
 
 import java.util.IdentityHashMap;
 import java.util.Map;
-import java.util.Map.Entry;
 
 import static com.facebook.presto.sql.analyzer.ExpressionAnalyzer.getExpressionTypesFromInput;
 import static java.lang.Boolean.TRUE;
@@ -36,7 +36,13 @@ public class InterpretedFilterFunction
 {
     private final ExpressionInterpreter evaluator;
 
-    public InterpretedFilterFunction(Expression predicate, Map<Symbol, Type> symbolTypes, Map<Symbol, Input> symbolToInputMappings, Metadata metadata, ConnectorSession session)
+    public InterpretedFilterFunction(
+            Expression predicate,
+            Map<Symbol, Type> symbolTypes,
+            Map<Symbol, Input> symbolToInputMappings,
+            Metadata metadata,
+            SqlParser sqlParser,
+            ConnectorSession session)
     {
         // pre-compute symbol -> input mappings and replace the corresponding nodes in the tree
         Expression rewritten = ExpressionTreeRewriter.rewriteWith(new SymbolToInputRewriter(symbolToInputMappings), predicate);
@@ -46,7 +52,7 @@ public class InterpretedFilterFunction
         for (Map.Entry<Symbol, Input> entry : symbolToInputMappings.entrySet()) {
             inputTypes.put(entry.getValue(), symbolTypes.get(entry.getKey()));
         }
-        IdentityHashMap<Expression, Type> expressionTypes = getExpressionTypesFromInput(session, metadata, inputTypes.build(), rewritten);
+        IdentityHashMap<Expression, Type> expressionTypes = getExpressionTypesFromInput(session, metadata, sqlParser, inputTypes.build(), rewritten);
 
         evaluator = ExpressionInterpreter.expressionInterpreter(rewritten, metadata, session, expressionTypes);
     }

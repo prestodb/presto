@@ -106,6 +106,8 @@ public final class FunctionAssertions
 
     private static final ExecutorService EXECUTOR = Executors.newCachedThreadPool(daemonThreadsNamed("test-%s"));
 
+    private static final SqlParser SQL_PARSER = new SqlParser();
+
     private static final Page SOURCE_PAGE = new Page(
             createLongsBlock(1234L),
             createStringsBlock("hello"),
@@ -361,9 +363,9 @@ public final class FunctionAssertions
 
     public static Expression createExpression(String expression, Metadata metadata, Map<Symbol, Type> symbolTypes)
     {
-        Expression parsedExpression = SqlParser.createExpression(expression);
+        Expression parsedExpression = SQL_PARSER.createExpression(expression);
 
-        final ExpressionAnalysis analysis = analyzeExpressionsWithSymbols(SESSION, metadata, symbolTypes, ImmutableList.of(parsedExpression));
+        final ExpressionAnalysis analysis = analyzeExpressionsWithSymbols(SESSION, metadata, SQL_PARSER, symbolTypes, ImmutableList.of(parsedExpression));
         Expression rewrittenExpression = ExpressionTreeRewriter.rewriteWith(new ExpressionRewriter<Void>()
         {
             @Override
@@ -460,6 +462,7 @@ public final class FunctionAssertions
                 SYMBOL_TYPES,
                 INPUT_MAPPING,
                 metadata,
+                SQL_PARSER,
                 session
         );
 
@@ -468,6 +471,7 @@ public final class FunctionAssertions
                 SYMBOL_TYPES,
                 INPUT_MAPPING,
                 metadata,
+                SQL_PARSER,
                 session
         );
 
@@ -479,7 +483,7 @@ public final class FunctionAssertions
     {
         filter = ExpressionTreeRewriter.rewriteWith(new SymbolToInputRewriter(ImmutableMap.<Symbol, Input>of()), filter);
 
-        IdentityHashMap<Expression, Type> expressionTypes = getExpressionTypesFromInput(SESSION, metadata, INPUT_TYPES, ImmutableList.of(filter));
+        IdentityHashMap<Expression, Type> expressionTypes = getExpressionTypesFromInput(SESSION, metadata, SQL_PARSER, INPUT_TYPES, ImmutableList.of(filter));
 
         try {
             return compiler.compileFilterAndProjectOperator(0, filter, ImmutableList.<Expression>of(), expressionTypes, session.getTimeZoneKey());
@@ -497,7 +501,7 @@ public final class FunctionAssertions
         filter = ExpressionTreeRewriter.rewriteWith(new SymbolToInputRewriter(INPUT_MAPPING), filter);
         projection = ExpressionTreeRewriter.rewriteWith(new SymbolToInputRewriter(INPUT_MAPPING), projection);
 
-        IdentityHashMap<Expression, Type> expressionTypes = getExpressionTypesFromInput(SESSION, metadata, INPUT_TYPES, ImmutableList.of(filter, projection));
+        IdentityHashMap<Expression, Type> expressionTypes = getExpressionTypesFromInput(SESSION, metadata, SQL_PARSER, INPUT_TYPES, ImmutableList.of(filter, projection));
 
         try {
             return compiler.compileFilterAndProjectOperator(0, filter, ImmutableList.of(projection), expressionTypes, session.getTimeZoneKey());
@@ -515,7 +519,7 @@ public final class FunctionAssertions
         filter = ExpressionTreeRewriter.rewriteWith(new SymbolToInputRewriter(INPUT_MAPPING), filter);
         projection = ExpressionTreeRewriter.rewriteWith(new SymbolToInputRewriter(INPUT_MAPPING), projection);
 
-        IdentityHashMap<Expression, Type> expressionTypes = getExpressionTypesFromInput(SESSION, metadata, INPUT_TYPES, ImmutableList.of(filter, projection));
+        IdentityHashMap<Expression, Type> expressionTypes = getExpressionTypesFromInput(SESSION, metadata, SQL_PARSER, INPUT_TYPES, ImmutableList.of(filter, projection));
 
         try {
             return compiler.compileScanFilterAndProjectOperator(

@@ -21,6 +21,7 @@ import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.block.BlockCursor;
 import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.tree.ArithmeticExpression;
 import com.facebook.presto.sql.tree.Input;
 import com.google.common.collect.ImmutableMap;
@@ -43,6 +44,8 @@ import static org.testng.Assert.assertTrue;
 
 public class TestInterpretedProjectionFunction
 {
+    private static final SqlParser SQL_PARSER = new SqlParser();
+
     @Test
     public void testBooleanExpression()
     {
@@ -172,6 +175,7 @@ public class TestInterpretedProjectionFunction
                 symbolTypes.build(),
                 symbolToInputMappings,
                 metadata,
+                SQL_PARSER,
                 new ConnectorSession("user", "test", "catalog", "schema", UTC_KEY, Locale.ENGLISH, null, null)
         );
 

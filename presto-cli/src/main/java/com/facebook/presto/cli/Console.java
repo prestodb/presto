@@ -54,6 +54,8 @@ public class Console
 {
     private static final String PROMPT_NAME = "presto";
 
+    private static final SqlParser SQL_PARSER = new SqlParser();
+
     @Inject
     public HelpOption helpOption;
 
@@ -187,7 +189,7 @@ public class Console
     private static Optional<Object> getParsedStatement(String statement)
     {
         try {
-            return Optional.of((Object) SqlParser.createStatement(statement));
+            return Optional.of((Object) SQL_PARSER.createStatement(statement));
         }
         catch (ParsingException e) {
             return Optional.absent();

@@ -67,6 +67,8 @@ import static org.testng.Assert.fail;
 public class TestAnalyzer
 {
     private static final ConnectorSession SESSION = new ConnectorSession("user", "test", "default", "default", UTC_KEY, Locale.ENGLISH, null, null);
+    private static final SqlParser SQL_PARSER = new SqlParser();
+
     private Analyzer analyzer;
     private Analyzer approximateDisabledAnalyzer;
 
@@ -195,7 +197,7 @@ public class TestAnalyzer
             throws Exception
     {
         try {
-            Statement statement = SqlParser.createStatement("SELECT AVG(a) FROM t1 APPROXIMATE AT 99.0 CONFIDENCE");
+            Statement statement = SQL_PARSER.createStatement("SELECT AVG(a) FROM t1 APPROXIMATE AT 99.0 CONFIDENCE");
             approximateDisabledAnalyzer.analyze(statement);
             fail(format("Expected error %s, but analysis succeeded", NOT_SUPPORTED));
         }
@@ -646,20 +648,31 @@ public class TestAnalyzer
                         new ViewColumn("a", BIGINT))));
         metadata.createView(SESSION, new QualifiedTableName("c3", "s3", "v3"), viewData3, false);
 
-        analyzer = new Analyzer(new ConnectorSession("user", "test", "tpch", "default", UTC_KEY, Locale.ENGLISH, null, null), metadata, Optional.<QueryExplainer>absent(), true);
-        approximateDisabledAnalyzer = new Analyzer(new ConnectorSession("user", "test", "tpch", "default", UTC_KEY, Locale.ENGLISH, null, null), metadata, Optional.<QueryExplainer>absent(), false);
+        analyzer = new Analyzer(
+                new ConnectorSession("user", "test", "tpch", "default", UTC_KEY, Locale.ENGLISH, null, null),
+                metadata,
+                SQL_PARSER,
+                Optional.<QueryExplainer>absent(),
+                true);
+
+        approximateDisabledAnalyzer = new Analyzer(
+                new ConnectorSession("user", "test", "tpch", "default", UTC_KEY, Locale.ENGLISH, null, null),
+                metadata,
+                SQL_PARSER,
+                Optional.<QueryExplainer>absent(),
+                false);
     }
 
     private void analyze(@Language("SQL") String query)
     {
-        Statement statement = SqlParser.createStatement(query);
+        Statement statement = SQL_PARSER.createStatement(query);
         analyzer.analyze(statement);
     }
 
     private void assertFails(SemanticErrorCode error, @Language("SQL") String query)
     {
         try {
-            Statement statement = SqlParser.createStatement(query);
+            Statement statement = SQL_PARSER.createStatement(query);
             analyzer.analyze(statement);
             fail(format("Expected error %s, but analysis succeeded", error));
         }
