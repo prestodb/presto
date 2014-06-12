@@ -13,13 +13,11 @@
  */
 package com.facebook.presto.operator;
 
-import com.facebook.presto.spi.block.BlockCursor;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Ints;
 import com.google.common.util.concurrent.ListenableFuture;
 
-import java.util.Arrays;
 import java.util.List;
 
 import static com.google.common.base.Preconditions.checkArgument;
@@ -68,7 +66,6 @@ public class DistinctLimitOperator
 
     private final OperatorContext operatorContext;
     private final List<Type> types;
-    private final BlockCursor[] cursors;
 
     private final PageBuilder pageBuilder;
     private Page outputPage;
@@ -94,8 +91,7 @@ public class DistinctLimitOperator
 
         this.groupByHash = new GroupByHash(distinctTypes.build(), Ints.toArray(distinctChannels.build()), Math.min((int) limit, 10_000));
 
-        this.cursors = new BlockCursor[types.size()];
-        this.pageBuilder = new PageBuilder(getTypes());
+        this.pageBuilder = new PageBuilder(types);
         remainingLimit = limit;
     }
 
@@ -115,7 +111,6 @@ public class DistinctLimitOperator
     public void finish()
     {
         finishing = true;
-        Arrays.fill(cursors, null);
         pageBuilder.reset();
     }
 
@@ -144,19 +139,12 @@ public class DistinctLimitOperator
         checkState(needsInput());
         operatorContext.setMemoryReservation(groupByHash.getEstimatedSize());
 
-        // open cursors
-        for (int i = 0; i < page.getChannelCount(); i++) {
-            cursors[i] = page.getBlock(i).cursor();
-        }
         pageBuilder.reset();
 
         GroupByIdBlock ids = groupByHash.getGroupIds(page);
-        for (int i = 0; i < ids.getPositionCount(); i++) {
-            checkState(advanceNextCursorPosition());
-            if (ids.getGroupId(i) == nextDistinctId) {
-                for (int j = 0; j < cursors.length; j++) {
-                    cursors[j].appendTo(pageBuilder.getBlockBuilder(j));
-                }
+        for (int position = 0; position < ids.getPositionCount(); position++) {
+            if (ids.getGroupId(position) == nextDistinctId) {
+                page.appendTo(position, pageBuilder);
                 remainingLimit--;
                 nextDistinctId++;
                 if (remainingLimit == 0) {
@@ -167,21 +155,6 @@ public class DistinctLimitOperator
         if (!pageBuilder.isEmpty()) {
             outputPage = pageBuilder.build();
         }
-    }
-
-    private boolean advanceNextCursorPosition()
-    {
-        // advance all cursors
-        boolean advanced = cursors[0].advanceNextPosition();
-        for (int i = 1; i < cursors.length; i++) {
-            checkState(advanced == cursors[i].advanceNextPosition());
-        }
-
-        if (!advanced) {
-            Arrays.fill(cursors, null);
-        }
-
-        return advanced;
     }
 
     @Override
