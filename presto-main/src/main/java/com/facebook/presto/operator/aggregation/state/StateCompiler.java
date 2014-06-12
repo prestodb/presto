@@ -176,7 +176,6 @@ public class StateCompiler
 
         // Generate fields
         List<StateField> fields = enumerateFields(clazz);
-        checkInterface(clazz, fields);
         for (StateField field : fields) {
             generateField(definition, constructor, field);
         }
@@ -196,7 +195,6 @@ public class StateCompiler
                 type(GroupedAccumulator.class));
 
         List<StateField> fields = enumerateFields(clazz);
-        checkInterface(clazz, fields);
 
         // Create constructor
         Block constructor = definition.declareConstructor(new CompilerContext(null), a(PUBLIC))
@@ -344,7 +342,10 @@ public class StateCompiler
             }
         }
 
-        return builder.build();
+        ImmutableList<StateField> fields = builder.build();
+        checkInterface(clazz, fields);
+
+        return fields;
     }
 
     private static Object getInitialValue(Method method)
