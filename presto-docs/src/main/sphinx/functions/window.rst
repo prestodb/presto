@@ -56,3 +56,32 @@ Ranking Functions
 
     Returns a unique, sequential number for each row, starting with one,
     according to the ordering of rows within the window partition.
+
+
+Value Functions
+---------------
+
+.. warning::
+    These functions do not respect the window frame (default or specified) and
+    instead operate on the entire partition.  This is equivalent to ``RANGE
+    BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING``.  In a future
+    release, these functions will be changed to respect the window frame and to
+    use the standard default window frame ``RANGE BETWEEN UNBOUNDED PRECEDING
+    AND CURRENT ROW``.
+
+
+.. function:: first_value(x) -> [same as input]
+
+    Returns the first value of the window (see warning above).
+
+.. function:: last_value(x) -> [same as input]
+
+    Returns the last value of the window (see warning above).
+
+.. function:: nth_value(x, offset) -> [same as input]
+
+    Returns the value at the specified offset from beginning the window  (see
+    warning above).  Offsets start at ``1``. The offset can be any scalar
+    expression.  If the offset is null or greater than the number of values in
+    the window, null is returned.  It is an error for the offset to be zero or
+    negative.
