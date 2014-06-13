@@ -18,6 +18,7 @@ import com.facebook.presto.operator.aggregation.state.AccumulatorStateFactory;
 import com.facebook.presto.operator.aggregation.state.AccumulatorStateSerializer;
 import com.facebook.presto.operator.aggregation.state.ByteState;
 import com.facebook.presto.operator.aggregation.state.LongState;
+import com.facebook.presto.operator.aggregation.state.NullableLongState;
 import com.facebook.presto.operator.aggregation.state.StateCompiler;
 import com.facebook.presto.operator.aggregation.state.VarianceState;
 import com.facebook.presto.spi.block.Block;
@@ -32,6 +33,35 @@ import static org.testng.Assert.assertEquals;
 
 public class TestStateCompiler
 {
+    @Test
+    public void testPrimitiveNullableLongSerialization()
+    {
+        StateCompiler compiler = new StateCompiler();
+
+        AccumulatorStateFactory<NullableLongState> factory = compiler.generateStateFactory(NullableLongState.class);
+        AccumulatorStateSerializer<NullableLongState> serializer = compiler.generateStateSerializer(NullableLongState.class);
+        NullableLongState state = factory.createSingleState();
+        NullableLongState deserializedState = factory.createSingleState();
+
+        state.setLong(2);
+        state.setNull(false);
+
+        BlockBuilder builder = BigintType.BIGINT.createBlockBuilder(new BlockBuilderStatus());
+        serializer.serialize(state, builder);
+        state.setNull(true);
+        serializer.serialize(state, builder);
+
+        Block block = builder.build();
+
+        assertEquals(block.getLong(0), state.getLong());
+        serializer.deserialize(block, 0, deserializedState);
+        assertEquals(deserializedState.getLong(), state.getLong());
+
+        assertEquals(block.isNull(1), state.isNull());
+        serializer.deserialize(block, 1, deserializedState);
+        assertEquals(deserializedState.isNull(), state.isNull());
+    }
+
     @Test
     public void testPrimitiveLongSerialization()
     {

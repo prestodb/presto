@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.operator.aggregation.state;
 
+@AccumulatorStateMetadata(stateSerializerClass = NullableDoubleStateSerializer.class)
 public interface NullableDoubleState
         extends AccumulatorState
 {
