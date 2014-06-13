@@ -18,7 +18,6 @@ import com.google.inject.Binder;
 import com.google.inject.Injector;
 import com.google.inject.Key;
 import com.google.inject.Module;
-import com.google.inject.Scopes;
 import io.airlift.bootstrap.Bootstrap;
 import io.airlift.discovery.client.ServiceSelector;
 import io.airlift.discovery.client.testing.TestingDiscoveryModule;
@@ -36,6 +35,7 @@ import javax.ws.rs.Path;
 import static io.airlift.configuration.ConfigurationModule.bindConfig;
 import static io.airlift.discovery.client.DiscoveryBinder.discoveryBinder;
 import static io.airlift.discovery.client.ServiceTypes.serviceType;
+import static io.airlift.jaxrs.JaxrsBinder.jaxrsBinder;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
 
@@ -52,7 +52,7 @@ public class TestHeartbeatFailureDetector
                 new TestingHttpServerModule(),
                 new TraceTokenModule(),
                 new JsonModule(),
-                new JaxrsModule(),
+                new JaxrsModule(true),
                 new FailureDetectorModule(),
                 new Module()
                 {
@@ -65,7 +65,7 @@ public class TestHeartbeatFailureDetector
 
                         // Jersey with jetty 9 requires at least one resource
                         // todo add a dummy resource to airlift jaxrs in this case
-                        binder.bind(FooResource.class).in(Scopes.SINGLETON);
+                        jaxrsBinder(binder).bind(FooResource.class);
                     }
                 });
 

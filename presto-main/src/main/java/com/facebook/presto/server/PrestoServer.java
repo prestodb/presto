@@ -86,7 +86,7 @@ public class PrestoServer
                 new DiscoveryModule(),
                 new HttpServerModule(),
                 new JsonModule(),
-                new JaxrsModule(),
+                new JaxrsModule(true),
                 new MBeanModule(),
                 new JmxModule(),
                 new JmxHttpModule(),

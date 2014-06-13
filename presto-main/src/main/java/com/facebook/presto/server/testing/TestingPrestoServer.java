@@ -111,7 +111,7 @@ public class TestingPrestoServer
                 .add(new TestingNodeModule(Optional.fromNullable(environment)))
                 .add(new TestingHttpServerModule())
                 .add(new JsonModule())
-                .add(new JaxrsModule())
+                .add(new JaxrsModule(true))
                 .add(new MBeanModule())
                 .add(new TestingJmxModule())
                 .add(new InMemoryEventModule())
