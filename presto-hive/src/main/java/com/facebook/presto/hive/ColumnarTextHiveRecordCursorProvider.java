@@ -14,8 +14,6 @@
 package com.facebook.presto.hive;
 
 import com.google.common.base.Optional;
-import com.google.common.base.Throwables;
-import org.apache.hadoop.hive.metastore.api.MetaException;
 import org.apache.hadoop.hive.serde2.columnar.BytesRefArrayWritable;
 import org.apache.hadoop.hive.serde2.columnar.ColumnarSerDe;
 import org.apache.hadoop.mapred.RecordReader;
@@ -23,7 +21,7 @@ import org.joda.time.DateTimeZone;
 
 import java.util.List;
 
-import static org.apache.hadoop.hive.metastore.MetaStoreUtils.getDeserializer;
+import static com.facebook.presto.hive.HiveUtil.getDeserializer;
 
 public class ColumnarTextHiveRecordCursorProvider
         implements HiveRecordCursorProvider
@@ -46,12 +44,7 @@ public class ColumnarTextHiveRecordCursorProvider
 
     private static boolean usesColumnarTextSerDe(HiveSplit split)
     {
-        try {
-            return getDeserializer(null, split.getSchema()) instanceof ColumnarSerDe;
-        }
-        catch (MetaException e) {
-            throw Throwables.propagate(e);
-        }
+        return getDeserializer(split.getSchema()) instanceof ColumnarSerDe;
     }
 
     @SuppressWarnings("unchecked")

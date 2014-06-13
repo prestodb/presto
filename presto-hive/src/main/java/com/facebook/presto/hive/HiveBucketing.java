@@ -28,7 +28,6 @@ import org.apache.hadoop.hive.serde2.objectinspector.ObjectInspector;
 import org.apache.hadoop.hive.serde2.objectinspector.PrimitiveObjectInspector;
 import org.apache.hadoop.hive.serde2.objectinspector.StructField;
 import org.apache.hadoop.hive.serde2.objectinspector.primitive.IntObjectInspector;
-import org.apache.hadoop.hive.serde2.typeinfo.PrimitiveTypeSpec;
 
 import java.util.HashMap;
 import java.util.List;
@@ -88,7 +87,7 @@ final class HiveBucketing
             if ((inspector == null) || (inspector.getCategory() != Category.PRIMITIVE)) {
                 return Optional.absent();
             }
-            if (!SUPPORTED_TYPES.contains(((PrimitiveTypeSpec) inspector).getPrimitiveCategory())) {
+            if (!SUPPORTED_TYPES.contains(((PrimitiveObjectInspector) inspector).getPrimitiveCategory())) {
                 return Optional.absent();
             }
         }
