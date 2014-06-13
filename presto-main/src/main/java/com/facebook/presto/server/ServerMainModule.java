@@ -117,6 +117,7 @@ import static io.airlift.configuration.ConfigurationModule.bindConfig;
 import static io.airlift.discovery.client.DiscoveryBinder.discoveryBinder;
 import static io.airlift.event.client.EventBinder.eventBinder;
 import static io.airlift.http.client.HttpClientBinder.httpClientBinder;
+import static io.airlift.jaxrs.JaxrsBinder.jaxrsBinder;
 import static io.airlift.json.JsonBinder.jsonBinder;
 import static io.airlift.json.JsonCodecBinder.jsonCodecBinder;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
@@ -150,7 +151,7 @@ public class ServerMainModule
         bindFailureDetector(binder, serverConfig.isCoordinator());
 
         // task execution
-        binder.bind(TaskResource.class).in(Scopes.SINGLETON);
+        jaxrsBinder(binder).bind(TaskResource.class);
         binder.bind(TaskManager.class).to(SqlTaskManager.class).in(Scopes.SINGLETON);
         newExporter(binder).export(TaskManager.class).withGeneratedName();
         binder.bind(TaskExecutor.class).in(Scopes.SINGLETON);
@@ -162,7 +163,7 @@ public class ServerMainModule
         bindConfig(binder).to(TaskManagerConfig.class);
 
         jsonCodecBinder(binder).bindJsonCodec(TaskInfo.class);
-        binder.bind(PagesResponseWriter.class).in(Scopes.SINGLETON);
+        jaxrsBinder(binder).bind(PagesResponseWriter.class);
 
         // exchange client
         binder.bind(new TypeLiteral<Supplier<ExchangeClient>>() {}).to(ExchangeClientFactory.class).in(Scopes.SINGLETON);
@@ -249,10 +250,10 @@ public class ServerMainModule
         jsonCodecBinder(binder).bindJsonCodec(QueryInfo.class);
         jsonCodecBinder(binder).bindJsonCodec(TaskInfo.class);
         jsonCodecBinder(binder).bindJsonCodec(QueryResults.class);
-        binder.bind(StatementResource.class).in(Scopes.SINGLETON);
+        jaxrsBinder(binder).bind(StatementResource.class);
 
         // execute resource
-        binder.bind(ExecuteResource.class).in(Scopes.SINGLETON);
+        jaxrsBinder(binder).bind(ExecuteResource.class);
         httpClientBinder(binder).bindHttpClient("execute", ForExecute.class);
 
         // plugin manager
@@ -286,7 +287,7 @@ public class ServerMainModule
         blockEncodingFactoryBinder.addBinding().toInstance(ColorType.BLOCK_ENCODING_FACTORY);
 
         // thread visualizer
-        binder.bind(ThreadResource.class).in(Scopes.SINGLETON);
+        jaxrsBinder(binder).bind(ThreadResource.class);
     }
 
     @Provides
@@ -309,7 +310,7 @@ public class ServerMainModule
         // TODO: this is a hack until the coordinator module works correctly
         if (coordinator) {
             binder.install(new FailureDetectorModule());
-            binder.bind(NodeResource.class).in(Scopes.SINGLETON);
+            jaxrsBinder(binder).bind(NodeResource.class);
         }
         else {
             binder.bind(FailureDetector.class).toInstance(new FailureDetector()

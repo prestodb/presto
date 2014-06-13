@@ -65,6 +65,7 @@ import static io.airlift.http.client.Request.Builder.preparePost;
 import static io.airlift.http.client.ResponseHandlerUtils.propagate;
 import static io.airlift.http.client.StaticBodyGenerator.createStaticBodyGenerator;
 import static io.airlift.http.client.StatusResponseHandler.createStatusResponseHandler;
+import static io.airlift.jaxrs.JaxrsBinder.jaxrsBinder;
 import static io.airlift.json.JsonCodec.jsonCodec;
 import static org.testng.Assert.assertEquals;
 
@@ -84,19 +85,19 @@ public class TestQueryResourceServer
                 new InMemoryEventModule(),
                 new TestingHttpServerModule(),
                 new JsonModule(),
-                new JaxrsModule(),
+                new JaxrsModule(true),
                 new Module()
                 {
                     @Override
                     public void configure(Binder binder)
                     {
-                        binder.bind(QueryResource.class).in(Scopes.SINGLETON);
-                        binder.bind(StageResource.class).in(Scopes.SINGLETON);
-                        binder.bind(TaskResource.class).in(Scopes.SINGLETON);
+                        jaxrsBinder(binder).bind(QueryResource.class);
+                        jaxrsBinder(binder).bind(StageResource.class);
+                        jaxrsBinder(binder).bind(TaskResource.class);
                         binder.bind(QueryManager.class).to(MockQueryManager.class).in(Scopes.SINGLETON);
                         binder.bind(MockTaskManager.class).in(Scopes.SINGLETON);
                         binder.bind(TaskManager.class).to(Key.get(MockTaskManager.class)).in(Scopes.SINGLETON);
-                        binder.bind(PagesResponseWriter.class).in(Scopes.SINGLETON);
+                        jaxrsBinder(binder).bind(PagesResponseWriter.class);
                         binder.bind(InternalNodeManager.class).to(InMemoryNodeManager.class).in(Scopes.SINGLETON);
                         binder.bind(NodeManager.class).to(Key.get(InternalNodeManager.class)).in(Scopes.SINGLETON);
                         binder.bind(LocationFactory.class).to(HttpLocationFactory.class).in(Scopes.SINGLETON);

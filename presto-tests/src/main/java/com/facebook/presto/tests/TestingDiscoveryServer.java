@@ -56,7 +56,7 @@ public class TestingDiscoveryServer
                 new TestingNodeModule(environment),
                 new TestingHttpServerModule(),
                 new JsonModule(),
-                new JaxrsModule(),
+                new JaxrsModule(true),
                 new DiscoveryServerModule(),
                 new DiscoveryModule(),
                 new TestingJmxModule());

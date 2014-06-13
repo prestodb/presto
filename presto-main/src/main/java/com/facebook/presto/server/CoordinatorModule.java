@@ -63,6 +63,7 @@ import static io.airlift.concurrent.Threads.threadsNamed;
 import static io.airlift.configuration.ConfigurationModule.bindConfig;
 import static io.airlift.discovery.client.DiscoveryBinder.discoveryBinder;
 import static io.airlift.http.server.HttpServerBinder.httpServerBinder;
+import static io.airlift.jaxrs.JaxrsBinder.jaxrsBinder;
 import static io.airlift.json.JsonCodecBinder.jsonCodecBinder;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static org.weakref.jmx.ObjectNames.generatedNameOf;
@@ -81,8 +82,8 @@ public class CoordinatorModule
         discoveryBinder(binder).bindSelector("presto");
 
         // query manager
-        binder.bind(QueryResource.class).in(Scopes.SINGLETON);
-        binder.bind(StageResource.class).in(Scopes.SINGLETON);
+        jaxrsBinder(binder).bind(QueryResource.class);
+        jaxrsBinder(binder).bind(StageResource.class);
         binder.bind(QueryIdGenerator.class).in(Scopes.SINGLETON);
         binder.bind(QueryManager.class).to(SqlQueryManager.class).in(Scopes.SINGLETON);
         newExporter(binder).export(QueryManager.class).withGeneratedName();
