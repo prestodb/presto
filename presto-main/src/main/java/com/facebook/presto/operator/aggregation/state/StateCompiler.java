@@ -39,6 +39,7 @@ import io.airlift.slice.Slices;
 import org.objectweb.asm.ClassWriter;
 
 import java.lang.annotation.Annotation;
+import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -123,6 +124,16 @@ public class StateCompiler
 
     public <T> AccumulatorStateSerializer<T> generateStateSerializer(Class<T> clazz)
     {
+        AccumulatorStateMetadata metadata = clazz.getAnnotation(AccumulatorStateMetadata.class);
+        if (metadata != null && metadata.stateSerializerClass() != void.class) {
+            try {
+                return (AccumulatorStateSerializer<T>) metadata.stateSerializerClass().getConstructor().newInstance();
+            }
+            catch (InstantiationException | IllegalAccessException | NoSuchMethodException | InvocationTargetException e) {
+                throw Throwables.propagate(e);
+            }
+        }
+
         DynamicClassLoader classLoader = createClassLoader();
 
         ClassDefinition definition = new ClassDefinition(new CompilerContext(null),
@@ -295,6 +306,16 @@ public class StateCompiler
 
     public <T> AccumulatorStateFactory<T> generateStateFactory(Class<T> clazz)
     {
+        AccumulatorStateMetadata metadata = clazz.getAnnotation(AccumulatorStateMetadata.class);
+        if (metadata != null && metadata.stateFactoryClass() != void.class) {
+            try {
+                return (AccumulatorStateFactory<T>) metadata.stateFactoryClass().getConstructor().newInstance();
+            }
+            catch (InstantiationException | IllegalAccessException | NoSuchMethodException | InvocationTargetException e) {
+                throw Throwables.propagate(e);
+            }
+        }
+
         DynamicClassLoader classLoader = createClassLoader();
         Class<? extends T> singleStateClass = generateSingleStateClass(clazz, classLoader);
         Class<? extends T> groupedStateClass = generateGroupedStateClass(clazz, classLoader);

@@ -13,16 +13,16 @@
  */
 package com.facebook.presto.operator.aggregation.state;
 
-@AccumulatorStateMetadata(stateSerializerClass = NullableLongStateSerializer.class)
-public interface NullableLongState
-        extends AccumulatorState
+import java.lang.annotation.ElementType;
+import java.lang.annotation.Retention;
+import java.lang.annotation.RetentionPolicy;
+import java.lang.annotation.Target;
+
+@Retention(RetentionPolicy.RUNTIME)
+@Target(ElementType.TYPE)
+public @interface AccumulatorStateMetadata
 {
-    long getLong();
+    Class<?> stateSerializerClass() default void.class;
 
-    void setLong(long value);
-
-    @InitialBooleanValue(true)
-    boolean isNull();
-
-    void setNull(boolean value);
+    Class<?> stateFactoryClass() default void.class;
 }
