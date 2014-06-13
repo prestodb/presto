@@ -17,10 +17,8 @@ import com.facebook.presto.operator.aggregation.state.VarianceState;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockCursor;
 import com.facebook.presto.spi.type.Type;
-import io.airlift.slice.Slice;
 
 import static com.facebook.presto.operator.aggregation.OnlineVarianceCalculator.mergeState;
-import static com.facebook.presto.operator.aggregation.OnlineVarianceCalculator.toSlice;
 import static com.facebook.presto.operator.aggregation.OnlineVarianceCalculator.updateState;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
@@ -99,15 +97,8 @@ public class VarianceAggregation
     }
 
     @Override
-    protected void evaluateIntermediate(VarianceState state, BlockBuilder out)
+    protected void combineState(VarianceState state, VarianceState otherState)
     {
-        out.appendSlice(toSlice(state));
-    }
-
-    @Override
-    protected void processIntermediate(VarianceState state, BlockCursor cursor)
-    {
-        Slice slice = cursor.getSlice();
-        mergeState(state, slice);
+        mergeState(state, otherState);
     }
 }

@@ -13,15 +13,14 @@
  */
 package com.facebook.presto.operator.aggregation;
 
-import com.facebook.presto.operator.aggregation.state.AccumulatorState;
 import com.facebook.presto.operator.aggregation.state.InitialLongValue;
-import com.facebook.presto.spi.block.BlockBuilder;
+import com.facebook.presto.operator.aggregation.state.NullableLongState;
 import com.facebook.presto.spi.block.BlockCursor;
 
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 
 public class LongMinAggregation
-        extends AbstractAggregationFunction<LongMinAggregation.LongMinState>
+        extends AbstractSimpleAggregationFunction<LongMinAggregation.LongMinState>
 {
     public static final LongMinAggregation LONG_MIN = new LongMinAggregation();
 
@@ -33,31 +32,15 @@ public class LongMinAggregation
     @Override
     public void processInput(LongMinState state, BlockCursor cursor)
     {
-        state.setNotNull(true);
+        state.setNull(false);
         state.setLong(Math.min(state.getLong(), cursor.getLong()));
     }
 
-    @Override
-    public void evaluateFinal(LongMinState state, BlockBuilder out)
-    {
-        if (state.getNotNull()) {
-            out.appendLong(state.getLong());
-        }
-        else {
-            out.appendNull();
-        }
-    }
-
     public interface LongMinState
-            extends AccumulatorState
+            extends NullableLongState
     {
+        @Override
         @InitialLongValue(Long.MAX_VALUE)
         long getLong();
-
-        void setLong(long value);
-
-        boolean getNotNull();
-
-        void setNotNull(boolean value);
     }
 }

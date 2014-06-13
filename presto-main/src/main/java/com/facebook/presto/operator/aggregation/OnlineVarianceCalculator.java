@@ -124,11 +124,11 @@ public class OnlineVarianceCalculator
         return slice;
     }
 
-    public static void mergeState(VarianceState state, Slice slice)
+    public static void mergeState(VarianceState state, VarianceState otherState)
     {
-        long count = slice.getLong(COUNT_OFFSET);
-        double mean = slice.getDouble(MEAN_OFFSET);
-        double m2 = slice.getDouble(M2_OFFSET);
+        long count = otherState.getCount();
+        double mean = otherState.getMean();
+        double m2 = otherState.getM2();
 
         checkArgument(count >= 0, "count is negative");
         if (count == 0) {

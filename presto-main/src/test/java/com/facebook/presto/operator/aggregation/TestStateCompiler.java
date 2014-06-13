@@ -16,7 +16,6 @@ package com.facebook.presto.operator.aggregation;
 import com.facebook.presto.operator.aggregation.state.AccumulatorState;
 import com.facebook.presto.operator.aggregation.state.AccumulatorStateFactory;
 import com.facebook.presto.operator.aggregation.state.AccumulatorStateSerializer;
-import com.facebook.presto.operator.aggregation.state.ByteState;
 import com.facebook.presto.operator.aggregation.state.LongState;
 import com.facebook.presto.operator.aggregation.state.NullableLongState;
 import com.facebook.presto.operator.aggregation.state.StateCompiler;
@@ -202,5 +201,13 @@ public class TestStateCompiler
         boolean getBoolean();
 
         void setBoolean(boolean value);
+    }
+
+    public interface ByteState
+            extends AccumulatorState
+    {
+        byte getByte();
+
+        void setByte(byte value);
     }
 }

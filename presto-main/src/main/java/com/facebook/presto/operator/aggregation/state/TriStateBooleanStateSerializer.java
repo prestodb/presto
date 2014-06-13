@@ -11,38 +11,37 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.operator.aggregation;
+package com.facebook.presto.operator.aggregation.state;
 
-import com.facebook.presto.operator.aggregation.state.TriStateBooleanState;
-import com.facebook.presto.spi.block.BlockCursor;
+import com.facebook.presto.spi.block.Block;
+import com.facebook.presto.spi.block.BlockBuilder;
 
 import static com.facebook.presto.operator.aggregation.state.TriStateBooleanState.FALSE_VALUE;
 import static com.facebook.presto.operator.aggregation.state.TriStateBooleanState.NULL_VALUE;
 import static com.facebook.presto.operator.aggregation.state.TriStateBooleanState.TRUE_VALUE;
-import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 
-public class BooleanMaxAggregation
-        extends AbstractSimpleAggregationFunction<TriStateBooleanState>
+public class TriStateBooleanStateSerializer
+        implements AccumulatorStateSerializer<TriStateBooleanState>
 {
-    public static final BooleanMaxAggregation BOOLEAN_MAX = new BooleanMaxAggregation();
-
-    public BooleanMaxAggregation()
+    @Override
+    public void serialize(TriStateBooleanState state, BlockBuilder out)
     {
-        super(BOOLEAN, BOOLEAN, BOOLEAN);
+        if (state.getByte() == NULL_VALUE) {
+            out.appendNull();
+        }
+        else {
+            out.appendBoolean(state.getByte() == TRUE_VALUE);
+        }
     }
 
     @Override
-    protected void processInput(TriStateBooleanState state, BlockCursor cursor)
+    public void deserialize(Block block, int index, TriStateBooleanState state)
     {
-        // if value is true, update the max to true
-        if (cursor.getBoolean()) {
-            state.setByte(TRUE_VALUE);
+        if (block.isNull(index)) {
+            state.setByte(NULL_VALUE);
         }
         else {
-            // if the current value is null, set the max to false
-            if (state.getByte() == NULL_VALUE) {
-                state.setByte(FALSE_VALUE);
-            }
+            state.setByte(block.getBoolean(index) ? TRUE_VALUE : FALSE_VALUE);
         }
     }
 }

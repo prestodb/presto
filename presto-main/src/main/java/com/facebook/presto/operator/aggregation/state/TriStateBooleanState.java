@@ -13,9 +13,14 @@
  */
 package com.facebook.presto.operator.aggregation.state;
 
-public interface ByteState
+@AccumulatorStateMetadata(stateSerializerClass = TriStateBooleanStateSerializer.class)
+public interface TriStateBooleanState
         extends AccumulatorState
 {
+    byte NULL_VALUE = 0;
+    byte TRUE_VALUE = 1;
+    byte FALSE_VALUE = -1;
+
     byte getByte();
 
     void setByte(byte value);
