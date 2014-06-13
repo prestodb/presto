@@ -69,4 +69,6 @@ General Changes
 * Reduce the size of stats collected from tasks, which dramatically reduces
   garbage generation and improves coordinator stability
 * Fix compiler cache for expressions
+* Fix handling of Hive maps with null keys
+* Fix processing of empty or commented out statements in CLI
 
