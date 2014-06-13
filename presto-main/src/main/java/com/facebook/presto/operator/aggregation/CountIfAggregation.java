@@ -13,15 +13,14 @@
  */
 package com.facebook.presto.operator.aggregation;
 
-import com.facebook.presto.operator.aggregation.state.NullableLongState;
-import com.facebook.presto.spi.block.BlockBuilder;
+import com.facebook.presto.operator.aggregation.state.LongState;
 import com.facebook.presto.spi.block.BlockCursor;
 
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 
 public class CountIfAggregation
-        extends AbstractAggregationFunction<NullableLongState>
+        extends AbstractAggregationFunction<LongState>
 {
     public static final CountIfAggregation COUNT_IF = new CountIfAggregation();
 
@@ -31,7 +30,7 @@ public class CountIfAggregation
     }
 
     @Override
-    protected void processInput(NullableLongState state, BlockCursor cursor)
+    protected void processInput(LongState state, BlockCursor cursor)
     {
         if (cursor.getBoolean()) {
             state.setLong(state.getLong() + 1);
@@ -39,14 +38,8 @@ public class CountIfAggregation
     }
 
     @Override
-    protected void processIntermediate(NullableLongState state, BlockCursor cursor)
+    protected void combineState(LongState state, LongState otherState)
     {
-        state.setLong(state.getLong() + cursor.getLong());
-    }
-
-    @Override
-    protected void evaluateFinal(NullableLongState state, BlockBuilder out)
-    {
-        out.appendLong(state.getLong());
+        state.setLong(state.getLong() + otherState.getLong());
     }
 }

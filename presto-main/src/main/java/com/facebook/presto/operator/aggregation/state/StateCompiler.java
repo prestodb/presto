@@ -124,7 +124,7 @@ public class StateCompiler
 
     public <T> AccumulatorStateSerializer<T> generateStateSerializer(Class<T> clazz)
     {
-        AccumulatorStateMetadata metadata = clazz.getAnnotation(AccumulatorStateMetadata.class);
+        AccumulatorStateMetadata metadata = getMetadataAnnotation(clazz);
         if (metadata != null && metadata.stateSerializerClass() != void.class) {
             try {
                 return (AccumulatorStateSerializer<T>) metadata.stateSerializerClass().getConstructor().newInstance();
@@ -160,6 +160,23 @@ public class StateCompiler
         catch (InstantiationException | IllegalAccessException e) {
             throw Throwables.propagate(e);
         }
+    }
+
+    private static <T> AccumulatorStateMetadata getMetadataAnnotation(Class<T> clazz)
+    {
+        AccumulatorStateMetadata metadata = clazz.getAnnotation(AccumulatorStateMetadata.class);
+        if (metadata != null) {
+            return metadata;
+        }
+        // If the annotation wasn't found, then search the super classes
+        for (Class<?> superInterface : clazz.getInterfaces()) {
+            metadata = superInterface.getAnnotation(AccumulatorStateMetadata.class);
+            if (metadata != null) {
+                return metadata;
+            }
+        }
+
+        return null;
     }
 
     private static <T> void generateDeserialize(ClassDefinition definition, Class<T> clazz, List<StateField> fields)
@@ -306,7 +323,7 @@ public class StateCompiler
 
     public <T> AccumulatorStateFactory<T> generateStateFactory(Class<T> clazz)
     {
-        AccumulatorStateMetadata metadata = clazz.getAnnotation(AccumulatorStateMetadata.class);
+        AccumulatorStateMetadata metadata = getMetadataAnnotation(clazz);
         if (metadata != null && metadata.stateFactoryClass() != void.class) {
             try {
                 return (AccumulatorStateFactory<T>) metadata.stateFactoryClass().getConstructor().newInstance();

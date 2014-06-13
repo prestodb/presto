@@ -14,13 +14,12 @@
 package com.facebook.presto.operator.aggregation;
 
 import com.facebook.presto.operator.aggregation.state.NullableLongState;
-import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockCursor;
 
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 
 public class LongSumAggregation
-        extends AbstractAggregationFunction<NullableLongState>
+        extends AbstractSimpleAggregationFunction<NullableLongState>
 {
     public static final AggregationFunction LONG_SUM = new LongSumAggregation();
 
@@ -34,16 +33,5 @@ public class LongSumAggregation
     {
         state.setNull(false);
         state.setLong(state.getLong() + cursor.getLong());
-    }
-
-    @Override
-    public void evaluateFinal(NullableLongState state, BlockBuilder out)
-    {
-        if (state.isNull()) {
-            out.appendNull();
-        }
-        else {
-            out.appendLong(state.getLong());
-        }
     }
 }

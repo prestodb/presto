@@ -13,15 +13,14 @@
  */
 package com.facebook.presto.operator.aggregation;
 
-import com.facebook.presto.operator.aggregation.state.AccumulatorState;
 import com.facebook.presto.operator.aggregation.state.InitialDoubleValue;
-import com.facebook.presto.spi.block.BlockBuilder;
+import com.facebook.presto.operator.aggregation.state.NullableDoubleState;
 import com.facebook.presto.spi.block.BlockCursor;
 
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 
 public class DoubleMinAggregation
-        extends AbstractAggregationFunction<DoubleMinAggregation.DoubleMinState>
+        extends AbstractSimpleAggregationFunction<DoubleMinAggregation.DoubleMinState>
 {
     public static final DoubleMinAggregation DOUBLE_MIN = new DoubleMinAggregation();
 
@@ -33,31 +32,15 @@ public class DoubleMinAggregation
     @Override
     public void processInput(DoubleMinState state, BlockCursor cursor)
     {
-        state.setNotNull(true);
+        state.setNull(false);
         state.setDouble(Math.min(state.getDouble(), cursor.getDouble()));
     }
 
-    @Override
-    public void evaluateFinal(DoubleMinState state, BlockBuilder out)
-    {
-        if (state.getNotNull()) {
-            out.appendDouble(state.getDouble());
-        }
-        else {
-            out.appendNull();
-        }
-    }
-
     public interface DoubleMinState
-            extends AccumulatorState
+            extends NullableDoubleState
     {
+        @Override
         @InitialDoubleValue(Double.POSITIVE_INFINITY)
         double getDouble();
-
-        void setDouble(double value);
-
-        boolean getNotNull();
-
-        void setNotNull(boolean value);
     }
 }

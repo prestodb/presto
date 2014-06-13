@@ -16,6 +16,7 @@ package com.facebook.presto.operator.aggregation;
 import com.facebook.presto.operator.GroupByIdBlock;
 import com.facebook.presto.operator.aggregation.state.AccumulatorState;
 import com.facebook.presto.operator.aggregation.state.AccumulatorStateFactory;
+import com.facebook.presto.operator.aggregation.state.AccumulatorStateSerializer;
 import com.facebook.presto.operator.aggregation.state.GroupedAccumulatorState;
 import com.facebook.presto.operator.aggregation.state.StateCompiler;
 import com.facebook.presto.spi.block.Block;
@@ -25,6 +26,10 @@ import com.facebook.presto.spi.type.Type;
 import com.google.common.base.Optional;
 import io.airlift.event.client.TypeParameterUtils;
 
+import static com.facebook.presto.spi.type.BigintType.BIGINT;
+import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
+import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
+import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 
@@ -32,6 +37,7 @@ public abstract class AbstractAggregationFunction<T extends AccumulatorState>
         extends SimpleAggregationFunction
 {
     private final AccumulatorStateFactory<T> stateFactory;
+    private final AccumulatorStateSerializer<T> stateSerializer;
 
     protected AbstractAggregationFunction(Type finalType, Type intermediateType, Type parameterType)
     {
@@ -39,23 +45,27 @@ public abstract class AbstractAggregationFunction<T extends AccumulatorState>
         java.lang.reflect.Type[] types = TypeParameterUtils.getTypeParameters(AbstractAggregationFunction.class, getClass());
         checkState(types.length == 1 && types[0] instanceof Class);
         stateFactory = new StateCompiler().generateStateFactory((Class<T>) types[0]);
+        stateSerializer = new StateCompiler().generateStateSerializer((Class<T>) types[0]);
     }
 
     protected abstract void processInput(T state, BlockCursor cursor);
 
-    protected void evaluateIntermediate(T state, BlockBuilder out)
+    protected void processIntermediate(T state, T scratchState, Block block, int index)
     {
-        // Default to using the final evaluation
-        evaluateFinal(state, out);
+        stateSerializer.deserialize(block, index, scratchState);
+        combineState(state, scratchState);
     }
 
-    protected void processIntermediate(T state, BlockCursor cursor)
-    {
-        // Default to processing the intermediate as normal input
-        processInput(state, cursor);
-    }
+    /**
+     * Combine two states. The result should be stored in the first state.
+     */
+    protected abstract void combineState(T state, T otherState);
 
-    protected abstract void evaluateFinal(T state, BlockBuilder out);
+    protected void evaluateFinal(T state, BlockBuilder out)
+    {
+        checkState(getFinalType() == BIGINT || getFinalType() == DOUBLE || getFinalType() == BOOLEAN || getFinalType() == VARCHAR);
+        getStateSerializer().serialize(state, out);
+    }
 
     private T createSingleState()
     {
@@ -65,6 +75,11 @@ public abstract class AbstractAggregationFunction<T extends AccumulatorState>
     private T createGroupedState()
     {
         return stateFactory.createGroupedState();
+    }
+
+    protected AccumulatorStateSerializer<T> getStateSerializer()
+    {
+        return stateSerializer;
     }
 
     @Override
@@ -124,28 +139,24 @@ public abstract class AbstractAggregationFunction<T extends AccumulatorState>
         }
 
         @Override
-        protected void processIntermediate(GroupByIdBlock groupIdsBlock, Block intermediatesBlock)
+        protected void processIntermediate(GroupByIdBlock groupIdsBlock, Block intermediates)
         {
             groupedState.ensureCapacity(groupIdsBlock.getGroupCount());
-
-            BlockCursor intermediates = intermediatesBlock.cursor();
+            T scratchState = AbstractAggregationFunction.this.createSingleState();
 
             for (int position = 0; position < groupIdsBlock.getPositionCount(); position++) {
-                checkState(intermediates.advanceNextPosition());
-
-                if (!intermediates.isNull()) {
+                if (!intermediates.isNull(position)) {
                     groupedState.setGroupId(groupIdsBlock.getGroupId(position));
-                    AbstractAggregationFunction.this.processIntermediate(state, intermediates);
+                    AbstractAggregationFunction.this.processIntermediate(state, scratchState, intermediates, position);
                 }
             }
-            checkState(!intermediates.advanceNextPosition());
         }
 
         @Override
         public void evaluateIntermediate(int groupId, BlockBuilder output)
         {
             groupedState.setGroupId(groupId);
-            AbstractAggregationFunction.this.evaluateIntermediate(state, output);
+            getStateSerializer().serialize(state, output);
         }
 
         @Override
@@ -206,12 +217,10 @@ public abstract class AbstractAggregationFunction<T extends AccumulatorState>
         @Override
         protected void processIntermediate(Block block)
         {
-            BlockCursor intermediates = block.cursor();
-
+            T scratchState = AbstractAggregationFunction.this.createSingleState();
             for (int position = 0; position < block.getPositionCount(); position++) {
-                checkState(intermediates.advanceNextPosition());
-                if (!intermediates.isNull()) {
-                    AbstractAggregationFunction.this.processIntermediate(state, intermediates);
+                if (!block.isNull(position)) {
+                    AbstractAggregationFunction.this.processIntermediate(state, scratchState, block, position);
                 }
             }
         }
@@ -219,7 +228,7 @@ public abstract class AbstractAggregationFunction<T extends AccumulatorState>
         @Override
         protected void evaluateIntermediate(BlockBuilder out)
         {
-            AbstractAggregationFunction.this.evaluateIntermediate(state, out);
+            getStateSerializer().serialize(state, out);
         }
 
         @Override
