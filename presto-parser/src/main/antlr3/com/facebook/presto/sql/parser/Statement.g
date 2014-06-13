@@ -894,7 +894,7 @@ IDENT
     ;
 
 VIRTUAL_IDENT
-    : ('\@') ('\{')(IDENT | WS+)+('\}')
+    : ('\@') ('\{') (IDENT | ' ')+ ('\}')
     ;
 
 DIGIT_IDENT
