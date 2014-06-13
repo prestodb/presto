@@ -38,6 +38,7 @@ public class CatalogManager
     private static final Logger log = Logger.get(CatalogManager.class);
     private final ConnectorManager connectorManager;
     private final File catalogConfigurationDir;
+    private final AtomicBoolean catalogsLoading = new AtomicBoolean();
     private final AtomicBoolean catalogsLoaded = new AtomicBoolean();
 
     @Inject
@@ -52,10 +53,15 @@ public class CatalogManager
         this.catalogConfigurationDir = catalogConfigurationDir;
     }
 
+    public boolean areCatalogsLoaded()
+    {
+        return catalogsLoaded.get();
+    }
+
     public void loadCatalogs()
             throws Exception
     {
-        if (!catalogsLoaded.compareAndSet(false, true)) {
+        if (!catalogsLoading.compareAndSet(false, true)) {
             return;
         }
 
@@ -64,6 +70,8 @@ public class CatalogManager
                 loadCatalog(file);
             }
         }
+
+        catalogsLoaded.set(true);
     }
 
     private void loadCatalog(File file)

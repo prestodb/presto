@@ -83,6 +83,7 @@ public class PluginManager
     private final File installedPluginsDir;
     private final List<String> plugins;
     private final Map<String, String> optionalConfig;
+    private final AtomicBoolean pluginsLoading = new AtomicBoolean();
     private final AtomicBoolean pluginsLoaded = new AtomicBoolean();
 
     @Inject
@@ -134,7 +135,7 @@ public class PluginManager
     public void loadPlugins()
             throws Exception
     {
-        if (!pluginsLoaded.compareAndSet(false, true)) {
+        if (!pluginsLoading.compareAndSet(false, true)) {
             return;
         }
 
@@ -147,6 +148,8 @@ public class PluginManager
         for (String plugin : plugins) {
             loadPlugin(plugin);
         }
+
+        pluginsLoaded.set(true);
     }
 
     @SuppressWarnings("UnusedDeclaration")
