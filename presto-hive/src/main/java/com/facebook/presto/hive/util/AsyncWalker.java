@@ -31,19 +31,27 @@ import java.util.concurrent.atomic.AtomicLong;
 import static com.facebook.presto.hadoop.HadoopFileStatus.isDirectory;
 import static com.google.common.base.Preconditions.checkNotNull;
 
-public class AsyncRecursiveWalker
+public class AsyncWalker
 {
     private final FileSystem fileSystem;
     private final Executor executor;
     private final DirectoryLister directoryLister;
     private final NamenodeStats namenodeStats;
+    private final boolean recursiveDirWalkerEnabled;
 
-    public AsyncRecursiveWalker(FileSystem fileSystem, Executor executor, DirectoryLister directoryLister, NamenodeStats namenodeStats)
+    public AsyncWalker(
+        FileSystem fileSystem,
+        Executor executor,
+        DirectoryLister directoryLister,
+        NamenodeStats namenodeStats,
+        boolean recursiveDirWalkerEnabled)
     {
         this.fileSystem = checkNotNull(fileSystem, "fileSystem is null");
         this.executor = checkNotNull(executor, "executor is null");
         this.directoryLister = checkNotNull(directoryLister, "directoryLister is null");
         this.namenodeStats = checkNotNull(namenodeStats, "namenodeStats is null");
+        this.recursiveDirWalkerEnabled =
+            checkNotNull(recursiveDirWalkerEnabled, "recursiveDirWalkerEnabled is null");
     }
 
     public ListenableFuture<Void> beginWalk(Path path, FileStatusCallback callback)
@@ -73,7 +81,7 @@ public class AsyncRecursiveWalker
 
     private void doWalk(Path path, FileStatusCallback callback, AtomicLong taskCount, SettableFuture<Void> future)
     {
-        try (SetThreadName ignored = new SetThreadName("HiveHdfsWalker")) {
+        try {
             RemoteIterator<LocatedFileStatus> iterator = getLocatedFileStatusRemoteIterator(path);
 
             while (iterator.hasNext()) {
@@ -85,7 +93,12 @@ public class AsyncRecursiveWalker
                     continue;
                 }
                 if (isDirectory(status)) {
-                    recursiveWalk(status.getPath(), callback, taskCount, future);
+                    if (recursiveDirWalkerEnabled == true) {
+                        recursiveWalk(status.getPath(), callback, taskCount, future);
+                    }
+                    else {
+                        continue;
+                    }
                 }
                 else {
                     callback.process(status, status.getBlockLocations());
