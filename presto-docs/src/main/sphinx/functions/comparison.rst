@@ -1,5 +1,5 @@
 ====================================
-Comparison Operators
+Comparison Functions and Operators
 ====================================
 
 Presto supports the following comparison operators:
@@ -139,3 +139,18 @@ A         B         A = B      A <> B     A IS DISTINCT B  A IS NOT DISTINCT B
 ``1``     ``NULL``  ``NULL``   ``NULL``   ``TRUE``         ``FALSE``
 ``NULL``  ``NULL``  ``NULL``   ``NULL``   ``FALSE``        ``TRUE``
 ========  ========  =========  =========  ===============  ===================
+
+Comparison Functions
+--------------------
+
+.. function:: greatest(value, value) -> [same as input]
+
+    Returns the largest of the provided values. This function currently supports
+    the following types: ``DOUBLE``, ``BIGINT``, ``VARCHAR``, ``TIMESTAMP``,
+    ``TIMESTAMP WITH TIME ZONE``, ``DATE``
+
+.. function:: least(value, value) -> [same as input]
+
+    Returns the smallest of the provided values. This function currently supports
+    the following types: ``DOUBLE``, ``BIGINT``, ``VARCHAR``, ``TIMESTAMP``,
+    ``TIMESTAMP WITH TIME ZONE``, ``DATE``
