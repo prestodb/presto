@@ -91,7 +91,8 @@ public abstract class AbstractTestHiveClient
 {
     private static final ConnectorSession SESSION = new ConnectorSession("user", "test", "default", "default", UTC_KEY, Locale.ENGLISH, null, null);
 
-    protected static final String INVALID_DATABASE = "totally_invalid_database";
+    protected static final String INVALID_DATABASE = "totally_invalid_database_name";
+    protected static final String INVALID_TABLE = "totally_invalid_table_name";
     protected static final String INVALID_COLUMN = "totally_invalid_column_name";
 
     protected String database;
@@ -139,7 +140,7 @@ public abstract class AbstractTestHiveClient
         tableOffline = new SchemaTableName(database, "presto_test_offline");
         tableOfflinePartition = new SchemaTableName(database, "presto_test_offline_partition");
         view = new SchemaTableName(database, "presto_test_view");
-        invalidTable = new SchemaTableName(database, "totally_invalid_table_name");
+        invalidTable = new SchemaTableName(database, INVALID_TABLE);
         tableBucketedStringInt = new SchemaTableName(database, "presto_test_bucketed_by_string_int");
         tableBucketedBigintBoolean = new SchemaTableName(database, "presto_test_bucketed_by_bigint_boolean");
         tableBucketedDoubleFloat = new SchemaTableName(database, "presto_test_bucketed_by_double_float");
@@ -149,7 +150,7 @@ public abstract class AbstractTestHiveClient
         temporaryCreateView = new SchemaTableName(database, "tmp_presto_test_create_" + randomName());
         tableOwner = "presto_test";
 
-        invalidTableHandle = new HiveTableHandle("hive", database, "totally_invalid_table_name", SESSION);
+        invalidTableHandle = new HiveTableHandle("hive", database, INVALID_TABLE, SESSION);
 
         dsColumn = new HiveColumnHandle(connectorId, "ds", 0, HiveType.STRING, -1, true);
         fileFormatColumn = new HiveColumnHandle(connectorId, "file_format", 1, HiveType.STRING, -1, true);
@@ -250,9 +251,9 @@ public abstract class AbstractTestHiveClient
     @Test
     public void testListUnknownSchema()
     {
-        assertNull(metadata.getTableHandle(SESSION, new SchemaTableName("totally_invalid_database_name", "dual")));
-        assertEquals(metadata.listTables(SESSION, "totally_invalid_database_name"), ImmutableList.of());
-        assertEquals(metadata.listTableColumns(SESSION, new SchemaTablePrefix("totally_invalid_database_name", "dual")), ImmutableMap.of());
+        assertNull(metadata.getTableHandle(SESSION, new SchemaTableName(INVALID_DATABASE, "dual")));
+        assertEquals(metadata.listTables(SESSION, INVALID_DATABASE), ImmutableList.of());
+        assertEquals(metadata.listTableColumns(SESSION, new SchemaTablePrefix(INVALID_DATABASE, "dual")), ImmutableMap.of());
     }
 
     @Test
