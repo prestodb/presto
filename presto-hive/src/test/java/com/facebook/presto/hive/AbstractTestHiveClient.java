@@ -240,20 +240,14 @@ public abstract class AbstractTestHiveClient
         assertTrue(tables.contains(table));
     }
 
-    // disabled until metadata manager is updated to handle invalid catalogs and schemas
-    @Test(enabled = false, expectedExceptions = SchemaNotFoundException.class)
-    public void testGetTableNamesException()
-            throws Exception
-    {
-        metadata.listTables(SESSION, INVALID_DATABASE);
-    }
-
     @Test
     public void testListUnknownSchema()
     {
         assertNull(metadata.getTableHandle(SESSION, new SchemaTableName(INVALID_DATABASE, "dual")));
         assertEquals(metadata.listTables(SESSION, INVALID_DATABASE), ImmutableList.of());
         assertEquals(metadata.listTableColumns(SESSION, new SchemaTablePrefix(INVALID_DATABASE, "dual")), ImmutableMap.of());
+        assertEquals(metadata.listViews(SESSION, INVALID_DATABASE), ImmutableList.of());
+        assertEquals(metadata.getViews(SESSION, new SchemaTablePrefix(INVALID_DATABASE, INVALID_TABLE)), ImmutableMap.of());
     }
 
     @Test
