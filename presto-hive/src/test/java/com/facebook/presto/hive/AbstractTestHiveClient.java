@@ -243,9 +243,9 @@ public abstract class AbstractTestHiveClient
     @Test
     public void testListUnknownSchema()
     {
-        assertNull(metadata.getTableHandle(SESSION, new SchemaTableName(INVALID_DATABASE, "dual")));
+        assertNull(metadata.getTableHandle(SESSION, new SchemaTableName(INVALID_DATABASE, INVALID_TABLE)));
         assertEquals(metadata.listTables(SESSION, INVALID_DATABASE), ImmutableList.of());
-        assertEquals(metadata.listTableColumns(SESSION, new SchemaTablePrefix(INVALID_DATABASE, "dual")), ImmutableMap.of());
+        assertEquals(metadata.listTableColumns(SESSION, new SchemaTablePrefix(INVALID_DATABASE, INVALID_TABLE)), ImmutableMap.of());
         assertEquals(metadata.listViews(SESSION, INVALID_DATABASE), ImmutableList.of());
         assertEquals(metadata.getViews(SESSION, new SchemaTablePrefix(INVALID_DATABASE, INVALID_TABLE)), ImmutableMap.of());
     }
