@@ -7,6 +7,7 @@ Functions and Operators
 
     functions/logical
     functions/comparison
+    functions/conditional
     functions/conversion
     functions/math
     functions/string
