@@ -92,6 +92,8 @@ public class HiveRecordSink
         properties.setProperty(META_TABLE_COLUMNS, Joiner.on(',').join(handle.getColumnNames()));
         properties.setProperty(META_TABLE_COLUMN_TYPES, Joiner.on(':').join(hiveTypeNames));
 
+        conf = new JobConf(conf);
+        conf.set("hive.exec.orc.default.compress", "NONE");
         serializer = initializeSerializer(conf, properties, new OrcSerde());
         recordWriter = createRecordWriter(target, conf, properties, new OrcOutputFormat());
 
