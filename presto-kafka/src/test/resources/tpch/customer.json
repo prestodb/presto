@@ -1,0 +1,61 @@
+{
+    "tableName": "customer",
+    "schemaName": "tpch",
+    "topicName": "tpch.customer",
+    "key": {
+        "dataFormat": "raw",
+        "fields": [
+            {
+                "name": "kafka_key",
+                "dataFormat": "LONG",
+                "type": "BIGINT",
+                "hidden": "true"
+            }
+        ]
+    },
+    "message": {
+        "dataFormat": "json",
+        "fields": [
+            {
+                "name": "custkey",
+                "mapping": "custkey",
+                "type": "BIGINT"
+            },
+            {
+                "name": "name",
+                "mapping": "name",
+                "type": "VARCHAR"
+            },
+            {
+                "name": "address",
+                "mapping": "address",
+                "type": "VARCHAR"
+            },
+            {
+                "name": "nationkey",
+                "mapping": "nationkey",
+                "type": "BIGINT"
+            },
+            {
+                "name": "phone",
+                "mapping": "phone",
+                "type": "VARCHAR"
+            },
+            {
+                "name": "acctbal",
+                "mapping": "acctbal",
+                "type": "DOUBLE"
+            },
+            {
+                "name": "mktsegment",
+                "mapping": "mktsegment",
+                "type": "VARCHAR"
+            },
+            {
+                "name": "comment",
+                "mapping": "comment",
+                "type": "VARCHAR"
+            }
+        ]
+    }
+}
