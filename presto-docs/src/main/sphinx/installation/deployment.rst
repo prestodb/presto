@@ -178,8 +178,7 @@ These properties require some explanation:
   on startup. In order to simplify deployment and avoid running an additional
   service, the Presto coordinator can run an embedded version of the
   Discovery service. It shares the HTTP server with Presto and thus uses
-  the same port. For larger clusters, we recommend running Discovery as a
-  dedicated service. See :doc:`discovery` for details.
+  the same port.
 
 * ``discovery.uri``:
   The URI to the Discovery server. Because we have enabled the embedded

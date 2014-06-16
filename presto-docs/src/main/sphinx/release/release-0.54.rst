@@ -32,5 +32,5 @@ Release 0.54
 
 * Log an error when the JVM code cache is full.
 
-* Upgrade the embedded :doc:`/installation/discovery` to allow using
+* Upgrade the embedded Discovery server to allow using
   non-UUID values for the ``node.id`` property.
