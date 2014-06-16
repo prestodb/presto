@@ -55,6 +55,7 @@ public class TestVerifierConfig
                 .setControlCatalogOverride(null)
                 .setControlSchemaOverride(null)
                 .setQuiet(false)
+                .setVerboseResultsComparison(false)
                 .setEventLogFile(null));
     }
 
@@ -69,6 +70,7 @@ public class TestVerifierConfig
                 .put("thread-count", "1")
                 .put("blacklist", "1,2")
                 .put("whitelist", "3,4")
+                .put("verbose-results-comparison", "true")
                 .put("max-row-count", "1")
                 .put("max-queries", "1")
                 .put("always-report", "true")
@@ -103,6 +105,7 @@ public class TestVerifierConfig
                 .setMaxRowCount(1)
                 .setMaxQueries(1)
                 .setAlwaysReport(true)
+                .setVerboseResultsComparison(true)
                 .setSuiteRepetitions(2)
                 .setQueryRepetitions(2)
                 .setCheckCorrectnessEnabled(false)

@@ -66,6 +66,7 @@ public class Validator
     private final Duration testTimeout;
     private final int maxRowCount;
     private final boolean checkCorrectness;
+    private final boolean verboseResultsComparison;
     private final QueryPair queryPair;
 
     private Boolean valid;
@@ -88,6 +89,7 @@ public class Validator
         this.testTimeout = config.getTestTimeout();
         this.maxRowCount = config.getMaxRowCount();
         this.checkCorrectness = config.isCheckCorrectnessEnabled();
+        this.verboseResultsComparison = config.isVerboseResultsComparison();
 
         this.queryPair = checkNotNull(queryPair, "queryPair is null");
     }
@@ -353,7 +355,12 @@ public class Validator
             StringBuilder sb = new StringBuilder();
 
             sb.append(format("Control %s rows, Test %s rows%n", control.size(), test.size()));
-            Joiner.on("\n").appendTo(sb, diff);
+            if (verboseResultsComparison) {
+                Joiner.on("\n").appendTo(sb, diff);
+            }
+            else {
+                sb.append("RESULTS DO NOT MATCH\n");
+            }
 
             return sb.toString();
         }
