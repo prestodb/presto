@@ -44,6 +44,7 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.concurrent.Callable;
 import java.util.concurrent.TimeUnit;
+import java.util.regex.Pattern;
 
 import static com.facebook.presto.verifier.QueryResult.State;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -88,7 +89,15 @@ public class Validator
         this.controlTimeout = config.getControlTimeout();
         this.testTimeout = config.getTestTimeout();
         this.maxRowCount = config.getMaxRowCount();
-        this.checkCorrectness = config.isCheckCorrectnessEnabled();
+        // Check if either the control query or the test query matches the regex
+        if (Pattern.matches(config.getSkipCorrectnessRegex(), queryPair.getTest().getQuery()) ||
+                Pattern.matches(config.getSkipCorrectnessRegex(), queryPair.getControl().getQuery())) {
+            // If so disable correctness checking
+            this.checkCorrectness = false;
+        }
+        else {
+            this.checkCorrectness = config.isCheckCorrectnessEnabled();
+        }
         this.verboseResultsComparison = config.isVerboseResultsComparison();
 
         this.queryPair = checkNotNull(queryPair, "queryPair is null");
