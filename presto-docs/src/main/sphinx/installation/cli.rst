@@ -7,7 +7,8 @@ queries. The CLI is a
 `self-executing <http://skife.org/java/unix/2011/06/20/really_executable_jars.html>`_
 JAR file, which means it acts like a normal UNIX executable.
 
-Download :download:`cli`, rename it to ``presto``, then run it:
+Download :download:`cli`, rename it to ``presto``,
+make it executable with ``chmod +x``, then run it:
 
 .. code-block:: none
 
