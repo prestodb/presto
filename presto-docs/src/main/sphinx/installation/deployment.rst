@@ -132,6 +132,18 @@ And this is a minimal configuration for the workers:
     task.max-memory=1GB
     discovery.uri=http://example.net:8080
 
+Alternatively, if you are setting up a single machine for testing that
+will function as both a coordinator and worker, use this configuration:
+
+.. code-block:: none
+
+    coordinator=true
+    node-scheduler.include-coordinator=true
+    http-server.http.port=8080
+    task.max-memory=1GB
+    discovery-server.enabled=true
+    discovery.uri=http://example.net:8080
+
 These properties require some explanation:
 
 * ``coordinator``:
