@@ -281,6 +281,9 @@ public class HiveClient
     {
         try {
             Table table = metastore.getTable(tableName.getSchemaName(), tableName.getTableName());
+            if (table.getTableType().equals(TableType.VIRTUAL_VIEW.name())) {
+                throw new TableNotFoundException(tableName);
+            }
             List<ColumnMetadata> columns = ImmutableList.copyOf(transform(getColumnHandles(table, false), columnMetadataGetter()));
             return new ConnectorTableMetadata(tableName, columns, table.getOwner());
         }
