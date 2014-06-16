@@ -97,17 +97,26 @@ a        b        a = a     a <> b    a DISTINCT b a NOT DISTINCT b
 ``NULL`` ``NULL`` ``NULL``  ``NULL``  ``FALSE``       ``TRUE``
 ======== ======== ========= ========= ============ ================
 
-Comparison Functions
---------------------
+GREATEST and LEAST
+------------------
 
-.. function:: greatest(value, value) -> [same as input]
+These functions are not in the SQL standard, but are a common extension.
+Like most other functions in Presto, they return null if any argument is
+null. Note that in some other databases, such as PostgreSQL, they only
+return null if all arguments are null.
 
-    Returns the largest of the provided values. This function currently supports
-    the following types: ``DOUBLE``, ``BIGINT``, ``VARCHAR``, ``TIMESTAMP``,
-    ``TIMESTAMP WITH TIME ZONE``, ``DATE``
+The following types are supported:
+``DOUBLE``,
+``BIGINT``,
+``VARCHAR``,
+``TIMESTAMP``,
+``TIMESTAMP WITH TIME ZONE``,
+``DATE``
 
-.. function:: least(value, value) -> [same as input]
+.. function:: greatest(value1, value2) -> [same as input]
 
-    Returns the smallest of the provided values. This function currently supports
-    the following types: ``DOUBLE``, ``BIGINT``, ``VARCHAR``, ``TIMESTAMP``,
-    ``TIMESTAMP WITH TIME ZONE``, ``DATE``
+    Returns the largest of the provided values.
+
+.. function:: least(value1, value2) -> [same as input]
+
+    Returns the smallest of the provided values.
