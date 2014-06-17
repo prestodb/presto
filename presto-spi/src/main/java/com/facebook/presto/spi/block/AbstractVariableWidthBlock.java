@@ -68,7 +68,11 @@ public abstract class AbstractVariableWidthBlock
         if (positionOffset < 0 || length < 0 || positionOffset + length > positionCount) {
             throw new IndexOutOfBoundsException("Invalid position " + positionOffset + " in block with " + positionCount + " positions");
         }
-        return cursor().getRegionAndAdvance(length);
+        BlockCursor cursor = cursor();
+        if (positionOffset > 0 && !cursor.advanceToPosition(positionOffset - 1)) {
+            throw new IllegalStateException();
+        }
+        return cursor.getRegionAndAdvance(length);
     }
 
     @Override
