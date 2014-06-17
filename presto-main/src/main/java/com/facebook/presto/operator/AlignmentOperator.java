@@ -13,10 +13,9 @@
  */
 package com.facebook.presto.operator;
 
-import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.block.BlockCursor;
 import com.facebook.presto.block.BlockIterable;
 import com.facebook.presto.block.BlockIterables;
+import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
@@ -84,7 +83,7 @@ public class AlignmentOperator
     private final Optional<Integer> expectedPositionCount;
 
     private final List<Iterator<Block>> iterators;
-    private final List<BlockCursor> cursors;
+    private final List<BlockPosition> blockPositions;
 
     private boolean finished;
 
@@ -107,11 +106,10 @@ public class AlignmentOperator
         }
         this.iterators = iterators.build();
 
-        // open the cursors
-        cursors = new ArrayList<>(this.iterators.size());
+        blockPositions = new ArrayList<>(this.iterators.size());
         if (this.iterators.get(0).hasNext()) {
             for (Iterator<Block> iterator : this.iterators) {
-                cursors.add(iterator.next().cursor());
+                blockPositions.add(new BlockPosition(iterator.next()));
             }
         }
         else {
@@ -182,7 +180,7 @@ public class AlignmentOperator
         }
 
         // all iterators should end together
-        if (cursors.get(0).getRemainingPositions() <= 0 && !iterators.get(0).hasNext()) {
+        if (blockPositions.get(0).getRemainingPositions() <= 0 && !iterators.get(0).hasNext()) {
             for (Iterator<Block> iterator : iterators) {
                 checkState(!iterator.hasNext());
             }
@@ -195,19 +193,19 @@ public class AlignmentOperator
         for (int i = 0; i < iterators.size(); i++) {
             Iterator<? extends Block> iterator = iterators.get(i);
 
-            BlockCursor cursor = cursors.get(i);
-            if (cursor.getRemainingPositions() <= 0) {
+            BlockPosition blockPosition = blockPositions.get(i);
+            if (blockPosition.getRemainingPositions() <= 0) {
                 // load next block
-                cursor = iterator.next().cursor();
-                cursors.set(i, cursor);
+                blockPosition = new BlockPosition(iterator.next());
+                blockPositions.set(i, blockPosition);
             }
-            length = Math.min(length, cursor.getRemainingPositions());
+            length = Math.min(length, blockPosition.getRemainingPositions());
         }
 
         // build page
         Block[] blocks = new Block[iterators.size()];
-        for (int i = 0; i < cursors.size(); i++) {
-            blocks[i] = cursors.get(i).getRegionAndAdvance(length);
+        for (int i = 0; i < blockPositions.size(); i++) {
+            blocks[i] = blockPositions.get(i).getRegionAndAdvance(length);
         }
 
         Page page = new Page(blocks);
@@ -222,5 +220,28 @@ public class AlignmentOperator
             types.add(channel.getType());
         }
         return types.build();
+    }
+
+    private final class BlockPosition
+    {
+        private final Block block;
+        private int position;
+
+        private BlockPosition(Block block)
+        {
+            this.block = block;
+        }
+
+        public Block getRegionAndAdvance(int length)
+        {
+            Block region = block.getRegion(position, length);
+            position += length;
+            return region;
+        }
+
+        public int getRemainingPositions()
+        {
+            return block.getPositionCount() - position;
+        }
     }
 }
