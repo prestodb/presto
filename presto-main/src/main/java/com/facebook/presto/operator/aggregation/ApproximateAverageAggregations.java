@@ -13,44 +13,14 @@
  */
 package com.facebook.presto.operator.aggregation;
 
-import com.facebook.presto.operator.aggregation.ApproximateAverageAggregation.ApproximateAverageAccumulator;
-import com.facebook.presto.operator.aggregation.ApproximateAverageAggregation.ApproximateAverageGroupedAccumulator;
-import com.facebook.presto.operator.aggregation.SimpleAggregationFunction.SimpleAccumulator;
-import com.facebook.presto.operator.aggregation.SimpleAggregationFunction.SimpleGroupedAccumulator;
-import com.facebook.presto.spi.type.Type;
-import com.google.common.base.Throwables;
-
+import static com.facebook.presto.operator.aggregation.AggregationUtils.createIsolatedApproximateAggregation;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 
 public final class ApproximateAverageAggregations
 {
-    public static final AggregationFunction LONG_APPROXIMATE_AVERAGE_AGGREGATION = createIsolatedAggregation(BIGINT);
-    public static final AggregationFunction DOUBLE_APPROXIMATE_AVERAGE_AGGREGATION = createIsolatedAggregation(DOUBLE);
+    public static final AggregationFunction LONG_APPROXIMATE_AVERAGE_AGGREGATION = createIsolatedApproximateAggregation(ApproximateAverageAggregation.class, BIGINT);
+    public static final AggregationFunction DOUBLE_APPROXIMATE_AVERAGE_AGGREGATION = createIsolatedApproximateAggregation(ApproximateAverageAggregation.class, DOUBLE);
 
     private ApproximateAverageAggregations() {}
-
-    private static AggregationFunction createIsolatedAggregation(Type parameterType)
-    {
-        Class<? extends AggregationFunction> functionClass = IsolatedClass.isolateClass(
-                AggregationFunction.class,
-
-                ApproximateAverageAggregation.class,
-                SimpleAggregationFunction.class,
-
-                ApproximateAverageGroupedAccumulator.class,
-                SimpleGroupedAccumulator.class,
-
-                ApproximateAverageAccumulator.class,
-                SimpleAccumulator.class);
-
-        try {
-            return functionClass
-                    .getConstructor(Type.class)
-                    .newInstance(parameterType);
-        }
-        catch (Exception e) {
-            throw Throwables.propagate(e);
-        }
-    }
 }

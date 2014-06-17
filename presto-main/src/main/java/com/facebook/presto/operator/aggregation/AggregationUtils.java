@@ -22,6 +22,32 @@ public final class AggregationUtils
     {
     }
 
+    public static AggregationFunction createIsolatedApproximateAggregation(Class<? extends AbstractApproximateAggregationFunction> aggregationClass, Type parameterType)
+    {
+        Class<? extends AggregationFunction> functionClass = IsolatedClass.isolateClass(
+                AggregationFunction.class,
+
+                aggregationClass,
+
+                AbstractApproximateAggregationFunction.class,
+                SimpleAggregationFunction.class,
+
+                AbstractApproximateAggregationFunction.GenericGroupedAccumulator.class,
+                SimpleAggregationFunction.SimpleGroupedAccumulator.class,
+
+                AbstractApproximateAggregationFunction.GenericAccumulator.class,
+                SimpleAggregationFunction.SimpleAccumulator.class);
+
+        try {
+            return functionClass
+                    .getConstructor(Type.class)
+                    .newInstance(parameterType);
+        }
+        catch (Exception e) {
+            throw Throwables.propagate(e);
+        }
+    }
+
     public static AggregationFunction createIsolatedAggregation(Class<? extends AggregationFunction> aggregationClass, Type parameterType)
     {
         Class<? extends AggregationFunction> functionClass = IsolatedClass.isolateClass(
