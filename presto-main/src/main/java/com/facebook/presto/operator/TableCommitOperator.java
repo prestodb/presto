@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.operator;
 
-import com.facebook.presto.spi.block.BlockCursor;
+import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -22,7 +22,6 @@ import java.util.Collection;
 import java.util.List;
 
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
-import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 
@@ -127,13 +126,11 @@ public class TableCommitOperator
         checkNotNull(page, "page is null");
         checkState(state == State.RUNNING, "Operator is %s", state);
 
-        BlockCursor rowCountCursor = page.getBlock(0).cursor();
-        BlockCursor fragmentCursor = page.getBlock(1).cursor();
-        for (int i = 0; i < page.getPositionCount(); i++) {
-            checkArgument(rowCountCursor.advanceNextPosition());
-            checkArgument(fragmentCursor.advanceNextPosition());
-            rowCount += rowCountCursor.getLong();
-            fragmentBuilder.add(fragmentCursor.getSlice().toStringUtf8());
+        Block rowCountBlock = page.getBlock(0);
+        Block fragmentBlock = page.getBlock(1);
+        for (int position = 0; position < page.getPositionCount(); position++) {
+            rowCount += rowCountBlock.getLong(position);
+            fragmentBuilder.add(fragmentBlock.getSlice(position).toStringUtf8());
         }
     }
 
