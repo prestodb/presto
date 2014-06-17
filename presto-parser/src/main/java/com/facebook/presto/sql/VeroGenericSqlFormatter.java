@@ -33,11 +33,11 @@ import com.facebook.presto.sql.tree.Select;
 import com.facebook.presto.sql.tree.SelectItem;
 import com.google.common.base.Joiner;
 
-public class VeroSqlFormatter
+public class VeroGenericSqlFormatter
 {
     private static final String INDENT = "    ";
 
-    private VeroSqlFormatter() {}
+    private VeroGenericSqlFormatter() {}
 
     public static String formatSql(Node root)
     {
@@ -201,7 +201,7 @@ public class VeroSqlFormatter
 
             return null;
         }
-
+        
         @Override
         protected Void visitCreateTempTable(CreateTempTable node, Integer indent)
         {
@@ -210,8 +210,6 @@ public class VeroSqlFormatter
                     .append(" AS ");
 
             process(node.getQuery(), indent);
-
-            builder.append(" WITH DATA");
 
             return null;
         }

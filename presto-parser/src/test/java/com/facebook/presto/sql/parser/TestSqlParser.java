@@ -13,7 +13,8 @@
  */
 package com.facebook.presto.sql.parser;
 
-import com.facebook.presto.sql.VeroSqlFormatter;
+import com.facebook.presto.sql.VeroGenericSqlFormatter;
+import com.facebook.presto.sql.VeroPostgreSqlFormatter;
 import com.facebook.presto.sql.tree.AllColumns;
 import com.facebook.presto.sql.tree.Approximate;
 import com.facebook.presto.sql.tree.Cast;
@@ -66,7 +67,7 @@ public class TestSqlParser
         Statement statement = SqlParser.createStatement(sql);
         System.out.println("CommonTree: " + TreePrinter.treeToString(tree));
         System.out.println("Statement: " + statement.toString());
-        System.out.println("Formatter: " + VeroSqlFormatter.formatSql(statement));
+        System.out.println("Formatter: " + VeroGenericSqlFormatter.formatSql(statement));
     }
 
     @Test
@@ -78,7 +79,8 @@ public class TestSqlParser
         Statement statement = SqlParser.createStatement(sql);
         System.out.println("CommonTree: " + TreePrinter.treeToString(tree));
         System.out.println("Statement: " + statement.toString());
-        System.out.println("Formatter: " + VeroSqlFormatter.formatSql(statement));
+        System.out.println("Generic Formatter: " + VeroGenericSqlFormatter.formatSql(statement));
+        System.out.println("PostgreSql Formatter: " + VeroPostgreSqlFormatter.formatSql(statement));
     }
 
     @Test
