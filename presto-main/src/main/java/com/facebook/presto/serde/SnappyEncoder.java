@@ -13,13 +13,12 @@
  */
 package com.facebook.presto.serde;
 
+import com.facebook.presto.block.snappy.SnappyBlock;
+import com.facebook.presto.block.snappy.SnappyBlockEncoding;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
-import com.facebook.presto.spi.block.BlockCursor;
 import com.facebook.presto.spi.block.BlockEncoding;
-import com.facebook.presto.block.snappy.SnappyBlock;
-import com.facebook.presto.block.snappy.SnappyBlockEncoding;
 import io.airlift.slice.SliceOutput;
 
 import static com.google.common.base.Preconditions.checkNotNull;
@@ -49,9 +48,8 @@ public class SnappyEncoder
             encoding = new SnappyBlockEncoding(block.getType(), block.getEncoding());
             blockBuilder = block.getType().createBlockBuilder(new BlockBuilderStatus());
         }
-        BlockCursor cursor = block.cursor();
-        while (cursor.advanceNextPosition()) {
-            cursor.appendTo(blockBuilder);
+        for (int position = 0; position < block.getPositionCount(); position++) {
+            block.appendTo(position, blockBuilder);
             if (blockBuilder.isFull()) {
                 flushBlock();
             }
