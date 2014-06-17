@@ -29,6 +29,8 @@ import com.facebook.presto.util.ThreadLocalCache;
 import com.fasterxml.jackson.core.JsonFactory;
 import com.fasterxml.jackson.core.JsonParser;
 import com.fasterxml.jackson.core.JsonToken;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.base.Charsets;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
@@ -62,6 +64,7 @@ public final class JsonFunctions
 {
     private static final String JSON_EXTRACT_SCALAR_FUNCTION_NAME = "json_extract_scalar";
     private static final String JSON_EXTRACT_FUNCTION_NAME = "json_extract";
+    private static final String JSON_SIZE_FUNCTION_NAME = "json_size";
 
     private static final JsonFactory JSON_FACTORY = new JsonFactory()
             .disable(CANONICALIZE_FIELD_NAMES);
@@ -302,6 +305,27 @@ public final class JsonFunctions
         }
         catch (IOException e) {
             throw Throwables.propagate(e);
+        }
+    }
+
+    @ScalarFunction(value = JSON_SIZE_FUNCTION_NAME)
+    @Nullable
+    @SqlType(BigintType.class)
+    public static Long jsonSize(@SqlType(VarcharType.class) Slice json, @SqlType(VarcharType.class) Slice jsonPath)
+    {
+        try {
+            Slice extractedJson = JsonExtract.extractJson(json, jsonPath);
+
+            if (extractedJson == null) {
+                return null;
+            }
+
+            ObjectMapper mapper = new ObjectMapper();
+            JsonNode rootNode = mapper.readTree(extractedJson.getInput());
+            return new Long(rootNode.size());
+        }
+        catch (Throwable e) {
+            return null;
         }
     }
 
