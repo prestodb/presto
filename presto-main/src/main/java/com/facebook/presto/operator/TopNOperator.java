@@ -15,7 +15,6 @@ package com.facebook.presto.operator;
 
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
-import com.facebook.presto.spi.block.BlockCursor;
 import com.facebook.presto.spi.block.SortOrder;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.base.Optional;
@@ -139,7 +138,7 @@ public class TopNOperator
 
         this.memoryManager = new TopNMemoryManager(checkNotNull(operatorContext, "operatorContext is null"));
 
-        this.pageBuilder = new PageBuilder(getTypes());
+        this.pageBuilder = new PageBuilder(types);
 
         this.sampleWeight = sampleWeight;
     }
@@ -266,38 +265,30 @@ public class TopNOperator
         {
             long sizeDelta = 0;
 
-            BlockCursor[] cursors = new BlockCursor[page.getChannelCount()];
-            for (int i = 0; i < page.getChannelCount(); i++) {
-                cursors[i] = page.getBlock(i).cursor();
-            }
-
-            for (int i = 0; i < page.getPositionCount(); i++) {
-                for (BlockCursor cursor : cursors) {
-                    checkState(cursor.advanceNextPosition());
-                }
-
+            Block[] blocks = page.getBlocks();
+            for (int position = 0; position < page.getPositionCount(); position++) {
                 if (globalCandidates.size() < n) {
-                    sizeDelta += addRow(cursors);
+                    sizeDelta += addRow(position, blocks);
                 }
-                else if (compare(cursors, globalCandidates.peek()) < 0) {
-                    sizeDelta += addRow(cursors);
+                else if (compare(position, blocks, globalCandidates.peek()) < 0) {
+                    sizeDelta += addRow(position, blocks);
                 }
             }
 
             return sizeDelta;
         }
 
-        private int compare(BlockCursor[] cursors, Block[] currentMax)
+        private int compare(int position, Block[] blocks, Block[] currentMax)
         {
             for (int i = 0; i < sortChannels.size(); i++) {
                 int sortChannel = sortChannels.get(i);
                 SortOrder sortOrder = sortOrders.get(i);
 
-                BlockCursor cursor = cursors[sortChannel];
+                Block block = blocks[sortChannel];
                 Block currentMaxValue = currentMax[sortChannel];
 
-                // compare the right value to the left cursor but negate the result since we are evaluating in the opposite order
-                int compare = -currentMaxValue.compareTo(sortOrder, 0, cursor);
+                // compare the right value to the left block but negate the result since we are evaluating in the opposite order
+                int compare = -currentMaxValue.compareTo(sortOrder, 0, block, position);
                 if (compare != 0) {
                     return compare;
                 }
@@ -305,10 +296,10 @@ public class TopNOperator
             return 0;
         }
 
-        private long addRow(BlockCursor[] cursors)
+        private long addRow(int position, Block[] blocks)
         {
             long sizeDelta = 0;
-            Block[] row = getValues(cursors);
+            Block[] row = getValues(position, blocks);
             long sampleWeight = 1;
             if (sampleWeightChannel.isPresent()) {
                 sampleWeight = row[sampleWeightChannel.get()].getLong(0);
@@ -337,7 +328,7 @@ public class TopNOperator
             return sizeDelta;
         }
 
-        private long sizeOfRow(Block[] row)
+        private static long sizeOfRow(Block[] row)
         {
             long size = OVERHEAD_PER_VALUE.toBytes();
             for (Block value : row) {
@@ -346,11 +337,11 @@ public class TopNOperator
             return size;
         }
 
-        private Block[] getValues(BlockCursor[] cursors)
+        private static Block[] getValues(int position, Block[] blocks)
         {
-            Block[] row = new Block[cursors.length];
-            for (int i = 0; i < cursors.length; i++) {
-                row[i] = cursors[i].getSingleValueBlock();
+            Block[] row = new Block[blocks.length];
+            for (int i = 0; i < blocks.length; i++) {
+                row[i] = blocks[i].getSingleValueBlock(position);
             }
             return row;
         }
