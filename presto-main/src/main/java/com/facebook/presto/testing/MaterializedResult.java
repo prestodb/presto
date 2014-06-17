@@ -15,8 +15,6 @@ package com.facebook.presto.testing;
 
 import com.facebook.presto.operator.Page;
 import com.facebook.presto.spi.ConnectorSession;
-import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.block.BlockCursor;
 import com.facebook.presto.spi.type.SqlDate;
 import com.facebook.presto.spi.type.SqlTime;
 import com.facebook.presto.spi.type.SqlTimeWithTimeZone;
@@ -34,7 +32,6 @@ import java.util.List;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
-import static com.google.common.base.Preconditions.checkState;
 
 public class MaterializedResult
 {
@@ -168,26 +165,11 @@ public class MaterializedResult
             checkNotNull(page, "page is null");
             checkArgument(page.getChannelCount() == types.size(), "Expected a page with %s columns, but got %s columns", page.getChannelCount(), types.size());
 
-            List<BlockCursor> cursors = new ArrayList<>();
-            for (Block block : page.getBlocks()) {
-                cursors.add(block.cursor());
-            }
-
-            while (true) {
-                List<Object> values = new ArrayList<>(types.size());
-                for (BlockCursor cursor : cursors) {
-                    if (cursor.advanceNextPosition()) {
-                        values.add(cursor.getObjectValue(session));
-                    }
-                    else {
-                        checkState(values.isEmpty(), "unaligned cursors");
-                    }
-                }
-                if (values.isEmpty()) {
-                    return this;
-                }
+            for (int position = 0; position < page.getPositionCount(); position++) {
+                List<Object> values = page.getObjectValues(session, position);
                 rows.add(new MaterializedRow(DEFAULT_PRECISION, values));
             }
+            return this;
         }
 
         public MaterializedResult build()
