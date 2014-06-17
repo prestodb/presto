@@ -140,16 +140,23 @@ public class ChannelSet
             return sizeOf(blocks.elements()) + completedBlocksMemorySize + blocks.get(blocks.size() - 1).getSizeInBytes() + sizeOf(key);
         }
 
+        public int size()
+        {
+            return positionCount;
+        }
+
         public void addBlock(Block block)
         {
             for (int position = 0; position < block.getPositionCount(); position++) {
                 add(position, block);
             }
 
-            operatorContext.setMemoryReservation(getEstimatedSize());
+            if (operatorContext != null) {
+                operatorContext.setMemoryReservation(getEstimatedSize());
+            }
         }
 
-        private void add(int position, Block block)
+        public void add(int position, Block block)
         {
             if (block.isNull(position)) {
                 containsNull = true;
