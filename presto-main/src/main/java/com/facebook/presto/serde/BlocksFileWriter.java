@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.serde;
 
+import com.facebook.presto.operator.ChannelSet.ChannelSetBuilder;
 import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.block.BlockCursor;
 import com.facebook.presto.spi.block.BlockEncoding;
 import com.facebook.presto.spi.block.BlockEncodingSerde;
 import com.google.common.base.Throwables;
@@ -131,20 +131,19 @@ public class BlocksFileWriter
         private long rowCount;
         private long runsCount;
         private Block lastValue;
-        private DictionaryBuilder dictionaryBuilder;
+        private ChannelSetBuilder dictionaryBuilder;
 
         public void process(Block block)
         {
             checkNotNull(block, "block is null");
 
             if (dictionaryBuilder == null) {
-                dictionaryBuilder = new DictionaryBuilder(block.getType());
+                dictionaryBuilder = new ChannelSetBuilder(block.getType(), MAX_UNIQUE_COUNT, null);
             }
 
-            BlockCursor cursor = block.cursor();
-            while (cursor.advanceNextPosition()) {
+            for (int position = 0; position < block.getPositionCount(); position++) {
                 // update run length stats
-                Block value = cursor.getSingleValueBlock();
+                Block value = block.getSingleValueBlock(position);
                 if (lastValue == null) {
                     lastValue = value;
                 }
@@ -155,7 +154,7 @@ public class BlocksFileWriter
 
                 // update dictionary stats
                 if (dictionaryBuilder.size() < MAX_UNIQUE_COUNT) {
-                    dictionaryBuilder.putIfAbsent(cursor);
+                    dictionaryBuilder.add(position, block);
                 }
 
                 rowCount++;

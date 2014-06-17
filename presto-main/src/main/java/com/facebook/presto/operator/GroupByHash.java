@@ -93,7 +93,7 @@ public class GroupByHash
         return nextGroupId;
     }
 
-    public void appendValuesTo(int groupId, BlockBuilder[] builders)
+    public void appendValuesTo(int groupId, BlockBuilder... builders)
     {
         long address = groupAddress.get(groupId);
         PageBuilder page = pages.get(decodeSliceIndex(address));
