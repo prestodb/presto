@@ -144,6 +144,28 @@ public class TestJsonFunctions
         }
     }
 
+    @Test
+    public void testJsonSize()
+    {
+        //somehow below throws NPE, but it shouldn't; it works through the cli. That's why I am calling jsonTuple directly
+        assertFunction(format("JSON_SIZE('%s', '%s')", "{\"x\": {\"a\" : 1, \"b\" : 2} }", "$"), 1);
+        assertFunction(format("JSON_SIZE('%s', '%s')", "{\"x\": {\"a\" : 1, \"b\" : 2} }", "$.x"), 2);
+        assertFunction(format("JSON_SIZE('%s', '%s')", "{\"x\": {\"a\" : 1, \"b\" : 2} }", "$.x.a"), 0);
+        assertFunction(format("JSON_SIZE('%s', '%s')", "[1,2,3]", "$"), 3);
+        assertFunction(format("JSON_SIZE(null, '%s')", "$"), null);
+        assertFunction(format("JSON_SIZE('%s', '%s')", "[1,2,3]", "INVALID_JSON"), null);
+        assertFunction(format("JSON_SIZE('%s', null)", "[1,2,3]"), null);
+//        Slice testJson = wrappedBuffer("{\"x\":\"x_val\", \"y\":\"y_val\", \"z\":\"z_val\"}".getBytes());
+//        assertEquals(JsonFunctions.jsonTuple(testJson, wrappedBuffer("[\"x\", \"z\"]".getBytes())).toString(Charsets.UTF_8), "{\"x\":\"x_val\",\"z\":\"z_val\"}");
+//        assertEquals(JsonFunctions.jsonTuple(testJson, wrappedBuffer("[\"x\", \"y\"]".getBytes())).toString(Charsets.UTF_8), "{\"x\":\"x_val\",\"y\":\"y_val\"}");
+//        assertEquals(JsonFunctions.jsonTuple(testJson, wrappedBuffer("[\"y\"]".getBytes())).toString(Charsets.UTF_8), "{\"y\":\"y_val\"}");
+//        assertEquals(JsonFunctions.jsonTuple(testJson, wrappedBuffer("[\"DOESNTEXIST\"]".getBytes())), null);
+//        testJson = wrappedBuffer("{\"a\":1, \"b\": {\"a\" : 2}}".getBytes());
+//        assertEquals(JsonFunctions.jsonTuple(testJson, wrappedBuffer("[\"a\"]".getBytes())).toString(Charsets.UTF_8), "{\"a\":1}");
+//        assertEquals(JsonFunctions.jsonTuple(wrappedBuffer("".getBytes()), wrappedBuffer("[\"a\"]".getBytes())), null);
+//        assertEquals(JsonFunctions.jsonTuple(wrappedBuffer("".getBytes()), wrappedBuffer("[\"a\"]".getBytes())), null);
+    }
+
     private void assertFunction(String projection, Object expected)
     {
         functionAssertions.assertFunction(projection, expected);
