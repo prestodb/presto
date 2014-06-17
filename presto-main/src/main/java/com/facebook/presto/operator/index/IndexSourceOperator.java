@@ -25,8 +25,8 @@ import com.facebook.presto.operator.SourceOperatorFactory;
 import com.facebook.presto.spi.Index;
 import com.facebook.presto.spi.RecordSet;
 import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.split.MappedRecordSet;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
+import com.google.common.base.Function;
 import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -49,7 +49,7 @@ public class IndexSourceOperator
         private final PlanNodeId sourceId;
         private final Index index;
         private final List<Type> types;
-        private final List<Integer> probeKeyRemap;
+        private final Function<RecordSet, RecordSet> probeKeyNormalizer;
         private boolean closed;
 
         public IndexSourceOperatorFactory(
@@ -57,13 +57,13 @@ public class IndexSourceOperator
                 PlanNodeId sourceId,
                 Index index,
                 List<Type> types,
-                List<Integer> probeKeyRemap)
+                Function<RecordSet, RecordSet> probeKeyNormalizer)
         {
             this.operatorId = operatorId;
             this.sourceId = checkNotNull(sourceId, "sourceId is null");
             this.index = checkNotNull(index, "index is null");
             this.types = checkNotNull(types, "types is null");
-            this.probeKeyRemap = ImmutableList.copyOf(checkNotNull(probeKeyRemap, "probeKeyRemap is null"));
+            this.probeKeyNormalizer = checkNotNull(probeKeyNormalizer, "probeKeyNormalizer is null");
         }
 
         @Override
@@ -88,7 +88,7 @@ public class IndexSourceOperator
                     sourceId,
                     index,
                     types,
-                    probeKeyRemap);
+                    probeKeyNormalizer);
         }
 
         @Override
@@ -102,7 +102,7 @@ public class IndexSourceOperator
     private final PlanNodeId planNodeId;
     private final Index index;
     private final List<Type> types;
-    private final List<Integer> probeKeyRemap;
+    private final Function<RecordSet, RecordSet> probeKeyNormalizer;
 
     @GuardedBy("this")
     private Operator source;
@@ -112,13 +112,13 @@ public class IndexSourceOperator
             PlanNodeId planNodeId,
             Index index,
             List<Type> types,
-            List<Integer> probeKeyRemap)
+            Function<RecordSet, RecordSet> probeKeyNormalizer)
     {
         this.operatorContext = checkNotNull(operatorContext, "operatorContext is null");
         this.planNodeId = checkNotNull(planNodeId, "planNodeId is null");
         this.index = checkNotNull(index, "index is null");
         this.types = ImmutableList.copyOf(checkNotNull(types, "types is null"));
-        this.probeKeyRemap = ImmutableList.copyOf(checkNotNull(probeKeyRemap, "probeKeyRemap is null"));
+        this.probeKeyNormalizer = checkNotNull(probeKeyNormalizer, "probeKeyNormalizer is null");
     }
 
     @Override
@@ -142,9 +142,9 @@ public class IndexSourceOperator
 
         IndexSplit indexSplit = (IndexSplit) split.getConnectorSplit();
 
-        // Remap the record set into the format the index is expecting
-        RecordSet recordSet = new MappedRecordSet(indexSplit.getKeyRecordSet(), probeKeyRemap);
-        RecordSet result = index.lookup(recordSet);
+        // Normalize the incoming RecordSet to something that can be consumed by the index
+        RecordSet normalizedRecordSet = probeKeyNormalizer.apply(indexSplit.getKeyRecordSet());
+        RecordSet result = index.lookup(normalizedRecordSet);
         source = new RecordProjectOperator(operatorContext, result);
 
         operatorContext.setInfoSupplier(Suppliers.ofInstance(split.getInfo()));

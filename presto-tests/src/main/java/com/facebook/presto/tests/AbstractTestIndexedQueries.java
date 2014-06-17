@@ -314,6 +314,20 @@ public abstract class AbstractTestIndexedQueries
     }
 
     @Test
+    public void testOverlappingSourceOuterIndexJoinLookupSymbol()
+            throws Exception
+    {
+        assertQuery("" +
+                "SELECT *\n" +
+                "FROM (\n" +
+                "  SELECT *\n" +
+                "  FROM lineitem\n" +
+                "  WHERE partkey % 8 = 0) l\n" +
+                "LEFT JOIN orders o\n" +
+                "  ON l.orderkey % 1024 = o.orderkey AND l.partkey % 1024 = o.orderkey");
+    }
+
+    @Test
     public void testOverlappingIndexJoinProbeSymbol()
             throws Exception
     {
@@ -324,6 +338,20 @@ public abstract class AbstractTestIndexedQueries
                 "  FROM lineitem\n" +
                 "  WHERE partkey % 8 = 0) l\n" +
                 "JOIN orders o\n" +
+                "  ON l.orderkey = o.orderkey AND l.orderkey = o.custkey");
+    }
+
+    @Test
+    public void testOverlappingSourceOuterIndexJoinProbeSymbol()
+            throws Exception
+    {
+        assertQuery("" +
+                "SELECT *\n" +
+                "FROM (\n" +
+                "  SELECT *\n" +
+                "  FROM lineitem\n" +
+                "  WHERE partkey % 8 = 0) l\n" +
+                "LEFT JOIN orders o\n" +
                 "  ON l.orderkey = o.orderkey AND l.orderkey = o.custkey");
     }
 
