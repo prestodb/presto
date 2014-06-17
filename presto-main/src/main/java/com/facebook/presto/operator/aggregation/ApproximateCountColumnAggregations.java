@@ -13,13 +13,7 @@
  */
 package com.facebook.presto.operator.aggregation;
 
-import com.facebook.presto.operator.aggregation.SimpleAggregationFunction.SimpleAccumulator;
-import com.facebook.presto.operator.aggregation.SimpleAggregationFunction.SimpleGroupedAccumulator;
-import com.facebook.presto.spi.type.Type;
-import com.google.common.base.Throwables;
-
-import static com.facebook.presto.operator.aggregation.ApproximateCountColumnAggregation.ApproximateCountColumnAccumulator;
-import static com.facebook.presto.operator.aggregation.ApproximateCountColumnAggregation.ApproximateCountColumnGroupedAccumulator;
+import static com.facebook.presto.operator.aggregation.AggregationUtils.createIsolatedApproximateAggregation;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
@@ -27,34 +21,10 @@ import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 
 public final class ApproximateCountColumnAggregations
 {
-    public static final AggregationFunction BOOLEAN_APPROXIMATE_COUNT_AGGREGATION = createIsolatedAggregation(BOOLEAN);
-    public static final AggregationFunction LONG_APPROXIMATE_COUNT_AGGREGATION = createIsolatedAggregation(BIGINT);
-    public static final AggregationFunction DOUBLE_APPROXIMATE_COUNT_AGGREGATION = createIsolatedAggregation(DOUBLE);
-    public static final AggregationFunction VARBINARY_APPROXIMATE_COUNT_AGGREGATION = createIsolatedAggregation(VARCHAR);
+    public static final AggregationFunction BOOLEAN_APPROXIMATE_COUNT_AGGREGATION = createIsolatedApproximateAggregation(ApproximateCountColumnAggregation.class, BOOLEAN);
+    public static final AggregationFunction LONG_APPROXIMATE_COUNT_AGGREGATION = createIsolatedApproximateAggregation(ApproximateCountColumnAggregation.class, BIGINT);
+    public static final AggregationFunction DOUBLE_APPROXIMATE_COUNT_AGGREGATION = createIsolatedApproximateAggregation(ApproximateCountColumnAggregation.class, DOUBLE);
+    public static final AggregationFunction VARBINARY_APPROXIMATE_COUNT_AGGREGATION = createIsolatedApproximateAggregation(ApproximateCountColumnAggregation.class, VARCHAR);
 
     private ApproximateCountColumnAggregations() {}
-
-    private static AggregationFunction createIsolatedAggregation(Type parameterType)
-    {
-        Class<? extends AggregationFunction> functionClass = IsolatedClass.isolateClass(
-                AggregationFunction.class,
-
-                ApproximateCountColumnAggregation.class,
-                SimpleAggregationFunction.class,
-
-                ApproximateCountColumnGroupedAccumulator.class,
-                SimpleGroupedAccumulator.class,
-
-                ApproximateCountColumnAccumulator.class,
-                SimpleAccumulator.class);
-
-        try {
-            return functionClass
-                    .getConstructor(Type.class)
-                    .newInstance(parameterType);
-        }
-        catch (Exception e) {
-            throw Throwables.propagate(e);
-        }
-    }
 }
