@@ -13,11 +13,10 @@
  */
 package com.facebook.presto.serde;
 
-import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.block.BlockCursor;
-import com.facebook.presto.spi.block.BlockEncoding;
 import com.facebook.presto.block.rle.RunLengthBlockEncoding;
 import com.facebook.presto.block.rle.RunLengthEncodedBlock;
+import com.facebook.presto.spi.block.Block;
+import com.facebook.presto.spi.block.BlockEncoding;
 import io.airlift.slice.SliceOutput;
 
 import static com.google.common.base.Preconditions.checkNotNull;
@@ -48,14 +47,13 @@ public class RunLengthEncoder
             encoding = new RunLengthBlockEncoding(block.getEncoding());
         }
 
-        BlockCursor cursor = block.cursor();
-        while (cursor.advanceNextPosition()) {
+        for (int position = 0; position < block.getPositionCount(); position++) {
             if (lastValue == null) {
-                lastValue = cursor.getSingleValueBlock();
+                lastValue = block.getSingleValueBlock(position);
             }
-            else if (!lastValue.equalTo(0, cursor)) {
+            else if (!lastValue.equalTo(0, block, position)) {
                 writeBlock();
-                lastValue = cursor.getSingleValueBlock();
+                lastValue = block.getSingleValueBlock(position);
             }
             positionCount++;
         }
