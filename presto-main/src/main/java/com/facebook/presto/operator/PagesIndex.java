@@ -15,7 +15,6 @@ package com.facebook.presto.operator;
 
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.block.BlockCursor;
 import com.facebook.presto.spi.block.SortOrder;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.gen.JoinCompiler;
@@ -240,25 +239,6 @@ public class PagesIndex
             Block rightBlock = this.channels[channel].get(rightBlockIndex);
 
             if (!leftBlock.equalTo(leftBlockPosition, rightBlock, rightBlockPosition)) {
-                return false;
-            }
-        }
-        return true;
-    }
-
-    public boolean equals(int[] channels, int position, BlockCursor[] cursors)
-    {
-        long pageAddress = valueAddresses.getLong(position);
-        int blockIndex = decodeSliceIndex(pageAddress);
-        int blockPosition = decodePosition(pageAddress);
-
-        for (int i = 0; i < channels.length; i++) {
-            int channel = channels[i];
-            BlockCursor cursor = cursors[i];
-
-            Block block = this.channels[channel].get(blockIndex);
-
-            if (!block.equalTo(blockPosition, cursor)) {
                 return false;
             }
         }
