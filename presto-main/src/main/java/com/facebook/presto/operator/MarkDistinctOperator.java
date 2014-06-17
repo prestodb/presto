@@ -15,9 +15,8 @@ package com.facebook.presto.operator;
 
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.block.BlockCursor;
-import com.google.common.base.Optional;
 import com.facebook.presto.spi.type.Type;
+import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Ints;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -185,8 +184,9 @@ class MarkDistinctSampledOperator
     private final int sampleWeightChannel;
     private final int markerChannel;
 
-    private BlockCursor[] cursors;
-    private BlockCursor markerCursor;
+    private int position = -1;
+    private Block[] blocks;
+    private Block markerBlock;
     private boolean finishing;
     private PageBuilder pageBuilder;
     private long sampleWeight;
@@ -233,7 +233,7 @@ class MarkDistinctSampledOperator
     @Override
     public boolean isFinished()
     {
-        return finishing && markerCursor == null && pageBuilder.isEmpty();
+        return finishing && markerBlock == null && pageBuilder.isEmpty();
     }
 
     @Override
@@ -246,7 +246,7 @@ class MarkDistinctSampledOperator
     public boolean needsInput()
     {
         operatorContext.setMemoryReservation(markDistinctHash.getEstimatedSize());
-        if (finishing || markerCursor != null) {
+        if (finishing || markerBlock != null) {
             return false;
         }
         return true;
@@ -257,20 +257,18 @@ class MarkDistinctSampledOperator
     {
         checkNotNull(page, "page is null");
         checkState(!finishing, "Operator is finishing");
-        checkState(markerCursor == null, "Current page has not been completely processed yet");
+        checkState(markerBlock == null, "Current page has not been completely processed yet");
         operatorContext.setMemoryReservation(markDistinctHash.getEstimatedSize());
 
-        markerCursor = markDistinctHash.markDistinctRows(page).cursor();
+        markerBlock = markDistinctHash.markDistinctRows(page);
 
-        this.cursors = new BlockCursor[page.getChannelCount()];
-        for (int i = 0; i < page.getChannelCount(); i++) {
-            this.cursors[i] = page.getBlock(i).cursor();
-        }
+        position = -1;
+        blocks = page.getBlocks();
     }
 
     private boolean advance()
     {
-        if (markerCursor == null) {
+        if (markerBlock == null) {
             return false;
         }
 
@@ -280,21 +278,17 @@ class MarkDistinctSampledOperator
             return true;
         }
 
-        boolean advanced = markerCursor.advanceNextPosition();
-        for (BlockCursor cursor : cursors) {
-            checkState(advanced == cursor.advanceNextPosition());
-        }
-
-        if (!advanced) {
-            markerCursor = null;
-            Arrays.fill(cursors, null);
+        position++;
+        if (position >= markerBlock.getPositionCount()) {
+            markerBlock = null;
+            Arrays.fill(blocks, null);
+            return false;
         }
         else {
-            sampleWeight = cursors[sampleWeightChannel].getLong();
-            distinct = markerCursor.getBoolean();
+            sampleWeight = blocks[sampleWeightChannel].getLong(position);
+            distinct = markerBlock.getBoolean(position);
+            return true;
         }
-
-        return advanced;
     }
 
     @Override
@@ -302,7 +296,7 @@ class MarkDistinctSampledOperator
     {
         // Build the weight block, giving all distinct rows a weight of one. advance() handles splitting rows with weight > 1, if they're distinct
         while (!pageBuilder.isFull() && advance()) {
-            for (int i = 0; i < cursors.length; i++) {
+            for (int i = 0; i < blocks.length; i++) {
                 BlockBuilder builder = pageBuilder.getBlockBuilder(i);
                 if (i == sampleWeightChannel) {
                     if (distinct) {
@@ -313,14 +307,14 @@ class MarkDistinctSampledOperator
                     }
                 }
                 else {
-                    cursors[i].appendTo(builder);
+                    blocks[i].appendTo(position, builder);
                 }
             }
             pageBuilder.getBlockBuilder(markerChannel).appendBoolean(distinct);
         }
 
         // only flush full pages unless we are done
-        if (pageBuilder.isFull() || (finishing && !pageBuilder.isEmpty() && markerCursor == null)) {
+        if (pageBuilder.isFull() || (finishing && !pageBuilder.isEmpty() && markerBlock == null)) {
             Page page = pageBuilder.build();
             pageBuilder.reset();
             return page;
