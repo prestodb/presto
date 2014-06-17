@@ -101,6 +101,12 @@ floating point numbers. This is important because many Hive file formats
 store floating point values as text. Change the path
 ``/var/presto/installation`` to match the Presto installation directory.
 
+.. note::
+
+    When using Java 8, remove the ``-XX:PermSize``, ``-XX:MaxPermSize`` and
+    ``-Xbootclasspath`` options. The ``PermSize`` options are not supported
+    and the floatingdecimal patch is only for Java 7.
+
 .. _config_properties:
 
 Config Properties
