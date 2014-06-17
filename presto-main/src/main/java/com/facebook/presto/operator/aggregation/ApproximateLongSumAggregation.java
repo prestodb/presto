@@ -13,33 +13,22 @@
  */
 package com.facebook.presto.operator.aggregation;
 
-import com.facebook.presto.operator.GroupByIdBlock;
-import com.facebook.presto.spi.block.Block;
+import com.facebook.presto.operator.aggregation.state.VarianceState;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockCursor;
-import com.facebook.presto.util.array.DoubleBigArray;
-import com.facebook.presto.util.array.LongBigArray;
-import com.google.common.base.Optional;
-import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 
 import static com.facebook.presto.operator.aggregation.ApproximateUtils.formatApproximateResult;
 import static com.facebook.presto.operator.aggregation.ApproximateUtils.sumError;
+import static com.facebook.presto.operator.aggregation.AggregationUtils.mergeVarianceState;
+import static com.facebook.presto.operator.aggregation.AggregationUtils.updateVarianceState;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
-import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkState;
-import static io.airlift.slice.SizeOf.SIZE_OF_DOUBLE;
-import static io.airlift.slice.SizeOf.SIZE_OF_LONG;
 
 public class ApproximateLongSumAggregation
-        extends SimpleAggregationFunction
+        extends AbstractApproximateAggregationFunction<ApproximateLongSumAggregation.ApproximateLongSumState>
 {
     public static final ApproximateLongSumAggregation LONG_APPROXIMATE_SUM_AGGREGATION = new ApproximateLongSumAggregation();
-
-    private static final int COUNT_OFFSET = 0;
-    private static final int SUM_OFFSET = SIZE_OF_LONG;
-    private static final int VARIANCE_OFFSET = SIZE_OF_LONG + SIZE_OF_DOUBLE;
 
     public ApproximateLongSumAggregation()
     {
@@ -47,226 +36,49 @@ public class ApproximateLongSumAggregation
         super(VARCHAR, VARCHAR, BIGINT);
     }
 
-    @Override
-    public ApproximateSumGroupedAccumulator createGroupedAccumulator(Optional<Integer> maskChannel, Optional<Integer> sampleWeightChannel, double confidence, int valueChannel)
+    public interface ApproximateLongSumState
+            extends VarianceState
     {
-        // valueChannel is -1 for intermediates
-        checkArgument(sampleWeightChannel.isPresent() ^ valueChannel == -1, "sampleWeightChannel is missing");
-        return new ApproximateSumGroupedAccumulator(valueChannel, maskChannel, sampleWeightChannel, confidence);
-    }
+        long getSum();
 
-    public static class ApproximateSumGroupedAccumulator
-            extends SimpleGroupedAccumulator
-    {
-        // Weighted count of rows
-        private final LongBigArray counts;
-        // Unweighted count of rows
-        private final LongBigArray samples;
-        private final LongBigArray sums;
-        private final DoubleBigArray m2s;
-        private final DoubleBigArray means;
-        private final double confidence;
+        void setSum(long value);
 
-        public ApproximateSumGroupedAccumulator(int valueChannel, Optional<Integer> maskChannel, Optional<Integer> sampleWeightChannel, double confidence)
-        {
-            super(valueChannel, VARCHAR, VARCHAR, maskChannel, sampleWeightChannel);
-            this.counts = new LongBigArray();
-            this.samples = new LongBigArray();
-            this.sums = new LongBigArray();
-            this.m2s = new DoubleBigArray();
-            this.means = new DoubleBigArray();
-            this.confidence = confidence;
-        }
+        long getWeightedCount();
 
-        @Override
-        public long getEstimatedSize()
-        {
-            return counts.sizeOf() + samples.sizeOf() + sums.sizeOf() + m2s.sizeOf() + means.sizeOf();
-        }
-
-        @Override
-        protected void processInput(GroupByIdBlock groupIdsBlock, Block valuesBlock, Optional<Block> maskBlock, Optional<Block> sampleWeightBlock)
-        {
-            counts.ensureCapacity(groupIdsBlock.getGroupCount());
-            samples.ensureCapacity(groupIdsBlock.getGroupCount());
-            sums.ensureCapacity(groupIdsBlock.getGroupCount());
-            m2s.ensureCapacity(groupIdsBlock.getGroupCount());
-            means.ensureCapacity(groupIdsBlock.getGroupCount());
-            BlockCursor values = valuesBlock.cursor();
-            BlockCursor sampleWeights = sampleWeightBlock.get().cursor();
-            BlockCursor masks = null;
-            if (maskBlock.isPresent()) {
-                masks = maskBlock.get().cursor();
-            }
-
-            OnlineVarianceCalculator calculator = new OnlineVarianceCalculator();
-            for (int position = 0; position < groupIdsBlock.getPositionCount(); position++) {
-                long groupId = groupIdsBlock.getGroupId(position);
-                checkState(masks == null || masks.advanceNextPosition(), "failed to advance mask cursor");
-                checkState(sampleWeights.advanceNextPosition(), "failed to advance weight cursor");
-                checkState(values.advanceNextPosition(), "failed to advance values cursor");
-                long weight = values.isNull() ? 0 : SimpleAggregationFunction.computeSampleWeight(masks, sampleWeights);
-
-                if (!values.isNull() && weight > 0) {
-                    long value = values.getLong();
-                    counts.add(groupId, weight);
-                    sums.add(groupId, value * weight);
-
-                    calculator.reinitialize(samples.get(groupId), means.get(groupId), m2s.get(groupId));
-                    calculator.add(value);
-                    samples.set(groupId, calculator.getCount());
-                    means.set(groupId, calculator.getMean());
-                    m2s.set(groupId, calculator.getM2());
-                }
-            }
-        }
-
-        @Override
-        public void processIntermediate(GroupByIdBlock groupIdsBlock, Block block)
-        {
-            counts.ensureCapacity(groupIdsBlock.getGroupCount());
-            samples.ensureCapacity(groupIdsBlock.getGroupCount());
-            sums.ensureCapacity(groupIdsBlock.getGroupCount());
-            m2s.ensureCapacity(groupIdsBlock.getGroupCount());
-            means.ensureCapacity(groupIdsBlock.getGroupCount());
-
-            BlockCursor intermediates = block.cursor();
-
-            OnlineVarianceCalculator calculator = new OnlineVarianceCalculator();
-            for (int position = 0; position < groupIdsBlock.getPositionCount(); position++) {
-                checkState(intermediates.advanceNextPosition(), "failed to advance intermediates cursor");
-
-                long groupId = groupIdsBlock.getGroupId(position);
-                Slice slice = intermediates.getSlice();
-                sums.add(groupId, slice.getLong(SUM_OFFSET));
-                counts.add(groupId, slice.getLong(COUNT_OFFSET));
-
-                calculator.deserializeFrom(slice, VARIANCE_OFFSET);
-                calculator.merge(samples.get(groupId), means.get(groupId), m2s.get(groupId));
-                samples.set(groupId, calculator.getCount());
-                means.set(groupId, calculator.getMean());
-                m2s.set(groupId, calculator.getM2());
-            }
-        }
-
-        @Override
-        public void evaluateIntermediate(int groupId, BlockBuilder output)
-        {
-            OnlineVarianceCalculator calculator = new OnlineVarianceCalculator();
-            calculator.merge(samples.get(groupId), means.get(groupId), m2s.get(groupId));
-            output.appendSlice(createIntermediate(counts.get(groupId), sums.get(groupId), calculator));
-        }
-
-        @Override
-        public void evaluateFinal(int groupId, BlockBuilder output)
-        {
-            long count = counts.get(groupId);
-            if (count == 0) {
-                output.appendNull();
-                return;
-            }
-
-            String result = formatApproximateResult(
-                    sums.get(groupId),
-                    sumError(samples.get(groupId), count, m2s.get(groupId), means.get(groupId)),
-                    confidence,
-                    true);
-            output.appendSlice(Slices.utf8Slice(result));
-        }
+        void setWeightedCount(long value);
     }
 
     @Override
-    public ApproximateSumAccumulator createAccumulator(Optional<Integer> maskChannel, Optional<Integer> sampleWeightChannel, double confidence, int valueChannel)
+    protected void processInput(ApproximateLongSumState state, BlockCursor cursor, long sampleWeight)
     {
-        // valueChannel is -1 for intermediates
-        checkArgument(sampleWeightChannel.isPresent() ^ valueChannel == -1, "sampleWeightChannel is missing");
-        return new ApproximateSumAccumulator(valueChannel, maskChannel, sampleWeightChannel, confidence);
+        long value = cursor.getLong();
+
+        state.setWeightedCount(state.getWeightedCount() + sampleWeight);
+        state.setSum(state.getSum() + value * sampleWeight);
+        updateVarianceState(state, value);
     }
 
-    public static class ApproximateSumAccumulator
-            extends SimpleAccumulator
+    @Override
+    protected void combineState(ApproximateLongSumState state, ApproximateLongSumState otherState)
     {
-        private long sum;
-        private long count;
-        private final OnlineVarianceCalculator calculator = new OnlineVarianceCalculator();
-        private final double confidence;
-
-        public ApproximateSumAccumulator(int valueChannel, Optional<Integer> maskChannel, Optional<Integer> sampleWeightChannel, double confidence)
-        {
-            super(valueChannel, VARCHAR, VARCHAR, maskChannel, sampleWeightChannel);
-            this.confidence = confidence;
-        }
-
-        @Override
-        protected void processInput(Block block, Optional<Block> maskBlock, Optional<Block> sampleWeightBlock)
-        {
-            BlockCursor values = block.cursor();
-            BlockCursor sampleWeights = sampleWeightBlock.get().cursor();
-            BlockCursor masks = null;
-            if (maskBlock.isPresent()) {
-                masks = maskBlock.get().cursor();
-            }
-
-            for (int i = 0; i < block.getPositionCount(); i++) {
-                checkState(masks == null || masks.advanceNextPosition(), "failed to advance mask cursor");
-                checkState(sampleWeights.advanceNextPosition(), "failed to advance weight cursor");
-                checkState(values.advanceNextPosition(), "failed to advance values cursor");
-                long weight = values.isNull() ? 0 : SimpleAggregationFunction.computeSampleWeight(masks, sampleWeights);
-                if (!values.isNull() && weight > 0) {
-                    long value = values.getLong();
-
-                    count += weight;
-                    sum += value * weight;
-                    calculator.add(value);
-                }
-            }
-        }
-
-        @Override
-        public void processIntermediate(Block block)
-        {
-            BlockCursor intermediates = block.cursor();
-
-            OnlineVarianceCalculator calculator = new OnlineVarianceCalculator();
-            for (int position = 0; position < block.getPositionCount(); position++) {
-                checkState(intermediates.advanceNextPosition(), "failed to advance intermediates cursor");
-                Slice slice = intermediates.getSlice();
-                sum += slice.getLong(SUM_OFFSET);
-                count += slice.getLong(COUNT_OFFSET);
-                calculator.deserializeFrom(slice, VARIANCE_OFFSET);
-                this.calculator.merge(calculator);
-            }
-        }
-
-        @Override
-        public void evaluateIntermediate(BlockBuilder out)
-        {
-            out.appendSlice(createIntermediate(count, sum, calculator));
-        }
-
-        @Override
-        public void evaluateFinal(BlockBuilder out)
-        {
-            if (count == 0) {
-                out.appendNull();
-                return;
-            }
-
-            String result = formatApproximateResult(
-                    sum,
-                    sumError(calculator.getCount(), count, calculator.getM2(), calculator.getMean()),
-                    confidence,
-                    true);
-            out.appendSlice(Slices.utf8Slice(result));
-        }
+        state.setSum(state.getSum() + otherState.getSum());
+        state.setWeightedCount(state.getWeightedCount() + otherState.getWeightedCount());
+        mergeVarianceState(state, otherState);
     }
 
-    public static Slice createIntermediate(long count, long sum, OnlineVarianceCalculator calculator)
+    @Override
+    protected void evaluateFinal(ApproximateLongSumState state, double confidence, BlockBuilder out)
     {
-        Slice slice = Slices.allocate(2 * SIZE_OF_LONG + calculator.sizeOf());
-        slice.setLong(COUNT_OFFSET, count);
-        slice.setLong(SUM_OFFSET, sum);
-        calculator.serializeTo(slice, VARIANCE_OFFSET);
-        return slice;
+        if (state.getWeightedCount() == 0) {
+            out.appendNull();
+            return;
+        }
+
+        String result = formatApproximateResult(
+                state.getSum(),
+                sumError(state.getCount(), state.getWeightedCount(), state.getM2(), state.getMean()),
+                confidence,
+                true);
+        out.appendSlice(Slices.utf8Slice(result));
     }
 }
