@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.operator;
 
+import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.block.Block;
 import com.google.common.base.Function;
 import com.google.common.base.Objects;
@@ -21,7 +22,10 @@ import io.airlift.slice.Slice;
 import io.airlift.units.DataSize;
 import io.airlift.units.DataSize.Unit;
 
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
+import java.util.List;
 
 public class Page
 {
@@ -99,6 +103,15 @@ public class Page
         for (int channel = 0; channel < blocks.length; channel++) {
             blocks[channel].appendTo(position, pageBuilder.getBlockBuilder(channel));
         }
+    }
+
+    public List<Object> getObjectValues(ConnectorSession session, int position)
+    {
+        List<Object> values = new ArrayList<>(blocks.length);
+        for (Block block : blocks) {
+            values.add(block.getObjectValue(session, position));
+        }
+        return Collections.unmodifiableList(values);
     }
 
     @Override
