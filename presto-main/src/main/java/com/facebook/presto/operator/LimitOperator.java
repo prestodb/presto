@@ -16,7 +16,6 @@ package com.facebook.presto.operator;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
-import com.facebook.presto.spi.block.BlockCursor;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
@@ -154,14 +153,14 @@ public class LimitOperator
 
     private void addInputWithSampling(Page page, int sampleWeightChannel)
     {
-        BlockCursor cursor = page.getBlock(sampleWeightChannel).cursor();
+        Block sampleWeightBlock = page.getBlock(sampleWeightChannel);
         BlockBuilder builder = BIGINT.createBlockBuilder(new BlockBuilderStatus());
 
         int rowsToCopy = 0;
         // Build the sample weight block, and count how many rows of data to copy
-        while (remainingLimit > 0 && cursor.advanceNextPosition()) {
+        for (int position = 0; position < sampleWeightBlock.getPositionCount() && remainingLimit > 0; position++) {
             rowsToCopy++;
-            long sampleWeight = cursor.getLong();
+            long sampleWeight = sampleWeightBlock.getLong(position);
             if (sampleWeight <= remainingLimit) {
                 builder.appendLong(sampleWeight);
             }
