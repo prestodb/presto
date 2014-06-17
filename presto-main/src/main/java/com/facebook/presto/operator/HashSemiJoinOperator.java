@@ -13,10 +13,9 @@
  */
 package com.facebook.presto.operator;
 
+import com.facebook.presto.operator.SetBuilderOperator.SetSupplier;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.block.BlockCursor;
-import com.facebook.presto.operator.SetBuilderOperator.SetSupplier;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -161,12 +160,10 @@ public class HashSemiJoinOperator
         BlockBuilder blockBuilder = BOOLEAN.createFixedSizeBlockBuilder(page.getPositionCount());
 
         Block probeJoinBlock = page.getBlock(probeJoinChannel);
-        BlockCursor probeJoinCursor = probeJoinBlock.cursor();
 
         // update hashing strategy to use probe cursor
         for (int position = 0; position < page.getPositionCount(); position++) {
-            checkState(probeJoinCursor.advanceNextPosition());
-            if (probeJoinCursor.isNull()) {
+            if (probeJoinBlock.isNull(position)) {
                 blockBuilder.appendNull();
             }
             else {
