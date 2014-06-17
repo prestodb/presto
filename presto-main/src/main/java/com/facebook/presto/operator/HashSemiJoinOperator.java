@@ -164,15 +164,13 @@ public class HashSemiJoinOperator
         BlockCursor probeJoinCursor = probeJoinBlock.cursor();
 
         // update hashing strategy to use probe cursor
-        channelSet.setCurrentValue(probeJoinCursor);
-
         for (int position = 0; position < page.getPositionCount(); position++) {
             checkState(probeJoinCursor.advanceNextPosition());
             if (probeJoinCursor.isNull()) {
                 blockBuilder.appendNull();
             }
             else {
-                boolean contains = channelSet.containsCurrentValue();
+                boolean contains = channelSet.contains(position, probeJoinBlock);
                 if (!contains && channelSet.containsNull()) {
                     blockBuilder.appendNull();
                 }

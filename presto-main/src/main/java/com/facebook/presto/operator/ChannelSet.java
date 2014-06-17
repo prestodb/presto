@@ -16,67 +16,48 @@ package com.facebook.presto.operator;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
-import com.facebook.presto.spi.block.BlockCursor;
 import com.facebook.presto.spi.type.Type;
+import io.airlift.slice.Murmur3;
 import io.airlift.units.DataSize;
-import it.unimi.dsi.fastutil.longs.LongHash;
-import it.unimi.dsi.fastutil.longs.LongOpenCustomHashSet;
 import it.unimi.dsi.fastutil.objects.ObjectArrayList;
 
-import java.util.List;
+import java.util.Arrays;
 
 import static com.facebook.presto.operator.SyntheticAddress.decodePosition;
 import static com.facebook.presto.operator.SyntheticAddress.decodeSliceIndex;
 import static com.facebook.presto.operator.SyntheticAddress.encodeSyntheticAddress;
-import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkNotNull;
 import static io.airlift.slice.SizeOf.sizeOf;
 import static io.airlift.units.DataSize.Unit.BYTE;
+import static it.unimi.dsi.fastutil.HashCommon.arraySize;
+import static it.unimi.dsi.fastutil.HashCommon.maxFill;
 
+// This implementation assumes arrays used in the hash are always a power of 2
 public class ChannelSet
 {
-    public static final long CURRENT_VALUE_ADDRESS = 0xFF_FF_FF_FF_FF_FF_FF_FFL;
+    private final Type type;
+    private final ObjectArrayList<BlockBuilder> blocks;
 
-    private final BlockBuilderHashStrategy strategy;
-    private final AddressValueSet addressValueSet;
+    private final int mask;
+    private final long[] key;
     private final boolean containsNull;
+
     private final DataSize estimatedSize;
+    private final int size;
 
-    public ChannelSet(ChannelSet channelSet)
+    public ChannelSet(Type type, ObjectArrayList<BlockBuilder> blocks, int mask, long[] key, boolean containsNull, DataSize estimatedSize, int size)
     {
-        checkNotNull(channelSet, "channelSet is null");
-        this.strategy = new BlockBuilderHashStrategy(channelSet.strategy);
-        this.addressValueSet = new AddressValueSet(channelSet.addressValueSet, strategy);
-        this.containsNull = channelSet.containsNull;
-        this.estimatedSize = channelSet.estimatedSize;
-    }
-
-    private ChannelSet(BlockBuilderHashStrategy strategy, AddressValueSet addressValueSet, boolean containsNull, DataSize estimatedSize)
-    {
-        this.strategy = strategy;
-        this.addressValueSet = addressValueSet;
+        this.type = type;
+        this.blocks = blocks;
+        this.mask = mask;
+        this.key = key;
         this.containsNull = containsNull;
         this.estimatedSize = estimatedSize;
+        this.size = size;
     }
 
-    public boolean containsNull()
+    public Type getType()
     {
-        return containsNull;
-    }
-
-    public void setCurrentValue(BlockCursor value)
-    {
-        strategy.setLookupValue(value);
-    }
-
-    public boolean containsCurrentValue()
-    {
-        return addressValueSet.contains(CURRENT_VALUE_ADDRESS);
-    }
-
-    public int size()
-    {
-        return addressValueSet.size();
+        return type;
     }
 
     public DataSize getEstimatedSize()
@@ -84,127 +65,172 @@ public class ChannelSet
         return estimatedSize;
     }
 
-    private static class AddressValueSet
-            extends LongOpenCustomHashSet
+    public int size()
     {
-        private AddressValueSet(int expected, LongHash.Strategy strategy)
-        {
-            super(expected, strategy);
-        }
+        return size;
+    }
 
-        private AddressValueSet(AddressValueSet addressValueSet, LongHash.Strategy strategy)
-        {
-            super(addressValueSet, strategy);
-        }
+    public boolean containsNull()
+    {
+        return containsNull;
+    }
 
-        public DataSize getEstimatedSize()
-        {
-            return new DataSize(sizeOf(this.key) + sizeOf(this.used), BYTE);
+    public boolean contains(int position, Block block)
+    {
+        int hashPosition = ((int) Murmur3.hash64(block.hash(position))) & mask;
+
+        while (key[hashPosition] != -1) {
+            long address = key[hashPosition];
+            if (positionEqualsCurrentRow(decodeSliceIndex(address), decodePosition(address), position, block)) {
+                // found an existing slot for this key
+                return true;
+            }
+            // increment position and mask to handle wrap around
+            hashPosition = (hashPosition + 1) & mask;
         }
+        return false;
+    }
+
+    private boolean positionEqualsCurrentRow(int sliceIndex, int slicePosition, int position, Block block)
+    {
+        return this.blocks.get(sliceIndex).equalTo(slicePosition, block, position);
     }
 
     public static class ChannelSetBuilder
     {
-        private final BlockBuilderHashStrategy strategy;
-        private final AddressValueSet addressValueSet;
-        private final OperatorContext operatorContext;
+        private static final float FILL_RATIO = 0.75f;
         private final Type type;
+        private final OperatorContext operatorContext;
+
         private final ObjectArrayList<BlockBuilder> blocks;
 
-        private int currentBlockId;
-        private boolean containsNull;
-        private BlockBuilder openBlockBuilder;
-        private long blocksMemorySize;
+        private long completedBlocksMemorySize;
 
-        // Note: Supporting multi-channel sets (e.g. tuples) is much more difficult because of null handling, and hence is not supported by this class.
+        private int maxFill;
+        private int mask;
+        private long[] key;
+        private boolean containsNull;
+
+        private int positionCount;
+
         public ChannelSetBuilder(Type type, int expectedPositions, OperatorContext operatorContext)
         {
-            this.type = checkNotNull(type, "type is null");
-            checkArgument(expectedPositions >= 0, "expectedPositions must be greater than or equal to zero");
-            this.operatorContext = checkNotNull(operatorContext, "operatorContext is null");
+            this.type = type;
+            this.operatorContext = operatorContext;
 
-            // Construct the set from the source
-            blocks = ObjectArrayList.wrap(new BlockBuilder[1024], 0);
-            strategy = new BlockBuilderHashStrategy(blocks);
-            addressValueSet = new AddressValueSet(expectedPositions, strategy);
+            this.blocks = ObjectArrayList.wrap(new BlockBuilder[1024], 0);
+            this.blocks.add(type.createBlockBuilder(new BlockBuilderStatus()));
 
-            openBlockBuilder = type.createBlockBuilder(new BlockBuilderStatus());
-            blocks.add(openBlockBuilder);
+            // reserve memory for the arrays
+            int hashSize = arraySize(expectedPositions, FILL_RATIO);
+
+            maxFill = maxFill(hashSize, FILL_RATIO);
+            mask = hashSize - 1;
+            key = new long[hashSize];
+            Arrays.fill(key, -1);
         }
 
-        public void addBlock(Block sourceBlock)
+        public ChannelSet build()
         {
-            BlockCursor sourceCursor = sourceBlock.cursor();
-            strategy.setLookupValue(sourceCursor);
+            return new ChannelSet(type, blocks, mask, key, containsNull, new DataSize(getEstimatedSize(), BYTE), positionCount);
+        }
 
-            while (sourceCursor.advanceNextPosition()) {
-                // Record whether we have seen a null
-                containsNull |= sourceCursor.isNull();
+        public long getEstimatedSize()
+        {
+            return sizeOf(blocks.elements()) + completedBlocksMemorySize + blocks.get(blocks.size() - 1).getSizeInBytes() + sizeOf(key);
+        }
 
-                if (!addressValueSet.contains(CURRENT_VALUE_ADDRESS)) {
-                    if (openBlockBuilder.isFull()) {
-                        // record the memory usage for the open block
-                        blocksMemorySize += openBlockBuilder.getSizeInBytes();
-
-                        // create a new block builder (there is no need to actually "build" the block)
-                        openBlockBuilder = type.createBlockBuilder(new BlockBuilderStatus());
-                        blocks.add(openBlockBuilder);
-                        currentBlockId++;
-                    }
-
-                    int blockPosition = openBlockBuilder.getPositionCount();
-                    sourceCursor.appendTo(openBlockBuilder);
-                    addressValueSet.add(encodeSyntheticAddress(currentBlockId, blockPosition));
-                }
+        public void addBlock(Block block)
+        {
+            for (int position = 0; position < block.getPositionCount(); position++) {
+                add(position, block);
             }
 
             operatorContext.setMemoryReservation(getEstimatedSize());
         }
 
-        public long getEstimatedSize()
+        private void add(int position, Block block)
         {
-            return blocksMemorySize;
-        }
-
-        public ChannelSet build()
-        {
-            DataSize estimatedSize = new DataSize(addressValueSet.getEstimatedSize().toBytes() + blocksMemorySize + openBlockBuilder.getSizeInBytes(), BYTE);
-            return new ChannelSet(strategy, addressValueSet, containsNull, estimatedSize);
-        }
-    }
-
-    private static class BlockBuilderHashStrategy
-            implements LongHash.Strategy
-    {
-        private final List<BlockBuilder> blocks;
-        private BlockCursor lookupValue;
-
-        public BlockBuilderHashStrategy(BlockBuilderHashStrategy strategy)
-        {
-            this(checkNotNull(strategy, "strategy is null").blocks);
-        }
-
-        private BlockBuilderHashStrategy(List<BlockBuilder> blocks)
-        {
-            checkNotNull(blocks, "blocks is null");
-            this.blocks = blocks;
-        }
-
-        public void setLookupValue(BlockCursor lookupValue)
-        {
-            checkNotNull(lookupValue, "lookupValue is null");
-            this.lookupValue = lookupValue;
-        }
-
-        @Override
-        public int hashCode(long sliceAddress)
-        {
-            if (sliceAddress == CURRENT_VALUE_ADDRESS) {
-                return hashCurrentRow();
+            if (block.isNull(position)) {
+                containsNull = true;
+                return;
             }
-            else {
-                return hashPosition(sliceAddress);
+
+            int hashPosition = ((int) Murmur3.hash64(block.hash(position))) & mask;
+
+            // look for an empty slot or a slot containing this key
+            while (key[hashPosition] != -1) {
+                long address = key[hashPosition];
+                if (positionEqualsPosition(decodeSliceIndex(address), decodePosition(address), position, block)) {
+                    // value already present in set
+                    return;
+                }
+                // increment position and mask to handle wrap around
+                hashPosition = (hashPosition + 1) & mask;
             }
+
+            addValue(hashPosition, position, block);
+        }
+
+        private void addValue(int hashPosition, int position, Block block)
+        {
+            // add the row to the open page
+            int pageIndex = blocks.size() - 1;
+            BlockBuilder blockBuilder = blocks.get(pageIndex);
+            block.appendTo(position, blockBuilder);
+
+            // record new value
+            long address = encodeSyntheticAddress(pageIndex, blockBuilder.getPositionCount() - 1);
+            key[hashPosition] = address;
+
+            // create new block builder if this block is full
+            if (blockBuilder.isFull()) {
+                completedBlocksMemorySize += blockBuilder.getSizeInBytes();
+
+                blockBuilder = type.createBlockBuilder(new BlockBuilderStatus());
+                this.blocks.add(blockBuilder);
+            }
+
+            positionCount++;
+
+            // increase capacity, if necessary
+            if (positionCount >= maxFill) {
+                rehash(maxFill * 2);
+            }
+        }
+
+        private void rehash(int size)
+        {
+            int newSize = arraySize(size + 1, FILL_RATIO);
+
+            int newMask = newSize - 1;
+            long[] newKey = new long[newSize];
+            Arrays.fill(newKey, -1);
+
+            int oldIndex = 0;
+            for (int position = 0; position < positionCount; position++) {
+                // seek to the next used slot
+                while (key[oldIndex] == -1) {
+                    oldIndex++;
+                }
+
+                // get the address for this slot
+                long address = key[oldIndex];
+
+                // find an empty slot for the address
+                int pos = ((int) Murmur3.hash64(hashPosition(address))) & newMask;
+                while (newKey[pos] != -1) {
+                    pos = (pos + 1) & newMask;
+                }
+
+                // record the mapping
+                newKey[pos] = address;
+                oldIndex++;
+            }
+
+            this.mask = newMask;
+            this.maxFill = maxFill(newSize, FILL_RATIO);
+            this.key = newKey;
         }
 
         private int hashPosition(long sliceAddress)
@@ -214,43 +240,9 @@ public class ChannelSet
             return blocks.get(sliceIndex).hash(position);
         }
 
-        private int hashCurrentRow()
+        private boolean positionEqualsPosition(int sliceIndex, int slicePosition, int position, Block block)
         {
-            return lookupValue.hash();
-        }
-
-        @Override
-        public boolean equals(long leftSliceAddress, long rightSliceAddress)
-        {
-            // current row always equals itself
-            if (leftSliceAddress == CURRENT_VALUE_ADDRESS && rightSliceAddress == CURRENT_VALUE_ADDRESS) {
-                return true;
-            }
-
-            // current row == position
-            if (leftSliceAddress == CURRENT_VALUE_ADDRESS) {
-                return positionEqualsCurrentRow(decodeSliceIndex(rightSliceAddress), decodePosition(rightSliceAddress));
-            }
-
-            // position == current row
-            if (rightSliceAddress == CURRENT_VALUE_ADDRESS) {
-                return positionEqualsCurrentRow(decodeSliceIndex(leftSliceAddress), decodePosition(leftSliceAddress));
-            }
-
-            // position == position
-            return positionEqualsPosition(
-                    decodeSliceIndex(leftSliceAddress), decodePosition(leftSliceAddress),
-                    decodeSliceIndex(rightSliceAddress), decodePosition(rightSliceAddress));
-        }
-
-        private boolean positionEqualsCurrentRow(int sliceIndex, int position)
-        {
-            return blocks.get(sliceIndex).equalTo(position, lookupValue);
-        }
-
-        private boolean positionEqualsPosition(int leftSliceIndex, int leftPosition, int rightSliceIndex, int rightPosition)
-        {
-            return blocks.get(leftSliceIndex).equalTo(leftPosition, blocks.get(rightSliceIndex), rightPosition);
+            return this.blocks.get(sliceIndex).equalTo(slicePosition, block, position);
         }
     }
 }
