@@ -18,8 +18,8 @@ import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockCursor;
 import com.facebook.presto.spi.type.Type;
 
-import static com.facebook.presto.operator.aggregation.OnlineVarianceCalculator.mergeState;
-import static com.facebook.presto.operator.aggregation.OnlineVarianceCalculator.updateState;
+import static com.facebook.presto.operator.aggregation.AggregationUtils.mergeVarianceState;
+import static com.facebook.presto.operator.aggregation.AggregationUtils.updateVarianceState;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
@@ -61,7 +61,7 @@ public class VarianceAggregation
             inputValue = cursor.getDouble();
         }
 
-        updateState(state, inputValue);
+        updateVarianceState(state, inputValue);
     }
 
     @Override
@@ -99,6 +99,6 @@ public class VarianceAggregation
     @Override
     protected void combineState(VarianceState state, VarianceState otherState)
     {
-        mergeState(state, otherState);
+        mergeVarianceState(state, otherState);
     }
 }
