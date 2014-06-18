@@ -276,12 +276,17 @@ public class HttpRemoteTask
     }
 
     @Override
-    public synchronized int getQueuedSplits()
+    public synchronized int getPartitionedSplitCount()
     {
-        try (SetThreadName ignored = new SetThreadName("HttpRemoteTask-%s", taskId)) {
-            int pendingSplitCount = pendingSplits.get(planFragment.getPartitionedSource()).size();
-            return pendingSplitCount + taskInfo.get().getStats().getQueuedDrivers();
-        }
+        int splitCount = pendingSplits.get(planFragment.getPartitionedSource()).size();
+        return splitCount + taskInfo.get().getStats().getQueuedPartitionedDrivers() + taskInfo.get().getStats().getRunningPartitionedDrivers();
+    }
+
+    @Override
+    public synchronized int getQueuedPartitionedSplitCount()
+    {
+        int splitCount = pendingSplits.get(planFragment.getPartitionedSource()).size();
+        return splitCount + taskInfo.get().getStats().getQueuedPartitionedDrivers();
     }
 
     @Override
@@ -599,8 +604,8 @@ public class HttpRemoteTask
 
     /**
      * Continuous update loop for task info.  Wait for a short period for task state to change, and
-     * if it does not, return the current state of the task.  This will cause stats to be updated at
-     * a regular interval, and state changes will be immediately recorded.
+     * if it does not, return the current state of the task.  This will cause stats to be updated at a
+     * regular interval, and state changes will be immediately recorded.
      */
     private class ContinuousTaskInfoFetcher
             implements SimpleHttpResponseCallback<TaskInfo>

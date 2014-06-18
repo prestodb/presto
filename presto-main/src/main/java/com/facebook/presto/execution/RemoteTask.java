@@ -37,7 +37,9 @@ public interface RemoteTask
 
     void cancel();
 
-    int getQueuedSplits();
+    int getPartitionedSplitCount();
+
+    int getQueuedPartitionedSplitCount();
 
     Duration waitForTaskToFinish(Duration maxWait)
             throws InterruptedException;

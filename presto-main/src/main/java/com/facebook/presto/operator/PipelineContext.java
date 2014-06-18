@@ -108,7 +108,12 @@ public class PipelineContext
 
     public DriverContext addDriverContext()
     {
-        DriverContext driverContext = new DriverContext(this, executor);
+        return addDriverContext(false);
+    }
+
+    public DriverContext addDriverContext(boolean partitioned)
+    {
+        DriverContext driverContext = new DriverContext(this, executor, partitioned);
         drivers.add(driverContext);
         return driverContext;
     }
@@ -267,7 +272,9 @@ public class PipelineContext
 
         int totalDriers = completedDrivers.get() + driverContexts.size();
         int queuedDrivers = 0;
+        int queuedPartitionedDrivers = 0;
         int runningDrivers = 0;
+        int runningPartitionedDrivers = 0;
         int completedDrivers = this.completedDrivers.get();
 
         Distribution queuedTime = new Distribution(this.queuedTime);
@@ -296,9 +303,15 @@ public class PipelineContext
 
             if (driverStats.getStartTime() == null) {
                 queuedDrivers++;
+                if (driverContext.isPartitioned()) {
+                    queuedPartitionedDrivers++;
+                }
             }
             else {
                 runningDrivers++;
+                if (driverContext.isPartitioned()) {
+                    runningPartitionedDrivers++;
+                }
             }
 
             queuedTime.add(driverStats.getQueuedTime().roundTo(NANOSECONDS));
@@ -338,7 +351,9 @@ public class PipelineContext
 
                 totalDriers,
                 queuedDrivers,
+                queuedPartitionedDrivers,
                 runningDrivers,
+                runningPartitionedDrivers,
                 completedDrivers,
 
                 new DataSize(memoryReservation.get(), BYTE).convertToMostSuccinctDataSize(),

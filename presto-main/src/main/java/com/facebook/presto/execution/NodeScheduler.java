@@ -35,6 +35,7 @@ import javax.inject.Inject;
 
 import java.net.InetAddress;
 import java.net.UnknownHostException;
+import java.util.HashMap;
 import java.util.Iterator;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -48,6 +49,7 @@ import java.util.concurrent.atomic.AtomicReference;
 import static com.facebook.presto.spi.StandardErrorCode.NO_NODES_AVAILABLE;
 import static com.facebook.presto.util.Failures.checkCondition;
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkNotNull;
 
 public class NodeScheduler
 {
@@ -58,14 +60,21 @@ public class NodeScheduler
     private final int minCandidates;
     private final boolean locationAwareScheduling;
     private final boolean includeCoordinator;
+    private final int maxSplitsPerNode;
+    private final int maxSplitsPerNodePerTaskWhenFull;
+    private final NodeTaskMap nodeTaskMap;
 
     @Inject
-    public NodeScheduler(NodeManager nodeManager, NodeSchedulerConfig config)
+    public NodeScheduler(NodeManager nodeManager, NodeSchedulerConfig config, NodeTaskMap nodeTaskMap)
     {
         this.nodeManager = nodeManager;
         this.minCandidates = config.getMinCandidates();
         this.locationAwareScheduling = config.isLocationAwareSchedulingEnabled();
         this.includeCoordinator = config.isIncludeCoordinator();
+        this.maxSplitsPerNode = config.getMaxSplitsPerNode();
+        this.maxSplitsPerNodePerTaskWhenFull = config.getMaxPendingSplitsPerNodePerTask();
+        this.nodeTaskMap = checkNotNull(nodeTaskMap, "nodeTaskMap is null");
+        checkArgument(maxSplitsPerNode > maxSplitsPerNodePerTaskWhenFull, "maxSplitsPerNode must be > maxSplitsPerNodePerTaskWhenFull");
     }
 
     @Managed
@@ -94,7 +103,7 @@ public class NodeScheduler
         scheduleRandom.set(0);
     }
 
-    public NodeSelector createNodeSelector(final String dataSourceName, Map<Node, RemoteTask> taskMap, int maxPendingSplitsPerTask)
+    public NodeSelector createNodeSelector(final String dataSourceName, Map<Node, RemoteTask> taskMap)
     {
         // this supplier is thread-safe. TODO: this logic should probably move to the scheduler since the choice of which node to run in should be
         // done as close to when the the split is about to be scheduled
@@ -112,7 +121,8 @@ public class NodeScheduler
                     nodes = nodeManager.getActiveDatasourceNodes(dataSourceName);
                 }
                 else {
-                    nodes = FluentIterable.from(nodeManager.getActiveNodes()).filter(new Predicate<Node>() {
+                    nodes = FluentIterable.from(nodeManager.getActiveNodes()).filter(new Predicate<Node>()
+                    {
                         @Override
                         public boolean apply(Node node)
                         {
@@ -141,20 +151,18 @@ public class NodeScheduler
             }
         }, 5, TimeUnit.SECONDS);
 
-        return new NodeSelector(nodeMap, taskMap, maxPendingSplitsPerTask);
+        return new NodeSelector(nodeMap, taskMap);
     }
 
     public class NodeSelector
     {
         private final AtomicReference<Supplier<NodeMap>> nodeMap;
         private final Map<Node, RemoteTask> taskMap;
-        private final int maxPendingSplitsPerTask;
 
-        public NodeSelector(Supplier<NodeMap> nodeMap, Map<Node, RemoteTask> taskMap, int maxPendingSplitsPerTask)
+        public NodeSelector(Supplier<NodeMap> nodeMap, Map<Node, RemoteTask> taskMap)
         {
             this.nodeMap = new AtomicReference<>(nodeMap);
             this.taskMap = taskMap;
-            this.maxPendingSplitsPerTask = maxPendingSplitsPerTask;
         }
 
         public void lockDownNodes()
@@ -180,9 +188,21 @@ public class NodeScheduler
             return ImmutableList.copyOf(FluentIterable.from(lazyShuffle(nodeMap.get().get().getNodesByHostAndPort().values())).limit(limit));
         }
 
+        /**
+         * Identifies the nodes for runnning the specified splits.
+         *
+         * @param splits the splits that need to be assigned to nodes
+         *
+         * @return a multimap from node to splits only for splits for which we could identify a node to schedule on.
+         *      If we cannot find an assignment for a split, it is not included in the map.
+         */
         public Multimap<Node, Split> computeAssignments(Set<Split> splits)
         {
             Multimap<Node, Split> assignment = HashMultimap.create();
+            Map<Node, Integer> assignmentCount = new HashMap<>();
+
+            // maintain a temporary local cache of partitioned splits on the node
+            Map<Node, Integer> splitCountByNode = new HashMap<>();
 
             for (Split split : splits) {
                 List<Node> candidateNodes;
@@ -194,19 +214,40 @@ public class NodeScheduler
                 }
                 checkCondition(!candidateNodes.isEmpty(), NO_NODES_AVAILABLE, "No nodes available to run query");
 
-                Node chosen = null;
-                int min = Integer.MAX_VALUE;
+                // compute and cache number of splits currently assigned to each node
                 for (Node node : candidateNodes) {
-                    RemoteTask task = taskMap.get(node);
-                    int currentSplits = (task == null) ? 0 : task.getQueuedSplits();
-                    int assignedSplits = currentSplits + assignment.get(node).size();
-                    if (assignedSplits < min && assignedSplits < maxPendingSplitsPerTask) {
-                        chosen = node;
-                        min = assignedSplits;
+                    if (!splitCountByNode.containsKey(node)) {
+                        splitCountByNode.put(node, nodeTaskMap.getPartitionedSplitsOnNode(node));
                     }
                 }
-                if (chosen != null) {
-                    assignment.put(chosen, split);
+                Node chosenNode = null;
+                int min = Integer.MAX_VALUE;
+
+                for (Node node : candidateNodes) {
+                    int assignedSplitCount = assignmentCount.containsKey(node) ? assignmentCount.get(node) : 0;
+                    int totalSplitCount = assignedSplitCount + splitCountByNode.get(node);
+
+                    if (totalSplitCount < min && totalSplitCount < maxSplitsPerNode) {
+                        chosenNode = node;
+                        min = totalSplitCount;
+                    }
+                }
+                if (chosenNode == null) {
+                    for (Node node : candidateNodes) {
+                        int assignedSplitCount = assignmentCount.containsKey(node) ? assignmentCount.get(node) : 0;
+                        RemoteTask remoteTask = taskMap.get(node);
+                        int queuedSplitCount = remoteTask == null ? 0 : remoteTask.getQueuedPartitionedSplitCount();
+                        int totalSplitCount = queuedSplitCount + assignedSplitCount;
+                        if (totalSplitCount < min && totalSplitCount < maxSplitsPerNodePerTaskWhenFull) {
+                            chosenNode = node;
+                            min = totalSplitCount;
+                        }
+                    }
+                }
+                if (chosenNode != null) {
+                    assignment.put(chosenNode, split);
+                    int count = assignmentCount.containsKey(chosenNode) ? assignmentCount.get(chosenNode) : 0;
+                    assignmentCount.put(chosenNode, count + 1);
                 }
             }
             return assignment;

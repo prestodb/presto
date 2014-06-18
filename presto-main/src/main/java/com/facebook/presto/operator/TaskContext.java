@@ -245,7 +245,9 @@ public class TaskContext
 
         int totalDrivers = 0;
         int queuedDrivers = 0;
+        int queuedPartitionedDrivers = 0;
         int runningDrivers = 0;
+        int runningPartitionedDrivers = 0;
         int completedDrivers = 0;
 
         long totalScheduledTime = 0;
@@ -265,7 +267,9 @@ public class TaskContext
         for (PipelineStats pipeline : pipelineStats) {
             totalDrivers += pipeline.getTotalDrivers();
             queuedDrivers += pipeline.getQueuedDrivers();
+            queuedPartitionedDrivers += pipeline.getQueuedPartitionedDrivers();
             runningDrivers += pipeline.getRunningDrivers();
+            runningPartitionedDrivers += pipeline.getRunningPartitionedDrivers();
             completedDrivers += pipeline.getCompletedDrivers();
 
             totalScheduledTime += pipeline.getTotalScheduledTime().roundTo(NANOSECONDS);
@@ -311,7 +315,9 @@ public class TaskContext
                 queuedTime.convertToMostSuccinctTimeUnit(),
                 totalDrivers,
                 queuedDrivers,
+                queuedPartitionedDrivers,
                 runningDrivers,
+                runningPartitionedDrivers,
                 completedDrivers,
                 new DataSize(memoryReservation.get(), BYTE).convertToMostSuccinctDataSize(),
                 new Duration(totalScheduledTime, NANOSECONDS).convertToMostSuccinctTimeUnit(),
