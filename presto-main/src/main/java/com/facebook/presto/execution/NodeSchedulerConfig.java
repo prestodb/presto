@@ -22,6 +22,8 @@ public class NodeSchedulerConfig
     private int minCandidates = 10;
     private boolean locationAwareScheduling = true;
     private boolean includeCoordinator = true;
+    private int maxSplitsPerNode = 100;
+    private int maxPendingSplitsPerNodePerTask = 10;
 
     @Min(1)
     public int getMinCandidates()
@@ -57,6 +59,30 @@ public class NodeSchedulerConfig
     public NodeSchedulerConfig setIncludeCoordinator(boolean includeCoordinator)
     {
         this.includeCoordinator = includeCoordinator;
+        return this;
+    }
+
+    @Config("node-scheduler.max-pending-splits-per-node-per-task")
+    public NodeSchedulerConfig setMaxPendingSplitsPerNodePerTask(int maxPendingSplitsPerNodePerTask)
+    {
+        this.maxPendingSplitsPerNodePerTask = maxPendingSplitsPerNodePerTask;
+        return this;
+    }
+
+    public int getMaxPendingSplitsPerNodePerTask()
+    {
+        return maxPendingSplitsPerNodePerTask;
+    }
+
+    public int getMaxSplitsPerNode()
+    {
+        return maxSplitsPerNode;
+    }
+
+    @Config("node-scheduler.max-splits-per-node")
+    public NodeSchedulerConfig setMaxSplitsPerNode(int maxSplitsPerNode)
+    {
+        this.maxSplitsPerNode = maxSplitsPerNode;
         return this;
     }
 }
