@@ -60,20 +60,6 @@ public abstract class AbstractFixedWidthBlock
     }
 
     @Override
-    public Block getRegion(int positionOffset, int length)
-    {
-        int positionCount = getPositionCount();
-        if (positionOffset < 0 || length < 0 || positionOffset + length > positionCount) {
-            throw new IndexOutOfBoundsException("Invalid position " + positionOffset + " in block with " + positionCount + " positions");
-        }
-        BlockCursor cursor = cursor();
-        if (positionOffset > 0 && !cursor.advanceToPosition(positionOffset - 1)) {
-            throw new IllegalStateException("position is not value");
-        }
-        return cursor.getRegionAndAdvance(length);
-    }
-
-    @Override
     public boolean getBoolean(int position)
     {
         checkReadablePosition(position);

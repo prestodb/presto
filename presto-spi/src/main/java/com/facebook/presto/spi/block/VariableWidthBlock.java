@@ -16,6 +16,8 @@ package com.facebook.presto.spi.block;
 import com.facebook.presto.spi.type.VariableWidthType;
 import io.airlift.slice.Slice;
 
+import java.util.Arrays;
+
 public class VariableWidthBlock
         extends AbstractVariableWidthBlock
 {
@@ -54,6 +56,18 @@ public class VariableWidthBlock
     protected Slice getRawSlice()
     {
         return slice;
+    }
+
+    @Override
+    public Block getRegion(int positionOffset, int length)
+    {
+        int positionCount = getPositionCount();
+        if (positionOffset < 0 || length < 0 || positionOffset + length > positionCount) {
+            throw new IndexOutOfBoundsException("Invalid position " + positionOffset + " in block with " + positionCount + " positions");
+        }
+
+        int[] newOffsets = Arrays.copyOfRange(offsets, positionOffset, positionOffset + length);
+        return new VariableWidthBlock(type, length, slice, newOffsets);
     }
 
     @Override

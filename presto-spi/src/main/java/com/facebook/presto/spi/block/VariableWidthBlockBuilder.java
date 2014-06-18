@@ -162,6 +162,18 @@ public class VariableWidthBlockBuilder
     }
 
     @Override
+    public Block getRegion(int positionOffset, int length)
+    {
+        int positionCount = getPositionCount();
+        if (positionOffset < 0 || length < 0 || positionOffset + length > positionCount) {
+            throw new IndexOutOfBoundsException("Invalid position " + positionOffset + " in block with " + positionCount + " positions");
+        }
+
+        int[] newOffsets = Arrays.copyOfRange(offsets, positionOffset, positionOffset + length);
+        return new VariableWidthBlock(type, length, sliceOutput.slice(), newOffsets);
+    }
+
+    @Override
     public Block build()
     {
         return new VariableWidthBlock(type, positions, sliceOutput.slice(), Arrays.copyOf(offsets, positions));
