@@ -22,7 +22,6 @@ import com.facebook.presto.operator.OperatorFactory;
 import com.facebook.presto.operator.Page;
 import com.facebook.presto.operator.PageBuilder;
 import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.block.BlockCursor;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.planner.plan.AggregationNode.Step;
 import com.facebook.presto.testing.LocalQueryRunner;
@@ -241,29 +240,12 @@ public class HandTpchQuery1
                 Block shipDateBlock)
         {
             int rows = returnFlagBlock.getPositionCount();
-
-            BlockCursor returnFlagCursor = returnFlagBlock.cursor();
-            BlockCursor lineStatusCursor = lineStatusBlock.cursor();
-            BlockCursor quantityCursor = quantityBlock.cursor();
-            BlockCursor extendedPriceCursor = extendedPriceBlock.cursor();
-            BlockCursor discountCursor = discountBlock.cursor();
-            BlockCursor taxCursor = taxBlock.cursor();
-            BlockCursor shipDateCursor = shipDateBlock.cursor();
-
             for (int position = 0; position < rows; position++) {
-                checkState(returnFlagCursor.advanceNextPosition());
-                checkState(lineStatusCursor.advanceNextPosition());
-                checkState(quantityCursor.advanceNextPosition());
-                checkState(extendedPriceCursor.advanceNextPosition());
-                checkState(discountCursor.advanceNextPosition());
-                checkState(taxCursor.advanceNextPosition());
-                checkState(shipDateCursor.advanceNextPosition());
-
-                if (shipDateCursor.isNull()) {
+                if (shipDateBlock.isNull(position)) {
                     continue;
                 }
 
-                Slice shipDate = shipDateCursor.getSlice();
+                Slice shipDate = shipDateBlock.getSlice(position);
 
                 // where
                 //     shipdate <= '1998-09-02'
@@ -276,28 +258,28 @@ public class HandTpchQuery1
                     //     extendedprice * (1 - discount) * (1 + tax)
                     //     discount
 
-                    if (returnFlagCursor.isNull()) {
+                    if (returnFlagBlock.isNull(position)) {
                         pageBuilder.getBlockBuilder(0).appendNull();
                     }
                     else {
-                        pageBuilder.getBlockBuilder(0).appendSlice(returnFlagCursor.getSlice());
+                        pageBuilder.getBlockBuilder(0).appendSlice(returnFlagBlock.getSlice(position));
                     }
-                    if (lineStatusCursor.isNull()) {
+                    if (lineStatusBlock.isNull(position)) {
                         pageBuilder.getBlockBuilder(1).appendNull();
                     }
                     else {
-                        pageBuilder.getBlockBuilder(1).appendSlice(lineStatusCursor.getSlice());
+                        pageBuilder.getBlockBuilder(1).appendSlice(lineStatusBlock.getSlice(position));
                     }
 
-                    long quantity = quantityCursor.getLong();
-                    double extendedPrice = extendedPriceCursor.getDouble();
-                    double discount = discountCursor.getDouble();
-                    double tax = taxCursor.getDouble();
+                    long quantity = quantityBlock.getLong(position);
+                    double extendedPrice = extendedPriceBlock.getDouble(position);
+                    double discount = discountBlock.getDouble(position);
+                    double tax = taxBlock.getDouble(position);
 
-                    boolean quantityIsNull = quantityCursor.isNull();
-                    boolean extendedPriceIsNull = extendedPriceCursor.isNull();
-                    boolean discountIsNull = discountCursor.isNull();
-                    boolean taxIsNull = taxCursor.isNull();
+                    boolean quantityIsNull = quantityBlock.isNull(position);
+                    boolean extendedPriceIsNull = extendedPriceBlock.isNull(position);
+                    boolean discountIsNull = discountBlock.isNull(position);
+                    boolean taxIsNull = taxBlock.isNull(position);
 
                     if (quantityIsNull) {
                         pageBuilder.getBlockBuilder(2).appendNull();
@@ -335,14 +317,6 @@ public class HandTpchQuery1
                     }
                 }
             }
-
-            checkState(!returnFlagCursor.advanceNextPosition());
-            checkState(!lineStatusCursor.advanceNextPosition());
-            checkState(!quantityCursor.advanceNextPosition());
-            checkState(!extendedPriceCursor.advanceNextPosition());
-            checkState(!discountCursor.advanceNextPosition());
-            checkState(!taxCursor.advanceNextPosition());
-            checkState(!shipDateCursor.advanceNextPosition());
         }
     }
 

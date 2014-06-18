@@ -22,7 +22,6 @@ import com.facebook.presto.operator.OperatorFactory;
 import com.facebook.presto.operator.Page;
 import com.facebook.presto.operator.PageBuilder;
 import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.block.BlockCursor;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.planner.plan.AggregationNode.Step;
 import com.facebook.presto.testing.LocalQueryRunner;
@@ -38,7 +37,6 @@ import static com.facebook.presto.operator.AggregationFunctionDefinition.aggrega
 import static com.facebook.presto.operator.aggregation.DoubleSumAggregation.DOUBLE_SUM;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.google.common.base.Charsets.UTF_8;
-import static com.google.common.base.Preconditions.checkState;
 
 public class HandTpchQuery6
         extends AbstractSimpleOperatorBenchmark
@@ -122,50 +120,35 @@ public class HandTpchQuery6
         {
             int rows = extendedPriceBlock.getPositionCount();
 
-            BlockCursor extendedPriceCursor = extendedPriceBlock.cursor();
-            BlockCursor discountCursor = discountBlock.cursor();
-            BlockCursor shipDateCursor = shipDateBlock.cursor();
-            BlockCursor quantityCursor = quantityBlock.cursor();
-
             for (int position = 0; position < rows; position++) {
-                checkState(extendedPriceCursor.advanceNextPosition());
-                checkState(discountCursor.advanceNextPosition());
-                checkState(shipDateCursor.advanceNextPosition());
-                checkState(quantityCursor.advanceNextPosition());
-
                 // where shipdate >= '1994-01-01'
                 //    and shipdate < '1995-01-01'
                 //    and discount >= 0.05
                 //    and discount <= 0.07
                 //    and quantity < 24;
-                if (filter(discountCursor, shipDateCursor, quantityCursor)) {
-                    project(pageBuilder, extendedPriceCursor, discountCursor);
+                if (filter(position, discountBlock, shipDateBlock, quantityBlock)) {
+                    project(position, pageBuilder, extendedPriceBlock, discountBlock);
                 }
             }
-
-            checkState(!extendedPriceCursor.advanceNextPosition());
-            checkState(!discountCursor.advanceNextPosition());
-            checkState(!shipDateCursor.advanceNextPosition());
-            checkState(!quantityCursor.advanceNextPosition());
         }
 
-        private static void project(PageBuilder pageBuilder, BlockCursor extendedPriceCursor, BlockCursor discountCursor)
+        private static void project(int position, PageBuilder pageBuilder, Block extendedPriceBlock, Block discountBlock)
         {
-            if (discountCursor.isNull() || extendedPriceCursor.isNull()) {
+            if (discountBlock.isNull(position) || extendedPriceBlock.isNull(position)) {
                 pageBuilder.getBlockBuilder(0).appendNull();
             }
             else {
-                pageBuilder.getBlockBuilder(0).appendDouble(extendedPriceCursor.getDouble() * discountCursor.getDouble());
+                pageBuilder.getBlockBuilder(0).appendDouble(extendedPriceBlock.getDouble(position) * discountBlock.getDouble(position));
             }
         }
 
-        private static boolean filter(BlockCursor discountCursor, BlockCursor shipDateCursor, BlockCursor quantityCursor)
+        private static boolean filter(int position, Block discountBlock, Block shipDateBlock, Block quantityBlock)
         {
-            return !shipDateCursor.isNull() && shipDateCursor.getSlice().compareTo(MIN_SHIP_DATE) >= 0 &&
-                    !shipDateCursor.isNull() && shipDateCursor.getSlice().compareTo(MAX_SHIP_DATE) < 0 &&
-                    !discountCursor.isNull() && discountCursor.getDouble() >= 0.05 &&
-                    !discountCursor.isNull() && discountCursor.getDouble() <= 0.07 &&
-                    !quantityCursor.isNull() && quantityCursor.getLong() < 24;
+            return !shipDateBlock.isNull(position) && shipDateBlock.getSlice(position).compareTo(MIN_SHIP_DATE) >= 0 &&
+                    !shipDateBlock.isNull(position) && shipDateBlock.getSlice(position).compareTo(MAX_SHIP_DATE) < 0 &&
+                    !discountBlock.isNull(position) && discountBlock.getDouble(position) >= 0.05 &&
+                    !discountBlock.isNull(position) && discountBlock.getDouble(position) <= 0.07 &&
+                    !quantityBlock.isNull(position) && quantityBlock.getLong(position) < 24;
         }
     }
 
