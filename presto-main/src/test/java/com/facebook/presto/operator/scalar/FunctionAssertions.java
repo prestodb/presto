@@ -38,7 +38,6 @@ import com.facebook.presto.spi.HostAddress;
 import com.facebook.presto.spi.InMemoryRecordSet;
 import com.facebook.presto.spi.RecordSet;
 import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.block.BlockCursor;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.split.DataStreamProvider;
 import com.facebook.presto.sql.analyzer.ExpressionAnalysis;
@@ -288,14 +287,7 @@ public final class FunctionAssertions
         Block block = output.getBlock(0);
         assertEquals(block.getPositionCount(), 1);
 
-        BlockCursor cursor = block.cursor();
-        assertTrue(cursor.advanceNextPosition());
-        if (cursor.isNull()) {
-            return null;
-        }
-        else {
-            return cursor.getObjectValue(session);
-        }
+        return block.getObjectValue(session, 0);
     }
 
     public void assertFilter(String filter, boolean expected, boolean withNoInputColumns)
@@ -412,9 +404,7 @@ public final class FunctionAssertions
             assertEquals(page.getPositionCount(), 1);
             assertEquals(page.getChannelCount(), 1);
 
-            BlockCursor cursor = page.getBlock(0).cursor();
-            assertTrue(cursor.advanceNextPosition());
-            assertTrue(cursor.getBoolean());
+            assertTrue(page.getBoolean(0, 0));
             value = true;
         }
         else {

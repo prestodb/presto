@@ -17,7 +17,6 @@ import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
-import com.facebook.presto.spi.block.BlockCursor;
 import com.facebook.presto.spi.type.Type;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
@@ -36,8 +35,6 @@ import static com.facebook.presto.spi.type.TimeZoneKey.UTC_KEY;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertFalse;
-import static org.testng.Assert.assertTrue;
 
 public final class BlockAssertions
 {
@@ -50,22 +47,15 @@ public final class BlockAssertions
     public static Object getOnlyValue(Block block)
     {
         assertEquals(block.getPositionCount(), 1, "Block positions");
-
-        BlockCursor cursor = block.cursor();
-        assertTrue(cursor.advanceNextPosition());
-        Object value = cursor.getObjectValue(SESSION);
-        assertFalse(cursor.advanceNextPosition());
-
-        return value;
+        return block.getObjectValue(SESSION, 0);
     }
 
     public static List<Object> toValues(BlockIterable blocks)
     {
         List<Object> values = new ArrayList<>();
         for (Block block : blocks) {
-            BlockCursor cursor = block.cursor();
-            while (cursor.advanceNextPosition()) {
-                values.add(cursor.getObjectValue(SESSION));
+            for (int position = 0; position < block.getPositionCount(); position++) {
+                values.add(block.getObjectValue(SESSION, position));
             }
         }
         return Collections.unmodifiableList(values);
@@ -73,15 +63,9 @@ public final class BlockAssertions
 
     public static List<Object> toValues(Block block)
     {
-        BlockCursor cursor = block.cursor();
-        return toValues(cursor);
-    }
-
-    public static List<Object> toValues(BlockCursor cursor)
-    {
         List<Object> values = new ArrayList<>();
-        while (cursor.advanceNextPosition()) {
-            values.add(cursor.getObjectValue(SESSION));
+        for (int position = 0; position < block.getPositionCount(); position++) {
+            values.add(block.getObjectValue(SESSION, position));
         }
         return Collections.unmodifiableList(values);
     }
@@ -89,26 +73,10 @@ public final class BlockAssertions
     public static void assertBlockEquals(Block actual, Block expected)
     {
         assertEquals(actual.getType(), expected.getType());
-        assertCursorsEquals(actual.cursor(), expected.cursor());
-    }
 
-    public static void assertCursorsEquals(BlockCursor actualCursor, BlockCursor expectedCursor)
-    {
-        assertEquals(actualCursor.getType(), expectedCursor.getType());
-        while (advanceAllCursorsToNextPosition(actualCursor, expectedCursor)) {
-            assertEquals(actualCursor.getObjectValue(SESSION), expectedCursor.getObjectValue(SESSION));
+        for (int position = 0; position < actual.getPositionCount(); position++) {
+            assertEquals(actual.getObjectValue(SESSION, position), expected.getObjectValue(SESSION, position));
         }
-        assertTrue(actualCursor.isFinished());
-        assertTrue(expectedCursor.isFinished());
-    }
-
-    public static boolean advanceAllCursorsToNextPosition(BlockCursor... cursors)
-    {
-        boolean allAdvanced = true;
-        for (BlockCursor cursor : cursors) {
-            allAdvanced = cursor.advanceNextPosition() && allAdvanced;
-        }
-        return allAdvanced;
     }
 
     public static Block createStringsBlock(String... values)
