@@ -135,6 +135,7 @@ public class SqlStageExecution
     private final Distribution addSplitDistribution = new Distribution();
 
     private final NodeSelector nodeSelector;
+    private final NodeTaskMap nodeTaskMap;
 
     // Note: atomic is needed to assure thread safety between constructor and scheduler thread
     private final AtomicReference<Multimap<PlanNodeId, URI>> exchangeLocations = new AtomicReference<Multimap<PlanNodeId, URI>>(ImmutableMultimap.<PlanNodeId, URI>of());
@@ -146,9 +147,9 @@ public class SqlStageExecution
             RemoteTaskFactory remoteTaskFactory,
             ConnectorSession session,
             int splitBatchSize,
-            int maxPendingSplitsPerNode,
             int initialHashPartitions,
             ExecutorService executor,
+            NodeTaskMap nodeTaskMap,
             OutputBuffers nextOutputBuffers)
     {
         this(null,
@@ -160,9 +161,9 @@ public class SqlStageExecution
                 remoteTaskFactory,
                 session,
                 splitBatchSize,
-                maxPendingSplitsPerNode,
                 initialHashPartitions,
-                executor);
+                executor,
+                nodeTaskMap);
 
         // add a single output buffer
         this.nextOutputBuffers = nextOutputBuffers;
@@ -177,9 +178,9 @@ public class SqlStageExecution
             RemoteTaskFactory remoteTaskFactory,
             ConnectorSession session,
             int splitBatchSize,
-            int maxPendingSplitsPerNode,
             int initialHashPartitions,
-            ExecutorService executor)
+            ExecutorService executor,
+            NodeTaskMap nodeTaskMap)
     {
         checkNotNull(queryId, "queryId is null");
         checkNotNull(nextStageId, "nextStageId is null");
@@ -189,8 +190,8 @@ public class SqlStageExecution
         checkNotNull(remoteTaskFactory, "remoteTaskFactory is null");
         checkNotNull(session, "session is null");
         checkArgument(initialHashPartitions > 0, "initialHashPartitions must be greater than 0");
-        checkArgument(maxPendingSplitsPerNode > 0, "maxPendingSplitsPerNode must be greater than 0");
         checkNotNull(executor, "executor is null");
+        checkNotNull(nodeTaskMap, "nodeTaskMap is null");
 
         this.stageId = new StageId(queryId, String.valueOf(nextStageId.getAndIncrement()));
         try (SetThreadName setThreadName = new SetThreadName("Stage-%s", stageId)) {
@@ -216,9 +217,9 @@ public class SqlStageExecution
                         remoteTaskFactory,
                         session,
                         splitBatchSize,
-                        maxPendingSplitsPerNode,
                         initialHashPartitions,
-                        executor);
+                        executor,
+                        nodeTaskMap);
 
                 subStage.addStateChangeListener(new StateChangeListener<StageInfo>()
                 {
@@ -234,7 +235,8 @@ public class SqlStageExecution
             this.subStages = subStages.build();
 
             String dataSourceName = dataSource.isPresent() ? dataSource.get().getDataSourceName() : null;
-            this.nodeSelector = nodeScheduler.createNodeSelector(dataSourceName, tasks, maxPendingSplitsPerNode);
+            this.nodeSelector = nodeScheduler.createNodeSelector(dataSourceName, tasks);
+            this.nodeTaskMap = nodeTaskMap;
             stageState = new StateMachine<>("stage " + stageId, this.executor, StageState.PLANNED);
             stageState.addStateChangeListener(new StateChangeListener<StageState>()
             {
@@ -673,6 +675,7 @@ public class SqlStageExecution
             }
         }
     }
+
     private void waitForFreeNode(AtomicInteger nextTaskId)
     {
         // if we have sub stages...
@@ -756,6 +759,7 @@ public class SqlStageExecution
 
         // record this task
         tasks.put(node, task);
+        nodeTaskMap.addTask(node, task);
 
         // update in case task finished before listener was registered
         doUpdateState();
