@@ -19,20 +19,12 @@ import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.block.BlockCursor;
 import com.facebook.presto.spi.type.Type;
-import com.google.common.base.Function;
-import com.google.common.collect.ContiguousSet;
-import com.google.common.collect.DiscreteDomain;
-import com.google.common.collect.Iterables;
-import com.google.common.collect.Range;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
-
-import javax.annotation.Nullable;
 
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Locale;
 
@@ -65,17 +57,6 @@ public final class BlockAssertions
         assertFalse(cursor.advanceNextPosition());
 
         return value;
-    }
-
-    public static void assertBlocksEquals(BlockIterable actual, BlockIterable expected)
-    {
-        Iterator<Block> expectedIterator = expected.iterator();
-        for (Block actualBlock : actual) {
-            assertTrue(expectedIterator.hasNext());
-            Block expectedBlock = expectedIterator.next();
-            assertBlockEquals(actualBlock, expectedBlock);
-        }
-        assertFalse(expectedIterator.hasNext());
     }
 
     public static List<Object> toValues(BlockIterable blocks)
@@ -130,56 +111,6 @@ public final class BlockAssertions
         return allAdvanced;
     }
 
-    public static Iterable<Long> createLongSequence(long start, long end)
-    {
-        return ContiguousSet.create(Range.closedOpen(start, end), DiscreteDomain.longs());
-    }
-
-    public static Iterable<Double> createDoubleSequence(long start, long end)
-    {
-        return Iterables.transform(createLongSequence(start, end), new Function<Long, Double>()
-        {
-            @Override
-            public Double apply(Long input)
-            {
-                return (double) input;
-            }
-        });
-    }
-
-    public static Iterable<String> createStringSequence(long start, long end)
-    {
-        return Iterables.transform(createLongSequence(start, end), new Function<Long, String>()
-        {
-            @Override
-            public String apply(Long input)
-            {
-                return String.valueOf(input);
-            }
-        });
-    }
-
-    public static Iterable<Long> createLongNullSequence(int count)
-    {
-        Long[] values = new Long[count];
-        Arrays.fill(values, null);
-        return Arrays.asList(values);
-    }
-
-    public static Iterable<Double> createDoubleNullSequence(int count)
-    {
-        Double[] values = new Double[count];
-        Arrays.fill(values, null);
-        return Arrays.asList(values);
-    }
-
-    public static Iterable<String> createStringNullSequence(int count)
-    {
-        String[] values = new String[count];
-        Arrays.fill(values, null);
-        return Arrays.asList(values);
-    }
-
     public static Block createStringsBlock(String... values)
     {
         checkNotNull(values, "varargs 'values' is null");
@@ -201,11 +132,6 @@ public final class BlockAssertions
         }
 
         return builder.build();
-    }
-
-    public static BlockIterable createStringsBlockIterable(@Nullable String... values)
-    {
-        return createBlockIterable(createStringsBlock(values));
     }
 
     public static Block createStringSequenceBlock(int start, int end)
@@ -282,16 +208,6 @@ public final class BlockAssertions
         return builder.build();
     }
 
-    public static BlockIterable createLongsBlockIterable(int... values)
-    {
-        return createBlockIterable(createLongsBlock(values));
-    }
-
-    public static BlockIterable createLongsBlockIterable(@Nullable Long... values)
-    {
-        return createBlockIterable(createLongsBlock(values));
-    }
-
     public static Block createLongSequenceBlock(int start, int end)
     {
         BlockBuilder builder = BIGINT.createBlockBuilder(new BlockBuilderStatus());
@@ -335,11 +251,6 @@ public final class BlockAssertions
         }
 
         return builder.build();
-    }
-
-    public static BlockIterable createDoublesBlockIterable(@Nullable Double... values)
-    {
-        return createBlockIterable(createDoublesBlock(values));
     }
 
     public static Block createDoubleSequenceBlock(int start, int end)
