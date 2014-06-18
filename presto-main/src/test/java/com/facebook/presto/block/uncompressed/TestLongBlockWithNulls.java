@@ -16,22 +16,22 @@ package com.facebook.presto.block.uncompressed;
 import com.facebook.presto.spi.block.Block;
 import org.testng.annotations.Test;
 
-import static com.facebook.presto.block.BlockAssertions.createDoublesBlock;
-import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
+import static com.facebook.presto.block.BlockAssertions.createLongsBlock;
+import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static org.testng.Assert.assertEquals;
 
-public class TestDoubleBlockCursorWithNulls
-        extends AbstractTestSingleColumnBlockCursorWithNulls
+public class TestLongBlockWithNulls
+        extends AbstractTestSingleColumnBlockWithNulls
 {
     @Override
     protected Block createExpectedValues()
     {
-        return createDoublesBlock(null, 11.11, null, 22.22, null, 22.22, null, 22.22, null, 33.33, null);
+        return createLongsBlock(null, 1111L, null, 2222L, null, 2222L, null, 2222L, null, 3333L, null);
     }
 
     @Test
     public void testCursorType()
     {
-        assertEquals(createExpectedValues().cursor().getType(), DOUBLE);
+        assertEquals(createExpectedValues().cursor().getType(), BIGINT);
     }
 }

@@ -13,26 +13,25 @@
  */
 package com.facebook.presto.block.uncompressed;
 
-import com.facebook.presto.block.AbstractTestBlockCursor;
 import com.facebook.presto.spi.block.Block;
+import com.facebook.presto.spi.block.VariableWidthCursor;
 import org.testng.annotations.Test;
 
-import static com.facebook.presto.block.BlockAssertions.createBooleansBlock;
-import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
-import static org.testng.Assert.assertEquals;
+import static com.facebook.presto.block.BlockAssertions.createStringsBlock;
+import static io.airlift.testing.Assertions.assertInstanceOf;
 
-public class TestBooleanBlockCursor
-        extends AbstractTestBlockCursor
+public class TestSliceBlockWithNulls
+        extends AbstractTestSingleColumnBlockWithNulls
 {
     @Override
     protected Block createExpectedValues()
     {
-        return createBooleansBlock(true, true, true, false, false, false, false, false, true, true, false);
+        return createStringsBlock(null, "apple", null, "banana", null, "banana", null, "banana", null, "cherry", null);
     }
 
     @Test
     public void testCursorType()
     {
-        assertEquals(createExpectedValues().cursor().getType(), BOOLEAN);
+        assertInstanceOf(createExpectedValues().cursor(), VariableWidthCursor.class);
     }
 }

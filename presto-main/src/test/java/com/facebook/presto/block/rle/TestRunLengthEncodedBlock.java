@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.block.rle;
 
-import com.facebook.presto.block.AbstractTestBlockCursor;
+import com.facebook.presto.block.AbstractTestBlock;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
 import io.airlift.slice.Slices;
@@ -21,17 +21,17 @@ import io.airlift.slice.Slices;
 import static com.facebook.presto.block.BlockAssertions.createStringsBlock;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 
-public class TestRunLengthEncodedBlockCursor
-        extends AbstractTestBlockCursor
+public class TestRunLengthEncodedBlock
+        extends AbstractTestBlock
 {
     @Override
-    protected RunLengthEncodedBlockCursor createTestCursor()
+    protected Block createTestBlock()
     {
         Block value = VARCHAR.createBlockBuilder(new BlockBuilderStatus())
                 .appendSlice(Slices.utf8Slice("cherry"))
                 .build();
 
-        return new RunLengthEncodedBlock(value, 11).cursor();
+        return new RunLengthEncodedBlock(value, 11);
     }
 
     @Override

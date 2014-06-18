@@ -269,7 +269,7 @@ public abstract class AbstractFixedWidthBlock
     private void checkReadablePosition(int position)
     {
         if (position < 0 || position >= getPositionCount()) {
-            throw new IllegalStateException("position is not valid");
+            throw new IllegalArgumentException("position is not valid");
         }
     }
 

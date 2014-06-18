@@ -14,24 +14,24 @@
 package com.facebook.presto.block.uncompressed;
 
 import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.block.VariableWidthCursor;
 import org.testng.annotations.Test;
 
-import static com.facebook.presto.block.BlockAssertions.createStringsBlock;
-import static io.airlift.testing.Assertions.assertInstanceOf;
+import static com.facebook.presto.block.BlockAssertions.createBooleansBlock;
+import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
+import static org.testng.Assert.assertEquals;
 
-public class TestSliceBlockCursorWithNulls
-        extends AbstractTestSingleColumnBlockCursorWithNulls
+public class TestBooleanBlockWithNulls
+        extends AbstractTestSingleColumnBlockWithNulls
 {
     @Override
     protected Block createExpectedValues()
     {
-        return createStringsBlock(null, "apple", null, "banana", null, "banana", null, "banana", null, "cherry", null);
+        return createBooleansBlock(null, true, null, false, null, false, null, false, null, true, null);
     }
 
     @Test
     public void testCursorType()
     {
-        assertInstanceOf(createExpectedValues().cursor(), VariableWidthCursor.class);
+        assertEquals(createExpectedValues().cursor().getType(), BOOLEAN);
     }
 }

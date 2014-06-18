@@ -13,25 +13,26 @@
  */
 package com.facebook.presto.block.uncompressed;
 
+import com.facebook.presto.block.AbstractTestBlock;
 import com.facebook.presto.spi.block.Block;
 import org.testng.annotations.Test;
 
-import static com.facebook.presto.block.BlockAssertions.createBooleansBlock;
-import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
+import static com.facebook.presto.block.BlockAssertions.createLongsBlock;
+import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static org.testng.Assert.assertEquals;
 
-public class TestBooleanBlockCursorWithNulls
-        extends AbstractTestSingleColumnBlockCursorWithNulls
+public class TestLongBlock
+        extends AbstractTestBlock
 {
     @Override
     protected Block createExpectedValues()
     {
-        return createBooleansBlock(null, true, null, false, null, false, null, false, null, true, null);
+        return createLongsBlock(1111L, 1111L, 1111L, 2222L, 2222L, 2222L, 2222L, 2222L, 3333L, 3333L, 4444L);
     }
 
     @Test
     public void testCursorType()
     {
-        assertEquals(createExpectedValues().cursor().getType(), BOOLEAN);
+        assertEquals(createExpectedValues().cursor().getType(), BIGINT);
     }
 }

@@ -13,26 +13,25 @@
  */
 package com.facebook.presto.block.uncompressed;
 
-import com.facebook.presto.block.AbstractTestBlockCursor;
 import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.block.VariableWidthCursor;
 import org.testng.annotations.Test;
 
-import static com.facebook.presto.block.BlockAssertions.createStringsBlock;
-import static io.airlift.testing.Assertions.assertInstanceOf;
+import static com.facebook.presto.block.BlockAssertions.createDoublesBlock;
+import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
+import static org.testng.Assert.assertEquals;
 
-public class TestSliceBlockCursor
-        extends AbstractTestBlockCursor
+public class TestDoubleBlockWithNulls
+        extends AbstractTestSingleColumnBlockWithNulls
 {
     @Override
     protected Block createExpectedValues()
     {
-        return createStringsBlock("apple", "apple", "apple", "banana", "banana", "banana", "banana", "banana", "cherry", "cherry", "date");
+        return createDoublesBlock(null, 11.11, null, 22.22, null, 22.22, null, 22.22, null, 33.33, null);
     }
 
     @Test
     public void testCursorType()
     {
-        assertInstanceOf(createExpectedValues().cursor(), VariableWidthCursor.class);
+        assertEquals(createExpectedValues().cursor().getType(), DOUBLE);
     }
 }
