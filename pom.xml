@@ -39,6 +39,9 @@
         <air.check.skip-extended>true</air.check.skip-extended>
         <air.check.skip-license>false</air.check.skip-license>
 
+        <air.check.fail-checkstyle>true</air.check.fail-checkstyle>
+        <air.check.skip-checkstyle>false</air.check.skip-checkstyle>
+
         <dep.antlr.version>3.4</dep.antlr.version>
         <dep.slice.version>0.6</dep.slice.version>
         <dep.airlift.version>0.91</dep.airlift.version>
@@ -646,6 +649,8 @@
                             <goal>check</goal>
                         </goals>
                         <configuration>
+                            <skip>${air.check.skip-checkstyle}</skip>
+                            <failOnViolation>${air.check.fail-checkstyle}</failOnViolation>
                             <consoleOutput>true</consoleOutput>
                             <includeTestSourceDirectory>true</includeTestSourceDirectory>
                             <configLocation>${air.main.basedir}/src/checkstyle/checks.xml</configLocation>
