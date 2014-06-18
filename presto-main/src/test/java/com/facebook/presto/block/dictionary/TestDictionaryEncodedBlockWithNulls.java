@@ -13,10 +13,9 @@
  */
 package com.facebook.presto.block.dictionary;
 
-import com.facebook.presto.block.AbstractTestBlockCursor;
+import com.facebook.presto.block.AbstractTestBlock;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
-import com.facebook.presto.spi.block.BlockCursor;
 import io.airlift.slice.Slices;
 import org.testng.annotations.Test;
 
@@ -25,8 +24,8 @@ import static com.facebook.presto.block.BlockAssertions.createStringsBlock;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static io.airlift.testing.Assertions.assertInstanceOf;
 
-public class TestDictionaryEncodedBlockCursorWithNulls
-        extends AbstractTestBlockCursor
+public class TestDictionaryEncodedBlockWithNulls
+        extends AbstractTestBlock
 {
     @Override
     protected Block createExpectedValues()
@@ -35,7 +34,7 @@ public class TestDictionaryEncodedBlockCursorWithNulls
     }
 
     @Override
-    protected BlockCursor createTestCursor()
+    protected Block createTestBlock()
     {
         Block dictionary = VARCHAR.createBlockBuilder(new BlockBuilderStatus())
                 .appendNull()
@@ -45,12 +44,12 @@ public class TestDictionaryEncodedBlockCursorWithNulls
                 .appendSlice(Slices.utf8Slice("date"))
                 .build();
 
-        return new DictionaryEncodedBlock(dictionary, createLongsBlock(0, 1, 0, 2, 0, 2, 0, 2, 0, 3, 0)).cursor();
+        return new DictionaryEncodedBlock(dictionary, createLongsBlock(0, 1, 0, 2, 0, 2, 0, 2, 0, 3, 0));
     }
 
     @Test
     public void testCursorType()
     {
-        assertInstanceOf(createTestCursor(), DictionaryEncodedBlockCursor.class);
+        assertInstanceOf(createTestBlock(), DictionaryEncodedBlock.class);
     }
 }

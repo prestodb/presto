@@ -25,7 +25,6 @@ import io.airlift.slice.Slice;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkPositionIndexes;
-import static com.google.common.base.Preconditions.checkState;
 
 public class RunLengthEncodedBlock
         implements Block
@@ -202,6 +201,6 @@ public class RunLengthEncodedBlock
 
     private void checkReadablePosition(int position)
     {
-        checkState(position >= 0 && position < positionCount, "position is not valid");
+        checkArgument(position >= 0 && position < positionCount, "position is not valid");
     }
 }

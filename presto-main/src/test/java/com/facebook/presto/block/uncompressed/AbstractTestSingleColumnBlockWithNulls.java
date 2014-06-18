@@ -13,32 +13,29 @@
  */
 package com.facebook.presto.block.uncompressed;
 
-import com.facebook.presto.block.AbstractTestBlockCursor;
-import com.facebook.presto.spi.block.BlockCursor;
+import com.facebook.presto.block.AbstractTestBlock;
+import com.facebook.presto.spi.block.Block;
 import org.testng.annotations.Test;
 
-import java.util.Map.Entry;
+import java.util.SortedMap;
 
-import static com.facebook.presto.block.BlockCursorAssertions.assertNextPosition;
-import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 
-public abstract class AbstractTestSingleColumnBlockCursorWithNulls
-        extends AbstractTestBlockCursor
+public abstract class AbstractTestSingleColumnBlockWithNulls
+        extends AbstractTestBlock
 {
     @Test
     public void testNullValues()
     {
-        BlockCursor cursor = createTestCursor();
+        Block block = createTestBlock();
 
-        for (Entry<Integer, Object> entry : getExpectedValues().entrySet()) {
-            assertNextPosition(cursor, entry.getKey(), entry.getValue());
-            if (cursor.getPosition() % 2 == 0) {
-                assertTrue(cursor.isNull());
-                assertTrue(entry.getValue() == null);
+        SortedMap<Integer, Object> expectedValues = getExpectedValues();
+        for (int position = 0; position < block.getPositionCount(); position++) {
+            assertPositionEquals(block, position, expectedValues.get(position));
+            if (position % 2 == 0) {
+                assertTrue(block.isNull(position));
+                assertTrue(block.getObjectValue(SESSION, position) == null);
             }
         }
-
-        assertFalse(cursor.advanceNextPosition());
     }
 }

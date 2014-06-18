@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.block.uncompressed;
 
-import com.facebook.presto.block.AbstractTestBlockCursor;
+import com.facebook.presto.block.AbstractTestBlock;
 import com.facebook.presto.spi.block.Block;
 import org.testng.annotations.Test;
 
@@ -21,8 +21,8 @@ import static com.facebook.presto.block.BlockAssertions.createDoublesBlock;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static org.testng.Assert.assertEquals;
 
-public class TestDoubleBlockCursor
-        extends AbstractTestBlockCursor
+public class TestDoubleBlock
+        extends AbstractTestBlock
 {
     @Override
     protected Block createExpectedValues()
