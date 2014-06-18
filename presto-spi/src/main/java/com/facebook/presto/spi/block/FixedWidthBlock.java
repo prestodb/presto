@@ -49,6 +49,18 @@ public class FixedWidthBlock
     }
 
     @Override
+    public Block getRegion(int positionOffset, int length)
+    {
+        int positionCount = getPositionCount();
+        if (positionOffset < 0 || length < 0 || positionOffset + length > positionCount) {
+            throw new IndexOutOfBoundsException("Invalid position " + positionOffset + " in block with " + positionCount + " positions");
+        }
+
+        Slice newSlice = slice.slice(positionOffset * entrySize, length * entrySize);
+        return new FixedWidthBlock(type, length, newSlice);
+    }
+
+    @Override
     public String toString()
     {
         StringBuilder sb = new StringBuilder("FixedWidthBlock{");
