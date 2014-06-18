@@ -71,7 +71,7 @@ public class ApproximateCountAggregation
     }
 
     @Override
-    public ApproximateCountGroupedAccumulator createGroupedAggregation(Optional<Integer> maskChannel, Optional<Integer> sampleWeightChannel, double confidence, int[] argumentChannels)
+    public ApproximateCountGroupedAccumulator createGroupedAggregation(Optional<Integer> maskChannel, Optional<Integer> sampleWeightChannel, double confidence, int... argumentChannels)
     {
         checkArgument(sampleWeightChannel.isPresent(), "sampleWeightChannel missing");
         return new ApproximateCountGroupedAccumulator(maskChannel, sampleWeightChannel.get(), confidence);

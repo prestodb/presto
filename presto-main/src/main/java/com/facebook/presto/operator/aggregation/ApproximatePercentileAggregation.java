@@ -74,7 +74,7 @@ public class ApproximatePercentileAggregation
     }
 
     @Override
-    public ApproximatePercentileGroupedAccumulator createGroupedAggregation(Optional<Integer> maskChannel, Optional<Integer> sampleWeightChannel, double confidence, int[] argumentChannels)
+    public ApproximatePercentileGroupedAccumulator createGroupedAggregation(Optional<Integer> maskChannel, Optional<Integer> sampleWeightChannel, double confidence, int... argumentChannels)
     {
         checkArgument(confidence == 1.0, "approximate percentile does not support approximate queries");
         return new ApproximatePercentileGroupedAccumulator(argumentChannels[0], argumentChannels[1], parameterType, maskChannel, sampleWeightChannel);
