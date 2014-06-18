@@ -13,10 +13,9 @@
  */
 package com.facebook.presto;
 
-import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.block.BlockCursor;
 import com.facebook.presto.operator.Page;
 import com.facebook.presto.operator.PageBuilder;
+import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.type.Type;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
@@ -71,34 +70,18 @@ public final class HashPagePartitionFunction
             return pages;
         }
 
-        List<Type> types = getTypes(pages);
-
-        PageBuilder pageBuilder = new PageBuilder(types);
+        PageBuilder pageBuilder = new PageBuilder(getTypes(pages));
 
         ImmutableList.Builder<Page> partitionedPages = ImmutableList.builder();
         for (Page page : pages) {
-            // open the page
-            BlockCursor[] cursors = new BlockCursor[types.size()];
-            for (int i = 0; i < cursors.length; i++) {
-                cursors[i] = page.getBlock(i).cursor();
-            }
-            // for each position
             for (int position = 0; position < page.getPositionCount(); position++) {
-                // advance all cursors
-                for (BlockCursor cursor : cursors) {
-                    cursor.advanceNextPosition();
-                }
-
                 // if hash is not in range skip
-                int partitionHashBucket = getPartitionHashBucket(cursors);
+                int partitionHashBucket = getPartitionHashBucket(position, page);
                 if (partitionHashBucket != partition) {
                     continue;
                 }
 
-                // append row
-                for (int channel = 0; channel < cursors.length; channel++) {
-                    cursors[channel].appendTo(pageBuilder.getBlockBuilder(channel));
-                }
+                page.appendTo(position, pageBuilder);
 
                 // if page is full, flush
                 if (pageBuilder.isFull()) {
@@ -114,12 +97,12 @@ public final class HashPagePartitionFunction
         return partitionedPages.build();
     }
 
-    private int getPartitionHashBucket(BlockCursor[] cursors)
+    private int getPartitionHashBucket(int position, Page page)
     {
         long hashCode = 1;
         for (int channel : partitioningChannels) {
             hashCode *= 31;
-            hashCode += cursors[channel].hash();
+            hashCode += page.getBlock(channel).hash(position);
         }
         // clear the sign bit
         hashCode &= 0x7fff_ffff_ffff_ffffL;
