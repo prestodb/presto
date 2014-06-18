@@ -15,11 +15,8 @@ package com.facebook.presto.block.uncompressed;
 
 import com.facebook.presto.block.AbstractTestBlock;
 import com.facebook.presto.spi.block.Block;
-import org.testng.annotations.Test;
 
 import static com.facebook.presto.block.BlockAssertions.createBooleansBlock;
-import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
-import static org.testng.Assert.assertEquals;
 
 public class TestBooleanBlock
         extends AbstractTestBlock
@@ -28,11 +25,5 @@ public class TestBooleanBlock
     protected Block createExpectedValues()
     {
         return createBooleansBlock(true, true, true, false, false, false, false, false, true, true, false);
-    }
-
-    @Test
-    public void testCursorType()
-    {
-        assertEquals(createExpectedValues().cursor().getType(), BOOLEAN);
     }
 }

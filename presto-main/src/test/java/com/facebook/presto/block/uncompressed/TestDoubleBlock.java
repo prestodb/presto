@@ -15,11 +15,8 @@ package com.facebook.presto.block.uncompressed;
 
 import com.facebook.presto.block.AbstractTestBlock;
 import com.facebook.presto.spi.block.Block;
-import org.testng.annotations.Test;
 
 import static com.facebook.presto.block.BlockAssertions.createDoublesBlock;
-import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
-import static org.testng.Assert.assertEquals;
 
 public class TestDoubleBlock
         extends AbstractTestBlock
@@ -28,11 +25,5 @@ public class TestDoubleBlock
     protected Block createExpectedValues()
     {
         return createDoublesBlock(11.11, 11.11, 11.11, 22.22, 22.22, 22.22, 22.22, 22.22, 33.33, 33.33, 44.44);
-    }
-
-    @Test
-    public void testCursorType()
-    {
-        assertEquals(createExpectedValues().cursor().getType(), DOUBLE);
     }
 }

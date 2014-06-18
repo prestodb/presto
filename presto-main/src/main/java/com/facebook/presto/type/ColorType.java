@@ -17,7 +17,6 @@ import com.facebook.presto.operator.scalar.ColorFunctions;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
-import com.facebook.presto.spi.block.BlockCursor;
 import com.facebook.presto.spi.block.BlockEncodingFactory;
 import com.facebook.presto.spi.block.FixedWidthBlockUtil;
 import com.facebook.presto.spi.type.FixedWidthType;
@@ -142,12 +141,6 @@ public class ColorType
     public boolean equalTo(Slice leftSlice, int leftOffset, Slice rightSlice, int rightOffset)
     {
         return leftSlice.getInt(leftOffset) == rightSlice.getInt(rightOffset);
-    }
-
-    @Override
-    public boolean equalTo(Slice leftSlice, int leftOffset, BlockCursor rightCursor)
-    {
-        return leftSlice.getInt(leftOffset) == (int) rightCursor.getLong();
     }
 
     @Override

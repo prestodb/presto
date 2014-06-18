@@ -16,7 +16,6 @@ package com.facebook.presto.operator;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.block.BlockCursor;
 import com.facebook.presto.spi.block.BlockEncoding;
 import com.facebook.presto.spi.block.SortOrder;
 import com.facebook.presto.spi.type.Type;
@@ -106,12 +105,6 @@ public class GroupByIdBlock
     }
 
     @Override
-    public boolean equalTo(int position, BlockCursor cursor)
-    {
-        return block.equalTo(position, cursor);
-    }
-
-    @Override
     public boolean equalTo(int position, Slice otherSlice, int otherOffset)
     {
         return block.equalTo(position, otherSlice, otherOffset);
@@ -127,12 +120,6 @@ public class GroupByIdBlock
     public int compareTo(SortOrder sortOrder, int position, Block otherBlock, int otherPosition)
     {
         return block.compareTo(sortOrder, position, otherBlock, otherPosition);
-    }
-
-    @Override
-    public int compareTo(SortOrder sortOrder, int position, BlockCursor cursor)
-    {
-        return block.compareTo(sortOrder, position, cursor);
     }
 
     @Override
@@ -163,12 +150,6 @@ public class GroupByIdBlock
     public int getSizeInBytes()
     {
         return block.getSizeInBytes();
-    }
-
-    @Override
-    public BlockCursor cursor()
-    {
-        return block.cursor();
     }
 
     @Override

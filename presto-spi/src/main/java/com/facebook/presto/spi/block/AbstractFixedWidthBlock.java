@@ -48,12 +48,6 @@ public abstract class AbstractFixedWidthBlock
     }
 
     @Override
-    public BlockCursor cursor()
-    {
-        return new FixedWidthBlockCursor(type, getPositionCount(), getRawSlice());
-    }
-
-    @Override
     public BlockEncoding getEncoding()
     {
         return new FixedWidthBlockEncoding(type);
@@ -136,25 +130,6 @@ public abstract class AbstractFixedWidthBlock
     }
 
     @Override
-    public boolean equalTo(int position, BlockCursor cursor)
-    {
-        checkReadablePosition(position);
-        int entryOffset = entryOffset(position);
-        boolean thisIsNull = isEntryAtOffsetNull(entryOffset);
-        boolean valueIsNull = cursor.isNull();
-
-        if (thisIsNull != valueIsNull) {
-            return false;
-        }
-
-        // if values are both null, they are equal
-        if (thisIsNull) {
-            return true;
-        }
-        return type.equalTo(getRawSlice(), valueOffset(entryOffset), cursor);
-    }
-
-    @Override
     public boolean equalTo(int position, Slice otherSlice, int otherOffset)
     {
         checkReadablePosition(position);
@@ -194,30 +169,6 @@ public abstract class AbstractFixedWidthBlock
 
         // compare the right block to our slice but negate the result since we are evaluating in the opposite order
         int result = -otherBlock.compareTo(otherPosition, getRawSlice(), valueOffset(leftEntryOffset));
-        return sortOrder.isAscending() ? result : -result;
-    }
-
-    @Override
-    public int compareTo(SortOrder sortOrder, int position, BlockCursor cursor)
-    {
-        checkReadablePosition(position);
-        int leftEntryOffset = entryOffset(position);
-        boolean leftIsNull = isEntryAtOffsetNull(leftEntryOffset);
-
-        boolean rightIsNull = cursor.isNull();
-
-        if (leftIsNull && rightIsNull) {
-            return 0;
-        }
-        if (leftIsNull) {
-            return sortOrder.isNullsFirst() ? -1 : 1;
-        }
-        if (rightIsNull) {
-            return sortOrder.isNullsFirst() ? 1 : -1;
-        }
-
-        // compare the right cursor to our slice but negate the result since we are evaluating in the opposite order
-        int result = -cursor.compareTo(getRawSlice(), valueOffset(leftEntryOffset));
         return sortOrder.isAscending() ? result : -result;
     }
 

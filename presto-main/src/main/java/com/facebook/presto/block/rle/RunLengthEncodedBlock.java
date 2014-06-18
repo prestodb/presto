@@ -16,7 +16,6 @@ package com.facebook.presto.block.rle;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.block.BlockCursor;
 import com.facebook.presto.spi.block.SortOrder;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.base.Objects;
@@ -137,13 +136,6 @@ public class RunLengthEncodedBlock
     }
 
     @Override
-    public boolean equalTo(int position, BlockCursor cursor)
-    {
-        checkReadablePosition(position);
-        return this.value.equalTo(0, cursor);
-    }
-
-    @Override
     public boolean equalTo(int position, Slice otherSlice, int otherOffset)
     {
         checkReadablePosition(position);
@@ -162,13 +154,6 @@ public class RunLengthEncodedBlock
     {
         checkReadablePosition(position);
         return value.compareTo(sortOrder, 0, otherBlock, otherPosition);
-    }
-
-    @Override
-    public int compareTo(SortOrder sortOrder, int position, BlockCursor cursor)
-    {
-        checkReadablePosition(position);
-        return value.compareTo(sortOrder, 0, cursor);
     }
 
     @Override
@@ -191,12 +176,6 @@ public class RunLengthEncodedBlock
                 .add("value", value)
                 .add("positionCount", positionCount)
                 .toString();
-    }
-
-    @Override
-    public RunLengthEncodedBlockCursor cursor()
-    {
-        return new RunLengthEncodedBlockCursor(value, positionCount);
     }
 
     private void checkReadablePosition(int position)
