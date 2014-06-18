@@ -15,7 +15,6 @@ package com.facebook.presto.spi.type;
 
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.block.BlockCursor;
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceOutput;
 
@@ -88,12 +87,6 @@ public interface FixedWidthType
      * Are the values in the specified slices at the specified offsets equal?
      */
     boolean equalTo(Slice leftSlice, int leftOffset, Slice rightSlice, int rightOffset);
-
-    /**
-     * Is the value at the specified offset in the specified slice equal value
-     * at the specified cursor?
-     */
-    boolean equalTo(Slice leftSlice, int leftOffset, BlockCursor rightCursor);
 
     /**
      * Calculates the hash code of the value at the specified offset in the

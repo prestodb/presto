@@ -50,8 +50,6 @@ public final class FixedWidthBlockUtil
                 FixedWidthBlock.class,
                 FixedWidthBlockBuilder.class,
 
-                FixedWidthBlockCursor.class,
-
                 FixedWidthBlockEncoding.class);
 
         try {

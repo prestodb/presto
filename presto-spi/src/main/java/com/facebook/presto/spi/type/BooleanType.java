@@ -16,7 +16,6 @@ package com.facebook.presto.spi.type;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
-import com.facebook.presto.spi.block.BlockCursor;
 import com.facebook.presto.spi.block.BlockEncodingFactory;
 import com.facebook.presto.spi.block.FixedWidthBlockUtil.FixedWidthBlockBuilderFactory;
 import io.airlift.slice.Slice;
@@ -131,14 +130,6 @@ public final class BooleanType
     {
         boolean leftValue = leftSlice.getByte(leftOffset) != 0;
         boolean rightValue = rightSlice.getByte(rightOffset) != 0;
-        return leftValue == rightValue;
-    }
-
-    @Override
-    public boolean equalTo(Slice leftSlice, int leftOffset, BlockCursor rightCursor)
-    {
-        boolean leftValue = leftSlice.getByte(leftOffset) != 0;
-        boolean rightValue = rightCursor.getBoolean();
         return leftValue == rightValue;
     }
 

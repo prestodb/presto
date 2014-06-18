@@ -16,7 +16,6 @@ package com.facebook.presto.block.snappy;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.block.BlockCursor;
 import com.facebook.presto.spi.block.BlockEncoding;
 import com.facebook.presto.spi.block.SortOrder;
 import com.facebook.presto.spi.type.Type;
@@ -114,12 +113,6 @@ public class SnappyBlock
     }
 
     @Override
-    public BlockCursor cursor()
-    {
-        return getUncompressedBlock().cursor();
-    }
-
-    @Override
     public SnappyBlockEncoding getEncoding()
     {
         return new SnappyBlockEncoding(type, uncompressedBlockEncoding);
@@ -180,12 +173,6 @@ public class SnappyBlock
     }
 
     @Override
-    public boolean equalTo(int position, BlockCursor cursor)
-    {
-        return getUncompressedBlock().equalTo(position, cursor);
-    }
-
-    @Override
     public boolean equalTo(int position, Slice otherSlice, int otherOffset)
     {
         return getUncompressedBlock().equalTo(position, otherSlice, otherOffset);
@@ -201,12 +188,6 @@ public class SnappyBlock
     public int compareTo(SortOrder sortOrder, int position, Block otherBlock, int otherPosition)
     {
         return getUncompressedBlock().compareTo(sortOrder, position, otherBlock, otherPosition);
-    }
-
-    @Override
-    public int compareTo(SortOrder sortOrder, int position, BlockCursor cursor)
-    {
-        return getUncompressedBlock().compareTo(sortOrder, position, cursor);
     }
 
     @Override

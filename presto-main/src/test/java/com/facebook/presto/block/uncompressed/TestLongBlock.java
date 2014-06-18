@@ -15,11 +15,8 @@ package com.facebook.presto.block.uncompressed;
 
 import com.facebook.presto.block.AbstractTestBlock;
 import com.facebook.presto.spi.block.Block;
-import org.testng.annotations.Test;
 
 import static com.facebook.presto.block.BlockAssertions.createLongsBlock;
-import static com.facebook.presto.spi.type.BigintType.BIGINT;
-import static org.testng.Assert.assertEquals;
 
 public class TestLongBlock
         extends AbstractTestBlock
@@ -28,11 +25,5 @@ public class TestLongBlock
     protected Block createExpectedValues()
     {
         return createLongsBlock(1111L, 1111L, 1111L, 2222L, 2222L, 2222L, 2222L, 2222L, 3333L, 3333L, 4444L);
-    }
-
-    @Test
-    public void testCursorType()
-    {
-        assertEquals(createExpectedValues().cursor().getType(), BIGINT);
     }
 }

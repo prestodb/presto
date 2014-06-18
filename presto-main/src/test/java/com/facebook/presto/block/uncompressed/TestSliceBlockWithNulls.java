@@ -14,11 +14,8 @@
 package com.facebook.presto.block.uncompressed;
 
 import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.block.VariableWidthCursor;
-import org.testng.annotations.Test;
 
 import static com.facebook.presto.block.BlockAssertions.createStringsBlock;
-import static io.airlift.testing.Assertions.assertInstanceOf;
 
 public class TestSliceBlockWithNulls
         extends AbstractTestSingleColumnBlockWithNulls
@@ -27,11 +24,5 @@ public class TestSliceBlockWithNulls
     protected Block createExpectedValues()
     {
         return createStringsBlock(null, "apple", null, "banana", null, "banana", null, "banana", null, "cherry", null);
-    }
-
-    @Test
-    public void testCursorType()
-    {
-        assertInstanceOf(createExpectedValues().cursor(), VariableWidthCursor.class);
     }
 }
