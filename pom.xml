@@ -73,6 +73,9 @@
         <module>presto-tests</module>
         <module>presto-jdbc</module>
         <module>presto-cli</module>
+
+        <!-- Important: presto-server needs to be listed *after* all plugins in order for them to be included in the tgz.
+             The dependency resolution rules in the maven assembly are broken, so presto-server can't depend on the plugins -->
         <module>presto-server</module>
         <module>presto-docs</module>
         <module>presto-verifier</module>
@@ -111,13 +114,6 @@
                 <artifactId>presto-hive</artifactId>
                 <version>${project.version}</version>
                 <type>test-jar</type>
-            </dependency>
-
-            <dependency>
-                <groupId>com.facebook.presto</groupId>
-                <artifactId>presto-tpch</artifactId>
-                <version>${project.version}</version>
-                <type>zip</type>
             </dependency>
 
             <dependency>
