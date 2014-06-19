@@ -14,8 +14,8 @@
 package com.facebook.presto.operator.aggregation;
 
 import com.facebook.presto.operator.aggregation.state.VarianceState;
+import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.block.BlockCursor;
 import io.airlift.slice.Slices;
 
 import static com.facebook.presto.operator.aggregation.ApproximateUtils.formatApproximateResult;
@@ -49,9 +49,9 @@ public class ApproximateLongSumAggregation
     }
 
     @Override
-    protected void processInput(ApproximateLongSumState state, BlockCursor cursor, long sampleWeight)
+    protected void processInput(ApproximateLongSumState state, Block block, int index, long sampleWeight)
     {
-        long value = cursor.getLong();
+        long value = block.getLong(index);
 
         state.setWeightedCount(state.getWeightedCount() + sampleWeight);
         state.setSum(state.getSum() + value * sampleWeight);

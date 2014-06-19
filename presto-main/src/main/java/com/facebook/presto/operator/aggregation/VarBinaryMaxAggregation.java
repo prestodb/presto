@@ -14,7 +14,7 @@
 package com.facebook.presto.operator.aggregation;
 
 import com.facebook.presto.operator.aggregation.state.SliceState;
-import com.facebook.presto.spi.block.BlockCursor;
+import com.facebook.presto.spi.block.Block;
 import io.airlift.slice.Slice;
 
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
@@ -30,9 +30,9 @@ public class VarBinaryMaxAggregation
     }
 
     @Override
-    protected void processInput(SliceState state, BlockCursor cursor)
+    protected void processInput(SliceState state, Block block, int index)
     {
-        state.setSlice(max(state.getSlice(), cursor.getSlice()));
+        state.setSlice(max(state.getSlice(), block.getSlice(index)));
     }
 
     private static Slice max(Slice a, Slice b)

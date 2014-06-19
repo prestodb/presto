@@ -21,7 +21,6 @@ import com.facebook.presto.operator.aggregation.state.GroupedAccumulatorState;
 import com.facebook.presto.operator.aggregation.state.StateCompiler;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.block.BlockCursor;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.base.Optional;
 import io.airlift.event.client.TypeParameterUtils;
@@ -48,7 +47,7 @@ public abstract class AbstractAggregationFunction<T extends AccumulatorState>
         stateSerializer = new StateCompiler().generateStateSerializer((Class<T>) types[0]);
     }
 
-    protected abstract void processInput(T state, BlockCursor cursor);
+    protected abstract void processInput(T state, Block block, int index);
 
     protected void processIntermediate(T state, T scratchState, Block block, int index)
     {
@@ -112,30 +111,25 @@ public abstract class AbstractAggregationFunction<T extends AccumulatorState>
         }
 
         @Override
-        protected void processInput(GroupByIdBlock groupIdsBlock, Block valuesBlock, Optional<Block> maskBlock, Optional<Block> sampleWeightBlock)
+        protected void processInput(GroupByIdBlock groupIdsBlock, Block values, Optional<Block> maskBlock, Optional<Block> sampleWeightBlock)
         {
             checkArgument(!sampleWeightBlock.isPresent(), "Sampled data not supported");
             groupedState.ensureCapacity(groupIdsBlock.getGroupCount());
 
-            BlockCursor values = valuesBlock.cursor();
-            BlockCursor masks = null;
+            Block masks = null;
             if (maskBlock.isPresent()) {
-                masks = maskBlock.get().cursor();
+                masks = maskBlock.get();
             }
 
             for (int position = 0; position < groupIdsBlock.getPositionCount(); position++) {
-                checkState(values.advanceNextPosition());
-                checkState(masks == null || masks.advanceNextPosition());
-
-                if (masks != null && !masks.getBoolean()) {
+                if (masks != null && !masks.getBoolean(position)) {
                     continue;
                 }
-                if (!values.isNull()) {
+                if (!values.isNull(position)) {
                     groupedState.setGroupId(groupIdsBlock.getGroupId(position));
-                    AbstractAggregationFunction.this.processInput(state, values);
+                    AbstractAggregationFunction.this.processInput(state, values, position);
                 }
             }
-            checkState(!values.advanceNextPosition());
         }
 
         @Override
@@ -187,23 +181,20 @@ public abstract class AbstractAggregationFunction<T extends AccumulatorState>
         }
 
         @Override
-        protected void processInput(Block block, Optional<Block> maskBlock, Optional<Block> sampleWeightBlock)
+        protected void processInput(Block values, Optional<Block> maskBlock, Optional<Block> sampleWeightBlock)
         {
             checkArgument(!sampleWeightBlock.isPresent(), "Sampled data not supported");
-            BlockCursor values = block.cursor();
-            BlockCursor masks = null;
+            Block masks = null;
             if (maskBlock.isPresent()) {
-               masks = maskBlock.get().cursor();
+               masks = maskBlock.get();
             }
 
-            for (int position = 0; position < block.getPositionCount(); position++) {
-                checkState(values.advanceNextPosition());
-                checkState(masks == null || masks.advanceNextPosition());
-                if (masks != null && !masks.getBoolean()) {
+            for (int position = 0; position < values.getPositionCount(); position++) {
+                if (masks != null && !masks.getBoolean(position)) {
                     continue;
                 }
-                if (!values.isNull()) {
-                    AbstractAggregationFunction.this.processInput(state, values);
+                if (!values.isNull(position)) {
+                    AbstractAggregationFunction.this.processInput(state, values, position);
                 }
             }
         }

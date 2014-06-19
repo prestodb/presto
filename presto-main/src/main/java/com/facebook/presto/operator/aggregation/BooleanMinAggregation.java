@@ -14,7 +14,7 @@
 package com.facebook.presto.operator.aggregation;
 
 import com.facebook.presto.operator.aggregation.state.TriStateBooleanState;
-import com.facebook.presto.spi.block.BlockCursor;
+import com.facebook.presto.spi.block.Block;
 
 import static com.facebook.presto.operator.aggregation.state.TriStateBooleanState.FALSE_VALUE;
 import static com.facebook.presto.operator.aggregation.state.TriStateBooleanState.NULL_VALUE;
@@ -32,10 +32,10 @@ public class BooleanMinAggregation
     }
 
     @Override
-    protected void processInput(TriStateBooleanState state, BlockCursor cursor)
+    protected void processInput(TriStateBooleanState state, Block block, int index)
     {
         // if value is false, update the min to false
-        if (!cursor.getBoolean()) {
+        if (!block.getBoolean(index)) {
             state.setByte(FALSE_VALUE);
         }
         else {

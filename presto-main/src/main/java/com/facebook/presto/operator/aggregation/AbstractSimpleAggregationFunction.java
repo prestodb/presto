@@ -15,7 +15,6 @@ package com.facebook.presto.operator.aggregation;
 
 import com.facebook.presto.operator.aggregation.state.AccumulatorState;
 import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.block.BlockCursor;
 import com.facebook.presto.spi.type.Type;
 
 /**
@@ -33,9 +32,7 @@ public abstract class AbstractSimpleAggregationFunction<T extends AccumulatorSta
     @Override
     protected final void processIntermediate(T state, T scratchState, Block block, int index)
     {
-        BlockCursor cursor = block.cursor();
-        cursor.advanceToPosition(index);
-        processInput(state, cursor);
+        processInput(state, block, index);
     }
 
     @Override

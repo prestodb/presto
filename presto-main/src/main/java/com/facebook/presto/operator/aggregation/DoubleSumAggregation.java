@@ -14,7 +14,7 @@
 package com.facebook.presto.operator.aggregation;
 
 import com.facebook.presto.operator.aggregation.state.NullableDoubleState;
-import com.facebook.presto.spi.block.BlockCursor;
+import com.facebook.presto.spi.block.Block;
 
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 
@@ -29,9 +29,9 @@ public class DoubleSumAggregation
     }
 
     @Override
-    public void processInput(NullableDoubleState state, BlockCursor cursor)
+    public void processInput(NullableDoubleState state, Block block, int index)
     {
         state.setNull(false);
-        state.setDouble(state.getDouble() + cursor.getDouble());
+        state.setDouble(state.getDouble() + block.getDouble(index));
     }
 }
