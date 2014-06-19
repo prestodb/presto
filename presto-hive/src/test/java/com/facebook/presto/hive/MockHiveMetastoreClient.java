@@ -17,6 +17,7 @@ import com.facebook.presto.hive.shaded.org.apache.thrift.TException;
 import com.google.common.base.Function;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Lists;
 import org.apache.hadoop.hive.metastore.Warehouse;
 import org.apache.hadoop.hive.metastore.api.Database;
@@ -25,7 +26,6 @@ import org.apache.hadoop.hive.metastore.api.MetaException;
 import org.apache.hadoop.hive.metastore.api.NoSuchObjectException;
 import org.apache.hadoop.hive.metastore.api.Partition;
 import org.apache.hadoop.hive.metastore.api.Table;
-import org.weakref.jmx.com.google.common.collect.ImmutableSet;
 
 import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
