@@ -100,6 +100,9 @@ public class VeroGenericSqlFormatter
                 while (expressions.hasNext()) {
                     builder.append('\n');
                     append(indent + 1, formatExpression(expressions.next()));
+                    if (expressions.hasNext()) {
+                        builder.append(',');
+                    }
                 }
                 builder.append('\n');
             }
