@@ -72,6 +72,29 @@ public abstract class AbstractTestDistributedQueries
     }
 
     @Test
+    public void testCreateTable()
+            throws Exception
+    {
+        String tableName = "test_create_table";
+        assertQueryTrue("CREATE TABLE IF NOT EXISTS " + tableName
+                        + " (a int, b bigint, c boolean, d double, e char, f varchar(10), g date) "
+                        + "PARTITIONED BY (h int, i varchar(5))"
+                        + "SERDE \'org.apache.hadoop.hive.serde2.lazy.LazySimpleSerDe\' "
+                        + "INPUTFORMAT \'org.apache.hadoop.mapred.SequenceFileInputFormat\' "
+                        + "OUTPUTFORMAT \'org.apache.hadoop.hive.ql.io.HiveSequenceFileOutputFormat\' "
+                        + "LOCATION \'s3n://testTableLocation\' ");
+
+        assertTrue(queryRunner.tableExists(getSession(), tableName));
+
+        assertQueryTrue("CREATE TABLE IF NOT EXISTS " + tableName
+                        + " (a int, b bigint) ");
+
+        assertQueryTrue("DROP TABLE " + tableName);
+
+        assertFalse(queryRunner.tableExists(getSession(), tableName));
+    }
+
+    @Test
     public void testCreateTableAsSelect()
             throws Exception
     {

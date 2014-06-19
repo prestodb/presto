@@ -23,7 +23,7 @@ import com.facebook.presto.sql.tree.AllColumns;
 import com.facebook.presto.sql.tree.Approximate;
 import com.facebook.presto.sql.tree.BooleanLiteral;
 import com.facebook.presto.sql.tree.Cast;
-import com.facebook.presto.sql.tree.CreateTable;
+import com.facebook.presto.sql.tree.CreateTableAsSelect;
 import com.facebook.presto.sql.tree.CreateView;
 import com.facebook.presto.sql.tree.DefaultTraversalVisitor;
 import com.facebook.presto.sql.tree.Explain;
@@ -355,7 +355,7 @@ class StatementAnalyzer
     }
 
     @Override
-    protected TupleDescriptor visitCreateTable(CreateTable node, AnalysisContext context)
+    protected TupleDescriptor visitCreateTableAsSelect(CreateTableAsSelect node, AnalysisContext context)
     {
         // turn this into a query that has a new table writer node on top.
         QualifiedTableName targetTable = MetadataUtil.createQualifiedTableName(session, node.getName());

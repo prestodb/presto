@@ -85,6 +85,12 @@ tokens {
     SAMPLED_RELATION;
     QUERY_SPEC;
     STRATIFY_ON;
+    CREATE_TABLE_AS_SELECT;
+    IF_NOT_EXISTS;
+    SERDE;
+    INPUTFORMAT;
+    OUTPUTFORMAT;
+    LOCATION;
 }
 
 @header {
@@ -623,7 +629,12 @@ dropTableStmt
     ;
 
 createTableStmt
-    : CREATE TABLE qname s=tableContentsSource -> ^(CREATE_TABLE qname $s)
+    : CREATE TABLE qname s=tableContentsSource -> ^(CREATE_TABLE_AS_SELECT qname $s)
+    | CREATE TABLE e=existClause? qname c=tableElementList p=partitionElement? d=serdeElement? i=inputFormat? o=outputFormat? l=location? -> ^(CREATE_TABLE qname $c $e? $p? $d? $i? $o? $l?)
+    ;
+
+existClause
+    : IF NOT EXISTS -> IF_NOT_EXISTS
     ;
 
 createViewStmt
@@ -650,6 +661,26 @@ tableElement
     : ident dataType columnConstDef* -> ^(COLUMN_DEF ident dataType columnConstDef*)
     ;
 
+partitionElement
+    : PARTITIONED BY tableElementList -> ^(PARTITION_BY tableElementList)
+    ;
+
+serdeElement
+    : SERDE s=STRING -> ^(SERDE $s)
+    ;
+
+inputFormat
+    : INPUTFORMAT s=STRING -> ^(INPUTFORMAT $s)
+    ;
+
+outputFormat
+    : OUTPUTFORMAT s=STRING -> ^(OUTPUTFORMAT $s)
+    ;
+
+location
+    : LOCATION s=STRING -> ^(LOCATION $s)
+    ;
+
 dataType
     : charType
     | exactNumType
@@ -671,7 +702,9 @@ charlen
 exactNumType
     : NUMERIC numlen? -> ^(NUMERIC numlen?)
     | DECIMAL numlen? -> ^(NUMERIC numlen?)
-    | DEC numlen?     -> ^(NUMERIC numlen?)
+    | BOOLEAN         -> ^(BOOLEAN)
+    | DOUBLE          -> ^(NUMERIC)
+    | BIGINT          -> ^(INTEGER)
     | INTEGER         -> ^(INTEGER)
     | INT             -> ^(INTEGER)
     ;
@@ -856,6 +889,11 @@ POISSONIZED: 'POISSONIZED';
 TABLESAMPLE: 'TABLESAMPLE';
 RESCALED: 'RESCALED';
 STRATIFY: 'STRATIFY';
+PARTITIONED: 'PARTITIONED';
+SERDE: 'SERDE';
+INPUTFORMAT: 'INPUTFORMAT';
+OUTPUTFORMAT: 'OUTPUTFORMAT';
+LOCATION: 'LOCATION';
 
 EQ  : '=';
 NEQ : '<>' | '!=';

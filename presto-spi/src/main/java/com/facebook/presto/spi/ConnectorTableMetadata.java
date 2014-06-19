@@ -24,6 +24,10 @@ public class ConnectorTableMetadata
     /* nullable */
     private final String owner;
     private final boolean sampled;
+    private final String serde;
+    private final String inputFormat;
+    private final String outputFormat;
+    private final String location;
 
     public ConnectorTableMetadata(SchemaTableName table, List<ColumnMetadata> columns)
     {
@@ -37,6 +41,19 @@ public class ConnectorTableMetadata
 
     public ConnectorTableMetadata(SchemaTableName table, List<ColumnMetadata> columns, String owner, boolean sampled)
     {
+        this(table, columns, owner, sampled, null, null, null, null);
+    }
+
+    public ConnectorTableMetadata(
+                SchemaTableName table,
+                List<ColumnMetadata> columns,
+                String owner,
+                boolean sampled,
+                String serde,
+                String inputFormat,
+                String outputFormat,
+                String location)
+    {
         if (table == null) {
             throw new NullPointerException("table is null or empty");
         }
@@ -48,6 +65,10 @@ public class ConnectorTableMetadata
         this.columns = Collections.unmodifiableList(new ArrayList<>(columns));
         this.owner = owner;
         this.sampled = sampled;
+        this.serde = serde;
+        this.inputFormat = inputFormat;
+        this.outputFormat = outputFormat;
+        this.location = location;
     }
 
     public boolean isSampled()
@@ -73,6 +94,26 @@ public class ConnectorTableMetadata
         return owner;
     }
 
+    public String getSerde()
+    {
+        return serde;
+    }
+
+    public String getInputFormat()
+    {
+        return inputFormat;
+    }
+
+    public String getOutputFormat()
+    {
+        return outputFormat;
+    }
+
+    public String getLocation()
+    {
+        return location;
+    }
+
     @Override
     public String toString()
     {
@@ -80,6 +121,10 @@ public class ConnectorTableMetadata
         sb.append("table=").append(table);
         sb.append(", columns=").append(columns);
         sb.append(", owner=").append(owner);
+        sb.append(", serde=").append(serde);
+        sb.append(", inputFormat=").append(inputFormat);
+        sb.append(", outputFormat=").append(outputFormat);
+        sb.append(", location=").append(location);
         sb.append('}');
         return sb.toString();
     }
