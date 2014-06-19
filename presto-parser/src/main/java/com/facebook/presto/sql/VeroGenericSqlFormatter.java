@@ -201,7 +201,7 @@ public class VeroGenericSqlFormatter
 
             return null;
         }
-        
+
         @Override
         protected Void visitCreateTempTable(CreateTempTable node, Integer indent)
         {
