@@ -14,8 +14,8 @@
 package com.facebook.presto.operator.aggregation;
 
 import com.facebook.presto.operator.aggregation.state.AccumulatorState;
+import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.block.BlockCursor;
 import com.facebook.presto.spi.type.Type;
 import io.airlift.slice.Slices;
 
@@ -45,7 +45,7 @@ public class ApproximateCountColumnAggregation
     }
 
     @Override
-    protected void processInput(ApproximateCountState state, BlockCursor cursor, long sampleWeight)
+    protected void processInput(ApproximateCountState state, Block block, int index, long sampleWeight)
     {
         state.setCount(state.getCount() + sampleWeight);
         state.setSamples(state.getSamples() + 1);

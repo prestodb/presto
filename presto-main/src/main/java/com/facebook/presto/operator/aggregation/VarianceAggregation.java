@@ -14,8 +14,8 @@
 package com.facebook.presto.operator.aggregation;
 
 import com.facebook.presto.operator.aggregation.state.VarianceState;
+import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.block.BlockCursor;
 import com.facebook.presto.spi.type.Type;
 
 import static com.facebook.presto.operator.aggregation.AggregationUtils.mergeVarianceState;
@@ -51,14 +51,14 @@ public class VarianceAggregation
     }
 
     @Override
-    protected void processInput(VarianceState state, BlockCursor cursor)
+    protected void processInput(VarianceState state, Block block, int index)
     {
         double inputValue;
         if (inputIsLong) {
-            inputValue = cursor.getLong();
+            inputValue = block.getLong(index);
         }
         else {
-            inputValue = cursor.getDouble();
+            inputValue = block.getDouble(index);
         }
 
         updateVarianceState(state, inputValue);

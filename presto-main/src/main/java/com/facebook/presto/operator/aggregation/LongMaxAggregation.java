@@ -15,7 +15,7 @@ package com.facebook.presto.operator.aggregation;
 
 import com.facebook.presto.operator.aggregation.state.InitialLongValue;
 import com.facebook.presto.operator.aggregation.state.NullableLongState;
-import com.facebook.presto.spi.block.BlockCursor;
+import com.facebook.presto.spi.block.Block;
 
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 
@@ -30,10 +30,10 @@ public class LongMaxAggregation
     }
 
     @Override
-    public void processInput(LongMaxState state, BlockCursor cursor)
+    public void processInput(LongMaxState state, Block block, int index)
     {
         state.setNull(false);
-        state.setLong(Math.max(state.getLong(), cursor.getLong()));
+        state.setLong(Math.max(state.getLong(), block.getLong(index)));
     }
 
     public interface LongMaxState

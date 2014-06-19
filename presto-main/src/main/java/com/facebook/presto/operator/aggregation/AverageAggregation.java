@@ -14,8 +14,8 @@
 package com.facebook.presto.operator.aggregation;
 
 import com.facebook.presto.operator.aggregation.state.LongAndDoubleState;
+import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.block.BlockCursor;
 import com.facebook.presto.spi.type.Type;
 
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
@@ -43,16 +43,16 @@ public class AverageAggregation
     }
 
     @Override
-    protected void processInput(LongAndDoubleState state, BlockCursor cursor)
+    protected void processInput(LongAndDoubleState state, Block block, int index)
     {
         state.setLong(state.getLong() + 1);
 
         double value;
         if (inputIsLong) {
-            value = cursor.getLong();
+            value = block.getLong(index);
         }
         else {
-            value = cursor.getDouble();
+            value = block.getDouble(index);
         }
         state.setDouble(state.getDouble() + value);
     }

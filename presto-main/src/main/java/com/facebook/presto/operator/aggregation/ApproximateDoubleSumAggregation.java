@@ -14,14 +14,14 @@
 package com.facebook.presto.operator.aggregation;
 
 import com.facebook.presto.operator.aggregation.state.VarianceState;
+import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.block.BlockCursor;
 import io.airlift.slice.Slices;
 
-import static com.facebook.presto.operator.aggregation.ApproximateUtils.formatApproximateResult;
-import static com.facebook.presto.operator.aggregation.ApproximateUtils.sumError;
 import static com.facebook.presto.operator.aggregation.AggregationUtils.mergeVarianceState;
 import static com.facebook.presto.operator.aggregation.AggregationUtils.updateVarianceState;
+import static com.facebook.presto.operator.aggregation.ApproximateUtils.formatApproximateResult;
+import static com.facebook.presto.operator.aggregation.ApproximateUtils.sumError;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 
@@ -49,9 +49,9 @@ public class ApproximateDoubleSumAggregation
     }
 
     @Override
-    protected void processInput(ApproximateDoubleSumState state, BlockCursor cursor, long sampleWeight)
+    protected void processInput(ApproximateDoubleSumState state, Block block, int index, long sampleWeight)
     {
-        double value = cursor.getDouble();
+        double value = block.getDouble(index);
 
         state.setWeightedCount(state.getWeightedCount() + sampleWeight);
         state.setSum(state.getSum() + value * sampleWeight);

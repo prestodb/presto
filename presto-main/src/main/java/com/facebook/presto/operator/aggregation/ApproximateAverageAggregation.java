@@ -14,8 +14,8 @@
 package com.facebook.presto.operator.aggregation;
 
 import com.facebook.presto.operator.aggregation.state.AccumulatorState;
+import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.block.BlockCursor;
 import com.facebook.presto.spi.type.Type;
 import io.airlift.slice.Slices;
 
@@ -66,14 +66,14 @@ public class ApproximateAverageAggregation
     }
 
     @Override
-    protected void processInput(ApproximateAverageState state, BlockCursor cursor, long sampleWeight)
+    protected void processInput(ApproximateAverageState state, Block block, int index, long sampleWeight)
     {
         double inputValue;
         if (inputIsLong) {
-            inputValue = cursor.getLong();
+            inputValue = block.getLong(index);
         }
         else {
-            inputValue = cursor.getDouble();
+            inputValue = block.getDouble(index);
         }
 
         long currentCount = state.getCount();

@@ -15,7 +15,7 @@ package com.facebook.presto.operator.aggregation;
 
 import com.facebook.presto.operator.aggregation.state.InitialDoubleValue;
 import com.facebook.presto.operator.aggregation.state.NullableDoubleState;
-import com.facebook.presto.spi.block.BlockCursor;
+import com.facebook.presto.spi.block.Block;
 
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 
@@ -30,10 +30,10 @@ public class DoubleMinAggregation
     }
 
     @Override
-    public void processInput(DoubleMinState state, BlockCursor cursor)
+    public void processInput(DoubleMinState state, Block block, int index)
     {
         state.setNull(false);
-        state.setDouble(Math.min(state.getDouble(), cursor.getDouble()));
+        state.setDouble(Math.min(state.getDouble(), block.getDouble(index)));
     }
 
     public interface DoubleMinState
