@@ -103,7 +103,7 @@ public class TestCassandraConnector
         String connectorId = "cassandra-test";
         CassandraConnectorFactory connectorFactory = new CassandraConnectorFactory(
                 connectorId,
-                ImmutableMap.<String, String>of("node.environment", "test"));
+                ImmutableMap.<String, String>of());
 
         Connector connector = connectorFactory.create(connectorId, ImmutableMap.<String, String>of(
                 "cassandra.contact-points", "localhost",
