@@ -3087,8 +3087,8 @@ public abstract class AbstractTestQueries
         long total = (long) computeExpected("SELECT COUNT(*) FROM orders", ImmutableList.of(BIGINT)).getMaterializedRows().get(0).getField(0);
 
         for (int i = 0; i < 100; i++) {
-            long value = (long) computeActual("SELECT COUNT(*) FROM orders TABLESAMPLE POISSONIZED (50) RESCALED").getMaterializedRows().get(0).getField(0);
-            stats.addValue(value * 1.0 / total);
+            String value = (String) computeActual("SELECT COUNT(*) FROM orders TABLESAMPLE POISSONIZED (50) RESCALED APPROXIMATE AT 95 CONFIDENCE").getMaterializedRows().get(0).getField(0);
+            stats.addValue(Long.parseLong(value.split(" ")[0]) * 1.0 / total);
         }
 
         double mean = stats.getGeometricMean();
