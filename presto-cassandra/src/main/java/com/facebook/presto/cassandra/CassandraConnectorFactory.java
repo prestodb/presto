@@ -21,7 +21,6 @@ import com.google.inject.Injector;
 import com.google.inject.Module;
 import io.airlift.bootstrap.Bootstrap;
 import io.airlift.json.JsonModule;
-import io.airlift.node.NodeModule;
 import org.weakref.jmx.guice.MBeanModule;
 
 import javax.management.MBeanServer;
@@ -59,7 +58,6 @@ public class CassandraConnectorFactory
 
         try {
             Bootstrap app = new Bootstrap(
-                    new NodeModule(),
                     new MBeanModule(),
                     new JsonModule(),
                     new CassandraClientModule(connectorId),
