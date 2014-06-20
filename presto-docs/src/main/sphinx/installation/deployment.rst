@@ -99,7 +99,9 @@ The last option in the above configuration loads the
 patch for the JDK that substantially improves performance when parsing
 floating point numbers. This is important because many Hive file formats
 store floating point values as text. Change the path
-``/var/presto/installation`` to match the Presto installation directory.
+``/var/presto/installation`` to match the Presto installation directory. Please note that
+when using Java 8 this patch is **not** necessary and the PermSize parameter is no longer supported, so
+the ``-XX:PermSize`` and ``-Xbootclasspath`` parameters should be removed from ``etc/jvm.config``.
 
 .. note::
 
