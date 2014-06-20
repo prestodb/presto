@@ -66,6 +66,7 @@ public class HiveClientConfig
     private boolean s3SslEnabled = true;
     private int s3MaxClientRetries = 3;
     private int s3MaxErrorRetries = 10;
+    private Duration s3MaxBackoffTime = new Duration(10, TimeUnit.MINUTES);
     private Duration s3ConnectTimeout = new Duration(5, TimeUnit.SECONDS);
     private File s3StagingDirectory = new File(StandardSystemProperty.JAVA_IO_TMPDIR.value());
 
@@ -416,6 +417,20 @@ public class HiveClientConfig
     public HiveClientConfig setS3MaxErrorRetries(int s3MaxErrorRetries)
     {
         this.s3MaxErrorRetries = s3MaxErrorRetries;
+        return this;
+    }
+
+    @MinDuration("1s")
+    @NotNull
+    public Duration getS3MaxBackoffTime()
+    {
+        return s3MaxBackoffTime;
+    }
+
+    @Config("hive.s3.max-backoff-time")
+    public HiveClientConfig setS3MaxBackoffTime(Duration s3MaxBackoffTime)
+    {
+        this.s3MaxBackoffTime = s3MaxBackoffTime;
         return this;
     }
 
