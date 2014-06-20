@@ -17,7 +17,9 @@ import com.facebook.presto.ExceededMemoryLimitException;
 import com.facebook.presto.execution.TaskId;
 import com.facebook.presto.operator.WindowOperator.WindowOperatorFactory;
 import com.facebook.presto.operator.window.FirstValueFunction.VarcharFirstValueFunction;
+import com.facebook.presto.operator.window.LagFunction.VarcharLagFunction;
 import com.facebook.presto.operator.window.LastValueFunction.VarcharLastValueFunction;
+import com.facebook.presto.operator.window.LeadFunction.VarcharLeadFunction;
 import com.facebook.presto.operator.window.NthValueFunction.VarcharNthValueFunction;
 import com.facebook.presto.operator.window.ReflectionWindowFunctionSupplier;
 import com.facebook.presto.operator.window.RowNumberFunction;
@@ -68,6 +70,14 @@ public class TestWindowOperator
 
     private static final List<WindowFunctionDefinition> NTH_VALUE = ImmutableList.of(
             window(new ReflectionWindowFunctionSupplier<>("nth_value", VARCHAR, ImmutableList.of(VARCHAR, BIGINT), VarcharNthValueFunction.class), new Input(1), new Input(3))
+    );
+
+    private static final List<WindowFunctionDefinition> LAG = ImmutableList.of(
+            window(new ReflectionWindowFunctionSupplier<>("lag", VARCHAR, ImmutableList.of(VARCHAR, BIGINT, VARCHAR), VarcharLagFunction.class), new Input(1), new Input(3), new Input(4))
+    );
+
+    private static final List<WindowFunctionDefinition> LEAD = ImmutableList.of(
+            window(new ReflectionWindowFunctionSupplier<>("lead", VARCHAR, ImmutableList.of(VARCHAR, BIGINT, VARCHAR), VarcharLeadFunction.class), new Input(1), new Input(3), new Input(4))
     );
 
     private ExecutorService executor;
@@ -238,8 +248,6 @@ public class TestWindowOperator
     public void testFirstValuePartition()
             throws Exception
     {
-        // Find path which goes from A to final destination C
-        // So A.B.C and A.C are selected
         List<Page> input = rowPagesBuilder(VARCHAR, VARCHAR, BIGINT, BOOLEAN, VARCHAR)
                 .row("b", "A1", 1, true, "")
                 .row("a", "A2", 1, false, "")
@@ -278,8 +286,6 @@ public class TestWindowOperator
     public void testLastValuePartition()
             throws Exception
     {
-        // Find path which goes from A to final destination C
-        // So A.B.C and A.C are selected
         List<Page> input = rowPagesBuilder(VARCHAR, VARCHAR, BIGINT, BOOLEAN, VARCHAR)
                 .row("b", "A1", 1, true, "")
                 .row("a", "A2", 1, false, "")
@@ -318,8 +324,6 @@ public class TestWindowOperator
     public void testNthValuePartition()
             throws Exception
     {
-        // Find path which goes from A to final destination C
-        // So A.B.C and A.C are selected
         List<Page> input = rowPagesBuilder(VARCHAR, VARCHAR, BIGINT, BIGINT, BOOLEAN, VARCHAR)
                 .row("b", "A1", 1, 2, true, "")
                 .row("a", "A2", 1, 3, false, "")
@@ -349,6 +353,82 @@ public class TestWindowOperator
                 .row("b", "A1", 1, true, "C1")
                 .row("b", "C1", 2, false, null)
                 .row("c", "A3", 1, true, null)
+                .build();
+
+        assertOperatorEquals(operator, input, expected);
+    }
+
+    @Test
+    public void testLagPartition()
+            throws Exception
+    {
+        List<Page> input = rowPagesBuilder(VARCHAR, VARCHAR, BIGINT, BIGINT, VARCHAR, BOOLEAN, VARCHAR)
+                .row("b", "A1", 1, 1, "D", true, "")
+                .row("a", "A2", 1, 2, "D", false, "")
+                .row("a", "B1", 2, 2, "D", true, "")
+                .pageBreak()
+                .row("b", "C1", 2, 1, "D", false, "")
+                .row("a", "C2", 3, 2, "D", true, "")
+                .row("c", "A3", 1, 1, "D", true, "")
+                .build();
+
+        WindowOperatorFactory operatorFactory = new WindowOperatorFactory(
+                0,
+                ImmutableList.of(VARCHAR, VARCHAR, BIGINT, BIGINT, VARCHAR, BOOLEAN, VARCHAR),
+                Ints.asList(0, 1, 2, 5),
+                LAG,
+                Ints.asList(0),
+                Ints.asList(2),
+                ImmutableList.copyOf(new SortOrder[] {SortOrder.ASC_NULLS_LAST}),
+                100);
+
+        Operator operator = operatorFactory.createOperator(driverContext);
+
+        MaterializedResult expected = resultBuilder(driverContext.getSession(), VARCHAR, VARCHAR, BIGINT, BOOLEAN, VARCHAR)
+                .row("a", "A2", 1, false, "D")
+                .row("a", "B1", 2, true, "D")
+                .row("a", "C2", 3, true, "A2")
+                .row("b", "A1", 1, true, "D")
+                .row("b", "C1", 2, false, "A1")
+                .row("c", "A3", 1, true, "D")
+                .build();
+
+        assertOperatorEquals(operator, input, expected);
+    }
+
+    @Test
+    public void testLeadPartition()
+            throws Exception
+    {
+        List<Page> input = rowPagesBuilder(VARCHAR, VARCHAR, BIGINT, BIGINT, VARCHAR, BOOLEAN, VARCHAR)
+                .row("b", "A1", 1, 1, "D", true, "")
+                .row("a", "A2", 1, 2, "D", false, "")
+                .row("a", "B1", 2, 2, "D", true, "")
+                .pageBreak()
+                .row("b", "C1", 2, 1, "D", false, "")
+                .row("a", "C2", 3, 2, "D", true, "")
+                .row("c", "A3", 1, 1, "D", true, "")
+                .build();
+
+        WindowOperatorFactory operatorFactory = new WindowOperatorFactory(
+                0,
+                ImmutableList.of(VARCHAR, VARCHAR, BIGINT, BIGINT, VARCHAR, BOOLEAN, VARCHAR),
+                Ints.asList(0, 1, 2, 5),
+                LEAD,
+                Ints.asList(0),
+                Ints.asList(2),
+                ImmutableList.copyOf(new SortOrder[] {SortOrder.ASC_NULLS_LAST}),
+                100);
+
+        Operator operator = operatorFactory.createOperator(driverContext);
+
+        MaterializedResult expected = resultBuilder(driverContext.getSession(), VARCHAR, VARCHAR, BIGINT, BOOLEAN, VARCHAR)
+                .row("a", "A2", 1, false, "C2")
+                .row("a", "B1", 2, true, "D")
+                .row("a", "C2", 3, true, "D")
+                .row("b", "A1", 1, true, "C1")
+                .row("b", "C1", 2, false, "D")
+                .row("c", "A3", 1, true, "D")
                 .build();
 
         assertOperatorEquals(operator, input, expected);

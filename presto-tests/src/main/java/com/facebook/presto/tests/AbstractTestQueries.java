@@ -1883,6 +1883,51 @@ public abstract class AbstractTestQueries
     }
 
     @Test
+    public void testWindowLagValueFunction()
+    {
+        MaterializedResult actual = computeActual("" +
+                "SELECT * FROM (\n" +
+                "  SELECT orderkey, orderstatus\n" +
+                "    , lag(orderkey + 1000, 1, 0) OVER (PARTITION BY orderstatus ORDER BY orderkey) as lvalue\n" +
+                "    FROM (SELECT * FROM orders ORDER BY orderkey LIMIT 10) x\n" +
+                "  ) x\n" +
+                "ORDER BY orderkey LIMIT 5");
+
+        MaterializedResult expected = resultBuilder(getSession(), BIGINT, VARCHAR, BIGINT)
+                .row(1, "O", 0)
+                .row(2, "O", 1001)
+                .row(3, "F", 0)
+                .row(4, "O", 1002)
+                .row(5, "F", 1003)
+                .build();
+
+        assertEquals(actual, expected);
+    }
+
+    @Test
+    public void testWindowLeadValueFunction()
+    {
+        MaterializedResult actual = computeActual("" +
+                "SELECT * FROM (\n" +
+                "  SELECT orderkey, orderstatus\n" +
+                "    , lead(orderkey + 1000, 2, 0) OVER (PARTITION BY orderstatus ORDER BY orderkey) as lvalue\n" +
+                "    FROM (SELECT * FROM orders ORDER BY orderkey LIMIT 10) x\n" +
+                "  ) x\n" +
+                "ORDER BY orderkey LIMIT 6");
+
+        MaterializedResult expected = resultBuilder(getSession(), BIGINT, VARCHAR, BIGINT)
+                .row(1, "O", 1004)
+                .row(2, "O", 1007)
+                .row(3, "F", 1006)
+                .row(4, "O", 1032)
+                .row(5, "F", 1033)
+                .row(6, "F", 0)
+                .build();
+
+        assertEquals(actual, expected);
+    }
+
+    @Test
     public void testScalarFunction()
             throws Exception
     {
