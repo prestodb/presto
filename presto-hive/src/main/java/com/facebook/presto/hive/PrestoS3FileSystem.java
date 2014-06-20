@@ -29,6 +29,8 @@ import com.amazonaws.services.s3.model.S3Object;
 import com.amazonaws.services.s3.model.S3ObjectInputStream;
 import com.amazonaws.services.s3.model.S3ObjectSummary;
 import com.google.common.base.Function;
+import com.google.common.base.Preconditions;
+import com.google.common.base.Throwables;
 import com.google.common.collect.AbstractSequentialIterator;
 import com.google.common.collect.Iterators;
 import com.google.common.primitives.Ints;
@@ -58,10 +60,13 @@ import java.io.FilterOutputStream;
 import java.io.IOException;
 import java.net.URI;
 import java.util.ArrayList;
+import java.util.concurrent.Callable;
+import java.util.concurrent.TimeUnit;
 import java.util.Date;
 import java.util.Iterator;
 import java.util.List;
 
+import static com.facebook.presto.hive.RetryDriver.retry;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
@@ -79,6 +84,7 @@ public class PrestoS3FileSystem
     public static final String S3_SSL_ENABLED = "presto.s3.ssl.enabled";
     public static final String S3_MAX_ERROR_RETRIES = "presto.s3.max-error-retries";
     public static final String S3_MAX_CLIENT_RETRIES = "presto.s3.max-client-retries";
+    public static final String S3_MAX_BACKOFF_TIME = "presto.s3.max-backoff-time";
     public static final String S3_CONNECT_TIMEOUT = "presto.s3.connect-timeout";
     public static final String S3_STAGING_DIRECTORY = "presto.s3.staging-directory";
 
@@ -92,6 +98,7 @@ public class PrestoS3FileSystem
     private AmazonS3 s3;
     private File stagingDirectory;
     private int maxClientRetries;
+    private Duration maxBackoffTime;
 
     @Override
     public void initialize(URI uri, Configuration conf)
@@ -106,6 +113,7 @@ public class PrestoS3FileSystem
         HiveClientConfig defaults = new HiveClientConfig();
         this.stagingDirectory = new File(conf.get(S3_STAGING_DIRECTORY, defaults.getS3StagingDirectory().toString()));
         this.maxClientRetries = conf.getInt(S3_MAX_CLIENT_RETRIES, defaults.getS3MaxClientRetries());
+        this.maxBackoffTime = Duration.valueOf(conf.get(S3_MAX_BACKOFF_TIME, defaults.getS3MaxBackoffTime().toString()));
         int maxErrorRetries = conf.getInt(S3_MAX_ERROR_RETRIES, defaults.getS3MaxErrorRetries());
         boolean sslEnabled = conf.getBoolean(S3_SSL_ENABLED, defaults.isS3SslEnabled());
         Duration connectTimeout = Duration.valueOf(conf.get(S3_CONNECT_TIMEOUT, defaults.getS3ConnectTimeout().toString()));
@@ -220,7 +228,7 @@ public class PrestoS3FileSystem
     {
         return new FSDataInputStream(
                 new BufferedFSInputStream(
-                        new PrestoS3InputStream(s3, uri.getHost(), path, maxClientRetries),
+                        new PrestoS3InputStream(s3, uri.getHost(), path, maxClientRetries, maxBackoffTime),
                         bufferSize));
     }
 
@@ -340,20 +348,39 @@ public class PrestoS3FileSystem
         return list.iterator();
     }
 
-    private ObjectMetadata getS3ObjectMetadata(Path path)
+    private ObjectMetadata getS3ObjectMetadata(final Path path)
             throws IOException
     {
         try {
-            return s3.getObjectMetadata(uri.getHost(), keyFromPath(path));
+            return retry()
+                    .maxAttempts(maxClientRetries)
+                    .exponentialBackoff(new Duration(1, TimeUnit.SECONDS), maxBackoffTime, 2.0)
+                    .stopOn(InterruptedException.class)
+                    .run("getS3ObjectMetadata", new Callable<ObjectMetadata>()
+                    {
+                        @Override
+                        public ObjectMetadata call()
+                                throws Exception
+                        {
+                            try {
+                                return s3.getObjectMetadata(uri.getHost(), keyFromPath(path));
+                            }
+                            catch (AmazonS3Exception e) {
+                                if (e.getStatusCode() == 404) {
+                                    return null;
+                                }
+                                throw Throwables.propagate(e);
+                            }
+                        }
+                    });
         }
-        catch (AmazonS3Exception e) {
-            if (e.getStatusCode() == 404) {
-                return null;
-            }
-            throw new IOException(e);
+        catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw Throwables.propagate(e);
         }
-        catch (AmazonClientException e) {
-            throw new IOException(e);
+        catch (Exception e) {
+            Throwables.propagateIfInstanceOf(e, IOException.class);
+            throw Throwables.propagate(e);
         }
     }
 
@@ -406,12 +433,13 @@ public class PrestoS3FileSystem
         private final String host;
         private final Path path;
         private final int maxClientRetry;
+        private final Duration maxBackoffTime;
 
         private boolean closed;
         private S3ObjectInputStream in;
         private long position;
 
-        public PrestoS3InputStream(AmazonS3 s3, String host, Path path, int maxClientRetry)
+        public PrestoS3InputStream(AmazonS3 s3, String host, Path path, int maxClientRetry, Duration maxBackoffTime)
         {
             this.s3 = checkNotNull(s3, "s3 is null");
             this.host = checkNotNull(host, "host is null");
@@ -419,6 +447,7 @@ public class PrestoS3FileSystem
 
             checkArgument(maxClientRetry >= 0, "maxClientRetries cannot be negative");
             this.maxClientRetry = maxClientRetry;
+            this.maxBackoffTime = checkNotNull(maxBackoffTime, "maxBackoffTime is null");;
         }
 
         @Override
@@ -470,46 +499,49 @@ public class PrestoS3FileSystem
         public int read()
                 throws IOException
         {
-            IOException exception = null;
-            for (int i = 0; i <= maxClientRetry; i++) {
-                try {
-                    openStream();
-                    int b = in.read();
-                    if (b != -1) {
-                        position++;
-                    }
-                    return b;
-                }
-                catch (IOException e) {
-                    log.debug("Failed reading from S3 on attempt %s: %s", i + 1, e.getMessage());
-                    exception = e;
-                    closeStream();
-                }
-            }
-            throw exception;
+            // This stream is wrapped with BufferedInputStream, so this method should never be called
+            throw new UnsupportedOperationException();
         }
 
         @Override
-        public int read(byte[] b, int off, int len)
+        public int read(final byte[] buffer, final int offset, final int length)
                 throws IOException
         {
-            IOException exception = null;
-            for (int i = 0; i <= maxClientRetry; i++) {
-                try {
-                    openStream();
-                    int n = in.read(b, off, len);
-                    if (n != -1) {
-                        position += n;
-                    }
-                    return n;
+            try {
+                int bytesRead = retry()
+                        .maxAttempts(maxClientRetry)
+                        .exponentialBackoff(new Duration(1, TimeUnit.SECONDS), maxBackoffTime, 2.0)
+                        .stopOn(InterruptedException.class)
+                        .run("readStream", new Callable<Integer>()
+                        {
+                            @Override
+                            public Integer call()
+                                    throws Exception
+                            {
+                                openStream();
+                                try {
+                                    return in.read(buffer, offset, length);
+                                }
+                                catch (Exception e) {
+                                    closeStream();
+                                    throw e;
+                                }
+                            }
+                        });
+
+                if (bytesRead != -1) {
+                    position += bytesRead;
                 }
-                catch (IOException e) {
-                    log.debug("Failed reading from S3 on attempt %s: %s", i + 1, e.getMessage());
-                    exception = e;
-                    closeStream();
-                }
+                return bytesRead;
             }
-            throw exception;
+            catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                throw Throwables.propagate(e);
+            }
+            catch (Exception e) {
+                Throwables.propagateIfInstanceOf(e, IOException.class);
+                throw Throwables.propagate(e);
+            }
         }
 
         @Override
@@ -519,15 +551,31 @@ public class PrestoS3FileSystem
             return false;
         }
 
-        private S3Object getS3Object(Path path, long start)
+        private S3Object getS3Object(final Path path, final long start)
                 throws IOException
         {
             try {
-                return s3.getObject(new GetObjectRequest(host, keyFromPath(path))
-                        .withRange(start, Long.MAX_VALUE));
+                return retry()
+                        .maxAttempts(maxClientRetry)
+                        .exponentialBackoff(new Duration(1, TimeUnit.SECONDS), maxBackoffTime, 2.0)
+                        .stopOn(InterruptedException.class)
+                        .run("getS3Object", new Callable<S3Object>()
+                        {
+                            @Override
+                            public S3Object call()
+                                    throws Exception
+                            {
+                                return s3.getObject(new GetObjectRequest(host, keyFromPath(path)).withRange(start, Long.MAX_VALUE));
+                            }
+                        });
             }
-            catch (AmazonClientException e) {
-                throw new IOException(e);
+            catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                throw Throwables.propagate(e);
+            }
+            catch (Exception e) {
+                Throwables.propagateIfInstanceOf(e, IOException.class);
+                throw Throwables.propagate(e);
             }
         }
 
