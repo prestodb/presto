@@ -58,6 +58,7 @@ import java.io.FilterOutputStream;
 import java.io.IOException;
 import java.net.URI;
 import java.util.ArrayList;
+import java.util.concurrent.TimeUnit;
 import java.util.Date;
 import java.util.Iterator;
 import java.util.List;
@@ -79,6 +80,7 @@ public class PrestoS3FileSystem
     public static final String S3_SSL_ENABLED = "presto.s3.ssl.enabled";
     public static final String S3_MAX_ERROR_RETRIES = "presto.s3.max-error-retries";
     public static final String S3_MAX_CLIENT_RETRIES = "presto.s3.max-client-retries";
+    public static final String S3_MAX_BACKOFF_TIME = "presto.s3.max-backoff-time";
     public static final String S3_CONNECT_TIMEOUT = "presto.s3.connect-timeout";
     public static final String S3_STAGING_DIRECTORY = "presto.s3.staging-directory";
 
@@ -92,6 +94,7 @@ public class PrestoS3FileSystem
     private AmazonS3 s3;
     private File stagingDirectory;
     private int maxClientRetries;
+    private Duration maxBackoffTime;
 
     @Override
     public void initialize(URI uri, Configuration conf)
@@ -106,6 +109,7 @@ public class PrestoS3FileSystem
         HiveClientConfig defaults = new HiveClientConfig();
         this.stagingDirectory = new File(conf.get(S3_STAGING_DIRECTORY, defaults.getS3StagingDirectory().toString()));
         this.maxClientRetries = conf.getInt(S3_MAX_CLIENT_RETRIES, defaults.getS3MaxClientRetries());
+        this.maxBackoffTime = Duration.valueOf(conf.get(S3_MAX_BACKOFF_TIME, defaults.getS3MaxBackoffTime().toString()));
         int maxErrorRetries = conf.getInt(S3_MAX_ERROR_RETRIES, defaults.getS3MaxErrorRetries());
         boolean sslEnabled = conf.getBoolean(S3_SSL_ENABLED, defaults.isS3SslEnabled());
         Duration connectTimeout = Duration.valueOf(conf.get(S3_CONNECT_TIMEOUT, defaults.getS3ConnectTimeout().toString()));
@@ -220,7 +224,7 @@ public class PrestoS3FileSystem
     {
         return new FSDataInputStream(
                 new BufferedFSInputStream(
-                        new PrestoS3InputStream(s3, uri.getHost(), path, maxClientRetries),
+                        new PrestoS3InputStream(s3, uri.getHost(), path, maxClientRetries, maxBackoffTime),
                         bufferSize));
     }
 
@@ -340,21 +344,56 @@ public class PrestoS3FileSystem
         return list.iterator();
     }
 
+    private enum S3CallType {
+        GET_META,
+        GET_OBJ
+    }
+
+    private static Object callS3(S3CallType type, AmazonS3 s3, String bucketname, String key, long start,
+                                int maxClientRetries, Duration maxBackoffTime)
+        throws IOException
+    {
+        IOException exception = null;
+        int backoffSeconds = 1;
+        for (int i = 0; i <= maxClientRetries; i++) {
+            try {
+                if (i >= 1) {
+                    Thread.sleep(backoffSeconds * 1000);
+                    backoffSeconds = backoffSeconds << 1;
+                    if (maxBackoffTime.compareTo(new Duration(backoffSeconds, TimeUnit.SECONDS)) < 0) {
+                        throw new IOException("Backoff time exceeds maxBackoffTime when reading S3 Metadata");
+                    }
+                 }
+                if (type == S3CallType.GET_META) {
+                    return s3.getObjectMetadata(bucketname, key);
+                }
+                else if (type == S3CallType.GET_OBJ) {
+                    return s3.getObject(new GetObjectRequest(bucketname, key).withRange(start, Long.MAX_VALUE));
+                }
+             }
+            catch (AmazonS3Exception e) {
+                log.debug("Get AmazonS3Exception when reading from S3: %s", e.getMessage());
+                if (e.getStatusCode() == 404) {
+                    exception = null;
+                }
+                exception = new IOException(e);
+            }
+            catch (AmazonClientException e) {
+                log.debug("Get AmazonClientException when reading from S3: %s", e.getMessage());
+                exception = new IOException(e);
+            }
+            catch (InterruptedException e) {
+                log.debug("Get Interrupted when doing exponential backoff in reading S3 Metadata");
+                exception = new IOException(e);
+            }
+        }
+        throw exception;
+    }
+
     private ObjectMetadata getS3ObjectMetadata(Path path)
             throws IOException
     {
-        try {
-            return s3.getObjectMetadata(uri.getHost(), keyFromPath(path));
-        }
-        catch (AmazonS3Exception e) {
-            if (e.getStatusCode() == 404) {
-                return null;
-            }
-            throw new IOException(e);
-        }
-        catch (AmazonClientException e) {
-            throw new IOException(e);
-        }
+        return (ObjectMetadata) callS3(S3CallType.GET_META, s3, uri.getHost(), keyFromPath(path), 0, maxClientRetries, maxBackoffTime);
     }
 
     private Path qualifiedPath(Path path)
@@ -406,12 +445,13 @@ public class PrestoS3FileSystem
         private final String host;
         private final Path path;
         private final int maxClientRetry;
+        private final Duration maxBackoffTime;
 
         private boolean closed;
         private S3ObjectInputStream in;
         private long position;
 
-        public PrestoS3InputStream(AmazonS3 s3, String host, Path path, int maxClientRetry)
+        public PrestoS3InputStream(AmazonS3 s3, String host, Path path, int maxClientRetry, Duration maxBackoffTime)
         {
             this.s3 = checkNotNull(s3, "s3 is null");
             this.host = checkNotNull(host, "host is null");
@@ -419,6 +459,7 @@ public class PrestoS3FileSystem
 
             checkArgument(maxClientRetry >= 0, "maxClientRetries cannot be negative");
             this.maxClientRetry = maxClientRetry;
+            this.maxBackoffTime = maxBackoffTime;
         }
 
         @Override
@@ -470,46 +511,38 @@ public class PrestoS3FileSystem
         public int read()
                 throws IOException
         {
-            IOException exception = null;
-            for (int i = 0; i <= maxClientRetry; i++) {
-                try {
-                    openStream();
-                    int b = in.read();
-                    if (b != -1) {
-                        position++;
-                    }
-                    return b;
+            try {
+                openStream();
+                int b = readStream();
+                if (b != -1) {
+                    position++;
                 }
-                catch (IOException e) {
-                    log.debug("Failed reading from S3 on attempt %s: %s", i + 1, e.getMessage());
-                    exception = e;
-                    closeStream();
-                }
+                return b;
             }
-            throw exception;
+            catch (IOException e) {
+                log.debug("Failed reading from S3: %s", e.getMessage());
+                closeStream();
+                throw e;
+            }
         }
 
         @Override
         public int read(byte[] b, int off, int len)
                 throws IOException
         {
-            IOException exception = null;
-            for (int i = 0; i <= maxClientRetry; i++) {
-                try {
-                    openStream();
-                    int n = in.read(b, off, len);
-                    if (n != -1) {
-                        position += n;
-                    }
-                    return n;
+            try {
+                openStream();
+                int n = readStream(b, off, len);
+                if (n != -1) {
+                    position += n;
                 }
-                catch (IOException e) {
-                    log.debug("Failed reading from S3 on attempt %s: %s", i + 1, e.getMessage());
-                    exception = e;
-                    closeStream();
-                }
+                return n;
             }
-            throw exception;
+            catch (IOException e) {
+                log.debug("Failed reading from S3: %s", e.getMessage());
+                closeStream();
+                throw e;
+            }
         }
 
         @Override
@@ -519,16 +552,60 @@ public class PrestoS3FileSystem
             return false;
         }
 
+        private enum ReadType {
+            READ_BYTE,
+            READ_RANGE
+        }
+
+        private int doRead(ReadType type, byte[] b, int off, int len) throws IOException
+        {
+            IOException exception = null;
+            int backoffSeconds = 1;
+            for (int i = 0; i <= maxClientRetry; i++) {
+                try {
+                    if (i >= 1) {
+                        openStream();
+                        Thread.sleep(backoffSeconds * 1000);
+                        backoffSeconds = backoffSeconds << 1;
+                        if (this.maxBackoffTime.compareTo(new Duration(backoffSeconds, TimeUnit.SECONDS)) < 0) {
+                            throw new IOException("Backoff time exceeds maxBackoffTime when reading S3 Stream");
+                        }
+                    }
+                    if (type == ReadType.READ_BYTE) {
+                        return in.read();
+                    }
+                    else if (type == ReadType.READ_RANGE) {
+                        return in.read(b, off, len);
+                    }
+                }
+                catch (IOException e) {
+                    exception = e;
+                    closeStream();
+                }
+                catch (InterruptedException e) {
+                    log.debug("Get Interrupted when doing exponential backoff in reading S3 Stream");
+                    closeStream();
+                }
+            }
+            throw exception;
+        }
+
+        private int readStream()
+                throws IOException
+        {
+            return doRead(ReadType.READ_BYTE, null, 0, 0);
+        }
+
+        private int readStream(byte[] b, int off, int len)
+                throws IOException
+        {
+            return doRead(ReadType.READ_RANGE, b, off, len);
+        }
+
         private S3Object getS3Object(Path path, long start)
                 throws IOException
         {
-            try {
-                return s3.getObject(new GetObjectRequest(host, keyFromPath(path))
-                        .withRange(start, Long.MAX_VALUE));
-            }
-            catch (AmazonClientException e) {
-                throw new IOException(e);
-            }
+            return (S3Object) callS3(S3CallType.GET_OBJ, s3, host, keyFromPath(path), start, maxClientRetry, maxBackoffTime);
         }
 
         private void openStream()

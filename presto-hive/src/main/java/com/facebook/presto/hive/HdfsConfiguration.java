@@ -44,6 +44,7 @@ public class HdfsConfiguration
     private final boolean s3SslEnabled;
     private final int s3MaxClientRetries;
     private final int s3MaxErrorRetries;
+    private final Duration s3MaxBackoffTime;
     private final Duration s3ConnectTimeout;
     private final File s3StagingDirectory;
     private final List<String> resourcePaths;
@@ -74,6 +75,7 @@ public class HdfsConfiguration
         this.s3SslEnabled = hiveClientConfig.isS3SslEnabled();
         this.s3MaxClientRetries = hiveClientConfig.getS3MaxClientRetries();
         this.s3MaxErrorRetries = hiveClientConfig.getS3MaxErrorRetries();
+        this.s3MaxBackoffTime = hiveClientConfig.getS3MaxBackoffTime();
         this.s3ConnectTimeout = hiveClientConfig.getS3ConnectTimeout();
         this.s3StagingDirectory = hiveClientConfig.getS3StagingDirectory();
         this.resourcePaths = hiveClientConfig.getResourceConfigFiles();
@@ -137,6 +139,7 @@ public class HdfsConfiguration
         config.setBoolean(PrestoS3FileSystem.S3_SSL_ENABLED, s3SslEnabled);
         config.setInt(PrestoS3FileSystem.S3_MAX_CLIENT_RETRIES, s3MaxClientRetries);
         config.setInt(PrestoS3FileSystem.S3_MAX_ERROR_RETRIES, s3MaxErrorRetries);
+        config.set(PrestoS3FileSystem.S3_MAX_BACKOFF_TIME, s3MaxBackoffTime.toString());
         config.set(PrestoS3FileSystem.S3_CONNECT_TIMEOUT, s3ConnectTimeout.toString());
         config.set(PrestoS3FileSystem.S3_STAGING_DIRECTORY, s3StagingDirectory.toString());
 
