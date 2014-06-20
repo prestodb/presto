@@ -50,6 +50,7 @@ import com.facebook.presto.spi.block.BlockCursor;
 import com.facebook.presto.spi.type.TimeZoneKey;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.split.DataStreamProvider;
+import com.facebook.presto.sql.planner.SubExpressionExtractor;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.InputReference;
@@ -61,6 +62,7 @@ import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Iterables;
 import com.google.common.io.Files;
 import io.airlift.log.Logger;
 import io.airlift.slice.Slice;
@@ -86,7 +88,6 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
-import java.util.Set;
 import java.util.TreeSet;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
@@ -239,7 +240,7 @@ public class ExpressionCompiler
                 .putField(sessionField)
                 .ret();
 
-        generateFilterAndProjectRowOriented(bootstrap, classDefinition, projections, expressionTypes);
+        generateFilterAndProjectRowOriented(bootstrap, classDefinition, filter, projections, expressionTypes);
 
         //
         // filter method
@@ -363,7 +364,7 @@ public class ExpressionCompiler
                 .putField(sessionField)
                 .ret();
 
-        generateFilterAndProjectRowOriented(bootstrap, classDefinition, projections, expressionTypes);
+        generateFilterAndProjectRowOriented(bootstrap, classDefinition, filter, projections, expressionTypes);
         generateFilterAndProjectCursorMethod(bootstrap, classDefinition, projections);
 
         //
@@ -402,6 +403,7 @@ public class ExpressionCompiler
     private void generateFilterAndProjectRowOriented(
             BootstrapEntry bootstrap,
             ClassDefinition classDefinition,
+            Expression filter,
             List<Expression> projections,
             IdentityHashMap<Expression, Type> expressionTypes)
     {
@@ -425,8 +427,8 @@ public class ExpressionCompiler
 
         List<LocalVariableDefinition> cursorVariables = new ArrayList<>();
 
-        List<Integer> inputChannels = getInputChannels(expressionTypes.keySet());
-        for (int channel : inputChannels) {
+        List<Integer> allInputChannels = getInputChannels(Iterables.concat(projections, ImmutableList.of(filter)));
+        for (int channel : allInputChannels) {
             LocalVariableDefinition cursorVariable = compilerContext.declareVariable(BlockCursor.class, "cursor_" + channel);
             cursorVariables.add(cursorVariable);
             filterAndProjectMethod.getBody()
@@ -467,10 +469,11 @@ public class ExpressionCompiler
                 .comment("if (filter(cursors...)");
         Block condition = new Block(compilerContext);
         condition.pushThis();
-        for (int channel : inputChannels) {
+        List<Integer> filterInputChannels = getInputChannels(filter);
+        for (int channel : filterInputChannels) {
             condition.getVariable("cursor_" + channel);
         }
-        condition.invokeVirtual(classDefinition.getType(), "filter", type(boolean.class), nCopies(inputChannels.size(), type(BlockCursor.class)));
+        condition.invokeVirtual(classDefinition.getType(), "filter", type(boolean.class), nCopies(filterInputChannels.size(), type(BlockCursor.class)));
         ifStatement.condition(condition);
 
         Block trueBlock = new Block(compilerContext);
@@ -485,7 +488,8 @@ public class ExpressionCompiler
             for (int projectionIndex = 0; projectionIndex < projections.size(); projectionIndex++) {
                 trueBlock.comment("project_%s(cursors..., pageBuilder.getBlockBuilder(%s))", projectionIndex, projectionIndex);
                 trueBlock.pushThis();
-                for (int channel : inputChannels) {
+                List<Integer> projectionInputs = getInputChannels(projections.get(projectionIndex));
+                for (int channel : projectionInputs) {
                     trueBlock.getVariable("cursor_" + channel);
                 }
 
@@ -498,7 +502,7 @@ public class ExpressionCompiler
                 trueBlock.invokeVirtual(classDefinition.getType(),
                         "project_" + projectionIndex,
                         type(void.class),
-                        ImmutableList.<ParameterizedType>builder().addAll(nCopies(inputChannels.size(), type(BlockCursor.class))).add(type(BlockBuilder.class)).build());
+                        ImmutableList.<ParameterizedType>builder().addAll(nCopies(projectionInputs.size(), type(BlockCursor.class))).add(type(BlockBuilder.class)).build());
             }
         }
         ifStatement.ifTrue(trueBlock);
@@ -634,7 +638,7 @@ public class ExpressionCompiler
                     a(PUBLIC),
                     "filter",
                     type(boolean.class),
-                    toBlockCursorParameters(getInputChannels(expressionTypes.keySet())));
+                    toBlockCursorParameters(getInputChannels(filter)));
         }
 
         filterMethod.comment("Filter: %s", filter.toString());
@@ -678,7 +682,7 @@ public class ExpressionCompiler
         }
         else {
             ImmutableList.Builder<NamedParameterDefinition> parameters = ImmutableList.builder();
-            parameters.addAll(toBlockCursorParameters(getInputChannels(expressionTypes.keySet())));
+            parameters.addAll(toBlockCursorParameters(getInputChannels(projection)));
             parameters.add(arg("output", BlockBuilder.class));
 
             projectionMethod = classDefinition.declareMethod(new CompilerContext(bootstrap.getBootstrapMethod()),
@@ -748,10 +752,15 @@ public class ExpressionCompiler
         return projectionType.getJavaType();
     }
 
-    private static List<Integer> getInputChannels(Set<Expression> expressions)
+    private static List<Integer> getInputChannels(Expression expression)
+    {
+        return getInputChannels(ImmutableList.of(expression));
+    }
+
+    private static List<Integer> getInputChannels(Iterable<Expression> expressions)
     {
         TreeSet<Integer> channels = new TreeSet<>();
-        for (Expression expression : expressions) {
+        for (Expression expression : SubExpressionExtractor.extractAll(expressions)) {
             if (expression instanceof InputReference) {
                 channels.add(((InputReference) expression).getInput().getChannel());
             }
