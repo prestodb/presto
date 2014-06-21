@@ -2,6 +2,11 @@
 Release 0.70
 ============
 
+.. warning::
+
+    This release contained a packaging error that resulted in an
+    unusable server tarball. Do not use this release.
+
 Views
 -----
 
