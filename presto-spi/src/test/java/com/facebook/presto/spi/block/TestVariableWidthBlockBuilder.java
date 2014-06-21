@@ -17,14 +17,13 @@ import io.airlift.slice.Slices;
 import org.testng.annotations.Test;
 
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
-import static io.airlift.slice.SizeOf.SIZE_OF_BYTE;
 import static io.airlift.slice.SizeOf.SIZE_OF_INT;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
 
 public class TestVariableWidthBlockBuilder
 {
-    private static final int VARCHAR_ENTRY_OVERHEAD = SIZE_OF_BYTE + SIZE_OF_INT;
+    private static final int VARCHAR_ENTRY_OVERHEAD = SIZE_OF_INT;
     private static final int VARCHAR_VALUE_SIZE = 7;
     private static final int VARCHAR_ENTRY_SIZE = VARCHAR_ENTRY_OVERHEAD + VARCHAR_VALUE_SIZE;
     private static final int EXPECTED_ENTRY_COUNT = 3;

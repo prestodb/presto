@@ -15,9 +15,12 @@ package com.facebook.presto.spi.block;
 
 import com.facebook.presto.spi.type.FixedWidthType;
 import io.airlift.slice.DynamicSliceOutput;
+import io.airlift.slice.SizeOf;
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceOutput;
 import io.airlift.slice.Slices;
+
+import java.util.Arrays;
 
 public class FixedWidthBlockBuilder
         extends AbstractFixedWidthBlock
@@ -25,6 +28,7 @@ public class FixedWidthBlockBuilder
 {
     private final BlockBuilderStatus blockBuilderStatus;
     private final SliceOutput sliceOutput;
+    private boolean[] valueIsNull;
     private int positionCount;
 
     public FixedWidthBlockBuilder(FixedWidthType type, BlockBuilderStatus blockBuilderStatus)
@@ -33,6 +37,7 @@ public class FixedWidthBlockBuilder
 
         this.blockBuilderStatus = blockBuilderStatus;
         this.sliceOutput = new DynamicSliceOutput(blockBuilderStatus.getMaxBlockSizeInBytes());
+        this.valueIsNull = new boolean[1024];
     }
 
     public FixedWidthBlockBuilder(FixedWidthType type, int positionCount)
@@ -43,6 +48,8 @@ public class FixedWidthBlockBuilder
 
         this.blockBuilderStatus = new BlockBuilderStatus(slice.length(), slice.length());
         this.sliceOutput = slice.getOutput();
+
+        this.valueIsNull = new boolean[positionCount];
     }
 
     @Override
@@ -72,33 +79,34 @@ public class FixedWidthBlockBuilder
     @Override
     public int getSizeInBytes()
     {
-        return getRawSlice().length();
+        long size = getRawSlice().length() + SizeOf.sizeOf(valueIsNull);
+        if (size > Integer.MAX_VALUE) {
+            return Integer.MAX_VALUE;
+        }
+        return (int) size;
     }
 
     @Override
     public BlockBuilder appendBoolean(boolean value)
     {
-        sliceOutput.writeByte(0);
         type.writeBoolean(sliceOutput, value);
-        entryAdded();
+        entryAdded(false);
         return this;
     }
 
     @Override
     public BlockBuilder appendLong(long value)
     {
-        sliceOutput.writeByte(0);
         type.writeLong(sliceOutput, value);
-        entryAdded();
+        entryAdded(false);
         return this;
     }
 
     @Override
     public BlockBuilder appendDouble(double value)
     {
-        sliceOutput.writeByte(0);
         type.writeDouble(sliceOutput, value);
-        entryAdded();
+        entryAdded(false);
         return this;
     }
 
@@ -115,11 +123,9 @@ public class FixedWidthBlockBuilder
             throw new IllegalArgumentException("length must be " + type.getFixedSize() + " but is " + length);
         }
 
-        sliceOutput.writeByte(0);
-
         type.writeSlice(sliceOutput, value, offset);
 
-        entryAdded();
+        entryAdded(false);
 
         return this;
     }
@@ -127,23 +133,32 @@ public class FixedWidthBlockBuilder
     @Override
     public BlockBuilder appendNull()
     {
-        sliceOutput.writeByte(1);
-
         // fixed width is always written regardless of null flag
         sliceOutput.writeZero(type.getFixedSize());
 
-        entryAdded();
+        entryAdded(true);
 
         return this;
     }
 
-    private void entryAdded()
+    private void entryAdded(boolean isNull)
     {
+        if (positionCount == valueIsNull.length - 1) {
+            valueIsNull = Arrays.copyOf(valueIsNull, valueIsNull.length * 2);
+        }
+        valueIsNull[positionCount] = isNull;
+
         positionCount++;
         blockBuilderStatus.addBytes(entrySize);
         if (sliceOutput.size() >= blockBuilderStatus.getMaxBlockSizeInBytes()) {
             blockBuilderStatus.setFull();
         }
+    }
+
+    @Override
+    protected boolean isEntryNull(int position)
+    {
+        return valueIsNull[position];
     }
 
     @Override
@@ -155,13 +170,13 @@ public class FixedWidthBlockBuilder
         }
 
         Slice newSlice = sliceOutput.slice().slice(positionOffset * entrySize, length * entrySize);
-        return new FixedWidthBlock(type, length, newSlice);
+        return new FixedWidthBlock(type, length, newSlice, valueIsNull);
     }
 
     @Override
     public Block build()
     {
-        return new FixedWidthBlock(type, positionCount, sliceOutput.slice());
+        return new FixedWidthBlock(type, positionCount, sliceOutput.slice(), valueIsNull);
     }
 
     @Override

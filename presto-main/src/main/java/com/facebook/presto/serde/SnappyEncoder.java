@@ -73,7 +73,7 @@ public class SnappyEncoder
 
     private void flushBlock()
     {
-        SnappyBlock snappyBlock = new SnappyBlock(blockBuilder);
+        SnappyBlock snappyBlock = new SnappyBlock(blockBuilder.build());
         encoding.writeBlock(sliceOutput, snappyBlock);
         blockBuilder = snappyBlock.getType().createBlockBuilder(new BlockBuilderStatus());
     }

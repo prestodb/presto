@@ -19,8 +19,6 @@ import com.facebook.presto.spi.type.VariableWidthType;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 
-import static io.airlift.slice.SizeOf.SIZE_OF_BYTE;
-
 public abstract class AbstractVariableWidthBlock
         implements Block
 {
@@ -35,18 +33,12 @@ public abstract class AbstractVariableWidthBlock
 
     protected abstract int getPositionOffset(int position);
 
-    protected abstract int[] getOffsets();
+    protected abstract boolean isEntryNull(int position);
 
     @Override
     public Type getType()
     {
         return type;
-    }
-
-    @Override
-    public int getSizeInBytes()
-    {
-        return getRawSlice().length();
     }
 
     @Override
@@ -76,12 +68,10 @@ public abstract class AbstractVariableWidthBlock
     @Override
     public Object getObjectValue(ConnectorSession session, int position)
     {
-        checkReadablePosition(position);
         if (isNull(position)) {
             return null;
         }
-        int offset = getPositionOffset(position);
-        return type.getObjectValue(session, getRawSlice(), valueOffset(offset));
+        return type.getObjectValue(session, getRawSlice(), getPositionOffset(position));
     }
 
     @Override
@@ -90,42 +80,35 @@ public abstract class AbstractVariableWidthBlock
         if (isNull(position)) {
             throw new IllegalStateException("position is null");
         }
-        int offset = getPositionOffset(position);
-        return type.getSlice(getRawSlice(), valueOffset(offset));
+        return type.getSlice(getRawSlice(), getPositionOffset(position));
     }
 
     @Override
     public Block getSingleValueBlock(int position)
     {
-        checkReadablePosition(position);
-
-        int offset = getPositionOffset(position);
-        if (isEntryAtOffsetNull(offset)) {
-            return new VariableWidthBlock(type, 1, Slices.wrappedBuffer(new byte[] {1}), new int[] {0});
+        if (isNull(position)) {
+            return new VariableWidthBlock(type, 1, Slices.wrappedBuffer(new byte[] {1}), new int[] {0}, new boolean[] {true});
         }
 
-        int entrySize = valueOffset(type.getLength(getRawSlice(), valueOffset(offset)));
+        int offset = getPositionOffset(position);
+        int entrySize = type.getLength(getRawSlice(), offset);
 
         Slice copy = Slices.copyOf(getRawSlice(), offset, entrySize);
 
-        return new VariableWidthBlock(type, 1, copy, new int[] {0});
+        return new VariableWidthBlock(type, 1, copy, new int[] {0}, new boolean[] {false});
     }
 
     @Override
     public boolean isNull(int position)
     {
         checkReadablePosition(position);
-        int offset = getPositionOffset(position);
-        return isEntryAtOffsetNull(offset);
+        return isEntryNull(position);
     }
 
     @Override
     public boolean equalTo(int position, Block otherBlock, int otherPosition)
     {
-        checkReadablePosition(position);
-        int leftOffset = getPositionOffset(position);
-
-        boolean leftIsNull = isEntryAtOffsetNull(leftOffset);
+        boolean leftIsNull = isNull(position);
         boolean rightIsNull = otherBlock.isNull(otherPosition);
 
         if (leftIsNull != rightIsNull) {
@@ -137,35 +120,29 @@ public abstract class AbstractVariableWidthBlock
             return true;
         }
 
-        return otherBlock.equalTo(otherPosition, getRawSlice(), valueOffset(leftOffset));
+        return otherBlock.equalTo(otherPosition, getRawSlice(), getPositionOffset(position));
     }
 
     @Override
     public boolean equalTo(int position, Slice otherSlice, int otherOffset)
     {
         checkReadablePosition(position);
-        int leftEntryOffset = getPositionOffset(position);
-        return type.equalTo(getRawSlice(), valueOffset(leftEntryOffset), otherSlice, otherOffset);
+        return type.equalTo(getRawSlice(), getPositionOffset(position), otherSlice, otherOffset);
     }
 
     @Override
     public int hash(int position)
     {
-        checkReadablePosition(position);
-        int offset = getPositionOffset(position);
-        if (isEntryAtOffsetNull(offset)) {
+        if (isNull(position)) {
             return 0;
         }
-        return type.hash(getRawSlice(), valueOffset(offset));
+        return type.hash(getRawSlice(), getPositionOffset(position));
     }
 
     @Override
     public int compareTo(SortOrder sortOrder, int position, Block otherBlock, int otherPosition)
     {
-        checkReadablePosition(position);
-        int leftOffset = getPositionOffset(position);
-
-        boolean leftIsNull = isEntryAtOffsetNull(leftOffset);
+        boolean leftIsNull = isNull(position);
         boolean rightIsNull = otherBlock.isNull(otherPosition);
 
         if (leftIsNull && rightIsNull) {
@@ -179,7 +156,7 @@ public abstract class AbstractVariableWidthBlock
         }
 
         // compare the right block to our slice but negate the result since we are evaluating in the opposite order
-        int result = -otherBlock.compareTo(otherPosition, getRawSlice(), valueOffset(leftOffset));
+        int result = -otherBlock.compareTo(otherPosition, getRawSlice(), getPositionOffset(position));
         return sortOrder.isAscending() ? result : -result;
     }
 
@@ -187,26 +164,18 @@ public abstract class AbstractVariableWidthBlock
     public int compareTo(int position, Slice otherSlice, int otherOffset)
     {
         checkReadablePosition(position);
-        int leftEntryOffset = getPositionOffset(position);
-        return type.compareTo(getRawSlice(), valueOffset(leftEntryOffset), otherSlice, otherOffset);
+        return type.compareTo(getRawSlice(), getPositionOffset(position), otherSlice, otherOffset);
     }
 
     @Override
     public void appendTo(int position, BlockBuilder blockBuilder)
     {
-        checkReadablePosition(position);
-        int offset = getPositionOffset(position);
-        if (isEntryAtOffsetNull(offset)) {
+        if (isNull(position)) {
             blockBuilder.appendNull();
         }
         else {
-            type.appendTo(getRawSlice(), valueOffset(offset), blockBuilder);
+            type.appendTo(getRawSlice(), getPositionOffset(position), blockBuilder);
         }
-    }
-
-    private boolean isEntryAtOffsetNull(int offset)
-    {
-        return getRawSlice().getByte(offset) != 0;
     }
 
     private void checkReadablePosition(int position)
@@ -214,10 +183,5 @@ public abstract class AbstractVariableWidthBlock
         if (position < 0 || position >= getPositionCount()) {
             throw new IllegalArgumentException("position is not valid");
         }
-    }
-
-    private static int valueOffset(int entryOffset)
-    {
-        return entryOffset + SIZE_OF_BYTE;
     }
 }
