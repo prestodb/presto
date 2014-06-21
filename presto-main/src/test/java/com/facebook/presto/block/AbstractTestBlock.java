@@ -17,8 +17,10 @@ import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
+import com.facebook.presto.spi.block.BlockEncoding;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableList;
+import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import org.testng.annotations.BeforeClass;
@@ -82,6 +84,18 @@ public abstract class AbstractTestBlock
         for (Entry<Integer, Object> entry : expectedValues.entrySet()) {
             assertPositionEquals(block, entry.getKey(), entry.getValue());
         }
+    }
+
+    @Test
+    public void testBlockEncoding()
+    {
+        Block block = createTestBlock();
+
+        DynamicSliceOutput sliceOutput = new DynamicSliceOutput(1024);
+        BlockEncoding blockEncoding = block.getEncoding();
+        blockEncoding.writeBlock(sliceOutput, block);
+        Block actualBlock = blockEncoding.readBlock(sliceOutput.slice().getInput());
+        BlockAssertions.assertBlockEquals(actualBlock, block);
     }
 
     protected void assertPositionEquals(Block block, int position, Object value)

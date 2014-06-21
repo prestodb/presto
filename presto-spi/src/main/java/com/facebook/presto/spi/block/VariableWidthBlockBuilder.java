@@ -13,9 +13,9 @@
  */
 package com.facebook.presto.spi.block;
 
-import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.VariableWidthType;
 import io.airlift.slice.DynamicSliceOutput;
+import io.airlift.slice.SizeOf;
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceOutput;
 
@@ -33,6 +33,7 @@ public class VariableWidthBlockBuilder
 
     private int positions;
     private int[] offsets = new int[1024];
+    private boolean[] valueIsNull = new boolean[1024];
 
     public VariableWidthBlockBuilder(VariableWidthType type, BlockBuilderStatus blockBuilderStatus)
     {
@@ -52,21 +53,9 @@ public class VariableWidthBlockBuilder
     }
 
     @Override
-    protected int[] getOffsets()
-    {
-        return offsets;
-    }
-
-    @Override
     protected Slice getRawSlice()
     {
         return sliceOutput.getUnderlyingSlice();
-    }
-
-    @Override
-    public Type getType()
-    {
-        return type;
     }
 
     @Override
@@ -90,7 +79,11 @@ public class VariableWidthBlockBuilder
     @Override
     public int getSizeInBytes()
     {
-        return getRawSlice().length();
+        long size = getRawSlice().length() + SizeOf.sizeOf(offsets) + SizeOf.sizeOf(valueIsNull);
+        if (size > Integer.MAX_VALUE) {
+            return Integer.MAX_VALUE;
+        }
+        return (int) size;
     }
 
     @Override
@@ -120,9 +113,7 @@ public class VariableWidthBlockBuilder
     @Override
     public BlockBuilder appendSlice(Slice value, int offset, int length)
     {
-        recordNewPosition();
-
-        sliceOutput.writeByte(0);
+        recordNewPosition(false);
 
         int bytesWritten = type.writeSlice(sliceOutput, value, offset, length);
 
@@ -134,10 +125,7 @@ public class VariableWidthBlockBuilder
     @Override
     public BlockBuilder appendNull()
     {
-        recordNewPosition();
-
-        sliceOutput.writeByte(1);
-
+        recordNewPosition(true);
         entryAdded(0);
 
         return this;
@@ -151,14 +139,23 @@ public class VariableWidthBlockBuilder
         }
     }
 
-    private void recordNewPosition()
+    private void recordNewPosition(boolean isNull)
     {
         if (positions == offsets.length) {
             offsets = Arrays.copyOf(offsets, offsets.length * 2);
+            valueIsNull = Arrays.copyOf(valueIsNull, valueIsNull.length * 2);
         }
 
         offsets[positions] = sliceOutput.size();
+        valueIsNull[positions] = isNull;
+
         positions++;
+    }
+
+    @Override
+    protected boolean isEntryNull(int position)
+    {
+        return valueIsNull[position];
     }
 
     @Override
@@ -170,13 +167,14 @@ public class VariableWidthBlockBuilder
         }
 
         int[] newOffsets = Arrays.copyOfRange(offsets, positionOffset, positionOffset + length);
-        return new VariableWidthBlock(type, length, sliceOutput.slice(), newOffsets);
+        boolean[] newValueIsNull = Arrays.copyOfRange(valueIsNull, positionCount, positionOffset + length);
+        return new VariableWidthBlock(type, length, sliceOutput.slice(), newOffsets, newValueIsNull);
     }
 
     @Override
     public Block build()
     {
-        return new VariableWidthBlock(type, positions, sliceOutput.slice(), Arrays.copyOf(offsets, positions));
+        return new VariableWidthBlock(type, positions, sliceOutput.slice(), Arrays.copyOf(offsets, positions), Arrays.copyOf(valueIsNull, positions));
     }
 
     @Override

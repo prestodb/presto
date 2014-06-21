@@ -14,17 +14,20 @@
 package com.facebook.presto.spi.block;
 
 import com.facebook.presto.spi.type.FixedWidthType;
+import io.airlift.slice.SizeOf;
 import io.airlift.slice.Slice;
 
+import java.util.Arrays;
 import java.util.Objects;
 
 public class FixedWidthBlock
         extends AbstractFixedWidthBlock
 {
-    private final Slice slice;
     private final int positionCount;
+    private final Slice slice;
+    private final boolean[] valueIsNull;
 
-    public FixedWidthBlock(FixedWidthType type, int positionCount, Slice slice)
+    public FixedWidthBlock(FixedWidthType type, int positionCount, Slice slice, boolean[] valueIsNull)
     {
         super(type);
 
@@ -34,6 +37,11 @@ public class FixedWidthBlock
         this.positionCount = positionCount;
 
         this.slice = Objects.requireNonNull(slice, "slice is null");
+
+        if (valueIsNull.length < positionCount) {
+            throw new IllegalArgumentException("valueIsNull length is less than positionCount");
+        }
+        this.valueIsNull = valueIsNull;
     }
 
     @Override
@@ -43,21 +51,36 @@ public class FixedWidthBlock
     }
 
     @Override
+    protected boolean isEntryNull(int position)
+    {
+        return valueIsNull[position];
+    }
+
+    @Override
     public int getPositionCount()
     {
         return positionCount;
     }
 
     @Override
+    public int getSizeInBytes()
+    {
+        long size = getRawSlice().length() + SizeOf.sizeOf(valueIsNull);
+        if (size > Integer.MAX_VALUE) {
+            return Integer.MAX_VALUE;
+        }
+        return (int) size;
+    }
+
+    @Override
     public Block getRegion(int positionOffset, int length)
     {
-        int positionCount = getPositionCount();
         if (positionOffset < 0 || length < 0 || positionOffset + length > positionCount) {
             throw new IndexOutOfBoundsException("Invalid position " + positionOffset + " in block with " + positionCount + " positions");
         }
 
         Slice newSlice = slice.slice(positionOffset * entrySize, length * entrySize);
-        return new FixedWidthBlock(type, length, newSlice);
+        return new FixedWidthBlock(type, length, newSlice, Arrays.copyOfRange(valueIsNull, positionOffset, positionOffset + length));
     }
 
     @Override
