@@ -14,19 +14,16 @@
 package com.facebook.presto.sql.gen;
 
 import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.sql.tree.DefaultTraversalVisitor;
+import com.facebook.presto.sql.planner.SubExpressionExtractor;
 import com.facebook.presto.sql.tree.Expression;
-import com.facebook.presto.sql.tree.Node;
-import com.google.common.collect.ImmutableList;
-
-import javax.annotation.Nullable;
+import com.facebook.presto.util.IterableTransformer;
+import com.google.common.base.Functions;
 
 import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Objects;
 
 import static com.google.common.base.Preconditions.checkNotNull;
-import static com.google.common.base.Preconditions.checkState;
 
 public class ExpressionKey
 {
@@ -39,25 +36,9 @@ public class ExpressionKey
         checkNotNull(expressionTypes, "expressionTypes is null");
 
         // extract the types of every expression node
-        final ImmutableList.Builder<Type> types = ImmutableList.builder();
-        Type type = checkNotNull(expressionTypes.get(expression), "Expression types does not contain an entry for %s", expression);
-        types.add(type);
-
-        expression.accept(new DefaultTraversalVisitor<Void, Void>() {
-            @Override
-            public Void process(Node node, @Nullable Void context)
-            {
-                Expression expression = (Expression) node;
-                Type type = expressionTypes.get(expression);
-                checkState(expressionTypes.get(expression) != null, "Expression types does not contain an entry for %s", expression);
-                types.add(type);
-
-                super.process(node, context);
-
-                return null;
-            }
-        }, null);
-        this.types = types.build();
+        this.types = IterableTransformer.on(SubExpressionExtractor.extractAll(expression))
+                .transform(Functions.forMap(expressionTypes))
+                .list();
     }
 
     @Override
