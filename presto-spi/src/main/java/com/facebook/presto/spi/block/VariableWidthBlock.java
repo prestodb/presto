@@ -52,7 +52,7 @@ public class VariableWidthBlock
     }
 
     @Override
-    protected int getPositionLength(int position)
+    public int getLength(int position)
     {
         return offsets[position + 1] - offsets[position];
     }

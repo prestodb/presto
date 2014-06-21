@@ -60,7 +60,7 @@ public class VariableWidthBlockEncoding
         // offsets
         int totalLength = 0;
         for (int position = 0; position < positionCount; position++) {
-            int length = variableWidthBlock.getPositionLength(position);
+            int length = variableWidthBlock.getLength(position);
             sliceOutput.appendInt(length);
             totalLength += length;
         }

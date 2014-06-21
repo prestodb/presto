@@ -14,6 +14,7 @@
 package com.facebook.presto.type;
 
 import com.facebook.presto.spi.ConnectorSession;
+import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.block.BlockEncodingFactory;
@@ -55,7 +56,7 @@ public final class UnknownType
     }
 
     @Override
-    public Object getObjectValue(ConnectorSession session, Slice slice, int offset)
+    public Object getObjectValue(ConnectorSession session, Block block, int position)
     {
         // This type is always null, so this method should never be called
         throw new UnsupportedOperationException();
@@ -74,7 +75,31 @@ public final class UnknownType
     }
 
     @Override
-    public boolean getBoolean(Slice slice, int offset)
+    public int hash(Block block, int position)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public boolean equalTo(Block leftBlock, int leftPosition, Block rightBlock, int rightPosition)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public int compareTo(Block leftBlock, int leftPosition, Block rightBlock, int rightPosition)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public void appendTo(Block block, int position, BlockBuilder blockBuilder)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public boolean getBoolean(Block block, int position)
     {
         throw new UnsupportedOperationException();
     }
@@ -86,7 +111,7 @@ public final class UnknownType
     }
 
     @Override
-    public long getLong(Slice slice, int offset)
+    public long getLong(Block block, int position)
     {
         throw new UnsupportedOperationException();
     }
@@ -98,7 +123,7 @@ public final class UnknownType
     }
 
     @Override
-    public double getDouble(Slice slice, int offset)
+    public double getDouble(Block block, int position)
     {
         throw new UnsupportedOperationException();
     }
@@ -110,43 +135,13 @@ public final class UnknownType
     }
 
     @Override
-    public Slice getSlice(Slice slice, int offset)
+    public Slice getSlice(Block block, int position)
     {
         throw new UnsupportedOperationException();
     }
 
     @Override
     public void writeSlice(SliceOutput sliceOutput, Slice value, int offset)
-    {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public boolean equalTo(Slice leftSlice, int leftOffset, Slice rightSlice, int rightOffset)
-    {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public int hash(Slice slice, int offset)
-    {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public int compareTo(Slice leftSlice, int leftOffset, Slice rightSlice, int rightOffset)
-    {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public void appendTo(Slice slice, int offset, BlockBuilder blockBuilder)
-    {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public void appendTo(Slice slice, int offset, SliceOutput sliceOutput)
     {
         throw new UnsupportedOperationException();
     }

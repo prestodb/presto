@@ -14,6 +14,7 @@
 package com.facebook.presto.spi.type;
 
 import com.facebook.presto.spi.ConnectorSession;
+import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.block.BlockEncodingFactory;
@@ -53,15 +54,64 @@ public class VarbinaryType
     }
 
     @Override
-    public Object getObjectValue(ConnectorSession session, Slice slice, int offset, int length)
+    public Object getObjectValue(ConnectorSession session, Block block, int position)
     {
-        return new SqlVarbinary(slice.getBytes(offset, length));
+        return new SqlVarbinary(block.getSlice(position, 0, block.getLength(position)).getBytes());
     }
 
     @Override
-    public Slice getSlice(Slice slice, int offset, int length)
+    public boolean equalTo(Block leftBlock, int leftPosition, Block rightBlock, int rightPosition)
     {
-        return slice.slice(offset, length);
+        int leftLength = leftBlock.getLength(leftPosition);
+        int rightLength = rightBlock.getLength(rightPosition);
+        if (leftLength != rightLength) {
+            return false;
+        }
+        return leftBlock.equals(leftPosition, 0, rightBlock, rightPosition, 0, leftLength);
+    }
+
+    @Override
+    public int hash(Block block, int position)
+    {
+        return block.hash(position, 0, block.getLength(position));
+    }
+
+    @Override
+    public int compareTo(Block leftBlock, int leftPosition, Block rightBlock, int rightPosition)
+    {
+        int leftLength = leftBlock.getLength(leftPosition);
+        int rightLength = rightBlock.getLength(rightPosition);
+        return leftBlock.compareTo(leftPosition, 0, leftLength, rightBlock, rightPosition, 0, rightLength);
+    }
+
+    @Override
+    public void appendTo(Block block, int position, BlockBuilder blockBuilder)
+    {
+        block.appendSliceTo(position, 0, block.getLength(position), blockBuilder);
+    }
+
+    @Override
+    public boolean getBoolean(Block block, int position)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public long getLong(Block block, int position)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public double getDouble(Block block, int position)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public Slice getSlice(Block block, int position)
+    {
+        return block.getSlice(position, 0, block.getLength(position));
     }
 
     @Override
@@ -72,33 +122,9 @@ public class VarbinaryType
     }
 
     @Override
-    public boolean equalTo(Slice leftSlice, int leftOffset, int leftLength, Slice rightSlice, int rightOffset, int rightLength)
-    {
-        return leftSlice.equals(leftOffset, leftLength, rightSlice, rightOffset, rightLength);
-    }
-
-    @Override
-    public int hash(Slice slice, int offset, int length)
-    {
-        return slice.hashCode(offset, length);
-    }
-
-    @Override
     public BlockBuilder createBlockBuilder(BlockBuilderStatus blockBuilderStatus)
     {
         return new VariableWidthBlockBuilder(this, blockBuilderStatus);
-    }
-
-    @Override
-    public int compareTo(Slice leftSlice, int leftOffset, int leftLength, Slice rightSlice, int rightOffset, int rightLength)
-    {
-        return leftSlice.compareTo(leftOffset, leftLength, rightSlice, rightOffset, rightLength);
-    }
-
-    @Override
-    public void appendTo(Slice slice, int offset, int length, BlockBuilder blockBuilder)
-    {
-        blockBuilder.appendSlice(slice, offset, length);
     }
 
     @Override

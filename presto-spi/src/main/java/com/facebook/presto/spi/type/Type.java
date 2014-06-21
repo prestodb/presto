@@ -13,9 +13,12 @@
  */
 package com.facebook.presto.spi.type;
 
+import com.facebook.presto.spi.ConnectorSession;
+import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.fasterxml.jackson.annotation.JsonValue;
+import io.airlift.slice.Slice;
 
 public interface Type
 {
@@ -41,4 +44,52 @@ public interface Type
      * store values after an expression projection within the query.
      */
     BlockBuilder createBlockBuilder(BlockBuilderStatus blockBuilderStatus);
+
+    /**
+     * Gets an object representation of the type value in the {@code block}
+     * {@code position}. This is the value returned to the user via the
+     * REST endpoint and therefore must be JSON serializable.
+     */
+    Object getObjectValue(ConnectorSession session, Block block, int position);
+
+    /**
+     * Gets the value at the {@code block} {@code position} as a boolean.
+     */
+    boolean getBoolean(Block block, int position);
+
+    /**
+     * Gets the value at the {@code block} {@code position} as a long.
+     */
+    long getLong(Block block, int position);
+
+    /**
+     * Gets the value at the {@code block} {@code position} as a double.
+     */
+    double getDouble(Block block, int position);
+
+    /**
+     * Gets the value at the {@code block} {@code position} as a Slice.
+     */
+    Slice getSlice(Block block, int position);
+
+    /**
+     * Are the values in the specified blocks at the specified positions equal?
+     */
+    boolean equalTo(Block leftBlock, int leftPosition, Block rightBlock, int rightPosition);
+
+    /**
+     * Calculates the hash code of the value at the specified position in the
+     * specified block.
+     */
+    int hash(Block block, int position);
+
+    /**
+     * Compare the values in the specified block at the specified positions equal.
+     */
+    int compareTo(Block leftBlock, int leftPosition, Block rightBlock, int rightPosition);
+
+    /**
+     * Append the value at {@code position} in {@code block} to {@code blockBuilder}.
+     */
+    void appendTo(Block block, int position, BlockBuilder blockBuilder);
 }

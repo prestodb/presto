@@ -80,6 +80,90 @@ public class DictionaryEncodedBlock
     }
 
     @Override
+    public int getLength(int position)
+    {
+        return dictionary.getLength(getDictionaryKey(position));
+    }
+
+    @Override
+    public byte getByte(int position, int offset)
+    {
+        return dictionary.getByte(getDictionaryKey(position), offset);
+    }
+
+    @Override
+    public short getShort(int position, int offset)
+    {
+        return dictionary.getShort(getDictionaryKey(position), offset);
+    }
+
+    @Override
+    public int getInt(int position, int offset)
+    {
+        return dictionary.getInt(getDictionaryKey(position), offset);
+    }
+
+    @Override
+    public long getLong(int position, int offset)
+    {
+        return dictionary.getLong(getDictionaryKey(position), offset);
+    }
+
+    @Override
+    public float getFloat(int position, int offset)
+    {
+        return dictionary.getFloat(getDictionaryKey(position), offset);
+    }
+
+    @Override
+    public double getDouble(int position, int offset)
+    {
+        return dictionary.getDouble(getDictionaryKey(position), offset);
+    }
+
+    @Override
+    public Slice getSlice(int position, int offset, int length)
+    {
+        return dictionary.getSlice(getDictionaryKey(position), offset, length);
+    }
+
+    @Override
+    public boolean bytesEqual(int position, int offset, Slice otherSlice, int otherOffset, int length)
+    {
+        return dictionary.bytesEqual(getDictionaryKey(position), offset, otherSlice, otherOffset, length);
+    }
+
+    @Override
+    public int bytesCompare(int position, int offset, int length, Slice otherSlice, int otherOffset, int otherLength)
+    {
+        return dictionary.bytesCompare(getDictionaryKey(position), offset, length, otherSlice, otherOffset, otherLength);
+    }
+
+    @Override
+    public void appendSliceTo(int position, int offset, int length, BlockBuilder blockBuilder)
+    {
+        dictionary.appendSliceTo(getDictionaryKey(position), offset, length, blockBuilder);
+    }
+
+    @Override
+    public boolean equals(int position, int offset, Block otherBlock, int otherPosition, int otherOffset, int length)
+    {
+        return dictionary.equals(getDictionaryKey(position), offset, otherBlock, otherPosition, otherOffset, length);
+    }
+
+    @Override
+    public int hash(int position, int offset, int length)
+    {
+        return dictionary.hash(getDictionaryKey(position), offset, length);
+    }
+
+    @Override
+    public int compareTo(int leftPosition, int leftOffset, int leftLength, Block rightBlock, int rightPosition, int rightOffset, int rightLength)
+    {
+        return dictionary.compareTo(getDictionaryKey(leftPosition), leftOffset, leftLength, rightBlock, rightPosition, rightOffset, rightLength);
+    }
+
+    @Override
     public boolean getBoolean(int position)
     {
         return dictionary.getBoolean(getDictionaryKey(position));
@@ -128,12 +212,6 @@ public class DictionaryEncodedBlock
     }
 
     @Override
-    public boolean equalTo(int position, Slice otherSlice, int otherOffset, int otherLength)
-    {
-        return dictionary.equalTo(getDictionaryKey(position), otherSlice, otherOffset, otherLength);
-    }
-
-    @Override
     public int hash(int position)
     {
         return dictionary.hash(getDictionaryKey(position));
@@ -143,12 +221,6 @@ public class DictionaryEncodedBlock
     public int compareTo(SortOrder sortOrder, int position, Block otherBlock, int otherPosition)
     {
         return dictionary.compareTo(sortOrder, getDictionaryKey(position), otherBlock, otherPosition);
-    }
-
-    @Override
-    public int compareTo(int position, Slice otherSlice, int otherOffset, int otherLength)
-    {
-        return dictionary.compareTo(getDictionaryKey(position), otherSlice, otherOffset, otherLength);
     }
 
     @Override

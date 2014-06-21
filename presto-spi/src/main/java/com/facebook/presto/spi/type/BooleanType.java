@@ -14,6 +14,7 @@
 package com.facebook.presto.spi.type;
 
 import com.facebook.presto.spi.ConnectorSession;
+import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.block.BlockEncodingFactory;
@@ -60,9 +61,9 @@ public final class BooleanType
     }
 
     @Override
-    public Object getObjectValue(ConnectorSession session, Slice slice, int offset)
+    public Object getObjectValue(ConnectorSession session, Block block, int position)
     {
-        return slice.getByte(offset) != 0;
+        return block.getByte(position, 0) != 0;
     }
 
     @Override
@@ -78,9 +79,39 @@ public final class BooleanType
     }
 
     @Override
-    public boolean getBoolean(Slice slice, int offset)
+    public boolean equalTo(Block leftBlock, int leftPosition, Block rightBlock, int rightPosition)
     {
-        return slice.getByte(offset) != 0;
+        boolean leftValue = leftBlock.getByte(leftPosition, 0) != 0;
+        boolean rightValue = rightBlock.getByte(rightPosition, 0) != 0;
+        return leftValue == rightValue;
+    }
+
+    @Override
+    public int hash(Block block, int position)
+    {
+        boolean value = block.getByte(position, 0) != 0;
+        return value ? 1231 : 1237;
+    }
+
+    @Override
+    public int compareTo(Block leftBlock, int leftPosition, Block rightBlock, int rightPosition)
+    {
+        boolean leftValue = leftBlock.getByte(leftPosition, 0) != 0;
+        boolean rightValue = rightBlock.getByte(rightPosition, 0) != 0;
+        return Boolean.compare(leftValue, rightValue);
+    }
+
+    @Override
+    public void appendTo(Block block, int position, BlockBuilder blockBuilder)
+    {
+        boolean value = block.getByte(position, 0) != 0;
+        blockBuilder.appendBoolean(value);
+    }
+
+    @Override
+    public boolean getBoolean(Block block, int position)
+    {
+        return block.getByte(position, 0) != 0;
     }
 
     @Override
@@ -90,7 +121,7 @@ public final class BooleanType
     }
 
     @Override
-    public long getLong(Slice slice, int offset)
+    public long getLong(Block block, int position)
     {
         throw new UnsupportedOperationException();
     }
@@ -102,7 +133,7 @@ public final class BooleanType
     }
 
     @Override
-    public double getDouble(Slice slice, int offset)
+    public double getDouble(Block block, int position)
     {
         throw new UnsupportedOperationException();
     }
@@ -114,50 +145,15 @@ public final class BooleanType
     }
 
     @Override
-    public Slice getSlice(Slice slice, int offset)
+    public Slice getSlice(Block block, int position)
     {
-        return slice.slice(offset, getFixedSize());
+        return block.getSlice(position, 0, getFixedSize());
     }
 
     @Override
     public void writeSlice(SliceOutput sliceOutput, Slice value, int offset)
     {
         sliceOutput.writeBytes(value, offset, SIZE_OF_BYTE);
-    }
-
-    @Override
-    public boolean equalTo(Slice leftSlice, int leftOffset, Slice rightSlice, int rightOffset)
-    {
-        boolean leftValue = leftSlice.getByte(leftOffset) != 0;
-        boolean rightValue = rightSlice.getByte(rightOffset) != 0;
-        return leftValue == rightValue;
-    }
-
-    @Override
-    public int hash(Slice slice, int offset)
-    {
-        return slice.getByte(offset) != 0 ? 1231 : 1237;
-    }
-
-    @Override
-    public int compareTo(Slice leftSlice, int leftOffset, Slice rightSlice, int rightOffset)
-    {
-        boolean leftValue = leftSlice.getByte(leftOffset) != 0;
-        boolean rightValue = rightSlice.getByte(rightOffset) != 0;
-        return Boolean.compare(leftValue, rightValue);
-    }
-
-    @Override
-    public void appendTo(Slice slice, int offset, BlockBuilder blockBuilder)
-    {
-        boolean value = slice.getByte(offset) != 0;
-        blockBuilder.appendBoolean(value);
-    }
-
-    @Override
-    public void appendTo(Slice slice, int offset, SliceOutput sliceOutput)
-    {
-        sliceOutput.writeBytes(slice, offset, (int) SIZE_OF_BYTE);
     }
 
     @Override

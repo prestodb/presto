@@ -13,8 +13,6 @@
  */
 package com.facebook.presto.spi.type;
 
-import com.facebook.presto.spi.ConnectorSession;
-import com.facebook.presto.spi.block.BlockBuilder;
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceOutput;
 
@@ -25,40 +23,7 @@ public interface VariableWidthType
         extends Type
 {
     /**
-     * Gets an object representation of the type encoded in the specified slice
-     * at the specified offset. This is the value returned to the user via the
-     * REST endpoint and therefore must be JSON serializable.
-     */
-    Object getObjectValue(ConnectorSession session, Slice slice, int offset, int length);
-
-    /**
-     * Gets the value at the specified offset in the specified slice as a Slice.
-     */
-    Slice getSlice(Slice slice, int offset, int length);
-
-    /**
      * Writes the Slice value into the specified slice output.
      */
     int writeSlice(SliceOutput sliceOutput, Slice value, int offset, int length);
-
-    /**
-     * Are the values in the specified slices at the specified offsets equal?
-     */
-    boolean equalTo(Slice leftSlice, int leftOffset, int leftLength, Slice rightSlice, int rightOffset, int rightLength);
-
-    /**
-     * Calculates the hash code of the value at the specified offset in the
-     * specified slice.
-     */
-    int hash(Slice slice, int offset, int length);
-
-    /**
-     * Compare the values in the specified slices at the specified offsets equal.
-     */
-    int compareTo(Slice leftSlice, int leftOffset, int leftLength, Slice rightSlice, int rightOffset, int rightLength);
-
-    /**
-     * Append the value at {@code offset} in {@code slice} to {@code blockBuilder}.
-     */
-    void appendTo(Slice slice, int offset, int length, BlockBuilder blockBuilder);
 }

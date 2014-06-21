@@ -134,7 +134,7 @@ public class FixedWidthBlockBuilder
     public BlockBuilder appendNull()
     {
         // fixed width is always written regardless of null flag
-        sliceOutput.writeZero(type.getFixedSize());
+        sliceOutput.writeZero(entrySize);
 
         entryAdded(true);
 

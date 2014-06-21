@@ -37,6 +37,120 @@ public abstract class AbstractFixedWidthBlock
     protected abstract boolean isEntryNull(int position);
 
     @Override
+    public int getLength(int position)
+    {
+        return entrySize;
+    }
+
+    @Override
+    public byte getByte(int position, int offset)
+    {
+        checkReadablePosition(position);
+        return getRawSlice().getByte(valueOffset(position) + offset);
+    }
+
+    @Override
+    public short getShort(int position, int offset)
+    {
+        checkReadablePosition(position);
+        return getRawSlice().getShort(valueOffset(position) + offset);
+    }
+
+    @Override
+    public int getInt(int position, int offset)
+    {
+        checkReadablePosition(position);
+        return getRawSlice().getInt(valueOffset(position) + offset);
+    }
+
+    @Override
+    public long getLong(int position, int offset)
+    {
+        checkReadablePosition(position);
+        return getRawSlice().getLong(valueOffset(position) + offset);
+    }
+
+    @Override
+    public float getFloat(int position, int offset)
+    {
+        checkReadablePosition(position);
+        return getRawSlice().getFloat(valueOffset(position) + offset);
+    }
+
+    @Override
+    public double getDouble(int position, int offset)
+    {
+        checkReadablePosition(position);
+        return getRawSlice().getDouble(valueOffset(position) + offset);
+    }
+
+    @Override
+    public Slice getSlice(int position, int offset, int length)
+    {
+        checkReadablePosition(position);
+        return getRawSlice().slice(valueOffset(position) + offset, length);
+    }
+
+    @Override
+    public boolean equals(int position, int offset, Block otherBlock, int otherPosition, int otherOffset, int length)
+    {
+        checkReadablePosition(position);
+        if (entrySize < length) {
+            return false;
+        }
+        int thisOffset = valueOffset(position) + offset;
+        return otherBlock.bytesEqual(otherPosition, otherOffset, getRawSlice(), thisOffset, length);
+    }
+
+    @Override
+    public boolean bytesEqual(int position, int offset, Slice otherSlice, int otherOffset, int length)
+    {
+        checkReadablePosition(position);
+        int thisOffset = valueOffset(position) + offset;
+        return getRawSlice().equals(thisOffset, length, otherSlice, otherOffset, length);
+    }
+
+    @Override
+    public int hash(int position, int offset, int length)
+    {
+        checkReadablePosition(position);
+        if (isNull(position)) {
+            return 0;
+        }
+        return getRawSlice().hashCode(valueOffset(position), length);
+    }
+
+    @Override
+    public int compareTo(int position, int offset, int length, Block otherBlock, int otherPosition, int otherOffset, int otherLength)
+    {
+        checkReadablePosition(position);
+        if (entrySize < length) {
+            throw new IllegalArgumentException("Length longer than value length");
+        }
+        int thisOffset = valueOffset(position) + offset;
+        return -otherBlock.bytesCompare(otherPosition, otherOffset, otherLength, getRawSlice(), thisOffset, length);
+    }
+
+    @Override
+    public int bytesCompare(int position, int offset, int length, Slice otherSlice, int otherOffset, int otherLength)
+    {
+        checkReadablePosition(position);
+        return getRawSlice().compareTo(valueOffset(position) + offset, length, otherSlice, otherOffset, otherLength);
+    }
+
+    @Override
+    public void appendSliceTo(int position, int offset, int length, BlockBuilder blockBuilder)
+    {
+        checkReadablePosition(position);
+        if (isNull(position)) {
+            blockBuilder.appendNull();
+        }
+        else {
+            blockBuilder.appendSlice(getRawSlice(), valueOffset(position), length);
+        }
+    }
+
+    @Override
     public FixedWidthType getType()
     {
         return type;
@@ -52,21 +166,21 @@ public abstract class AbstractFixedWidthBlock
     public boolean getBoolean(int position)
     {
         checkReadablePosition(position);
-        return type.getBoolean(getRawSlice(), valueOffset(position));
+        return type.getBoolean(this, position);
     }
 
     @Override
     public long getLong(int position)
     {
         checkReadablePosition(position);
-        return type.getLong(getRawSlice(), valueOffset(position));
+        return type.getLong(this, position);
     }
 
     @Override
     public double getDouble(int position)
     {
         checkReadablePosition(position);
-        return type.getDouble(getRawSlice(), valueOffset(position));
+        return type.getDouble(this, position);
     }
 
     @Override
@@ -76,14 +190,14 @@ public abstract class AbstractFixedWidthBlock
         if (isNull(position)) {
             return null;
         }
-        return type.getObjectValue(session, getRawSlice(), valueOffset(position));
+        return type.getObjectValue(session, this, position);
     }
 
     @Override
     public Slice getSlice(int position)
     {
         checkReadablePosition(position);
-        return type.getSlice(getRawSlice(), valueOffset(position));
+        return type.getSlice(this, position);
     }
 
     @Override
@@ -118,14 +232,7 @@ public abstract class AbstractFixedWidthBlock
             return true;
         }
 
-        return otherBlock.equalTo(otherPosition, getRawSlice(), valueOffset(position), entrySize);
-    }
-
-    @Override
-    public boolean equalTo(int position, Slice otherSlice, int otherOffset, int otherLength)
-    {
-        checkReadablePosition(position);
-        return type.equalTo(getRawSlice(), valueOffset(position), otherSlice, otherOffset);
+        return type.equalTo(this, position, otherBlock, otherPosition);
     }
 
     @Override
@@ -134,7 +241,7 @@ public abstract class AbstractFixedWidthBlock
         if (isNull(position)) {
             return 0;
         }
-        return type.hash(getRawSlice(), valueOffset(position));
+        return type.hash(this, position);
     }
 
     @Override
@@ -153,16 +260,8 @@ public abstract class AbstractFixedWidthBlock
             return sortOrder.isNullsFirst() ? 1 : -1;
         }
 
-        // compare the right block to our slice but negate the result since we are evaluating in the opposite order
-        int result = -otherBlock.compareTo(otherPosition, getRawSlice(), valueOffset(position), entrySize);
+        int result = type.compareTo(this, position, otherBlock, otherPosition);
         return sortOrder.isAscending() ? result : -result;
-    }
-
-    @Override
-    public int compareTo(int position, Slice otherSlice, int otherOffset, int otherLength)
-    {
-        checkReadablePosition(position);
-        return type.compareTo(getRawSlice(), valueOffset(position), otherSlice, otherOffset);
     }
 
     @Override
@@ -172,7 +271,7 @@ public abstract class AbstractFixedWidthBlock
             blockBuilder.appendNull();
         }
         else {
-            type.appendTo(getRawSlice(), valueOffset(position), blockBuilder);
+            type.appendTo(this, position, blockBuilder);
         }
     }
 

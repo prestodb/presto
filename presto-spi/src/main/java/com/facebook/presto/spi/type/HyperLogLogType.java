@@ -14,6 +14,7 @@
 package com.facebook.presto.spi.type;
 
 import com.facebook.presto.spi.ConnectorSession;
+import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.block.BlockEncodingFactory;
@@ -56,9 +57,51 @@ public class HyperLogLogType
     }
 
     @Override
-    public Slice getSlice(Slice slice, int offset, int length)
+    public boolean equalTo(Block leftBlock, int leftPosition, Block rightBlock, int rightPosition)
     {
-        return slice.slice(offset, length);
+        throw new UnsupportedOperationException("HyperLogLog type is not comparable");
+    }
+
+    @Override
+    public int hash(Block block, int position)
+    {
+        throw new UnsupportedOperationException("HyperLogLog type is not comparable");
+    }
+
+    @Override
+    public int compareTo(Block leftBlock, int leftPosition, Block rightBlock, int rightPosition)
+    {
+        throw new UnsupportedOperationException("HyperLogLog type is not ordered");
+    }
+
+    @Override
+    public void appendTo(Block block, int position, BlockBuilder blockBuilder)
+    {
+        block.appendSliceTo(position, 0, block.getLength(position), blockBuilder);
+    }
+
+    @Override
+    public boolean getBoolean(Block block, int position)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public long getLong(Block block, int position)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public double getDouble(Block block, int position)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public Slice getSlice(Block block, int position)
+    {
+        return block.getSlice(position, 0, block.getLength(position));
     }
 
     @Override
@@ -69,33 +112,9 @@ public class HyperLogLogType
     }
 
     @Override
-    public boolean equalTo(Slice leftSlice, int leftOffset, int leftLength, Slice rightSlice, int rightOffset, int rightLength)
+    public Object getObjectValue(ConnectorSession session, Block block, int position)
     {
-        throw new UnsupportedOperationException("HyperLogLog type is not comparable");
-    }
-
-    @Override
-    public int hash(Slice slice, int offset, int length)
-    {
-        throw new UnsupportedOperationException("HyperLogLog type is not comparable");
-    }
-
-    @Override
-    public int compareTo(Slice leftSlice, int leftOffset, int leftLength, Slice rightSlice, int rightOffset, int rightLength)
-    {
-        throw new UnsupportedOperationException("HyperLogLog type is not ordered");
-    }
-
-    @Override
-    public void appendTo(Slice slice, int offset, int length, BlockBuilder blockBuilder)
-    {
-        blockBuilder.appendSlice(slice, offset, length);
-    }
-
-    @Override
-    public Object getObjectValue(ConnectorSession session, Slice slice, int offset, int length)
-    {
-        return new SqlVarbinary(slice.getBytes(offset, length));
+        return new SqlVarbinary(block.getSlice(position, 0, block.getLength(position)).getBytes());
     }
 
     @Override
