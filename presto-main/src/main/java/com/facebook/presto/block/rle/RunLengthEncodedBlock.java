@@ -80,6 +80,90 @@ public class RunLengthEncodedBlock
     }
 
     @Override
+    public int getLength(int position)
+    {
+        return value.getLength(0);
+    }
+
+    @Override
+    public byte getByte(int position, int offset)
+    {
+        return value.getByte(0, offset);
+    }
+
+    @Override
+    public short getShort(int position, int offset)
+    {
+        return value.getShort(0, offset);
+    }
+
+    @Override
+    public int getInt(int position, int offset)
+    {
+        return value.getInt(0, offset);
+    }
+
+    @Override
+    public long getLong(int position, int offset)
+    {
+        return value.getLong(0, offset);
+    }
+
+    @Override
+    public float getFloat(int position, int offset)
+    {
+        return value.getFloat(0, offset);
+    }
+
+    @Override
+    public double getDouble(int position, int offset)
+    {
+        return value.getDouble(0, offset);
+    }
+
+    @Override
+    public Slice getSlice(int position, int offset, int length)
+    {
+        return value.getSlice(0, offset, length);
+    }
+
+    @Override
+    public boolean bytesEqual(int position, int offset, Slice otherSlice, int otherOffset, int length)
+    {
+        return value.bytesEqual(0, offset, otherSlice, otherOffset, length);
+    }
+
+    @Override
+    public int bytesCompare(int position, int offset, int length, Slice otherSlice, int otherOffset, int otherLength)
+    {
+        return value.bytesCompare(0, offset, length, otherSlice, otherOffset, otherLength);
+    }
+
+    @Override
+    public void appendSliceTo(int position, int offset, int length, BlockBuilder blockBuilder)
+    {
+        value.appendSliceTo(0, offset, length, blockBuilder);
+    }
+
+    @Override
+    public boolean equals(int position, int offset, Block otherBlock, int otherPosition, int otherOffset, int length)
+    {
+        return value.equals(0, offset, otherBlock, otherPosition, otherOffset, length);
+    }
+
+    @Override
+    public int hash(int position, int offset, int length)
+    {
+        return value.hash(0, offset, length);
+    }
+
+    @Override
+    public int compareTo(int leftPosition, int leftOffset, int leftLength, Block rightBlock, int rightPosition, int rightOffset, int rightLength)
+    {
+        return value.compareTo(0, leftOffset, leftLength, rightBlock, rightPosition, rightOffset, rightLength);
+    }
+
+    @Override
     public boolean getBoolean(int position)
     {
         checkReadablePosition(position);
@@ -136,13 +220,6 @@ public class RunLengthEncodedBlock
     }
 
     @Override
-    public boolean equalTo(int position, Slice otherSlice, int otherOffset, int otherLength)
-    {
-        checkReadablePosition(position);
-        return value.equalTo(0, otherSlice, otherOffset, otherLength);
-    }
-
-    @Override
     public int hash(int position)
     {
         checkReadablePosition(position);
@@ -154,13 +231,6 @@ public class RunLengthEncodedBlock
     {
         checkReadablePosition(position);
         return value.compareTo(sortOrder, 0, otherBlock, otherPosition);
-    }
-
-    @Override
-    public int compareTo(int position, Slice otherSlice, int otherOffset, int otherLength)
-    {
-        checkReadablePosition(position);
-        return value.compareTo(0, otherSlice, otherOffset, otherLength);
     }
 
     @Override

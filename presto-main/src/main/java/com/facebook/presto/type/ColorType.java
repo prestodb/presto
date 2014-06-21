@@ -15,6 +15,7 @@ package com.facebook.presto.type;
 
 import com.facebook.presto.operator.scalar.ColorFunctions;
 import com.facebook.presto.spi.ConnectorSession;
+import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.block.BlockEncodingFactory;
@@ -63,9 +64,9 @@ public class ColorType
     }
 
     @Override
-    public Object getObjectValue(ConnectorSession session, Slice slice, int offset)
+    public Object getObjectValue(ConnectorSession session, Block block, int position)
     {
-        int color = slice.getInt(offset);
+        int color = block.getInt(position, 0);
         if (color < 0) {
             return ColorFunctions.SystemColor.valueOf(-(color + 1)).getName();
         }
@@ -89,7 +90,34 @@ public class ColorType
     }
 
     @Override
-    public boolean getBoolean(Slice slice, int offset)
+    public boolean equalTo(Block leftBlock, int leftPosition, Block rightBlock, int rightPosition)
+    {
+        int leftValue = leftBlock.getInt(leftPosition, 0);
+        int rightValue = rightBlock.getInt(rightPosition, 0);
+        return leftValue == rightValue;
+    }
+
+    @Override
+    public int hash(Block block, int position)
+    {
+        return block.getInt(position, 0);
+    }
+
+    @Override
+    public int compareTo(Block leftBlock, int leftPosition, Block rightBlock, int rightPosition)
+    {
+        throw new UnsupportedOperationException("Color is not ordered");
+    }
+
+    @Override
+    public void appendTo(Block block, int position, BlockBuilder blockBuilder)
+    {
+        int value = block.getInt(position, 0);
+        blockBuilder.appendLong(value);
+    }
+
+    @Override
+    public boolean getBoolean(Block block, int position)
     {
         throw new UnsupportedOperationException();
     }
@@ -101,9 +129,9 @@ public class ColorType
     }
 
     @Override
-    public long getLong(Slice slice, int offset)
+    public long getLong(Block block, int position)
     {
-        return slice.getInt(offset);
+        return block.getInt(position, 0);
     }
 
     @Override
@@ -113,7 +141,7 @@ public class ColorType
     }
 
     @Override
-    public double getDouble(Slice slice, int offset)
+    public double getDouble(Block block, int position)
     {
         throw new UnsupportedOperationException();
     }
@@ -125,9 +153,9 @@ public class ColorType
     }
 
     @Override
-    public Slice getSlice(Slice slice, int offset)
+    public Slice getSlice(Block block, int position)
     {
-        return slice.slice(offset, getFixedSize());
+        return block.getSlice(position, 0, getFixedSize());
     }
 
     @Override
@@ -135,36 +163,6 @@ public class ColorType
     {
         Preconditions.checkArgument(value.length() == SIZE_OF_INT);
         sliceOutput.writeBytes(value, offset, SIZE_OF_INT);
-    }
-
-    @Override
-    public boolean equalTo(Slice leftSlice, int leftOffset, Slice rightSlice, int rightOffset)
-    {
-        return leftSlice.getInt(leftOffset) == rightSlice.getInt(rightOffset);
-    }
-
-    @Override
-    public int hash(Slice slice, int offset)
-    {
-        return slice.getInt(offset);
-    }
-
-    @Override
-    public int compareTo(Slice leftSlice, int leftOffset, Slice rightSlice, int rightOffset)
-    {
-        throw new UnsupportedOperationException("Color is not ordered");
-    }
-
-    @Override
-    public void appendTo(Slice slice, int offset, BlockBuilder blockBuilder)
-    {
-        blockBuilder.appendLong(slice.getInt(offset));
-    }
-
-    @Override
-    public void appendTo(Slice slice, int offset, SliceOutput sliceOutput)
-    {
-        sliceOutput.writeBytes(slice, offset, (int) SIZE_OF_INT);
     }
 
     @Override

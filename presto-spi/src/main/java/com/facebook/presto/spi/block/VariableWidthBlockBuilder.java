@@ -54,7 +54,7 @@ public class VariableWidthBlockBuilder
     }
 
     @Override
-    protected int getPositionLength(int position)
+    public int getLength(int position)
     {
         if (position >= positions) {
             throw new IllegalArgumentException("position " + position + " must be less than position count " + positions);

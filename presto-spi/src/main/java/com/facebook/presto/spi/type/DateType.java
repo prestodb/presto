@@ -14,6 +14,7 @@
 package com.facebook.presto.spi.type;
 
 import com.facebook.presto.spi.ConnectorSession;
+import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.block.BlockEncodingFactory;
@@ -70,10 +71,10 @@ public final class DateType
     }
 
     @Override
-    public Object getObjectValue(ConnectorSession session, Slice slice, int offset)
+    public Object getObjectValue(ConnectorSession session, Block block, int position)
     {
         // convert date to timestamp at midnight in local time zone
-        long date = slice.getLong(offset);
+        long date = block.getLong(position, 0);
         return new SqlDate(date - getTimeZoneForKey(session.getTimeZoneKey()).getOffset(date), session.getTimeZoneKey());
     }
 
@@ -90,7 +91,37 @@ public final class DateType
     }
 
     @Override
-    public boolean getBoolean(Slice slice, int offset)
+    public boolean equalTo(Block leftBlock, int leftPosition, Block rightBlock, int rightPosition)
+    {
+        long leftValue = leftBlock.getLong(leftPosition, 0);
+        long rightValue = rightBlock.getLong(rightPosition, 0);
+        return leftValue == rightValue;
+    }
+
+    @Override
+    public int hash(Block block, int position)
+    {
+        long value = block.getLong(position, 0);
+        return (int) (value ^ (value >>> 32));
+    }
+
+    @Override
+    public int compareTo(Block leftBlock, int leftPosition, Block rightBlock, int rightPosition)
+    {
+        long leftValue = leftBlock.getLong(leftPosition, 0);
+        long rightValue = rightBlock.getLong(rightPosition, 0);
+        return Long.compare(leftValue, rightValue);
+    }
+
+    @Override
+    public void appendTo(Block block, int position, BlockBuilder blockBuilder)
+    {
+        long value = block.getLong(position, 0);
+        blockBuilder.appendLong(value);
+    }
+
+    @Override
+    public boolean getBoolean(Block block, int position)
     {
         throw new UnsupportedOperationException();
     }
@@ -102,9 +133,9 @@ public final class DateType
     }
 
     @Override
-    public long getLong(Slice slice, int offset)
+    public long getLong(Block block, int position)
     {
-        return slice.getLong(offset);
+        return block.getLong(position, 0);
     }
 
     @Override
@@ -114,7 +145,7 @@ public final class DateType
     }
 
     @Override
-    public double getDouble(Slice slice, int offset)
+    public double getDouble(Block block, int position)
     {
         throw new UnsupportedOperationException();
     }
@@ -126,51 +157,15 @@ public final class DateType
     }
 
     @Override
-    public Slice getSlice(Slice slice, int offset)
+    public Slice getSlice(Block block, int position)
     {
-        return slice.slice(offset, getFixedSize());
+        return block.getSlice(position, 0, getFixedSize());
     }
 
     @Override
     public void writeSlice(SliceOutput sliceOutput, Slice value, int offset)
     {
         sliceOutput.writeBytes(value, offset, SIZE_OF_LONG);
-    }
-
-    @Override
-    public boolean equalTo(Slice leftSlice, int leftOffset, Slice rightSlice, int rightOffset)
-    {
-        long leftValue = leftSlice.getLong(leftOffset);
-        long rightValue = rightSlice.getLong(rightOffset);
-        return leftValue == rightValue;
-    }
-
-    @Override
-    public int hash(Slice slice, int offset)
-    {
-        long value = slice.getLong(offset);
-        return (int) (value ^ (value >>> 32));
-    }
-
-    @Override
-    public int compareTo(Slice leftSlice, int leftOffset, Slice rightSlice, int rightOffset)
-    {
-        long leftValue = leftSlice.getLong(leftOffset);
-        long rightValue = rightSlice.getLong(rightOffset);
-        return Long.compare(leftValue, rightValue);
-    }
-
-    @Override
-    public void appendTo(Slice slice, int offset, BlockBuilder blockBuilder)
-    {
-        long value = slice.getLong(offset);
-        blockBuilder.appendLong(value);
-    }
-
-    @Override
-    public void appendTo(Slice slice, int offset, SliceOutput sliceOutput)
-    {
-        sliceOutput.writeBytes(slice, offset, (int) SIZE_OF_LONG);
     }
 
     @Override
