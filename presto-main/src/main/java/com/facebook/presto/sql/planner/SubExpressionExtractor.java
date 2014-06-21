@@ -41,6 +41,13 @@ public final class SubExpressionExtractor
         return builder.build();
     }
 
+    public static List<Expression> extractAll(Expression expression)
+    {
+        ImmutableList.Builder<Expression> builder = ImmutableList.builder();
+        extract(builder, expression);
+        return builder.build();
+    }
+
     public static Set<Expression> extract(Expression expression)
     {
         final ImmutableSet.Builder<Expression> builder = ImmutableSet.builder();
