@@ -24,8 +24,6 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceOutput;
 
-import static io.airlift.slice.SizeOf.SIZE_OF_INT;
-
 // Layout is <size>:<model>, where
 //   size: is an int describing the length of the model bytes
 //   model: is the serialized model
@@ -59,60 +57,44 @@ public class ModelType
     }
 
     @Override
-    public int getLength(Slice slice, int offset)
+    public Slice getSlice(Slice slice, int offset, int length)
     {
-        return getValueSize(slice, offset) + SIZE_OF_INT;
-    }
-
-    @Override
-    public Slice getSlice(Slice slice, int offset)
-    {
-        return slice.slice(offset + SIZE_OF_INT, getValueSize(slice, offset));
+        return slice.slice(offset, length);
     }
 
     @Override
     public int writeSlice(SliceOutput sliceOutput, Slice value, int offset, int length)
     {
-        sliceOutput.writeInt(length);
         sliceOutput.writeBytes(value, offset, length);
-        return length + SIZE_OF_INT;
+        return length;
     }
 
     @Override
-    public boolean equalTo(Slice leftSlice, int leftOffset, Slice rightSlice, int rightOffset)
+    public boolean equalTo(Slice leftSlice, int leftOffset, int leftLength, Slice rightSlice, int rightOffset, int rightLength)
     {
         throw new UnsupportedOperationException(String.format("%s type is not comparable", getName()));
     }
 
     @Override
-    public int hash(Slice slice, int offset)
+    public int hash(Slice slice, int offset, int length)
     {
         throw new UnsupportedOperationException(String.format("%s type is not comparable", getName()));
     }
 
     @Override
-    public int compareTo(Slice leftSlice, int leftOffset, Slice rightSlice, int rightOffset)
+    public int compareTo(Slice leftSlice, int leftOffset, int leftLength, Slice rightSlice, int rightOffset, int rightLength)
     {
         throw new UnsupportedOperationException(String.format("%s type is not ordered", getName()));
     }
 
     @Override
-    public void appendTo(Slice slice, int offset, BlockBuilder blockBuilder)
+    public void appendTo(Slice slice, int offset, int length, BlockBuilder blockBuilder)
     {
-        int length = getValueSize(slice, offset);
-        blockBuilder.appendSlice(slice, offset + SIZE_OF_INT, length);
+        blockBuilder.appendSlice(slice, offset, length);
     }
 
     @Override
-    public void appendTo(Slice slice, int offset, SliceOutput sliceOutput)
-    {
-        // copy full value including length
-        int length = getLength(slice, offset);
-        sliceOutput.writeBytes(slice, offset, length);
-    }
-
-    @Override
-    public Object getObjectValue(ConnectorSession session, Slice slice, int offset)
+    public Object getObjectValue(ConnectorSession session, Slice slice, int offset, int length)
     {
         return String.format("<%s>", getName());
     }
@@ -140,11 +122,6 @@ public class ModelType
     public int hashCode()
     {
         return getClass().hashCode();
-    }
-
-    private static int getValueSize(Slice slice, int offset)
-    {
-        return slice.getInt(offset);
     }
 
     @Override

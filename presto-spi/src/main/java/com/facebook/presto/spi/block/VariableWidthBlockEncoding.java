@@ -54,14 +54,15 @@ public class VariableWidthBlockEncoding
         // The down casts here are safe because it is the block itself the provides this encoding implementation.
         AbstractVariableWidthBlock variableWidthBlock = (AbstractVariableWidthBlock) block;
 
-        Slice rawSlice = variableWidthBlock.getRawSlice();
-
         int positionCount = variableWidthBlock.getPositionCount();
         sliceOutput.appendInt(positionCount);
 
         // offsets
+        int totalLength = 0;
         for (int position = 0; position < positionCount; position++) {
-            sliceOutput.appendInt(variableWidthBlock.getPositionOffset(position));
+            int length = variableWidthBlock.getPositionLength(position);
+            sliceOutput.appendInt(length);
+            totalLength += length;
         }
 
         // write null bits 8 at a time
@@ -90,8 +91,8 @@ public class VariableWidthBlockEncoding
         }
 
         sliceOutput
-                .appendInt(rawSlice.length())
-                .writeBytes(rawSlice);
+                .appendInt(totalLength)
+                .writeBytes(variableWidthBlock.getRawSlice(), variableWidthBlock.getPositionOffset(0), totalLength);
     }
 
     @Override
@@ -100,9 +101,11 @@ public class VariableWidthBlockEncoding
         int positionCount = sliceInput.readInt();
 
         // offsets
-        int[] offsets = new int[positionCount];
+        int[] offsets = new int[positionCount + 1];
+        int offset = 0;
         for (int position = 0; position < positionCount; position++) {
-            offsets[position] = sliceInput.readInt();
+            offset += sliceInput.readInt();
+            offsets[position + 1] = offset;
         }
 
         // read null bits 8 at a time

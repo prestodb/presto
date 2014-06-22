@@ -23,8 +23,6 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceOutput;
 
-import static io.airlift.slice.SizeOf.SIZE_OF_INT;
-
 public class VarbinaryType
         implements VariableWidthType
 {
@@ -55,49 +53,34 @@ public class VarbinaryType
     }
 
     @Override
-    public Object getObjectValue(ConnectorSession session, Slice slice, int offset)
+    public Object getObjectValue(ConnectorSession session, Slice slice, int offset, int length)
     {
-        return slice.slice(offset + SIZE_OF_INT, getValueSize(slice, offset));
+        return slice.slice(offset, length);
     }
 
     @Override
-    public int getLength(Slice slice, int offset)
+    public Slice getSlice(Slice slice, int offset, int length)
     {
-        return getValueSize(slice, offset) + SIZE_OF_INT;
-    }
-
-    private int getValueSize(Slice slice, int offset)
-    {
-        return slice.getInt(offset);
-    }
-
-    @Override
-    public Slice getSlice(Slice slice, int offset)
-    {
-        return slice.slice(offset + SIZE_OF_INT, getValueSize(slice, offset));
+        return slice.slice(offset, length);
     }
 
     @Override
     public int writeSlice(SliceOutput sliceOutput, Slice value, int offset, int length)
     {
-        sliceOutput.writeInt(length);
         sliceOutput.writeBytes(value, offset, length);
-        return length + SIZE_OF_INT;
+        return length;
     }
 
     @Override
-    public boolean equalTo(Slice leftSlice, int leftOffset, Slice rightSlice, int rightOffset)
+    public boolean equalTo(Slice leftSlice, int leftOffset, int leftLength, Slice rightSlice, int rightOffset, int rightLength)
     {
-        int leftLength = getValueSize(leftSlice, leftOffset);
-        int rightLength = getValueSize(rightSlice, rightOffset);
-        return leftSlice.equals(leftOffset + SIZE_OF_INT, leftLength, rightSlice, rightOffset + SIZE_OF_INT, rightLength);
+        return leftSlice.equals(leftOffset, leftLength, rightSlice, rightOffset, rightLength);
     }
 
     @Override
-    public int hash(Slice slice, int offset)
+    public int hash(Slice slice, int offset, int length)
     {
-        int length = getValueSize(slice, offset);
-        return slice.hashCode(offset + SIZE_OF_INT, length);
+        return slice.hashCode(offset, length);
     }
 
     @Override
@@ -107,26 +90,15 @@ public class VarbinaryType
     }
 
     @Override
-    public int compareTo(Slice leftSlice, int leftOffset, Slice rightSlice, int rightOffset)
+    public int compareTo(Slice leftSlice, int leftOffset, int leftLength, Slice rightSlice, int rightOffset, int rightLength)
     {
-        int leftLength = getValueSize(leftSlice, leftOffset);
-        int rightLength = getValueSize(rightSlice, rightOffset);
-        return leftSlice.compareTo(leftOffset + SIZE_OF_INT, leftLength, rightSlice, rightOffset + SIZE_OF_INT, rightLength);
+        return leftSlice.compareTo(leftOffset, leftLength, rightSlice, rightOffset, rightLength);
     }
 
     @Override
-    public void appendTo(Slice slice, int offset, BlockBuilder blockBuilder)
+    public void appendTo(Slice slice, int offset, int length, BlockBuilder blockBuilder)
     {
-        int length = getValueSize(slice, offset);
-        blockBuilder.appendSlice(slice, offset + SIZE_OF_INT, length);
-    }
-
-    @Override
-    public void appendTo(Slice slice, int offset, SliceOutput sliceOutput)
-    {
-        // copy full value including length
-        int length = getLength(slice, offset);
-        sliceOutput.writeBytes(slice, offset, length);
+        blockBuilder.appendSlice(slice, offset, length);
     }
 
     @Override

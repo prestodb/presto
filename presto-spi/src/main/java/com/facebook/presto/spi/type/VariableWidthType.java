@@ -29,17 +29,12 @@ public interface VariableWidthType
      * at the specified offset. This is the value returned to the user via the
      * REST endpoint and therefore must be JSON serializable.
      */
-    Object getObjectValue(ConnectorSession session, Slice slice, int offset);
-
-    /**
-     * Gets the length of the value at the specified offset in the specified slice.
-     */
-    int getLength(Slice slice, int offset);
+    Object getObjectValue(ConnectorSession session, Slice slice, int offset, int length);
 
     /**
      * Gets the value at the specified offset in the specified slice as a Slice.
      */
-    Slice getSlice(Slice slice, int offset);
+    Slice getSlice(Slice slice, int offset, int length);
 
     /**
      * Writes the Slice value into the specified slice output.
@@ -49,26 +44,21 @@ public interface VariableWidthType
     /**
      * Are the values in the specified slices at the specified offsets equal?
      */
-    boolean equalTo(Slice leftSlice, int leftOffset, Slice rightSlice, int rightOffset);
+    boolean equalTo(Slice leftSlice, int leftOffset, int leftLength, Slice rightSlice, int rightOffset, int rightLength);
 
     /**
      * Calculates the hash code of the value at the specified offset in the
      * specified slice.
      */
-    int hash(Slice slice, int offset);
+    int hash(Slice slice, int offset, int length);
 
     /**
      * Compare the values in the specified slices at the specified offsets equal.
      */
-    int compareTo(Slice leftSlice, int leftOffset, Slice rightSlice, int rightOffset);
+    int compareTo(Slice leftSlice, int leftOffset, int leftLength, Slice rightSlice, int rightOffset, int rightLength);
 
     /**
      * Append the value at {@code offset} in {@code slice} to {@code blockBuilder}.
      */
-    void appendTo(Slice slice, int offset, BlockBuilder blockBuilder);
-
-    /**
-     * Append the value at {@code offset} in {@code slice} to {@code sliceOutput}.
-     */
-    void appendTo(Slice slice, int offset, SliceOutput sliceOutput);
+    void appendTo(Slice slice, int offset, int length, BlockBuilder blockBuilder);
 }

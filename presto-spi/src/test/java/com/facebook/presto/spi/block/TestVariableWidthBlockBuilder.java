@@ -23,9 +23,8 @@ import static org.testng.Assert.assertTrue;
 
 public class TestVariableWidthBlockBuilder
 {
-    private static final int VARCHAR_ENTRY_OVERHEAD = SIZE_OF_INT;
     private static final int VARCHAR_VALUE_SIZE = 7;
-    private static final int VARCHAR_ENTRY_SIZE = VARCHAR_ENTRY_OVERHEAD + VARCHAR_VALUE_SIZE;
+    private static final int VARCHAR_ENTRY_SIZE = SIZE_OF_INT + VARCHAR_VALUE_SIZE;
     private static final int EXPECTED_ENTRY_COUNT = 3;
 
     @Test

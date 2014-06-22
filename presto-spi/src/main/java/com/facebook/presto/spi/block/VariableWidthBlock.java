@@ -33,6 +33,10 @@ public class VariableWidthBlock
 
         this.positionCount = positionCount;
         this.slice = slice;
+
+        if (offsets.length < positionCount + 1) {
+            throw new IllegalArgumentException("offsets length is less than positionCount");
+        }
         this.offsets = offsets;
 
         if (valueIsNull.length < positionCount) {
@@ -45,6 +49,12 @@ public class VariableWidthBlock
     protected final int getPositionOffset(int position)
     {
         return offsets[position];
+    }
+
+    @Override
+    protected int getPositionLength(int position)
+    {
+        return offsets[position + 1] - offsets[position];
     }
 
     @Override
@@ -83,7 +93,7 @@ public class VariableWidthBlock
             throw new IndexOutOfBoundsException("Invalid position " + positionOffset + " in block with " + positionCount + " positions");
         }
 
-        int[] newOffsets = Arrays.copyOfRange(offsets, positionOffset, positionOffset + length);
+        int[] newOffsets = Arrays.copyOfRange(offsets, positionOffset, positionOffset + length + 1);
         boolean[] newValueIsNull = Arrays.copyOfRange(valueIsNull, positionOffset, positionOffset + length);
         return new VariableWidthBlock(type, length, slice, newOffsets, newValueIsNull);
     }
