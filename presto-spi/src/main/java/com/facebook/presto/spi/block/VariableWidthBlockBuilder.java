@@ -23,6 +23,7 @@ import java.util.Arrays;
 import java.util.Objects;
 
 import static io.airlift.slice.SizeOf.SIZE_OF_BYTE;
+import static io.airlift.slice.SizeOf.SIZE_OF_INT;
 
 public class VariableWidthBlockBuilder
         extends AbstractVariableWidthBlock
@@ -50,6 +51,15 @@ public class VariableWidthBlockBuilder
             throw new IllegalArgumentException("position " + position + " must be less than position count " + positions);
         }
         return offsets[position];
+    }
+
+    @Override
+    protected int getPositionLength(int position)
+    {
+        if (position >= positions) {
+            throw new IllegalArgumentException("position " + position + " must be less than position count " + positions);
+        }
+        return offsets[position + 1] - offsets[position];
     }
 
     @Override
@@ -113,11 +123,9 @@ public class VariableWidthBlockBuilder
     @Override
     public BlockBuilder appendSlice(Slice value, int offset, int length)
     {
-        recordNewPosition(false);
-
         int bytesWritten = type.writeSlice(sliceOutput, value, offset, length);
 
-        entryAdded(bytesWritten);
+        entryAdded(bytesWritten, false);
 
         return this;
     }
@@ -125,31 +133,28 @@ public class VariableWidthBlockBuilder
     @Override
     public BlockBuilder appendNull()
     {
-        recordNewPosition(true);
-        entryAdded(0);
+        entryAdded(0, true);
 
         return this;
     }
 
-    private void entryAdded(int bytesWritten)
+    private void entryAdded(int bytesWritten, boolean isNull)
     {
-        blockBuilderStatus.addBytes(SIZE_OF_BYTE + bytesWritten);
-        if (sliceOutput.size() >= blockBuilderStatus.getMaxBlockSizeInBytes()) {
-            blockBuilderStatus.setFull();
-        }
-    }
-
-    private void recordNewPosition(boolean isNull)
-    {
-        if (positions == offsets.length) {
+        if (positions + 1 >= offsets.length) {
             offsets = Arrays.copyOf(offsets, offsets.length * 2);
             valueIsNull = Arrays.copyOf(valueIsNull, valueIsNull.length * 2);
         }
 
-        offsets[positions] = sliceOutput.size();
         valueIsNull[positions] = isNull;
 
         positions++;
+
+        offsets[positions] = sliceOutput.size();
+
+        blockBuilderStatus.addBytes(SIZE_OF_BYTE + SIZE_OF_INT + bytesWritten);
+        if (sliceOutput.size() + ((SIZE_OF_BYTE + SIZE_OF_INT) * positions) >= blockBuilderStatus.getMaxBlockSizeInBytes()) {
+            blockBuilderStatus.setFull();
+        }
     }
 
     @Override
@@ -166,7 +171,7 @@ public class VariableWidthBlockBuilder
             throw new IndexOutOfBoundsException("Invalid position " + positionOffset + " in block with " + positionCount + " positions");
         }
 
-        int[] newOffsets = Arrays.copyOfRange(offsets, positionOffset, positionOffset + length);
+        int[] newOffsets = Arrays.copyOfRange(offsets, positionOffset, positionOffset + length + 1);
         boolean[] newValueIsNull = Arrays.copyOfRange(valueIsNull, positionCount, positionOffset + length);
         return new VariableWidthBlock(type, length, sliceOutput.slice(), newOffsets, newValueIsNull);
     }
@@ -174,7 +179,7 @@ public class VariableWidthBlockBuilder
     @Override
     public Block build()
     {
-        return new VariableWidthBlock(type, positions, sliceOutput.slice(), Arrays.copyOf(offsets, positions), Arrays.copyOf(valueIsNull, positions));
+        return new VariableWidthBlock(type, positions, sliceOutput.slice(), Arrays.copyOf(offsets, positions + 1), Arrays.copyOf(valueIsNull, positions));
     }
 
     @Override

@@ -34,7 +34,7 @@ public interface Block
      * Compares the value at the specified position to the value at the other offset
      * in the other slice.
      */
-    int compareTo(int position, Slice otherSlice, int otherOffset);
+    int compareTo(int position, Slice otherSlice, int otherOffset, int otherLength);
 
     /**
      * Is the value at the specified position equal to the value at the other position
@@ -46,7 +46,7 @@ public interface Block
      * Is the value at the specified position equal to the value at the other offset
      * in the other slice?
      */
-    boolean equalTo(int position, Slice otherSlice, int otherOffset);
+    boolean equalTo(int position, Slice otherSlice, int otherOffset, int otherLength);
 
     /**
      * Gets the value at the specified position as a boolean.

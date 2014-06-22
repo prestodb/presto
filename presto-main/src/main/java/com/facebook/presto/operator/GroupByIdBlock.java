@@ -105,9 +105,9 @@ public class GroupByIdBlock
     }
 
     @Override
-    public boolean equalTo(int position, Slice otherSlice, int otherOffset)
+    public boolean equalTo(int position, Slice otherSlice, int otherOffset, int otherLength)
     {
-        return block.equalTo(position, otherSlice, otherOffset);
+        return block.equalTo(position, otherSlice, otherOffset, otherLength);
     }
 
     @Override
@@ -123,9 +123,9 @@ public class GroupByIdBlock
     }
 
     @Override
-    public int compareTo(int position, Slice otherSlice, int otherOffset)
+    public int compareTo(int position, Slice otherSlice, int otherOffset, int otherLength)
     {
-        return block.compareTo(position, otherSlice, otherOffset);
+        return block.compareTo(position, otherSlice, otherOffset, otherLength);
     }
 
     @Override

@@ -136,10 +136,10 @@ public class RunLengthEncodedBlock
     }
 
     @Override
-    public boolean equalTo(int position, Slice otherSlice, int otherOffset)
+    public boolean equalTo(int position, Slice otherSlice, int otherOffset, int otherLength)
     {
         checkReadablePosition(position);
-        return value.equalTo(0, otherSlice, otherOffset);
+        return value.equalTo(0, otherSlice, otherOffset, otherLength);
     }
 
     @Override
@@ -157,10 +157,10 @@ public class RunLengthEncodedBlock
     }
 
     @Override
-    public int compareTo(int position, Slice otherSlice, int otherOffset)
+    public int compareTo(int position, Slice otherSlice, int otherOffset, int otherLength)
     {
         checkReadablePosition(position);
-        return value.compareTo(0, otherSlice, otherOffset);
+        return value.compareTo(0, otherSlice, otherOffset, otherLength);
     }
 
     @Override

@@ -118,11 +118,11 @@ public abstract class AbstractFixedWidthBlock
             return true;
         }
 
-        return otherBlock.equalTo(otherPosition, getRawSlice(), valueOffset(position));
+        return otherBlock.equalTo(otherPosition, getRawSlice(), valueOffset(position), entrySize);
     }
 
     @Override
-    public boolean equalTo(int position, Slice otherSlice, int otherOffset)
+    public boolean equalTo(int position, Slice otherSlice, int otherOffset, int otherLength)
     {
         checkReadablePosition(position);
         return type.equalTo(getRawSlice(), valueOffset(position), otherSlice, otherOffset);
@@ -154,12 +154,12 @@ public abstract class AbstractFixedWidthBlock
         }
 
         // compare the right block to our slice but negate the result since we are evaluating in the opposite order
-        int result = -otherBlock.compareTo(otherPosition, getRawSlice(), valueOffset(position));
+        int result = -otherBlock.compareTo(otherPosition, getRawSlice(), valueOffset(position), entrySize);
         return sortOrder.isAscending() ? result : -result;
     }
 
     @Override
-    public int compareTo(int position, Slice otherSlice, int otherOffset)
+    public int compareTo(int position, Slice otherSlice, int otherOffset, int otherLength)
     {
         checkReadablePosition(position);
         return type.compareTo(getRawSlice(), valueOffset(position), otherSlice, otherOffset);

@@ -128,9 +128,9 @@ public class DictionaryEncodedBlock
     }
 
     @Override
-    public boolean equalTo(int position, Slice otherSlice, int otherOffset)
+    public boolean equalTo(int position, Slice otherSlice, int otherOffset, int otherLength)
     {
-        return dictionary.equalTo(getDictionaryKey(position), otherSlice, otherOffset);
+        return dictionary.equalTo(getDictionaryKey(position), otherSlice, otherOffset, otherLength);
     }
 
     @Override
@@ -146,9 +146,9 @@ public class DictionaryEncodedBlock
     }
 
     @Override
-    public int compareTo(int position, Slice otherSlice, int otherOffset)
+    public int compareTo(int position, Slice otherSlice, int otherOffset, int otherLength)
     {
-        return dictionary.compareTo(getDictionaryKey(position), otherSlice, otherOffset);
+        return dictionary.compareTo(getDictionaryKey(position), otherSlice, otherOffset, otherLength);
     }
 
     @Override

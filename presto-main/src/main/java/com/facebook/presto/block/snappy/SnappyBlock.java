@@ -173,9 +173,9 @@ public class SnappyBlock
     }
 
     @Override
-    public boolean equalTo(int position, Slice otherSlice, int otherOffset)
+    public boolean equalTo(int position, Slice otherSlice, int otherOffset, int otherLength)
     {
-        return getUncompressedBlock().equalTo(position, otherSlice, otherOffset);
+        return getUncompressedBlock().equalTo(position, otherSlice, otherOffset, otherLength);
     }
 
     @Override
@@ -191,9 +191,9 @@ public class SnappyBlock
     }
 
     @Override
-    public int compareTo(int position, Slice otherSlice, int otherOffset)
+    public int compareTo(int position, Slice otherSlice, int otherOffset, int otherLength)
     {
-        return getUncompressedBlock().compareTo(position, otherSlice, otherOffset);
+        return getUncompressedBlock().compareTo(position, otherSlice, otherOffset, otherLength);
     }
 
     @Override
