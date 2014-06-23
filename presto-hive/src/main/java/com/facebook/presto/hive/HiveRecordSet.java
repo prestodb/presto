@@ -66,8 +66,8 @@ public class HiveRecordSet
     private final List<HiveColumnHandle> columns;
     private final List<Type> columnTypes;
     private final List<Integer> readHiveColumnIndexes;
+    private final Path path;
     private final Configuration configuration;
-    private final Path wrappedPath;
     private final List<HiveRecordCursorProvider> cursorProviders;
     private final DateTimeZone timeZone;
 
@@ -89,9 +89,8 @@ public class HiveRecordSet
         }
         readHiveColumnIndexes = new ArrayList<>(transform(readColumns, hiveColumnIndexGetter()));
 
-        Path path = new Path(split.getPath());
+        this.path = new Path(split.getPath());
         this.configuration = hdfsEnvironment.getConfiguration(path);
-        this.wrappedPath = hdfsEnvironment.wrapInputPath(path);
 
         String nullSequence = split.getSchema().getProperty(SERIALIZATION_NULL_FORMAT);
         checkState(nullSequence == null || nullSequence.equals("\\N"), "Only '\\N' supported as null specifier, was '%s'", nullSequence);
@@ -109,7 +108,7 @@ public class HiveRecordSet
         // Tell hive the columns we would like to read, this lets hive optimize reading column oriented files
         ColumnProjectionUtils.setReadColumnIDs(configuration, readHiveColumnIndexes);
 
-        RecordReader<?, ?> recordReader = createRecordReader(split, configuration, wrappedPath);
+        RecordReader<?, ?> recordReader = createRecordReader(split, configuration, path);
 
         for (HiveRecordCursorProvider provider : cursorProviders) {
             Optional<HiveRecordCursor> cursor = provider.createHiveRecordCursor(split, recordReader, columns, timeZone);
