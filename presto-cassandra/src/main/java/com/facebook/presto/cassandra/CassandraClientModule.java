@@ -19,7 +19,6 @@ import com.google.inject.Module;
 import com.google.inject.Provides;
 import com.google.inject.Scopes;
 import io.airlift.json.JsonCodec;
-import org.apache.cassandra.thrift.Cassandra;
 
 import javax.inject.Singleton;
 
@@ -57,6 +56,8 @@ public class CassandraClientModule
 
         bindConfig(binder).to(CassandraClientConfig.class);
 
+        binder.bind(CassandraThriftConnectionFactory.class).in(Scopes.SINGLETON);
+
         binder.bind(CachingCassandraSchemaProvider.class).in(Scopes.SINGLETON);
         newExporter(binder).export(CachingCassandraSchemaProvider.class).as(generatedNameOf(CachingCassandraSchemaProvider.class, connectorId));
 
@@ -84,14 +85,6 @@ public class CassandraClientModule
             JsonCodec<List<ExtraColumnMetadata>> extraColumnMetadataCodec)
     {
         CassandraSessionFactory factory = new CassandraSessionFactory(connectorId, config, extraColumnMetadataCodec);
-        return factory.create();
-    }
-
-    @Singleton
-    @Provides
-    public static Cassandra.Client createCassandraThriftConnection(CassandraClientConfig config)
-    {
-        CassandraThriftConnectionFactory factory = new CassandraThriftConnectionFactory(config);
         return factory.create();
     }
 }

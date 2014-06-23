@@ -19,12 +19,9 @@ import org.apache.cassandra.dht.IPartitioner;
 import org.apache.cassandra.dht.Range;
 import org.apache.cassandra.dht.Token;
 import org.apache.cassandra.exceptions.ConfigurationException;
-import org.apache.cassandra.thrift.Cassandra;
 import org.apache.cassandra.thrift.CfSplit;
 import org.apache.cassandra.thrift.TokenRange;
 import org.apache.cassandra.utils.FBUtilities;
-import org.apache.thrift.TApplicationException;
-import org.apache.thrift.TException;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -42,17 +39,17 @@ import static org.apache.cassandra.dht.Token.TokenFactory;
 
 public class CassandraTokenSplitManager
 {
-    private final Cassandra.Client client;
+    private final CassandraThriftClient cassandraThriftClient;
     private final ExecutorService executor;
     private final int splitSize;
     private final IPartitioner<?> partitioner;
 
     @Inject
-    public CassandraTokenSplitManager(Cassandra.Client client, @ForCassandra ExecutorService executor, CassandraClientConfig config)
+    public CassandraTokenSplitManager(CassandraThriftConnectionFactory connectionFactory, @ForCassandra ExecutorService executor, CassandraClientConfig config)
     {
-        this.client = checkNotNull(client, "client is null");
+        this.cassandraThriftClient = new CassandraThriftClient(checkNotNull(connectionFactory, "connectionFactory is null"));
         this.executor = checkNotNull(executor, "executor is null");
-        this.splitSize = checkNotNull(config, "config is null").getSplitSize();
+        this.splitSize = config.getSplitSize();
         try {
             this.partitioner = FBUtilities.newPartitioner(config.getPartitioner());
         }
@@ -64,14 +61,14 @@ public class CassandraTokenSplitManager
     public List<TokenSplit> getSplits(String keyspace, String columnFamily)
             throws IOException
     {
-        List<TokenRange> masterRangeNodes = getRangeMap(keyspace, client);
+        List<TokenRange> masterRangeNodes = cassandraThriftClient.getRangeMap(keyspace);
 
         // canonical ranges, split into pieces, fetching the splits in parallel
         List<TokenSplit> splits = new ArrayList<>();
         List<Future<List<TokenSplit>>> splitFutures = new ArrayList<>();
         for (TokenRange range : masterRangeNodes) {
             // for each range, pick a live owner and ask it to compute bite-sized splits
-            splitFutures.add(executor.submit(new SplitCallable<>(range, keyspace, columnFamily, splitSize, client, partitioner)));
+            splitFutures.add(executor.submit(new SplitCallable<>(range, keyspace, columnFamily, splitSize, cassandraThriftClient, partitioner)));
         }
 
         // wait until we have all the results back
@@ -85,50 +82,9 @@ public class CassandraTokenSplitManager
         }
 
         checkState(!splits.isEmpty(), "No splits created");
+        //noinspection SharedThreadLocalRandom
         Collections.shuffle(splits, ThreadLocalRandom.current());
         return splits;
-    }
-
-    private static List<TokenRange> getRangeMap(String keyspace, Cassandra.Client client)
-            throws IOException
-    {
-        try {
-            return client.describe_ring(keyspace);
-        }
-        catch (TException e) {
-            throw new RuntimeException(e);
-        }
-    }
-
-    private static List<CfSplit> getSubSplits(String keyspace, String columnFamily, TokenRange range, int splitSize, Cassandra.Client client)
-            throws IOException
-    {
-        try {
-            client.set_keyspace(keyspace);
-            try {
-                return client.describe_splits_ex(columnFamily, range.start_token, range.end_token, splitSize);
-            }
-            catch (TApplicationException e) {
-                // fallback to guessing split size if talking to a server without describe_splits_ex method
-                if (e.getType() == TApplicationException.UNKNOWN_METHOD) {
-                    List<String> splitPoints = client.describe_splits(columnFamily, range.start_token, range.end_token, splitSize);
-                    return tokenListToSplits(splitPoints, splitSize);
-                }
-                throw e;
-            }
-        }
-        catch (TException e) {
-            throw new RuntimeException(e);
-        }
-    }
-
-    private static List<CfSplit> tokenListToSplits(List<String> splitTokens, int splitSize)
-    {
-        ImmutableList.Builder<CfSplit> splits = ImmutableList.builder();
-        for (int index = 0; index < splitTokens.size() - 1; index++) {
-            splits.add(new CfSplit(splitTokens.get(index), splitTokens.get(index + 1), splitSize));
-        }
-        return splits.build();
     }
 
     /**
@@ -142,10 +98,10 @@ public class CassandraTokenSplitManager
         private final String keyspace;
         private final String columnFamily;
         private final int splitSize;
-        private final Cassandra.Client client;
+        private final CassandraThriftClient client;
         private final IPartitioner<T> partitioner;
 
-        public SplitCallable(TokenRange range, String keyspace, String columnFamily, int splitSize, Cassandra.Client client, IPartitioner<T> partitioner)
+        public SplitCallable(TokenRange range, String keyspace, String columnFamily, int splitSize, CassandraThriftClient client, IPartitioner<T> partitioner)
         {
             checkArgument(range.rpc_endpoints.size() == range.endpoints.size(), "rpc_endpoints size must match endpoints size");
             this.range = range;
@@ -161,7 +117,7 @@ public class CassandraTokenSplitManager
                 throws Exception
         {
             ArrayList<TokenSplit> splits = new ArrayList<>();
-            List<CfSplit> subSplits = getSubSplits(keyspace, columnFamily, range, splitSize, client);
+            List<CfSplit> subSplits = client.getSubSplits(keyspace, columnFamily, range, splitSize);
 
             // turn the sub-ranges into InputSplits
             List<String> endpoints = range.endpoints;
