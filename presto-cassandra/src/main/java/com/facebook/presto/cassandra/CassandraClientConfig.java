@@ -34,7 +34,7 @@ public class CassandraClientConfig
     private Duration schemaCacheTtl = new Duration(1, TimeUnit.HOURS);
     private Duration schemaRefreshInterval = new Duration(2, TimeUnit.MINUTES);
     private int maxSchemaRefreshThreads = 10;
-    private int limitForPartitionKeySelect = 100_000;
+    private int limitForPartitionKeySelect = 200;
     private int fetchSizeForPartitionKeySelect = 20_000;
     private int unpartitionedSplits = 1_000;
     private ConsistencyLevel consistencyLevel = ConsistencyLevel.ONE;
