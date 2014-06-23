@@ -19,7 +19,7 @@ import com.facebook.presto.connector.ConnectorManager;
 import com.facebook.presto.connector.system.CatalogSystemTable;
 import com.facebook.presto.connector.system.NodesSystemTable;
 import com.facebook.presto.connector.system.SystemConnector;
-import com.facebook.presto.connector.system.SystemDataStreamProvider;
+import com.facebook.presto.connector.system.SystemRecordSetProvider;
 import com.facebook.presto.connector.system.SystemSplitManager;
 import com.facebook.presto.connector.system.SystemTablesManager;
 import com.facebook.presto.connector.system.SystemTablesMetadata;
@@ -139,8 +139,8 @@ public class LocalQueryRunner
         // sys schema
         SystemTablesMetadata systemTablesMetadata = new SystemTablesMetadata();
         SystemSplitManager systemSplitManager = new SystemSplitManager(nodeManager);
-        SystemDataStreamProvider systemDataStreamProvider = new SystemDataStreamProvider();
-        SystemTablesManager systemTablesManager = new SystemTablesManager(systemTablesMetadata, systemSplitManager, systemDataStreamProvider, ImmutableSet.<SystemTable>of());
+        SystemRecordSetProvider systemRecordSetProvider = new SystemRecordSetProvider();
+        SystemTablesManager systemTablesManager = new SystemTablesManager(systemTablesMetadata, systemSplitManager, systemRecordSetProvider, ImmutableSet.<SystemTable>of());
 
         // sys.node
         systemTablesManager.addTable(new NodesSystemTable(nodeManager));
@@ -158,7 +158,7 @@ public class LocalQueryRunner
                 new OutputTableHandleResolver(),
                 ImmutableMap.<String, ConnectorFactory>of(),
                 ImmutableMap.<String, Connector>of(
-                        SystemConnector.CONNECTOR_ID, new SystemConnector(systemTablesMetadata, systemSplitManager, systemDataStreamProvider)),
+                        SystemConnector.CONNECTOR_ID, new SystemConnector(systemTablesMetadata, systemSplitManager, systemRecordSetProvider)),
                 nodeManager
         );
     }
