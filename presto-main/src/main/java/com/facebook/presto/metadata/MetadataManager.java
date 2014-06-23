@@ -44,7 +44,6 @@ import io.airlift.json.JsonCodecFactory;
 import io.airlift.json.ObjectMapperProvider;
 
 import javax.inject.Inject;
-import javax.inject.Singleton;
 
 import java.util.Collection;
 import java.util.HashMap;
@@ -67,7 +66,6 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.collect.Iterables.transform;
 
-@Singleton
 public class MetadataManager
         implements Metadata
 {
