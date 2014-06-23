@@ -232,6 +232,16 @@ public class ClassDefinition
         return declareMethod(compilerContext, access, "<init>", ParameterizedType.type(void.class), ImmutableList.copyOf(parameters));
     }
 
+    public ClassDefinition declareDefaultConstructor(EnumSet<Access> access)
+    {
+        declareConstructor(new CompilerContext(null), access)
+                .getBody()
+                .pushThis()
+                .invokeConstructor(superClass)
+                .ret();
+        return this;
+    }
+
     public ClassDefinition addMethod(MethodDefinition method)
     {
         methods.add(method);
