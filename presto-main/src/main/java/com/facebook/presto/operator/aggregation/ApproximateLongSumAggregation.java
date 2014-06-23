@@ -263,7 +263,7 @@ public class ApproximateLongSumAggregation
 
     public static Slice createIntermediate(long count, long sum, OnlineVarianceCalculator calculator)
     {
-        Slice slice = Slices.allocate(2 * SIZE_OF_LONG + calculator.sizeOf());
+        Slice slice = Slices.allocate(2 * SIZE_OF_LONG + OnlineVarianceCalculator.sizeOf());
         slice.setLong(COUNT_OFFSET, count);
         slice.setLong(SUM_OFFSET, sum);
         calculator.serializeTo(slice, VARIANCE_OFFSET);

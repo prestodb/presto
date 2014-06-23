@@ -60,7 +60,7 @@ public class CountAggregation
     }
 
     @Override
-    public CountGroupedAccumulator createGroupedAggregation(Optional<Integer> maskChannel, Optional<Integer> sampleWeightChannel, double confidence, int[] argumentChannels)
+    public CountGroupedAccumulator createGroupedAggregation(Optional<Integer> maskChannel, Optional<Integer> sampleWeightChannel, double confidence, int... argumentChannels)
     {
         checkArgument(confidence == 1.0, "count does not support approximate queries");
         return new CountGroupedAccumulator(maskChannel, sampleWeightChannel);
