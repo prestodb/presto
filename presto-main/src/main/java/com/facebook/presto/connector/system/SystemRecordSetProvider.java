@@ -13,16 +13,13 @@
  */
 package com.facebook.presto.connector.system;
 
-import com.facebook.presto.operator.Operator;
-import com.facebook.presto.operator.OperatorContext;
-import com.facebook.presto.operator.RecordProjectOperator;
-import com.facebook.presto.spi.ConnectorColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
+import com.facebook.presto.spi.ConnectorColumnHandle;
+import com.facebook.presto.spi.ConnectorRecordSetProvider;
 import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.RecordSet;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.SystemTable;
-import com.facebook.presto.split.ConnectorDataStreamProvider;
 import com.facebook.presto.split.MappedRecordSet;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Maps;
@@ -37,8 +34,8 @@ import static com.facebook.presto.util.Types.checkType;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 
-public class SystemDataStreamProvider
-        implements ConnectorDataStreamProvider
+public class SystemRecordSetProvider
+        implements ConnectorRecordSetProvider
 {
     private final ConcurrentMap<SchemaTableName, SystemTable> tables = new ConcurrentHashMap<>();
 
@@ -50,12 +47,7 @@ public class SystemDataStreamProvider
     }
 
     @Override
-    public Operator createNewDataStream(OperatorContext operatorContext, ConnectorSplit split, List<ConnectorColumnHandle> columns)
-    {
-        return new RecordProjectOperator(operatorContext, createRecordSet(split, columns));
-    }
-
-    private RecordSet createRecordSet(ConnectorSplit split, List<ConnectorColumnHandle> columns)
+    public RecordSet getRecordSet(ConnectorSplit split, List<? extends ConnectorColumnHandle> columns)
     {
         SchemaTableName tableName = checkType(split, SystemSplit.class, "split").getTableHandle().getSchemaTableName();
 
