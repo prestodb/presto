@@ -95,13 +95,13 @@ public class SystemSplitManager
         if (systemTable.isDistributed()) {
             ImmutableList.Builder<ConnectorSplit> splits = ImmutableList.builder();
             for (Node node : nodeManager.getActiveNodes()) {
-                splits.add(new SystemSplit(systemPartition.tableHandle, node.getHostAndPort()));
+                splits.add(new SystemSplit(systemPartition.getTableHandle(), node.getHostAndPort()));
             }
             return new FixedSplitSource(SYSTEM_DATASOURCE, splits.build());
         }
 
         HostAddress address = nodeManager.getCurrentNode().getHostAndPort();
-        ConnectorSplit split = new SystemSplit(systemPartition.tableHandle, address);
+        ConnectorSplit split = new SystemSplit(systemPartition.getTableHandle(), address);
         return new FixedSplitSource(SYSTEM_DATASOURCE, ImmutableList.of(split));
     }
 

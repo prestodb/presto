@@ -60,7 +60,7 @@ public class JmxSplitManager
         checkNotNull(tupleDomain, "tupleDomain is null");
         JmxTableHandle jmxTableHandle = checkType(table, JmxTableHandle.class, "table");
 
-        ImmutableList<ConnectorPartition> partitions = ImmutableList.<ConnectorPartition>of(new JmxPartition(jmxTableHandle));
+        List<ConnectorPartition> partitions = ImmutableList.<ConnectorPartition>of(new JmxPartition(jmxTableHandle));
         return new ConnectorPartitionResult(partitions, tupleDomain);
     }
 
