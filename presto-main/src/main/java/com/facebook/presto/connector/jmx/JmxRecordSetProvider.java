@@ -13,15 +13,12 @@
  */
 package com.facebook.presto.connector.jmx;
 
-import com.facebook.presto.operator.Operator;
-import com.facebook.presto.operator.OperatorContext;
-import com.facebook.presto.operator.RecordProjectOperator;
+import com.facebook.presto.spi.ConnectorColumnHandle;
+import com.facebook.presto.spi.ConnectorRecordSetProvider;
+import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.InMemoryRecordSet;
 import com.facebook.presto.spi.RecordSet;
 import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.spi.ConnectorColumnHandle;
-import com.facebook.presto.spi.ConnectorSplit;
-import com.facebook.presto.split.ConnectorDataStreamProvider;
 import com.facebook.presto.util.IterableTransformer;
 import com.google.common.base.Function;
 import com.google.common.collect.ImmutableList;
@@ -45,28 +42,21 @@ import static com.facebook.presto.util.Types.checkType;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 
-public class JmxDataStreamProvider
-        implements ConnectorDataStreamProvider
+public class JmxRecordSetProvider
+        implements ConnectorRecordSetProvider
 {
-    private final String connectorId;
     private final MBeanServer mbeanServer;
     private final String nodeId;
 
     @Inject
-    public JmxDataStreamProvider(JmxConnectorId jmxConnectorId, MBeanServer mbeanServer, NodeInfo nodeInfo)
+    public JmxRecordSetProvider(MBeanServer mbeanServer, NodeInfo nodeInfo)
     {
-        this.connectorId = checkNotNull(jmxConnectorId, "jmxConnectorId is null").toString();
         this.mbeanServer = checkNotNull(mbeanServer, "mbeanServer is null");
         this.nodeId = checkNotNull(nodeInfo, "nodeInfo is null").getNodeId();
     }
 
     @Override
-    public Operator createNewDataStream(OperatorContext operatorContext, ConnectorSplit split, List<ConnectorColumnHandle> columns)
-    {
-        return new RecordProjectOperator(operatorContext, createRecordSet(split, columns));
-    }
-
-    private RecordSet createRecordSet(ConnectorSplit split, List<ConnectorColumnHandle> columns)
+    public RecordSet getRecordSet(ConnectorSplit split, List<? extends ConnectorColumnHandle> columns)
     {
         JmxTableHandle tableHandle = checkType(split, JmxSplit.class, "split").getTableHandle();
 
@@ -153,7 +143,7 @@ public class JmxDataStreamProvider
                 .map();
     }
 
-    private Function<Attribute, String> attributeNameGetter()
+    private static Function<Attribute, String> attributeNameGetter()
     {
         return new Function<Attribute, String>()
         {
@@ -165,7 +155,7 @@ public class JmxDataStreamProvider
         };
     }
 
-    private Function<Attribute, Object> attributeValueGetter()
+    private static Function<Attribute, Object> attributeValueGetter()
     {
         return new Function<Attribute, Object>()
         {
