@@ -37,6 +37,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 
 import static com.facebook.presto.spi.StandardErrorCode.ALREADY_EXISTS;
+import static com.facebook.presto.util.Types.checkType;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 
@@ -133,9 +134,7 @@ public class TestingMetadata
     public ColumnMetadata getColumnMetadata(ConnectorTableHandle tableHandle, ConnectorColumnHandle columnHandle)
     {
         SchemaTableName tableName = getTableName(tableHandle);
-        checkArgument(columnHandle instanceof InMemoryColumnHandle, "columnHandle is not an instance of InMemoryColumnHandle");
-        InMemoryColumnHandle inMemoryColumnHandle = (InMemoryColumnHandle) columnHandle;
-        int columnIndex = inMemoryColumnHandle.getOrdinalPosition();
+        int columnIndex = checkType(columnHandle, InMemoryColumnHandle.class, "columnHandle").getOrdinalPosition();
         return tables.get(tableName).getColumns().get(columnIndex);
     }
 

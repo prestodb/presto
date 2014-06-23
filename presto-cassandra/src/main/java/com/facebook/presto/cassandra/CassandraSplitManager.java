@@ -41,6 +41,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
 
+import static com.facebook.presto.cassandra.util.Types.checkType;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Predicates.in;
@@ -77,9 +78,8 @@ public class CassandraSplitManager
     @Override
     public ConnectorPartitionResult getPartitions(ConnectorTableHandle tableHandle, TupleDomain<ConnectorColumnHandle> tupleDomain)
     {
-        checkNotNull(tableHandle, "tableHandle is null");
+        CassandraTableHandle cassandraTableHandle = checkType(tableHandle, CassandraTableHandle.class, "tableHandle");
         checkNotNull(tupleDomain, "tupleDomain is null");
-        CassandraTableHandle cassandraTableHandle = (CassandraTableHandle) tableHandle;
 
         CassandraTable table = schemaProvider.getTable(cassandraTableHandle);
 
@@ -129,8 +129,7 @@ public class CassandraSplitManager
     public ConnectorSplitSource getPartitionSplits(ConnectorTableHandle tableHandle, List<ConnectorPartition> partitions)
     {
         checkNotNull(tableHandle, "tableHandle is null");
-        checkArgument(tableHandle instanceof CassandraTableHandle, "tableHandle is not an instance of CassandraTableHandle");
-        CassandraTableHandle cassandraTableHandle = (CassandraTableHandle) tableHandle;
+        CassandraTableHandle cassandraTableHandle = checkType(tableHandle, CassandraTableHandle.class, "tableHandle");
 
         checkNotNull(partitions, "partitions is null");
         if (partitions.isEmpty()) {
@@ -140,8 +139,7 @@ public class CassandraSplitManager
         // if this is an unpartitioned table, split into equal ranges
         if (partitions.size() == 1) {
             ConnectorPartition partition = partitions.get(0);
-            checkArgument(partition instanceof CassandraPartition, "partitions are no CassandraPartitions");
-            CassandraPartition cassandraPartition = (CassandraPartition) partition;
+            CassandraPartition cassandraPartition = checkType(partition, CassandraPartition.class, "partition");
 
             if (cassandraPartition.isUnpartitioned()) {
                 CassandraTable table = schemaProvider.getTable(cassandraTableHandle);
@@ -199,9 +197,7 @@ public class CassandraSplitManager
         HostAddressFactory hostAddressFactory = new HostAddressFactory();
         ImmutableList.Builder<ConnectorSplit> builder = ImmutableList.builder();
         for (ConnectorPartition partition : partitions) {
-            checkArgument(partition instanceof CassandraPartition, "partitions are no CassandraPartitions");
-            CassandraPartition cassandraPartition = (CassandraPartition) partition;
-
+            CassandraPartition cassandraPartition = checkType(partition, CassandraPartition.class, "partition");
             Set<Host> hosts = cassandraSession.getReplicas(schema, cassandraPartition.getKeyAsByteBuffer());
             List<HostAddress> addresses = hostAddressFactory.toHostAddressList(hosts);
             CassandraSplit split = new CassandraSplit(connectorId, schema, table, cassandraPartition.getPartitionId(), null, addresses);

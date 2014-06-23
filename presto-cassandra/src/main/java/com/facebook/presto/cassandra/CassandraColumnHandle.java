@@ -27,6 +27,7 @@ import javax.annotation.Nullable;
 
 import java.util.List;
 
+import static com.facebook.presto.cassandra.util.Types.checkType;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 
@@ -179,10 +180,7 @@ public class CassandraColumnHandle
             @Override
             public CassandraColumnHandle apply(ConnectorColumnHandle columnHandle)
             {
-                checkNotNull(columnHandle, "columnHandle is null");
-                checkArgument(columnHandle instanceof CassandraColumnHandle,
-                        "columnHandle is not an instance of CassandraColumnHandle");
-                return (CassandraColumnHandle) columnHandle;
+                return checkType(columnHandle, CassandraColumnHandle.class, "columnHandle");
             }
         };
     }

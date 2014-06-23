@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.connector.jmx;
 
-import com.facebook.presto.spi.ConnectorColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
+import com.facebook.presto.spi.ConnectorColumnHandle;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorTableHandle;
 import com.facebook.presto.spi.ConnectorTableMetadata;
@@ -45,7 +45,7 @@ import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
-import static com.google.common.base.Preconditions.checkArgument;
+import static com.facebook.presto.util.Types.checkType;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static javax.management.ObjectName.WILDCARD;
 
@@ -101,10 +101,7 @@ public class JmxMetadata
     @Override
     public ConnectorTableMetadata getTableMetadata(ConnectorTableHandle tableHandle)
     {
-        checkNotNull(tableHandle, "tableHandle is null");
-        checkArgument(tableHandle instanceof JmxTableHandle, "tableHandle is not an instance of JmxTableHandle");
-        JmxTableHandle jmxTableHandle = (JmxTableHandle) tableHandle;
-        return jmxTableHandle.getTableMetadata();
+        return checkType(tableHandle, JmxTableHandle.class, "tableHandle").getTableMetadata();
     }
 
     @Override
@@ -125,10 +122,7 @@ public class JmxMetadata
     @Override
     public ConnectorColumnHandle getColumnHandle(ConnectorTableHandle tableHandle, String columnName)
     {
-        checkNotNull(tableHandle, "tableHandle is null");
-        checkArgument(tableHandle instanceof JmxTableHandle, "tableHandle is not an instance of JmxTableHandle");
-        JmxTableHandle jmxTableHandle = (JmxTableHandle) tableHandle;
-
+        JmxTableHandle jmxTableHandle = checkType(tableHandle, JmxTableHandle.class, "tableHandle");
         for (JmxColumnHandle jmxColumnHandle : jmxTableHandle.getColumns()) {
             if (jmxColumnHandle.getColumnName().equalsIgnoreCase(columnName)) {
                 return jmxColumnHandle;
@@ -146,10 +140,7 @@ public class JmxMetadata
     @Override
     public Map<String, ConnectorColumnHandle> getColumnHandles(ConnectorTableHandle tableHandle)
     {
-        checkNotNull(tableHandle, "tableHandle is null");
-        checkArgument(tableHandle instanceof JmxTableHandle, "tableHandle is not an instance of JmxTableHandle");
-        JmxTableHandle jmxTableHandle = (JmxTableHandle) tableHandle;
-
+        JmxTableHandle jmxTableHandle = checkType(tableHandle, JmxTableHandle.class, "tableHandle");
         return ImmutableMap.<String, ConnectorColumnHandle>copyOf(Maps.uniqueIndex(jmxTableHandle.getColumns(), new Function<JmxColumnHandle, String>()
         {
             @Override
@@ -163,12 +154,8 @@ public class JmxMetadata
     @Override
     public ColumnMetadata getColumnMetadata(ConnectorTableHandle tableHandle, ConnectorColumnHandle columnHandle)
     {
-        checkNotNull(tableHandle, "tableHandle is null");
-        checkArgument(tableHandle instanceof JmxTableHandle, "tableHandle is not an instance of JmxTableHandle");
-        checkNotNull(columnHandle, "columnHandle is null");
-        checkArgument(columnHandle instanceof JmxColumnHandle, "columnHandle is not an instance of JmxColumnHandle");
-        JmxColumnHandle jmxColumnHandle = (JmxColumnHandle) columnHandle;
-        return jmxColumnHandle.getColumnMetadata();
+        checkType(tableHandle, JmxTableHandle.class, "tableHandle");
+        return checkType(columnHandle, JmxColumnHandle.class, "columnHandle").getColumnMetadata();
     }
 
     @Override

@@ -35,6 +35,7 @@ import static com.facebook.presto.metadata.MetadataUtil.findColumnMetadata;
 import static com.facebook.presto.metadata.MetadataUtil.schemaNameGetter;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
+import static com.facebook.presto.util.Types.checkType;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Predicates.compose;
@@ -107,10 +108,7 @@ public class InformationSchemaMetadata
 
     private InformationSchemaTableHandle checkTableHandle(ConnectorTableHandle tableHandle)
     {
-        checkNotNull(tableHandle, "tableHandle is null");
-        checkArgument(tableHandle instanceof InformationSchemaTableHandle, "tableHandle is not an information schema table handle");
-
-        InformationSchemaTableHandle handle = (InformationSchemaTableHandle) tableHandle;
+        InformationSchemaTableHandle handle = checkType(tableHandle, InformationSchemaTableHandle.class, "tableHandle");
         checkArgument(handle.getCatalogName().equals(catalogName), "invalid table handle: expected catalog %s but got %s", catalogName, handle.getCatalogName());
         checkArgument(TABLES.containsKey(handle.getSchemaTableName()), "table %s does not exist", handle.getSchemaTableName());
         return handle;
@@ -172,8 +170,7 @@ public class InformationSchemaMetadata
         InformationSchemaTableHandle informationSchemaTableHandle = checkTableHandle(tableHandle);
         ConnectorTableMetadata tableMetadata = TABLES.get(informationSchemaTableHandle.getSchemaTableName());
 
-        checkArgument(columnHandle instanceof InformationSchemaColumnHandle, "columnHandle is not an instance of InformationSchemaColumnHandle");
-        String columnName = ((InformationSchemaColumnHandle) columnHandle).getColumnName();
+        String columnName = checkType(columnHandle, InformationSchemaColumnHandle.class, "columnHandle").getColumnName();
 
         ColumnMetadata columnMetadata = findColumnMetadata(tableMetadata, columnName);
         checkArgument(columnMetadata != null, "Column %s on table %s does not exist", columnName, tableMetadata.getTable());

@@ -33,6 +33,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 
 import static com.facebook.presto.metadata.MetadataUtil.columnNameGetter;
+import static com.facebook.presto.util.Types.checkType;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 
@@ -56,9 +57,7 @@ public class SystemDataStreamProvider
 
     private RecordSet createRecordSet(ConnectorSplit split, List<ConnectorColumnHandle> columns)
     {
-        checkNotNull(split, "split is null");
-        checkArgument(split instanceof SystemSplit, "Split must be of type %s, not %s", SystemSplit.class.getName(), split.getClass().getName());
-        SchemaTableName tableName = ((SystemSplit) split).getTableHandle().getSchemaTableName();
+        SchemaTableName tableName = checkType(split, SystemSplit.class, "split").getTableHandle().getSchemaTableName();
 
         checkNotNull(columns, "columns is null");
         checkArgument(!columns.isEmpty(), "must provide at least one column");
@@ -69,8 +68,7 @@ public class SystemDataStreamProvider
 
         ImmutableList.Builder<Integer> userToSystemFieldIndex = ImmutableList.builder();
         for (ConnectorColumnHandle column : columns) {
-            checkArgument(column instanceof SystemColumnHandle, "column must be of type %s, not %s", SystemColumnHandle.class.getName(), column.getClass().getName());
-            String columnName = ((SystemColumnHandle) column).getColumnName();
+            String columnName = checkType(column, SystemColumnHandle.class, "column").getColumnName();
 
             ColumnMetadata columnMetadata = columnsByName.get(columnName);
             checkArgument(columnMetadata != null, "Column %s.%s does not exist", tableName, columnName);

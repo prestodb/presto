@@ -31,6 +31,7 @@ import com.google.common.collect.Iterables;
 import java.util.List;
 import java.util.Set;
 
+import static com.facebook.presto.tpch.Types.checkType;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
@@ -72,8 +73,7 @@ public class TpchSplitManager
         }
 
         ConnectorPartition partition = Iterables.getOnlyElement(partitions);
-        checkArgument(partition instanceof TpchPartition, "Partition must be a tpch partition");
-        TpchTableHandle tableHandle = ((TpchPartition) partition).getTable();
+        TpchTableHandle tableHandle = checkType(partition, TpchPartition.class, "partition").getTable();
 
         Set<Node> nodes = nodeManager.getActiveDatasourceNodes(connectorId);
         checkState(!nodes.isEmpty(), "No TPCH nodes available");
