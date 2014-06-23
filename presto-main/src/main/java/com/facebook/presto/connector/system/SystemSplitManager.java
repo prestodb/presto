@@ -62,13 +62,6 @@ public class SystemSplitManager
     }
 
     @Override
-    public String getConnectorId()
-    {
-        // system is not a connector
-        return null;
-    }
-
-    @Override
     public ConnectorPartitionResult getPartitions(ConnectorTableHandle table, TupleDomain<ConnectorColumnHandle> tupleDomain)
     {
         checkNotNull(tupleDomain, "tupleDomain is null");

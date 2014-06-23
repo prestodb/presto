@@ -18,11 +18,6 @@ import java.util.List;
 public interface ConnectorSplitManager
 {
     /**
-     * Get the globally-unique id of this connector instance
-     */
-    String getConnectorId();
-
-    /**
      * Gets the Partitions for the specified table.
      *
      * The TupleDomain indicates the execution filters that will be directly applied to the
