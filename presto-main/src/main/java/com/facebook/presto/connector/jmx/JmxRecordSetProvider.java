@@ -17,13 +17,13 @@ import com.facebook.presto.spi.ConnectorColumnHandle;
 import com.facebook.presto.spi.ConnectorRecordSetProvider;
 import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.InMemoryRecordSet;
+import com.facebook.presto.spi.NodeManager;
 import com.facebook.presto.spi.RecordSet;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.util.IterableTransformer;
 import com.google.common.base.Function;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import io.airlift.node.NodeInfo;
 import io.airlift.slice.Slice;
 
 import javax.inject.Inject;
@@ -49,10 +49,10 @@ public class JmxRecordSetProvider
     private final String nodeId;
 
     @Inject
-    public JmxRecordSetProvider(MBeanServer mbeanServer, NodeInfo nodeInfo)
+    public JmxRecordSetProvider(MBeanServer mbeanServer, NodeManager nodeManager)
     {
         this.mbeanServer = checkNotNull(mbeanServer, "mbeanServer is null");
-        this.nodeId = checkNotNull(nodeInfo, "nodeInfo is null").getNodeId();
+        this.nodeId = checkNotNull(nodeManager, "nodeManager is null").getCurrentNode().getNodeIdentifier();
     }
 
     @Override

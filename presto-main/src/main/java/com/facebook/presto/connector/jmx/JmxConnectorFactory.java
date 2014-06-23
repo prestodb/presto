@@ -23,7 +23,6 @@ import com.facebook.presto.spi.ConnectorRecordSetProvider;
 import com.facebook.presto.spi.ConnectorRecordSinkProvider;
 import com.facebook.presto.spi.ConnectorSplitManager;
 import com.facebook.presto.spi.NodeManager;
-import io.airlift.node.NodeInfo;
 
 import javax.inject.Inject;
 import javax.management.MBeanServer;
@@ -37,14 +36,12 @@ public class JmxConnectorFactory
 {
     private final MBeanServer mbeanServer;
     private final NodeManager nodeManager;
-    private final NodeInfo nodeInfo;
 
     @Inject
-    public JmxConnectorFactory(MBeanServer mbeanServer, NodeManager nodeManager, NodeInfo nodeInfo)
+    public JmxConnectorFactory(MBeanServer mbeanServer, NodeManager nodeManager)
     {
         this.mbeanServer = checkNotNull(mbeanServer, "mbeanServer is null");
         this.nodeManager = checkNotNull(nodeManager, "nodeManager is null");
-        this.nodeInfo = checkNotNull(nodeInfo, "nodeInfo is null");
     }
 
     @Override
@@ -79,7 +76,7 @@ public class JmxConnectorFactory
             @Override
             public ConnectorRecordSetProvider getRecordSetProvider()
             {
-                return new JmxRecordSetProvider(mbeanServer, nodeInfo);
+                return new JmxRecordSetProvider(mbeanServer, nodeManager);
             }
 
             @Override
