@@ -47,21 +47,21 @@ public abstract class AbstractTestApproximateCountDistinct
     public void testNoPositions()
             throws Exception
     {
-        assertCount(ImmutableList.<Object>of(), 0);
+        assertCount(ImmutableList.of(), 0);
     }
 
     @Test
     public void testSinglePosition()
             throws Exception
     {
-        assertCount(ImmutableList.<Object>of(randomValue()), 1);
+        assertCount(ImmutableList.of(randomValue()), 1);
     }
 
     @Test
     public void testAllPositionsNull()
             throws Exception
     {
-        assertCount(Collections.<Object>nCopies(100, null), 0);
+        assertCount(Collections.nCopies(100, null), 0);
     }
 
     @Test
