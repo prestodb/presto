@@ -64,6 +64,7 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.UUID;
 
+import static com.facebook.presto.cassandra.util.Types.checkType;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
@@ -286,9 +287,8 @@ public class TestCassandraConnector
         ImmutableMap.Builder<String, Integer> index = ImmutableMap.builder();
         int i = 0;
         for (ConnectorColumnHandle columnHandle : columnHandles) {
-            checkArgument(columnHandle instanceof CassandraColumnHandle, "columnHandle is not an instance of CassandraColumnHandle");
-            CassandraColumnHandle hiveColumnHandle = (CassandraColumnHandle) columnHandle;
-            index.put(hiveColumnHandle.getName(), i);
+            String name = checkType(columnHandle, CassandraColumnHandle.class, "columnHandle").getName();
+            index.put(name, i);
             i++;
         }
         return index.build();

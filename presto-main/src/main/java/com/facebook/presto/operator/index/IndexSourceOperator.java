@@ -35,7 +35,7 @@ import javax.annotation.concurrent.GuardedBy;
 
 import java.util.List;
 
-import static com.google.common.base.Preconditions.checkArgument;
+import static com.facebook.presto.util.Types.checkType;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 
@@ -137,7 +137,7 @@ public class IndexSourceOperator
     public synchronized void addSplit(Split split)
     {
         checkNotNull(split, "split is null");
-        checkArgument(split.getConnectorSplit() instanceof IndexSplit, "Split must be instance of IndexSplit");
+        checkType(split.getConnectorSplit(), IndexSplit.class, "connectorSplit");
         checkState(getSource() == null, "Index source split already set");
 
         IndexSplit indexSplit = (IndexSplit) split.getConnectorSplit();

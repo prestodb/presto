@@ -32,7 +32,7 @@ import javax.inject.Inject;
 
 import java.util.List;
 
-import static com.google.common.base.Preconditions.checkArgument;
+import static com.facebook.presto.util.Types.checkType;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 public class JmxSplitManager
@@ -57,11 +57,8 @@ public class JmxSplitManager
     @Override
     public ConnectorPartitionResult getPartitions(ConnectorTableHandle table, TupleDomain<ConnectorColumnHandle> tupleDomain)
     {
-        checkNotNull(table, "table is null");
         checkNotNull(tupleDomain, "tupleDomain is null");
-
-        checkArgument(table instanceof JmxTableHandle, "TableHandle must be an JmxTableHandle");
-        JmxTableHandle jmxTableHandle = (JmxTableHandle) table;
+        JmxTableHandle jmxTableHandle = checkType(table, JmxTableHandle.class, "table");
 
         ImmutableList<ConnectorPartition> partitions = ImmutableList.<ConnectorPartition>of(new JmxPartition(jmxTableHandle));
         return new ConnectorPartitionResult(partitions, tupleDomain);
@@ -76,12 +73,11 @@ public class JmxSplitManager
         }
 
         ConnectorPartition partition = Iterables.getOnlyElement(partitions);
-        checkArgument(partition instanceof JmxPartition, "Partition must be an jmx partition");
-        JmxPartition jmxPartition = (JmxPartition) partition;
+        JmxTableHandle tableHandle = checkType(partition, JmxPartition.class, "partition").getTableHandle();
 
         ImmutableList.Builder<ConnectorSplit> splits = ImmutableList.builder();
         for (Node node : nodeManager.getActiveNodes()) {
-            splits.add(new JmxSplit(jmxPartition.tableHandle, ImmutableList.of(node.getHostAndPort())));
+            splits.add(new JmxSplit(tableHandle, ImmutableList.of(node.getHostAndPort())));
         }
         return new FixedSplitSource(connectorId, splits.build());
     }

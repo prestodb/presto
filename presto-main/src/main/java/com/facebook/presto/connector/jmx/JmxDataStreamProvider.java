@@ -41,6 +41,7 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
 
+import static com.facebook.presto.util.Types.checkType;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 
@@ -67,17 +68,14 @@ public class JmxDataStreamProvider
 
     private RecordSet createRecordSet(ConnectorSplit split, List<ConnectorColumnHandle> columns)
     {
-        checkNotNull(split, "split is null");
-        checkArgument(split instanceof JmxSplit, "Split must be of type %s, not %s", JmxSplit.class.getName(), split.getClass().getName());
-        JmxTableHandle tableHandle = ((JmxSplit) split).getTableHandle();
+        JmxTableHandle tableHandle = checkType(split, JmxSplit.class, "split").getTableHandle();
 
         checkNotNull(columns, "columns is null");
         checkArgument(!columns.isEmpty(), "must provide at least one column");
 
         ImmutableMap.Builder<String, Type> builder = ImmutableMap.builder();
         for (ConnectorColumnHandle column : columns) {
-            checkArgument(column instanceof JmxColumnHandle, "column must be of type %s, not %s", JmxColumnHandle.class.getName(), column.getClass().getName());
-            JmxColumnHandle jmxColumnHandle = (JmxColumnHandle) column;
+            JmxColumnHandle jmxColumnHandle = checkType(column, JmxColumnHandle.class, "column");
             builder.put(jmxColumnHandle.getColumnName(), jmxColumnHandle.getColumnType());
         }
         ImmutableMap<String, Type> columnTypes = builder.build();

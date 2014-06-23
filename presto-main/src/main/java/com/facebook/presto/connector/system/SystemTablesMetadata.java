@@ -34,6 +34,7 @@ import java.util.concurrent.ConcurrentMap;
 import static com.facebook.presto.connector.system.SystemColumnHandle.toSystemColumnHandles;
 import static com.facebook.presto.metadata.MetadataUtil.findColumnMetadata;
 import static com.facebook.presto.metadata.MetadataUtil.schemaNameGetter;
+import static com.facebook.presto.util.Types.checkType;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Predicates.compose;
@@ -53,9 +54,7 @@ public class SystemTablesMetadata
 
     private SystemTableHandle checkTableHandle(ConnectorTableHandle tableHandle)
     {
-        checkNotNull(tableHandle, "tableHandle is null");
-        checkArgument(tableHandle instanceof SystemTableHandle, "tableHandle is not a system table handle");
-        SystemTableHandle systemTableHandle = (SystemTableHandle) tableHandle;
+        SystemTableHandle systemTableHandle = checkType(tableHandle, SystemTableHandle.class, "tableHandle");
         checkArgument(tables.containsKey(systemTableHandle.getSchemaTableName()));
         return systemTableHandle;
     }
@@ -118,8 +117,7 @@ public class SystemTablesMetadata
         SystemTableHandle systemTableHandle = checkTableHandle(tableHandle);
         ConnectorTableMetadata tableMetadata = tables.get(systemTableHandle.getSchemaTableName());
 
-        checkArgument(columnHandle instanceof SystemColumnHandle, "columnHandle is not an instance of SystemColumnHandle");
-        String columnName = ((SystemColumnHandle) columnHandle).getColumnName();
+        String columnName = checkType(columnHandle, SystemColumnHandle.class, "columnHandle").getColumnName();
 
         ColumnMetadata columnMetadata = findColumnMetadata(tableMetadata, columnName);
         checkArgument(columnMetadata != null, "Column %s on table %s does not exist", columnName, tableMetadata.getTable());

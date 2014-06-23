@@ -25,7 +25,7 @@ import io.airlift.log.Logger;
 
 import java.util.List;
 
-import static com.google.common.base.Preconditions.checkArgument;
+import static com.facebook.presto.cassandra.util.Types.checkType;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.collect.Iterables.transform;
 
@@ -47,9 +47,7 @@ public class CassandraRecordSetProvider
     @Override
     public RecordSet getRecordSet(ConnectorSplit split, List<? extends ConnectorColumnHandle> columns)
     {
-        checkNotNull(split, "split is null");
-        checkArgument(split instanceof CassandraSplit, "expected instance of %s: %s", CassandraSplit.class, split.getClass());
-        CassandraSplit cassandraSplit = (CassandraSplit) split;
+        CassandraSplit cassandraSplit = checkType(split, CassandraSplit.class, "split");
 
         checkNotNull(columns, "columns is null");
         List<CassandraColumnHandle> cassandraColumns = ImmutableList.copyOf(transform(columns, CassandraColumnHandle.cassandraColumnHandle()));

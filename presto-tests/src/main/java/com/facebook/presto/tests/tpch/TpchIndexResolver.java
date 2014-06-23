@@ -36,6 +36,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+import static com.facebook.presto.util.Types.checkType;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
@@ -59,8 +60,7 @@ public class TpchIndexResolver
     @Override
     public ConnectorResolvedIndex resolveIndex(ConnectorTableHandle tableHandle, Set<ConnectorColumnHandle> indexableColumns, TupleDomain<ConnectorColumnHandle> tupleDomain)
     {
-        checkArgument(tableHandle instanceof TpchTableHandle, "tableHandle is not an instance of TpchTableHandle: %s", tableHandle);
-        TpchTableHandle tpchTableHandle = (TpchTableHandle) tableHandle;
+        TpchTableHandle tpchTableHandle = checkType(tableHandle, TpchTableHandle.class, "tableHandle");
 
         // Keep the fixed values that don't overlap with the indexableColumns
         // Note: technically we could more efficiently utilize the overlapped columns, but this way is simpler for now
@@ -87,8 +87,7 @@ public class TpchIndexResolver
     @Override
     public Index getIndex(ConnectorIndexHandle indexHandle, List<ConnectorColumnHandle> lookupSchema, List<ConnectorColumnHandle> outputSchema)
     {
-        checkArgument(indexHandle instanceof TpchIndexHandle, "indexHandle is not an instance of TpchIndexHandle: %s", indexHandle);
-        TpchIndexHandle tpchIndexHandle = (TpchIndexHandle) indexHandle;
+        TpchIndexHandle tpchIndexHandle = checkType(indexHandle, TpchIndexHandle.class, "indexHandle");
 
         Map<ConnectorColumnHandle, Comparable<?>> fixedValues = tpchIndexHandle.getFixedValues().extractFixedValues();
         checkArgument(!any(lookupSchema, in(fixedValues.keySet())), "Lookup columnHandles are not expected to overlap with the fixed value predicates");
@@ -164,8 +163,7 @@ public class TpchIndexResolver
             @Override
             public String apply(ConnectorColumnHandle columnHandle)
             {
-                checkArgument(columnHandle instanceof TpchColumnHandle, "columnHandle is not an instance of TpchColumnHandle: %s", columnHandle);
-                return ((TpchColumnHandle) columnHandle).getColumnName();
+                return checkType(columnHandle, TpchColumnHandle.class, "columnHandle").getColumnName();
             }
         };
     }

@@ -32,6 +32,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+import static com.facebook.presto.example.Types.checkType;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 
@@ -78,8 +79,7 @@ public class ExampleMetadata
     @Override
     public ConnectorTableMetadata getTableMetadata(ConnectorTableHandle table)
     {
-        checkArgument(table instanceof ExampleTableHandle, "tableHandle is not an instance of ExampleTableHandle");
-        ExampleTableHandle exampleTableHandle = (ExampleTableHandle) table;
+        ExampleTableHandle exampleTableHandle = checkType(table, ExampleTableHandle.class, "table");
         checkArgument(exampleTableHandle.getConnectorId().equals(connectorId), "tableHandle is not for this connector");
         SchemaTableName tableName = new SchemaTableName(exampleTableHandle.getSchemaName(), exampleTableHandle.getTableName());
 
@@ -121,9 +121,7 @@ public class ExampleMetadata
     @Override
     public Map<String, ConnectorColumnHandle> getColumnHandles(ConnectorTableHandle tableHandle)
     {
-        checkNotNull(tableHandle, "tableHandle is null");
-        checkArgument(tableHandle instanceof ExampleTableHandle, "tableHandle is not an instance of ExampleTableHandle");
-        ExampleTableHandle exampleTableHandle = (ExampleTableHandle) tableHandle;
+        ExampleTableHandle exampleTableHandle = checkType(tableHandle, ExampleTableHandle.class, "tableHandle");
         checkArgument(exampleTableHandle.getConnectorId().equals(connectorId), "tableHandle is not for this connector");
 
         ExampleTable table = exampleClient.getTable(exampleTableHandle.getSchemaName(), exampleTableHandle.getTableName());
@@ -178,12 +176,7 @@ public class ExampleMetadata
     @Override
     public ColumnMetadata getColumnMetadata(ConnectorTableHandle tableHandle, ConnectorColumnHandle columnHandle)
     {
-        checkNotNull(tableHandle, "tableHandle is null");
-        checkNotNull(columnHandle, "columnHandle is null");
-        checkArgument(tableHandle instanceof ExampleTableHandle, "tableHandle is not an instance of ExampleTableHandle");
-        checkArgument(((ExampleTableHandle) tableHandle).getConnectorId().equals(connectorId), "tableHandle is not for this connector");
-        checkArgument(columnHandle instanceof ExampleColumnHandle, "columnHandle is not an instance of ExampleColumnHandle");
-
-        return ((ExampleColumnHandle) columnHandle).getColumnMetadata();
+        checkType(tableHandle, ExampleTableHandle.class, "tableHandle");
+        return checkType(columnHandle, ExampleColumnHandle.class, "columnHandle").getColumnMetadata();
     }
 }

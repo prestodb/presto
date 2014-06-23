@@ -14,8 +14,8 @@
 package com.facebook.presto.cassandra;
 
 import com.facebook.presto.cassandra.util.CassandraCqlUtils;
-import com.facebook.presto.spi.ConnectorColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
+import com.facebook.presto.spi.ConnectorColumnHandle;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorTableHandle;
 import com.facebook.presto.spi.ConnectorTableMetadata;
@@ -33,7 +33,7 @@ import java.util.List;
 import java.util.Map;
 
 import static com.facebook.presto.cassandra.CassandraColumnHandle.columnMetadataGetter;
-import static com.google.common.base.Preconditions.checkArgument;
+import static com.facebook.presto.cassandra.util.Types.checkType;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.collect.Iterables.transform;
 
@@ -73,8 +73,7 @@ public class CassandraMetadata
 
     private static SchemaTableName getTableName(ConnectorTableHandle tableHandle)
     {
-        checkArgument(tableHandle instanceof CassandraTableHandle, "tableHandle is not an instance of CassandraTableHandle");
-        return ((CassandraTableHandle) tableHandle).getSchemaTableName();
+        return checkType(tableHandle, CassandraTableHandle.class, "tableHandle").getSchemaTableName();
     }
 
     @Override
@@ -170,11 +169,8 @@ public class CassandraMetadata
     @Override
     public ColumnMetadata getColumnMetadata(ConnectorTableHandle tableHandle, ConnectorColumnHandle columnHandle)
     {
-        checkNotNull(tableHandle, "tableHandle is null");
-        checkNotNull(columnHandle, "columnHandle is null");
-        checkArgument(tableHandle instanceof CassandraTableHandle, "tableHandle is not an instance of CassandraTableHandle");
-        checkArgument(columnHandle instanceof CassandraColumnHandle, "columnHandle is not an instance of CassandraColumnHandle");
-        return ((CassandraColumnHandle) columnHandle).getColumnMetadata();
+        checkType(tableHandle, CassandraTableHandle.class, "tableHandle");
+        return checkType(columnHandle, CassandraColumnHandle.class, "columnHandle").getColumnMetadata();
     }
 
     @Override
