@@ -50,7 +50,7 @@ import static com.google.common.base.Predicates.not;
 public class CassandraSplitManager
         implements ConnectorSplitManager
 {
-    private static final Logger log = Logger.get(ConnectorSplitManager.class);
+    private static final Logger log = Logger.get(CassandraSplitManager.class);
 
     private final String connectorId;
     private final CassandraSession cassandraSession;
