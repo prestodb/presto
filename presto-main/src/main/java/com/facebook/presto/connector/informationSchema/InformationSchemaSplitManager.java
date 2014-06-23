@@ -90,7 +90,7 @@ public class InformationSchemaSplitManager
             filters.put(informationSchemaColumnHandle.getColumnName(), entry.getValue());
         }
 
-        ConnectorSplit split = new InformationSchemaSplit(informationSchemaPartition.table, filters.build(), localAddress);
+        ConnectorSplit split = new InformationSchemaSplit(informationSchemaPartition.getTable(), filters.build(), localAddress);
 
         return new FixedSplitSource(SYSTEM_DATASOURCE, ImmutableList.of(split));
     }

@@ -96,14 +96,15 @@ public class TpchMetadata
         return getTableMetadata(schemaName, tpchTable);
     }
 
-    private ConnectorTableMetadata getTableMetadata(String schemaName, TpchTable<?> tpchTable)
+    private static ConnectorTableMetadata getTableMetadata(String schemaName, TpchTable<?> tpchTable)
     {
         ImmutableList.Builder<ColumnMetadata> columns = ImmutableList.builder();
         int ordinalPosition = 0;
         for (TpchColumn<? extends TpchEntity> column : tpchTable.getColumns()) {
-            columns.add(new ColumnMetadata(column.getColumnName(), getPrestoType(column.getType()), ordinalPosition++, false));
+            columns.add(new ColumnMetadata(column.getColumnName(), getPrestoType(column.getType()), ordinalPosition, false));
+            ordinalPosition++;
         }
-        columns.add(new ColumnMetadata(ROW_NUMBER_COLUMN_NAME, BIGINT, ordinalPosition++, false, true));
+        columns.add(new ColumnMetadata(ROW_NUMBER_COLUMN_NAME, BIGINT, ordinalPosition, false, true));
 
         SchemaTableName tableName = new SchemaTableName(schemaName, tpchTable.getTableName());
         return new ConnectorTableMetadata(tableName, columns.build());
