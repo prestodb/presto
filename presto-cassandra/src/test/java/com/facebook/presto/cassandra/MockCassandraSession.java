@@ -145,13 +145,13 @@ public class MockCassandraSession
     }
 
     @Override
-    public Set<Host> getReplicas(String schema, ByteBuffer partitionKey)
+    public Set<Host> getReplicas(String schemaName, ByteBuffer partitionKey)
     {
         throw new UnsupportedOperationException();
     }
 
     @Override
-    public ResultSet executeQuery(String cql)
+    public ResultSet executeQuery(String schemaName, String cql)
     {
         throw new IllegalStateException("unexpected CQL query: " + cql);
     }

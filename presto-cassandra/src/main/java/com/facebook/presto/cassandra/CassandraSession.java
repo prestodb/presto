@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.cassandra;
 
-import com.datastax.driver.core.Cluster;
 import com.datastax.driver.core.Cluster.Builder;
 import com.datastax.driver.core.ColumnMetadata;
 import com.datastax.driver.core.DataType;
@@ -35,10 +34,15 @@ import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.TableNotFoundException;
 import com.facebook.presto.spi.TupleDomain;
 import com.google.common.base.Function;
+import com.google.common.base.Throwables;
+import com.google.common.cache.CacheBuilder;
+import com.google.common.cache.CacheLoader;
+import com.google.common.cache.LoadingCache;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Ordering;
+import com.google.common.util.concurrent.UncheckedExecutionException;
 import io.airlift.json.JsonCodec;
 
 import javax.annotation.Nullable;
@@ -50,6 +54,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import java.util.concurrent.ExecutionException;
 
 import static com.datastax.driver.core.querybuilder.Select.Where;
 import static com.facebook.presto.cassandra.ExtraColumnMetadata.hiddenPredicate;
@@ -63,57 +68,102 @@ public class CassandraSession
 {
     static final String PRESTO_COMMENT_METADATA = "Presto Metadata:";
     protected final String connectorId;
-    private final Cluster.Builder clusterBuilder;
     private final int fetchSizeForPartitionKeySelect;
     private final int limitForPartitionKeySelect;
     private final JsonCodec<List<ExtraColumnMetadata>> extraColumnMetadataCodec;
 
-    private Session session;
+    private LoadingCache<String, Session> sessionBySchema;
 
     public CassandraSession(String connectorId,
-            Builder clusterBuilder,
+            final Builder clusterBuilder,
             int fetchSizeForPartitionKeySelect,
             int limitForPartitionKeySelect,
             JsonCodec<List<ExtraColumnMetadata>> extraColumnMetadataCodec)
     {
         this.connectorId = connectorId;
-        this.clusterBuilder = clusterBuilder;
         this.fetchSizeForPartitionKeySelect = fetchSizeForPartitionKeySelect;
         this.limitForPartitionKeySelect = limitForPartitionKeySelect;
         this.extraColumnMetadataCodec = extraColumnMetadataCodec;
 
-        if (clusterBuilder != null) {
-            this.session = clusterBuilder.build().connect();
-        }
+        sessionBySchema = CacheBuilder.newBuilder()
+                .build(new CacheLoader<String, Session>()
+                {
+                    @Override
+                    public Session load(String key)
+                            throws Exception
+                    {
+                        return clusterBuilder.build().connect();
+                    }
+                });
     }
 
-    public Set<Host> getReplicas(String schema, ByteBuffer partitionKey)
+    public Set<Host> getReplicas(final String schemaName, final ByteBuffer partitionKey)
     {
-        return session.getCluster().getMetadata().getReplicas(schema, partitionKey);
+        return executeWithSession(schemaName, new SessionCallable<Set<Host>>()
+        {
+            @Override
+            public Set<Host> executeWithSession(Session session)
+            {
+                return session.getCluster().getMetadata().getReplicas(schemaName, partitionKey);
+            }
+        });
     }
 
-    public ResultSet executeQuery(String cql)
+    private Session getSession(String schemaName)
     {
         try {
-            return session.execute(cql);
+            return sessionBySchema.get(schemaName);
         }
-        catch (NoHostAvailableException e) {
-            // Something happened with our client connection.  We need to
-            // re-establish the connection using our contact points.
-            session = clusterBuilder.build().connect();
-            return session.execute(cql);
+        catch (ExecutionException | UncheckedExecutionException e) {
+            throw Throwables.propagate(e.getCause());
         }
+    }
+
+    public ResultSet executeQuery(String schemaName, final String cql)
+    {
+        return executeWithSession(schemaName, new SessionCallable<ResultSet>() {
+            @Override
+            public ResultSet executeWithSession(Session session)
+            {
+                return session.execute(cql);
+            }
+        });
+    }
+
+    public ResultSet execute(String schemaName, final String cql, final Object... values)
+    {
+        return executeWithSession(schemaName, new SessionCallable<ResultSet>()
+        {
+            @Override
+            public ResultSet executeWithSession(Session session)
+            {
+                return session.execute(cql, values);
+            }
+        });
     }
 
     public Collection<Host> getAllHosts()
     {
-        return session.getCluster().getMetadata().getAllHosts();
+        return executeWithSession("", new SessionCallable<Collection<Host>>() {
+            @Override
+            public Collection<Host> executeWithSession(Session session)
+            {
+                return session.getCluster().getMetadata().getAllHosts();
+            }
+        });
     }
 
     public List<String> getAllSchemas()
     {
         ImmutableList.Builder<String> builder = ImmutableList.builder();
-        for (KeyspaceMetadata meta : session.getCluster().getMetadata().getKeyspaces()) {
+        List<KeyspaceMetadata> keyspaces = executeWithSession("", new SessionCallable<List<KeyspaceMetadata>>() {
+            @Override
+            public List<KeyspaceMetadata> executeWithSession(Session session)
+            {
+                return session.getCluster().getMetadata().getKeyspaces();
+            }
+        });
+        for (KeyspaceMetadata meta : keyspaces) {
             builder.add(meta.getName());
         }
         return builder.build();
@@ -130,14 +180,20 @@ public class CassandraSession
         return builder.build();
     }
 
-    private KeyspaceMetadata getCheckedKeyspaceMetadata(String schema)
+    private KeyspaceMetadata getCheckedKeyspaceMetadata(final String schema)
             throws SchemaNotFoundException
     {
-        KeyspaceMetadata meta = session.getCluster().getMetadata().getKeyspace(schema);
-        if (meta == null) {
+        KeyspaceMetadata keyspaceMetadata = executeWithSession(schema, new SessionCallable<KeyspaceMetadata>() {
+            @Override
+            public KeyspaceMetadata executeWithSession(Session session)
+            {
+                return session.getCluster().getMetadata().getKeyspace(schema);
+            }
+        });
+        if (keyspaceMetadata == null) {
             throw new SchemaNotFoundException(schema);
         }
-        return meta;
+        return keyspaceMetadata;
     }
 
     public void getSchema(String schema)
@@ -258,14 +314,7 @@ public class CassandraSession
 
     public List<CassandraPartition> getPartitions(CassandraTable table, List<Comparable<?>> filterPrefix)
     {
-        Iterable<Row> rows;
-        try {
-            rows = queryPartitionKeys(table, filterPrefix);
-        }
-        catch (NoHostAvailableException e) {
-            session = clusterBuilder.build().connect();
-            rows = queryPartitionKeys(table, filterPrefix);
-        }
+        Iterable<Row> rows = queryPartitionKeys(table, filterPrefix);
         if (rows == null) {
             // just split the whole partition range
             return ImmutableList.of(CassandraPartition.UNPARTITIONED);
@@ -322,13 +371,20 @@ public class CassandraSession
     protected Iterable<Row> queryPartitionKeys(CassandraTable table, List<Comparable<?>> filterPrefix)
     {
         CassandraTableHandle tableHandle = table.getTableHandle();
+        String schemaName = tableHandle.getSchemaName();
         List<CassandraColumnHandle> partitionKeyColumns = table.getPartitionKeyColumns();
 
         boolean fullPartitionKey = filterPrefix.size() == partitionKeyColumns.size();
         ResultSetFuture countFuture;
         if (!fullPartitionKey) {
-            Select countAll = CassandraCqlUtils.selectCountAllFrom(tableHandle).limit(limitForPartitionKeySelect);
-            countFuture = session.executeAsync(countAll);
+            final Select countAll = CassandraCqlUtils.selectCountAllFrom(tableHandle).limit(limitForPartitionKeySelect);
+            countFuture = executeWithSession(schemaName, new SessionCallable<ResultSetFuture>() {
+                @Override
+                public ResultSetFuture executeWithSession(Session session)
+                {
+                    return session.executeAsync(countAll);
+                }
+            });
         }
         else {
             // no need to count if partition key is completely known
@@ -336,13 +392,20 @@ public class CassandraSession
         }
 
         int limit = fullPartitionKey ? 1 : limitForPartitionKeySelect;
-        Select partitionKeys = CassandraCqlUtils.selectDistinctFrom(tableHandle, partitionKeyColumns);
+        final Select partitionKeys = CassandraCqlUtils.selectDistinctFrom(tableHandle, partitionKeyColumns);
         partitionKeys.limit(limit);
         partitionKeys.setFetchSize(fetchSizeForPartitionKeySelect);
 
         if (!fullPartitionKey) {
             addWhereClause(partitionKeys.where(), partitionKeyColumns, new ArrayList<Comparable<?>>());
-            ResultSetFuture partitionKeyFuture = session.executeAsync(partitionKeys);
+            ResultSetFuture partitionKeyFuture =  executeWithSession(schemaName, new SessionCallable<ResultSetFuture>() {
+                @Override
+                public ResultSetFuture executeWithSession(Session session)
+                {
+                    return session.executeAsync(partitionKeys);
+                }
+            });
+
             long count = countFuture.getUninterruptibly().one().getLong(0);
             if (count == limitForPartitionKeySelect) {
                 partitionKeyFuture.cancel(true);
@@ -354,9 +417,39 @@ public class CassandraSession
         }
         else {
             addWhereClause(partitionKeys.where(), partitionKeyColumns, filterPrefix);
-            ResultSetFuture partitionKeyFuture = session.executeAsync(partitionKeys);
+            ResultSetFuture partitionKeyFuture = executeWithSession(schemaName, new SessionCallable<ResultSetFuture>() {
+                @Override
+                public ResultSetFuture executeWithSession(Session session)
+                {
+                    return session.executeAsync(partitionKeys);
+                }
+            });
             return partitionKeyFuture.getUninterruptibly();
         }
+    }
+
+    public <T> T executeWithSession(String schemaName, SessionCallable<T> sessionCallable)
+    {
+        NoHostAvailableException lastException = null;
+        for (int i = 0; i < 2; i++) {
+            Session session = getSession(schemaName);
+            try {
+                return sessionCallable.executeWithSession(session);
+            }
+            catch (NoHostAvailableException e) {
+                lastException = e;
+
+                // Something happened with our client connection.  We need to
+                // re-establish the connection using our contact points.
+                sessionBySchema.asMap().remove(schemaName, session);
+            }
+        }
+        throw lastException;
+    }
+
+    private interface SessionCallable<T>
+    {
+        T executeWithSession(Session session);
     }
 
     private static void addWhereClause(Where where, List<CassandraColumnHandle> partitionKeyColumns, List<Comparable<?>> filterPrefix)
@@ -367,10 +460,5 @@ public class CassandraSession
             Clause clause = QueryBuilder.eq(CassandraCqlUtils.validColumnName(column.getName()), value);
             where.and(clause);
         }
-    }
-
-    public ResultSet execute(String query, Object... values)
-    {
-        return session.execute(query, values);
     }
 }

@@ -33,6 +33,7 @@ public class CassandraRecordSink implements RecordSink
     private final boolean sampled;
     private final String insertQuery;
     private final List<Object> values;
+    private final String schemaName;
     private int field = -1;
 
     @Inject
@@ -42,7 +43,8 @@ public class CassandraRecordSink implements RecordSink
         this.cassandraSession = checkNotNull(cassandraSession, "cassandraSession is null");
         this.sampled = handle.isSampled();
 
-        StringBuilder queryBuilder = new StringBuilder(String.format("INSERT INTO \"%s\".\"%s\"(", handle.getSchemaName(), handle.getTableName()));
+        schemaName = handle.getSchemaName();
+        StringBuilder queryBuilder = new StringBuilder(String.format("INSERT INTO \"%s\".\"%s\"(", schemaName, handle.getTableName()));
         queryBuilder.append("id");
 
         if (sampled) {
@@ -90,7 +92,7 @@ public class CassandraRecordSink implements RecordSink
         checkState(field != -1, "not in record");
         checkState(field == fieldCount, "not all fields set");
         field = -1;
-        cassandraSession.execute(insertQuery, values.toArray());
+        cassandraSession.execute(schemaName, insertQuery, values.toArray());
     }
 
     @Override
