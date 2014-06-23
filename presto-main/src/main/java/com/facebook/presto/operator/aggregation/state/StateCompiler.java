@@ -143,11 +143,7 @@ public class StateCompiler
                 type(AccumulatorStateSerializer.class));
 
         // Generate constructor
-        definition.declareConstructor(new CompilerContext(null), a(PUBLIC))
-                .getBody()
-                .pushThis()
-                .invokeConstructor(Object.class)
-                .ret();
+        definition.declareDefaultConstructor(a(PUBLIC));
 
         List<StateField> fields = enumerateFields(clazz);
         generateSerialize(definition, clazz, fields);
@@ -344,11 +340,7 @@ public class StateCompiler
                 type(AccumulatorStateFactory.class));
 
         // Generate constructor
-        definition.declareConstructor(new CompilerContext(null), a(PUBLIC))
-                .getBody()
-                .pushThis()
-                .invokeConstructor(Object.class)
-                .ret();
+        definition.declareDefaultConstructor(a(PUBLIC));
 
         // Generate single state creation method
         definition.declareMethod(new CompilerContext(null), a(PUBLIC), "createSingleState", type(Object.class))
