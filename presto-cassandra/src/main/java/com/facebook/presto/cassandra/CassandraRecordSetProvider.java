@@ -61,7 +61,7 @@ public class CassandraRecordSetProvider
         String cql = sb.toString();
         log.debug("Creating record set: %s", cql);
 
-        return new CassandraRecordSet(cassandraSession, cql, cassandraColumns);
+        return new CassandraRecordSet(cassandraSession, cassandraSplit.getSchema(), cql, cassandraColumns);
     }
 
     @Override

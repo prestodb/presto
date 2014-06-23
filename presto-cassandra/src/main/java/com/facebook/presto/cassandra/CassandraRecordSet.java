@@ -27,14 +27,16 @@ import static com.google.common.collect.Lists.transform;
 public class CassandraRecordSet
         implements RecordSet
 {
+    private final CassandraSession cassandraSession;
+    private final String schema;
     private final String cql;
     private final List<FullCassandraType> cassandraTypes;
     private final List<Type> columnTypes;
-    private final CassandraSession cassandraSession;
 
-    public CassandraRecordSet(CassandraSession cassandraSession, String cql, List<CassandraColumnHandle> cassandraColumns)
+    public CassandraRecordSet(CassandraSession cassandraSession, String schema, String cql, List<CassandraColumnHandle> cassandraColumns)
     {
         this.cassandraSession = checkNotNull(cassandraSession, "cassandraSession is null");
+        this.schema = checkNotNull(schema, "schema is null");
         this.cql = checkNotNull(cql, "cql is null");
         checkNotNull(cassandraColumns, "cassandraColumns is null");
         this.cassandraTypes = transform(cassandraColumns, cassandraFullTypeGetter());
@@ -50,6 +52,6 @@ public class CassandraRecordSet
     @Override
     public RecordCursor cursor()
     {
-        return new CassandraRecordCursor(cassandraSession, cassandraTypes, cql);
+        return new CassandraRecordCursor(cassandraSession, schema, cassandraTypes, cql);
     }
 }
