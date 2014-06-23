@@ -51,13 +51,6 @@ public class InformationSchemaSplitManager
     }
 
     @Override
-    public String getConnectorId()
-    {
-        // information schema is not a connector
-        return null;
-    }
-
-    @Override
     public ConnectorPartitionResult getPartitions(ConnectorTableHandle table, TupleDomain<ConnectorColumnHandle> tupleDomain)
     {
         checkNotNull(tupleDomain, "tupleDomain is null");

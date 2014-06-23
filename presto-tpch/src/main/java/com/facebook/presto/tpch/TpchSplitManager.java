@@ -52,12 +52,6 @@ public class TpchSplitManager
     }
 
     @Override
-    public String getConnectorId()
-    {
-        return connectorId;
-    }
-
-    @Override
     public ConnectorPartitionResult getPartitions(ConnectorTableHandle table, TupleDomain<ConnectorColumnHandle> tupleDomain)
     {
         ImmutableList<ConnectorPartition> partitions = ImmutableList.<ConnectorPartition>of(new TpchPartition((TpchTableHandle) table));

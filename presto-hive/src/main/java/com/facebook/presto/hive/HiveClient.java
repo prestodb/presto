@@ -239,12 +239,6 @@ public class HiveClient
     }
 
     @Override
-    public String getConnectorId()
-    {
-        return connectorId;
-    }
-
-    @Override
     public List<String> listSchemaNames(ConnectorSession session)
     {
         return metastore.getAllDatabases();
