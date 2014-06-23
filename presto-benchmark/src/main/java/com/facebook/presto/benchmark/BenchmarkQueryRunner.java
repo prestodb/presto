@@ -14,7 +14,7 @@
 package com.facebook.presto.benchmark;
 
 import com.facebook.presto.metadata.InMemoryNodeManager;
-import com.facebook.presto.metadata.MetadataManager;
+import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.QualifiedTableName;
 import com.facebook.presto.raptor.RaptorConnectorFactory;
 import com.facebook.presto.spi.ConnectorSession;
@@ -55,7 +55,7 @@ public final class BenchmarkQueryRunner
         RaptorConnectorFactory raptorConnectorFactory = createRaptorConnectorFactory(TPCH_SAMPLED_CACHE_DIR, nodeManager);
         localQueryRunner.createCatalog("default", raptorConnectorFactory, ImmutableMap.<String, String>of());
 
-        MetadataManager metadata = localQueryRunner.getMetadata();
+        Metadata metadata = localQueryRunner.getMetadata();
         if (!metadata.getTableHandle(session, new QualifiedTableName("default", "default", "orders")).isPresent()) {
             localQueryRunner.execute("CREATE TABLE orders AS SELECT * FROM tpch_sampled.sf1.orders");
         }
@@ -78,7 +78,7 @@ public final class BenchmarkQueryRunner
         RaptorConnectorFactory raptorConnectorFactory = createRaptorConnectorFactory(TPCH_CACHE_DIR, nodeManager);
         localQueryRunner.createCatalog("default", raptorConnectorFactory, ImmutableMap.<String, String>of());
 
-        MetadataManager metadata = localQueryRunner.getMetadata();
+        Metadata metadata = localQueryRunner.getMetadata();
         if (!metadata.getTableHandle(session, new QualifiedTableName("default", "default", "orders")).isPresent()) {
             localQueryRunner.execute("CREATE TABLE orders AS SELECT * FROM tpch.sf1.orders");
         }

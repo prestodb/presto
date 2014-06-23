@@ -18,7 +18,6 @@ import com.facebook.presto.metadata.ColumnHandle;
 import com.facebook.presto.metadata.FunctionInfo;
 import com.facebook.presto.metadata.FunctionRegistry.FunctionListBuilder;
 import com.facebook.presto.metadata.Metadata;
-import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.metadata.Split;
 import com.facebook.presto.operator.DriverContext;
 import com.facebook.presto.operator.FilterAndProjectOperator.FilterAndProjectOperatorFactory;
@@ -153,7 +152,7 @@ public final class FunctionAssertions
 
     private final ConnectorSession session;
     private final LocalQueryRunner runner;
-    private final MetadataManager metadataManager;
+    private final Metadata metadata;
     private final ExpressionCompiler compiler;
 
     public FunctionAssertions()
@@ -165,19 +164,19 @@ public final class FunctionAssertions
     {
         this.session = checkNotNull(session, "session is null");
         runner = new LocalQueryRunner(session);
-        metadataManager = runner.getMetadata();
-        compiler = new ExpressionCompiler(metadataManager);
+        metadata = runner.getMetadata();
+        compiler = new ExpressionCompiler(metadata);
     }
 
     public FunctionAssertions addFunctions(List<FunctionInfo> functionInfos)
     {
-        metadataManager.addFunctions(functionInfos);
+        metadata.addFunctions(functionInfos);
         return this;
     }
 
     public FunctionAssertions addScalarFunctions(Class<?> clazz)
     {
-        metadataManager.addFunctions(new FunctionListBuilder().scalar(clazz).getFunctions());
+        metadata.addFunctions(new FunctionListBuilder().scalar(clazz).getFunctions());
         return this;
     }
 
@@ -218,7 +217,7 @@ public final class FunctionAssertions
     {
         checkNotNull(projection, "projection is null");
 
-        Expression projectionExpression = createExpression(projection, metadataManager, SYMBOL_TYPES);
+        Expression projectionExpression = createExpression(projection, metadata, SYMBOL_TYPES);
 
         List<Object> results = new ArrayList<>();
 
@@ -313,7 +312,7 @@ public final class FunctionAssertions
     {
         checkNotNull(filter, "filter is null");
 
-        Expression filterExpression = createExpression(filter, metadataManager, SYMBOL_TYPES);
+        Expression filterExpression = createExpression(filter, metadata, SYMBOL_TYPES);
 
         List<Boolean> results = new ArrayList<>();
 
@@ -460,7 +459,7 @@ public final class FunctionAssertions
                 filter,
                 SYMBOL_TYPES,
                 INPUT_MAPPING,
-                metadataManager,
+                metadata,
                 session
         );
 
@@ -468,7 +467,7 @@ public final class FunctionAssertions
                 projection,
                 SYMBOL_TYPES,
                 INPUT_MAPPING,
-                metadataManager,
+                metadata,
                 session
         );
 
@@ -480,7 +479,7 @@ public final class FunctionAssertions
     {
         filter = ExpressionTreeRewriter.rewriteWith(new SymbolToInputRewriter(ImmutableMap.<Symbol, Input>of()), filter);
 
-        IdentityHashMap<Expression, Type> expressionTypes = getExpressionTypesFromInput(SESSION, metadataManager, INPUT_TYPES, ImmutableList.of(filter));
+        IdentityHashMap<Expression, Type> expressionTypes = getExpressionTypesFromInput(SESSION, metadata, INPUT_TYPES, ImmutableList.of(filter));
 
         try {
             return compiler.compileFilterAndProjectOperator(0, filter, ImmutableList.<Expression>of(), expressionTypes, session.getTimeZoneKey());
@@ -498,7 +497,7 @@ public final class FunctionAssertions
         filter = ExpressionTreeRewriter.rewriteWith(new SymbolToInputRewriter(INPUT_MAPPING), filter);
         projection = ExpressionTreeRewriter.rewriteWith(new SymbolToInputRewriter(INPUT_MAPPING), projection);
 
-        IdentityHashMap<Expression, Type> expressionTypes = getExpressionTypesFromInput(SESSION, metadataManager, INPUT_TYPES, ImmutableList.of(filter, projection));
+        IdentityHashMap<Expression, Type> expressionTypes = getExpressionTypesFromInput(SESSION, metadata, INPUT_TYPES, ImmutableList.of(filter, projection));
 
         try {
             return compiler.compileFilterAndProjectOperator(0, filter, ImmutableList.of(projection), expressionTypes, session.getTimeZoneKey());
@@ -516,7 +515,7 @@ public final class FunctionAssertions
         filter = ExpressionTreeRewriter.rewriteWith(new SymbolToInputRewriter(INPUT_MAPPING), filter);
         projection = ExpressionTreeRewriter.rewriteWith(new SymbolToInputRewriter(INPUT_MAPPING), projection);
 
-        IdentityHashMap<Expression, Type> expressionTypes = getExpressionTypesFromInput(SESSION, metadataManager, INPUT_TYPES, ImmutableList.of(filter, projection));
+        IdentityHashMap<Expression, Type> expressionTypes = getExpressionTypesFromInput(SESSION, metadata, INPUT_TYPES, ImmutableList.of(filter, projection));
 
         try {
             return compiler.compileScanFilterAndProjectOperator(

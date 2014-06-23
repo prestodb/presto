@@ -29,6 +29,7 @@ import com.facebook.presto.index.IndexManager;
 import com.facebook.presto.metadata.ColumnHandle;
 import com.facebook.presto.metadata.HandleResolver;
 import com.facebook.presto.metadata.InMemoryNodeManager;
+import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.metadata.OutputTableHandleResolver;
 import com.facebook.presto.metadata.Partition;
@@ -184,7 +185,7 @@ public class LocalQueryRunner
         return typeRegistry;
     }
 
-    public MetadataManager getMetadata()
+    public Metadata getMetadata()
     {
         return metadata;
     }
