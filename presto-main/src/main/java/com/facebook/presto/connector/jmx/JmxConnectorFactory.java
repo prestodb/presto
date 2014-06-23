@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.connector.jmx;
 
-import com.facebook.presto.connector.InternalConnector;
 import com.facebook.presto.spi.Connector;
 import com.facebook.presto.spi.ConnectorFactory;
 import com.facebook.presto.spi.ConnectorHandleResolver;
@@ -24,7 +23,6 @@ import com.facebook.presto.spi.ConnectorRecordSetProvider;
 import com.facebook.presto.spi.ConnectorRecordSinkProvider;
 import com.facebook.presto.spi.ConnectorSplitManager;
 import com.facebook.presto.spi.NodeManager;
-import com.facebook.presto.split.ConnectorDataStreamProvider;
 import io.airlift.node.NodeInfo;
 
 import javax.inject.Inject;
@@ -58,7 +56,8 @@ public class JmxConnectorFactory
     @Override
     public Connector create(final String connectorId, Map<String, String> properties)
     {
-        return new InternalConnector() {
+        return new Connector()
+        {
             @Override
             public ConnectorHandleResolver getHandleResolver()
             {
@@ -78,15 +77,9 @@ public class JmxConnectorFactory
             }
 
             @Override
-            public ConnectorDataStreamProvider getDataStreamProvider()
-            {
-                return new JmxDataStreamProvider(new JmxConnectorId(connectorId), mbeanServer, nodeInfo);
-            }
-
-            @Override
             public ConnectorRecordSetProvider getRecordSetProvider()
             {
-                throw new UnsupportedOperationException();
+                return new JmxRecordSetProvider(mbeanServer, nodeInfo);
             }
 
             @Override
