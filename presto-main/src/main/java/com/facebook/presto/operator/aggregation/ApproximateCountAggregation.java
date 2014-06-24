@@ -124,17 +124,15 @@ public class ApproximateCountAggregation
         {
             counts.ensureCapacity(groupIdsBlock.getGroupCount());
             samples.ensureCapacity(groupIdsBlock.getGroupCount());
-            BlockCursor masks = null;
+            Block masks = null;
             if (maskChannel.isPresent()) {
-                masks = page.getBlock(maskChannel.get()).cursor();
+                masks = page.getBlock(maskChannel.get());
             }
-            BlockCursor sampleWeights = page.getBlock(sampleWeightChannel).cursor();
+            Block sampleWeights = page.getBlock(sampleWeightChannel);
 
             for (int position = 0; position < groupIdsBlock.getPositionCount(); position++) {
                 long groupId = groupIdsBlock.getGroupId(position);
-                checkState(masks == null || masks.advanceNextPosition(), "failed to advance mask cursor");
-                checkState(sampleWeights.advanceNextPosition(), "failed to advance weight cursor");
-                long weight = SimpleAggregationFunction.computeSampleWeight(masks, sampleWeights);
+                long weight = ApproximateUtils.computeSampleWeight(masks, sampleWeights, position);
                 counts.add(groupId, weight);
                 if (weight > 0) {
                     samples.increment(groupId);
@@ -226,16 +224,14 @@ public class ApproximateCountAggregation
         @Override
         public void addInput(Page page)
         {
-            BlockCursor masks = null;
+            Block masks = null;
             if (maskChannel.isPresent()) {
-                masks = page.getBlock(maskChannel.get()).cursor();
+                masks = page.getBlock(maskChannel.get());
             }
-            BlockCursor sampleWeights = page.getBlock(sampleWeightChannel).cursor();
+            Block sampleWeights = page.getBlock(sampleWeightChannel);
 
             for (int i = 0; i < page.getPositionCount(); i++) {
-                checkState(masks == null || masks.advanceNextPosition(), "failed to advance mask cursor");
-                checkState(sampleWeights.advanceNextPosition(), "failed to advance weight cursor");
-                long weight = SimpleAggregationFunction.computeSampleWeight(masks, sampleWeights);
+                long weight = ApproximateUtils.computeSampleWeight(masks, sampleWeights, i);
                 count += weight;
                 if (weight > 0) {
                     samples++;
