@@ -81,19 +81,6 @@ public abstract class SimpleAggregationFunction
         return createGroupedAccumulator(Optional.<Integer>absent(), Optional.<Integer>absent(), confidence, -1);
     }
 
-    public static long computeSampleWeight(@Nullable BlockCursor masks, @Nullable BlockCursor sampleWeights)
-    {
-        long sampleWeight;
-        if (masks != null) {
-            // DISTINCT is enabled, so ignore the sample weight
-            sampleWeight = masks.getBoolean() ? 1 : 0;
-        }
-        else {
-            sampleWeight = sampleWeights != null ? sampleWeights.getLong() : 1;
-        }
-        return sampleWeight;
-    }
-
     protected abstract GroupedAccumulator createGroupedAccumulator(Optional<Integer> maskChannel, Optional<Integer> sampleWeightChannel, double confidence, int valueChannel);
 
     public abstract static class SimpleGroupedAccumulator
