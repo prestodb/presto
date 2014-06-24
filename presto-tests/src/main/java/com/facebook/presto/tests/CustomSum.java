@@ -13,15 +13,14 @@
  */
 package com.facebook.presto.tests;
 
+import com.facebook.presto.operator.GroupByIdBlock;
+import com.facebook.presto.operator.Page;
 import com.facebook.presto.operator.aggregation.Accumulator;
 import com.facebook.presto.operator.aggregation.AggregationFunction;
 import com.facebook.presto.operator.aggregation.GroupedAccumulator;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
-import com.facebook.presto.spi.block.BlockCursor;
-import com.facebook.presto.operator.GroupByIdBlock;
-import com.facebook.presto.operator.Page;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.util.array.BooleanBigArray;
 import com.facebook.presto.util.array.LongBigArray;
@@ -29,10 +28,9 @@ import com.google.common.base.Optional;
 
 import java.util.List;
 
-import static com.facebook.presto.operator.aggregation.SimpleAggregationFunction.computeSampleWeight;
+import static com.facebook.presto.operator.aggregation.ApproximateUtils.computeSampleWeight;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkState;
 
 public class CustomSum
         implements AggregationFunction
@@ -131,25 +129,20 @@ public class CustomSum
 
         private void processBlock(Block block, Optional<Block> maskBlock, Optional<Block> sampleWeightBlock)
         {
-            BlockCursor values = block.cursor();
-            BlockCursor masks = null;
-            BlockCursor sampleWeights = null;
+            Block masks = null;
+            Block sampleWeights = null;
             if (maskBlock.isPresent()) {
-                masks = maskBlock.get().cursor();
+                masks = maskBlock.get();
             }
             if (sampleWeightBlock.isPresent()) {
-                sampleWeights = sampleWeightBlock.get().cursor();
+                sampleWeights = sampleWeightBlock.get();
             }
 
             for (int position = 0; position < block.getPositionCount(); position++) {
-                checkState(values.advanceNextPosition());
-                checkState(masks == null || masks.advanceNextPosition());
-                checkState(sampleWeights == null || sampleWeights.advanceNextPosition());
-
-                long sampleWeight = computeSampleWeight(masks, sampleWeights);
-                if (!values.isNull() && sampleWeight > 0) {
+                long sampleWeight = computeSampleWeight(masks, sampleWeights, position);
+                if (!block.isNull(position) && sampleWeight > 0) {
                     notNull = true;
-                    sum += sampleWeight * values.getLong();
+                    sum += sampleWeight * block.getLong(position);
                 }
             }
         }
@@ -252,33 +245,28 @@ public class CustomSum
             }
         }
 
-        private void processBlock(GroupByIdBlock groupIdsBlock, Block valuesBlock, Optional<Block> maskBlock, Optional<Block> sampleWeightBlock)
+        private void processBlock(GroupByIdBlock groupIdsBlock, Block block, Optional<Block> maskBlock, Optional<Block> sampleWeightBlock)
         {
             notNull.ensureCapacity(groupIdsBlock.getGroupCount());
             sums.ensureCapacity(groupIdsBlock.getGroupCount());
 
-            BlockCursor values = valuesBlock.cursor();
-            BlockCursor masks = null;
-            BlockCursor sampleWeights = null;
+            Block masks = null;
+            Block sampleWeights = null;
             if (maskBlock.isPresent()) {
-                masks = maskBlock.get().cursor();
+                masks = maskBlock.get();
             }
             if (sampleWeightBlock.isPresent()) {
-                sampleWeights = sampleWeightBlock.get().cursor();
+                sampleWeights = sampleWeightBlock.get();
             }
 
             for (int position = 0; position < groupIdsBlock.getPositionCount(); position++) {
-                checkState(values.advanceNextPosition());
-                checkState(masks == null || masks.advanceNextPosition());
-                checkState(sampleWeights == null || sampleWeights.advanceNextPosition());
-
                 long groupId = groupIdsBlock.getGroupId(position);
-                long sampleWeight = computeSampleWeight(masks, sampleWeights);
+                long sampleWeight = computeSampleWeight(masks, sampleWeights, position);
 
-                if (!values.isNull() && sampleWeight > 0) {
+                if (!block.isNull(position) && sampleWeight > 0) {
                     notNull.set(groupId, true);
 
-                    long value = sampleWeight * values.getLong();
+                    long value = sampleWeight * block.getLong(position);
                     sums.add(groupId, value);
                 }
             }
