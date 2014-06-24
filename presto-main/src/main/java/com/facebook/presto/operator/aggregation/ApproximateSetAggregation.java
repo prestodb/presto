@@ -26,7 +26,7 @@ import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.google.common.base.Preconditions.checkArgument;
 
 public class ApproximateSetAggregation
-        extends AbstractAggregationFunction<HyperLogLogState>
+        extends AbstractExactAggregationFunction<HyperLogLogState>
 {
     private static final int NUMBER_OF_BUCKETS = 4096;
     private final Type parameterType;

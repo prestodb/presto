@@ -22,7 +22,7 @@ import com.facebook.presto.spi.type.Type;
  * as normal input.
  */
 public abstract class AbstractSimpleAggregationFunction<T extends AccumulatorState>
-        extends AbstractAggregationFunction<T>
+        extends AbstractExactAggregationFunction<T>
 {
     protected AbstractSimpleAggregationFunction(Type finalType, Type intermediateType, Type parameterType)
     {

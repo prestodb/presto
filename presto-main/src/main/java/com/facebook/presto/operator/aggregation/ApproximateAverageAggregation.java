@@ -25,7 +25,7 @@ import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 
 public class ApproximateAverageAggregation
-        extends AbstractApproximateAggregationFunction<ApproximateAverageAggregation.ApproximateAverageState>
+        extends AbstractAggregationFunction<ApproximateAverageAggregation.ApproximateAverageState>
 {
     public interface ApproximateAverageState
             extends AccumulatorState
@@ -52,7 +52,7 @@ public class ApproximateAverageAggregation
     public ApproximateAverageAggregation(Type parameterType)
     {
         // Intermediate type should be a fixed width structure
-        super(VARCHAR, VARCHAR, parameterType);
+        super(VARCHAR, VARCHAR, parameterType, true);
 
         if (parameterType == BIGINT) {
             this.inputIsLong = true;

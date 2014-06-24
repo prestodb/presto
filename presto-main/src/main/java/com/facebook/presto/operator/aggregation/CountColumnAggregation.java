@@ -20,7 +20,7 @@ import com.facebook.presto.spi.type.Type;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 
 public class CountColumnAggregation
-        extends AbstractAggregationFunction<LongState>
+        extends AbstractExactAggregationFunction<LongState>
 {
     public CountColumnAggregation(Type parameterType)
     {

@@ -24,7 +24,7 @@ import static com.facebook.presto.operator.aggregation.ApproximateUtils.formatAp
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 
 public class ApproximateCountColumnAggregation
-        extends AbstractApproximateAggregationFunction<ApproximateCountColumnAggregation.ApproximateCountState>
+        extends AbstractAggregationFunction<ApproximateCountColumnAggregation.ApproximateCountState>
 {
     public interface ApproximateCountState
             extends AccumulatorState
@@ -41,7 +41,7 @@ public class ApproximateCountColumnAggregation
     public ApproximateCountColumnAggregation(Type parameterType)
     {
         // TODO: Change intermediate to fixed width, once we have a better type system
-        super(VARCHAR, VARCHAR, parameterType);
+        super(VARCHAR, VARCHAR, parameterType, true);
     }
 
     @Override

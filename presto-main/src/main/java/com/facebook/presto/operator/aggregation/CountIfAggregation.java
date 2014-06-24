@@ -20,7 +20,7 @@ import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 
 public class CountIfAggregation
-        extends AbstractAggregationFunction<LongState>
+        extends AbstractExactAggregationFunction<LongState>
 {
     public static final CountIfAggregation COUNT_IF = new CountIfAggregation();
 
