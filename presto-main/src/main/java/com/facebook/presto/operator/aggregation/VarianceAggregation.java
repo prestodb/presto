@@ -25,7 +25,7 @@ import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 
 public class VarianceAggregation
-        extends AbstractAggregationFunction<VarianceState>
+        extends AbstractExactAggregationFunction<VarianceState>
 {
     protected final boolean population;
     protected final boolean inputIsLong;

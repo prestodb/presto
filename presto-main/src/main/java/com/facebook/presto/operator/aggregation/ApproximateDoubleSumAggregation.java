@@ -26,14 +26,14 @@ import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 
 public class ApproximateDoubleSumAggregation
-        extends AbstractApproximateAggregationFunction<ApproximateDoubleSumAggregation.ApproximateDoubleSumState>
+        extends AbstractAggregationFunction<ApproximateDoubleSumAggregation.ApproximateDoubleSumState>
 {
     public static final ApproximateDoubleSumAggregation DOUBLE_APPROXIMATE_SUM_AGGREGATION = new ApproximateDoubleSumAggregation();
 
     public ApproximateDoubleSumAggregation()
     {
         // TODO: Change intermediate to fixed width, once we have a better type system
-        super(VARCHAR, VARCHAR, DOUBLE);
+        super(VARCHAR, VARCHAR, DOUBLE, true);
     }
 
     public interface ApproximateDoubleSumState

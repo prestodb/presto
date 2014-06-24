@@ -40,12 +40,13 @@ public final class VarianceAggregations
                 VarianceAggregation.class,
 
                 AbstractAggregationFunction.class,
+                AbstractExactAggregationFunction.class,
                 SimpleAggregationFunction.class,
 
-                AbstractAggregationFunction.GenericGroupedAccumulator.class,
+                AbstractExactAggregationFunction.GenericGroupedAccumulator.class,
                 SimpleAggregationFunction.SimpleGroupedAccumulator.class,
 
-                AbstractAggregationFunction.GenericAccumulator.class,
+                AbstractExactAggregationFunction.GenericAccumulator.class,
                 SimpleAggregationFunction.SimpleAccumulator.class);
 
         try {

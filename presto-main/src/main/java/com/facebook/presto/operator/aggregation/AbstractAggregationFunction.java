@@ -25,10 +25,6 @@ import com.facebook.presto.spi.type.Type;
 import com.google.common.base.Optional;
 import io.airlift.event.client.TypeParameterUtils;
 
-import static com.facebook.presto.spi.type.BigintType.BIGINT;
-import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
-import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
-import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 
@@ -37,17 +33,19 @@ public abstract class AbstractAggregationFunction<T extends AccumulatorState>
 {
     private final AccumulatorStateFactory<T> stateFactory;
     private final AccumulatorStateSerializer<T> stateSerializer;
+    private final boolean approximationSupported;
 
-    protected AbstractAggregationFunction(Type finalType, Type intermediateType, Type parameterType)
+    protected AbstractAggregationFunction(Type finalType, Type intermediateType, Type parameterType, boolean approximationSupported)
     {
         super(finalType, intermediateType, parameterType);
         java.lang.reflect.Type[] types = TypeParameterUtils.getTypeParameters(AbstractAggregationFunction.class, getClass());
         checkState(types.length == 1 && types[0] instanceof Class);
         stateFactory = new StateCompiler().generateStateFactory((Class<T>) types[0]);
         stateSerializer = new StateCompiler().generateStateSerializer((Class<T>) types[0]);
+        this.approximationSupported = approximationSupported;
     }
 
-    protected abstract void processInput(T state, Block block, int index);
+    protected abstract void processInput(T state, Block block, int index, long sampleWeight);
 
     protected void processIntermediate(T state, T scratchState, Block block, int index)
     {
@@ -56,15 +54,11 @@ public abstract class AbstractAggregationFunction<T extends AccumulatorState>
     }
 
     /**
-     * Combine two states. The result should be stored in the first state.
+     * Combines two pieces of state. The result should be stored in state.
      */
     protected abstract void combineState(T state, T otherState);
 
-    protected void evaluateFinal(T state, BlockBuilder out)
-    {
-        checkState(getFinalType() == BIGINT || getFinalType() == DOUBLE || getFinalType() == BOOLEAN || getFinalType() == VARCHAR);
-        getStateSerializer().serialize(state, out);
-    }
+    protected abstract void evaluateFinal(T state, double confidence, BlockBuilder out);
 
     private T createSingleState()
     {
@@ -84,9 +78,11 @@ public abstract class AbstractAggregationFunction<T extends AccumulatorState>
     @Override
     protected final GroupedAccumulator createGroupedAccumulator(Optional<Integer> maskChannel, Optional<Integer> sampleWeightChannel, double confidence, int valueChannel)
     {
-        checkArgument(confidence == 1.0, "Approximate queries not supported");
-        checkArgument(!sampleWeightChannel.isPresent(), "Sampled data not supported");
-        return new GenericGroupedAccumulator(valueChannel, maskChannel);
+        if (!approximationSupported) {
+            checkArgument(confidence == 1.0, "Approximate queries not supported");
+            checkArgument(!sampleWeightChannel.isPresent(), "Sampled data not supported");
+        }
+        return new GenericGroupedAccumulator(valueChannel, maskChannel, sampleWeightChannel, confidence);
     }
 
     public final class GenericGroupedAccumulator
@@ -95,13 +91,15 @@ public abstract class AbstractAggregationFunction<T extends AccumulatorState>
         private final T state;
         // Reference to state cast as a GroupedAccumulatorState
         private final GroupedAccumulatorState groupedState;
+        private final double confidence;
 
-        public GenericGroupedAccumulator(int valueChannel, Optional<Integer> maskChannel)
+        public GenericGroupedAccumulator(int valueChannel, Optional<Integer> maskChannel, Optional<Integer> sampleWeightChannel, double confidence)
         {
-            super(valueChannel, AbstractAggregationFunction.this.getFinalType(), AbstractAggregationFunction.this.getIntermediateType(), maskChannel, Optional.<Integer>absent());
+            super(valueChannel, AbstractAggregationFunction.this.getFinalType(), AbstractAggregationFunction.this.getIntermediateType(), maskChannel, sampleWeightChannel);
             this.state = AbstractAggregationFunction.this.createGroupedState();
             checkArgument(state instanceof GroupedAccumulatorState, "state is not a GroupedAccumulatorState");
             groupedState = (GroupedAccumulatorState) state;
+            this.confidence = confidence;
         }
 
         @Override
@@ -113,21 +111,24 @@ public abstract class AbstractAggregationFunction<T extends AccumulatorState>
         @Override
         protected void processInput(GroupByIdBlock groupIdsBlock, Block values, Optional<Block> maskBlock, Optional<Block> sampleWeightBlock)
         {
-            checkArgument(!sampleWeightBlock.isPresent(), "Sampled data not supported");
+            checkArgument(approximationSupported || !sampleWeightBlock.isPresent(), "Sampled data not supported");
             groupedState.ensureCapacity(groupIdsBlock.getGroupCount());
 
             Block masks = null;
             if (maskBlock.isPresent()) {
                 masks = maskBlock.get();
             }
+            Block sampleWeights = null;
+            if (sampleWeightBlock.isPresent()) {
+                sampleWeights = sampleWeightBlock.get();
+            }
 
             for (int position = 0; position < groupIdsBlock.getPositionCount(); position++) {
-                if (masks != null && !masks.getBoolean(position)) {
-                    continue;
-                }
-                if (!values.isNull(position)) {
+                long sampleWeight = ApproximateUtils.computeSampleWeight(masks, sampleWeights, position);
+
+                if (!values.isNull(position) && sampleWeight > 0) {
                     groupedState.setGroupId(groupIdsBlock.getGroupId(position));
-                    AbstractAggregationFunction.this.processInput(state, values, position);
+                    AbstractAggregationFunction.this.processInput(state, values, position, sampleWeight);
                 }
             }
         }
@@ -157,44 +158,50 @@ public abstract class AbstractAggregationFunction<T extends AccumulatorState>
         public void evaluateFinal(int groupId, BlockBuilder output)
         {
             groupedState.setGroupId(groupId);
-            AbstractAggregationFunction.this.evaluateFinal(state, output);
+            AbstractAggregationFunction.this.evaluateFinal(state, confidence, output);
         }
     }
 
     @Override
     protected final Accumulator createAccumulator(Optional<Integer> maskChannel, Optional<Integer> sampleWeightChannel, double confidence, int valueChannel)
     {
-        checkArgument(confidence == 1.0, "Approximate queries not supported");
-        checkArgument(!sampleWeightChannel.isPresent(), "Sampled data not supported");
-        return new GenericAccumulator(valueChannel, maskChannel);
+        if (!approximationSupported) {
+            checkArgument(confidence == 1.0, "Approximate queries not supported");
+            checkArgument(!sampleWeightChannel.isPresent(), "Sampled data not supported");
+        }
+        return new GenericAccumulator(valueChannel, maskChannel, sampleWeightChannel, confidence);
     }
 
     public final class GenericAccumulator
             extends SimpleAccumulator
     {
         private final T state;
+        private final double confidence;
 
-        public GenericAccumulator(int valueChannel, Optional<Integer> maskChannel)
+        public GenericAccumulator(int valueChannel, Optional<Integer> maskChannel, Optional<Integer> sampleWeightChannel, double confidence)
         {
-            super(valueChannel, AbstractAggregationFunction.this.getFinalType(), AbstractAggregationFunction.this.getIntermediateType(), maskChannel, Optional.<Integer>absent());
+            super(valueChannel, AbstractAggregationFunction.this.getFinalType(), AbstractAggregationFunction.this.getIntermediateType(), maskChannel, sampleWeightChannel);
             this.state = AbstractAggregationFunction.this.createSingleState();
+            this.confidence = confidence;
         }
 
         @Override
         protected void processInput(Block values, Optional<Block> maskBlock, Optional<Block> sampleWeightBlock)
         {
-            checkArgument(!sampleWeightBlock.isPresent(), "Sampled data not supported");
+            checkArgument(approximationSupported || !sampleWeightBlock.isPresent(), "Sampled data not supported");
             Block masks = null;
             if (maskBlock.isPresent()) {
                masks = maskBlock.get();
             }
+            Block sampleWeights = null;
+            if (sampleWeightBlock.isPresent()) {
+                sampleWeights = sampleWeightBlock.get();
+            }
 
             for (int position = 0; position < values.getPositionCount(); position++) {
-                if (masks != null && !masks.getBoolean(position)) {
-                    continue;
-                }
-                if (!values.isNull(position)) {
-                    AbstractAggregationFunction.this.processInput(state, values, position);
+                long sampleWeight = ApproximateUtils.computeSampleWeight(masks, sampleWeights, position);
+                if (!values.isNull(position) && sampleWeight > 0) {
+                    AbstractAggregationFunction.this.processInput(state, values, position, sampleWeight);
                 }
             }
         }
@@ -209,6 +216,7 @@ public abstract class AbstractAggregationFunction<T extends AccumulatorState>
         protected void processIntermediate(Block block)
         {
             T scratchState = AbstractAggregationFunction.this.createSingleState();
+
             for (int position = 0; position < block.getPositionCount(); position++) {
                 if (!block.isNull(position)) {
                     AbstractAggregationFunction.this.processIntermediate(state, scratchState, block, position);
@@ -225,7 +233,7 @@ public abstract class AbstractAggregationFunction<T extends AccumulatorState>
         @Override
         public void evaluateFinal(BlockBuilder out)
         {
-            AbstractAggregationFunction.this.evaluateFinal(state, out);
+            AbstractAggregationFunction.this.evaluateFinal(state, confidence, out);
         }
     }
 }

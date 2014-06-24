@@ -27,7 +27,7 @@ import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.google.common.base.Preconditions.checkArgument;
 
 public class ApproximateCountDistinctAggregation
-        extends AbstractAggregationFunction<SliceState>
+        extends AbstractExactAggregationFunction<SliceState>
 {
     private static final HyperLogLog ESTIMATOR = new HyperLogLog(2048);
 

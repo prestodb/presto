@@ -26,14 +26,14 @@ import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 
 public class ApproximateLongSumAggregation
-        extends AbstractApproximateAggregationFunction<ApproximateLongSumAggregation.ApproximateLongSumState>
+        extends AbstractAggregationFunction<ApproximateLongSumAggregation.ApproximateLongSumState>
 {
     public static final ApproximateLongSumAggregation LONG_APPROXIMATE_SUM_AGGREGATION = new ApproximateLongSumAggregation();
 
     public ApproximateLongSumAggregation()
     {
         // TODO: Change intermediate to fixed width, once we have a better type system
-        super(VARCHAR, VARCHAR, BIGINT);
+        super(VARCHAR, VARCHAR, BIGINT, true);
     }
 
     public interface ApproximateLongSumState

@@ -23,7 +23,7 @@ import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 
 public class AverageAggregation
-        extends AbstractAggregationFunction<LongAndDoubleState>
+        extends AbstractExactAggregationFunction<LongAndDoubleState>
 {
     private final boolean inputIsLong;
 
