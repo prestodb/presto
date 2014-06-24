@@ -33,13 +33,10 @@ public final class AggregationUtils
                 aggregationClass,
 
                 AbstractAggregationFunction.class,
-                SimpleAggregationFunction.class,
 
                 AbstractAggregationFunction.GenericGroupedAccumulator.class,
-                SimpleAggregationFunction.SimpleGroupedAccumulator.class,
 
-                AbstractAggregationFunction.GenericAccumulator.class,
-                SimpleAggregationFunction.SimpleAccumulator.class);
+                AbstractAggregationFunction.GenericAccumulator.class);
 
         try {
             return functionClass
@@ -60,13 +57,10 @@ public final class AggregationUtils
 
                 AbstractAggregationFunction.class,
                 AbstractExactAggregationFunction.class,
-                SimpleAggregationFunction.class,
 
                 AbstractExactAggregationFunction.GenericGroupedAccumulator.class,
-                SimpleAggregationFunction.SimpleGroupedAccumulator.class,
 
-                AbstractExactAggregationFunction.GenericAccumulator.class,
-                SimpleAggregationFunction.SimpleAccumulator.class);
+                AbstractExactAggregationFunction.GenericAccumulator.class);
 
         try {
             return functionClass
