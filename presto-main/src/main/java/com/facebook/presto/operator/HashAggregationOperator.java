@@ -19,7 +19,6 @@ import com.facebook.presto.operator.aggregation.GroupedAccumulator;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.planner.plan.AggregationNode.Step;
-import com.facebook.presto.sql.tree.Input;
 import com.google.common.collect.AbstractIterator;
 import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Ints;
@@ -338,18 +337,18 @@ public class HashAggregationOperator
 
             if (step == Step.FINAL) {
                 checkArgument(functionDefinition.getInputs().size() == 1, "Expected a single input for an intermediate aggregation");
-                intermediateChannel = functionDefinition.getInputs().get(0).getChannel();
+                intermediateChannel = functionDefinition.getInputs().get(0);
                 aggregation = function.createGroupedIntermediateAggregation(functionDefinition.getConfidence());
             }
             else {
                 int[] argumentChannels = new int[functionDefinition.getInputs().size()];
                 for (int i = 0; i < argumentChannels.length; i++) {
-                    argumentChannels[i] = functionDefinition.getInputs().get(i).getChannel();
+                    argumentChannels[i] = functionDefinition.getInputs().get(i);
                 }
                 intermediateChannel = -1;
                 aggregation = function.createGroupedAggregation(
-                        functionDefinition.getMask().transform(Input.channelGetter()),
-                        functionDefinition.getSampleWeight().transform(Input.channelGetter()),
+                        functionDefinition.getMask(),
+                        functionDefinition.getSampleWeight(),
                         functionDefinition.getConfidence(),
                         argumentChannels);
             }
