@@ -200,7 +200,7 @@
             <dependency>
                 <groupId>com.facebook.presto.hive</groupId>
                 <artifactId>hive-apache</artifactId>
-                <version>0.9-SNAPSHOT</version>
+                <version>0.9</version>
             </dependency>
 
             <dependency>
