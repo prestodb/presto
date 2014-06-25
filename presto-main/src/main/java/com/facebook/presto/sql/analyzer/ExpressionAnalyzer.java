@@ -27,6 +27,7 @@ import com.facebook.presto.sql.tree.AstVisitor;
 import com.facebook.presto.sql.tree.BetweenPredicate;
 import com.facebook.presto.sql.tree.BooleanLiteral;
 import com.facebook.presto.sql.tree.Cast;
+import com.facebook.presto.sql.tree.InputReference;
 import com.facebook.presto.sql.tree.CoalesceExpression;
 import com.facebook.presto.sql.tree.ComparisonExpression;
 import com.facebook.presto.sql.tree.CurrentTime;
@@ -38,7 +39,6 @@ import com.facebook.presto.sql.tree.GenericLiteral;
 import com.facebook.presto.sql.tree.IfExpression;
 import com.facebook.presto.sql.tree.InListExpression;
 import com.facebook.presto.sql.tree.InPredicate;
-import com.facebook.presto.sql.tree.InputReference;
 import com.facebook.presto.sql.tree.IntervalLiteral;
 import com.facebook.presto.sql.tree.IsNotNullPredicate;
 import com.facebook.presto.sql.tree.IsNullPredicate;
@@ -636,7 +636,7 @@ public class ExpressionAnalyzer
         @Override
         public Type visitInputReference(InputReference node, AnalysisContext context)
         {
-            Type type = tupleDescriptor.getFieldByIndex(node.getInput().getChannel()).getType();
+            Type type = tupleDescriptor.getFieldByIndex(node.getChannel()).getType();
             expressionTypes.put(node, type);
             return type;
         }

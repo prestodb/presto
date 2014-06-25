@@ -15,10 +15,9 @@ package com.facebook.presto.sql.gen;
 
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.tree.ArithmeticExpression;
+import com.facebook.presto.sql.tree.InputReference;
 import com.facebook.presto.sql.tree.ComparisonExpression;
 import com.facebook.presto.sql.tree.Expression;
-import com.facebook.presto.sql.tree.Input;
-import com.facebook.presto.sql.tree.InputReference;
 import com.facebook.presto.sql.tree.LongLiteral;
 import org.testng.annotations.Test;
 
@@ -108,7 +107,7 @@ public class TestExpressionKey
 
     public static InputReference input(IdentityHashMap<Expression, Type> types, int channel, Type type)
     {
-        InputReference expression = new InputReference(new Input(channel));
+        InputReference expression = new InputReference(channel);
         types.put(expression, type);
         return expression;
     }

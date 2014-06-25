@@ -47,7 +47,7 @@ public class InterpretedProjectionFunction
             ConnectorSession session)
     {
         // pre-compute symbol -> input mappings and replace the corresponding nodes in the tree
-        Expression rewritten = ExpressionTreeRewriter.rewriteWith(SymbolToInputRewriter.createRewriter(symbolToInputMappings), expression);
+        Expression rewritten = ExpressionTreeRewriter.rewriteWith(new SymbolToInputRewriter(symbolToInputMappings), expression);
 
         // analyze expression so we can know the type of every expression in the tree
         ImmutableMap.Builder<Integer, Type> inputTypes = ImmutableMap.builder();

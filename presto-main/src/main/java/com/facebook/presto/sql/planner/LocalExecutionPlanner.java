@@ -678,7 +678,7 @@ public class LocalExecutionPlanner
 
             try {
                 // compiler uses inputs instead of symbols, so rewrite the expressions first
-                SymbolToInputRewriter symbolToInputRewriter = SymbolToInputRewriter.createRewriter(sourceLayout);
+                SymbolToInputRewriter symbolToInputRewriter = new SymbolToInputRewriter(sourceLayout);
                 Expression rewrittenFilter = ExpressionTreeRewriter.rewriteWith(symbolToInputRewriter, filterExpression);
 
                 List<Expression> rewrittenProjections = new ArrayList<>();

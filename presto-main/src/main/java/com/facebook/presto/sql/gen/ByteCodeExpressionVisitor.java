@@ -34,6 +34,7 @@ import com.facebook.presto.sql.tree.AstVisitor;
 import com.facebook.presto.sql.tree.BetweenPredicate;
 import com.facebook.presto.sql.tree.BooleanLiteral;
 import com.facebook.presto.sql.tree.Cast;
+import com.facebook.presto.sql.tree.InputReference;
 import com.facebook.presto.sql.tree.CoalesceExpression;
 import com.facebook.presto.sql.tree.ComparisonExpression;
 import com.facebook.presto.sql.tree.DoubleLiteral;
@@ -42,8 +43,6 @@ import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.GenericLiteral;
 import com.facebook.presto.sql.tree.InListExpression;
 import com.facebook.presto.sql.tree.InPredicate;
-import com.facebook.presto.sql.tree.Input;
-import com.facebook.presto.sql.tree.InputReference;
 import com.facebook.presto.sql.tree.IntervalLiteral;
 import com.facebook.presto.sql.tree.IsNullPredicate;
 import com.facebook.presto.sql.tree.LikePredicate;
@@ -217,11 +216,10 @@ public class ByteCodeExpressionVisitor
     @Override
     public ByteCodeNode visitInputReference(InputReference node, CompilerContext context)
     {
-        Input input = node.getInput();
-        int channel = input.getChannel();
+        int channel = node.getChannel();
 
         Type type = expressionTypes.get(node);
-        checkState(type != null, "No type for input %s", input);
+        checkState(type != null, "No type for input %d", channel);
         Class<?> javaType = type.getJavaType();
 
         if (sourceIsCursor) {
