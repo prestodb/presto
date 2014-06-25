@@ -18,6 +18,7 @@ import com.facebook.presto.execution.QueryInfo;
 import com.facebook.presto.execution.QueryManager;
 import com.facebook.presto.execution.StageId;
 import com.facebook.presto.spi.ConnectorSession;
+import com.facebook.presto.spi.ConnectorSessionManager;
 import com.google.common.collect.ImmutableList;
 
 import javax.inject.Inject;
@@ -44,6 +45,7 @@ import java.util.TimeZone;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_CATALOG;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_LANGUAGE;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_SCHEMA;
+import static com.facebook.presto.client.PrestoHeaders.PRESTO_SESSIONID;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_SOURCE;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_TIME_ZONE;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_USER;
@@ -61,11 +63,13 @@ import static io.airlift.http.client.HttpUriBuilder.uriBuilderFrom;
 public class QueryResource
 {
     private final QueryManager queryManager;
+    private final ConnectorSessionManager connectorSessionManager;
 
     @Inject
-    public QueryResource(QueryManager queryManager)
+    public QueryResource(QueryManager queryManager, ConnectorSessionManager connectorSessionManager)
     {
         this.queryManager = checkNotNull(queryManager, "queryManager is null");
+        this.connectorSessionManager = checkNotNull(connectorSessionManager, "connectorSessionManager is null");
     }
 
     @GET
@@ -108,6 +112,7 @@ public class QueryResource
             @HeaderParam(PRESTO_SCHEMA) String schema,
             @HeaderParam(PRESTO_TIME_ZONE) String timeZoneId,
             @HeaderParam(PRESTO_LANGUAGE) String language,
+            @HeaderParam(PRESTO_SESSIONID) String sessionId,
             @HeaderParam(USER_AGENT) String userAgent,
             @Context HttpServletRequest requestContext,
             @Context UriInfo uriInfo)
@@ -127,8 +132,7 @@ public class QueryResource
         }
 
         String remoteUserAddress = requestContext.getRemoteAddr();
-
-        ConnectorSession session = new ConnectorSession(user, source, catalog, schema, getTimeZoneKey(timeZoneId), locale, remoteUserAddress, userAgent);
+        ConnectorSession session = connectorSessionManager.createOrUpdateSession(user, source, catalog, schema, getTimeZoneKey(timeZoneId), locale, remoteUserAddress, userAgent, sessionId);
 
         QueryInfo queryInfo = queryManager.createQuery(session, statement);
         URI pagesUri = uriBuilderFrom(uriInfo.getRequestUri()).appendPath(queryInfo.getQueryId().toString()).build();

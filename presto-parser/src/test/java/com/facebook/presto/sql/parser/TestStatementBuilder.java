@@ -111,6 +111,11 @@ public class TestStatementBuilder
 
         printStatement("values ('a', 1, 2.2), ('b', 2, 3.3)");
 
+        printStatement("SET var = 3");
+        printStatement("SET var");
+        printStatement("UNSET var");
+        printStatement("SET");
+
         printStatement("table foo");
         printStatement("table foo order by x limit 10");
         printStatement("(table foo)");

@@ -22,6 +22,7 @@ import static com.google.common.base.Preconditions.checkNotNull;
 
 public class ClientSession
 {
+    private final String sessionId;
     private final URI server;
     private final String user;
     private final String source;
@@ -41,7 +42,8 @@ public class ClientSession
                 session.getSchema(),
                 session.getTimeZoneId(),
                 session.getLocale(),
-                session.isDebug());
+                session.isDebug(),
+                session.getSessionId());
     }
 
     public static ClientSession withSchema(ClientSession session, String schema)
@@ -54,11 +56,13 @@ public class ClientSession
                 schema,
                 session.getTimeZoneId(),
                 session.getLocale(),
-                session.isDebug());
+                session.isDebug(),
+                session.getSessionId());
     }
 
     public ClientSession(URI server, String user, String source, String catalog, String schema, String timeZoneId, Locale locale, boolean debug)
     {
+        this.sessionId = null;
         this.server = checkNotNull(server, "server is null");
         this.user = user;
         this.source = source;
@@ -67,6 +71,24 @@ public class ClientSession
         this.locale = locale;
         this.timeZoneId = checkNotNull(timeZoneId, "timeZoneId is null");
         this.debug = debug;
+    }
+
+    public ClientSession(URI server, String user, String source, String catalog, String schema, String timeZoneId, Locale locale, boolean debug, String sessionId)
+    {
+        this.sessionId = sessionId;
+        this.server = checkNotNull(server, "server is null");
+        this.user = user;
+        this.source = source;
+        this.catalog = catalog;
+        this.schema = schema;
+        this.locale = locale;
+        this.timeZoneId = checkNotNull(timeZoneId, "timeZoneId is null");
+        this.debug = debug;
+    }
+
+    public String getSessionId()
+    {
+        return sessionId;
     }
 
     public URI getServer()
@@ -113,6 +135,7 @@ public class ClientSession
     public String toString()
     {
         return Objects.toStringHelper(this)
+                .add("sessionId", sessionId)
                 .add("server", server)
                 .add("user", user)
                 .add("catalog", catalog)

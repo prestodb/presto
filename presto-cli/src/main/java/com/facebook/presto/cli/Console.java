@@ -182,6 +182,9 @@ public class Console
         catch (IOException e) {
             System.err.println("Readline error: " + e.getMessage());
         }
+        finally {
+            queryRunner.removePrestoServerSession();
+        }
     }
 
     private static Optional<Object> getParsedStatement(String statement)
@@ -224,6 +227,7 @@ public class Console
         if (!isEmptyStatement(splitter.getPartialStatement())) {
             System.err.println("Non-terminated statement: " + splitter.getPartialStatement());
         }
+        queryRunner.removePrestoServerSession();
     }
 
     private static void process(QueryRunner queryRunner, String sql, OutputFormat outputFormat, boolean interactive)

@@ -102,6 +102,9 @@ public class StatementClient
         }
         builder.setHeader(PrestoHeaders.PRESTO_TIME_ZONE, session.getTimeZoneId());
         builder.setHeader(PrestoHeaders.PRESTO_LANGUAGE, session.getLocale().toLanguageTag());
+        if (session.getSessionId() != null) {
+            builder.setHeader(PrestoHeaders.PRESTO_SESSIONID, session.getSessionId());
+        }
         builder.setHeader(USER_AGENT, USER_AGENT_VALUE);
 
         return builder.build();

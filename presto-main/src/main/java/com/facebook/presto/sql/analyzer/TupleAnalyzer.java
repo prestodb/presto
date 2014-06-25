@@ -953,7 +953,9 @@ class TupleAnalyzer
                     session.getLocale(),
                     session.getRemoteUserAddress(),
                     session.getUserAgent(),
-                    session.getStartTime());
+                    session.getStartTime(),
+                    session.getSessionId(),
+                    session.getConfigs());
             StatementAnalyzer analyzer = new StatementAnalyzer(analysis, metadata, viewSession, experimentalSyntaxEnabled, Optional.<QueryExplainer>absent());
             return analyzer.process(query, new AnalysisContext());
         }

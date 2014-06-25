@@ -16,9 +16,12 @@ package com.facebook.presto.cli;
 import com.facebook.presto.client.ClientSession;
 import com.facebook.presto.client.QueryResults;
 import com.facebook.presto.client.StatementClient;
+import com.google.common.base.Objects;
+
 import io.airlift.http.client.HttpClient;
 import io.airlift.http.client.HttpClientConfig;
 import io.airlift.http.client.jetty.JettyHttpClient;
+import io.airlift.http.client.Request;
 import io.airlift.json.JsonCodec;
 import io.airlift.units.Duration;
 
@@ -27,11 +30,22 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 
 import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.net.HttpHeaders.USER_AGENT;
 import static io.airlift.json.JsonCodec.jsonCodec;
+import static io.airlift.http.client.HttpStatus.Family;
+import static io.airlift.http.client.HttpStatus.familyForStatusCode;
+import static io.airlift.http.client.HttpUriBuilder.uriBuilderFrom;
+import static io.airlift.http.client.Request.Builder.prepareDelete;
+import static io.airlift.http.client.StatusResponseHandler.StatusResponse;
+import static io.airlift.http.client.StatusResponseHandler.createStatusResponseHandler;
 
 public class QueryRunner
         implements Closeable
 {
+    private static final String USER_AGENT_VALUE = QueryRunner.class.getSimpleName() +
+    "/" +
+    Objects.firstNonNull(QueryRunner.class.getPackage().getImplementationVersion(), "unknown");
+
     private final JsonCodec<QueryResults> queryResultsCodec;
     private final AtomicReference<ClientSession> session;
     private final HttpClient httpClient;
@@ -72,5 +86,20 @@ public class QueryRunner
     public static QueryRunner create(ClientSession session)
     {
         return new QueryRunner(session, jsonCodec(QueryResults.class));
+    }
+
+    public boolean removePrestoServerSession()
+    {
+        String sessionId = session.get().getSessionId();
+        if (sessionId != null) {
+            String queryPath = "v1/statement/sessions/" + sessionId;
+            Request request = prepareDelete()
+                .setHeader(USER_AGENT, USER_AGENT_VALUE)
+                .setUri(uriBuilderFrom(session.get().getServer()).replacePath(queryPath).build())
+                .build();
+            StatusResponse status = httpClient.execute(request, createStatusResponseHandler());
+            return familyForStatusCode(status.getStatusCode()) == Family.SUCCESSFUL;
+        }
+        return true;
     }
 }

@@ -311,6 +311,13 @@ public class SqlQueryExecution
     }
 
     @Override
+    public Iterable<List<Object>> getResultsForNonQueryStatement()
+    {
+        //no-ops
+        return null;
+    }
+
+    @Override
     public QueryInfo getQueryInfo()
     {
         try (SetThreadName setThreadName = new SetThreadName("Query-%s", stateMachine.getQueryId())) {

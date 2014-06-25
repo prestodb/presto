@@ -13,6 +13,8 @@
  */
 package com.facebook.presto.execution;
 
+import java.util.List;
+
 import com.facebook.presto.execution.StateMachine.StateChangeListener;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.sql.tree.Statement;
@@ -36,6 +38,8 @@ public interface QueryExecution
     void recordHeartbeat();
 
     void addStateChangeListener(StateChangeListener<QueryState> stateChangeListener);
+
+    Iterable<List<Object>> getResultsForNonQueryStatement();
 
     interface QueryExecutionFactory<T extends QueryExecution>
     {

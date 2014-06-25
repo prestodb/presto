@@ -21,6 +21,7 @@ import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.Locale;
 import java.util.TimeZone;
+import java.util.UUID;
 
 public class ClientOptions
 {
@@ -48,6 +49,9 @@ public class ClientOptions
     @Option(name = "--execute", title = "execute", description = "Execute specified statements and exit")
     public String execute;
 
+    @Option(name = "--no-session", title = "no-sesion", description = "Disable Presto Session")
+    public boolean hasNoSession;
+
     @Option(name = "--output-format", title = "output-format", description = "Output format for batch mode (default: CSV)")
     public OutputFormat outputFormat = OutputFormat.CSV;
 
@@ -63,7 +67,12 @@ public class ClientOptions
 
     public ClientSession toClientSession()
     {
-        return new ClientSession(parseServer(server), user, source, catalog, schema, TimeZone.getDefault().getID(), Locale.getDefault(), debug);
+        if (hasNoSession) {
+            return new ClientSession(parseServer(server), user, source, catalog, schema, TimeZone.getDefault().getID(), Locale.getDefault(), debug);
+        }
+        else {
+            return new ClientSession(parseServer(server), user, source, catalog, schema, TimeZone.getDefault().getID(), Locale.getDefault(), debug, String.valueOf(UUID.randomUUID()));
+        }
     }
 
     public static URI parseServer(String server)

@@ -18,6 +18,7 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
 import java.util.Locale;
+import java.util.Map;
 
 import static java.util.Objects.requireNonNull;
 
@@ -32,10 +33,17 @@ public class ConnectorSession
     private final String catalog;
     private final String schema;
     private final long startTime;
+    private final String sessionId;
+    private final Map<String, Object> configs;
 
     public ConnectorSession(String user, String source, String catalog, String schema, TimeZoneKey timeZoneKey, Locale locale, String remoteUserAddress, String userAgent)
     {
-        this(user, source, catalog, schema, timeZoneKey, locale, remoteUserAddress, userAgent, System.currentTimeMillis());
+        this(user, source, catalog, schema, timeZoneKey, locale, remoteUserAddress, userAgent, System.currentTimeMillis(), null, null);
+    }
+
+    public ConnectorSession(String user, String source, String catalog, String schema, TimeZoneKey timeZoneKey, Locale locale, String remoteUserAddress, String userAgent, String sessionId, Map<String, Object> configs)
+    {
+        this(user, source, catalog, schema, timeZoneKey, locale, remoteUserAddress, userAgent, System.currentTimeMillis(), sessionId, configs);
     }
 
     @JsonCreator
@@ -48,7 +56,10 @@ public class ConnectorSession
             @JsonProperty("locale") Locale locale,
             @JsonProperty("remoteUserAddress") String remoteUserAddress,
             @JsonProperty("userAgent") String userAgent,
-            @JsonProperty("startTime") long startTime)
+            @JsonProperty("startTime") long startTime,
+            @JsonProperty("sessionId") String sessionId,
+            @JsonProperty("configs") Map<String, Object> configs
+            )
     {
         this.user = user;
         this.source = source;
@@ -59,6 +70,8 @@ public class ConnectorSession
         this.remoteUserAddress = remoteUserAddress;
         this.userAgent = userAgent;
         this.startTime = startTime;
+        this.sessionId = sessionId;
+        this.configs = configs;
     }
 
     @JsonProperty
@@ -123,6 +136,41 @@ public class ConnectorSession
         return startTime;
     }
 
+    @JsonProperty
+    public String getSessionId()
+    {
+        return sessionId;
+    }
+
+    @JsonProperty
+    public Map<String, Object> getConfigs()
+    {
+        return configs;
+    }
+
+    public Object getConfig(String var)
+    {
+        if (this.configs.containsKey(var)) {
+            return this.configs.get(var);
+        }
+        return null;
+    }
+
+    public boolean setConfig(String var, Object val)
+    {
+        this.configs.put(var, val);
+        return true;
+    }
+
+    public boolean unsetConfig(String var)
+    {
+        if (this.configs.containsKey(var)) {
+            this.configs.remove(var);
+            return true;
+        }
+        return false;
+    }
+
     @Override
     public String toString()
     {
@@ -136,6 +184,8 @@ public class ConnectorSession
         builder.append(", timeZoneKey=").append(timeZoneKey);
         builder.append(", locale=").append(locale);
         builder.append(", startTime=").append(startTime);
+        builder.append(", sessionId=").append(sessionId);
+        builder.append(", configs='").append(configs.toString()).append('\'');
         builder.append('}');
         return builder.toString();
     }

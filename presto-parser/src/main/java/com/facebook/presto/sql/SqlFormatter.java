@@ -40,6 +40,7 @@ import com.facebook.presto.sql.tree.Row;
 import com.facebook.presto.sql.tree.SampledRelation;
 import com.facebook.presto.sql.tree.Select;
 import com.facebook.presto.sql.tree.SelectItem;
+import com.facebook.presto.sql.tree.SetVariable;
 import com.facebook.presto.sql.tree.ShowCatalogs;
 import com.facebook.presto.sql.tree.ShowColumns;
 import com.facebook.presto.sql.tree.ShowFunctions;
@@ -578,6 +579,32 @@ public final class SqlFormatter
         }
 
         @Override
+        protected Void visitSetVariable(SetVariable node, Integer context)
+        {
+            switch (node.getType()) {
+            case SET_VARIABLE:
+                builder.append("SET ")
+                .append(node.getVar())
+                .append(" = ")
+                .append(node.getVal());
+                break;
+            case UNSET_VARIABLE:
+                builder.append("UNSET ")
+                .append(node.getVar());
+                break;
+            case SHOW_VARIABLE:
+                builder.append("SET ")
+                .append(node.getVar());
+                break;
+            case SHOW_ALL_VARIABLES:
+                builder.append("SET");
+                break;
+             default:
+                break;
+            }
+            return null;
+        }
+
         protected Void visitDropTable(DropTable node, Integer context)
         {
             builder.append("DROP TABLE ")
