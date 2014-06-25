@@ -15,9 +15,7 @@ package com.facebook.presto.operator;
 
 import com.facebook.presto.operator.window.WindowFunction;
 import com.facebook.presto.operator.window.WindowFunctionSupplier;
-import com.facebook.presto.sql.tree.Input;
 import com.google.common.base.Preconditions;
-import com.google.common.collect.Lists;
 
 import java.util.Arrays;
 import java.util.List;
@@ -27,15 +25,15 @@ public class WindowFunctionDefinition
     private final WindowFunctionSupplier functionSupplier;
     private final List<Integer> argumentChannels;
 
-    public static WindowFunctionDefinition window(WindowFunctionSupplier functionSupplier, List<Input> inputs)
+    public static WindowFunctionDefinition window(WindowFunctionSupplier functionSupplier, List<Integer> inputs)
     {
         Preconditions.checkNotNull(functionSupplier, "functionSupplier is null");
         Preconditions.checkNotNull(inputs, "inputs is null");
 
-        return new WindowFunctionDefinition(functionSupplier, Lists.transform(inputs, Input.channelGetter()));
+        return new WindowFunctionDefinition(functionSupplier, inputs);
     }
 
-    public static WindowFunctionDefinition window(WindowFunctionSupplier functionSupplier, Input... inputs)
+    public static WindowFunctionDefinition window(WindowFunctionSupplier functionSupplier, Integer... inputs)
     {
         Preconditions.checkNotNull(functionSupplier, "functionSupplier is null");
         Preconditions.checkNotNull(inputs, "inputs is null");

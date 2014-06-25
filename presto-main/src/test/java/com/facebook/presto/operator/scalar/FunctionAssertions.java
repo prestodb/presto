@@ -119,24 +119,24 @@ public final class FunctionAssertions
 
     private static final Page ZERO_CHANNEL_PAGE = new Page(1);
 
-    private static final Map<Input, Type> INPUT_TYPES = ImmutableMap.<Input, Type>builder()
-            .put(new Input(0), BIGINT)
-            .put(new Input(1), VARCHAR)
-            .put(new Input(2), DOUBLE)
-            .put(new Input(3), BOOLEAN)
-            .put(new Input(4), BIGINT)
-            .put(new Input(5), VARCHAR)
-            .put(new Input(6), VARCHAR)
+    private static final Map<Integer, Type> INPUT_TYPES = ImmutableMap.<Integer, Type>builder()
+            .put(0, BIGINT)
+            .put(1, VARCHAR)
+            .put(2, DOUBLE)
+            .put(3, BOOLEAN)
+            .put(4, BIGINT)
+            .put(5, VARCHAR)
+            .put(6, VARCHAR)
             .build();
 
-    private static final Map<Symbol, Input> INPUT_MAPPING = ImmutableMap.<Symbol, Input>builder()
-            .put(new Symbol("bound_long"), new Input(0))
-            .put(new Symbol("bound_string"), new Input(1))
-            .put(new Symbol("bound_double"), new Input(2))
-            .put(new Symbol("bound_boolean"), new Input(3))
-            .put(new Symbol("bound_timestamp"), new Input(4))
-            .put(new Symbol("bound_pattern"), new Input(5))
-            .put(new Symbol("bound_null_string"), new Input(6))
+    private static final Map<Symbol, Integer> INPUT_MAPPING = ImmutableMap.<Symbol, Integer>builder()
+            .put(new Symbol("bound_long"), 0)
+            .put(new Symbol("bound_string"), 1)
+            .put(new Symbol("bound_double"), 2)
+            .put(new Symbol("bound_boolean"), 3)
+            .put(new Symbol("bound_timestamp"), 4)
+            .put(new Symbol("bound_pattern"), 5)
+            .put(new Symbol("bound_null_string"), 6)
             .build();
 
     private static final Map<Symbol, Type> SYMBOL_TYPES = ImmutableMap.<Symbol, Type>builder()
@@ -498,8 +498,8 @@ public final class FunctionAssertions
 
     private OperatorFactory compileFilterProject(Expression filter, Expression projection)
     {
-        filter = ExpressionTreeRewriter.rewriteWith(new SymbolToInputRewriter(INPUT_MAPPING), filter);
-        projection = ExpressionTreeRewriter.rewriteWith(new SymbolToInputRewriter(INPUT_MAPPING), projection);
+        filter = ExpressionTreeRewriter.rewriteWith(SymbolToInputRewriter.createRewriter(INPUT_MAPPING), filter);
+        projection = ExpressionTreeRewriter.rewriteWith(SymbolToInputRewriter.createRewriter(INPUT_MAPPING), projection);
 
         IdentityHashMap<Expression, Type> expressionTypes = getExpressionTypesFromInput(SESSION, metadata, SQL_PARSER, INPUT_TYPES, ImmutableList.of(filter, projection));
 
@@ -516,8 +516,8 @@ public final class FunctionAssertions
 
     private SourceOperatorFactory compileScanFilterProject(Expression filter, Expression projection)
     {
-        filter = ExpressionTreeRewriter.rewriteWith(new SymbolToInputRewriter(INPUT_MAPPING), filter);
-        projection = ExpressionTreeRewriter.rewriteWith(new SymbolToInputRewriter(INPUT_MAPPING), projection);
+        filter = ExpressionTreeRewriter.rewriteWith(SymbolToInputRewriter.createRewriter(INPUT_MAPPING), filter);
+        projection = ExpressionTreeRewriter.rewriteWith(SymbolToInputRewriter.createRewriter(INPUT_MAPPING), projection);
 
         IdentityHashMap<Expression, Type> expressionTypes = getExpressionTypesFromInput(SESSION, metadata, SQL_PARSER, INPUT_TYPES, ImmutableList.of(filter, projection));
 
