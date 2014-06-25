@@ -1278,24 +1278,24 @@ public class LocalExecutionPlanner
 
         private AggregationFunctionDefinition buildFunctionDefinition(PhysicalOperation source, Signature function, FunctionCall call, @Nullable Symbol mask, Optional<Symbol> sampleWeight, double confidence)
         {
-            List<Input> arguments = new ArrayList<>();
+            List<Integer> arguments = new ArrayList<>();
             for (Expression argument : call.getArguments()) {
                 Symbol argumentSymbol = Symbol.fromQualifiedName(((QualifiedNameReference) argument).getName());
-                arguments.add(source.getLayout().get(argumentSymbol));
+                arguments.add(source.getLayout().get(argumentSymbol).getChannel());
             }
 
-            Optional<Input> maskInput = Optional.absent();
+            Optional<Integer> maskChannel = Optional.absent();
 
             if (mask != null) {
-                maskInput = Optional.of(source.getLayout().get(mask));
+                maskChannel = Optional.of(source.getLayout().get(mask).getChannel());
             }
 
-            Optional<Input> sampleWeightInput = Optional.absent();
+            Optional<Integer> sampleWeightChannel = Optional.absent();
             if (sampleWeight.isPresent()) {
-                sampleWeightInput = Optional.of(source.getLayout().get(sampleWeight.get()));
+                sampleWeightChannel = Optional.of(source.getLayout().get(sampleWeight.get()).getChannel());
             }
 
-            return metadata.getExactFunction(function).bind(arguments, maskInput, sampleWeightInput, confidence);
+            return metadata.getExactFunction(function).bind(arguments, maskChannel, sampleWeightChannel, confidence);
         }
 
         private PhysicalOperation planGlobalAggregation(int operatorId, AggregationNode node, PhysicalOperation source)

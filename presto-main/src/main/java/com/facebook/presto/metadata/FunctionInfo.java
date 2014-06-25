@@ -161,7 +161,7 @@ public final class FunctionInfo
         return window(windowFunctionSupplier, inputs);
     }
 
-    public AggregationFunctionDefinition bind(List<Input> inputs, Optional<Input> mask, Optional<Input> sampleWeight, double confidence)
+    public AggregationFunctionDefinition bind(List<Integer> inputs, Optional<Integer> mask, Optional<Integer> sampleWeight, double confidence)
     {
         checkState(isAggregate, "function is not an aggregate");
         return aggregation(aggregationFunction, inputs, mask, sampleWeight, confidence);

@@ -25,7 +25,6 @@ import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockCursor;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.planner.plan.AggregationNode.Step;
-import com.facebook.presto.sql.tree.Input;
 import com.facebook.presto.testing.LocalQueryRunner;
 import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
@@ -101,13 +100,13 @@ public class HandTpchQuery1
                 Ints.asList(0, 1),
                 Step.SINGLE,
                 ImmutableList.of(
-                        aggregation(LONG_SUM, ImmutableList.of(new Input(2)), Optional.<Input>absent(), Optional.<Input>absent(), 1.0),
-                        aggregation(DOUBLE_SUM, ImmutableList.of(new Input(3)), Optional.<Input>absent(), Optional.<Input>absent(), 1.0),
-                        aggregation(DOUBLE_SUM, ImmutableList.of(new Input(4)), Optional.<Input>absent(), Optional.<Input>absent(), 1.0),
-                        aggregation(LONG_AVERAGE, ImmutableList.of(new Input(2)), Optional.<Input>absent(), Optional.<Input>absent(), 1.0),
-                        aggregation(DOUBLE_AVERAGE, ImmutableList.of(new Input(5)), Optional.<Input>absent(), Optional.<Input>absent(), 1.0),
-                        aggregation(DOUBLE_AVERAGE, ImmutableList.of(new Input(6)), Optional.<Input>absent(), Optional.<Input>absent(), 1.0),
-                        aggregation(COUNT, ImmutableList.of(new Input(2)), Optional.<Input>absent(), Optional.<Input>absent(), 1.0)
+                        aggregation(LONG_SUM, ImmutableList.of(2), Optional.<Integer>absent(), Optional.<Integer>absent(), 1.0),
+                        aggregation(DOUBLE_SUM, ImmutableList.of(3), Optional.<Integer>absent(), Optional.<Integer>absent(), 1.0),
+                        aggregation(DOUBLE_SUM, ImmutableList.of(4), Optional.<Integer>absent(), Optional.<Integer>absent(), 1.0),
+                        aggregation(LONG_AVERAGE, ImmutableList.of(2), Optional.<Integer>absent(), Optional.<Integer>absent(), 1.0),
+                        aggregation(DOUBLE_AVERAGE, ImmutableList.of(5), Optional.<Integer>absent(), Optional.<Integer>absent(), 1.0),
+                        aggregation(DOUBLE_AVERAGE, ImmutableList.of(6), Optional.<Integer>absent(), Optional.<Integer>absent(), 1.0),
+                        aggregation(COUNT, ImmutableList.of(2), Optional.<Integer>absent(), Optional.<Integer>absent(), 1.0)
                         ),
                 10_000);
 
