@@ -25,14 +25,13 @@ import com.facebook.presto.sql.tree.AstVisitor;
 import com.facebook.presto.sql.tree.BetweenPredicate;
 import com.facebook.presto.sql.tree.BooleanLiteral;
 import com.facebook.presto.sql.tree.Cast;
+import com.facebook.presto.sql.tree.InputReference;
 import com.facebook.presto.sql.tree.CoalesceExpression;
 import com.facebook.presto.sql.tree.ComparisonExpression;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.InListExpression;
 import com.facebook.presto.sql.tree.InPredicate;
-import com.facebook.presto.sql.tree.Input;
-import com.facebook.presto.sql.tree.InputReference;
 import com.facebook.presto.sql.tree.IsNullPredicate;
 import com.facebook.presto.sql.tree.LikePredicate;
 import com.facebook.presto.sql.tree.Literal;
@@ -140,9 +139,7 @@ public class ExpressionInterpreter
         @Override
         public Object visitInputReference(InputReference node, Object context)
         {
-            Input input = node.getInput();
-
-            int channel = input.getChannel();
+            int channel = node.getChannel();
             if (context instanceof BlockCursor[]) {
                 BlockCursor[] inputs = (BlockCursor[]) context;
                 BlockCursor cursor = inputs[channel];
@@ -174,7 +171,7 @@ public class ExpressionInterpreter
                     return null;
                 }
 
-                Class<?> javaType = cursor.getType(input.getChannel()).getJavaType();
+                Class<?> javaType = cursor.getType(node.getChannel()).getJavaType();
                 if (javaType == boolean.class) {
                     return cursor.getBoolean(channel);
                 }

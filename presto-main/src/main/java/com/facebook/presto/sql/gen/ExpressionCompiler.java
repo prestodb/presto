@@ -52,8 +52,8 @@ import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.split.DataStreamProvider;
 import com.facebook.presto.sql.planner.SubExpressionExtractor;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
-import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.InputReference;
+import com.facebook.presto.sql.tree.Expression;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Objects;
 import com.google.common.base.Preconditions;
@@ -762,7 +762,7 @@ public class ExpressionCompiler
         TreeSet<Integer> channels = new TreeSet<>();
         for (Expression expression : SubExpressionExtractor.extractAll(expressions)) {
             if (expression instanceof InputReference) {
-                channels.add(((InputReference) expression).getInput().getChannel());
+                channels.add(((InputReference) expression).getChannel());
             }
         }
         return ImmutableList.copyOf(channels);
