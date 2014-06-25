@@ -88,7 +88,6 @@ public class TestSqlTaskExecution
         MetadataManager metadata = new MetadataManager(new FeaturesConfig(), new TypeRegistry());
 
         LocalExecutionPlanner planner = new LocalExecutionPlanner(
-                new NodeInfo("test"),
                 metadata,
                 new SqlParser(),
                 new DataStreamManager(),

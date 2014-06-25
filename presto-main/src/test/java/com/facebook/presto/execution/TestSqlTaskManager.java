@@ -96,7 +96,6 @@ public class TestSqlTaskManager
         DataStreamManager dataStreamProvider = new DataStreamManager();
         dataStreamProvider.addConnectorDataStreamProvider("test", new TestingDataStreamProvider());
         planner = new LocalExecutionPlanner(
-                new NodeInfo("test"),
                 metadata,
                 new SqlParser(),
                 dataStreamProvider,

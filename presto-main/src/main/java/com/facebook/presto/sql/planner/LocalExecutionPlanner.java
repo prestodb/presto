@@ -117,7 +117,6 @@ import com.google.common.collect.Multimap;
 import com.google.common.collect.Ordering;
 import com.google.common.collect.SetMultimap;
 import io.airlift.log.Logger;
-import io.airlift.node.NodeInfo;
 
 import javax.annotation.Nullable;
 import javax.inject.Inject;
@@ -153,7 +152,6 @@ public class LocalExecutionPlanner
 {
     private static final Logger log = Logger.get(LocalExecutionPlanner.class);
 
-    private final NodeInfo nodeInfo;
     private final Metadata metadata;
     private final SqlParser sqlParser;
 
@@ -165,7 +163,7 @@ public class LocalExecutionPlanner
     private final boolean interpreterEnabled;
 
     @Inject
-    public LocalExecutionPlanner(NodeInfo nodeInfo,
+    public LocalExecutionPlanner(
             Metadata metadata,
             SqlParser sqlParser,
             DataStreamProvider dataStreamProvider,
@@ -176,7 +174,6 @@ public class LocalExecutionPlanner
             CompilerConfig config)
     {
         checkNotNull(config, "config is null");
-        this.nodeInfo = checkNotNull(nodeInfo, "nodeInfo is null");
         this.dataStreamProvider = dataStreamProvider;
         this.indexManager = checkNotNull(indexManager, "indexManager is null");
         this.exchangeClientSupplier = exchangeClientSupplier;
@@ -682,11 +679,8 @@ public class LocalExecutionPlanner
                 Expression rewrittenFilter = ExpressionTreeRewriter.rewriteWith(symbolToInputRewriter, filterExpression);
 
                 List<Expression> rewrittenProjections = new ArrayList<>();
-                List<Type> outputTypes = new ArrayList<>();
-                for (int i = 0; i < projectionExpressions.size(); i++) {
-                    Expression projection = projectionExpressions.get(i);
+                for (Expression projection : projectionExpressions) {
                     rewrittenProjections.add(ExpressionTreeRewriter.rewriteWith(symbolToInputRewriter, projection));
-                    outputTypes.add(context.getTypes().get(outputSymbols.get(i)));
                 }
 
                 IdentityHashMap<Expression, Type> expressionTypes = getExpressionTypesFromInput(

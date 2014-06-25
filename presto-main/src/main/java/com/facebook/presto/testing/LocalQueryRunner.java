@@ -84,8 +84,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
-import io.airlift.node.NodeConfig;
-import io.airlift.node.NodeInfo;
 import org.intellij.lang.annotations.Language;
 
 import java.util.ArrayList;
@@ -334,9 +332,6 @@ public class LocalQueryRunner
         }
 
         LocalExecutionPlanner executionPlanner = new LocalExecutionPlanner(
-                new NodeInfo(new NodeConfig()
-                        .setEnvironment("test")
-                        .setNodeId("test-node")),
                 metadata,
                 sqlParser,
                 dataStreamProvider,
