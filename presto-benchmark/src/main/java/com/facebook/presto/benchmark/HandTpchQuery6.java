@@ -73,7 +73,7 @@ public class HandTpchQuery6
     }
 
     public static class TpchQuery6Operator
-            extends com.facebook.presto.operator.AbstractFilterAndProjectOperator
+            extends com.facebook.presto.operator.AbstractFilterAndProjectOperator // TODO: use import when Java 7 compiler bug is fixed
     {
         public static class TpchQuery6OperatorFactory
                 implements OperatorFactory
@@ -118,7 +118,7 @@ public class HandTpchQuery6
             filterAndProjectRowOriented(pageBuilder, page.getBlock(0), page.getBlock(1), page.getBlock(2), page.getBlock(3));
         }
 
-        private void filterAndProjectRowOriented(PageBuilder pageBuilder, Block extendedPriceBlock, Block discountBlock, Block shipDateBlock, Block quantityBlock)
+        private static void filterAndProjectRowOriented(PageBuilder pageBuilder, Block extendedPriceBlock, Block discountBlock, Block shipDateBlock, Block quantityBlock)
         {
             int rows = extendedPriceBlock.getPositionCount();
 
@@ -149,7 +149,7 @@ public class HandTpchQuery6
             checkState(!quantityCursor.advanceNextPosition());
         }
 
-        private void project(PageBuilder pageBuilder, BlockCursor extendedPriceCursor, BlockCursor discountCursor)
+        private static void project(PageBuilder pageBuilder, BlockCursor extendedPriceCursor, BlockCursor discountCursor)
         {
             if (discountCursor.isNull() || extendedPriceCursor.isNull()) {
                 pageBuilder.getBlockBuilder(0).appendNull();
@@ -159,7 +159,7 @@ public class HandTpchQuery6
             }
         }
 
-        private boolean filter(BlockCursor discountCursor, BlockCursor shipDateCursor, BlockCursor quantityCursor)
+        private static boolean filter(BlockCursor discountCursor, BlockCursor shipDateCursor, BlockCursor quantityCursor)
         {
             return !shipDateCursor.isNull() && shipDateCursor.getSlice().compareTo(MIN_SHIP_DATE) >= 0 &&
                     !shipDateCursor.isNull() && shipDateCursor.getSlice().compareTo(MAX_SHIP_DATE) < 0 &&
