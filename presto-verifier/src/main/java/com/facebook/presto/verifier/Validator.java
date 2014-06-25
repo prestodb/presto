@@ -37,7 +37,6 @@ import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.ResultSet;
 import java.sql.SQLException;
-import java.sql.SQLTimeoutException;
 import java.sql.Statement;
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -105,6 +104,10 @@ public class Validator
 
     public boolean isSkipped()
     {
+        if (getControlResult().getState() == State.TIMEOUT || getTestResult().getState() == State.TIMEOUT) {
+            return true;
+        }
+
         if (!checkCorrectness) {
             return false;
         }
@@ -138,6 +141,12 @@ public class Validator
             sb.append("Name: " + queryPair.getName() + "\n");
             sb.append("Schema (control): " + queryPair.getControl().getSchema() + "\n");
             sb.append("NON DETERMINISTIC\n");
+        }
+        else if (getControlResult().getState() == State.TIMEOUT || getTestResult().getState() == State.TIMEOUT) {
+            sb.append("----------\n");
+            sb.append("Name: " + queryPair.getName() + "\n");
+            sb.append("Schema (control): " + queryPair.getControl().getSchema() + "\n");
+            sb.append("TIMEOUT\n");
         }
         return sb.toString();
     }
@@ -246,7 +255,7 @@ public class Validator
                     throw e;
                 }
                 catch (UncheckedTimeoutException e) {
-                    throw new SQLTimeoutException(e);
+                    return new QueryResult(State.TIMEOUT, null, null, ImmutableList.<List<Object>>of());
                 }
                 catch (InterruptedException e) {
                     Thread.currentThread().interrupt();
