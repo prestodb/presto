@@ -104,10 +104,6 @@ public class Validator
 
     public boolean isSkipped()
     {
-        if (getControlResult().getState() == State.TIMEOUT || getTestResult().getState() == State.TIMEOUT) {
-            return true;
-        }
-
         if (!checkCorrectness) {
             return false;
         }
@@ -121,6 +117,10 @@ public class Validator
         }
 
         if (!isDeterministic()) {
+            return true;
+        }
+
+        if (getTestResult().getState() == State.TIMEOUT) {
             return true;
         }
 
