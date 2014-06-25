@@ -1,0 +1,122 @@
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>4.12. EXPLAIN &mdash; Presto 0.72 Documentation</title>
+    
+    <link rel="stylesheet" href="../_static/presto.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '../',
+        VERSION:     '0.72',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="../_static/jquery.js"></script>
+    <script type="text/javascript" src="../_static/underscore.js"></script>
+    <script type="text/javascript" src="../_static/doctools.js"></script>
+    <link rel="top" title="Presto 0.72 Documentation" href="../index.html" />
+    <link rel="up" title="4. SQL Statement Syntax" href="../sql.html" />
+    <link rel="next" title="4.13. DESCRIBE" href="describe.html" />
+    <link rel="prev" title="4.11. DROP VIEW" href="drop-view.html" /> 
+  </head>
+  <body>
+<div class="header">
+    <h1 class="heading"><a href="../index.html">
+        <span>Presto 0.72 Documentation</span></a></h1>
+    <h2 class="heading"><span>4.12. EXPLAIN</span></h2>
+</div>
+<div class="topnav">
+    
+<p class="nav">
+    <span class="left">
+        &laquo; <a href="drop-view.html">4.11. DROP VIEW</a>
+    </span>
+    <span class="right">
+        <a href="describe.html">4.13. DESCRIBE</a> &raquo;
+    </span>
+</p>
+
+</div>
+<div class="content">
+    
+  <div class="section" id="explain">
+<h1>4.12. EXPLAIN</h1>
+<div class="section" id="synopsis">
+<h2>Synopsis</h2>
+<div class="highlight-none"><div class="highlight"><pre>EXPLAIN [ ( option [, ...] ) ] statement
+
+where option can be one of:
+
+    FORMAT { TEXT | GRAPHVIZ }
+    TYPE { LOGICAL | DISTRIBUTED }
+</pre></div>
+</div>
+</div>
+<div class="section" id="description">
+<h2>Description</h2>
+<p>Show the logical or distributed execution plan of a statement.</p>
+</div>
+<div class="section" id="examples">
+<h2>Examples</h2>
+<p>Logical plan:</p>
+<div class="highlight-none"><div class="highlight"><pre>presto:tiny&gt; EXPLAIN SELECT regionkey, count(*) FROM nation GROUP BY 1;
+                                          Query Plan
+----------------------------------------------------------------------------------------------
+ - Output[regionkey, _col1]
+         _col1 := count
+     - Aggregate[regionkey] =&gt; [regionkey:bigint, count:bigint]
+             count := &quot;count&quot;(*)
+         - TableScan[tpch:tpch:nation:sf0.01, original constraint=true] =&gt; [regionkey:bigint]
+                 regionkey := tpch:tpch:regionkey:2
+</pre></div>
+</div>
+<p>Distributed plan:</p>
+<div class="highlight-none"><div class="highlight"><pre>presto:tiny&gt; EXPLAIN (TYPE DISTRIBUTED) SELECT regionkey, count(*) FROM nation GROUP BY 1;
+                                                    Query Plan
+------------------------------------------------------------------------------------------------------------------
+ - Output[regionkey, _col1]
+         _col1 := count
+     - Exchange[[1]] =&gt; [regionkey:bigint, count:bigint]
+         - Sink[12] =&gt; [regionkey:bigint, count:bigint]
+             - Aggregate(FINAL)[regionkey] =&gt; [regionkey:bigint, count:bigint]
+                     count := &quot;count&quot;(&quot;count_3&quot;)
+                 - Exchange[[0]] =&gt; [regionkey:bigint, count_3:bigint]
+                     - Sink[9] =&gt; [regionkey:bigint, count_3:bigint]
+                         - Aggregate(PARTIAL)[regionkey] =&gt; [regionkey:bigint, count_3:bigint]
+                                 count_3 := &quot;count&quot;(*)
+                             - TableScan[tpch:tpch:nation:sf0.01, original constraint=true] =&gt; [regionkey:bigint]
+                                     regionkey := tpch:tpch:regionkey:2
+</pre></div>
+</div>
+</div>
+</div>
+
+
+</div>
+<div class="bottomnav">
+    
+<p class="nav">
+    <span class="left">
+        &laquo; <a href="drop-view.html">4.11. DROP VIEW</a>
+    </span>
+    <span class="right">
+        <a href="describe.html">4.13. DESCRIBE</a> &raquo;
+    </span>
+</p>
+
+</div>
+
+    <div class="footer">
+    </div>
+  </body>
+</html>
