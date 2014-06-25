@@ -15,8 +15,8 @@ package com.facebook.presto.sql.analyzer;
 
 import com.facebook.presto.metadata.FunctionInfo;
 import com.facebook.presto.metadata.Metadata;
-import com.facebook.presto.metadata.OperatorType;
 import com.facebook.presto.metadata.OperatorNotFoundException;
+import com.facebook.presto.metadata.OperatorType;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.parser.SqlParser;
@@ -38,7 +38,6 @@ import com.facebook.presto.sql.tree.GenericLiteral;
 import com.facebook.presto.sql.tree.IfExpression;
 import com.facebook.presto.sql.tree.InListExpression;
 import com.facebook.presto.sql.tree.InPredicate;
-import com.facebook.presto.sql.tree.Input;
 import com.facebook.presto.sql.tree.InputReference;
 import com.facebook.presto.sql.tree.IntervalLiteral;
 import com.facebook.presto.sql.tree.IsNotNullPredicate;
@@ -86,7 +85,6 @@ import static com.facebook.presto.spi.type.DateType.DATE;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.IntervalDayTimeType.INTERVAL_DAY_TIME;
 import static com.facebook.presto.spi.type.IntervalYearMonthType.INTERVAL_YEAR_MONTH;
-import static com.facebook.presto.type.UnknownType.UNKNOWN;
 import static com.facebook.presto.spi.type.TimeType.TIME;
 import static com.facebook.presto.spi.type.TimeWithTimeZoneType.TIME_WITH_TIME_ZONE;
 import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
@@ -99,6 +97,7 @@ import static com.facebook.presto.sql.analyzer.SemanticErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.TYPE_MISMATCH;
 import static com.facebook.presto.sql.tree.Extract.Field.TIMEZONE_HOUR;
 import static com.facebook.presto.sql.tree.Extract.Field.TIMEZONE_MINUTE;
+import static com.facebook.presto.type.UnknownType.UNKNOWN;
 import static com.facebook.presto.util.DateTimeUtils.timeHasTimeZone;
 import static com.facebook.presto.util.DateTimeUtils.timestampHasTimeZone;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -769,7 +768,7 @@ public class ExpressionAnalyzer
             ConnectorSession session,
             Metadata metadata,
             SqlParser sqlParser,
-            Map<Input, Type> types,
+            Map<Integer, Type> types,
             Expression expression)
     {
         return getExpressionTypesFromInput(session, metadata, sqlParser, types, ImmutableList.of(expression));
@@ -779,7 +778,7 @@ public class ExpressionAnalyzer
             ConnectorSession session,
             Metadata metadata,
             SqlParser sqlParser,
-            Map<Input, Type> types,
+            Map<Integer, Type> types,
             Iterable<? extends Expression> expressions)
     {
         return analyzeExpressionsWithInputs(session, metadata, sqlParser, types, expressions).getExpressionTypes();
@@ -812,12 +811,12 @@ public class ExpressionAnalyzer
             ConnectorSession session,
             Metadata metadata,
             SqlParser sqlParser,
-            Map<Input, Type> types,
+            Map<Integer, Type> types,
             Iterable<? extends Expression> expressions)
     {
         Field[] fields = new Field[types.size()];
-        for (Entry<Input, Type> entry : types.entrySet()) {
-            fields[entry.getKey().getChannel()] = Field.newUnqualified(Optional.<String>absent(), entry.getValue());
+        for (Entry<Integer, Type> entry : types.entrySet()) {
+            fields[entry.getKey()] = Field.newUnqualified(Optional.<String>absent(), entry.getValue());
         }
         TupleDescriptor tupleDescriptor = new TupleDescriptor(fields);
 

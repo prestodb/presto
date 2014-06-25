@@ -13,13 +13,12 @@
  */
 package com.facebook.presto.sql.planner;
 
-import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.metadata.MetadataManager;
+import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.tree.ComparisonExpression;
 import com.facebook.presto.sql.tree.Expression;
-import com.facebook.presto.sql.tree.Input;
 import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;
 
@@ -201,7 +200,7 @@ public class TestInterpretedFilterFunction
 
         InterpretedFilterFunction filterFunction = new InterpretedFilterFunction(parsed,
                 ImmutableMap.<Symbol, Type>of(),
-                ImmutableMap.<Symbol, Input>of(),
+                ImmutableMap.<Symbol, Integer>of(),
                 metadata,
                 SQL_PARSER,
                 session

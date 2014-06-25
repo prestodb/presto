@@ -31,6 +31,16 @@ public class SymbolToInputRewriter
 {
     private final Map<Symbol, Input> symbolToInputMapping;
 
+    public static SymbolToInputRewriter createRewriter(Map<Symbol, Integer> symbolToChannelMapping)
+    {
+        checkNotNull(symbolToChannelMapping, "symbolToChannelMapping is null");
+        ImmutableMap.Builder<Symbol, Input> builder = ImmutableMap.builder();
+        for (Map.Entry<Symbol, Integer> entry : symbolToChannelMapping.entrySet()) {
+            builder.put(entry.getKey(), new Input(entry.getValue()));
+        }
+        return new SymbolToInputRewriter(builder.build());
+    }
+
     public SymbolToInputRewriter(Map<Symbol, Input> symbolToInputMapping)
     {
         checkNotNull(symbolToInputMapping, "symbolToInputMapping is null");

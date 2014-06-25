@@ -15,15 +15,14 @@ package com.facebook.presto.sql.planner;
 
 import com.facebook.presto.block.BlockAssertions;
 import com.facebook.presto.block.BlockUtils;
-import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.metadata.MetadataManager;
+import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.block.BlockCursor;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.tree.ArithmeticExpression;
-import com.facebook.presto.sql.tree.Input;
 import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;
 
@@ -140,33 +139,33 @@ public class TestInterpretedProjectionFunction
     @Test
     public void testSymbolReference()
     {
-        assertProjection("symbol", true, ImmutableMap.of(new Symbol("symbol"), new Input(0)), createCursor(BOOLEAN, true));
-        assertProjection("symbol", null, ImmutableMap.of(new Symbol("symbol"), new Input(0)), createCursor(BOOLEAN, null));
+        assertProjection("symbol", true, ImmutableMap.of(new Symbol("symbol"), 0), createCursor(BOOLEAN, true));
+        assertProjection("symbol", null, ImmutableMap.of(new Symbol("symbol"), 0), createCursor(BOOLEAN, null));
 
-        assertProjection("symbol", 42L, ImmutableMap.of(new Symbol("symbol"), new Input(0)), createCursor(BIGINT, 42));
-        assertProjection("symbol", null, ImmutableMap.of(new Symbol("symbol"), new Input(0)), createCursor(BIGINT, null));
+        assertProjection("symbol", 42L, ImmutableMap.of(new Symbol("symbol"), 0), createCursor(BIGINT, 42));
+        assertProjection("symbol", null, ImmutableMap.of(new Symbol("symbol"), 0), createCursor(BIGINT, null));
 
-        assertProjection("symbol", 11.1, ImmutableMap.of(new Symbol("symbol"), new Input(0)), createCursor(DOUBLE, 11.1));
-        assertProjection("symbol", null, ImmutableMap.of(new Symbol("symbol"), new Input(0)), createCursor(DOUBLE, null));
+        assertProjection("symbol", 11.1, ImmutableMap.of(new Symbol("symbol"), 0), createCursor(DOUBLE, 11.1));
+        assertProjection("symbol", null, ImmutableMap.of(new Symbol("symbol"), 0), createCursor(DOUBLE, null));
 
-        assertProjection("symbol", "foo", ImmutableMap.of(new Symbol("symbol"), new Input(0)), createCursor(VARCHAR, "foo"));
-        assertProjection("symbol", null, ImmutableMap.of(new Symbol("symbol"), new Input(0)), createCursor(VARCHAR, null));
+        assertProjection("symbol", "foo", ImmutableMap.of(new Symbol("symbol"), 0), createCursor(VARCHAR, "foo"));
+        assertProjection("symbol", null, ImmutableMap.of(new Symbol("symbol"), 0), createCursor(VARCHAR, null));
     }
 
     public static void assertProjection(String expression, @Nullable Object expectedValue)
     {
-        assertProjection(expression, expectedValue, ImmutableMap.<Symbol, Input>of());
+        assertProjection(expression, expectedValue, ImmutableMap.<Symbol, Integer>of());
     }
 
     private static void assertProjection(
             String expression,
             @Nullable Object expectedValue,
-            Map<Symbol, Input> symbolToInputMappings,
+            Map<Symbol, Integer> symbolToInputMappings,
             BlockCursor... channels)
     {
         ImmutableMap.Builder<Symbol, Type> symbolTypes = ImmutableMap.builder();
-        for (Entry<Symbol, Input> entry : symbolToInputMappings.entrySet()) {
-            symbolTypes.put(entry.getKey(), channels[entry.getValue().getChannel()].getType());
+        for (Entry<Symbol, Integer> entry : symbolToInputMappings.entrySet()) {
+            symbolTypes.put(entry.getKey(), channels[entry.getValue()].getType());
         }
 
         MetadataManager metadata = new MetadataManager();

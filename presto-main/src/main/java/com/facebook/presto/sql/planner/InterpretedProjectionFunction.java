@@ -23,7 +23,6 @@ import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.ExpressionTreeRewriter;
-import com.facebook.presto.sql.tree.Input;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.Slice;
 
@@ -42,17 +41,17 @@ public class InterpretedProjectionFunction
     public InterpretedProjectionFunction(
             Expression expression,
             Map<Symbol, Type> symbolTypes,
-            Map<Symbol, Input> symbolToInputMappings,
+            Map<Symbol, Integer> symbolToInputMappings,
             Metadata metadata,
             SqlParser sqlParser,
             ConnectorSession session)
     {
         // pre-compute symbol -> input mappings and replace the corresponding nodes in the tree
-        Expression rewritten = ExpressionTreeRewriter.rewriteWith(new SymbolToInputRewriter(symbolToInputMappings), expression);
+        Expression rewritten = ExpressionTreeRewriter.rewriteWith(SymbolToInputRewriter.createRewriter(symbolToInputMappings), expression);
 
         // analyze expression so we can know the type of every expression in the tree
-        ImmutableMap.Builder<Input, Type> inputTypes = ImmutableMap.builder();
-        for (Map.Entry<Symbol, Input> entry : symbolToInputMappings.entrySet()) {
+        ImmutableMap.Builder<Integer, Type> inputTypes = ImmutableMap.builder();
+        for (Map.Entry<Symbol, Integer> entry : symbolToInputMappings.entrySet()) {
             inputTypes.put(entry.getValue(), symbolTypes.get(entry.getKey()));
         }
         IdentityHashMap<Expression, Type> expressionTypes = getExpressionTypesFromInput(session, metadata, sqlParser, inputTypes.build(), rewritten);
