@@ -35,6 +35,8 @@ public class CassandraSessionFactory
     private final int fetchSizeForPartitionKeySelect;
     private final int limitForPartitionKeySelect;
     private final int nativeProtocolPort;
+    private final String authUsername;
+    private final String authPassword;
 
     @Inject
     public CassandraSessionFactory(CassandraConnectorId connectorId, CassandraClientConfig config)
@@ -50,6 +52,8 @@ public class CassandraSessionFactory
         consistencyLevel = config.getConsistencyLevel();
         fetchSizeForPartitionKeySelect = config.getFetchSizeForPartitionKeySelect();
         limitForPartitionKeySelect = config.getLimitForPartitionKeySelect();
+        authUsername = config.getAuthUsername();
+        authPassword = config.getAuthPassword();
     }
 
     public CassandraSession create()
@@ -58,6 +62,10 @@ public class CassandraSessionFactory
         clusterBuilder.addContactPoints(contactPoints.toArray(new String[contactPoints.size()]));
         clusterBuilder.withPort(nativeProtocolPort);
         clusterBuilder.withReconnectionPolicy(new ExponentialReconnectionPolicy(500, 10000));
+
+        if (authUsername != null && authPassword != null) {
+            clusterBuilder.withCredentials(authUsername, authPassword);
+        }
 
         QueryOptions options = new QueryOptions();
         options.setFetchSize(fetchSize);

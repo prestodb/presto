@@ -37,7 +37,9 @@ public class TestCassandraClientConfig
                 .setFetchSize(5_000)
                 .setConsistencyLevel(ConsistencyLevel.ONE)
                 .setContactPoints("")
-                .setNativeProtocolPort(9042));
+                .setNativeProtocolPort(9042)
+                .setAuthUsername(null)
+                .setAuthPassword(null));
     }
 
     @Test
@@ -54,6 +56,8 @@ public class TestCassandraClientConfig
                 .put("cassandra.native-protocol-port", "9999")
                 .put("cassandra.fetch-size", "10000")
                 .put("cassandra.consistency-level", "TWO")
+                .put("cassandra.auth-username", "my_username")
+                .put("cassandra.auth-password", "my_password")
                 .build();
 
         CassandraClientConfig expected = new CassandraClientConfig()
@@ -66,7 +70,9 @@ public class TestCassandraClientConfig
                 .setContactPoints("host1", "host2")
                 .setNativeProtocolPort(9999)
                 .setFetchSize(10_000)
-                .setConsistencyLevel(ConsistencyLevel.TWO);
+                .setConsistencyLevel(ConsistencyLevel.TWO)
+                .setAuthUsername("my_username")
+                .setAuthPassword("my_password");
 
         ConfigAssertions.assertFullMapping(properties, expected);
     }

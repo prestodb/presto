@@ -41,6 +41,8 @@ public class CassandraClientConfig
     private int fetchSize = 5_000;
     private List<String> contactPoints = ImmutableList.of();
     private int nativeProtocolPort = 9042;
+    private String authUsername = null;
+    private String authPassword = null;
 
     @Min(0)
     public int getLimitForPartitionKeySelect()
@@ -176,6 +178,30 @@ public class CassandraClientConfig
     public CassandraClientConfig setFetchSizeForPartitionKeySelect(int fetchSizeForPartitionKeySelect)
     {
         this.fetchSizeForPartitionKeySelect = fetchSizeForPartitionKeySelect;
+        return this;
+    }
+
+    public String getAuthUsername()
+    {
+        return authUsername;
+    }
+
+    @Config("cassandra.auth-username")
+    public CassandraClientConfig setAuthUsername(String val)
+    {
+        this.authUsername = val;
+        return this;
+    }
+
+    public String getAuthPassword()
+    {
+        return authPassword;
+    }
+
+    @Config("cassandra.auth-password")
+    public CassandraClientConfig setAuthPassword(String val)
+    {
+        this.authPassword = val;
         return this;
     }
 }

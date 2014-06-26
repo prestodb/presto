@@ -69,6 +69,12 @@ cassandra.fetch-size=5000
 # (advanced)
 cassandra.fetch-size-for-partition-key-select=20000
 
+# Authentication with Cassandra
+# These will be used for all connections
+# (optional)
+#cassandra.auth-username=my_username
+#cassandra.auth-password=my_password
+
 ```
 
 ## Notes
