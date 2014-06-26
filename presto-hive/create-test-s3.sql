@@ -19,7 +19,7 @@ CREATE EXTERNAL TABLE presto_insert_destination_s3 (
 )
 COMMENT 'Presto Destination Table for Inserts'
 STORED AS TEXTFILE
-LOCATION 's3://qtest-qubole-com/prestoUT/presto_insert_destination'
+LOCATION 's3://presto-test-hive/presto_insert_destination'
 ;
 
 DROP TABLE IF EXISTS presto_insert_destination_partitioned_s3;
@@ -29,7 +29,7 @@ CREATE EXTERNAL TABLE presto_insert_destination_partitioned_s3 (
 )
 COMMENT 'Presto Destination Table partitioned for Inserts'
 PARTITIONED BY (ds STRING, dummy INT)
-LOCATION 's3://qtest-qubole-com/prestoUT/presto_insert_destination_partitioned'
+LOCATION 's3://presto-test-hive/presto_insert_destination_partitioned'
 ;
 
 DROP TABLE IF EXISTS tmp_presto_test_load;
