@@ -156,6 +156,12 @@ public class DriverContext
         return result;
     }
 
+    public void freeMemory(long bytes)
+    {
+        pipelineContext.freeMemory(bytes);
+        memoryReservation.getAndAdd(-bytes);
+    }
+
     public boolean isCpuTimerEnabled()
     {
         return pipelineContext.isCpuTimerEnabled();
