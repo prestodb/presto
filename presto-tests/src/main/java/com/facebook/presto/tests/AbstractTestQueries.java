@@ -1756,6 +1756,71 @@ public abstract class AbstractTestQueries
     }
 
     @Test
+    public void testRowNumberLimit()
+            throws Exception
+    {
+        MaterializedResult actual = computeActual("" +
+                "SELECT orderkey, orderstatus FROM (\n" +
+                "   SELECT row_number() OVER () rn, orderkey, orderstatus\n" +
+                "   FROM orders\n" +
+                ") WHERE rn <= 5\n");
+        MaterializedResult all = computeExpected("SELECT orderkey, orderstatus FROM ORDERS", actual.getTypes());
+
+        assertEquals(actual.getMaterializedRows().size(), 5);
+        assertTrue(all.getMaterializedRows().containsAll(actual.getMaterializedRows()));
+    }
+
+    @Test
+    public void testPartitionedRowNumberLimit()
+            throws Exception
+    {
+        MaterializedResult actual = computeActual("" +
+                "SELECT orderkey, orderstatus FROM (\n" +
+                "   SELECT row_number() OVER (PARTITION BY orderstatus) rn, orderkey, orderstatus\n" +
+                "   FROM orders\n" +
+                ") WHERE rn <= 5\n");
+        MaterializedResult all = computeExpected("SELECT orderkey, orderstatus FROM ORDERS", actual.getTypes());
+
+        // there are 3 distinct orderstatus, so expect 15 rows.
+        assertEquals(actual.getMaterializedRows().size(), 15);
+        assertTrue(all.getMaterializedRows().containsAll(actual.getMaterializedRows()));
+    }
+
+    @Test
+    public void testTopNUnpartitionedWindow()
+            throws Exception
+    {
+        MaterializedResult actual = computeActual("" +
+                "SELECT * FROM (\n" +
+                "   SELECT row_number() OVER (ORDER BY orderkey) rn, orderkey, orderstatus\n" +
+                "   FROM orders\n" +
+                ") WHERE rn <= 5\n");
+        String sql = "SELECT row_number() OVER (), orderkey, orderstatus FROM orders ORDER BY orderkey LIMIT 5";
+        MaterializedResult expected = computeExpected(sql, actual.getTypes());
+        assertEquals(actual, expected);
+    }
+
+    @Test
+    public void testTopNPartitionedWindow()
+            throws Exception
+    {
+        MaterializedResult actual = computeActual("" +
+                "SELECT * FROM (\n" +
+                "   SELECT row_number() OVER (PARTITION BY orderstatus ORDER BY orderkey) rn, orderkey, orderstatus\n" +
+                "   FROM orders\n" +
+                ") WHERE rn <= 2\n");
+        MaterializedResult expected = resultBuilder(getSession(), BIGINT, BIGINT, VARCHAR)
+                .row(1, 1, "O")
+                .row(2, 2, "O")
+                .row(1, 3, "F")
+                .row(2, 5, "F")
+                .row(1, 65, "P")
+                .row(2, 197, "P")
+                .build();
+        assertEqualsIgnoreOrder(actual.getMaterializedRows(), expected.getMaterializedRows());
+    }
+
+    @Test
     public void testWindowFunctionWithGroupBy()
             throws Exception
     {

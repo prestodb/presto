@@ -21,7 +21,6 @@ import com.google.common.collect.Ordering;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.units.DataSize;
 
-import java.util.Comparator;
 import java.util.Iterator;
 import java.util.List;
 import java.util.PriorityQueue;
@@ -381,42 +380,6 @@ public class TopNOperator
         public DataSize getMaxMemorySize()
         {
             return operatorContext.getMaxMemorySize();
-        }
-    }
-
-    private static class RowComparator
-            implements Comparator<Block[]>
-    {
-        private final List<Type> sortTypes;
-        private final List<Integer> sortChannels;
-        private final List<SortOrder> sortOrders;
-
-        public RowComparator(List<Type> sortTypes, List<Integer> sortChannels, List<SortOrder> sortOrders)
-        {
-            this.sortTypes = ImmutableList.copyOf(checkNotNull(sortTypes, "sortTypes is null"));
-            this.sortChannels = ImmutableList.copyOf(checkNotNull(sortChannels, "sortChannels is null"));
-            this.sortOrders = ImmutableList.copyOf(checkNotNull(sortOrders, "sortOrders is null"));
-            checkArgument(sortTypes.size() == sortChannels.size(), "sortTypes size (%s) doesn't match sortChannels size (%s)", sortTypes.size(), sortChannels.size());
-            checkArgument(sortChannels.size() == sortOrders.size(), "sortFields size (%s) doesn't match sortOrders size (%s)", sortChannels.size(), sortOrders.size());
-        }
-
-        @Override
-        public int compare(Block[] leftRow, Block[] rightRow)
-        {
-            for (int index = 0; index < sortChannels.size(); index++) {
-                Type type = sortTypes.get(index);
-                int channel = sortChannels.get(index);
-                SortOrder sortOrder = sortOrders.get(index);
-
-                Block left = leftRow[channel];
-                Block right = rightRow[channel];
-
-                int comparison = sortOrder.compareBlockValue(type, left, 0, right, 0);
-                if (comparison != 0) {
-                    return comparison;
-                }
-            }
-            return 0;
         }
     }
 }

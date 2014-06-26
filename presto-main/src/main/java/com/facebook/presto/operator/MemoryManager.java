@@ -15,6 +15,8 @@ package com.facebook.presto.operator;
 
 import io.airlift.units.DataSize;
 
+import static com.google.common.base.Preconditions.checkState;
+
 public class MemoryManager
 {
     private final OperatorContext operatorContext;
@@ -31,6 +33,7 @@ public class MemoryManager
         memorySize -= operatorContext.getOperatorPreAllocatedMemory().toBytes();
 
         long delta = memorySize - currentMemoryReservation;
+
         if (delta <= 0) {
             return true;
         }
@@ -42,6 +45,24 @@ public class MemoryManager
         // reservation worked, record the reservation
         currentMemoryReservation = Math.max(currentMemoryReservation, memorySize);
         return true;
+    }
+
+    public void freeMemory(long bytes)
+    {
+        checkState(currentMemoryReservation - bytes >= 0);
+        operatorContext.freeMemory(bytes);
+        currentMemoryReservation -= bytes;
+    }
+
+    public boolean isFull()
+    {
+        return currentMemoryReservation >= operatorContext.getMaxMemorySize().toBytes();
+    }
+
+    public boolean canUseDelta(long deltaBytes)
+    {
+        long requestedMemoryBytes = deltaBytes + currentMemoryReservation;
+        return canUse(requestedMemoryBytes);
     }
 
     public DataSize getMaxMemorySize()

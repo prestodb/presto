@@ -46,6 +46,11 @@ public class BlockBuilderStatus
         return maxBlockSizeInBytes;
     }
 
+    public int getMaxPageSizeInBytes()
+    {
+        return maxPageSizeInBytes;
+    }
+
     public boolean isEmpty()
     {
         return currentSize == 0;

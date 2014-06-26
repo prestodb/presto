@@ -33,6 +33,7 @@ import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.facebook.presto.sql.planner.plan.PlanVisitor;
 import com.facebook.presto.sql.planner.plan.ProjectNode;
+import com.facebook.presto.sql.planner.plan.RowNumberLimitNode;
 import com.facebook.presto.sql.planner.plan.SampleNode;
 import com.facebook.presto.sql.planner.plan.SemiJoinNode;
 import com.facebook.presto.sql.planner.plan.SinkNode;
@@ -41,6 +42,7 @@ import com.facebook.presto.sql.planner.plan.TableCommitNode;
 import com.facebook.presto.sql.planner.plan.TableScanNode;
 import com.facebook.presto.sql.planner.plan.TableWriterNode;
 import com.facebook.presto.sql.planner.plan.TopNNode;
+import com.facebook.presto.sql.planner.plan.TopNRowNumberNode;
 import com.facebook.presto.sql.planner.plan.UnionNode;
 import com.facebook.presto.sql.planner.plan.ValuesNode;
 import com.facebook.presto.sql.planner.plan.WindowNode;
@@ -248,6 +250,44 @@ public class DistributedLogicalPlanner
             }
 
             current.setRoot(new WindowNode(node.getId(), current.getRoot(), node.getPartitionBy(), node.getOrderBy(), node.getOrderings(), node.getWindowFunctions(), node.getSignatures()));
+
+            return current;
+        }
+
+        @Override
+        public SubPlanBuilder visitRowNumberLimit(RowNumberLimitNode node, Void context)
+        {
+            SubPlanBuilder current = node.getSource().accept(this, context);
+            if (current.isDistributed()) {
+                List<Symbol> partitionedBy = node.getPartitionBy();
+                current.setRoot(new SinkNode(idAllocator.getNextId(), current.getRoot(), current.getRoot().getOutputSymbols()));
+
+                ExchangeNode source = new ExchangeNode(idAllocator.getNextId(), current.getId(), current.getRoot().getOutputSymbols());
+                current.setHashOutputPartitioning(partitionedBy);
+                current = createFixedDistributionPlan(source)
+                        .addChild(current.build());
+            }
+
+            current.setRoot(new RowNumberLimitNode(node.getId(), current.getRoot(), node.getPartitionBy(), node.getRowNumberSymbol(), node.getMaxRowCountPerPartition()));
+
+            return current;
+        }
+
+        @Override
+        public SubPlanBuilder visitTopNRowNumber(TopNRowNumberNode node, Void context)
+        {
+            SubPlanBuilder current = node.getSource().accept(this, context);
+            if (current.isDistributed()) {
+                List<Symbol> partitionedBy = node.getPartitionBy();
+                current.setRoot(new SinkNode(idAllocator.getNextId(), current.getRoot(), current.getRoot().getOutputSymbols()));
+
+                ExchangeNode source = new ExchangeNode(idAllocator.getNextId(), current.getId(), current.getRoot().getOutputSymbols());
+                current.setHashOutputPartitioning(partitionedBy);
+                current = createFixedDistributionPlan(source)
+                        .addChild(current.build());
+            }
+
+            current.setRoot(new TopNRowNumberNode(node.getId(), current.getRoot(), node.getPartitionBy(), node.getOrderBy(), node.getOrderings(), node.getRowNumberSymbol(), node.getMaxRowCountPerPartition()));
 
             return current;
         }
