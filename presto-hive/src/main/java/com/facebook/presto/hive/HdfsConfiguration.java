@@ -86,6 +86,12 @@ public class HdfsConfiguration
         return hadoopConfiguration.get();
     }
 
+    public Configuration getDefaultConfiguration()
+    {
+        // subclasses can decide what will be default configuration
+        return hadoopConfiguration.get();
+    }
+
     protected Configuration createConfiguration()
     {
         Configuration config = new Configuration();

@@ -97,6 +97,11 @@ public interface ConnectorMetadata
     ConnectorOutputTableHandle beginCreateTable(ConnectorSession session, ConnectorTableMetadata tableMetadata);
 
     /**
+     * Begin Insert query
+     */
+    ConnectorOutputTableHandle beginInsert(ConnectorSession session, ConnectorTableMetadata tableMetadata);
+
+    /**
      * Commit a table creation with data after the data is written.
      */
     void commitCreateTable(ConnectorOutputTableHandle tableHandle, Collection<String> fragments);

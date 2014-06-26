@@ -37,4 +37,9 @@ public class HdfsEnvironment
         checkArgument(host != null, "path host is null: %s", path);
         return hdfsConfiguration.getConfiguration(host);
     }
+
+    public Configuration getConfiguration()
+    {
+        return hdfsConfiguration.getDefaultConfiguration();
+    }
 }

@@ -17,14 +17,17 @@ import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.MetadataUtil;
 import com.facebook.presto.metadata.QualifiedTableName;
 import com.facebook.presto.metadata.TableHandle;
+import com.facebook.presto.metadata.TableMetadata;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.sql.tree.AllColumns;
+import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.tree.Approximate;
 import com.facebook.presto.sql.tree.BooleanLiteral;
 import com.facebook.presto.sql.tree.Cast;
 import com.facebook.presto.sql.tree.CreateTable;
 import com.facebook.presto.sql.tree.CreateView;
+import com.facebook.presto.sql.tree.Insert;
 import com.facebook.presto.sql.tree.DefaultTraversalVisitor;
 import com.facebook.presto.sql.tree.Explain;
 import com.facebook.presto.sql.tree.ExplainFormat;
@@ -52,6 +55,7 @@ import com.facebook.presto.sql.tree.UseCollection;
 import com.facebook.presto.sql.tree.With;
 import com.facebook.presto.sql.tree.WithQuery;
 import com.google.common.base.Optional;
+import com.google.common.base.Function;
 import com.google.common.collect.ImmutableList;
 
 import java.util.HashSet;
@@ -66,6 +70,9 @@ import static com.facebook.presto.connector.informationSchema.InformationSchemaM
 import static com.facebook.presto.connector.system.CatalogSystemTable.CATALOG_TABLE_NAME;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.sql.QueryUtil.aliased;
+import static com.facebook.presto.sql.analyzer.Field.typeGetter;
+import static com.facebook.presto.sql.tree.ExplainFormat.Type.TEXT;
+import static com.facebook.presto.sql.tree.ExplainType.Type.LOGICAL;
 import static com.facebook.presto.sql.QueryUtil.aliasedName;
 import static com.facebook.presto.sql.QueryUtil.ascending;
 import static com.facebook.presto.sql.QueryUtil.caseWhen;
@@ -88,10 +95,11 @@ import static com.facebook.presto.sql.analyzer.SemanticErrorCode.INVALID_SCHEMA_
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MISSING_TABLE;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.TABLE_ALREADY_EXISTS;
-import static com.facebook.presto.sql.tree.ExplainFormat.Type.TEXT;
-import static com.facebook.presto.sql.tree.ExplainType.Type.LOGICAL;
+import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MISMATCHED_SET_COLUMN_TYPES;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.collect.Iterables.elementsEqual;
+import static com.google.common.collect.Iterables.transform;
 
 class StatementAnalyzer
         extends DefaultTraversalVisitor<TupleDescriptor, AnalysisContext>
@@ -352,6 +360,41 @@ class StatementAnalyzer
                 Optional.<Approximate>absent());
 
         return process(query, context);
+    }
+
+    @Override
+    protected TupleDescriptor visitInsert(Insert node, AnalysisContext context)
+    {
+        analysis.setInsertDestination(node.getName());
+
+        // analyze the query that creates the data
+        TupleDescriptor descriptor = process(node.getQuery(), context);
+
+        // Get the columns for the destination table
+        // and verify that types match with output of query
+        QualifiedTableName targetTable = MetadataUtil.createQualifiedTableName(session, node.getName());
+        Optional<TableHandle> targetTableHandle = metadata.getTableHandle(session, targetTable);
+        if (!targetTableHandle.isPresent()) {
+            throw new SemanticException(MISSING_TABLE, node, "Destination table '%s' does not exists", targetTable);
+        }
+
+        TableMetadata tableMetadata = metadata.getTableMetadata(targetTableHandle.get());
+        List<ColumnMetadata> columns = tableMetadata.getColumns();
+
+        Iterable<Type> colTypes = transform(columns, new Function<ColumnMetadata, Type>()
+        {
+            @Override
+            public Type apply(ColumnMetadata col)
+            {
+                return col.getType();
+            }
+        });
+
+        if (!elementsEqual(transform(descriptor.getVisibleFields(), typeGetter()), colTypes)) {
+            throw new SemanticException(MISMATCHED_SET_COLUMN_TYPES, node, "Insert query has mismatched columns");
+        }
+
+        return new TupleDescriptor(Field.newUnqualified("rows", BIGINT));
     }
 
     @Override

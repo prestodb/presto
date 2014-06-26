@@ -171,6 +171,12 @@ public class TestingMetadata
     }
 
     @Override
+    public ConnectorOutputTableHandle beginInsert(ConnectorSession session, ConnectorTableMetadata tableMetadata)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
     public void commitCreateTable(ConnectorOutputTableHandle tableHandle, Collection<String> fragments)
     {
         throw new UnsupportedOperationException();

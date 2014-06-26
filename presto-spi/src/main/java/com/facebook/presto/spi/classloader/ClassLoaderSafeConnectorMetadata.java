@@ -146,6 +146,14 @@ public class ClassLoaderSafeConnectorMetadata
     }
 
     @Override
+    public ConnectorOutputTableHandle beginInsert(ConnectorSession session, ConnectorTableMetadata tableMetadata)
+    {
+        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
+            return delegate.beginInsert(session, tableMetadata);
+        }
+    }
+
+    @Override
     public void commitCreateTable(ConnectorOutputTableHandle tableHandle, Collection<String> fragments)
     {
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {

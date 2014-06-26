@@ -30,7 +30,9 @@ import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.net.HostAndPort;
+
 import io.airlift.log.Logger;
+
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hive.metastore.api.Database;
@@ -38,6 +40,7 @@ import org.apache.hadoop.hive.metastore.api.NoSuchObjectException;
 import org.apache.hadoop.hive.metastore.api.Table;
 import org.testng.annotations.Test;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -58,7 +61,7 @@ import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 
 @Test(groups = "hive-s3")
-public abstract class AbstractTestHiveClientS3
+public abstract class AbstractTestHiveClientS3 extends AbstractTestHiveClient
 {
     private static final ConnectorSession SESSION = new ConnectorSession("user", "test", "default", "default", UTC_KEY, Locale.ENGLISH, null, null);
 
@@ -72,11 +75,21 @@ public abstract class AbstractTestHiveClientS3
 
     protected void setupHive(String databaseName)
     {
+        String connectorId = "hive-test";
         database = databaseName;
         tableS3 = new SchemaTableName(database, "presto_test_s3");
 
         String random = UUID.randomUUID().toString().toLowerCase().replace("-", "");
         temporaryCreateTable = new SchemaTableName(database, "tmp_presto_test_create_s3_" + random);
+
+        insertTableDestination = new SchemaTableName(database, "presto_insert_destination_s3");
+        insertTablePartitionedDestination = new SchemaTableName(database, "presto_insert_destination_partitioned_s3");
+        insertCleanupSplits = new ArrayList<ConnectorSplit>();
+        insertedPartitions = new ArrayList<HivePartition>();
+        originalSplits = new ArrayList<String>();
+
+        dsColumn = new HiveColumnHandle(connectorId, "ds", 0, HiveType.STRING, -1, true);
+        dummyColumn = new HiveColumnHandle(connectorId, "dummy", 2, HiveType.INT, -1, true);
     }
 
     protected void setup(String host, int port, String databaseName, String awsAccessKey, String awsSecretKey, String writableBucket)
@@ -105,6 +118,12 @@ public abstract class AbstractTestHiveClientS3
                 new HdfsEnvironment(new HdfsConfiguration(hiveClientConfig)),
                 new HadoopDirectoryLister(),
                 sameThreadExecutor());
+        metadata = client;
+        splitManager = client;
+        recordSetProvider = client;
+        recordSinkProvider = client;
+        tableOwner = "presto_test";
+        super.metastoreClient = metastoreClient;
     }
 
     @Test
@@ -145,6 +164,7 @@ public abstract class AbstractTestHiveClientS3
         assertFalse(fs.exists(new Path(basePath, "foo")));
     }
 
+    @Override
     @Test
     public void testTableCreation()
             throws Exception

@@ -1,3 +1,4 @@
+
 /*
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -30,14 +31,17 @@ package com.facebook.presto.hive;
 import com.facebook.presto.spi.RecordSink;
 import com.google.common.base.Joiner;
 import com.google.common.base.Throwables;
+import com.google.common.cache.CacheBuilder;
+import com.google.common.cache.CacheLoader;
+import com.google.common.cache.LoadingCache;
 import com.google.common.collect.ImmutableList;
+
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hive.ql.io.HiveOutputFormat;
-import org.apache.hadoop.hive.ql.io.RCFileOutputFormat;
+import org.apache.hadoop.hive.common.FileUtils;
 import org.apache.hadoop.hive.serde2.SerDeException;
 import org.apache.hadoop.hive.serde2.Serializer;
-import org.apache.hadoop.hive.serde2.columnar.LazyBinaryColumnarSerDe;
 import org.apache.hadoop.hive.serde2.objectinspector.ObjectInspector;
 import org.apache.hadoop.hive.serde2.objectinspector.PrimitiveObjectInspector;
 import org.apache.hadoop.hive.serde2.objectinspector.SettableStructObjectInspector;
@@ -45,15 +49,21 @@ import org.apache.hadoop.hive.serde2.objectinspector.StructField;
 import org.apache.hadoop.io.Text;
 import org.apache.hadoop.mapred.JobConf;
 import org.apache.hadoop.mapred.Reporter;
+import org.apache.hadoop.util.ReflectionUtils;
 
 import java.io.IOException;
 import java.util.List;
+import java.util.Map;
+import java.util.ArrayList;
 import java.util.Properties;
+import java.util.concurrent.ExecutionException;
 
+import static java.util.UUID.randomUUID;
 import static com.facebook.presto.hive.HiveType.columnTypeToHiveType;
 import static com.facebook.presto.hive.HiveType.hiveTypeNameGetter;
 import static com.facebook.presto.hive.HiveColumnHandle.SAMPLE_WEIGHT_COLUMN_NAME;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.collect.Iterables.transform;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.apache.hadoop.hive.metastore.api.hive_metastoreConstants.META_TABLE_COLUMNS;
@@ -69,6 +79,7 @@ public class HiveRecordSink
         implements RecordSink
 {
     private final int fieldCount;
+    private final int dataFieldsCount;
     @SuppressWarnings("deprecation")
     private final Serializer serializer;
     private final RecordWriter recordWriter;
@@ -77,27 +88,96 @@ public class HiveRecordSink
     private final Object row;
     private final int sampleWeightField;
 
+    private final Path basePath;
+    private final String fileName;
+    private final String filePrefix;
+
+    private final JobConf conf;
+    private final Properties properties;
+    private LoadingCache<String, RecordWriter> recordWriters;
+    Class<? extends HiveOutputFormat> outputFormatClass = null;
+
+    private final boolean isPartitioned;
+
     private int field = -1;
+
+    private List<String> partitionColNames;
+    private List<String> partitionValues;
 
     public HiveRecordSink(HiveOutputTableHandle handle, Path target, JobConf conf)
     {
         fieldCount = handle.getColumnNames().size();
+        dataFieldsCount = handle.getDataColumnNames().size();
+        this.conf = conf;
 
         sampleWeightField = handle.getColumnNames().indexOf(SAMPLE_WEIGHT_COLUMN_NAME);
 
-        Iterable<HiveType> hiveTypes = transform(handle.getColumnTypes(), columnTypeToHiveType());
+        Iterable<HiveType> hiveTypes = transform(handle.getDataColumnTypes(), columnTypeToHiveType());
         Iterable<String> hiveTypeNames = transform(hiveTypes, hiveTypeNameGetter());
 
-        Properties properties = new Properties();
-        properties.setProperty(META_TABLE_COLUMNS, Joiner.on(',').join(handle.getColumnNames()));
+        properties = new Properties();
+        properties.setProperty(META_TABLE_COLUMNS, Joiner.on(',').join(handle.getDataColumnNames()));
         properties.setProperty(META_TABLE_COLUMN_TYPES, Joiner.on(':').join(hiveTypeNames));
 
-        serializer = initializeSerializer(conf, properties, new LazyBinaryColumnarSerDe());
-        recordWriter = createRecordWriter(target, conf, properties, new RCFileOutputFormat());
+        Map<String, String> serdeParameters = handle.getSerdeParameters();
+        if (serdeParameters != null) {
+            for (String key : serdeParameters.keySet()) {
+                properties.setProperty(key, serdeParameters.get(key));
+            }
+        }
 
-        tableInspector = getStandardStructObjectInspector(handle.getColumnNames(), getJavaObjectInspectors(hiveTypes));
+        try {
+            serializer = ReflectionUtils.newInstance(conf.getClassByName(handle.getSerdeLib()).
+                                         asSubclass(Serializer.class), conf);
+            Class<?> clazz = Class.forName(handle.getOutputFormat());
+            outputFormatClass = clazz.asSubclass(HiveOutputFormat.class);
+        }
+        catch (ClassNotFoundException | ClassCastException e) {
+            throw Throwables.propagate(e);
+        }
+
+        initializeSerializer(conf, properties, serializer);
+
+        isPartitioned = handle.isOutputTablePartitioned();
+        filePrefix = handle.getFilePrefix();
+        fileName = filePrefix + "_" + randomUUID().toString();
+        basePath = target;
+        if (isPartitioned) {
+            recordWriters = CacheBuilder.newBuilder()
+                    .build(
+                        new CacheLoader<String, RecordWriter>() {
+                            @Override
+                            public RecordWriter load(String path)
+                            {
+                                return getRecordWriter(path);
+                            }
+                        });
+            partitionColNames = handle.getPartitionColumnNames();
+            partitionValues = new ArrayList<String>(partitionColNames.size());
+
+            recordWriter = null;
+        }
+        else {
+            Path filePath = new Path(target, fileName);
+            recordWriter = createRecordWriter(filePath, conf, properties, getOutputFormatInstance());
+        }
+
+        tableInspector = getStandardStructObjectInspector(handle.getDataColumnNames(), getJavaObjectInspectors(hiveTypes));
         structFields = ImmutableList.copyOf(tableInspector.getAllStructFieldRefs());
         row = tableInspector.create();
+    }
+
+    private HiveOutputFormat<?, ?> getOutputFormatInstance()
+    {
+        HiveOutputFormat<?, ?> outputFormat;
+        try {
+            outputFormat = outputFormatClass.newInstance();
+        }
+        catch (InstantiationException | IllegalAccessException e) {
+            throw Throwables.propagate(e);
+        }
+
+        return outputFormat;
     }
 
     @Override
@@ -119,13 +199,34 @@ public class HiveRecordSink
         checkState(field != -1, "not in record");
         checkState(field == fieldCount, "not all fields set");
         field = -1;
+        RecordWriter rw = recordWriter;
+
+        if (isPartitioned) {
+            String pathName = FileUtils.makePartName(partitionColNames, partitionValues);
+            try {
+                rw = recordWriters.get(pathName);
+            }
+            catch (ExecutionException e) {
+                throw Throwables.propagate(e);
+            }
+            partitionValues.clear();
+        }
 
         try {
-            recordWriter.write(serializer.serialize(row, tableInspector));
+            rw.write(serializer.serialize(row, tableInspector));
         }
         catch (SerDeException | IOException e) {
             throw Throwables.propagate(e);
         }
+    }
+
+    private RecordWriter getRecordWriter(String pathName)
+    {
+        checkNotNull(basePath, "Base path for table data not set");
+
+        Path partitionPath = new Path(basePath, (pathName.startsWith("/") ? pathName.substring(1) : pathName));
+        Path filePath = new Path(partitionPath, fileName);
+        return createRecordWriter(filePath, conf, properties, getOutputFormatInstance());
     }
 
     @Override
@@ -164,9 +265,16 @@ public class HiveRecordSink
         checkState(field == -1, "record not finished");
 
         try {
-            recordWriter.close(false);
+            if (isPartitioned) {
+                for (String path : recordWriters.asMap().keySet()) {
+                    recordWriters.get(path).close(false);
+                }
+            }
+            else {
+                recordWriter.close(false);
+            }
         }
-        catch (IOException e) {
+        catch (IOException | ExecutionException e) {
             throw Throwables.propagate(e);
         }
 
@@ -178,10 +286,23 @@ public class HiveRecordSink
         checkState(field != -1, "not in record");
         checkState(field < fieldCount, "all fields already set");
 
-        tableInspector.setStructFieldData(row, structFields.get(field), value);
-        field++;
-        if (field == sampleWeightField) {
+        if (field < dataFieldsCount) {
+            tableInspector.setStructFieldData(row, structFields.get(field), value);
             field++;
+            if (field == sampleWeightField) {
+                field++;
+            }
+        }
+        else {
+            // into partition columns now
+            if (value != null) {
+                partitionValues.add(value.toString());
+            }
+            else {
+                throw new RuntimeException(String.format("Null value for partition column '%s'", partitionColNames.get(field - dataFieldsCount)));
+            }
+            field++;
+            checkState(field != sampleWeightField, "Partition columns not at the end");
         }
     }
 

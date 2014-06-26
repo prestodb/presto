@@ -15,6 +15,7 @@ package com.facebook.presto.hive;
 
 import com.facebook.presto.hadoop.HadoopFileSystemCache;
 import com.facebook.presto.hadoop.HadoopNative;
+import com.facebook.presto.hive.shaded.org.apache.thrift.TException;
 import com.facebook.presto.hive.util.BoundedExecutor;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorColumnHandle;
@@ -61,11 +62,14 @@ import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Ordering;
 import com.google.inject.Inject;
+
 import io.airlift.log.Logger;
 import io.airlift.slice.Slice;
 import io.airlift.units.DataSize;
+
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
+import org.apache.hadoop.fs.FileStatus;
 import org.apache.hadoop.hive.metastore.ProtectMode;
 import org.apache.hadoop.hive.metastore.TableType;
 import org.apache.hadoop.hive.metastore.api.Database;
@@ -85,8 +89,10 @@ import org.joda.time.DateTimeZone;
 
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
@@ -135,6 +141,15 @@ import static org.apache.hadoop.hive.metastore.ProtectMode.getProtectModeFromStr
 import static org.apache.hadoop.hive.metastore.Warehouse.makePartName;
 import static org.apache.hadoop.hive.metastore.Warehouse.makeSpecFromName;
 import static org.apache.hadoop.hive.serde.serdeConstants.STRING_TYPE_NAME;
+
+import static com.facebook.presto.hive.HiveFSUtils.pathExists;
+import static com.facebook.presto.hive.HiveFSUtils.createDirectories;
+import static com.facebook.presto.hive.HiveFSUtils.isDirectory;
+import static com.facebook.presto.hive.HiveFSUtils.rename;
+import static com.facebook.presto.hive.HiveFSUtils.getFileSystem;
+import static com.facebook.presto.hive.HiveFSUtils.delete;
+import static com.facebook.presto.hive.HiveFSUtils.listPathsAtLevel;
+import static com.facebook.presto.hive.HiveFSUtils.listFiles;
 
 @SuppressWarnings("deprecation")
 public class HiveClient
@@ -231,6 +246,8 @@ public class HiveClient
         this.executor = checkNotNull(executor, "executor is null");
 
         this.recursiveDfsWalkerEnabled = recursiveDfsWalkerEnabled;
+
+        HiveFSUtils.initialize(hdfsEnvironment);
     }
 
     public CachingHiveMetastore getMetastore()
@@ -498,15 +515,6 @@ public class HiveClient
                 targetPath.toString());
         }
 
-        // use a per-user temporary directory to avoid permission problems
-        // TODO: this should use Hadoop UserGroupInformation
-        String temporaryPrefix = "/tmp/presto-" + StandardSystemProperty.USER_NAME.value();
-
-        // create a temporary directory on the same filesystem
-        Path temporaryRoot = new Path(targetPath, temporaryPrefix);
-        Path temporaryPath = new Path(temporaryRoot, randomUUID().toString());
-        createDirectories(temporaryPath);
-
         return new HiveOutputTableHandle(
                 connectorId,
                 schemaName,
@@ -515,13 +523,18 @@ public class HiveClient
                 columnTypes.build(),
                 tableMetadata.getOwner(),
                 targetPath.toString(),
-                temporaryPath.toString());
+                createTemporaryPath(targetPath));
     }
 
     @Override
     public void commitCreateTable(ConnectorOutputTableHandle tableHandle, Collection<String> fragments)
     {
         HiveOutputTableHandle handle = checkType(tableHandle, HiveOutputTableHandle.class, "tableHandle");
+
+        if (handle.forInsert()) {
+            commitInsert(handle);
+            return;
+        }
 
         // verify no one raced us to create the target directory
         Path targetPath = new Path(handle.getTargetPath());
@@ -587,7 +600,7 @@ public class HiveClient
     {
         HiveOutputTableHandle handle = checkType(tableHandle, HiveOutputTableHandle.class, "tableHandle");
 
-        Path target = new Path(handle.getTemporaryPath(), randomUUID().toString());
+        Path target = new Path(handle.getTemporaryPath());
         JobConf conf = new JobConf(hdfsEnvironment.getConfiguration(target));
 
         return new HiveRecordSink(handle, target, conf);
@@ -611,56 +624,6 @@ public class HiveClient
         }
         catch (IOException e) {
             throw new RuntimeException("Failed checking path: " + path, e);
-        }
-    }
-
-    private boolean pathExists(Path path)
-    {
-        try {
-            return getFileSystem(path).exists(path);
-        }
-        catch (IOException e) {
-            throw new RuntimeException("Failed checking path: " + path, e);
-        }
-    }
-
-    private boolean isDirectory(Path path)
-    {
-        try {
-            return getFileSystem(path).isDirectory(path);
-        }
-        catch (IOException e) {
-            throw new RuntimeException("Failed checking path: " + path, e);
-        }
-    }
-
-    private void createDirectories(Path path)
-    {
-        try {
-            if (!getFileSystem(path).mkdirs(path)) {
-                throw new IOException("mkdirs returned false");
-            }
-        }
-        catch (IOException e) {
-            throw new RuntimeException("Failed to create directory: " + path, e);
-        }
-    }
-
-    private FileSystem getFileSystem(Path path)
-            throws IOException
-    {
-        return path.getFileSystem(hdfsEnvironment.getConfiguration(path));
-    }
-
-    private void rename(Path source, Path target)
-    {
-        try {
-            if (!getFileSystem(source).rename(source, target)) {
-                throw new IOException("rename returned false");
-            }
-        }
-        catch (IOException e) {
-            throw new RuntimeException(format("Failed to rename %s to %s", source, target), e);
         }
     }
 
@@ -763,6 +726,11 @@ public class HiveClient
         checkNotNull(tupleDomain, "tupleDomain is null");
         SchemaTableName tableName = getTableName(tableHandle);
 
+        return getPartitions(tableName, tupleDomain);
+    }
+
+    public ConnectorPartitionResult getPartitions(SchemaTableName tableName, TupleDomain<ConnectorColumnHandle> tupleDomain)
+    {
         List<FieldSchema> partitionKeys;
         Optional<HiveBucket> bucket;
 
@@ -1155,5 +1123,298 @@ public class HiveClient
                 };
             }
         };
+    }
+
+    @Override
+    public HiveOutputTableHandle beginInsert(ConnectorSession session, ConnectorTableMetadata tableMetadata)
+    {
+        SchemaTableName tableSchemaName = tableMetadata.getTable();
+
+        // call metastore to get table location, outputFormat, serde, partitions indices
+        Table table = null;
+        try {
+            table = metastore.getTable(tableSchemaName.getSchemaName(), tableSchemaName.getTableName());
+        }
+        catch (NoSuchObjectException e) {
+            table = null;
+        }
+
+        checkNotNull(table, "Table %s does not exist", tableSchemaName.getTableName());
+        String outputFormat = table.getSd().getOutputFormat();
+        SerDeInfo serdeInfo = table.getSd().getSerdeInfo();
+        String serdeLib = serdeInfo.getSerializationLib();
+        Map<String, String> serdeParameters = serdeInfo.getParameters();
+        List<Boolean> partitionBitmap = null;
+        String location = table.getSd().getLocation();
+
+        if (table.getPartitionKeysSize() != 0) {
+            partitionBitmap = new ArrayList<Boolean>(tableMetadata.getColumns().size());
+
+            for (ColumnMetadata column : tableMetadata.getColumns()) {
+                partitionBitmap.add(column.isPartitionKey());
+            }
+        }
+
+        ImmutableList.Builder<String> columnNames = ImmutableList.builder();
+        ImmutableList.Builder<Type> columnTypes = ImmutableList.builder();
+        if (tableMetadata.isSampled()) {
+            columnNames.add(SAMPLE_WEIGHT_COLUMN_NAME);
+            columnTypes.add(BIGINT);
+        }
+        for (ColumnMetadata column : tableMetadata.getColumns()) {
+            columnNames.add(column.getName());
+            columnTypes.add(column.getType());
+        }
+
+        Path targetPath = new Path(location);
+        if (!pathExists(targetPath)) {
+            createDirectories(targetPath);
+        }
+
+        String tempPath;
+        String filePrefix = randomUUID().toString();
+
+        if (!useTemporaryDirectory(targetPath)) {
+            tempPath = targetPath.toString();
+        }
+        else {
+            tempPath = createTemporaryPath(targetPath);
+        }
+
+        return new HiveOutputTableHandle(
+                    connectorId,
+                    tableSchemaName.getSchemaName(),
+                    tableSchemaName.getTableName(),
+                    columnNames.build(),
+                    columnTypes.build(),
+                    tableMetadata.getOwner(),
+                    targetPath.toString(),
+                    tempPath,
+                    outputFormat,
+                    serdeLib,
+                    serdeParameters,
+                    partitionBitmap,
+                    true, //isInsert
+                    filePrefix);
+    }
+
+    private String createTemporaryPath(Path basePath)
+    {
+        // use a per-user temporary directory to avoid permission problems
+        // TODO: this should use Hadoop UserGroupInformation
+        String temporaryPrefix = "/tmp/presto-" + StandardSystemProperty.USER_NAME.value();
+
+        // create a temporary directory on the same filesystem
+        Path temporaryRoot = new Path(basePath, temporaryPrefix);
+        Path temporaryPath = new Path(temporaryRoot, randomUUID().toString());
+        createDirectories(temporaryPath);
+
+        return temporaryPath.toString();
+    }
+
+    private void commitInsert(HiveOutputTableHandle handle)
+    {
+        Path targetLocation = new Path(handle.getTargetPath());
+
+        // Recover partitions before deleting temp directory
+        if (handle.isOutputTablePartitioned()) {
+            // Get info about all the existing partitions
+            HashMap<String, Boolean> knownValues = new HashMap<String, Boolean>();
+            ConnectorPartitionResult result = getPartitions(new SchemaTableName(handle.getSchemaName(), handle.getTableName()),
+                                                            TupleDomain.<ConnectorColumnHandle>all());
+            List<ConnectorPartition> partitions = result.getPartitions();
+            Iterator<ConnectorPartition> pIter = partitions.iterator();
+
+            while (pIter.hasNext()) {
+                HivePartition p = (HivePartition) pIter.next();
+                // partitionId will be of form pKey1=value1/pKey2=value2/
+                String partitionId = p.getPartitionId() + "/";
+
+                if (knownValues.put(partitionId.toString(), false) != null) {
+                    throw new RuntimeException(String.format("Table '%s' has duplicate partitions for '%s'", handle.getTableName(), partitionId));
+                }
+            }
+
+            FileSystem fs = null;
+            Table table = null;
+            String[] pColNames = handle.getPartitionColumnNames().toArray(new String[0]);
+            String [] curVal = new String[pColNames.length];
+
+            Path partitionLocation;
+
+            // If using tempLocation then use that, else
+            // use tableLocation
+            if (handle.hasTemporaryPath()) {
+                partitionLocation = new Path(handle.getTemporaryPath());
+            }
+            else {
+                partitionLocation = targetLocation;
+            }
+
+            try {
+                fs = getFileSystem(partitionLocation);
+                table = metastore.getTable(handle.getSchemaName(), handle.getTableName());
+            }
+            catch (IOException | NoSuchObjectException e)  {
+                throw Throwables.propagate(e);
+            }
+
+            try {
+                findAndRecoverPartitions(fs,
+                                         targetLocation,
+                                         partitionLocation,
+                                         pColNames,
+                                         0,
+                                         curVal,
+                                         knownValues,
+                                         table,
+                                         new ArrayList<Partition>(),
+                                         new ArrayList<Partition>());
+            }
+            catch (TException | IOException e) {
+                throw Throwables.propagate(e);
+            }
+        }
+
+        //Move data from temp locations
+        if (handle.hasTemporaryPath()) {
+            moveInsertedData(handle);
+        }
+
+        //cleanup temp dirs
+        try {
+            if (handle.hasTemporaryPath()) {
+                Path del = new Path(handle.getTemporaryPath());
+                if (pathExists(del)) {
+                    delete(del, true);
+                }
+            }
+        }
+        catch (IOException e) {
+            throw Throwables.propagate(e);
+        }
+    }
+
+    private void moveInsertedData(HiveOutputTableHandle handle)
+    {
+        final Path basePath = new Path(handle.getTargetPath());
+        Path finalPath = basePath;
+        Path tempPath = new Path(handle.getTemporaryPath());
+        FileStatus[] fss = null;
+        if (handle.isOutputTablePartitioned()) {
+            fss = listPathsAtLevel(tempPath, handle.getPartitionColumnNames().size() + 1);
+        }
+        else {
+            fss = listFiles(tempPath);
+        }
+        String commonPath = handle.getTemporaryPath();
+        for (FileStatus fStatus : fss) {
+            if (fStatus.isDir()) {
+                continue;
+            }
+
+            // extract the path after temporary location
+            if (handle.isOutputTablePartitioned()) {
+                String partitionPath = fStatus.getPath().getParent().toString();
+                String partitionId = partitionPath.substring(commonPath.length() + 1); // +1 to drop leading slash
+                // being paranoid
+                checkState(partitionPath.charAt(commonPath.length()) == '/');
+                finalPath = new Path(basePath, partitionId);
+            }
+
+            if (!pathExists(finalPath)) {
+                createDirectories(finalPath);
+            }
+            rename(fStatus.getPath(), finalPath);
+        }
+    }
+
+    /*
+     * Method for partitions recovery, similar logic as hive
+     *
+     * @param tableLocation:     Table location as hive has it.
+     * @param curPath:           Location having information about the partitions to be recovered,
+     *                           can have just the directory structures of partitions to be recovered or complete data.
+     * @param curPos:            Current Depth in the directory structure in curPath.
+     *                           Reflects how many partitions columns have been seen and populated in pColNames and pColValues.
+     * @param pColNames:         Array of partition columns' names as seen in curPath till level 'curPos'. Populated recursively.
+     * @param curVal:            Array of values of partition columns seen till 'curPos'. Populated recursively.
+     * @param knownValues:       Map of known partitions and a boolean value to tell if it has been processed.
+     * @param plist:             List of Partitions recovered.
+     * @param pendingPartitions: Batch of partitions for which we are yet to notify Metastore.
+     */
+    private void findAndRecoverPartitions(FileSystem fs, Path tableLocation, Path curPath, final String []pColNames,
+                                          int curPos, final String [] curVal,
+                                          HashMap<String, Boolean> knownValues,
+                                          final Table table, List<Partition> plist,
+                                          List<Partition> pendingPartitions) throws TException, IOException
+      {
+          FileStatus [] status;
+
+          status = fs.listStatus(curPath);
+          if (status == null) {
+            log.warn("ListStatus for :" + curPath + " returned null");
+            return;
+          }
+
+          for (int i = 0; i < status.length; i++) {
+              if (status[i].isDir()) {
+                  String [] components = status[i].getPath().toString().split("/");
+                  String val = components[components.length - 1];
+                  String pColPrefix = pColNames[curPos] + "=";
+                  String folderPrefix = "_tmp";
+                  String folderSuffix = "$folder$";
+                  if (val.startsWith(folderPrefix) && val.endsWith(folderSuffix)) {
+                      continue;
+                  }
+                  if (val.startsWith(pColPrefix)) {
+                      val = val.substring(pColPrefix.length());
+                  }
+
+                  curVal[curPos] = val;
+                  if (curPos == (pColNames.length - 1)) {
+                      StringBuilder sb = new StringBuilder();
+                      for (int j = 0; j < pColNames.length; j++) {
+                          sb.append(pColNames[j] + "=" + curVal[j] + "/");
+                      }
+
+                      if (knownValues.get(sb.toString()) == null) {
+                          List<String> values = ImmutableList.copyOf(curVal);
+                          List<String> partitionCols = Arrays.asList(pColNames);
+                          // create the partition location using tableLocation and the values
+                          Path partLocation = new Path(tableLocation, sb.toString());
+                          Partition tpart = metastore.createPartition(table.getDbName(), table.getTableName(), values, partitionCols, table, partLocation.toString());
+                          plist.add(tpart);
+                          pendingPartitions.add(tpart);
+
+                          if (pendingPartitions.size() >= 8) {
+                              metastore.addPartitions(pendingPartitions, table.getDbName(), table.getTableName());
+                              pendingPartitions.clear();
+                          }
+
+                      }
+                      else {
+                          knownValues.put(sb.toString(), true); //make note that this partition has been found already
+                      }
+                  }
+                  else {
+                      findAndRecoverPartitions(fs, tableLocation, status[i].getPath(), pColNames,
+                                              curPos + 1, curVal, knownValues,
+                                              table, plist, pendingPartitions);
+                  }
+            }
+            else {
+                log.warn("unexpected file at " + status[i].getPath());
+            }
+          }
+
+          if (curPos == 0) {
+              if (pendingPartitions.size() > 0) {
+                  metastore.addPartitions(pendingPartitions, table.getDbName(), table.getTableName());
+                  pendingPartitions.clear();
+                }
+              log.info("Recovered " + plist.size() + " partitions");
+
+          }
     }
 }

@@ -23,6 +23,7 @@ import com.amazonaws.services.s3.AmazonS3Client;
 import com.amazonaws.services.s3.model.AmazonS3Exception;
 import com.amazonaws.services.s3.model.GetObjectRequest;
 import com.amazonaws.services.s3.model.ListObjectsRequest;
+import com.amazonaws.services.s3.model.DeleteObjectRequest;
 import com.amazonaws.services.s3.model.ObjectListing;
 import com.amazonaws.services.s3.model.ObjectMetadata;
 import com.amazonaws.services.s3.model.S3Object;
@@ -81,6 +82,8 @@ public class PrestoS3FileSystem
     public static final String S3_MAX_CLIENT_RETRIES = "presto.s3.max-client-retries";
     public static final String S3_CONNECT_TIMEOUT = "presto.s3.connect-timeout";
     public static final String S3_STAGING_DIRECTORY = "presto.s3.staging-directory";
+
+    private static final String FOLDER_SUFFIX = "_$folder$";
 
     private static final Logger log = Logger.get(PrestoS3FileSystem.class);
 
@@ -259,7 +262,31 @@ public class PrestoS3FileSystem
     public boolean delete(Path f, boolean recursive)
             throws IOException
     {
-        throw new UnsupportedOperationException("delete");
+        FileStatus status;
+        try {
+            status = getFileStatus(f);
+        }
+        catch (FileNotFoundException e) {
+            return false;
+        }
+
+        String key = keyFromPath(f);
+        if (status.isDir()) {
+            key = key + FOLDER_SUFFIX;
+            FileStatus[] contents = listStatus(f);
+            if (!recursive && contents.length > 0) {
+                throw new IOException("Directory " + f.toString() + " is not empty.");
+            }
+
+            for (FileStatus p : contents) {
+                if (!delete(p.getPath(), recursive)) {
+                    return false;
+                }
+            }
+        }
+
+        s3.deleteObject(new DeleteObjectRequest(uri.getHost(), key));
+        return true;
     }
 
     @Override
