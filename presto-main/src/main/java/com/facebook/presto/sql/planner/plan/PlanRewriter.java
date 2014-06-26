@@ -149,6 +149,49 @@ public final class PlanRewriter<C>
         }
 
         @Override
+        public PlanNode visitRowNumberLimit(RowNumberLimitNode node, Context<C> context)
+        {
+            if (!context.isDefaultRewrite()) {
+                PlanNode result = nodeRewriter.rewriteRowNumberLimit(node, context.get(), PlanRewriter.this);
+                if (result != null) {
+                    return result;
+                }
+            }
+
+            PlanNode source = rewrite(node.getSource(), context.get());
+
+            if (source != node.getSource()) {
+                return new RowNumberLimitNode(node.getId(), source, node.getPartitionBy(), node.getRowNumberSymbol(), node.getMaxRowCountPerPartition());
+            }
+
+            return node;
+        }
+
+        @Override
+        public PlanNode visitTopNRowNumber(TopNRowNumberNode node, Context<C> context)
+        {
+            if (!context.isDefaultRewrite()) {
+                PlanNode result = nodeRewriter.rewriteTopNRowNumber(node, context.get(), PlanRewriter.this);
+                if (result != null) {
+                    return result;
+                }
+            }
+
+            PlanNode source = rewrite(node.getSource(), context.get());
+
+            if (source != node.getSource()) {
+                return new TopNRowNumberNode(node.getId(),
+                        source,
+                        node.getPartitionBy(),
+                        node.getOrderBy(),
+                        node.getOrderings(),
+                        node.getRowNumberSymbol(),
+                        node.getMaxRowCountPerPartition());
+            }
+            return node;
+        }
+
+        @Override
         public PlanNode visitFilter(FilterNode node, Context<C> context)
         {
             if (!context.isDefaultRewrite()) {

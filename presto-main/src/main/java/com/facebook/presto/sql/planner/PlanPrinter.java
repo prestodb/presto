@@ -41,6 +41,7 @@ import com.facebook.presto.sql.planner.plan.PlanFragmentId;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.PlanVisitor;
 import com.facebook.presto.sql.planner.plan.ProjectNode;
+import com.facebook.presto.sql.planner.plan.RowNumberLimitNode;
 import com.facebook.presto.sql.planner.plan.SampleNode;
 import com.facebook.presto.sql.planner.plan.SemiJoinNode;
 import com.facebook.presto.sql.planner.plan.SinkNode;
@@ -49,6 +50,7 @@ import com.facebook.presto.sql.planner.plan.TableCommitNode;
 import com.facebook.presto.sql.planner.plan.TableScanNode;
 import com.facebook.presto.sql.planner.plan.TableWriterNode;
 import com.facebook.presto.sql.planner.plan.TopNNode;
+import com.facebook.presto.sql.planner.plan.TopNRowNumberNode;
 import com.facebook.presto.sql.planner.plan.UnionNode;
 import com.facebook.presto.sql.planner.plan.ValuesNode;
 import com.facebook.presto.sql.planner.plan.WindowNode;
@@ -291,7 +293,45 @@ public class PlanPrinter
             for (Map.Entry<Symbol, FunctionCall> entry : node.getWindowFunctions().entrySet()) {
                 print(indent + 2, "%s := %s(%s)", entry.getKey(), entry.getValue().getName(), Joiner.on(", ").join(entry.getValue().getArguments()));
             }
+            return processChildren(node, indent + 1);
+        }
 
+        @Override
+        public Void visitTopNRowNumber(final TopNRowNumberNode node, Integer indent)
+        {
+            List<String> partitionBy = Lists.transform(node.getPartitionBy(), Functions.toStringFunction());
+
+            List<String> orderBy = Lists.transform(node.getOrderBy(), new Function<Symbol, String>()
+            {
+                @Override
+                public String apply(Symbol input)
+                {
+                    return input + " " + node.getOrderings().get(input);
+                }
+            });
+
+            List<String> args = new ArrayList<>();
+            args.add(format("partition by (%s)", Joiner.on(", ").join(partitionBy)));
+            args.add(format("order by (%s)", Joiner.on(", ").join(orderBy)));
+
+            print(indent, "- TopNRowNumber[%s limit %s] => [%s]", Joiner.on(", ").join(args), node.getMaxRowCountPerPartition(), formatOutputs(node.getOutputSymbols()));
+
+            print(indent + 2, "%s := %s", node.getRowNumberSymbol(), "row_number()");
+            return processChildren(node, indent + 1);
+        }
+
+        @Override
+        public Void visitRowNumberLimit(final RowNumberLimitNode node, Integer indent)
+        {
+            List<String> partitionBy = Lists.transform(node.getPartitionBy(), Functions.toStringFunction());
+            List<String> args = new ArrayList<>();
+            if (!partitionBy.isEmpty()) {
+                args.add(format("partition by (%s)", Joiner.on(", ").join(partitionBy)));
+            }
+
+            print(indent, "- RowNumberLimit[%s limit=%s] => [%s]", Joiner.on(", ").join(args), node.getMaxRowCountPerPartition(), formatOutputs(node.getOutputSymbols()));
+
+            print(indent + 2, "%s := %s", node.getRowNumberSymbol(), "row_number()");
             return processChildren(node, indent + 1);
         }
 

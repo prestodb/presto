@@ -35,6 +35,7 @@ import com.facebook.presto.sql.planner.plan.OutputNode;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.PlanVisitor;
 import com.facebook.presto.sql.planner.plan.ProjectNode;
+import com.facebook.presto.sql.planner.plan.RowNumberLimitNode;
 import com.facebook.presto.sql.planner.plan.SemiJoinNode;
 import com.facebook.presto.sql.planner.plan.SinkNode;
 import com.facebook.presto.sql.planner.plan.SortNode;
@@ -42,6 +43,7 @@ import com.facebook.presto.sql.planner.plan.TableCommitNode;
 import com.facebook.presto.sql.planner.plan.TableScanNode;
 import com.facebook.presto.sql.planner.plan.TableWriterNode;
 import com.facebook.presto.sql.planner.plan.TopNNode;
+import com.facebook.presto.sql.planner.plan.TopNRowNumberNode;
 import com.facebook.presto.sql.planner.plan.UnionNode;
 import com.facebook.presto.sql.planner.plan.WindowNode;
 import com.google.common.base.Optional;
@@ -133,6 +135,18 @@ public final class JsonPlanPrinter
 
         @Override
         public Void visitWindow(final WindowNode node, Void context)
+        {
+            return processChildren(node);
+        }
+
+        @Override
+        public Void visitRowNumberLimit(final RowNumberLimitNode node, Void context)
+        {
+            return processChildren(node);
+        }
+
+        @Override
+        public Void visitTopNRowNumber(final TopNRowNumberNode node, Void context)
         {
             return processChildren(node);
         }
