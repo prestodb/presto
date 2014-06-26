@@ -99,7 +99,6 @@ public class TestCassandraConnector
             throws Exception
     {
         EmbeddedCassandraServerHelper.startEmbeddedCassandra();
-        EmbeddedCassandraServerHelper.cleanEmbeddedCassandra();
 
         createTestData("Presto_Database", "Presto_Test");
 

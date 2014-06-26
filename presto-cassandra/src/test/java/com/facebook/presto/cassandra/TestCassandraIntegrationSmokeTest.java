@@ -15,7 +15,7 @@ package com.facebook.presto.cassandra;
 
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.testing.QueryRunner;
-import com.facebook.presto.tests.AbstractTestDistributedQueries;
+import com.facebook.presto.tests.AbstractTestIntegrationSmokeTest;
 import com.facebook.presto.tests.DistributedQueryRunner;
 import com.facebook.presto.tpch.TpchMetadata;
 import com.facebook.presto.tpch.TpchPlugin;
@@ -27,19 +27,19 @@ import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
 
 import static com.facebook.presto.spi.type.TimeZoneKey.UTC_KEY;
-import static com.facebook.presto.tests.QueryAssertions.copyAllTables;
+import static com.facebook.presto.tests.QueryAssertions.copyTable;
 import static io.airlift.units.Duration.nanosSince;
 import static java.util.Locale.ENGLISH;
 import static java.util.concurrent.TimeUnit.SECONDS;
 
 @Test(singleThreaded = true)
-public class TestCassandraDistributed
-        extends AbstractTestDistributedQueries
+public class TestCassandraIntegrationSmokeTest
+        extends AbstractTestIntegrationSmokeTest
 {
     private static final Logger log = Logger.get("TestQueries");
     private static final String TPCH_SAMPLED_SCHEMA = "tpch_sampled";
 
-    public TestCassandraDistributed()
+    public TestCassandraIntegrationSmokeTest()
             throws Exception
     {
         super(createQueryRunner(), createSession(TPCH_SAMPLED_SCHEMA));
@@ -74,8 +74,8 @@ public class TestCassandraDistributed
 
         log.info("Loading data...");
         long startTime = System.nanoTime();
-        copyAllTables(queryRunner, "tpch", TpchMetadata.TINY_SCHEMA_NAME, createSession("tpch"));
-        copyAllTables(queryRunner, "tpch_sampled", TpchMetadata.TINY_SCHEMA_NAME, createSession(TPCH_SAMPLED_SCHEMA));
+        copyTable(queryRunner, "tpch", TpchMetadata.TINY_SCHEMA_NAME, "orders", createSession("tpch"));
+        copyTable(queryRunner, "tpch_sampled", TpchMetadata.TINY_SCHEMA_NAME, "orders", createSession(TPCH_SAMPLED_SCHEMA));
         log.info("Loading complete in %s", nanosSince(startTime).toString(SECONDS));
 
         return queryRunner;
@@ -84,19 +84,5 @@ public class TestCassandraDistributed
     private static ConnectorSession createSession(String schema)
     {
         return new ConnectorSession("user", "test", "cassandra", schema, UTC_KEY, ENGLISH, null, null);
-    }
-
-    @Override
-    public void testView()
-            throws Exception
-    {
-        // Cassandra connector currently does not support views
-    }
-
-    @Override
-    public void testViewMetadata()
-            throws Exception
-    {
-        // Cassandra connector currently does not support views
     }
 }

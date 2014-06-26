@@ -131,11 +131,22 @@ public final class QueryAssertions
             if (table.getTableName().equalsIgnoreCase("dual")) {
                 continue;
             }
-
-            log.info("Running import for %s", table.getTableName());
-            @Language("SQL") String sql = format("CREATE TABLE %s AS SELECT * FROM %s", table.getTableName(), table);
-            long rows = checkType(queryRunner.execute(session, sql).getMaterializedRows().get(0).getField(0), Long.class, "rows");
-            log.info("Imported %s rows for %s", rows, table.getTableName());
+            copyTable(queryRunner, table, session);
         }
+    }
+
+    public static void copyTable(QueryRunner queryRunner, String sourceCatalog, String sourceSchema, String sourceTable, ConnectorSession session)
+            throws Exception
+    {
+        QualifiedTableName table = new QualifiedTableName(sourceCatalog, sourceSchema, sourceTable);
+        copyTable(queryRunner, table, session);
+    }
+
+    public static void copyTable(QueryRunner queryRunner, QualifiedTableName table, ConnectorSession session)
+    {
+        log.info("Running import for %s", table.getTableName());
+        @Language("SQL") String sql = format("CREATE TABLE %s AS SELECT * FROM %s", table.getTableName(), table);
+        long rows = checkType(queryRunner.execute(session, sql).getMaterializedRows().get(0).getField(0), Long.class, "rows");
+        log.info("Imported %s rows for %s", rows, table.getTableName());
     }
 }
