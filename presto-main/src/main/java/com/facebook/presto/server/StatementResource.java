@@ -31,6 +31,7 @@ import com.facebook.presto.execution.TaskInfo;
 import com.facebook.presto.operator.ExchangeClient;
 import com.facebook.presto.operator.Page;
 import com.facebook.presto.spi.ConnectorSession;
+import com.facebook.presto.spi.ConnectorSessionManager;
 import com.facebook.presto.spi.block.BlockCursor;
 import com.facebook.presto.spi.type.TimeZoneKey;
 import com.facebook.presto.spi.type.TimeZoneNotSupportedException;
@@ -88,6 +89,7 @@ import java.util.concurrent.atomic.AtomicLong;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_CATALOG;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_LANGUAGE;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_SCHEMA;
+import static com.facebook.presto.client.PrestoHeaders.PRESTO_SESSIONID;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_SOURCE;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_TIME_ZONE;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_USER;
@@ -117,15 +119,17 @@ public class StatementResource
 
     private final QueryManager queryManager;
     private final Supplier<ExchangeClient> exchangeClientSupplier;
+    private final ConnectorSessionManager connectorSessionManager;
 
     private final ConcurrentMap<QueryId, Query> queries = new ConcurrentHashMap<>();
     private final ScheduledExecutorService queryPurger = newSingleThreadScheduledExecutor(threadsNamed("query-purger"));
 
     @Inject
-    public StatementResource(QueryManager queryManager, Supplier<ExchangeClient> exchangeClientSupplier)
+    public StatementResource(QueryManager queryManager, Supplier<ExchangeClient> exchangeClientSupplier, ConnectorSessionManager connectorSessionManager)
     {
         this.queryManager = checkNotNull(queryManager, "queryManager is null");
         this.exchangeClientSupplier = checkNotNull(exchangeClientSupplier, "exchangeClientSupplier is null");
+        this.connectorSessionManager = checkNotNull(connectorSessionManager, "connectorSessionManager is null");
 
         queryPurger.scheduleWithFixedDelay(new PurgeQueriesRunnable(queries, queryManager), 200, 200, TimeUnit.MILLISECONDS);
     }
@@ -146,6 +150,7 @@ public class StatementResource
             @HeaderParam(PRESTO_SCHEMA) String schema,
             @HeaderParam(PRESTO_TIME_ZONE) String timeZoneId,
             @HeaderParam(PRESTO_LANGUAGE) String language,
+            @HeaderParam(PRESTO_SESSIONID) String sessionId,
             @HeaderParam(USER_AGENT) String userAgent,
             @Context HttpServletRequest requestContext,
             @Context UriInfo uriInfo)
@@ -166,8 +171,7 @@ public class StatementResource
         }
 
         String remoteUserAddress = requestContext.getRemoteAddr();
-
-        ConnectorSession session = new ConnectorSession(user, source, catalog, schema, getTimeZoneKey(timeZoneId), locale, remoteUserAddress, userAgent);
+        ConnectorSession session = connectorSessionManager.createOrUpdateSession(user, source, catalog, schema, getTimeZoneKey(timeZoneId), locale, remoteUserAddress, userAgent, sessionId);
 
         ExchangeClient exchangeClient = exchangeClientSupplier.get();
         Query query = new Query(session, statement, queryManager, exchangeClient);
@@ -231,6 +235,19 @@ public class StatementResource
             return Response.status(Status.NOT_FOUND).build();
         }
         query.close();
+        return Response.noContent().build();
+    }
+
+    @DELETE
+    @Path("sessions/{sessionId}/{token}")
+    @Produces(MediaType.APPLICATION_JSON)
+    public Response deleteSession(@PathParam("sessionId") String sessionId,
+            @PathParam("token") long token)
+    {
+        if (connectorSessionManager.getSession(sessionId) == null) {
+            return Response.status(Status.NOT_FOUND).build();
+        }
+        connectorSessionManager.removeSession(sessionId);
         return Response.noContent().build();
     }
 
@@ -337,8 +354,8 @@ public class StatementResource
                     // so statements without results produce an error in the client otherwise.
                     //
                     // TODO: add support to the API for non-query statements.
-                    columns = ImmutableList.of(new Column("result", "boolean"));
-                    data = ImmutableSet.<List<Object>>of(ImmutableList.<Object>of(true));
+                    columns = ImmutableList.of(new Column("result", "String"));
+                    data = queryManager.getResultsForNonQueryStatement(queryId);
                 }
             }
 

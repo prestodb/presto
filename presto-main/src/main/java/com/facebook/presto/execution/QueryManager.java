@@ -32,4 +32,6 @@ public interface QueryManager
     void cancelQuery(QueryId queryId);
 
     void cancelStage(StageId stageId);
+
+    Iterable<List<Object>> getResultsForNonQueryStatement(QueryId queryId);
 }

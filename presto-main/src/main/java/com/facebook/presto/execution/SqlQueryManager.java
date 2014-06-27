@@ -289,6 +289,19 @@ public class SqlQueryManager
         }
     }
 
+    @Override
+    public Iterable<List<Object>> getResultsForNonQueryStatement(QueryId queryId)
+    {
+        checkNotNull(queryId, "queryId is null");
+
+        QueryExecution query = queries.get(queryId);
+        if (query == null) {
+            throw new NoSuchElementException();
+        }
+
+        return query.getResultsForNonQueryStatement();
+    }
+
     /**
      * Remove completed queries after a waiting period
      */

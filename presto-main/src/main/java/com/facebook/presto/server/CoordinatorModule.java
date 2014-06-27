@@ -29,6 +29,7 @@ import com.facebook.presto.execution.SqlQueryManager;
 import com.facebook.presto.metadata.DiscoveryNodeManager;
 import com.facebook.presto.metadata.InternalNodeManager;
 import com.facebook.presto.metadata.ViewDefinition;
+import com.facebook.presto.spi.ConnectorSessionManager;
 import com.facebook.presto.spi.NodeManager;
 import com.facebook.presto.split.SplitManager;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
@@ -38,6 +39,7 @@ import com.facebook.presto.sql.tree.DropTable;
 import com.facebook.presto.sql.tree.DropView;
 import com.facebook.presto.sql.tree.Explain;
 import com.facebook.presto.sql.tree.Query;
+import com.facebook.presto.sql.tree.SetVariable;
 import com.facebook.presto.sql.tree.ShowCatalogs;
 import com.facebook.presto.sql.tree.ShowColumns;
 import com.facebook.presto.sql.tree.ShowFunctions;
@@ -57,6 +59,7 @@ import java.util.concurrent.ExecutorService;
 
 import static com.facebook.presto.execution.DataDefinitionExecution.DataDefinitionExecutionFactory;
 import static com.facebook.presto.execution.QueryExecution.QueryExecutionFactory;
+import static com.facebook.presto.execution.SetVariableExecution.SetVariableExecutionFactory;
 import static com.facebook.presto.execution.SqlQueryExecution.SqlQueryExecutionFactory;
 import static com.google.inject.multibindings.MapBinder.newMapBinder;
 import static io.airlift.concurrent.Threads.threadsNamed;
@@ -101,6 +104,9 @@ public class CoordinatorModule
         binder.bind(NodeScheduler.class).in(Scopes.SINGLETON);
         newExporter(binder).export(NodeScheduler.class).withGeneratedName();
 
+        // Sessions Configuration
+        binder.bind(ConnectorSessionManager.class).in(Scopes.SINGLETON);
+
         // query execution
         binder.bind(ExecutorService.class).annotatedWith(ForQueryExecution.class)
                 .toInstance(newCachedThreadPool(threadsNamed("query-execution-%d")));
@@ -121,6 +127,9 @@ public class CoordinatorModule
         executionBinder.addBinding(ShowCatalogs.class).to(SqlQueryExecutionFactory.class).in(Scopes.SINGLETON);
         executionBinder.addBinding(UseCollection.class).to(SqlQueryExecutionFactory.class).in(Scopes.SINGLETON);
         executionBinder.addBinding(CreateTable.class).to(SqlQueryExecutionFactory.class).in(Scopes.SINGLETON);
+
+        binder.bind(SetVariableExecutionFactory.class).in(Scopes.SINGLETON);
+        executionBinder.addBinding(SetVariable.class).to(SetVariableExecutionFactory.class).in(Scopes.SINGLETON);
 
         binder.bind(DataDefinitionExecutionFactory.class).in(Scopes.SINGLETON);
         bindDataDefinitionTask(binder, executionBinder, DropTable.class, DropTableTask.class);

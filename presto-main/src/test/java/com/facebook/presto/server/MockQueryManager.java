@@ -140,6 +140,13 @@ public class MockQueryManager
         // mock queries don't have stages
     }
 
+    @Override
+    public Iterable<List<Object>> getResultsForNonQueryStatement(QueryId queryId)
+    {
+        // no-ops
+        return null;
+    }
+
     private static class SimpleQuery
     {
         private final TaskId outputTaskId;

@@ -67,6 +67,10 @@ statement returns [Statement value]
     | useCollection             { $value = $useCollection.value; }
     | createTable               { $value = $createTable.value; }
     | dropTable                 { $value = $dropTable.value; }
+    | setVariable               { $value = $setVariable.value;}
+    | unsetVariable             { $value = $unsetVariable.value;}
+    | showSetVariable           { $value = $showSetVariable.value;}
+    | showAllSetVariables       { $value = $showAllSetVariables.value;}
     | createView                { $value = $createView.value; }
     | dropView                  { $value = $dropView.value; }
     ;
@@ -342,6 +346,15 @@ expr returns [Expression value]
     | cast                    { $value = $cast.value; }
     ;
 
+simpleExpr returns [Expression value]
+    : NULL                    { $value = new NullLiteral(); }
+    | string                  { $value = new StringLiteral($string.value); }
+    | integer                 { $value = new LongLiteral($integer.value); }
+    | decimal                 { $value = new DoubleLiteral($decimal.value); }
+    | TRUE                    { $value = BooleanLiteral.TRUE_LITERAL; }
+    | FALSE                   { $value = BooleanLiteral.FALSE_LITERAL; }
+    ;
+
 exprList returns [List<Expression> value = new ArrayList<>()]
     : ( expr { $value.add($expr.value); } )*
     ;
@@ -555,6 +568,22 @@ createTable returns [Statement value]
 
 dropTable returns [Statement value]
     : ^(DROP_TABLE qname) { $value = new DropTable($qname.value); }
+    ;
+
+setVariable returns [Statement value]
+    :  ^(SET_VARIABLE qname simpleExpr) { $value = new SetVariable($qname.value, $simpleExpr.value, SetVariable.SetCommandType.SET_VARIABLE); }
+    ;
+
+unsetVariable returns [Statement value]
+    :  ^(UNSET_VARIABLE qname) { $value = new SetVariable($qname.value, SetVariable.SetCommandType.UNSET_VARIABLE ); }
+    ;
+
+showSetVariable returns [Statement value]
+    :  ^(SHOW_SET_VARIABLE qname) { $value = new SetVariable($qname.value, SetVariable.SetCommandType.SHOW_VARIABLE); }
+    ;
+
+showAllSetVariables returns [Statement value]
+    :  SHOW_ALL_SET_VARIABLES { $value = new SetVariable(); }
     ;
 
 createView returns [Statement value]

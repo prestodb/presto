@@ -18,6 +18,7 @@ import com.facebook.presto.spi.ConnectorSession;
 import io.airlift.units.Duration;
 
 import java.net.URI;
+import java.util.List;
 import java.util.concurrent.Executor;
 
 public class FailedQueryExecution
@@ -80,5 +81,12 @@ public class FailedQueryExecution
     public void recordHeartbeat()
     {
         // no-op
+    }
+
+    @Override
+    public Iterable<List<Object>> getResultsForNonQueryStatement()
+    {
+        //no-ops
+        return null;
     }
 }

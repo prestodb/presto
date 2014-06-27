@@ -14,46 +14,47 @@
 package com.facebook.presto.execution;
 
 import com.facebook.presto.execution.StateMachine.StateChangeListener;
-import com.facebook.presto.metadata.Metadata;
-import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.spi.ConnectorSession;
+import com.facebook.presto.spi.ConnectorSessionManager;
+import com.facebook.presto.sql.tree.SetVariable;
 import com.facebook.presto.sql.tree.Statement;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
+
+import io.airlift.log.Logger;
 import io.airlift.units.Duration;
 
 import javax.inject.Inject;
 
 import java.net.URI;
 import java.util.List;
-import java.util.Map;
+import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
 
-import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableSet;
-
-import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 
-public class DataDefinitionExecution<T extends Statement>
+public class SetVariableExecution
         implements QueryExecution
 {
-    private final DataDefinitionTask<T> task;
-    private final T statement;
+    private static final Logger log = Logger.get(SetVariableExecution.class);
     private final ConnectorSession session;
-    private final Metadata metadata;
+    private final SetVariable statement;
+    private final ConnectorSessionManager connectorSessionManager;
     private final QueryStateMachine stateMachine;
+    private Object data;
 
-    private DataDefinitionExecution(
-            DataDefinitionTask<T> task,
-            T statement,
+    SetVariableExecution(QueryId queryId,
+            String query,
             ConnectorSession session,
-            Metadata metadata,
-            QueryStateMachine stateMachine)
+            URI self,
+            SetVariable statement,
+            ConnectorSessionManager connectorSessionManager,
+            Executor executor)
     {
-        this.task = checkNotNull(task, "task is null");
-        this.statement = checkNotNull(statement, "statement is null");
         this.session = checkNotNull(session, "session is null");
-        this.metadata = checkNotNull(metadata, "metadata is null");
-        this.stateMachine = checkNotNull(stateMachine, "stateMachine is null");
+        this.statement = statement;
+        this.connectorSessionManager = connectorSessionManager;
+        this.stateMachine = new QueryStateMachine(queryId, query, session, self, executor);
     }
 
     @Override
@@ -68,7 +69,7 @@ public class DataDefinitionExecution<T extends Statement>
 
             stateMachine.recordExecutionStart();
 
-            task.execute(statement, session, metadata);
+            SetVariable();
 
             stateMachine.finished();
         }
@@ -117,7 +118,7 @@ public class DataDefinitionExecution<T extends Statement>
     @Override
     public Iterable<List<Object>> getResultsForNonQueryStatement()
     {
-        return ImmutableSet.<List<Object>>of(ImmutableList.<Object>of(true));
+        return ImmutableSet.<List<Object>>of(ImmutableList.<Object>of(data));
     }
 
     @Override
@@ -126,53 +127,55 @@ public class DataDefinitionExecution<T extends Statement>
         return stateMachine.getQueryInfoWithoutDetails();
     }
 
-    public static class DataDefinitionExecutionFactory
-            implements QueryExecutionFactory<DataDefinitionExecution<?>>
+    private void SetVariable()
+    {
+        String sessionId = checkNotNull(session.getSessionId(), "Cannot execute SET command without a session");
+        ConnectorSession session = checkNotNull(connectorSessionManager.getSession(sessionId), "Session has expired");
+        switch (statement.getType()) {
+        case SET_VARIABLE:
+            data = session.setConfig(statement.getVar().toString(), statement.getVal().toString());
+            break;
+        case UNSET_VARIABLE:
+            data = session.unsetConfig(statement.getVar().toString());
+            break;
+        case SHOW_VARIABLE:
+            data = checkNotNull(session.getConfig(statement.getVar().toString()), "No such variable in this session");
+            break;
+        case SHOW_ALL_VARIABLES:
+            data = session.getConfigs().toString();
+            break;
+        default:
+            break;
+        }
+    }
+
+    public static class SetVariableExecutionFactory
+            implements QueryExecutionFactory<SetVariableExecution>
     {
         private final LocationFactory locationFactory;
-        private final Metadata metadata;
+        private final ConnectorSessionManager connectorSessionManager;
         private final ExecutorService executor;
-        private final Map<Class<? extends Statement>, DataDefinitionTask<?>> tasks;
 
         @Inject
-        public DataDefinitionExecutionFactory(
-                LocationFactory locationFactory,
-                MetadataManager metadata,
-                @ForQueryExecution ExecutorService executor,
-                Map<Class<? extends Statement>, DataDefinitionTask<?>> tasks)
+        SetVariableExecutionFactory(LocationFactory locationFactory,
+                ConnectorSessionManager connectorSessionManager,
+                @ForQueryExecution ExecutorService executor)
         {
             this.locationFactory = checkNotNull(locationFactory, "locationFactory is null");
-            this.metadata = checkNotNull(metadata, "metadata is null");
+            this.connectorSessionManager = checkNotNull(connectorSessionManager, "connectorSessionManager is null");
             this.executor = checkNotNull(executor, "executor is null");
-            this.tasks = checkNotNull(tasks, "tasks is null");
         }
 
         @Override
-        public DataDefinitionExecution<?> createQueryExecution(
-                QueryId queryId,
-                String query,
-                ConnectorSession session,
-                Statement statement)
+        public SetVariableExecution createQueryExecution(QueryId queryId, String query, ConnectorSession session, Statement statement)
         {
-            URI self = locationFactory.createQueryLocation(queryId);
-            QueryStateMachine stateMachine = new QueryStateMachine(queryId, query, session, self, executor);
-            return createExecution(statement, session, stateMachine);
-        }
-
-        private <T extends Statement> DataDefinitionExecution<?> createExecution(
-                T statement,
-                ConnectorSession session,
-                QueryStateMachine stateMachine)
-        {
-            DataDefinitionTask<T> task = getTask(statement);
-            checkArgument(task != null, "no task for statement: " + statement.getClass());
-            return new DataDefinitionExecution<>(task, statement, session, metadata, stateMachine);
-        }
-
-        @SuppressWarnings("unchecked")
-        private <T extends Statement> DataDefinitionTask<T> getTask(T statement)
-        {
-            return (DataDefinitionTask<T>) tasks.get(statement.getClass());
+            return new SetVariableExecution(queryId,
+                    query,
+                    session,
+                    locationFactory.createQueryLocation(queryId),
+                    (SetVariable) statement,
+                    connectorSessionManager,
+                    executor);
         }
     }
 }

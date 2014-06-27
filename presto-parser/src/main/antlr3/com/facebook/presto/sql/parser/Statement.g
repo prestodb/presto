@@ -85,6 +85,10 @@ tokens {
     SAMPLED_RELATION;
     QUERY_SPEC;
     STRATIFY_ON;
+    SET_VARIABLE;
+    UNSET_VARIABLE;
+    SHOW_SET_VARIABLE;
+    SHOW_ALL_SET_VARIABLES;
 }
 
 @header {
@@ -161,6 +165,10 @@ statement
     | useCollectionStmt
     | createTableStmt
     | dropTableStmt
+    | setVariableStmt
+    | unsetVariableStmt
+    | showSetVariableStmt
+    | showAllSetVariablesStmt
     | createViewStmt
     | dropViewStmt
     ;
@@ -432,6 +440,13 @@ exprPrimary
     | subquery
     ;
 
+simpleExpr
+	: NULL
+	| number
+	| bool
+	| STRING
+	;
+
 qnameOrFunction
     : (qname -> qname)
       ( ('(' '*' ')' over?                          -> ^(FUNCTION_CALL $qnameOrFunction over?))
@@ -625,6 +640,22 @@ dropTableStmt
 createTableStmt
     : CREATE TABLE qname s=tableContentsSource -> ^(CREATE_TABLE qname $s)
     ;
+
+setVariableStmt
+    : SET qname EQ simpleExpr  -> ^(SET_VARIABLE qname simpleExpr)
+    ;
+
+unsetVariableStmt
+    : UNSET qname -> ^(UNSET_VARIABLE qname)
+    ;
+
+showSetVariableStmt
+    : SET qname -> ^(SHOW_SET_VARIABLE qname)
+    ;
+
+showAllSetVariablesStmt
+    : SET -> SHOW_ALL_SET_VARIABLES
+	;
 
 createViewStmt
     : CREATE r=orReplace? VIEW qname s=tableContentsSource -> ^(CREATE_VIEW qname $s $r?)
@@ -856,6 +887,8 @@ POISSONIZED: 'POISSONIZED';
 TABLESAMPLE: 'TABLESAMPLE';
 RESCALED: 'RESCALED';
 STRATIFY: 'STRATIFY';
+SET: 'SET';
+UNSET: 'UNSET';
 
 EQ  : '=';
 NEQ : '<>' | '!=';
