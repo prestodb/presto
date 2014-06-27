@@ -23,6 +23,7 @@ import com.fasterxml.jackson.core.io.SerializedString;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Charsets;
 import com.google.common.base.Splitter;
+import com.google.common.base.Supplier;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.Slice;
@@ -41,6 +42,7 @@ import static com.facebook.presto.util.Failures.checkCondition;
 import static com.fasterxml.jackson.core.JsonFactory.Feature.CANONICALIZE_FIELD_NAMES;
 import static com.fasterxml.jackson.core.JsonToken.END_ARRAY;
 import static com.fasterxml.jackson.core.JsonToken.END_OBJECT;
+import static com.fasterxml.jackson.core.JsonToken.FIELD_NAME;
 import static com.fasterxml.jackson.core.JsonToken.START_ARRAY;
 import static com.fasterxml.jackson.core.JsonToken.START_OBJECT;
 import static com.fasterxml.jackson.core.JsonToken.VALUE_NULL;
@@ -116,9 +118,29 @@ public final class JsonExtract
     private static final JsonFactory JSON_FACTORY = new JsonFactory()
             .disable(CANONICALIZE_FIELD_NAMES);
 
-    // Stand-in caches for compiled JSON paths until we have something more formalized
-    private static final JsonExtractCache SCALAR_CACHE = new JsonExtractCache(20, true);
-    private static final JsonExtractCache JSON_CACHE = new JsonExtractCache(20, false);
+    private static final JsonExtractCache<Slice> SCALAR_CACHE = new JsonExtractCache<>(20, new Supplier<JsonExtractor<Slice>>() {
+        @Override
+        public JsonExtractor<Slice> get()
+        {
+            return new ScalarValueJsonExtractor();
+        }
+    });
+
+    private static final JsonExtractCache<Slice> JSON_CACHE = new JsonExtractCache<>(20, new Supplier<JsonExtractor<Slice>>() {
+        @Override
+        public JsonExtractor<Slice> get()
+        {
+            return new JsonValueJsonExtractor();
+        }
+    });
+
+    private static final JsonExtractCache<Long> JSON_SIZE_CACHE = new JsonExtractCache<>(20, new Supplier<JsonExtractor<Long>>() {
+        @Override
+        public JsonExtractor<Long> get()
+        {
+            return new JsonSizeExtractor();
+        }
+    });
 
     private JsonExtract() {}
 
@@ -152,7 +174,7 @@ public final class JsonExtract
         return extract(JSON_CACHE, jsonInput, jsonPath);
     }
 
-    public static Slice extract(ThreadLocalCache<Slice, JsonExtractor> cache, @Nullable Slice jsonInput, Slice jsonPath)
+    public static Slice extract(ThreadLocalCache<Slice, JsonExtractor<Slice>> cache, @Nullable Slice jsonInput, Slice jsonPath)
             throws IOException
     {
         checkNotNull(jsonPath, "jsonPath is null");
@@ -169,7 +191,7 @@ public final class JsonExtract
         }
     }
 
-    public static Slice extract(Slice jsonInput, JsonExtractor jsonExtractor)
+    public static Slice extract(Slice jsonInput, JsonExtractor<Slice> jsonExtractor)
             throws IOException
     {
         try {
@@ -182,7 +204,57 @@ public final class JsonExtract
     }
 
     @VisibleForTesting
-    static Slice extractInternal(Slice jsonInput, JsonExtractor jsonExtractor)
+    static Slice extractInternal(Slice jsonInput, JsonExtractor<Slice> jsonExtractor)
+            throws IOException
+    {
+        checkNotNull(jsonInput, "jsonInput is null");
+        try (JsonParser jsonParser = JSON_FACTORY.createJsonParser(jsonInput.getInput())) {
+            // Initialize by advancing to first token and make sure it exists
+            if (jsonParser.nextToken() == null) {
+                throw new JsonParseException("Missing starting token", jsonParser.getCurrentLocation());
+            }
+
+            return jsonExtractor.extract(jsonParser);
+        }
+    }
+
+    public static Long extractSize(Slice jsonInput, Slice jsonPath)
+            throws IOException
+    {
+        return extractSize(JSON_SIZE_CACHE, jsonInput, jsonPath);
+    }
+
+    public static Long extractSize(ThreadLocalCache<Slice, JsonExtractor<Long>> cache, @Nullable Slice jsonInput, Slice jsonPath)
+            throws IOException
+    {
+        checkNotNull(jsonPath, "jsonPath is null");
+        if (jsonInput == null) {
+            return null;
+        }
+
+        try {
+            return extractSizeInternal(jsonInput, cache.get(jsonPath));
+        }
+        catch (JsonParseException e) {
+            // Return null if we failed to parse something
+            return null;
+        }
+    }
+
+    public static Long extractSize(Slice jsonInput, JsonExtractor<Long> jsonExtractor)
+            throws IOException
+    {
+        try {
+            return extractSizeInternal(jsonInput, jsonExtractor);
+        }
+        catch (JsonParseException e) {
+            // Return null if we failed to parse something
+            return null;
+        }
+    }
+
+    @VisibleForTesting
+    static Long extractSizeInternal(Slice jsonInput, JsonExtractor<Long> jsonExtractor)
             throws IOException
     {
         checkNotNull(jsonInput, "jsonInput is null");
@@ -207,33 +279,33 @@ public final class JsonExtract
         return DOT_SPLITTER.split(path);
     }
 
-    public static JsonExtractor generateExtractor(String path, boolean scalarValue)
+    public static <T> JsonExtractor<T> generateExtractor(String path, JsonExtractor<T> rootExtractor)
     {
         Iterator<String> iterator = tokenizePath(path).iterator();
         checkCondition(iterator.hasNext() && iterator.next().equals("$"), INVALID_FUNCTION_ARGUMENT, "JSON path must begin with root: '$'");
-        return generateExtractor(iterator, scalarValue);
+        return generateExtractor(iterator, rootExtractor);
     }
 
-    private static JsonExtractor generateExtractor(Iterator<String> filters, boolean scalarValue)
+    private static <T> JsonExtractor<T> generateExtractor(Iterator<String> filters, JsonExtractor<T> rootExtractor)
     {
         if (!filters.hasNext()) {
-            return scalarValue ? new ScalarValueJsonExtractor() : new JsonValueJsonExtractor();
+            return rootExtractor;
         }
 
         String filter = filters.next();
         if (filter.startsWith("[")) {
             int index = Integer.parseInt(filter.substring(1).trim());
-            return new ArrayElementJsonExtractor(index, generateExtractor(filters, scalarValue));
+            return new ArrayElementJsonExtractor<>(index, generateExtractor(filters, rootExtractor));
         }
         else {
-            return new ObjectFieldJsonExtractor(filter, generateExtractor(filters, scalarValue));
+            return new ObjectFieldJsonExtractor<>(filter, generateExtractor(filters, rootExtractor));
         }
     }
 
-    public interface JsonExtractor
+    public interface JsonExtractor<T>
     {
         /**
-         * Executes the extraction on the existing content of the JasonParser and outputs the value as a Slice.
+         * Executes the extraction on the existing content of the JasonParser and outputs the match.
          * <p/>
          * Notes:
          * <ul>
@@ -241,26 +313,26 @@ public final class JsonExtract
          * <li>INVARIANT: when extract() returns, the current token of the parser will be the LAST token of the value</li>
          * </ul>
          *
-         * @return Slice of the value, or null if not applicable
+         * @return the value, or null if not applicable
          */
-        Slice extract(JsonParser jsonParser)
+        T extract(JsonParser jsonParser)
                 throws IOException;
     }
 
-    public static class ObjectFieldJsonExtractor
-            implements JsonExtractor
+    public static class ObjectFieldJsonExtractor<T>
+            implements JsonExtractor<T>
     {
         private final SerializedString fieldName;
-        private final JsonExtractor delegate;
+        private final JsonExtractor<? extends T> delegate;
 
-        public ObjectFieldJsonExtractor(String fieldName, JsonExtractor delegate)
+        public ObjectFieldJsonExtractor(String fieldName, JsonExtractor<? extends T> delegate)
         {
             this.fieldName = new SerializedString(checkNotNull(fieldName, "fieldName is null"));
             this.delegate = checkNotNull(delegate, "delegate is null");
         }
 
         @Override
-        public Slice extract(JsonParser jsonParser)
+        public T extract(JsonParser jsonParser)
                 throws IOException
         {
             if (jsonParser.getCurrentToken() != START_OBJECT) {
@@ -284,13 +356,13 @@ public final class JsonExtract
         }
     }
 
-    public static class ArrayElementJsonExtractor
-            implements JsonExtractor
+    public static class ArrayElementJsonExtractor<T>
+            implements JsonExtractor<T>
     {
         private final int index;
-        private final JsonExtractor delegate;
+        private final JsonExtractor<? extends T> delegate;
 
-        public ArrayElementJsonExtractor(int index, JsonExtractor delegate)
+        public ArrayElementJsonExtractor(int index, JsonExtractor<? extends T> delegate)
         {
             checkArgument(index >= 0, "index must be greater than or equal to zero: %s", index);
             checkNotNull(delegate, "delegate is null");
@@ -299,7 +371,7 @@ public final class JsonExtract
         }
 
         @Override
-        public Slice extract(JsonParser jsonParser)
+        public T extract(JsonParser jsonParser)
                 throws IOException
         {
             if (jsonParser.getCurrentToken() != START_ARRAY) {
@@ -328,7 +400,7 @@ public final class JsonExtract
     }
 
     public static class ScalarValueJsonExtractor
-            implements JsonExtractor
+            implements JsonExtractor<Slice>
     {
         @Override
         public Slice extract(JsonParser jsonParser)
@@ -346,7 +418,7 @@ public final class JsonExtract
     }
 
     public static class JsonValueJsonExtractor
-            implements JsonExtractor
+            implements JsonExtractor<Slice>
     {
         @Override
         public Slice extract(JsonParser jsonParser)
@@ -361,6 +433,57 @@ public final class JsonExtract
                 jsonGenerator.copyCurrentStructure(jsonParser);
             }
             return dynamicSliceOutput.slice();
+        }
+    }
+
+    public static class JsonSizeExtractor
+            implements JsonExtractor<Long>
+    {
+        @Override
+        public Long extract(JsonParser jsonParser)
+                throws IOException
+        {
+            if (!jsonParser.hasCurrentToken()) {
+                throw new JsonParseException("Unexpected end of value", jsonParser.getCurrentLocation());
+            }
+
+            if (jsonParser.getCurrentToken() == START_ARRAY) {
+                long length = 0;
+                while (true) {
+                    JsonToken token = jsonParser.nextToken();
+                    if (token == null) {
+                        return null;
+                    }
+                    if (token == END_ARRAY) {
+                        return length;
+                    }
+                    jsonParser.skipChildren();
+
+                    length++;
+                }
+            }
+            else if (jsonParser.getCurrentToken() == START_OBJECT) {
+                long length = 0;
+                while (true) {
+                    JsonToken token = jsonParser.nextToken();
+                    if (token == null) {
+                        return null;
+                    }
+                    if (token == END_OBJECT) {
+                        return length;
+                    }
+
+                    if (token == FIELD_NAME) {
+                        length++;
+                    }
+                    else {
+                        jsonParser.skipChildren();
+                    }
+                }
+            }
+            else {
+                return 0L;
+            }
         }
     }
 
@@ -381,21 +504,21 @@ public final class JsonExtract
         }
     }
 
-    public static class JsonExtractCache
-            extends ThreadLocalCache<Slice, JsonExtractor>
+    public static class JsonExtractCache<T>
+            extends ThreadLocalCache<Slice, JsonExtractor<T>>
     {
-        private final boolean isScalarValue;
+        private final Supplier<JsonExtractor<T>> rootSupplier;
 
-        public JsonExtractCache(int sizePerThread, boolean isScalarValue)
+        public JsonExtractCache(int maxSizePerThread, Supplier<JsonExtractor<T>> rootSupplier)
         {
-            super(sizePerThread);
-            this.isScalarValue = isScalarValue;
+            super(maxSizePerThread);
+            this.rootSupplier = rootSupplier;
         }
 
         @Override
-        protected JsonExtractor load(Slice jsonPath)
+        protected JsonExtractor<T> load(Slice jsonPath)
         {
-            return generateExtractor(jsonPath.toString(Charsets.UTF_8), isScalarValue);
+            return generateExtractor(jsonPath.toString(Charsets.UTF_8), rootSupplier.get());
         }
     }
 }

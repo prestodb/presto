@@ -34,7 +34,7 @@ import static org.testng.Assert.assertEquals;
 public class TestJsonExtract
 {
     @Test
-    public void testScalarVaueJsonExtractor()
+    public void testScalarValueJsonExtractor()
             throws Exception
     {
         ScalarValueJsonExtractor extractor = new ScalarValueJsonExtractor();
@@ -57,7 +57,7 @@ public class TestJsonExtract
     }
 
     @Test
-    public void testJsonVaueJsonExtractor()
+    public void testJsonValueJsonExtractor()
             throws Exception
     {
         JsonValueJsonExtractor extractor = new JsonValueJsonExtractor();
@@ -83,8 +83,8 @@ public class TestJsonExtract
     public void testArrayElementJsonExtractor()
             throws Exception
     {
-        ArrayElementJsonExtractor firstExtractor = new ArrayElementJsonExtractor(0, new ScalarValueJsonExtractor());
-        ArrayElementJsonExtractor secondExtractor = new ArrayElementJsonExtractor(1, new ScalarValueJsonExtractor());
+        ArrayElementJsonExtractor<Slice> firstExtractor = new ArrayElementJsonExtractor<>(0, new ScalarValueJsonExtractor());
+        ArrayElementJsonExtractor<Slice> secondExtractor = new ArrayElementJsonExtractor<>(1, new ScalarValueJsonExtractor());
 
         assertEquals(doExtract(firstExtractor, "[]"), null);
         assertEquals(doExtract(firstExtractor, "[1, 2, 3]"), "1");
@@ -100,7 +100,7 @@ public class TestJsonExtract
     public void testObjectFieldJsonExtractor()
             throws Exception
     {
-        ObjectFieldJsonExtractor extractor = new ObjectFieldJsonExtractor("fuu", new ScalarValueJsonExtractor());
+        ObjectFieldJsonExtractor<Slice> extractor = new ObjectFieldJsonExtractor<>("fuu", new ScalarValueJsonExtractor());
 
         assertEquals(doExtract(extractor, "{}"), null);
         assertEquals(doExtract(extractor, "{\"a\": 1}"), null);
@@ -176,7 +176,7 @@ public class TestJsonExtract
         doScalarExtract("{}", "$.bar[2][-1]");
     }
 
-    private static String doExtract(JsonExtractor jsonExtractor, String json)
+    private static String doExtract(JsonExtractor<Slice> jsonExtractor, String json)
             throws IOException
     {
         JsonFactory jsonFactory = new JsonFactory();
@@ -189,14 +189,14 @@ public class TestJsonExtract
     private static String doScalarExtract(String inputJson, String jsonPath)
             throws IOException
     {
-        Slice value = JsonExtract.extractInternal(Slices.wrappedBuffer(inputJson.getBytes(Charsets.UTF_8)), generateExtractor(jsonPath, true));
+        Slice value = JsonExtract.extractInternal(Slices.wrappedBuffer(inputJson.getBytes(Charsets.UTF_8)), generateExtractor(jsonPath, new ScalarValueJsonExtractor()));
         return (value == null) ? null : value.toString(Charsets.UTF_8);
     }
 
     private static String doJsonExtract(String inputJson, String jsonPath)
             throws IOException
     {
-        Slice value = JsonExtract.extractInternal(Slices.wrappedBuffer(inputJson.getBytes(Charsets.UTF_8)), generateExtractor(jsonPath, false));
+        Slice value = JsonExtract.extractInternal(Slices.wrappedBuffer(inputJson.getBytes(Charsets.UTF_8)), generateExtractor(jsonPath, new JsonValueJsonExtractor()));
         return (value == null) ? null : value.toString(Charsets.UTF_8);
     }
 }
