@@ -17,6 +17,9 @@ import com.facebook.presto.byteCode.ByteCodeNode;
 import com.facebook.presto.byteCode.instruction.Constant;
 import com.facebook.presto.operator.scalar.JsonExtract.JsonExtractCache;
 import com.facebook.presto.operator.scalar.JsonExtract.JsonExtractor;
+import com.facebook.presto.operator.scalar.JsonExtract.JsonSizeExtractor;
+import com.facebook.presto.operator.scalar.JsonExtract.JsonValueJsonExtractor;
+import com.facebook.presto.operator.scalar.JsonExtract.ScalarValueJsonExtractor;
 import com.facebook.presto.spi.type.BigintType;
 import com.facebook.presto.spi.type.BooleanType;
 import com.facebook.presto.spi.type.DoubleType;
@@ -29,9 +32,8 @@ import com.facebook.presto.util.ThreadLocalCache;
 import com.fasterxml.jackson.core.JsonFactory;
 import com.fasterxml.jackson.core.JsonParser;
 import com.fasterxml.jackson.core.JsonToken;
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.base.Charsets;
+import com.google.common.base.Supplier;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Doubles;
@@ -243,7 +245,7 @@ public final class JsonFunctions
 
             List<String> tokens = null;
             if (index < 0) {
-                tokens = new LinkedList<String>();
+                tokens = new LinkedList<>();
             }
 
             long count = 0;
@@ -308,24 +310,16 @@ public final class JsonFunctions
         }
     }
 
-    @ScalarFunction(value = JSON_SIZE_FUNCTION_NAME)
+    @ScalarFunction(value = JSON_SIZE_FUNCTION_NAME, functionBinder = JsonFunctionBinder.class)
     @Nullable
     @SqlType(BigintType.class)
     public static Long jsonSize(@SqlType(VarcharType.class) Slice json, @SqlType(VarcharType.class) Slice jsonPath)
     {
         try {
-            Slice extractedJson = JsonExtract.extractJson(json, jsonPath);
-
-            if (extractedJson == null) {
-                return null;
-            }
-
-            ObjectMapper mapper = new ObjectMapper();
-            JsonNode rootNode = mapper.readTree(extractedJson.getInput());
-            return new Long(rootNode.size());
+            return JsonExtract.extractSize(json, jsonPath);
         }
-        catch (Throwable e) {
-            return null;
+        catch (IOException e) {
+            throw Throwables.propagate(e);
         }
     }
 
@@ -334,11 +328,15 @@ public final class JsonFunctions
     {
         private static final MethodHandle constantJsonExtract;
         private static final MethodHandle dynamicJsonExtract;
+        private static final MethodHandle constantJsonSize;
+        private static final MethodHandle dynamicJsonSize;
 
         static {
             try {
                 constantJsonExtract = lookup().findStatic(JsonExtract.class, "extract", methodType(Slice.class, Slice.class, JsonExtractor.class));
                 dynamicJsonExtract = lookup().findStatic(JsonExtract.class, "extract", methodType(Slice.class, ThreadLocalCache.class, Slice.class, Slice.class));
+                constantJsonSize = lookup().findStatic(JsonExtract.class, "extractSize", methodType(Long.class, Slice.class, JsonExtractor.class));
+                dynamicJsonSize = lookup().findStatic(JsonExtract.class, "extractSize", methodType(Long.class, ThreadLocalCache.class, Slice.class, Slice.class));
             }
             catch (ReflectiveOperationException e) {
                 throw Throwables.propagate(e);
@@ -355,19 +353,25 @@ public final class JsonFunctions
                 Slice patternSlice = (Slice) ((Constant) patternNode).getValue();
                 String pattern = patternSlice.toString(Charsets.UTF_8);
 
-                JsonExtractor jsonExtractor;
+                JsonExtractor<?> jsonExtractor;
                 switch (name) {
                     case JSON_EXTRACT_SCALAR_FUNCTION_NAME:
-                        jsonExtractor = generateExtractor(pattern, true);
+                        methodHandle = constantJsonExtract;
+                        jsonExtractor = generateExtractor(pattern, new ScalarValueJsonExtractor());
                         break;
                     case JSON_EXTRACT_FUNCTION_NAME:
-                        jsonExtractor = generateExtractor(pattern, false);
+                        methodHandle = constantJsonExtract;
+                        jsonExtractor = generateExtractor(pattern, new JsonValueJsonExtractor());
+                        break;
+                    case JSON_SIZE_FUNCTION_NAME:
+                        methodHandle = constantJsonSize;
+                        jsonExtractor = generateExtractor(pattern, new JsonSizeExtractor());
                         break;
                     default:
                         throw new IllegalArgumentException("Unsupported method " + name);
                 }
 
-                methodHandle = MethodHandles.insertArguments(constantJsonExtract, 1, jsonExtractor);
+                methodHandle = MethodHandles.insertArguments(methodHandle, 1, jsonExtractor);
 
                 // remove the pattern argument
                 arguments = new ArrayList<>(arguments);
@@ -375,19 +379,46 @@ public final class JsonFunctions
                 arguments = ImmutableList.copyOf(arguments);
             }
             else {
-                ThreadLocalCache<Slice, JsonExtractor> cache;
+                JsonExtractCache<?> cache;
                 switch (name) {
                     case JSON_EXTRACT_SCALAR_FUNCTION_NAME:
-                        cache = new JsonExtractCache(20, true);
+                        methodHandle = dynamicJsonExtract;
+                        cache = new JsonExtractCache<>(20, new Supplier<JsonExtractor<Slice>>()
+                        {
+                            @Override
+                            public JsonExtractor<Slice> get()
+                            {
+                                return new ScalarValueJsonExtractor();
+                            }
+                        });
                         break;
                     case JSON_EXTRACT_FUNCTION_NAME:
-                        cache = new JsonExtractCache(20, false);
+                        methodHandle = dynamicJsonExtract;
+                        cache = new JsonExtractCache<>(20, new Supplier<JsonExtractor<Slice>>()
+                        {
+                            @Override
+                            public JsonExtractor<Slice> get()
+                            {
+                                return new JsonValueJsonExtractor();
+                            }
+                        });
+                        break;
+                    case JSON_SIZE_FUNCTION_NAME:
+                        methodHandle = dynamicJsonSize;
+                        cache = new JsonExtractCache<>(20, new Supplier<JsonExtractor<Long>>()
+                        {
+                            @Override
+                            public JsonExtractor<Long> get()
+                            {
+                                return new JsonSizeExtractor();
+                            }
+                        });
                         break;
                     default:
                         throw new IllegalArgumentException("Unsupported method " + name);
                 }
 
-                methodHandle = dynamicJsonExtract.bindTo(cache);
+                methodHandle = methodHandle.bindTo(cache);
             }
 
             return DefaultFunctionBinder.bindConstantArguments(bindingId, name, getSessionByteCode, arguments, methodHandle, true);
