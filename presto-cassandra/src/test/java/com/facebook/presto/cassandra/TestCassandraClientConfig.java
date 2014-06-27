@@ -14,6 +14,7 @@
 package com.facebook.presto.cassandra;
 
 import com.datastax.driver.core.ConsistencyLevel;
+import com.datastax.driver.core.SocketOptions;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.configuration.testing.ConfigAssertions;
 import io.airlift.units.Duration;
@@ -45,7 +46,10 @@ public class TestCassandraClientConfig
                 .setThriftConnectionFactoryClassName("org.apache.cassandra.thrift.TFramedTransportFactory")
                 .setAllowDropTable(false)
                 .setUsername(null)
-                .setPassword(null));
+                .setPassword(null)
+                .setClientReadTimeout(SocketOptions.DEFAULT_READ_TIMEOUT_MILLIS)
+                .setClientConnectTimeout(SocketOptions.DEFAULT_CONNECT_TIMEOUT_MILLIS)
+                .setClientSoLinger(null));
     }
 
     @Test
@@ -70,6 +74,9 @@ public class TestCassandraClientConfig
                 .put("cassandra.allow-drop-table", "true")
                 .put("cassandra.username", "my_username")
                 .put("cassandra.password", "my_password")
+                .put("cassandra.client.read-timeout", "11")
+                .put("cassandra.client.connect-timeout", "22")
+                .put("cassandra.client.so-linger", "33")
                 .build();
 
         CassandraClientConfig expected = new CassandraClientConfig()
@@ -90,7 +97,10 @@ public class TestCassandraClientConfig
                 .setThriftConnectionFactoryClassName("org.apache.cassandra.thrift.TFramedTransportFactory1")
                 .setAllowDropTable(true)
                 .setUsername("my_username")
-                .setPassword("my_password");
+                .setPassword("my_password")
+                .setClientReadTimeout(11)
+                .setClientConnectTimeout(22)
+                .setClientSoLinger(33);
 
         ConfigAssertions.assertFullMapping(properties, expected);
     }

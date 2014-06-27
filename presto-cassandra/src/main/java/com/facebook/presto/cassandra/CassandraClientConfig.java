@@ -14,8 +14,10 @@
 package com.facebook.presto.cassandra;
 
 import com.datastax.driver.core.ConsistencyLevel;
+import com.datastax.driver.core.SocketOptions;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
+
 import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigDescription;
 import io.airlift.units.Duration;
@@ -54,6 +56,9 @@ public class CassandraClientConfig
     private boolean allowDropTable;
     private String username;
     private String password;
+    private int clientReadTimeout = SocketOptions.DEFAULT_READ_TIMEOUT_MILLIS;
+    private int clientConnectTimeout = SocketOptions.DEFAULT_CONNECT_TIMEOUT_MILLIS;
+    private Integer clientSoLinger;
 
     @Min(0)
     public int getLimitForPartitionKeySelect()
@@ -288,6 +293,45 @@ public class CassandraClientConfig
     public CassandraClientConfig setPassword(String password)
     {
         this.password = password;
+        return this;
+    }
+
+    @Min(1)
+    public int getClientReadTimeout()
+    {
+        return clientReadTimeout;
+    }
+
+    @Config("cassandra.client.read-timeout")
+    public CassandraClientConfig setClientReadTimeout(int clientReadTimeout)
+    {
+        this.clientReadTimeout = clientReadTimeout;
+        return this;
+    }
+
+    @Min(1)
+    public int getClientConnectTimeout()
+    {
+        return clientConnectTimeout;
+    }
+
+    @Config("cassandra.client.connect-timeout")
+    public CassandraClientConfig setClientConnectTimeout(int clientConnectTimeout)
+    {
+        this.clientConnectTimeout = clientConnectTimeout;
+        return this;
+    }
+
+    @Min(0)
+    public Integer getClientSoLinger()
+    {
+        return clientSoLinger;
+    }
+
+    @Config("cassandra.client.so-linger")
+    public CassandraClientConfig setClientSoLinger(Integer clientSoLinger)
+    {
+        this.clientSoLinger = clientSoLinger;
         return this;
     }
 }
