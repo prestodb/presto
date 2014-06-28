@@ -44,7 +44,27 @@
 
 <div class="content homecontent width clearfix">
     <div class="leftcol widecol faq">
-        <h2 id="odbc">Presto ODBC</h2>
+        <h2 id="odbc">Presto Clients and GUIs</h2>
+
+        <div class="item">
+            <h4>Shib</h4>
+            <dl>
+                <dt>Project</dt>
+                <dd><a href="https://github.com/tagomoris/shib">GitHub</a></dd>
+                <dt>Maintained by</dt>
+                <dd><a href="https://github.com/tagomoris">Tagomori Satoshi</a></dd>
+                <dt>Description</dt>
+                <dd>
+                    Shib is a web-client written in Node.js designed to
+                    query Presto and Hive. To run Shib install node.js,
+                    alter your config.js, and follow the instructions on
+                    the shib project page. Shib can also be used as an
+                    proxy server for query engines.
+                </dd>
+            </dl>
+        </div>
+
+	<h2 id="odbc">Presto ODBC</h2>
 
         <div class="item">
             <h4>Prestogres</h4>
@@ -334,9 +354,11 @@ rows.each {|row| p row }
     <div class="rightcol">
     <h3>Presto Resources</h3>
     <ul>
-        <li><a href="#odbc">Presto ODBC</a></li>
+        <li><a href="#clients">Presto Clients</a></li>
+	<li><a href="#odbc">Presto ODBC</a></li>
         <li><a href="#libraries">Presto Libraries</a></li>
         <li><a href="#hosting">Presto Hosting</a></li>
+	
     </ul>
 </div>
 </div>
