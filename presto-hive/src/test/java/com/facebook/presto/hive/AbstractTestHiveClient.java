@@ -825,6 +825,13 @@ public abstract class AbstractTestHiveClient
     }
 
     @Test
+    public void testHiveViewsHaveNoColumns()
+            throws Exception
+    {
+        assertEquals(metadata.listTableColumns(SESSION, new SchemaTablePrefix(view.getSchemaName(), view.getTableName())), ImmutableMap.of());
+    }
+
+    @Test
     public void testTableCreation()
             throws Exception
     {
