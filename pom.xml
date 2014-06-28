@@ -75,6 +75,7 @@
         <module>presto-cli</module>
         <module>presto-server</module>
         <module>presto-docs</module>
+        <module>presto-docs-cn</module>
         <module>presto-verifier</module>
     </modules>
 

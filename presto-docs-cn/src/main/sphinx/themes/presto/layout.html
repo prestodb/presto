@@ -1,0 +1,38 @@
+{%- extends 'basic/layout.html' %}
+
+{% block relbar1 %}{% endblock %}
+{% block relbar2 %}{% endblock %}
+
+{% macro nav() %}
+<p class="nav">
+    <span class="left">
+        {%- if prev %}
+        &laquo; <a href="{{ prev.link|e }}">{{ prev.title }}</a>
+        {%- else %}
+        &nbsp;
+        {%- endif %}
+    </span>
+    <span class="right">
+        {%- if next %}
+        <a href="{{ next.link|e }}">{{ next.title }}</a> &raquo;
+        {%- endif %}
+    </span>
+</p>
+{% endmacro %}
+
+{% block content %}
+<div class="header">
+    <h1 class="heading"><a href="{{ pathto('index') }}">
+        <span>{{ shorttitle|e }}</span></a></h1>
+    <h2 class="heading"><span>{{ title|striptags|e }}</span></h2>
+</div>
+<div class="topnav">
+    {{ nav() }}
+</div>
+<div class="content">
+    {% block body %}{% endblock %}
+</div>
+<div class="bottomnav">
+    {{ nav() }}
+</div>
+{% endblock %}
