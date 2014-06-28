@@ -90,7 +90,7 @@
         </p>
 
 
-        <h2 id="errors">Common Errors</h2>
+        <h2 id="errors">Common Errors and Troubleshooting</h2>
 
         <h3>Why can I run <tt>SHOW TABLES</tt> but I can't <tt>SELECT</tt> from any of them?</h3>
 
@@ -125,6 +125,32 @@
             everything is working. We will fix the log message eventually
             but it is purely a cosmetic issue.
         </p>
+
+        <h3>Queries are running slower than expected. What are the factors that influence Presto performance?</h3>
+
+        <p>
+            The first things to check are the basic machine stats for
+            your workers and coordinators.  Measure the load, network,
+            and disk utilization over time to understand where Presto
+            is running out of resources.
+        </p>
+        <ul>
+            <li>If the Presto process is mostly idle, this means that
+            Presto can not retrieve data fast enough from the HDFS
+            data node.  This could be caused by network or disk
+            bandwidth or CPU on the data node.</li>
+
+            <li>If the Presto process is using 100% cpu, it might
+            caused by the use of an expensive to parse input format.
+            For example, the Textfile is a very expensive input format
+            to parse.</li>
+
+            <li>If neither of the above are true, the Presto process
+            may have some sort of internal resource starvation. If
+            this is the case you should take a thread dump of your
+            coordinators and workers with a tool like jstack as a
+            starting point for your investigation.</li>
+        </ul>
 
 	<h2 id="querying">Running Presto Queries</h2>
 
