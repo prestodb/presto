@@ -397,6 +397,9 @@ public class HiveClient
             try {
                 columns.put(tableName, getTableMetadata(tableName).getColumns());
             }
+            catch (HiveViewNotSupportedException e) {
+                // view is not supported
+            }
             catch (TableNotFoundException e) {
                 // table disappeared during listing operation
             }
