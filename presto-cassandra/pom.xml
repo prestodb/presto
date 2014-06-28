@@ -401,15 +401,14 @@
 
     <profiles>
         <profile>
-            <id>test-cassandra</id>
+            <id>cassandra-integration</id>
             <build>
                 <plugins>
                     <plugin>
                         <groupId>org.apache.maven.plugins</groupId>
                         <artifactId>maven-surefire-plugin</artifactId>
-                        <configuration combine.self="override">
-                            <excludes>
-                            </excludes>
+                        <configuration>
+                            <excludes combine.self="override"/>
                         </configuration>
                     </plugin>
                 </plugins>
