@@ -13,28 +13,29 @@
  */
 package com.facebook.presto.cassandra;
 
-import com.datastax.driver.core.Cluster;
-import com.datastax.driver.core.QueryOptions;
-import com.datastax.driver.core.policies.ExponentialReconnectionPolicy;
-import com.google.common.util.concurrent.ThreadFactoryBuilder;
-import com.google.inject.Binder;
-import com.google.inject.Module;
-import com.google.inject.Provides;
-import com.google.inject.Scopes;
-import io.airlift.json.JsonCodec;
-
-import javax.inject.Singleton;
-
-import java.util.List;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static io.airlift.configuration.ConfigurationModule.bindConfig;
 import static io.airlift.json.JsonCodecBinder.jsonCodecBinder;
 import static org.weakref.jmx.ObjectNames.generatedNameOf;
 import static org.weakref.jmx.guice.ExportBinder.newExporter;
+import io.airlift.json.JsonCodec;
+
+import java.util.List;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+
+import javax.inject.Singleton;
+
+import com.datastax.driver.core.Cluster;
+import com.datastax.driver.core.QueryOptions;
+import com.datastax.driver.core.SocketOptions;
+import com.datastax.driver.core.policies.ExponentialReconnectionPolicy;
+import com.google.common.util.concurrent.ThreadFactoryBuilder;
+import com.google.inject.Binder;
+import com.google.inject.Module;
+import com.google.inject.Provides;
+import com.google.inject.Scopes;
 
 public class CassandraClientModule
         implements Module
@@ -100,6 +101,14 @@ public class CassandraClientModule
 
         clusterBuilder.withPort(config.getNativeProtocolPort());
         clusterBuilder.withReconnectionPolicy(new ExponentialReconnectionPolicy(500, 10000));
+
+        SocketOptions socketOptions = new SocketOptions();
+        socketOptions.setReadTimeoutMillis(config.getClientReadTimeout());
+        socketOptions.setConnectTimeoutMillis(config.getClientConnectTimeout());
+        if (config.getClientSoLinger() != null) {
+            socketOptions.setSoLinger(config.getClientSoLinger());
+        }
+        clusterBuilder.withSocketOptions(socketOptions);
 
         if (config.getUsername() != null && config.getPassword() != null) {
             clusterBuilder.withCredentials(config.getUsername(), config.getPassword());
