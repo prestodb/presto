@@ -46,12 +46,14 @@ public class HiveDataStreamProvider
 {
     private final HdfsEnvironment hdfsEnvironment;
     private final Set<HiveRecordCursorProvider> cursorProviders;
+    private final Set<HiveDataStreamFactory> dataStreamFactories;
 
     @Inject
-    public HiveDataStreamProvider(HdfsEnvironment hdfsEnvironment, Set<HiveRecordCursorProvider> cursorProviders)
+    public HiveDataStreamProvider(HdfsEnvironment hdfsEnvironment, Set<HiveRecordCursorProvider> cursorProviders, Set<HiveDataStreamFactory> dataStreamFactories)
     {
         this.hdfsEnvironment = checkNotNull(hdfsEnvironment, "hdfsEnvironment is null");
         this.cursorProviders = ImmutableSet.copyOf(checkNotNull(cursorProviders, "cursorProviders is null"));
+        this.dataStreamFactories = ImmutableSet.copyOf(checkNotNull(dataStreamFactories, "dataStreamFactories is null"));
     }
 
     @Override
@@ -77,14 +79,32 @@ public class HiveDataStreamProvider
 
         DateTimeZone timeZone = DateTimeZone.forID(session.getTimeZoneKey().getId());
 
-        HiveRecordCursor recordCursor = getHiveRecordCursor(clientId, session, configuration, path, start, length, schema, tupleDomain, partitionKeys, hiveColumns, timeZone);
-        if (recordCursor == null) {
-            throw new RuntimeException("Configured cursor providers did not provide a cursor");
+        for (HiveDataStreamFactory dataStreamFactory : dataStreamFactories) {
+            Optional<? extends Operator> cursor = dataStreamFactory.createNewDataStream(
+                    operatorContext,
+                    configuration,
+                    session,
+                    path,
+                    start,
+                    length,
+                    schema,
+                    hiveColumns,
+                    partitionKeys,
+                    tupleDomain,
+                    timeZone);
+            if (cursor.isPresent()) {
+                return cursor.get();
+            }
         }
 
-        List<Type> columnTypes = ImmutableList.copyOf(transform(hiveColumns, nativeTypeGetter()));
-        RecordProjectOperator recordProjectOperator = new RecordProjectOperator(operatorContext, columnTypes, recordCursor);
-        return recordProjectOperator;
+        HiveRecordCursor recordCursor = getHiveRecordCursor(clientId, session, configuration, path, start, length, schema, tupleDomain, partitionKeys, hiveColumns, timeZone);
+        if (recordCursor != null) {
+            List<Type> columnTypes = ImmutableList.copyOf(transform(hiveColumns, nativeTypeGetter()));
+            RecordProjectOperator recordProjectOperator = new RecordProjectOperator(operatorContext, columnTypes, recordCursor);
+            return recordProjectOperator;
+        }
+
+        throw new RuntimeException("Could not find a file reader for split " + hiveSplit);
     }
 
     protected HiveRecordCursor getHiveRecordCursor(
