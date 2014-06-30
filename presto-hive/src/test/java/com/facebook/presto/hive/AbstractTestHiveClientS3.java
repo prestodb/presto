@@ -46,6 +46,7 @@ import java.util.UUID;
 import java.util.concurrent.ExecutorService;
 
 import static com.facebook.presto.hadoop.HadoopFileStatus.isDirectory;
+import static com.facebook.presto.hive.HiveTestUtils.DEFAULT_HIVE_RECORD_CURSOR_PROVIDERS;
 import static com.facebook.presto.hive.util.Types.checkType;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.TimeZoneKey.UTC_KEY;
@@ -104,6 +105,7 @@ public abstract class AbstractTestHiveClientS3
                 metastoreClient,
                 new NamenodeStats(),
                 new HdfsEnvironment(new HdfsConfiguration(hiveClientConfig)),
+                DEFAULT_HIVE_RECORD_CURSOR_PROVIDERS,
                 new HadoopDirectoryLister(),
                 sameThreadExecutor(),
                 new TypeRegistry());
