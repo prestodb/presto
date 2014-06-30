@@ -26,7 +26,6 @@ import com.facebook.presto.spi.ConnectorMetadata;
 import com.facebook.presto.spi.ConnectorOutputTableHandle;
 import com.facebook.presto.spi.ConnectorPartition;
 import com.facebook.presto.spi.ConnectorPartitionResult;
-import com.facebook.presto.spi.ConnectorRecordSetProvider;
 import com.facebook.presto.spi.ConnectorRecordSinkProvider;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorSplit;
@@ -38,7 +37,6 @@ import com.facebook.presto.spi.Domain;
 import com.facebook.presto.spi.FixedSplitSource;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.Range;
-import com.facebook.presto.spi.RecordSet;
 import com.facebook.presto.spi.RecordSink;
 import com.facebook.presto.spi.SchemaNotFoundException;
 import com.facebook.presto.spi.SchemaTableName;
@@ -58,7 +56,6 @@ import com.google.common.collect.AbstractIterator;
 import com.google.common.collect.FluentIterable;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
@@ -91,7 +88,6 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
-import java.util.Set;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.TimeUnit;
@@ -99,7 +95,6 @@ import java.util.concurrent.TimeUnit;
 import static com.facebook.presto.hive.HiveBucketing.HiveBucket;
 import static com.facebook.presto.hive.HiveBucketing.getHiveBucket;
 import static com.facebook.presto.hive.HiveColumnHandle.SAMPLE_WEIGHT_COLUMN_NAME;
-import static com.facebook.presto.hive.HiveColumnHandle.hiveColumnHandle;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_PARTITION_SCHEMA_MISMATCH;
 import static com.facebook.presto.hive.HivePartition.UNPARTITIONED_ID;
 import static com.facebook.presto.hive.HiveType.columnTypeToHiveType;
@@ -155,7 +150,7 @@ import static org.apache.hadoop.hive.serde2.objectinspector.PrimitiveObjectInspe
 
 @SuppressWarnings("deprecation")
 public class HiveClient
-        implements ConnectorMetadata, ConnectorSplitManager, ConnectorRecordSetProvider, ConnectorRecordSinkProvider, ConnectorHandleResolver
+        implements ConnectorMetadata, ConnectorSplitManager, ConnectorRecordSinkProvider, ConnectorHandleResolver
 {
     static {
         HadoopNative.requireHadoopNative();
@@ -186,7 +181,6 @@ public class HiveClient
     private final HiveStorageFormat hiveStorageFormat;
     private final boolean recursiveDfsWalkerEnabled;
     private final TypeManager typeManager;
-    private final Set<HiveRecordCursorProvider> recordCursorProviders;
 
     @Inject
     public HiveClient(HiveConnectorId connectorId,
@@ -194,7 +188,6 @@ public class HiveClient
             HiveMetastore metastore,
             NamenodeStats namenodeStats,
             HdfsEnvironment hdfsEnvironment,
-            Set<HiveRecordCursorProvider> recordCursorProviders,
             DirectoryLister directoryLister,
             @ForHiveClient ExecutorService executorService,
             TypeManager typeManager)
@@ -203,7 +196,6 @@ public class HiveClient
                 metastore,
                 namenodeStats,
                 hdfsEnvironment,
-                recordCursorProviders,
                 directoryLister,
                 DateTimeZone.forTimeZone(hiveClientConfig.getTimeZone()),
                 new BoundedExecutor(executorService, hiveClientConfig.getMaxGlobalSplitIteratorThreads()),
@@ -226,7 +218,6 @@ public class HiveClient
             HiveMetastore metastore,
             NamenodeStats namenodeStats,
             HdfsEnvironment hdfsEnvironment,
-            Set<HiveRecordCursorProvider> recordCursorProviders,
             DirectoryLister directoryLister,
             DateTimeZone timeZone,
             Executor executor,
@@ -260,7 +251,6 @@ public class HiveClient
 
         this.metastore = checkNotNull(metastore, "metastore is null");
         this.hdfsEnvironment = checkNotNull(hdfsEnvironment, "hdfsEnvironment is null");
-        this.recordCursorProviders = ImmutableSet.copyOf(checkNotNull(recordCursorProviders, "recordCursorProviders is null"));
         this.namenodeStats = checkNotNull(namenodeStats, "namenodeStats is null");
         this.directoryLister = checkNotNull(directoryLister, "directoryLister is null");
         this.timeZone = checkNotNull(timeZone, "timeZone is null");
@@ -1016,7 +1006,8 @@ public class HiveClient
         HiveTableHandle hiveTableHandle = checkType(tableHandle, HiveTableHandle.class, "tableHandle");
 
         checkNotNull(connectorPartitions, "connectorPartitions is null");
-        List<HivePartition> partitions = Lists.transform(connectorPartitions, new Function<ConnectorPartition, HivePartition>() {
+        List<HivePartition> partitions = Lists.transform(connectorPartitions, new Function<ConnectorPartition, HivePartition>()
+        {
             @Override
             public HivePartition apply(ConnectorPartition partition)
             {
@@ -1154,15 +1145,6 @@ public class HiveClient
             }
         });
         return concat(partitionBatches);
-    }
-
-    @Override
-    public RecordSet getRecordSet(ConnectorSplit split, List<? extends ConnectorColumnHandle> columns)
-    {
-        HiveSplit hiveSplit = checkType(split, HiveSplit.class, "split");
-
-        List<HiveColumnHandle> hiveColumns = ImmutableList.copyOf(transform(columns, hiveColumnHandle()));
-        return new HiveRecordSet(hdfsEnvironment, hiveSplit, hiveColumns, recordCursorProviders, timeZone, typeManager);
     }
 
     @Override
