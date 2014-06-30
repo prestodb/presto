@@ -130,7 +130,7 @@ public class CassandraSplitManager
                 if (column.isIndexed() && domain.isSingleValue()) {
                     sb.append(CassandraCqlUtils.validColumnName(column.getName()))
                       .append(" = ")
-                      .append(CassandraCqlUtils.cqlValue(entry.getValue().getSingleValue().toString(), column.getCassandraType()));
+                      .append(CassandraCqlUtils.cqlValue(CassandraCqlUtils.airliftToCQLCompatibleString(entry.getValue().getSingleValue()), column.getCassandraType()));
                     indexedColumns.add(column);
                     // Only one indexed column predicate can be pushed down.
                     break;

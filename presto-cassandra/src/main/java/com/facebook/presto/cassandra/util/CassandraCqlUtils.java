@@ -13,19 +13,21 @@
  */
 package com.facebook.presto.cassandra.util;
 
-import com.datastax.driver.core.querybuilder.QueryBuilder;
-import com.datastax.driver.core.querybuilder.Select;
-import com.datastax.driver.core.querybuilder.Select.Selection;
-import com.facebook.presto.cassandra.CassandraColumnHandle;
-import com.facebook.presto.cassandra.CassandraTableHandle;
-import com.facebook.presto.spi.ConnectorColumnHandle;
-import com.fasterxml.jackson.core.io.JsonStringEncoder;
-import com.facebook.presto.cassandra.CassandraType;
+import io.airlift.slice.Slice;
 
 import java.util.Arrays;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+
+import com.datastax.driver.core.querybuilder.QueryBuilder;
+import com.datastax.driver.core.querybuilder.Select;
+import com.datastax.driver.core.querybuilder.Select.Selection;
+import com.facebook.presto.cassandra.CassandraColumnHandle;
+import com.facebook.presto.cassandra.CassandraTableHandle;
+import com.facebook.presto.cassandra.CassandraType;
+import com.facebook.presto.spi.ConnectorColumnHandle;
+import com.fasterxml.jackson.core.io.JsonStringEncoder;
 
 public final class CassandraCqlUtils
 {
@@ -174,5 +176,18 @@ public final class CassandraCqlUtils
             default:
                 return value;
         }
+    }
+
+    public static String airliftToCQLCompatibleString(Comparable<?> comparable)
+    {
+        String result = null;
+        if (comparable instanceof Slice) {
+            Slice slice = (Slice) comparable;
+            result = slice.toStringUtf8();
+        }
+        else {
+            result = comparable.toString();
+        }
+        return result;
     }
 }
