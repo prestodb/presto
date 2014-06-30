@@ -18,9 +18,10 @@ import com.datastax.driver.core.querybuilder.Select;
 import com.datastax.driver.core.querybuilder.Select.Selection;
 import com.facebook.presto.cassandra.CassandraColumnHandle;
 import com.facebook.presto.cassandra.CassandraTableHandle;
+import com.facebook.presto.cassandra.CassandraType;
 import com.facebook.presto.spi.ConnectorColumnHandle;
 import com.fasterxml.jackson.core.io.JsonStringEncoder;
-import com.facebook.presto.cassandra.CassandraType;
+import io.airlift.slice.Slice;
 
 import java.util.Arrays;
 import java.util.HashSet;
@@ -174,5 +175,13 @@ public final class CassandraCqlUtils
             default:
                 return value;
         }
+    }
+
+    public static String toCQLCompatibleString(Comparable<?> comparable)
+    {
+        if (comparable instanceof Slice) {
+            return ((Slice) comparable).toStringUtf8();
+        }
+        return comparable.toString();
     }
 }

@@ -52,6 +52,7 @@ import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 
+import static com.facebook.presto.cassandra.util.CassandraCqlUtils.toCQLCompatibleString;
 import static com.facebook.presto.cassandra.util.Types.checkType;
 import static com.facebook.presto.spi.StandardErrorCode.EXTERNAL;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -130,7 +131,7 @@ public class CassandraSplitManager
                 if (column.isIndexed() && domain.isSingleValue()) {
                     sb.append(CassandraCqlUtils.validColumnName(column.getName()))
                       .append(" = ")
-                      .append(CassandraCqlUtils.cqlValue(entry.getValue().getSingleValue().toString(), column.getCassandraType()));
+                      .append(CassandraCqlUtils.cqlValue(toCQLCompatibleString(entry.getValue().getSingleValue()), column.getCassandraType()));
                     indexedColumns.add(column);
                     // Only one indexed column predicate can be pushed down.
                     break;
