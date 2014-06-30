@@ -85,3 +85,20 @@ Value Functions
     expression.  If the offset is null or greater than the number of values in
     the window, null is returned.  It is an error for the offset to be zero or
     negative.
+
+.. function:: lead(x[, offset [, default_value]]) -> [same as input]
+
+    Returns the value at ``offset`` rows after the current row in the window
+    (see warning above).  Offsets start at ``0``, which is the current row.  The
+    offset can be any scalar expression.  The default ``offset`` is ``1``. If the
+    offset is null or larger than the window, the ``default_value`` is returned,
+    or if it is not specified ``null`` is returned.
+
+.. function:: lag(x[, offset [, default_value]]) -> [same as input]
+
+    Returns the value at ``offset`` rows before the current row in the window
+    (see warning above).  Offsets start at ``0``, which is the current row.  The
+    offset can be any scalar expression.  The default ``offset`` is ``1``. If the
+    offset is null or larger than the window, the ``default_value`` is returned,
+    or if it is not specified ``null`` is returned.
+
