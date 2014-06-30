@@ -67,6 +67,7 @@ import java.util.UUID;
 import java.util.concurrent.ExecutorService;
 
 import static com.facebook.presto.hive.HiveBucketing.HiveBucket;
+import static com.facebook.presto.hive.HiveTestUtils.DEFAULT_HIVE_RECORD_CURSOR_PROVIDER;
 import static com.facebook.presto.hive.HiveTestUtils.close;
 import static com.facebook.presto.hive.HiveTestUtils.creteOperatorContext;
 import static com.facebook.presto.hive.HiveUtil.partitionIdGetter;
@@ -255,7 +256,7 @@ public abstract class AbstractTestHiveClient
         splitManager = client;
         recordSinkProvider = client;
 
-        dataStreamProvider = new HiveDataStreamProvider(hdfsEnvironment);
+        dataStreamProvider = new HiveDataStreamProvider(hdfsEnvironment, DEFAULT_HIVE_RECORD_CURSOR_PROVIDER);
     }
 
     @Test

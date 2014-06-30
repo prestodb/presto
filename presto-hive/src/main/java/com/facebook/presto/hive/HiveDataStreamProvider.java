@@ -24,6 +24,7 @@ import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.split.ConnectorDataStreamProvider;
 import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
 import org.joda.time.DateTimeZone;
@@ -32,6 +33,7 @@ import javax.inject.Inject;
 
 import java.util.List;
 import java.util.Properties;
+import java.util.Set;
 
 import static com.facebook.presto.hive.HiveColumnHandle.hiveColumnHandle;
 import static com.facebook.presto.hive.HiveColumnHandle.nativeTypeGetter;
@@ -43,18 +45,13 @@ public class HiveDataStreamProvider
         implements ConnectorDataStreamProvider
 {
     private final HdfsEnvironment hdfsEnvironment;
-    private final List<HiveRecordCursorProvider> cursorProviders;
+    private final Set<HiveRecordCursorProvider> cursorProviders;
 
     @Inject
-    public HiveDataStreamProvider(HdfsEnvironment hdfsEnvironment)
+    public HiveDataStreamProvider(HdfsEnvironment hdfsEnvironment, Set<HiveRecordCursorProvider> cursorProviders)
     {
-        this(hdfsEnvironment, HiveRecordCursorProviders.getDefaultProviders());
-    }
-
-    public HiveDataStreamProvider(HdfsEnvironment hdfsEnvironment, List<HiveRecordCursorProvider> cursorProviders)
-    {
-        this.cursorProviders = cursorProviders;
         this.hdfsEnvironment = checkNotNull(hdfsEnvironment, "hdfsEnvironment is null");
+        this.cursorProviders = ImmutableSet.copyOf(checkNotNull(cursorProviders, "cursorProviders is null"));
     }
 
     @Override

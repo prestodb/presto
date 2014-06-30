@@ -18,6 +18,7 @@ import com.facebook.presto.operator.Operator;
 import com.facebook.presto.operator.OperatorContext;
 import com.facebook.presto.operator.TaskContext;
 import com.facebook.presto.spi.ConnectorSession;
+import com.google.common.collect.ImmutableSet;
 
 import java.io.Closeable;
 import java.io.IOException;
@@ -25,6 +26,14 @@ import java.util.concurrent.ExecutorService;
 
 public final class HiveTestUtils
 {
+    public static final ImmutableSet<HiveRecordCursorProvider> DEFAULT_HIVE_RECORD_CURSOR_PROVIDER = ImmutableSet.of(
+            new OrcRecordCursorProvider(),
+            new ParquetRecordCursorProvider(),
+            new DwrfRecordCursorProvider(),
+            new ColumnarTextHiveRecordCursorProvider(),
+            new ColumnarBinaryHiveRecordCursorProvider(),
+            new GenericHiveRecordCursorProvider());
+
     private HiveTestUtils()
     {
     }
