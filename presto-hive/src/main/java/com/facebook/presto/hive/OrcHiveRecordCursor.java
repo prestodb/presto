@@ -340,13 +340,15 @@ class OrcHiveRecordCursor
                 longs[column] = shortWritable.get();
             }
             else if (hiveTypes[column].equals(HIVE_DATE)) {
-                long storageTime = ((DateWritable) object).get().getTime();
+                long storageTime = ((DateWritable) object).getTimeInSeconds() * 1000;
                 long utcTime = storageTime + DateTimeZone.getDefault().getOffset(storageTime);
                 longs[column] = utcTime;
             }
             else if (hiveTypes[column].equals(HIVE_TIMESTAMP)) {
                 TimestampWritable timestampWritable = (TimestampWritable) object;
-                longs[column] = timestampWritable.getTimestamp().getTime() + timeZoneCorrection;
+                long seconds = timestampWritable.getSeconds();
+                int nanos = timestampWritable.getNanos();
+                longs[column] = (seconds * 1000) + (nanos / 1_000_000) + timeZoneCorrection;
             }
             else if (hiveTypes[column].equals(HIVE_BYTE)) {
                 ByteWritable byteWritable = (ByteWritable) object;
