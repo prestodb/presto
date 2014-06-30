@@ -431,10 +431,11 @@ public class LocalQueryRunner
         checkArgument(tableHandle != null, "Table %s does not exist", tableName);
 
         // lookup the columns
+        Map<String, ColumnHandle> allColumnHandles = metadata.getColumnHandles(tableHandle);
         ImmutableList.Builder<ColumnHandle> columnHandlesBuilder = ImmutableList.builder();
         ImmutableList.Builder<Type> columnTypesBuilder = ImmutableList.builder();
         for (String columnName : columnNames) {
-            ColumnHandle columnHandle = metadata.getColumnHandle(tableHandle, columnName).orNull();
+            ColumnHandle columnHandle = allColumnHandles.get(columnName);
             checkArgument(columnHandle != null, "Table %s does not have a column %s", tableName, columnName);
             columnHandlesBuilder.add(columnHandle);
             ColumnMetadata columnMetadata = metadata.getColumnMetadata(tableHandle, columnHandle);
