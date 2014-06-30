@@ -13,8 +13,9 @@
  */
 package com.facebook.presto.testing;
 
-import com.facebook.presto.spi.Page;
+import com.facebook.presto.spi.ConnectorPageSource;
 import com.facebook.presto.spi.ConnectorSession;
+import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.type.SqlDate;
 import com.facebook.presto.spi.type.SqlTime;
@@ -30,12 +31,14 @@ import java.sql.Time;
 import java.sql.Timestamp;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.Iterator;
 import java.util.List;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 public class MaterializedResult
+        implements Iterable<MaterializedRow>
 {
     public static final int DEFAULT_PRECISION = 5;
 
@@ -46,6 +49,17 @@ public class MaterializedResult
     {
         this.rows = ImmutableList.copyOf(checkNotNull(rows, "rows is null"));
         this.types = ImmutableList.copyOf(checkNotNull(types, "types is null"));
+    }
+
+    public int getRowCount()
+    {
+        return rows.size();
+    }
+
+    @Override
+    public Iterator<MaterializedRow> iterator()
+    {
+        return rows.iterator();
     }
 
     public List<MaterializedRow> getMaterializedRows()
@@ -123,6 +137,19 @@ public class MaterializedResult
             jdbcValues.add(jdbcValue);
         }
         return new MaterializedRow(prestoRow.getPrecision(), jdbcValues);
+    }
+
+    public static MaterializedResult materializeSourceDataStream(ConnectorSession session, ConnectorPageSource pageSource, List<Type> types)
+    {
+        MaterializedResult.Builder builder = resultBuilder(session, types);
+        while (!pageSource.isFinished()) {
+            Page outputPage = pageSource.getNextPage();
+            if (outputPage == null) {
+                break;
+            }
+            builder.page(outputPage);
+        }
+        return builder.build();
     }
 
     public static Builder resultBuilder(ConnectorSession session, Type... types)

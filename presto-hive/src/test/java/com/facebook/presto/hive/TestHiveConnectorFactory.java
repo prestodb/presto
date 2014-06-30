@@ -14,9 +14,9 @@
 package com.facebook.presto.hive;
 
 import com.facebook.presto.spi.Connector;
+import com.facebook.presto.spi.ConnectorPageSourceProvider;
 import com.facebook.presto.spi.classloader.ClassLoaderSafeConnectorHandleResolver;
 import com.facebook.presto.spi.classloader.ClassLoaderSafeConnectorMetadata;
-import com.facebook.presto.spi.classloader.ClassLoaderSafeConnectorRecordSetProvider;
 import com.facebook.presto.spi.classloader.ClassLoaderSafeConnectorSplitManager;
 import com.facebook.presto.type.TypeRegistry;
 import com.google.common.collect.ImmutableMap;
@@ -48,7 +48,7 @@ public class TestHiveConnectorFactory
         Connector connector = connectorFactory.create("hive-test", ImmutableMap.<String, String>of());
         assertInstanceOf(connector.getMetadata(), ClassLoaderSafeConnectorMetadata.class);
         assertInstanceOf(connector.getSplitManager(), ClassLoaderSafeConnectorSplitManager.class);
-        assertInstanceOf(connector.getRecordSetProvider(), ClassLoaderSafeConnectorRecordSetProvider.class);
+        assertInstanceOf(connector.getPageSourceProvider(), ConnectorPageSourceProvider.class);
         assertInstanceOf(connector.getHandleResolver(), ClassLoaderSafeConnectorHandleResolver.class);
     }
 }

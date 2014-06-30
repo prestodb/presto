@@ -13,7 +13,13 @@
  */
 package com.facebook.presto.hive;
 
+import com.facebook.presto.spi.ConnectorColumnHandle;
+import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.type.TypeRegistry;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+
+import java.util.List;
 
 public final class HiveTestUtils
 {
@@ -28,4 +34,15 @@ public final class HiveTestUtils
             new ColumnarTextHiveRecordCursorProvider(),
             new ColumnarBinaryHiveRecordCursorProvider(),
             new GenericHiveRecordCursorProvider());
+
+    public static final TypeRegistry TYPE_MANAGER = new TypeRegistry();
+
+    public static List<Type> getTypes(List<ConnectorColumnHandle> columnHandles)
+    {
+        ImmutableList.Builder<Type> types = ImmutableList.builder();
+        for (ConnectorColumnHandle columnHandle : columnHandles) {
+            types.add(TYPE_MANAGER.getType(((HiveColumnHandle) columnHandle).getTypeName()));
+        }
+        return types.build();
+    }
 }
