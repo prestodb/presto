@@ -78,6 +78,8 @@ import com.facebook.presto.sql.Serialization.ExpressionDeserializer;
 import com.facebook.presto.sql.Serialization.ExpressionSerializer;
 import com.facebook.presto.sql.Serialization.FunctionCallDeserializer;
 import com.facebook.presto.sql.gen.ExpressionCompiler;
+import com.facebook.presto.sql.parser.SqlParser;
+import com.facebook.presto.sql.parser.SqlParserOptions;
 import com.facebook.presto.sql.planner.CompilerConfig;
 import com.facebook.presto.sql.planner.LocalExecutionPlanner;
 import com.facebook.presto.sql.planner.PlanOptimizersFactory;
@@ -105,6 +107,7 @@ import java.util.List;
 import java.util.Set;
 import java.util.concurrent.ScheduledExecutorService;
 
+import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Strings.nullToEmpty;
 import static com.google.inject.multibindings.MapBinder.newMapBinder;
@@ -122,6 +125,13 @@ import static org.weakref.jmx.guice.ExportBinder.newExporter;
 public class ServerMainModule
         extends AbstractConfigurationAwareModule
 {
+    private final SqlParserOptions sqlParserOptions;
+
+    public ServerMainModule(SqlParserOptions sqlParserOptions)
+    {
+        this.sqlParserOptions = checkNotNull(sqlParserOptions, "sqlParserOptions is null");
+    }
+
     @Override
     protected void setup(Binder binder)
     {
@@ -133,6 +143,9 @@ public class ServerMainModule
         if (serverConfig.isCoordinator()) {
             discoveryBinder(binder).bindHttpAnnouncement("presto-coordinator");
         }
+
+        binder.bind(SqlParser.class).in(Scopes.SINGLETON);
+        binder.bind(SqlParserOptions.class).toInstance(sqlParserOptions);
 
         bindFailureDetector(binder, serverConfig.isCoordinator());
 

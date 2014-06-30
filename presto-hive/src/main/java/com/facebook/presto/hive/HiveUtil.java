@@ -51,7 +51,7 @@ import static org.apache.hadoop.hive.metastore.api.hive_metastoreConstants.FILE_
 import static org.apache.hadoop.hive.serde.serdeConstants.SERIALIZATION_LIB;
 import static org.apache.hadoop.hive.serde2.objectinspector.ObjectInspector.Category;
 
-final class HiveUtil
+public final class HiveUtil
 {
     public static final String PRESTO_VIEW_FLAG = "presto_view";
 

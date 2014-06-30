@@ -94,6 +94,8 @@ tokens {
 
 @lexer::header {
     package com.facebook.presto.sql.parser;
+
+    import java.util.EnumSet;
 }
 
 @members {
@@ -120,14 +122,18 @@ tokens {
         if (e.token.getType() == DIGIT_IDENT) {
             return "identifiers must not start with a digit; surround the identifier with double quotes";
         }
-        if (e.token.getType() == COLON_IDENT) {
-            return "identifiers must not contain a colon; use '@' instead of ':' for table links";
-        }
         return super.getErrorMessage(e, tokenNames);
     }
 }
 
 @lexer::members {
+    private EnumSet<IdentifierSymbol> allowedIdentifierSymbols = EnumSet.noneOf(IdentifierSymbol.class);
+
+    public void setAllowedIdentifierSymbols(EnumSet<IdentifierSymbol> allowedIdentifierSymbols)
+    {
+        this.allowedIdentifierSymbols = EnumSet.copyOf(allowedIdentifierSymbols);
+    }
+
     @Override
     public void reportError(RecognitionException e)
     {
@@ -889,11 +895,12 @@ DECIMAL_VALUE
     ;
 
 IDENT
-    : (LETTER | '_') (LETTER | DIGIT | '_' | '\@')*
+    : (LETTER | '_') (LETTER | DIGIT | '_' | '\@' | ':')*
+        { IdentifierSymbol.validateIdentifier(input, getText(), allowedIdentifierSymbols); }
     ;
 
 DIGIT_IDENT
-    : DIGIT (LETTER | DIGIT | '_' | '\@')+
+    : DIGIT (LETTER | DIGIT | '_' | '\@' | ':')+
     ;
 
 QUOTED_IDENT
@@ -904,10 +911,6 @@ QUOTED_IDENT
 BACKQUOTED_IDENT
     : '`' ( ~'`' | '``' )* '`'
         { setText(getText().substring(1, getText().length() - 1).replace("``", "`")); }
-    ;
-
-COLON_IDENT
-    : (LETTER | DIGIT | '_' )+ ':' (LETTER | DIGIT | '_' )+
     ;
 
 fragment EXPONENT

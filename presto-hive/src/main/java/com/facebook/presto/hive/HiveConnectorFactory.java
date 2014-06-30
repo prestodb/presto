@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.hive;
 
+import com.facebook.presto.hive.metastore.HiveMetastore;
 import com.facebook.presto.spi.Connector;
 import com.facebook.presto.spi.ConnectorFactory;
 import com.facebook.presto.spi.classloader.ClassLoaderSafeConnectorHandleResolver;
@@ -47,13 +48,20 @@ public class HiveConnectorFactory
     private final String name;
     private final Map<String, String> optionalConfig;
     private final ClassLoader classLoader;
+    private final HiveMetastore metastore;
 
     public HiveConnectorFactory(String name, Map<String, String> optionalConfig, ClassLoader classLoader)
+    {
+        this(name, optionalConfig, classLoader, null);
+    }
+
+    public HiveConnectorFactory(String name, Map<String, String> optionalConfig, ClassLoader classLoader, HiveMetastore metastore)
     {
         checkArgument(!isNullOrEmpty(name), "name is null or empty");
         this.name = name;
         this.optionalConfig = checkNotNull(optionalConfig, "optionalConfig is null");
         this.classLoader = checkNotNull(classLoader, "classLoader is null");
+        this.metastore = metastore;
     }
 
     @Override
@@ -73,7 +81,7 @@ public class HiveConnectorFactory
                     new DiscoveryModule(),
                     new MBeanModule(),
                     new JsonModule(),
-                    new HiveClientModule(connectorId),
+                    new HiveClientModule(connectorId, metastore),
                     new Module()
                     {
                         @Override

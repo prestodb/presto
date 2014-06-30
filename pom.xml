@@ -39,6 +39,9 @@
         <air.check.skip-extended>true</air.check.skip-extended>
         <air.check.skip-license>false</air.check.skip-license>
 
+        <air.check.fail-checkstyle>true</air.check.fail-checkstyle>
+        <air.check.skip-checkstyle>false</air.check.skip-checkstyle>
+
         <dep.antlr.version>3.4</dep.antlr.version>
         <dep.slice.version>0.6</dep.slice.version>
         <dep.airlift.version>0.91</dep.airlift.version>
@@ -176,6 +179,12 @@
             <dependency>
                 <groupId>com.facebook.presto</groupId>
                 <artifactId>presto-tests</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>com.facebook.presto</groupId>
+                <artifactId>presto-benchmark</artifactId>
                 <version>${project.version}</version>
             </dependency>
 
@@ -519,6 +528,7 @@
                             <sun.jnu.encoding>${project.build.sourceEncoding}</sun.jnu.encoding>
                             <user.timezone>${test.timezone}</user.timezone>
                             <java.awt.headless>true</java.awt.headless>
+                            <java.util.logging.SimpleFormatter.format>%1$tY-%1$tm-%1$td %1$tH:%1$tM:%1$tS %4$s %5$s%6$s%n</java.util.logging.SimpleFormatter.format>
                         </systemPropertyVariables>
                     </configuration>
                 </plugin>
@@ -645,6 +655,8 @@
                             <goal>check</goal>
                         </goals>
                         <configuration>
+                            <skip>${air.check.skip-checkstyle}</skip>
+                            <failOnViolation>${air.check.fail-checkstyle}</failOnViolation>
                             <consoleOutput>true</consoleOutput>
                             <includeTestSourceDirectory>true</includeTestSourceDirectory>
                             <configLocation>${air.main.basedir}/src/checkstyle/checks.xml</configLocation>

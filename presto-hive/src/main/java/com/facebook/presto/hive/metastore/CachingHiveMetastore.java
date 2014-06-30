@@ -11,8 +11,17 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.hive;
+package com.facebook.presto.hive.metastore;
 
+import com.facebook.presto.hive.util.BackgroundCacheLoader;
+import com.facebook.presto.hive.CachingHiveMetastoreStats;
+import com.facebook.presto.hive.ForHiveMetastore;
+import com.facebook.presto.hive.HiveClientConfig;
+import com.facebook.presto.hive.HiveCluster;
+import com.facebook.presto.hive.HiveErrorCode;
+import com.facebook.presto.hive.HiveMetastoreClient;
+import com.facebook.presto.hive.HiveViewNotSupportedException;
+import com.facebook.presto.hive.TableAlreadyExistsException;
 import com.facebook.presto.hive.shaded.org.apache.thrift.TException;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SchemaTableName;
@@ -71,6 +80,7 @@ import static org.apache.hadoop.hive.metastore.api.hive_metastoreConstants.HIVE_
  */
 @ThreadSafe
 public class CachingHiveMetastore
+        implements HiveMetastore
 {
     private final CachingHiveMetastoreStats stats = new CachingHiveMetastoreStats();
     protected final HiveCluster clientProvider;
@@ -220,6 +230,7 @@ public class CachingHiveMetastore
         return stats;
     }
 
+    @Override
     @Managed
     public void flushCache()
     {
@@ -259,6 +270,7 @@ public class CachingHiveMetastore
         }
     }
 
+    @Override
     public List<String> getAllDatabases()
     {
         return get(databaseNamesCache, "", RuntimeException.class);
@@ -285,6 +297,7 @@ public class CachingHiveMetastore
         }
     }
 
+    @Override
     public Database getDatabase(String databaseName)
             throws NoSuchObjectException
     {
@@ -315,6 +328,7 @@ public class CachingHiveMetastore
         }
     }
 
+    @Override
     public List<String> getAllTables(String databaseName)
             throws NoSuchObjectException
     {
@@ -373,12 +387,14 @@ public class CachingHiveMetastore
         }
     }
 
+    @Override
     public Table getTable(String databaseName, String tableName)
             throws NoSuchObjectException
     {
         return get(tableCache, HiveTableName.table(databaseName, tableName), NoSuchObjectException.class);
     }
 
+    @Override
     public List<String> getAllViews(String databaseName)
             throws NoSuchObjectException
     {
@@ -410,6 +426,7 @@ public class CachingHiveMetastore
         }
     }
 
+    @Override
     public void createTable(final Table table)
     {
         try {
@@ -448,6 +465,7 @@ public class CachingHiveMetastore
         }
     }
 
+    @Override
     public void dropTable(final String databaseName, final String tableName)
     {
         try {
@@ -521,6 +539,7 @@ public class CachingHiveMetastore
         }
     }
 
+    @Override
     public List<String> getPartitionNames(String databaseName, String tableName)
             throws NoSuchObjectException
     {
@@ -551,6 +570,7 @@ public class CachingHiveMetastore
         }
     }
 
+    @Override
     public List<String> getPartitionNamesByParts(String databaseName, String tableName, List<String> parts)
             throws NoSuchObjectException
     {
@@ -587,6 +607,7 @@ public class CachingHiveMetastore
     /**
      * Note: the returned partitions may not be in the same order as the specified partition names.
      */
+    @Override
     public List<Partition> getPartitionsByNames(String databaseName, String tableName, List<String> partitionNames)
             throws NoSuchObjectException
     {

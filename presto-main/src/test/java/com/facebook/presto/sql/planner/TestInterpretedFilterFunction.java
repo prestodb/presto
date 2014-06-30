@@ -16,6 +16,7 @@ package com.facebook.presto.sql.planner;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.tree.ComparisonExpression;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.Input;
@@ -31,6 +32,8 @@ import static org.testng.Assert.assertEquals;
 
 public class TestInterpretedFilterFunction
 {
+    private static final SqlParser SQL_PARSER = new SqlParser();
+
     @Test
     public void testNullLiteral()
     {
@@ -200,6 +203,7 @@ public class TestInterpretedFilterFunction
                 ImmutableMap.<Symbol, Type>of(),
                 ImmutableMap.<Symbol, Input>of(),
                 metadata,
+                SQL_PARSER,
                 session
         );
 

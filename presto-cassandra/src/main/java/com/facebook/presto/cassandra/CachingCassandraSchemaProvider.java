@@ -33,6 +33,7 @@ import org.weakref.jmx.Managed;
 import javax.annotation.concurrent.ThreadSafe;
 import javax.inject.Inject;
 
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.Callable;
@@ -40,6 +41,7 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 
 import static com.facebook.presto.cassandra.RetryDriver.retry;
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
@@ -76,7 +78,7 @@ public class CachingCassandraSchemaProvider
     public CachingCassandraSchemaProvider(
             CassandraConnectorId connectorId,
             CassandraSession session,
-            @ForCassandraSchema ExecutorService executor,
+            @ForCassandra ExecutorService executor,
             CassandraClientConfig cassandraClientConfig)
     {
         this(checkNotNull(connectorId, "connectorId is null").toString(),
@@ -234,20 +236,42 @@ public class CachingCassandraSchemaProvider
         return tableHandle;
     }
 
-    private String getCaseSensitiveSchemaName(String caseInsensitiveName)
+    public String getCaseSensitiveSchemaName(String caseInsensitiveName)
     {
-        return getCacheValue(schemaNamesCache, "", RuntimeException.class).get(caseInsensitiveName.toLowerCase());
+        String caseSensitiveSchemaName = getCacheValue(schemaNamesCache, "", RuntimeException.class).get(caseInsensitiveName.toLowerCase());
+        return caseSensitiveSchemaName == null ? caseInsensitiveName : caseSensitiveSchemaName;
     }
 
-    private String getCaseSensitiveTableName(SchemaTableName schemaTableName)
+    public String getCaseSensitiveTableName(SchemaTableName schemaTableName)
     {
-        return getCacheValue(tableNamesCache, schemaTableName.getSchemaName(), SchemaNotFoundException.class).get(schemaTableName.getTableName().toLowerCase());
+        String  caseSensitiveTableName = getCacheValue(tableNamesCache, schemaTableName.getSchemaName(), SchemaNotFoundException.class).get(schemaTableName.getTableName().toLowerCase());
+        return caseSensitiveTableName == null ? schemaTableName.getTableName() : caseSensitiveTableName;
     }
 
     public CassandraTable getTable(CassandraTableHandle tableHandle)
             throws TableNotFoundException
     {
         return getCacheValue(tableCache, tableHandle.getSchemaTableName(), TableNotFoundException.class);
+    }
+
+    public void flushTable(SchemaTableName tableName)
+    {
+        tableCache.asMap().remove(tableName);
+
+        tableNamesCache.asMap().remove(tableName.getSchemaName());
+
+        for (Iterator<PartitionListKey> iterator = partitionsCache.asMap().keySet().iterator(); iterator.hasNext(); ) {
+            PartitionListKey partitionListKey = iterator.next();
+            if (partitionListKey.getTable().getTableHandle().getSchemaTableName().equals(tableName)) {
+                iterator.remove();
+            }
+        }
+        for (Iterator<PartitionListKey> iterator = partitionsCacheFull.asMap().keySet().iterator(); iterator.hasNext(); ) {
+            PartitionListKey partitionListKey = iterator.next();
+            if (partitionListKey.getTable().getTableHandle().getSchemaTableName().equals(tableName)) {
+                iterator.remove();
+            }
+        }
     }
 
     private CassandraTable loadTable(final SchemaTableName tableName)
@@ -266,17 +290,20 @@ public class CachingCassandraSchemaProvider
                 });
     }
 
-    public List<CassandraPartition> getPartitions(CassandraTable table, List<Comparable<?>> filterPrefix)
+    public List<CassandraPartition> getAllPartitions(CassandraTable table)
     {
-        LoadingCache<PartitionListKey, List<CassandraPartition>> cache;
-        if (filterPrefix.size() == table.getPartitionKeyColumns().size()) {
-            cache = partitionsCacheFull;
-        }
-        else {
-            cache = partitionsCache;
-        }
-        PartitionListKey key = new PartitionListKey(table, filterPrefix);
-        return getCacheValue(cache, key, RuntimeException.class);
+        PartitionListKey key = new PartitionListKey(table, ImmutableList.<Comparable<?>>of());
+        return getCacheValue(partitionsCache, key, RuntimeException.class);
+    }
+
+    public List<CassandraPartition> getPartitions(CassandraTable table, List<Comparable<?>> partitionKeys)
+    {
+        checkNotNull(table, "table is null");
+        checkNotNull(partitionKeys, "partitionKeys is null");
+        checkArgument(partitionKeys.size() == table.getPartitionKeyColumns().size());
+
+        PartitionListKey key = new PartitionListKey(table, partitionKeys);
+        return getCacheValue(partitionsCacheFull, key, RuntimeException.class);
     }
 
     private List<CassandraPartition> loadPartitions(final PartitionListKey key)

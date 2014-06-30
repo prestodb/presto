@@ -20,6 +20,7 @@ import com.facebook.presto.metadata.PartitionResult;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.TupleDomain;
 import com.facebook.presto.split.SplitManager;
+import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.DependencyExtractor;
 import com.facebook.presto.sql.planner.DeterminismEvaluator;
 import com.facebook.presto.sql.planner.DomainTranslator;
@@ -108,12 +109,14 @@ public class PredicatePushDown
     private static final Logger log = Logger.get(PredicatePushDown.class);
 
     private final Metadata metadata;
+    private final SqlParser sqlParser;
     private final SplitManager splitManager;
     private final boolean experimentalSyntaxEnabled;
 
-    public PredicatePushDown(Metadata metadata, SplitManager splitManager, boolean experimentalSyntaxEnabled)
+    public PredicatePushDown(Metadata metadata, SqlParser sqlParser, SplitManager splitManager, boolean experimentalSyntaxEnabled)
     {
         this.metadata = checkNotNull(metadata, "metadata is null");
+        this.sqlParser = checkNotNull(sqlParser, "sqlParser is null");
         this.splitManager = checkNotNull(splitManager, "splitManager is null");
         this.experimentalSyntaxEnabled = experimentalSyntaxEnabled;
     }
@@ -126,7 +129,7 @@ public class PredicatePushDown
         checkNotNull(types, "types is null");
         checkNotNull(idAllocator, "idAllocator is null");
 
-        return PlanRewriter.rewriteWith(new Rewriter(symbolAllocator, idAllocator, metadata, splitManager, session, experimentalSyntaxEnabled), plan, BooleanLiteral.TRUE_LITERAL);
+        return PlanRewriter.rewriteWith(new Rewriter(symbolAllocator, idAllocator, metadata, sqlParser, splitManager, session, experimentalSyntaxEnabled), plan, BooleanLiteral.TRUE_LITERAL);
     }
 
     private static class Rewriter
@@ -135,15 +138,24 @@ public class PredicatePushDown
         private final SymbolAllocator symbolAllocator;
         private final PlanNodeIdAllocator idAllocator;
         private final Metadata metadata;
+        private final SqlParser sqlParser;
         private final SplitManager splitManager;
         private final ConnectorSession session;
         private final boolean experimentalSyntaxEnabled;
 
-        private Rewriter(SymbolAllocator symbolAllocator, PlanNodeIdAllocator idAllocator, Metadata metadata, SplitManager splitManager, ConnectorSession session, boolean experimentalSyntaxEnabled)
+        private Rewriter(
+                SymbolAllocator symbolAllocator,
+                PlanNodeIdAllocator idAllocator,
+                Metadata metadata,
+                SqlParser sqlParser,
+                SplitManager splitManager,
+                ConnectorSession session,
+                boolean experimentalSyntaxEnabled)
         {
             this.symbolAllocator = checkNotNull(symbolAllocator, "symbolAllocator is null");
             this.idAllocator = checkNotNull(idAllocator, "idAllocator is null");
             this.metadata = checkNotNull(metadata, "metadata is null");
+            this.sqlParser = checkNotNull(sqlParser, "sqlParser is null");
             this.splitManager = checkNotNull(splitManager, "splitManager is null");
             this.session = checkNotNull(session, "session is null");
             this.experimentalSyntaxEnabled = experimentalSyntaxEnabled;
@@ -557,7 +569,7 @@ public class PredicatePushDown
 
         private Type extractType(Expression expression)
         {
-            return getExpressionTypes(session, metadata, symbolAllocator.getTypes(), expression).get(expression);
+            return getExpressionTypes(session, metadata, sqlParser, symbolAllocator.getTypes(), expression).get(expression);
         }
 
         private JoinNode tryNormalizeToInnerJoin(JoinNode node, Expression inheritedPredicate)
@@ -602,7 +614,7 @@ public class PredicatePushDown
                 @Override
                 public Expression apply(Expression expression)
                 {
-                    IdentityHashMap<Expression, Type> expressionTypes = getExpressionTypes(session, metadata, symbolAllocator.getTypes(), expression);
+                    IdentityHashMap<Expression, Type> expressionTypes = getExpressionTypes(session, metadata, sqlParser, symbolAllocator.getTypes(), expression);
                     ExpressionInterpreter optimizer = ExpressionInterpreter.expressionOptimizer(expression, metadata, session, expressionTypes);
                     return LiteralInterpreter.toExpression(optimizer.optimize(NoOpSymbolResolver.INSTANCE), expressionTypes.get(expression));
                 }
@@ -614,7 +626,7 @@ public class PredicatePushDown
          */
         private Object nullInputEvaluator(final Collection<Symbol> nullSymbols, Expression expression)
         {
-            IdentityHashMap<Expression, Type> expressionTypes = getExpressionTypes(session, metadata, symbolAllocator.getTypes(), expression);
+            IdentityHashMap<Expression, Type> expressionTypes = getExpressionTypes(session, metadata, sqlParser, symbolAllocator.getTypes(), expression);
             return ExpressionInterpreter.expressionOptimizer(expression, metadata, session, expressionTypes)
                     .optimize(new SymbolResolver()
                     {
@@ -815,7 +827,7 @@ public class PredicatePushDown
 
                     // If any conjuncts evaluate to FALSE or null, then the whole predicate will never be true and so the partition should be pruned
                     for (Expression expression : extractConjuncts(predicate)) {
-                        IdentityHashMap<Expression, Type> expressionTypes = getExpressionTypes(session, metadata, symbolAllocator.getTypes(), expression);
+                        IdentityHashMap<Expression, Type> expressionTypes = getExpressionTypes(session, metadata, sqlParser, symbolAllocator.getTypes(), expression);
                         ExpressionInterpreter optimizer = ExpressionInterpreter.expressionOptimizer(expression, metadata, session, expressionTypes);
                         Object optimized = optimizer.optimize(inputs);
                         if (Boolean.FALSE.equals(optimized) || optimized == null || optimized instanceof NullLiteral) {

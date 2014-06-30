@@ -108,6 +108,7 @@ public class LocalQueryRunner
     private final ConnectorSession defaultSession;
     private final ExecutorService executor;
 
+    private final SqlParser sqlParser;
     private final InMemoryNodeManager nodeManager;
     private final TypeRegistry typeRegistry;
     private final MetadataManager metadata;
@@ -126,6 +127,7 @@ public class LocalQueryRunner
         this.defaultSession = checkNotNull(defaultSession, "defaultSession is null");
         this.executor = newCachedThreadPool(daemonThreadsNamed("local-query-runner-%s"));
 
+        this.sqlParser = new SqlParser();
         this.nodeManager = new InMemoryNodeManager();
         this.typeRegistry = new TypeRegistry();
         this.metadata = new MetadataManager(new FeaturesConfig().setExperimentalSyntaxEnabled(true), typeRegistry);
@@ -308,16 +310,16 @@ public class LocalQueryRunner
 
     public List<Driver> createDrivers(ConnectorSession session, @Language("SQL") String sql, OutputFactory outputFactory, TaskContext taskContext)
     {
-        Statement statement = SqlParser.createStatement(sql);
+        Statement statement = sqlParser.createStatement(sql);
 
-        assertFormattedSql(statement);
+        assertFormattedSql(sqlParser, statement);
 
         PlanNodeIdAllocator idAllocator = new PlanNodeIdAllocator();
         FeaturesConfig featuresConfig = new FeaturesConfig().setExperimentalSyntaxEnabled(true);
-        PlanOptimizersFactory planOptimizersFactory = new PlanOptimizersFactory(metadata, splitManager, indexManager, featuresConfig);
+        PlanOptimizersFactory planOptimizersFactory = new PlanOptimizersFactory(metadata, sqlParser, splitManager, indexManager, featuresConfig);
 
-        QueryExplainer queryExplainer = new QueryExplainer(session, planOptimizersFactory.get(), metadata, featuresConfig.isExperimentalSyntaxEnabled());
-        Analyzer analyzer = new Analyzer(session, metadata, Optional.of(queryExplainer), featuresConfig.isExperimentalSyntaxEnabled());
+        QueryExplainer queryExplainer = new QueryExplainer(session, planOptimizersFactory.get(), metadata, sqlParser, featuresConfig.isExperimentalSyntaxEnabled());
+        Analyzer analyzer = new Analyzer(session, metadata, sqlParser, Optional.of(queryExplainer), featuresConfig.isExperimentalSyntaxEnabled());
 
         Analysis analysis = analyzer.analyze(statement);
 
@@ -336,6 +338,7 @@ public class LocalQueryRunner
                         .setEnvironment("test")
                         .setNodeId("test-node")),
                 metadata,
+                sqlParser,
                 dataStreamProvider,
                 indexManager,
                 recordSinkManager,
@@ -471,7 +474,9 @@ public class LocalQueryRunner
             List<Partition> partitions = splitManager.getPartitions(tableHandle, Optional.<TupleDomain<ColumnHandle>>absent()).getPartitions();
             SplitSource splitSource = splitManager.getPartitionSplits(tableHandle, partitions);
             Split split = Iterables.getOnlyElement(splitSource.getNextBatch(1000));
-            checkState(splitSource.isFinished(), "Expected only one split for a local query");
+            while (!splitSource.isFinished()) {
+                checkState(splitSource.getNextBatch(1000).isEmpty(), "Expected only one split for a local query");
+            }
             return split;
         }
         catch (InterruptedException e) {

@@ -56,6 +56,7 @@ import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.sql.tree.ExplainType.Type.DISTRIBUTED;
 import static com.facebook.presto.sql.tree.ExplainType.Type.LOGICAL;
 import static com.facebook.presto.testing.MaterializedResult.resultBuilder;
+import static com.facebook.presto.tests.QueryAssertions.assertEqualsIgnoreOrder;
 import static com.google.common.collect.Iterables.transform;
 import static io.airlift.tpch.TpchTable.ORDERS;
 import static io.airlift.tpch.TpchTable.tableNameGetter;
@@ -1882,6 +1883,51 @@ public abstract class AbstractTestQueries
     }
 
     @Test
+    public void testWindowLagValueFunction()
+    {
+        MaterializedResult actual = computeActual("" +
+                "SELECT * FROM (\n" +
+                "  SELECT orderkey, orderstatus\n" +
+                "    , lag(orderkey + 1000, 1, 0) OVER (PARTITION BY orderstatus ORDER BY orderkey) as lvalue\n" +
+                "    FROM (SELECT * FROM orders ORDER BY orderkey LIMIT 10) x\n" +
+                "  ) x\n" +
+                "ORDER BY orderkey LIMIT 5");
+
+        MaterializedResult expected = resultBuilder(getSession(), BIGINT, VARCHAR, BIGINT)
+                .row(1, "O", 0)
+                .row(2, "O", 1001)
+                .row(3, "F", 0)
+                .row(4, "O", 1002)
+                .row(5, "F", 1003)
+                .build();
+
+        assertEquals(actual, expected);
+    }
+
+    @Test
+    public void testWindowLeadValueFunction()
+    {
+        MaterializedResult actual = computeActual("" +
+                "SELECT * FROM (\n" +
+                "  SELECT orderkey, orderstatus\n" +
+                "    , lead(orderkey + 1000, 2, 0) OVER (PARTITION BY orderstatus ORDER BY orderkey) as lvalue\n" +
+                "    FROM (SELECT * FROM orders ORDER BY orderkey LIMIT 10) x\n" +
+                "  ) x\n" +
+                "ORDER BY orderkey LIMIT 6");
+
+        MaterializedResult expected = resultBuilder(getSession(), BIGINT, VARCHAR, BIGINT)
+                .row(1, "O", 1004)
+                .row(2, "O", 1007)
+                .row(3, "F", 1006)
+                .row(4, "O", 1032)
+                .row(5, "F", 1033)
+                .row(6, "F", 0)
+                .build();
+
+        assertEquals(actual, expected);
+    }
+
+    @Test
     public void testScalarFunction()
             throws Exception
     {
@@ -2524,7 +2570,7 @@ public abstract class AbstractTestQueries
     public void testTableQueryOrderLimit()
             throws Exception
     {
-        assertQuery("TABLE orders ORDER BY orderkey LIMIT 10", "SELECT * FROM orders ORDER BY orderkey LIMIT 10", true);
+        assertQueryOrdered("TABLE orders ORDER BY orderkey LIMIT 10", "SELECT * FROM orders ORDER BY orderkey LIMIT 10");
     }
 
     @Test
@@ -2538,7 +2584,7 @@ public abstract class AbstractTestQueries
     public void testTableAsSubquery()
             throws Exception
     {
-        assertQuery("(TABLE orders) ORDER BY orderkey", "(SELECT * FROM orders) ORDER BY orderkey", true);
+        assertQueryOrdered("(TABLE orders) ORDER BY orderkey", "(SELECT * FROM orders) ORDER BY orderkey");
     }
 
     @Test

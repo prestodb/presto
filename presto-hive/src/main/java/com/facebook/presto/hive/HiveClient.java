@@ -16,6 +16,7 @@ package com.facebook.presto.hive;
 import com.facebook.presto.hadoop.HadoopFileSystemCache;
 import com.facebook.presto.hadoop.HadoopNative;
 import com.facebook.presto.hive.shaded.org.apache.thrift.TException;
+import com.facebook.presto.hive.metastore.HiveMetastore;
 import com.facebook.presto.hive.util.BoundedExecutor;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorColumnHandle;
@@ -170,7 +171,7 @@ public class HiveClient
     private final int minPartitionBatchSize;
     private final int maxPartitionBatchSize;
     private final boolean allowDropTable;
-    private final CachingHiveMetastore metastore;
+    private final HiveMetastore metastore;
     private final NamenodeStats namenodeStats;
     private final HdfsEnvironment hdfsEnvironment;
     private final DirectoryLister directoryLister;
@@ -184,7 +185,7 @@ public class HiveClient
     @Inject
     public HiveClient(HiveConnectorId connectorId,
             HiveClientConfig hiveClientConfig,
-            CachingHiveMetastore metastore,
+            HiveMetastore metastore,
             NamenodeStats namenodeStats,
             HdfsEnvironment hdfsEnvironment,
             DirectoryLister directoryLister,
@@ -209,7 +210,7 @@ public class HiveClient
     }
 
     public HiveClient(HiveConnectorId connectorId,
-            CachingHiveMetastore metastore,
+            HiveMetastore metastore,
             NamenodeStats namenodeStats,
             HdfsEnvironment hdfsEnvironment,
             DirectoryLister directoryLister,
@@ -250,7 +251,7 @@ public class HiveClient
         HiveFSUtils.initialize(hdfsEnvironment);
     }
 
-    public CachingHiveMetastore getMetastore()
+    public HiveMetastore getMetastore()
     {
         return metastore;
     }
@@ -572,6 +573,7 @@ public class HiveClient
         SerDeInfo serdeInfo = new SerDeInfo();
         serdeInfo.setName(handle.getTableName());
         serdeInfo.setSerializationLib(LazyBinaryColumnarSerDe.class.getName());
+        serdeInfo.setParameters(ImmutableMap.<String, String>of());
 
         StorageDescriptor sd = new StorageDescriptor();
         sd.setLocation(targetPath.toString());
@@ -579,6 +581,7 @@ public class HiveClient
         sd.setSerdeInfo(serdeInfo);
         sd.setInputFormat(RCFileInputFormat.class.getName());
         sd.setOutputFormat(RCFileOutputFormat.class.getName());
+        sd.setParameters(ImmutableMap.<String, String>of());
 
         Table table = new Table();
         table.setDbName(handle.getSchemaName());
@@ -590,6 +593,7 @@ public class HiveClient
             tableComment = "Sampled table created by Presto. Only query this table from Hive if you understand how Presto implements sampling.";
         }
         table.setParameters(ImmutableMap.of("comment", tableComment));
+        table.setPartitionKeys(ImmutableList.<FieldSchema>of());
         table.setSd(sd);
 
         metastore.createTable(table);
@@ -703,20 +707,27 @@ public class HiveClient
     @Override
     public Map<SchemaTableName, String> getViews(ConnectorSession session, SchemaTablePrefix prefix)
     {
-        checkArgument(prefix.getSchemaName() != null, "Cannot get views in all schemas");
-        checkArgument(prefix.getTableName() != null, "Cannot get all views");
-        SchemaTableName viewName = new SchemaTableName(prefix.getSchemaName(), prefix.getTableName());
+        ImmutableMap.Builder<SchemaTableName, String> views = ImmutableMap.builder();
+        List<SchemaTableName> tableNames;
+        if (prefix.getTableName() != null) {
+            tableNames = ImmutableList.of(new SchemaTableName(prefix.getSchemaName(), prefix.getTableName()));
+        }
+        else {
+            tableNames = listViews(session, prefix.getSchemaName());
+        }
 
-        try {
-            Table table = metastore.getTable(prefix.getSchemaName(), prefix.getTableName());
-            if (HiveUtil.isPrestoView(table)) {
-                return ImmutableMap.of(viewName, decodeViewData(table.getViewOriginalText()));
+        for (SchemaTableName schemaTableName : tableNames) {
+            try {
+                Table table = metastore.getTable(schemaTableName.getSchemaName(), schemaTableName.getTableName());
+                if (HiveUtil.isPrestoView(table)) {
+                    views.put(schemaTableName, decodeViewData(table.getViewOriginalText()));
+                }
+            }
+            catch (NoSuchObjectException ignored) {
             }
         }
-        catch (NoSuchObjectException ignored) {
-        }
 
-        return ImmutableMap.of();
+        return views.build();
     }
 
     @Override

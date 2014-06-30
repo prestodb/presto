@@ -13,6 +13,8 @@
  */
 package com.facebook.presto.hive;
 
+import com.facebook.presto.hive.metastore.CachingHiveMetastore;
+import com.facebook.presto.hive.metastore.HiveMetastore;
 import com.google.common.net.HostAndPort;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import com.google.inject.Binder;
@@ -39,10 +41,12 @@ public class HiveClientModule
         implements Module
 {
     private final String connectorId;
+    private final HiveMetastore metastore;
 
-    public HiveClientModule(String connectorId)
+    public HiveClientModule(String connectorId, HiveMetastore metastore)
     {
         this.connectorId = connectorId;
+        this.metastore = metastore;
     }
 
     @Override
@@ -57,9 +61,15 @@ public class HiveClientModule
         bindConfig(binder).to(HiveClientConfig.class);
         bindConfig(binder).to(HivePluginConfig.class);
 
-        binder.bind(CachingHiveMetastore.class).in(Scopes.SINGLETON);
-        newExporter(binder).export(CachingHiveMetastore.class)
-                .as(generatedNameOf(CachingHiveMetastore.class, connectorId));
+        if (metastore != null) {
+            binder.bind(HiveMetastore.class).toInstance(metastore);
+        }
+        else {
+            binder.bind(HiveMetastore.class).to(CachingHiveMetastore.class).in(Scopes.SINGLETON);
+            newExporter(binder).export(HiveMetastore.class)
+                    .as(generatedNameOf(CachingHiveMetastore.class, connectorId));
+        }
+
         binder.bind(NamenodeStats.class).in(Scopes.SINGLETON);
         newExporter(binder).export(NamenodeStats.class).as(generatedNameOf(NamenodeStats.class));
 
