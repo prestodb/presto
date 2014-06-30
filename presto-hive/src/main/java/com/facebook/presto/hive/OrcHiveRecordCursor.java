@@ -23,6 +23,7 @@ import io.airlift.slice.Slices;
 import org.apache.hadoop.hive.ql.io.orc.OrcStruct;
 import org.apache.hadoop.hive.ql.io.orc.RecordReader;
 import org.apache.hadoop.hive.serde2.io.ByteWritable;
+import org.apache.hadoop.hive.serde2.io.DateWritable;
 import org.apache.hadoop.hive.serde2.io.DoubleWritable;
 import org.apache.hadoop.hive.serde2.io.ShortWritable;
 import org.apache.hadoop.hive.serde2.io.TimestampWritable;
@@ -38,7 +39,6 @@ import org.joda.time.DateTimeZone;
 import org.joda.time.format.ISODateTimeFormat;
 
 import java.io.IOException;
-import java.sql.Date;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
@@ -322,13 +322,15 @@ class OrcHiveRecordCursor
                     longs[column] = shortWritable.get();
                     break;
                 case DATE:
-                    long storageTime = ((Date) object).getTime();
+                    long storageTime = ((DateWritable) object).getTimeInSeconds() * 1000;
                     long utcTime = storageTime + hiveStorageTimeZone.getOffset(storageTime);
                     longs[column] = utcTime;
                     break;
                 case TIMESTAMP:
                     TimestampWritable timestampWritable = (TimestampWritable) object;
-                    longs[column] = timestampWritable.getTimestamp().getTime();
+                    long seconds = timestampWritable.getSeconds();
+                    int nanos = timestampWritable.getNanos();
+                    longs[column] = (seconds * 1000) + (nanos / 1_000_000);
                     break;
                 case BYTE:
                     ByteWritable byteWritable = (ByteWritable) object;

@@ -15,6 +15,7 @@ package com.facebook.presto.hive;
 
 import com.facebook.presto.hive.metastore.CachingHiveMetastore;
 import com.facebook.presto.hive.shaded.org.apache.thrift.TException;
+import com.facebook.presto.operator.Operator;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorColumnHandle;
 import com.facebook.presto.spi.ConnectorPartitionResult;
@@ -23,10 +24,12 @@ import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.ConnectorSplitSource;
 import com.facebook.presto.spi.ConnectorTableHandle;
 import com.facebook.presto.spi.ConnectorTableMetadata;
-import com.facebook.presto.spi.RecordCursor;
 import com.facebook.presto.spi.RecordSink;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.TupleDomain;
+import com.facebook.presto.split.ConnectorDataStreamProvider;
+import com.facebook.presto.testing.MaterializedResult;
+import com.facebook.presto.testing.MaterializedRow;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -36,6 +39,8 @@ import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hive.metastore.api.Database;
 import org.apache.hadoop.hive.metastore.api.NoSuchObjectException;
 import org.apache.hadoop.hive.metastore.api.Table;
+import org.testng.annotations.AfterClass;
+import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import java.util.List;
@@ -45,9 +50,12 @@ import java.util.UUID;
 import java.util.concurrent.ExecutorService;
 
 import static com.facebook.presto.hadoop.HadoopFileStatus.isDirectory;
+import static com.facebook.presto.hive.HiveTestUtils.close;
+import static com.facebook.presto.hive.HiveTestUtils.creteOperatorContext;
 import static com.facebook.presto.hive.util.Types.checkType;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.TimeZoneKey.UTC_KEY;
+import static com.facebook.presto.testing.MaterializedResult.materializeSourceDataStream;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.util.concurrent.MoreExecutors.sameThreadExecutor;
@@ -69,6 +77,25 @@ public abstract class AbstractTestHiveClientS3
     protected HdfsEnvironment hdfsEnvironment;
     protected TestingHiveMetastore metastoreClient;
     protected HiveClient client;
+    protected ConnectorDataStreamProvider dataStreamProvider;
+    private ExecutorService executor;
+
+    @BeforeClass
+    public void setUp()
+            throws Exception
+    {
+        executor = newCachedThreadPool(daemonThreadsNamed("hive-%s"));
+    }
+
+    @AfterClass
+    public void tearDown()
+            throws Exception
+    {
+        if (executor != null) {
+            executor.shutdownNow();
+            executor = null;
+        }
+    }
 
     protected void setupHive(String databaseName)
     {
@@ -105,6 +132,8 @@ public abstract class AbstractTestHiveClientS3
                 new HdfsEnvironment(new HdfsConfiguration(hiveClientConfig)),
                 new HadoopDirectoryLister(),
                 sameThreadExecutor());
+
+        dataStreamProvider = new HiveDataStreamProvider(hdfsEnvironment);
     }
 
     @Test
@@ -120,11 +149,18 @@ public abstract class AbstractTestHiveClientS3
         ConnectorSplitSource splitSource = client.getPartitionSplits(table, partitionResult.getPartitions());
 
         long sum = 0;
+
         for (ConnectorSplit split : getAllSplits(splitSource)) {
-            try (RecordCursor cursor = client.getRecordSet(split, columnHandles).cursor()) {
-                while (cursor.advanceNextPosition()) {
-                    sum += cursor.getLong(columnIndex.get("t_bigint"));
+            Operator dataStream = dataStreamProvider.createNewDataStream(creteOperatorContext(SESSION, executor), split, columnHandles);
+            try {
+                MaterializedResult result = materializeSourceDataStream(SESSION, dataStream);
+
+                for (MaterializedRow row : result) {
+                    sum += (Long) row.getField(columnIndex.get("t_bigint"));
                 }
+            }
+            finally {
+                close(dataStream);
             }
         }
         assertEquals(sum, 78300);
@@ -158,7 +194,7 @@ public abstract class AbstractTestHiveClientS3
     }
 
     private void doCreateTable(SchemaTableName tableName, String tableOwner)
-            throws InterruptedException
+            throws Exception
     {
         // begin creating the table
         List<ColumnMetadata> columns = ImmutableList.<ColumnMetadata>builder()
@@ -205,17 +241,24 @@ public abstract class AbstractTestHiveClientS3
         ConnectorSplitSource splitSource = client.getPartitionSplits(tableHandle, partitionResult.getPartitions());
         ConnectorSplit split = getOnlyElement(getAllSplits(splitSource));
 
-        try (RecordCursor cursor = client.getRecordSet(split, columnHandles).cursor()) {
-            assertTrue(cursor.advanceNextPosition());
-            assertEquals(cursor.getLong(0), 1);
+        Operator dataStream = dataStreamProvider.createNewDataStream(creteOperatorContext(SESSION, executor), split, columnHandles);
+        try {
+            MaterializedResult result = materializeSourceDataStream(SESSION, dataStream);
+            assertEquals(result.getRowCount(), 3);
 
-            assertTrue(cursor.advanceNextPosition());
-            assertEquals(cursor.getLong(0), 3);
+            MaterializedRow row;
 
-            assertTrue(cursor.advanceNextPosition());
-            assertEquals(cursor.getLong(0), 2);
+            row = result.getMaterializedRows().get(0);
+            assertEquals(row.getField(0), 1L);
 
-            assertFalse(cursor.advanceNextPosition());
+            row = result.getMaterializedRows().get(1);
+            assertEquals(row.getField(0), 2L);
+
+            row = result.getMaterializedRows().get(2);
+            assertEquals(row.getField(0), 3L);
+        }
+        finally {
+            close(dataStream);
         }
     }
 

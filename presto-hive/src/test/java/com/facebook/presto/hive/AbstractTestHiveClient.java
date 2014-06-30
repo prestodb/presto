@@ -15,13 +15,15 @@ package com.facebook.presto.hive;
 
 import com.facebook.presto.hive.metastore.CachingHiveMetastore;
 import com.facebook.presto.hive.metastore.HiveMetastore;
+import com.facebook.presto.operator.Operator;
+import com.facebook.presto.operator.OperatorContext;
+import com.facebook.presto.operator.RecordProjectOperator;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorColumnHandle;
 import com.facebook.presto.spi.ConnectorMetadata;
 import com.facebook.presto.spi.ConnectorOutputTableHandle;
 import com.facebook.presto.spi.ConnectorPartition;
 import com.facebook.presto.spi.ConnectorPartitionResult;
-import com.facebook.presto.spi.ConnectorRecordSetProvider;
 import com.facebook.presto.spi.ConnectorRecordSinkProvider;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorSplit;
@@ -31,7 +33,6 @@ import com.facebook.presto.spi.ConnectorTableHandle;
 import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.Domain;
 import com.facebook.presto.spi.RecordCursor;
-import com.facebook.presto.spi.RecordSet;
 import com.facebook.presto.spi.RecordSink;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.SchemaTablePrefix;
@@ -39,6 +40,9 @@ import com.facebook.presto.spi.TableNotFoundException;
 import com.facebook.presto.spi.TupleDomain;
 import com.facebook.presto.spi.ViewNotFoundException;
 import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.split.ConnectorDataStreamProvider;
+import com.facebook.presto.testing.MaterializedResult;
+import com.facebook.presto.testing.MaterializedRow;
 import com.google.common.base.Function;
 import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
@@ -49,6 +53,8 @@ import com.google.common.net.HostAndPort;
 import io.airlift.units.Duration;
 import org.joda.time.DateTime;
 import org.joda.time.DateTimeZone;
+import org.testng.annotations.AfterClass;
+import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import java.util.HashSet;
@@ -61,6 +67,8 @@ import java.util.UUID;
 import java.util.concurrent.ExecutorService;
 
 import static com.facebook.presto.hive.HiveBucketing.HiveBucket;
+import static com.facebook.presto.hive.HiveTestUtils.close;
+import static com.facebook.presto.hive.HiveTestUtils.creteOperatorContext;
 import static com.facebook.presto.hive.HiveUtil.partitionIdGetter;
 import static com.facebook.presto.hive.util.Types.checkType;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
@@ -70,6 +78,7 @@ import static com.facebook.presto.spi.type.TimeZoneKey.UTC_KEY;
 import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
+import static com.facebook.presto.testing.MaterializedResult.materializeSourceDataStream;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.collect.Maps.uniqueIndex;
@@ -131,8 +140,26 @@ public abstract class AbstractTestHiveClient
 
     protected ConnectorMetadata metadata;
     protected ConnectorSplitManager splitManager;
-    protected ConnectorRecordSetProvider recordSetProvider;
+    protected ConnectorDataStreamProvider dataStreamProvider;
     protected ConnectorRecordSinkProvider recordSinkProvider;
+    protected ExecutorService executor;
+
+    @BeforeClass
+    public void setUp()
+            throws Exception
+    {
+        executor = newCachedThreadPool(daemonThreadsNamed("hive-%s"));
+    }
+
+    @AfterClass
+    public void tearDown()
+            throws Exception
+    {
+        if (executor != null) {
+            executor.shutdownNow();
+            executor = null;
+        }
+    }
 
     protected void setupHive(String connectorId, String databaseName, String timeZoneId)
     {
@@ -200,15 +227,15 @@ public abstract class AbstractTestHiveClient
         }
 
         HiveCluster hiveCluster = new TestingHiveCluster(hiveClientConfig, host, port);
-        ExecutorService executor = newCachedThreadPool(daemonThreadsNamed("hive-%s"));
 
         metastoreClient = new CachingHiveMetastore(hiveCluster, executor, Duration.valueOf("1m"), Duration.valueOf("15s"));
 
+        HdfsEnvironment hdfsEnvironment = new HdfsEnvironment(new HdfsConfiguration(hiveClientConfig));
         HiveClient client = new HiveClient(
                 new HiveConnectorId(connectorName),
                 metastoreClient,
                 new NamenodeStats(),
-                new HdfsEnvironment(new HdfsConfiguration(hiveClientConfig)),
+                hdfsEnvironment,
                 new HadoopDirectoryLister(),
                 timeZone,
                 sameThreadExecutor(),
@@ -226,8 +253,9 @@ public abstract class AbstractTestHiveClient
 
         metadata = client;
         splitManager = client;
-        recordSetProvider = client;
         recordSinkProvider = client;
+
+        dataStreamProvider = new HiveDataStreamProvider(hdfsEnvironment);
     }
 
     @Test
@@ -503,16 +531,22 @@ public abstract class AbstractTestHiveClient
         List<ConnectorSplit> splits = getAllSplits(splitManager.getPartitionSplits(tableHandle, partitionResult.getPartitions()));
         assertEquals(splits.size(), 1);
 
-        boolean rowFound = false;
-        try (RecordCursor cursor = recordSetProvider.getRecordSet(splits.get(0), columnHandles).cursor()) {
-            while (cursor.advanceNextPosition()) {
-                if (testString.equals(cursor.getSlice(columnIndex.get("t_string")).toStringUtf8()) &&
-                        testInt == cursor.getLong(columnIndex.get("t_int")) &&
-                        testSmallint == cursor.getLong(columnIndex.get("t_smallint"))) {
+        Operator dataStream = dataStreamProvider.createNewDataStream(creteOperatorContext(SESSION, executor), splits.get(0), columnHandles);
+        try {
+            MaterializedResult result = materializeSourceDataStream(SESSION, dataStream);
+
+            boolean rowFound = false;
+            for (MaterializedRow row : result) {
+                if (testString.equals(row.getField(columnIndex.get("t_string"))) &&
+                        testInt.equals(row.getField(columnIndex.get("t_int"))) &&
+                        testSmallint.equals(row.getField(columnIndex.get("t_smallint")))) {
                     rowFound = true;
                 }
             }
             assertTrue(rowFound);
+        }
+        finally {
+            close(dataStream);
         }
     }
 
@@ -542,17 +576,23 @@ public abstract class AbstractTestHiveClient
         List<ConnectorSplit> splits = getAllSplits(splitManager.getPartitionSplits(tableHandle, partitionResult.getPartitions()));
         assertEquals(splits.size(), 1);
 
-        boolean rowFound = false;
-        try (RecordCursor cursor = recordSetProvider.getRecordSet(splits.get(0), columnHandles).cursor()) {
-            while (cursor.advanceNextPosition()) {
-                if (testString.equals(cursor.getSlice(columnIndex.get("t_string")).toStringUtf8()) &&
-                        testBigint == cursor.getLong(columnIndex.get("t_bigint")) &&
-                        testBoolean == cursor.getBoolean(columnIndex.get("t_boolean"))) {
+        Operator dataStream = dataStreamProvider.createNewDataStream(creteOperatorContext(SESSION, executor), splits.get(0), columnHandles);
+        try {
+            MaterializedResult result = materializeSourceDataStream(SESSION, dataStream);
+
+            boolean rowFound = false;
+            for (MaterializedRow row : result) {
+                if (testString.equals(row.getField(columnIndex.get("t_string"))) &&
+                        testBigint.equals(row.getField(columnIndex.get("t_bigint"))) &&
+                        testBoolean.equals(row.getField(columnIndex.get("t_boolean")))) {
                     rowFound = true;
                     break;
                 }
             }
             assertTrue(rowFound);
+        }
+        finally {
+            close(dataStream);
         }
     }
 
@@ -578,10 +618,13 @@ public abstract class AbstractTestHiveClient
 
         int count = 0;
         for (ConnectorSplit split : splits) {
-            try (RecordCursor cursor = recordSetProvider.getRecordSet(split, columnHandles).cursor()) {
-                while (cursor.advanceNextPosition()) {
-                    count++;
-                }
+            Operator dataStream = dataStreamProvider.createNewDataStream(creteOperatorContext(SESSION, executor), split, columnHandles);
+            try {
+                MaterializedResult result = materializeSourceDataStream(SESSION, dataStream);
+                count += result.getRowCount();
+            }
+            finally {
+                close(dataStream);
             }
         }
         assertEquals(count, 300);
@@ -627,13 +670,17 @@ public abstract class AbstractTestHiveClient
 
             long rowNumber = 0;
             long completedBytes = 0;
-            try (RecordCursor cursor = recordSetProvider.getRecordSet(hiveSplit, columnHandles).cursor()) {
-                assertRecordCursorType(cursor, fileType);
-                assertEquals(cursor.getTotalBytes(), hiveSplit.getLength());
+            OperatorContext operatorContext = creteOperatorContext(SESSION, executor);
+            Operator dataStream = dataStreamProvider.createNewDataStream(operatorContext, hiveSplit, columnHandles);
+            try {
+                assertOpertorTypes(dataStream, tableMetadata.getColumns());
+                MaterializedResult result = materializeSourceDataStream(SESSION, dataStream);
 
-                while (cursor.advanceNextPosition()) {
+                assertDataStreamType(dataStream, fileType);
+
+                for (MaterializedRow row : result) {
                     try {
-                        assertReadFields(cursor, tableMetadata.getColumns());
+                        assertValueTupes(row, tableMetadata.getColumns());
                     }
                     catch (RuntimeException e) {
                         throw new RuntimeException("row " + rowNumber, e);
@@ -642,87 +689,92 @@ public abstract class AbstractTestHiveClient
                     rowNumber++;
 
                     if (rowNumber % 19 == 0) {
-                        assertTrue(cursor.isNull(columnIndex.get("t_string")));
+                        assertNull(row.getField(columnIndex.get("t_string")));
                     }
                     else if (rowNumber % 19 == 1) {
-                        assertEquals(cursor.getSlice(columnIndex.get("t_string")).toStringUtf8(), "");
+                        assertEquals(row.getField(columnIndex.get("t_string")), "");
                     }
                     else {
-                        assertEquals(cursor.getSlice(columnIndex.get("t_string")).toStringUtf8(), (fileType + " test"));
+                        assertEquals(row.getField(columnIndex.get("t_string")), (fileType + " test"));
                     }
 
-                    assertEquals(cursor.getLong(columnIndex.get("t_tinyint")), (long) ((byte) (baseValue + 1 + rowNumber)));
-                    assertEquals(cursor.getLong(columnIndex.get("t_smallint")), baseValue + 2 + rowNumber);
-                    assertEquals(cursor.getLong(columnIndex.get("t_int")), baseValue + 3 + rowNumber);
+                    assertEquals(row.getField(columnIndex.get("t_tinyint")), (long) ((byte) (baseValue + 1 + rowNumber)));
+                    assertEquals(row.getField(columnIndex.get("t_smallint")), baseValue + 2 + rowNumber);
+                    assertEquals(row.getField(columnIndex.get("t_int")), baseValue + 3 + rowNumber);
 
                     if (rowNumber % 13 == 0) {
-                        assertTrue(cursor.isNull(columnIndex.get("t_bigint")));
+                        assertNull(row.getField(columnIndex.get("t_bigint")));
                     }
                     else {
-                        assertEquals(cursor.getLong(columnIndex.get("t_bigint")), baseValue + 4 + rowNumber);
+                        assertEquals(row.getField(columnIndex.get("t_bigint")), baseValue + 4 + rowNumber);
                     }
 
-                    assertEquals(cursor.getDouble(columnIndex.get("t_float")), baseValue + 5.1 + rowNumber, 0.001);
-                    assertEquals(cursor.getDouble(columnIndex.get("t_double")), baseValue + 6.2 + rowNumber);
+                    assertEquals((float) row.getField(columnIndex.get("t_float")), baseValue + 5.1 + rowNumber, 0.001);
+                    assertEquals(row.getField(columnIndex.get("t_double")), baseValue + 6.2 + rowNumber);
 
                     if (rowNumber % 3 == 2) {
-                        assertTrue(cursor.isNull(columnIndex.get("t_boolean")));
+                        assertNull(row.getField(columnIndex.get("t_boolean")));
                     }
                     else {
-                        assertEquals(cursor.getBoolean(columnIndex.get("t_boolean")), rowNumber % 3 != 0);
+                        assertEquals(row.getField(columnIndex.get("t_boolean")), rowNumber % 3 != 0);
                     }
 
                     if (rowNumber % 17 == 0) {
-                        assertTrue(cursor.isNull(columnIndex.get("t_timestamp")));
+                        assertNull(row.getField(columnIndex.get("t_timestamp")));
                     }
                     else {
                         long millis = new DateTime(2011, 5, 6, 7, 8, 9, 123, timeZone).getMillis();
-                        assertEquals(cursor.getLong(columnIndex.get("t_timestamp")), millis, (fileType + " test"));
+                        assertEquals(row.getField(columnIndex.get("t_timestamp")), millis, (fileType + " test"));
                     }
 
                     if (rowNumber % 23 == 0) {
-                        assertTrue(cursor.isNull(columnIndex.get("t_binary")));
+                        assertNull(row.getField(columnIndex.get("t_binary")));
                     }
                     else {
-                        assertEquals(cursor.getSlice(columnIndex.get("t_binary")).toStringUtf8(), (fileType + " test"));
+                        assertEquals(row.getField(columnIndex.get("t_binary")), (fileType + " test"));
                     }
 
                     if (rowNumber % 29 == 0) {
-                        assertTrue(cursor.isNull(columnIndex.get("t_map")));
+                        assertNull(row.getField(columnIndex.get("t_map")));
                     }
                     else {
                         String expectedJson = "{\"format\":\"" + fileType + "\"}";
-                        assertEquals(cursor.getSlice(columnIndex.get("t_map")).toStringUtf8(), expectedJson);
+                        assertEquals(row.getField(columnIndex.get("t_map")), expectedJson);
                     }
 
                     if (rowNumber % 27 == 0) {
-                        assertTrue(cursor.isNull(columnIndex.get("t_array_string")));
+                        assertNull(row.getField(columnIndex.get("t_array_string")));
                     }
                     else {
                         String expectedJson = "[\"" + fileType + "\",\"test\",\"data\"]";
-                        assertEquals(cursor.getSlice(columnIndex.get("t_array_string")).toStringUtf8(), expectedJson);
+                        assertEquals(row.getField(columnIndex.get("t_array_string")), expectedJson);
                     }
 
                     if (rowNumber % 31 == 0) {
-                        assertTrue(cursor.isNull(columnIndex.get("t_complex")));
+                        assertNull(row.getField(columnIndex.get("t_complex")));
                     }
                     else {
                         String expectedJson = "{\"1\":[{\"s_string\":\"" + fileType + "-a\",\"s_double\":0.1},{\"s_string\":\"" + fileType + "-b\",\"s_double\":0.2}]}";
-                        assertEquals(cursor.getSlice(columnIndex.get("t_complex")).toStringUtf8(), expectedJson);
+                        assertEquals(row.getField(columnIndex.get("t_complex")), expectedJson);
                     }
 
-                    assertEquals(cursor.getSlice(columnIndex.get("ds")).toStringUtf8(), ds);
-                    assertEquals(cursor.getSlice(columnIndex.get("file_format")).toStringUtf8(), fileType);
-                    assertEquals(cursor.getLong(columnIndex.get("dummy")), dummy);
+                    assertEquals(row.getField(columnIndex.get("ds")), ds);
+                    assertEquals(row.getField(columnIndex.get("file_format")), fileType);
+                    assertEquals(row.getField(columnIndex.get("dummy")), dummy);
 
-                    long newCompletedBytes = cursor.getCompletedBytes();
+                    long newCompletedBytes = operatorContext.getInputDataSize().getTotalCount();
                     assertTrue(newCompletedBytes >= completedBytes);
                     assertTrue(newCompletedBytes <= hiveSplit.getLength());
                     completedBytes = newCompletedBytes;
                 }
+
+                assertTrue(completedBytes <= hiveSplit.getLength());
+                assertEquals(rowNumber, 100);
             }
-            assertTrue(completedBytes <= hiveSplit.getLength());
-            assertEquals(rowNumber, 100);
+            finally {
+                close(dataStream);
+            }
+
         }
     }
 
@@ -748,16 +800,21 @@ public abstract class AbstractTestHiveClient
             long baseValue = getBaseValueForFileType(fileType);
 
             long rowNumber = 0;
-            try (RecordCursor cursor = recordSetProvider.getRecordSet(hiveSplit, columnHandles).cursor()) {
-                assertRecordCursorType(cursor, fileType);
-                while (cursor.advanceNextPosition()) {
+            Operator dataStream = dataStreamProvider.createNewDataStream(creteOperatorContext(SESSION, executor), hiveSplit, columnHandles);
+            try {
+                assertDataStreamType(dataStream, fileType);
+                MaterializedResult result = materializeSourceDataStream(SESSION, dataStream);
+                for (MaterializedRow row : result) {
                     rowNumber++;
 
-                    assertEquals(cursor.getDouble(columnIndex.get("t_double")), baseValue + 6.2 + rowNumber);
-                    assertEquals(cursor.getSlice(columnIndex.get("ds")).toStringUtf8(), ds);
-                    assertEquals(cursor.getSlice(columnIndex.get("file_format")).toStringUtf8(), fileType);
-                    assertEquals(cursor.getLong(columnIndex.get("dummy")), dummy);
+                    assertEquals(row.getField(columnIndex.get("t_double")), baseValue + 6.2 + rowNumber);
+                    assertEquals(row.getField(columnIndex.get("ds")), ds);
+                    assertEquals(row.getField(columnIndex.get("file_format")), fileType);
+                    assertEquals(row.getField(columnIndex.get("dummy")), dummy);
                 }
+            }
+            finally {
+                close(dataStream);
             }
             assertEquals(rowNumber, 100);
         }
@@ -781,25 +838,31 @@ public abstract class AbstractTestHiveClient
             assertEquals(hiveSplit.getPartitionKeys(), ImmutableList.of());
 
             long rowNumber = 0;
-            try (RecordCursor cursor = recordSetProvider.getRecordSet(split, columnHandles).cursor()) {
-                assertRecordCursorType(cursor, "textfile");
-                assertEquals(cursor.getTotalBytes(), hiveSplit.getLength());
+            OperatorContext operatorContext = creteOperatorContext(SESSION, executor);
+            Operator dataStream = dataStreamProvider.createNewDataStream(operatorContext, split, columnHandles);
+            try {
+                assertDataStreamType(dataStream, "textfile");
+                MaterializedResult result = materializeSourceDataStream(SESSION, dataStream);
 
-                while (cursor.advanceNextPosition()) {
+                assertEquals(operatorContext.getInputDataSize().getTotalCount(), hiveSplit.getLength());
+                for (MaterializedRow row : result) {
                     rowNumber++;
 
                     if (rowNumber % 19 == 0) {
-                        assertTrue(cursor.isNull(columnIndex.get("t_string")));
+                        assertNull(row.getField(columnIndex.get("t_string")));
                     }
                     else if (rowNumber % 19 == 1) {
-                        assertEquals(cursor.getSlice(columnIndex.get("t_string")).toStringUtf8(), "");
+                        assertEquals(row.getField(columnIndex.get("t_string")), "");
                     }
                     else {
-                        assertEquals(cursor.getSlice(columnIndex.get("t_string")).toStringUtf8(), "unpartitioned");
+                        assertEquals(row.getField(columnIndex.get("t_string")), "unpartitioned");
                     }
 
-                    assertEquals(cursor.getLong(columnIndex.get("t_tinyint")), 1 + rowNumber);
+                    assertEquals(row.getField(columnIndex.get("t_tinyint")), 1 + rowNumber);
                 }
+            }
+            finally {
+                close(dataStream);
             }
             assertEquals(rowNumber, 100);
         }
@@ -812,8 +875,7 @@ public abstract class AbstractTestHiveClient
         ConnectorTableHandle table = getTableHandle(tableUnpartitioned);
         ConnectorPartitionResult partitionResult = splitManager.getPartitions(table, TupleDomain.<ConnectorColumnHandle>all());
         ConnectorSplit split = Iterables.getFirst(getAllSplits(splitManager.getPartitionSplits(table, partitionResult.getPartitions())), null);
-        RecordSet recordSet = recordSetProvider.getRecordSet(split, ImmutableList.of(invalidColumnHandle));
-        recordSet.cursor();
+        dataStreamProvider.createNewDataStream(creteOperatorContext(SESSION, executor), split, ImmutableList.of(invalidColumnHandle));
     }
 
     @Test
@@ -950,7 +1012,7 @@ public abstract class AbstractTestHiveClient
     }
 
     private void doCreateSampledTable()
-            throws InterruptedException
+            throws Exception
     {
         // begin creating the table
         List<ColumnMetadata> columns = ImmutableList.<ColumnMetadata>builder()
@@ -1003,27 +1065,33 @@ public abstract class AbstractTestHiveClient
         ConnectorSplitSource splitSource = splitManager.getPartitionSplits(tableHandle, partitionResult.getPartitions());
         ConnectorSplit split = getOnlyElement(getAllSplits(splitSource));
 
-        try (RecordCursor cursor = recordSetProvider.getRecordSet(split, columnHandles).cursor()) {
-            assertRecordCursorType(cursor, "rcfile-binary");
+        Operator dataStream = dataStreamProvider.createNewDataStream(creteOperatorContext(SESSION, executor), split, columnHandles);
+        try {
+            assertDataStreamType(dataStream, "rcfile-binary");
+            MaterializedResult result = materializeSourceDataStream(SESSION, dataStream);
+            assertEquals(result.getRowCount(), 3);
 
-            assertTrue(cursor.advanceNextPosition());
-            assertEquals(cursor.getLong(0), 2);
-            assertEquals(cursor.getLong(1), 8);
+            MaterializedRow row;
 
-            assertTrue(cursor.advanceNextPosition());
-            assertEquals(cursor.getLong(0), 3);
-            assertEquals(cursor.getLong(1), 5);
+            row = result.getMaterializedRows().get(0);
+            assertEquals(row.getField(0), 2L);
+            assertEquals(row.getField(1), 8L);
 
-            assertTrue(cursor.advanceNextPosition());
-            assertEquals(cursor.getLong(0), 4);
-            assertEquals(cursor.getLong(1), 7);
+            row = result.getMaterializedRows().get(1);
+            assertEquals(row.getField(0), 3L);
+            assertEquals(row.getField(1), 5L);
 
-            assertFalse(cursor.advanceNextPosition());
+            row = result.getMaterializedRows().get(2);
+            assertEquals(row.getField(0), 4L);
+            assertEquals(row.getField(1), 7L);
+        }
+        finally {
+            close(dataStream);
         }
     }
 
     private void doCreateTable()
-            throws InterruptedException
+            throws Exception
     {
         // begin creating the table
         List<ColumnMetadata> columns = ImmutableList.<ColumnMetadata>builder()
@@ -1091,31 +1159,37 @@ public abstract class AbstractTestHiveClient
         ConnectorSplitSource splitSource = splitManager.getPartitionSplits(tableHandle, partitionResult.getPartitions());
         ConnectorSplit split = getOnlyElement(getAllSplits(splitSource));
 
-        try (RecordCursor cursor = recordSetProvider.getRecordSet(split, columnHandles).cursor()) {
-            assertRecordCursorType(cursor, "rcfile-binary");
+        Operator dataStream = dataStreamProvider.createNewDataStream(creteOperatorContext(SESSION, executor), split, columnHandles);
+        try {
+            assertDataStreamType(dataStream, "rcfile-binary");
+            MaterializedResult result = materializeSourceDataStream(SESSION, dataStream);
+            assertEquals(result.getRowCount(), 3);
 
-            assertTrue(cursor.advanceNextPosition());
-            assertEquals(cursor.getLong(0), 1);
-            assertEquals(cursor.getSlice(1).toStringUtf8(), "hello");
-            assertEquals(cursor.getLong(2), 123);
-            assertEquals(cursor.getDouble(3), 43.5);
-            assertEquals(cursor.getBoolean(4), true);
+            MaterializedRow row;
 
-            assertTrue(cursor.advanceNextPosition());
-            assertEquals(cursor.getLong(0), 2);
-            assertTrue(cursor.isNull(1));
-            assertTrue(cursor.isNull(2));
-            assertTrue(cursor.isNull(3));
-            assertTrue(cursor.isNull(4));
+            row = result.getMaterializedRows().get(0);
+            assertEquals(row.getField(0), 1L);
+            assertEquals(row.getField(1), "hello");
+            assertEquals(row.getField(2), 123L);
+            assertEquals(row.getField(3), 43.5);
+            assertEquals(row.getField(4), true);
 
-            assertTrue(cursor.advanceNextPosition());
-            assertEquals(cursor.getLong(0), 3);
-            assertEquals(cursor.getSlice(1).toStringUtf8(), "bye");
-            assertEquals(cursor.getLong(2), 456);
-            assertEquals(cursor.getDouble(3), 98.1);
-            assertEquals(cursor.getBoolean(4), false);
+            row = result.getMaterializedRows().get(1);
+            assertEquals(row.getField(0), 2L);
+            assertNull(row.getField(1));
+            assertNull(row.getField(2));
+            assertNull(row.getField(3));
+            assertNull(row.getField(4));
 
-            assertFalse(cursor.advanceNextPosition());
+            row = result.getMaterializedRows().get(2);
+            assertEquals(row.getField(0), 2L);
+            assertEquals(row.getField(1), "bye");
+            assertEquals(row.getField(2), 456L);
+            assertEquals(row.getField(3), 98.1);
+            assertEquals(row.getField(4), false);
+        }
+        finally {
+            close(dataStream);
         }
     }
 
@@ -1174,6 +1248,14 @@ public abstract class AbstractTestHiveClient
         }
     }
 
+    private static void assertDataStreamType(Operator dataStream, String fileType)
+    {
+        if (dataStream instanceof RecordProjectOperator) {
+            assertRecordCursorType(((RecordProjectOperator) dataStream).getCursor(), fileType);
+        }
+        fail("Unexpected dataStream operator type for file type " + fileType);
+    }
+
     private static void assertRecordCursorType(RecordCursor cursor, String fileType)
     {
         if (fileType.equals("rcfile-text")) {
@@ -1187,30 +1269,34 @@ public abstract class AbstractTestHiveClient
         }
     }
 
-    private static void assertReadFields(RecordCursor cursor, List<ColumnMetadata> schema)
+    private static void assertOpertorTypes(Operator cursor, List<ColumnMetadata> schema)
     {
         for (int columnIndex = 0; columnIndex < schema.size(); columnIndex++) {
             ColumnMetadata column = schema.get(columnIndex);
-            if (!cursor.isNull(columnIndex)) {
+            assertEquals(cursor.getTypes().get(columnIndex), column.getType());
+        }
+    }
+
+    private static void assertValueTupes(MaterializedRow row, List<ColumnMetadata> schema)
+    {
+        for (int columnIndex = 0; columnIndex < schema.size(); columnIndex++) {
+            ColumnMetadata column = schema.get(columnIndex);
+            Object value = row.getField(columnIndex);
+            if (value != null) {
                 if (BOOLEAN.equals(column.getType())) {
-                    cursor.getBoolean(columnIndex);
+                    assertInstanceOf(value, Boolean.class);
                 }
                 else if (BIGINT.equals(column.getType())) {
-                    cursor.getLong(columnIndex);
+                    assertInstanceOf(value, Long.class);
                 }
                 else if (DOUBLE.equals(column.getType())) {
-                    cursor.getDouble(columnIndex);
+                    assertInstanceOf(value, Double.class);
                 }
                 else if (VARCHAR.equals(column.getType()) || VARBINARY.equals(column.getType())) {
-                    try {
-                        cursor.getSlice(columnIndex);
-                    }
-                    catch (RuntimeException e) {
-                        throw new RuntimeException("column " + column, e);
-                    }
+                    assertInstanceOf(value, String.class);
                 }
                 else if (TIMESTAMP.equals(column.getType())) {
-                    cursor.getLong(columnIndex);
+                    assertInstanceOf(value, Long.class);
                 }
                 else {
                     fail("Unknown primitive type " + columnIndex);
