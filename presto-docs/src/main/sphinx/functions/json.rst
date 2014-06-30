@@ -53,3 +53,11 @@ JSON Functions
         SELECT json_array_get('[]', 0); => null
         SELECT json_array_get('["a", "b", "c"]', 10); => null
         SELECT json_array_get('["c", "b", "a"]', -10); => null
+
+.. function:: json_size(json, json_path) -> bigint
+
+    Evaluates the `JSONPath`_-like expression ``json_path`` on ``json``
+    (a string containing JSON) and returns its size. ::
+
+        SELECT json_size('{ "x": {"a": 1, "b": 2} }', '$.x'); => 2
+        SELECT json_size('[1,2,3]', '$'); => 3
