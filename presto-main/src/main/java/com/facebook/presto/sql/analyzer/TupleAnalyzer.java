@@ -78,6 +78,7 @@ import java.util.Collection;
 import java.util.EnumSet;
 import java.util.IdentityHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 import static com.facebook.presto.metadata.ViewDefinition.ViewColumn;
@@ -195,15 +196,16 @@ class TupleAnalyzer
             throw new SemanticException(MISSING_TABLE, table, "Table %s does not exist", name);
         }
         TableMetadata tableMetadata = metadata.getTableMetadata(tableHandle.get());
+        Map<String, ColumnHandle> columnHandles = metadata.getColumnHandles(tableHandle.get());
 
         // TODO: discover columns lazily based on where they are needed (to support datasources that can't enumerate all tables)
         ImmutableList.Builder<Field> fields = ImmutableList.builder();
         for (ColumnMetadata column : tableMetadata.getColumns()) {
             Field field = Field.newQualified(table.getName(), Optional.of(column.getName()), column.getType(), column.isHidden());
             fields.add(field);
-            Optional<ColumnHandle> columnHandle = metadata.getColumnHandle(tableHandle.get(), column.getName());
-            checkArgument(columnHandle.isPresent(), "Unknown field %s", field);
-            analysis.setColumn(field, columnHandle.get());
+            ColumnHandle columnHandle = columnHandles.get(column.getName());
+            checkArgument(columnHandle != null, "Unknown field %s", field);
+            analysis.setColumn(field, columnHandle);
         }
 
         analysis.registerTable(table, tableHandle.get());
