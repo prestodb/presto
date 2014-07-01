@@ -5,7 +5,7 @@
     <parent>
         <groupId>com.facebook.presto</groupId>
         <artifactId>presto-root</artifactId>
-        <version>0.73-SNAPSHOT</version>
+        <version>0.73</version>
     </parent>
 
     <artifactId>presto-hive</artifactId>
@@ -252,7 +252,7 @@
                         <groupId>org.apache.maven.plugins</groupId>
                         <artifactId>maven-surefire-plugin</artifactId>
                         <configuration>
-                            <excludes combine.self="override"/>
+                            <excludes combine.self="override" />
                         </configuration>
                     </plugin>
                 </plugins>
