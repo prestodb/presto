@@ -1,0 +1,163 @@
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>2.3. Conditional Expressions &mdash; Presto 0.73 Documentation</title>
+    
+    <link rel="stylesheet" href="../_static/presto.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '../',
+        VERSION:     '0.73',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="../_static/jquery.js"></script>
+    <script type="text/javascript" src="../_static/underscore.js"></script>
+    <script type="text/javascript" src="../_static/doctools.js"></script>
+    <link rel="top" title="Presto 0.73 Documentation" href="../index.html" />
+    <link rel="up" title="2. Functions and Operators" href="../functions.html" />
+    <link rel="next" title="2.4. Conversion Functions" href="conversion.html" />
+    <link rel="prev" title="2.2. Comparison Functions and Operators" href="comparison.html" /> 
+  </head>
+  <body>
+<div class="header">
+    <h1 class="heading"><a href="../index.html">
+        <span>Presto 0.73 Documentation</span></a></h1>
+    <h2 class="heading"><span>2.3. Conditional Expressions</span></h2>
+</div>
+<div class="topnav">
+    
+<p class="nav">
+    <span class="left">
+        &laquo; <a href="comparison.html">2.2. Comparison Functions and Operators</a>
+    </span>
+    <span class="right">
+        <a href="conversion.html">2.4. Conversion Functions</a> &raquo;
+    </span>
+</p>
+
+</div>
+<div class="content">
+    
+  <div class="section" id="conditional-expressions">
+<h1>2.3. Conditional Expressions</h1>
+<div class="section" id="case">
+<h2>CASE</h2>
+<p>The standard SQL <tt class="docutils literal"><span class="pre">CASE</span></tt> expression has two forms.
+The &#8220;simple&#8221; form searches each <tt class="docutils literal"><span class="pre">value</span></tt> expression from left to right
+until it finds one that equals <tt class="docutils literal"><span class="pre">expression</span></tt>:</p>
+<div class="highlight-none"><div class="highlight"><pre>CASE expression
+    WHEN value THEN result
+    [ WHEN ... ]
+    [ ELSE result ]
+END
+</pre></div>
+</div>
+<p>The <tt class="docutils literal"><span class="pre">result</span></tt> for the matching <tt class="docutils literal"><span class="pre">value</span></tt> is returned.
+If no match is found, the <tt class="docutils literal"><span class="pre">result</span></tt> from the <tt class="docutils literal"><span class="pre">ELSE</span></tt> clause is
+returned if it exists, otherwise null is returned. Example:</p>
+<div class="highlight-sql"><div class="highlight"><pre><span class="k">SELECT</span> <span class="n">a</span><span class="p">,</span>
+       <span class="k">CASE</span> <span class="n">a</span>
+           <span class="k">WHEN</span> <span class="mi">1</span> <span class="k">THEN</span> <span class="s1">&#39;one&#39;</span>
+           <span class="k">WHEN</span> <span class="mi">2</span> <span class="k">THEN</span> <span class="s1">&#39;two&#39;</span>
+           <span class="k">ELSE</span> <span class="s1">&#39;many&#39;</span>
+       <span class="k">END</span>
+</pre></div>
+</div>
+<p>The &#8220;searched&#8221; form evaluates each boolean <tt class="docutils literal"><span class="pre">condition</span></tt> from left
+to right until one is true and returns the matching <tt class="docutils literal"><span class="pre">result</span></tt>:</p>
+<div class="highlight-none"><div class="highlight"><pre>CASE
+    WHEN condition THEN result
+    [ WHEN ... ]
+    [ ELSE result ]
+END
+</pre></div>
+</div>
+<p>If no conditions are true, the <tt class="docutils literal"><span class="pre">result</span></tt> from the <tt class="docutils literal"><span class="pre">ELSE</span></tt> clause is
+returned if it exists, otherwise null is returned. Example:</p>
+<div class="highlight-sql"><div class="highlight"><pre><span class="k">SELECT</span> <span class="n">a</span><span class="p">,</span> <span class="n">b</span><span class="p">,</span>
+       <span class="k">CASE</span>
+           <span class="k">WHEN</span> <span class="n">a</span> <span class="o">=</span> <span class="mi">1</span> <span class="k">THEN</span> <span class="s1">&#39;aaa&#39;</span>
+           <span class="k">WHEN</span> <span class="n">b</span> <span class="o">=</span> <span class="mi">2</span> <span class="k">THEN</span> <span class="s1">&#39;bbb&#39;</span>
+           <span class="k">ELSE</span> <span class="s1">&#39;ccc&#39;</span>
+       <span class="k">END</span>
+</pre></div>
+</div>
+</div>
+<div class="section" id="if">
+<h2>IF</h2>
+<p>The <tt class="docutils literal"><span class="pre">IF</span></tt> function is actually a language construct
+that is equivalent to the following <tt class="docutils literal"><span class="pre">CASE</span></tt> expression:</p>
+<blockquote>
+<div><div class="highlight-none"><div class="highlight"><pre>CASE
+    WHEN condition THEN true_value
+    [ ELSE false_value ]
+END
+</pre></div>
+</div>
+</div></blockquote>
+<dl class="function">
+<dt>
+<tt class="descname">if</tt><big>(</big><em>condition</em>, <em>true_value</em><big>)</big></dt>
+<dd><p>Evaluates and returns <tt class="docutils literal"><span class="pre">true_value</span></tt> if <tt class="docutils literal"><span class="pre">condition</span></tt> is true,
+otherwise null is returned and <tt class="docutils literal"><span class="pre">true_value</span></tt> is not evaluated.</p>
+</dd></dl>
+
+<dl class="function">
+<dt>
+<tt class="descname">if</tt><big>(</big><em>condition</em>, <em>true_value</em>, <em>false_value</em><big>)</big></dt>
+<dd><p>Evaluates and returns <tt class="docutils literal"><span class="pre">true_value</span></tt> if <tt class="docutils literal"><span class="pre">condition</span></tt> is true,
+otherwise evaluates and returns <tt class="docutils literal"><span class="pre">false_value</span></tt>.</p>
+</dd></dl>
+
+</div>
+<div class="section" id="coalesce">
+<h2>COALESCE</h2>
+<dl class="function">
+<dt>
+<tt class="descname">coalesce</tt><big>(</big><em>value</em><span class="optional">[</span>, <em>...</em><span class="optional">]</span><big>)</big></dt>
+<dd><p>Returns the first non-null <tt class="docutils literal"><span class="pre">value</span></tt> in the argument list.
+Like a <tt class="docutils literal"><span class="pre">CASE</span></tt> expression, arguments are only evaluated if necessary.</p>
+</dd></dl>
+
+</div>
+<div class="section" id="nullif">
+<h2>NULLIF</h2>
+<dl class="function">
+<dt>
+<tt class="descname">nullif</tt><big>(</big><em>value1</em>, <em>value2</em><big>)</big></dt>
+<dd><p>Returns null if <tt class="docutils literal"><span class="pre">value1</span></tt> equals <tt class="docutils literal"><span class="pre">value2</span></tt>, otherwise returns <tt class="docutils literal"><span class="pre">value1</span></tt>.</p>
+</dd></dl>
+
+</div>
+</div>
+
+
+</div>
+<div class="bottomnav">
+    
+<p class="nav">
+    <span class="left">
+        &laquo; <a href="comparison.html">2.2. Comparison Functions and Operators</a>
+    </span>
+    <span class="right">
+        <a href="conversion.html">2.4. Conversion Functions</a> &raquo;
+    </span>
+</p>
+
+</div>
+
+    <div class="footer">
+    </div>
+  </body>
+</html>

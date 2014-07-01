@@ -1,0 +1,89 @@
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>1.2. Command Line Interface &mdash; Presto 0.73 Documentation</title>
+    
+    <link rel="stylesheet" href="../_static/presto.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '../',
+        VERSION:     '0.73',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="../_static/jquery.js"></script>
+    <script type="text/javascript" src="../_static/underscore.js"></script>
+    <script type="text/javascript" src="../_static/doctools.js"></script>
+    <link rel="top" title="Presto 0.73 Documentation" href="../index.html" />
+    <link rel="up" title="1. Installation" href="../installation.html" />
+    <link rel="next" title="1.3. JDBC Driver" href="jdbc.html" />
+    <link rel="prev" title="1.1. Deploying Presto" href="deployment.html" /> 
+  </head>
+  <body>
+<div class="header">
+    <h1 class="heading"><a href="../index.html">
+        <span>Presto 0.73 Documentation</span></a></h1>
+    <h2 class="heading"><span>1.2. Command Line Interface</span></h2>
+</div>
+<div class="topnav">
+    
+<p class="nav">
+    <span class="left">
+        &laquo; <a href="deployment.html">1.1. Deploying Presto</a>
+    </span>
+    <span class="right">
+        <a href="jdbc.html">1.3. JDBC Driver</a> &raquo;
+    </span>
+</p>
+
+</div>
+<div class="content">
+    
+  <div class="section" id="command-line-interface">
+<h1>1.2. Command Line Interface</h1>
+<p>The Presto CLI provides a terminal-based interactive shell for running
+queries. The CLI is a
+<a class="reference external" href="http://skife.org/java/unix/2011/06/20/really_executable_jars.html">self-executing</a>
+JAR file, which means it acts like a normal UNIX executable.</p>
+<p>Download <a class="reference external" href="http://central.maven.org/maven2/com/facebook/presto/presto-cli/0.73/presto-cli-0.73-executable.jar">presto-cli-0.73-executable.jar</a>, rename it to <tt class="docutils literal"><span class="pre">presto</span></tt>,
+make it executable with <tt class="docutils literal"><span class="pre">chmod</span> <span class="pre">+x</span></tt>, then run it:</p>
+<div class="highlight-none"><div class="highlight"><pre>./presto --server localhost:8080 --catalog hive --schema default
+</pre></div>
+</div>
+<p>Run the CLI with the <tt class="docutils literal"><span class="pre">--help</span></tt> option to see the available options.</p>
+<p>By default, the results of queries are paginated using the <tt class="docutils literal"><span class="pre">less</span></tt> program
+which is configured with a carefully selected set of options. This behavior
+can be overridden by setting the environment variable <tt class="docutils literal"><span class="pre">PRESTO_PAGER</span></tt> to the
+name of a different program such as <tt class="docutils literal"><span class="pre">more</span></tt>, or set it to an empty value
+to completely disable pagination.</p>
+</div>
+
+
+</div>
+<div class="bottomnav">
+    
+<p class="nav">
+    <span class="left">
+        &laquo; <a href="deployment.html">1.1. Deploying Presto</a>
+    </span>
+    <span class="right">
+        <a href="jdbc.html">1.3. JDBC Driver</a> &raquo;
+    </span>
+</p>
+
+</div>
+
+    <div class="footer">
+    </div>
+  </body>
+</html>
