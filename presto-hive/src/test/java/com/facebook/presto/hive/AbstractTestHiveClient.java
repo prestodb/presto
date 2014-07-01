@@ -217,6 +217,7 @@ public abstract class AbstractTestHiveClient
                 hiveClientConfig.getMaxInitialSplitSize(),
                 hiveClientConfig.getMaxInitialSplits(),
                 false,
+                hiveClientConfig.getHiveStorageFormat(),
                 false);
 
         metadata = client;

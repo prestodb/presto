@@ -77,9 +77,6 @@ import org.apache.hadoop.hive.metastore.api.Partition;
 import org.apache.hadoop.hive.metastore.api.SerDeInfo;
 import org.apache.hadoop.hive.metastore.api.StorageDescriptor;
 import org.apache.hadoop.hive.metastore.api.Table;
-import org.apache.hadoop.hive.ql.io.RCFileInputFormat;
-import org.apache.hadoop.hive.ql.io.RCFileOutputFormat;
-import org.apache.hadoop.hive.serde2.columnar.LazyBinaryColumnarSerDe;
 import org.apache.hadoop.hive.serde2.objectinspector.StructField;
 import org.apache.hadoop.mapred.JobConf;
 import org.joda.time.DateTimeZone;
@@ -164,6 +161,7 @@ public class HiveClient
     private final DataSize maxSplitSize;
     private final DataSize maxInitialSplitSize;
     private final int maxInitialSplits;
+    private final HiveStorageFormat hiveStorageFormat;
     private final boolean recursiveDfsWalkerEnabled;
 
     @Inject
@@ -190,6 +188,7 @@ public class HiveClient
                 hiveClientConfig.getMaxInitialSplitSize(),
                 hiveClientConfig.getMaxInitialSplits(),
                 hiveClientConfig.getAllowDropTable(),
+                hiveClientConfig.getHiveStorageFormat(),
                 false);
     }
 
@@ -208,6 +207,7 @@ public class HiveClient
             DataSize maxInitialSplitSize,
             int maxInitialSplits,
             boolean allowDropTable,
+            HiveStorageFormat hiveStorageFormat,
             boolean recursiveDfsWalkerEnabled)
     {
         this.connectorId = checkNotNull(connectorId, "connectorId is null").toString();
@@ -231,6 +231,7 @@ public class HiveClient
         this.executor = checkNotNull(executor, "executor is null");
 
         this.recursiveDfsWalkerEnabled = recursiveDfsWalkerEnabled;
+        this.hiveStorageFormat = hiveStorageFormat;
     }
 
     public HiveMetastore getMetastore()
@@ -564,15 +565,15 @@ public class HiveClient
 
         SerDeInfo serdeInfo = new SerDeInfo();
         serdeInfo.setName(handle.getTableName());
-        serdeInfo.setSerializationLib(LazyBinaryColumnarSerDe.class.getName());
+        serdeInfo.setSerializationLib(hiveStorageFormat.getSerDe());
         serdeInfo.setParameters(ImmutableMap.<String, String>of());
 
         StorageDescriptor sd = new StorageDescriptor();
         sd.setLocation(targetPath.toString());
         sd.setCols(columns.build());
         sd.setSerdeInfo(serdeInfo);
-        sd.setInputFormat(RCFileInputFormat.class.getName());
-        sd.setOutputFormat(RCFileOutputFormat.class.getName());
+        sd.setInputFormat(hiveStorageFormat.getInputFormat());
+        sd.setOutputFormat(hiveStorageFormat.getOutputFormat());
         sd.setParameters(ImmutableMap.<String, String>of());
 
         Table table = new Table();
