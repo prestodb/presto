@@ -69,6 +69,8 @@ public class HiveClientConfig
     private Duration s3ConnectTimeout = new Duration(5, TimeUnit.SECONDS);
     private File s3StagingDirectory = new File(StandardSystemProperty.JAVA_IO_TMPDIR.value());
 
+    private HiveStorageFormat hiveStorageFormat = HiveStorageFormat.RCBINARY;
+
     private List<String> resourceConfigFiles;
 
     public int getMaxInitialSplits()
@@ -328,6 +330,18 @@ public class HiveClientConfig
     public HiveClientConfig setDfsConnectMaxRetries(int dfsConnectMaxRetries)
     {
         this.dfsConnectMaxRetries = dfsConnectMaxRetries;
+        return this;
+    }
+
+    public HiveStorageFormat getHiveStorageFormat()
+    {
+        return hiveStorageFormat;
+    }
+
+    @Config("hive.storage-format")
+    public HiveClientConfig setHiveStorageFormat(HiveStorageFormat hiveStorageFormat)
+    {
+        this.hiveStorageFormat = hiveStorageFormat;
         return this;
     }
 
