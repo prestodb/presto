@@ -26,8 +26,10 @@ import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
-import com.facebook.presto.spi.block.FixedWidthBlock;
-import com.facebook.presto.spi.block.SliceArrayBlock;
+import com.facebook.presto.spi.block.LazyFixedWidthBlock;
+import com.facebook.presto.spi.block.LazyFixedWidthBlock.LazyFixedWidthBlockLoader;
+import com.facebook.presto.spi.block.LazySliceArrayBlock;
+import com.facebook.presto.spi.block.LazySliceArrayBlock.LazySliceArrayBlockLoader;
 import com.facebook.presto.spi.type.FixedWidthType;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.base.Charsets;
@@ -60,7 +62,11 @@ import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.Maps.uniqueIndex;
+import static io.airlift.slice.Slices.wrappedBooleanArray;
+import static io.airlift.slice.Slices.wrappedDoubleArray;
+import static io.airlift.slice.Slices.wrappedLongArray;
 
 class OrcDataStream
         implements Operator, Closeable
@@ -76,6 +82,7 @@ class OrcDataStream
     private final Block[] partitionKeyBlocks;
     private final int[] hiveColumnIndexes;
 
+    private int batchId;
     private boolean closed;
 
     public OrcDataStream(
@@ -220,6 +227,7 @@ class OrcDataStream
         try {
             long startReadTimeNanos = System.nanoTime();
 
+            batchId++;
             int batchSize = recordReader.nextBatch();
             if (batchSize <= 0) {
                 close();
@@ -233,32 +241,19 @@ class OrcDataStream
                     blocks[fieldId] = partitionKeyBlocks[fieldId].getRegion(0, batchSize);
                 }
                 else if (BOOLEAN.equals(type)) {
-                    BooleanVector vector = new BooleanVector();
-                    recordReader.readVector(hiveColumnIndexes[fieldId], vector);
-                    blocks[fieldId] = new FixedWidthBlock(BOOLEAN.getFixedSize(), batchSize, Slices.wrappedBooleanArray(vector.vector, 0, batchSize), vector.isNull);
+                    blocks[fieldId] = new LazyFixedWidthBlock(BOOLEAN.getFixedSize(), batchSize, new LazyBooleanBlockLoader(hiveColumnIndexes[fieldId], batchSize));
                 }
                 else if (DATE.equals(type)) {
-                    LongVector vector = new LongVector();
-                    recordReader.readVector(hiveColumnIndexes[fieldId], vector);
-                    for (int i = 0; i < batchSize; i++) {
-                        vector.vector[i] *= MILLIS_IN_DAY;
-                    }
-                    blocks[fieldId] = new FixedWidthBlock(DATE.getFixedSize(), batchSize, Slices.wrappedLongArray(vector.vector, 0, batchSize), vector.isNull);
+                    blocks[fieldId] = new LazyFixedWidthBlock(DATE.getFixedSize(), batchSize, new LazyDateBlockLoader(hiveColumnIndexes[fieldId], batchSize));
                 }
                 else if (BIGINT.equals(type) || TIMESTAMP.equals(type)) {
-                    LongVector vector = new LongVector();
-                    recordReader.readVector(hiveColumnIndexes[fieldId], vector);
-                    blocks[fieldId] = new FixedWidthBlock(((FixedWidthType) type).getFixedSize(), batchSize, Slices.wrappedLongArray(vector.vector, 0, batchSize), vector.isNull);
+                    blocks[fieldId] = new LazyFixedWidthBlock(((FixedWidthType) type).getFixedSize(), batchSize, new LazyLongBlockLoader(hiveColumnIndexes[fieldId], batchSize));
                 }
                 else if (DOUBLE.equals(type)) {
-                    DoubleVector vector = new DoubleVector();
-                    recordReader.readVector(hiveColumnIndexes[fieldId], vector);
-                    blocks[fieldId] = new FixedWidthBlock(DOUBLE.getFixedSize(), batchSize, Slices.wrappedDoubleArray(vector.vector, 0, batchSize), vector.isNull);
+                    blocks[fieldId] = new LazyFixedWidthBlock(DOUBLE.getFixedSize(), batchSize, new LazyDoubleBlockLoader(hiveColumnIndexes[fieldId], batchSize));
                 }
                 else if (VARCHAR.equals(type) || VARBINARY.equals(type)) {
-                    SliceVector vector = new SliceVector();
-                    recordReader.readVector(hiveColumnIndexes[fieldId], vector);
-                    blocks[fieldId] = new SliceArrayBlock(batchSize, vector.slice);
+                    blocks[fieldId] = new LazySliceArrayBlock(batchSize, new LazySliceBlockLoader(hiveColumnIndexes[fieldId]));
                 }
                 else {
                     throw new UnsupportedOperationException("Unsupported column type: " + type);
@@ -308,6 +303,153 @@ class OrcDataStream
         }
         catch (RuntimeException e) {
             throwable.addSuppressed(e);
+        }
+    }
+
+    private final class LazyBooleanBlockLoader
+            implements LazyFixedWidthBlockLoader
+    {
+        private final int expectedBatchId = batchId;
+        private final int batchSize;
+        private final int hiveColumnIndex;
+
+        public LazyBooleanBlockLoader(int hiveColumnIndex, int batchSize)
+        {
+            this.batchSize = batchSize;
+            this.hiveColumnIndex = hiveColumnIndex;
+        }
+
+        @Override
+        public void load(LazyFixedWidthBlock block)
+        {
+            checkState(batchId == expectedBatchId);
+            try {
+                BooleanVector vector = new BooleanVector();
+                recordReader.readVector(hiveColumnIndex, vector);
+                block.setNullVector(vector.isNull);
+                block.setRawSlice(wrappedBooleanArray(vector.vector, 0, batchSize));
+            }
+            catch (IOException e) {
+                throw Throwables.propagate(e);
+            }
+        }
+    }
+
+    private final class LazyDateBlockLoader
+            implements LazyFixedWidthBlockLoader
+    {
+        private final int expectedBatchId = batchId;
+        private final int batchSize;
+        private final int hiveColumnIndex;
+
+        public LazyDateBlockLoader(int hiveColumnIndex, int batchSize)
+        {
+            this.batchSize = batchSize;
+            this.hiveColumnIndex = hiveColumnIndex;
+        }
+
+        @Override
+        public void load(LazyFixedWidthBlock block)
+        {
+            checkState(batchId == expectedBatchId);
+            try {
+                LongVector vector = new LongVector();
+                recordReader.readVector(hiveColumnIndex, vector);
+                for (int i = 0; i < batchSize; i++) {
+                    vector.vector[i] *= MILLIS_IN_DAY;
+                }
+                block.setNullVector(vector.isNull);
+                block.setRawSlice(wrappedLongArray(vector.vector, 0, batchSize));
+            }
+            catch (IOException e) {
+                throw Throwables.propagate(e);
+            }
+        }
+    }
+
+    private final class LazyLongBlockLoader
+            implements LazyFixedWidthBlockLoader
+    {
+        private final int expectedBatchId = batchId;
+        private final int batchSize;
+        private final int hiveColumnIndex;
+
+        public LazyLongBlockLoader(int hiveColumnIndex, int batchSize)
+        {
+            this.batchSize = batchSize;
+            this.hiveColumnIndex = hiveColumnIndex;
+        }
+
+        @Override
+        public void load(LazyFixedWidthBlock block)
+        {
+            checkState(batchId == expectedBatchId);
+            try {
+                LongVector vector = new LongVector();
+                recordReader.readVector(hiveColumnIndex, vector);
+                block.setNullVector(vector.isNull);
+                block.setRawSlice(wrappedLongArray(vector.vector, 0, batchSize));
+            }
+            catch (IOException e) {
+                throw Throwables.propagate(e);
+            }
+        }
+    }
+
+    private final class LazyDoubleBlockLoader
+            implements LazyFixedWidthBlockLoader
+    {
+        private final int expectedBatchId = batchId;
+
+        private final int batchSize;
+        private final int hiveColumnIndex;
+
+        public LazyDoubleBlockLoader(int hiveColumnIndex, int batchSize)
+        {
+            this.batchSize = batchSize;
+            this.hiveColumnIndex = hiveColumnIndex;
+        }
+
+        @Override
+        public void load(LazyFixedWidthBlock block)
+        {
+            checkState(batchId == expectedBatchId);
+            try {
+                DoubleVector vector = new DoubleVector();
+                recordReader.readVector(hiveColumnIndex, vector);
+                block.setNullVector(vector.isNull);
+                block.setRawSlice(wrappedDoubleArray(vector.vector, 0, batchSize));
+            }
+            catch (IOException e) {
+                throw Throwables.propagate(e);
+            }
+        }
+    }
+
+    private final class LazySliceBlockLoader
+            implements LazySliceArrayBlockLoader
+    {
+        private final int expectedBatchId = batchId;
+
+        private final int hiveColumnIndex;
+
+        public LazySliceBlockLoader(int hiveColumnIndex)
+        {
+            this.hiveColumnIndex = hiveColumnIndex;
+        }
+
+        @Override
+        public void load(LazySliceArrayBlock block)
+        {
+            checkState(batchId == expectedBatchId);
+            try {
+                SliceVector vector = new SliceVector();
+                recordReader.readVector(hiveColumnIndex, vector);
+                block.setValues(vector.slice);
+            }
+            catch (IOException e) {
+                throw Throwables.propagate(e);
+            }
         }
     }
 }

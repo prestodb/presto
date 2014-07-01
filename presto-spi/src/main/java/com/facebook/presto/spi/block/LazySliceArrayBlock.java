@@ -18,30 +18,40 @@ import io.airlift.slice.Slice;
 
 import java.util.Arrays;
 
-public class SliceArrayBlock
+public class LazySliceArrayBlock
         extends AbstractVariableWidthBlock
 {
     private final int positionCount;
-    private final Slice[] values;
+    private final LazySliceArrayBlockLoader loader;
+    private Slice[] values;
 
-    public SliceArrayBlock(int positionCount, Slice[] values)
+    public LazySliceArrayBlock(int positionCount, LazySliceArrayBlockLoader loader)
     {
         this.positionCount = positionCount;
-
-        if (values.length < positionCount) {
-            throw new IllegalArgumentException("values length is less than positionCount");
-        }
-        this.values = values;
+        this.loader = loader;
     }
 
     Slice[] getValues()
     {
+        assureLoaded();
         return values;
+    }
+
+    public void setValues(Slice[] values)
+    {
+        this.values = values;
+    }
+
+    @Override
+    public BlockEncoding getEncoding()
+    {
+        return new LazySliceArrayBlockEncoding();
     }
 
     @Override
     protected Slice getRawSlice(int position)
     {
+        assureLoaded();
         return values[position];
     }
 
@@ -54,13 +64,8 @@ public class SliceArrayBlock
     @Override
     protected boolean isEntryNull(int position)
     {
+        assureLoaded();
         return values[position] == null;
-    }
-
-    @Override
-    public BlockEncoding getEncoding()
-    {
-        return new SliceArrayBlockEncoding();
     }
 
     @Override
@@ -72,6 +77,7 @@ public class SliceArrayBlock
     @Override
     public int getLength(int position)
     {
+        assureLoaded();
         return values[position].length();
     }
 
@@ -94,6 +100,7 @@ public class SliceArrayBlock
             throw new IndexOutOfBoundsException("Invalid position " + positionOffset + " in block with " + positionCount + " positions");
         }
 
+        assureLoaded();
         Slice[] newValues = Arrays.copyOfRange(values, positionOffset, positionOffset + length);
         return new SliceArrayBlock(length, newValues);
     }
@@ -101,14 +108,22 @@ public class SliceArrayBlock
     @Override
     public void assureLoaded()
     {
+        if (values == null) {
+            loader.load(this);
+        }
     }
 
     @Override
     public String toString()
     {
-        StringBuilder sb = new StringBuilder("SliceArrayBlock{");
+        StringBuilder sb = new StringBuilder("LazySliceArrayBlock{");
         sb.append("positionCount=").append(getPositionCount());
         sb.append('}');
         return sb.toString();
+    }
+
+    public interface LazySliceArrayBlockLoader
+    {
+        void load(LazySliceArrayBlock block);
     }
 }

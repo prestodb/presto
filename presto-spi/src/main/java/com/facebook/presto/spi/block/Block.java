@@ -130,4 +130,6 @@ public interface Block
      * @throws IllegalArgumentException if this position is not valid
      */
     boolean isNull(int position);
+
+    void assureLoaded();
 }
