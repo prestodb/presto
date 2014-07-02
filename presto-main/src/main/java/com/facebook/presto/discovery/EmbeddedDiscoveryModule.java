@@ -42,6 +42,7 @@ import java.util.Set;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static io.airlift.configuration.ConfigurationModule.bindConfig;
 import static io.airlift.discovery.client.DiscoveryBinder.discoveryBinder;
+import static io.airlift.jaxrs.JaxrsBinder.jaxrsBinder;
 import static io.airlift.json.JsonCodecBinder.jsonCodecBinder;
 
 public class EmbeddedDiscoveryModule
@@ -55,7 +56,7 @@ public class EmbeddedDiscoveryModule
         }
 
         bindConfig(binder).to(DiscoveryConfig.class);
-        binder.bind(ServiceResource.class).in(Scopes.SINGLETON);
+        jaxrsBinder(binder).bind(ServiceResource.class);
 
         discoveryBinder(binder).bindHttpAnnouncement("discovery");
 
@@ -65,7 +66,7 @@ public class EmbeddedDiscoveryModule
         binder.bind(ServiceSelector.class).to(DiscoveryServiceSelector.class);
         binder.bind(StaticStore.class).to(EmptyStaticStore.class);
 
-        binder.bind(DynamicAnnouncementResource.class).in(Scopes.SINGLETON);
+        jaxrsBinder(binder).bind(DynamicAnnouncementResource.class);
         binder.bind(DynamicStore.class).to(ReplicatedDynamicStore.class).in(Scopes.SINGLETON);
         binder.install(new ReplicatedStoreModule("dynamic", ForDynamicStore.class, InMemoryStore.class));
     }
