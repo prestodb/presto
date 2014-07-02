@@ -19,11 +19,9 @@ import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.block.BlockEncoding;
 import com.facebook.presto.spi.type.Type;
-import com.google.common.collect.ImmutableList;
 import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
-import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import java.util.Locale;
@@ -68,13 +66,6 @@ public abstract class AbstractTestBlock
     public final SortedMap<Integer, Object> getExpectedValues()
     {
         return expectedValues;
-    }
-
-    @BeforeClass
-    public void setUp()
-    {
-        // verify expected values
-        assertEquals(ImmutableList.copyOf(getExpectedValues().keySet()), ImmutableList.of(0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10));
     }
 
     @Test
