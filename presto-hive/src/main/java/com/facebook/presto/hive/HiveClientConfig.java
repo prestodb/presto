@@ -51,6 +51,23 @@ public class HiveClientConfig
 
     private Duration metastoreCacheTtl = new Duration(1, TimeUnit.HOURS);
     private Duration metastoreRefreshInterval = new Duration(2, TimeUnit.MINUTES);
+    private Duration metastoreCacheGetAllDatabasesTtl = null;
+    private Duration metastoreCacheGetAllDatabasesRefreshInterval = null;
+    private Duration metastoreCacheGetDatabaseTtl = null;
+    private Duration metastoreCacheGetDatabaseRefreshInterval = null;
+    private Duration metastoreCacheGetAllTablesTtl = null;
+    private Duration metastoreCacheGetAllTablesRefreshInterval = null;
+    private Duration metastoreCacheGetTableTtl = null;
+    private Duration metastoreCacheGetTableRefreshInterval = null;
+    private Duration metastoreCacheGetPartitionNamesTtl = null;
+    private Duration metastoreCacheGetPartitionNamesRefreshInterval = null;
+    private Duration metastoreCacheGetPartitionNamesByPartsTtl = null;
+    private Duration metastoreCacheGetPartitionNamesByPartsRefreshInterval = null;
+    private Duration metastoreCacheGetPartitionByNameTtl = null;
+    private Duration metastoreCacheGetPartitionByNameRefreshInterval = null;
+    private Duration metastoreCacheLoadViewsTtl = null;
+    private Duration metastoreCacheLoadViewsRefreshInterval = null;
+
     private int maxMetastoreRefreshThreads = 100;
     private HostAndPort metastoreSocksProxy;
     private Duration metastoreTimeout = new Duration(10, TimeUnit.SECONDS);
@@ -205,6 +222,198 @@ public class HiveClientConfig
     public HiveClientConfig setMetastoreRefreshInterval(Duration metastoreRefreshInterval)
     {
         this.metastoreRefreshInterval = metastoreRefreshInterval;
+        return this;
+    }
+
+    public Duration getMetastoreCacheGetAllDatabasesTtl()
+    {
+        return metastoreCacheGetAllDatabasesTtl;
+    }
+
+    @Config("hive.metastore-getalldatabases-cache-ttl")
+    public HiveClientConfig setMetastoreCacheGetAllDatabasesTtl(Duration metastoreCacheGetAllDatabasesTtl)
+    {
+        this.metastoreCacheGetAllDatabasesTtl = metastoreCacheGetAllDatabasesTtl;
+        return this;
+    }
+
+    public Duration getMetastoreCacheGetAllDatabasesRefreshInterval()
+    {
+        return metastoreCacheGetAllDatabasesRefreshInterval;
+    }
+
+    @Config("hive.metastore-getalldatabases-refresh-interval")
+    public HiveClientConfig setMetastoreCacheGetAllDatabasesRefreshInterval(Duration metastoreCacheGetAllDatabasesRefreshInterval)
+    {
+        this.metastoreCacheGetAllDatabasesRefreshInterval = metastoreCacheGetAllDatabasesRefreshInterval;
+        return this;
+    }
+
+    public Duration getMetastoreCacheGetDatabaseTtl()
+    {
+        return metastoreCacheGetDatabaseTtl;
+    }
+
+    @Config("hive.metastore-getdatabase-cache-ttl")
+    public HiveClientConfig setMetastoreCacheGetDatabaseTtl(Duration metastoreCacheGetDatabaseTtl)
+    {
+        this.metastoreCacheGetDatabaseTtl = metastoreCacheGetDatabaseTtl;
+        return this;
+    }
+
+    public Duration getMetastoreCacheGetDatabaseRefreshInterval()
+    {
+        return metastoreCacheGetDatabaseRefreshInterval;
+    }
+
+    @Config("hive.metastore-getdatabase-refresh-interval")
+    public HiveClientConfig setMetastoreCacheGetDatabaseRefreshInterval(Duration metastoreCacheGetDatabaseRefreshInterval)
+    {
+        this.metastoreCacheGetDatabaseRefreshInterval = metastoreCacheGetDatabaseRefreshInterval;
+        return this;
+    }
+
+    public Duration getMetastoreCacheGetAllTablesTtl()
+    {
+        return metastoreCacheGetAllTablesTtl;
+    }
+
+    @Config("hive.metastore-getalltables-cache-ttl")
+    public HiveClientConfig setMetastoreCacheGetAllTablesTtl(Duration metastoreCacheGetAllTablesTtl)
+    {
+        this.metastoreCacheGetAllTablesTtl = metastoreCacheGetAllTablesTtl;
+        return this;
+    }
+
+    public Duration getMetastoreCacheGetAllTablesRefreshInterval()
+    {
+        return metastoreCacheGetAllTablesRefreshInterval;
+    }
+
+    @Config("hive.metastore-getalltables-refresh-interval")
+    public HiveClientConfig setMetastoreCacheGetAllTablesRefreshInterval(Duration metastoreCacheGetAllTablesRefreshInterval)
+    {
+        this.metastoreCacheGetAllTablesRefreshInterval = metastoreCacheGetAllTablesRefreshInterval;
+        return this;
+    }
+
+    public Duration getMetastoreCacheGetTableTtl()
+    {
+        return metastoreCacheGetTableTtl;
+    }
+
+    @Config("hive.metastore-gettable-cache-ttl")
+    public HiveClientConfig setMetastoreCacheGetTableTtl(Duration metastoreCacheGetTableTtl)
+    {
+        this.metastoreCacheGetTableTtl = metastoreCacheGetTableTtl;
+        return this;
+    }
+
+    public Duration getMetastoreCacheGetTableRefreshInterval()
+    {
+        return metastoreCacheGetTableRefreshInterval;
+    }
+
+    @Config("hive.metastore-gettable-refresh-interval")
+    public HiveClientConfig setMetastoreCacheGetTableRefreshInterval(Duration metastoreCacheGetTableRefreshInterval)
+    {
+        this.metastoreCacheGetTableRefreshInterval = metastoreCacheGetTableRefreshInterval;
+        return this;
+    }
+
+    public Duration getMetastoreCacheGetPartitionNamesTtl()
+    {
+        return metastoreCacheGetPartitionNamesTtl;
+    }
+
+    @Config("hive.metastore-getpartitionnames-cache-ttl")
+    public HiveClientConfig setMetastoreCacheGetPartitionNamesTtl(Duration metastoreCacheGetPartitionNamesTtl)
+    {
+        this.metastoreCacheGetPartitionNamesTtl = metastoreCacheGetPartitionNamesTtl;
+        return this;
+    }
+
+    public Duration getMetastoreCacheGetPartitionNamesRefreshInterval()
+    {
+        return metastoreCacheGetPartitionNamesRefreshInterval;
+    }
+
+    @Config("hive.metastore-getpartitionnames-refresh-interval")
+    public HiveClientConfig setMetastoreCacheGetPartitionNamesRefreshInterval(Duration metastoreCacheGetPartitionNamesRefreshInterval)
+    {
+        this.metastoreCacheGetPartitionNamesRefreshInterval = metastoreCacheGetPartitionNamesRefreshInterval;
+        return this;
+    }
+
+    public Duration getMetastoreCacheGetPartitionNamesByPartsTtl()
+    {
+        return metastoreCacheGetPartitionNamesByPartsTtl;
+    }
+
+    @Config("hive.metastore-getpartitionnamesbyparts-cache-ttl")
+    public HiveClientConfig setMetastoreCacheGetPartitionNamesByPartsTtl(Duration metastoreCacheGetPartitionNamesByPartsTtl)
+    {
+        this.metastoreCacheGetPartitionNamesByPartsTtl = metastoreCacheGetPartitionNamesByPartsTtl;
+        return this;
+    }
+
+    public Duration getMetastoreCacheGetPartitionNamesByPartsRefreshInterval()
+    {
+        return metastoreCacheGetPartitionNamesByPartsRefreshInterval;
+    }
+
+    @Config("hive.metastore-getpartitionnamesbyparts-refresh-interval")
+    public HiveClientConfig setMetastoreCacheGetPartitionNamesByPartsRefreshInterval(Duration metastoreCacheGetPartitionNamesByPartsRefreshInterval)
+    {
+        this.metastoreCacheGetPartitionNamesByPartsRefreshInterval = metastoreCacheGetPartitionNamesByPartsRefreshInterval;
+        return this;
+    }
+
+    public Duration getMetastoreCacheGetPartitionByNameTtl()
+    {
+        return metastoreCacheGetPartitionByNameTtl;
+    }
+
+    @Config("hive.metastore-getpartitionbyname-cache-ttl")
+    public HiveClientConfig setMetastoreCacheGetPartitionByNameTtl(Duration metastoreCacheGetPartitionByNameTtl)
+    {
+        this.metastoreCacheGetPartitionByNameTtl = metastoreCacheGetPartitionByNameTtl;
+        return this;
+    }
+
+    public Duration getMetastoreCacheGetPartitionByNameRefreshInterval()
+    {
+        return metastoreCacheGetPartitionByNameRefreshInterval;
+    }
+
+    @Config("hive.metastore-getpartitionbyname-refresh-interval")
+    public HiveClientConfig setMetastoreCacheGetPartitionByNameRefreshInterval(Duration metastoreCacheGetPartitionByNameRefreshInterval)
+    {
+        this.metastoreCacheGetPartitionByNameRefreshInterval = metastoreCacheGetPartitionByNameRefreshInterval;
+        return this;
+    }
+
+    public Duration getMetastoreCacheLoadViewsRefreshInterval()
+    {
+        return metastoreCacheLoadViewsRefreshInterval;
+    }
+
+    @Config("hive.metastore-loadviews-refresh-interval")
+    public HiveClientConfig setMetastoreCacheLoadViewsRefreshInterval(Duration metastoreCacheLoadViewsRefreshInterval)
+    {
+        this.metastoreCacheLoadViewsRefreshInterval = metastoreCacheLoadViewsRefreshInterval;
+        return this;
+    }
+
+    public Duration getMetastoreCacheLoadViewsTtl()
+    {
+        return metastoreCacheLoadViewsTtl;
+    }
+
+    @Config("hive.metastore-loadviews-cache-ttl")
+    public HiveClientConfig setMetastoreCacheLoadViewsTtl(Duration metastoreCacheLoadViewsTtl)
+    {
+        this.metastoreCacheLoadViewsTtl = metastoreCacheLoadViewsTtl;
         return this;
     }
 

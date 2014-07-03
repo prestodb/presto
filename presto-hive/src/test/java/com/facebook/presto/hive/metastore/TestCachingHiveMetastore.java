@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.hive.metastore;
 
+import com.facebook.presto.hive.HiveClientConfig;
 import com.facebook.presto.hive.HiveCluster;
 import com.facebook.presto.hive.HiveMetastoreClient;
 import com.google.common.collect.ImmutableList;
@@ -23,10 +24,7 @@ import io.airlift.units.Duration;
 import org.apache.hadoop.hive.metastore.api.NoSuchObjectException;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
-
 import java.util.concurrent.Executors;
-import java.util.concurrent.TimeUnit;
-
 import static com.facebook.presto.hive.metastore.MockHiveMetastoreClient.BAD_DATABASE;
 import static com.facebook.presto.hive.metastore.MockHiveMetastoreClient.TEST_DATABASE;
 import static com.facebook.presto.hive.metastore.MockHiveMetastoreClient.TEST_PARTITION1;
@@ -48,7 +46,10 @@ public class TestCachingHiveMetastore
         mockClient = new MockHiveMetastoreClient();
         MockHiveCluster mockHiveCluster = new MockHiveCluster(mockClient);
         ListeningExecutorService executor = MoreExecutors.listeningDecorator(Executors.newCachedThreadPool(new ThreadFactoryBuilder().setDaemon(true).build()));
-        metastore = new CachingHiveMetastore(mockHiveCluster, executor, new Duration(5, TimeUnit.MINUTES), new Duration(1, TimeUnit.MINUTES));
+        HiveClientConfig hiveClientConfig = new HiveClientConfig();
+        hiveClientConfig.setMetastoreCacheTtl(Duration.valueOf("5m"));
+        hiveClientConfig.setMetastoreRefreshInterval(Duration.valueOf("1m"));
+        metastore = new CachingHiveMetastore(mockHiveCluster, executor, hiveClientConfig);
     }
 
     @Test

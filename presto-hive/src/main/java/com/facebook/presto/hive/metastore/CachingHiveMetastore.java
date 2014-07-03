@@ -89,23 +89,35 @@ public class CachingHiveMetastore
     private final LoadingCache<HivePartitionName, Partition> partitionCache;
     private final LoadingCache<PartitionFilter, List<String>> partitionFilterCache;
 
+    private long getCacheSetting(Duration globalSetting, Duration setting)
+    {
+        if (setting == null) {
+            return globalSetting.toMillis();
+        }
+        else {
+            return setting.toMillis();
+        }
+    }
+
     @Inject
     public CachingHiveMetastore(HiveCluster hiveCluster, @ForHiveMetastore ExecutorService executor, HiveClientConfig hiveClientConfig)
     {
-        this(checkNotNull(hiveCluster, "hiveCluster is null"),
-                checkNotNull(executor, "executor is null"),
-                checkNotNull(hiveClientConfig, "hiveClientConfig is null").getMetastoreCacheTtl(),
-                hiveClientConfig.getMetastoreRefreshInterval());
-    }
+        checkNotNull(hiveCluster, "hiveCluster is null");
+        checkNotNull(executor, "executor is null");
+        checkNotNull(hiveClientConfig, "hiveClientConfig is null");
 
-    public CachingHiveMetastore(HiveCluster hiveCluster, ExecutorService executor, Duration cacheTtl, Duration refreshInterval)
-    {
+        Duration cacheTtl = hiveClientConfig.getMetastoreCacheTtl();
+        Duration refreshInterval =   hiveClientConfig.getMetastoreRefreshInterval();
+
         this.clientProvider = checkNotNull(hiveCluster, "hiveCluster is null");
 
         long expiresAfterWriteMillis = checkNotNull(cacheTtl, "cacheTtl is null").toMillis();
         long refreshMills = checkNotNull(refreshInterval, "refreshInterval is null").toMillis();
 
         ListeningExecutorService listeningExecutor = MoreExecutors.listeningDecorator(executor);
+
+        expiresAfterWriteMillis = getCacheSetting(cacheTtl, hiveClientConfig.getMetastoreCacheGetAllDatabasesTtl());
+        refreshMills = getCacheSetting(refreshInterval, hiveClientConfig.getMetastoreCacheGetAllDatabasesRefreshInterval());
 
         databaseNamesCache = CacheBuilder.newBuilder()
                 .expireAfterWrite(expiresAfterWriteMillis, MILLISECONDS)
@@ -120,6 +132,9 @@ public class CachingHiveMetastore
                     }
                 });
 
+        expiresAfterWriteMillis = getCacheSetting(cacheTtl, hiveClientConfig.getMetastoreCacheGetDatabaseTtl());
+        refreshMills = getCacheSetting(refreshInterval, hiveClientConfig.getMetastoreCacheGetDatabaseRefreshInterval());
+
         databaseCache = CacheBuilder.newBuilder()
                 .expireAfterWrite(expiresAfterWriteMillis, MILLISECONDS)
                 .refreshAfterWrite(refreshMills, MILLISECONDS)
@@ -132,6 +147,9 @@ public class CachingHiveMetastore
                         return loadDatabase(databaseName);
                     }
                 });
+
+        expiresAfterWriteMillis = getCacheSetting(cacheTtl, hiveClientConfig.getMetastoreCacheGetAllTablesTtl());
+        refreshMills = getCacheSetting(refreshInterval, hiveClientConfig.getMetastoreCacheGetAllTablesRefreshInterval());
 
         tableNamesCache = CacheBuilder.newBuilder()
                 .expireAfterWrite(expiresAfterWriteMillis, MILLISECONDS)
@@ -146,6 +164,9 @@ public class CachingHiveMetastore
                     }
                 });
 
+        expiresAfterWriteMillis = getCacheSetting(cacheTtl, hiveClientConfig.getMetastoreCacheGetTableTtl());
+        refreshMills = getCacheSetting(refreshInterval, hiveClientConfig.getMetastoreCacheGetTableRefreshInterval());
+
         tableCache = CacheBuilder.newBuilder()
                 .expireAfterWrite(expiresAfterWriteMillis, MILLISECONDS)
                 .refreshAfterWrite(refreshMills, MILLISECONDS)
@@ -158,6 +179,9 @@ public class CachingHiveMetastore
                         return loadTable(hiveTableName);
                     }
                 });
+
+        expiresAfterWriteMillis = getCacheSetting(cacheTtl, hiveClientConfig.getMetastoreCacheLoadViewsTtl());
+        refreshMills = getCacheSetting(refreshInterval, hiveClientConfig.getMetastoreCacheLoadViewsRefreshInterval());
 
         viewNamesCache = CacheBuilder.newBuilder()
                 .expireAfterWrite(expiresAfterWriteMillis, MILLISECONDS)
@@ -172,6 +196,9 @@ public class CachingHiveMetastore
                     }
                 });
 
+        expiresAfterWriteMillis = getCacheSetting(cacheTtl, hiveClientConfig.getMetastoreCacheGetPartitionNamesTtl());
+        refreshMills = getCacheSetting(refreshInterval, hiveClientConfig.getMetastoreCacheGetPartitionNamesRefreshInterval());
+
         partitionNamesCache = CacheBuilder.newBuilder()
                 .expireAfterWrite(expiresAfterWriteMillis, MILLISECONDS)
                 .refreshAfterWrite(refreshMills, MILLISECONDS)
@@ -185,6 +212,9 @@ public class CachingHiveMetastore
                     }
                 });
 
+        expiresAfterWriteMillis = getCacheSetting(cacheTtl, hiveClientConfig.getMetastoreCacheGetPartitionNamesByPartsTtl());
+        refreshMills = getCacheSetting(refreshInterval, hiveClientConfig.getMetastoreCacheGetPartitionNamesByPartsRefreshInterval());
+
         partitionFilterCache = CacheBuilder.newBuilder()
                 .expireAfterWrite(expiresAfterWriteMillis, MILLISECONDS)
                 .refreshAfterWrite(refreshMills, MILLISECONDS)
@@ -197,6 +227,9 @@ public class CachingHiveMetastore
                         return loadPartitionNamesByParts(partitionFilter);
                     }
                 });
+
+        expiresAfterWriteMillis = getCacheSetting(cacheTtl, hiveClientConfig.getMetastoreCacheGetPartitionByNameTtl());
+        refreshMills = getCacheSetting(refreshInterval, hiveClientConfig.getMetastoreCacheGetPartitionByNameRefreshInterval());
 
         partitionCache = CacheBuilder.newBuilder()
                 .expireAfterWrite(expiresAfterWriteMillis, MILLISECONDS)
