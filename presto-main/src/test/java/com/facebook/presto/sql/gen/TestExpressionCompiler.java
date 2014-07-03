@@ -302,19 +302,7 @@ public class TestExpressionCompiler
 
                 Object expectedNullIf = nullIf(left, right);
                 for (String expression : generateExpression("nullif(%s, %s)", left, right)) {
-                    try {
-                        Object actual = functionAssertions.selectSingleValue(expression);
-                        if (!Objects.equals(actual, expectedNullIf)) {
-                            if (left != null && right == null) {
-                                expectedNullIf = ((Number) expectedNullIf).doubleValue();
-                                actual = ((Number) expectedNullIf).doubleValue();
-                            }
-                            assertEquals(actual, expectedNullIf, expression);
-                        }
-                    }
-                    catch (RuntimeException e) {
-                        throw new RuntimeException("Error processing " + expression, e);
-                    }
+                    functionAssertions.assertFunction(expression, expectedNullIf);
                 }
 
                 assertExecute(generateExpression("%s is distinct from %s", left, right), !Objects.equals(left == null ? null : left.doubleValue(), right));
@@ -416,13 +404,11 @@ public class TestExpressionCompiler
             return left;
         }
 
-        if (left instanceof Double || right instanceof Double) {
-            if (((Number) left).doubleValue() == ((Number) right).doubleValue()) {
-                return null;
-            }
-            return ((Number) left).doubleValue();
+        if (left.equals(right)) {
+            return null;
         }
-        else if (left.equals(right)) {
+
+        if ((left instanceof Double || right instanceof Double) && ((Number) left).doubleValue() == ((Number) right).doubleValue()) {
             return null;
         }
 

@@ -122,7 +122,7 @@ public class TestInterpretedProjectionFunction
         assertProjection("NULLIF('foo', 'foo')", null);
 
         assertProjection("NULLIF(42, 87)", 42L);
-        assertProjection("NULLIF(42, 22.2)", 42.0);
+        assertProjection("NULLIF(42, 22.2)", 42L);
         assertProjection("NULLIF(42.42, 22.2)", 42.42);
         assertProjection("NULLIF('foo', 'bar')", "foo");
 
