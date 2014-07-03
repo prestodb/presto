@@ -98,6 +98,9 @@ public class PerfTest
     @Option(name = "--debug", title = "debug", description = "Enable debug information")
     public boolean debug;
 
+    @Option(name = {"-r", "--runs"}, title = "number", description = "Number of runs until exit (default: 10)")
+    public int runs = 10;
+
     public void run()
             throws Exception
     {
@@ -105,7 +108,7 @@ public class PerfTest
         List<String> queries = loadQueries();
 
         try (ParallelQueryRunner parallelQueryRunner = new ParallelQueryRunner(16, parseServer(server), catalog, schema, debug)) {
-            for (int loop = 0; loop < 10; loop++) {
+            for (int loop = 0; loop < runs; loop++) {
                 executeQueries(queries, parallelQueryRunner, 1);
                 executeQueries(queries, parallelQueryRunner, 2);
                 executeQueries(queries, parallelQueryRunner, 4);
@@ -274,7 +277,7 @@ public class PerfTest
             if (session.getSchema() != null) {
                 builder.setHeader(PrestoHeaders.PRESTO_SCHEMA, session.getSchema());
             }
-            builder.setHeader(PrestoHeaders.PRESTO_SCHEMA, session.getTimeZoneId());
+            builder.setHeader(PrestoHeaders.PRESTO_TIME_ZONE, session.getTimeZoneId());
             builder.setHeader(USER_AGENT, USER_AGENT_VALUE);
 
             return builder.build();
