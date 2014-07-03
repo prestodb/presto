@@ -14,6 +14,7 @@
 package com.facebook.presto.sql.planner;
 
 import com.facebook.presto.metadata.FunctionInfo;
+import com.facebook.presto.metadata.FunctionRegistry;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.OperatorType;
 import com.facebook.presto.spi.ConnectorSession;
@@ -501,11 +502,27 @@ public class ExpressionInterpreter
                 return first;
             }
 
+            Type firstType = expressionTypes.get(node.getFirst());
+            Type secondType = expressionTypes.get(node.getSecond());
+
             if (hasUnresolvedValue(first, second)) {
-                return new NullIfExpression(toExpression(first, expressionTypes.get(node.getFirst())), toExpression(second, expressionTypes.get(node.getSecond())));
+                return new NullIfExpression(toExpression(first, firstType), toExpression(second, secondType));
             }
 
-            if ((Boolean) invokeOperator(OperatorType.EQUAL, types(node.getFirst(), node.getSecond()), ImmutableList.of(first, second))) {
+            Type commonType = FunctionRegistry.getCommonSuperType(firstType, secondType).get();
+
+            FunctionInfo firstCast = metadata.getExactOperator(OperatorType.CAST, commonType, ImmutableList.of(firstType));
+            FunctionInfo secondCast = metadata.getExactOperator(OperatorType.CAST, commonType, ImmutableList.of(secondType));
+
+            // cast(first as <common type>) == cast(second as <common type>)
+            boolean equal = (Boolean) invokeOperator(
+                    OperatorType.EQUAL,
+                    ImmutableList.of(commonType, commonType),
+                    ImmutableList.of(
+                            invoke(session, firstCast.getMethodHandle(), ImmutableList.of(first)),
+                            invoke(session, secondCast.getMethodHandle(), ImmutableList.of(second))));
+
+            if (equal) {
                 return null;
             }
             else {

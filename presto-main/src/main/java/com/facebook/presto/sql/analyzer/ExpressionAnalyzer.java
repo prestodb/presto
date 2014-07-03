@@ -14,6 +14,7 @@
 package com.facebook.presto.sql.analyzer;
 
 import com.facebook.presto.metadata.FunctionInfo;
+import com.facebook.presto.metadata.FunctionRegistry;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.OperatorNotFoundException;
 import com.facebook.presto.metadata.OperatorType;
@@ -286,11 +287,15 @@ public class ExpressionAnalyzer
         @Override
         protected Type visitNullIfExpression(NullIfExpression node, AnalysisContext context)
         {
-            Type type = coerceToSingleType(context, node, "Types are not comparable with NULLIF: %s vs %s", node.getFirst(), node.getSecond());
+            Type firstType = process(node.getFirst(), context);
+            Type secondType = process(node.getSecond(), context);
 
-            // todo NULLIF should be type of first argument, but that is difficult in current AST based expressions tree
-            expressionTypes.put(node, type);
-            return type;
+            if (!FunctionRegistry.getCommonSuperType(firstType, secondType).isPresent()) {
+                throw new SemanticException(TYPE_MISMATCH, node, "Types are not comparable with NULLIF: %s vs %s", firstType, secondType);
+            }
+
+            expressionTypes.put(node, firstType);
+            return firstType;
         }
 
         @Override

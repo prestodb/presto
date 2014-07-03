@@ -23,6 +23,7 @@ import com.facebook.presto.byteCode.control.LookupSwitch.LookupSwitchBuilder;
 import com.facebook.presto.byteCode.instruction.Constant;
 import com.facebook.presto.byteCode.instruction.LabelNode;
 import com.facebook.presto.byteCode.instruction.VariableInstruction;
+import com.facebook.presto.metadata.FunctionRegistry;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.OperatorType;
 import com.facebook.presto.spi.RecordCursor;
@@ -814,8 +815,9 @@ public class ByteCodeExpressionVisitor
     protected ByteCodeNode visitNullIfExpression(NullIfExpression node, CompilerContext context)
     {
         ByteCodeNode first = process(node.getFirst(), context);
-        Type firstType = expressionTypes.get(node.getFirst());
         ByteCodeNode second = process(node.getSecond(), context);
+        Type firstType = expressionTypes.get(node.getFirst());
+        Type secondType = expressionTypes.get(node.getSecond());
 
         LabelNode notMatch = new LabelNode("notMatch");
 
@@ -825,12 +827,31 @@ public class ByteCodeExpressionVisitor
                 .append(first)
                 .append(ifWasNullPopAndGoto(context, notMatch, void.class));
 
-        // if (equal(dupe(first), second)
+        // this is a hack! We shouldn't be determining type coercions at this point, but there's no way
+        // around it in the current expression AST
+        Type commonType = FunctionRegistry.getCommonSuperType(firstType, secondType).get();
+
+        FunctionBinding castFirst = bootstrapFunctionBinder.bindCastOperator(
+                getSessionByteCode,
+                new Block(context).dup(firstType.getJavaType()),
+                firstType,
+                commonType);
+
+        FunctionBinding castSecond = bootstrapFunctionBinder.bindCastOperator(
+                getSessionByteCode,
+                second,
+                secondType,
+                commonType);
+
+        // if (equal(cast(first as <common type>), cast(second as <common type>))
         FunctionBinding functionBinding = bootstrapFunctionBinder.bindOperator(
                 OperatorType.EQUAL,
                 getSessionByteCode,
-                ImmutableList.of(new Block(context).dup(firstType.getJavaType()), second),
+                ImmutableList.of(
+                        visitFunctionBinding(context, castFirst, "cast(first)"),
+                        visitFunctionBinding(context, castSecond, "cast(second)")),
                 types(node.getFirst(), node.getSecond()));
+
         ByteCodeNode equalsCall = visitFunctionBinding(context, functionBinding, "equal");
 
         Block conditionBlock = new Block(context)
