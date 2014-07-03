@@ -191,6 +191,9 @@ public abstract class AbstractTestHiveClient
         setupHive(connectorName, databaseName, timeZoneId);
 
         HiveClientConfig hiveClientConfig = new HiveClientConfig();
+        hiveClientConfig.setMetastoreCacheTtl(Duration.valueOf("1m"));
+        hiveClientConfig.setMetastoreRefreshInterval(Duration.valueOf("15s"));
+
         String proxy = System.getProperty("hive.metastore.thrift.client.socks-proxy");
         if (proxy != null) {
             hiveClientConfig.setMetastoreSocksProxy(HostAndPort.fromString(proxy));
@@ -199,7 +202,7 @@ public abstract class AbstractTestHiveClient
         HiveCluster hiveCluster = new TestingHiveCluster(hiveClientConfig, host, port);
         ExecutorService executor = newCachedThreadPool(daemonThreadsNamed("hive-%s"));
 
-        metastoreClient = new CachingHiveMetastore(hiveCluster, executor, Duration.valueOf("1m"), Duration.valueOf("15s"));
+        metastoreClient = new CachingHiveMetastore(hiveCluster, executor, hiveClientConfig);
 
         HiveClient client = new HiveClient(
                 new HiveConnectorId(connectorName),
