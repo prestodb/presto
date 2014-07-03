@@ -189,7 +189,8 @@ public class HiveColumnHandle
                         input.getType(),
                         input.getOrdinalPosition(),
                         input.isPartitionKey(),
-                        columnComment.get(input.getName()));
+                        columnComment.get(input.getName()),
+                        false);
             }
         };
     }
