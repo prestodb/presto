@@ -14,7 +14,6 @@
 package com.facebook.presto.hive.metastore;
 
 import com.facebook.presto.hive.util.BackgroundCacheLoader;
-import com.facebook.presto.hive.CachingHiveMetastoreStats;
 import com.facebook.presto.hive.ForHiveMetastore;
 import com.facebook.presto.hive.HiveClientConfig;
 import com.facebook.presto.hive.HiveCluster;
