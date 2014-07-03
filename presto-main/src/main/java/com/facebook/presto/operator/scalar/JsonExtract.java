@@ -13,6 +13,8 @@
  */
 package com.facebook.presto.operator.scalar;
 
+import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.StandardErrorCode;
 import com.facebook.presto.util.ThreadLocalCache;
 import com.fasterxml.jackson.core.JsonFactory;
 import com.fasterxml.jackson.core.JsonGenerator;
@@ -22,8 +24,6 @@ import com.fasterxml.jackson.core.JsonToken;
 import com.fasterxml.jackson.core.io.SerializedString;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Charsets;
-import com.google.common.base.Splitter;
-import com.google.common.collect.ImmutableList;
 import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
@@ -31,13 +31,9 @@ import io.airlift.slice.Slices;
 import javax.annotation.Nullable;
 
 import java.io.IOException;
-import java.util.Iterator;
-import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
-import static com.facebook.presto.util.Failures.checkCondition;
 import static com.fasterxml.jackson.core.JsonFactory.Feature.CANONICALIZE_FIELD_NAMES;
 import static com.fasterxml.jackson.core.JsonToken.END_ARRAY;
 import static com.fasterxml.jackson.core.JsonToken.END_OBJECT;
@@ -46,6 +42,7 @@ import static com.fasterxml.jackson.core.JsonToken.START_OBJECT;
 import static com.fasterxml.jackson.core.JsonToken.VALUE_NULL;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Preconditions.checkState;
 
 /**
  * Extracts values from JSON
@@ -53,7 +50,7 @@ import static com.google.common.base.Preconditions.checkNotNull;
  * Supports the following JSON path primitives:
  * <pre>
  *    $ : Root object
- *    . : Child operator
+ *    . or [] : Child operator
  *   [] : Subscript operator for array
  * </pre>
  * <p/>
@@ -83,7 +80,7 @@ import static com.google.common.base.Preconditions.checkNotNull;
  *    }
  * </pre>
  * <p/>
- * With only scalar values:
+ * With only scalar values using dot-notation of path:
  * <pre>
  *    $.store.book[0].author => Nigel Rees
  *    $.store.bicycle.price => 19.95
@@ -92,7 +89,7 @@ import static com.google.common.base.Preconditions.checkNotNull;
  *    $.store.book[0].contributors[0][1] => Levine
  * </pre>
  * <p/>
- * With json values:
+ * With json values using dot-notation of path:
  * <pre>
  *    $.store.book[0].author => "Nigel Rees"
  *    $.store.bicycle.price => 19.95
@@ -101,18 +98,31 @@ import static com.google.common.base.Preconditions.checkNotNull;
  *    $.store.book[0].contributors[0] => ["Adam", "Levine"]
  *    $.store.bicycle => {"color": "red", "price": 19.95}
  * </pre>
+ * With only scalar values using bracket-notation of path:
+ * <pre>
+ *    $["store"]["book"][0]["author"] => Nigel Rees
+ *    $["store"]["bicycle"]["price"] => 19.95
+ *    $["store"]["book"][0]["isbn"] => NULL (Doesn't exist becomes java null)
+ *    $["store"]["book"][1]["last_owner"] => NULL (json null becomes java null)
+ *    $["store"]["book"][0]["contributors"][0][1] => Levine
+ * </pre>
+ * <p/>
+ * With json values using bracket-notation of path:
+ * <pre>
+ *    $["store"]["book"][0]["author"] => "Nigel Rees"
+ *    $["store"]["bicycle"]["price"] => 19.95
+ *    $["store"]["book"][0]["isbn"] => NULL (Doesn't exist becomes java null)
+ *    $["store"]["book"][1]["last_owner"] => null (json null becomes the string "null")
+ *    $["store"]["book"][0]["contributors"][0] => ["Adam", "Levine"]
+ *    $["store"]["bicycle"] => {"color": "red", "price": 19.95}
+ * </pre>
  */
 public final class JsonExtract
 {
-    private static final Pattern EXPECTED_PATH = Pattern.compile("\\$(\\[\\d+\\])*(\\.[^@\\.\\[\\]\\$\\*]+(\\[\\d+\\])*)*");
+    private static final Pattern PATH_TOKEN = Pattern.compile("^\\$|(\\[\\d+\\])|(\\.[^@\\.\\[\\]\\$\\*]+)|(\\[\".+?\"\\])");
+    private static final Pattern EXPECTED_PATH = Pattern.compile(String.format("(%s)*", PATH_TOKEN.pattern()));
     private static final int ESTIMATED_JSON_OUTPUT_SIZE = 512;
 
-    private static final List<StringReplacer> PATH_STRING_REPLACERS = ImmutableList.of(
-            new StringReplacer("[", ".["),
-            new StringReplacer("]", "")
-    );
-
-    private static final Splitter DOT_SPLITTER = Splitter.on(".").trimResults();
     private static final JsonFactory JSON_FACTORY = new JsonFactory()
             .disable(CANONICALIZE_FIELD_NAMES);
 
@@ -196,38 +206,32 @@ public final class JsonExtract
         }
     }
 
-    private static Iterable<String> tokenizePath(String path)
-    {
-        checkCondition(EXPECTED_PATH.matcher(path).matches(), INVALID_FUNCTION_ARGUMENT, "Invalid/unsupported JSON path: '%s'", path);
-        // This performs the following transformation:
-        // $.blah[0].fuu[1][2].bar => $.blah.[0.fuu.[1.[2.bar
-        for (StringReplacer replacer : PATH_STRING_REPLACERS) {
-            path = replacer.replace(path);
-        }
-        return DOT_SPLITTER.split(path);
-    }
-
     public static JsonExtractor generateExtractor(String path, boolean scalarValue)
     {
-        Iterator<String> iterator = tokenizePath(path).iterator();
-        checkCondition(iterator.hasNext() && iterator.next().equals("$"), INVALID_FUNCTION_ARGUMENT, "JSON path must begin with root: '$'");
-        return generateExtractor(iterator, scalarValue);
+        if (!EXPECTED_PATH.matcher(path).matches()) {
+            throw new PrestoException(StandardErrorCode.INVALID_FUNCTION_ARGUMENT.toErrorCode(), String.format("Invalid/unsupported JSON path: '%s'", path));
+        }
+        Matcher matcher = PATH_TOKEN.matcher(path);
+        checkState(matcher.find() && matcher.group().equals("$"), "JSON path must begin with root: '$'");
+        return generateExtractor(matcher, scalarValue);
     }
 
-    private static JsonExtractor generateExtractor(Iterator<String> filters, boolean scalarValue)
+    private static JsonExtractor generateExtractor(Matcher matcher, boolean scalarValue)
     {
-        if (!filters.hasNext()) {
+        if (!matcher.find()) {
             return scalarValue ? new ScalarValueJsonExtractor() : new JsonValueJsonExtractor();
         }
-
-        String filter = filters.next();
-        if (filter.startsWith("[")) {
-            int index = Integer.parseInt(filter.substring(1).trim());
-            return new ArrayElementJsonExtractor(index, generateExtractor(filters, scalarValue));
+        String token = matcher.group();
+        if (token.startsWith("[\"")) {
+            checkState(token.endsWith("\"]"));
+            return new ObjectFieldJsonExtractor(token.substring(2, token.length() - 2), generateExtractor(matcher, scalarValue));
         }
-        else {
-            return new ObjectFieldJsonExtractor(filter, generateExtractor(filters, scalarValue));
+        else if (token.startsWith("[")) {
+            checkState(token.endsWith("]"));
+            return new ArrayElementJsonExtractor(Integer.parseInt(token.substring(1, token.length() - 1)), generateExtractor(matcher, scalarValue));
         }
+        checkState(token.startsWith("."));
+        return new ObjectFieldJsonExtractor(token.substring(1), generateExtractor(matcher, scalarValue));
     }
 
     public interface JsonExtractor
