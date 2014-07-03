@@ -129,12 +129,13 @@ public class CassandraSplitManager
                 CassandraColumnHandle column = (CassandraColumnHandle) entry.getKey();
                 Domain domain = entry.getValue();
                 if (column.isIndexed() && domain.isSingleValue()) {
+                    if (sb.length() > 0) {
+                        sb.append(" AND ");
+                    }
                     sb.append(CassandraCqlUtils.validColumnName(column.getName()))
                       .append(" = ")
                       .append(CassandraCqlUtils.cqlValue(toCQLCompatibleString(entry.getValue().getSingleValue()), column.getCassandraType()));
                     indexedColumns.add(column);
-                    // Only one indexed column predicate can be pushed down.
-                    break;
                 }
             }
             if (sb.length() > 0) {
@@ -277,7 +278,7 @@ public class CassandraSplitManager
 
     private static String buildTokenCondition(String tokenExpression, String startToken, String endToken)
     {
-        return tokenExpression + " > " + startToken + " AND " + tokenExpression + " <= " + endToken;
+        return tokenExpression + " > " + startToken + " AND " + tokenExpression + " <= " + endToken + " ALLOW FILTERING";
     }
 
     private List<ConnectorSplit> getSplitsForPartitions(CassandraTableHandle cassTableHandle, List<ConnectorPartition> partitions)
