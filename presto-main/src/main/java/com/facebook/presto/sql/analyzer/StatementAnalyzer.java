@@ -24,6 +24,7 @@ import com.facebook.presto.sql.tree.AllColumns;
 import com.facebook.presto.sql.tree.Approximate;
 import com.facebook.presto.sql.tree.BooleanLiteral;
 import com.facebook.presto.sql.tree.Cast;
+import com.facebook.presto.sql.tree.CoalesceExpression;
 import com.facebook.presto.sql.tree.CreateTable;
 import com.facebook.presto.sql.tree.CreateView;
 import com.facebook.presto.sql.tree.DefaultTraversalVisitor;
@@ -226,7 +227,7 @@ class StatementAnalyzer
                                 aliasedName("data_type", "Type"),
                                 aliasedYesNoToBoolean("is_nullable", "Null"),
                                 aliasedYesNoToBoolean("is_partition_key", "Partition Key"),
-                                aliasedName("comment", "Comment")),
+                                aliasedNullToEmpty("comment", "Comment")),
                         table(QualifiedName.of(tableName.getCatalogName(), TABLE_COLUMNS.getSchemaName(), TABLE_COLUMNS.getTableName())),
                         Optional.of(logicalAnd(
                                 equal(nameReference("table_schema"), new StringLiteral(tableName.getSchemaName())),
@@ -256,6 +257,11 @@ class StatementAnalyzer
                 BooleanLiteral.TRUE_LITERAL,
                 BooleanLiteral.FALSE_LITERAL);
         return new SingleColumn(expression, alias);
+    }
+
+    private static SelectItem aliasedNullToEmpty(String column, String alias)
+    {
+        return new SingleColumn(new CoalesceExpression(nameReference(column), new StringLiteral("")), alias);
     }
 
     @Override

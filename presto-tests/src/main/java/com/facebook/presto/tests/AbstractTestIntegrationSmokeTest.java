@@ -153,15 +153,15 @@ public abstract class AbstractTestIntegrationSmokeTest
     {
         MaterializedResult actualColumns = computeActual("DESC ORDERS").toJdbcTypes();
         MaterializedResult expectedColumns = MaterializedResult.resultBuilder(queryRunner.getDefaultSession(), VARCHAR, VARCHAR, BOOLEAN, BOOLEAN, VARCHAR)
-                .row("orderkey", "bigint", true, false, null)
-                .row("custkey", "bigint", true, false, null)
-                .row("orderstatus", "varchar", true, false, null)
-                .row("totalprice", "double", true, false, null)
-                .row("orderdate", "varchar", true, false, null)
-                .row("orderpriority", "varchar", true, false, null)
-                .row("clerk", "varchar", true, false, null)
-                .row("shippriority", "bigint", true, false, null)
-                .row("comment", "varchar", true, false, null)
+                .row("orderkey", "bigint", true, false, "")
+                .row("custkey", "bigint", true, false, "")
+                .row("orderstatus", "varchar", true, false, "")
+                .row("totalprice", "double", true, false, "")
+                .row("orderdate", "varchar", true, false, "")
+                .row("orderpriority", "varchar", true, false, "")
+                .row("clerk", "varchar", true, false, "")
+                .row("shippriority", "bigint", true, false, "")
+                .row("comment", "varchar", true, false, "")
                 .build();
         assertEquals(actualColumns, expectedColumns);
     }
