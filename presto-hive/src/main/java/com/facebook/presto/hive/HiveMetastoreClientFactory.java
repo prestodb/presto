@@ -29,17 +29,15 @@ import java.net.Proxy;
 import java.net.Socket;
 import java.net.SocketAddress;
 
-import static com.google.common.base.Preconditions.checkNotNull;
-
 public class HiveMetastoreClientFactory
 {
     private final HostAndPort socksProxy;
-    private final Duration timeout;
+    private final int timeoutMillis;
 
     public HiveMetastoreClientFactory(@Nullable HostAndPort socksProxy, Duration timeout)
     {
         this.socksProxy = socksProxy;
-        this.timeout = checkNotNull(timeout, "timeout is null");
+        this.timeoutMillis = Ints.checkedCast(timeout.toMillis());
     }
 
     @Inject
@@ -48,21 +46,19 @@ public class HiveMetastoreClientFactory
         this(config.getMetastoreSocksProxy(), config.getMetastoreTimeout());
     }
 
-    @SuppressWarnings("SocketOpenedButNotSafelyClosed")
     public HiveMetastoreClient create(String host, int port)
             throws TTransportException
     {
         TTransport transport;
         if (socksProxy == null) {
-            transport = new TTransportWrapper(new TSocket(host, port, (int) timeout.toMillis()), host);
+            transport = new TTransportWrapper(new TSocket(host, port, timeoutMillis), host);
             transport.open();
         }
         else {
-            SocketAddress address = InetSocketAddress.createUnresolved(socksProxy.getHostText(), socksProxy.getPort());
-            Socket socks = new Socket(new Proxy(Proxy.Type.SOCKS, address));
+            Socket socks = createSocksSocket(socksProxy);
             try {
-                socks.connect(InetSocketAddress.createUnresolved(host, port), (int) timeout.toMillis());
-                socks.setSoTimeout(Ints.checkedCast(timeout.toMillis()));
+                socks.connect(InetSocketAddress.createUnresolved(host, port), timeoutMillis);
+                socks.setSoTimeout(timeoutMillis);
             }
             catch (IOException e) {
                 throw rewriteException(new TTransportException(e), host);
@@ -76,6 +72,12 @@ public class HiveMetastoreClientFactory
         }
 
         return new HiveMetastoreClient(transport);
+    }
+
+    private static Socket createSocksSocket(HostAndPort proxy)
+    {
+        SocketAddress address = InetSocketAddress.createUnresolved(proxy.getHostText(), proxy.getPort());
+        return new Socket(new Proxy(Proxy.Type.SOCKS, address));
     }
 
     private static TTransportException rewriteException(TTransportException e, String host)
