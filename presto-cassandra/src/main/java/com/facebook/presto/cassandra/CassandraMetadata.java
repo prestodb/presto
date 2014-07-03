@@ -301,6 +301,12 @@ public class CassandraMetadata
     }
 
     @Override
+    public final ConnectorOutputTableHandle beginInsert(ConnectorSession session, ConnectorTableMetadata tableMetadata)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
     public void createView(ConnectorSession session, SchemaTableName viewName, String viewData, boolean replace)
     {
         throw new UnsupportedOperationException();

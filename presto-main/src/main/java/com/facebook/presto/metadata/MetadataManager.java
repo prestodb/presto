@@ -358,6 +358,15 @@ public class MetadataManager
     }
 
     @Override
+    public OutputTableHandle beginInsert(ConnectorSession session, String catalogName, TableMetadata tableMetadata)
+    {
+        ConnectorMetadataEntry connectorMetadata = connectorsByCatalog.get(catalogName);
+        checkArgument(connectorMetadata != null, "Catalog %s does not exist", catalogName);
+        ConnectorOutputTableHandle handle = connectorMetadata.getMetadata().beginInsert(session, tableMetadata.getMetadata());
+        return new OutputTableHandle(connectorMetadata.getConnectorId(), handle);
+    }
+
+    @Override
     public void commitCreateTable(OutputTableHandle tableHandle, Collection<String> fragments)
     {
         lookupConnectorFor(tableHandle).commitCreateTable(tableHandle.getConnectorHandle(), fragments);

@@ -74,6 +74,7 @@ tokens {
     USE_CATALOG;
     USE_SCHEMA;
     CREATE_TABLE;
+    INSERT_INTO_TABLE;
     DROP_TABLE;
     CREATE_VIEW;
     DROP_VIEW;
@@ -166,6 +167,7 @@ statement
     | showFunctionsStmt
     | useCollectionStmt
     | createTableStmt
+    | insertIntoTableStmt
     | dropTableStmt
     | createViewStmt
     | dropViewStmt
@@ -628,6 +630,10 @@ dropTableStmt
     : DROP TABLE qname -> ^(DROP_TABLE qname)
     ;
 
+insertIntoTableStmt
+    : INSERT INTO TABLE? qname query -> ^(INSERT_INTO_TABLE qname query)
+    ;
+
 createTableStmt
     : CREATE TABLE qname s=tableContentsSource -> ^(CREATE_TABLE qname $s)
     ;
@@ -817,6 +823,8 @@ CREATE: 'CREATE';
 TABLE: 'TABLE';
 VIEW: 'VIEW';
 REPLACE: 'REPLACE';
+INSERT: 'INSERT';
+INTO: 'INTO';
 CHAR: 'CHAR';
 CHARACTER: 'CHARACTER';
 VARYING: 'VARYING';

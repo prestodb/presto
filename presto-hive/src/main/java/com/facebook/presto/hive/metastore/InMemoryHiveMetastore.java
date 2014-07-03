@@ -85,6 +85,24 @@ public class InMemoryHiveMetastore
     }
 
     @Override
+    public Partition createPartition(String dbName, String tableName, List<String> values, List<String> pCols, Table table, String location)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public int addPartitions(List<Partition> partitions, String dbName, String tblName)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public boolean dropPartition(String dbName, String tableName, List<String> parts, boolean deleteData)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
     public List<String> getAllTables(String databaseName)
             throws NoSuchObjectException
     {

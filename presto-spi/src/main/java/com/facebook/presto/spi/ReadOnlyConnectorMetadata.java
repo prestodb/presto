@@ -48,6 +48,12 @@ public abstract class ReadOnlyConnectorMetadata
     }
 
     @Override
+    public final ConnectorOutputTableHandle beginInsert(ConnectorSession session, ConnectorTableMetadata tableMetadata)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
     public final void commitCreateTable(ConnectorOutputTableHandle tableHandle, Collection<String> fragments)
     {
         throw new UnsupportedOperationException();

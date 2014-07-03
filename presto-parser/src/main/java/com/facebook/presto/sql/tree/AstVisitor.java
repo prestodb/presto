@@ -406,4 +406,9 @@ public abstract class AstVisitor<R, C>
     {
         return visitStatement(node, context);
     }
+
+    protected R visitInsert(Insert node, C context)
+    {
+        return visitNode(node, context);
+    }
 }

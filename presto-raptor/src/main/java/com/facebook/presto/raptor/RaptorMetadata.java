@@ -300,6 +300,12 @@ public class RaptorMetadata
     }
 
     @Override
+    public ConnectorOutputTableHandle beginInsert(ConnectorSession session, ConnectorTableMetadata tableMetadata)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
     public void commitCreateTable(ConnectorOutputTableHandle outputTableHandle, Collection<String> fragments)
     {
         final RaptorOutputTableHandle table = checkType(outputTableHandle, RaptorOutputTableHandle.class, "outputTableHandle");

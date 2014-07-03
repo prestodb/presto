@@ -46,10 +46,14 @@ import org.apache.hadoop.hive.metastore.api.InvalidObjectException;
 import org.apache.hadoop.hive.metastore.api.MetaException;
 import org.apache.hadoop.hive.metastore.api.NoSuchObjectException;
 import org.apache.hadoop.hive.metastore.api.Partition;
+import org.apache.hadoop.hive.metastore.api.StorageDescriptor;
 import org.apache.hadoop.hive.metastore.api.Table;
 import org.apache.hadoop.hive.metastore.api.UnknownDBException;
 import org.weakref.jmx.Flatten;
 import org.weakref.jmx.Managed;
+
+import com.facebook.presto.hive.shaded.org.apache.thrift.protocol.TBinaryProtocol;
+import com.facebook.presto.hive.shaded.org.apache.thrift.transport.TMemoryBuffer;
 
 import javax.annotation.concurrent.ThreadSafe;
 import javax.inject.Inject;
@@ -494,6 +498,29 @@ public class CachingHiveMetastore
         }
     }
 
+    public boolean dropPartition(String dbName, String tableName, List<String> parts, boolean deleteData)
+    {
+        HiveMetastoreClient client = clientProvider.createMetastoreClient();
+
+        boolean ret = false;
+
+        try {
+            ret = client.drop_partition(dbName, tableName, parts, deleteData);
+        }
+        catch (NoSuchObjectException | MetaException e) {
+            throw Throwables.propagate(e);
+        }
+        catch (TException e) {
+            throw new PrestoException(HiveErrorCode.HIVE_METASTORE_ERROR.toErrorCode(), e);
+        }
+
+        if (ret) {
+            invalidatePartitionCaches(dbName, tableName);
+        }
+
+        return ret;
+    }
+
     private Table loadTable(final HiveTableName hiveTableName)
             throws Exception
     {
@@ -682,6 +709,73 @@ public class CachingHiveMetastore
                 return HivePartitionName.partition(databaseName, tableName, partitionName);
             }
         };
+    }
+
+    @Override
+    public Partition createPartition(String dbName, String tableName, List<String> values, List<String> pCols, Table table, String location)
+    {
+        Partition tpart = new Partition();
+        tpart.setTableName(tableName);
+        tpart.setDbName(dbName);
+        tpart.setValues(values);
+        StorageDescriptor sd = new StorageDescriptor();
+        TMemoryBuffer buffer = new TMemoryBuffer(1024);
+        TBinaryProtocol prot = new TBinaryProtocol(buffer);
+        try {
+            table.getSd().write(prot);
+            sd.read(prot);
+        }
+        catch (TException e) {
+            throw new PrestoException(HiveErrorCode.HIVE_METASTORE_ERROR.toErrorCode(), e);
+        }
+
+        tpart.setSd(sd);
+        tpart.getSd().setLocation(location);
+
+        return tpart;
+    }
+
+    @Override
+    public int addPartitions(List<Partition> partitions, String dbName, String tblName)
+    {
+        HiveMetastoreClient client = clientProvider.createMetastoreClient();
+        int ret;
+        try {
+            ret = client.add_partitions(partitions);
+        }
+        catch (AlreadyExistsException | InvalidObjectException | MetaException e) {
+            throw Throwables.propagate(e);
+        }
+        catch (TException e) {
+            throw new PrestoException(HiveErrorCode.HIVE_METASTORE_ERROR.toErrorCode(), e);
+        }
+
+        if (ret ==  partitions.size()) {
+            invalidatePartitionCaches(dbName, tblName);
+        }
+
+        return ret;
+    }
+
+    private void invalidatePartitionCaches(String dbName, String tblName)
+    {
+        // invalidate related partitionNamesCache
+        HiveTableName key = HiveTableName.table(dbName, tblName);
+        this.partitionNamesCache.invalidate(key);
+
+        // invalidate related partitionCache
+        for (HivePartitionName pnKey : partitionCache.asMap().keySet()) {
+            if (pnKey.getHiveTableName().equals(key)) {
+                partitionCache.invalidate(pnKey);
+            }
+        }
+
+        //invalidate related partitionFileterCache
+        for (PartitionFilter pfKey : partitionFilterCache.asMap().keySet()) {
+            if (pfKey.getHiveTableName().equals(key)) {
+                partitionFilterCache.invalidate(pfKey);
+            }
+        }
     }
 
     private static class HiveTableName

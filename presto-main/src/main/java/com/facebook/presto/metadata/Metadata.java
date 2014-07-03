@@ -136,6 +136,11 @@ public interface Metadata
     OutputTableHandle beginCreateTable(ConnectorSession session, String catalogName, TableMetadata tableMetadata);
 
     /**
+     * Begin Insert query
+     */
+    OutputTableHandle beginInsert(ConnectorSession session, String catalogName, TableMetadata tableMetadata);
+
+    /**
      * Commit a table creation with data after the data is written.
      */
     void commitCreateTable(OutputTableHandle tableHandle, Collection<String> fragments);

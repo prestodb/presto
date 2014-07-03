@@ -392,10 +392,16 @@ public class DistributedLogicalPlanner
         @Override
         public SubPlanBuilder visitTableWriter(TableWriterNode node, Void context)
         {
+            OutputTableHandle target = node.getTarget();
+            // Non null target => INSERT query
+
             // TODO: create table in pre-execution step, not here
             // Part of the plan should be an Optional<StateChangeListener<QueryState>> and this
             // callback can create the table and abort the table creation if the query fails.
-            OutputTableHandle target = metadata.beginCreateTable(session, node.getCatalog(), node.getTableMetadata());
+            if (target == null) {
+                // CTAS case
+                target = metadata.beginCreateTable(session, node.getCatalog(), node.getTableMetadata());
+            }
 
             SubPlanBuilder current = node.getSource().accept(this, context);
             current.setRoot(new TableWriterNode(node.getId(), current.getRoot(), target, node.getColumns(), node.getColumnNames(), node.getOutputSymbols(), node.getSampleWeightSymbol()));

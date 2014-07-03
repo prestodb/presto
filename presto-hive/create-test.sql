@@ -18,6 +18,24 @@ PARTITIONED BY (ds STRING, file_format STRING, dummy INT)
 TBLPROPERTIES ('RETENTION'='-1')
 ;
 
+DROP TABLE IF EXISTS presto_insert_destination;
+CREATE TABLE presto_insert_destination (
+  t_string STRING,
+  t_int INT
+)
+COMMENT 'Presto Destination Table for Inserts'
+STORED AS TEXTFILE
+;
+
+DROP TABLE IF EXISTS presto_insert_destination_partitioned;
+CREATE TABLE presto_insert_destination_partitioned (
+  t_string STRING,
+  t_int INT
+)
+COMMENT 'Presto Destination Table partitioned for Inserts'
+PARTITIONED BY (ds STRING, dummy INT)
+;
+
 CREATE TABLE presto_test_unpartitioned (
   t_string STRING,
   t_tinyint TINYINT
@@ -114,6 +132,11 @@ USING 'awk "BEGIN { n = 0 } { print ++n }"' AS n
 FROM tmp_presto_test_load
 LIMIT 100
 ;
+
+INSERT INTO TABLE presto_insert_destination SELECT CONCAT("Val", n), n from tmp_presto_test limit 2;
+
+INSERT INTO TABLE presto_insert_destination_partitioned partition(ds="2014-03-12", dummy=1) SELECT CONCAT("P1_Val", n), n from tmp_presto_test limit 2;
+INSERT INTO TABLE presto_insert_destination_partitioned partition(ds="2014-03-12", dummy=2) SELECT CONCAT("P2_Val", n), 2 * n from tmp_presto_test limit 2;
 
 DROP TABLE tmp_presto_test_load;
 

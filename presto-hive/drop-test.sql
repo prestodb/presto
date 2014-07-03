@@ -1,5 +1,8 @@
 DROP TABLE IF EXISTS presto_test;
 
+DROP TABLE IF EXISTS presto_insert_destination;
+DROP TABLE IF EXISTS presto_insert_destination_partitioned;
+
 DROP TABLE IF EXISTS presto_test_unpartitioned;
 
 CREATE TABLE IF NOT EXISTS presto_test_offline (x INT);
@@ -18,3 +21,6 @@ DROP TABLE IF EXISTS presto_test_bucketed_by_double_float;
 DROP VIEW IF EXISTS presto_test_view;
 
 DROP TABLE IF EXISTS presto_test_s3;
+
+DROP TABLE IF EXISTS presto_insert_destination_s3;
+DROP TABLE IF EXISTS presto_insert_destination_partitioned_s3;
