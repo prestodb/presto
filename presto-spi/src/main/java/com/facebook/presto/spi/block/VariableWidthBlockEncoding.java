@@ -20,11 +20,16 @@ import io.airlift.slice.Slice;
 import io.airlift.slice.SliceInput;
 import io.airlift.slice.SliceOutput;
 
+import static com.facebook.presto.spi.type.TypeSerde.readType;
+import static com.facebook.presto.spi.type.TypeSerde.writeType;
 import static java.util.Objects.requireNonNull;
 
 public class VariableWidthBlockEncoding
         implements BlockEncoding
 {
+    public static final BlockEncodingFactory<VariableWidthBlockEncoding> FACTORY = new VariableWidthBlockEncodingFactory();
+    private static final String NAME = "VARIABLE_WIDTH";
+
     private final VariableWidthType type;
 
     public VariableWidthBlockEncoding(Type type)
@@ -35,7 +40,7 @@ public class VariableWidthBlockEncoding
     @Override
     public String getName()
     {
-        return type.getName();
+        return NAME;
     }
 
     @Override
@@ -141,28 +146,22 @@ public class VariableWidthBlockEncoding
     public static class VariableWidthBlockEncodingFactory
             implements BlockEncodingFactory<VariableWidthBlockEncoding>
     {
-        private final Type type;
-
-        public VariableWidthBlockEncodingFactory(Type type)
-        {
-            this.type = requireNonNull(type, "type is null");
-        }
-
         @Override
         public String getName()
         {
-            return type.getName();
+            return NAME;
         }
 
         @Override
         public VariableWidthBlockEncoding readEncoding(TypeManager manager, BlockEncodingSerde serde, SliceInput input)
         {
-            return new VariableWidthBlockEncoding(type);
+            return new VariableWidthBlockEncoding(readType(manager, input));
         }
 
         @Override
         public void writeEncoding(BlockEncodingSerde serde, SliceOutput output, VariableWidthBlockEncoding blockEncoding)
         {
+            writeType(output, blockEncoding.getType());
         }
     }
 }

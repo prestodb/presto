@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.ml;
 
-import com.facebook.presto.block.BlockEncodingManager;
 import com.facebook.presto.metadata.FunctionFactory;
 import com.facebook.presto.ml.type.ClassifierType;
 import com.facebook.presto.ml.type.ModelType;
@@ -21,38 +20,16 @@ import com.facebook.presto.ml.type.RegressorType;
 import com.facebook.presto.spi.Plugin;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
-
-import javax.inject.Inject;
 
 import java.util.List;
 import java.util.Map;
 
-import static com.google.common.base.Preconditions.checkNotNull;
-
 public class MLPlugin
         implements Plugin
 {
-    private Map<String, String> optionalConfig = ImmutableMap.of();
-
     @Override
     public synchronized void setOptionalConfig(Map<String, String> optionalConfig)
     {
-        this.optionalConfig = ImmutableMap.copyOf(checkNotNull(optionalConfig, "optionalConfig is null"));
-    }
-
-    public synchronized Map<String, String> getOptionalConfig()
-    {
-        return optionalConfig;
-    }
-
-    @Inject
-    public void setBlockEncodingManager(BlockEncodingManager blockEncodingManager)
-    {
-        checkNotNull(blockEncodingManager, "blockEncodingManager is null");
-        blockEncodingManager.addBlockEncodingFactory(ModelType.BLOCK_ENCODING_FACTORY);
-        blockEncodingManager.addBlockEncodingFactory(ClassifierType.BLOCK_ENCODING_FACTORY);
-        blockEncodingManager.addBlockEncodingFactory(RegressorType.BLOCK_ENCODING_FACTORY);
     }
 
     @Override

@@ -17,7 +17,7 @@ import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockEncoding;
 import com.facebook.presto.spi.block.BlockEncodingFactory;
 import com.facebook.presto.spi.block.BlockEncodingSerde;
-import com.facebook.presto.serde.TypeSerde;
+import com.facebook.presto.spi.type.TypeSerde;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
 import io.airlift.slice.Slice;
@@ -96,7 +96,7 @@ public class SnappyBlockEncoding
         @Override
         public void writeEncoding(BlockEncodingSerde serde, SliceOutput output, SnappyBlockEncoding blockEncoding)
         {
-            TypeSerde.writeInfo(output, blockEncoding.type);
+            TypeSerde.writeType(output, blockEncoding.type);
             serde.writeBlockEncoding(output, blockEncoding.uncompressedBlockEncoding);
         }
     }

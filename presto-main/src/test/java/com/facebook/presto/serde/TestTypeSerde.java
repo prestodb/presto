@@ -18,8 +18,8 @@ import com.facebook.presto.type.TypeRegistry;
 import io.airlift.slice.DynamicSliceOutput;
 import org.testng.annotations.Test;
 
-import static com.facebook.presto.serde.TypeSerde.readType;
-import static com.facebook.presto.serde.TypeSerde.writeInfo;
+import static com.facebook.presto.spi.type.TypeSerde.readType;
+import static com.facebook.presto.spi.type.TypeSerde.writeType;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static org.testng.Assert.assertEquals;
 
@@ -29,7 +29,7 @@ public class TestTypeSerde
     public void testRoundTrip()
     {
         DynamicSliceOutput sliceOutput = new DynamicSliceOutput(1024);
-        writeInfo(sliceOutput, BOOLEAN);
+        writeType(sliceOutput, BOOLEAN);
         Type actualType = readType(new TypeRegistry(), sliceOutput.slice().getInput());
         assertEquals(actualType, BOOLEAN);
     }

@@ -17,9 +17,7 @@ import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
-import com.facebook.presto.spi.block.BlockEncodingFactory;
 import com.facebook.presto.spi.block.VariableWidthBlockBuilder;
-import com.facebook.presto.spi.block.VariableWidthBlockEncoding.VariableWidthBlockEncodingFactory;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceOutput;
@@ -28,8 +26,6 @@ public class VarbinaryType
         implements VariableWidthType
 {
     public static final VarbinaryType VARBINARY = new VarbinaryType();
-
-    public static final BlockEncodingFactory<?> BLOCK_ENCODING_FACTORY = new VariableWidthBlockEncodingFactory(VARBINARY);
 
     @JsonCreator
     public VarbinaryType()

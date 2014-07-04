@@ -17,9 +17,7 @@ import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
-import com.facebook.presto.spi.block.BlockEncodingFactory;
 import com.facebook.presto.spi.block.VariableWidthBlockBuilder;
-import com.facebook.presto.spi.block.VariableWidthBlockEncoding;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceOutput;
@@ -31,8 +29,6 @@ public class HyperLogLogType
         implements VariableWidthType
 {
     public static final HyperLogLogType HYPER_LOG_LOG = new HyperLogLogType();
-
-    public static final BlockEncodingFactory<?> BLOCK_ENCODING_FACTORY = new VariableWidthBlockEncoding.VariableWidthBlockEncodingFactory(HYPER_LOG_LOG);
 
     public static HyperLogLogType getInstance()
     {

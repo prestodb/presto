@@ -17,9 +17,7 @@ import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
-import com.facebook.presto.spi.block.BlockEncodingFactory;
 import com.facebook.presto.spi.block.VariableWidthBlockBuilder;
-import com.facebook.presto.spi.block.VariableWidthBlockEncoding;
 import com.facebook.presto.spi.type.VariableWidthType;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import io.airlift.slice.Slice;
@@ -32,8 +30,6 @@ public class ModelType
         implements VariableWidthType
 {
     public static final ModelType MODEL = new ModelType();
-
-    public static final BlockEncodingFactory<?> BLOCK_ENCODING_FACTORY = new VariableWidthBlockEncoding.VariableWidthBlockEncodingFactory(MODEL);
 
     @JsonCreator
     public ModelType()

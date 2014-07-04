@@ -20,11 +20,16 @@ import io.airlift.slice.Slice;
 import io.airlift.slice.SliceInput;
 import io.airlift.slice.SliceOutput;
 
+import static com.facebook.presto.spi.type.TypeSerde.readType;
+import static com.facebook.presto.spi.type.TypeSerde.writeType;
 import static java.util.Objects.requireNonNull;
 
 public class FixedWidthBlockEncoding
         implements BlockEncoding
 {
+    public static final BlockEncodingFactory<FixedWidthBlockEncoding> FACTORY = new FixedWidthBlockEncodingFactory();
+    private static final String NAME = "FIXED_WIDTH";
+
     private final FixedWidthType type;
 
     public FixedWidthBlockEncoding(Type type)
@@ -35,7 +40,7 @@ public class FixedWidthBlockEncoding
     @Override
     public String getName()
     {
-        return type.getName();
+        return NAME;
     }
 
     @Override
@@ -123,30 +128,24 @@ public class FixedWidthBlockEncoding
     }
 
     public static class FixedWidthBlockEncodingFactory
-            implements BlockEncodingFactory<BlockEncoding>
+            implements BlockEncodingFactory<FixedWidthBlockEncoding>
     {
-        private final Type type;
-
-        public FixedWidthBlockEncodingFactory(Type type)
-        {
-            this.type = type;
-        }
-
         @Override
         public String getName()
         {
-            return type.getName();
+            return NAME;
         }
 
         @Override
-        public BlockEncoding readEncoding(TypeManager manager, BlockEncodingSerde serde, SliceInput input)
+        public FixedWidthBlockEncoding readEncoding(TypeManager manager, BlockEncodingSerde serde, SliceInput input)
         {
-            return new FixedWidthBlockEncoding(type);
+            return new FixedWidthBlockEncoding(readType(manager, input));
         }
 
         @Override
-        public void writeEncoding(BlockEncodingSerde serde, SliceOutput output, BlockEncoding blockEncoding)
+        public void writeEncoding(BlockEncodingSerde serde, SliceOutput output, FixedWidthBlockEncoding blockEncoding)
         {
+            writeType(output, blockEncoding.getType());
         }
     }
 }

@@ -17,9 +17,7 @@ import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
-import com.facebook.presto.spi.block.BlockEncodingFactory;
 import com.facebook.presto.spi.block.FixedWidthBlockBuilder;
-import com.facebook.presto.spi.block.FixedWidthBlockEncoding.FixedWidthBlockEncodingFactory;
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceOutput;
 
@@ -34,8 +32,6 @@ public final class BooleanType
     {
         return BOOLEAN;
     }
-
-    public static final BlockEncodingFactory<?> BLOCK_ENCODING_FACTORY = new FixedWidthBlockEncodingFactory(BOOLEAN);
 
     private BooleanType()
     {
