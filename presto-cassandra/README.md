@@ -92,6 +92,17 @@ cassandra.thrift-port=9160
 #cassandra.username=my_username
 #cassandra.password=my_password
 
+# client socket read timeout, may help with indexes with viewer values
+# (advanced)
+cassandra.client.read-timeout=12000
+
+# client socket connect timeout, may help with heavily loaded Cassandra clusters
+# (advanced)
+cassandra.client.connect-timeout=5000
+
+# client socker so linger, see man 7 socket
+# (advanced)
+#cassandra.client.so-linger=-1
 ```
 
 ## Notes
