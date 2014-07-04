@@ -53,6 +53,18 @@ public final class TimeType
     }
 
     @Override
+    public boolean isComparable()
+    {
+        return true;
+    }
+
+    @Override
+    public boolean isOrderable()
+    {
+        return true;
+    }
+
+    @Override
     public Class<?> getJavaType()
     {
         return long.class;
@@ -67,6 +79,10 @@ public final class TimeType
     @Override
     public Object getObjectValue(ConnectorSession session, Block block, int position)
     {
+        if (block.isNull(position)) {
+            return null;
+        }
+
         return new SqlTime(block.getLong(position, 0), session.getTimeZoneKey());
     }
 

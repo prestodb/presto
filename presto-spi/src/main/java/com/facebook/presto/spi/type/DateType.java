@@ -52,10 +52,21 @@ public final class DateType
     }
 
     @Override
-
     public String getName()
     {
         return "date";
+    }
+
+    @Override
+    public boolean isComparable()
+    {
+        return true;
+    }
+
+    @Override
+    public boolean isOrderable()
+    {
+        return true;
     }
 
     @Override
@@ -73,6 +84,10 @@ public final class DateType
     @Override
     public Object getObjectValue(ConnectorSession session, Block block, int position)
     {
+        if (block.isNull(position)) {
+            return null;
+        }
+
         // convert date to timestamp at midnight in local time zone
         long date = block.getLong(position, 0);
         return new SqlDate(date - getTimeZoneForKey(session.getTimeZoneKey()).getOffset(date), session.getTimeZoneKey());

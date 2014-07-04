@@ -49,6 +49,18 @@ public final class IntervalDayTimeType
     }
 
     @Override
+    public boolean isComparable()
+    {
+        return true;
+    }
+
+    @Override
+    public boolean isOrderable()
+    {
+        return true;
+    }
+
+    @Override
     public Class<?> getJavaType()
     {
         return long.class;
@@ -63,6 +75,9 @@ public final class IntervalDayTimeType
     @Override
     public Object getObjectValue(ConnectorSession session, Block block, int position)
     {
+        if (block.isNull(position)) {
+            return null;
+        }
         return new SqlIntervalDayTime((int) block.getLong(position, 0));
     }
 

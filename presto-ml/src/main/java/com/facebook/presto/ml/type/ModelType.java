@@ -52,6 +52,18 @@ public class ModelType
     }
 
     @Override
+    public boolean isComparable()
+    {
+        return false;
+    }
+
+    @Override
+    public boolean isOrderable()
+    {
+        return false;
+    }
+
+    @Override
     public Class<?> getJavaType()
     {
         return Slice.class;
@@ -115,6 +127,10 @@ public class ModelType
     @Override
     public Object getObjectValue(ConnectorSession session, Block block, int position)
     {
+        if (block.isNull(position)) {
+            return null;
+        }
+
         return String.format("<%s>", getName());
     }
 

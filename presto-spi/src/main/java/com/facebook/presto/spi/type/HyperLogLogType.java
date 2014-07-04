@@ -51,6 +51,18 @@ public class HyperLogLogType
     }
 
     @Override
+    public boolean isComparable()
+    {
+        return false;
+    }
+
+    @Override
+    public boolean isOrderable()
+    {
+        return false;
+    }
+
+    @Override
     public Class<?> getJavaType()
     {
         return Slice.class;
@@ -114,6 +126,10 @@ public class HyperLogLogType
     @Override
     public Object getObjectValue(ConnectorSession session, Block block, int position)
     {
+        if (block.isNull(position)) {
+            return null;
+        }
+
         return new SqlVarbinary(block.getSlice(position, 0, block.getLength(position)).getBytes());
     }
 

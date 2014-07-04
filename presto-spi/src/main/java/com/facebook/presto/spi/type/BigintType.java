@@ -49,6 +49,18 @@ public final class BigintType
     }
 
     @Override
+    public boolean isComparable()
+    {
+        return true;
+    }
+
+    @Override
+    public boolean isOrderable()
+    {
+        return true;
+    }
+
+    @Override
     public Class<?> getJavaType()
     {
         return long.class;
@@ -63,7 +75,11 @@ public final class BigintType
     @Override
     public Object getObjectValue(ConnectorSession session, Block block, int position)
     {
-        return block.getLong(position);
+        if (block.isNull(position)) {
+            return null;
+        }
+
+        return block.getLong(position, 0);
     }
 
     @Override

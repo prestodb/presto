@@ -44,6 +44,18 @@ public final class UnknownType
     }
 
     @Override
+    public boolean isComparable()
+    {
+        return false;
+    }
+
+    @Override
+    public boolean isOrderable()
+    {
+        return false;
+    }
+
+    @Override
     public Class<?> getJavaType()
     {
         return void.class;
@@ -58,8 +70,9 @@ public final class UnknownType
     @Override
     public Object getObjectValue(ConnectorSession session, Block block, int position)
     {
-        // This type is always null, so this method should never be called
-        throw new UnsupportedOperationException();
+        // call is null in case position is out of bounds
+        block.isNull(position);
+        return null;
     }
 
     @Override

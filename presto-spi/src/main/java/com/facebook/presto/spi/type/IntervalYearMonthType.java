@@ -49,6 +49,18 @@ public final class IntervalYearMonthType
     }
 
     @Override
+    public boolean isComparable()
+    {
+        return true;
+    }
+
+    @Override
+    public boolean isOrderable()
+    {
+        return true;
+    }
+
+    @Override
     public Class<?> getJavaType()
     {
         return long.class;
@@ -63,6 +75,9 @@ public final class IntervalYearMonthType
     @Override
     public Object getObjectValue(ConnectorSession session, Block block, int position)
     {
+        if (block.isNull(position)) {
+            return null;
+        }
         return new SqlIntervalYearMonth((int) block.getLong(position, 0));
     }
 
