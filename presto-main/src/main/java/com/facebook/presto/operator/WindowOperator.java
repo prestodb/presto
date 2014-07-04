@@ -17,7 +17,6 @@ import com.facebook.presto.operator.window.WindowFunction;
 import com.facebook.presto.spi.block.SortOrder;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Iterables;
 import com.google.common.primitives.Ints;
 import com.google.common.util.concurrent.ListenableFuture;
 import it.unimi.dsi.fastutil.ints.IntComparator;
@@ -28,6 +27,7 @@ import java.util.List;
 import static com.facebook.presto.spi.block.SortOrder.ASC_NULLS_LAST;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.collect.Iterables.concat;
 
 public class WindowOperator
         implements Operator
@@ -39,7 +39,9 @@ public class WindowOperator
         private final List<Type> sourceTypes;
         private final List<Integer> outputChannels;
         private final List<WindowFunctionDefinition> windowFunctionDefinitions;
+        private final List<Type> partitionTypes;
         private final List<Integer> partitionChannels;
+        private final List<Type> sortTypes;
         private final List<Integer> sortChannels;
         private final List<SortOrder> sortOrder;
         private final int expectedPositions;
@@ -60,7 +62,17 @@ public class WindowOperator
             this.sourceTypes = ImmutableList.copyOf(sourceTypes);
             this.outputChannels = ImmutableList.copyOf(checkNotNull(outputChannels, "outputChannels is null"));
             this.windowFunctionDefinitions = windowFunctionDefinitions;
+            ImmutableList.Builder<Type> partitionTypes = ImmutableList.builder();
+            for (int channel : partitionChannels) {
+                partitionTypes.add(sourceTypes.get(channel));
+            }
+            this.partitionTypes = partitionTypes.build();
             this.partitionChannels = ImmutableList.copyOf(checkNotNull(partitionChannels, "partitionChannels is null"));
+            ImmutableList.Builder<Type> sortTypes = ImmutableList.builder();
+            for (int channel : sortChannels) {
+                sortTypes.add(sourceTypes.get(channel));
+            }
+            this.sortTypes = sortTypes.build();
             this.sortChannels = ImmutableList.copyOf(checkNotNull(sortChannels, "sortChannels is null"));
             this.sortOrder = ImmutableList.copyOf(checkNotNull(sortOrder, "sortOrder is null"));
             this.expectedPositions = expectedPositions;
@@ -85,7 +97,9 @@ public class WindowOperator
                     sourceTypes,
                     outputChannels,
                     windowFunctionDefinitions,
+                    partitionTypes,
                     partitionChannels,
+                    sortTypes,
                     sortChannels,
                     sortOrder,
                     expectedPositions);
@@ -108,7 +122,9 @@ public class WindowOperator
     private final OperatorContext operatorContext;
     private final int[] outputChannels;
     private final List<WindowFunction> windowFunctions;
+    private final List<Type> partitionTypes;
     private final List<Integer> partitionChannels;
+    private final List<Type> sortTypes;
     private final List<Integer> sortChannels;
     private final List<SortOrder> sortOrder;
     private final List<Type> types;
@@ -133,15 +149,17 @@ public class WindowOperator
             List<Type> sourceTypes,
             List<Integer> outputChannels,
             List<WindowFunctionDefinition> windowFunctionDefinitions,
-            List<Integer> partitionChannels,
-            List<Integer> sortChannels,
+            List<Type> partitionTypes, List<Integer> partitionChannels,
+            List<Type> sortTypes, List<Integer> sortChannels,
             List<SortOrder> sortOrder,
             int expectedPositions)
     {
         this.operatorContext = checkNotNull(operatorContext, "operatorContext is null");
         this.outputChannels = Ints.toArray(checkNotNull(outputChannels, "outputChannels is null"));
         this.windowFunctions = toWindowFunctions(checkNotNull(windowFunctionDefinitions, "windowFunctionDefinitions is null"));
+        this.partitionTypes = ImmutableList.copyOf(checkNotNull(partitionTypes, "partitionTypes is null"));
         this.partitionChannels = ImmutableList.copyOf(checkNotNull(partitionChannels, "partitionChannels is null"));
+        this.sortTypes = ImmutableList.copyOf(checkNotNull(sortTypes, "sortTypes is null"));
         this.sortChannels = ImmutableList.copyOf(checkNotNull(sortChannels, "sortChannels is null"));
         this.sortOrder = ImmutableList.copyOf(checkNotNull(sortOrder, "sortOrder is null"));
 
@@ -173,17 +191,18 @@ public class WindowOperator
             List<SortOrder> partitionOrder = Collections.nCopies(partitionChannels.size(), ASC_NULLS_LAST);
 
             // sort everything by partition channels, then sort channels
-            List<Integer> orderChannels = ImmutableList.copyOf(Iterables.concat(partitionChannels, sortChannels));
-            List<SortOrder> ordering = ImmutableList.copyOf(Iterables.concat(partitionOrder, sortOrder));
+            List<Integer> orderChannels = ImmutableList.copyOf(concat(partitionChannels, sortChannels));
+            List<SortOrder> ordering = ImmutableList.copyOf(concat(partitionOrder, sortOrder));
+            List<Type> orderingTypes = ImmutableList.copyOf(concat(partitionTypes, sortTypes));
 
             // sort the index
-            pagesIndex.sort(orderChannels, ordering);
+            pagesIndex.sort(orderingTypes, orderChannels, ordering);
 
             // create partition comparator
-            partitionComparator = pagesIndex.createComparator(partitionChannels, partitionOrder);
+            partitionComparator = pagesIndex.createComparator(orderingTypes, partitionChannels, partitionOrder);
 
             // create order comparator
-            orderComparator = pagesIndex.createComparator(sortChannels, sortOrder);
+            orderComparator = pagesIndex.createComparator(orderingTypes, sortChannels, sortOrder);
         }
     }
 

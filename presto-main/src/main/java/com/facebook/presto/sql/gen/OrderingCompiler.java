@@ -30,6 +30,7 @@ import com.facebook.presto.operator.PagesIndexOrdering;
 import com.facebook.presto.operator.SimplePagesIndexComparator;
 import com.facebook.presto.operator.SyntheticAddress;
 import com.facebook.presto.spi.block.SortOrder;
+import com.facebook.presto.spi.type.Type;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Objects;
 import com.google.common.base.Throwables;
@@ -88,17 +89,18 @@ public class OrderingCompiler
                 public PagesIndexOrdering load(PagesIndexComparatorCacheKey key)
                         throws Exception
                 {
-                    return internalCompilePagesIndexOrdering(key.getSortChannels(), key.getSortOrders());
+                    return internalCompilePagesIndexOrdering(key.getSortTypes(), key.getSortChannels(), key.getSortOrders());
                 }
             });
 
-    public PagesIndexOrdering compilePagesIndexOrdering(List<Integer> sortChannels, List<SortOrder> sortOrders)
+    public PagesIndexOrdering compilePagesIndexOrdering(List<Type> sortTypes, List<Integer> sortChannels, List<SortOrder> sortOrders)
     {
+        checkNotNull(sortTypes, "sortTypes is null");
         checkNotNull(sortChannels, "sortChannels is null");
         checkNotNull(sortOrders, "sortOrders is null");
 
         try {
-            return pagesIndexOrderings.get(new PagesIndexComparatorCacheKey(sortChannels, sortOrders));
+            return pagesIndexOrderings.get(new PagesIndexComparatorCacheKey(sortTypes, sortChannels, sortOrders));
         }
         catch (ExecutionException | UncheckedExecutionException | ExecutionError e) {
             throw Throwables.propagate(e.getCause());
@@ -106,7 +108,7 @@ public class OrderingCompiler
     }
 
     @VisibleForTesting
-    public PagesIndexOrdering internalCompilePagesIndexOrdering(List<Integer> sortChannels, List<SortOrder> sortOrders)
+    public PagesIndexOrdering internalCompilePagesIndexOrdering(List<Type> sortTypes, List<Integer> sortChannels, List<SortOrder> sortOrders)
             throws Exception
     {
         checkNotNull(sortChannels, "sortChannels is null");
@@ -116,19 +118,23 @@ public class OrderingCompiler
         try {
             DynamicClassLoader classLoader = new DynamicClassLoader(getClass().getClassLoader());
 
-            Class<? extends PagesIndexComparator> pagesHashStrategyClass = compilePagesIndexComparator(sortChannels, sortOrders, classLoader);
+            Class<? extends PagesIndexComparator> pagesHashStrategyClass = compilePagesIndexComparator(sortTypes, sortChannels, sortOrders, classLoader);
             comparator = pagesHashStrategyClass.newInstance();
         }
         catch (Throwable e) {
             log.error(e, "Error compiling comparator for channels %s with order %s", sortChannels, sortChannels);
-            comparator = new SimplePagesIndexComparator(sortChannels, sortOrders);
+            comparator = new SimplePagesIndexComparator(sortTypes, sortChannels, sortOrders);
         }
 
         // we may want to load a separate PagesIndexOrdering for each comparator
         return new PagesIndexOrdering(comparator);
     }
 
-    private Class<? extends PagesIndexComparator> compilePagesIndexComparator(List<Integer> sortChannels, List<SortOrder> sortOrders, DynamicClassLoader classLoader)
+    private Class<? extends PagesIndexComparator> compilePagesIndexComparator(
+            List<Type> sortTypes,
+            List<Integer> sortChannels,
+            List<SortOrder> sortOrders,
+            DynamicClassLoader classLoader)
     {
         ClassDefinition classDefinition = new ClassDefinition(new CompilerContext(bootstrapMethod),
                 a(PUBLIC, FINAL),
@@ -137,7 +143,7 @@ public class OrderingCompiler
                 type(PagesIndexComparator.class));
 
         generateConstructor(classDefinition);
-        generateCompareTo(classDefinition, sortChannels, sortOrders);
+        generateCompareTo(classDefinition, sortTypes, sortChannels, sortOrders);
 
         Class<? extends PagesIndexComparator> joinHashClass = defineClass(classDefinition, PagesIndexComparator.class, classLoader);
         return joinHashClass;
@@ -154,7 +160,7 @@ public class OrderingCompiler
                 .ret();
     }
 
-    private void generateCompareTo(ClassDefinition classDefinition, List<Integer> sortChannels, List<SortOrder> sortOrders)
+    private void generateCompareTo(ClassDefinition classDefinition, List<Type> sortTypes, List<Integer> sortChannels, List<SortOrder> sortOrders)
     {
         CompilerContext compilerContext = new CompilerContext(bootstrapMethod);
         MethodDefinition compareToMethod = classDefinition.declareMethod(compilerContext,
@@ -230,6 +236,13 @@ public class OrderingCompiler
             Block block = new Block(compilerContext)
                     .setDescription("compare channel " + sortChannel + " " + sortOrder);
 
+            block.comment("push sortOrder")
+                    .getStaticField(SortOrder.class, sortOrder.name(), SortOrder.class);
+
+            Type sortType = sortTypes.get(i);
+            block.comment("push sortType")
+                    .invokeStatic(sortType.getClass(), "getInstance", sortType.getClass());
+
             block.comment("push leftBlock -- pagesIndex.getChannel(sortChannel).get(leftBlockIndex)")
                     .getVariable("pagesIndex")
                     .push(sortChannel)
@@ -237,9 +250,6 @@ public class OrderingCompiler
                     .getVariable(leftBlockIndex)
                     .invokeVirtual(ObjectArrayList.class, "get", Object.class, int.class)
                     .checkCast(com.facebook.presto.spi.block.Block.class);
-
-            block.comment("push sortOrder")
-                    .getStaticField(SortOrder.class, sortOrder.name(), SortOrder.class);
 
             block.comment("push leftBlockPosition")
                     .getVariable(leftBlockPosition);
@@ -256,7 +266,14 @@ public class OrderingCompiler
                     .getVariable(rightBlockPosition);
 
             block.comment("invoke compareTo")
-                    .invokeInterface(com.facebook.presto.spi.block.Block.class, "compareTo", int.class, SortOrder.class, int.class, com.facebook.presto.spi.block.Block.class, int.class);
+                    .invokeVirtual(SortOrder.class,
+                            "compareBlockValue",
+                            int.class,
+                            Type.class,
+                            com.facebook.presto.spi.block.Block.class,
+                            int.class,
+                            com.facebook.presto.spi.block.Block.class,
+                            int.class);
 
             LabelNode equal = new LabelNode("equal");
             block.comment("if (compare != 0) return compare")
@@ -329,13 +346,20 @@ public class OrderingCompiler
 
     private static final class PagesIndexComparatorCacheKey
     {
+        private List<Type> sortTypes;
         private List<Integer> sortChannels;
         private List<SortOrder> sortOrders;
 
-        private PagesIndexComparatorCacheKey(List<Integer> sortChannels, List<SortOrder> sortOrders)
+        private PagesIndexComparatorCacheKey(List<Type> sortTypes, List<Integer> sortChannels, List<SortOrder> sortOrders)
         {
+            this.sortTypes = ImmutableList.copyOf(sortTypes);
             this.sortChannels = ImmutableList.copyOf(sortChannels);
             this.sortOrders = ImmutableList.copyOf(sortOrders);
+        }
+
+        public List<Type> getSortTypes()
+        {
+            return sortTypes;
         }
 
         public List<Integer> getSortChannels()
@@ -351,7 +375,7 @@ public class OrderingCompiler
         @Override
         public int hashCode()
         {
-            return Objects.hashCode(sortChannels, sortOrders);
+            return Objects.hashCode(sortTypes, sortChannels, sortOrders);
         }
 
         @Override
@@ -364,7 +388,9 @@ public class OrderingCompiler
                 return false;
             }
             PagesIndexComparatorCacheKey other = (PagesIndexComparatorCacheKey) obj;
-            return Objects.equal(this.sortChannels, other.sortChannels) && Objects.equal(this.sortOrders, other.sortOrders);
+            return Objects.equal(this.sortTypes, other.sortTypes) &&
+                    Objects.equal(this.sortChannels, other.sortChannels) &&
+                    Objects.equal(this.sortOrders, other.sortOrders);
         }
     }
 }

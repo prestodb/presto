@@ -16,7 +16,6 @@ package com.facebook.presto.block.rle;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.block.SortOrder;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.base.Objects;
 import io.airlift.slice.Slice;
@@ -224,13 +223,6 @@ public class RunLengthEncodedBlock
     {
         checkReadablePosition(position);
         return value.hash(0);
-    }
-
-    @Override
-    public int compareTo(SortOrder sortOrder, int position, Block otherBlock, int otherPosition)
-    {
-        checkReadablePosition(position);
-        return value.compareTo(sortOrder, 0, otherBlock, otherPosition);
     }
 
     @Override

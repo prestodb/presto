@@ -17,7 +17,6 @@ import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockEncoding;
-import com.facebook.presto.spi.block.SortOrder;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.base.Objects;
 import com.google.common.primitives.Ints;
@@ -260,12 +259,6 @@ public class SnappyBlock
     public int hash(int position)
     {
         return getUncompressedBlock().hash(position);
-    }
-
-    @Override
-    public int compareTo(SortOrder sortOrder, int position, Block otherBlock, int otherPosition)
-    {
-        return getUncompressedBlock().compareTo(sortOrder, position, otherBlock, otherPosition);
     }
 
     @Override

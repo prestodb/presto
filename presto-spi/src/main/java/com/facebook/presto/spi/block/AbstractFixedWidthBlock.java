@@ -245,26 +245,6 @@ public abstract class AbstractFixedWidthBlock
     }
 
     @Override
-    public int compareTo(SortOrder sortOrder, int position, Block otherBlock, int otherPosition)
-    {
-        boolean leftIsNull = isNull(position);
-        boolean rightIsNull = otherBlock.isNull(otherPosition);
-
-        if (leftIsNull && rightIsNull) {
-            return 0;
-        }
-        if (leftIsNull) {
-            return sortOrder.isNullsFirst() ? -1 : 1;
-        }
-        if (rightIsNull) {
-            return sortOrder.isNullsFirst() ? 1 : -1;
-        }
-
-        int result = type.compareTo(this, position, otherBlock, otherPosition);
-        return sortOrder.isAscending() ? result : -result;
-    }
-
-    @Override
     public void appendTo(int position, BlockBuilder blockBuilder)
     {
         if (isNull(position)) {
