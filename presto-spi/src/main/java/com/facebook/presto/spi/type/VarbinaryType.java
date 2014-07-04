@@ -48,6 +48,18 @@ public class VarbinaryType
     }
 
     @Override
+    public boolean isComparable()
+    {
+        return true;
+    }
+
+    @Override
+    public boolean isOrderable()
+    {
+        return true;
+    }
+
+    @Override
     public Class<?> getJavaType()
     {
         return Slice.class;
@@ -56,6 +68,10 @@ public class VarbinaryType
     @Override
     public Object getObjectValue(ConnectorSession session, Block block, int position)
     {
+        if (block.isNull(position)) {
+            return null;
+        }
+
         return new SqlVarbinary(block.getSlice(position, 0, block.getLength(position)).getBytes());
     }
 
