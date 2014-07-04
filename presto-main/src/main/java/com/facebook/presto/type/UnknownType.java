@@ -17,9 +17,7 @@ import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
-import com.facebook.presto.spi.block.BlockEncodingFactory;
 import com.facebook.presto.spi.block.FixedWidthBlockBuilder;
-import com.facebook.presto.spi.block.FixedWidthBlockEncoding.FixedWidthBlockEncodingFactory;
 import com.facebook.presto.spi.type.FixedWidthType;
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceOutput;
@@ -28,8 +26,6 @@ public final class UnknownType
         implements FixedWidthType
 {
     public static final UnknownType UNKNOWN = new UnknownType();
-
-    public static final BlockEncodingFactory<?> BLOCK_ENCODING_FACTORY = new FixedWidthBlockEncodingFactory(UNKNOWN);
 
     private UnknownType()
     {

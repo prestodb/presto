@@ -63,7 +63,7 @@ public class TestPagesSerde
         // empty page
         Page page = new Page(builder.build());
         int pageSize = serializedSize(page);
-        assertEquals(pageSize, 26); // page overhead
+        assertEquals(pageSize, 41); // page overhead
 
         // page with one value
         page = new Page(builder.appendLong(123).build());
@@ -84,7 +84,7 @@ public class TestPagesSerde
         // empty page
         Page page = new Page(builder.build());
         int pageSize = serializedSize(page);
-        assertEquals(pageSize, 27); // page overhead
+        assertEquals(pageSize, 45); // page overhead
 
         // page with one value
         page = new Page(builder.appendSlice(Slices.utf8Slice("alice")).build());

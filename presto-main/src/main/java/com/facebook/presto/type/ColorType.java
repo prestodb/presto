@@ -18,9 +18,7 @@ import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
-import com.facebook.presto.spi.block.BlockEncodingFactory;
 import com.facebook.presto.spi.block.FixedWidthBlockBuilder;
-import com.facebook.presto.spi.block.FixedWidthBlockEncoding.FixedWidthBlockEncodingFactory;
 import com.facebook.presto.spi.type.FixedWidthType;
 import com.google.common.base.Preconditions;
 import io.airlift.slice.Slice;
@@ -32,8 +30,6 @@ public class ColorType
         implements FixedWidthType
 {
     public static final ColorType COLOR = new ColorType();
-
-    public static final BlockEncodingFactory<?> BLOCK_ENCODING_FACTORY = new FixedWidthBlockEncodingFactory(COLOR);
 
     public static ColorType getInstance()
     {

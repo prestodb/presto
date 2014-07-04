@@ -11,16 +11,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.serde;
+package com.facebook.presto.spi.type;
 
-import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.spi.type.TypeManager;
-import com.google.common.base.Charsets;
 import io.airlift.slice.SliceInput;
 import io.airlift.slice.SliceOutput;
 
-import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.nio.charset.StandardCharsets.UTF_8;
 
 public final class TypeSerde
 {
@@ -28,21 +24,29 @@ public final class TypeSerde
     {
     }
 
-    public static void writeInfo(SliceOutput sliceOutput, Type type)
+    public static void writeType(SliceOutput sliceOutput, Type type)
     {
-        checkNotNull(type, "type is null");
-        checkNotNull(sliceOutput, "sliceOutput is null");
+        if (sliceOutput == null) {
+            throw new NullPointerException("sliceOutput is null");
+        }
+        if (type == null) {
+            throw new NullPointerException("type is null");
+        }
 
         writeLengthPrefixedString(sliceOutput, type.getName());
     }
 
     public static Type readType(TypeManager typeManager, SliceInput sliceInput)
     {
-        checkNotNull(sliceInput, "sliceInput is null");
+        if (sliceInput == null) {
+            throw new NullPointerException("sliceInput is null");
+        }
 
         String name = readLengthPrefixedString(sliceInput);
         Type type = typeManager.getType(name);
-        checkArgument(type != null, "Unknown type %s", name);
+        if (type == null) {
+            throw new IllegalArgumentException("Unknown type " + name);
+        }
         return type;
     }
 
@@ -51,12 +55,12 @@ public final class TypeSerde
         int length = input.readInt();
         byte[] bytes = new byte[length];
         input.readBytes(bytes);
-        return new String(bytes, Charsets.UTF_8);
+        return new String(bytes, UTF_8);
     }
 
     private static void writeLengthPrefixedString(SliceOutput output, String string)
     {
-        byte[] bytes = string.getBytes(Charsets.UTF_8);
+        byte[] bytes = string.getBytes(UTF_8);
         output.writeInt(bytes.length);
         output.writeBytes(bytes);
     }

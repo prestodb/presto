@@ -13,8 +13,6 @@
  */
 package com.facebook.presto.ml.type;
 
-import com.facebook.presto.spi.block.BlockEncodingFactory;
-import com.facebook.presto.spi.block.VariableWidthBlockEncoding;
 import com.fasterxml.jackson.annotation.JsonCreator;
 
 // Layout is <size>:<model>, where
@@ -24,8 +22,6 @@ public class ClassifierType
         extends ModelType
 {
     public static final ClassifierType CLASSIFIER = new ClassifierType();
-
-    public static final BlockEncodingFactory<?> BLOCK_ENCODING_FACTORY = new VariableWidthBlockEncoding.VariableWidthBlockEncodingFactory(CLASSIFIER);
 
     @JsonCreator
     public ClassifierType()
