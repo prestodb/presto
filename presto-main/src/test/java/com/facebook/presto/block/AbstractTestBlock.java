@@ -29,16 +29,7 @@ import java.util.Map.Entry;
 import java.util.SortedMap;
 import java.util.TreeMap;
 
-import static com.facebook.presto.spi.block.SortOrder.ASC_NULLS_FIRST;
-import static com.facebook.presto.spi.block.SortOrder.ASC_NULLS_LAST;
-import static com.facebook.presto.spi.block.SortOrder.DESC_NULLS_FIRST;
-import static com.facebook.presto.spi.block.SortOrder.DESC_NULLS_LAST;
-import static com.facebook.presto.spi.type.BigintType.BIGINT;
-import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
-import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.TimeZoneKey.UTC_KEY;
-import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
-import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Collections.unmodifiableSortedMap;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
@@ -116,26 +107,31 @@ public abstract class AbstractTestBlock
 
         assertEquals(block.isNull(position), expectedValue == null);
 
-        assertTrue((block.compareTo(ASC_NULLS_FIRST, position, expectedBlock, 0) == 0));
-        assertTrue((block.compareTo(ASC_NULLS_LAST, position, expectedBlock, 0) == 0));
-        assertTrue((block.compareTo(DESC_NULLS_FIRST, position, expectedBlock, 0) == 0));
-        assertTrue((block.compareTo(DESC_NULLS_LAST, position, expectedBlock, 0) == 0));
+        int length = block.getLength(position);
+        assertEquals(length, expectedBlock.getLength(0));
 
         verifyInvalidPositionHandling(block);
 
-        if (block.isNull(position)) {
-            assertTrue((block.compareTo(ASC_NULLS_FIRST, position, getNonNullValue(expectedType), 0) < 0));
-            assertTrue((block.compareTo(DESC_NULLS_FIRST, position, getNonNullValue(expectedType), 0) < 0));
-            assertTrue((block.compareTo(ASC_NULLS_LAST, position, getNonNullValue(expectedType), 0) > 0));
-            assertTrue((block.compareTo(DESC_NULLS_LAST, position, getNonNullValue(expectedType), 0) > 0));
-            return;
+        if (expectedValue instanceof String) {
+            assertTrue(block.compareTo(position, 0, length, expectedBlock, 0, 0, length) == 0);
+            if (length > 0) {
+                assertTrue(block.compareTo(position, 1, length - 1, expectedBlock, 0, 1, length - 1) == 0);
+                assertTrue(block.compareTo(position, 0, length - 1, expectedBlock, 0, 0, length - 1) == 0);
+            }
+
+            Block greaterValue = expectedType.createBlockBuilder(new BlockBuilderStatus())
+                    .appendSlice(Slices.utf8Slice(expectedValue + "_"))
+                    .build();
+
+            assertTrue(block.compareTo(position, 0, length, greaterValue, 0, 0, length + 1) < 0);
+            if (length > 0) {
+                assertTrue(block.compareTo(position, 1, length - 1, greaterValue, 0, 1, length) < 0);
+                assertTrue(block.compareTo(position, 0, length - 1, greaterValue, 0, 0, length) < 0);
+            }
         }
 
-        if (expectedValue != Boolean.TRUE) {
-            assertTrue((block.compareTo(ASC_NULLS_FIRST, position, getGreaterValue(expectedType, expectedValue), 0) < 0));
-            assertTrue((block.compareTo(ASC_NULLS_LAST, position, getGreaterValue(expectedType, expectedValue), 0) < 0));
-            assertTrue((block.compareTo(DESC_NULLS_FIRST, position, getGreaterValue(expectedType, expectedValue), 0) > 0));
-            assertTrue((block.compareTo(DESC_NULLS_LAST, position, getGreaterValue(expectedType, expectedValue), 0) > 0));
+        if (block.isNull(position)) {
+            return;
         }
 
         Type type = block.getType();
@@ -263,19 +259,6 @@ public abstract class AbstractTestBlock
         catch (IllegalArgumentException expected) {
         }
 
-        try {
-            block.compareTo(ASC_NULLS_FIRST, -1, other, 0);
-            fail("expected IllegalArgumentException");
-        }
-        catch (IllegalArgumentException expected) {
-        }
-        try {
-            block.compareTo(ASC_NULLS_FIRST, block.getPositionCount(), other, 0);
-            fail("expected IllegalArgumentException");
-        }
-        catch (IllegalArgumentException expected) {
-        }
-
         Type type = block.getType();
         if (type.getJavaType() == boolean.class) {
             try {
@@ -353,26 +336,6 @@ public abstract class AbstractTestBlock
         }
         else if (type.getJavaType() == Slice.class) {
             blockBuilder.appendSlice(Slices.utf8Slice((String) value));
-        }
-        return blockBuilder.build();
-    }
-
-    private static Block getGreaterValue(Type type, Object value)
-    {
-        BlockBuilder blockBuilder = type.createBlockBuilder(new BlockBuilderStatus());
-
-        if (type.equals(BOOLEAN)) {
-            checkArgument(value != Boolean.TRUE);
-            blockBuilder.appendBoolean(true);
-        }
-        else if (type.equals(BIGINT)) {
-            blockBuilder.appendLong(((Long) value) + 1);
-        }
-        else if (type.equals(DOUBLE)) {
-            blockBuilder.appendDouble(((Double) value) + 1);
-        }
-        else if (type.equals(VARCHAR)) {
-            blockBuilder.appendSlice(Slices.utf8Slice(value + "_"));
         }
         return blockBuilder.build();
     }

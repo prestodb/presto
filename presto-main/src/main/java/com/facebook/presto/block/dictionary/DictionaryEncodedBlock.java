@@ -17,7 +17,6 @@ import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockEncoding;
-import com.facebook.presto.spi.block.SortOrder;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.primitives.Ints;
 import io.airlift.slice.Slice;
@@ -215,12 +214,6 @@ public class DictionaryEncodedBlock
     public int hash(int position)
     {
         return dictionary.hash(getDictionaryKey(position));
-    }
-
-    @Override
-    public int compareTo(SortOrder sortOrder, int position, Block otherBlock, int otherPosition)
-    {
-        return dictionary.compareTo(sortOrder, getDictionaryKey(position), otherBlock, otherPosition);
     }
 
     @Override

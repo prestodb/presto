@@ -13,6 +13,8 @@
  */
 package com.facebook.presto.spi.block;
 
+import com.facebook.presto.spi.type.Type;
+
 public enum SortOrder
 {
     ASC_NULLS_FIRST(true, true),
@@ -37,5 +39,27 @@ public enum SortOrder
     public boolean isNullsFirst()
     {
         return nullsFirst;
+    }
+
+    /**
+     * Compares the values at the specified positions.
+     */
+    public int compareBlockValue(Type type, Block leftBlock, int leftPosition, Block rightBlock, int rightPosition)
+    {
+        boolean leftIsNull = leftBlock.isNull(leftPosition);
+        boolean rightIsNull = rightBlock.isNull(rightPosition);
+
+        if (leftIsNull && rightIsNull) {
+            return 0;
+        }
+        if (leftIsNull) {
+            return nullsFirst ? -1 : 1;
+        }
+        if (rightIsNull) {
+            return nullsFirst ? 1 : -1;
+        }
+
+        int result = type.compareTo(leftBlock, leftPosition, rightBlock, rightPosition);
+        return ascending ? result : -result;
     }
 }

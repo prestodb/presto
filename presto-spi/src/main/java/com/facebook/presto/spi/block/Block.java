@@ -103,12 +103,6 @@ public interface Block
     void appendTo(int position, BlockBuilder blockBuilder);
 
     /**
-     * Compares the value at the specified position to the value at the other position
-     * in the other block.
-     */
-    int compareTo(SortOrder sortOrder, int position, Block otherBlock, int otherPosition);
-
-    /**
      * Is the value at the specified position equal to the value at the other position
      * in the other block?
      */

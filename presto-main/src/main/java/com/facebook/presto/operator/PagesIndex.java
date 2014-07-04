@@ -259,17 +259,18 @@ public class PagesIndex
         return result;
     }
 
-    public void sort(List<Integer> sortChannels, List<SortOrder> sortOrders)
+    public void sort(List<Type> sortTypes, List<Integer> sortChannels, List<SortOrder> sortOrders)
     {
-        orderingCompiler.compilePagesIndexOrdering(sortChannels, sortOrders).sort(this);
+        orderingCompiler.compilePagesIndexOrdering(sortTypes, sortChannels, sortOrders).sort(this);
     }
 
-    public IntComparator createComparator(final List<Integer> sortChannels, final List<SortOrder> sortOrders)
+    public IntComparator createComparator(final List<Type> sortTypes, final List<Integer> sortChannels, final List<SortOrder> sortOrders)
     {
         return new AbstractIntComparator()
         {
-            private final PagesIndexComparator comparator = orderingCompiler.compilePagesIndexOrdering(sortChannels, sortOrders).getComparator();
+            private final PagesIndexComparator comparator = orderingCompiler.compilePagesIndexOrdering(sortTypes, sortChannels, sortOrders).getComparator();
 
+            @Override
             public int compare(int leftPosition, int rightPosition)
             {
                 return comparator.compareTo(PagesIndex.this, leftPosition, rightPosition);

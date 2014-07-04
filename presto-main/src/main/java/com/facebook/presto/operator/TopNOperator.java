@@ -42,6 +42,7 @@ public class TopNOperator
         private final int operatorId;
         private final List<Type> sourceTypes;
         private final int n;
+        private final List<Type> sortTypes;
         private final List<Integer> sortChannels;
         private final List<SortOrder> sortOrders;
         private final boolean partial;
@@ -58,6 +59,11 @@ public class TopNOperator
             this.operatorId = operatorId;
             this.sourceTypes = ImmutableList.copyOf(checkNotNull(types, "types is null"));
             this.n = n;
+            ImmutableList.Builder<Type> sortTypes = ImmutableList.builder();
+            for (int channel : sortChannels) {
+                sortTypes.add(types.get(channel));
+            }
+            this.sortTypes = sortTypes.build();
             this.sortChannels = ImmutableList.copyOf(checkNotNull(sortChannels, "sortChannels is null"));
             this.sortOrders = ImmutableList.copyOf(checkNotNull(sortOrders, "sortOrders is null"));
             this.partial = partial;
@@ -78,6 +84,7 @@ public class TopNOperator
                     operatorContext,
                     sourceTypes,
                     n,
+                    sortTypes,
                     sortChannels,
                     sortOrders,
                     partial);
@@ -96,6 +103,7 @@ public class TopNOperator
     private final OperatorContext operatorContext;
     private final List<Type> types;
     private final int n;
+    private final List<Type> sortTypes;
     private final List<Integer> sortChannels;
     private final List<SortOrder> sortOrders;
     private final TopNMemoryManager memoryManager;
@@ -112,6 +120,7 @@ public class TopNOperator
             OperatorContext operatorContext,
             List<Type> types,
             int n,
+            List<Type> sortTypes,
             List<Integer> sortChannels,
             List<SortOrder> sortOrders,
             boolean partial)
@@ -122,6 +131,7 @@ public class TopNOperator
         checkArgument(n > 0, "n must be greater than zero");
         this.n = n;
 
+        this.sortTypes = checkNotNull(sortTypes, "sortTypes is null");
         this.sortChannels = checkNotNull(sortChannels, "sortChannels is null");
         this.sortOrders = checkNotNull(sortOrders, "sortOrders is null");
 
@@ -176,6 +186,7 @@ public class TopNOperator
         if (topNBuilder == null) {
             topNBuilder = new TopNBuilder(
                     n,
+                    sortTypes,
                     sortChannels,
                     sortOrders,
                     memoryManager);
@@ -220,6 +231,7 @@ public class TopNOperator
     private static class TopNBuilder
     {
         private final int n;
+        private final List<Type> sortTypes;
         private final List<Integer> sortChannels;
         private final List<SortOrder> sortOrders;
         private final TopNMemoryManager memoryManager;
@@ -227,16 +239,21 @@ public class TopNOperator
 
         private long memorySize;
 
-        private TopNBuilder(int n, List<Integer> sortChannels, List<SortOrder> sortOrders, TopNMemoryManager memoryManager)
+        private TopNBuilder(int n,
+                List<Type> sortTypes,
+                List<Integer> sortChannels,
+                List<SortOrder> sortOrders,
+                TopNMemoryManager memoryManager)
         {
             this.n = n;
 
+            this.sortTypes = sortTypes;
             this.sortChannels = sortChannels;
             this.sortOrders = sortOrders;
 
             this.memoryManager = memoryManager;
 
-            Ordering<Block[]> comparator = Ordering.from(new RowComparator(sortChannels, sortOrders)).reverse();
+            Ordering<Block[]> comparator = Ordering.from(new RowComparator(sortTypes, sortChannels, sortOrders)).reverse();
             this.globalCandidates = new PriorityQueue<>(Math.min(n, MAX_INITIAL_PRIORITY_QUEUE_SIZE), comparator);
         }
 
@@ -266,6 +283,7 @@ public class TopNOperator
         private int compare(int position, Block[] blocks, Block[] currentMax)
         {
             for (int i = 0; i < sortChannels.size(); i++) {
+                Type type = sortTypes.get(i);
                 int sortChannel = sortChannels.get(i);
                 SortOrder sortOrder = sortOrders.get(i);
 
@@ -273,7 +291,7 @@ public class TopNOperator
                 Block currentMaxValue = currentMax[sortChannel];
 
                 // compare the right value to the left block but negate the result since we are evaluating in the opposite order
-                int compare = -currentMaxValue.compareTo(sortOrder, 0, block, position);
+                int compare = -sortOrder.compareBlockValue(type, currentMaxValue, 0, block, position);
                 if (compare != 0) {
                     return compare;
                 }
@@ -368,30 +386,31 @@ public class TopNOperator
     private static class RowComparator
             implements Comparator<Block[]>
     {
+        private final List<Type> sortTypes;
         private final List<Integer> sortChannels;
         private final List<SortOrder> sortOrders;
 
-        public RowComparator(List<Integer> sortChannels, List<SortOrder> sortOrders)
+        public RowComparator(List<Type> sortTypes, List<Integer> sortChannels, List<SortOrder> sortOrders)
         {
-            checkNotNull(sortChannels, "sortChannels is null");
-            checkNotNull(sortOrders, "sortOrders is null");
+            this.sortTypes = ImmutableList.copyOf(checkNotNull(sortTypes, "sortTypes is null"));
+            this.sortChannels = ImmutableList.copyOf(checkNotNull(sortChannels, "sortChannels is null"));
+            this.sortOrders = ImmutableList.copyOf(checkNotNull(sortOrders, "sortOrders is null"));
+            checkArgument(sortTypes.size() == sortChannels.size(), "sortTypes size (%s) doesn't match sortChannels size (%s)", sortTypes.size(), sortChannels.size());
             checkArgument(sortChannels.size() == sortOrders.size(), "sortFields size (%s) doesn't match sortOrders size (%s)", sortChannels.size(), sortOrders.size());
-
-            this.sortChannels = ImmutableList.copyOf(sortChannels);
-            this.sortOrders = ImmutableList.copyOf(sortOrders);
         }
 
         @Override
         public int compare(Block[] leftRow, Block[] rightRow)
         {
             for (int index = 0; index < sortChannels.size(); index++) {
+                Type type = sortTypes.get(index);
                 int channel = sortChannels.get(index);
                 SortOrder sortOrder = sortOrders.get(index);
 
                 Block left = leftRow[channel];
                 Block right = rightRow[channel];
 
-                int comparison = left.compareTo(sortOrder, 0, right, 0);
+                int comparison = sortOrder.compareBlockValue(type, left, 0, right, 0);
                 if (comparison != 0) {
                     return comparison;
                 }

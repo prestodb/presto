@@ -15,6 +15,7 @@ package com.facebook.presto.operator;
 
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.SortOrder;
+import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
@@ -28,9 +29,11 @@ public class SimplePagesIndexComparator
 {
     private final List<Integer> sortChannels;
     private final List<SortOrder> sortOrders;
+    private final List<Type> sortTypes;
 
-    public SimplePagesIndexComparator(List<Integer> sortChannels, List<SortOrder> sortOrders)
+    public SimplePagesIndexComparator(List<Type> sortTypes, List<Integer> sortChannels, List<SortOrder> sortOrders)
     {
+        this.sortTypes = ImmutableList.copyOf(checkNotNull(sortTypes, "sortTypes is null"));
         this.sortChannels = ImmutableList.copyOf(checkNotNull(sortChannels, "sortChannels is null"));
         this.sortOrders = ImmutableList.copyOf(checkNotNull(sortOrders, "sortOrders is null"));
     }
@@ -51,7 +54,8 @@ public class SimplePagesIndexComparator
             Block leftBlock = pagesIndex.getChannel(sortChannel).get(leftBlockIndex);
             Block rightBlock = pagesIndex.getChannel(sortChannel).get(rightBlockIndex);
 
-            int compare = leftBlock.compareTo(sortOrders.get(i), leftBlockPosition, rightBlock, rightBlockPosition);
+            SortOrder sortOrder = sortOrders.get(i);
+            int compare = sortOrder.compareBlockValue(sortTypes.get(i), leftBlock, leftBlockPosition, rightBlock, rightBlockPosition);
             if (compare != 0) {
                 return compare;
             }
