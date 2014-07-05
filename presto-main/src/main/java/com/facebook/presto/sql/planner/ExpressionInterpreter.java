@@ -152,18 +152,19 @@ public class ExpressionInterpreter
                     return null;
                 }
 
-                Class<?> javaType = block.getType().getJavaType();
+                Type type = block.getType();
+                Class<?> javaType = type.getJavaType();
                 if (javaType == boolean.class) {
-                    return block.getBoolean(position);
+                    return type.getBoolean(block, position);
                 }
                 else if (javaType == long.class) {
-                    return block.getLong(position);
+                    return type.getLong(block, position);
                 }
                 else if (javaType == double.class) {
-                    return block.getDouble(position);
+                    return type.getDouble(block, position);
                 }
                 else if (javaType == Slice.class) {
-                    return block.getSlice(position);
+                    return type.getSlice(block, position);
                 }
                 else {
                     throw new UnsupportedOperationException("not yet implemented");

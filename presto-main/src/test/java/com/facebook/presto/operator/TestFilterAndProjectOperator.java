@@ -76,7 +76,7 @@ public class TestFilterAndProjectOperator
                     @Override
                     public boolean filter(int position, Block... blocks)
                     {
-                        long value = blocks[1].getLong(position);
+                        long value = BIGINT.getLong(blocks[1], position);
                         return 10 <= value && value < 20;
                     }
 
@@ -130,7 +130,7 @@ public class TestFilterAndProjectOperator
                 output.appendNull();
             }
             else {
-                output.appendLong(blocks[channelIndex].getLong(position) + 5);
+                output.appendLong(BIGINT.getLong(blocks[channelIndex], position) + 5);
             }
         }
 

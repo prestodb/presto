@@ -82,35 +82,27 @@ public abstract class AbstractTestBlock
 
     protected void assertPositionEquals(Block block, int position, Object value)
     {
-        int hash = block.hash(position);
-        assertPositionValue(block, position, value, hash);
-        assertPositionValue(block.getSingleValueBlock(position), 0, value, hash);
-        assertPositionValue(block.getRegion(position, 1), 0, value, hash);
-        assertPositionValue(block.getRegion(0, position + 1), position, value, hash);
-        assertPositionValue(block.getRegion(position, block.getPositionCount() - position), 0, value, hash);
+        assertPositionValue(block, position, value);
+        assertPositionValue(block.getSingleValueBlock(position), 0, value);
+        assertPositionValue(block.getRegion(position, 1), 0, value);
+        assertPositionValue(block.getRegion(0, position + 1), position, value);
+        assertPositionValue(block.getRegion(position, block.getPositionCount() - position), 0, value);
 
         BlockBuilder blockBuilder = expectedType.createBlockBuilder(new BlockBuilderStatus());
         block.appendTo(position, blockBuilder);
-        assertPositionValue(blockBuilder.build(), 0, value, hash);
+        assertPositionValue(blockBuilder.build(), 0, value);
     }
 
-    private void assertPositionValue(Block block, int position, Object expectedValue, int expectedHash)
+    private void assertPositionValue(Block block, int position, Object expectedValue)
     {
         assertEquals(block.getType(), expectedType);
-        assertEquals(block.getObjectValue(SESSION, position), expectedValue);
-        assertEquals(block.hash(position), expectedHash);
 
         Block expectedBlock = createBlock(expectedType, expectedValue);
-        assertTrue(block.equalTo(position, block, position));
-        assertTrue(block.equalTo(position, expectedBlock, 0));
-        assertTrue(expectedBlock.equalTo(0, block, position));
 
         assertEquals(block.isNull(position), expectedValue == null);
 
         int length = block.getLength(position);
         assertEquals(length, expectedBlock.getLength(0));
-
-        verifyInvalidPositionHandling(block);
 
         if (expectedValue instanceof String) {
             assertTrue(block.compareTo(position, 0, length, expectedBlock, 0, 0, length) == 0);
@@ -130,192 +122,18 @@ public abstract class AbstractTestBlock
             }
         }
 
-        if (block.isNull(position)) {
-            return;
-        }
-
-        Type type = block.getType();
-        if (type.getJavaType() == boolean.class) {
-            assertEquals(block.getBoolean(position), expectedValue);
-            try {
-                block.getLong(position);
-                fail("Expected IllegalStateException or UnsupportedOperationException");
-            }
-            catch (IllegalStateException | UnsupportedOperationException expected) {
-            }
-            try {
-                block.getDouble(position);
-                fail("Expected IllegalStateException or UnsupportedOperationException");
-            }
-            catch (IllegalStateException | UnsupportedOperationException expected) {
-            }
-        }
-        else if (type.getJavaType() == long.class) {
-            assertEquals(block.getLong(position), expectedValue);
-            try {
-                block.getBoolean(position);
-                fail("Expected IllegalStateException or UnsupportedOperationException");
-            }
-            catch (IllegalStateException | UnsupportedOperationException expected) {
-            }
-            try {
-                block.getDouble(position);
-                fail("Expected IllegalStateException or UnsupportedOperationException");
-            }
-            catch (IllegalStateException | UnsupportedOperationException expected) {
-            }
-        }
-        else if (type.getJavaType() == double.class) {
-            assertEquals(block.getDouble(position), expectedValue);
-            try {
-                block.getBoolean(position);
-                fail("Expected IllegalStateException or UnsupportedOperationException");
-            }
-            catch (IllegalStateException | UnsupportedOperationException expected) {
-            }
-            try {
-                block.getLong(position);
-                fail("Expected IllegalStateException or UnsupportedOperationException");
-            }
-            catch (IllegalStateException | UnsupportedOperationException expected) {
-            }
-
-        }
-        else if (type.getJavaType() == Slice.class) {
-            assertEquals(block.getSlice(position).toStringUtf8(), expectedValue);
-            try {
-                block.getBoolean(position);
-                fail("Expected IllegalStateException or UnsupportedOperationException");
-            }
-            catch (IllegalStateException | UnsupportedOperationException expected) {
-            }
-            try {
-                block.getLong(position);
-                fail("Expected IllegalStateException or UnsupportedOperationException");
-            }
-            catch (IllegalStateException | UnsupportedOperationException expected) {
-            }
-            try {
-                block.getDouble(position);
-                fail("Expected IllegalStateException or UnsupportedOperationException");
-            }
-            catch (IllegalStateException | UnsupportedOperationException expected) {
-            }
-        }
-    }
-
-    private void verifyInvalidPositionHandling(Block block)
-    {
         try {
-            block.getObjectValue(SESSION, -1);
-            fail("expected IllegalArgumentException");
-        }
-        catch (IllegalArgumentException expected) {
-        }
-        try {
-            block.getObjectValue(SESSION, block.getPositionCount());
-            fail("expected IllegalArgumentException");
-        }
-        catch (IllegalArgumentException expected) {
-        }
-
-        try {
-            block.hash(-1);
-            fail("expected IllegalArgumentException");
-        }
-        catch (IllegalArgumentException expected) {
-        }
-        try {
-            block.hash(block.getPositionCount());
-            fail("expected IllegalArgumentException");
-        }
-        catch (IllegalArgumentException expected) {
-        }
-
-        Block other = getNonNullValue(block.getType());
-        try {
-            block.equalTo(-1, other, 0);
-            fail("expected IllegalArgumentException");
-        }
-        catch (IllegalArgumentException expected) {
-        }
-        try {
-            block.equalTo(block.getPositionCount(), other, 0);
-            fail("expected IllegalArgumentException");
-        }
-        catch (IllegalArgumentException expected) {
-        }
-
-        try {
-            block.isNull(-1);
-            fail("expected IllegalArgumentException");
-        }
-        catch (IllegalArgumentException expected) {
-        }
-        try {
-            block.isNull(block.getPositionCount());
-            fail("expected IllegalArgumentException");
-        }
-        catch (IllegalArgumentException expected) {
-        }
-
-        Type type = block.getType();
-        if (type.getJavaType() == boolean.class) {
-            try {
-                block.getBoolean(-1);
-                fail("expected IllegalArgumentException");
-            }
-            catch (IllegalArgumentException expected) {
-            }
-            try {
-                block.getBoolean(block.getPositionCount());
-                fail("expected IllegalArgumentException");
-            }
-            catch (IllegalArgumentException expected) {
-            }
-        }
-        else if (type.getJavaType() == long.class) {
-            try {
-                block.getLong(-1);
-                fail("expected IllegalArgumentException");
-            }
-            catch (IllegalArgumentException expected) {
-            }
-            try {
-                block.getLong(block.getPositionCount());
-                fail("expected IllegalArgumentException");
-            }
-            catch (IllegalArgumentException expected) {
-            }
-        }
-        else if (type.getJavaType() == double.class) {
-            try {
-                block.getDouble(-1);
-                fail("expected IllegalArgumentException");
-            }
-            catch (IllegalArgumentException expected) {
-            }
-            try {
-                block.getDouble(block.getPositionCount());
-                fail("expected IllegalArgumentException");
-            }
-            catch (IllegalArgumentException expected) {
-            }
-        }
-        else if (type.getJavaType() == Slice.class) {
-            try {
-                block.getSlice(-1);
-                fail("expected IllegalArgumentException");
-            }
-            catch (IllegalArgumentException expected) {
-            }
-            try {
-                block.getSlice(block.getPositionCount());
-                fail("expected IllegalArgumentException");
-            }
-            catch (IllegalArgumentException expected) {
-            }
-        }
+             block.isNull(-1);
+             fail("expected IllegalArgumentException");
+         }
+         catch (IllegalArgumentException expected) {
+         }
+         try {
+             block.isNull(block.getPositionCount());
+             fail("expected IllegalArgumentException");
+         }
+         catch (IllegalArgumentException expected) {
+         }
     }
 
     private static Block createBlock(Type type, Object value)
@@ -340,30 +158,12 @@ public abstract class AbstractTestBlock
         return blockBuilder.build();
     }
 
-    private static Block getNonNullValue(Type type)
-    {
-        BlockBuilder blockBuilder = type.createBlockBuilder(new BlockBuilderStatus());
-
-        if (type.getJavaType() == boolean.class) {
-            blockBuilder.appendBoolean(true);
-        }
-        else if (type.getJavaType() == long.class) {
-            blockBuilder.appendLong(1);
-        }
-        else if (type.getJavaType() == double.class) {
-            blockBuilder.appendDouble(1);
-        }
-        else if (type.getJavaType() == Slice.class) {
-            blockBuilder.appendSlice(Slices.utf8Slice("_"));
-        }
-        return blockBuilder.build();
-    }
-
     private static SortedMap<Integer, Object> indexValues(Block block)
     {
+        Type type = block.getType();
         SortedMap<Integer, Object> values = new TreeMap<>();
         for (int position = 0; position < block.getPositionCount(); position++) {
-            values.put(position, block.getObjectValue(SESSION, position));
+            values.put(position, type.getObjectValue(SESSION, block, position));
         }
         return unmodifiableSortedMap(values);
     }

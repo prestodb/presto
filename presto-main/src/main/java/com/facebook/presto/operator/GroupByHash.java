@@ -218,7 +218,8 @@ public class GroupByHash
     {
         int result = 0;
         for (int channel : channels) {
-            result = result * 31 + blocks[channel].hash(position);
+            Block block = blocks[channel];
+            result = result * 31 + block.getType().hash(block, position);
         }
         return result;
     }
@@ -286,7 +287,7 @@ public class GroupByHash
         {
             int result = 0;
             for (BlockBuilder channel : blockBuilders) {
-                result = 31 * result + channel.hash(position);
+                result = 31 * result + channel.getType().hash(channel, position);
             }
             return result;
         }
@@ -296,7 +297,7 @@ public class GroupByHash
             for (int i = 0; i < channels.length; i++) {
                 Block thisBlock = blockBuilders.get(i);
                 Block thatBlock = thatBlocks[channels[i]];
-                if (!thisBlock.equalTo(thisPosition, thatBlock, thatPosition)) {
+                if (!thisBlock.getType().equalTo(thisBlock, thisPosition, thatBlock, thatPosition)) {
                     return false;
                 }
             }

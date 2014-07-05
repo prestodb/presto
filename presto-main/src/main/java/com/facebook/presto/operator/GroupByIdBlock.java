@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.operator;
 
-import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockEncoding;
@@ -46,7 +45,7 @@ public class GroupByIdBlock
 
     public long getGroupId(int position)
     {
-        return block.getLong(position);
+        return BIGINT.getLong(block, position);
     }
 
     @Override
@@ -140,36 +139,6 @@ public class GroupByIdBlock
     }
 
     @Override
-    public boolean getBoolean(int position)
-    {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public long getLong(int position)
-    {
-        return block.getLong(position);
-    }
-
-    @Override
-    public double getDouble(int position)
-    {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public Object getObjectValue(ConnectorSession session, int position)
-    {
-        return block.getObjectValue(session, position);
-    }
-
-    @Override
-    public Slice getSlice(int position)
-    {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
     public Block getSingleValueBlock(int position)
     {
         return block.getSingleValueBlock(position);
@@ -179,18 +148,6 @@ public class GroupByIdBlock
     public boolean isNull(int position)
     {
         return block.isNull(position);
-    }
-
-    @Override
-    public boolean equalTo(int position, Block otherBlock, int otherPosition)
-    {
-        return block.equalTo(position, otherBlock, otherPosition);
-    }
-
-    @Override
-    public int hash(int position)
-    {
-        return block.hash(position);
     }
 
     @Override

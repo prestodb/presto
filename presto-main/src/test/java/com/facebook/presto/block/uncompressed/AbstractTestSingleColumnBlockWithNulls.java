@@ -34,7 +34,6 @@ public abstract class AbstractTestSingleColumnBlockWithNulls
             assertPositionEquals(block, position, expectedValues.get(position));
             if (position % 2 == 0) {
                 assertTrue(block.isNull(position));
-                assertTrue(block.getObjectValue(SESSION, position) == null);
             }
         }
     }

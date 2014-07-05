@@ -15,6 +15,7 @@ package com.facebook.presto.operator;
 
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.block.Block;
+import com.facebook.presto.spi.type.Type;
 import com.google.common.base.Function;
 import com.google.common.base.Objects;
 import com.google.common.base.Preconditions;
@@ -73,27 +74,27 @@ public class Page
         return blocks[channel];
     }
 
-    public boolean getBoolean(int channel, int position)
+    public boolean getBoolean(Type type, int channel, int position)
     {
-        return getBlock(channel).getBoolean(position);
+        return type.getBoolean(getBlock(channel), position);
     }
 
-    public long getLong(int channel, int position)
+    public long getLong(Type type, int channel, int position)
     {
-        return getBlock(channel).getLong(position);
+        return type.getLong(getBlock(channel), position);
     }
 
-    public double getDouble(int channel, int position)
+    public double getDouble(Type type, int channel, int position)
     {
-        return getBlock(channel).getDouble(position);
+        return type.getDouble(getBlock(channel), position);
     }
 
-    public Slice getSlice(int channel, int position)
+    public Slice getSlice(Type type, int channel, int position)
     {
-        return getBlock(channel).getSlice(position);
+        return type.getSlice(getBlock(channel), position);
     }
 
-    public boolean isNull(int channel, int position)
+    public boolean isNull(Type type, int channel, int position)
     {
         return getBlock(channel).isNull(position);
     }
@@ -109,7 +110,7 @@ public class Page
     {
         List<Object> values = new ArrayList<>(blocks.length);
         for (Block block : blocks) {
-            values.add(block.getObjectValue(session, position));
+            values.add(block.getType().getObjectValue(session, block, position));
         }
         return Collections.unmodifiableList(values);
     }

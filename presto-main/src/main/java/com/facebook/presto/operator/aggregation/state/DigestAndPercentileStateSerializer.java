@@ -16,12 +16,12 @@ package com.facebook.presto.operator.aggregation.state;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.spi.type.VarcharType;
 import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceInput;
 import io.airlift.stats.QuantileDigest;
 
+import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static io.airlift.slice.SizeOf.SIZE_OF_DOUBLE;
 
 public class DigestAndPercentileStateSerializer
@@ -30,7 +30,7 @@ public class DigestAndPercentileStateSerializer
     @Override
     public Type getSerializedType()
     {
-        return VarcharType.VARCHAR;
+        return VARCHAR;
     }
 
     @Override
@@ -55,7 +55,7 @@ public class DigestAndPercentileStateSerializer
     public void deserialize(Block block, int index, DigestAndPercentileState state)
     {
         if (!block.isNull(index)) {
-            SliceInput input = block.getSlice(index).getInput();
+            SliceInput input = VARCHAR.getSlice(block, index).getInput();
 
             // read digest
             state.setDigest(QuantileDigest.deserialize(input));

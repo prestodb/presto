@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.spi.block;
 
-import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.VariableWidthType;
 import io.airlift.slice.Slice;
@@ -147,42 +146,6 @@ public abstract class AbstractVariableWidthBlock
     }
 
     @Override
-    public boolean getBoolean(int position)
-    {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public long getLong(int position)
-    {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public double getDouble(int position)
-    {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public Object getObjectValue(ConnectorSession session, int position)
-    {
-        if (isNull(position)) {
-            return null;
-        }
-        return type.getObjectValue(session, this, position);
-    }
-
-    @Override
-    public Slice getSlice(int position)
-    {
-        if (isNull(position)) {
-            throw new IllegalStateException("position is null");
-        }
-        return type.getSlice(this, position);
-    }
-
-    @Override
     public Block getSingleValueBlock(int position)
     {
         if (isNull(position)) {
@@ -202,33 +165,6 @@ public abstract class AbstractVariableWidthBlock
     {
         checkReadablePosition(position);
         return isEntryNull(position);
-    }
-
-    @Override
-    public boolean equalTo(int position, Block otherBlock, int otherPosition)
-    {
-        boolean leftIsNull = isNull(position);
-        boolean rightIsNull = otherBlock.isNull(otherPosition);
-
-        if (leftIsNull != rightIsNull) {
-            return false;
-        }
-
-        // if values are both null, they are equal
-        if (leftIsNull) {
-            return true;
-        }
-
-        return type.equalTo(this, position, otherBlock, otherPosition);
-    }
-
-    @Override
-    public int hash(int position)
-    {
-        if (isNull(position)) {
-            return 0;
-        }
-        return type.hash(this, position);
     }
 
     @Override

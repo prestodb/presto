@@ -34,8 +34,8 @@ public class TestBlockBuilder
                 .build();
 
         assertTrue(block.isNull(0));
-        assertEquals(block.getLong(1), 42L);
+        assertEquals(BIGINT.getLong(block, 1), 42L);
         assertTrue(block.isNull(2));
-        assertEquals(block.getLong(3), 42L);
+        assertEquals(BIGINT.getLong(block, 3), 42L);
     }
 }

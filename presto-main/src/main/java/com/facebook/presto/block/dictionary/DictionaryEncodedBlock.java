@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.block.dictionary;
 
-import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockEncoding;
@@ -163,57 +162,15 @@ public class DictionaryEncodedBlock
     }
 
     @Override
-    public boolean getBoolean(int position)
-    {
-        return dictionary.getBoolean(getDictionaryKey(position));
-    }
-
-    @Override
-    public long getLong(int position)
-    {
-        return dictionary.getLong(getDictionaryKey(position));
-    }
-
-    @Override
-    public double getDouble(int position)
-    {
-        return dictionary.getDouble(getDictionaryKey(position));
-    }
-
-    @Override
-    public Slice getSlice(int position)
-    {
-        return dictionary.getSlice(getDictionaryKey(position));
-    }
-
-    @Override
     public Block getSingleValueBlock(int position)
     {
         return dictionary.getSingleValueBlock(getDictionaryKey(position));
     }
 
     @Override
-    public Object getObjectValue(ConnectorSession session, int position)
-    {
-        return dictionary.getObjectValue(session, getDictionaryKey(position));
-    }
-
-    @Override
     public boolean isNull(int position)
     {
         return dictionary.isNull(getDictionaryKey(position));
-    }
-
-    @Override
-    public boolean equalTo(int position, Block otherBlock, int otherPosition)
-    {
-        return dictionary.equalTo(getDictionaryKey(position), otherBlock, otherPosition);
-    }
-
-    @Override
-    public int hash(int position)
-    {
-        return dictionary.hash(getDictionaryKey(position));
     }
 
     @Override
@@ -224,6 +181,6 @@ public class DictionaryEncodedBlock
 
     private int getDictionaryKey(int position)
     {
-        return Ints.checkedCast(idBlock.getLong(position));
+        return Ints.checkedCast(BIGINT.getLong(idBlock, position));
     }
 }

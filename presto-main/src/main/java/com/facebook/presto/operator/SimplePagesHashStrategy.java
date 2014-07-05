@@ -57,18 +57,18 @@ public class SimplePagesHashStrategy
         int result = 0;
         for (List<Block> channel : hashChannels) {
             Block block = channel.get(blockIndex);
-            result = result * 31 + block.hash(blockPosition);
+            result = result * 31 + block.getType().hash(block, blockPosition);
         }
         return result;
     }
 
     @Override
-    public boolean positionEqualsRow(int leftBlockIndex, int leftBlockPosition, int rightPosition, Block[] rightBlocks)
+    public boolean positionEqualsRow(int leftBlockIndex, int leftBlockPosition, int rightPosition, Block... rightBlocks)
     {
         for (int i = 0; i < hashChannels.size(); i++) {
             List<Block> channel = hashChannels.get(i);
             Block block = channel.get(leftBlockIndex);
-            if (!block.equalTo(leftBlockPosition, rightBlocks[i], rightPosition)) {
+            if (!block.getType().equalTo(block, leftBlockPosition, rightBlocks[i], rightPosition)) {
                 return false;
             }
         }
@@ -81,7 +81,7 @@ public class SimplePagesHashStrategy
         for (List<Block> channel : hashChannels) {
             Block leftBlock = channel.get(leftBlockIndex);
             Block rightBlock = channel.get(rightBlockIndex);
-            if (!leftBlock.equalTo(leftBlockPosition, rightBlock, rightBlockPosition)) {
+            if (!leftBlock.getType().equalTo(leftBlock, leftBlockPosition, rightBlock, rightBlockPosition)) {
                 return false;
             }
         }

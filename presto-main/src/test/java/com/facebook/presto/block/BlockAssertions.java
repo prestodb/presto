@@ -47,15 +47,15 @@ public final class BlockAssertions
     public static Object getOnlyValue(Block block)
     {
         assertEquals(block.getPositionCount(), 1, "Block positions");
-        return block.getObjectValue(SESSION, 0);
+        return block.getType().getObjectValue(SESSION, block, 0);
     }
 
-    public static List<Object> toValues(BlockIterable blocks)
+    public static List<Object> toValues(Type type, BlockIterable blocks)
     {
         List<Object> values = new ArrayList<>();
         for (Block block : blocks) {
             for (int position = 0; position < block.getPositionCount(); position++) {
-                values.add(block.getObjectValue(SESSION, position));
+                values.add(type.getObjectValue(SESSION, block, position));
             }
         }
         return Collections.unmodifiableList(values);
@@ -63,19 +63,21 @@ public final class BlockAssertions
 
     public static List<Object> toValues(Block block)
     {
+        Type type = block.getType();
         List<Object> values = new ArrayList<>();
         for (int position = 0; position < block.getPositionCount(); position++) {
-            values.add(block.getObjectValue(SESSION, position));
+            values.add(type.getObjectValue(SESSION, block, position));
         }
         return Collections.unmodifiableList(values);
     }
 
     public static void assertBlockEquals(Block actual, Block expected)
     {
-        assertEquals(actual.getType(), expected.getType());
+        Type type = actual.getType();
+        assertEquals(type, expected.getType());
 
         for (int position = 0; position < actual.getPositionCount(); position++) {
-            assertEquals(actual.getObjectValue(SESSION, position), expected.getObjectValue(SESSION, position));
+            assertEquals(type.getObjectValue(SESSION, actual, position), type.getObjectValue(SESSION, expected, position));
         }
     }
 

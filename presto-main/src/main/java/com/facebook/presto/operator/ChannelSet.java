@@ -77,7 +77,7 @@ public class ChannelSet
 
     public boolean contains(int position, Block block)
     {
-        int hashPosition = ((int) Murmur3.hash64(block.hash(position))) & mask;
+        int hashPosition = ((int) Murmur3.hash64(type.hash(block, position))) & mask;
 
         while (key[hashPosition] != -1) {
             long address = key[hashPosition];
@@ -93,7 +93,7 @@ public class ChannelSet
 
     private boolean positionEqualsCurrentRow(int sliceIndex, int slicePosition, int position, Block block)
     {
-        return this.blocks.get(sliceIndex).equalTo(slicePosition, block, position);
+        return type.equalTo(blocks.get(sliceIndex), slicePosition, block, position);
     }
 
     public static class ChannelSetBuilder
@@ -163,7 +163,7 @@ public class ChannelSet
                 return;
             }
 
-            int hashPosition = ((int) Murmur3.hash64(block.hash(position))) & mask;
+            int hashPosition = ((int) Murmur3.hash64(type.hash(block, position))) & mask;
 
             // look for an empty slot or a slot containing this key
             while (key[hashPosition] != -1) {
@@ -244,12 +244,12 @@ public class ChannelSet
         {
             int sliceIndex = decodeSliceIndex(sliceAddress);
             int position = decodePosition(sliceAddress);
-            return blocks.get(sliceIndex).hash(position);
+            return type.hash(blocks.get(sliceIndex), position);
         }
 
         private boolean positionEqualsPosition(int sliceIndex, int slicePosition, int position, Block block)
         {
-            return this.blocks.get(sliceIndex).equalTo(slicePosition, block, position);
+            return type.equalTo(blocks.get(sliceIndex), slicePosition, block, position);
         }
     }
 }

@@ -26,6 +26,7 @@ import com.google.common.collect.ImmutableList;
 import java.util.List;
 
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
+import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.google.common.base.Preconditions.checkArgument;
 
 public class CountAggregation
@@ -122,7 +123,7 @@ public class CountAggregation
 
             for (int position = 0; position < groupIdsBlock.getPositionCount(); position++) {
                 long groupId = groupIdsBlock.getGroupId(position);
-                if (masks == null || masks.getBoolean(position)) {
+                if (masks == null || BOOLEAN.getBoolean(masks, position)) {
                     counts.increment(groupId);
                 }
             }
@@ -135,7 +136,7 @@ public class CountAggregation
 
             for (int position = 0; position < groupIdsBlock.getPositionCount(); position++) {
                 long groupId = groupIdsBlock.getGroupId(position);
-                counts.add(groupId, intermediates.getLong(position));
+                counts.add(groupId, BIGINT.getLong(intermediates, position));
             }
         }
 
@@ -206,7 +207,7 @@ public class CountAggregation
             else {
                 Block masks = page.getBlock(maskChannel.get());
                 for (int position = 0; position < page.getPositionCount(); position++) {
-                    if (masks == null || masks.getBoolean(position)) {
+                    if (masks == null || BOOLEAN.getBoolean(masks, position)) {
                         count++;
                     }
                 }
@@ -217,7 +218,7 @@ public class CountAggregation
         public void addIntermediate(Block intermediates)
         {
             for (int position = 0; position < intermediates.getPositionCount(); position++) {
-                count += intermediates.getLong(position);
+                count += BIGINT.getLong(intermediates, position);
             }
         }
 

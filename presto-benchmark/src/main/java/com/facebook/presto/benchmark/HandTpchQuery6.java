@@ -35,7 +35,9 @@ import java.util.List;
 import static com.facebook.presto.benchmark.BenchmarkQueryRunner.createLocalQueryRunner;
 import static com.facebook.presto.operator.AggregationFunctionDefinition.aggregation;
 import static com.facebook.presto.operator.aggregation.DoubleSumAggregation.DOUBLE_SUM;
+import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
+import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.google.common.base.Charsets.UTF_8;
 
 public class HandTpchQuery6
@@ -138,17 +140,17 @@ public class HandTpchQuery6
                 pageBuilder.getBlockBuilder(0).appendNull();
             }
             else {
-                pageBuilder.getBlockBuilder(0).appendDouble(extendedPriceBlock.getDouble(position) * discountBlock.getDouble(position));
+                pageBuilder.getBlockBuilder(0).appendDouble(DOUBLE.getDouble(extendedPriceBlock, position) * DOUBLE.getDouble(discountBlock, position));
             }
         }
 
         private static boolean filter(int position, Block discountBlock, Block shipDateBlock, Block quantityBlock)
         {
-            return !shipDateBlock.isNull(position) && shipDateBlock.getSlice(position).compareTo(MIN_SHIP_DATE) >= 0 &&
-                    !shipDateBlock.isNull(position) && shipDateBlock.getSlice(position).compareTo(MAX_SHIP_DATE) < 0 &&
-                    !discountBlock.isNull(position) && discountBlock.getDouble(position) >= 0.05 &&
-                    !discountBlock.isNull(position) && discountBlock.getDouble(position) <= 0.07 &&
-                    !quantityBlock.isNull(position) && quantityBlock.getLong(position) < 24;
+            return !shipDateBlock.isNull(position) && VARCHAR.getSlice(shipDateBlock, position).compareTo(MIN_SHIP_DATE) >= 0 &&
+                    !shipDateBlock.isNull(position) && VARCHAR.getSlice(shipDateBlock, position).compareTo(MAX_SHIP_DATE) < 0 &&
+                    !discountBlock.isNull(position) && DOUBLE.getDouble(discountBlock, position) >= 0.05 &&
+                    !discountBlock.isNull(position) && DOUBLE.getDouble(discountBlock, position) <= 0.07 &&
+                    !quantityBlock.isNull(position) && BIGINT.getLong(quantityBlock, position) < 24;
         }
     }
 

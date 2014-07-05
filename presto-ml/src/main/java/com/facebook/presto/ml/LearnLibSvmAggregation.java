@@ -31,6 +31,7 @@ import java.util.List;
 
 import static com.facebook.presto.ml.type.ClassifierType.CLASSIFIER;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
+import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.type.UnknownType.UNKNOWN;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -157,23 +158,23 @@ public class LearnLibSvmAggregation
             Block block = page.getBlock(labelChannel);
             for (int position = 0; position < block.getPositionCount(); position++) {
                 if (labelIsLong) {
-                    labels.add((double) block.getLong(position));
+                    labels.add((double) BIGINT.getLong(block, position));
                 }
                 else {
-                    labels.add(block.getDouble(position));
+                    labels.add(DOUBLE.getDouble(block, position));
                 }
             }
 
             block = page.getBlock(featuresChannel);
             for (int position = 0; position < block.getPositionCount(); position++) {
-                FeatureVector featureVector = ModelUtils.jsonToFeatures(block.getSlice(position));
+                FeatureVector featureVector = ModelUtils.jsonToFeatures(VARCHAR.getSlice(block, position));
                 rowsSize += featureVector.getEstimatedSize();
                 rows.add(featureVector);
             }
 
             if (params == null) {
                 block = page.getBlock(paramsChannel);
-                params = LibSvmUtils.parseParameters(block.getSlice(0).toStringUtf8());
+                params = LibSvmUtils.parseParameters(VARCHAR.getSlice(block, 0).toStringUtf8());
             }
         }
 

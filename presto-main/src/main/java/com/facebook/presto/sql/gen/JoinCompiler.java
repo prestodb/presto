@@ -108,11 +108,11 @@ public class JoinCompiler
     }
 
     @VisibleForTesting
-    public LookupSourceFactory internalCompileLookupSourceFactory(List<? extends Type> types, List<Integer> joinChannels)
+    public LookupSourceFactory internalCompileLookupSourceFactory(List<Type> types, List<Integer> joinChannels)
     {
         DynamicClassLoader classLoader = new DynamicClassLoader(getClass().getClassLoader());
 
-        Class<? extends PagesHashStrategy> pagesHashStrategyClass = compilePagesHashStrategy(types.size(), joinChannels, classLoader);
+        Class<? extends PagesHashStrategy> pagesHashStrategyClass = compilePagesHashStrategy(types, joinChannels, classLoader);
 
         Class<? extends LookupSource> lookupSourceClass = IsolatedClass.isolateClass(
                 classLoader,
@@ -123,16 +123,16 @@ public class JoinCompiler
     }
 
     @VisibleForTesting
-    public PagesHashStrategyFactory compilePagesHashStrategy(int channelCount, List<Integer> joinChannels)
+    public PagesHashStrategyFactory compilePagesHashStrategy(List<Type> types, List<Integer> joinChannels)
     {
         DynamicClassLoader classLoader = new DynamicClassLoader(getClass().getClassLoader());
 
-        Class<? extends PagesHashStrategy> pagesHashStrategyClass = compilePagesHashStrategy(channelCount, joinChannels, classLoader);
+        Class<? extends PagesHashStrategy> pagesHashStrategyClass = compilePagesHashStrategy(types, joinChannels, classLoader);
 
         return new PagesHashStrategyFactory(pagesHashStrategyClass);
     }
 
-    private Class<? extends PagesHashStrategy> compilePagesHashStrategy(int channelCount, List<Integer> joinChannels, DynamicClassLoader classLoader)
+    private Class<? extends PagesHashStrategy> compilePagesHashStrategy(List<Type> types, List<Integer> joinChannels, DynamicClassLoader classLoader)
     {
         ClassDefinition classDefinition = new ClassDefinition(new CompilerContext(bootstrapMethod),
                 a(PUBLIC, FINAL),
@@ -142,12 +142,14 @@ public class JoinCompiler
 
         // declare fields
         List<FieldDefinition> channelFields = new ArrayList<>();
-        for (int i = 0; i < channelCount; i++) {
+        for (int i = 0; i < types.size(); i++) {
             FieldDefinition channelField = classDefinition.declareField(a(PRIVATE, FINAL), "channel_" + i, type(List.class, com.facebook.presto.spi.block.Block.class));
             channelFields.add(channelField);
         }
+        List<Type> joinChannelTypes = new ArrayList<>();
         List<FieldDefinition> joinChannelFields = new ArrayList<>();
         for (int i = 0; i < joinChannels.size(); i++) {
+            joinChannelTypes.add(types.get(joinChannels.get(i)));
             FieldDefinition channelField = classDefinition.declareField(a(PRIVATE, FINAL), "joinChannel_" + i, type(List.class, com.facebook.presto.spi.block.Block.class));
             joinChannelFields.add(channelField);
         }
@@ -155,9 +157,9 @@ public class JoinCompiler
         generateConstructor(classDefinition, joinChannels, channelFields, joinChannelFields);
         generateGetChannelCountMethod(classDefinition, channelFields);
         generateAppendToMethod(classDefinition, channelFields);
-        generateHashPositionMethod(classDefinition, joinChannelFields);
-        generatePositionEqualsRowMethod(classDefinition, joinChannelFields);
-        generatePositionEqualsPositionMethod(classDefinition, joinChannelFields);
+        generateHashPositionMethod(classDefinition, joinChannelTypes, joinChannelFields);
+        generatePositionEqualsRowMethod(classDefinition, joinChannelTypes, joinChannelFields);
+        generatePositionEqualsPositionMethod(classDefinition, joinChannelTypes, joinChannelFields);
 
         Class<? extends PagesHashStrategy> pagesHashStrategyClass = defineClass(classDefinition, PagesHashStrategy.class, classLoader);
         return pagesHashStrategyClass;
@@ -241,7 +243,7 @@ public class JoinCompiler
         appendToBody.ret();
     }
 
-    private void generateHashPositionMethod(ClassDefinition classDefinition, List<FieldDefinition> joinChannelFields)
+    private void generateHashPositionMethod(ClassDefinition classDefinition, List<Type> joinChannelTypes, List<FieldDefinition> joinChannelFields)
     {
         MethodDefinition hashPositionMethod = classDefinition.declareMethod(new CompilerContext(bootstrapMethod),
                 a(PUBLIC),
@@ -253,19 +255,27 @@ public class JoinCompiler
         LocalVariableDefinition resultVariable = hashPositionMethod.getCompilerContext().declareVariable(int.class, "result");
         hashPositionMethod.getBody().push(0).putVariable(resultVariable);
 
-        for (FieldDefinition joinChannelField : joinChannelFields) {
+        for (int index = 0; index < joinChannelTypes.size(); index++) {
+            Type joinChannelType = joinChannelTypes.get(index);
+            FieldDefinition joinChannelField = joinChannelFields.get(index);
             hashPositionMethod
                     .getBody()
                     .getVariable(resultVariable)
                     .push(31)
                     .append(OpCodes.IMUL)
+                    .invokeStatic(joinChannelType.getClass(), "getInstance", joinChannelType.getClass())
                     .pushThis()
                     .getField(joinChannelField)
                     .getVariable("blockIndex")
                     .invokeInterface(List.class, "get", Object.class, int.class)
                     .checkCast(com.facebook.presto.spi.block.Block.class)
                     .getVariable("blockPosition")
-                    .invokeInterface(com.facebook.presto.spi.block.Block.class, "hash", int.class, int.class)
+                    .invokeVirtual(
+                            joinChannelType.getClass(),
+                            "hash",
+                            int.class,
+                            com.facebook.presto.spi.block.Block.class,
+                            int.class)
                     .append(OpCodes.IADD)
                     .putVariable(resultVariable);
         }
@@ -276,7 +286,7 @@ public class JoinCompiler
                 .retInt();
     }
 
-    private void generatePositionEqualsRowMethod(ClassDefinition classDefinition, List<FieldDefinition> joinChannelFields)
+    private void generatePositionEqualsRowMethod(ClassDefinition classDefinition, List<Type> joinChannelTypes, List<FieldDefinition> joinChannelFields)
     {
         MethodDefinition hashPositionMethod = classDefinition.declareMethod(new CompilerContext(bootstrapMethod),
                 a(PUBLIC),
@@ -287,10 +297,12 @@ public class JoinCompiler
                 arg("rightPosition", int.class),
                 arg("rightBlocks", com.facebook.presto.spi.block.Block[].class));
 
-        for (int index = 0; index < joinChannelFields.size(); index++) {
+        for (int index = 0; index < joinChannelTypes.size(); index++) {
+            Type joinChannelType = joinChannelTypes.get(index);
             LabelNode checkNextField = new LabelNode("checkNextField");
             hashPositionMethod
                     .getBody()
+                    .invokeStatic(joinChannelType.getClass(), "getInstance", joinChannelType.getClass())
                     .pushThis()
                     .getField(joinChannelFields.get(index))
                     .getVariable("leftBlockIndex")
@@ -301,7 +313,13 @@ public class JoinCompiler
                     .push(index)
                     .getObjectArrayElement()
                     .getVariable("rightPosition")
-                    .invokeInterface(com.facebook.presto.spi.block.Block.class, "equalTo", boolean.class, int.class, com.facebook.presto.spi.block.Block.class, int.class)
+                    .invokeVirtual(joinChannelType.getClass(),
+                            "equalTo",
+                            boolean.class,
+                            com.facebook.presto.spi.block.Block.class,
+                            int.class,
+                            com.facebook.presto.spi.block.Block.class,
+                            int.class)
                     .ifTrueGoto(checkNextField)
                     .push(false)
                     .retBoolean()
@@ -314,7 +332,7 @@ public class JoinCompiler
                 .retInt();
     }
 
-    private void generatePositionEqualsPositionMethod(ClassDefinition classDefinition, List<FieldDefinition> joinChannelFields)
+    private void generatePositionEqualsPositionMethod(ClassDefinition classDefinition, List<Type> joinChannelTypes, List<FieldDefinition> joinChannelFields)
     {
         MethodDefinition hashPositionMethod = classDefinition.declareMethod(new CompilerContext(bootstrapMethod),
                 a(PUBLIC),
@@ -325,10 +343,13 @@ public class JoinCompiler
                 arg("rightBlockIndex", int.class),
                 arg("rightBlockPosition", int.class));
 
-        for (FieldDefinition joinChannelField : joinChannelFields) {
+        for (int i = 0; i < joinChannelTypes.size(); i++) {
+            Type joinChannelType = joinChannelTypes.get(i);
+            FieldDefinition joinChannelField = joinChannelFields.get(i);
             LabelNode checkNextField = new LabelNode("checkNextField");
             hashPositionMethod
                     .getBody()
+                    .invokeStatic(joinChannelType.getClass(), "getInstance", joinChannelType.getClass())
                     .pushThis()
                     .getField(joinChannelField)
                     .getVariable("leftBlockIndex")
@@ -341,7 +362,14 @@ public class JoinCompiler
                     .invokeInterface(List.class, "get", Object.class, int.class)
                     .checkCast(com.facebook.presto.spi.block.Block.class)
                     .getVariable("rightBlockPosition")
-                    .invokeInterface(com.facebook.presto.spi.block.Block.class, "equalTo", boolean.class, int.class, com.facebook.presto.spi.block.Block.class, int.class)
+                    .invokeVirtual(
+                            joinChannelType.getClass(),
+                            "equalTo",
+                            boolean.class,
+                            com.facebook.presto.spi.block.Block.class,
+                            int.class,
+                            com.facebook.presto.spi.block.Block.class,
+                            int.class)
                     .ifTrueGoto(checkNextField)
                     .push(false)
                     .retBoolean()

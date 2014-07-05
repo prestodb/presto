@@ -17,6 +17,7 @@ import com.facebook.presto.block.rle.RunLengthBlockEncoding;
 import com.facebook.presto.block.rle.RunLengthEncodedBlock;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockEncoding;
+import com.facebook.presto.spi.type.Type;
 import io.airlift.slice.SliceOutput;
 
 import static com.google.common.base.Preconditions.checkNotNull;
@@ -47,11 +48,12 @@ public class RunLengthEncoder
             encoding = new RunLengthBlockEncoding(block.getEncoding());
         }
 
+        Type type = block.getType();
         for (int position = 0; position < block.getPositionCount(); position++) {
             if (lastValue == null) {
                 lastValue = block.getSingleValueBlock(position);
             }
-            else if (!lastValue.equalTo(0, block, position)) {
+            else if (!type.equalTo(lastValue, 0, block, position)) {
                 writeBlock();
                 lastValue = block.getSingleValueBlock(position);
             }
