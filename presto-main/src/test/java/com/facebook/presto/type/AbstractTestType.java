@@ -77,16 +77,17 @@ public abstract class AbstractTestType
                 nullsBlockBuilder.appendNull();
             }
             else if (type.getJavaType() == boolean.class) {
-                nullsBlockBuilder.appendBoolean(type.getBoolean(testBlock, position));
+                type.writeBoolean(nullsBlockBuilder, type.getBoolean(testBlock, position));
             }
             else if (type.getJavaType() == long.class) {
-                nullsBlockBuilder.appendLong(type.getLong(testBlock, position));
+                type.writeLong(nullsBlockBuilder, type.getLong(testBlock, position));
             }
             else if (type.getJavaType() == double.class) {
-                nullsBlockBuilder.appendDouble(type.getDouble(testBlock, position));
+                type.writeDouble(nullsBlockBuilder, type.getDouble(testBlock, position));
             }
             else if (type.getJavaType() == Slice.class) {
-                nullsBlockBuilder.appendSlice(type.getSlice(testBlock, position));
+                Slice slice = type.getSlice(testBlock, position);
+                type.writeSlice(nullsBlockBuilder, slice, 0, slice.length());
             }
             else {
                 throw new RuntimeException("Unsupported Java type " + type.getJavaType());
@@ -121,7 +122,7 @@ public abstract class AbstractTestType
         assertPositionValue(block.getRegion(position, block.getPositionCount() - position), 0, expectedStackValue, hash, expectedObjectValue);
 
         BlockBuilder blockBuilder = type.createBlockBuilder(new BlockBuilderStatus());
-        block.appendTo(position, blockBuilder);
+        type.appendTo(block, position, blockBuilder);
         assertPositionValue(blockBuilder.build(), 0, expectedStackValue, hash, expectedObjectValue);
     }
 
@@ -383,20 +384,25 @@ public abstract class AbstractTestType
     {
         BlockBuilder blockBuilder = type.createBlockBuilder(new BlockBuilderStatus());
 
+        Class<?> javaType = type.getJavaType();
         if (value == null) {
             blockBuilder.appendNull();
         }
-        else if (type.getJavaType() == boolean.class) {
-            blockBuilder.appendBoolean((Boolean) value);
+        else if (javaType == boolean.class) {
+            type.writeBoolean(blockBuilder, (Boolean) value);
         }
-        else if (type.getJavaType() == long.class) {
-            blockBuilder.appendLong((Long) value);
+        else if (javaType == long.class) {
+            type.writeLong(blockBuilder, (Long) value);
         }
-        else if (type.getJavaType() == double.class) {
-            blockBuilder.appendDouble((Double) value);
+        else if (javaType == double.class) {
+            type.writeDouble(blockBuilder, (Double) value);
         }
-        else if (type.getJavaType() == Slice.class) {
-            blockBuilder.appendSlice((Slice) value);
+        else if (javaType == Slice.class) {
+            Slice slice = (Slice) value;
+            type.writeSlice(blockBuilder, slice, 0, slice.length());
+        }
+        else {
+            throw new UnsupportedOperationException("not yet implemented: " + javaType);
         }
         return blockBuilder.build();
     }
@@ -423,23 +429,25 @@ public abstract class AbstractTestType
     private Block toBlock(Object value)
     {
         BlockBuilder blockBuilder = type.createBlockBuilder(new BlockBuilderStatus());
+        Class<?> javaType = type.getJavaType();
         if (value == null) {
             blockBuilder.appendNull();
         }
-        else if (value instanceof Boolean) {
-            blockBuilder.appendBoolean((Boolean) value);
+        else if (javaType == boolean.class) {
+            type.writeBoolean(blockBuilder, (Boolean) value);
         }
-        else if (value instanceof Long) {
-            blockBuilder.appendLong((Long) value);
+        else if (javaType == long.class) {
+            type.writeLong(blockBuilder, (Long) value);
         }
-        else if (value instanceof Double) {
-            blockBuilder.appendDouble((Double) value);
+        else if (javaType == double.class) {
+            type.writeDouble(blockBuilder, (Double) value);
         }
-        else if (value instanceof Slice) {
-            blockBuilder.appendSlice((Slice) value);
+        else if (javaType == Slice.class) {
+            Slice slice = (Slice) value;
+            type.writeSlice(blockBuilder, slice, 0, slice.length());
         }
         else {
-            throw new RuntimeException("Unsupported value type " + value.getClass());
+            throw new UnsupportedOperationException("not yet implemented: " + javaType);
         }
         return blockBuilder.build();
     }

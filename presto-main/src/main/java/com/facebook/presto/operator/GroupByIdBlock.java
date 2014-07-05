@@ -115,9 +115,9 @@ public class GroupByIdBlock
     }
 
     @Override
-    public void appendSliceTo(int position, int offset, int length, BlockBuilder blockBuilder)
+    public void writeBytesTo(int position, int offset, int length, BlockBuilder blockBuilder)
     {
-        block.appendSliceTo(position, offset, length, blockBuilder);
+        block.writeBytesTo(position, offset, length, blockBuilder);
     }
 
     @Override
@@ -148,12 +148,6 @@ public class GroupByIdBlock
     public boolean isNull(int position)
     {
         return block.isNull(position);
-    }
-
-    @Override
-    public void appendTo(int position, BlockBuilder blockBuilder)
-    {
-        block.appendTo(position, blockBuilder);
     }
 
     @Override

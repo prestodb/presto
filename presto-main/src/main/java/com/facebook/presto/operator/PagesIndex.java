@@ -156,8 +156,9 @@ public class PagesIndex
             // append the row
             for (int i = 0; i < outputChannels.length; i++) {
                 int outputChannel = outputChannels[i];
+                Type type = types.get(outputChannel);
                 Block block = this.channels[outputChannel].get(blockIndex);
-                block.appendTo(blockPosition, pageBuilder.getBlockBuilder(i));
+                type.appendTo(block, blockPosition, pageBuilder.getBlockBuilder(i));
             }
 
             position++;
@@ -170,9 +171,10 @@ public class PagesIndex
     {
         long pageAddress = valueAddresses.getLong(position);
 
+        Type type = types.get(channel);
         Block block = channels[channel].get(decodeSliceIndex(pageAddress));
         int blockPosition = decodePosition(pageAddress);
-        block.appendTo(blockPosition, output);
+        type.appendTo(block, blockPosition, output);
     }
 
     public boolean isNull(int channel, int position)

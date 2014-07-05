@@ -27,6 +27,7 @@
 package com.facebook.presto.operator;
 
 import com.facebook.presto.spi.block.Block;
+import com.facebook.presto.spi.type.Type;
 
 // This class exists as template for code generation and for testing
 public class TwoChannelJoinProbe
@@ -44,6 +45,8 @@ public class TwoChannelJoinProbe
 
     private final LookupSource lookupSource;
     private final int positionCount;
+    private final Type typeA;
+    private final Type typeB;
     private final Block blockA;
     private final Block blockB;
     private final Block probeBlockA;
@@ -57,6 +60,8 @@ public class TwoChannelJoinProbe
         this.positionCount = page.getPositionCount();
         this.blockA = page.getBlock(0);
         this.blockB = page.getBlock(1);
+        this.typeA = blockA.getType();
+        this.typeB = blockB.getType();
         this.probeBlockA = blockA;
         this.probeBlockB = blockB;
         this.probeBlocks = new Block[2];
@@ -73,8 +78,8 @@ public class TwoChannelJoinProbe
     @Override
     public void appendTo(PageBuilder pageBuilder)
     {
-        blockA.appendTo(position, pageBuilder.getBlockBuilder(0));
-        blockB.appendTo(position, pageBuilder.getBlockBuilder(1));
+        typeA.appendTo(blockA, position, pageBuilder.getBlockBuilder(0));
+        typeB.appendTo(blockB, position, pageBuilder.getBlockBuilder(1));
     }
 
     @Override

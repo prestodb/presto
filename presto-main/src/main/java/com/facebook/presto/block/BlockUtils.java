@@ -30,30 +30,37 @@ import static com.facebook.presto.spi.type.BigintType.BIGINT;
 
 public final class BlockUtils
 {
-    private BlockUtils() {}
+    private BlockUtils()
+    {
+    }
 
-    public static void appendObject(BlockBuilder blockBuilder, Object value)
+    public static void appendObject(Type type, BlockBuilder blockBuilder, Object value)
     {
         if (value == null) {
             blockBuilder.appendNull();
+            return;
         }
-        else if (value instanceof Boolean) {
-            blockBuilder.appendBoolean((Boolean) value);
+        if (type.getJavaType() == boolean.class) {
+            type.writeBoolean(blockBuilder, (Boolean) value);
         }
-        else if (value instanceof Double || value instanceof Float) {
-            blockBuilder.appendDouble(((Number) value).doubleValue());
+        else if (type.getJavaType() == double.class) {
+            type.writeDouble(blockBuilder, ((Number) value).doubleValue());
         }
-        else if (value instanceof Number) {
-            blockBuilder.appendLong(((Number) value).longValue());
+        else if (type.getJavaType() == long.class) {
+            type.writeLong(blockBuilder, ((Number) value).longValue());
         }
-        else if (value instanceof byte[]) {
-            blockBuilder.appendSlice(Slices.wrappedBuffer((byte[]) value));
-        }
-        else if (value instanceof String) {
-            blockBuilder.appendSlice(Slices.utf8Slice((String) value));
-        }
-        else if (value instanceof Slice) {
-            blockBuilder.appendSlice((Slice) value);
+        else if (type.getJavaType() == Slice.class) {
+            Slice slice;
+            if (value instanceof byte[]) {
+                slice = Slices.wrappedBuffer((byte[]) value);
+            }
+            else if (value instanceof String) {
+                slice = Slices.utf8Slice((String) value);
+            }
+            else {
+                slice = (Slice) value;
+            }
+            type.writeSlice(blockBuilder, slice, 0, slice.length());
         }
         else {
             throw new IllegalArgumentException("Unsupported type: " + value.getClass().getName());

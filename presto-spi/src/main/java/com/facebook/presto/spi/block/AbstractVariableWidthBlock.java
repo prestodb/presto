@@ -139,10 +139,10 @@ public abstract class AbstractVariableWidthBlock
     }
 
     @Override
-    public void appendSliceTo(int position, int offset, int length, BlockBuilder blockBuilder)
+    public void writeBytesTo(int position, int offset, int length, BlockBuilder blockBuilder)
     {
         checkReadablePosition(position);
-        blockBuilder.appendSlice(getRawSlice(), getPositionOffset(position) + offset, length);
+        blockBuilder.writeBytes(getRawSlice(), getPositionOffset(position) + offset, length);
     }
 
     @Override
@@ -165,17 +165,6 @@ public abstract class AbstractVariableWidthBlock
     {
         checkReadablePosition(position);
         return isEntryNull(position);
-    }
-
-    @Override
-    public void appendTo(int position, BlockBuilder blockBuilder)
-    {
-        if (isNull(position)) {
-            blockBuilder.appendNull();
-        }
-        else {
-            type.appendTo(this, position, blockBuilder);
-        }
     }
 
     private void checkReadablePosition(int position)

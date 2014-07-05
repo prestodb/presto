@@ -696,38 +696,35 @@ public class ExpressionCompiler
 
         ByteCodeNode body = compileExpression(callSiteBinder, projection, sourceIsCursor, context, getSessionByteCode);
 
+        Type projectionType = projection.getType();
         projectionMethod
                 .getBody()
                 .comment("boolean wasNull = false;")
                 .putVariable("wasNull", false)
+                .invokeStatic(projectionType.getClass(), "getInstance", projectionType.getClass())
                 .getVariable("output")
                 .append(body);
 
-        Type projectionType = projection.getType();
         Block notNullBlock = new Block(context);
         if (projectionType.getJavaType() == boolean.class) {
             notNullBlock
-                    .comment("output.append(<booleanStackValue>);")
-                    .invokeInterface(BlockBuilder.class, "appendBoolean", BlockBuilder.class, boolean.class)
-                    .pop();
+                    .comment("%s.writeBoolean(output, <booleanStackValue>);", projectionType.getName())
+                    .invokeVirtual(projectionType.getClass(), "writeBoolean", void.class, BlockBuilder.class, boolean.class);
         }
         else if (projectionType.getJavaType() == long.class) {
             notNullBlock
-                    .comment("output.append(<longStackValue>);")
-                    .invokeInterface(BlockBuilder.class, "appendLong", BlockBuilder.class, long.class)
-                    .pop();
+                    .comment("%s.writeLong(output, <booleanStackValue>);", projectionType.getName())
+                    .invokeVirtual(projectionType.getClass(), "writeLong", void.class, BlockBuilder.class, long.class);
         }
         else if (projectionType.getJavaType() == double.class) {
             notNullBlock
-                    .comment("output.append(<doubleStackValue>);")
-                    .invokeInterface(BlockBuilder.class, "appendDouble", BlockBuilder.class, double.class)
-                    .pop();
+                    .comment("%s.writeDouble(output, <booleanStackValue>);", projectionType.getName())
+                    .invokeVirtual(projectionType.getClass(), "writeDouble", void.class, BlockBuilder.class, double.class);
         }
         else if (projectionType.getJavaType() == Slice.class) {
             notNullBlock
-                    .comment("output.append(<sliceStackValue>);")
-                    .invokeInterface(BlockBuilder.class, "appendSlice", BlockBuilder.class, Slice.class)
-                    .pop();
+                    .comment("%s.writeSlice(output, <booleanStackValue>);", projectionType.getName())
+                    .invokeVirtual(projectionType.getClass(), "writeSlice", void.class, BlockBuilder.class, Slice.class);
         }
         else {
             throw new UnsupportedOperationException("Type " + projectionType + " can not be output yet");
@@ -737,6 +734,7 @@ public class ExpressionCompiler
                 .comment("output.appendNull();")
                 .pop(projectionType.getJavaType())
                 .invokeInterface(BlockBuilder.class, "appendNull", BlockBuilder.class)
+                .pop()
                 .pop();
 
         projectionMethod.getBody()

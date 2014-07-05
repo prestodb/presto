@@ -19,7 +19,6 @@ import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.block.BlockEncoding;
 import io.airlift.slice.DynamicSliceOutput;
-import io.airlift.slice.Slices;
 import org.testng.annotations.Test;
 
 import java.util.concurrent.ThreadLocalRandom;
@@ -32,12 +31,12 @@ public class TestSnappyBlockSerde
     @Test
     public void testRoundTrip()
     {
-        Block block = VARCHAR.createBlockBuilder(new BlockBuilderStatus())
-                .appendSlice(Slices.utf8Slice("alice"))
-                .appendSlice(Slices.utf8Slice("bob"))
-                .appendSlice(Slices.utf8Slice("charlie"))
-                .appendSlice(Slices.utf8Slice("dave"))
-                .build();
+        BlockBuilder blockBuilder = VARCHAR.createBlockBuilder(new BlockBuilderStatus());
+        VARCHAR.writeString(blockBuilder, "alice");
+        VARCHAR.writeString(blockBuilder, "bob");
+        VARCHAR.writeString(blockBuilder, "charlie");
+        VARCHAR.writeString(blockBuilder, "dave");
+        Block block = blockBuilder.build();
 
         DynamicSliceOutput compressedOutput = new DynamicSliceOutput(1024);
         Encoder encoder = BlocksFileEncoding.SNAPPY.createBlocksWriter(compressedOutput);
@@ -51,12 +50,12 @@ public class TestSnappyBlockSerde
     @Test
     public void testLotsOfStuff()
     {
-        Block block = VARCHAR.createBlockBuilder(new BlockBuilderStatus())
-                .appendSlice(Slices.utf8Slice("alice"))
-                .appendSlice(Slices.utf8Slice("bob"))
-                .appendSlice(Slices.utf8Slice("charlie"))
-                .appendSlice(Slices.utf8Slice("dave"))
-                .build();
+        BlockBuilder blockBuilder = VARCHAR.createBlockBuilder(new BlockBuilderStatus());
+        VARCHAR.writeString(blockBuilder, "alice");
+        VARCHAR.writeString(blockBuilder, "bob");
+        VARCHAR.writeString(blockBuilder, "charlie");
+        VARCHAR.writeString(blockBuilder, "dave");
+        Block block = blockBuilder.build();
 
         DynamicSliceOutput encoderOutput = new DynamicSliceOutput(1024);
         Encoder encoder = BlocksFileEncoding.SNAPPY.createBlocksWriter(encoderOutput);
@@ -69,7 +68,7 @@ public class TestSnappyBlockSerde
             int position = ThreadLocalRandom.current().nextInt(block.getPositionCount());
 
             // add to expected block
-            block.appendTo(position, expectedBlockBuilder);
+            VARCHAR.appendTo(block, position, expectedBlockBuilder);
 
             // create block with single value and add to encoder
             encoder.append(block.getSingleValueBlock(position));

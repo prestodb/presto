@@ -155,7 +155,7 @@ public class SampleOperator
 
                 if (repeats > 0) {
                     page.appendTo(position, pageBuilder);
-                    pageBuilder.getBlockBuilder(sampleWeightChannel).appendLong(repeats);
+                    BIGINT.writeLong(pageBuilder.getBlockBuilder(sampleWeightChannel), repeats);
                 }
 
                 position++;

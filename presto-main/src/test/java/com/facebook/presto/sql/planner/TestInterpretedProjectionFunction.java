@@ -192,7 +192,7 @@ public class TestInterpretedProjectionFunction
     private static Block createBlock(Type type, Object value)
     {
         BlockBuilder blockBuilder = type.createBlockBuilder(new BlockBuilderStatus());
-        BlockUtils.appendObject(blockBuilder, value);
+        BlockUtils.appendObject(type, blockBuilder, value);
         return blockBuilder.build();
     }
 }

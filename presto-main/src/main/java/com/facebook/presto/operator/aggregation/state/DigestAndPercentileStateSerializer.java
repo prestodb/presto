@@ -47,7 +47,7 @@ public class DigestAndPercentileStateSerializer
             sliceOutput.appendDouble(state.getPercentile());
 
             Slice slice = sliceOutput.slice();
-            out.appendSlice(slice);
+            VARCHAR.writeSlice(out, slice);
         }
     }
 

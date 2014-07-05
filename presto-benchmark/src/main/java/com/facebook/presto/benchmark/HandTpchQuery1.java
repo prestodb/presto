@@ -262,13 +262,13 @@ public class HandTpchQuery1
                         pageBuilder.getBlockBuilder(0).appendNull();
                     }
                     else {
-                        pageBuilder.getBlockBuilder(0).appendSlice(VARCHAR.getSlice(returnFlagBlock, position));
+                        VARCHAR.appendTo(returnFlagBlock, position, pageBuilder.getBlockBuilder(0));
                     }
                     if (lineStatusBlock.isNull(position)) {
                         pageBuilder.getBlockBuilder(1).appendNull();
                     }
                     else {
-                        pageBuilder.getBlockBuilder(1).appendSlice(VARCHAR.getSlice(lineStatusBlock, position));
+                        VARCHAR.appendTo(lineStatusBlock, position, pageBuilder.getBlockBuilder(1));
                     }
 
                     long quantity = BIGINT.getLong(quantityBlock, position);
@@ -285,35 +285,35 @@ public class HandTpchQuery1
                         pageBuilder.getBlockBuilder(2).appendNull();
                     }
                     else {
-                        pageBuilder.getBlockBuilder(2).appendLong(quantity);
+                        BIGINT.writeLong(pageBuilder.getBlockBuilder(2), quantity);
                     }
 
                     if (extendedPriceIsNull) {
                         pageBuilder.getBlockBuilder(3).appendNull();
                     }
                     else {
-                        pageBuilder.getBlockBuilder(3).appendDouble(extendedPrice);
+                        DOUBLE.writeDouble(pageBuilder.getBlockBuilder(3), extendedPrice);
                     }
 
                     if (extendedPriceIsNull || discountIsNull) {
                         pageBuilder.getBlockBuilder(4).appendNull();
                     }
                     else {
-                        pageBuilder.getBlockBuilder(4).appendDouble(extendedPrice * (1 - discount));
+                        DOUBLE.writeDouble(pageBuilder.getBlockBuilder(4), extendedPrice * (1 - discount));
                     }
 
                     if (extendedPriceIsNull || discountIsNull || taxIsNull) {
                         pageBuilder.getBlockBuilder(5).appendNull();
                     }
                     else {
-                        pageBuilder.getBlockBuilder(5).appendDouble(extendedPrice * (1 - discount) * (1 + tax));
+                        DOUBLE.writeDouble(pageBuilder.getBlockBuilder(5), extendedPrice * (1 - discount) * (1 + tax));
                     }
 
                     if (discountIsNull) {
                         pageBuilder.getBlockBuilder(6).appendNull();
                     }
                     else {
-                        pageBuilder.getBlockBuilder(6).appendDouble(discount);
+                        DOUBLE.writeDouble(pageBuilder.getBlockBuilder(6), discount);
                     }
                 }
             }

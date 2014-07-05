@@ -74,7 +74,7 @@ public interface Block
      * Appends the byte sequences at {@code offset} in the value at {@code position}
      * to {@code blockBuilder}.
      */
-    void appendSliceTo(int position, int offset, int length, BlockBuilder blockBuilder);
+    void writeBytesTo(int position, int offset, int length, BlockBuilder blockBuilder);
 
     /**
      * Is the byte sequences at {@code offset} in the value at {@code position} equal
@@ -95,11 +95,6 @@ public interface Block
      * in {@code otherBlock}.
      */
     int compareTo(int leftPosition, int leftOffset, int leftLength, Block rightBlock, int rightPosition, int rightOffset, int rightLength);
-
-    /**
-     * Appends the value at the specified position to the block builder.
-     */
-    void appendTo(int position, BlockBuilder blockBuilder);
 
     /**
      * Gets the value at the specified position as a single element block.

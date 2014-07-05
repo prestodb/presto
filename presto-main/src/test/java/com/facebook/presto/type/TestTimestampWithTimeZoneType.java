@@ -13,6 +13,8 @@
  */
 package com.facebook.presto.type;
 
+import com.facebook.presto.spi.block.Block;
+import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.type.SqlTimestampWithTimeZone;
 
@@ -26,20 +28,24 @@ public class TestTimestampWithTimeZoneType
 {
     public TestTimestampWithTimeZoneType()
     {
-        super(SqlTimestampWithTimeZone.class,
-                TIMESTAMP_WITH_TIME_ZONE.createBlockBuilder(new BlockBuilderStatus())
-                        .appendLong(packDateTimeWithZone(1111, getTimeZoneKeyForOffset(0)))
-                        .appendLong(packDateTimeWithZone(1111, getTimeZoneKeyForOffset(1)))
-                        .appendLong(packDateTimeWithZone(1111, getTimeZoneKeyForOffset(2)))
-                        .appendLong(packDateTimeWithZone(2222, getTimeZoneKeyForOffset(3)))
-                        .appendLong(packDateTimeWithZone(2222, getTimeZoneKeyForOffset(4)))
-                        .appendLong(packDateTimeWithZone(2222, getTimeZoneKeyForOffset(5)))
-                        .appendLong(packDateTimeWithZone(2222, getTimeZoneKeyForOffset(6)))
-                        .appendLong(packDateTimeWithZone(2222, getTimeZoneKeyForOffset(7)))
-                        .appendLong(packDateTimeWithZone(3333, getTimeZoneKeyForOffset(8)))
-                        .appendLong(packDateTimeWithZone(3333, getTimeZoneKeyForOffset(9)))
-                        .appendLong(packDateTimeWithZone(4444, getTimeZoneKeyForOffset(10)))
-                        .build());
+        super(SqlTimestampWithTimeZone.class, createTestBlock());
+    }
+
+    public static Block createTestBlock()
+    {
+        BlockBuilder blockBuilder = TIMESTAMP_WITH_TIME_ZONE.createBlockBuilder(new BlockBuilderStatus());
+        TIMESTAMP_WITH_TIME_ZONE.writeLong(blockBuilder, packDateTimeWithZone(1111, getTimeZoneKeyForOffset(0)));
+        TIMESTAMP_WITH_TIME_ZONE.writeLong(blockBuilder, packDateTimeWithZone(1111, getTimeZoneKeyForOffset(1)));
+        TIMESTAMP_WITH_TIME_ZONE.writeLong(blockBuilder, packDateTimeWithZone(1111, getTimeZoneKeyForOffset(2)));
+        TIMESTAMP_WITH_TIME_ZONE.writeLong(blockBuilder, packDateTimeWithZone(2222, getTimeZoneKeyForOffset(3)));
+        TIMESTAMP_WITH_TIME_ZONE.writeLong(blockBuilder, packDateTimeWithZone(2222, getTimeZoneKeyForOffset(4)));
+        TIMESTAMP_WITH_TIME_ZONE.writeLong(blockBuilder, packDateTimeWithZone(2222, getTimeZoneKeyForOffset(5)));
+        TIMESTAMP_WITH_TIME_ZONE.writeLong(blockBuilder, packDateTimeWithZone(2222, getTimeZoneKeyForOffset(6)));
+        TIMESTAMP_WITH_TIME_ZONE.writeLong(blockBuilder, packDateTimeWithZone(2222, getTimeZoneKeyForOffset(7)));
+        TIMESTAMP_WITH_TIME_ZONE.writeLong(blockBuilder, packDateTimeWithZone(3333, getTimeZoneKeyForOffset(8)));
+        TIMESTAMP_WITH_TIME_ZONE.writeLong(blockBuilder, packDateTimeWithZone(3333, getTimeZoneKeyForOffset(9)));
+        TIMESTAMP_WITH_TIME_ZONE.writeLong(blockBuilder, packDateTimeWithZone(4444, getTimeZoneKeyForOffset(10)));
+        return blockBuilder.build();
     }
 
     @Override

@@ -101,7 +101,7 @@ public final class UnknownType
     @Override
     public void appendTo(Block block, int position, BlockBuilder blockBuilder)
     {
-        throw new UnsupportedOperationException();
+        blockBuilder.appendNull();
     }
 
     @Override
@@ -142,6 +142,12 @@ public final class UnknownType
 
     @Override
     public Slice getSlice(Block block, int position)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public void writeSlice(BlockBuilder blockBuilder, Slice value)
     {
         throw new UnsupportedOperationException();
     }

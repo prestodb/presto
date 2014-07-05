@@ -13,6 +13,8 @@
  */
 package com.facebook.presto.type;
 
+import com.facebook.presto.spi.block.Block;
+import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.type.SqlVarbinary;
 import io.airlift.slice.Slice;
@@ -25,20 +27,24 @@ public class TestVarbinaryType
 {
     public TestVarbinaryType()
     {
-        super(SqlVarbinary.class,
-                VARBINARY.createBlockBuilder(new BlockBuilderStatus())
-                        .appendSlice(Slices.utf8Slice("apple"))
-                        .appendSlice(Slices.utf8Slice("apple"))
-                        .appendSlice(Slices.utf8Slice("apple"))
-                        .appendSlice(Slices.utf8Slice("banana"))
-                        .appendSlice(Slices.utf8Slice("banana"))
-                        .appendSlice(Slices.utf8Slice("banana"))
-                        .appendSlice(Slices.utf8Slice("banana"))
-                        .appendSlice(Slices.utf8Slice("banana"))
-                        .appendSlice(Slices.utf8Slice("cherry"))
-                        .appendSlice(Slices.utf8Slice("cherry"))
-                        .appendSlice(Slices.utf8Slice("date"))
-                        .build());
+        super(SqlVarbinary.class, createTestBlock());
+    }
+
+    public static Block createTestBlock()
+    {
+        BlockBuilder blockBuilder = VARBINARY.createBlockBuilder(new BlockBuilderStatus());
+        VARBINARY.writeSlice(blockBuilder, Slices.utf8Slice("apple"));
+        VARBINARY.writeSlice(blockBuilder, Slices.utf8Slice("apple"));
+        VARBINARY.writeSlice(blockBuilder, Slices.utf8Slice("apple"));
+        VARBINARY.writeSlice(blockBuilder, Slices.utf8Slice("banana"));
+        VARBINARY.writeSlice(blockBuilder, Slices.utf8Slice("banana"));
+        VARBINARY.writeSlice(blockBuilder, Slices.utf8Slice("banana"));
+        VARBINARY.writeSlice(blockBuilder, Slices.utf8Slice("banana"));
+        VARBINARY.writeSlice(blockBuilder, Slices.utf8Slice("banana"));
+        VARBINARY.writeSlice(blockBuilder, Slices.utf8Slice("cherry"));
+        VARBINARY.writeSlice(blockBuilder, Slices.utf8Slice("cherry"));
+        VARBINARY.writeSlice(blockBuilder, Slices.utf8Slice("date"));
+        return blockBuilder.build();
     }
 
     @Override

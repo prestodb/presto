@@ -154,7 +154,7 @@ public final class AggregationTestUtils
             Page page = pages[i];
             BlockBuilder blockBuilder = BOOLEAN.createBlockBuilder(new BlockBuilderStatus());
             for (int j = 0; j < page.getPositionCount(); j++) {
-                blockBuilder.appendBoolean(maskValue);
+                BOOLEAN.writeBoolean(blockBuilder, maskValue);
             }
             Block[] sourceBlocks = page.getBlocks();
             Block[] outputBlocks = new Block[sourceBlocks.length + 1]; // +1 for the single boolean output channel
@@ -319,7 +319,7 @@ public final class AggregationTestUtils
     {
         BlockBuilder blockBuilder = BIGINT.createBlockBuilder(new BlockBuilderStatus());
         for (int i = 0; i < positions; i++) {
-            blockBuilder.appendLong(groupId);
+            BIGINT.writeLong(blockBuilder, groupId);
         }
         return new GroupByIdBlock(groupId, blockBuilder.build());
     }

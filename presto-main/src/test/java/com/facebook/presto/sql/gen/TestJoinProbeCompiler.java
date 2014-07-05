@@ -27,6 +27,7 @@ import com.facebook.presto.operator.TaskContext;
 import com.facebook.presto.operator.ValuesOperator;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.block.Block;
+import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.gen.JoinCompiler.LookupSourceFactory;
 import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Ints;
@@ -92,7 +93,7 @@ public class TestJoinProbeCompiler
         LookupSource lookupSource = lookupSourceFactoryFactory.createLookupSource(addresses, ImmutableList.of(channel), operatorContext);
 
         JoinProbeCompiler joinProbeCompiler = new JoinProbeCompiler();
-        JoinProbeFactory probeFactory = joinProbeCompiler.internalCompileJoinProbe(1, Ints.asList(0));
+        JoinProbeFactory probeFactory = joinProbeCompiler.internalCompileJoinProbe(ImmutableList.<Type>of(VARCHAR), Ints.asList(0));
 
         Page page = SequencePageBuilder.createSequencePage(ImmutableList.of(VARCHAR), 10, 10);
         JoinProbe joinProbe = probeFactory.createJoinProbe(lookupSource, page);

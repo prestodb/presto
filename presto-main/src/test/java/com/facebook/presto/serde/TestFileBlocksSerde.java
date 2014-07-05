@@ -15,19 +15,19 @@ package com.facebook.presto.serde;
 
 import com.facebook.presto.block.BlockAssertions;
 import com.facebook.presto.spi.block.Block;
+import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.google.common.collect.ImmutableList;
 import com.google.common.io.OutputSupplier;
 import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.Slice;
-import io.airlift.slice.Slices;
 import org.testng.annotations.Test;
 
 import java.util.List;
 
 import static com.facebook.presto.serde.BlocksFileReader.readBlocks;
-import static com.facebook.presto.testing.TestingBlockEncodingManager.createTestingBlockEncodingManager;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
+import static com.facebook.presto.testing.TestingBlockEncodingManager.createTestingBlockEncodingManager;
 import static org.testng.Assert.assertEquals;
 
 public class TestFileBlocksSerde
@@ -46,12 +46,17 @@ public class TestFileBlocksSerde
             "charlie",
             "dave");
 
-    private final Block expectedBlock = VARCHAR.createBlockBuilder(new BlockBuilderStatus())
-            .appendSlice(Slices.utf8Slice("alice"))
-            .appendSlice(Slices.utf8Slice("bob"))
-            .appendSlice(Slices.utf8Slice("charlie"))
-            .appendSlice(Slices.utf8Slice("dave"))
-            .build();
+    private final Block expectedBlock;
+
+    public TestFileBlocksSerde()
+    {
+        BlockBuilder expectedBlockBuilder = VARCHAR.createBlockBuilder(new BlockBuilderStatus());
+        VARCHAR.writeString(expectedBlockBuilder, "alice");
+        VARCHAR.writeString(expectedBlockBuilder, "bob");
+        VARCHAR.writeString(expectedBlockBuilder, "charlie");
+        VARCHAR.writeString(expectedBlockBuilder, "dave");
+        expectedBlock = expectedBlockBuilder.build();
+    }
 
     @Test
     public void testRoundTrip()

@@ -97,7 +97,7 @@ public final class BlockAssertions
                 builder.appendNull();
             }
             else {
-                builder.appendSlice(Slices.utf8Slice(value));
+                VARCHAR.writeString(builder, value);
             }
         }
 
@@ -109,7 +109,7 @@ public final class BlockAssertions
         BlockBuilder builder = VARCHAR.createBlockBuilder(new BlockBuilderStatus());
 
         for (int i = start; i < end; i++) {
-            builder.appendSlice(Slices.utf8Slice(String.valueOf(i)));
+            VARCHAR.writeString(builder, String.valueOf(i));
         }
 
         return builder.build();
@@ -136,7 +136,7 @@ public final class BlockAssertions
                 builder.appendNull();
             }
             else {
-                builder.appendBoolean(value);
+                BOOLEAN.writeBoolean(builder, value);
             }
         }
 
@@ -149,7 +149,7 @@ public final class BlockAssertions
         BlockBuilder builder = BIGINT.createBlockBuilder(new BlockBuilderStatus());
 
         for (int value : values) {
-            builder.appendLong((long) value);
+            BIGINT.writeLong(builder, (long) value);
         }
 
         return builder.build();
@@ -171,7 +171,7 @@ public final class BlockAssertions
                 builder.appendNull();
             }
             else {
-                builder.appendLong(value);
+                BIGINT.writeLong(builder, value);
             }
         }
 
@@ -183,7 +183,7 @@ public final class BlockAssertions
         BlockBuilder builder = BIGINT.createBlockBuilder(new BlockBuilderStatus());
 
         for (int i = start; i < end; i++) {
-            builder.appendLong(i);
+            BIGINT.writeLong(builder, i);
         }
 
         return builder.build();
@@ -194,7 +194,7 @@ public final class BlockAssertions
         BlockBuilder builder = BOOLEAN.createBlockBuilder(new BlockBuilderStatus());
 
         for (int i = start; i < end; i++) {
-            builder.appendBoolean(i % 2 == 0);
+            BOOLEAN.writeBoolean(builder, i % 2 == 0);
         }
 
         return builder.build();
@@ -216,7 +216,7 @@ public final class BlockAssertions
                 builder.appendNull();
             }
             else {
-                builder.appendDouble(value);
+                DOUBLE.writeDouble(builder, value);
             }
         }
 
@@ -228,7 +228,7 @@ public final class BlockAssertions
         BlockBuilder builder = DOUBLE.createBlockBuilder(new BlockBuilderStatus());
 
         for (int i = start; i < end; i++) {
-            builder.appendDouble((double) i);
+            DOUBLE.writeDouble(builder, (double) i);
         }
 
         return builder.build();
@@ -242,40 +242,44 @@ public final class BlockAssertions
     public static class BlockIterableBuilder
     {
         private final List<Block> blocks = new ArrayList<>();
+        private final Type type;
         private BlockBuilder blockBuilder;
 
         private BlockIterableBuilder(Type type)
         {
+            this.type = type;
             blockBuilder = type.createBlockBuilder(new BlockBuilderStatus());
         }
 
         public BlockIterableBuilder append(Slice value)
         {
-            blockBuilder.appendSlice(value);
+            type.writeSlice(blockBuilder, value, 0, value.length());
             return this;
         }
 
         public BlockIterableBuilder append(double value)
         {
-            blockBuilder.appendDouble(value);
+            type.writeDouble(blockBuilder, value);
             return this;
         }
 
         public BlockIterableBuilder append(long value)
         {
-            blockBuilder.appendLong(value);
+            type.writeLong(blockBuilder, value);
             return this;
         }
 
         public BlockIterableBuilder append(String value)
         {
-            blockBuilder.appendSlice(Slices.utf8Slice(value));
+            Slice slice = Slices.utf8Slice(value);
+            type.writeSlice(blockBuilder, slice, 0, slice.length());
             return this;
         }
 
         public BlockIterableBuilder append(byte[] value)
         {
-            blockBuilder.appendSlice(Slices.wrappedBuffer(value));
+            Slice slice = Slices.wrappedBuffer(value);
+            type.writeSlice(blockBuilder, slice, 0, slice.length());
             return this;
         }
 

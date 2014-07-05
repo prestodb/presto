@@ -207,7 +207,7 @@ public class LearnLibSvmAggregation
             model.train(dataset);
 
             BlockBuilder builder = getFinalType().createBlockBuilder(new BlockBuilderStatus());
-            builder.appendSlice(ModelUtils.serialize(model));
+            getFinalType().writeSlice(builder, ModelUtils.serialize(model));
 
             return builder.build();
         }

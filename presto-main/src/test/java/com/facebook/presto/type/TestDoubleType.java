@@ -13,6 +13,8 @@
  */
 package com.facebook.presto.type;
 
+import com.facebook.presto.spi.block.Block;
+import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
 
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
@@ -22,20 +24,24 @@ public class TestDoubleType
 {
     public TestDoubleType()
     {
-        super(Double.class,
-                DOUBLE.createBlockBuilder(new BlockBuilderStatus())
-                        .appendDouble(11.11)
-                        .appendDouble(11.11)
-                        .appendDouble(11.11)
-                        .appendDouble(22.22)
-                        .appendDouble(22.22)
-                        .appendDouble(22.22)
-                        .appendDouble(22.22)
-                        .appendDouble(22.22)
-                        .appendDouble(33.33)
-                        .appendDouble(33.33)
-                        .appendDouble(44.44)
-                        .build());
+        super(Double.class, createTestBlock());
+    }
+
+    public static Block createTestBlock()
+    {
+        BlockBuilder blockBuilder = DOUBLE.createBlockBuilder(new BlockBuilderStatus());
+        DOUBLE.writeDouble(blockBuilder, 11.11);
+        DOUBLE.writeDouble(blockBuilder, 11.11);
+        DOUBLE.writeDouble(blockBuilder, 11.11);
+        DOUBLE.writeDouble(blockBuilder, 22.22);
+        DOUBLE.writeDouble(blockBuilder, 22.22);
+        DOUBLE.writeDouble(blockBuilder, 22.22);
+        DOUBLE.writeDouble(blockBuilder, 22.22);
+        DOUBLE.writeDouble(blockBuilder, 22.22);
+        DOUBLE.writeDouble(blockBuilder, 33.33);
+        DOUBLE.writeDouble(blockBuilder, 33.33);
+        DOUBLE.writeDouble(blockBuilder, 44.44);
+        return blockBuilder.build();
     }
 
     @Override

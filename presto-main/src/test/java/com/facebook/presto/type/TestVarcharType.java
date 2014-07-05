@@ -13,6 +13,8 @@
  */
 package com.facebook.presto.type;
 
+import com.facebook.presto.spi.block.Block;
+import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
@@ -24,20 +26,24 @@ public class TestVarcharType
 {
     public TestVarcharType()
     {
-        super(String.class,
-                VARCHAR.createBlockBuilder(new BlockBuilderStatus())
-                        .appendSlice(Slices.utf8Slice("apple"))
-                        .appendSlice(Slices.utf8Slice("apple"))
-                        .appendSlice(Slices.utf8Slice("apple"))
-                        .appendSlice(Slices.utf8Slice("banana"))
-                        .appendSlice(Slices.utf8Slice("banana"))
-                        .appendSlice(Slices.utf8Slice("banana"))
-                        .appendSlice(Slices.utf8Slice("banana"))
-                        .appendSlice(Slices.utf8Slice("banana"))
-                        .appendSlice(Slices.utf8Slice("cherry"))
-                        .appendSlice(Slices.utf8Slice("cherry"))
-                        .appendSlice(Slices.utf8Slice("date"))
-                        .build());
+        super(String.class, createTestBlock());
+    }
+
+    public static Block createTestBlock()
+    {
+        BlockBuilder blockBuilder = VARCHAR.createBlockBuilder(new BlockBuilderStatus());
+        VARCHAR.writeString(blockBuilder, "apple");
+        VARCHAR.writeString(blockBuilder, "apple");
+        VARCHAR.writeString(blockBuilder, "apple");
+        VARCHAR.writeString(blockBuilder, "banana");
+        VARCHAR.writeString(blockBuilder, "banana");
+        VARCHAR.writeString(blockBuilder, "banana");
+        VARCHAR.writeString(blockBuilder, "banana");
+        VARCHAR.writeString(blockBuilder, "banana");
+        VARCHAR.writeString(blockBuilder, "cherry");
+        VARCHAR.writeString(blockBuilder, "cherry");
+        VARCHAR.writeString(blockBuilder, "date");
+        return blockBuilder.build();
     }
 
     @Override

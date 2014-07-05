@@ -266,7 +266,11 @@ public class StateCompiler
             serializerBody.comment("out.appendSlice(slice);")
                     .getVariable("out")
                     .getVariable(slice)
-                    .invokeInterface(BlockBuilder.class, "appendSlice", BlockBuilder.class, Slice.class);
+                    .push(0)
+                    .push(size)
+                    .invokeInterface(BlockBuilder.class, "writeBytes", BlockBuilder.class, Slice.class, int.class, int.class)
+                    .invokeInterface(BlockBuilder.class, "closeEntry", BlockBuilder.class)
+                    .pop();
         }
         serializerBody.ret();
     }

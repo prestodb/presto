@@ -15,8 +15,8 @@ package com.facebook.presto.block.rle;
 
 import com.facebook.presto.block.AbstractTestBlock;
 import com.facebook.presto.spi.block.Block;
+import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
-import io.airlift.slice.Slices;
 
 import static com.facebook.presto.block.BlockAssertions.createStringsBlock;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
@@ -27,11 +27,10 @@ public class TestRunLengthEncodedBlock
     @Override
     protected Block createTestBlock()
     {
-        Block value = VARCHAR.createBlockBuilder(new BlockBuilderStatus())
-                .appendSlice(Slices.utf8Slice("cherry"))
-                .build();
+        BlockBuilder blockBuilder = VARCHAR.createBlockBuilder(new BlockBuilderStatus());
+        VARCHAR.writeString(blockBuilder, "cherry");
 
-        return new RunLengthEncodedBlock(value, 11);
+        return new RunLengthEncodedBlock(blockBuilder.build(), 11);
     }
 
     @Override

@@ -94,7 +94,7 @@ public class JoinProbeCompiler
                 public HashJoinOperatorFactoryFactory load(JoinOperatorCacheKey key)
                         throws Exception
                 {
-                    return internalCompileJoinOperatorFactory(key.getTypes().size(), key.getProbeChannels());
+                    return internalCompileJoinOperatorFactory(key.getTypes(), key.getProbeChannels());
                 }
             });
 
@@ -113,10 +113,10 @@ public class JoinProbeCompiler
         }
     }
 
-    public HashJoinOperatorFactoryFactory internalCompileJoinOperatorFactory(int channelCount, List<Integer> probeJoinChannel)
+    public HashJoinOperatorFactoryFactory internalCompileJoinOperatorFactory(List<Type> types, List<Integer> probeJoinChannel)
     {
         DynamicClassLoader classLoader = new DynamicClassLoader(getClass().getClassLoader());
-        Class<? extends JoinProbe> joinProbeClass = compileJoinProbe(channelCount, probeJoinChannel, classLoader);
+        Class<? extends JoinProbe> joinProbeClass = compileJoinProbe(types, probeJoinChannel, classLoader);
 
         ClassDefinition classDefinition = new ClassDefinition(new CompilerContext(bootstrapMethod),
                 a(PUBLIC, FINAL),
@@ -165,16 +165,16 @@ public class JoinProbeCompiler
     }
 
     @VisibleForTesting
-    public JoinProbeFactory internalCompileJoinProbe(int channelCount, List<Integer> probeChannels)
+    public JoinProbeFactory internalCompileJoinProbe(List<Type> types, List<Integer> probeChannels)
     {
         DynamicClassLoader classLoader = new DynamicClassLoader(getClass().getClassLoader());
 
-        Class<? extends JoinProbe> joinProbeClass = compileJoinProbe(channelCount, probeChannels, classLoader);
+        Class<? extends JoinProbe> joinProbeClass = compileJoinProbe(types, probeChannels, classLoader);
 
         return new ReflectionJoinProbeFactory(joinProbeClass);
     }
 
-    private Class<? extends JoinProbe> compileJoinProbe(int channelCount, List<Integer> probeChannels, DynamicClassLoader classLoader)
+    private Class<? extends JoinProbe> compileJoinProbe(List<Type> types, List<Integer> probeChannels, DynamicClassLoader classLoader)
     {
         ClassDefinition classDefinition = new ClassDefinition(new CompilerContext(bootstrapMethod),
                 a(PUBLIC, FINAL),
@@ -186,7 +186,7 @@ public class JoinProbeCompiler
         FieldDefinition lookupSourceField = classDefinition.declareField(a(PRIVATE, FINAL), "lookupSource", LookupSource.class);
         FieldDefinition positionCountField = classDefinition.declareField(a(PRIVATE, FINAL), "positionCount", int.class);
         List<FieldDefinition> blockFields = new ArrayList<>();
-        for (int i = 0; i < channelCount; i++) {
+        for (int i = 0; i < types.size(); i++) {
             FieldDefinition channelField = classDefinition.declareField(a(PRIVATE, FINAL), "block_" + i, com.facebook.presto.spi.block.Block.class);
             blockFields.add(channelField);
         }
@@ -200,7 +200,7 @@ public class JoinProbeCompiler
 
         generateConstructor(classDefinition, probeChannels, lookupSourceField, blockFields, probeBlockFields, probeBlocksArrayField, positionField, positionCountField);
         generateGetChannelCountMethod(classDefinition, blockFields.size());
-        generateAppendToMethod(classDefinition, blockFields, positionField);
+        generateAppendToMethod(classDefinition, types, blockFields, positionField);
         generateAdvanceNextPosition(classDefinition, positionField, positionCountField);
         generateGetCurrentJoinPosition(classDefinition, lookupSourceField, probeBlocksArrayField, positionField);
         generateCurrentRowContainsNull(classDefinition, probeBlockFields, positionField);
@@ -296,7 +296,7 @@ public class JoinProbeCompiler
                 .retInt();
     }
 
-    private void generateAppendToMethod(ClassDefinition classDefinition, List<FieldDefinition> blockFields, FieldDefinition positionField)
+    private void generateAppendToMethod(ClassDefinition classDefinition, List<Type> types, List<FieldDefinition> blockFields, FieldDefinition positionField)
     {
         Block appendToBody = classDefinition.declareMethod(new CompilerContext(bootstrapMethod),
                 a(PUBLIC),
@@ -306,8 +306,10 @@ public class JoinProbeCompiler
                 .getBody();
 
         for (int index = 0; index < blockFields.size(); index++) {
+            Type type = types.get(index);
             appendToBody
-                    .comment("block_%s.appendTo(position, pageBuilder.getBlockBuilder(%s));", index, index)
+                    .comment("%s.appendTo(block_%s, position, pageBuilder.getBlockBuilder(%s));", type.getClass(), index, index)
+                    .invokeStatic(type.getClass(), "getInstance", type.getClass())
                     .pushThis()
                     .getField(blockFields.get(index))
                     .pushThis()
@@ -315,7 +317,7 @@ public class JoinProbeCompiler
                     .getVariable("pageBuilder")
                     .push(index)
                     .invokeVirtual(PageBuilder.class, "getBlockBuilder", BlockBuilder.class, int.class)
-                    .invokeInterface(com.facebook.presto.spi.block.Block.class, "appendTo", void.class, int.class, BlockBuilder.class);
+                    .invokeVirtual(type.getClass(), "appendTo", void.class, com.facebook.presto.spi.block.Block.class, int.class, BlockBuilder.class);
         }
         appendToBody.ret();
     }

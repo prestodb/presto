@@ -138,9 +138,9 @@ public class RunLengthEncodedBlock
     }
 
     @Override
-    public void appendSliceTo(int position, int offset, int length, BlockBuilder blockBuilder)
+    public void writeBytesTo(int position, int offset, int length, BlockBuilder blockBuilder)
     {
-        value.appendSliceTo(0, offset, length, blockBuilder);
+        value.writeBytesTo(0, offset, length, blockBuilder);
     }
 
     @Override
@@ -173,12 +173,6 @@ public class RunLengthEncodedBlock
     {
         checkReadablePosition(position);
         return value.isNull(0);
-    }
-
-    @Override
-    public void appendTo(int position, BlockBuilder blockBuilder)
-    {
-        value.appendTo(0, blockBuilder);
     }
 
     @Override

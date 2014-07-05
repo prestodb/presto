@@ -15,8 +15,8 @@ package com.facebook.presto.block.dictionary;
 
 import com.facebook.presto.block.AbstractTestBlock;
 import com.facebook.presto.spi.block.Block;
+import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
-import io.airlift.slice.Slices;
 import org.testng.annotations.Test;
 
 import static com.facebook.presto.block.BlockAssertions.createLongsBlock;
@@ -36,14 +36,13 @@ public class TestDictionaryEncodedBlock
     @Override
     protected Block createTestBlock()
     {
-        Block dictionary = VARCHAR.createBlockBuilder(new BlockBuilderStatus())
-                .appendSlice(Slices.utf8Slice("apple"))
-                .appendSlice(Slices.utf8Slice("banana"))
-                .appendSlice(Slices.utf8Slice("cherry"))
-                .appendSlice(Slices.utf8Slice("date"))
-                .build();
+        BlockBuilder dictionary = VARCHAR.createBlockBuilder(new BlockBuilderStatus());
+        VARCHAR.writeString(dictionary, "apple");
+        VARCHAR.writeString(dictionary, "banana");
+        VARCHAR.writeString(dictionary, "cherry");
+        VARCHAR.writeString(dictionary, "date");
 
-        return new DictionaryEncodedBlock(dictionary, createLongsBlock(0, 0, 0, 1, 1, 1, 1, 1, 2, 2, 3));
+        return new DictionaryEncodedBlock(dictionary.build(), createLongsBlock(0, 0, 0, 1, 1, 1, 1, 1, 2, 2, 3));
     }
 
     @Test

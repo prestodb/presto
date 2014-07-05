@@ -92,12 +92,13 @@ public abstract class AbstractTestAggregationFunction
 
     public Block createAlternatingNullsBlock(Block sequenceBlock)
     {
-        BlockBuilder blockBuilder = sequenceBlock.getType().createBlockBuilder(new BlockBuilderStatus());
+        Type type = sequenceBlock.getType();
+        BlockBuilder blockBuilder = type.createBlockBuilder(new BlockBuilderStatus());
         for (int position = 0; position < sequenceBlock.getPositionCount(); position++) {
             // append null
             blockBuilder.appendNull();
             // append value
-            sequenceBlock.appendTo(position, blockBuilder);
+            type.appendTo(sequenceBlock, position, blockBuilder);
         }
         return blockBuilder.build();
     }

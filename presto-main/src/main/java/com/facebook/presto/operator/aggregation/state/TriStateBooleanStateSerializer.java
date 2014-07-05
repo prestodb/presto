@@ -38,7 +38,7 @@ public class TriStateBooleanStateSerializer
             out.appendNull();
         }
         else {
-            out.appendBoolean(state.getByte() == TRUE_VALUE);
+            out.writeByte(state.getByte() == TRUE_VALUE ? 1 : 0).closeEntry();
         }
     }
 

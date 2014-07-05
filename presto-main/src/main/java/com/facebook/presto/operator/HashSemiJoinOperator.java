@@ -172,7 +172,7 @@ public class HashSemiJoinOperator
                     blockBuilder.appendNull();
                 }
                 else {
-                    blockBuilder.appendBoolean(contains);
+                    BOOLEAN.writeBoolean(blockBuilder, contains);
                 }
             }
         }

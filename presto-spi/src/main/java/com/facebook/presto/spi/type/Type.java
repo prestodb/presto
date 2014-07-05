@@ -100,7 +100,17 @@ public interface Type
     /**
      * Writes the Slice value into the {@code BlockBuilder}.
      */
+    void writeSlice(BlockBuilder blockBuilder, Slice value);
+
+    /**
+     * Writes the Slice value into the {@code BlockBuilder}.
+     */
     void writeSlice(BlockBuilder blockBuilder, Slice value, int offset, int length);
+
+    /**
+     * Append the value at {@code position} in {@code block} to {@code blockBuilder}.
+     */
+    void appendTo(Block block, int position, BlockBuilder blockBuilder);
 
     /**
      * Are the values in the specified blocks at the specified positions equal?
@@ -117,9 +127,4 @@ public interface Type
      * Compare the values in the specified block at the specified positions equal.
      */
     int compareTo(Block leftBlock, int leftPosition, Block rightBlock, int rightPosition);
-
-    /**
-     * Append the value at {@code position} in {@code block} to {@code blockBuilder}.
-     */
-    void appendTo(Block block, int position, BlockBuilder blockBuilder);
 }

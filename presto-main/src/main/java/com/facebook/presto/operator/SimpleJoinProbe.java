@@ -14,6 +14,7 @@
 package com.facebook.presto.operator;
 
 import com.facebook.presto.spi.block.Block;
+import com.facebook.presto.spi.type.Type;
 
 import java.util.List;
 
@@ -77,7 +78,8 @@ public class SimpleJoinProbe
     {
         for (int outputIndex = 0; outputIndex < blocks.length; outputIndex++) {
             Block block = blocks[outputIndex];
-            block.appendTo(position, pageBuilder.getBlockBuilder(outputIndex));
+            Type type = block.getType();
+            type.appendTo(block, position, pageBuilder.getBlockBuilder(outputIndex));
         }
     }
 

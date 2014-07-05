@@ -48,8 +48,8 @@ public class TwoChannelPagesHashStrategy
     @Override
     public void appendTo(int blockIndex, int blockPosition, PageBuilder pageBuilder, int outputChannelOffset)
     {
-        channelA.get(blockIndex).appendTo(blockPosition, pageBuilder.getBlockBuilder(outputChannelOffset + 0));
-        channelB.get(blockIndex).appendTo(blockPosition, pageBuilder.getBlockBuilder(outputChannelOffset + 1));
+        typeA.appendTo(channelA.get(blockIndex), blockPosition, pageBuilder.getBlockBuilder(outputChannelOffset + 0));
+        typeB.appendTo(channelB.get(blockIndex), blockPosition, pageBuilder.getBlockBuilder(outputChannelOffset + 1));
     }
 
     @Override

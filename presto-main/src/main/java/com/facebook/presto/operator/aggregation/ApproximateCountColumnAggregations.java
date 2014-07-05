@@ -81,7 +81,7 @@ public final class ApproximateCountColumnAggregations
     public static void output(ApproximateCountState state, double confidence, BlockBuilder out)
     {
         String result = formatApproximateResult(state.getCount(), countError(state.getSamples(), state.getCount()), confidence, true);
-        out.appendSlice(Slices.utf8Slice(result));
+        VARCHAR.writeSlice(out, Slices.utf8Slice(result));
     }
 
     public interface ApproximateCountState

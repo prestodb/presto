@@ -183,9 +183,9 @@ public class SnappyBlock
     }
 
     @Override
-    public void appendSliceTo(int position, int offset, int length, BlockBuilder blockBuilder)
+    public void writeBytesTo(int position, int offset, int length, BlockBuilder blockBuilder)
     {
-        getUncompressedBlock().appendSliceTo(position, offset, length, blockBuilder);
+        getUncompressedBlock().writeBytesTo(position, offset, length, blockBuilder);
     }
 
     @Override
@@ -216,12 +216,6 @@ public class SnappyBlock
     public boolean isNull(int position)
     {
         return getUncompressedBlock().isNull(position);
-    }
-
-    @Override
-    public void appendTo(int position, BlockBuilder blockBuilder)
-    {
-        getUncompressedBlock().appendTo(position, blockBuilder);
     }
 
     @Override

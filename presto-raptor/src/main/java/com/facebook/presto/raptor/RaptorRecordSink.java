@@ -22,11 +22,13 @@ import com.facebook.presto.spi.type.Type;
 import com.google.common.base.Joiner;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
+import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 
 import java.io.IOException;
 import java.util.List;
 
+import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
@@ -37,6 +39,7 @@ public class RaptorRecordSink
     private final String nodeId;
     private final ColumnFileHandle fileHandle;
     private final LocalStorageManager storageManager;
+    private final List<Type> columnTypes;
     private final PageBuilder pageBuilder;
     private final int sampleWeightField;
 
@@ -47,6 +50,7 @@ public class RaptorRecordSink
         this.nodeId = checkNotNull(nodeId, "nodeId is null");
         this.fileHandle = checkNotNull(fileHandle, "fileHandle is null");
         this.storageManager = checkNotNull(storageManager, "storageManager is null");
+        this.columnTypes = ImmutableList.copyOf(checkNotNull(columnTypes, "columnTypes is null"));
 
         if (sampleWeightColumnHandle != null) {
             checkArgument(sampleWeightColumnHandle.getColumnName().equals(RaptorColumnHandle.SAMPLE_WEIGHT_COLUMN_NAME), "sample weight column handle has wrong name");
@@ -65,7 +69,7 @@ public class RaptorRecordSink
         checkState(field == -1, "already in record");
         field = 0;
         if (sampleWeightField >= 0) {
-            pageBuilder.getBlockBuilder(sampleWeightField).appendLong(sampleWeight);
+            BIGINT.writeLong(pageBuilder.getBlockBuilder(sampleWeightField), sampleWeight);
         }
     }
 
@@ -90,31 +94,32 @@ public class RaptorRecordSink
     @Override
     public void appendNull()
     {
-        nextColumn().appendNull();
+        nextBlockBuilder().appendNull();
     }
 
     @Override
     public void appendBoolean(boolean value)
     {
-        nextColumn().appendBoolean(value);
+        columnTypes.get(field).writeBoolean(nextBlockBuilder(), value);
     }
 
     @Override
     public void appendLong(long value)
     {
-        nextColumn().appendLong(value);
+        columnTypes.get(field).writeLong(nextBlockBuilder(), value);
     }
 
     @Override
     public void appendDouble(double value)
     {
-        nextColumn().appendDouble(value);
+        columnTypes.get(field).writeDouble(nextBlockBuilder(), value);
     }
 
     @Override
     public void appendString(byte[] value)
     {
-        nextColumn().appendSlice(Slices.wrappedBuffer(value));
+        Slice slice = Slices.wrappedBuffer(value);
+        columnTypes.get(field).writeSlice(nextBlockBuilder(), slice, 0, slice.length());
     }
 
     @Override
@@ -136,7 +141,7 @@ public class RaptorRecordSink
         return Joiner.on(':').join(nodeId, fileHandle.getShardUuid());
     }
 
-    private BlockBuilder nextColumn()
+    private BlockBuilder nextBlockBuilder()
     {
         checkState(field != -1, "not in record");
         checkState(field < lastField(), "all fields already set");

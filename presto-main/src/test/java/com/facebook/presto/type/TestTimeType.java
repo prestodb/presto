@@ -13,6 +13,8 @@
  */
 package com.facebook.presto.type;
 
+import com.facebook.presto.spi.block.Block;
+import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.type.SqlTime;
 
@@ -23,20 +25,24 @@ public class TestTimeType
 {
     public TestTimeType()
     {
-        super(SqlTime.class,
-                TIME.createBlockBuilder(new BlockBuilderStatus())
-                        .appendLong(1111)
-                        .appendLong(1111)
-                        .appendLong(1111)
-                        .appendLong(2222)
-                        .appendLong(2222)
-                        .appendLong(2222)
-                        .appendLong(2222)
-                        .appendLong(2222)
-                        .appendLong(3333)
-                        .appendLong(3333)
-                        .appendLong(4444)
-                        .build());
+        super(SqlTime.class, createTestBlock());
+    }
+
+    public static Block createTestBlock()
+    {
+        BlockBuilder blockBuilder = TIME.createBlockBuilder(new BlockBuilderStatus());
+        TIME.writeLong(blockBuilder, 1111);
+        TIME.writeLong(blockBuilder, 1111);
+        TIME.writeLong(blockBuilder, 1111);
+        TIME.writeLong(blockBuilder, 2222);
+        TIME.writeLong(blockBuilder, 2222);
+        TIME.writeLong(blockBuilder, 2222);
+        TIME.writeLong(blockBuilder, 2222);
+        TIME.writeLong(blockBuilder, 2222);
+        TIME.writeLong(blockBuilder, 3333);
+        TIME.writeLong(blockBuilder, 3333);
+        TIME.writeLong(blockBuilder, 4444);
+        return blockBuilder.build();
     }
 
     @Override

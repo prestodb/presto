@@ -184,7 +184,7 @@ public class ChannelSet
             // add the row to the open page
             int pageIndex = blocks.size() - 1;
             BlockBuilder blockBuilder = blocks.get(pageIndex);
-            block.appendTo(position, blockBuilder);
+            type.appendTo(block, position, blockBuilder);
 
             // record new value
             long address = encodeSyntheticAddress(pageIndex, blockBuilder.getPositionCount() - 1);

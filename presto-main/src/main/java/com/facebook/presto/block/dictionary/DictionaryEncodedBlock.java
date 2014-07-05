@@ -138,9 +138,9 @@ public class DictionaryEncodedBlock
     }
 
     @Override
-    public void appendSliceTo(int position, int offset, int length, BlockBuilder blockBuilder)
+    public void writeBytesTo(int position, int offset, int length, BlockBuilder blockBuilder)
     {
-        dictionary.appendSliceTo(getDictionaryKey(position), offset, length, blockBuilder);
+        dictionary.writeBytesTo(getDictionaryKey(position), offset, length, blockBuilder);
     }
 
     @Override
@@ -171,12 +171,6 @@ public class DictionaryEncodedBlock
     public boolean isNull(int position)
     {
         return dictionary.isNull(getDictionaryKey(position));
-    }
-
-    @Override
-    public void appendTo(int position, BlockBuilder blockBuilder)
-    {
-        dictionary.appendTo(getDictionaryKey(position), blockBuilder);
     }
 
     private int getDictionaryKey(int position)
