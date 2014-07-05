@@ -21,7 +21,6 @@ import com.facebook.presto.spi.block.VariableWidthBlockBuilder;
 import com.facebook.presto.spi.type.VariableWidthType;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import io.airlift.slice.Slice;
-import io.airlift.slice.SliceOutput;
 
 // Layout is <size>:<model>, where
 //   size: is an int describing the length of the model bytes
@@ -96,7 +95,19 @@ public class ModelType
     }
 
     @Override
+    public void writeBoolean(BlockBuilder sliceOutput, boolean value)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
     public long getLong(Block block, int position)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public void writeLong(BlockBuilder sliceOutput, long value)
     {
         throw new UnsupportedOperationException();
     }
@@ -108,16 +119,21 @@ public class ModelType
     }
 
     @Override
+    public void writeDouble(BlockBuilder sliceOutput, double value)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
     public Slice getSlice(Block block, int position)
     {
         return block.getSlice(position, 0, block.getLength(position));
     }
 
     @Override
-    public int writeSlice(SliceOutput sliceOutput, Slice value, int offset, int length)
+    public void writeSlice(BlockBuilder blockBuilder, Slice value, int offset, int length)
     {
-        sliceOutput.writeBytes(value, offset, length);
-        return length;
+        blockBuilder.writeBytes(value, offset, length).closeEntry();
     }
 
     @Override

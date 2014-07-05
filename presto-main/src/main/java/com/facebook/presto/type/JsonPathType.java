@@ -112,6 +112,30 @@ public class JsonPathType
     }
 
     @Override
+    public void writeBoolean(BlockBuilder blockBuilder, boolean value)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public void writeLong(BlockBuilder blockBuilder, long value)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public void writeDouble(BlockBuilder blockBuilder, double value)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public void writeSlice(BlockBuilder blockBuilder, Slice value, int offset, int length)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
     public BlockBuilder createBlockBuilder(BlockBuilderStatus blockBuilderStatus)
     {
         throw new PrestoException(StandardErrorCode.INTERNAL.toErrorCode(), "JsonPath type cannot be serialized");

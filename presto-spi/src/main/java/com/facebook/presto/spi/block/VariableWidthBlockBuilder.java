@@ -23,7 +23,11 @@ import java.util.Arrays;
 import java.util.Objects;
 
 import static io.airlift.slice.SizeOf.SIZE_OF_BYTE;
+import static io.airlift.slice.SizeOf.SIZE_OF_DOUBLE;
+import static io.airlift.slice.SizeOf.SIZE_OF_FLOAT;
 import static io.airlift.slice.SizeOf.SIZE_OF_INT;
+import static io.airlift.slice.SizeOf.SIZE_OF_LONG;
+import static io.airlift.slice.SizeOf.SIZE_OF_SHORT;
 
 public class VariableWidthBlockBuilder
         extends AbstractVariableWidthBlock
@@ -35,6 +39,8 @@ public class VariableWidthBlockBuilder
     private int positions;
     private int[] offsets = new int[1024];
     private boolean[] valueIsNull = new boolean[1024];
+
+    private int currentEntrySize;
 
     public VariableWidthBlockBuilder(VariableWidthType type, BlockBuilderStatus blockBuilderStatus)
     {
@@ -97,21 +103,100 @@ public class VariableWidthBlockBuilder
     }
 
     @Override
+    public BlockBuilder writeByte(int value)
+    {
+        sliceOutput.writeByte(value);
+        currentEntrySize += SIZE_OF_BYTE;
+        return this;
+    }
+
+    @Override
+    public BlockBuilder writeShort(int value)
+    {
+        sliceOutput.writeShort(value);
+        currentEntrySize += SIZE_OF_SHORT;
+        return this;
+    }
+
+    @Override
+    public BlockBuilder writeInt(int value)
+    {
+        sliceOutput.writeInt(value);
+        currentEntrySize += SIZE_OF_INT;
+        return this;
+    }
+
+    @Override
+    public BlockBuilder writeLong(long value)
+    {
+        sliceOutput.writeLong(value);
+        currentEntrySize += SIZE_OF_LONG;
+        return this;
+    }
+
+    @Override
+    public BlockBuilder writeFloat(float value)
+    {
+        sliceOutput.writeFloat(value);
+        currentEntrySize += SIZE_OF_FLOAT;
+        return this;
+    }
+
+    @Override
+    public BlockBuilder writeDouble(double value)
+    {
+        sliceOutput.writeDouble(value);
+        currentEntrySize += SIZE_OF_DOUBLE;
+        return this;
+    }
+
+    @Override
+    public BlockBuilder writeBytes(Slice source, int sourceIndex, int length)
+    {
+        sliceOutput.writeBytes(source, sourceIndex, length);
+        currentEntrySize += length;
+        return this;
+    }
+
+    @Override
+    public BlockBuilder closeEntry()
+    {
+        entryAdded(currentEntrySize, false);
+        currentEntrySize = 0;
+        return this;
+    }
+
+    @Override
     public BlockBuilder appendBoolean(boolean value)
     {
-        throw new UnsupportedOperationException();
+        if (currentEntrySize > 0) {
+            throw new IllegalStateException("Current entry must be closed before a new entry can be written");
+        }
+
+        type.writeBoolean(this, value);
+        return this;
     }
 
     @Override
     public BlockBuilder appendLong(long value)
     {
-        throw new UnsupportedOperationException();
+        if (currentEntrySize > 0) {
+            throw new IllegalStateException("Current entry must be closed before a new entry can be written");
+        }
+
+        type.writeLong(this, value);
+        return this;
     }
 
     @Override
     public BlockBuilder appendDouble(double value)
     {
-        throw new UnsupportedOperationException();
+        if (currentEntrySize > 0) {
+            throw new IllegalStateException("Current entry must be closed before a new entry can be written");
+        }
+
+        type.writeDouble(this, value);
+        return this;
     }
 
     @Override
@@ -123,18 +208,22 @@ public class VariableWidthBlockBuilder
     @Override
     public BlockBuilder appendSlice(Slice value, int offset, int length)
     {
-        int bytesWritten = type.writeSlice(sliceOutput, value, offset, length);
+        if (currentEntrySize > 0) {
+            throw new IllegalStateException("Current entry must be closed before a new entry can be written");
+        }
 
-        entryAdded(bytesWritten, false);
-
+        type.writeSlice(this, value, offset, length);
         return this;
     }
 
     @Override
     public BlockBuilder appendNull()
     {
-        entryAdded(0, true);
+        if (currentEntrySize > 0) {
+            throw new IllegalStateException("Current entry must be closed before a null can be written");
+        }
 
+        entryAdded(0, true);
         return this;
     }
 
@@ -179,6 +268,9 @@ public class VariableWidthBlockBuilder
     @Override
     public Block build()
     {
+        if (currentEntrySize > 0) {
+            throw new IllegalStateException("Current entry must be closed before the block can be built");
+        }
         return new VariableWidthBlock(type, positions, sliceOutput.slice(), Arrays.copyOf(offsets, positions + 1), Arrays.copyOf(valueIsNull, positions));
     }
 

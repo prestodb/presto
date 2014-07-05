@@ -20,9 +20,7 @@ import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.block.FixedWidthBlockBuilder;
 import com.facebook.presto.spi.type.FixedWidthType;
-import com.google.common.base.Preconditions;
 import io.airlift.slice.Slice;
-import io.airlift.slice.SliceOutput;
 
 import static io.airlift.slice.SizeOf.SIZE_OF_INT;
 
@@ -134,7 +132,7 @@ public class ColorType
     }
 
     @Override
-    public void writeBoolean(SliceOutput sliceOutput, boolean value)
+    public void writeBoolean(BlockBuilder blockBuilder, boolean value)
     {
         throw new UnsupportedOperationException();
     }
@@ -146,9 +144,9 @@ public class ColorType
     }
 
     @Override
-    public void writeLong(SliceOutput sliceOutput, long value)
+    public void writeLong(BlockBuilder blockBuilder, long value)
     {
-        sliceOutput.writeInt((int) value);
+        blockBuilder.writeInt((int) value).closeEntry();
     }
 
     @Override
@@ -158,7 +156,7 @@ public class ColorType
     }
 
     @Override
-    public void writeDouble(SliceOutput sliceOutput, double value)
+    public void writeDouble(BlockBuilder blockBuilder, double value)
     {
         throw new UnsupportedOperationException();
     }
@@ -170,10 +168,9 @@ public class ColorType
     }
 
     @Override
-    public void writeSlice(SliceOutput sliceOutput, Slice value, int offset)
+    public void writeSlice(BlockBuilder blockBuilder, Slice value, int offset, int length)
     {
-        Preconditions.checkArgument(value.length() == SIZE_OF_INT);
-        sliceOutput.writeBytes(value, offset, SIZE_OF_INT);
+        throw new UnsupportedOperationException();
     }
 
     @Override

@@ -22,6 +22,13 @@ import io.airlift.slice.Slices;
 
 import java.util.Arrays;
 
+import static io.airlift.slice.SizeOf.SIZE_OF_BYTE;
+import static io.airlift.slice.SizeOf.SIZE_OF_DOUBLE;
+import static io.airlift.slice.SizeOf.SIZE_OF_FLOAT;
+import static io.airlift.slice.SizeOf.SIZE_OF_INT;
+import static io.airlift.slice.SizeOf.SIZE_OF_LONG;
+import static io.airlift.slice.SizeOf.SIZE_OF_SHORT;
+
 public class FixedWidthBlockBuilder
         extends AbstractFixedWidthBlock
         implements BlockBuilder
@@ -30,6 +37,8 @@ public class FixedWidthBlockBuilder
     private final SliceOutput sliceOutput;
     private boolean[] valueIsNull;
     private int positionCount;
+
+    private int currentEntrySize;
 
     public FixedWidthBlockBuilder(FixedWidthType type, BlockBuilderStatus blockBuilderStatus)
     {
@@ -87,26 +96,103 @@ public class FixedWidthBlockBuilder
     }
 
     @Override
+    public BlockBuilder writeByte(int value)
+    {
+        sliceOutput.writeByte(value);
+        currentEntrySize += SIZE_OF_BYTE;
+        return this;
+    }
+
+    @Override
+    public BlockBuilder writeShort(int value)
+    {
+        sliceOutput.writeShort(value);
+        currentEntrySize += SIZE_OF_SHORT;
+        return this;
+    }
+
+    @Override
+    public BlockBuilder writeInt(int value)
+    {
+        sliceOutput.writeInt(value);
+        currentEntrySize += SIZE_OF_INT;
+        return this;
+    }
+
+    @Override
+    public BlockBuilder writeLong(long value)
+    {
+        sliceOutput.writeLong(value);
+        currentEntrySize += SIZE_OF_LONG;
+        return this;
+    }
+
+    @Override
+    public BlockBuilder writeFloat(float value)
+    {
+        sliceOutput.writeFloat(value);
+        currentEntrySize += SIZE_OF_FLOAT;
+        return this;
+    }
+
+    @Override
+    public BlockBuilder writeDouble(double value)
+    {
+        sliceOutput.writeDouble(value);
+        currentEntrySize += SIZE_OF_DOUBLE;
+        return this;
+    }
+
+    @Override
+    public BlockBuilder writeBytes(Slice source, int sourceIndex, int length)
+    {
+        sliceOutput.writeBytes(source, sourceIndex, length);
+        currentEntrySize += length;
+        return this;
+    }
+
+    @Override
+    public BlockBuilder closeEntry()
+    {
+        if (currentEntrySize != entrySize) {
+            throw new IllegalStateException("Expected entry size to be exactly " + entrySize + " but was " + currentEntrySize);
+        }
+
+        entryAdded(false);
+        currentEntrySize = 0;
+        return this;
+    }
+
+    @Override
     public BlockBuilder appendBoolean(boolean value)
     {
-        type.writeBoolean(sliceOutput, value);
-        entryAdded(false);
+        if (currentEntrySize > 0) {
+            throw new IllegalStateException("Current entry must be closed before a new entry can be written");
+        }
+
+        type.writeBoolean(this, value);
         return this;
     }
 
     @Override
     public BlockBuilder appendLong(long value)
     {
-        type.writeLong(sliceOutput, value);
-        entryAdded(false);
+        if (currentEntrySize > 0) {
+            throw new IllegalStateException("Current entry must be closed before a new entry can be written");
+        }
+
+        type.writeLong(this, value);
         return this;
     }
 
     @Override
     public BlockBuilder appendDouble(double value)
     {
-        type.writeDouble(sliceOutput, value);
-        entryAdded(false);
+        if (currentEntrySize > 0) {
+            throw new IllegalStateException("Current entry must be closed before a new entry can be written");
+        }
+
+        type.writeDouble(this, value);
         return this;
     }
 
@@ -119,20 +205,21 @@ public class FixedWidthBlockBuilder
     @Override
     public BlockBuilder appendSlice(Slice value, int offset, int length)
     {
-        if (length != type.getFixedSize()) {
-            throw new IllegalArgumentException("length must be " + type.getFixedSize() + " but is " + length);
+        if (currentEntrySize > 0) {
+            throw new IllegalStateException("Current entry must be closed before a new entry can be written");
         }
 
-        type.writeSlice(sliceOutput, value, offset);
-
-        entryAdded(false);
-
+        type.writeSlice(this, value, offset, length);
         return this;
     }
 
     @Override
     public BlockBuilder appendNull()
     {
+        if (currentEntrySize > 0) {
+            throw new IllegalStateException("Current entry must be closed before a null can be written");
+        }
+
         // fixed width is always written regardless of null flag
         sliceOutput.writeZero(entrySize);
 
@@ -177,6 +264,9 @@ public class FixedWidthBlockBuilder
     @Override
     public Block build()
     {
+        if (currentEntrySize > 0) {
+            throw new IllegalStateException("Current entry must be closed before the block can be built");
+        }
         return new FixedWidthBlock(type, positionCount, sliceOutput.slice(), valueIsNull);
     }
 

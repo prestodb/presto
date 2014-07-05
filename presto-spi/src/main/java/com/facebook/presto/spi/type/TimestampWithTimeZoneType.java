@@ -19,7 +19,6 @@ import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.block.FixedWidthBlockBuilder;
 import io.airlift.slice.Slice;
-import io.airlift.slice.SliceOutput;
 
 import static com.facebook.presto.spi.type.DateTimeEncoding.unpackMillisUtc;
 import static io.airlift.slice.SizeOf.SIZE_OF_LONG;
@@ -127,7 +126,7 @@ public final class TimestampWithTimeZoneType
     }
 
     @Override
-    public void writeBoolean(SliceOutput sliceOutput, boolean value)
+    public void writeBoolean(BlockBuilder blockBuilder, boolean value)
     {
         throw new UnsupportedOperationException();
     }
@@ -139,9 +138,9 @@ public final class TimestampWithTimeZoneType
     }
 
     @Override
-    public void writeLong(SliceOutput sliceOutput, long value)
+    public void writeLong(BlockBuilder blockBuilder, long value)
     {
-        sliceOutput.writeLong(value);
+        blockBuilder.writeLong(value).closeEntry();
     }
 
     @Override
@@ -151,7 +150,7 @@ public final class TimestampWithTimeZoneType
     }
 
     @Override
-    public void writeDouble(SliceOutput sliceOutput, double value)
+    public void writeDouble(BlockBuilder blockBuilder, double value)
     {
         throw new UnsupportedOperationException();
     }
@@ -163,9 +162,9 @@ public final class TimestampWithTimeZoneType
     }
 
     @Override
-    public void writeSlice(SliceOutput sliceOutput, Slice value, int offset)
+    public void writeSlice(BlockBuilder blockBuilder, Slice value, int offset, int length)
     {
-        sliceOutput.writeBytes(value, offset, SIZE_OF_LONG);
+        throw new UnsupportedOperationException();
     }
 
     @Override

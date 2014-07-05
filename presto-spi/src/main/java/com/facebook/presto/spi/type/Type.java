@@ -83,6 +83,26 @@ public interface Type
     Slice getSlice(Block block, int position);
 
     /**
+     * Writes the boolean value into the {@code BlockBuilder}.
+     */
+    void writeBoolean(BlockBuilder blockBuilder, boolean value);
+
+    /**
+     * Writes the long value into the {@code BlockBuilder}.
+     */
+    void writeLong(BlockBuilder blockBuilder, long value);
+
+    /**
+     * Writes the double value into the {@code BlockBuilder}.
+     */
+    void writeDouble(BlockBuilder blockBuilder, double value);
+
+    /**
+     * Writes the Slice value into the {@code BlockBuilder}.
+     */
+    void writeSlice(BlockBuilder blockBuilder, Slice value, int offset, int length);
+
+    /**
      * Are the values in the specified blocks at the specified positions equal?
      */
     boolean equalTo(Block leftBlock, int leftPosition, Block rightBlock, int rightPosition);

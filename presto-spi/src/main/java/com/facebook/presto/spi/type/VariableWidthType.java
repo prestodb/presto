@@ -13,17 +13,10 @@
  */
 package com.facebook.presto.spi.type;
 
-import io.airlift.slice.Slice;
-import io.airlift.slice.SliceOutput;
-
 /**
  * VariableWidthType is a type that can have a different size for every value.
  */
 public interface VariableWidthType
         extends Type
 {
-    /**
-     * Writes the Slice value into the specified slice output.
-     */
-    int writeSlice(SliceOutput sliceOutput, Slice value, int offset, int length);
 }
