@@ -227,10 +227,14 @@ public class StateCompiler
         }
         else {
             LocalVariableDefinition slice = compilerContext.declareVariable(Slice.class, "slice");
-            deserializerBody.comment("Slice slice = block.getSlice(index);")
+            deserializerBody.comment("Slice slice = block.getSlice(index, 0, block.getLength(index));")
                     .getVariable("block")
                     .getVariable("index")
-                    .invokeInterface(com.facebook.presto.spi.block.Block.class, "getSlice", Slice.class, int.class)
+                    .push(0)
+                    .getVariable("block")
+                    .getVariable("index")
+                    .invokeInterface(com.facebook.presto.spi.block.Block.class, "getLength", int.class, int.class)
+                    .invokeInterface(com.facebook.presto.spi.block.Block.class, "getSlice", Slice.class, int.class, int.class, int.class)
                     .putVariable(slice);
 
             for (StateField field : fields) {

@@ -121,7 +121,7 @@ public final class InMemoryJoinHash
     {
         int result = 0;
         for (Block block : blocks) {
-            result = result * 31 + block.hash(position);
+            result = result * 31 + block.getType().hash(block, position);
         }
         return result;
     }

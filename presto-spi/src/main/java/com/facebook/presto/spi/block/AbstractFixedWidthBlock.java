@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.spi.block;
 
-import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.type.FixedWidthType;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
@@ -163,44 +162,6 @@ public abstract class AbstractFixedWidthBlock
     }
 
     @Override
-    public boolean getBoolean(int position)
-    {
-        checkReadablePosition(position);
-        return type.getBoolean(this, position);
-    }
-
-    @Override
-    public long getLong(int position)
-    {
-        checkReadablePosition(position);
-        return type.getLong(this, position);
-    }
-
-    @Override
-    public double getDouble(int position)
-    {
-        checkReadablePosition(position);
-        return type.getDouble(this, position);
-    }
-
-    @Override
-    public Object getObjectValue(ConnectorSession session, int position)
-    {
-        checkReadablePosition(position);
-        if (isNull(position)) {
-            return null;
-        }
-        return type.getObjectValue(session, this, position);
-    }
-
-    @Override
-    public Slice getSlice(int position)
-    {
-        checkReadablePosition(position);
-        return type.getSlice(this, position);
-    }
-
-    @Override
     public Block getSingleValueBlock(int position)
     {
         checkReadablePosition(position);
@@ -215,33 +176,6 @@ public abstract class AbstractFixedWidthBlock
     {
         checkReadablePosition(position);
         return isEntryNull(position);
-    }
-
-    @Override
-    public boolean equalTo(int position, Block otherBlock, int otherPosition)
-    {
-        boolean leftIsNull = isNull(position);
-        boolean rightIsNull = otherBlock.isNull(otherPosition);
-
-        if (leftIsNull != rightIsNull) {
-            return false;
-        }
-
-        // if values are both null, they are equal
-        if (leftIsNull) {
-            return true;
-        }
-
-        return type.equalTo(this, position, otherBlock, otherPosition);
-    }
-
-    @Override
-    public int hash(int position)
-    {
-        if (isNull(position)) {
-            return 0;
-        }
-        return type.hash(this, position);
     }
 
     @Override

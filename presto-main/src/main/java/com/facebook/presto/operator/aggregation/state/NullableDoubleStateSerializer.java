@@ -44,7 +44,7 @@ public class NullableDoubleStateSerializer
     {
         state.setNull(block.isNull(index));
         if (!state.isNull()) {
-            state.setDouble(block.getDouble(index));
+            state.setDouble(DOUBLE.getDouble(block, index));
         }
     }
 }

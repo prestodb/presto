@@ -245,7 +245,7 @@ public class HandTpchQuery1
                     continue;
                 }
 
-                Slice shipDate = shipDateBlock.getSlice(position);
+                Slice shipDate = VARCHAR.getSlice(shipDateBlock, position);
 
                 // where
                 //     shipdate <= '1998-09-02'
@@ -262,19 +262,19 @@ public class HandTpchQuery1
                         pageBuilder.getBlockBuilder(0).appendNull();
                     }
                     else {
-                        pageBuilder.getBlockBuilder(0).appendSlice(returnFlagBlock.getSlice(position));
+                        pageBuilder.getBlockBuilder(0).appendSlice(VARCHAR.getSlice(returnFlagBlock, position));
                     }
                     if (lineStatusBlock.isNull(position)) {
                         pageBuilder.getBlockBuilder(1).appendNull();
                     }
                     else {
-                        pageBuilder.getBlockBuilder(1).appendSlice(lineStatusBlock.getSlice(position));
+                        pageBuilder.getBlockBuilder(1).appendSlice(VARCHAR.getSlice(lineStatusBlock, position));
                     }
 
-                    long quantity = quantityBlock.getLong(position);
-                    double extendedPrice = extendedPriceBlock.getDouble(position);
-                    double discount = discountBlock.getDouble(position);
-                    double tax = taxBlock.getDouble(position);
+                    long quantity = BIGINT.getLong(quantityBlock, position);
+                    double extendedPrice = DOUBLE.getDouble(extendedPriceBlock, position);
+                    double discount = DOUBLE.getDouble(discountBlock, position);
+                    double tax = DOUBLE.getDouble(taxBlock, position);
 
                     boolean quantityIsNull = quantityBlock.isNull(position);
                     boolean extendedPriceIsNull = extendedPriceBlock.isNull(position);

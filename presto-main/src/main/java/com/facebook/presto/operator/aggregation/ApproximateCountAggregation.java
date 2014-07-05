@@ -158,7 +158,7 @@ public class ApproximateCountAggregation
 
             for (int position = 0; position < groupIdsBlock.getPositionCount(); position++) {
                 long groupId = groupIdsBlock.getGroupId(position);
-                Slice slice = intermediates.getSlice(position);
+                Slice slice = VARCHAR.getSlice(intermediates, position);
                 counts.add(groupId, slice.getLong(COUNT_OFFSET));
                 samples.add(groupId, slice.getLong(SAMPLES_OFFSET));
             }
@@ -249,7 +249,7 @@ public class ApproximateCountAggregation
         public void addIntermediate(Block intermediates)
         {
             for (int position = 0; position < intermediates.getPositionCount(); position++) {
-                Slice slice = intermediates.getSlice(position);
+                Slice slice = VARCHAR.getSlice(intermediates, position);
                 count += slice.getLong(COUNT_OFFSET);
                 samples += slice.getLong(SAMPLES_OFFSET);
             }

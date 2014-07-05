@@ -28,6 +28,7 @@ import com.facebook.presto.spi.type.BooleanType;
 import com.facebook.presto.spi.type.VarcharType;
 import org.testng.annotations.Test;
 
+import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static org.testng.Assert.assertEquals;
 
 public class TestStateCompiler
@@ -52,7 +53,7 @@ public class TestStateCompiler
 
         Block block = builder.build();
 
-        assertEquals(block.getLong(0), state.getLong());
+        assertEquals(BIGINT.getLong(block, 0), state.getLong());
         serializer.deserialize(block, 0, deserializedState);
         assertEquals(deserializedState.getLong(), state.getLong());
 
@@ -78,7 +79,7 @@ public class TestStateCompiler
 
         Block block = builder.build();
 
-        assertEquals(block.getLong(0), state.getLong());
+        assertEquals(BIGINT.getLong(block, 0), state.getLong());
         serializer.deserialize(block, 0, deserializedState);
         assertEquals(deserializedState.getLong(), state.getLong());
     }

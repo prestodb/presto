@@ -190,7 +190,7 @@ public class PagesIndex
 
         Block block = channels[channel].get(decodeSliceIndex(pageAddress));
         int blockPosition = decodePosition(pageAddress);
-        return block.getBoolean(blockPosition);
+        return types.get(channel).getBoolean(block, blockPosition);
     }
 
     public long getLong(int channel, int position)
@@ -199,7 +199,7 @@ public class PagesIndex
 
         Block block = channels[channel].get(decodeSliceIndex(pageAddress));
         int blockPosition = decodePosition(pageAddress);
-        return block.getLong(blockPosition);
+        return types.get(channel).getLong(block, blockPosition);
     }
 
     public double getDouble(int channel, int position)
@@ -208,7 +208,7 @@ public class PagesIndex
 
         Block block = channels[channel].get(decodeSliceIndex(pageAddress));
         int blockPosition = decodePosition(pageAddress);
-        return block.getDouble(blockPosition);
+        return types.get(channel).getDouble(block, blockPosition);
     }
 
     public Slice getSlice(int channel, int position)
@@ -217,7 +217,7 @@ public class PagesIndex
 
         Block block = channels[channel].get(decodeSliceIndex(pageAddress));
         int blockPosition = decodePosition(pageAddress);
-        return block.getSlice(blockPosition);
+        return types.get(channel).getSlice(block, blockPosition);
     }
 
     public boolean equals(int[] channels, int leftPosition, int rightPosition)
@@ -235,10 +235,11 @@ public class PagesIndex
         int rightBlockPosition = decodePosition(rightPageAddress);
 
         for (int channel : channels) {
+            Type type = types.get(channel);
             Block leftBlock = this.channels[channel].get(leftBlockIndex);
             Block rightBlock = this.channels[channel].get(rightBlockIndex);
 
-            if (!leftBlock.equalTo(leftBlockPosition, rightBlock, rightBlockPosition)) {
+            if (!type.equalTo(leftBlock, leftBlockPosition, rightBlock, rightBlockPosition)) {
                 return false;
             }
         }
@@ -253,8 +254,9 @@ public class PagesIndex
 
         int result = 0;
         for (int channel : channels) {
+            Type type = types.get(channel);
             Block block = this.channels[channel].get(blockIndex);
-            result = 31 * result + block.hash(blockPosition);
+            result = 31 * result + type.hash(block, blockPosition);
         }
         return result;
     }

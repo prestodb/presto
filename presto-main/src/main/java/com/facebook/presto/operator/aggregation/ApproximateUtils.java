@@ -20,6 +20,9 @@ import org.apache.commons.math3.exception.OutOfRangeException;
 
 import javax.annotation.Nullable;
 
+import static com.facebook.presto.spi.type.BigintType.BIGINT;
+import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
+
 public final class ApproximateUtils
 {
     private static final NormalDistribution NORMAL_DISTRIBUTION = new NormalDistribution();
@@ -125,10 +128,10 @@ public final class ApproximateUtils
             // since it doesn't make sense to try to process distinct rows when the data is sampled.
 
             // DISTINCT is enabled, so ignore the sample weight
-            return masks.getBoolean(index) ? 1 : 0;
+            return BOOLEAN.getBoolean(masks, index) ? 1 : 0;
         }
         else {
-            return sampleWeights != null ? sampleWeights.getLong(index) : 1;
+            return sampleWeights != null ? BIGINT.getLong(sampleWeights, index) : 1;
         }
     }
 }

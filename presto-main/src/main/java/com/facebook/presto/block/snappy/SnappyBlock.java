@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.block.snappy;
 
-import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockEncoding;
@@ -208,36 +207,6 @@ public class SnappyBlock
     }
 
     @Override
-    public boolean getBoolean(int position)
-    {
-        return getUncompressedBlock().getBoolean(position);
-    }
-
-    @Override
-    public long getLong(int position)
-    {
-        return getUncompressedBlock().getLong(position);
-    }
-
-    @Override
-    public double getDouble(int position)
-    {
-        return getUncompressedBlock().getDouble(position);
-    }
-
-    @Override
-    public Slice getSlice(int position)
-    {
-        return getUncompressedBlock().getSlice(position);
-    }
-
-    @Override
-    public Object getObjectValue(ConnectorSession session, int position)
-    {
-        return getUncompressedBlock().getObjectValue(session, position);
-    }
-
-    @Override
     public Block getSingleValueBlock(int position)
     {
         return getUncompressedBlock().getSingleValueBlock(position);
@@ -247,18 +216,6 @@ public class SnappyBlock
     public boolean isNull(int position)
     {
         return getUncompressedBlock().isNull(position);
-    }
-
-    @Override
-    public boolean equalTo(int position, Block otherBlock, int otherPosition)
-    {
-        return getUncompressedBlock().equalTo(position, otherBlock, otherPosition);
-    }
-
-    @Override
-    public int hash(int position)
-    {
-        return getUncompressedBlock().hash(position);
     }
 
     @Override

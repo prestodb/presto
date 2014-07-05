@@ -22,6 +22,7 @@ import java.util.Collection;
 import java.util.List;
 
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
+import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 
@@ -129,8 +130,8 @@ public class TableCommitOperator
         Block rowCountBlock = page.getBlock(0);
         Block fragmentBlock = page.getBlock(1);
         for (int position = 0; position < page.getPositionCount(); position++) {
-            rowCount += rowCountBlock.getLong(position);
-            fragmentBuilder.add(fragmentBlock.getSlice(position).toStringUtf8());
+            rowCount += BIGINT.getLong(rowCountBlock, position);
+            fragmentBuilder.add(VARCHAR.getSlice(fragmentBlock, position).toStringUtf8());
         }
     }
 

@@ -140,7 +140,8 @@ public class AccumulatorCompiler
 
     private static void generateProcessInput(ClassDefinition definition, Method inputFunction, Class<?> stateClass)
     {
-        Block body = definition.declareMethod(new CompilerContext(null), a(PUBLIC), "processInput", type(void.class), arg("state", AccumulatorState.class), arg("blocks", List.class), arg("position", int.class), arg("sampleWeight", long.class))
+        CompilerContext compilerContext = new CompilerContext(null);
+        Block body = definition.declareMethod(compilerContext, a(PUBLIC), "processInput", type(void.class), arg("state", AccumulatorState.class), arg("blocks", List.class), arg("position", int.class), arg("sampleWeight", long.class))
                 .getBody();
 
         body.comment("Call input function with unpacked Block arguments")
@@ -156,13 +157,20 @@ public class AccumulatorCompiler
             else if (annotations[i][0] instanceof SampleWeight) {
                 body.getVariable("sampleWeight");
             }
-            else {
-                body.getVariable("blocks")
+            else if (annotations[i][0] instanceof SqlType) {
+                Block getBlockByteCode = new Block(compilerContext)
+                        .getVariable("blocks")
                         .push(blockNum)
                         .invokeInterface(List.class, "get", Object.class, int.class)
                         .checkCast(com.facebook.presto.spi.block.Block.class);
-                getStackTypeIfNecessary(body, parameters[i]);
+
+                Class<? extends Type> sqlType = ((SqlType) annotations[i][0]).value();
+                pushStackType(body, sqlType, getBlockByteCode, parameters[i]);
+
                 blockNum++;
+            }
+            else {
+                throw new IllegalArgumentException("Parameter " + i + " must be annotated with @BlockIndex, @SampleWeight, or @SqlType");
             }
         }
 
@@ -170,37 +178,42 @@ public class AccumulatorCompiler
     }
 
     // Assumes that there is a variable named 'position' in the block, which is the current index
-    private static Block getStackTypeIfNecessary(Block block, Class<?> parameter)
+    private static void pushStackType(Block block, Class<? extends Type> sqlType, Block getBlockByteCode, Class<?> parameter)
     {
         if (parameter == com.facebook.presto.spi.block.Block.class) {
-            return block;
+            block.append(getBlockByteCode);
         }
-
-        if (parameter == long.class) {
-            block.comment("block.getLong(position)")
+        else if (parameter == long.class) {
+            block.comment("%s.getLong(block, position)", sqlType.getSimpleName())
+                    .invokeStatic(sqlType, "getInstance", sqlType)
+                    .append(getBlockByteCode)
                     .getVariable("position")
-                    .invokeInterface(com.facebook.presto.spi.block.Block.class, "getLong", long.class, int.class);
+                    .invokeVirtual(sqlType, "getLong", long.class, com.facebook.presto.spi.block.Block.class, int.class);
         }
         else if (parameter == double.class) {
-            block.comment("block.getDouble(position)")
+            block.comment("%s.getDouble(block, position)", sqlType.getSimpleName())
+                    .invokeStatic(sqlType, "getInstance", sqlType)
+                    .append(getBlockByteCode)
                     .getVariable("position")
-                    .invokeInterface(com.facebook.presto.spi.block.Block.class, "getDouble", double.class, int.class);
+                    .invokeVirtual(sqlType, "getDouble", double.class, com.facebook.presto.spi.block.Block.class, int.class);
         }
         else if (parameter == boolean.class) {
-            block.comment("block.getBoolean(position)")
+            block.comment("%s.getBoolean(block, position)", sqlType.getSimpleName())
+                    .invokeStatic(sqlType, "getInstance", sqlType)
+                    .append(getBlockByteCode)
                     .getVariable("position")
-                    .invokeInterface(com.facebook.presto.spi.block.Block.class, "getBoolean", boolean.class, int.class);
+                    .invokeVirtual(sqlType, "getBoolean", boolean.class, com.facebook.presto.spi.block.Block.class, int.class);
         }
         else if (parameter == Slice.class) {
-            block.comment("block.getSlice(position)")
+            block.comment("%s.getBoolean(block, position)", sqlType.getSimpleName())
+                    .invokeStatic(sqlType, "getInstance", sqlType)
+                    .append(getBlockByteCode)
                     .getVariable("position")
-                    .invokeInterface(com.facebook.presto.spi.block.Block.class, "getSlice", Slice.class, int.class);
+                    .invokeVirtual(sqlType, "getSlice", Slice.class, com.facebook.presto.spi.block.Block.class, int.class);
         }
         else {
             throw new IllegalArgumentException("Unsupported parameter type: " + parameter.getSimpleName());
         }
-
-        return block;
     }
 
     private static void verifyInputFunctionSignature(Method method, Class<?> stateClass)
@@ -234,8 +247,9 @@ public class AccumulatorCompiler
 
     private static void generateProcessIntermediate(ClassDefinition definition, Class<?> accumulatorClass, Method intermediateInputFunction, Method combineFunction, Class<?> stateClass)
     {
+        CompilerContext compilerContext = new CompilerContext(null);
         Block body = definition.declareMethod(
-                new CompilerContext(null),
+                compilerContext,
                 a(PUBLIC),
                 "processIntermediate",
                 type(void.class),
@@ -270,11 +284,16 @@ public class AccumulatorCompiler
                 if (annotations[i][0] instanceof BlockIndex) {
                     body.getVariable("position");
                 }
-                else {
+                else if (annotations[i][0] instanceof SqlType) {
                     checkArgument(!parameterFound, "Intermediate input functions may only have one parameter");
-                    body.getVariable("block");
-                    getStackTypeIfNecessary(body, parameters[i]);
+
+                    Class<? extends Type> sqlType = ((SqlType) annotations[i][0]).value();
+                    pushStackType(body, sqlType, new Block(compilerContext).getVariable("block"), parameters[i]);
+
                     parameterFound = true;
+                }
+                else {
+                    throw new IllegalArgumentException("Parameter " + i + " must be annotated with @BlockIndex or @SqlType");
                 }
             }
             body.invokeStatic(intermediateInputFunction)

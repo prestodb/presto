@@ -17,6 +17,7 @@ import com.facebook.presto.operator.ChannelSet.ChannelSetBuilder;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockEncoding;
 import com.facebook.presto.spi.block.BlockEncodingSerde;
+import com.facebook.presto.spi.type.Type;
 import com.google.common.base.Throwables;
 import com.google.common.io.OutputSupplier;
 import io.airlift.slice.OutputStreamSliceOutput;
@@ -137,8 +138,9 @@ public class BlocksFileWriter
         {
             checkNotNull(block, "block is null");
 
+            Type type = block.getType();
             if (dictionaryBuilder == null) {
-                dictionaryBuilder = new ChannelSetBuilder(block.getType(), MAX_UNIQUE_COUNT, null);
+                dictionaryBuilder = new ChannelSetBuilder(type, MAX_UNIQUE_COUNT, null);
             }
 
             for (int position = 0; position < block.getPositionCount(); position++) {
@@ -147,7 +149,7 @@ public class BlocksFileWriter
                 if (lastValue == null) {
                     lastValue = value;
                 }
-                else if (!value.equalTo(0, lastValue, 0)) {
+                else if (!type.equalTo(value, 0, lastValue, 0)) {
                     runsCount++;
                     lastValue = value;
                 }

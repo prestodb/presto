@@ -14,6 +14,7 @@
 package com.facebook.presto.operator;
 
 import com.facebook.presto.spi.block.Block;
+import com.facebook.presto.spi.type.Type;
 
 import java.util.List;
 
@@ -21,13 +22,17 @@ import java.util.List;
 public class TwoChannelPagesHashStrategy
         implements PagesHashStrategy
 {
+    private final Type typeA;
+    private final Type typeB;
     private final List<Block> channelA;
     private final List<Block> channelB;
     private final List<Block> hashChannelA;
     private final List<Block> hashChannelB;
 
-    public TwoChannelPagesHashStrategy(List<List<Block>> channels)
+    public TwoChannelPagesHashStrategy(List<Type> types, List<List<Block>> channels)
     {
+        this.typeA = types.get(0);
+        this.typeB = types.get(0);
         this.channelA = channels.get(0);
         this.channelB = channels.get(1);
         this.hashChannelA = channels.get(2);
@@ -51,18 +56,18 @@ public class TwoChannelPagesHashStrategy
     public int hashPosition(int blockIndex, int blockPosition)
     {
         int result = 0;
-        result = result * 31 + hashChannelA.get(blockIndex).hash(blockPosition);
-        result = result * 31 + hashChannelB.get(blockIndex).hash(blockPosition);
+        result = result * 31 + typeA.hash(hashChannelA.get(blockIndex), blockPosition);
+        result = result * 31 + typeB.hash(hashChannelB.get(blockIndex), blockPosition);
         return result;
     }
 
     @Override
     public boolean positionEqualsRow(int leftBlockIndex, int leftBlockPosition, int rightPosition, Block[] rightBlocks)
     {
-        if (!hashChannelA.get(leftBlockIndex).equalTo(leftBlockPosition, rightBlocks[0], rightPosition)) {
+        if (!typeA.equalTo(hashChannelA.get(leftBlockIndex), leftBlockPosition, rightBlocks[0], rightPosition)) {
             return false;
         }
-        if (!hashChannelB.get(leftBlockIndex).equalTo(leftBlockPosition, rightBlocks[1], rightPosition)) {
+        if (!typeB.equalTo(hashChannelB.get(leftBlockIndex), leftBlockPosition, rightBlocks[1], rightPosition)) {
             return false;
         }
         return true;
@@ -71,10 +76,10 @@ public class TwoChannelPagesHashStrategy
     @Override
     public boolean positionEqualsPosition(int leftBlockIndex, int leftBlockPosition, int rightBlockIndex, int rightBlockPosition)
     {
-        if (!hashChannelA.get(leftBlockIndex).equalTo(leftBlockPosition, hashChannelA.get(rightBlockIndex), rightBlockPosition)) {
+        if (!typeA.equalTo(hashChannelA.get(leftBlockIndex), leftBlockPosition, hashChannelA.get(rightBlockIndex), rightBlockPosition)) {
             return false;
         }
-        if (!hashChannelB.get(leftBlockIndex).equalTo(leftBlockPosition, hashChannelB.get(rightBlockIndex), rightBlockPosition)) {
+        if (!typeB.equalTo(hashChannelB.get(leftBlockIndex), leftBlockPosition, hashChannelB.get(rightBlockIndex), rightBlockPosition)) {
             return false;
         }
 

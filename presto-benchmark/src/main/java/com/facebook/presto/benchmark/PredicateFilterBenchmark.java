@@ -60,7 +60,7 @@ public class PredicateFilterBenchmark
         @Override
         public boolean filter(int position, Block... blocks)
         {
-            return blocks[0].getDouble(position) >= minValue;
+            return DOUBLE.getDouble(blocks[0], position) >= minValue;
         }
 
         @Override

@@ -46,7 +46,7 @@ public class TestRunLengthEncodedBlockSerde
         RunLengthBlockEncoding blockEncoding = new RunLengthBlockEncoding(new VariableWidthBlockEncoding(VARCHAR));
         blockEncoding.writeBlock(sliceOutput, expectedBlock);
         RunLengthEncodedBlock actualBlock = blockEncoding.readBlock(sliceOutput.slice().getInput());
-        assertTrue(actualBlock.equalTo(0, expectedBlock, 0));
+        assertTrue(VARCHAR.equalTo(actualBlock, 0, expectedBlock, 0));
         BlockAssertions.assertBlockEquals(actualBlock, expectedBlock);
     }
 
@@ -75,23 +75,23 @@ public class TestRunLengthEncodedBlockSerde
         Block block = blockEncoding.readBlock(sliceInput);
         assertInstanceOf(block, RunLengthEncodedBlock.class);
         RunLengthEncodedBlock rleBlock = (RunLengthEncodedBlock) block;
-        assertTrue(rleBlock.equalTo(0, expectedBlock, 0));
+        assertTrue(VARCHAR.equalTo(rleBlock, 0, expectedBlock, 0));
         assertEquals(rleBlock.getPositionCount(), 2);
-        assertEquals(rleBlock.getSlice(0).toStringUtf8(), "alice");
+        assertEquals(VARCHAR.getSlice(rleBlock, 0).toStringUtf8(), "alice");
 
         block = blockEncoding.readBlock(sliceInput);
         assertInstanceOf(block, RunLengthEncodedBlock.class);
         rleBlock = (RunLengthEncodedBlock) block;
-        assertTrue(rleBlock.equalTo(0, expectedBlock, 2));
+        assertTrue(VARCHAR.equalTo(rleBlock, 0, expectedBlock, 2));
         assertEquals(rleBlock.getPositionCount(), 4);
-        assertEquals(rleBlock.getSlice(0).toStringUtf8(), "bob");
+        assertEquals(VARCHAR.getSlice(rleBlock, 0).toStringUtf8(), "bob");
 
         block = blockEncoding.readBlock(sliceInput);
         assertInstanceOf(block, RunLengthEncodedBlock.class);
         rleBlock = (RunLengthEncodedBlock) block;
-        assertTrue(rleBlock.equalTo(0, expectedBlock, 6));
+        assertTrue(VARCHAR.equalTo(rleBlock, 0, expectedBlock, 6));
         assertEquals(rleBlock.getPositionCount(), 6);
-        assertEquals(rleBlock.getSlice(0).toStringUtf8(), "charlie");
+        assertEquals(VARCHAR.getSlice(rleBlock, 0).toStringUtf8(), "charlie");
 
         assertFalse(sliceInput.isReadable());
     }

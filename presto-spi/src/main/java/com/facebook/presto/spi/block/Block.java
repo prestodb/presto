@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.spi.block;
 
-import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.type.Type;
 import io.airlift.slice.Slice;
 
@@ -103,52 +102,11 @@ public interface Block
     void appendTo(int position, BlockBuilder blockBuilder);
 
     /**
-     * Is the value at the specified position equal to the value at the other position
-     * in the other block?
-     */
-    boolean equalTo(int position, Block otherBlock, int otherPosition);
-
-    /**
-     * Gets the value at the specified position as a boolean.
-     *
-     * @throws IllegalArgumentException if this position is not valid
-     */
-    boolean getBoolean(int position);
-
-    /**
-     * Gets the value at the specified position as a double.
-     *
-     * @throws IllegalArgumentException if this position is not valid
-     */
-    double getDouble(int position);
-
-    /**
-     * Gets the value at the specified position as a long.
-     *
-     * @throws IllegalArgumentException if this position is not valid
-     */
-    long getLong(int position);
-
-    /**
-     * Gets the value at the specified position as an Object.
-     *
-     * @throws IllegalArgumentException if this position is not valid
-     */
-    Object getObjectValue(ConnectorSession session, int position);
-
-    /**
      * Gets the value at the specified position as a single element block.
      *
      * @throws IllegalArgumentException if this position is not valid
      */
     Block getSingleValueBlock(int position);
-
-    /**
-     * Gets the value at the specified position as a Slice.
-     *
-     * @throws IllegalArgumentException if this position is not valid
-     */
-    Slice getSlice(int position);
 
     /**
      * Gets the type of this block.
@@ -176,11 +134,6 @@ public interface Block
      * within this block.
      */
     Block getRegion(int positionOffset, int length);
-
-    /**
-     * Calculates the hash code of the value at the specified position.
-     */
-    int hash(int position);
 
     /**
      * Is the specified position null?

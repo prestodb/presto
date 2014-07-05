@@ -217,30 +217,34 @@ public class ByteCodeExpressionVisitor
                     .pushJavaDefault(javaType);
             if (javaType == boolean.class) {
                 Block isNotNull = new Block(context)
+                        .invokeStatic(type.getClass(), "getInstance", type.getClass())
                         .getVariable("block_" + field)
                         .getVariable("position")
-                        .invokeInterface(com.facebook.presto.spi.block.Block.class, "getBoolean", boolean.class, int.class);
+                        .invokeVirtual(type.getClass(), "getBoolean", boolean.class, com.facebook.presto.spi.block.Block.class, int.class);
                 return new IfStatement(context, isNullCheck, isNull, isNotNull);
             }
             else if (javaType == long.class) {
                 Block isNotNull = new Block(context)
+                        .invokeStatic(type.getClass(), "getInstance", type.getClass())
                         .getVariable("block_" + field)
                         .getVariable("position")
-                        .invokeInterface(com.facebook.presto.spi.block.Block.class, "getLong", long.class, int.class);
+                        .invokeVirtual(type.getClass(), "getLong", long.class, com.facebook.presto.spi.block.Block.class, int.class);
                 return new IfStatement(context, isNullCheck, isNull, isNotNull);
             }
             else if (javaType == double.class) {
                 Block isNotNull = new Block(context)
+                        .invokeStatic(type.getClass(), "getInstance", type.getClass())
                         .getVariable("block_" + field)
                         .getVariable("position")
-                        .invokeInterface(com.facebook.presto.spi.block.Block.class, "getDouble", double.class, int.class);
+                        .invokeVirtual(type.getClass(), "getDouble", double.class, com.facebook.presto.spi.block.Block.class, int.class);
                 return new IfStatement(context, isNullCheck, isNull, isNotNull);
             }
             else if (javaType == Slice.class) {
                 Block isNotNull = new Block(context)
+                        .invokeStatic(type.getClass(), "getInstance", type.getClass())
                         .getVariable("block_" + field)
                         .getVariable("position")
-                        .invokeInterface(com.facebook.presto.spi.block.Block.class, "getSlice", Slice.class, int.class);
+                        .invokeVirtual(type.getClass(), "getSlice", Slice.class, com.facebook.presto.spi.block.Block.class, int.class);
                 return new IfStatement(context, isNullCheck, isNull, isNotNull);
             }
             else {

@@ -173,25 +173,25 @@ public class UnloadedIndexKeyRecordSet
         @Override
         public boolean getBoolean(int field)
         {
-            return blocks[field].getBoolean(position);
+            return types.get(field).getBoolean(blocks[field], position);
         }
 
         @Override
         public long getLong(int field)
         {
-            return blocks[field].getLong(position);
+            return types.get(field).getLong(blocks[field], position);
         }
 
         @Override
         public double getDouble(int field)
         {
-            return blocks[field].getDouble(position);
+            return types.get(field).getDouble(blocks[field], position);
         }
 
         @Override
         public Slice getSlice(int field)
         {
-            return blocks[field].getSlice(position);
+            return types.get(field).getSlice(blocks[field], position);
         }
 
         @Override

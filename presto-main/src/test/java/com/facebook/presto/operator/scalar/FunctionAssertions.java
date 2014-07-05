@@ -300,11 +300,12 @@ public final class FunctionAssertions
         assertNotNull(output);
         assertEquals(output.getPositionCount(), 1);
         assertEquals(output.getChannelCount(), 1);
+        Type type = operator.getTypes().get(0);
 
         Block block = output.getBlock(0);
         assertEquals(block.getPositionCount(), 1);
 
-        return block.getObjectValue(session, 0);
+        return type.getObjectValue(session, block, 0);
     }
 
     public void assertFilter(String filter, boolean expected, boolean withNoInputColumns)
@@ -426,7 +427,7 @@ public final class FunctionAssertions
             assertEquals(page.getPositionCount(), 1);
             assertEquals(page.getChannelCount(), 1);
 
-            assertTrue(page.getBoolean(0, 0));
+            assertTrue(page.getBoolean(operator.getTypes().get(0), 0, 0));
             value = true;
         }
         else {

@@ -45,7 +45,7 @@ public class TestEvaluateClassifierPredictions
         accumulator.addInput(getPage());
         Block block = accumulator.evaluateFinal();
 
-        String output = block.getSlice(0).toStringUtf8();
+        String output = VARCHAR.getSlice(block, 0).toStringUtf8();
         List<String> parts = ImmutableList.copyOf(Splitter.on('\n').split(output));
         assertEquals(parts.size(), 3);
         assertEquals(parts.get(0), "Accuracy: 1/2 (50.00%)");

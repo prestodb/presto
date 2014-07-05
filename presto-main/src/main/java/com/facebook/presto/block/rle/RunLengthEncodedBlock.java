@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.block.rle;
 
-import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.type.Type;
@@ -163,41 +162,6 @@ public class RunLengthEncodedBlock
     }
 
     @Override
-    public boolean getBoolean(int position)
-    {
-        checkReadablePosition(position);
-        return value.getBoolean(0);
-    }
-
-    @Override
-    public long getLong(int position)
-    {
-        checkReadablePosition(position);
-        return value.getLong(0);
-    }
-
-    @Override
-    public double getDouble(int position)
-    {
-        checkReadablePosition(position);
-        return value.getDouble(0);
-    }
-
-    @Override
-    public Object getObjectValue(ConnectorSession session, int position)
-    {
-        checkReadablePosition(position);
-        return value.getObjectValue(session, 0);
-    }
-
-    @Override
-    public Slice getSlice(int position)
-    {
-        checkReadablePosition(position);
-        return value.getSlice(0);
-    }
-
-    @Override
     public Block getSingleValueBlock(int position)
     {
         checkReadablePosition(position);
@@ -209,20 +173,6 @@ public class RunLengthEncodedBlock
     {
         checkReadablePosition(position);
         return value.isNull(0);
-    }
-
-    @Override
-    public boolean equalTo(int position, Block otherBlock, int otherPosition)
-    {
-        checkReadablePosition(position);
-        return value.equalTo(0, otherBlock, otherPosition);
-    }
-
-    @Override
-    public int hash(int position)
-    {
-        checkReadablePosition(position);
-        return value.hash(0);
     }
 
     @Override

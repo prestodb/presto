@@ -55,7 +55,7 @@ public class TestLearnAggregations
     {
         accumulator.addInput(getPage());
         Block block = accumulator.evaluateFinal();
-        Slice slice = block.getSlice(0);
+        Slice slice = accumulator.getFinalType().getSlice(block, 0);
         Model deserialized = ModelUtils.deserialize(slice);
         assertNotNull(deserialized, "deserialization failed");
         assertTrue(deserialized instanceof Classifier, "deserialized model is not a classifier");

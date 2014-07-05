@@ -49,7 +49,7 @@ public class TriStateBooleanStateSerializer
             state.setByte(NULL_VALUE);
         }
         else {
-            state.setByte(block.getBoolean(index) ? TRUE_VALUE : FALSE_VALUE);
+            state.setByte(BOOLEAN.getBoolean(block, index) ? TRUE_VALUE : FALSE_VALUE);
         }
     }
 }

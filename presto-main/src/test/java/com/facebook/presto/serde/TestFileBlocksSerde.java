@@ -81,7 +81,7 @@ public class TestFileBlocksSerde
         Slice slice = sliceOutput.getLastSlice();
         BlocksFileReader actualBlocks = readBlocks(createTestingBlockEncodingManager(), slice);
 
-        List<Object> actualValues = BlockAssertions.toValues(actualBlocks);
+        List<Object> actualValues = BlockAssertions.toValues(VARCHAR, actualBlocks);
 
         assertEquals(actualValues, expectedValues);
 

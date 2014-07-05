@@ -44,7 +44,7 @@ public class NullableBigintStateSerializer
     {
         state.setNull(block.isNull(index));
         if (!state.isNull()) {
-            state.setLong(block.getLong(index));
+            state.setLong(BIGINT.getLong(block, index));
         }
     }
 }
