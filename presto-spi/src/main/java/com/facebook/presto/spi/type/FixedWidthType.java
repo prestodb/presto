@@ -14,8 +14,6 @@
 package com.facebook.presto.spi.type;
 
 import com.facebook.presto.spi.block.BlockBuilder;
-import io.airlift.slice.Slice;
-import io.airlift.slice.SliceOutput;
 
 /**
  * FixedWidthType is a type that has a fixed size for every value.
@@ -34,24 +32,4 @@ public interface FixedWidthType
      * of positions.
      */
     BlockBuilder createFixedSizeBlockBuilder(int positionCount);
-
-    /**
-     * Writes the boolean value into the specified slice output.
-     */
-    void writeBoolean(SliceOutput sliceOutput, boolean value);
-
-    /**
-     * Writes the long value into the specified slice output.
-     */
-    void writeLong(SliceOutput sliceOutput, long value);
-
-    /**
-     * Writes the double value into the specified slice output.
-     */
-    void writeDouble(SliceOutput sliceOutput, double value);
-
-    /**
-     * Writes the Slice value into the specified slice output.
-     */
-    void writeSlice(SliceOutput sliceOutput, Slice value, int offset);
 }

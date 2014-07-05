@@ -19,7 +19,6 @@ import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.block.FixedWidthBlockBuilder;
 import io.airlift.slice.Slice;
-import io.airlift.slice.SliceOutput;
 
 import static io.airlift.slice.SizeOf.SIZE_OF_BYTE;
 
@@ -126,9 +125,9 @@ public final class BooleanType
     }
 
     @Override
-    public void writeBoolean(SliceOutput sliceOutput, boolean value)
+    public void writeBoolean(BlockBuilder blockBuilder, boolean value)
     {
-        sliceOutput.writeByte(value ? 1 : 0);
+        blockBuilder.writeByte(value ? 1 : 0).closeEntry();
     }
 
     @Override
@@ -138,7 +137,7 @@ public final class BooleanType
     }
 
     @Override
-    public void writeLong(SliceOutput sliceOutput, long value)
+    public void writeLong(BlockBuilder blockBuilder, long value)
     {
         throw new UnsupportedOperationException();
     }
@@ -150,7 +149,7 @@ public final class BooleanType
     }
 
     @Override
-    public void writeDouble(SliceOutput sliceOutput, double value)
+    public void writeDouble(BlockBuilder blockBuilder, double value)
     {
         throw new UnsupportedOperationException();
     }
@@ -162,9 +161,9 @@ public final class BooleanType
     }
 
     @Override
-    public void writeSlice(SliceOutput sliceOutput, Slice value, int offset)
+    public void writeSlice(BlockBuilder blockBuilder, Slice value, int offset, int length)
     {
-        sliceOutput.writeBytes(value, offset, SIZE_OF_BYTE);
+        throw new UnsupportedOperationException();
     }
 
     @Override
