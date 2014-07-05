@@ -125,8 +125,12 @@ public final class DateType
     @Override
     public void appendTo(Block block, int position, BlockBuilder blockBuilder)
     {
-        long value = block.getLong(position, 0);
-        blockBuilder.appendLong(value);
+        if (block.isNull(position)) {
+            blockBuilder.appendNull();
+        }
+        else {
+            blockBuilder.writeLong(block.getLong(position, 0)).closeEntry();
+        }
     }
 
     @Override
@@ -169,6 +173,12 @@ public final class DateType
     public Slice getSlice(Block block, int position)
     {
         return block.getSlice(position, 0, getFixedSize());
+    }
+
+    @Override
+    public void writeSlice(BlockBuilder blockBuilder, Slice value)
+    {
+        throw new UnsupportedOperationException();
     }
 
     @Override

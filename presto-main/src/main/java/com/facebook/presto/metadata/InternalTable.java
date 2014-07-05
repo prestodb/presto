@@ -107,7 +107,7 @@ public class InternalTable
         public Builder add(Object... values)
         {
             for (int i = 0; i < types.size(); i++) {
-                BlockUtils.appendObject(pageBuilder.getBlockBuilder(i), values[i]);
+                BlockUtils.appendObject(types.get(i), pageBuilder.getBlockBuilder(i), values[i]);
             }
 
             if (pageBuilder.isFull()) {

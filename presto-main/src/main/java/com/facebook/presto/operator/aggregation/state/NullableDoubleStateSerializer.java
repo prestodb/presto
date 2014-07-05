@@ -35,7 +35,7 @@ public class NullableDoubleStateSerializer
             out.appendNull();
         }
         else {
-            out.appendDouble(state.getDouble());
+            out.writeDouble(state.getDouble()).closeEntry();
         }
     }
 

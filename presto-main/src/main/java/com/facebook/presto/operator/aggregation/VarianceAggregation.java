@@ -21,6 +21,7 @@ import com.facebook.presto.type.SqlType;
 
 import static com.facebook.presto.operator.aggregation.AggregationUtils.mergeVarianceState;
 import static com.facebook.presto.operator.aggregation.AggregationUtils.updateVarianceState;
+import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 
 @AggregationFunction("") // Names are on output methods
 public final class VarianceAggregation
@@ -56,7 +57,7 @@ public final class VarianceAggregation
         else {
             double m2 = state.getM2();
             double result = m2 / (count - 1);
-            out.appendDouble(result);
+            DOUBLE.writeDouble(out, result);
         }
     }
 
@@ -71,7 +72,7 @@ public final class VarianceAggregation
         else {
             double m2 = state.getM2();
             double result = m2 / count;
-            out.appendDouble(result);
+            DOUBLE.writeDouble(out, result);
         }
     }
 
@@ -87,7 +88,7 @@ public final class VarianceAggregation
             double m2 = state.getM2();
             double result = m2 / (count - 1);
             result = Math.sqrt(result);
-            out.appendDouble(result);
+            DOUBLE.writeDouble(out, result);
         }
     }
 
@@ -103,7 +104,7 @@ public final class VarianceAggregation
             double m2 = state.getM2();
             double result = m2 / count;
             result = Math.sqrt(result);
-            out.appendDouble(result);
+            DOUBLE.writeDouble(out, result);
         }
     }
 }

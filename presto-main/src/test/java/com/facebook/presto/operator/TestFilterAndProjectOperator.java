@@ -130,7 +130,7 @@ public class TestFilterAndProjectOperator
                 output.appendNull();
             }
             else {
-                output.appendLong(BIGINT.getLong(blocks[channelIndex], position) + 5);
+                BIGINT.writeLong(output, BIGINT.getLong(blocks[channelIndex], position) + 5);
             }
         }
 
@@ -141,7 +141,7 @@ public class TestFilterAndProjectOperator
                 output.appendNull();
             }
             else {
-                output.appendLong(cursor.getLong(channelIndex) + 5);
+                BIGINT.writeLong(output, cursor.getLong(channelIndex) + 5);
             }
         }
     }

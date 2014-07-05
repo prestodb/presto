@@ -44,6 +44,6 @@ public class CumulativeDistributionFunction
         if (newPeerGroup) {
             count += peerGroupCount;
         }
-        output.appendDouble(((double) count) / totalCount);
+        DOUBLE.writeDouble(output, ((double) count) / totalCount);
     }
 }

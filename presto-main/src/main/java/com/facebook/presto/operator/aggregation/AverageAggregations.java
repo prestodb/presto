@@ -62,7 +62,7 @@ public final class AverageAggregations
         }
         else {
             double value = state.getDouble();
-            out.appendDouble(value / count);
+            DOUBLE.writeDouble(out, value / count);
         }
     }
 }

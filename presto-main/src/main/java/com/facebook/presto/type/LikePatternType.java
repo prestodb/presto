@@ -130,6 +130,12 @@ public class LikePatternType
     }
 
     @Override
+    public void writeSlice(BlockBuilder blockBuilder, Slice value)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
     public void writeSlice(BlockBuilder blockBuilder, Slice value, int offset, int length)
     {
         throw new UnsupportedOperationException();

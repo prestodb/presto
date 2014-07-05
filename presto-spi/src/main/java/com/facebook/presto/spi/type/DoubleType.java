@@ -113,8 +113,12 @@ public final class DoubleType
     @Override
     public void appendTo(Block block, int position, BlockBuilder blockBuilder)
     {
-        double value = block.getDouble(position, 0);
-        blockBuilder.appendDouble(value);
+        if (block.isNull(position)) {
+            blockBuilder.appendNull();
+        }
+        else {
+            blockBuilder.writeDouble(block.getDouble(position, 0)).closeEntry();
+        }
     }
 
     @Override
@@ -157,6 +161,12 @@ public final class DoubleType
     public Slice getSlice(Block block, int position)
     {
         return block.getSlice(position, 0, getFixedSize());
+    }
+
+    @Override
+    public void writeSlice(BlockBuilder blockBuilder, Slice value)
+    {
+        throw new UnsupportedOperationException();
     }
 
     @Override

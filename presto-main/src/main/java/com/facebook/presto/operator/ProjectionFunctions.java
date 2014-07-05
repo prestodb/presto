@@ -57,7 +57,7 @@ public final class ProjectionFunctions
                 output.appendNull();
             }
             else {
-                blocks[channelIndex].appendTo(position, output);
+                columnType.appendTo(blocks[channelIndex], position, output);
             }
         }
 
@@ -71,16 +71,20 @@ public final class ProjectionFunctions
             else {
                 Class<?> javaType = columnType.getJavaType();
                 if (javaType == boolean.class) {
-                    output.appendBoolean(cursor.getBoolean(channelIndex));
+                    columnType.writeBoolean(output, cursor.getBoolean(channelIndex));
                 }
                 else if (javaType == long.class) {
-                    output.appendLong(cursor.getLong(channelIndex));
+                    columnType.writeLong(output, cursor.getLong(channelIndex));
                 }
                 else if (javaType == double.class) {
-                    output.appendDouble(cursor.getDouble(channelIndex));
+                    columnType.writeDouble(output, cursor.getDouble(channelIndex));
                 }
                 else if (javaType == Slice.class) {
-                    output.appendSlice(cursor.getSlice(channelIndex));
+                    Slice slice = cursor.getSlice(channelIndex);
+                    columnType.writeSlice(output, slice, 0, slice.length());
+                }
+                else {
+                    throw new UnsupportedOperationException("not yet implemented: " + javaType);
                 }
             }
         }

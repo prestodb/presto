@@ -20,6 +20,7 @@ import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.block.VariableWidthBlockBuilder;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import io.airlift.slice.Slice;
+import io.airlift.slice.Slices;
 
 public class VarcharType
         implements VariableWidthType
@@ -98,7 +99,13 @@ public class VarcharType
     @Override
     public void appendTo(Block block, int position, BlockBuilder blockBuilder)
     {
-        block.appendSliceTo(position, 0, block.getLength(position), blockBuilder);
+        if (block.isNull(position)) {
+            blockBuilder.appendNull();
+        }
+        else {
+            block.writeBytesTo(position, 0, block.getLength(position), blockBuilder);
+            blockBuilder.closeEntry();
+        }
     }
 
     @Override
@@ -141,6 +148,17 @@ public class VarcharType
     public Slice getSlice(Block block, int position)
     {
         return block.getSlice(position, 0, block.getLength(position));
+    }
+
+    public void writeString(BlockBuilder blockBuilder, String value)
+    {
+        writeSlice(blockBuilder, Slices.utf8Slice(value));
+    }
+
+    @Override
+    public void writeSlice(BlockBuilder blockBuilder, Slice value)
+    {
+        writeSlice(blockBuilder, value, 0, value.length());
     }
 
     @Override

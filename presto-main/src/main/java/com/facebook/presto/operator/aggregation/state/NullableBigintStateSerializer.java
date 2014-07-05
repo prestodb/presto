@@ -35,7 +35,7 @@ public class NullableBigintStateSerializer
             out.appendNull();
         }
         else {
-            out.appendLong(state.getLong());
+            BIGINT.writeLong(out, state.getLong());
         }
     }
 

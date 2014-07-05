@@ -160,22 +160,22 @@ public final class StateCompilerUtils
 
     public static void appendLongBlockBuilder(BlockBuilder builder, long value)
     {
-        builder.appendLong(value);
+        builder.writeLong(value).closeEntry();
     }
 
     public static void appendDoubleBlockBuilder(BlockBuilder builder, double value)
     {
-        builder.appendDouble(value);
+        builder.writeDouble(value).closeEntry();
     }
 
     public static void appendBooleanBlockBuilder(BlockBuilder builder, boolean value)
     {
-        builder.appendBoolean(value);
+        builder.writeByte(value ? 1 : 0).closeEntry();
     }
 
     public static void appendByteBlockBuilder(BlockBuilder builder, byte value)
     {
-        builder.appendLong(value);
+        builder.writeLong(value).closeEntry();
     }
 
     public static void appendSliceBlockBuilder(BlockBuilder builder, @Nullable Slice value)
@@ -184,7 +184,7 @@ public final class StateCompilerUtils
             builder.appendNull();
         }
         else {
-            builder.appendSlice(value);
+            builder.writeBytes(value, 0, value.length()).closeEntry();
         }
     }
 

@@ -17,12 +17,12 @@ import com.facebook.presto.block.BlockAssertions;
 import com.facebook.presto.block.rle.RunLengthBlockEncoding;
 import com.facebook.presto.block.rle.RunLengthEncodedBlock;
 import com.facebook.presto.spi.block.Block;
+import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.block.BlockEncoding;
 import com.facebook.presto.spi.block.VariableWidthBlockEncoding;
 import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.SliceInput;
-import io.airlift.slice.Slices;
 import org.testng.annotations.Test;
 
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
@@ -36,9 +36,9 @@ public class TestRunLengthEncodedBlockSerde
     @Test
     public void testRoundTrip()
     {
-        Block value = VARCHAR.createBlockBuilder(new BlockBuilderStatus())
-                .appendSlice(Slices.utf8Slice("alice"))
-                .build();
+        BlockBuilder blockBuilder = VARCHAR.createBlockBuilder(new BlockBuilderStatus());
+        VARCHAR.writeString(blockBuilder, "alice");
+        Block value = blockBuilder.build();
 
         RunLengthEncodedBlock expectedBlock = new RunLengthEncodedBlock(value, 11);
 
@@ -53,20 +53,20 @@ public class TestRunLengthEncodedBlockSerde
     @Test
     public void testCreateBlockWriter()
     {
-        Block expectedBlock = VARCHAR.createBlockBuilder(new BlockBuilderStatus())
-                .appendSlice(Slices.utf8Slice("alice"))
-                .appendSlice(Slices.utf8Slice("alice"))
-                .appendSlice(Slices.utf8Slice("bob"))
-                .appendSlice(Slices.utf8Slice("bob"))
-                .appendSlice(Slices.utf8Slice("bob"))
-                .appendSlice(Slices.utf8Slice("bob"))
-                .appendSlice(Slices.utf8Slice("charlie"))
-                .appendSlice(Slices.utf8Slice("charlie"))
-                .appendSlice(Slices.utf8Slice("charlie"))
-                .appendSlice(Slices.utf8Slice("charlie"))
-                .appendSlice(Slices.utf8Slice("charlie"))
-                .appendSlice(Slices.utf8Slice("charlie"))
-                .build();
+        BlockBuilder expectedBlockBuilder = VARCHAR.createBlockBuilder(new BlockBuilderStatus());
+        VARCHAR.writeString(expectedBlockBuilder, "alice");
+        VARCHAR.writeString(expectedBlockBuilder, "alice");
+        VARCHAR.writeString(expectedBlockBuilder, "bob");
+        VARCHAR.writeString(expectedBlockBuilder, "bob");
+        VARCHAR.writeString(expectedBlockBuilder, "bob");
+        VARCHAR.writeString(expectedBlockBuilder, "bob");
+        VARCHAR.writeString(expectedBlockBuilder, "charlie");
+        VARCHAR.writeString(expectedBlockBuilder, "charlie");
+        VARCHAR.writeString(expectedBlockBuilder, "charlie");
+        VARCHAR.writeString(expectedBlockBuilder, "charlie");
+        VARCHAR.writeString(expectedBlockBuilder, "charlie");
+        VARCHAR.writeString(expectedBlockBuilder, "charlie");
+        Block expectedBlock = expectedBlockBuilder.build();
 
         DynamicSliceOutput sliceOutput = new DynamicSliceOutput(1024);
         BlockEncoding blockEncoding = new RunLengthEncoder(sliceOutput).append(expectedBlock).finish();

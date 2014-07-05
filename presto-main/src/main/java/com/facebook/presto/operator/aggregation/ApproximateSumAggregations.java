@@ -68,7 +68,7 @@ public final class ApproximateSumAggregations
                 sumError(state.getCount(), state.getWeightedCount(), state.getM2(), state.getMean()),
                 confidence,
                 false);
-        out.appendSlice(Slices.utf8Slice(result));
+        VARCHAR.writeSlice(out, Slices.utf8Slice(result));
     }
 
     @InputFunction
@@ -100,7 +100,7 @@ public final class ApproximateSumAggregations
                 sumError(state.getCount(), state.getWeightedCount(), state.getM2(), state.getMean()),
                 confidence,
                 true);
-        out.appendSlice(Slices.utf8Slice(result));
+        VARCHAR.writeSlice(out, Slices.utf8Slice(result));
     }
 
     public interface ApproximateDoubleSumState

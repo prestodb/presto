@@ -53,7 +53,7 @@ public class DictionaryEncoder
         BlockBuilder idBlockBuilder = BIGINT.createBlockBuilder(new BlockBuilderStatus());
         for (int position = 0; position < block.getPositionCount(); position++) {
             int key = dictionaryBuilder.putIfAbsent(position, block);
-            idBlockBuilder.appendLong(key);
+            BIGINT.writeLong(idBlockBuilder, key);
         }
         idWriter.append(idBlockBuilder.build());
 

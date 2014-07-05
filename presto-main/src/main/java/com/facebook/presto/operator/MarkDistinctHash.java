@@ -48,11 +48,11 @@ public class MarkDistinctHash
         GroupByIdBlock ids = groupByHash.getGroupIds(page);
         for (int i = 0; i < ids.getPositionCount(); i++) {
             if (ids.getGroupId(i) == nextDistinctId) {
-                blockBuilder.appendBoolean(true);
+                BOOLEAN.writeBoolean(blockBuilder, true);
                 nextDistinctId++;
             }
             else {
-                blockBuilder.appendBoolean(false);
+                BOOLEAN.writeBoolean(blockBuilder, false);
             }
         }
 

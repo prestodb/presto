@@ -65,7 +65,7 @@ public final class ApproximateDoublePercentileAggregations
         else {
             checkState(percentile != -1.0, "Percentile is missing");
             checkCondition(0 <= percentile && percentile <= 1, INVALID_FUNCTION_ARGUMENT, "Percentile must be between 0 and 1");
-            out.appendDouble(longToDouble(digest.getQuantile(percentile)));
+            DOUBLE.writeDouble(out, longToDouble(digest.getQuantile(percentile)));
         }
     }
 

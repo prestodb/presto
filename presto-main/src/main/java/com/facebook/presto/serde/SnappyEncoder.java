@@ -19,6 +19,7 @@ import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.block.BlockEncoding;
+import com.facebook.presto.spi.type.Type;
 import io.airlift.slice.SliceOutput;
 
 import static com.google.common.base.Preconditions.checkNotNull;
@@ -49,7 +50,8 @@ public class SnappyEncoder
             blockBuilder = block.getType().createBlockBuilder(new BlockBuilderStatus());
         }
         for (int position = 0; position < block.getPositionCount(); position++) {
-            block.appendTo(position, blockBuilder);
+            Type type = block.getType();
+            type.appendTo(block, position, blockBuilder);
             if (blockBuilder.isFull()) {
                 flushBlock();
             }

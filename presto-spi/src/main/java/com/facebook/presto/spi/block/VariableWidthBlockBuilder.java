@@ -167,56 +167,6 @@ public class VariableWidthBlockBuilder
     }
 
     @Override
-    public BlockBuilder appendBoolean(boolean value)
-    {
-        if (currentEntrySize > 0) {
-            throw new IllegalStateException("Current entry must be closed before a new entry can be written");
-        }
-
-        type.writeBoolean(this, value);
-        return this;
-    }
-
-    @Override
-    public BlockBuilder appendLong(long value)
-    {
-        if (currentEntrySize > 0) {
-            throw new IllegalStateException("Current entry must be closed before a new entry can be written");
-        }
-
-        type.writeLong(this, value);
-        return this;
-    }
-
-    @Override
-    public BlockBuilder appendDouble(double value)
-    {
-        if (currentEntrySize > 0) {
-            throw new IllegalStateException("Current entry must be closed before a new entry can be written");
-        }
-
-        type.writeDouble(this, value);
-        return this;
-    }
-
-    @Override
-    public BlockBuilder appendSlice(Slice value)
-    {
-        return appendSlice(value, 0, value.length());
-    }
-
-    @Override
-    public BlockBuilder appendSlice(Slice value, int offset, int length)
-    {
-        if (currentEntrySize > 0) {
-            throw new IllegalStateException("Current entry must be closed before a new entry can be written");
-        }
-
-        type.writeSlice(this, value, offset, length);
-        return this;
-    }
-
-    @Override
     public BlockBuilder appendNull()
     {
         if (currentEntrySize > 0) {

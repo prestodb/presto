@@ -156,7 +156,7 @@ public class JoinCompiler
 
         generateConstructor(classDefinition, joinChannels, channelFields, joinChannelFields);
         generateGetChannelCountMethod(classDefinition, channelFields);
-        generateAppendToMethod(classDefinition, channelFields);
+        generateAppendToMethod(classDefinition, types, channelFields);
         generateHashPositionMethod(classDefinition, joinChannelTypes, joinChannelFields);
         generatePositionEqualsRowMethod(classDefinition, joinChannelTypes, joinChannelFields);
         generatePositionEqualsPositionMethod(classDefinition, joinChannelTypes, joinChannelFields);
@@ -214,7 +214,7 @@ public class JoinCompiler
                 .retInt();
     }
 
-    private void generateAppendToMethod(ClassDefinition classDefinition, List<FieldDefinition> channelFields)
+    private void generateAppendToMethod(ClassDefinition classDefinition, List<Type> types, List<FieldDefinition> channelFields)
     {
         Block appendToBody = classDefinition.declareMethod(new CompilerContext(bootstrapMethod),
                 a(PUBLIC),
@@ -227,7 +227,11 @@ public class JoinCompiler
                 .getBody();
 
         for (int index = 0; index < channelFields.size(); index++) {
-            appendToBody.pushThis()
+            Type type = types.get(index);
+            appendToBody
+                    .comment("%s.appendTo(channel_%s.get(blockIndex), blockPosition, pageBuilder.getBlockBuilder(outputChannelOffset + %s));", type.getClass(), index, index)
+                    .invokeStatic(type.getClass(), "getInstance", type.getClass())
+                    .pushThis()
                     .getField(channelFields.get(index))
                     .getVariable("blockIndex")
                     .invokeInterface(List.class, "get", Object.class, int.class)
@@ -238,7 +242,7 @@ public class JoinCompiler
                     .push(index)
                     .append(OpCodes.IADD)
                     .invokeVirtual(PageBuilder.class, "getBlockBuilder", BlockBuilder.class, int.class)
-                    .invokeInterface(com.facebook.presto.spi.block.Block.class, "appendTo", void.class, int.class, BlockBuilder.class);
+                    .invokeVirtual(type.getClass(), "appendTo", void.class, com.facebook.presto.spi.block.Block.class, int.class, BlockBuilder.class);
         }
         appendToBody.ret();
     }

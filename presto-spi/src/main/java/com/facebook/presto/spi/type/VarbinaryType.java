@@ -98,7 +98,13 @@ public class VarbinaryType
     @Override
     public void appendTo(Block block, int position, BlockBuilder blockBuilder)
     {
-        block.appendSliceTo(position, 0, block.getLength(position), blockBuilder);
+        if (block.isNull(position)) {
+            blockBuilder.appendNull();
+        }
+        else {
+            block.writeBytesTo(position, 0, block.getLength(position), blockBuilder);
+            blockBuilder.closeEntry();
+        }
     }
 
     @Override
@@ -141,6 +147,12 @@ public class VarbinaryType
     public Slice getSlice(Block block, int position)
     {
         return block.getSlice(position, 0, block.getLength(position));
+    }
+
+    @Override
+    public void writeSlice(BlockBuilder blockBuilder, Slice value)
+    {
+        writeSlice(blockBuilder, value, 0, value.length());
     }
 
     @Override

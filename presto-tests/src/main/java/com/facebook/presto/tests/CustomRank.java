@@ -19,6 +19,8 @@ import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.type.BigintType;
 import com.facebook.presto.spi.type.Type;
 
+import static com.facebook.presto.spi.type.BigintType.BIGINT;
+
 public class CustomRank
         implements WindowFunction
 {
@@ -48,6 +50,6 @@ public class CustomRank
         else {
             count++;
         }
-        output.appendLong(rank);
+        BIGINT.writeLong(output, rank);
     }
 }

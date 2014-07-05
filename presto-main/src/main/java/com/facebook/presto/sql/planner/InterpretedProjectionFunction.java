@@ -89,16 +89,17 @@ public class InterpretedProjectionFunction
 
         Class<?> javaType = type.getJavaType();
         if (javaType == boolean.class) {
-            output.appendBoolean((Boolean) value);
+            type.writeBoolean(output, (Boolean) value);
         }
         else if (javaType == long.class) {
-            output.appendLong((Long) value);
+            type.writeLong(output, (Long) value);
         }
         else if (javaType == double.class) {
-            output.appendDouble((Double) value);
+            type.writeDouble(output, (Double) value);
         }
         else if (javaType == Slice.class) {
-            output.appendSlice((Slice) value);
+            Slice slice = (Slice) value;
+            type.writeSlice(output, slice, 0, slice.length());
         }
         else {
             throw new UnsupportedOperationException("not yet implemented: " + type);

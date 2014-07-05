@@ -14,6 +14,7 @@
 package com.facebook.presto.operator;
 
 import com.facebook.presto.spi.block.Block;
+import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
@@ -46,7 +47,8 @@ public class SimplePagesHashStrategy
     {
         for (List<Block> channel : channels) {
             Block block = channel.get(blockIndex);
-            block.appendTo(blockPosition, pageBuilder.getBlockBuilder(outputChannelOffset));
+            Type type = block.getType();
+            type.appendTo(block, blockPosition, pageBuilder.getBlockBuilder(outputChannelOffset));
             outputChannelOffset++;
         }
     }

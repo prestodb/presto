@@ -138,15 +138,10 @@ public abstract class AbstractFixedWidthBlock
     }
 
     @Override
-    public void appendSliceTo(int position, int offset, int length, BlockBuilder blockBuilder)
+    public void writeBytesTo(int position, int offset, int length, BlockBuilder blockBuilder)
     {
         checkReadablePosition(position);
-        if (isNull(position)) {
-            blockBuilder.appendNull();
-        }
-        else {
-            blockBuilder.appendSlice(getRawSlice(), valueOffset(position), length);
-        }
+        blockBuilder.writeBytes(getRawSlice(), valueOffset(position), length);
     }
 
     @Override
@@ -176,17 +171,6 @@ public abstract class AbstractFixedWidthBlock
     {
         checkReadablePosition(position);
         return isEntryNull(position);
-    }
-
-    @Override
-    public void appendTo(int position, BlockBuilder blockBuilder)
-    {
-        if (isNull(position)) {
-            blockBuilder.appendNull();
-        }
-        else {
-            type.appendTo(this, position, blockBuilder);
-        }
     }
 
     private int valueOffset(int position)

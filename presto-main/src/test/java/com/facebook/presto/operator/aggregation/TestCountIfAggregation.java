@@ -28,7 +28,7 @@ public class TestCountIfAggregation
     {
         BlockBuilder blockBuilder = BOOLEAN.createBlockBuilder(new BlockBuilderStatus());
         for (int i = start; i < start + length; i++) {
-            blockBuilder.appendBoolean(i % 2 == 0);
+            BOOLEAN.writeBoolean(blockBuilder, i % 2 == 0);
         }
         return blockBuilder.build();
     }

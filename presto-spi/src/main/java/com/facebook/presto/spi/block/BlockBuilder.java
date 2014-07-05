@@ -59,31 +59,6 @@ public interface BlockBuilder
     BlockBuilder closeEntry();
 
     /**
-     * Appends a boolean value to the block.
-     */
-    BlockBuilder appendBoolean(boolean value);
-
-    /**
-     * Appends a long value to the block.
-     */
-    BlockBuilder appendLong(long value);
-
-    /**
-     * Appends a double value to the block.
-     */
-    BlockBuilder appendDouble(double value);
-
-    /**
-     * Appends a Slice value to the block.
-     */
-    BlockBuilder appendSlice(Slice value);
-
-    /**
-     * Appends a range of a Slice value to the block.
-     */
-    BlockBuilder appendSlice(Slice value, int offset, int length);
-
-    /**
      * Appends a null value to the block.
      */
     BlockBuilder appendNull();

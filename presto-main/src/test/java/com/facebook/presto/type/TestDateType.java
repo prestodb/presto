@@ -13,6 +13,8 @@
  */
 package com.facebook.presto.type;
 
+import com.facebook.presto.spi.block.Block;
+import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.type.SqlDate;
 
@@ -23,20 +25,24 @@ public class TestDateType
 {
     public TestDateType()
     {
-        super(SqlDate.class,
-                DATE.createBlockBuilder(new BlockBuilderStatus())
-                        .appendLong(1111)
-                        .appendLong(1111)
-                        .appendLong(1111)
-                        .appendLong(2222)
-                        .appendLong(2222)
-                        .appendLong(2222)
-                        .appendLong(2222)
-                        .appendLong(2222)
-                        .appendLong(3333)
-                        .appendLong(3333)
-                        .appendLong(4444)
-                        .build());
+        super(SqlDate.class, createTestBlock());
+    }
+
+    public static Block createTestBlock()
+    {
+        BlockBuilder blockBuilder = DATE.createBlockBuilder(new BlockBuilderStatus());
+        DATE.writeLong(blockBuilder, 1111);
+        DATE.writeLong(blockBuilder, 1111);
+        DATE.writeLong(blockBuilder, 1111);
+        DATE.writeLong(blockBuilder, 2222);
+        DATE.writeLong(blockBuilder, 2222);
+        DATE.writeLong(blockBuilder, 2222);
+        DATE.writeLong(blockBuilder, 2222);
+        DATE.writeLong(blockBuilder, 2222);
+        DATE.writeLong(blockBuilder, 3333);
+        DATE.writeLong(blockBuilder, 3333);
+        DATE.writeLong(blockBuilder, 4444);
+        return blockBuilder.build();
     }
 
     @Override

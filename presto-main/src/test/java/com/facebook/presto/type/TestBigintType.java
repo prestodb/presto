@@ -13,6 +13,8 @@
  */
 package com.facebook.presto.type;
 
+import com.facebook.presto.spi.block.Block;
+import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
 
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
@@ -22,20 +24,24 @@ public class TestBigintType
 {
     public TestBigintType()
     {
-        super(Long.class,
-                BIGINT.createBlockBuilder(new BlockBuilderStatus())
-                        .appendLong(1111)
-                        .appendLong(1111)
-                        .appendLong(1111)
-                        .appendLong(2222)
-                        .appendLong(2222)
-                        .appendLong(2222)
-                        .appendLong(2222)
-                        .appendLong(2222)
-                        .appendLong(3333)
-                        .appendLong(3333)
-                        .appendLong(4444)
-                        .build());
+        super(Long.class, createTestBlock());
+    }
+
+    public static Block createTestBlock()
+    {
+        BlockBuilder blockBuilder = BIGINT.createBlockBuilder(new BlockBuilderStatus());
+        BIGINT.writeLong(blockBuilder, 1111);
+        BIGINT.writeLong(blockBuilder, 1111);
+        BIGINT.writeLong(blockBuilder, 1111);
+        BIGINT.writeLong(blockBuilder, 2222);
+        BIGINT.writeLong(blockBuilder, 2222);
+        BIGINT.writeLong(blockBuilder, 2222);
+        BIGINT.writeLong(blockBuilder, 2222);
+        BIGINT.writeLong(blockBuilder, 2222);
+        BIGINT.writeLong(blockBuilder, 3333);
+        BIGINT.writeLong(blockBuilder, 3333);
+        BIGINT.writeLong(blockBuilder, 4444);
+        return blockBuilder.build();
     }
 
     @Override

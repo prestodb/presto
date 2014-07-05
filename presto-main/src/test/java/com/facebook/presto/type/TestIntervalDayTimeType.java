@@ -13,6 +13,8 @@
  */
 package com.facebook.presto.type;
 
+import com.facebook.presto.spi.block.Block;
+import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.type.SqlIntervalDayTime;
 
@@ -23,20 +25,24 @@ public class TestIntervalDayTimeType
 {
     public TestIntervalDayTimeType()
     {
-        super(SqlIntervalDayTime.class,
-                INTERVAL_DAY_TIME.createBlockBuilder(new BlockBuilderStatus())
-                        .appendLong(1111)
-                        .appendLong(1111)
-                        .appendLong(1111)
-                        .appendLong(2222)
-                        .appendLong(2222)
-                        .appendLong(2222)
-                        .appendLong(2222)
-                        .appendLong(2222)
-                        .appendLong(3333)
-                        .appendLong(3333)
-                        .appendLong(4444)
-                        .build());
+        super(SqlIntervalDayTime.class, createTestBlock());
+    }
+
+    public static Block createTestBlock()
+    {
+        BlockBuilder blockBuilder = INTERVAL_DAY_TIME.createBlockBuilder(new BlockBuilderStatus());
+        INTERVAL_DAY_TIME.writeLong(blockBuilder, 1111);
+        INTERVAL_DAY_TIME.writeLong(blockBuilder, 1111);
+        INTERVAL_DAY_TIME.writeLong(blockBuilder, 1111);
+        INTERVAL_DAY_TIME.writeLong(blockBuilder, 2222);
+        INTERVAL_DAY_TIME.writeLong(blockBuilder, 2222);
+        INTERVAL_DAY_TIME.writeLong(blockBuilder, 2222);
+        INTERVAL_DAY_TIME.writeLong(blockBuilder, 2222);
+        INTERVAL_DAY_TIME.writeLong(blockBuilder, 2222);
+        INTERVAL_DAY_TIME.writeLong(blockBuilder, 3333);
+        INTERVAL_DAY_TIME.writeLong(blockBuilder, 3333);
+        INTERVAL_DAY_TIME.writeLong(blockBuilder, 4444);
+        return blockBuilder.build();
     }
 
     @Override

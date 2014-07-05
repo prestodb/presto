@@ -14,6 +14,7 @@
 package com.facebook.presto.block;
 
 import com.facebook.presto.spi.block.Block;
+import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
 import org.testng.annotations.Test;
 
@@ -26,12 +27,12 @@ public class TestBlockBuilder
     @Test
     public void testMultipleValuesWithNull()
     {
-        Block block = BIGINT.createBlockBuilder(new BlockBuilderStatus())
-                .appendNull()
-                .appendLong(42)
-                .appendNull()
-                .appendLong(42)
-                .build();
+        BlockBuilder blockBuilder = BIGINT.createBlockBuilder(new BlockBuilderStatus());
+        blockBuilder.appendNull();
+        BIGINT.writeLong(blockBuilder, 42);
+        blockBuilder.appendNull();
+        BIGINT.writeLong(blockBuilder, 42);
+        Block block = blockBuilder.build();
 
         assertTrue(block.isNull(0));
         assertEquals(BIGINT.getLong(block, 1), 42L);

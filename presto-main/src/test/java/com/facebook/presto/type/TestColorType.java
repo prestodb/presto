@@ -13,6 +13,8 @@
  */
 package com.facebook.presto.type;
 
+import com.facebook.presto.spi.block.Block;
+import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
 
 import static com.facebook.presto.operator.scalar.ColorFunctions.rgb;
@@ -23,20 +25,24 @@ public class TestColorType
 {
     public TestColorType()
     {
-        super(String.class,
-                COLOR.createBlockBuilder(new BlockBuilderStatus())
-                        .appendLong(rgb(1, 1, 1))
-                        .appendLong(rgb(1, 1, 1))
-                        .appendLong(rgb(1, 1, 1))
-                        .appendLong(rgb(2, 2, 2))
-                        .appendLong(rgb(2, 2, 2))
-                        .appendLong(rgb(2, 2, 2))
-                        .appendLong(rgb(2, 2, 2))
-                        .appendLong(rgb(2, 2, 2))
-                        .appendLong(rgb(3, 3, 3))
-                        .appendLong(rgb(3, 3, 3))
-                        .appendLong(rgb(4, 4, 4))
-                        .build());
+        super(String.class, createTestBlock());
+    }
+
+    public static Block createTestBlock()
+    {
+        BlockBuilder blockBuilder = COLOR.createBlockBuilder(new BlockBuilderStatus());
+        COLOR.writeLong(blockBuilder, rgb(1, 1, 1));
+        COLOR.writeLong(blockBuilder, rgb(1, 1, 1));
+        COLOR.writeLong(blockBuilder, rgb(1, 1, 1));
+        COLOR.writeLong(blockBuilder, rgb(2, 2, 2));
+        COLOR.writeLong(blockBuilder, rgb(2, 2, 2));
+        COLOR.writeLong(blockBuilder, rgb(2, 2, 2));
+        COLOR.writeLong(blockBuilder, rgb(2, 2, 2));
+        COLOR.writeLong(blockBuilder, rgb(2, 2, 2));
+        COLOR.writeLong(blockBuilder, rgb(3, 3, 3));
+        COLOR.writeLong(blockBuilder, rgb(3, 3, 3));
+        COLOR.writeLong(blockBuilder, rgb(4, 4, 4));
+        return blockBuilder.build();
     }
 
     @Override

@@ -222,7 +222,9 @@ public class IndexLoader
                 int position = unloadedKeyRecordCursor.getPosition();
                 if (lookupSource.getJoinPosition(position, blocks) < 0) {
                     for (int i = 0; i < blocks.length; i++) {
-                        blocks[i].appendTo(position, missingKeysPageBuilder.getBlockBuilder(i));
+                        Block block = blocks[i];
+                        Type type = block.getType();
+                        type.appendTo(block, position, missingKeysPageBuilder.getBlockBuilder(i));
                     }
                 }
             }

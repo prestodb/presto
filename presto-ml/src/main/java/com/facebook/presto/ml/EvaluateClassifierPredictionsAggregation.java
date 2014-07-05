@@ -22,8 +22,8 @@ import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.type.BigintType;
 import com.facebook.presto.spi.type.VarcharType;
 import com.facebook.presto.type.SqlType;
-import io.airlift.slice.Slices;
 
+import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.google.common.base.Preconditions.checkArgument;
 
 @AggregationFunction("evaluate_classifier_predictions")
@@ -79,7 +79,7 @@ public final class EvaluateClassifierPredictionsAggregation
         sb.append(String.format("Precision: %d/%d (%.2f%%)\n", truePositives, truePositives + falsePositives, 100.0 * truePositives / (double) (truePositives + falsePositives)));
         sb.append(String.format("Recall: %d/%d (%.2f%%)", truePositives, truePositives + falseNegatives, 100.0 * truePositives / (double) (truePositives + falseNegatives)));
 
-        out.appendSlice(Slices.utf8Slice(sb.toString()));
+        VARCHAR.writeString(out, sb.toString());
     }
 
     public interface EvaluateClassifierPredictionsState

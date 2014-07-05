@@ -114,7 +114,7 @@ public class GroupByHash
             int groupId = putIfAbsent(position, blocks);
 
             // output the group id for this row
-            blockBuilder.appendLong(groupId);
+            BIGINT.writeLong(blockBuilder, groupId);
         }
 
         Block block = blockBuilder.build();
@@ -269,7 +269,8 @@ public class GroupByHash
         {
             // append to each channel
             for (int i = 0; i < channels.length; i++) {
-                blocks[channels[i]].appendTo(position, blockBuilders.get(i));
+                Block block = blocks[channels[i]];
+                block.getType().appendTo(block, position, blockBuilders.get(i));
                 full = full || blockBuilders.get(i).isFull();
             }
             positionCount++;
@@ -279,7 +280,7 @@ public class GroupByHash
         {
             for (int i = 0; i < blockBuilders.size(); i++) {
                 BlockBuilder channel = blockBuilders.get(i);
-                channel.appendTo(position, builders[i]);
+                channel.getType().appendTo(channel, position, builders[i]);
             }
         }
 

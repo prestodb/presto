@@ -19,7 +19,6 @@ import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
 import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.Slice;
-import io.airlift.slice.Slices;
 import org.testng.annotations.Test;
 
 import java.util.Iterator;
@@ -27,9 +26,9 @@ import java.util.Iterator;
 import static com.facebook.presto.operator.PageAssertions.assertPageEquals;
 import static com.facebook.presto.serde.PagesSerde.readPages;
 import static com.facebook.presto.serde.PagesSerde.writePages;
-import static com.facebook.presto.testing.TestingBlockEncodingManager.createTestingBlockEncodingManager;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
+import static com.facebook.presto.testing.TestingBlockEncodingManager.createTestingBlockEncodingManager;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 
@@ -38,12 +37,13 @@ public class TestPagesSerde
     @Test
     public void testRoundTrip()
     {
-        Block expectedBlock = VARCHAR.createBlockBuilder(new BlockBuilderStatus())
-                .appendSlice(Slices.utf8Slice("alice"))
-                .appendSlice(Slices.utf8Slice("bob"))
-                .appendSlice(Slices.utf8Slice("charlie"))
-                .appendSlice(Slices.utf8Slice("dave"))
-                .build();
+        BlockBuilder expectedBlockBuilder = VARCHAR.createBlockBuilder(new BlockBuilderStatus());
+        VARCHAR.writeString(expectedBlockBuilder, "alice");
+        VARCHAR.writeString(expectedBlockBuilder, "bob");
+        VARCHAR.writeString(expectedBlockBuilder, "charlie");
+        VARCHAR.writeString(expectedBlockBuilder, "dave");
+        Block expectedBlock = expectedBlockBuilder.build();
+
         Page expectedPage = new Page(expectedBlock, expectedBlock, expectedBlock);
 
         DynamicSliceOutput sliceOutput = new DynamicSliceOutput(1024);
@@ -66,12 +66,14 @@ public class TestPagesSerde
         assertEquals(pageSize, 41); // page overhead
 
         // page with one value
-        page = new Page(builder.appendLong(123).build());
+        BIGINT.writeLong(builder, 123);
+        page = new Page(builder.build());
         int firstValueSize = serializedSize(page) - pageSize;
         assertEquals(firstValueSize, 9); // value size + value overhead
 
         // page with two values
-        page = new Page(builder.appendLong(456).build());
+        BIGINT.writeLong(builder, 456);
+        page = new Page(builder.build());
         int secondValueSize = serializedSize(page) - (pageSize + firstValueSize);
         assertEquals(secondValueSize, 8); // value size (value overhead is shared with previous value)
     }
@@ -87,12 +89,14 @@ public class TestPagesSerde
         assertEquals(pageSize, 45); // page overhead
 
         // page with one value
-        page = new Page(builder.appendSlice(Slices.utf8Slice("alice")).build());
+        VARCHAR.writeString(builder, "alice");
+        page = new Page(builder.build());
         int firstValueSize = serializedSize(page) - pageSize;
         assertEquals(firstValueSize, 4 + 5 + 1); // length + "alice" + null
 
         // page with two values
-        page = new Page(builder.appendSlice(Slices.utf8Slice("bob")).build());
+        VARCHAR.writeString(builder, "bob");
+        page = new Page(builder.build());
         int secondValueSize = serializedSize(page) - (pageSize + firstValueSize);
         assertEquals(secondValueSize, 4  + 3); // length + "bob" (null shared with first entry)
     }

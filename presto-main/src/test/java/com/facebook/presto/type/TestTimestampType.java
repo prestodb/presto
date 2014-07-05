@@ -13,6 +13,8 @@
  */
 package com.facebook.presto.type;
 
+import com.facebook.presto.spi.block.Block;
+import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.type.SqlTimestamp;
 
@@ -23,20 +25,24 @@ public class TestTimestampType
 {
     public TestTimestampType()
     {
-        super(SqlTimestamp.class,
-                TIMESTAMP.createBlockBuilder(new BlockBuilderStatus())
-                        .appendLong(1111)
-                        .appendLong(1111)
-                        .appendLong(1111)
-                        .appendLong(2222)
-                        .appendLong(2222)
-                        .appendLong(2222)
-                        .appendLong(2222)
-                        .appendLong(2222)
-                        .appendLong(3333)
-                        .appendLong(3333)
-                        .appendLong(4444)
-                        .build());
+        super(SqlTimestamp.class, createTestBlock());
+    }
+
+    public static Block createTestBlock()
+    {
+        BlockBuilder blockBuilder = TIMESTAMP.createBlockBuilder(new BlockBuilderStatus());
+        TIMESTAMP.writeLong(blockBuilder, 1111);
+        TIMESTAMP.writeLong(blockBuilder, 1111);
+        TIMESTAMP.writeLong(blockBuilder, 1111);
+        TIMESTAMP.writeLong(blockBuilder, 2222);
+        TIMESTAMP.writeLong(blockBuilder, 2222);
+        TIMESTAMP.writeLong(blockBuilder, 2222);
+        TIMESTAMP.writeLong(blockBuilder, 2222);
+        TIMESTAMP.writeLong(blockBuilder, 2222);
+        TIMESTAMP.writeLong(blockBuilder, 3333);
+        TIMESTAMP.writeLong(blockBuilder, 3333);
+        TIMESTAMP.writeLong(blockBuilder, 4444);
+        return blockBuilder.build();
     }
 
     @Override

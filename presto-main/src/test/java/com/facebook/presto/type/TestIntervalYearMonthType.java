@@ -13,6 +13,8 @@
  */
 package com.facebook.presto.type;
 
+import com.facebook.presto.spi.block.Block;
+import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.type.SqlIntervalYearMonth;
 
@@ -23,20 +25,24 @@ public class TestIntervalYearMonthType
 {
     public TestIntervalYearMonthType()
     {
-        super(SqlIntervalYearMonth.class,
-                INTERVAL_YEAR_MONTH.createBlockBuilder(new BlockBuilderStatus())
-                        .appendLong(1111)
-                        .appendLong(1111)
-                        .appendLong(1111)
-                        .appendLong(2222)
-                        .appendLong(2222)
-                        .appendLong(2222)
-                        .appendLong(2222)
-                        .appendLong(2222)
-                        .appendLong(3333)
-                        .appendLong(3333)
-                        .appendLong(4444)
-                        .build());
+        super(SqlIntervalYearMonth.class, createTestBlock());
+    }
+
+    public static Block createTestBlock()
+    {
+        BlockBuilder blockBuilder = INTERVAL_YEAR_MONTH.createBlockBuilder(new BlockBuilderStatus());
+        INTERVAL_YEAR_MONTH.writeLong(blockBuilder, 1111);
+        INTERVAL_YEAR_MONTH.writeLong(blockBuilder, 1111);
+        INTERVAL_YEAR_MONTH.writeLong(blockBuilder, 1111);
+        INTERVAL_YEAR_MONTH.writeLong(blockBuilder, 2222);
+        INTERVAL_YEAR_MONTH.writeLong(blockBuilder, 2222);
+        INTERVAL_YEAR_MONTH.writeLong(blockBuilder, 2222);
+        INTERVAL_YEAR_MONTH.writeLong(blockBuilder, 2222);
+        INTERVAL_YEAR_MONTH.writeLong(blockBuilder, 2222);
+        INTERVAL_YEAR_MONTH.writeLong(blockBuilder, 3333);
+        INTERVAL_YEAR_MONTH.writeLong(blockBuilder, 3333);
+        INTERVAL_YEAR_MONTH.writeLong(blockBuilder, 4444);
+        return blockBuilder.build();
     }
 
     @Override

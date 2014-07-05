@@ -13,6 +13,8 @@
  */
 package com.facebook.presto.type;
 
+import com.facebook.presto.spi.block.Block;
+import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
 
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
@@ -22,20 +24,24 @@ public class TestBooleanType
 {
     public TestBooleanType()
     {
-        super(Boolean.class,
-                BOOLEAN.createBlockBuilder(new BlockBuilderStatus())
-                        .appendBoolean(true)
-                        .appendBoolean(true)
-                        .appendBoolean(true)
-                        .appendBoolean(false)
-                        .appendBoolean(false)
-                        .appendBoolean(false)
-                        .appendBoolean(false)
-                        .appendBoolean(false)
-                        .appendBoolean(true)
-                        .appendBoolean(true)
-                        .appendBoolean(false)
-                        .build());
+        super(Boolean.class, createTestBlock());
+    }
+
+    public static Block createTestBlock()
+    {
+        BlockBuilder blockBuilder = BOOLEAN.createBlockBuilder(new BlockBuilderStatus());
+        BOOLEAN.writeBoolean(blockBuilder, true);
+        BOOLEAN.writeBoolean(blockBuilder, true);
+        BOOLEAN.writeBoolean(blockBuilder, true);
+        BOOLEAN.writeBoolean(blockBuilder, false);
+        BOOLEAN.writeBoolean(blockBuilder, false);
+        BOOLEAN.writeBoolean(blockBuilder, false);
+        BOOLEAN.writeBoolean(blockBuilder, false);
+        BOOLEAN.writeBoolean(blockBuilder, false);
+        BOOLEAN.writeBoolean(blockBuilder, true);
+        BOOLEAN.writeBoolean(blockBuilder, true);
+        BOOLEAN.writeBoolean(blockBuilder, false);
+        return blockBuilder.build();
     }
 
     @Override

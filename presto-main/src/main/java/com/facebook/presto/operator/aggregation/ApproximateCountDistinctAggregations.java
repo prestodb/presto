@@ -81,10 +81,10 @@ public final class ApproximateCountDistinctAggregations
     public static void output(SliceState state, BlockBuilder out)
     {
         if (state.getSlice() != null) {
-            out.appendLong(ESTIMATOR.estimate(state.getSlice(), 0));
+            BIGINT.writeLong(out, ESTIMATOR.estimate(state.getSlice(), 0));
         }
         else {
-            out.appendLong(0);
+            BIGINT.writeLong(out, 0);
         }
     }
 

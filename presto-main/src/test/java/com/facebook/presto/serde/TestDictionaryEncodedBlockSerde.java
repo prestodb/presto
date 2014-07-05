@@ -14,10 +14,10 @@
 package com.facebook.presto.serde;
 
 import com.facebook.presto.spi.block.Block;
+import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.block.BlockEncoding;
 import io.airlift.slice.DynamicSliceOutput;
-import io.airlift.slice.Slices;
 import org.testng.annotations.Test;
 
 import static com.facebook.presto.block.BlockAssertions.assertBlockEquals;
@@ -28,29 +28,32 @@ public class TestDictionaryEncodedBlockSerde
     @Test
     public void testRoundTrip()
     {
-        Block block = VARCHAR.createBlockBuilder(new BlockBuilderStatus())
-                .appendSlice(Slices.utf8Slice("alice"))
-                .appendSlice(Slices.utf8Slice("bob"))
-                .appendSlice(Slices.utf8Slice("charlie"))
-                .appendSlice(Slices.utf8Slice("dave"))
-                .build();
+        BlockBuilder blockBuilder = VARCHAR.createBlockBuilder(new BlockBuilderStatus());
+        VARCHAR.writeString(blockBuilder, "alice");
+        VARCHAR.writeString(blockBuilder, "bob");
+        VARCHAR.writeString(blockBuilder, "charlie");
+        VARCHAR.writeString(blockBuilder, "dave");
+        Block block = blockBuilder.build();
 
         DynamicSliceOutput sliceOutput = new DynamicSliceOutput(1024);
         BlockEncoding blockEncoding = new DictionaryEncoder(new UncompressedEncoder(sliceOutput)).append(block).append(block).append(block).finish();
         Block actualBlock = blockEncoding.readBlock(sliceOutput.slice().getInput());
-        assertBlockEquals(actualBlock, VARCHAR.createBlockBuilder(new BlockBuilderStatus())
-                .appendSlice(Slices.utf8Slice("alice"))
-                .appendSlice(Slices.utf8Slice("bob"))
-                .appendSlice(Slices.utf8Slice("charlie"))
-                .appendSlice(Slices.utf8Slice("dave"))
-                .appendSlice(Slices.utf8Slice("alice"))
-                .appendSlice(Slices.utf8Slice("bob"))
-                .appendSlice(Slices.utf8Slice("charlie"))
-                .appendSlice(Slices.utf8Slice("dave"))
-                .appendSlice(Slices.utf8Slice("alice"))
-                .appendSlice(Slices.utf8Slice("bob"))
-                .appendSlice(Slices.utf8Slice("charlie"))
-                .appendSlice(Slices.utf8Slice("dave"))
-                .build());
+
+        BlockBuilder expectedBlockBuilder = VARCHAR.createBlockBuilder(new BlockBuilderStatus());
+        VARCHAR.writeString(expectedBlockBuilder, "alice");
+        VARCHAR.writeString(expectedBlockBuilder, "bob");
+        VARCHAR.writeString(expectedBlockBuilder, "charlie");
+        VARCHAR.writeString(expectedBlockBuilder, "dave");
+        VARCHAR.writeString(expectedBlockBuilder, "alice");
+        VARCHAR.writeString(expectedBlockBuilder, "bob");
+        VARCHAR.writeString(expectedBlockBuilder, "charlie");
+        VARCHAR.writeString(expectedBlockBuilder, "dave");
+        VARCHAR.writeString(expectedBlockBuilder, "alice");
+        VARCHAR.writeString(expectedBlockBuilder, "bob");
+        VARCHAR.writeString(expectedBlockBuilder, "charlie");
+        VARCHAR.writeString(expectedBlockBuilder, "dave");
+        Block expectedBlock = expectedBlockBuilder.build();
+
+        assertBlockEquals(actualBlock, expectedBlock);
     }
 }
