@@ -79,7 +79,7 @@ public class FixedWidthBlock
             throw new IndexOutOfBoundsException("Invalid position " + positionOffset + " in block with " + positionCount + " positions");
         }
 
-        Slice newSlice = slice.slice(positionOffset * entrySize, length * entrySize);
+        Slice newSlice = slice.slice(positionOffset * fixedSize, length * fixedSize);
         boolean[] newValueIsNull = Arrays.copyOfRange(valueIsNull, positionOffset, positionOffset + length);
         return new FixedWidthBlock(type, length, newSlice, newValueIsNull);
     }

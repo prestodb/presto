@@ -13,164 +13,171 @@
  */
 package com.facebook.presto.block;
 
-import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.block.BlockEncoding;
-import com.facebook.presto.spi.type.Type;
 import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import org.testng.annotations.Test;
 
-import java.util.Locale;
-import java.util.Map.Entry;
-import java.util.SortedMap;
-import java.util.TreeMap;
+import java.util.Arrays;
 
-import static com.facebook.presto.spi.type.TimeZoneKey.UTC_KEY;
-import static java.util.Collections.unmodifiableSortedMap;
+import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
+import static io.airlift.slice.SizeOf.SIZE_OF_BYTE;
+import static io.airlift.slice.SizeOf.SIZE_OF_DOUBLE;
+import static io.airlift.slice.SizeOf.SIZE_OF_FLOAT;
+import static io.airlift.slice.SizeOf.SIZE_OF_INT;
+import static io.airlift.slice.SizeOf.SIZE_OF_LONG;
+import static io.airlift.slice.SizeOf.SIZE_OF_SHORT;
+import static java.lang.Double.doubleToLongBits;
+import static java.lang.Float.floatToIntBits;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 import static org.testng.Assert.fail;
 
+@Test
 public abstract class AbstractTestBlock
 {
-    public static final ConnectorSession SESSION = new ConnectorSession("user", "source", "catalog", "schema", UTC_KEY, Locale.ENGLISH, "address", "agent");
-
-    private final SortedMap<Integer, Object> expectedValues = indexValues(createTestBlock());
-    private final Type expectedType = createTestBlock().getType();
-
-    protected abstract Block createExpectedValues();
-
-    protected Block createTestBlock()
+    protected static void assertBlock(Block block, Slice[] expectedValues)
     {
-        return createExpectedValues();
-    }
+        assertBlockPositions(block, expectedValues);
+        assertBlockPositions(copyBlock(block), expectedValues);
 
-    public final Object getExpectedValue(int position)
-    {
-        return getExpectedValues().get(position);
-    }
-
-    public final SortedMap<Integer, Object> getExpectedValues()
-    {
-        return expectedValues;
-    }
-
-    @Test
-    public void testBlock()
-    {
-        Block block = createTestBlock();
-        for (Entry<Integer, Object> entry : expectedValues.entrySet()) {
-            assertPositionEquals(block, entry.getKey(), entry.getValue());
+        try {
+            block.isNull(-1);
+            fail("expected IllegalArgumentException");
+        }
+        catch (IllegalArgumentException expected) {
+        }
+        try {
+            block.isNull(block.getPositionCount());
+            fail("expected IllegalArgumentException");
+        }
+        catch (IllegalArgumentException expected) {
         }
     }
 
-    @Test
-    public void testBlockEncoding()
+    private static void assertBlockPositions(Block block, Slice[] expectedValues)
     {
-        Block block = createTestBlock();
+        assertEquals(block.getPositionCount(), expectedValues.length);
+        for (int position = 0; position < block.getPositionCount(); position++) {
+            assertBlockPosition(block, position, expectedValues[position]);
+        }
+    }
 
+    private static void assertBlockPosition(Block block, int position, Slice expectedValue)
+    {
+        assertPositionValue(block, position, expectedValue);
+        assertPositionValue(block.getSingleValueBlock(position), 0, expectedValue);
+        assertPositionValue(block.getRegion(position, 1), 0, expectedValue);
+        assertPositionValue(block.getRegion(0, position + 1), position, expectedValue);
+        assertPositionValue(block.getRegion(position, block.getPositionCount() - position), 0, expectedValue);
+    }
+
+    private static void assertPositionValue(Block block, int position, Slice expectedValue)
+    {
+        if (expectedValue == null) {
+            assertTrue(block.isNull(position));
+            return;
+        }
+
+        assertFalse(block.isNull(position));
+
+        int length = block.getLength(position);
+        assertEquals(length, expectedValue.length());
+
+        for (int offset = 0; offset <= length - SIZE_OF_BYTE; offset++) {
+            assertEquals(block.getByte(position, offset), expectedValue.getByte(offset));
+        }
+
+        for (int offset = 0; offset <= length - SIZE_OF_SHORT; offset++) {
+            assertEquals(block.getShort(position, offset), expectedValue.getShort(offset));
+        }
+
+        for (int offset = 0; offset <= length - SIZE_OF_INT; offset++) {
+            assertEquals(block.getInt(position, offset), expectedValue.getInt(offset));
+        }
+
+        for (int offset = 0; offset <= length - SIZE_OF_LONG; offset++) {
+            assertEquals(block.getLong(position, offset), expectedValue.getLong(offset));
+        }
+
+        for (int offset = 0; offset <= length - SIZE_OF_FLOAT; offset++) {
+            assertEquals(floatToIntBits(block.getFloat(position, offset)), floatToIntBits(expectedValue.getFloat(offset)));
+        }
+
+        for (int offset = 0; offset <= length - SIZE_OF_DOUBLE; offset++) {
+            assertEquals(doubleToLongBits(block.getDouble(position, offset)), doubleToLongBits(expectedValue.getDouble(offset)));
+        }
+
+        Block expectedBlock = toSingeValuedBlock(expectedValue);
+
+        for (int offset = 0; offset < length - 3; offset++) {
+            assertEquals(block.getSlice(position, offset, 3), expectedValue.slice(offset, 3));
+            assertEquals(block.hash(position, offset, 3), expectedValue.hashCode(offset, 3));
+            assertTrue(block.bytesEqual(position, offset, expectedValue, offset, 3));
+            // if your tests fail here, please change your test to not use this value
+            assertFalse(block.bytesEqual(position, offset, Slices.utf8Slice("XXX"), 0, 3));
+
+            assertEquals(block.bytesCompare(position, offset, 3, expectedValue, offset, 3), 0);
+            assertTrue(block.bytesCompare(position, offset, 3, expectedValue, offset, 2) > 0);
+            Slice greaterSlice = createGreaterValue(expectedValue, offset, 3);
+            assertTrue(block.bytesCompare(position, offset, 3, greaterSlice, 0, greaterSlice.length()) < 0);
+
+            assertTrue(block.equals(position, offset, expectedBlock, 0, offset, 3));
+            assertEquals(block.compareTo(position, offset, 3, expectedBlock, 0, offset, 3), 0);
+
+            BlockBuilder blockBuilder = VARBINARY.createBlockBuilder(new BlockBuilderStatus());
+            block.writeBytesTo(position, offset, 3, blockBuilder);
+            blockBuilder.closeEntry();
+            Block segment = blockBuilder.build();
+
+            assertTrue(block.equals(position, offset, segment, 0, 0, 3));
+        }
+    }
+
+    private static Block copyBlock(Block block)
+    {
         DynamicSliceOutput sliceOutput = new DynamicSliceOutput(1024);
         BlockEncoding blockEncoding = block.getEncoding();
         blockEncoding.writeBlock(sliceOutput, block);
-        Block actualBlock = blockEncoding.readBlock(sliceOutput.slice().getInput());
-        BlockAssertions.assertBlockEquals(actualBlock, block);
+        return blockEncoding.readBlock(sliceOutput.slice().getInput());
     }
 
-    protected void assertPositionEquals(Block block, int position, Object value)
+    private static Block toSingeValuedBlock(Slice expectedValue)
     {
-        assertPositionValue(block, position, value);
-        assertPositionValue(block.getSingleValueBlock(position), 0, value);
-        assertPositionValue(block.getRegion(position, 1), 0, value);
-        assertPositionValue(block.getRegion(0, position + 1), position, value);
-        assertPositionValue(block.getRegion(position, block.getPositionCount() - position), 0, value);
-
-        BlockBuilder blockBuilder = expectedType.createBlockBuilder(new BlockBuilderStatus());
-        expectedType.appendTo(block, position, blockBuilder);
-        assertPositionValue(blockBuilder.build(), 0, value);
-    }
-
-    private void assertPositionValue(Block block, int position, Object expectedValue)
-    {
-        assertEquals(block.getType(), expectedType);
-
-        Block expectedBlock = createBlock(expectedType, expectedValue);
-
-        assertEquals(block.isNull(position), expectedValue == null);
-
-        int length = block.getLength(position);
-        assertEquals(length, expectedBlock.getLength(0));
-
-        if (expectedValue instanceof String) {
-            assertTrue(block.compareTo(position, 0, length, expectedBlock, 0, 0, length) == 0);
-            if (length > 0) {
-                assertTrue(block.compareTo(position, 1, length - 1, expectedBlock, 0, 1, length - 1) == 0);
-                assertTrue(block.compareTo(position, 0, length - 1, expectedBlock, 0, 0, length - 1) == 0);
-            }
-
-            Slice value = Slices.utf8Slice(expectedValue + "_");
-            BlockBuilder blockBuilder = expectedType.createBlockBuilder(new BlockBuilderStatus());
-            expectedType.writeSlice(blockBuilder, value, 0, value.length());
-            Block greaterValue = blockBuilder.build();
-
-            assertTrue(block.compareTo(position, 0, length, greaterValue, 0, 0, length + 1) < 0);
-            if (length > 0) {
-                assertTrue(block.compareTo(position, 1, length - 1, greaterValue, 0, 1, length) < 0);
-                assertTrue(block.compareTo(position, 0, length - 1, greaterValue, 0, 0, length) < 0);
-            }
-        }
-
-        try {
-             block.isNull(-1);
-             fail("expected IllegalArgumentException");
-         }
-         catch (IllegalArgumentException expected) {
-         }
-         try {
-             block.isNull(block.getPositionCount());
-             fail("expected IllegalArgumentException");
-         }
-         catch (IllegalArgumentException expected) {
-         }
-    }
-
-    private static Block createBlock(Type type, Object value)
-    {
-        BlockBuilder blockBuilder = type.createBlockBuilder(new BlockBuilderStatus());
-
-        Class<?> javaType = type.getJavaType();
-        if (value == null) {
-            blockBuilder.appendNull();
-        }
-        else if (javaType == boolean.class) {
-            type.writeBoolean(blockBuilder, (Boolean) value);
-        }
-        else if (javaType == long.class) {
-            type.writeLong(blockBuilder, (Long) value);
-        }
-        else if (javaType == double.class) {
-            type.writeDouble(blockBuilder, (Double) value);
-        }
-        else if (javaType == Slice.class) {
-            Slice slice = Slices.utf8Slice((String) value);
-            type.writeSlice(blockBuilder, slice, 0, slice.length());
-        }
-        else {
-            throw new UnsupportedOperationException("not yet implemented: " + javaType);
-        }
+        BlockBuilder blockBuilder = VARBINARY.createBlockBuilder(new BlockBuilderStatus());
+        VARBINARY.writeSlice(blockBuilder, expectedValue);
         return blockBuilder.build();
     }
 
-    private static SortedMap<Integer, Object> indexValues(Block block)
+    private static Slice createGreaterValue(Slice expectedValue, int offset, int length)
     {
-        Type type = block.getType();
-        SortedMap<Integer, Object> values = new TreeMap<>();
-        for (int position = 0; position < block.getPositionCount(); position++) {
-            values.put(position, type.getObjectValue(SESSION, block, position));
+        DynamicSliceOutput greaterOutput = new DynamicSliceOutput(length + 1);
+        greaterOutput.writeBytes(expectedValue, offset, length);
+        greaterOutput.writeByte('_');
+        return greaterOutput.slice();
+    }
+
+    protected static Slice createExpectedValue(int length)
+    {
+        DynamicSliceOutput dynamicSliceOutput = new DynamicSliceOutput(16);
+        for (int index = 0; index < length; index++) {
+            dynamicSliceOutput.writeByte(length * (index + 1));
         }
-        return unmodifiableSortedMap(values);
+        return dynamicSliceOutput.slice();
+    }
+
+    protected static Object[] alternatingNullValues(Object[] slices)
+    {
+        Object[] slicesWithNulls = Arrays.copyOf(slices, slices.length * 2);
+        for (int i = 0; i < slices.length; i++) {
+            slicesWithNulls[i * 2] = slices[i];
+            slicesWithNulls[i * 2 + 1] = null;
+        }
+        return slicesWithNulls;
     }
 }

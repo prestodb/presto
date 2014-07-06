@@ -16,17 +16,22 @@ package com.facebook.presto.block.dictionary;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockEncoding;
+import com.facebook.presto.spi.block.FixedWidthBlock;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.primitives.Ints;
 import io.airlift.slice.Slice;
 
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
+import static com.facebook.presto.type.UnknownType.UNKNOWN;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
+import static io.airlift.slice.Slices.EMPTY_SLICE;
 
 public class DictionaryEncodedBlock
         implements Block
 {
+    // todo type is not correct but works for now
+    private static final FixedWidthBlock NULL_SINGLE_VALUE_BLOCK = new FixedWidthBlock(UNKNOWN, 1, EMPTY_SLICE, new boolean[] {true});
     private final Block dictionary;
     private final Block idBlock;
 
@@ -164,13 +169,16 @@ public class DictionaryEncodedBlock
     @Override
     public Block getSingleValueBlock(int position)
     {
+        if (isNull(position)) {
+            return NULL_SINGLE_VALUE_BLOCK;
+        }
         return dictionary.getSingleValueBlock(getDictionaryKey(position));
     }
 
     @Override
     public boolean isNull(int position)
     {
-        return dictionary.isNull(getDictionaryKey(position));
+        return idBlock.isNull(position) || dictionary.isNull(getDictionaryKey(position));
     }
 
     private int getDictionaryKey(int position)

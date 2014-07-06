@@ -17,37 +17,67 @@ import com.facebook.presto.block.AbstractTestBlock;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
+import com.facebook.presto.spi.block.VariableWidthBlockBuilder;
+import io.airlift.slice.Slice;
 import org.testng.annotations.Test;
 
-import static com.facebook.presto.block.BlockAssertions.createLongsBlock;
-import static com.facebook.presto.block.BlockAssertions.createStringsBlock;
-import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
-import static io.airlift.testing.Assertions.assertInstanceOf;
+import static com.facebook.presto.spi.type.BigintType.BIGINT;
+import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
 
 public class TestDictionaryEncodedBlock
         extends AbstractTestBlock
 {
-    @Override
-    protected Block createExpectedValues()
-    {
-        return createStringsBlock("apple", "apple", "apple", "banana", "banana", "banana", "banana", "banana", "cherry", "cherry", "date");
-    }
-
-    @Override
-    protected Block createTestBlock()
-    {
-        BlockBuilder dictionary = VARCHAR.createBlockBuilder(new BlockBuilderStatus());
-        VARCHAR.writeString(dictionary, "apple");
-        VARCHAR.writeString(dictionary, "banana");
-        VARCHAR.writeString(dictionary, "cherry");
-        VARCHAR.writeString(dictionary, "date");
-
-        return new DictionaryEncodedBlock(dictionary.build(), createLongsBlock(0, 0, 0, 1, 1, 1, 1, 1, 2, 2, 3));
-    }
-
     @Test
-    public void testCursorType()
+    public void test()
     {
-        assertInstanceOf(createTestBlock(), DictionaryEncodedBlock.class);
+        Slice[] dictionary = createDictionary(10);
+        for (int positionCount = 0; positionCount < 20; positionCount++) {
+            Integer[] ids = createIds(dictionary.length, positionCount);
+            assertDictionaryEncodedBlock(dictionary, ids);
+            assertDictionaryEncodedBlock(dictionary, (Integer[]) alternatingNullValues(ids));
+        }
+    }
+
+    private static void assertDictionaryEncodedBlock(Slice[] dictionary, Integer[] ids)
+    {
+        VariableWidthBlockBuilder dictionaryBlockBuilder = new VariableWidthBlockBuilder(VARBINARY, new BlockBuilderStatus());
+        for (Slice expectedValue : dictionary) {
+            dictionaryBlockBuilder.writeBytes(expectedValue, 0, expectedValue.length()).closeEntry();
+        }
+        Block dictionaryBlock = dictionaryBlockBuilder.build();
+
+        Slice[] expectedValues = new Slice[ids.length];
+        BlockBuilder idsBlockBuilder = BIGINT.createBlockBuilder(new BlockBuilderStatus());
+        for (int i = 0; i < ids.length; i++) {
+            Integer id = ids[i];
+            if (id == null) {
+                idsBlockBuilder.appendNull();
+            }
+            else {
+                BIGINT.writeLong(idsBlockBuilder, id);
+                expectedValues[i] = dictionary[id];
+            }
+        }
+        Block idsBlock = idsBlockBuilder.build();
+
+        assertBlock(new DictionaryEncodedBlock(dictionaryBlock, idsBlock), expectedValues);
+    }
+
+    private static Slice[] createDictionary(int size)
+    {
+        Slice[] expectedValues = new Slice[size];
+        for (int position = 0; position < size; position++) {
+            expectedValues[position] = createExpectedValue(position);
+        }
+        return expectedValues;
+    }
+
+    private static Integer[] createIds(int dictionarySize, int positionCount)
+    {
+        Integer[] ids = new Integer[positionCount];
+        for (int position = 0; position < positionCount; position++) {
+            ids[position] = positionCount % dictionarySize;
+        }
+        return ids;
     }
 }

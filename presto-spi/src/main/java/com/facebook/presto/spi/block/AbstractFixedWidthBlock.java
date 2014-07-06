@@ -23,22 +23,27 @@ public abstract class AbstractFixedWidthBlock
         implements Block
 {
     protected final FixedWidthType type;
-    protected final int entrySize;
+    protected final int fixedSize;
 
     protected AbstractFixedWidthBlock(FixedWidthType type)
     {
         this.type = requireNonNull(type, "type is null");
-        this.entrySize = type.getFixedSize();
+        this.fixedSize = type.getFixedSize();
     }
 
     protected abstract Slice getRawSlice();
 
     protected abstract boolean isEntryNull(int position);
 
+    public int getFixedSize()
+    {
+        return fixedSize;
+    }
+
     @Override
     public int getLength(int position)
     {
-        return entrySize;
+        return fixedSize;
     }
 
     @Override
@@ -94,7 +99,7 @@ public abstract class AbstractFixedWidthBlock
     public boolean equals(int position, int offset, Block otherBlock, int otherPosition, int otherOffset, int length)
     {
         checkReadablePosition(position);
-        if (entrySize < length) {
+        if (fixedSize < length) {
             return false;
         }
         int thisOffset = valueOffset(position) + offset;
@@ -116,14 +121,14 @@ public abstract class AbstractFixedWidthBlock
         if (isNull(position)) {
             return 0;
         }
-        return getRawSlice().hashCode(valueOffset(position), length);
+        return getRawSlice().hashCode(valueOffset(position) + offset, length);
     }
 
     @Override
     public int compareTo(int position, int offset, int length, Block otherBlock, int otherPosition, int otherOffset, int otherLength)
     {
         checkReadablePosition(position);
-        if (entrySize < length) {
+        if (fixedSize < length) {
             throw new IllegalArgumentException("Length longer than value length");
         }
         int thisOffset = valueOffset(position) + offset;
@@ -141,7 +146,7 @@ public abstract class AbstractFixedWidthBlock
     public void writeBytesTo(int position, int offset, int length, BlockBuilder blockBuilder)
     {
         checkReadablePosition(position);
-        blockBuilder.writeBytes(getRawSlice(), valueOffset(position), length);
+        blockBuilder.writeBytes(getRawSlice(), valueOffset(position) + offset, length);
     }
 
     @Override
@@ -161,7 +166,7 @@ public abstract class AbstractFixedWidthBlock
     {
         checkReadablePosition(position);
 
-        Slice copy = Slices.copyOf(getRawSlice(), valueOffset(position), entrySize);
+        Slice copy = Slices.copyOf(getRawSlice(), valueOffset(position), fixedSize);
 
         return new FixedWidthBlock(type, 1, copy, new boolean[] {isNull(position)});
     }
@@ -175,7 +180,7 @@ public abstract class AbstractFixedWidthBlock
 
     private int valueOffset(int position)
     {
-        return position * entrySize;
+        return position * fixedSize;
     }
 
     protected void checkReadablePosition(int position)
