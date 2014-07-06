@@ -22,7 +22,6 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.base.Objects;
 import com.google.common.collect.ImmutableList;
 
-import java.util.ArrayList;
 import java.util.List;
 
 import static com.google.common.base.Preconditions.checkState;
@@ -33,16 +32,19 @@ public final class HashPagePartitionFunction
     private final int partition;
     private final int partitionCount;
     private final List<Integer> partitioningChannels;
+    private final List<Type> types;
 
     @JsonCreator
     public HashPagePartitionFunction(
             @JsonProperty("partition") int partition,
             @JsonProperty("partitionCount") int partitionCount,
-            @JsonProperty("partitioningChannels") List<Integer> partitioningChannels)
+            @JsonProperty("partitioningChannels") List<Integer> partitioningChannels,
+            @JsonProperty("types") List<Type> types)
     {
         this.partition = partition;
         this.partitionCount = partitionCount;
         this.partitioningChannels = ImmutableList.copyOf(partitioningChannels);
+        this.types = ImmutableList.copyOf(types);
     }
 
     @JsonProperty
@@ -63,6 +65,12 @@ public final class HashPagePartitionFunction
         return partitioningChannels;
     }
 
+    @JsonProperty
+    public List<Type> getTypes()
+    {
+        return types;
+    }
+
     @Override
     public List<Page> partition(List<Page> pages)
     {
@@ -70,7 +78,7 @@ public final class HashPagePartitionFunction
             return pages;
         }
 
-        PageBuilder pageBuilder = new PageBuilder(getTypes(pages));
+        PageBuilder pageBuilder = new PageBuilder(types);
 
         ImmutableList.Builder<Page> partitionedPages = ImmutableList.builder();
         for (Page page : pages) {
@@ -81,7 +89,10 @@ public final class HashPagePartitionFunction
                     continue;
                 }
 
-                page.appendTo(position, pageBuilder);
+                for (int channel = 0; channel < types.size(); channel++) {
+                    Type type = types.get(channel);
+                    type.appendTo(page.getBlock(channel), position, pageBuilder.getBlockBuilder(channel));
+                }
 
                 // if page is full, flush
                 if (pageBuilder.isFull()) {
@@ -102,8 +113,9 @@ public final class HashPagePartitionFunction
         long hashCode = 1;
         for (int channel : partitioningChannels) {
             hashCode *= 31;
+            Type type = types.get(channel);
             Block block = page.getBlock(channel);
-            hashCode += block.getType().hash(block, position);
+            hashCode += type.hash(block, position);
         }
         // clear the sign bit
         hashCode &= 0x7fff_ffff_ffff_ffffL;
@@ -142,15 +154,5 @@ public final class HashPagePartitionFunction
                 .add("partitionCount", partitionCount)
                 .add("partitioningChannels", partitioningChannels)
                 .toString();
-    }
-
-    private static List<Type> getTypes(List<Page> pages)
-    {
-        Page firstPage = pages.get(0);
-        List<Type> types = new ArrayList<>();
-        for (Block block : firstPage.getBlocks()) {
-            types.add(block.getType());
-        }
-        return types;
     }
 }

@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.spi.block;
 
-import com.facebook.presto.spi.type.VariableWidthType;
 import io.airlift.slice.SizeOf;
 import io.airlift.slice.Slice;
 
@@ -27,10 +26,8 @@ public class VariableWidthBlock
     private final int[] offsets;
     private final boolean[] valueIsNull;
 
-    public VariableWidthBlock(VariableWidthType type, int positionCount, Slice slice, int[] offsets, boolean[] valueIsNull)
+    public VariableWidthBlock(int positionCount, Slice slice, int[] offsets, boolean[] valueIsNull)
     {
-        super(type);
-
         this.positionCount = positionCount;
         this.slice = slice;
 
@@ -95,7 +92,7 @@ public class VariableWidthBlock
 
         int[] newOffsets = Arrays.copyOfRange(offsets, positionOffset, positionOffset + length + 1);
         boolean[] newValueIsNull = Arrays.copyOfRange(valueIsNull, positionOffset, positionOffset + length);
-        return new VariableWidthBlock(type, length, slice, newOffsets, newValueIsNull);
+        return new VariableWidthBlock(length, slice, newOffsets, newValueIsNull);
     }
 
     @Override

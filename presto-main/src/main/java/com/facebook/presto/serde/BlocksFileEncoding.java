@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.serde;
 
+import com.facebook.presto.spi.type.Type;
 import io.airlift.slice.SliceOutput;
 
 import static com.google.common.base.Preconditions.checkNotNull;
@@ -22,41 +23,41 @@ public enum BlocksFileEncoding
     RAW("raw")
             {
                 @Override
-                public Encoder createBlocksWriter(SliceOutput sliceOutput)
+                public Encoder createBlocksWriter(Type type, SliceOutput sliceOutput)
                 {
-                    return new UncompressedEncoder(sliceOutput);
+                    return new UncompressedEncoder(type, sliceOutput);
                 }
             },
     RLE("rle")
             {
                 @Override
-                public Encoder createBlocksWriter(SliceOutput sliceOutput)
+                public Encoder createBlocksWriter(Type type, SliceOutput sliceOutput)
                 {
-                    return new RunLengthEncoder(sliceOutput);
+                    return new RunLengthEncoder(sliceOutput, type);
                 }
             },
     DIC_RAW("dic-raw")
             {
                 @Override
-                public Encoder createBlocksWriter(SliceOutput sliceOutput)
+                public Encoder createBlocksWriter(Type type, SliceOutput sliceOutput)
                 {
-                    return new DictionaryEncoder(new UncompressedEncoder(sliceOutput));
+                    return new DictionaryEncoder(type, new UncompressedEncoder(type, sliceOutput));
                 }
             },
     DIC_RLE("dic-rle")
             {
                 @Override
-                public Encoder createBlocksWriter(SliceOutput sliceOutput)
+                public Encoder createBlocksWriter(Type type, SliceOutput sliceOutput)
                 {
-                    return new DictionaryEncoder(new RunLengthEncoder(sliceOutput));
+                    return new DictionaryEncoder(type, new RunLengthEncoder(sliceOutput, type));
                 }
             },
     SNAPPY("snappy")
             {
                 @Override
-                public Encoder createBlocksWriter(SliceOutput sliceOutput)
+                public Encoder createBlocksWriter(Type type, SliceOutput sliceOutput)
                 {
-                    return new SnappyEncoder(sliceOutput);
+                    return new SnappyEncoder(type, sliceOutput);
                 }
             };
 
@@ -72,5 +73,5 @@ public enum BlocksFileEncoding
         return name;
     }
 
-    public abstract Encoder createBlocksWriter(SliceOutput sliceOutput);
+    public abstract Encoder createBlocksWriter(Type type, SliceOutput sliceOutput);
 }

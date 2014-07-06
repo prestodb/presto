@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.operator;
 
-import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterators;
@@ -37,11 +36,11 @@ public class ValuesOperator
         private final List<Page> pages;
         private boolean closed;
 
-        public ValuesOperatorFactory(int operatorId, List<Page> pages)
+        public ValuesOperatorFactory(int operatorId, List<Type> types, List<Page> pages)
         {
             this.operatorId = operatorId;
-            this.types = extractTypes(pages);
-            this.pages = pages;
+            this.types = ImmutableList.copyOf(checkNotNull(types, "types is null"));
+            this.pages = ImmutableList.copyOf(checkNotNull(pages, "pages is null"));
         }
 
         @Override
@@ -55,7 +54,7 @@ public class ValuesOperator
         {
             checkState(!closed, "Factory is already closed");
             OperatorContext operatorContext = driverContext.addOperatorContext(operatorId, ValuesOperator.class.getSimpleName());
-            return new ValuesOperator(operatorContext, pages);
+            return new ValuesOperator(operatorContext, types, pages);
         }
 
         @Override
@@ -69,14 +68,14 @@ public class ValuesOperator
     private final ImmutableList<Type> types;
     private final Iterator<Page> pages;
 
-    public ValuesOperator(OperatorContext operatorContext, List<Page> pages)
+    public ValuesOperator(OperatorContext operatorContext, List<Type> types, List<Page> pages)
     {
         this.operatorContext = checkNotNull(operatorContext, "operatorContext is null");
+        this.types = ImmutableList.copyOf(checkNotNull(types, "types is null"));
 
         checkNotNull(pages, "pages is null");
         checkArgument(!pages.isEmpty(), "pages is empty");
 
-        this.types = extractTypes(pages);
         this.pages = ImmutableList.copyOf(pages).iterator();
     }
 
@@ -133,14 +132,5 @@ public class ValuesOperator
             operatorContext.recordGeneratedInput(page.getDataSize(), page.getPositionCount());
         }
         return page;
-    }
-
-    private static ImmutableList<Type> extractTypes(List<Page> pages)
-    {
-        ImmutableList.Builder<Type> tupleInfos = ImmutableList.builder();
-        for (Block block : pages.get(0).getBlocks()) {
-            tupleInfos.add(block.getType());
-        }
-        return tupleInfos.build();
     }
 }

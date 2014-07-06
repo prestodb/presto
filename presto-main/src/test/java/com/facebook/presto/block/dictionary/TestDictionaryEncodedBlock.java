@@ -22,7 +22,6 @@ import io.airlift.slice.Slice;
 import org.testng.annotations.Test;
 
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
-import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
 
 public class TestDictionaryEncodedBlock
         extends AbstractTestBlock
@@ -40,7 +39,7 @@ public class TestDictionaryEncodedBlock
 
     private static void assertDictionaryEncodedBlock(Slice[] dictionary, Integer[] ids)
     {
-        VariableWidthBlockBuilder dictionaryBlockBuilder = new VariableWidthBlockBuilder(VARBINARY, new BlockBuilderStatus());
+        VariableWidthBlockBuilder dictionaryBlockBuilder = new VariableWidthBlockBuilder(new BlockBuilderStatus());
         for (Slice expectedValue : dictionary) {
             dictionaryBlockBuilder.writeBytes(expectedValue, 0, expectedValue.length()).closeEntry();
         }

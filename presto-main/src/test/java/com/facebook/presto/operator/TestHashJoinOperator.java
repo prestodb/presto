@@ -17,6 +17,7 @@ import com.facebook.presto.ExceededMemoryLimitException;
 import com.facebook.presto.execution.TaskId;
 import com.facebook.presto.operator.HashBuilderOperator.HashBuilderOperatorFactory;
 import com.facebook.presto.spi.ConnectorSession;
+import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.testing.MaterializedResult;
 import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Ints;
@@ -34,6 +35,7 @@ import static com.facebook.presto.operator.RowPagesBuilder.rowPagesBuilder;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.TimeZoneKey.UTC_KEY;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
+import static com.google.common.collect.Iterables.concat;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.airlift.units.DataSize.Unit.BYTE;
 import static java.util.concurrent.Executors.newCachedThreadPool;
@@ -66,7 +68,8 @@ public class TestHashJoinOperator
 
         // build
         OperatorContext operatorContext = driverContext.addOperatorContext(0, ValuesOperator.class.getSimpleName());
-        Operator buildOperator = new ValuesOperator(operatorContext, rowPagesBuilder(VARCHAR, BIGINT, BIGINT)
+        List<Type> buildTypes = ImmutableList.of(VARCHAR, BIGINT, BIGINT);
+        Operator buildOperator = new ValuesOperator(operatorContext, buildTypes, rowPagesBuilder(buildTypes)
                 .addSequencePage(10, 20, 30, 40)
                 .build());
         HashBuilderOperatorFactory hashBuilderOperatorFactory = new HashBuilderOperatorFactory(1, buildOperator.getTypes(), Ints.asList(0), 100);
@@ -78,19 +81,20 @@ public class TestHashJoinOperator
         }
 
         // probe
-        List<Page> probeInput = rowPagesBuilder(VARCHAR, BIGINT, BIGINT)
+        List<Type> probeTypes = ImmutableList.of(VARCHAR, BIGINT, BIGINT);
+        List<Page> probeInput = rowPagesBuilder(probeTypes)
                 .addSequencePage(1000, 0, 1000, 2000)
                 .build();
         OperatorFactory joinOperatorFactory = LookupJoinOperators.innerJoin(
                 0,
                 hashBuilderOperatorFactory.getLookupSourceSupplier(),
-                ImmutableList.of(VARCHAR, BIGINT, BIGINT),
+                probeTypes,
                 Ints.asList(0));
 
         Operator joinOperator = joinOperatorFactory.createOperator(taskContext.addPipelineContext(true, true).addDriverContext());
 
         // expected
-        MaterializedResult expected = MaterializedResult.resultBuilder(taskContext.getSession(), VARCHAR, BIGINT, BIGINT, VARCHAR, BIGINT, BIGINT)
+        MaterializedResult expected = MaterializedResult.resultBuilder(taskContext.getSession(), concat(probeTypes, buildTypes))
                 .row("20", 1020, 2020, "20", 30, 40)
                 .row("21", 1021, 2021, "21", 31, 41)
                 .row("22", 1022, 2022, "22", 32, 42)
@@ -114,7 +118,8 @@ public class TestHashJoinOperator
 
         // build
         OperatorContext operatorContext = driverContext.addOperatorContext(0, ValuesOperator.class.getSimpleName());
-        Operator buildOperator = new ValuesOperator(operatorContext, rowPagesBuilder(VARCHAR)
+        List<Type> buildTypes = ImmutableList.<Type>of(VARCHAR);
+        Operator buildOperator = new ValuesOperator(operatorContext, buildTypes, rowPagesBuilder(buildTypes)
                 .row("a")
                 .row("b")
                 .row("c")
@@ -128,7 +133,8 @@ public class TestHashJoinOperator
         }
 
         // probe
-        List<Page> probeInput = rowPagesBuilder(VARCHAR)
+        List<Type> probeTypes = ImmutableList.<Type>of(VARCHAR);
+        List<Page> probeInput = rowPagesBuilder(probeTypes)
                 .row("a")
                 .row((String) null)
                 .row((String) null)
@@ -138,12 +144,12 @@ public class TestHashJoinOperator
         OperatorFactory joinOperatorFactory = LookupJoinOperators.innerJoin(
                 0,
                 hashBuilderOperatorFactory.getLookupSourceSupplier(),
-                ImmutableList.of(VARCHAR),
+                probeTypes,
                 Ints.asList(0));
         Operator joinOperator = joinOperatorFactory.createOperator(taskContext.addPipelineContext(true, true).addDriverContext());
 
         // expected
-        MaterializedResult expected = MaterializedResult.resultBuilder(taskContext.getSession(), VARCHAR, VARCHAR)
+        MaterializedResult expected = MaterializedResult.resultBuilder(taskContext.getSession(), concat(probeTypes, buildTypes))
                 .row("a", "a")
                 .row("a", "a")
                 .row("b", "b")
@@ -160,7 +166,8 @@ public class TestHashJoinOperator
 
         // build
         OperatorContext operatorContext = driverContext.addOperatorContext(0, ValuesOperator.class.getSimpleName());
-        Operator buildOperator = new ValuesOperator(operatorContext, rowPagesBuilder(VARCHAR)
+        List<Type> buildTypes = ImmutableList.<Type>of(VARCHAR);
+        Operator buildOperator = new ValuesOperator(operatorContext, buildTypes, rowPagesBuilder(buildTypes)
                 .row("a")
                 .row((String) null)
                 .row((String) null)
@@ -176,7 +183,8 @@ public class TestHashJoinOperator
         }
 
         // probe
-        List<Page> probeInput = rowPagesBuilder(VARCHAR)
+        List<Type> probeTypes = ImmutableList.<Type>of(VARCHAR);
+        List<Page> probeInput = rowPagesBuilder(probeTypes)
                 .row("a")
                 .row("b")
                 .row("c")
@@ -184,12 +192,12 @@ public class TestHashJoinOperator
         OperatorFactory joinOperatorFactory = LookupJoinOperators.innerJoin(
                 0,
                 hashBuilderOperatorFactory.getLookupSourceSupplier(),
-                ImmutableList.of(VARCHAR),
+                probeTypes,
                 Ints.asList(0));
         Operator joinOperator = joinOperatorFactory.createOperator(taskContext.addPipelineContext(true, true).addDriverContext());
 
         // expected
-        MaterializedResult expected = MaterializedResult.resultBuilder(taskContext.getSession(), VARCHAR, VARCHAR)
+        MaterializedResult expected = MaterializedResult.resultBuilder(taskContext.getSession(), concat(probeTypes, buildTypes))
                 .row("a", "a")
                 .row("a", "a")
                 .row("b", "b")
@@ -206,7 +214,8 @@ public class TestHashJoinOperator
 
         // build
         OperatorContext operatorContext = driverContext.addOperatorContext(0, ValuesOperator.class.getSimpleName());
-        Operator buildOperator = new ValuesOperator(operatorContext, rowPagesBuilder(VARCHAR)
+        List<Type> buildTypes = ImmutableList.<Type>of(VARCHAR);
+        Operator buildOperator = new ValuesOperator(operatorContext, buildTypes, rowPagesBuilder(buildTypes)
                 .row("a")
                 .row((String) null)
                 .row((String) null)
@@ -222,7 +231,8 @@ public class TestHashJoinOperator
         }
 
         // probe
-        List<Page> probeInput = rowPagesBuilder(VARCHAR)
+        List<Type> probeTypes = ImmutableList.<Type>of(VARCHAR);
+        List<Page> probeInput = rowPagesBuilder(probeTypes)
                 .row("a")
                 .row("b")
                 .row((String) null)
@@ -231,12 +241,12 @@ public class TestHashJoinOperator
         OperatorFactory joinOperatorFactory = LookupJoinOperators.innerJoin(
                 0,
                 hashBuilderOperatorFactory.getLookupSourceSupplier(),
-                ImmutableList.of(VARCHAR),
+                probeTypes,
                 Ints.asList(0));
         Operator joinOperator = joinOperatorFactory.createOperator(taskContext.addPipelineContext(true, true).addDriverContext());
 
         // expected
-        MaterializedResult expected = MaterializedResult.resultBuilder(taskContext.getSession(), VARCHAR, VARCHAR)
+        MaterializedResult expected = MaterializedResult.resultBuilder(taskContext.getSession(), concat(probeTypes, buildTypes))
                 .row("a", "a")
                 .row("a", "a")
                 .row("b", "b")
@@ -253,7 +263,8 @@ public class TestHashJoinOperator
 
         // build
         OperatorContext operatorContext = driverContext.addOperatorContext(0, ValuesOperator.class.getSimpleName());
-        Operator buildOperator = new ValuesOperator(operatorContext, rowPagesBuilder(VARCHAR, BIGINT, BIGINT)
+        List<Type> buildTypes = ImmutableList.of(VARCHAR, BIGINT, BIGINT);
+        Operator buildOperator = new ValuesOperator(operatorContext, buildTypes, rowPagesBuilder(buildTypes)
                 .addSequencePage(10, 20, 30, 40)
                 .build());
 
@@ -266,19 +277,20 @@ public class TestHashJoinOperator
         }
 
         // probe
-        List<Page> probeInput = rowPagesBuilder(VARCHAR, BIGINT, BIGINT)
+        List<Type> probeTypes = ImmutableList.of(VARCHAR, BIGINT, BIGINT);
+        List<Page> probeInput = rowPagesBuilder(probeTypes)
                 .addSequencePage(15, 20, 1020, 2020)
                 .build();
         OperatorFactory joinOperatorFactory = LookupJoinOperators.outerJoin(
                 0,
                 hashBuilderOperatorFactory.getLookupSourceSupplier(),
-                ImmutableList.of(VARCHAR, BIGINT, BIGINT),
+                probeTypes,
                 Ints.asList(0));
         Operator joinOperator = joinOperatorFactory.createOperator(taskContext.addPipelineContext(true, true).addDriverContext());
 
         // expected
         // expected
-        MaterializedResult expected = MaterializedResult.resultBuilder(taskContext.getSession(), VARCHAR, BIGINT, BIGINT, VARCHAR, BIGINT, BIGINT)
+        MaterializedResult expected = MaterializedResult.resultBuilder(taskContext.getSession(), concat(probeTypes, buildTypes))
                 .row("20", 1020, 2020, "20", 30, 40)
                 .row("21", 1021, 2021, "21", 31, 41)
                 .row("22", 1022, 2022, "22", 32, 42)
@@ -307,7 +319,8 @@ public class TestHashJoinOperator
 
         // build
         OperatorContext operatorContext = driverContext.addOperatorContext(0, ValuesOperator.class.getSimpleName());
-        Operator buildOperator = new ValuesOperator(operatorContext, rowPagesBuilder(VARCHAR)
+        List<Type> buildTypes = ImmutableList.<Type>of(VARCHAR);
+        Operator buildOperator = new ValuesOperator(operatorContext, buildTypes, rowPagesBuilder(buildTypes)
                 .row("a")
                 .row("b")
                 .row("c")
@@ -321,7 +334,8 @@ public class TestHashJoinOperator
         }
 
         // probe
-        List<Page> probeInput = rowPagesBuilder(VARCHAR)
+        List<Type> probeTypes = ImmutableList.<Type>of(VARCHAR);
+        List<Page> probeInput = rowPagesBuilder(probeTypes)
                 .row("a")
                 .row((String) null)
                 .row((String) null)
@@ -331,12 +345,12 @@ public class TestHashJoinOperator
         OperatorFactory joinOperatorFactory = LookupJoinOperators.outerJoin(
                 0,
                 hashBuilderOperatorFactory.getLookupSourceSupplier(),
-                ImmutableList.of(VARCHAR),
+                probeTypes,
                 Ints.asList(0));
         Operator joinOperator = joinOperatorFactory.createOperator(taskContext.addPipelineContext(true, true).addDriverContext());
 
         // expected
-        MaterializedResult expected = MaterializedResult.resultBuilder(taskContext.getSession(), VARCHAR, VARCHAR)
+        MaterializedResult expected = MaterializedResult.resultBuilder(taskContext.getSession(), concat(probeTypes, buildTypes))
                 .row("a", "a")
                 .row(null, null)
                 .row(null, null)
@@ -355,7 +369,8 @@ public class TestHashJoinOperator
 
         // build
         OperatorContext operatorContext = driverContext.addOperatorContext(0, ValuesOperator.class.getSimpleName());
-        Operator buildOperator = new ValuesOperator(operatorContext, rowPagesBuilder(VARCHAR)
+        List<Type> buildTypes = ImmutableList.<Type>of(VARCHAR);
+        Operator buildOperator = new ValuesOperator(operatorContext, buildTypes, rowPagesBuilder(buildTypes)
                 .row("a")
                 .row((String) null)
                 .row((String) null)
@@ -371,7 +386,8 @@ public class TestHashJoinOperator
         }
 
         // probe
-        List<Page> probeInput = rowPagesBuilder(VARCHAR)
+        List<Type> probeTypes = ImmutableList.<Type>of(VARCHAR);
+        List<Page> probeInput = rowPagesBuilder(probeTypes)
                 .row("a")
                 .row("b")
                 .row("c")
@@ -379,12 +395,12 @@ public class TestHashJoinOperator
         OperatorFactory joinOperatorFactory = LookupJoinOperators.outerJoin(
                 0,
                 hashBuilderOperatorFactory.getLookupSourceSupplier(),
-                ImmutableList.of(VARCHAR),
+                probeTypes,
                 Ints.asList(0));
         Operator joinOperator = joinOperatorFactory.createOperator(taskContext.addPipelineContext(true, true).addDriverContext());
 
         // expected
-        MaterializedResult expected = MaterializedResult.resultBuilder(taskContext.getSession(), VARCHAR, VARCHAR)
+        MaterializedResult expected = MaterializedResult.resultBuilder(taskContext.getSession(), concat(probeTypes, buildTypes))
                 .row("a", "a")
                 .row("a", "a")
                 .row("b", "b")
@@ -402,7 +418,8 @@ public class TestHashJoinOperator
 
         // build
         OperatorContext operatorContext = driverContext.addOperatorContext(0, ValuesOperator.class.getSimpleName());
-        Operator buildOperator = new ValuesOperator(operatorContext, rowPagesBuilder(VARCHAR)
+        List<Type> buildTypes = ImmutableList.<Type>of(VARCHAR);
+        Operator buildOperator = new ValuesOperator(operatorContext, buildTypes, rowPagesBuilder(buildTypes)
                 .row("a")
                 .row((String) null)
                 .row((String) null)
@@ -418,7 +435,8 @@ public class TestHashJoinOperator
         }
 
         // probe
-        List<Page> probeInput = rowPagesBuilder(VARCHAR)
+        List<Type> probeTypes = ImmutableList.<Type>of(VARCHAR);
+        List<Page> probeInput = rowPagesBuilder(probeTypes)
                 .row("a")
                 .row("b")
                 .row((String) null)
@@ -427,12 +445,12 @@ public class TestHashJoinOperator
         OperatorFactory joinOperatorFactory = LookupJoinOperators.outerJoin(
                 0,
                 hashBuilderOperatorFactory.getLookupSourceSupplier(),
-                ImmutableList.of(VARCHAR),
+                probeTypes,
                 Ints.asList(0));
         Operator joinOperator = joinOperatorFactory.createOperator(taskContext.addPipelineContext(true, true).addDriverContext());
 
         // expected
-        MaterializedResult expected = MaterializedResult.resultBuilder(taskContext.getSession(), VARCHAR, VARCHAR)
+        MaterializedResult expected = MaterializedResult.resultBuilder(taskContext.getSession(), concat(probeTypes, buildTypes))
                 .row("a", "a")
                 .row("a", "a")
                 .row("b", "b")
@@ -453,7 +471,8 @@ public class TestHashJoinOperator
                 .addDriverContext();
 
         OperatorContext operatorContext = driverContext.addOperatorContext(0, ValuesOperator.class.getSimpleName());
-        Operator buildOperator = new ValuesOperator(operatorContext, rowPagesBuilder(VARCHAR, BIGINT, BIGINT)
+        List<Type> buildTypes = ImmutableList.of(VARCHAR, BIGINT, BIGINT);
+        Operator buildOperator = new ValuesOperator(operatorContext, buildTypes, rowPagesBuilder(buildTypes)
                 .addSequencePage(10, 20, 30, 40)
                 .build());
 

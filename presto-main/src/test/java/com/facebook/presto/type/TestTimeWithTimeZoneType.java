@@ -28,7 +28,7 @@ public class TestTimeWithTimeZoneType
 {
     public TestTimeWithTimeZoneType()
     {
-        super(SqlTimeWithTimeZone.class, createTestBlock());
+        super(TIME_WITH_TIME_ZONE, SqlTimeWithTimeZone.class, createTestBlock());
     }
 
     public static Block createTestBlock()

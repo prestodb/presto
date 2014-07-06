@@ -610,7 +610,7 @@ public final class FunctionAssertions
                 return new RecordProjectOperator(operatorContext, records);
             }
             else {
-                return new ValuesOperator(operatorContext, ImmutableList.of(SOURCE_PAGE));
+                return new ValuesOperator(operatorContext, ImmutableList.copyOf(INPUT_TYPES.values()), ImmutableList.of(SOURCE_PAGE));
             }
         }
     }

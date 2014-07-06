@@ -286,8 +286,14 @@ public class PagesIndex
     {
         try {
             LookupSourceFactory lookupSourceFactory = joinCompiler.compileLookupSourceFactory(types, joinChannels);
+
+            ImmutableList.Builder<Type> joinChannelTypes = ImmutableList.builder();
+            for (Integer joinChannel : joinChannels) {
+                joinChannelTypes.add(types.get(joinChannel));
+            }
             LookupSource lookupSource = lookupSourceFactory.createLookupSource(
                     valueAddresses,
+                    joinChannelTypes.build(),
                     ImmutableList.<List<Block>>copyOf(channels),
                     operatorContext);
 
@@ -298,8 +304,14 @@ public class PagesIndex
         }
 
         PagesHashStrategy hashStrategy = new SimplePagesHashStrategy(
+                types,
                 ImmutableList.<List<Block>>copyOf(channels),
                 joinChannels);
-        return new InMemoryJoinHash(valueAddresses, hashStrategy, operatorContext);
+
+        ImmutableList.Builder<Type> hashTypes = ImmutableList.builder();
+        for (Integer channel : joinChannels) {
+            hashTypes.add(types.get(channel));
+        }
+        return new InMemoryJoinHash(valueAddresses, hashTypes.build(), hashStrategy, operatorContext);
     }
 }

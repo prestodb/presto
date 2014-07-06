@@ -13,28 +13,24 @@
  */
 package com.facebook.presto.spi.block;
 
-import com.facebook.presto.spi.type.FixedWidthType;
-import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceInput;
 import io.airlift.slice.SliceOutput;
-
-import static com.facebook.presto.spi.type.TypeSerde.readType;
-import static com.facebook.presto.spi.type.TypeSerde.writeType;
-import static java.util.Objects.requireNonNull;
 
 public class FixedWidthBlockEncoding
         implements BlockEncoding
 {
     public static final BlockEncodingFactory<FixedWidthBlockEncoding> FACTORY = new FixedWidthBlockEncodingFactory();
     private static final String NAME = "FIXED_WIDTH";
+    private final int fixedSize;
 
-    private final FixedWidthType type;
-
-    public FixedWidthBlockEncoding(Type type)
+    public FixedWidthBlockEncoding(int fixedSize)
     {
-        this.type = (FixedWidthType) requireNonNull(type, "type is null");
+        if (fixedSize < 0) {
+            throw new IllegalArgumentException("fixedSize is negative");
+        }
+        this.fixedSize = fixedSize;
     }
 
     @Override
@@ -43,13 +39,15 @@ public class FixedWidthBlockEncoding
         return NAME;
     }
 
+    public int getFixedSize()
+    {
+        return fixedSize;
+    }
+
     @Override
     public void writeBlock(SliceOutput sliceOutput, Block block)
     {
         AbstractFixedWidthBlock fixedWidthBlock = (AbstractFixedWidthBlock) block;
-        if (!block.getType().equals(type)) {
-            throw new IllegalArgumentException("Invalid block");
-        }
 
         int positionCount = fixedWidthBlock.getPositionCount();
         sliceOutput.appendInt(positionCount);
@@ -118,7 +116,7 @@ public class FixedWidthBlockEncoding
         int blockSize = sliceInput.readInt();
         Slice slice = sliceInput.readSlice(blockSize);
 
-        return new FixedWidthBlock(type, positionCount, slice, valueIsNull);
+        return new FixedWidthBlock(fixedSize, positionCount, slice, valueIsNull);
     }
 
     public static class FixedWidthBlockEncodingFactory
@@ -133,13 +131,14 @@ public class FixedWidthBlockEncoding
         @Override
         public FixedWidthBlockEncoding readEncoding(TypeManager manager, BlockEncodingSerde serde, SliceInput input)
         {
-            return new FixedWidthBlockEncoding(readType(manager, input));
+            int entrySize = input.readInt();
+            return new FixedWidthBlockEncoding(entrySize);
         }
 
         @Override
         public void writeEncoding(BlockEncodingSerde serde, SliceOutput output, FixedWidthBlockEncoding blockEncoding)
         {
-            writeType(output, blockEncoding.type);
+            output.writeInt(blockEncoding.getFixedSize());
         }
     }
 }

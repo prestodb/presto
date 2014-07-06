@@ -144,7 +144,10 @@ public class DistinctLimitOperator
         GroupByIdBlock ids = groupByHash.getGroupIds(page);
         for (int position = 0; position < ids.getPositionCount(); position++) {
             if (ids.getGroupId(position) == nextDistinctId) {
-                page.appendTo(position, pageBuilder);
+                for (int channel = 0; channel < types.size(); channel++) {
+                    Type type = types.get(channel);
+                    type.appendTo(page.getBlock(channel), position, pageBuilder.getBlockBuilder(channel));
+                }
                 remainingLimit--;
                 nextDistinctId++;
                 if (remainingLimit == 0) {

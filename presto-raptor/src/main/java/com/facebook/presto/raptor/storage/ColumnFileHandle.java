@@ -14,6 +14,7 @@
 package com.facebook.presto.raptor.storage;
 
 import com.facebook.presto.operator.Page;
+import com.facebook.presto.raptor.RaptorColumnHandle;
 import com.facebook.presto.serde.BlocksFileEncoding;
 import com.facebook.presto.serde.BlocksFileWriter;
 import com.facebook.presto.spi.ConnectorColumnHandle;
@@ -143,7 +144,7 @@ public class ColumnFileHandle
         /**
          * Register a file as part of the column set with a given encoding.
          */
-        public Builder addColumn(ConnectorColumnHandle columnHandle, File targetFile, BlocksFileEncoding encoding)
+        public Builder addColumn(RaptorColumnHandle columnHandle, File targetFile, BlocksFileEncoding encoding)
         {
             checkNotNull(columnHandle, "columnHandle is null");
             checkNotNull(targetFile, "targetFile is null");
@@ -155,7 +156,12 @@ public class ColumnFileHandle
             checkState(!targetFile.exists(), "Can not write to existing file %s", targetFile.getAbsolutePath());
 
             files.put(columnHandle, targetFile);
-            writers.put(columnHandle, new BlocksFileWriter(blockEncodingSerde, encoding, new BufferedOutputSupplier(newOutputStreamSupplier(targetFile), OUTPUT_BUFFER_SIZE)));
+            writers.put(columnHandle, new BlocksFileWriter(
+                    columnHandle.getColumnType(),
+                    blockEncodingSerde,
+                    encoding,
+                    new BufferedOutputSupplier(newOutputStreamSupplier(targetFile),
+                    OUTPUT_BUFFER_SIZE)));
 
             return this;
         }

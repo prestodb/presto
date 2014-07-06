@@ -76,7 +76,7 @@ public class TestFileBlocksSerde
         DynamicSliceOutputSupplier sliceOutput = new DynamicSliceOutputSupplier(1024);
 
         // write 3 copies the expected block
-        BlocksFileWriter fileWriter = new BlocksFileWriter(createTestingBlockEncodingManager(), encoding, sliceOutput);
+        BlocksFileWriter fileWriter = new BlocksFileWriter(VARCHAR, createTestingBlockEncodingManager(), encoding, sliceOutput);
         fileWriter.append(expectedBlock);
         fileWriter.append(expectedBlock);
         fileWriter.append(expectedBlock);

@@ -15,7 +15,6 @@ package com.facebook.presto.block.rle;
 
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.type.Type;
 import com.google.common.base.Objects;
 import io.airlift.slice.Slice;
 
@@ -69,12 +68,6 @@ public class RunLengthEncodedBlock
     {
         checkPositionIndexes(positionOffset, positionOffset + length, positionCount);
         return new RunLengthEncodedBlock(value, length);
-    }
-
-    @Override
-    public Type getType()
-    {
-        return value.getType();
     }
 
     @Override

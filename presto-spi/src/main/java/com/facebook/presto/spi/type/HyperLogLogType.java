@@ -160,7 +160,7 @@ public class HyperLogLogType
     @Override
     public BlockBuilder createBlockBuilder(BlockBuilderStatus blockBuilderStatus)
     {
-        return new VariableWidthBlockBuilder(this, blockBuilderStatus);
+        return new VariableWidthBlockBuilder(blockBuilderStatus);
     }
 
     @Override

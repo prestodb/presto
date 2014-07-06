@@ -25,7 +25,7 @@ public class TestIntervalDayTimeType
 {
     public TestIntervalDayTimeType()
     {
-        super(SqlIntervalDayTime.class, createTestBlock());
+        super(INTERVAL_DAY_TIME, SqlIntervalDayTime.class, createTestBlock());
     }
 
     public static Block createTestBlock()

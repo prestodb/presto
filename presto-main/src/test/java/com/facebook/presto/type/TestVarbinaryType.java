@@ -27,7 +27,7 @@ public class TestVarbinaryType
 {
     public TestVarbinaryType()
     {
-        super(SqlVarbinary.class, createTestBlock());
+        super(VARBINARY, SqlVarbinary.class, createTestBlock());
     }
 
     public static Block createTestBlock()

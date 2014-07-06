@@ -41,10 +41,10 @@ public final class BlockAssertions
     {
     }
 
-    public static Object getOnlyValue(Block block)
+    public static Object getOnlyValue(Type type, Block block)
     {
         assertEquals(block.getPositionCount(), 1, "Block positions");
-        return block.getType().getObjectValue(SESSION, block, 0);
+        return type.getObjectValue(SESSION, block, 0);
     }
 
     public static List<Object> toValues(Type type, Iterable<Block> blocks)
@@ -58,9 +58,8 @@ public final class BlockAssertions
         return Collections.unmodifiableList(values);
     }
 
-    public static List<Object> toValues(Block block)
+    public static List<Object> toValues(Type type, Block block)
     {
-        Type type = block.getType();
         List<Object> values = new ArrayList<>();
         for (int position = 0; position < block.getPositionCount(); position++) {
             values.add(type.getObjectValue(SESSION, block, position));
@@ -68,11 +67,8 @@ public final class BlockAssertions
         return Collections.unmodifiableList(values);
     }
 
-    public static void assertBlockEquals(Block actual, Block expected)
+    public static void assertBlockEquals(Type type, Block actual, Block expected)
     {
-        Type type = actual.getType();
-        assertEquals(type, expected.getType());
-
         for (int position = 0; position < actual.getPositionCount(); position++) {
             assertEquals(type.getObjectValue(SESSION, actual, position), type.getObjectValue(SESSION, expected, position));
         }

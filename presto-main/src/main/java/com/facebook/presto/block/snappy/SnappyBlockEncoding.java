@@ -17,14 +17,10 @@ import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockEncoding;
 import com.facebook.presto.spi.block.BlockEncodingFactory;
 import com.facebook.presto.spi.block.BlockEncodingSerde;
-import com.facebook.presto.spi.type.TypeSerde;
-import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceInput;
 import io.airlift.slice.SliceOutput;
-
-import static com.google.common.base.Preconditions.checkArgument;
 
 public class SnappyBlockEncoding
         implements BlockEncoding
@@ -32,12 +28,10 @@ public class SnappyBlockEncoding
     public static final BlockEncodingFactory<SnappyBlockEncoding> FACTORY = new SnappyBlockEncodingFactory();
     private static final String NAME = "SNAPPY";
 
-    private final Type type;
     private final BlockEncoding uncompressedBlockEncoding;
 
-    public SnappyBlockEncoding(Type type, BlockEncoding uncompressedBlockEncoding)
+    public SnappyBlockEncoding(BlockEncoding uncompressedBlockEncoding)
     {
-        this.type = type;
         this.uncompressedBlockEncoding = uncompressedBlockEncoding;
     }
 
@@ -51,7 +45,6 @@ public class SnappyBlockEncoding
     public void writeBlock(SliceOutput sliceOutput, Block block)
     {
         SnappyBlock snappyBlock = (SnappyBlock) block;
-        checkArgument(block.getType().equals(type), "Invalid block");
 
         Slice compressedSlice = snappyBlock.getCompressedSlice();
         sliceOutput
@@ -67,7 +60,7 @@ public class SnappyBlockEncoding
         int positionCount = sliceInput.readInt();
 
         Slice compressedSlice = sliceInput.readSlice(blockSize);
-        return new SnappyBlock(positionCount, type, compressedSlice, uncompressedBlockEncoding);
+        return new SnappyBlock(positionCount, compressedSlice, uncompressedBlockEncoding);
     }
 
     private static class SnappyBlockEncodingFactory
@@ -82,15 +75,13 @@ public class SnappyBlockEncoding
         @Override
         public SnappyBlockEncoding readEncoding(TypeManager manager, BlockEncodingSerde serde, SliceInput input)
         {
-            Type type = TypeSerde.readType(manager, input);
             BlockEncoding valueBlockEncoding = serde.readBlockEncoding(input);
-            return new SnappyBlockEncoding(type, valueBlockEncoding);
+            return new SnappyBlockEncoding(valueBlockEncoding);
         }
 
         @Override
         public void writeEncoding(BlockEncodingSerde serde, SliceOutput output, SnappyBlockEncoding blockEncoding)
         {
-            TypeSerde.writeType(output, blockEncoding.type);
             serde.writeBlockEncoding(output, blockEncoding.uncompressedBlockEncoding);
         }
     }

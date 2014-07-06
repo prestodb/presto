@@ -25,7 +25,7 @@ public class TestDateType
 {
     public TestDateType()
     {
-        super(SqlDate.class, createTestBlock());
+        super(DATE, SqlDate.class, createTestBlock());
     }
 
     public static Block createTestBlock()

@@ -16,12 +16,10 @@ package com.facebook.presto.operator;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockEncoding;
-import com.facebook.presto.spi.type.Type;
 import com.google.common.base.Objects;
 import io.airlift.slice.Slice;
 
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
-import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 public class GroupByIdBlock
@@ -33,7 +31,6 @@ public class GroupByIdBlock
     public GroupByIdBlock(long groupCount, Block block)
     {
         checkNotNull(block, "block is null");
-        checkArgument(block.getType().equals(BIGINT));
         this.groupCount = groupCount;
         this.block = block;
     }
@@ -148,12 +145,6 @@ public class GroupByIdBlock
     public boolean isNull(int position)
     {
         return block.isNull(position);
-    }
-
-    @Override
-    public Type getType()
-    {
-        return block.getType();
     }
 
     @Override

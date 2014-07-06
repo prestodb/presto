@@ -19,21 +19,22 @@ import com.google.common.collect.ImmutableList;
 
 import java.util.List;
 
+import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkNotNull;
+
 public class SimplePagesHashStrategy
         implements PagesHashStrategy
 {
+    private final List<Type> types;
     private final List<List<Block>> channels;
-    private final List<List<Block>> hashChannels;
+    private final List<Integer> hashChannels;
 
-    public SimplePagesHashStrategy(List<List<Block>> channels, List<Integer> hashChannels)
+    public SimplePagesHashStrategy(List<Type> types, List<List<Block>> channels, List<Integer> hashChannels)
     {
-        this.channels = ImmutableList.copyOf(channels);
-
-        ImmutableList.Builder<List<Block>> hashChannelsBuilder = ImmutableList.builder();
-        for (int hashChannel : hashChannels) {
-            hashChannelsBuilder.add(channels.get(hashChannel));
-        }
-        this.hashChannels = hashChannelsBuilder.build();
+        this.types = ImmutableList.copyOf(checkNotNull(types, "types is null"));
+        this.channels = ImmutableList.copyOf(checkNotNull(channels, "channels is null"));
+        checkArgument(types.size() == channels.size(), "Expected types and channels to be the same length");
+        this.hashChannels = ImmutableList.copyOf(checkNotNull(hashChannels, "hashChannels is null"));
     }
 
     @Override
@@ -45,9 +46,10 @@ public class SimplePagesHashStrategy
     @Override
     public void appendTo(int blockIndex, int blockPosition, PageBuilder pageBuilder, int outputChannelOffset)
     {
-        for (List<Block> channel : channels) {
+        for (int i = 0; i < channels.size(); i++) {
+            Type type = types.get(i);
+            List<Block> channel = channels.get(i);
             Block block = channel.get(blockIndex);
-            Type type = block.getType();
             type.appendTo(block, blockPosition, pageBuilder.getBlockBuilder(outputChannelOffset));
             outputChannelOffset++;
         }
@@ -57,9 +59,10 @@ public class SimplePagesHashStrategy
     public int hashPosition(int blockIndex, int blockPosition)
     {
         int result = 0;
-        for (List<Block> channel : hashChannels) {
-            Block block = channel.get(blockIndex);
-            result = result * 31 + block.getType().hash(block, blockPosition);
+        for (int hashChannel : hashChannels) {
+            Type type = types.get(hashChannel);
+            Block block = channels.get(hashChannel).get(blockIndex);
+            result = result * 31 + type.hash(block, blockPosition);
         }
         return result;
     }
@@ -68,9 +71,10 @@ public class SimplePagesHashStrategy
     public boolean positionEqualsRow(int leftBlockIndex, int leftBlockPosition, int rightPosition, Block... rightBlocks)
     {
         for (int i = 0; i < hashChannels.size(); i++) {
-            List<Block> channel = hashChannels.get(i);
-            Block block = channel.get(leftBlockIndex);
-            if (!block.getType().equalTo(block, leftBlockPosition, rightBlocks[i], rightPosition)) {
+            int hashChannel = hashChannels.get(i);
+            Type type = types.get(hashChannel);
+            Block leftBlock = channels.get(hashChannel).get(leftBlockIndex);
+            if (!type.equalTo(leftBlock, leftBlockPosition, rightBlocks[i], rightPosition)) {
                 return false;
             }
         }
@@ -80,10 +84,12 @@ public class SimplePagesHashStrategy
     @Override
     public boolean positionEqualsPosition(int leftBlockIndex, int leftBlockPosition, int rightBlockIndex, int rightBlockPosition)
     {
-        for (List<Block> channel : hashChannels) {
+        for (int hashChannel : hashChannels) {
+            Type type = types.get(hashChannel);
+            List<Block> channel = channels.get(hashChannel);
             Block leftBlock = channel.get(leftBlockIndex);
             Block rightBlock = channel.get(rightBlockIndex);
-            if (!leftBlock.getType().equalTo(leftBlock, leftBlockPosition, rightBlock, rightBlockPosition)) {
+            if (!type.equalTo(leftBlock, leftBlockPosition, rightBlock, rightBlockPosition)) {
                 return false;
             }
         }

@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.spi.block;
 
-import com.facebook.presto.spi.type.Type;
 import io.airlift.slice.Slice;
 
 public interface Block
@@ -102,11 +101,6 @@ public interface Block
      * @throws IllegalArgumentException if this position is not valid
      */
     Block getSingleValueBlock(int position);
-
-    /**
-     * Gets the type of this block.
-     */
-    Type getType();
 
     /**
      * Returns the number of positions in this block.

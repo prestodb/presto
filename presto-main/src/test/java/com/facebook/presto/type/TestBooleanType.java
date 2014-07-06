@@ -24,7 +24,7 @@ public class TestBooleanType
 {
     public TestBooleanType()
     {
-        super(Boolean.class, createTestBlock());
+        super(BOOLEAN, Boolean.class, createTestBlock());
     }
 
     public static Block createTestBlock()

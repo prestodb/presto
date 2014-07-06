@@ -28,14 +28,16 @@ import static com.google.common.base.Preconditions.checkState;
 public class SnappyEncoder
         implements Encoder
 {
+    private final Type type;
     private final SliceOutput sliceOutput;
 
     private SnappyBlockEncoding encoding;
     private BlockBuilder blockBuilder;
     private boolean finished;
 
-    public SnappyEncoder(SliceOutput sliceOutput)
+    public SnappyEncoder(Type type, SliceOutput sliceOutput)
     {
+        this.type = checkNotNull(type, "type is null");
         this.sliceOutput = checkNotNull(sliceOutput, "sliceOutput is null");
     }
 
@@ -46,11 +48,10 @@ public class SnappyEncoder
         checkState(!finished, "already finished");
 
         if (encoding == null) {
-            encoding = new SnappyBlockEncoding(block.getType(), block.getEncoding());
-            blockBuilder = block.getType().createBlockBuilder(new BlockBuilderStatus());
+            encoding = new SnappyBlockEncoding(block.getEncoding());
+            blockBuilder = type.createBlockBuilder(new BlockBuilderStatus());
         }
         for (int position = 0; position < block.getPositionCount(); position++) {
-            Type type = block.getType();
             type.appendTo(block, position, blockBuilder);
             if (blockBuilder.isFull()) {
                 flushBlock();
@@ -77,6 +78,6 @@ public class SnappyEncoder
     {
         SnappyBlock snappyBlock = new SnappyBlock(blockBuilder.build());
         encoding.writeBlock(sliceOutput, snappyBlock);
-        blockBuilder = snappyBlock.getType().createBlockBuilder(new BlockBuilderStatus());
+        blockBuilder = type.createBlockBuilder(new BlockBuilderStatus());
     }
 }

@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.raptor.storage;
 
+import com.facebook.presto.raptor.RaptorColumnHandle;
 import com.facebook.presto.raptor.storage.ColumnFileHandle.Builder;
 import com.facebook.presto.spi.ConnectorColumnHandle;
 import com.facebook.presto.spi.block.Block;
@@ -79,7 +80,7 @@ public class MockLocalStorageManager
     }
 
     @Override
-    public ColumnFileHandle createStagingFileHandles(UUID shardUuid, List<? extends ConnectorColumnHandle> columnHandles)
+    public ColumnFileHandle createStagingFileHandles(UUID shardUuid, List<RaptorColumnHandle> columnHandles)
             throws IOException
     {
             Builder builder = ColumnFileHandle.builder(shardUuid, createTestingBlockEncodingManager());

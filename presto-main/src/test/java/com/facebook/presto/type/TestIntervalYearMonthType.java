@@ -25,7 +25,7 @@ public class TestIntervalYearMonthType
 {
     public TestIntervalYearMonthType()
     {
-        super(SqlIntervalYearMonth.class, createTestBlock());
+        super(INTERVAL_YEAR_MONTH, SqlIntervalYearMonth.class, createTestBlock());
     }
 
     public static Block createTestBlock()

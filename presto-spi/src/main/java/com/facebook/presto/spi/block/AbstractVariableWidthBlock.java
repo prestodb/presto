@@ -13,21 +13,12 @@
  */
 package com.facebook.presto.spi.block;
 
-import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.spi.type.VariableWidthType;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 
 public abstract class AbstractVariableWidthBlock
         implements Block
 {
-    protected final VariableWidthType type;
-
-    protected AbstractVariableWidthBlock(VariableWidthType type)
-    {
-        this.type = type;
-    }
-
     protected abstract Slice getRawSlice();
 
     protected abstract int getPositionOffset(int position);
@@ -35,15 +26,9 @@ public abstract class AbstractVariableWidthBlock
     protected abstract boolean isEntryNull(int position);
 
     @Override
-    public Type getType()
-    {
-        return type;
-    }
-
-    @Override
     public BlockEncoding getEncoding()
     {
-        return new VariableWidthBlockEncoding(type);
+        return new VariableWidthBlockEncoding();
     }
 
     @Override
@@ -149,7 +134,7 @@ public abstract class AbstractVariableWidthBlock
     public Block getSingleValueBlock(int position)
     {
         if (isNull(position)) {
-            return new VariableWidthBlock(type, 1, Slices.wrappedBuffer(new byte[0]), new int[] {0, 0}, new boolean[] {true});
+            return new VariableWidthBlock(1, Slices.wrappedBuffer(new byte[0]), new int[] {0, 0}, new boolean[] {true});
         }
 
         int offset = getPositionOffset(position);
@@ -157,7 +142,7 @@ public abstract class AbstractVariableWidthBlock
 
         Slice copy = Slices.copyOf(getRawSlice(), offset, entrySize);
 
-        return new VariableWidthBlock(type, 1, copy, new int[] {0, copy.length()}, new boolean[] {false});
+        return new VariableWidthBlock(1, copy, new int[] {0, copy.length()}, new boolean[] {false});
     }
 
     @Override

@@ -25,7 +25,7 @@ public class TestTimestampType
 {
     public TestTimestampType()
     {
-        super(SqlTimestamp.class, createTestBlock());
+        super(TIMESTAMP, SqlTimestamp.class, createTestBlock());
     }
 
     public static Block createTestBlock()

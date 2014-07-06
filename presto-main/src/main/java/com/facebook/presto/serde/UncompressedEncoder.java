@@ -26,15 +26,20 @@ import static com.google.common.base.Preconditions.checkState;
 public class UncompressedEncoder
         implements Encoder
 {
+    private final Type type;
     private final SliceOutput sliceOutput;
-
-    private BlockEncoding encoding;
+    private final BlockEncoding encoding;
     private BlockBuilder blockBuilder;
+
     private boolean finished;
 
-    public UncompressedEncoder(SliceOutput sliceOutput)
+    public UncompressedEncoder(Type type, SliceOutput sliceOutput)
     {
+        this.type = checkNotNull(type, "type is null");
         this.sliceOutput = checkNotNull(sliceOutput, "sliceOutput is null");
+
+        this.blockBuilder = type.createBlockBuilder(new BlockBuilderStatus());
+        this.encoding = blockBuilder.getEncoding();
     }
 
     @Override
@@ -43,12 +48,7 @@ public class UncompressedEncoder
         checkNotNull(block, "block is null");
         checkState(!finished, "already finished");
 
-        if (encoding == null) {
-            blockBuilder = block.getType().createBlockBuilder(new BlockBuilderStatus());
-            encoding = blockBuilder.getEncoding();
-        }
         for (int position = 0; position < block.getPositionCount(); position++) {
-            Type type = block.getType();
             type.appendTo(block, position, blockBuilder);
             if (blockBuilder.isFull()) {
                 writeBlock();
@@ -61,7 +61,6 @@ public class UncompressedEncoder
     @Override
     public BlockEncoding finish()
     {
-        checkState(encoding != null, "nothing appended");
         checkState(!finished, "already finished");
         finished = true;
 
@@ -75,6 +74,6 @@ public class UncompressedEncoder
     {
         Block block = blockBuilder.build();
         encoding.writeBlock(sliceOutput, block);
-        blockBuilder = block.getType().createBlockBuilder(new BlockBuilderStatus());
+        blockBuilder = type.createBlockBuilder(new BlockBuilderStatus());
     }
 }

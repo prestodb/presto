@@ -18,8 +18,6 @@ import com.facebook.presto.spi.block.VariableWidthBlockBuilder;
 import io.airlift.slice.Slice;
 import org.testng.annotations.Test;
 
-import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
-
 public class TestVariableWidthBlock
         extends AbstractTestBlock
 {
@@ -33,7 +31,7 @@ public class TestVariableWidthBlock
 
     private static void assertVariableWithValues(Slice[] expectedValues)
     {
-        VariableWidthBlockBuilder blockBuilder = new VariableWidthBlockBuilder(VARBINARY, new BlockBuilderStatus());
+        VariableWidthBlockBuilder blockBuilder = new VariableWidthBlockBuilder(new BlockBuilderStatus());
         for (Slice expectedValue : expectedValues) {
             if (expectedValue == null) {
                 blockBuilder.appendNull();

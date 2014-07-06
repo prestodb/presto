@@ -24,7 +24,7 @@ public class TestDoubleType
 {
     public TestDoubleType()
     {
-        super(Double.class, createTestBlock());
+        super(DOUBLE, Double.class, createTestBlock());
     }
 
     public static Block createTestBlock()

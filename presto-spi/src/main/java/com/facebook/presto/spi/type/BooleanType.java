@@ -79,13 +79,13 @@ public final class BooleanType
     @Override
     public BlockBuilder createBlockBuilder(BlockBuilderStatus blockBuilderStatus)
     {
-        return new FixedWidthBlockBuilder(this, blockBuilderStatus);
+        return new FixedWidthBlockBuilder(getFixedSize(), blockBuilderStatus);
     }
 
     @Override
     public BlockBuilder createFixedSizeBlockBuilder(int positionCount)
     {
-        return new FixedWidthBlockBuilder(this, positionCount);
+        return new FixedWidthBlockBuilder(getFixedSize(), positionCount);
     }
 
     @Override

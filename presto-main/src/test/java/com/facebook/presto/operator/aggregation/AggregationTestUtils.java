@@ -65,10 +65,10 @@ public final class AggregationTestUtils
         Block result = accumulator.evaluateFinal();
 
         if (expectedValue == null) {
-            return BlockAssertions.toValues(result).get(0) == null;
+            return BlockAssertions.toValues(function.getFinalType(), result).get(0) == null;
         }
 
-        return withinErrorBound(BlockAssertions.toValues(result).get(0).toString(), expectedValue);
+        return withinErrorBound(BlockAssertions.toValues(function.getFinalType(), result).get(0).toString(), expectedValue);
     }
 
     public static boolean partialApproximateAggregationWithinErrorBound(InternalAggregationFunction function, int sampleWeightChannel, double confidence, Double expectedValue, Page... pages)
@@ -88,10 +88,10 @@ public final class AggregationTestUtils
         Block finalBlock = finalAggregation.evaluateFinal();
 
         if (expectedValue == null) {
-            return BlockAssertions.toValues(finalBlock).get(0) == null;
+            return BlockAssertions.toValues(function.getFinalType(), finalBlock).get(0) == null;
         }
 
-        return withinErrorBound(BlockAssertions.toValues(finalBlock).get(0).toString(), expectedValue);
+        return withinErrorBound(BlockAssertions.toValues(function.getFinalType(), finalBlock).get(0).toString(), expectedValue);
     }
 
     public static boolean groupedApproximateAggregationWithinErrorBound(InternalAggregationFunction function, int sampleWeightChannel, double confidence, Double expectedValue, Page... pages)
@@ -196,7 +196,7 @@ public final class AggregationTestUtils
         }
 
         Block block = aggregation.evaluateFinal();
-        return BlockAssertions.getOnlyValue(block);
+        return BlockAssertions.getOnlyValue(aggregation.getFinalType(), block);
     }
 
     public static Object partialAggregation(InternalAggregationFunction function, double confidence, Page... pages)
@@ -235,7 +235,7 @@ public final class AggregationTestUtils
         finalAggregation.addIntermediate(partialBlock);
 
         Block finalBlock = finalAggregation.evaluateFinal();
-        return BlockAssertions.getOnlyValue(finalBlock);
+        return BlockAssertions.getOnlyValue(finalAggregation.getFinalType(), finalBlock);
     }
 
     public static Object groupedAggregation(InternalAggregationFunction function, double confidence, Page... pages)
@@ -401,6 +401,6 @@ public final class AggregationTestUtils
     {
         BlockBuilder out = groupedAggregation.getFinalType().createBlockBuilder(new BlockBuilderStatus());
         groupedAggregation.evaluateFinal(groupId, out);
-        return BlockAssertions.getOnlyValue(out.build());
+        return BlockAssertions.getOnlyValue(groupedAggregation.getFinalType(), out.build());
     }
 }

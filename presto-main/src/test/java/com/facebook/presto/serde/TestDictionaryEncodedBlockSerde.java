@@ -36,7 +36,7 @@ public class TestDictionaryEncodedBlockSerde
         Block block = blockBuilder.build();
 
         DynamicSliceOutput sliceOutput = new DynamicSliceOutput(1024);
-        BlockEncoding blockEncoding = new DictionaryEncoder(new UncompressedEncoder(sliceOutput)).append(block).append(block).append(block).finish();
+        BlockEncoding blockEncoding = new DictionaryEncoder(VARCHAR, new UncompressedEncoder(VARCHAR, sliceOutput)).append(block).append(block).append(block).finish();
         Block actualBlock = blockEncoding.readBlock(sliceOutput.slice().getInput());
 
         BlockBuilder expectedBlockBuilder = VARCHAR.createBlockBuilder(new BlockBuilderStatus());
@@ -54,6 +54,6 @@ public class TestDictionaryEncodedBlockSerde
         VARCHAR.writeString(expectedBlockBuilder, "dave");
         Block expectedBlock = expectedBlockBuilder.build();
 
-        assertBlockEquals(actualBlock, expectedBlock);
+        assertBlockEquals(VARCHAR, actualBlock, expectedBlock);
     }
 }

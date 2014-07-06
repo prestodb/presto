@@ -21,8 +21,6 @@ import com.facebook.presto.spi.block.VariableWidthBlockBuilder;
 import io.airlift.slice.Slice;
 import org.testng.annotations.Test;
 
-import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
-
 public class TestRunLengthEncodedBlock
         extends AbstractTestBlock
 {
@@ -47,7 +45,7 @@ public class TestRunLengthEncodedBlock
 
     private static Block createSingleValueBlock(Slice expectedValue)
     {
-        BlockBuilder blockBuilder = new VariableWidthBlockBuilder(VARBINARY, new BlockBuilderStatus());
+        BlockBuilder blockBuilder = new VariableWidthBlockBuilder(new BlockBuilderStatus());
         blockBuilder.writeBytes(expectedValue, 0, expectedValue.length()).closeEntry();
         return blockBuilder.build();
     }

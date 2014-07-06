@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.spi.block;
 
-import com.facebook.presto.spi.type.FixedWidthType;
 import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.SizeOf;
 import io.airlift.slice.Slice;
@@ -40,18 +39,18 @@ public class FixedWidthBlockBuilder
 
     private int currentEntrySize;
 
-    public FixedWidthBlockBuilder(FixedWidthType type, BlockBuilderStatus blockBuilderStatus)
+    public FixedWidthBlockBuilder(int fixedSize, BlockBuilderStatus blockBuilderStatus)
     {
-        super(type);
+        super(fixedSize);
 
         this.blockBuilderStatus = blockBuilderStatus;
         this.sliceOutput = new DynamicSliceOutput(blockBuilderStatus.getMaxBlockSizeInBytes());
         this.valueIsNull = new boolean[1024];
     }
 
-    public FixedWidthBlockBuilder(FixedWidthType type, int positionCount)
+    public FixedWidthBlockBuilder(int fixedSize, int positionCount)
     {
-        super(type);
+        super(fixedSize);
 
         Slice slice = Slices.allocate(fixedSize * positionCount);
 
@@ -208,7 +207,7 @@ public class FixedWidthBlockBuilder
 
         Slice newSlice = sliceOutput.slice().slice(positionOffset * fixedSize, length * fixedSize);
         boolean[] newValueIsNull = Arrays.copyOfRange(valueIsNull, positionOffset, positionOffset + length);
-        return new FixedWidthBlock(type, length, newSlice, newValueIsNull);
+        return new FixedWidthBlock(fixedSize, length, newSlice, newValueIsNull);
     }
 
     @Override
@@ -217,7 +216,7 @@ public class FixedWidthBlockBuilder
         if (currentEntrySize > 0) {
             throw new IllegalStateException("Current entry must be closed before the block can be built");
         }
-        return new FixedWidthBlock(type, positionCount, sliceOutput.slice(), valueIsNull);
+        return new FixedWidthBlock(fixedSize, positionCount, sliceOutput.slice(), valueIsNull);
     }
 
     @Override
@@ -225,8 +224,8 @@ public class FixedWidthBlockBuilder
     {
         StringBuilder sb = new StringBuilder("FixedWidthBlockBuilder{");
         sb.append("positionCount=").append(positionCount);
+        sb.append(", fixedSize=").append(fixedSize);
         sb.append(", size=").append(sliceOutput.size());
-        sb.append(", type=").append(type);
         sb.append('}');
         return sb.toString();
     }

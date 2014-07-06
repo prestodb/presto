@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.spi.block;
 
-import com.facebook.presto.spi.type.FixedWidthType;
 import io.airlift.slice.SizeOf;
 import io.airlift.slice.Slice;
 
@@ -27,9 +26,9 @@ public class FixedWidthBlock
     private final Slice slice;
     private final boolean[] valueIsNull;
 
-    public FixedWidthBlock(FixedWidthType type, int positionCount, Slice slice, boolean[] valueIsNull)
+    public FixedWidthBlock(int fixedSize, int positionCount, Slice slice, boolean[] valueIsNull)
     {
-        super(type);
+        super(fixedSize);
 
         if (positionCount < 0) {
             throw new IllegalArgumentException("positionCount is negative");
@@ -81,7 +80,7 @@ public class FixedWidthBlock
 
         Slice newSlice = slice.slice(positionOffset * fixedSize, length * fixedSize);
         boolean[] newValueIsNull = Arrays.copyOfRange(valueIsNull, positionOffset, positionOffset + length);
-        return new FixedWidthBlock(type, length, newSlice, newValueIsNull);
+        return new FixedWidthBlock(fixedSize, length, newSlice, newValueIsNull);
     }
 
     @Override
@@ -89,6 +88,7 @@ public class FixedWidthBlock
     {
         StringBuilder sb = new StringBuilder("FixedWidthBlock{");
         sb.append("positionCount=").append(positionCount);
+        sb.append(", fixedSize=").append(fixedSize);
         sb.append(", slice=").append(slice);
         sb.append('}');
         return sb.toString();
