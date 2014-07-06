@@ -24,12 +24,13 @@ import com.facebook.presto.testing.QueryRunner;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.io.Closer;
 import com.google.inject.Module;
 import io.airlift.testing.Assertions;
-import io.airlift.testing.Closeables;
 import io.airlift.units.Duration;
 import org.intellij.lang.annotations.Language;
 
+import java.io.IOException;
 import java.net.URI;
 import java.util.List;
 import java.util.Map;
@@ -49,6 +50,8 @@ public class DistributedQueryRunner
     private final TestingPrestoServer coordinator;
     private final List<TestingPrestoServer> servers;
 
+    private final Closer closer = Closer.create();
+
     private final TestingPrestoClient prestoClient;
 
     public DistributedQueryRunner(ConnectorSession defaultSession, int workersCount)
@@ -57,14 +60,15 @@ public class DistributedQueryRunner
         checkNotNull(defaultSession, "defaultSession is null");
 
         try {
-            discoveryServer = new TestingDiscoveryServer(ENVIRONMENT);
+            discoveryServer = closer.register(new TestingDiscoveryServer(ENVIRONMENT));
 
             ImmutableList.Builder<TestingPrestoServer> servers = ImmutableList.builder();
-            coordinator = createTestingPrestoServer(discoveryServer.getBaseUrl(), true);
+            coordinator = closer.register(createTestingPrestoServer(discoveryServer.getBaseUrl(), true));
             servers.add(coordinator);
 
             for (int i = 1; i < workersCount; i++) {
-                servers.add(createTestingPrestoServer(discoveryServer.getBaseUrl(), false));
+                TestingPrestoServer worker = closer.register(createTestingPrestoServer(discoveryServer.getBaseUrl(), false));
+                servers.add(worker);
             }
             this.servers = servers.build();
         }
@@ -73,7 +77,7 @@ public class DistributedQueryRunner
             throw e;
         }
 
-        this.prestoClient = new TestingPrestoClient(coordinator, defaultSession);
+        this.prestoClient = closer.register(new TestingPrestoClient(coordinator, defaultSession));
 
         long start = System.nanoTime();
         while (!allNodesGloballyVisible()) {
@@ -117,6 +121,11 @@ public class DistributedQueryRunner
         return true;
     }
 
+    public TestingPrestoClient getClient()
+    {
+        return prestoClient;
+    }
+
     @Override
     public int getNodeCount()
     {
@@ -134,6 +143,7 @@ public class DistributedQueryRunner
         return coordinator;
     }
 
+    @Override
     public void installPlugin(Plugin plugin)
     {
         for (TestingPrestoServer server : servers) {
@@ -146,6 +156,7 @@ public class DistributedQueryRunner
         createCatalog(catalogName, connectorName, ImmutableMap.<String, String>of());
     }
 
+    @Override
     public void createCatalog(String catalogName, String connectorName, Map<String, String> properties)
     {
         for (TestingPrestoServer server : servers) {
@@ -205,12 +216,11 @@ public class DistributedQueryRunner
     @Override
     public final void close()
     {
-        if (servers != null) {
-            for (TestingPrestoServer server : servers) {
-                Closeables.closeQuietly(server);
-            }
+        try {
+            closer.close();
         }
-        Closeables.closeQuietly(prestoClient);
-        Closeables.closeQuietly(discoveryServer);
+        catch (IOException e) {
+            throw Throwables.propagate(e);
+        }
     }
 }

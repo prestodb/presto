@@ -52,6 +52,7 @@ import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.Connector;
 import com.facebook.presto.spi.ConnectorFactory;
 import com.facebook.presto.spi.ConnectorSession;
+import com.facebook.presto.spi.Plugin;
 import com.facebook.presto.spi.SystemTable;
 import com.facebook.presto.spi.TupleDomain;
 import com.facebook.presto.spi.type.Type;
@@ -205,6 +206,18 @@ public class LocalQueryRunner
     {
         nodeManager.addCurrentNodeDatasource(catalogName);
         connectorManager.createConnection(catalogName, connectorFactory, properties);
+    }
+
+    @Override
+    public void installPlugin(Plugin plugin)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public void createCatalog(String catalogName, String connectorName, Map<String, String> properties)
+    {
+        throw new UnsupportedOperationException();
     }
 
     public LocalQueryRunner printPlan()
