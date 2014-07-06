@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.connector.informationSchema;
 
-import com.facebook.presto.block.BlockIterable;
 import com.facebook.presto.metadata.ColumnHandle;
 import com.facebook.presto.metadata.FunctionInfo;
 import com.facebook.presto.metadata.InternalTable;
@@ -35,6 +34,7 @@ import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.TupleDomain;
+import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.VarcharType;
 import com.facebook.presto.split.ConnectorDataStreamProvider;
@@ -86,11 +86,18 @@ public class InformationSchemaDataStreamProvider
     @Override
     public Operator createNewDataStream(OperatorContext operatorContext, ConnectorSplit split, List<ConnectorColumnHandle> columns)
     {
-        List<BlockIterable> channels = createChannels(split, columns);
-        return new AlignmentOperator(operatorContext, channels);
+        InternalTable table = getInternalTable(split, columns);
+        ImmutableList.Builder<Type> types = ImmutableList.builder();
+        ImmutableList.Builder<Iterable<Block>> channels = ImmutableList.builder();
+        for (ConnectorColumnHandle column : columns) {
+            String columnName = checkType(column, InformationSchemaColumnHandle.class, "column").getColumnName();
+            types.add(table.getType(columnName));
+            channels.add(table.getColumn(columnName));
+        }
+        return new AlignmentOperator(operatorContext, types.build(), channels.build());
     }
 
-    private List<BlockIterable> createChannels(ConnectorSplit connectorSplit, List<ConnectorColumnHandle> columns)
+    private InternalTable getInternalTable(ConnectorSplit connectorSplit, List<ConnectorColumnHandle> columns)
     {
         InformationSchemaSplit split = checkType(connectorSplit, InformationSchemaSplit.class, "split");
 
@@ -100,14 +107,7 @@ public class InformationSchemaDataStreamProvider
         InformationSchemaTableHandle handle = split.getTableHandle();
         Map<String, Object> filters = split.getFilters();
 
-        InternalTable table = getInformationSchemaTable(handle.getSession(), handle.getCatalogName(), handle.getSchemaTableName(), filters);
-
-        ImmutableList.Builder<BlockIterable> list = ImmutableList.builder();
-        for (ConnectorColumnHandle column : columns) {
-            String columnName = checkType(column, InformationSchemaColumnHandle.class, "column").getColumnName();
-            list.add(table.getColumn(columnName));
-        }
-        return list.build();
+        return getInformationSchemaTable(handle.getSession(), handle.getCatalogName(), handle.getSchemaTableName(), filters);
     }
 
     public InternalTable getInformationSchemaTable(ConnectorSession session, String catalog, SchemaTableName table, Map<String, Object> filters)

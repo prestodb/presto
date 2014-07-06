@@ -14,11 +14,10 @@
 package com.facebook.presto.metadata;
 
 import com.facebook.presto.block.BlockUtils;
-import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.block.BlockIterable;
 import com.facebook.presto.operator.Page;
 import com.facebook.presto.operator.PageBuilder;
 import com.facebook.presto.spi.ColumnMetadata;
+import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -28,17 +27,17 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-import static com.facebook.presto.block.BlockIterables.createBlockIterable;
-import static com.facebook.presto.block.BlockUtils.emptyBlockIterable;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 public class InternalTable
 {
-    private final Map<String, BlockIterable> columns;
+    private final Map<String, Type> types;
+    private final Map<String, Iterable<Block>> columns;
 
-    public InternalTable(Map<String, BlockIterable> columns)
+    public InternalTable(Map<String, Type> types, Map<String, Iterable<Block>> columns)
     {
+        this.types = ImmutableMap.copyOf(checkNotNull(types, "types is null"));
         this.columns = ImmutableMap.copyOf(checkNotNull(columns, "columns is null"));
     }
 
@@ -47,14 +46,19 @@ public class InternalTable
         return columns.keySet();
     }
 
-    public BlockIterable getColumn(String columnName)
+    public Type getType(String columnName)
+    {
+        return types.get(columnName);
+    }
+
+    public Iterable<Block> getColumn(String columnName)
     {
         return columns.get(columnName);
     }
 
-    public List<BlockIterable> getColumns(List<String> columnNames)
+    public List<Iterable<Block>> getColumns(List<String> columnNames)
     {
-        ImmutableList.Builder<BlockIterable> columns = ImmutableList.builder();
+        ImmutableList.Builder<Iterable<Block>> columns = ImmutableList.builder();
         for (String columnName : columnNames) {
             columns.add(getColumn(columnName));
         }
@@ -120,12 +124,13 @@ public class InternalTable
         public InternalTable build()
         {
             flushPage();
-            ImmutableMap.Builder<String, BlockIterable> data = ImmutableMap.builder();
-            for (int i = 0; i < columns.size(); i++) {
-                List<Block> column = columns.get(i);
-                data.put(columnNames.get(i), column.isEmpty() ? emptyBlockIterable() : createBlockIterable(column));
+            ImmutableMap.Builder<String, Type> columnTypes = ImmutableMap.builder();
+            ImmutableMap.Builder<String, Iterable<Block>> data = ImmutableMap.builder();
+            for (int i = 0; i < columnNames.size(); i++) {
+                columnTypes.put(columnNames.get(i), types.get(i));
+                data.put(columnNames.get(i), columns.get(i));
             }
-            return new InternalTable(data.build());
+            return new InternalTable(columnTypes.build(), data.build());
         }
 
         private void flushPage()

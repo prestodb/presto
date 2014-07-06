@@ -18,8 +18,6 @@ import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.type.Type;
-import io.airlift.slice.Slice;
-import io.airlift.slice.Slices;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -27,7 +25,6 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Locale;
 
-import static com.facebook.presto.block.BlockIterables.createBlockIterable;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
@@ -50,7 +47,7 @@ public final class BlockAssertions
         return block.getType().getObjectValue(SESSION, block, 0);
     }
 
-    public static List<Object> toValues(Type type, BlockIterable blocks)
+    public static List<Object> toValues(Type type, Iterable<Block> blocks)
     {
         List<Object> values = new ArrayList<>();
         for (Block block : blocks) {
@@ -232,77 +229,5 @@ public final class BlockAssertions
         }
 
         return builder.build();
-    }
-
-    public static BlockIterableBuilder blockIterableBuilder(Type type)
-    {
-        return new BlockIterableBuilder(type);
-    }
-
-    public static class BlockIterableBuilder
-    {
-        private final List<Block> blocks = new ArrayList<>();
-        private final Type type;
-        private BlockBuilder blockBuilder;
-
-        private BlockIterableBuilder(Type type)
-        {
-            this.type = type;
-            blockBuilder = type.createBlockBuilder(new BlockBuilderStatus());
-        }
-
-        public BlockIterableBuilder append(Slice value)
-        {
-            type.writeSlice(blockBuilder, value, 0, value.length());
-            return this;
-        }
-
-        public BlockIterableBuilder append(double value)
-        {
-            type.writeDouble(blockBuilder, value);
-            return this;
-        }
-
-        public BlockIterableBuilder append(long value)
-        {
-            type.writeLong(blockBuilder, value);
-            return this;
-        }
-
-        public BlockIterableBuilder append(String value)
-        {
-            Slice slice = Slices.utf8Slice(value);
-            type.writeSlice(blockBuilder, slice, 0, slice.length());
-            return this;
-        }
-
-        public BlockIterableBuilder append(byte[] value)
-        {
-            Slice slice = Slices.wrappedBuffer(value);
-            type.writeSlice(blockBuilder, slice, 0, slice.length());
-            return this;
-        }
-
-        public BlockIterableBuilder appendNull()
-        {
-            blockBuilder.appendNull();
-            return this;
-        }
-
-        public BlockIterableBuilder newBlock()
-        {
-            if (!blockBuilder.isEmpty()) {
-                Block block = blockBuilder.build();
-                blocks.add(block);
-                blockBuilder = block.getType().createBlockBuilder(new BlockBuilderStatus());
-            }
-            return this;
-        }
-
-        public BlockIterable build()
-        {
-            newBlock();
-            return createBlockIterable(blocks);
-        }
     }
 }

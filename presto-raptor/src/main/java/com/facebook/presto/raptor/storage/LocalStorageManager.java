@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.raptor.storage;
 
-import com.facebook.presto.block.BlockIterable;
 import com.facebook.presto.spi.ConnectorColumnHandle;
+import com.facebook.presto.spi.block.Block;
 
 import java.io.IOException;
 import java.util.List;
@@ -22,7 +22,7 @@ import java.util.UUID;
 
 public interface LocalStorageManager
 {
-    BlockIterable getBlocks(UUID shardUuid, ConnectorColumnHandle columnHandle);
+    Iterable<Block> getBlocks(UUID shardUuid, ConnectorColumnHandle columnHandle);
 
     boolean shardExists(UUID shardUuid);
 

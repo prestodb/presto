@@ -13,8 +13,6 @@
  */
 package com.facebook.presto.raptor.storage;
 
-import com.facebook.presto.block.BlockIterable;
-import com.facebook.presto.block.BlockUtils;
 import com.facebook.presto.execution.TaskId;
 import com.facebook.presto.operator.AlignmentOperator;
 import com.facebook.presto.operator.OperatorContext;
@@ -28,6 +26,7 @@ import com.facebook.presto.spi.ConnectorColumnHandle;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockEncodingSerde;
+import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.util.KeyBoundedExecutor;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Function;
@@ -187,12 +186,14 @@ public class DatabaseLocalStorageManager
         UUID shardUuid = columnFileHandle.getShardUuid();
         File shardPath = getShardPath(baseStorageDir, shardUuid);
 
-        ImmutableList.Builder<BlockIterable> sourcesBuilder = ImmutableList.builder();
+        ImmutableList.Builder<Type> types = ImmutableList.builder();
+        ImmutableList.Builder<Iterable<Block>> sourcesBuilder = ImmutableList.builder();
         ColumnFileHandle.Builder builder = ColumnFileHandle.builder(shardUuid, blockEncodingSerde);
 
         for (Map.Entry<ConnectorColumnHandle, File> entry : columnFileHandle.getFiles().entrySet()) {
             File file = entry.getValue();
-            ConnectorColumnHandle columnHandle = entry.getKey();
+            RaptorColumnHandle columnHandle = checkType(entry.getKey(), RaptorColumnHandle.class, "columnHandle");
+            types.add(columnHandle.getColumnType());
 
             if (file.length() > 0) {
                 Slice slice = mappedFileCache.getUnchecked(file.getAbsoluteFile());
@@ -241,7 +242,7 @@ public class DatabaseLocalStorageManager
             }
         }
 
-        List<BlockIterable> sources = sourcesBuilder.build();
+        List<Iterable<Block>> sources = sourcesBuilder.build();
         ColumnFileHandle targetFileHandle = builder.build();
 
         if (!sources.isEmpty()) {
@@ -252,7 +253,7 @@ public class DatabaseLocalStorageManager
                     .addDriverContext()
                     .addOperatorContext(0, "OptimizeEncodings");
 
-            AlignmentOperator source = new AlignmentOperator(operatorContext, sources);
+            AlignmentOperator source = new AlignmentOperator(operatorContext, types.build(), sources);
             importData(source, targetFileHandle);
         }
 
@@ -339,7 +340,7 @@ public class DatabaseLocalStorageManager
     }
 
     @Override
-    public BlockIterable getBlocks(UUID shardUuid, ConnectorColumnHandle columnHandle)
+    public Iterable<Block> getBlocks(UUID shardUuid, ConnectorColumnHandle columnHandle)
     {
         long columnId = checkType(columnHandle, RaptorColumnHandle.class, "columnHandle").getColumnId();
 
@@ -347,15 +348,14 @@ public class DatabaseLocalStorageManager
         String filename = dao.getColumnFilename(shardUuid, columnId);
         File file = new File(getShardPath(baseStorageDir, shardUuid), filename);
 
-        // TODO: remove this hack when empty blocks are allowed
         if (!file.exists()) {
-            return BlockUtils.emptyBlockIterable();
+            return ImmutableList.of();
         }
 
         return convertFilesToBlocks(ImmutableList.of(file));
     }
 
-    private BlockIterable convertFilesToBlocks(Iterable<File> files)
+    private Iterable<Block> convertFilesToBlocks(Iterable<File> files)
     {
         checkArgument(files.iterator().hasNext(), "no files in stream");
 
@@ -369,7 +369,7 @@ public class DatabaseLocalStorageManager
             }
         }));
 
-        return BlockUtils.toBlocks(blocks);
+        return blocks;
     }
 
     @Override
