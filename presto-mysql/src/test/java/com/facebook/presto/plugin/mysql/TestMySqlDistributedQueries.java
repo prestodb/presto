@@ -23,6 +23,7 @@ import io.airlift.log.Logger;
 import io.airlift.testing.mysql.TestingMySqlServer;
 import org.testng.annotations.AfterClass;
 
+import java.io.IOException;
 import java.util.Map;
 
 import static com.facebook.presto.spi.type.TimeZoneKey.UTC_KEY;
@@ -56,6 +57,7 @@ public class TestMySqlDistributedQueries
     @AfterClass(alwaysRun = true)
     @SuppressWarnings({"EmptyTryBlock", "UnusedDeclaration"})
     public void destroy()
+            throws IOException
     {
         try (QueryRunner queryRunner = this.queryRunner;
                 TestingMySqlServer mysqlServer = this.mysqlServer) {

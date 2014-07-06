@@ -20,7 +20,7 @@ import org.testng.annotations.Test;
 
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
-import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Preconditions.checkState;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
 
@@ -29,10 +29,15 @@ public abstract class AbstractTestIntegrationSmokeTest
 {
     private final ConnectorSession sampledSession;
 
-    public AbstractTestIntegrationSmokeTest(QueryRunner queryRunner, ConnectorSession sampledSession)
+    protected AbstractTestIntegrationSmokeTest(QueryRunner queryRunner)
+    {
+        this(queryRunner, null);
+    }
+
+    protected AbstractTestIntegrationSmokeTest(QueryRunner queryRunner, ConnectorSession sampledSession)
     {
         super(queryRunner);
-        this.sampledSession = checkNotNull(sampledSession, "sampledSession is null");
+        this.sampledSession = sampledSession;
     }
 
     @Test
@@ -48,6 +53,7 @@ public abstract class AbstractTestIntegrationSmokeTest
     public void testApproximateQuerySum()
             throws Exception
     {
+        checkState(sampledSession != null, "no sampledSession found");
         assertApproximateQuery(sampledSession, "SELECT SUM(totalprice) FROM orders APPROXIMATE AT 99.999 CONFIDENCE", "SELECT 2 * SUM(totalprice) FROM orders");
     }
 
