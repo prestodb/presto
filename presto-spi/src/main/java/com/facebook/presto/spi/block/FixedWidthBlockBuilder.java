@@ -53,7 +53,7 @@ public class FixedWidthBlockBuilder
     {
         super(type);
 
-        Slice slice = Slices.allocate(entrySize * positionCount);
+        Slice slice = Slices.allocate(fixedSize * positionCount);
 
         this.blockBuilderStatus = new BlockBuilderStatus(slice.length(), slice.length());
         this.sliceOutput = slice.getOutput();
@@ -154,8 +154,8 @@ public class FixedWidthBlockBuilder
     @Override
     public BlockBuilder closeEntry()
     {
-        if (currentEntrySize != entrySize) {
-            throw new IllegalStateException("Expected entry size to be exactly " + entrySize + " but was " + currentEntrySize);
+        if (currentEntrySize != fixedSize) {
+            throw new IllegalStateException("Expected entry size to be exactly " + fixedSize + " but was " + currentEntrySize);
         }
 
         entryAdded(false);
@@ -171,7 +171,7 @@ public class FixedWidthBlockBuilder
         }
 
         // fixed width is always written regardless of null flag
-        sliceOutput.writeZero(entrySize);
+        sliceOutput.writeZero(fixedSize);
 
         entryAdded(true);
 
@@ -186,7 +186,7 @@ public class FixedWidthBlockBuilder
         valueIsNull[positionCount] = isNull;
 
         positionCount++;
-        blockBuilderStatus.addBytes(entrySize);
+        blockBuilderStatus.addBytes(fixedSize);
         if (sliceOutput.size() >= blockBuilderStatus.getMaxBlockSizeInBytes()) {
             blockBuilderStatus.setFull();
         }
@@ -206,7 +206,7 @@ public class FixedWidthBlockBuilder
             throw new IndexOutOfBoundsException("Invalid position " + positionOffset + " in block with " + positionCount + " positions");
         }
 
-        Slice newSlice = sliceOutput.slice().slice(positionOffset * entrySize, length * entrySize);
+        Slice newSlice = sliceOutput.slice().slice(positionOffset * fixedSize, length * fixedSize);
         boolean[] newValueIsNull = Arrays.copyOfRange(valueIsNull, positionOffset, positionOffset + length);
         return new FixedWidthBlock(type, length, newSlice, newValueIsNull);
     }
