@@ -28,9 +28,9 @@ public class TestFixedWidthBlockBuilder
     public void testFixedBlockIsFull()
             throws Exception
     {
-        testIsFull(new FixedWidthBlockBuilder(BOOLEAN, EXPECTED_ENTRY_COUNT));
-        testIsFull(new FixedWidthBlockBuilder(BOOLEAN, new BlockBuilderStatus(BOOLEAN_ENTRY_SIZE * EXPECTED_ENTRY_COUNT, 1024)));
-        testIsFull(new FixedWidthBlockBuilder(BOOLEAN, new BlockBuilderStatus(1024, BOOLEAN_ENTRY_SIZE * EXPECTED_ENTRY_COUNT)));
+        testIsFull(new FixedWidthBlockBuilder(BOOLEAN.getFixedSize(), EXPECTED_ENTRY_COUNT));
+        testIsFull(new FixedWidthBlockBuilder(BOOLEAN.getFixedSize(), new BlockBuilderStatus(BOOLEAN_ENTRY_SIZE * EXPECTED_ENTRY_COUNT, 1024)));
+        testIsFull(new FixedWidthBlockBuilder(BOOLEAN.getFixedSize(), new BlockBuilderStatus(1024, BOOLEAN_ENTRY_SIZE * EXPECTED_ENTRY_COUNT)));
     }
 
     private static void testIsFull(FixedWidthBlockBuilder blockBuilder)

@@ -223,7 +223,7 @@ public class IndexLoader
                 if (lookupSource.getJoinPosition(position, blocks) < 0) {
                     for (int i = 0; i < blocks.length; i++) {
                         Block block = blocks[i];
-                        Type type = block.getType();
+                        Type type = unloadedKeyRecordCursor.getType(i);
                         type.appendTo(block, position, missingKeysPageBuilder.getBlockBuilder(i));
                     }
                 }

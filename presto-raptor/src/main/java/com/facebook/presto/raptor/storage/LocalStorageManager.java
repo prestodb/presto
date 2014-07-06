@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.raptor.storage;
 
+import com.facebook.presto.raptor.RaptorColumnHandle;
 import com.facebook.presto.spi.ConnectorColumnHandle;
 import com.facebook.presto.spi.block.Block;
 
@@ -30,7 +31,7 @@ public interface LocalStorageManager
 
     boolean isShardActive(UUID shardUuid);
 
-    ColumnFileHandle createStagingFileHandles(UUID shardUuid, List<? extends ConnectorColumnHandle> columnHandles)
+    ColumnFileHandle createStagingFileHandles(UUID shardUuid, List<RaptorColumnHandle> columnHandles)
             throws IOException;
 
     void commit(ColumnFileHandle columnFileHandle)

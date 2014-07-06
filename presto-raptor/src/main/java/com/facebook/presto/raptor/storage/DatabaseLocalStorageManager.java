@@ -146,14 +146,14 @@ public class DatabaseLocalStorageManager
     }
 
     @Override
-    public ColumnFileHandle createStagingFileHandles(UUID shardUuid, List<? extends ConnectorColumnHandle> columnHandles)
+    public ColumnFileHandle createStagingFileHandles(UUID shardUuid, List<RaptorColumnHandle> columnHandles)
             throws IOException
     {
         File shardPath = getShardPath(baseStagingDir, shardUuid);
 
         ColumnFileHandle.Builder builder = ColumnFileHandle.builder(shardUuid, blockEncodingSerde);
 
-        for (ConnectorColumnHandle columnHandle : columnHandles) {
+        for (RaptorColumnHandle columnHandle : columnHandles) {
             File file = getColumnFile(shardPath, columnHandle, defaultEncoding);
             Files.createParentDirs(file);
             builder.addColumn(columnHandle, file, defaultEncoding);

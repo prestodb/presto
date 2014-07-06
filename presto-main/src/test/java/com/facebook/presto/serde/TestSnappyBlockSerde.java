@@ -39,12 +39,12 @@ public class TestSnappyBlockSerde
         Block block = blockBuilder.build();
 
         DynamicSliceOutput compressedOutput = new DynamicSliceOutput(1024);
-        Encoder encoder = BlocksFileEncoding.SNAPPY.createBlocksWriter(compressedOutput);
+        Encoder encoder = BlocksFileEncoding.SNAPPY.createBlocksWriter(VARCHAR, compressedOutput);
 
         encoder.append(block);
         BlockEncoding snappyEncoding = encoder.finish();
         Block actualBlock = snappyEncoding.readBlock(compressedOutput.slice().getInput());
-        BlockAssertions.assertBlockEquals(actualBlock, block);
+        BlockAssertions.assertBlockEquals(VARCHAR, actualBlock, block);
     }
 
     @Test
@@ -58,7 +58,7 @@ public class TestSnappyBlockSerde
         Block block = blockBuilder.build();
 
         DynamicSliceOutput encoderOutput = new DynamicSliceOutput(1024);
-        Encoder encoder = BlocksFileEncoding.SNAPPY.createBlocksWriter(encoderOutput);
+        Encoder encoder = BlocksFileEncoding.SNAPPY.createBlocksWriter(VARCHAR, encoderOutput);
 
         BlockBuilder expectedBlockBuilder = VARCHAR.createBlockBuilder(new BlockBuilderStatus());
 
@@ -81,6 +81,6 @@ public class TestSnappyBlockSerde
 
         Block actualBlock = snappyEncoding.readBlock(encoderOutput.slice().getInput());
 
-        BlockAssertions.assertBlockEquals(actualBlock, expectedBlock);
+        BlockAssertions.assertBlockEquals(VARCHAR, actualBlock, expectedBlock);
     }
 }

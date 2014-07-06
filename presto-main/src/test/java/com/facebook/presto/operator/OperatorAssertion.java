@@ -141,7 +141,7 @@ public final class OperatorAssertion
         List<Page> actual = toPages(operator);
         assertEquals(actual.size(), expected.size());
         for (int i = 0; i < actual.size(); i++) {
-            assertPageEquals(actual.get(i), expected.get(i));
+            assertPageEquals(operator.getTypes(), actual.get(i), expected.get(i));
         }
     }
 
@@ -150,7 +150,7 @@ public final class OperatorAssertion
         List<Page> actual = toPages(operator, input);
         assertEquals(actual.size(), expected.size());
         for (int i = 0; i < actual.size(); i++) {
-            assertPageEquals(actual.get(i), expected.get(i));
+            assertPageEquals(operator.getTypes(), actual.get(i), expected.get(i));
         }
     }
 

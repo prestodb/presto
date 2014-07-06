@@ -17,11 +17,14 @@ import com.facebook.presto.operator.Page;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
+import com.facebook.presto.spi.type.Type;
+import com.google.common.collect.ImmutableList;
 import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.Slice;
 import org.testng.annotations.Test;
 
 import java.util.Iterator;
+import java.util.List;
 
 import static com.facebook.presto.operator.PageAssertions.assertPageEquals;
 import static com.facebook.presto.serde.PagesSerde.readPages;
@@ -48,10 +51,12 @@ public class TestPagesSerde
 
         DynamicSliceOutput sliceOutput = new DynamicSliceOutput(1024);
         writePages(createTestingBlockEncodingManager(), sliceOutput, expectedPage, expectedPage, expectedPage);
+
+        List<Type> types = ImmutableList.<Type>of(VARCHAR, VARCHAR, VARCHAR);
         Iterator<Page> pageIterator = readPages(createTestingBlockEncodingManager(), sliceOutput.slice().getInput());
-        assertPageEquals(pageIterator.next(), expectedPage);
-        assertPageEquals(pageIterator.next(), expectedPage);
-        assertPageEquals(pageIterator.next(), expectedPage);
+        assertPageEquals(types, pageIterator.next(), expectedPage);
+        assertPageEquals(types, pageIterator.next(), expectedPage);
+        assertPageEquals(types, pageIterator.next(), expectedPage);
         assertFalse(pageIterator.hasNext());
     }
 
@@ -62,19 +67,19 @@ public class TestPagesSerde
 
         // empty page
         Page page = new Page(builder.build());
-        int pageSize = serializedSize(page);
-        assertEquals(pageSize, 41); // page overhead
+        int pageSize = serializedSize(ImmutableList.of(BIGINT), page);
+        assertEquals(pageSize, 35); // page overhead
 
         // page with one value
         BIGINT.writeLong(builder, 123);
         page = new Page(builder.build());
-        int firstValueSize = serializedSize(page) - pageSize;
+        int firstValueSize = serializedSize(ImmutableList.of(BIGINT), page) - pageSize;
         assertEquals(firstValueSize, 9); // value size + value overhead
 
         // page with two values
         BIGINT.writeLong(builder, 456);
         page = new Page(builder.build());
-        int secondValueSize = serializedSize(page) - (pageSize + firstValueSize);
+        int secondValueSize = serializedSize(ImmutableList.of(BIGINT), page) - (pageSize + firstValueSize);
         assertEquals(secondValueSize, 8); // value size (value overhead is shared with previous value)
     }
 
@@ -85,30 +90,35 @@ public class TestPagesSerde
 
         // empty page
         Page page = new Page(builder.build());
-        int pageSize = serializedSize(page);
-        assertEquals(pageSize, 45); // page overhead
+        int pageSize = serializedSize(ImmutableList.of(VARCHAR), page);
+        assertEquals(pageSize, 34); // page overhead
 
         // page with one value
         VARCHAR.writeString(builder, "alice");
         page = new Page(builder.build());
-        int firstValueSize = serializedSize(page) - pageSize;
+        int firstValueSize = serializedSize(ImmutableList.of(VARCHAR), page) - pageSize;
         assertEquals(firstValueSize, 4 + 5 + 1); // length + "alice" + null
 
         // page with two values
         VARCHAR.writeString(builder, "bob");
         page = new Page(builder.build());
-        int secondValueSize = serializedSize(page) - (pageSize + firstValueSize);
+        int secondValueSize = serializedSize(ImmutableList.of(VARCHAR), page) - (pageSize + firstValueSize);
         assertEquals(secondValueSize, 4  + 3); // length + "bob" (null shared with first entry)
     }
 
-    private static int serializedSize(Page expectedPage)
+    private static int serializedSize(List<? extends Type> types, Page expectedPage)
     {
         DynamicSliceOutput sliceOutput = new DynamicSliceOutput(1024);
         writePages(createTestingBlockEncodingManager(), sliceOutput, expectedPage);
         Slice slice = sliceOutput.slice();
 
         Iterator<Page> pageIterator = readPages(createTestingBlockEncodingManager(), slice.getInput());
-        assertPageEquals(pageIterator.next(), expectedPage);
+        if (pageIterator.hasNext()) {
+            assertPageEquals(types, pageIterator.next(), expectedPage);
+        }
+        else {
+            assertEquals(expectedPage.getPositionCount(), 0);
+        }
         assertFalse(pageIterator.hasNext());
 
         return slice.length();

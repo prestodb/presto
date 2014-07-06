@@ -19,6 +19,7 @@ import com.facebook.presto.operator.Page;
 import com.facebook.presto.operator.ValuesOperator;
 import com.facebook.presto.spi.ConnectorColumnHandle;
 import com.facebook.presto.spi.ConnectorSplit;
+import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.split.ConnectorDataStreamProvider;
 import com.google.common.collect.ImmutableList;
 
@@ -40,6 +41,6 @@ public class TestingDataStreamProvider
         // TODO: check for !columns.isEmpty() -- currently, it breaks TestSqlTaskManager
         // and fixing it requires allowing TableScan nodes with no assignments
 
-        return new ValuesOperator(operatorContext, ImmutableList.of(new Page(1)));
+        return new ValuesOperator(operatorContext, ImmutableList.<Type>of(), ImmutableList.of(new Page(1)));
     }
 }

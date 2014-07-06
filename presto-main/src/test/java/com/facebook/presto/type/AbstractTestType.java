@@ -50,20 +50,18 @@ public abstract class AbstractTestType
     private final SortedMap<Integer, Object> expectedObjectValues;
     private final Block testBlockWithNulls;
 
-    protected AbstractTestType(Class<?> objectValueType, Block testBlock)
+    protected AbstractTestType(Type type, Class<?> objectValueType, Block testBlock)
     {
-        this(objectValueType, testBlock, testBlock);
+        this(type, objectValueType, testBlock, testBlock);
     }
 
-    protected AbstractTestType(Class<?> objectValueType, Block testBlock, Block expectedValues)
+    protected AbstractTestType(Type type, Class<?> objectValueType, Block testBlock, Block expectedValues)
     {
-        this.objectValueType = objectValueType;
-        checkNotNull(testBlock, "testBlock is null");
-        checkNotNull(expectedValues, "expectedValues is null");
+        this.type = checkNotNull(type, "type is null");
+        this.objectValueType = checkNotNull(objectValueType, "objectValueType is null");
+        this.testBlock = checkNotNull(testBlock, "testBlock is null");
 
-        assertEquals(testBlock.getType(), expectedValues.getType(), "testBlock and expectedValues have different types");
-        this.testBlock = testBlock;
-        this.type = testBlock.getType();
+        checkNotNull(expectedValues, "expectedValues is null");
         this.expectedStackValues = indexStackValues(type, expectedValues);
         this.expectedObjectValues = indexObjectValues(type, expectedValues);
         this.testBlockWithNulls = createAlternatingNullsBlock(testBlock);
@@ -128,7 +126,6 @@ public abstract class AbstractTestType
 
     private void assertPositionValue(Block block, int position, Object expectedStackValue, int expectedHash, Object expectedObjectValue)
     {
-        assertEquals(block.getType(), type);
         Object objectValue = type.getObjectValue(SESSION, block, position);
         assertEquals(objectValue, expectedObjectValue);
         if (objectValue != null) {
@@ -192,7 +189,6 @@ public abstract class AbstractTestType
             assertTrue(DESC_NULLS_LAST.compareBlockValue(type, block, position, greaterValue, 0) > 0);
         }
 
-        Type type = block.getType();
         if (type.getJavaType() == boolean.class) {
             assertEquals(type.getBoolean(block, position), expectedStackValue);
             try {

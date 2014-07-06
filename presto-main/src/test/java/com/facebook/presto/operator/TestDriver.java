@@ -84,7 +84,8 @@ public class TestDriver
     @Test
     public void testNormalFinish()
     {
-        ValuesOperator source = new ValuesOperator(driverContext.addOperatorContext(0, "values"), rowPagesBuilder(VARCHAR, BIGINT, BIGINT)
+        List<Type> types = ImmutableList.of(VARCHAR, BIGINT, BIGINT);
+        ValuesOperator source = new ValuesOperator(driverContext.addOperatorContext(0, "values"), types, rowPagesBuilder(types)
                 .addSequencePage(10, 20, 30, 40)
                 .build());
 
@@ -105,7 +106,8 @@ public class TestDriver
     @Test
     public void testAbruptFinish()
     {
-        ValuesOperator source = new ValuesOperator(driverContext.addOperatorContext(0, "values"), rowPagesBuilder(VARCHAR, BIGINT, BIGINT)
+        List<Type> types = ImmutableList.of(VARCHAR, BIGINT, BIGINT);
+        ValuesOperator source = new ValuesOperator(driverContext.addOperatorContext(0, "values"), types, rowPagesBuilder(types)
                 .addSequencePage(10, 20, 30, 40)
                 .build());
 
@@ -126,6 +128,7 @@ public class TestDriver
     public void testAddSourceFinish()
     {
         PlanNodeId sourceId = new PlanNodeId("source");
+        final List<Type> types = ImmutableList.of(VARCHAR, BIGINT, BIGINT);
         TableScanOperator source = new TableScanOperator(driverContext.addOperatorContext(99, "values"),
                 sourceId,
                 new DataStreamProvider()
@@ -133,12 +136,12 @@ public class TestDriver
                     @Override
                     public Operator createNewDataStream(OperatorContext operatorContext, Split split, List<ColumnHandle> columns)
                     {
-                        return new ValuesOperator(driverContext.addOperatorContext(0, "values"), rowPagesBuilder(VARCHAR, BIGINT, BIGINT)
+                        return new ValuesOperator(driverContext.addOperatorContext(0, "values"), types, rowPagesBuilder(types)
                                 .addSequencePage(10, 20, 30, 40)
                                 .build());
                     }
                 },
-                ImmutableList.of(VARCHAR, BIGINT, BIGINT),
+                types,
                 ImmutableList.<ColumnHandle>of());
 
         MaterializingOperator sink = createSinkOperator(source);
@@ -229,6 +232,7 @@ public class TestDriver
             throws Exception
     {
         PlanNodeId sourceId = new PlanNodeId("source");
+        final List<Type> types = ImmutableList.of(VARCHAR, BIGINT, BIGINT);
         TableScanOperator source = new TableScanOperator(driverContext.addOperatorContext(99, "values"),
                 sourceId,
                 new DataStreamProvider()
@@ -236,12 +240,12 @@ public class TestDriver
                     @Override
                     public Operator createNewDataStream(OperatorContext operatorContext, Split split, List<ColumnHandle> columns)
                     {
-                        return new ValuesOperator(driverContext.addOperatorContext(0, "values"), rowPagesBuilder(VARCHAR, BIGINT, BIGINT)
+                        return new ValuesOperator(driverContext.addOperatorContext(0, "values"), types, rowPagesBuilder(types)
                                 .addSequencePage(10, 20, 30, 40)
                                 .build());
                     }
                 },
-                ImmutableList.of(VARCHAR, BIGINT, BIGINT),
+                types,
                 ImmutableList.<ColumnHandle>of());
 
         BrokenOperator brokenOperator = new BrokenOperator(driverContext.addOperatorContext(0, "source"));

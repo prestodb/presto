@@ -30,7 +30,6 @@ import javax.annotation.Nullable;
 
 import java.util.Locale;
 import java.util.Map;
-import java.util.Map.Entry;
 
 import static com.facebook.presto.operator.scalar.FunctionAssertions.createExpression;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
@@ -138,40 +137,43 @@ public class TestInterpretedProjectionFunction
     @Test
     public void testSymbolReference()
     {
-        assertProjection("symbol", true, ImmutableMap.of(new Symbol("symbol"), 0), 0, createBlock(BOOLEAN, true));
-        assertProjection("symbol", null, ImmutableMap.of(new Symbol("symbol"), 0), 0, createBlock(BOOLEAN, null));
+        Symbol symbol = new Symbol("symbol");
+        ImmutableMap<Symbol, Integer> symbolToInputMappings = ImmutableMap.of(symbol, 0);
+        assertProjection("symbol", true, symbolToInputMappings, ImmutableMap.<Symbol, Type>of(symbol, BOOLEAN), 0, createBlock(BOOLEAN, true));
+        assertProjection("symbol", null, symbolToInputMappings, ImmutableMap.<Symbol, Type>of(symbol, BOOLEAN), 0, createBlock(BOOLEAN, null));
 
-        assertProjection("symbol", 42L, ImmutableMap.of(new Symbol("symbol"), 0), 0, createBlock(BIGINT, 42));
-        assertProjection("symbol", null, ImmutableMap.of(new Symbol("symbol"), 0), 0, createBlock(BIGINT, null));
+        assertProjection("symbol", 42L, symbolToInputMappings, ImmutableMap.<Symbol, Type>of(symbol, BIGINT), 0, createBlock(BIGINT, 42));
+        assertProjection("symbol", null, symbolToInputMappings, ImmutableMap.<Symbol, Type>of(symbol, BIGINT), 0, createBlock(BIGINT, null));
 
-        assertProjection("symbol", 11.1, ImmutableMap.of(new Symbol("symbol"), 0), 0, createBlock(DOUBLE, 11.1));
-        assertProjection("symbol", null, ImmutableMap.of(new Symbol("symbol"), 0), 0, createBlock(DOUBLE, null));
+        assertProjection("symbol", 11.1, symbolToInputMappings, ImmutableMap.<Symbol, Type>of(symbol, DOUBLE), 0, createBlock(DOUBLE, 11.1));
+        assertProjection("symbol", null, symbolToInputMappings, ImmutableMap.<Symbol, Type>of(symbol, DOUBLE), 0, createBlock(DOUBLE, null));
 
-        assertProjection("symbol", "foo", ImmutableMap.of(new Symbol("symbol"), 0), 0, createBlock(VARCHAR, "foo"));
-        assertProjection("symbol", null, ImmutableMap.of(new Symbol("symbol"), 0), 0, createBlock(VARCHAR, null));
+        assertProjection("symbol", "foo", symbolToInputMappings, ImmutableMap.<Symbol, Type>of(symbol, VARCHAR), 0, createBlock(VARCHAR, "foo"));
+        assertProjection("symbol", null, symbolToInputMappings, ImmutableMap.<Symbol, Type>of(symbol, VARCHAR), 0, createBlock(VARCHAR, null));
     }
 
     public static void assertProjection(String expression, @Nullable Object expectedValue)
     {
-        assertProjection(expression, expectedValue, ImmutableMap.<Symbol, Integer>of(), 0);
+        assertProjection(
+                expression,
+                expectedValue,
+                ImmutableMap.<Symbol, Integer>of(),
+                ImmutableMap.<Symbol, Type>of(),
+                0);
     }
 
     private static void assertProjection(
             String expression,
             @Nullable Object expectedValue,
             Map<Symbol, Integer> symbolToInputMappings,
+            Map<Symbol, Type> symbolTypes,
             int position,
             Block... blocks)
     {
-        ImmutableMap.Builder<Symbol, Type> symbolTypes = ImmutableMap.builder();
-        for (Entry<Symbol, Integer> entry : symbolToInputMappings.entrySet()) {
-            symbolTypes.put(entry.getKey(), blocks[entry.getValue()].getType());
-        }
-
         MetadataManager metadata = new MetadataManager();
         InterpretedProjectionFunction projectionFunction = new InterpretedProjectionFunction(
-                createExpression(expression, metadata, symbolTypes.build()),
-                symbolTypes.build(),
+                createExpression(expression, metadata, symbolTypes),
+                symbolTypes,
                 symbolToInputMappings,
                 metadata,
                 SQL_PARSER,
@@ -179,13 +181,14 @@ public class TestInterpretedProjectionFunction
         );
 
         // create output
-        BlockBuilder builder = projectionFunction.getType().createBlockBuilder(new BlockBuilderStatus());
+        Type type = projectionFunction.getType();
+        BlockBuilder builder = type.createBlockBuilder(new BlockBuilderStatus());
 
         // project
         projectionFunction.project(position, blocks, builder);
 
         // extract single value
-        Object actualValue = BlockAssertions.getOnlyValue(builder.build());
+        Object actualValue = BlockAssertions.getOnlyValue(type, builder.build());
         assertEquals(actualValue, expectedValue);
     }
 

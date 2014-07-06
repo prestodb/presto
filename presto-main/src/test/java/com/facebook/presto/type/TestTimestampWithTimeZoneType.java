@@ -28,7 +28,7 @@ public class TestTimestampWithTimeZoneType
 {
     public TestTimestampWithTimeZoneType()
     {
-        super(SqlTimestampWithTimeZone.class, createTestBlock());
+        super(TIMESTAMP_WITH_TIME_ZONE, SqlTimestampWithTimeZone.class, createTestBlock());
     }
 
     public static Block createTestBlock()

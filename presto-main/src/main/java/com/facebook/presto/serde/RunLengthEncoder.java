@@ -26,6 +26,7 @@ import static com.google.common.base.Preconditions.checkState;
 public class RunLengthEncoder
         implements Encoder
 {
+    private final Type type;
     private final SliceOutput sliceOutput;
     private boolean finished;
 
@@ -33,8 +34,9 @@ public class RunLengthEncoder
     private Block lastValue;
     private RunLengthBlockEncoding encoding;
 
-    public RunLengthEncoder(SliceOutput sliceOutput)
+    public RunLengthEncoder(SliceOutput sliceOutput, Type type)
     {
+        this.type = checkNotNull(type, "type is null");
         this.sliceOutput = checkNotNull(sliceOutput, "sliceOutput is null");
     }
 
@@ -48,7 +50,6 @@ public class RunLengthEncoder
             encoding = new RunLengthBlockEncoding(block.getEncoding());
         }
 
-        Type type = block.getType();
         for (int position = 0; position < block.getPositionCount(); position++) {
             if (lastValue == null) {
                 lastValue = block.getSingleValueBlock(position);

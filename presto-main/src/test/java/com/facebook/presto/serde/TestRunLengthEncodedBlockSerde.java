@@ -43,11 +43,11 @@ public class TestRunLengthEncodedBlockSerde
         RunLengthEncodedBlock expectedBlock = new RunLengthEncodedBlock(value, 11);
 
         DynamicSliceOutput sliceOutput = new DynamicSliceOutput(1024);
-        RunLengthBlockEncoding blockEncoding = new RunLengthBlockEncoding(new VariableWidthBlockEncoding(VARCHAR));
+        RunLengthBlockEncoding blockEncoding = new RunLengthBlockEncoding(new VariableWidthBlockEncoding());
         blockEncoding.writeBlock(sliceOutput, expectedBlock);
         RunLengthEncodedBlock actualBlock = blockEncoding.readBlock(sliceOutput.slice().getInput());
         assertTrue(VARCHAR.equalTo(actualBlock, 0, expectedBlock, 0));
-        BlockAssertions.assertBlockEquals(actualBlock, expectedBlock);
+        BlockAssertions.assertBlockEquals(VARCHAR, actualBlock, expectedBlock);
     }
 
     @Test
@@ -69,7 +69,7 @@ public class TestRunLengthEncodedBlockSerde
         Block expectedBlock = expectedBlockBuilder.build();
 
         DynamicSliceOutput sliceOutput = new DynamicSliceOutput(1024);
-        BlockEncoding blockEncoding = new RunLengthEncoder(sliceOutput).append(expectedBlock).finish();
+        BlockEncoding blockEncoding = new RunLengthEncoder(sliceOutput, VARCHAR).append(expectedBlock).finish();
         SliceInput sliceInput = sliceOutput.slice().getInput();
 
         Block block = blockEncoding.readBlock(sliceInput);

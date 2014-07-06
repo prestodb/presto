@@ -37,10 +37,10 @@ public class TestUncompressedBlockSerde
         Block expectedBlock = expectedBlockBuilder.build();
 
         DynamicSliceOutput sliceOutput = new DynamicSliceOutput(1024);
-        BlockEncoding blockEncoding = new VariableWidthBlockEncoding(VARCHAR);
+        BlockEncoding blockEncoding = new VariableWidthBlockEncoding();
         blockEncoding.writeBlock(sliceOutput, expectedBlock);
         Block actualBlock = blockEncoding.readBlock(sliceOutput.slice().getInput());
-        BlockAssertions.assertBlockEquals(actualBlock, expectedBlock);
+        BlockAssertions.assertBlockEquals(VARCHAR, actualBlock, expectedBlock);
     }
 
     @Test
@@ -54,7 +54,7 @@ public class TestUncompressedBlockSerde
         Block block = blockBuilder.build();
 
         DynamicSliceOutput sliceOutput = new DynamicSliceOutput(1024);
-        BlockEncoding blockEncoding = new UncompressedEncoder(sliceOutput).append(block).append(block).finish();
+        BlockEncoding blockEncoding = new UncompressedEncoder(VARCHAR, sliceOutput).append(block).append(block).finish();
         Block actualBlock = blockEncoding.readBlock(sliceOutput.slice().getInput());
 
         BlockBuilder expectedBlockBuilder = VARCHAR.createBlockBuilder(new BlockBuilderStatus());
@@ -68,6 +68,6 @@ public class TestUncompressedBlockSerde
         VARCHAR.writeString(expectedBlockBuilder, "dave");
         Block expectedBlock = expectedBlockBuilder.build();
 
-        BlockAssertions.assertBlockEquals(actualBlock, expectedBlock);
+        BlockAssertions.assertBlockEquals(VARCHAR, actualBlock, expectedBlock);
     }
 }

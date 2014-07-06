@@ -24,7 +24,7 @@ public class TestBigintType
 {
     public TestBigintType()
     {
-        super(Long.class, createTestBlock());
+        super(BIGINT, Long.class, createTestBlock());
     }
 
     public static Block createTestBlock()

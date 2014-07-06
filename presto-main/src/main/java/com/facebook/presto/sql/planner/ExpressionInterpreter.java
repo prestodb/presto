@@ -142,6 +142,8 @@ public class ExpressionInterpreter
         @Override
         public Object visitInputReference(InputReference node, Object context)
         {
+            Type type = expressionTypes.get(node);
+
             int channel = node.getChannel();
             if (context instanceof PagePositionContext) {
                 PagePositionContext pagePositionContext = (PagePositionContext) context;
@@ -152,7 +154,6 @@ public class ExpressionInterpreter
                     return null;
                 }
 
-                Type type = block.getType();
                 Class<?> javaType = type.getJavaType();
                 if (javaType == boolean.class) {
                     return type.getBoolean(block, position);
@@ -176,7 +177,7 @@ public class ExpressionInterpreter
                     return null;
                 }
 
-                Class<?> javaType = cursor.getType(node.getChannel()).getJavaType();
+                Class<?> javaType = type.getJavaType();
                 if (javaType == boolean.class) {
                     return cursor.getBoolean(channel);
                 }

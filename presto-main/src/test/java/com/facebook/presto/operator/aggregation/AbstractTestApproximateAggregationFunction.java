@@ -174,7 +174,7 @@ public abstract class AbstractTestApproximateAggregationFunction
             accumulator.addInput(page);
             Block result = accumulator.evaluateFinal();
 
-            String approxValue = BlockAssertions.toValues(result).get(0).toString();
+            String approxValue = BlockAssertions.toValues(accumulator.getFinalType(), result).get(0).toString();
             double approx = Double.parseDouble(approxValue.split(" ")[0]);
             double error = Double.parseDouble(approxValue.split(" ")[2]);
 

@@ -25,7 +25,7 @@ public class TestColorType
 {
     public TestColorType()
     {
-        super(String.class, createTestBlock());
+        super(COLOR, String.class, createTestBlock());
     }
 
     public static Block createTestBlock()

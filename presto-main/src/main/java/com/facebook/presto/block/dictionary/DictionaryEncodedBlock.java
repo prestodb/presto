@@ -17,21 +17,17 @@ import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockEncoding;
 import com.facebook.presto.spi.block.FixedWidthBlock;
-import com.facebook.presto.spi.type.Type;
 import com.google.common.primitives.Ints;
 import io.airlift.slice.Slice;
 
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
-import static com.facebook.presto.type.UnknownType.UNKNOWN;
-import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static io.airlift.slice.Slices.EMPTY_SLICE;
 
 public class DictionaryEncodedBlock
         implements Block
 {
-    // todo type is not correct but works for now
-    private static final FixedWidthBlock NULL_SINGLE_VALUE_BLOCK = new FixedWidthBlock(UNKNOWN, 1, EMPTY_SLICE, new boolean[] {true});
+    private static final FixedWidthBlock NULL_SINGLE_VALUE_BLOCK = new FixedWidthBlock(0, 1, EMPTY_SLICE, new boolean[] {true});
     private final Block dictionary;
     private final Block idBlock;
 
@@ -39,13 +35,6 @@ public class DictionaryEncodedBlock
     {
         this.dictionary = checkNotNull(dictionary, "dictionary is null");
         this.idBlock = checkNotNull(idBlock, "idBlock is null");
-        checkArgument(idBlock.getType().equals(BIGINT), "Expected bigint block but got %s block", idBlock.getType());
-    }
-
-    @Override
-    public Type getType()
-    {
-        return dictionary.getType();
     }
 
     public Block getDictionary()

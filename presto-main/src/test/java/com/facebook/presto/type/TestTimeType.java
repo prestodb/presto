@@ -25,7 +25,7 @@ public class TestTimeType
 {
     public TestTimeType()
     {
-        super(SqlTime.class, createTestBlock());
+        super(TIME, SqlTime.class, createTestBlock());
     }
 
     public static Block createTestBlock()

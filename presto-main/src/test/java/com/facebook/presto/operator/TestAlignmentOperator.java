@@ -97,7 +97,7 @@ public class TestAlignmentOperator
         assertEquals(operator.needsInput(), false);
 
         // read first page
-        assertPageEquals(operator.getOutput(), rowPageBuilder(VARCHAR, BIGINT)
+        assertPageEquals(operator.getTypes(), operator.getOutput(), rowPageBuilder(VARCHAR, BIGINT)
                 .row("alice", 0)
                 .row("bob", 1)
                 .row("charlie", 2)
@@ -109,7 +109,7 @@ public class TestAlignmentOperator
         assertEquals(operator.needsInput(), false);
 
         // read second page
-        assertPageEquals(operator.getOutput(), rowPageBuilder(VARCHAR, BIGINT)
+        assertPageEquals(operator.getTypes(), operator.getOutput(), rowPageBuilder(VARCHAR, BIGINT)
                 .row("alice", 4)
                 .row("bob", 5)
                 .row("charlie", 6)

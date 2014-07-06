@@ -13,22 +13,20 @@
  */
 package com.facebook.presto.spi.block;
 
-import com.facebook.presto.spi.type.FixedWidthType;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
-
-import static java.util.Objects.requireNonNull;
 
 public abstract class AbstractFixedWidthBlock
         implements Block
 {
-    protected final FixedWidthType type;
     protected final int fixedSize;
 
-    protected AbstractFixedWidthBlock(FixedWidthType type)
+    protected AbstractFixedWidthBlock(int fixedSize)
     {
-        this.type = requireNonNull(type, "type is null");
-        this.fixedSize = type.getFixedSize();
+        if (fixedSize < 0) {
+            throw new IllegalArgumentException("fixedSize is negative");
+        }
+        this.fixedSize = fixedSize;
     }
 
     protected abstract Slice getRawSlice();
@@ -150,15 +148,9 @@ public abstract class AbstractFixedWidthBlock
     }
 
     @Override
-    public FixedWidthType getType()
-    {
-        return type;
-    }
-
-    @Override
     public BlockEncoding getEncoding()
     {
-        return new FixedWidthBlockEncoding(type);
+        return new FixedWidthBlockEncoding(fixedSize);
     }
 
     @Override
@@ -168,7 +160,7 @@ public abstract class AbstractFixedWidthBlock
 
         Slice copy = Slices.copyOf(getRawSlice(), valueOffset(position), fixedSize);
 
-        return new FixedWidthBlock(type, 1, copy, new boolean[] {isNull(position)});
+        return new FixedWidthBlock(fixedSize, 1, copy, new boolean[] {isNull(position)});
     }
 
     @Override

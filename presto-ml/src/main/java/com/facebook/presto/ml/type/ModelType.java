@@ -161,7 +161,7 @@ public class ModelType
     @Override
     public BlockBuilder createBlockBuilder(BlockBuilderStatus blockBuilderStatus)
     {
-        return new VariableWidthBlockBuilder(this, blockBuilderStatus);
+        return new VariableWidthBlockBuilder(blockBuilderStatus);
     }
 
     @Override

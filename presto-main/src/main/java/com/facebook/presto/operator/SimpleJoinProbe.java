@@ -24,28 +24,32 @@ public class SimpleJoinProbe
     public static class SimpleJoinProbeFactory
             implements JoinProbeFactory
     {
+        private List<Type> types;
         private List<Integer> probeJoinChannels;
 
-        public SimpleJoinProbeFactory(List<Integer> probeJoinChannels)
+        public SimpleJoinProbeFactory(List<Type> types, List<Integer> probeJoinChannels)
         {
+            this.types = types;
             this.probeJoinChannels = probeJoinChannels;
         }
 
         @Override
         public JoinProbe createJoinProbe(LookupSource lookupSource, Page page)
         {
-            return new SimpleJoinProbe(lookupSource, page, probeJoinChannels);
+            return new SimpleJoinProbe(types, lookupSource, page, probeJoinChannels);
         }
     }
 
+    private final List<Type> types;
     private final LookupSource lookupSource;
     private final int positionCount;
     private final Block[] blocks;
     private final Block[] probeBlocks;
     private int position = -1;
 
-    private SimpleJoinProbe(LookupSource lookupSource, Page page, List<Integer> probeJoinChannels)
+    private SimpleJoinProbe(List<Type> types, LookupSource lookupSource, Page page, List<Integer> probeJoinChannels)
     {
+        this.types = types;
         this.lookupSource = lookupSource;
         this.positionCount = page.getPositionCount();
         this.blocks = new Block[page.getChannelCount()];
@@ -77,8 +81,8 @@ public class SimpleJoinProbe
     public void appendTo(PageBuilder pageBuilder)
     {
         for (int outputIndex = 0; outputIndex < blocks.length; outputIndex++) {
+            Type type = types.get(outputIndex);
             Block block = blocks[outputIndex];
-            Type type = block.getType();
             type.appendTo(block, position, pageBuilder.getBlockBuilder(outputIndex));
         }
     }

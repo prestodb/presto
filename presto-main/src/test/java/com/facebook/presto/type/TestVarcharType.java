@@ -26,7 +26,7 @@ public class TestVarcharType
 {
     public TestVarcharType()
     {
-        super(String.class, createTestBlock());
+        super(VARCHAR, String.class, createTestBlock());
     }
 
     public static Block createTestBlock()

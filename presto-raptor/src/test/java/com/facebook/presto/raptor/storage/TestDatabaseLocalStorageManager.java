@@ -22,7 +22,6 @@ import com.facebook.presto.operator.OperatorContext;
 import com.facebook.presto.operator.Page;
 import com.facebook.presto.operator.TaskContext;
 import com.facebook.presto.raptor.RaptorColumnHandle;
-import com.facebook.presto.spi.ConnectorColumnHandle;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.testing.MaterializedResult;
 import com.google.common.collect.ImmutableList;
@@ -96,7 +95,7 @@ public class TestDatabaseLocalStorageManager
         UUID shardUuid = UUID.randomUUID();
         assertFalse(storageManager.shardExists(shardUuid));
 
-        List<ConnectorColumnHandle> columnHandles = ImmutableList.<ConnectorColumnHandle>of(
+        List<RaptorColumnHandle> columnHandles = ImmutableList.of(
                 new RaptorColumnHandle("test", "column_7", 7L, VARCHAR),
                 new RaptorColumnHandle("test", "column_11", 11L, BIGINT));
 
@@ -134,7 +133,7 @@ public class TestDatabaseLocalStorageManager
                         storageManager.getBlocks(shardUuid, columnHandles.get(1)))
         );
 
-        // materialize pages to force comparision only on contents and not page boundaries
+        // materialize pages to force comparison only on contents and not page boundaries
         MaterializedResult expected = toMaterializedResult(operator.getOperatorContext().getSession(), operator.getTypes(), pages);
 
         OperatorAssertion.assertOperatorEquals(operator, expected);
@@ -145,7 +144,7 @@ public class TestDatabaseLocalStorageManager
             throws IOException
     {
         UUID shardUuid = UUID.randomUUID();
-        List<ConnectorColumnHandle> columnHandles = ImmutableList.<ConnectorColumnHandle>of(new RaptorColumnHandle("test", "column_13", 13L, BIGINT));
+        List<RaptorColumnHandle> columnHandles = ImmutableList.of(new RaptorColumnHandle("test", "column_13", 13L, BIGINT));
 
         ColumnFileHandle fileHandles = storageManager.createStagingFileHandles(shardUuid, columnHandles);
         storageManager.commit(fileHandles);

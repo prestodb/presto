@@ -17,22 +17,22 @@ import com.facebook.presto.spi.block.FixedWidthBlockBuilder;
 import io.airlift.slice.Slice;
 import org.testng.annotations.Test;
 
-import static com.facebook.presto.spi.type.BigintType.BIGINT;
-
 public class TestFixedWidthBlock
         extends AbstractTestBlock
 {
     @Test
     public void test()
     {
-        Slice[] expectedValues = createExpectedValues(17, BIGINT.getFixedSize());
-        assertFixedWithValues(expectedValues);
-        assertFixedWithValues((Slice[]) alternatingNullValues(expectedValues));
+        for (int fixedSize = 0; fixedSize < 20; fixedSize++) {
+            Slice[] expectedValues = createExpectedValues(17, fixedSize);
+            assertFixedWithValues(expectedValues, fixedSize);
+            assertFixedWithValues((Slice[]) alternatingNullValues(expectedValues), fixedSize);
+        }
     }
 
-    private static void assertFixedWithValues(Slice[] expectedValues)
+    private static void assertFixedWithValues(Slice[] expectedValues, int fixedSize)
     {
-        FixedWidthBlockBuilder blockBuilder = new FixedWidthBlockBuilder(BIGINT, expectedValues.length);
+        FixedWidthBlockBuilder blockBuilder = new FixedWidthBlockBuilder(fixedSize, expectedValues.length);
         for (Slice expectedValue : expectedValues) {
             if (expectedValue == null) {
                 blockBuilder.appendNull();
