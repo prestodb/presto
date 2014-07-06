@@ -13,15 +13,7 @@
  */
 package com.facebook.presto.tests;
 
-import com.facebook.presto.client.ClientSession;
-import com.facebook.presto.client.Column;
-import com.facebook.presto.client.QueryError;
 import com.facebook.presto.client.QueryResults;
-import com.facebook.presto.client.StatementClient;
-import com.facebook.presto.metadata.Metadata;
-import com.facebook.presto.metadata.QualifiedTableName;
-import com.facebook.presto.metadata.QualifiedTablePrefix;
-import com.facebook.presto.metadata.TableHandle;
 import com.facebook.presto.server.testing.TestingPrestoServer;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.type.TimeZoneKey;
@@ -29,24 +21,16 @@ import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.testing.MaterializedRow;
 import com.google.common.base.Function;
-import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
-import io.airlift.http.client.HttpClient;
-import io.airlift.http.client.HttpClientConfig;
-import io.airlift.http.client.jetty.JettyHttpClient;
-import io.airlift.json.JsonCodec;
 import io.airlift.log.Logger;
-import io.airlift.units.Duration;
-import org.intellij.lang.annotations.Language;
 
-import java.io.Closeable;
 import java.sql.Date;
 import java.sql.Time;
 import java.sql.Timestamp;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicReference;
 
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
@@ -65,116 +49,63 @@ import static com.facebook.presto.util.DateTimeUtils.parseTimeWithTimeZone;
 import static com.facebook.presto.util.DateTimeUtils.parseTimestamp;
 import static com.facebook.presto.util.DateTimeUtils.parseTimestampWithTimeZone;
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.Iterables.transform;
-import static io.airlift.json.JsonCodec.jsonCodec;
 
 public class TestingPrestoClient
-        implements Closeable
+        extends AbstractTestingPrestoClient<MaterializedResult>
 {
     private static final Logger log = Logger.get("TestQueries");
 
-    private static final JsonCodec<QueryResults> QUERY_RESULTS_CODEC = jsonCodec(QueryResults.class);
-
-    private final TestingPrestoServer prestoServer;
-    private final ConnectorSession defaultSession;
-
-    private final HttpClient httpClient;
-
     public TestingPrestoClient(TestingPrestoServer prestoServer, ConnectorSession defaultSession)
     {
-        this.prestoServer = checkNotNull(prestoServer, "prestoServer is null");
-        this.defaultSession = checkNotNull(defaultSession, "defaultSession is null");
-
-        this.httpClient = new JettyHttpClient(
-                new HttpClientConfig()
-                        .setConnectTimeout(new Duration(1, TimeUnit.DAYS))
-                        .setReadTimeout(new Duration(10, TimeUnit.DAYS)));
+        super(prestoServer, defaultSession);
     }
 
     @Override
-    public void close()
+    protected ResultsSession<MaterializedResult> getResultSession(ConnectorSession session)
     {
-        this.httpClient.close();
+        return new MaterializedResultSession(session);
     }
 
-    public MaterializedResult execute(@Language("SQL") String sql)
+    private class MaterializedResultSession
+            implements ResultsSession<MaterializedResult>
     {
-        return execute(defaultSession, sql);
-    }
+        private final ImmutableList.Builder<MaterializedRow> rows = ImmutableList.builder();
+        private final AtomicBoolean loggedUri = new AtomicBoolean(false);
 
-    public MaterializedResult execute(ConnectorSession session, @Language("SQL") String sql)
-    {
-        try (StatementClient client = new StatementClient(httpClient, QUERY_RESULTS_CODEC, toClientSession(session), sql)) {
-            AtomicBoolean loggedUri = new AtomicBoolean(false);
-            ImmutableList.Builder<MaterializedRow> rows = ImmutableList.builder();
-            List<Type> types = null;
+        private final AtomicReference<List<Type>> types = new AtomicReference<>();
 
-            while (client.isValid()) {
-                QueryResults results = client.current();
-                if (!loggedUri.getAndSet(true)) {
-                    log.info("Query %s: %s?pretty", results.getId(), results.getInfoUri());
-                }
+        private final TimeZoneKey timeZoneKey;
 
-                if ((types == null) && (results.getColumns() != null)) {
-                    types = getTypes(prestoServer.getMetadata(), results.getColumns());
-                }
-                if (results.getData() != null) {
-                    rows.addAll(transform(results.getData(), dataToRow(session.getTimeZoneKey(), types)));
-                }
-
-                client.advance();
-            }
-
-            if (!client.isFailed()) {
-                return new MaterializedResult(rows.build(), types);
-            }
-
-            QueryError error = client.finalResults().getError();
-            assert error != null;
-            if (error.getFailureInfo() != null) {
-                throw error.getFailureInfo().toException();
-            }
-            throw new RuntimeException("Query failed: " + error.getMessage());
-
-            // dump query info to console for debugging (NOTE: not pretty printed)
-            // JsonCodec<QueryInfo> queryInfoJsonCodec = createCodecFactory().prettyPrint().jsonCodec(QueryInfo.class);
-            // log.info("\n" + queryInfoJsonCodec.toJson(queryInfo));
+        private MaterializedResultSession(ConnectorSession session)
+        {
+            this.timeZoneKey = session.getTimeZoneKey();
         }
-    }
 
-    public List<QualifiedTableName> listTables(ConnectorSession session, String catalog, String schema)
-    {
-        return prestoServer.getMetadata().listTables(session, new QualifiedTablePrefix(catalog, schema));
-    }
+        @Override
+        public void addResults(QueryResults results)
+        {
+            if (!loggedUri.getAndSet(true)) {
+                log.info("Query %s: %s?pretty", results.getId(), results.getInfoUri());
+            }
 
-    public boolean tableExists(ConnectorSession session, String table)
-    {
-        QualifiedTableName name = new QualifiedTableName(session.getCatalog(), session.getSchema(), table);
-        Optional<TableHandle> handle = prestoServer.getMetadata().getTableHandle(session, name);
-        return handle.isPresent();
-    }
+            if (types.get() == null && results.getColumns() != null) {
+                types.set(getTypes(results.getColumns()));
+            }
 
-    public ConnectorSession getDefaultSession()
-    {
-        return defaultSession;
-    }
+            if (results.getData() != null) {
+                checkState(types.get() != null, "data received without types");
+                rows.addAll(transform(results.getData(), dataToRow(timeZoneKey, types.get())));
+            }
+        }
 
-    public TestingPrestoServer getServer()
-    {
-        return prestoServer;
-    }
-
-    public ClientSession toClientSession(ConnectorSession connectorSession)
-    {
-        return new ClientSession(
-                prestoServer.getBaseUrl(),
-                connectorSession.getUser(),
-                connectorSession.getSource(),
-                connectorSession.getCatalog(),
-                connectorSession.getSchema(),
-                connectorSession.getTimeZoneKey().getId(),
-                connectorSession.getLocale(), true);
+        @Override
+        public MaterializedResult build()
+        {
+            checkState(types.get() != null, "never received types for the query");
+            return new MaterializedResult(rows.build(), types.get());
+        }
     }
 
     private static Function<List<Object>, MaterializedRow> dataToRow(final TimeZoneKey timeZoneKey, final List<Type> types)
@@ -226,28 +157,6 @@ public class TestingPrestoClient
                     }
                 }
                 return new MaterializedRow(DEFAULT_PRECISION, row);
-            }
-        };
-    }
-
-    private static List<Type> getTypes(Metadata metadata, List<Column> columns)
-    {
-        return ImmutableList.copyOf(transform(columns, columnTypeGetter(metadata)));
-    }
-
-    private static Function<Column, Type> columnTypeGetter(final Metadata metadata)
-    {
-        return new Function<Column, Type>()
-        {
-            @Override
-            public Type apply(Column column)
-            {
-                String typeName = column.getType();
-                Type type = metadata.getType(typeName);
-                if (type == null) {
-                    throw new AssertionError("Unhandled type: " + typeName);
-                }
-                return type;
             }
         };
     }

@@ -17,6 +17,8 @@ import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.testing.QueryRunner;
 import org.testng.annotations.Test;
 
+import static com.google.common.base.Preconditions.checkState;
+
 public abstract class AbstractTestApproximateQueries
         extends AbstractTestQueries
 {
@@ -32,6 +34,7 @@ public abstract class AbstractTestApproximateQueries
     public void testApproximateQueryCount()
             throws Exception
     {
+        checkState(defaultSampledSession != null, "no defaultSampledSession found");
         assertApproximateQuery(defaultSampledSession, "SELECT COUNT(*) FROM orders APPROXIMATE AT 99.999 CONFIDENCE", "SELECT 2 * COUNT(*) FROM orders");
     }
 
@@ -39,6 +42,7 @@ public abstract class AbstractTestApproximateQueries
     public void testApproximateQueryCountCustkey()
             throws Exception
     {
+        checkState(defaultSampledSession != null, "no defaultSampledSession found");
         assertApproximateQuery(defaultSampledSession, "SELECT COUNT(custkey) FROM orders APPROXIMATE AT 99.999 CONFIDENCE", "SELECT 2 * COUNT(custkey) FROM orders");
     }
 
@@ -46,6 +50,7 @@ public abstract class AbstractTestApproximateQueries
     public void testApproximateQuerySum()
             throws Exception
     {
+        checkState(defaultSampledSession != null, "no defaultSampledSession found");
         assertApproximateQuery(defaultSampledSession, "SELECT SUM(totalprice) FROM orders APPROXIMATE AT 99.999 CONFIDENCE", "SELECT 2 * SUM(totalprice) FROM orders");
     }
 
@@ -53,6 +58,7 @@ public abstract class AbstractTestApproximateQueries
     public void testApproximateQueryAverage()
             throws Exception
     {
+        checkState(defaultSampledSession != null, "no defaultSampledSession found");
         assertApproximateQuery(defaultSampledSession, "SELECT AVG(totalprice) FROM orders APPROXIMATE AT 99.999 CONFIDENCE", "SELECT AVG(totalprice) FROM orders");
     }
 }

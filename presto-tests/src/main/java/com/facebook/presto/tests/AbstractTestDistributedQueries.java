@@ -39,6 +39,11 @@ import static org.testng.Assert.fail;
 public abstract class AbstractTestDistributedQueries
         extends AbstractTestApproximateQueries
 {
+    protected AbstractTestDistributedQueries(QueryRunner queryRunner)
+    {
+        this(queryRunner, null);
+    }
+
     protected AbstractTestDistributedQueries(QueryRunner queryRunner, ConnectorSession defaultSampledSession)
     {
         super(queryRunner, defaultSampledSession);
