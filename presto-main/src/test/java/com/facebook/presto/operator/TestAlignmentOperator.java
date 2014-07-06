@@ -13,10 +13,10 @@
  */
 package com.facebook.presto.operator;
 
-import com.facebook.presto.block.BlockIterable;
 import com.facebook.presto.execution.TaskId;
-import com.facebook.presto.operator.AlignmentOperator.AlignmentOperatorFactory;
 import com.facebook.presto.spi.ConnectorSession;
+import com.facebook.presto.spi.block.Block;
+import com.google.common.collect.ImmutableList;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
@@ -25,7 +25,8 @@ import java.util.List;
 import java.util.Locale;
 import java.util.concurrent.ExecutorService;
 
-import static com.facebook.presto.block.BlockAssertions.blockIterableBuilder;
+import static com.facebook.presto.block.BlockAssertions.createLongSequenceBlock;
+import static com.facebook.presto.block.BlockAssertions.createStringsBlock;
 import static com.facebook.presto.operator.OperatorAssertion.assertOperatorEquals;
 import static com.facebook.presto.operator.PageAssertions.assertPageEquals;
 import static com.facebook.presto.operator.RowPageBuilder.rowPageBuilder;
@@ -130,38 +131,14 @@ public class TestAlignmentOperator
 
     private Operator createAlignmentOperator()
     {
-        BlockIterable channel0 = blockIterableBuilder(VARCHAR)
-                .append("alice")
-                .append("bob")
-                .append("charlie")
-                .append("dave")
-                .newBlock()
-                .append("alice")
-                .append("bob")
-                .append("charlie")
-                .append("dave")
-                .newBlock()
-                .append("alice")
-                .append("bob")
-                .append("charlie")
-                .append("dave")
-                .build();
+        Iterable<Block> channel0 = ImmutableList.of(
+                createStringsBlock("alice", "bob", "charlie", "dave"),
+                createStringsBlock("alice", "bob", "charlie", "dave"),
+                createStringsBlock("alice", "bob", "charlie", "dave"));
 
-        BlockIterable channel1 = blockIterableBuilder(BIGINT)
-                .append(0)
-                .append(1)
-                .append(2)
-                .append(3)
-                .append(4)
-                .append(5)
-                .append(6)
-                .append(7)
-                .append(8)
-                .append(9)
-                .append(10)
-                .append(11)
-                .build();
+        Iterable<Block> channel1 = ImmutableList.of(createLongSequenceBlock(0, 12));
 
-        return new AlignmentOperatorFactory(0, channel0, channel1).createOperator(driverContext);
+        OperatorContext operatorContext = driverContext.addOperatorContext(0, AlignmentOperator.class.getSimpleName());
+        return new AlignmentOperator(operatorContext, ImmutableList.of(VARCHAR, BIGINT), ImmutableList.of(channel0, channel1));
     }
 }

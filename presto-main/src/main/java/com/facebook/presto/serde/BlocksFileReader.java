@@ -16,20 +16,15 @@ package com.facebook.presto.serde;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockEncoding;
 import com.facebook.presto.spi.block.BlockEncodingSerde;
-import com.facebook.presto.block.BlockIterable;
-import com.facebook.presto.spi.type.Type;
-import com.google.common.base.Optional;
 import com.google.common.base.Preconditions;
-import com.google.common.primitives.Ints;
 import io.airlift.slice.SizeOf;
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceInput;
-import io.airlift.units.DataSize;
 
 import java.util.Iterator;
 
 public class BlocksFileReader
-        implements BlockIterable
+        implements Iterable<Block>
 {
     public static BlocksFileReader readBlocks(BlockEncodingSerde blockEncodingSerde, Slice slice)
     {
@@ -37,8 +32,7 @@ public class BlocksFileReader
     }
 
     private final BlockEncoding blockEncoding;
-    private final Slice blocksSlice;
-    private final BlockIterable blockIterable;
+    private final Iterable<Block> blocks;
     private final BlocksFileStats stats;
 
     public BlocksFileReader(BlockEncodingSerde blockEncodingSerde, Slice slice)
@@ -57,26 +51,8 @@ public class BlocksFileReader
         // read stats
         stats = BlocksFileStats.deserialize(input);
 
-        blocksSlice = slice.slice(0, footerOffset);
-        blockIterable = new EncodedBlockIterable(blockEncoding, blocksSlice, Ints.checkedCast(stats.getRowCount()));
-    }
-
-    @Override
-    public Type getType()
-    {
-        return blockEncoding.getType();
-    }
-
-    @Override
-    public Optional<DataSize> getDataSize()
-    {
-        return blockIterable.getDataSize();
-    }
-
-    @Override
-    public Optional<Integer> getPositionCount()
-    {
-        return blockIterable.getPositionCount();
+        Slice blocksSlice = slice.slice(0, footerOffset);
+        blocks = new EncodedBlockIterable(blockEncoding, blocksSlice);
     }
 
     public BlockEncoding getEncoding()
@@ -92,6 +68,6 @@ public class BlocksFileReader
     @Override
     public Iterator<Block> iterator()
     {
-        return blockIterable.iterator();
+        return blocks.iterator();
     }
 }

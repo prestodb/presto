@@ -14,10 +14,11 @@
 package com.facebook.presto.raptor.storage;
 
 import com.facebook.presto.execution.TaskId;
-import com.facebook.presto.operator.AlignmentOperator.AlignmentOperatorFactory;
+import com.facebook.presto.operator.AlignmentOperator;
 import com.facebook.presto.operator.DriverContext;
 import com.facebook.presto.operator.Operator;
 import com.facebook.presto.operator.OperatorAssertion;
+import com.facebook.presto.operator.OperatorContext;
 import com.facebook.presto.operator.Page;
 import com.facebook.presto.operator.TaskContext;
 import com.facebook.presto.raptor.RaptorColumnHandle;
@@ -45,10 +46,10 @@ import java.util.concurrent.ExecutorService;
 import static com.facebook.presto.operator.OperatorAssertion.toMaterializedResult;
 import static com.facebook.presto.operator.RowPagesBuilder.rowPagesBuilder;
 import static com.facebook.presto.raptor.storage.DatabaseLocalStorageManager.getShardPath;
-import static com.facebook.presto.testing.TestingBlockEncodingManager.createTestingBlockEncodingManager;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.TimeZoneKey.UTC_KEY;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
+import static com.facebook.presto.testing.TestingBlockEncodingManager.createTestingBlockEncodingManager;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static org.testng.Assert.assertEquals;
@@ -96,8 +97,8 @@ public class TestDatabaseLocalStorageManager
         assertFalse(storageManager.shardExists(shardUuid));
 
         List<ConnectorColumnHandle> columnHandles = ImmutableList.<ConnectorColumnHandle>of(
-                new RaptorColumnHandle("test", "column_7", 7L),
-                new RaptorColumnHandle("test", "column_11", 11L));
+                new RaptorColumnHandle("test", "column_7", 7L, VARCHAR),
+                new RaptorColumnHandle("test", "column_11", 11L, BIGINT));
 
         List<Page> pages = rowPagesBuilder(VARCHAR, BIGINT)
                 .row("alice", 0)
@@ -124,10 +125,14 @@ public class TestDatabaseLocalStorageManager
 
         assertTrue(storageManager.shardExists(shardUuid));
 
-        AlignmentOperatorFactory factory = new AlignmentOperatorFactory(0,
-                storageManager.getBlocks(shardUuid, columnHandles.get(0)),
-                storageManager.getBlocks(shardUuid, columnHandles.get(1)));
-        Operator operator = factory.createOperator(driverContext);
+        OperatorContext operatorContext = driverContext.addOperatorContext(0, AlignmentOperator.class.getSimpleName());
+        Operator operator = new AlignmentOperator(
+                operatorContext,
+                ImmutableList.of(VARCHAR, BIGINT),
+                ImmutableList.of(
+                        storageManager.getBlocks(shardUuid, columnHandles.get(0)),
+                        storageManager.getBlocks(shardUuid, columnHandles.get(1)))
+        );
 
         // materialize pages to force comparision only on contents and not page boundaries
         MaterializedResult expected = toMaterializedResult(operator.getOperatorContext().getSession(), operator.getTypes(), pages);
@@ -140,7 +145,7 @@ public class TestDatabaseLocalStorageManager
             throws IOException
     {
         UUID shardUuid = UUID.randomUUID();
-        List<ConnectorColumnHandle> columnHandles = ImmutableList.<ConnectorColumnHandle>of(new RaptorColumnHandle("test", "column_13", 13L));
+        List<ConnectorColumnHandle> columnHandles = ImmutableList.<ConnectorColumnHandle>of(new RaptorColumnHandle("test", "column_13", 13L, BIGINT));
 
         ColumnFileHandle fileHandles = storageManager.createStagingFileHandles(shardUuid, columnHandles);
         storageManager.commit(fileHandles);
