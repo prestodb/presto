@@ -232,7 +232,7 @@ public class Validator
     private QueryResult executeQuery(String url, String username, String password, Query query, Duration timeout)
     {
         try (Connection connection = DriverManager.getConnection(url, username, password)) {
-            connection.setClientInfo("ApplicationName", "verifier-test-" + queryPair.getName());
+            connection.setClientInfo("ApplicationName", "verifier-test:" + queryPair.getName());
             connection.setCatalog(query.getCatalog());
             connection.setSchema(query.getSchema());
             long start = System.nanoTime();
