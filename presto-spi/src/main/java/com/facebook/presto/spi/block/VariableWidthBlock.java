@@ -101,7 +101,7 @@ public class VariableWidthBlock
     @Override
     public String toString()
     {
-        StringBuilder sb = new StringBuilder("VariableWidthRandomAccessBlock{");
+        StringBuilder sb = new StringBuilder("VariableWidthBlock{");
         sb.append("positionCount=").append(getPositionCount());
         sb.append(", slice=").append(getRawSlice());
         sb.append('}');
