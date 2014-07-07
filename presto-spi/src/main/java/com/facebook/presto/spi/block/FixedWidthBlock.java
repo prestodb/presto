@@ -80,7 +80,8 @@ public class FixedWidthBlock
         }
 
         Slice newSlice = slice.slice(positionOffset * entrySize, length * entrySize);
-        return new FixedWidthBlock(type, length, newSlice, Arrays.copyOfRange(valueIsNull, positionOffset, positionOffset + length));
+        boolean[] newValueIsNull = Arrays.copyOfRange(valueIsNull, positionOffset, positionOffset + length);
+        return new FixedWidthBlock(type, length, newSlice, newValueIsNull);
     }
 
     @Override

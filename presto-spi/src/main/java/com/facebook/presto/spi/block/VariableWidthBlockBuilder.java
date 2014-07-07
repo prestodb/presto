@@ -172,7 +172,7 @@ public class VariableWidthBlockBuilder
         }
 
         int[] newOffsets = Arrays.copyOfRange(offsets, positionOffset, positionOffset + length + 1);
-        boolean[] newValueIsNull = Arrays.copyOfRange(valueIsNull, positionCount, positionOffset + length);
+        boolean[] newValueIsNull = Arrays.copyOfRange(valueIsNull, positionOffset, positionOffset + length);
         return new VariableWidthBlock(type, length, sliceOutput.slice(), newOffsets, newValueIsNull);
     }
 
