@@ -148,6 +148,9 @@ public class Validator
             sb.append("Schema (control): " + queryPair.getControl().getSchema() + "\n");
             sb.append("TIMEOUT\n");
         }
+        else {
+            sb.append("SKIPPED");
+        }
         return sb.toString();
     }
 
