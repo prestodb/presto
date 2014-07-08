@@ -183,10 +183,12 @@ public class Validator
 
         // query has too many rows. Consider blacklisting.
         if (controlResult.getState() == State.TOO_MANY_ROWS) {
+            testResult = new QueryResult(State.INVALID, null, null, ImmutableList.<List<Object>>of());
             return false;
         }
         // query failed in the control
         else if (controlResult.getState() != State.SUCCESS) {
+            testResult = new QueryResult(State.INVALID, null, null, ImmutableList.<List<Object>>of());
             return true;
         }
 
