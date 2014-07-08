@@ -15,19 +15,17 @@ package com.facebook.presto.client;
 
 import com.google.common.base.Charsets;
 import com.google.common.base.Objects;
+import com.google.common.base.Throwables;
 import io.airlift.http.client.FullJsonResponseHandler;
 import io.airlift.http.client.HttpClient;
 import io.airlift.http.client.HttpStatus;
 import io.airlift.http.client.Request;
 import io.airlift.json.JsonCodec;
-
 import javax.annotation.concurrent.ThreadSafe;
-
 import java.io.Closeable;
 import java.net.URI;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
-
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.net.HttpHeaders.USER_AGENT;
@@ -44,8 +42,8 @@ import static io.airlift.http.client.StaticBodyGenerator.createStaticBodyGenerat
 import static io.airlift.http.client.StatusResponseHandler.StatusResponse;
 import static io.airlift.http.client.StatusResponseHandler.createStatusResponseHandler;
 import static java.lang.String.format;
+import static java.util.concurrent.TimeUnit.SECONDS;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
-import static java.util.concurrent.TimeUnit.MINUTES;
 
 @ThreadSafe
 public class StatementClient
@@ -55,6 +53,7 @@ public class StatementClient
             "/" +
             Objects.firstNonNull(StatementClient.class.getPackage().getImplementationVersion(), "unknown");
 
+    public static final long REQUEST_TIMEOUT = SECONDS.toNanos(2);
     private final HttpClient httpClient;
     private final FullJsonResponseHandler<QueryResults> responseHandler;
     private final boolean debug;
@@ -79,7 +78,15 @@ public class StatementClient
         this.query = query;
 
         Request request = buildQueryRequest(session, query);
-        currentResults.set(httpClient.execute(request, responseHandler).getValue());
+
+        try {
+            QueryResults results = sendRequest(request, REQUEST_TIMEOUT);
+            currentResults.set(results);
+        }
+        catch (RuntimeException e) {
+            gone.set(true);
+            Throwables.propagate(e);
+        }
     }
 
     private static Request buildQueryRequest(ClientSession session, String query)
@@ -166,8 +173,23 @@ public class StatementClient
                 .setUri(current().getNextUri())
                 .build();
 
-        Exception cause = null;
+        try {
+            QueryResults results = sendRequest(request, REQUEST_TIMEOUT);
+            currentResults.set(results);
+            return true;
+        }
+        catch (RuntimeException e) {
+            gone.set(true);
+            Throwables.propagate(e);
+        }
+
+        return false;
+    }
+
+    private QueryResults sendRequest(Request request, long timeout)
+    {
         long start = System.nanoTime();
+        Exception cause = null;
         long attempts = 0;
 
         do {
@@ -187,26 +209,22 @@ public class StatementClient
             }
 
             if (response.getStatusCode() == HttpStatus.OK.code() && response.hasValue()) {
-                currentResults.set(response.getValue());
-                return true;
+                return response.getValue();
             }
 
             if (response.getStatusCode() != HttpStatus.SERVICE_UNAVAILABLE.code()) {
-                gone.set(true);
                 if (!response.hasValue()) {
-                    throw new RuntimeException(format("Error fetching next at %s returned an invalid response", request.getUri()),
+                    throw new RuntimeException(format("Error executing request at %s returned an invalid response", request.getUri()),
                             response.getException());
                 }
-                throw new RuntimeException(format("Error fetching next at %s returned %s: %s",
+                throw new RuntimeException(format("Error executing request at %s returned %s: %s",
                         request.getUri(),
                         response.getStatusCode(),
                         response.getStatusMessage()));
             }
         }
-        while ((System.nanoTime() - start) < MINUTES.toNanos(2) && !isClosed());
-
-        gone.set(true);
-        throw new RuntimeException("Error fetching next", cause);
+        while ((System.nanoTime() - start) < timeout && !isClosed());
+        throw new RuntimeException("Request timed out (server down?)", cause);
     }
 
     public boolean cancelLeafStage()
