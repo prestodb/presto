@@ -13,9 +13,11 @@
  */
 package com.facebook.presto.sql.tree;
 
+import java.util.Objects;
+
 import static com.google.common.base.Preconditions.checkNotNull;
 
-public class Cast
+public final class Cast
         extends Expression
 {
     private final Expression expression;
@@ -47,32 +49,22 @@ public class Cast
     }
 
     @Override
-    public boolean equals(Object o)
+    public boolean equals(Object obj)
     {
-        if (this == o) {
+        if (this == obj) {
             return true;
         }
-        if (o == null || getClass() != o.getClass()) {
+        if (obj == null || getClass() != obj.getClass()) {
             return false;
         }
-
-        Cast cast = (Cast) o;
-
-        if (!expression.equals(cast.expression)) {
-            return false;
-        }
-        if (!type.equals(cast.type)) {
-            return false;
-        }
-
-        return true;
+        Cast o = (Cast) obj;
+        return Objects.equals(this.expression, o.expression) &&
+                Objects.equals(this.type, o.type);
     }
 
     @Override
     public int hashCode()
     {
-        int result = expression.hashCode();
-        result = 31 * result + type.hashCode();
-        return result;
+        return Objects.hash(expression, type);
     }
 }
