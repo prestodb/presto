@@ -400,7 +400,9 @@ public class Validator
             @Override
             public int compare(List<Object> a, List<Object> b)
             {
-                checkArgument(a.size() == b.size(), "list sizes do not match");
+                if (a.size() != b.size()) {
+                    return Integer.compare(a.size(), b.size());
+                }
                 for (int i = 0; i < a.size(); i++) {
                     int r = comparator.compare(a.get(i), b.get(i));
                     if (r != 0) {
