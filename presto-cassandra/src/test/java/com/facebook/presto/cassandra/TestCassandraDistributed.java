@@ -87,6 +87,13 @@ public class TestCassandraDistributed
     }
 
     @Override
+    public void testRenameTable()
+            throws Exception
+    {
+        // Cassandra does not support renaming tables
+    }
+
+    @Override
     public void testView()
             throws Exception
     {

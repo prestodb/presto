@@ -30,6 +30,12 @@ public abstract class ReadOnlyConnectorMetadata
     }
 
     @Override
+    public final void renameTable(ConnectorTableHandle tableHandle, SchemaTableName newTableName)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
     public final void dropTable(ConnectorTableHandle tableHandle)
     {
         throw new UnsupportedOperationException();

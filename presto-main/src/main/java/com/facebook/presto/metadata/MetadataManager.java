@@ -62,9 +62,12 @@ import static com.facebook.presto.metadata.MetadataUtil.checkColumnName;
 import static com.facebook.presto.metadata.QualifiedTableName.convertFromSchemaTableName;
 import static com.facebook.presto.metadata.ViewDefinition.ViewColumn;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_VIEW;
+import static com.facebook.presto.spi.StandardErrorCode.NOT_FOUND;
+import static com.facebook.presto.spi.StandardErrorCode.SYNTAX_ERROR;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.collect.Iterables.transform;
+import static java.lang.String.format;
 
 public class MetadataManager
         implements Metadata
@@ -340,6 +343,21 @@ public class MetadataManager
 
         ConnectorTableHandle handle = connectorMetadata.getMetadata().createTable(session, tableMetadata.getMetadata());
         return new TableHandle(connectorMetadata.getConnectorId(), handle);
+    }
+
+    @Override
+    public void renameTable(TableHandle tableHandle, QualifiedTableName newTableName)
+    {
+        String catalogName = newTableName.getCatalogName();
+        ConnectorMetadataEntry target = connectorsByCatalog.get(catalogName);
+        if (target == null) {
+            throw new PrestoException(NOT_FOUND.toErrorCode(), format("Target catalog '%s' does not exist", catalogName));
+        }
+        if (!tableHandle.getConnectorId().equals(target.getConnectorId())) {
+            throw new PrestoException(SYNTAX_ERROR.toErrorCode(), "Cannot rename tables across catalogs");
+        }
+
+        lookupConnectorFor(tableHandle).renameTable(tableHandle.getConnectorHandle(), newTableName.asSchemaTableName());
     }
 
     @Override

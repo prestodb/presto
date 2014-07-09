@@ -135,6 +135,9 @@ public class TestStatementBuilder
         printStatement("table a intersect table b union table c");
         printStatement("table a intersect (table b union table c)");
 
+        printStatement("alter table foo rename to bar");
+        printStatement("alter table a.b.c rename to d.e.f");
+
         printStatement("create view foo as with a as (select 123) select * from a");
         printStatement("create or replace view foo as select 123 from t");
 

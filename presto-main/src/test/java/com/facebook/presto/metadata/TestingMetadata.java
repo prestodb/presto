@@ -151,6 +151,17 @@ public class TestingMetadata
     }
 
     @Override
+    public void renameTable(ConnectorTableHandle tableHandle, SchemaTableName newTableName)
+    {
+        // TODO: use locking to do this properly
+        ConnectorTableMetadata table = getTableMetadata(tableHandle);
+        if (tables.putIfAbsent(newTableName, table) != null) {
+            throw new IllegalArgumentException("Target table already exists: " + newTableName);
+        }
+        tables.remove(table.getTable(), table);
+    }
+
+    @Override
     public ConnectorTableHandle createTable(ConnectorSession session, ConnectorTableMetadata tableMetadata)
     {
         ConnectorTableMetadata existingTable = tables.putIfAbsent(tableMetadata.getTable(), tableMetadata);
