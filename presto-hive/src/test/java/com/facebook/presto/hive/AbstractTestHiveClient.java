@@ -108,6 +108,8 @@ public abstract class AbstractTestHiveClient
 
     protected SchemaTableName temporaryCreateTable;
     protected SchemaTableName temporaryCreateSampledTable;
+    protected SchemaTableName temporaryRenameTableOld;
+    protected SchemaTableName temporaryRenameTableNew;
     protected SchemaTableName temporaryCreateView;
     protected String tableOwner;
 
@@ -147,6 +149,8 @@ public abstract class AbstractTestHiveClient
 
         temporaryCreateTable = new SchemaTableName(database, "tmp_presto_test_create_" + randomName());
         temporaryCreateSampledTable = new SchemaTableName(database, "tmp_presto_test_create_" + randomName());
+        temporaryRenameTableOld = new SchemaTableName(database, "tmp_presto_test_rename_" + randomName());
+        temporaryRenameTableNew = new SchemaTableName(database, "tmp_presto_test_rename_" + randomName());
         temporaryCreateView = new SchemaTableName(database, "tmp_presto_test_create_" + randomName());
         tableOwner = "presto_test";
 
@@ -216,6 +220,7 @@ public abstract class AbstractTestHiveClient
                 hiveClientConfig.getMaxInitialSplitSize(),
                 hiveClientConfig.getMaxInitialSplits(),
                 false,
+                true,
                 hiveClientConfig.getHiveStorageFormat(),
                 false);
 
@@ -832,6 +837,23 @@ public abstract class AbstractTestHiveClient
     }
 
     @Test
+    public void testRenameTable()
+    {
+        try {
+            createDummyTable(temporaryRenameTableOld);
+
+            metadata.renameTable(getTableHandle(temporaryRenameTableOld), temporaryRenameTableNew);
+
+            assertNull(metadata.getTableHandle(SESSION, temporaryRenameTableOld));
+            assertNotNull(metadata.getTableHandle(SESSION, temporaryRenameTableNew));
+        }
+        finally {
+            dropTable(temporaryRenameTableOld);
+            dropTable(temporaryRenameTableNew);
+        }
+    }
+
+    @Test
     public void testTableCreation()
             throws Exception
     {
@@ -869,6 +891,14 @@ public abstract class AbstractTestHiveClient
                 // this usually occurs because the view was not created
             }
         }
+    }
+
+    private void createDummyTable(SchemaTableName tableName)
+    {
+        List<ColumnMetadata> columns = ImmutableList.of(new ColumnMetadata("dummy", VARCHAR, 1, false));
+        ConnectorTableMetadata tableMetadata = new ConnectorTableMetadata(tableName, columns, tableOwner);
+        ConnectorOutputTableHandle handle = metadata.beginCreateTable(SESSION, tableMetadata);
+        metadata.commitCreateTable(handle, ImmutableList.<String>of());
     }
 
     private void verifyViewCreation()

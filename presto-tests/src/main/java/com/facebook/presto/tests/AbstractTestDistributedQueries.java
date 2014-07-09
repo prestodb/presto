@@ -112,6 +112,18 @@ public abstract class AbstractTestDistributedQueries
     }
 
     @Test
+    public void testRenameTable()
+            throws Exception
+    {
+        assertQueryTrue("CREATE TABLE test_rename AS SELECT 123 x");
+        assertQueryTrue("ALTER TABLE test_rename RENAME TO test_rename_new");
+        assertQueryTrue("DROP TABLE test_rename_new");
+
+        assertFalse(queryRunner.tableExists(getSession(), "test_rename"));
+        assertFalse(queryRunner.tableExists(getSession(), "test_rename_new"));
+    }
+
+    @Test
     public void testView()
             throws Exception
     {

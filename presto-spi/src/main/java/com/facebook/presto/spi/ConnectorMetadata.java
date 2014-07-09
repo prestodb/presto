@@ -92,6 +92,11 @@ public interface ConnectorMetadata
     void dropTable(ConnectorTableHandle tableHandle);
 
     /**
+     * Rename the specified table
+     */
+    void renameTable(ConnectorTableHandle tableHandle, SchemaTableName newTableName);
+
+    /**
      * Begin the atomic creation of a table with data.
      */
     ConnectorOutputTableHandle beginCreateTable(ConnectorSession session, ConnectorTableMetadata tableMetadata);

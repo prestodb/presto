@@ -43,6 +43,7 @@ import org.apache.hadoop.hive.metastore.Warehouse;
 import org.apache.hadoop.hive.metastore.api.AlreadyExistsException;
 import org.apache.hadoop.hive.metastore.api.Database;
 import org.apache.hadoop.hive.metastore.api.InvalidObjectException;
+import org.apache.hadoop.hive.metastore.api.InvalidOperationException;
 import org.apache.hadoop.hive.metastore.api.MetaException;
 import org.apache.hadoop.hive.metastore.api.NoSuchObjectException;
 import org.apache.hadoop.hive.metastore.api.Partition;
@@ -482,6 +483,46 @@ public class CachingHiveMetastore
         }
         catch (NoSuchObjectException e) {
             throw new TableNotFoundException(new SchemaTableName(databaseName, tableName));
+        }
+        catch (TException e) {
+            throw new PrestoException(HiveErrorCode.HIVE_METASTORE_ERROR.toErrorCode(), e);
+        }
+        catch (Exception e) {
+            if (e instanceof InterruptedException) {
+                Thread.currentThread().interrupt();
+            }
+            throw Throwables.propagate(e);
+        }
+    }
+
+    @Override
+    public void renameTable(final String databaseName, final String tableName, final String newDatabaseName, final String newTableName)
+    {
+        try {
+            retry()
+                    .stopOn(InvalidOperationException.class, MetaException.class)
+                    .stopOnIllegalExceptions()
+                    .run("renameTable", stats.getRenameTable().wrap(new Callable<Void>()
+                    {
+                        @Override
+                        public Void call()
+                                throws Exception
+                        {
+                            try (HiveMetastoreClient client = clientProvider.createMetastoreClient()) {
+                                Table table = new Table(loadTable(new HiveTableName(databaseName, tableName)));
+                                table.setDbName(newDatabaseName);
+                                table.setTableName(newTableName);
+                                client.alter_table(databaseName, tableName, table);
+                            }
+                            tableCache.invalidate(new HiveTableName(databaseName, tableName));
+                            tableNamesCache.invalidate(databaseName);
+                            viewNamesCache.invalidate(databaseName);
+                            return null;
+                        }
+                    }));
+        }
+        catch (InvalidOperationException | MetaException e) {
+            throw Throwables.propagate(e);
         }
         catch (TException e) {
             throw new PrestoException(HiveErrorCode.HIVE_METASTORE_ERROR.toErrorCode(), e);

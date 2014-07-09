@@ -67,6 +67,7 @@ statement returns [Statement value]
     | useCollection             { $value = $useCollection.value; }
     | createTable               { $value = $createTable.value; }
     | dropTable                 { $value = $dropTable.value; }
+    | renameTable               { $value = $renameTable.value; }
     | createView                { $value = $createView.value; }
     | dropView                  { $value = $dropView.value; }
     ;
@@ -556,6 +557,10 @@ createTable returns [Statement value]
 
 dropTable returns [Statement value]
     : ^(DROP_TABLE qname) { $value = new DropTable($qname.value); }
+    ;
+
+renameTable returns [Statement value]
+    : ^(RENAME_TABLE s=qname t=qname) { $value = new RenameTable($s.value, $t.value); }
     ;
 
 createView returns [Statement value]

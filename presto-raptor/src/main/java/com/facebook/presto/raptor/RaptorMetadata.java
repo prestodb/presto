@@ -295,6 +295,22 @@ public class RaptorMetadata
     }
 
     @Override
+    public void renameTable(ConnectorTableHandle tableHandle, final SchemaTableName newTableName)
+    {
+        final RaptorTableHandle table = checkType(tableHandle, RaptorTableHandle.class, "tableHandle");
+        dbi.inTransaction(new VoidTransactionCallback()
+        {
+            @Override
+            protected void execute(Handle handle, TransactionStatus status)
+                    throws Exception
+            {
+                MetadataDao dao = handle.attach(MetadataDao.class);
+                dao.renameTable(table.getTableId(), newTableName.getSchemaName(), newTableName.getTableName());
+            }
+        });
+    }
+
+    @Override
     public ConnectorOutputTableHandle beginCreateTable(ConnectorSession session, ConnectorTableMetadata tableMetadata)
     {
         ImmutableList.Builder<RaptorColumnHandle> columnHandles = ImmutableList.builder();
