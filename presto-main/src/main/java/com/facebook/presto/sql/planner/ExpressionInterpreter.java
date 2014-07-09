@@ -799,9 +799,10 @@ public class ExpressionInterpreter
             return handle.invokeWithArguments(argumentValues);
         }
         catch (Throwable throwable) {
-            Throwables.propagateIfInstanceOf(throwable, RuntimeException.class);
-            Throwables.propagateIfInstanceOf(throwable, Error.class);
-            throw new RuntimeException(throwable.getMessage(), throwable);
+            if (throwable instanceof InterruptedException) {
+                Thread.currentThread().interrupt();
+            }
+            throw Throwables.propagate(throwable);
         }
     }
 
