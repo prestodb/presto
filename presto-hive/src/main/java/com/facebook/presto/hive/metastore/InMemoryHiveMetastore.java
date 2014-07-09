@@ -85,6 +85,13 @@ public class InMemoryHiveMetastore
     }
 
     @Override
+    public void alterTableRename(String databaseName, String tableName,
+                            String targetDbName, String targetTableName)
+    {
+        SchemaTableName schemaTableName = new SchemaTableName(databaseName, tableName);
+    }
+
+    @Override
     public List<String> getAllTables(String databaseName)
             throws NoSuchObjectException
     {

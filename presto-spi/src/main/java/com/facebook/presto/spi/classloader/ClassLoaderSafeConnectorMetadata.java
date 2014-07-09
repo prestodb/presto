@@ -138,6 +138,15 @@ public class ClassLoaderSafeConnectorMetadata
     }
 
     @Override
+    public void alterTableRename(ConnectorTableHandle tableHandle, String databaseName, String tableName,
+                                    String targetDbName, String targetTableName)
+    {
+        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
+            delegate.alterTableRename(tableHandle, databaseName, tableName, targetDbName, targetTableName);
+        }
+    }
+
+    @Override
     public ConnectorOutputTableHandle beginCreateTable(ConnectorSession session, ConnectorTableMetadata tableMetadata)
     {
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {

@@ -92,6 +92,12 @@ public interface ConnectorMetadata
     void dropTable(ConnectorTableHandle tableHandle);
 
     /**
+     * Rename the specified table
+     */
+    void alterTableRename(ConnectorTableHandle tableHandle, String databaseName, String tableName,
+                                    String targetDbName, String targetTableName);
+
+    /**
      * Begin the atomic creation of a table with data.
      */
     ConnectorOutputTableHandle beginCreateTable(ConnectorSession session, ConnectorTableMetadata tableMetadata);

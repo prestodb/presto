@@ -32,6 +32,13 @@ public final class MetadataDaoUtils
         dao.dropTable(tableId);
     }
 
+    public static void alterTableRename(MetadataDao dao, String databaseName, String tableName,
+                                    String targetDbName, String targetTableName)
+    {
+        dao.createTablesTable();
+        dao.alterTablesTableRename();
+    }
+
     public static void createMetadataTablesWithRetry(MetadataDao dao)
     {
         Duration delay = new Duration(10, TimeUnit.SECONDS);
