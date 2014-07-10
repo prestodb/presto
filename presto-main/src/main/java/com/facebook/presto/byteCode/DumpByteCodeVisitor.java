@@ -134,18 +134,7 @@ public class DumpByteCodeVisitor
         }
 
         // print method declaration
-        Line methodDeclaration = line().addAll(methodDefinition.getAccess()).add(methodDefinition.getReturnType().getJavaClassName());
-        if (!methodDefinition.getParameters().isEmpty()) {
-            Line parameters = line(", ");
-            for (NamedParameterDefinition parameterDefinition : methodDefinition.getParameters()) {
-                parameters.add(line().add(parameterDefinition.getType().getJavaClassName()).add(parameterDefinition.getName()));
-            }
-            methodDeclaration.add(methodDefinition.getName() + "(" + parameters + ")");
-        }
-        else {
-            methodDeclaration.add(methodDefinition.getName() + "()");
-        }
-        methodDeclaration.print();
+        printLine(methodDefinition.toSourceString());
 
         // print body
         methodDefinition.getBody().accept(null, this);
