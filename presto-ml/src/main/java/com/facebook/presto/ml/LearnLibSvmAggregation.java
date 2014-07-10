@@ -183,10 +183,10 @@ public class LearnLibSvmAggregation
             Model model;
 
             if (regression) {
-                model = new RegressorFeatureTransformer(new SvmRegressor(params), new FeatureVectorUnitNormalizer());
+                model = new RegressorFeatureTransformer(new SvmRegressor(params), new FeatureUnitNormalizer());
             }
             else {
-                model = new ClassifierFeatureTransformer(new SvmClassifier(params), new FeatureVectorUnitNormalizer());
+                model = new ClassifierFeatureTransformer(new SvmClassifier(params), new FeatureUnitNormalizer());
             }
 
             model.train(dataset);

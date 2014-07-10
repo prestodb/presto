@@ -174,10 +174,10 @@ public class LearnAggregation
             Model model;
 
             if (regression) {
-                model = new RegressorFeatureTransformer(new SvmRegressor(), new FeatureVectorUnitNormalizer());
+                model = new RegressorFeatureTransformer(new SvmRegressor(), new FeatureUnitNormalizer());
             }
             else {
-                model = new ClassifierFeatureTransformer(new SvmClassifier(), new FeatureVectorUnitNormalizer());
+                model = new ClassifierFeatureTransformer(new SvmClassifier(), new FeatureUnitNormalizer());
             }
 
             model.train(dataset);
