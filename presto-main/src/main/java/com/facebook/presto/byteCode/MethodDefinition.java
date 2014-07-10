@@ -18,7 +18,6 @@ import com.facebook.presto.byteCode.instruction.LabelNode;
 import com.google.common.base.Function;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import org.objectweb.asm.ClassVisitor;
 import org.objectweb.asm.MethodVisitor;
@@ -34,6 +33,7 @@ import java.util.List;
 import static com.facebook.presto.byteCode.Access.STATIC;
 import static com.facebook.presto.byteCode.Access.toAccessModifier;
 import static com.facebook.presto.byteCode.NamedParameterDefinition.getNamedParameterType;
+import static com.facebook.presto.byteCode.NamedParameterDefinition.getSourceString;
 import static com.facebook.presto.byteCode.ParameterizedType.getParameterType;
 import static com.facebook.presto.byteCode.ParameterizedType.toParameterizedType;
 import static com.facebook.presto.byteCode.ParameterizedType.type;
@@ -92,7 +92,7 @@ public class MethodDefinition
         }
         this.parameters = ImmutableList.copyOf(parameters);
         this.parameterTypes = Lists.transform(this.parameters, getNamedParameterType());
-        this.parameterAnnotations = ImmutableList.copyOf(Iterables.transform(parameters, new Function<NamedParameterDefinition, List<AnnotationDefinition>>()
+        this.parameterAnnotations = ImmutableList.copyOf(transform(parameters, new Function<NamedParameterDefinition, List<AnnotationDefinition>>()
         {
             @Override
             public List<AnnotationDefinition> apply(@Nullable NamedParameterDefinition input)
@@ -277,6 +277,22 @@ public class MethodDefinition
         // done
         methodVisitor.visitMaxs(-1, -1);
         methodVisitor.visitEnd();
+    }
+
+    public String toSourceString()
+    {
+        StringBuilder sb = new StringBuilder();
+        Joiner.on(' ').appendTo(sb, access).append(' ');
+        sb.append(returnType.getJavaClassName()).append(' ');
+        sb.append(name).append('(');
+        Joiner.on(", ").appendTo(sb, transform(parameters, getSourceString())).append(')');
+        return sb.toString();
+    }
+
+    @Override
+    public String toString()
+    {
+        return toSourceString();
     }
 
     public static String methodDescription(Class<?> returnType, Class<?>... parameterTypes)
