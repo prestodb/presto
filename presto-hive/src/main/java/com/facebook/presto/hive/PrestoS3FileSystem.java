@@ -29,7 +29,6 @@ import com.amazonaws.services.s3.model.S3Object;
 import com.amazonaws.services.s3.model.S3ObjectInputStream;
 import com.amazonaws.services.s3.model.S3ObjectSummary;
 import com.google.common.base.Function;
-import com.google.common.base.Preconditions;
 import com.google.common.base.Throwables;
 import com.google.common.collect.AbstractSequentialIterator;
 import com.google.common.collect.Iterators;
@@ -447,7 +446,7 @@ public class PrestoS3FileSystem
 
             checkArgument(maxClientRetry >= 0, "maxClientRetries cannot be negative");
             this.maxClientRetry = maxClientRetry;
-            this.maxBackoffTime = checkNotNull(maxBackoffTime, "maxBackoffTime is null");;
+            this.maxBackoffTime = checkNotNull(maxBackoffTime, "maxBackoffTime is null");
         }
 
         @Override
