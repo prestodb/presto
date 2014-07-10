@@ -50,7 +50,7 @@ Date and Time Functions
 
     Returns the current time as of the start of the query.
 
-.. function:: localtimestamp -> time
+.. function:: localtimestamp -> timestamp
 
     Returns the current timestamp as of the start of the query.
 

@@ -84,7 +84,7 @@ public final class DateTimeZoneIndex
         short zoneKey = unpackZoneKey(dateTimeWithTimeZone).getKey();
 
         if (FIXED_ZONE_OFFSET[zoneKey] == VARIABLE_ZONE) {
-            return DATE_TIME_ZONES[zoneKey].getOffset(unpackMillisUtc(dateTimeWithTimeZone));
+            return DATE_TIME_ZONES[zoneKey].getOffset(unpackMillisUtc(dateTimeWithTimeZone)) / 60_000;
         }
         else {
             return FIXED_ZONE_OFFSET[zoneKey];
