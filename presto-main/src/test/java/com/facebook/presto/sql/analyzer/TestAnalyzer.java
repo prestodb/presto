@@ -595,6 +595,13 @@ public class TestAnalyzer
         assertFails(NOT_SUPPORTED, "USE CATALOG default");
     }
 
+    @Test
+    public void testNotNullInJoinClause()
+            throws Exception
+    {
+        assertFails(NOT_SUPPORTED, "SELECT * FROM (VALUES (1)) a (x) JOIN (VALUES (2)) b ON a.x IS NOT NULL");
+    }
+
     @BeforeMethod(alwaysRun = true)
     public void setup()
             throws Exception
