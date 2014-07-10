@@ -16,10 +16,7 @@ package com.facebook.presto.ml;
 import io.airlift.slice.Slice;
 import org.testng.annotations.Test;
 
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Random;
-
+import static com.facebook.presto.ml.TestUtils.getDataset;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertTrue;
@@ -78,20 +75,5 @@ public class TestModelSerialization
         assertEquals((int) ModelUtils.MODEL_SERIALIZATION_IDS.get(FeatureVectorUnitNormalizer.class), 3);
         assertEquals((int) ModelUtils.MODEL_SERIALIZATION_IDS.get(ClassifierFeatureTransformer.class), 4);
         assertEquals((int) ModelUtils.MODEL_SERIALIZATION_IDS.get(RegressorFeatureTransformer.class), 5);
-    }
-
-    private static Dataset getDataset()
-    {
-        int datapoints = 100;
-        List<Double> labels = new ArrayList<>();
-        List<FeatureVector> features = new ArrayList<>();
-        Random rand = new Random(0);
-        for (int i = 0; i < datapoints; i++) {
-            double label = rand.nextDouble() < 0.5 ? 0 : 1;
-            labels.add(label);
-            features.add(new FeatureVector(0, label + rand.nextGaussian()));
-        }
-
-        return new Dataset(labels, features);
     }
 }
