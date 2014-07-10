@@ -33,6 +33,7 @@ import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.InListExpression;
 import com.facebook.presto.sql.tree.InPredicate;
+import com.facebook.presto.sql.tree.IsNotNullPredicate;
 import com.facebook.presto.sql.tree.IsNullPredicate;
 import com.facebook.presto.sql.tree.LikePredicate;
 import com.facebook.presto.sql.tree.Literal;
@@ -221,6 +222,18 @@ public class ExpressionInterpreter
             }
 
             return value == null;
+        }
+
+        @Override
+        protected Object visitIsNotNullPredicate(IsNotNullPredicate node, Object context)
+        {
+            Object value = process(node.getValue(), context);
+
+            if (value instanceof Expression) {
+                return new IsNotNullPredicate(toExpression(value, expressionTypes.get(node.getValue())));
+            }
+
+            return value != null;
         }
 
         @Override
