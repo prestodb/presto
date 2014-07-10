@@ -168,6 +168,8 @@ public class TestDateTimeFunctions
         assertFunction("month(" + TIMESTAMP_LITERAL + ")", TIMESTAMP.getMonthOfYear());
         assertFunction("quarter(" + TIMESTAMP_LITERAL + ")", TIMESTAMP.getMonthOfYear() / 4 + 1);
         assertFunction("year(" + TIMESTAMP_LITERAL + ")", TIMESTAMP.getYear());
+        assertFunction("timezone_hour(" + TIMESTAMP_LITERAL + ")", 5);
+        assertFunction("timezone_hour(localtimestamp)", 5);
 
         assertFunction("second(" + WEIRD_TIMESTAMP_LITERAL + ")", WEIRD_TIMESTAMP.getSecondOfMinute());
         assertFunction("minute(" + WEIRD_TIMESTAMP_LITERAL + ")", WEIRD_TIMESTAMP.getMinuteOfHour());
@@ -185,6 +187,7 @@ public class TestDateTimeFunctions
         assertFunction("year(" + WEIRD_TIMESTAMP_LITERAL + ")", WEIRD_TIMESTAMP.getYear());
         assertFunction("timezone_minute(" + WEIRD_TIMESTAMP_LITERAL + ")", 9);
         assertFunction("timezone_hour(" + WEIRD_TIMESTAMP_LITERAL + ")", 7);
+        assertFunction("timezone_hour(current_timestamp)", 5);
     }
 
     @Test
