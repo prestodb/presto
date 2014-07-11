@@ -109,7 +109,7 @@ public class UnaliasSymbolReferences
         public PlanNode rewriteLimit(LimitNode node, Void context, PlanRewriter<Void> planRewriter)
         {
             PlanNode source = planRewriter.rewrite(node.getSource(), context);
-            return new LimitNode(node.getId(), source, node.getCount(), canonicalize(node.getSampleWeight()));
+            return new LimitNode(node.getId(), source, node.getCount());
         }
 
         @Override
@@ -260,7 +260,7 @@ public class UnaliasSymbolReferences
                 orderings.put(canonical, node.getOrderings().get(symbol));
             }
 
-            return new TopNNode(node.getId(), source, node.getCount(), symbols.build(), orderings.build(), node.isPartial(), canonicalize(node.getSampleWeight()));
+            return new TopNNode(node.getId(), source, node.getCount(), symbols.build(), orderings.build(), node.isPartial());
         }
 
         @Override

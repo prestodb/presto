@@ -189,10 +189,6 @@ public final class PlanSanityChecker
                     node.getOrderBy(),
                     node.getSource().getOutputSymbols());
 
-            if (node.getSampleWeight().isPresent()) {
-                Preconditions.checkArgument(source.getOutputSymbols().contains(node.getSampleWeight().get()), "Invalid node. Sample weight symbol (%s) is not in source plan output (%s)", node.getSampleWeight().get(), node.getSource().getOutputSymbols());
-            }
-
             return null;
         }
 
@@ -241,10 +237,6 @@ public final class PlanSanityChecker
             source.accept(this, context); // visit child
 
             verifyUniqueId(node);
-
-            if (node.getSampleWeight().isPresent()) {
-                Preconditions.checkArgument(source.getOutputSymbols().contains(node.getSampleWeight().get()), "Invalid node. Sample weight symbol (%s) is not in source plan output (%s)", node.getSampleWeight().get(), node.getSource().getOutputSymbols());
-            }
 
             return null;
         }

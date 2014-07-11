@@ -16,6 +16,7 @@ package com.facebook.presto.sql.planner.optimizations;
 import com.facebook.presto.metadata.TableMetadata;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorTableMetadata;
+import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.planner.DeterminismEvaluator;
 import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
 import com.facebook.presto.sql.planner.Symbol;
@@ -41,7 +42,6 @@ import com.facebook.presto.sql.tree.CoalesceExpression;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.LongLiteral;
 import com.facebook.presto.sql.tree.QualifiedNameReference;
-import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.util.IterableTransformer;
 import com.google.common.base.Function;
 import com.google.common.base.Optional;
@@ -155,7 +155,7 @@ public class MaterializeSamplePullUp
         {
             PlanNode source = planRewriter.rewrite(node.getSource(), null);
             if (source instanceof MaterializeSampleNode) {
-                node = new TopNNode(node.getId(), ((MaterializeSampleNode) source).getSource(), node.getCount(), node.getOrderBy(), node.getOrderings(), node.isPartial(), Optional.of(((MaterializeSampleNode) source).getSampleWeightSymbol()));
+                node = new TopNNode(node.getId(), ((MaterializeSampleNode) source).getSource(), node.getCount(), node.getOrderBy(), node.getOrderings(), node.isPartial());
                 return new MaterializeSampleNode(source.getId(), node, ((MaterializeSampleNode) source).getSampleWeightSymbol());
             }
             else {
@@ -181,7 +181,7 @@ public class MaterializeSamplePullUp
         {
             PlanNode source = planRewriter.rewrite(node.getSource(), null);
             if (source instanceof MaterializeSampleNode) {
-                node = new LimitNode(node.getId(), ((MaterializeSampleNode) source).getSource(), node.getCount(), Optional.of(((MaterializeSampleNode) source).getSampleWeightSymbol()));
+                node = new LimitNode(node.getId(), ((MaterializeSampleNode) source).getSource(), node.getCount());
                 return new MaterializeSampleNode(source.getId(), node, ((MaterializeSampleNode) source).getSampleWeightSymbol());
             }
             else {

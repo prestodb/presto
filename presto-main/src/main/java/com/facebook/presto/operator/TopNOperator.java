@@ -14,10 +14,8 @@
 package com.facebook.presto.operator;
 
 import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.block.SortOrder;
 import com.facebook.presto.spi.type.Type;
-import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Ordering;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -28,7 +26,6 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.PriorityQueue;
 
-import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
@@ -47,7 +44,6 @@ public class TopNOperator
         private final int n;
         private final List<Integer> sortChannels;
         private final List<SortOrder> sortOrders;
-        private final Optional<Integer> sampleWeight;
         private final boolean partial;
         private boolean closed;
 
@@ -57,7 +53,6 @@ public class TopNOperator
                 int n,
                 List<Integer> sortChannels,
                 List<SortOrder> sortOrders,
-                Optional<Integer> sampleWeight,
                 boolean partial)
         {
             this.operatorId = operatorId;
@@ -66,7 +61,6 @@ public class TopNOperator
             this.sortChannels = ImmutableList.copyOf(checkNotNull(sortChannels, "sortChannels is null"));
             this.sortOrders = ImmutableList.copyOf(checkNotNull(sortOrders, "sortOrders is null"));
             this.partial = partial;
-            this.sampleWeight = sampleWeight;
         }
 
         @Override
@@ -86,7 +80,6 @@ public class TopNOperator
                     n,
                     sortChannels,
                     sortOrders,
-                    sampleWeight,
                     partial);
         }
 
@@ -107,7 +100,6 @@ public class TopNOperator
     private final List<SortOrder> sortOrders;
     private final TopNMemoryManager memoryManager;
     private final boolean partial;
-    private final Optional<Integer> sampleWeight;
 
     private final PageBuilder pageBuilder;
 
@@ -122,7 +114,6 @@ public class TopNOperator
             int n,
             List<Integer> sortChannels,
             List<SortOrder> sortOrders,
-            Optional<Integer> sampleWeight,
             boolean partial)
     {
         this.operatorContext = checkNotNull(operatorContext, "operatorContext is null");
@@ -139,8 +130,6 @@ public class TopNOperator
         this.memoryManager = new TopNMemoryManager(checkNotNull(operatorContext, "operatorContext is null"));
 
         this.pageBuilder = new PageBuilder(types);
-
-        this.sampleWeight = sampleWeight;
     }
 
     @Override
@@ -189,7 +178,6 @@ public class TopNOperator
                     n,
                     sortChannels,
                     sortOrders,
-                    sampleWeight,
                     memoryManager);
         }
 
@@ -226,8 +214,7 @@ public class TopNOperator
             }
         }
 
-        Page page = pageBuilder.build();
-        return page;
+        return pageBuilder.build();
     }
 
     private static class TopNBuilder
@@ -237,11 +224,10 @@ public class TopNOperator
         private final List<SortOrder> sortOrders;
         private final TopNMemoryManager memoryManager;
         private final PriorityQueue<Block[]> globalCandidates;
-        private final Optional<Integer> sampleWeightChannel;
 
         private long memorySize;
 
-        private TopNBuilder(int n, List<Integer> sortChannels, List<SortOrder> sortOrders, Optional<Integer> sampleWeightChannel, TopNMemoryManager memoryManager)
+        private TopNBuilder(int n, List<Integer> sortChannels, List<SortOrder> sortOrders, TopNMemoryManager memoryManager)
         {
             this.n = n;
 
@@ -249,7 +235,6 @@ public class TopNOperator
             this.sortOrders = sortOrders;
 
             this.memoryManager = memoryManager;
-            this.sampleWeightChannel = sampleWeightChannel;
 
             Ordering<Block[]> comparator = Ordering.from(new RowComparator(sortChannels, sortOrders)).reverse();
             this.globalCandidates = new PriorityQueue<>(Math.min(n, MAX_INITIAL_PRIORITY_QUEUE_SIZE), comparator);
@@ -300,30 +285,13 @@ public class TopNOperator
         {
             long sizeDelta = 0;
             Block[] row = getValues(position, blocks);
-            long sampleWeight = 1;
-            if (sampleWeightChannel.isPresent()) {
-                sampleWeight = row[sampleWeightChannel.get()].getLong(0);
-                // Set the weight to one, since we're going to insert it multiple times in the priority queue
-                row[sampleWeightChannel.get()] = createBigintBlock(1);
-            }
 
-            // Count the column sizes only once, because we insert the same object reference multiple times for sampled rows
             sizeDelta += sizeOfRow(row);
             globalCandidates.add(row);
-            sizeDelta += (sampleWeight - 1) * OVERHEAD_PER_VALUE.toBytes();
-            for (int i = 1; i < sampleWeight; i++) {
-                globalCandidates.add(row);
-            }
 
             while (globalCandidates.size() > n) {
                 Block[] previous = globalCandidates.remove();
-                // We insert sampled rows multiple times, so use reference equality when checking if this row is still in the queue
-                if (previous != globalCandidates.peek()) {
                     sizeDelta -= sizeOfRow(previous);
-                }
-                else {
-                    sizeDelta -= OVERHEAD_PER_VALUE.toBytes();
-                }
             }
             return sizeDelta;
         }
@@ -354,33 +322,11 @@ public class TopNOperator
         public Iterator<Block[]> build()
         {
             ImmutableList.Builder<Block[]> minSortedGlobalCandidates = ImmutableList.builder();
-            long sampleWeight = 1;
             while (!globalCandidates.isEmpty()) {
                 Block[] row = globalCandidates.remove();
-                if (sampleWeightChannel.isPresent()) {
-                    // sampled rows are inserted multiple times (we can use identity comparison here)
-                    // we could also test for equality to "pack" results further, but that would require another equality function
-                    if (globalCandidates.peek() != null && row == globalCandidates.peek()) {
-                        sampleWeight++;
-                    }
-                    else {
-                        row[sampleWeightChannel.get()] = createBigintBlock(sampleWeight);
-                        minSortedGlobalCandidates.add(row);
-                        sampleWeight = 1;
-                    }
-                }
-                else {
-                    minSortedGlobalCandidates.add(row);
-                }
+                minSortedGlobalCandidates.add(row);
             }
             return minSortedGlobalCandidates.build().reverse().iterator();
-        }
-
-        private static Block createBigintBlock(long value)
-        {
-            return BIGINT.createBlockBuilder(new BlockBuilderStatus())
-                    .appendLong(value)
-                    .build();
         }
     }
 

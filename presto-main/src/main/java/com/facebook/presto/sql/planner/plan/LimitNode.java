@@ -16,7 +16,6 @@ package com.facebook.presto.sql.planner.plan;
 import com.facebook.presto.sql.planner.Symbol;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.google.common.base.Optional;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 
@@ -30,23 +29,17 @@ public class LimitNode
 {
     private final PlanNode source;
     private final long count;
-    private final Optional<Symbol> sampleWeight;
 
     @JsonCreator
-    public LimitNode(@JsonProperty("id") PlanNodeId id, @JsonProperty("source") PlanNode source, @JsonProperty("count") long count, @JsonProperty("sampleWeight") Optional<Symbol> sampleWeight)
+    public LimitNode(@JsonProperty("id") PlanNodeId id, @JsonProperty("source") PlanNode source, @JsonProperty("count") long count)
     {
         super(id);
 
         Preconditions.checkNotNull(source, "source is null");
         Preconditions.checkArgument(count >= 0, "count must be greater than or equal to zero");
-        Preconditions.checkNotNull(sampleWeight, "sampleWeight is null");
-        if (sampleWeight.isPresent()) {
-            Preconditions.checkArgument(source.getOutputSymbols().contains(sampleWeight.get()), "source does not output sample weight");
-        }
 
         this.source = source;
         this.count = count;
-        this.sampleWeight = sampleWeight;
     }
 
     @Override
@@ -65,12 +58,6 @@ public class LimitNode
     public long getCount()
     {
         return count;
-    }
-
-    @JsonProperty("sampleWeight")
-    public Optional<Symbol> getSampleWeight()
-    {
-        return sampleWeight;
     }
 
     @Override

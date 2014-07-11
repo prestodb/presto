@@ -17,7 +17,6 @@ import com.facebook.presto.operator.LimitOperator.LimitOperatorFactory;
 import com.facebook.presto.operator.OperatorFactory;
 import com.facebook.presto.operator.OrderByOperator.OrderByOperatorFactory;
 import com.facebook.presto.testing.LocalQueryRunner;
-import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
@@ -40,7 +39,7 @@ public class OrderByBenchmark
     {
         OperatorFactory tableScanOperator = createTableScanOperator(0, "orders", "totalprice", "clerk");
 
-        LimitOperatorFactory limitOperator = new LimitOperatorFactory(1, tableScanOperator.getTypes(), ROWS, Optional.<Integer>absent());
+        LimitOperatorFactory limitOperator = new LimitOperatorFactory(1, tableScanOperator.getTypes(), ROWS);
 
         OrderByOperatorFactory orderByOperator = new OrderByOperatorFactory(
                 2,
