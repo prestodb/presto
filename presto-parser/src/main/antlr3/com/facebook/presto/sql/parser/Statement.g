@@ -507,6 +507,7 @@ specialFunction
     | SUBSTRING '(' expr FROM expr (FOR expr)? ')' -> ^(FUNCTION_CALL ^(QNAME IDENT["substr"]) expr expr expr?)
     | EXTRACT '(' ident FROM expr ')'              -> ^(EXTRACT ident expr)
     | CAST '(' expr AS type ')'                    -> ^(CAST expr type)
+    | TRY_CAST '(' expr AS type ')'                -> ^(TRY_CAST expr type)
     ;
 
 // TODO: this should be 'dataType', which supports arbitrary type specifications. For now we constrain to simple types
@@ -841,6 +842,7 @@ JSON: 'JSON';
 LOGICAL: 'LOGICAL';
 DISTRIBUTED: 'DISTRIBUTED';
 CAST: 'CAST';
+TRY_CAST: 'TRY_CAST';
 SHOW: 'SHOW';
 TABLES: 'TABLES';
 SCHEMA: 'SCHEMA';

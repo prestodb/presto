@@ -534,6 +534,21 @@ public class TestExpressionCompiler
     }
 
     @Test
+    public void testTryCast()
+            throws Exception
+    {
+        assertExecute("try_cast(null as bigint)", null);
+        assertExecute("try_cast('123' as bigint)", 123L);
+        assertExecute("try_cast('foo' as varchar)", "foo");
+        assertExecute("try_cast('foo' as bigint)", null);
+        assertExecute("try_cast(bound_string as bigint)", null);
+        assertExecute("coalesce(try_cast('123' as bigint), 456)", 123L);
+        assertExecute("coalesce(try_cast('foo' as bigint), 456)", 456L);
+
+        Futures.allAsList(futures).get();
+    }
+
+    @Test
     public void testAnd()
             throws Exception
     {

@@ -20,6 +20,7 @@ import com.facebook.presto.byteCode.Variable;
 import com.facebook.presto.byteCode.control.IfStatement;
 import com.facebook.presto.byteCode.control.IfStatement.IfStatementBuilder;
 import com.facebook.presto.byteCode.control.LookupSwitch.LookupSwitchBuilder;
+import com.facebook.presto.byteCode.control.TryCatch;
 import com.facebook.presto.byteCode.instruction.Constant;
 import com.facebook.presto.byteCode.instruction.LabelNode;
 import com.facebook.presto.byteCode.instruction.VariableInstruction;
@@ -34,7 +35,6 @@ import com.facebook.presto.sql.tree.AstVisitor;
 import com.facebook.presto.sql.tree.BetweenPredicate;
 import com.facebook.presto.sql.tree.BooleanLiteral;
 import com.facebook.presto.sql.tree.Cast;
-import com.facebook.presto.sql.tree.InputReference;
 import com.facebook.presto.sql.tree.CoalesceExpression;
 import com.facebook.presto.sql.tree.ComparisonExpression;
 import com.facebook.presto.sql.tree.DoubleLiteral;
@@ -43,6 +43,7 @@ import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.GenericLiteral;
 import com.facebook.presto.sql.tree.InListExpression;
 import com.facebook.presto.sql.tree.InPredicate;
+import com.facebook.presto.sql.tree.InputReference;
 import com.facebook.presto.sql.tree.IntervalLiteral;
 import com.facebook.presto.sql.tree.IsNullPredicate;
 import com.facebook.presto.sql.tree.LikePredicate;
@@ -79,6 +80,7 @@ import java.util.Map;
 import java.util.Map.Entry;
 
 import static com.facebook.presto.byteCode.OpCodes.NOP;
+import static com.facebook.presto.byteCode.ParameterizedType.type;
 import static com.facebook.presto.byteCode.control.IfStatement.ifStatementBuilder;
 import static com.facebook.presto.byteCode.control.LookupSwitch.lookupSwitchBuilder;
 import static com.facebook.presto.byteCode.instruction.Constant.loadBoolean;
@@ -419,7 +421,23 @@ public class ByteCodeExpressionVisitor
                 expressionTypes.get(node.getExpression()),
                 type);
 
-        return visitFunctionBinding(context, functionBinding, node.toString());
+        ByteCodeNode castFunction = visitFunctionBinding(context, functionBinding, node.toString());
+
+        if (!node.isSafe()) {
+            return castFunction;
+        }
+
+        Block catchBlock = new Block(context)
+                .comment("propagate InterruptedException")
+                .invokeStatic(CompilerOperations.class, "propagateInterruptedException", void.class, Throwable.class)
+                .comment("wasNull = true;")
+                .putVariable("wasNull", true)
+                .comment("restore stack after exception")
+                .getVariable("output")
+                .comment("return dummy value for null")
+                .pushJavaDefault(type.getJavaType());
+
+        return new TryCatch(context, node.toString(), castFunction, catchBlock, type(Exception.class));
     }
 
     @Override

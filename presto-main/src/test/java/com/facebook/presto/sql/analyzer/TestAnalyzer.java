@@ -430,6 +430,10 @@ public class TestAnalyzer
         // coalesce
         assertFails(TYPE_MISMATCH, "SELECT COALESCE(1, 'a') FROM t1");
 
+        // cast
+        assertFails(TYPE_MISMATCH, "SELECT CAST(date '2014-01-01' AS bigint)");
+        assertFails(TYPE_MISMATCH, "SELECT TRY_CAST(date '2014-01-01' AS bigint)");
+
         // arithmetic negation
         assertFails(TYPE_MISMATCH, "SELECT -'a' FROM t1");
 

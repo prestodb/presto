@@ -26,13 +26,13 @@ import com.facebook.presto.sql.tree.AstVisitor;
 import com.facebook.presto.sql.tree.BetweenPredicate;
 import com.facebook.presto.sql.tree.BooleanLiteral;
 import com.facebook.presto.sql.tree.Cast;
-import com.facebook.presto.sql.tree.InputReference;
 import com.facebook.presto.sql.tree.CoalesceExpression;
 import com.facebook.presto.sql.tree.ComparisonExpression;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.InListExpression;
 import com.facebook.presto.sql.tree.InPredicate;
+import com.facebook.presto.sql.tree.InputReference;
 import com.facebook.presto.sql.tree.IsNotNullPredicate;
 import com.facebook.presto.sql.tree.IsNullPredicate;
 import com.facebook.presto.sql.tree.LikePredicate;
@@ -707,7 +707,7 @@ public class ExpressionInterpreter
             Object value = process(node.getExpression(), context);
 
             if (value instanceof Expression) {
-                return new Cast((Expression) value, node.getType());
+                return new Cast((Expression) value, node.getType(), node.isSafe());
             }
 
             if (value == null) {
@@ -720,7 +720,16 @@ public class ExpressionInterpreter
             }
 
             FunctionInfo operatorInfo = metadata.getExactOperator(OperatorType.CAST, type, types(node.getExpression()));
-            return invoke(session, operatorInfo.getMethodHandle(), ImmutableList.of(value));
+
+            try {
+                return invoke(session, operatorInfo.getMethodHandle(), ImmutableList.of(value));
+            }
+            catch (RuntimeException e) {
+                if (node.isSafe()) {
+                    return null;
+                }
+                throw e;
+            }
         }
 
         @Override

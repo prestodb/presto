@@ -22,14 +22,21 @@ public final class Cast
 {
     private final Expression expression;
     private final String type;
+    private final boolean safe;
 
     public Cast(Expression expression, String type)
+    {
+        this(expression, type, false);
+    }
+
+    public Cast(Expression expression, String type, boolean safe)
     {
         checkNotNull(expression, "expression is null");
         checkNotNull(type, "type is null");
 
         this.expression = expression;
         this.type = type.toUpperCase();
+        this.safe = safe;
     }
 
     public Expression getExpression()
@@ -40,6 +47,11 @@ public final class Cast
     public String getType()
     {
         return type;
+    }
+
+    public boolean isSafe()
+    {
+        return safe;
     }
 
     @Override
@@ -59,12 +71,13 @@ public final class Cast
         }
         Cast o = (Cast) obj;
         return Objects.equals(this.expression, o.expression) &&
-                Objects.equals(this.type, o.type);
+                Objects.equals(this.type, o.type) &&
+                Objects.equals(this.safe, o.safe);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(expression, type);
+        return Objects.hash(expression, type, safe);
     }
 }
