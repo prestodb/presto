@@ -311,7 +311,7 @@ class TupleAnalyzer
         List<FieldOrExpression> orderByExpressions = analyzeOrderBy(node, tupleDescriptor, context, outputExpressions);
         analyzeHaving(node, tupleDescriptor, context);
 
-        analyzeAggregations(node, tupleDescriptor, groupByExpressions, outputExpressions, orderByExpressions);
+        analyzeAggregations(node, tupleDescriptor, groupByExpressions, outputExpressions, orderByExpressions, context);
         analyzeWindowFunctions(node, outputExpressions, orderByExpressions);
 
         TupleDescriptor descriptor = computeOutputDescriptor(node, tupleDescriptor);
@@ -884,9 +884,16 @@ class TupleAnalyzer
             TupleDescriptor tupleDescriptor,
             List<FieldOrExpression> groupByExpressions,
             List<FieldOrExpression> outputExpressions,
-            List<FieldOrExpression> orderByExpressions)
+            List<FieldOrExpression> orderByExpressions,
+            AnalysisContext context)
     {
         List<FunctionCall> aggregates = extractAggregates(node);
+
+        if (context.isApproximate()) {
+            if (Iterables.any(aggregates, FunctionCall.distinctPredicate())) {
+                throw new SemanticException(NOT_SUPPORTED, node, "DISTINCT aggregations not supported for approximate queries");
+            }
+        }
 
         // is this an aggregation query?
         if (!aggregates.isEmpty() || !groupByExpressions.isEmpty()) {

@@ -351,8 +351,7 @@ class QueryPlanner
             MarkDistinctNode markDistinct = new MarkDistinctNode(idAllocator.getNextId(),
                     subPlan.getRoot(),
                     entry.getValue(),
-                    builder.build(),
-                    Optional.<Symbol>absent());
+                    builder.build());
             subPlan = new PlanBuilder(subPlan.getTranslations(), markDistinct);
         }
 

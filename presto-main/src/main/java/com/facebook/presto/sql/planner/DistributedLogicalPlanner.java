@@ -153,7 +153,7 @@ public class DistributedLogicalPlanner
                 }
             }
             if (createSingleNodePlan || alreadyPartitioned || !current.isDistributed()) {
-                MarkDistinctNode markNode = new MarkDistinctNode(idAllocator.getNextId(), current.getRoot(), node.getMarkerSymbol(), node.getDistinctSymbols(), node.getSampleWeightSymbol());
+                MarkDistinctNode markNode = new MarkDistinctNode(idAllocator.getNextId(), current.getRoot(), node.getMarkerSymbol(), node.getDistinctSymbols());
                 current.setRoot(markNode);
                 return current;
             }
@@ -163,7 +163,7 @@ public class DistributedLogicalPlanner
                         .setHashOutputPartitioning(node.getDistinctSymbols());
 
                 PlanNode exchange = new ExchangeNode(idAllocator.getNextId(), current.getId(), sink.getOutputSymbols());
-                MarkDistinctNode markNode = new MarkDistinctNode(idAllocator.getNextId(), exchange, node.getMarkerSymbol(), node.getDistinctSymbols(), node.getSampleWeightSymbol());
+                MarkDistinctNode markNode = new MarkDistinctNode(idAllocator.getNextId(), exchange, node.getMarkerSymbol(), node.getDistinctSymbols());
                 return createFixedDistributionPlan(markNode)
                         .addChild(current.build());
             }
