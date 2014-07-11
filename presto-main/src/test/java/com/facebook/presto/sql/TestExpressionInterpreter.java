@@ -502,6 +502,16 @@ public class TestExpressionInterpreter
     }
 
     @Test
+    public void testTryCast()
+    {
+        assertOptimizedEquals("try_cast(null as BIGINT)", "null");
+        assertOptimizedEquals("try_cast(123 as BIGINT)", "123");
+        assertOptimizedEquals("try_cast('foo' as VARCHAR)", "'foo'");
+        assertOptimizedEquals("try_cast('foo' as BIGINT)", "null");
+        assertOptimizedEquals("try_cast(unbound_string as BIGINT)", "try_cast(unbound_string as BIGINT)");
+    }
+
+    @Test
     public void testReservedWithDoubleQuotes()
             throws Exception
     {

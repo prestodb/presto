@@ -94,6 +94,8 @@ public class TestStatementBuilder
 
         printStatement("show functions");
 
+        printStatement("select cast('123' as bigint), try_cast('foo' as bigint)");
+
         printStatement("select * from a.b.c");
         printStatement("select * from a.b.c.e.f.g");
 

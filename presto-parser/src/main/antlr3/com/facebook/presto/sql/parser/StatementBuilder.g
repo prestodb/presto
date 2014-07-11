@@ -406,7 +406,8 @@ extract returns [Extract value]
     ;
 
 cast returns [Cast value]
-    : ^(CAST expr IDENT) { $value = new Cast($expr.value, $IDENT.text); }
+    : ^(CAST expr IDENT)     { $value = new Cast($expr.value, $IDENT.text, false); }
+    | ^(TRY_CAST expr IDENT) { $value = new Cast($expr.value, $IDENT.text, true); }
     ;
 
 current_time returns [CurrentTime value]

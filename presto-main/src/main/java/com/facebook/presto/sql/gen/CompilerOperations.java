@@ -40,4 +40,12 @@ public final class CompilerOperations
     {
         return left < right;
     }
+
+    public static void propagateInterruptedException(Throwable throwable)
+    {
+        if (throwable instanceof InterruptedException) {
+            Thread.currentThread().interrupt();
+            throw new RuntimeException(throwable);
+        }
+    }
 }

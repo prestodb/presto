@@ -350,7 +350,8 @@ public final class ExpressionFormatter
         @Override
         public String visitCast(Cast node, Void context)
         {
-            return "CAST(" + process(node.getExpression(), context) + " AS " + node.getType() + ")";
+            return (node.isSafe() ? "TRY_CAST" : "CAST") +
+                    "(" + process(node.getExpression(), context) + " AS " + node.getType() + ")";
         }
 
         @Override

@@ -1943,6 +1943,18 @@ public abstract class AbstractTestQueries
         assertQuery("SELECT CAST(orderkey AS DOUBLE) FROM orders");
         assertQuery("SELECT CAST(orderkey AS VARCHAR) FROM orders");
         assertQuery("SELECT CAST(orderkey AS BOOLEAN) FROM orders");
+
+        assertQuery("SELECT try_cast('1' AS BIGINT) FROM orders", "SELECT CAST('1' AS BIGINT) FROM orders");
+        assertQuery("SELECT try_cast(totalprice AS BIGINT) FROM orders", "SELECT CAST(totalprice AS BIGINT) FROM orders");
+        assertQuery("SELECT try_cast(orderkey AS DOUBLE) FROM orders", "SELECT CAST(orderkey AS DOUBLE) FROM orders");
+        assertQuery("SELECT try_cast(orderkey AS VARCHAR) FROM orders", "SELECT CAST(orderkey AS VARCHAR) FROM orders");
+        assertQuery("SELECT try_cast(orderkey AS BOOLEAN) FROM orders", "SELECT CAST(orderkey AS BOOLEAN) FROM orders");
+
+        assertQuery("SELECT try_cast('foo' AS BIGINT) FROM orders", "SELECT CAST(null AS BIGINT) FROM orders");
+        assertQuery("SELECT try_cast(orderdate AS BIGINT) FROM orders", "SELECT CAST(null AS BIGINT) FROM orders");
+
+        assertQuery("SELECT coalesce(try_cast('foo' AS BIGINT), 456) FROM orders", "SELECT 456 FROM orders");
+        assertQuery("SELECT coalesce(try_cast(orderdate AS BIGINT), 456) FROM orders", "SELECT 456 FROM orders");
     }
 
     @Test
