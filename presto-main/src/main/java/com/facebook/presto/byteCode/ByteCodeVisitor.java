@@ -18,6 +18,7 @@ import com.facebook.presto.byteCode.control.FlowControl;
 import com.facebook.presto.byteCode.control.ForLoop;
 import com.facebook.presto.byteCode.control.IfStatement;
 import com.facebook.presto.byteCode.control.LookupSwitch;
+import com.facebook.presto.byteCode.control.TryCatch;
 import com.facebook.presto.byteCode.control.WhileLoop;
 import com.facebook.presto.byteCode.debug.DebugNode;
 import com.facebook.presto.byteCode.debug.LineNumberNode;
@@ -118,6 +119,11 @@ public class ByteCodeVisitor<T>
     public T visitFlowControl(ByteCodeNode parent, FlowControl flowControl)
     {
         return visitNode(parent, flowControl);
+    }
+
+    public T visitTryCatch(ByteCodeNode parent, TryCatch tryCatch)
+    {
+        return visitFlowControl(parent, tryCatch);
     }
 
     public T visitIf(ByteCodeNode parent, IfStatement ifStatement)
