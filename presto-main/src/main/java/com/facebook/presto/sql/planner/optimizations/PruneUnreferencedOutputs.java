@@ -16,6 +16,7 @@ package com.facebook.presto.sql.planner.optimizations;
 import com.facebook.presto.metadata.ColumnHandle;
 import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.spi.ConnectorSession;
+import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.planner.DependencyExtractor;
 import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
 import com.facebook.presto.sql.planner.Symbol;
@@ -43,7 +44,6 @@ import com.facebook.presto.sql.planner.plan.UnionNode;
 import com.facebook.presto.sql.planner.plan.WindowNode;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.FunctionCall;
-import com.facebook.presto.spi.type.Type;
 import com.google.common.base.Predicates;
 import com.google.common.collect.FluentIterable;
 import com.google.common.collect.ImmutableList;
@@ -356,11 +356,8 @@ public class PruneUnreferencedOutputs
         {
             ImmutableSet.Builder<Symbol> expectedInputs = ImmutableSet.<Symbol>builder()
                     .addAll(expectedOutputs);
-            if (node.getSampleWeight().isPresent()) {
-                expectedInputs.add(node.getSampleWeight().get());
-            }
             PlanNode source = planRewriter.rewrite(node.getSource(), expectedInputs.build());
-            return new LimitNode(node.getId(), source, node.getCount(), node.getSampleWeight());
+            return new LimitNode(node.getId(), source, node.getCount());
         }
 
         @Override
@@ -376,13 +373,10 @@ public class PruneUnreferencedOutputs
             ImmutableSet.Builder<Symbol> expectedInputs = ImmutableSet.<Symbol>builder()
                     .addAll(expectedOutputs)
                     .addAll(node.getOrderBy());
-            if (node.getSampleWeight().isPresent()) {
-                expectedInputs.add(node.getSampleWeight().get());
-            }
 
             PlanNode source = planRewriter.rewrite(node.getSource(), expectedInputs.build());
 
-            return new TopNNode(node.getId(), source, node.getCount(), node.getOrderBy(), node.getOrderings(), node.isPartial(), node.getSampleWeight());
+            return new TopNNode(node.getId(), source, node.getCount(), node.getOrderBy(), node.getOrderings(), node.isPartial());
         }
 
         @Override

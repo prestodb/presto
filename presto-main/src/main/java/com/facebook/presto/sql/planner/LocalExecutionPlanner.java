@@ -445,15 +445,12 @@ public class LocalExecutionPlanner
                 sortOrders.add(node.getOrderings().get(symbol));
             }
 
-            Optional<Integer> sampleWeightChannel = node.getSampleWeight().transform(source.channelGetter());
-
             OperatorFactory operator = new TopNOperatorFactory(
                     context.getNextOperatorId(),
                     source.getTypes(),
                     (int) node.getCount(),
                     sortChannels,
                     sortOrders,
-                    sampleWeightChannel,
                     node.isPartial());
 
             return new PhysicalOperation(operator, source.getLayout(), source);
@@ -494,9 +491,7 @@ public class LocalExecutionPlanner
         {
             PhysicalOperation source = node.getSource().accept(this, context);
 
-            Optional<Integer> sampleWeightChannel = node.getSampleWeight().transform(source.channelGetter());
-
-            OperatorFactory operatorFactory = new LimitOperatorFactory(context.getNextOperatorId(), source.getTypes(), node.getCount(), sampleWeightChannel);
+            OperatorFactory operatorFactory = new LimitOperatorFactory(context.getNextOperatorId(), source.getTypes(), node.getCount());
             return new PhysicalOperation(operatorFactory, source.getLayout(), source);
         }
 
