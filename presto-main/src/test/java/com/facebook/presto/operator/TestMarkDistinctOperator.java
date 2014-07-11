@@ -17,7 +17,6 @@ import com.facebook.presto.execution.TaskId;
 import com.facebook.presto.operator.MarkDistinctOperator.MarkDistinctOperatorFactory;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.testing.MaterializedResult;
-import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
@@ -27,7 +26,6 @@ import java.util.List;
 import java.util.Locale;
 import java.util.concurrent.ExecutorService;
 
-import static com.facebook.presto.operator.OperatorAssertion.appendSampleWeight;
 import static com.facebook.presto.operator.RowPagesBuilder.rowPagesBuilder;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
@@ -59,29 +57,6 @@ public class TestMarkDistinctOperator
     }
 
     @Test
-    public void testSampledMarkDistinct()
-            throws Exception
-    {
-        List<Page> input = rowPagesBuilder(BIGINT)
-                .addSequencePage(100, 0)
-                .addSequencePage(100, 0)
-                .build();
-        input = appendSampleWeight(input, 2);
-
-        OperatorFactory operatorFactory = new MarkDistinctOperatorFactory(0, ImmutableList.of(BIGINT, BIGINT), ImmutableList.of(0), Optional.of(1));
-        Operator operator = operatorFactory.createOperator(driverContext);
-
-        MaterializedResult.Builder expected = resultBuilder(driverContext.getSession(), BIGINT, BIGINT, BOOLEAN);
-        for (int i = 0; i < 100; i++) {
-            expected.row(i, 1, true);
-            expected.row(i, 1, false);
-            expected.row(i, 2, false);
-        }
-
-        OperatorAssertion.assertOperatorEqualsIgnoreOrder(operator, input, expected.build());
-    }
-
-    @Test
     public void testMarkDistinct()
             throws Exception
     {
@@ -90,7 +65,7 @@ public class TestMarkDistinctOperator
                 .addSequencePage(100, 0)
                 .build();
 
-        OperatorFactory operatorFactory = new MarkDistinctOperatorFactory(0, ImmutableList.of(BIGINT), ImmutableList.of(0), Optional.<Integer>absent());
+        OperatorFactory operatorFactory = new MarkDistinctOperatorFactory(0, ImmutableList.of(BIGINT), ImmutableList.of(0));
         Operator operator = operatorFactory.createOperator(driverContext);
 
         MaterializedResult.Builder expected = resultBuilder(driverContext.getSession(), BIGINT, BOOLEAN);

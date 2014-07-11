@@ -313,13 +313,9 @@ public class PruneUnreferencedOutputs
                     .addAll(node.getDistinctSymbols())
                     .addAll(expectedOutputs);
 
-            if (node.getSampleWeightSymbol().isPresent()) {
-                expectedInputs.add(node.getSampleWeightSymbol().get());
-            }
-
             PlanNode source = planRewriter.rewrite(node.getSource(), expectedInputs.build());
 
-            return new MarkDistinctNode(node.getId(), source, node.getMarkerSymbol(), node.getDistinctSymbols(), node.getSampleWeightSymbol());
+            return new MarkDistinctNode(node.getId(), source, node.getMarkerSymbol(), node.getDistinctSymbols());
         }
 
         @Override

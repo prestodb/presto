@@ -530,9 +530,7 @@ public class LocalExecutionPlanner
                     .putAll(source.getLayout())
                     .put(node.getMarkerSymbol(), source.getLayout().size()).build();
 
-            Optional<Integer> sampleWeightChannel = node.getSampleWeightSymbol().transform(source.channelGetter());
-
-            MarkDistinctOperatorFactory operator = new MarkDistinctOperatorFactory(context.getNextOperatorId(), source.getTypes(), channels, sampleWeightChannel);
+            MarkDistinctOperatorFactory operator = new MarkDistinctOperatorFactory(context.getNextOperatorId(), source.getTypes(), channels);
             return new PhysicalOperation(operator, outputMappings, source);
         }
 

@@ -213,7 +213,7 @@ public class MaterializeSamplePullUp
         {
             PlanNode source = planRewriter.rewrite(node.getSource(), null);
             if (source instanceof MaterializeSampleNode) {
-                node = new MarkDistinctNode(node.getId(), ((MaterializeSampleNode) source).getSource(), node.getMarkerSymbol(), node.getDistinctSymbols(), Optional.of(((MaterializeSampleNode) source).getSampleWeightSymbol()));
+                node = new MarkDistinctNode(node.getId(), ((MaterializeSampleNode) source).getSource(), node.getMarkerSymbol(), node.getDistinctSymbols());
                 return new MaterializeSampleNode(source.getId(), node, ((MaterializeSampleNode) source).getSampleWeightSymbol());
             }
             else {

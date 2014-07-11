@@ -140,7 +140,7 @@ public class UnaliasSymbolReferences
         {
             PlanNode source = planRewriter.rewrite(node.getSource(), context);
             List<Symbol> symbols = ImmutableList.copyOf(ImmutableSet.copyOf(canonicalize(node.getDistinctSymbols())));
-            return new MarkDistinctNode(node.getId(), source, canonicalize(node.getMarkerSymbol()), symbols, canonicalize(node.getSampleWeightSymbol()));
+            return new MarkDistinctNode(node.getId(), source, canonicalize(node.getMarkerSymbol()), symbols);
         }
 
         @Override
