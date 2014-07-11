@@ -258,11 +258,6 @@ public class MethodDefinition
         // visit code
         methodVisitor.visitCode();
 
-//        // visit try catch blocks
-//        for (TryCatchBlockNode tryCatchBlockNode : body.getTryCatchBlocks()) {
-//            tryCatchBlockNode.accept(methodVisitor);
-//        }
-
         // visit instructions
         body.accept(methodVisitor);
         if (addReturn) {

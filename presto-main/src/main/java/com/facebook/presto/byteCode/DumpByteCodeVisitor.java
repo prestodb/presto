@@ -18,6 +18,7 @@ import com.facebook.presto.byteCode.control.DoWhileLoop;
 import com.facebook.presto.byteCode.control.ForLoop;
 import com.facebook.presto.byteCode.control.IfStatement;
 import com.facebook.presto.byteCode.control.LookupSwitch;
+import com.facebook.presto.byteCode.control.TryCatch;
 import com.facebook.presto.byteCode.control.WhileLoop;
 import com.facebook.presto.byteCode.debug.LineNumberNode;
 import com.facebook.presto.byteCode.instruction.Constant.BoxedBooleanConstant;
@@ -263,6 +264,29 @@ public class DumpByteCodeVisitor
     //
     // Control Flow
     //
+
+    @Override
+    public Void visitTryCatch(ByteCodeNode parent, TryCatch tryCatch)
+    {
+        if (tryCatch.getComment() != null) {
+            printLine();
+            printLine("// %s", tryCatch.getComment());
+        }
+
+        printLine("try {");
+        indentLevel++;
+        tryCatch.getTryNode().accept(tryCatch, this);
+        indentLevel--;
+        printLine("}");
+
+        printLine("catch (%s) {", tryCatch.getExceptionName());
+        indentLevel++;
+        tryCatch.getCatchNode().accept(tryCatch, this);
+        indentLevel--;
+        printLine("}");
+
+        return null;
+    }
 
     @Override
     public Void visitIf(ByteCodeNode parent, IfStatement ifStatement)
