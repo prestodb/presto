@@ -29,7 +29,6 @@ import com.facebook.presto.sql.planner.plan.IndexSourceNode;
 import com.facebook.presto.sql.planner.plan.JoinNode;
 import com.facebook.presto.sql.planner.plan.LimitNode;
 import com.facebook.presto.sql.planner.plan.MarkDistinctNode;
-import com.facebook.presto.sql.planner.plan.MaterializeSampleNode;
 import com.facebook.presto.sql.planner.plan.OutputNode;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.PlanNodeRewriter;
@@ -290,19 +289,6 @@ public class PruneUnreferencedOutputs
         }
 
         @Override
-        public PlanNode rewriteMaterializeSample(MaterializeSampleNode node, Set<Symbol> expectedOutputs, PlanRewriter<Set<Symbol>> planRewriter)
-        {
-            Set<Symbol> expectedInputs = ImmutableSet.<Symbol>builder()
-                    .add(node.getSampleWeightSymbol())
-                    .addAll(expectedOutputs)
-                    .build();
-
-            PlanNode source = planRewriter.rewrite(node.getSource(), expectedInputs);
-
-            return new MaterializeSampleNode(node.getId(), source, node.getSampleWeightSymbol());
-        }
-
-        @Override
         public PlanNode rewriteMarkDistinct(MarkDistinctNode node, Set<Symbol> expectedOutputs, PlanRewriter<Set<Symbol>> planRewriter)
         {
             if (!expectedOutputs.contains(node.getMarkerSymbol())) {
@@ -395,7 +381,7 @@ public class PruneUnreferencedOutputs
             }
             PlanNode source = planRewriter.rewrite(node.getSource(), expectedInputs.build());
 
-            return new TableWriterNode(node.getId(), source, node.getTarget(), node.getColumns(), node.getColumnNames(), node.getOutputSymbols(), node.getSampleWeightSymbol(), node.getCatalog(), node.getTableMetadata(), node.isSampleWeightSupported());
+            return new TableWriterNode(node.getId(), source, node.getTarget(), node.getColumns(), node.getColumnNames(), node.getOutputSymbols(), node.getSampleWeightSymbol(), node.getCatalog(), node.getTableMetadata());
         }
 
         @Override

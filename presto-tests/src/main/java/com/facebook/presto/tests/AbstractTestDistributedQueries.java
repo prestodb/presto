@@ -67,7 +67,7 @@ public abstract class AbstractTestDistributedQueries
         assertCreateTable(
                 "test_limit_sampled",
                 "SELECT orderkey FROM tpch_sampled.tiny.orders ORDER BY orderkey LIMIT 10",
-                "SELECT orderkey FROM (SELECT orderkey FROM orders) UNION ALL (SELECT orderkey FROM orders) ORDER BY orderkey LIMIT 10",
+                "SELECT orderkey FROM orders ORDER BY orderkey LIMIT 10",
                 "SELECT 10");
     }
 

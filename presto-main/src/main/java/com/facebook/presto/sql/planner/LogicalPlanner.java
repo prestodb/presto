@@ -35,6 +35,7 @@ import java.util.List;
 
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
+import static com.google.common.base.Preconditions.checkState;
 
 public class LogicalPlanner
 {
@@ -94,7 +95,8 @@ public class LogicalPlanner
         RelationPlanner planner = new RelationPlanner(analysis, symbolAllocator, idAllocator, metadata, session);
         RelationPlan plan = planner.process(analysis.getQuery(), null);
 
-        TableMetadata tableMetadata = createTableMetadata(destination, getOutputTableColumns(plan));
+        TableMetadata tableMetadata = createTableMetadata(destination, getOutputTableColumns(plan), plan.getSampleWeight().isPresent());
+        checkState(!plan.getSampleWeight().isPresent() || metadata.canCreateSampledTables(session, destination.getCatalogName()), "Cannot write sampled data to a store that doesn't support sampling");
 
         ImmutableList<Symbol> writerOutputs = ImmutableList.of(
                 symbolAllocator.newSymbol("partialrows", BIGINT),
@@ -107,10 +109,9 @@ public class LogicalPlanner
                 plan.getOutputSymbols(),
                 getColumnNames(tableMetadata),
                 writerOutputs,
-                Optional.<Symbol>absent(),
+                plan.getSampleWeight(),
                 destination.getCatalogName(),
-                tableMetadata,
-                metadata.canCreateSampledTables(session, destination.getCatalogName()));
+                tableMetadata);
 
         List<Symbol> outputs = ImmutableList.of(symbolAllocator.newSymbol("rows", BIGINT));
 
@@ -120,7 +121,7 @@ public class LogicalPlanner
                 null,
                 outputs);
 
-        return new RelationPlan(commitNode, analysis.getOutputDescriptor(), outputs);
+        return new RelationPlan(commitNode, analysis.getOutputDescriptor(), outputs, Optional.<Symbol>absent());
     }
 
     private PlanNode createOutputPlan(RelationPlan plan, Analysis analysis)
@@ -144,10 +145,10 @@ public class LogicalPlanner
         return new OutputNode(idAllocator.getNextId(), plan.getRoot(), names.build(), outputs.build());
     }
 
-    private TableMetadata createTableMetadata(QualifiedTableName table, List<ColumnMetadata> columns)
+    private TableMetadata createTableMetadata(QualifiedTableName table, List<ColumnMetadata> columns, boolean sampled)
     {
         String owner = session.getUser();
-        ConnectorTableMetadata metadata = new ConnectorTableMetadata(table.asSchemaTableName(), columns, owner);
+        ConnectorTableMetadata metadata = new ConnectorTableMetadata(table.asSchemaTableName(), columns, owner, sampled);
         // TODO: first argument should actually be connectorId
         return new TableMetadata(table.getCatalogName(), metadata);
     }

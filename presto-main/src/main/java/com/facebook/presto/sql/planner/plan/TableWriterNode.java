@@ -40,7 +40,6 @@ public class TableWriterNode
     private final Optional<Symbol> sampleWeightSymbol;
     private final String catalog;
     private final TableMetadata tableMetadata;
-    private final boolean sampleWeightSupported;
 
     @JsonCreator
     public TableWriterNode(
@@ -52,7 +51,7 @@ public class TableWriterNode
             @JsonProperty("outputs") List<Symbol> outputs,
             @JsonProperty("sampleWeightSymbol") Optional<Symbol> sampleWeightSymbol)
     {
-        this(id, source, target, columns, columnNames, outputs, sampleWeightSymbol, null, null, false);
+        this(id, source, target, columns, columnNames, outputs, sampleWeightSymbol, null, null);
     }
 
     public TableWriterNode(
@@ -64,8 +63,7 @@ public class TableWriterNode
             List<Symbol> outputs,
             Optional<Symbol> sampleWeightSymbol,
             String catalog,
-            TableMetadata tableMetadata,
-            boolean sampleWeightSupported)
+            TableMetadata tableMetadata)
     {
         super(id);
 
@@ -82,7 +80,6 @@ public class TableWriterNode
         this.sampleWeightSymbol = checkNotNull(sampleWeightSymbol, "sampleWeightSymbol is null");
         this.catalog = catalog;
         this.tableMetadata = tableMetadata;
-        this.sampleWeightSupported = sampleWeightSupported;
     }
 
     public String getCatalog()
@@ -93,11 +90,6 @@ public class TableWriterNode
     public TableMetadata getTableMetadata()
     {
         return tableMetadata;
-    }
-
-    public boolean isSampleWeightSupported()
-    {
-        return sampleWeightSupported;
     }
 
     @JsonProperty

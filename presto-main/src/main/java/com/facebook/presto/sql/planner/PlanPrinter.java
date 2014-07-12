@@ -36,7 +36,6 @@ import com.facebook.presto.sql.planner.plan.IndexSourceNode;
 import com.facebook.presto.sql.planner.plan.JoinNode;
 import com.facebook.presto.sql.planner.plan.LimitNode;
 import com.facebook.presto.sql.planner.plan.MarkDistinctNode;
-import com.facebook.presto.sql.planner.plan.MaterializeSampleNode;
 import com.facebook.presto.sql.planner.plan.OutputNode;
 import com.facebook.presto.sql.planner.plan.PlanFragmentId;
 import com.facebook.presto.sql.planner.plan.PlanNode;
@@ -379,13 +378,6 @@ public class PlanPrinter
             });
 
             print(indent, "- TopN[%s by (%s)] => [%s]", node.getCount(), Joiner.on(", ").join(keys), formatOutputs(node.getOutputSymbols()));
-            return processChildren(node, indent + 1);
-        }
-
-        @Override
-        public Void visitMaterializeSample(final MaterializeSampleNode node, Integer indent)
-        {
-            print(indent, "- MaterializeSample[%s] => [%s]", node.getSampleWeightSymbol(), formatOutputs(node.getOutputSymbols()));
             return processChildren(node, indent + 1);
         }
 
