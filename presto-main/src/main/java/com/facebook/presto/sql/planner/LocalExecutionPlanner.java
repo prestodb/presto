@@ -35,7 +35,6 @@ import com.facebook.presto.operator.LimitOperator.LimitOperatorFactory;
 import com.facebook.presto.operator.LookupJoinOperators;
 import com.facebook.presto.operator.LookupSourceSupplier;
 import com.facebook.presto.operator.MarkDistinctOperator.MarkDistinctOperatorFactory;
-import com.facebook.presto.operator.MaterializeSampleOperator;
 import com.facebook.presto.operator.OperatorFactory;
 import com.facebook.presto.operator.OrderByOperator.OrderByOperatorFactory;
 import com.facebook.presto.operator.OutputFactory;
@@ -76,7 +75,6 @@ import com.facebook.presto.sql.planner.plan.IndexSourceNode;
 import com.facebook.presto.sql.planner.plan.JoinNode;
 import com.facebook.presto.sql.planner.plan.LimitNode;
 import com.facebook.presto.sql.planner.plan.MarkDistinctNode;
-import com.facebook.presto.sql.planner.plan.MaterializeSampleNode;
 import com.facebook.presto.sql.planner.plan.OutputNode;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.PlanVisitor;
@@ -532,31 +530,6 @@ public class LocalExecutionPlanner
 
             MarkDistinctOperatorFactory operator = new MarkDistinctOperatorFactory(context.getNextOperatorId(), source.getTypes(), channels);
             return new PhysicalOperation(operator, outputMappings, source);
-        }
-
-        @Override
-        public PhysicalOperation visitMaterializeSample(MaterializeSampleNode node, LocalExecutionPlanContext context)
-        {
-            PhysicalOperation source = node.getSource().accept(this, context);
-
-            int sampleWeightChannel = Iterables.getOnlyElement(getChannelsForSymbols(ImmutableList.of(node.getSampleWeightSymbol()), source.getLayout()));
-
-            ImmutableMap.Builder<Symbol, Integer> outputMappings = ImmutableMap.builder();
-            for (Map.Entry<Symbol, Integer> entry : source.getLayout().entrySet()) {
-                int value = entry.getValue();
-                if (value == sampleWeightChannel) {
-                    continue;
-                }
-                // Because we've removed the sample weight channel, all channels after it have been renumbered
-                outputMappings.put(entry.getKey(), value > sampleWeightChannel ? value - 1 : value);
-            }
-
-            List<Type> types = new ArrayList<>();
-            types.addAll(source.getTypes());
-            types.remove(sampleWeightChannel);
-
-            MaterializeSampleOperator.MaterializeSampleOperatorFactory operator = new MaterializeSampleOperator.MaterializeSampleOperatorFactory(context.getNextOperatorId(), types, sampleWeightChannel);
-            return new PhysicalOperation(operator, outputMappings.build(), source);
         }
 
         @Override

@@ -15,6 +15,7 @@ package com.facebook.presto.sql.planner;
 
 import com.facebook.presto.sql.analyzer.TupleDescriptor;
 import com.facebook.presto.sql.planner.plan.PlanNode;
+import com.google.common.base.Optional;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 
@@ -28,12 +29,14 @@ class RelationPlan
     private final PlanNode root;
     private final List<Symbol> outputSymbols;
     private final TupleDescriptor descriptor;
+    private final Optional<Symbol> sampleWeight;
 
-    public RelationPlan(PlanNode root, TupleDescriptor descriptor, List<Symbol> outputSymbols)
+    public RelationPlan(PlanNode root, TupleDescriptor descriptor, List<Symbol> outputSymbols, Optional<Symbol> sampleWeight)
     {
         checkNotNull(root, "root is null");
         checkNotNull(outputSymbols, "outputSymbols is null");
         checkNotNull(descriptor, "descriptor is null");
+        checkNotNull(descriptor, "sampleWeight is null");
 
         checkArgument(descriptor.getAllFieldCount() == outputSymbols.size(),
                 "Number of outputs (%s) doesn't match descriptor size (%s)", outputSymbols.size(), descriptor.getAllFieldCount());
@@ -41,6 +44,12 @@ class RelationPlan
         this.root = root;
         this.descriptor = descriptor;
         this.outputSymbols = ImmutableList.copyOf(outputSymbols);
+        this.sampleWeight = sampleWeight;
+    }
+
+    public Optional<Symbol> getSampleWeight()
+    {
+        return sampleWeight;
     }
 
     public Symbol getSymbol(int fieldIndex)

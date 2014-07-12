@@ -25,7 +25,6 @@ import com.facebook.presto.sql.planner.plan.IndexSourceNode;
 import com.facebook.presto.sql.planner.plan.JoinNode;
 import com.facebook.presto.sql.planner.plan.LimitNode;
 import com.facebook.presto.sql.planner.plan.MarkDistinctNode;
-import com.facebook.presto.sql.planner.plan.MaterializeSampleNode;
 import com.facebook.presto.sql.planner.plan.OutputNode;
 import com.facebook.presto.sql.planner.plan.PlanFragmentId;
 import com.facebook.presto.sql.planner.plan.PlanNode;
@@ -198,13 +197,6 @@ public final class GraphvizPrinter
         protected Void visitPlan(PlanNode node, Void context)
         {
             throw new UnsupportedOperationException(format("Node %s does not have a Graphviz visitor", node.getClass().getName()));
-        }
-
-        @Override
-        public Void visitMaterializeSample(MaterializeSampleNode node, Void context)
-        {
-            printNode(node, format("MaterializeSample[%s]", node.getSampleWeightSymbol()), NODE_COLORS.get(NodeType.MATERIALIZE_SAMPLE));
-            return node.getSource().accept(this, context);
         }
 
         @Override

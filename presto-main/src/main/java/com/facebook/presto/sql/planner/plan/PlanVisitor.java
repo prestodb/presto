@@ -129,9 +129,4 @@ public class PlanVisitor<C, R>
     {
         return visitPlan(node, context);
     }
-
-    public R visitMaterializeSample(MaterializeSampleNode node, C context)
-    {
-        return visitPlan(node, context);
-    }
 }

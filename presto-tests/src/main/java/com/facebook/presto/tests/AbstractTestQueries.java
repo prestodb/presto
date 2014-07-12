@@ -3079,11 +3079,11 @@ public abstract class AbstractTestQueries
     {
         DescriptiveStatistics stats = new DescriptiveStatistics();
 
-        int total = computeExpected("SELECT orderkey FROM orders", ImmutableList.of(BIGINT)).getMaterializedRows().size();
+        long total = (long) computeExpected("SELECT COUNT(*) FROM orders", ImmutableList.of(BIGINT)).getMaterializedRows().get(0).getField(0);
 
         for (int i = 0; i < 100; i++) {
-            List<MaterializedRow> values = computeActual("SELECT orderkey FROM ORDERS TABLESAMPLE POISSONIZED (50)").getMaterializedRows();
-            stats.addValue(values.size() * 1.0 / total);
+            String value = (String) computeActual("SELECT COUNT(*) FROM orders TABLESAMPLE POISSONIZED (50) APPROXIMATE AT 95 CONFIDENCE").getMaterializedRows().get(0).getField(0);
+            stats.addValue(Long.parseLong(value.split(" ")[0]) * 1.0 / total);
         }
 
         double mean = stats.getGeometricMean();

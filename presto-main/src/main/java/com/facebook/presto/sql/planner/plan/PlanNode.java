@@ -33,7 +33,6 @@ import static com.google.common.base.Preconditions.checkNotNull;
         @JsonSubTypes.Type(value = ValuesNode.class, name = "values"),
         @JsonSubTypes.Type(value = AggregationNode.class, name = "aggregation"),
         @JsonSubTypes.Type(value = MarkDistinctNode.class, name = "markDistinct"),
-        @JsonSubTypes.Type(value = MaterializeSampleNode.class, name = "materializeSample"),
         @JsonSubTypes.Type(value = FilterNode.class, name = "filter"),
         @JsonSubTypes.Type(value = WindowNode.class, name = "window"),
         @JsonSubTypes.Type(value = LimitNode.class, name = "limit"),

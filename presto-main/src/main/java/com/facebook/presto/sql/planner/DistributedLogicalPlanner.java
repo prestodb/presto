@@ -28,7 +28,6 @@ import com.facebook.presto.sql.planner.plan.IndexJoinNode;
 import com.facebook.presto.sql.planner.plan.JoinNode;
 import com.facebook.presto.sql.planner.plan.LimitNode;
 import com.facebook.presto.sql.planner.plan.MarkDistinctNode;
-import com.facebook.presto.sql.planner.plan.MaterializeSampleNode;
 import com.facebook.presto.sql.planner.plan.OutputNode;
 import com.facebook.presto.sql.planner.plan.PlanFragmentId;
 import com.facebook.presto.sql.planner.plan.PlanNode;
@@ -262,14 +261,6 @@ public class DistributedLogicalPlanner
         {
             SubPlanBuilder current = node.getSource().accept(this, context);
             current.setRoot(new SampleNode(node.getId(), current.getRoot(), node.getSampleRatio(), node.getSampleType(), node.isRescaled(), node.getSampleWeightSymbol()));
-            return current;
-        }
-
-        @Override
-        public SubPlanBuilder visitMaterializeSample(MaterializeSampleNode node, Void context)
-        {
-            SubPlanBuilder current = node.getSource().accept(this, context);
-            current.setRoot(new MaterializeSampleNode(node.getId(), current.getRoot(), node.getSampleWeightSymbol()));
             return current;
         }
 

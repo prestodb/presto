@@ -167,20 +167,18 @@ public class TableWriterOperator
             blocks[outputChannel] = page.getBlock(inputChannels.get(outputChannel));
         }
 
-        int rows = 0;
         for (int position = 0; position < page.getPositionCount(); position++) {
             long sampleWeight = 1;
             if (sampleWeightBlock != null) {
                 sampleWeight = sampleWeightBlock.getLong(position);
             }
-            rows += sampleWeight;
             recordSink.beginRecord(sampleWeight);
             for (int i = 0; i < blocks.length; i++) {
                 writeField(position, blocks[i], recordTypes.get(i));
             }
             recordSink.finishRecord();
         }
-        rowCount += rows;
+        rowCount += page.getPositionCount();
     }
 
     private void writeField(int position, Block block, Type type)
