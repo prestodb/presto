@@ -154,7 +154,8 @@ public final class FunctionAssertions
     private final ConnectorSession session;
     private final LocalQueryRunner runner;
     private final Metadata metadata;
-    private final ExpressionCompiler compiler;
+    private final ExpressionCompiler oldCompiler;
+    private final ExpressionCompiler newCompiler;
 
     public FunctionAssertions()
     {
@@ -166,7 +167,8 @@ public final class FunctionAssertions
         this.session = checkNotNull(session, "session is null");
         runner = new LocalQueryRunner(session);
         metadata = runner.getMetadata();
-        compiler = new ExpressionCompiler(metadata, new CompilerConfig().setUseNewByteCodeGenerator(true));
+        oldCompiler = new ExpressionCompiler(metadata, new CompilerConfig().setUseNewByteCodeGenerator(false));
+        newCompiler = new ExpressionCompiler(metadata, new CompilerConfig().setUseNewByteCodeGenerator(true));
     }
 
     public FunctionAssertions addFunctions(List<FunctionInfo> functionInfos)
@@ -189,23 +191,42 @@ public final class FunctionAssertions
         else if (expected instanceof Slice) {
             expected = ((Slice) expected).toString(Charsets.UTF_8);
         }
-        Object actual = selectSingleValue(projection);
-        assertEquals(actual, expected);
+
+        assertEquals(selectSingleValue(projection, newCompiler), expected);
+        assertEquals(selectSingleValue(projection, oldCompiler), expected);
     }
 
     public void assertFunctionNull(String projection)
     {
-        assertNull(selectSingleValue(projection));
+        assertNull(selectSingleValue(projection, oldCompiler));
+        assertNull(selectSingleValue(projection, newCompiler));
     }
 
-    public Object selectSingleValue(String projection)
+    public void tryEvaluate(String expression)
     {
-        return selectSingleValue(projection, session);
+        tryEvaluate(expression, session);
     }
 
-    public Object selectSingleValue(String projection, ConnectorSession session)
+    public void tryEvaluate(String expression, ConnectorSession session)
     {
-        List<Object> results = executeProjectionWithAll(projection, session);
+        selectUniqueValue(expression, session, oldCompiler);
+        selectUniqueValue(expression, session, newCompiler);
+    }
+
+    public void tryEvaluateWithAll(String expression, ConnectorSession session)
+    {
+        executeProjectionWithAll(expression, session, oldCompiler);
+        executeProjectionWithAll(expression, session, newCompiler);
+    }
+
+    private Object selectSingleValue(String projection, ExpressionCompiler compiler)
+    {
+        return selectUniqueValue(projection, session, compiler);
+    }
+
+    private Object selectUniqueValue(String projection, ConnectorSession session, ExpressionCompiler compiler)
+    {
+        List<Object> results = executeProjectionWithAll(projection, session, compiler);
         HashSet<Object> resultSet = new HashSet<>(results);
 
         // we should only have a single result
@@ -214,7 +235,7 @@ public final class FunctionAssertions
         return Iterables.getOnlyElement(resultSet);
     }
 
-    public List<Object> executeProjectionWithAll(String projection, ConnectorSession session)
+    public List<Object> executeProjectionWithAll(String projection, ConnectorSession session, ExpressionCompiler compiler)
     {
         checkNotNull(projection, "projection is null");
 
@@ -233,7 +254,7 @@ public final class FunctionAssertions
         }
 
         // execute as standalone operator
-        OperatorFactory operatorFactory = compileFilterProject(TRUE_LITERAL, projectionExpression);
+        OperatorFactory operatorFactory = compileFilterProject(TRUE_LITERAL, projectionExpression, compiler);
         Object directOperatorValue = selectSingleValue(operatorFactory, session);
         results.add(directOperatorValue);
 
@@ -242,7 +263,7 @@ public final class FunctionAssertions
         results.add(interpretedValue);
 
         // execute over normal operator
-        SourceOperatorFactory scanProjectOperatorFactory = compileScanFilterProject(TRUE_LITERAL, projectionExpression);
+        SourceOperatorFactory scanProjectOperatorFactory = compileScanFilterProject(TRUE_LITERAL, projectionExpression, compiler);
         Object scanOperatorValue = selectSingleValue(scanProjectOperatorFactory, createNormalSplit(), session);
         results.add(scanOperatorValue);
 
@@ -263,13 +284,13 @@ public final class FunctionAssertions
         return results;
     }
 
-    public Object selectSingleValue(OperatorFactory operatorFactory, ConnectorSession session)
+    private Object selectSingleValue(OperatorFactory operatorFactory, ConnectorSession session)
     {
         Operator operator = operatorFactory.createOperator(createDriverContext(session));
         return selectSingleValue(operator);
     }
 
-    public Object selectSingleValue(SourceOperatorFactory operatorFactory, Split split, ConnectorSession session)
+    private Object selectSingleValue(SourceOperatorFactory operatorFactory, Split split, ConnectorSession session)
     {
         SourceOperator operator = operatorFactory.createOperator(createDriverContext(session));
         operator.addSplit(split);
@@ -277,7 +298,7 @@ public final class FunctionAssertions
         return selectSingleValue(operator);
     }
 
-    public Object selectSingleValue(Operator operator)
+    private Object selectSingleValue(Operator operator)
     {
         Page output = getAtMostOnePage(operator, SOURCE_PAGE);
 
@@ -293,7 +314,13 @@ public final class FunctionAssertions
 
     public void assertFilter(String filter, boolean expected, boolean withNoInputColumns)
     {
-        List<Boolean> results = executeFilterWithAll(filter, SESSION, withNoInputColumns);
+        assertFilter(filter, expected, withNoInputColumns, oldCompiler);
+        assertFilter(filter, expected, withNoInputColumns, newCompiler);
+    }
+
+    private void assertFilter(String filter, boolean expected, boolean withNoInputColumns, ExpressionCompiler compiler)
+    {
+        List<Boolean> results = executeFilterWithAll(filter, SESSION, withNoInputColumns, compiler);
         HashSet<Boolean> resultSet = new HashSet<>(results);
 
         // we should only have a single result
@@ -302,7 +329,7 @@ public final class FunctionAssertions
         assertEquals((boolean) Iterables.getOnlyElement(resultSet), expected);
     }
 
-    public List<Boolean> executeFilterWithAll(String filter, ConnectorSession session, boolean executeWithNoInputColumns)
+    private List<Boolean> executeFilterWithAll(String filter, ConnectorSession session, boolean executeWithNoInputColumns, ExpressionCompiler compiler)
     {
         checkNotNull(filter, "filter is null");
 
@@ -311,12 +338,12 @@ public final class FunctionAssertions
         List<Boolean> results = new ArrayList<>();
 
         // execute as standalone operator
-        OperatorFactory operatorFactory = compileFilterProject(filterExpression, TRUE_LITERAL);
+        OperatorFactory operatorFactory = compileFilterProject(filterExpression, TRUE_LITERAL, compiler);
         results.add(executeFilter(operatorFactory, session));
 
         if (executeWithNoInputColumns) {
             // execute as standalone operator
-            operatorFactory = compileFilterWithNoInputColumns(filterExpression);
+            operatorFactory = compileFilterWithNoInputColumns(filterExpression, compiler);
             results.add(executeFilterWithNoInputColumns(operatorFactory, session));
         }
 
@@ -325,7 +352,7 @@ public final class FunctionAssertions
         results.add(interpretedValue);
 
         // execute over normal operator
-        SourceOperatorFactory scanProjectOperatorFactory = compileScanFilterProject(filterExpression, TRUE_LITERAL);
+        SourceOperatorFactory scanProjectOperatorFactory = compileScanFilterProject(filterExpression, TRUE_LITERAL, compiler);
         boolean scanOperatorValue = executeFilter(scanProjectOperatorFactory, createNormalSplit(), session);
         results.add(scanOperatorValue);
 
@@ -469,7 +496,7 @@ public final class FunctionAssertions
         return operatorFactory.createOperator(createDriverContext(session));
     }
 
-    private OperatorFactory compileFilterWithNoInputColumns(Expression filter)
+    private OperatorFactory compileFilterWithNoInputColumns(Expression filter, ExpressionCompiler compiler)
     {
         filter = ExpressionTreeRewriter.rewriteWith(new SymbolToInputRewriter(ImmutableMap.<Symbol, Integer>of()), filter);
 
@@ -486,7 +513,7 @@ public final class FunctionAssertions
         }
     }
 
-    private OperatorFactory compileFilterProject(Expression filter, Expression projection)
+    private OperatorFactory compileFilterProject(Expression filter, Expression projection, ExpressionCompiler compiler)
     {
         filter = ExpressionTreeRewriter.rewriteWith(new SymbolToInputRewriter(INPUT_MAPPING), filter);
         projection = ExpressionTreeRewriter.rewriteWith(new SymbolToInputRewriter(INPUT_MAPPING), projection);
@@ -504,7 +531,7 @@ public final class FunctionAssertions
         }
     }
 
-    private SourceOperatorFactory compileScanFilterProject(Expression filter, Expression projection)
+    private SourceOperatorFactory compileScanFilterProject(Expression filter, Expression projection, ExpressionCompiler compiler)
     {
         filter = ExpressionTreeRewriter.rewriteWith(new SymbolToInputRewriter(INPUT_MAPPING), filter);
         projection = ExpressionTreeRewriter.rewriteWith(new SymbolToInputRewriter(INPUT_MAPPING), projection);
