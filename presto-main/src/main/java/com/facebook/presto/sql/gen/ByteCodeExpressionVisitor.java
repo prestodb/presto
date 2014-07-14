@@ -61,7 +61,6 @@ import com.facebook.presto.sql.tree.TimestampLiteral;
 import com.facebook.presto.sql.tree.WhenClause;
 import com.google.common.base.Function;
 import com.google.common.base.Functions;
-import com.google.common.base.Joiner;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
@@ -90,6 +89,9 @@ import static com.facebook.presto.byteCode.instruction.JumpInstruction.jump;
 import static com.facebook.presto.spi.type.TimeWithTimeZoneType.TIME_WITH_TIME_ZONE;
 import static com.facebook.presto.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
+import static com.facebook.presto.sql.gen.ByteCodeUtils.ifWasNullClearPopAndGoto;
+import static com.facebook.presto.sql.gen.ByteCodeUtils.ifWasNullPopAndGoto;
+import static com.facebook.presto.sql.gen.ByteCodeUtils.unboxPrimitive;
 import static com.facebook.presto.sql.gen.SliceConstant.sliceConstant;
 import static com.facebook.presto.type.UnknownType.UNKNOWN;
 import static com.facebook.presto.util.DateTimeUtils.parseDayTimeInterval;
@@ -384,21 +386,6 @@ public class ByteCodeExpressionVisitor
         block.visitLabel(end);
 
         return block;
-    }
-
-    private static ByteCodeNode unboxPrimitive(CompilerContext context, Class<?> unboxedType)
-    {
-        Block block = new Block(context).comment("unbox primitive");
-        if (unboxedType == long.class) {
-            return block.invokeVirtual(Long.class, "longValue", long.class);
-        }
-        if (unboxedType == double.class) {
-            return block.invokeVirtual(Double.class, "doubleValue", double.class);
-        }
-        if (unboxedType == boolean.class) {
-            return block.invokeVirtual(Boolean.class, "booleanValue", boolean.class);
-        }
-        throw new UnsupportedOperationException("not yet implemented: " + unboxedType);
     }
 
     @Override
@@ -1118,59 +1105,6 @@ public class ByteCodeExpressionVisitor
     protected ByteCodeNode visitExpression(Expression node, CompilerContext context)
     {
         throw new UnsupportedOperationException(format("Compilation of %s not supported yet", node.getClass().getSimpleName()));
-    }
-
-    private ByteCodeNode ifWasNullPopAndGoto(CompilerContext context, LabelNode label, Class<?> returnType, Class<?>... stackArgsToPop)
-    {
-        return handleNullValue(context, label, returnType, ImmutableList.copyOf(stackArgsToPop), false);
-    }
-
-    private ByteCodeNode ifWasNullPopAndGoto(CompilerContext context, LabelNode label, Class<?> returnType, Iterable<? extends Class<?>> stackArgsToPop)
-    {
-        return handleNullValue(context, label, returnType, ImmutableList.copyOf(stackArgsToPop), false);
-    }
-
-    private ByteCodeNode ifWasNullClearPopAndGoto(CompilerContext context, LabelNode label, Class<?> returnType, Class<?>... stackArgsToPop)
-    {
-        return handleNullValue(context, label, returnType, ImmutableList.copyOf(stackArgsToPop), true);
-    }
-
-    private ByteCodeNode handleNullValue(CompilerContext context,
-            LabelNode label,
-            Class<?> returnType,
-            List<? extends Class<?>> stackArgsToPop,
-            boolean clearNullFlag)
-    {
-        Block nullCheck = new Block(context)
-                .setDescription("ifWasNullGoto")
-                .getVariable("wasNull");
-
-        String clearComment = null;
-        if (clearNullFlag) {
-            nullCheck.putVariable("wasNull", false);
-            clearComment = "clear wasNull";
-        }
-
-        Block isNull = new Block(context);
-        for (Class<?> parameterType : stackArgsToPop) {
-            isNull.pop(parameterType);
-        }
-
-        isNull.pushJavaDefault(returnType);
-        String loadDefaultComment = null;
-        if (returnType != void.class) {
-            loadDefaultComment = format("loadJavaDefault(%s)", returnType.getName());
-        }
-
-        isNull.gotoLabel(label);
-
-        String popComment = null;
-        if (!stackArgsToPop.isEmpty()) {
-            popComment = format("pop(%s)", Joiner.on(", ").join(stackArgsToPop));
-        }
-
-        String comment = format("if wasNull then %s", Joiner.on(", ").skipNulls().join(clearComment, popComment, loadDefaultComment, "goto " + label.getLabel()));
-        return new IfStatement(context, comment, nullCheck, isNull, NOP);
     }
 
     private ByteCodeNode typedNull(CompilerContext context, Class<?> type)

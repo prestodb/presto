@@ -49,10 +49,13 @@ import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.type.TimeZoneKey;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.split.DataStreamProvider;
+import com.facebook.presto.sql.planner.CompilerConfig;
 import com.facebook.presto.sql.planner.SubExpressionExtractor;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
-import com.facebook.presto.sql.tree.InputReference;
+import com.facebook.presto.sql.relational.RowExpression;
+import com.facebook.presto.sql.relational.SqlToRowExpressionTranslator;
 import com.facebook.presto.sql.tree.Expression;
+import com.facebook.presto.sql.tree.InputReference;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Objects;
 import com.google.common.base.Throwables;
@@ -115,6 +118,8 @@ public class ExpressionCompiler
     private static final boolean RUN_ASM_VERIFIER = false; // verifier doesn't work right now
     private static final AtomicReference<String> DUMP_CLASS_FILES_TO = new AtomicReference<>();
 
+    private final boolean useNewByteCodeGenerator;
+
     private final Metadata metadata;
 
     private final LoadingCache<OperatorCacheKey, FilterAndProjectOperatorFactoryFactory> operatorFactories = CacheBuilder.newBuilder().maximumSize(1000).build(
@@ -142,9 +147,10 @@ public class ExpressionCompiler
     private final AtomicLong generatedClasses = new AtomicLong();
 
     @Inject
-    public ExpressionCompiler(Metadata metadata)
+    public ExpressionCompiler(Metadata metadata, CompilerConfig config)
     {
         this.metadata = metadata;
+        this.useNewByteCodeGenerator = config.isUseNewByteCodeGenerator();
     }
 
     @Managed
@@ -631,8 +637,7 @@ public class ExpressionCompiler
 
         filterMethod.getCompilerContext().declareVariable(type(boolean.class), "wasNull");
         Block getSessionByteCode = new Block(filterMethod.getCompilerContext()).pushThis().getField(classDefinition.getType(), "session", type(ConnectorSession.class));
-        ByteCodeExpressionVisitor visitor = new ByteCodeExpressionVisitor(metadata, bootstrap.getFunctionBinder(), expressionTypes, getSessionByteCode, sourceIsCursor, timeZoneKey);
-        ByteCodeNode body = visitor.process(filter, filterMethod.getCompilerContext());
+        ByteCodeNode body = compileExpression(bootstrap, filter, expressionTypes, sourceIsCursor, timeZoneKey, filterMethod.getCompilerContext(), getSessionByteCode);
 
         LabelNode end = new LabelNode("end");
         filterMethod
@@ -646,6 +651,26 @@ public class ExpressionCompiler
                 .push(false)
                 .visitLabel(end)
                 .retBoolean();
+    }
+
+    private ByteCodeNode compileExpression(
+            BootstrapEntry bootstrap,
+            Expression expression,
+            IdentityHashMap<Expression, Type> types,
+            boolean sourceIsCursor,
+            TimeZoneKey timeZoneKey,
+            CompilerContext context,
+            Block getSessionByteCode)
+    {
+        if (useNewByteCodeGenerator) {
+            RowExpression translated = SqlToRowExpressionTranslator.translate(expression, types, metadata, timeZoneKey);
+            NewByteCodeExpressionVisitor visitor = new NewByteCodeExpressionVisitor(bootstrap.getFunctionBinder(), getSessionByteCode, sourceIsCursor);
+            return translated.accept(visitor, context);
+        }
+        else {
+            ByteCodeExpressionVisitor visitor = new ByteCodeExpressionVisitor(metadata, bootstrap.getFunctionBinder(), types, getSessionByteCode, sourceIsCursor, timeZoneKey);
+            return visitor.process(expression, context);
+        }
     }
 
     private Class<?> generateProjectMethod(
@@ -685,8 +710,8 @@ public class ExpressionCompiler
         CompilerContext context = projectionMethod.getCompilerContext();
         context.declareVariable(type(boolean.class), "wasNull");
         Block getSessionByteCode = new Block(context).pushThis().getField(classDefinition.getType(), "session", type(ConnectorSession.class));
-        ByteCodeExpressionVisitor visitor = new ByteCodeExpressionVisitor(metadata, bootstrap.getFunctionBinder(), expressionTypes, getSessionByteCode, sourceIsCursor, timeZoneKey);
-        ByteCodeNode body = visitor.process(projection, context);
+
+        ByteCodeNode body = compileExpression(bootstrap, projection, expressionTypes, sourceIsCursor, timeZoneKey, context, getSessionByteCode);
 
         projectionMethod
                 .getBody()

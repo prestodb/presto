@@ -43,6 +43,7 @@ import com.facebook.presto.split.DataStreamProvider;
 import com.facebook.presto.sql.analyzer.ExpressionAnalysis;
 import com.facebook.presto.sql.gen.ExpressionCompiler;
 import com.facebook.presto.sql.parser.SqlParser;
+import com.facebook.presto.sql.planner.CompilerConfig;
 import com.facebook.presto.sql.planner.InterpretedFilterFunction;
 import com.facebook.presto.sql.planner.InterpretedProjectionFunction;
 import com.facebook.presto.sql.planner.Symbol;
@@ -165,7 +166,7 @@ public final class FunctionAssertions
         this.session = checkNotNull(session, "session is null");
         runner = new LocalQueryRunner(session);
         metadata = runner.getMetadata();
-        compiler = new ExpressionCompiler(metadata);
+        compiler = new ExpressionCompiler(metadata, new CompilerConfig().setUseNewByteCodeGenerator(true));
     }
 
     public FunctionAssertions addFunctions(List<FunctionInfo> functionInfos)

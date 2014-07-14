@@ -17,11 +17,15 @@ import com.facebook.presto.byteCode.ByteCodeNode;
 import com.facebook.presto.metadata.FunctionInfo;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.OperatorType;
+import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.tree.QualifiedName;
+import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 
 import java.lang.invoke.CallSite;
+import java.lang.invoke.ConstantCallSite;
+import java.lang.invoke.MethodHandles;
 import java.lang.invoke.MethodType;
 import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;
@@ -78,6 +82,27 @@ public class BootstrapFunctionBinder
     private FunctionBinding bindOperator(FunctionInfo operatorInfo, ByteCodeNode getSessionByteCode, List<ByteCodeNode> arguments)
     {
         return bindFunction(operatorInfo.getSignature().getName(), getSessionByteCode, arguments, operatorInfo.getFunctionBinder());
+    }
+
+    public FunctionBinding bindFunction(Signature signature, ByteCodeNode getSessionByteCode, List<ByteCodeNode> arguments)
+    {
+        FunctionInfo function = metadata.getExactFunction(signature);
+        if (function == null) {
+            // TODO: temporary hack to deal with magic timestamp literal functions which don't have an "exact" form and need to be "resolved"
+            function = metadata.resolveFunction(QualifiedName.of(signature.getName()), signature.getArgumentTypes(), false);
+        }
+
+        Preconditions.checkArgument(function != null, "Function %s not found", signature);
+
+        return bindFunction(signature.getName(), getSessionByteCode, arguments, function.getFunctionBinder());
+    }
+
+    public FunctionBinding bindConstant(Object constant, Type type)
+    {
+        long bindingId = NEXT_BINDING_ID.getAndIncrement();
+        ConstantCallSite callsite = new ConstantCallSite(MethodHandles.constant(type.getJavaType(), constant));
+        bindings.put(bindingId, callsite);
+        return new FunctionBinding(bindingId, "constant_" + bindingId, callsite, ImmutableList.<ByteCodeNode>of(), true);
     }
 
     public CallSite bootstrap(String name, MethodType type, long bindingId)

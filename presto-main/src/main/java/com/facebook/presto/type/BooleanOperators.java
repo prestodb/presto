@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.type;
 
+import com.facebook.presto.operator.scalar.ScalarFunction;
 import com.facebook.presto.operator.scalar.ScalarOperator;
 import com.facebook.presto.spi.type.BigintType;
 import com.facebook.presto.spi.type.BooleanType;
@@ -115,5 +116,12 @@ public final class BooleanOperators
     public static int hashCode(@SqlType(BooleanType.class) boolean value)
     {
         return value ? 1231 : 1237;
+    }
+
+    @SqlType(BooleanType.class)
+    @ScalarFunction(hidden = true) // TODO: this should not be callable from SQL
+    public static boolean not(@SqlType(BooleanType.class) boolean value)
+    {
+        return !value;
     }
 }
