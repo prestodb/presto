@@ -16,7 +16,6 @@ package com.facebook.presto.concurrent;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Ordering;
-import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import org.testng.annotations.Test;
 
 import java.util.ArrayList;
@@ -28,6 +27,7 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Future;
 import java.util.concurrent.LinkedBlockingDeque;
 
+import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static org.testng.Assert.assertTrue;
 
 public class TestFairBatchExecutor
@@ -36,7 +36,7 @@ public class TestFairBatchExecutor
     public void testSanity()
             throws Exception
     {
-        FairBatchExecutor executor = new FairBatchExecutor(1, new ThreadFactoryBuilder().setDaemon(true).build());
+        FairBatchExecutor executor = new FairBatchExecutor(1, daemonThreadsNamed("test-%s"));
 
         // first, block the executor until we're ready
         final CountDownLatch readyToStart = new CountDownLatch(1);

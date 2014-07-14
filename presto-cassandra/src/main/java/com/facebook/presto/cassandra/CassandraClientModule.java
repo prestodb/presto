@@ -13,29 +13,29 @@
  */
 package com.facebook.presto.cassandra;
 
-import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkNotNull;
-import static io.airlift.configuration.ConfigurationModule.bindConfig;
-import static io.airlift.json.JsonCodecBinder.jsonCodecBinder;
-import static org.weakref.jmx.ObjectNames.generatedNameOf;
-import static org.weakref.jmx.guice.ExportBinder.newExporter;
-import io.airlift.json.JsonCodec;
-
-import java.util.List;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-
-import javax.inject.Singleton;
-
 import com.datastax.driver.core.Cluster;
 import com.datastax.driver.core.QueryOptions;
 import com.datastax.driver.core.SocketOptions;
 import com.datastax.driver.core.policies.ExponentialReconnectionPolicy;
-import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import com.google.inject.Binder;
 import com.google.inject.Module;
 import com.google.inject.Provides;
 import com.google.inject.Scopes;
+import io.airlift.json.JsonCodec;
+
+import javax.inject.Singleton;
+
+import java.util.List;
+import java.util.concurrent.ExecutorService;
+
+import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkNotNull;
+import static io.airlift.concurrent.Threads.daemonThreadsNamed;
+import static io.airlift.configuration.ConfigurationModule.bindConfig;
+import static io.airlift.json.JsonCodecBinder.jsonCodecBinder;
+import static java.util.concurrent.Executors.newFixedThreadPool;
+import static org.weakref.jmx.ObjectNames.generatedNameOf;
+import static org.weakref.jmx.guice.ExportBinder.newExporter;
 
 public class CassandraClientModule
         implements Module
@@ -77,10 +77,9 @@ public class CassandraClientModule
     @Provides
     public static ExecutorService createCachingCassandraSchemaExecutor(CassandraConnectorId clientId, CassandraClientConfig cassandraClientConfig)
     {
-        return Executors.newFixedThreadPool(
+        return newFixedThreadPool(
                 cassandraClientConfig.getMaxSchemaRefreshThreads(),
-                new ThreadFactoryBuilder().setDaemon(true)
-                        .setNameFormat("cassandra-" + clientId + "-%d").build());
+                daemonThreadsNamed("cassandra-" + clientId + "-%s"));
     }
 
     @Singleton

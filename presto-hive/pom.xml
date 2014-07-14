@@ -84,6 +84,11 @@
 
         <dependency>
             <groupId>io.airlift</groupId>
+            <artifactId>concurrent</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>io.airlift</groupId>
             <artifactId>log</artifactId>
         </dependency>
 
@@ -186,12 +191,6 @@
         <dependency>
             <groupId>io.airlift</groupId>
             <artifactId>testing</artifactId>
-            <scope>test</scope>
-        </dependency>
-
-        <dependency>
-            <groupId>io.airlift</groupId>
-            <artifactId>concurrent</artifactId>
             <scope>test</scope>
         </dependency>
 

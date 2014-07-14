@@ -16,7 +16,6 @@ package com.facebook.presto.hive;
 import com.facebook.presto.hive.metastore.CachingHiveMetastore;
 import com.facebook.presto.hive.metastore.HiveMetastore;
 import com.google.common.net.HostAndPort;
-import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import com.google.inject.Binder;
 import com.google.inject.Injector;
 import com.google.inject.Module;
@@ -27,13 +26,15 @@ import javax.inject.Singleton;
 
 import java.net.URI;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Strings.isNullOrEmpty;
+import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.airlift.configuration.ConfigurationModule.bindConfig;
 import static io.airlift.discovery.client.DiscoveryBinder.discoveryBinder;
+import static java.util.concurrent.Executors.newCachedThreadPool;
+import static java.util.concurrent.Executors.newFixedThreadPool;
 import static org.weakref.jmx.ObjectNames.generatedNameOf;
 import static org.weakref.jmx.guice.ExportBinder.newExporter;
 
@@ -83,7 +84,7 @@ public class HiveClientModule
     @Provides
     public ExecutorService createHiveClientExecutor(HiveConnectorId hiveClientId)
     {
-        return Executors.newCachedThreadPool(new ThreadFactoryBuilder().setDaemon(true).setNameFormat("hive-" + hiveClientId + "-%d").build());
+        return newCachedThreadPool(daemonThreadsNamed("hive-" + hiveClientId + "-%s"));
     }
 
     @ForHiveMetastore
@@ -91,9 +92,9 @@ public class HiveClientModule
     @Provides
     public ExecutorService createCachingHiveMetastoreExecutor(HiveConnectorId hiveClientId, HiveClientConfig hiveClientConfig)
     {
-        return Executors.newFixedThreadPool(
+        return newFixedThreadPool(
                 hiveClientConfig.getMaxMetastoreRefreshThreads(),
-                new ThreadFactoryBuilder().setDaemon(true).setNameFormat("hive-metastore-" + hiveClientId + "-%d").build());
+                daemonThreadsNamed("hive-metastore-" + hiveClientId + "-%s"));
     }
 
     @Singleton
