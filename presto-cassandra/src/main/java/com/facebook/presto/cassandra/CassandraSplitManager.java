@@ -59,6 +59,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Predicates.in;
 import static com.google.common.base.Predicates.not;
+import static com.google.common.util.concurrent.MoreExecutors.listeningDecorator;
 
 public class CassandraSplitManager
         implements ConnectorSplitManager
@@ -85,7 +86,7 @@ public class CassandraSplitManager
         this.cassandraSession = checkNotNull(cassandraSession, "cassandraSession is null");
         this.partitionSizeForBatchSelect = cassandraClientConfig.getPartitionSizeForBatchSelect();
         this.tokenSplitMgr = tokenSplitMgr;
-        this.executor = MoreExecutors.listeningDecorator(executor);
+        this.executor = listeningDecorator(executor);
     }
 
     @Override

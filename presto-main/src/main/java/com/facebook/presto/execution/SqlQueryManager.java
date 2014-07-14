@@ -59,6 +59,7 @@ import static com.google.common.base.Predicates.not;
 import static com.google.common.collect.Iterables.filter;
 import static com.google.common.collect.Iterables.transform;
 import static io.airlift.concurrent.Threads.threadsNamed;
+import static java.util.concurrent.Executors.newCachedThreadPool;
 
 @ThreadSafe
 public class SqlQueryManager
@@ -102,7 +103,7 @@ public class SqlQueryManager
 
         this.executionFactories = checkNotNull(executionFactories, "executionFactories is null");
 
-        this.queryExecutor = Executors.newCachedThreadPool(threadsNamed("query-scheduler-%d"));
+        this.queryExecutor = newCachedThreadPool(threadsNamed("query-scheduler-%d"));
         this.queryExecutorMBean = new ThreadPoolExecutorMBean((ThreadPoolExecutor) queryExecutor);
 
         this.queryMonitor = checkNotNull(queryMonitor, "queryMonitor is null");

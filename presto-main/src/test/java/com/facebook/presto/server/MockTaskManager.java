@@ -46,7 +46,6 @@ import java.util.NoSuchElementException;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.Executor;
-import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicLong;
 
 import static com.facebook.presto.block.BlockAssertions.createStringsBlock;
@@ -56,11 +55,12 @@ import static com.google.common.base.Preconditions.checkState;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.airlift.http.client.HttpUriBuilder.uriBuilderFrom;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
+import static java.util.concurrent.Executors.newCachedThreadPool;
 
 public class MockTaskManager
         implements TaskManager
 {
-    private final Executor executor = Executors.newCachedThreadPool(daemonThreadsNamed("test-%d"));
+    private final Executor executor = newCachedThreadPool(daemonThreadsNamed("test-%d"));
 
     private final HttpServerInfo httpServerInfo;
     private final DataSize maxBufferSize;

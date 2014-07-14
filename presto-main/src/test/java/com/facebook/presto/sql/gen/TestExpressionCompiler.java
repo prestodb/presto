@@ -36,7 +36,6 @@ import com.google.common.collect.Sets;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.ListeningExecutorService;
-import com.google.common.util.concurrent.MoreExecutors;
 import io.airlift.log.Logger;
 import io.airlift.log.Logging;
 import io.airlift.slice.Slice;
@@ -62,6 +61,8 @@ import static com.facebook.presto.operator.scalar.FunctionAssertions.SESSION;
 import static com.facebook.presto.spi.type.DateTimeEncoding.packDateTimeWithZone;
 import static com.google.common.base.Charsets.UTF_8;
 import static com.google.common.collect.Iterables.transform;
+import static com.google.common.util.concurrent.MoreExecutors.listeningDecorator;
+import static com.google.common.util.concurrent.MoreExecutors.sameThreadExecutor;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static java.lang.Math.cos;
 import static java.lang.Runtime.getRuntime;
@@ -120,10 +121,10 @@ public class TestExpressionCompiler
     {
         Logging.initialize();
         if (PARALLEL) {
-            executor = MoreExecutors.listeningDecorator(newFixedThreadPool(getRuntime().availableProcessors() * 2, daemonThreadsNamed("completer-%d")));
+            executor = listeningDecorator(newFixedThreadPool(getRuntime().availableProcessors() * 2, daemonThreadsNamed("completer-%d")));
         }
         else {
-            executor = MoreExecutors.listeningDecorator(MoreExecutors.sameThreadExecutor());
+            executor = listeningDecorator(sameThreadExecutor());
         }
         functionAssertions = new FunctionAssertions();
     }
