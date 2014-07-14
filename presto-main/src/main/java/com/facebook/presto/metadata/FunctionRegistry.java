@@ -392,7 +392,7 @@ public class FunctionRegistry
 
             MethodHandle identity = MethodHandles.identity(parameterTypes.get(0).getJavaType());
             return new FunctionInfo(
-                    new Signature(MAGIC_LITERAL_FUNCTION_PREFIX, type, ImmutableList.copyOf(parameterTypes), false),
+                    getMagicLiteralFunctionSignature(type),
                     null,
                     true,
                     identity,
