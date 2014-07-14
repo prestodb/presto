@@ -26,7 +26,6 @@ import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.ListeningExecutorService;
-import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import io.airlift.command.Command;
 import io.airlift.command.HelpOption;
 import io.airlift.command.Option;
@@ -65,6 +64,7 @@ import static com.google.common.io.ByteStreams.nullOutputStream;
 import static com.google.common.net.HttpHeaders.USER_AGENT;
 import static com.google.common.util.concurrent.MoreExecutors.listeningDecorator;
 import static io.airlift.command.SingleCommand.singleCommand;
+import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.airlift.http.client.HttpUriBuilder.uriBuilderFrom;
 import static io.airlift.http.client.Request.Builder.preparePost;
 import static io.airlift.http.client.StaticBodyGenerator.createStaticBodyGenerator;
@@ -152,7 +152,7 @@ public class PerfTest
 
         public ParallelQueryRunner(int maxParallelism, URI server, String catalog, String schema, boolean debug)
         {
-            executor = listeningDecorator(newCachedThreadPool(new ThreadFactoryBuilder().setNameFormat("query-runner-%s").setDaemon(true).build()));
+            executor = listeningDecorator(newCachedThreadPool(daemonThreadsNamed("query-runner-%s")));
 
             ImmutableList.Builder<QueryRunner> runners = ImmutableList.builder();
             for (int i = 0; i < maxParallelism; i++) {
