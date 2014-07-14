@@ -17,7 +17,6 @@ import com.google.common.base.Throwables;
 import com.google.common.io.Files;
 import com.google.common.util.concurrent.SimpleTimeLimiter;
 import com.google.common.util.concurrent.TimeLimiter;
-import io.airlift.concurrent.Threads;
 import libsvm.svm;
 import libsvm.svm_model;
 import libsvm.svm_node;
@@ -30,10 +29,11 @@ import java.util.List;
 import java.util.SortedMap;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 
 import static com.google.common.base.Preconditions.checkNotNull;
+import static io.airlift.concurrent.Threads.threadsNamed;
+import static java.util.concurrent.Executors.newCachedThreadPool;
 
 public abstract class AbstractSvmModel
         implements Model
@@ -78,7 +78,7 @@ public abstract class AbstractSvmModel
 
         svm_problem problem = toSvmProblem(dataset);
 
-        ExecutorService service = Executors.newCachedThreadPool(Threads.threadsNamed("libsvm-trainer-" + System.identityHashCode(this) + "-%d"));
+        ExecutorService service = newCachedThreadPool(threadsNamed("libsvm-trainer-" + System.identityHashCode(this) + "-%d"));
         try {
             TimeLimiter limiter = new SimpleTimeLimiter(service);
             //TODO: this time limit should be configurable
