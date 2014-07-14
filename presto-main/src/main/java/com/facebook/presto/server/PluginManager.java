@@ -69,6 +69,7 @@ public class PluginManager
             .add("com.fasterxml.jackson")
             .add("io.airlift.slice")
             .add("javax.inject")
+            .add("javax.annotation")
             .build();
 
     private static final Logger log = Logger.get(PluginManager.class);
