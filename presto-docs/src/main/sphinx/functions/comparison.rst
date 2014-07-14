@@ -65,7 +65,7 @@ Using ``NULL`` with ``IS NULL`` evaluates to true::
 
 But any other constant does not::
 
-    SELECT 3.0 IS NOT NULL; => false
+    SELECT 3.0 IS NULL; => false
 
 IS DISTINCT FROM and IS NOT DISTINCT FROM
 -----------------------------------------
