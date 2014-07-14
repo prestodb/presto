@@ -134,7 +134,7 @@ public class LocalQueryRunner
         this.indexManager = new IndexManager();
         this.recordSinkManager = new RecordSinkManager();
 
-        this.compiler = new ExpressionCompiler(metadata);
+        this.compiler = new ExpressionCompiler(metadata, new CompilerConfig());
 
         // sys schema
         SystemTablesMetadata systemTablesMetadata = new SystemTablesMetadata();

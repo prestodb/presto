@@ -596,6 +596,7 @@ public class FunctionRegistry
         return new Signature(MAGIC_LITERAL_FUNCTION_PREFIX + type.getName(),
                 type,
                 ImmutableList.of(type(type.getJavaType())),
+                false,
                 false);
     }
 
@@ -630,7 +631,7 @@ public class FunctionRegistry
             name = name.toLowerCase();
 
             String description = getDescription(function.getClass());
-            functions.add(new FunctionInfo(new Signature(name, returnType, ImmutableList.copyOf(argumentTypes), approximate), description, intermediateType, function));
+            functions.add(new FunctionInfo(new Signature(name, returnType, ImmutableList.copyOf(argumentTypes), approximate, false), description, intermediateType, function));
             return this;
         }
 
@@ -642,7 +643,9 @@ public class FunctionRegistry
 
         private FunctionListBuilder operator(OperatorType operatorType, Type returnType, List<Type> parameterTypes, MethodHandle function, FunctionBinder functionBinder)
         {
-            operators.put(operatorType, operatorInfo(operatorType, returnType, parameterTypes, function, functionBinder));
+            FunctionInfo operatorInfo = operatorInfo(operatorType, returnType, parameterTypes, function, functionBinder);
+            operators.put(operatorType, operatorInfo);
+            functions.add(operatorInfo);
             return this;
         }
 
@@ -678,7 +681,7 @@ public class FunctionRegistry
             SqlType returnTypeAnnotation = method.getAnnotation(SqlType.class);
             checkArgument(returnTypeAnnotation != null, "Method %s return type does not have a @SqlType annotation", method);
             Type returnType = type(returnTypeAnnotation);
-            Signature signature = new Signature(name.toLowerCase(), returnType, parameterTypes(method), false);
+            Signature signature = new Signature(name.toLowerCase(), returnType, parameterTypes(method), false, false);
 
             verifyMethodSignature(method, signature.getReturnType(), signature.getArgumentTypes());
 

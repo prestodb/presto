@@ -93,6 +93,7 @@ public class DistributedQueryRunner
                 .put("query.client.timeout", "10m")
                 .put("exchange.http-client.read-timeout", "1h")
                 .put("compiler.interpreter-enabled", "false")
+                .put("compiler.new-bytecode-generator-enabled", "true")
                 .put("datasources", "system");
         if (coordinator) {
             properties.put("node-scheduler.include-coordinator", "false");
