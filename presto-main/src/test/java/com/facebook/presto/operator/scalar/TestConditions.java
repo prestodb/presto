@@ -54,7 +54,7 @@ public class TestConditions
     @Test(expectedExceptions = RuntimeException.class, expectedExceptionsMessageRegExp = ".*escape must be empty or a single character.*")
     public void testLikeInvalidEscape()
     {
-        selectSingleValue("'monkey' like 'monkey' escape 'foo'");
+        evaluate("'monkey' like 'monkey' escape 'foo'");
     }
 
     @Test
@@ -104,7 +104,7 @@ public class TestConditions
     @Test(expectedExceptions = PrestoException.class)
     public void testInDoesNotShortCircuit()
     {
-        selectSingleValue("3 in (2, 4, 3, 5 / 0)");
+        evaluate("3 in (2, 4, 3, 5 / 0)");
     }
 
     @Test
@@ -216,8 +216,8 @@ public class TestConditions
         functionAssertions.assertFunction(projection, expected);
     }
 
-    private Object selectSingleValue(String projection)
+    private void evaluate(String projection)
     {
-        return functionAssertions.selectSingleValue(projection);
+        functionAssertions.tryEvaluate(projection);
     }
 }

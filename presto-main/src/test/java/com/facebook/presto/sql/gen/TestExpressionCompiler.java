@@ -68,7 +68,6 @@ import static java.lang.Math.cos;
 import static java.lang.Runtime.getRuntime;
 import static java.util.concurrent.Executors.newFixedThreadPool;
 import static org.joda.time.DateTimeZone.UTC;
-import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
 
 @Test(singleThreaded = true)
@@ -1251,7 +1250,7 @@ public class TestExpressionCompiler
                 throws Exception
         {
             try {
-                assertEquals(functionAssertions.selectSingleValue(expression), expected);
+                functionAssertions.assertFunction(expression, expected);
             }
             catch (Throwable e) {
                 throw new RuntimeException("Error processing " + expression, e);

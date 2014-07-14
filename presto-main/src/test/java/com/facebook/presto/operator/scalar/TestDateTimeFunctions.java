@@ -41,7 +41,6 @@ import static org.joda.time.Months.monthsBetween;
 import static org.joda.time.Seconds.secondsBetween;
 import static org.joda.time.Weeks.weeksBetween;
 import static org.joda.time.Years.yearsBetween;
-import static org.testng.Assert.assertEquals;
 
 public class TestDateTimeFunctions
 {
@@ -102,14 +101,14 @@ public class TestDateTimeFunctions
     @Test
     public void testLocalTimestamp()
     {
-        assertEquals(functionAssertions.selectSingleValue("localtimestamp"), toTimestamp(session.getStartTime()));
+        functionAssertions.assertFunction("localtimestamp", toTimestamp(session.getStartTime()));
     }
 
     @Test
     public void testCurrentTimestamp()
     {
-        assertEquals(functionAssertions.selectSingleValue("current_timestamp"), new SqlTimestampWithTimeZone(session.getStartTime(), session.getTimeZoneKey()));
-        assertEquals(functionAssertions.selectSingleValue("now()"), new SqlTimestampWithTimeZone(session.getStartTime(), session.getTimeZoneKey()));
+        functionAssertions.assertFunction("current_timestamp", new SqlTimestampWithTimeZone(session.getStartTime(), session.getTimeZoneKey()));
+        functionAssertions.assertFunction("now()", new SqlTimestampWithTimeZone(session.getStartTime(), session.getTimeZoneKey()));
     }
 
     @Test
@@ -143,12 +142,12 @@ public class TestDateTimeFunctions
     @Test
     public void testAtTimeZone()
     {
-        assertEquals(functionAssertions.selectSingleValue("current_timestamp at time zone interval '07:09' hour to minute"),
+        functionAssertions.assertFunction("current_timestamp at time zone interval '07:09' hour to minute",
                 new SqlTimestampWithTimeZone(session.getStartTime(), WEIRD_TIME_ZONE_KEY));
 
-        assertEquals(functionAssertions.selectSingleValue("current_timestamp at time zone 'Asia/Oral'"), new SqlTimestampWithTimeZone(session.getStartTime(), TimeZone.getTimeZone("Asia/Oral")));
-        assertEquals(functionAssertions.selectSingleValue("now() at time zone 'Asia/Oral'"), new SqlTimestampWithTimeZone(session.getStartTime(), TimeZone.getTimeZone("Asia/Oral")));
-        assertEquals(functionAssertions.selectSingleValue("current_timestamp at time zone '+07:09'"), new SqlTimestampWithTimeZone(session.getStartTime(), WEIRD_TIME_ZONE_KEY));
+        functionAssertions.assertFunction("current_timestamp at time zone 'Asia/Oral'", new SqlTimestampWithTimeZone(session.getStartTime(), TimeZone.getTimeZone("Asia/Oral")));
+        functionAssertions.assertFunction("now() at time zone 'Asia/Oral'", new SqlTimestampWithTimeZone(session.getStartTime(), TimeZone.getTimeZone("Asia/Oral")));
+        functionAssertions.assertFunction("current_timestamp at time zone '+07:09'", new SqlTimestampWithTimeZone(session.getStartTime(), WEIRD_TIME_ZONE_KEY));
     }
 
     @Test
