@@ -46,7 +46,6 @@ public final class TimestampType
     }
 
     @Override
-
     public String getName()
     {
         return "timestamp";
