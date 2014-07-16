@@ -17,10 +17,7 @@ import com.facebook.presto.byteCode.ByteCodeNode;
 import com.facebook.presto.metadata.FunctionInfo;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.OperatorType;
-import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.sql.tree.QualifiedName;
-import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 
 import java.lang.invoke.CallSite;
@@ -63,19 +60,6 @@ public class BootstrapFunctionBinder
     {
         FunctionInfo operatorInfo = metadata.resolveOperator(operatorType, argumentTypes);
         return bindFunction(operatorInfo.getSignature().getName(), getSessionByteCode, arguments, operatorInfo.getFunctionBinder());
-    }
-
-    public FunctionBinding bindFunction(Signature signature, ByteCodeNode getSessionByteCode, List<ByteCodeNode> arguments)
-    {
-        FunctionInfo function = metadata.getExactFunction(signature);
-        if (function == null) {
-            // TODO: temporary hack to deal with magic timestamp literal functions which don't have an "exact" form and need to be "resolved"
-            function = metadata.resolveFunction(QualifiedName.of(signature.getName()), signature.getArgumentTypes(), false);
-        }
-
-        Preconditions.checkArgument(function != null, "Function %s not found", signature);
-
-        return bindFunction(signature.getName(), getSessionByteCode, arguments, function.getFunctionBinder());
     }
 
     public FunctionBinding bindConstant(Object constant, Class<?> type)
