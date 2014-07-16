@@ -48,14 +48,6 @@ public class BootstrapFunctionBinder
         this.metadata = checkNotNull(metadata, "metadata is null");
     }
 
-    public FunctionBinding bindFunction(QualifiedName name, ByteCodeNode getSessionByteCode, List<ByteCodeNode> arguments, List<Type> argumentTypes)
-    {
-        FunctionInfo function = metadata.resolveFunction(name, argumentTypes, false);
-        checkArgument(function != null, "Unknown function %s%s", name, argumentTypes);
-
-        return bindFunction(name.toString(), getSessionByteCode, arguments, function.getFunctionBinder());
-    }
-
     public FunctionBinding bindFunction(String name, ByteCodeNode getSessionByteCode, List<ByteCodeNode> arguments, FunctionBinder defaultFunctionBinder)
     {
         // perform binding

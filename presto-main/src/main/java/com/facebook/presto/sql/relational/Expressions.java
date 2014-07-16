@@ -15,6 +15,7 @@ package com.facebook.presto.sql.relational;
 
 import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.spi.type.Type;
+import com.google.common.collect.ImmutableList;
 
 import java.util.Arrays;
 import java.util.List;
@@ -48,5 +49,41 @@ public final class Expressions
     public static InputReferenceExpression field(int field, Type type)
     {
         return new InputReferenceExpression(field, type);
+    }
+
+    public static List<RowExpression> subExpressions(Iterable<RowExpression> expressions)
+    {
+        final ImmutableList.Builder<RowExpression> builder = ImmutableList.builder();
+
+        for (RowExpression expression : expressions) {
+            expression.accept(new RowExpressionVisitor<Void, Void>()
+            {
+                @Override
+                public Void visitCall(CallExpression call, Void context)
+                {
+                    builder.add(call);
+                    for (RowExpression argument : call.getArguments()) {
+                        argument.accept(this, context);
+                    }
+                    return null;
+                }
+
+                @Override
+                public Void visitInputReference(InputReferenceExpression reference, Void context)
+                {
+                    builder.add(reference);
+                    return null;
+                }
+
+                @Override
+                public Void visitConstant(ConstantExpression literal, Void context)
+                {
+                    builder.add(literal);
+                    return null;
+                }
+            }, null);
+        }
+
+        return builder.build();
     }
 }

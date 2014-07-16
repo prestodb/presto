@@ -43,12 +43,13 @@ import com.facebook.presto.split.DataStreamProvider;
 import com.facebook.presto.sql.analyzer.ExpressionAnalysis;
 import com.facebook.presto.sql.gen.ExpressionCompiler;
 import com.facebook.presto.sql.parser.SqlParser;
-import com.facebook.presto.sql.planner.CompilerConfig;
 import com.facebook.presto.sql.planner.InterpretedFilterFunction;
 import com.facebook.presto.sql.planner.InterpretedProjectionFunction;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.SymbolToInputRewriter;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
+import com.facebook.presto.sql.relational.RowExpression;
+import com.facebook.presto.sql.relational.SqlToRowExpressionTranslator;
 import com.facebook.presto.sql.tree.Cast;
 import com.facebook.presto.sql.tree.DefaultTraversalVisitor;
 import com.facebook.presto.sql.tree.Expression;
@@ -154,8 +155,7 @@ public final class FunctionAssertions
     private final ConnectorSession session;
     private final LocalQueryRunner runner;
     private final Metadata metadata;
-    private final ExpressionCompiler oldCompiler;
-    private final ExpressionCompiler newCompiler;
+    private final ExpressionCompiler compiler;
 
     public FunctionAssertions()
     {
@@ -167,8 +167,7 @@ public final class FunctionAssertions
         this.session = checkNotNull(session, "session is null");
         runner = new LocalQueryRunner(session);
         metadata = runner.getMetadata();
-        oldCompiler = new ExpressionCompiler(metadata, new CompilerConfig().setUseNewByteCodeGenerator(false));
-        newCompiler = new ExpressionCompiler(metadata, new CompilerConfig().setUseNewByteCodeGenerator(true));
+        compiler = new ExpressionCompiler(metadata);
     }
 
     public FunctionAssertions addFunctions(List<FunctionInfo> functionInfos)
@@ -192,14 +191,12 @@ public final class FunctionAssertions
             expected = ((Slice) expected).toString(Charsets.UTF_8);
         }
 
-        assertEquals(selectSingleValue(projection, newCompiler), expected);
-        assertEquals(selectSingleValue(projection, oldCompiler), expected);
+        assertEquals(selectSingleValue(projection, compiler), expected);
     }
 
     public void assertFunctionNull(String projection)
     {
-        assertNull(selectSingleValue(projection, oldCompiler));
-        assertNull(selectSingleValue(projection, newCompiler));
+        assertNull(selectSingleValue(projection, compiler));
     }
 
     public void tryEvaluate(String expression)
@@ -209,14 +206,12 @@ public final class FunctionAssertions
 
     public void tryEvaluate(String expression, ConnectorSession session)
     {
-        selectUniqueValue(expression, session, oldCompiler);
-        selectUniqueValue(expression, session, newCompiler);
+        selectUniqueValue(expression, session, compiler);
     }
 
     public void tryEvaluateWithAll(String expression, ConnectorSession session)
     {
-        executeProjectionWithAll(expression, session, oldCompiler);
-        executeProjectionWithAll(expression, session, newCompiler);
+        executeProjectionWithAll(expression, session, compiler);
     }
 
     private Object selectSingleValue(String projection, ExpressionCompiler compiler)
@@ -314,8 +309,7 @@ public final class FunctionAssertions
 
     public void assertFilter(String filter, boolean expected, boolean withNoInputColumns)
     {
-        assertFilter(filter, expected, withNoInputColumns, oldCompiler);
-        assertFilter(filter, expected, withNoInputColumns, newCompiler);
+        assertFilter(filter, expected, withNoInputColumns, compiler);
     }
 
     private void assertFilter(String filter, boolean expected, boolean withNoInputColumns, ExpressionCompiler compiler)
@@ -503,7 +497,9 @@ public final class FunctionAssertions
         IdentityHashMap<Expression, Type> expressionTypes = getExpressionTypesFromInput(SESSION, metadata, SQL_PARSER, INPUT_TYPES, ImmutableList.of(filter));
 
         try {
-            return compiler.compileFilterAndProjectOperator(0, filter, ImmutableList.<Expression>of(), expressionTypes, session.getTimeZoneKey());
+            return compiler.compileFilterAndProjectOperator(0,
+                    SqlToRowExpressionTranslator.translate(filter, expressionTypes, metadata, session.getTimeZoneKey()),
+                    ImmutableList.<RowExpression>of());
         }
         catch (Throwable e) {
             if (e instanceof UncheckedExecutionException) {
@@ -521,7 +517,9 @@ public final class FunctionAssertions
         IdentityHashMap<Expression, Type> expressionTypes = getExpressionTypesFromInput(SESSION, metadata, SQL_PARSER, INPUT_TYPES, ImmutableList.of(filter, projection));
 
         try {
-            return compiler.compileFilterAndProjectOperator(0, filter, ImmutableList.of(projection), expressionTypes, session.getTimeZoneKey());
+            return compiler.compileFilterAndProjectOperator(0,
+                    SqlToRowExpressionTranslator.translate(filter, expressionTypes, metadata, session.getTimeZoneKey()),
+                    ImmutableList.of(SqlToRowExpressionTranslator.translate(projection, expressionTypes, metadata, session.getTimeZoneKey())));
         }
         catch (Throwable e) {
             if (e instanceof UncheckedExecutionException) {
@@ -544,10 +542,8 @@ public final class FunctionAssertions
                     SOURCE_ID,
                     DATA_STREAM_PROVIDER,
                     ImmutableList.<ColumnHandle>of(),
-                    filter,
-                    ImmutableList.of(projection),
-                    expressionTypes,
-                    session.getTimeZoneKey());
+                    SqlToRowExpressionTranslator.translate(filter, expressionTypes, metadata, session.getTimeZoneKey()),
+                    ImmutableList.of(SqlToRowExpressionTranslator.translate(projection, expressionTypes, metadata, session.getTimeZoneKey())));
         }
         catch (Throwable e) {
             if (e instanceof UncheckedExecutionException) {
