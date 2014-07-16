@@ -92,6 +92,7 @@ import com.facebook.presto.sql.planner.plan.TopNNode;
 import com.facebook.presto.sql.planner.plan.UnionNode;
 import com.facebook.presto.sql.planner.plan.ValuesNode;
 import com.facebook.presto.sql.planner.plan.WindowNode;
+import com.facebook.presto.sql.relational.SqlToRowExpressionTranslator;
 import com.facebook.presto.sql.tree.BooleanLiteral;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.ExpressionTreeRewriter;
@@ -695,20 +696,16 @@ public class LocalExecutionPlanner
                             sourceNode.getId(),
                             dataStreamProvider,
                             columns,
-                            rewrittenFilter,
-                            rewrittenProjections,
-                            expressionTypes,
-                            session.getTimeZoneKey());
+                            SqlToRowExpressionTranslator.translate(rewrittenFilter, expressionTypes, metadata, session.getTimeZoneKey()),
+                            SqlToRowExpressionTranslator.translate(rewrittenProjections, expressionTypes, metadata, session.getTimeZoneKey()));
 
                     return new PhysicalOperation(operatorFactory, outputMappings);
                 }
                 else {
                     OperatorFactory operatorFactory = compiler.compileFilterAndProjectOperator(
                             context.getNextOperatorId(),
-                            rewrittenFilter,
-                            rewrittenProjections,
-                            expressionTypes,
-                            session.getTimeZoneKey());
+                            SqlToRowExpressionTranslator.translate(rewrittenFilter, expressionTypes, metadata, session.getTimeZoneKey()),
+                            SqlToRowExpressionTranslator.translate(rewrittenProjections, expressionTypes, metadata, session.getTimeZoneKey()));
                     return new PhysicalOperation(operatorFactory, outputMappings, source);
                 }
             }

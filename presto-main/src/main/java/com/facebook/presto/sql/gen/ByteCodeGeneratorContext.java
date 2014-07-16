@@ -21,13 +21,13 @@ import static com.google.common.base.Preconditions.checkNotNull;
 
 public class ByteCodeGeneratorContext
 {
-    private final NewByteCodeExpressionVisitor byteCodeGenerator;
+    private final ByteCodeExpressionVisitor byteCodeGenerator;
     private final CompilerContext context;
     private final BootstrapFunctionBinder bootstrapFunctionBinder;
     private final ByteCodeNode getSessionByteCode;
 
     public ByteCodeGeneratorContext(
-            NewByteCodeExpressionVisitor byteCodeGenerator,
+            ByteCodeExpressionVisitor byteCodeGenerator,
             CompilerContext context,
             BootstrapFunctionBinder bootstrapFunctionBinder,
             ByteCodeNode getSessionByteCode)

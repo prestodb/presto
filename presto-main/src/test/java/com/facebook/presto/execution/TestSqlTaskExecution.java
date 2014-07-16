@@ -94,7 +94,7 @@ public class TestSqlTaskExecution
                 new IndexManager(),
                 new RecordSinkManager(),
                 new MockExchangeClientSupplier(),
-                new ExpressionCompiler(metadata, new CompilerConfig()),
+                new ExpressionCompiler(metadata),
                 new CompilerConfig());
 
         taskExecutor = new TaskExecutor(8);
