@@ -103,6 +103,15 @@ public final class SqlToRowExpressionTranslator
         return result;
     }
 
+    public static List<RowExpression> translate(List<Expression> expressions, IdentityHashMap<Expression, Type> types, Metadata metadata, TimeZoneKey timeZoneKey)
+    {
+        ImmutableList.Builder<RowExpression> builder = ImmutableList.builder();
+        for (Expression expression : expressions) {
+            builder.add(translate(expression, types, metadata, timeZoneKey));
+        }
+        return builder.build();
+    }
+
     private static class Visitor
             extends AstVisitor<RowExpression, Void>
     {
