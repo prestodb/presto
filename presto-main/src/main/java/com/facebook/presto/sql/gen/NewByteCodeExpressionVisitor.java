@@ -151,7 +151,7 @@ public class NewByteCodeExpressionVisitor
         }
 
         // bind constant object directly into the call-site using invoke dynamic
-        FunctionBinding binding = bootstrapFunctionBinder.bindConstant(value, constant.getType());
+        FunctionBinding binding = bootstrapFunctionBinder.bindConstant(value, constant.getType().getJavaType());
 
         return new Block(context)
                 .setDescription("constant " + constant.getType())
