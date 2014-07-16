@@ -175,4 +175,6 @@ public interface Metadata
      * Drops the specified view.
      */
     void dropView(ConnectorSession session, QualifiedTableName viewName);
+
+    FunctionRegistry getFunctionRegistry();
 }

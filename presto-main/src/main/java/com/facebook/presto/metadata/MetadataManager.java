@@ -437,6 +437,12 @@ public class MetadataManager
         connectorMetadata.getMetadata().dropView(session, viewName.asSchemaTableName());
     }
 
+    @Override
+    public FunctionRegistry getFunctionRegistry()
+    {
+        return functions;
+    }
+
     private ViewDefinition deserializeView(String data)
     {
         try {
