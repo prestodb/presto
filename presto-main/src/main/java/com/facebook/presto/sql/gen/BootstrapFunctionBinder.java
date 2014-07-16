@@ -97,10 +97,10 @@ public class BootstrapFunctionBinder
         return bindFunction(signature.getName(), getSessionByteCode, arguments, function.getFunctionBinder());
     }
 
-    public FunctionBinding bindConstant(Object constant, Type type)
+    public FunctionBinding bindConstant(Object constant, Class<?> type)
     {
         long bindingId = NEXT_BINDING_ID.getAndIncrement();
-        ConstantCallSite callsite = new ConstantCallSite(MethodHandles.constant(type.getJavaType(), constant));
+        ConstantCallSite callsite = new ConstantCallSite(MethodHandles.constant(type, constant));
         bindings.put(bindingId, callsite);
         return new FunctionBinding(bindingId, "constant_" + bindingId, callsite, ImmutableList.<ByteCodeNode>of(), true);
     }
