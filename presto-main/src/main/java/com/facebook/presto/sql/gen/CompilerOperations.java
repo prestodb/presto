@@ -13,6 +13,8 @@
  */
 package com.facebook.presto.sql.gen;
 
+import java.util.Set;
+
 // This methods are statically bound by the compiler
 @SuppressWarnings("UnusedDeclaration")
 public final class CompilerOperations
@@ -47,5 +49,10 @@ public final class CompilerOperations
             Thread.currentThread().interrupt();
             throw new RuntimeException(throwable);
         }
+    }
+
+    public static boolean in(Object value, Set<?> set)
+    {
+        return set.contains(value);
     }
 }
