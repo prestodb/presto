@@ -90,6 +90,25 @@ public class ByteCodeUtils
         return new IfStatement(context, comment, nullCheck, isNull, NOP);
     }
 
+    public static ByteCodeNode boxPrimitive(CompilerContext context, Class<?> type)
+    {
+        Block block = new Block(context).comment("box primitive");
+        if (type == long.class) {
+            return block.invokeStatic(Long.class, "valueOf", Long.class, long.class);
+        }
+        if (type == double.class) {
+            return block.invokeStatic(Double.class, "valueOf", Double.class, double.class);
+        }
+        if (type == boolean.class) {
+            return block.invokeStatic(Boolean.class, "valueOf", Boolean.class, boolean.class);
+        }
+        if (type.isPrimitive()) {
+            throw new UnsupportedOperationException("not yet implemented: " + type);
+        }
+
+        return NOP;
+    }
+
     public static ByteCodeNode unboxPrimitive(CompilerContext context, Class<?> unboxedType)
     {
         Block block = new Block(context).comment("unbox primitive");
