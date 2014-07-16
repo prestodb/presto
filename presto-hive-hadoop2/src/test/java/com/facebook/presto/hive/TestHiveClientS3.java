@@ -13,11 +13,11 @@
  */
 package com.facebook.presto.hive;
 
-import org.testng.annotations.BeforeMethod;
+import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Parameters;
 import org.testng.annotations.Test;
 
-@Test(singleThreaded = true)
+@Test
 public class TestHiveClientS3
         extends AbstractTestHiveClientS3
 {
@@ -29,7 +29,7 @@ public class TestHiveClientS3
             "hive.hadoop2.s3.awsSecretKey",
             "hive.hadoop2.s3.writableBucket",
     })
-    @BeforeMethod
+    @BeforeClass
     @Override
     public void setup(String host, int port, String databaseName, String awsAccessKey, String awsSecretKey, String writableBucket)
     {

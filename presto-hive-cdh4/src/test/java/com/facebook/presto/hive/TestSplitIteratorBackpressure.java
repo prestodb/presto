@@ -13,16 +13,16 @@
  */
 package com.facebook.presto.hive;
 
-import org.testng.annotations.BeforeMethod;
+import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Parameters;
 import org.testng.annotations.Test;
 
-@Test(singleThreaded = true)
+@Test
 public class TestSplitIteratorBackpressure
         extends AbstractTestSplitIteratorBackpressure
 {
     @Parameters({"hive.cdh4.metastoreHost", "hive.cdh4.metastorePort", "hive.cdh4.databaseName", "hive.cdh4.timeZone"})
-    @BeforeMethod
+    @BeforeClass
     @Override
     protected void setup(String host, int port, String databaseName, String timeZone)
     {
