@@ -606,6 +606,13 @@ public class TestAnalyzer
         assertFails(NOT_SUPPORTED, "SELECT * FROM (VALUES (1)) a (x) JOIN (VALUES (2)) b ON a.x IS NOT NULL");
     }
 
+    @Test
+    public void testIfInJoinClause()
+            throws Exception
+    {
+        assertFails(NOT_SUPPORTED, "SELECT * FROM (VALUES (1)) a (x) JOIN (VALUES (2)) b ON IF(a.x = 1, true, false)");
+    }
+
     @BeforeMethod(alwaysRun = true)
     public void setup()
             throws Exception

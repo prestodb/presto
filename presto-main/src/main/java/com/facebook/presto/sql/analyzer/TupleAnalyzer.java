@@ -31,6 +31,7 @@ import com.facebook.presto.sql.planner.ExpressionInterpreter;
 import com.facebook.presto.sql.planner.NoOpSymbolResolver;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.SymbolResolver;
+import com.facebook.presto.sql.planner.optimizations.CanonicalizeExpressions;
 import com.facebook.presto.sql.tree.AliasedRelation;
 import com.facebook.presto.sql.tree.AllColumns;
 import com.facebook.presto.sql.tree.ComparisonExpression;
@@ -423,7 +424,11 @@ class TupleAnalyzer
 
             Analyzer.verifyNoAggregatesOrWindowFunctions(metadata, expression, "JOIN");
 
-            Object optimizedExpression = expressionOptimizer(expression, metadata, session, analyzer.getExpressionTypes()).optimize(NoOpSymbolResolver.INSTANCE);
+            // expressionInterpreter/optimizer only understands a subset of expression types
+            // TODO: remove this when the new expression tree is implemented
+            Expression canonicalized = CanonicalizeExpressions.canonicalizeExpression(expression);
+
+            Object optimizedExpression = expressionOptimizer(canonicalized, metadata, session, analyzer.getExpressionTypes()).optimize(NoOpSymbolResolver.INSTANCE);
 
             if (!(optimizedExpression instanceof Expression) && optimizedExpression instanceof Boolean) {
                 // If the JoinOn clause evaluates to a boolean expression, simulate a cross join by adding the relevant redundant expression
