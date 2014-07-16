@@ -430,6 +430,11 @@ public class FunctionRegistry
         throw new OperatorNotFoundException(operatorType, argumentTypes);
     }
 
+    public FunctionInfo getCoercion(Type fromType, Type toType)
+    {
+        return getExactOperator(OperatorType.CAST, ImmutableList.of(fromType), toType);
+    }
+
     public FunctionInfo getExactOperator(OperatorType operatorType, List<? extends Type> argumentTypes, Type returnType)
             throws OperatorNotFoundException
     {
