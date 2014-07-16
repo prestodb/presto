@@ -62,17 +62,6 @@ public class BootstrapFunctionBinder
     public FunctionBinding bindOperator(OperatorType operatorType, ByteCodeNode getSessionByteCode, List<ByteCodeNode> arguments, List<Type> argumentTypes)
     {
         FunctionInfo operatorInfo = metadata.resolveOperator(operatorType, argumentTypes);
-        return bindOperator(operatorInfo, getSessionByteCode, arguments);
-    }
-
-    public FunctionBinding bindCastOperator(ByteCodeNode getSessionByteCode, ByteCodeNode sourceValue, Type sourceType, Type targetType)
-    {
-        FunctionInfo operatorInfo = metadata.getExactOperator(OperatorType.CAST, targetType, ImmutableList.of(sourceType));
-        return bindOperator(operatorInfo, getSessionByteCode, ImmutableList.of(sourceValue));
-    }
-
-    private FunctionBinding bindOperator(FunctionInfo operatorInfo, ByteCodeNode getSessionByteCode, List<ByteCodeNode> arguments)
-    {
         return bindFunction(operatorInfo.getSignature().getName(), getSessionByteCode, arguments, operatorInfo.getFunctionBinder());
     }
 

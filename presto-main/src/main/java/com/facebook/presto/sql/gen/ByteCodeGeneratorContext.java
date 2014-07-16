@@ -15,6 +15,7 @@ package com.facebook.presto.sql.gen;
 
 import com.facebook.presto.byteCode.ByteCodeNode;
 import com.facebook.presto.byteCode.CompilerContext;
+import com.facebook.presto.metadata.FunctionRegistry;
 import com.facebook.presto.sql.relational.RowExpression;
 
 import static com.google.common.base.Preconditions.checkNotNull;
@@ -25,22 +26,26 @@ public class ByteCodeGeneratorContext
     private final CompilerContext context;
     private final BootstrapFunctionBinder bootstrapFunctionBinder;
     private final ByteCodeNode getSessionByteCode;
+    private final FunctionRegistry registry;
 
     public ByteCodeGeneratorContext(
             ByteCodeExpressionVisitor byteCodeGenerator,
             CompilerContext context,
             BootstrapFunctionBinder bootstrapFunctionBinder,
-            ByteCodeNode getSessionByteCode)
+            ByteCodeNode getSessionByteCode,
+            FunctionRegistry registry)
     {
         checkNotNull(byteCodeGenerator, "byteCodeGenerator is null");
         checkNotNull(context, "context is null");
         checkNotNull(bootstrapFunctionBinder, "bootstrapFunctionBinder is null");
         checkNotNull(getSessionByteCode, "getSessionByteCode is null");
+        checkNotNull(registry, "registry is null");
 
         this.byteCodeGenerator = byteCodeGenerator;
         this.context = context;
         this.bootstrapFunctionBinder = bootstrapFunctionBinder;
         this.getSessionByteCode = getSessionByteCode;
+        this.registry = registry;
     }
 
     public CompilerContext getContext()
@@ -61,5 +66,10 @@ public class ByteCodeGeneratorContext
     public ByteCodeNode generateGetSession()
     {
         return getSessionByteCode;
+    }
+
+    public FunctionRegistry getRegistry()
+    {
+        return registry;
     }
 }

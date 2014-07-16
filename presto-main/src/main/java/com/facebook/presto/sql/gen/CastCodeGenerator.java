@@ -16,10 +16,12 @@ package com.facebook.presto.sql.gen;
 import com.facebook.presto.byteCode.Block;
 import com.facebook.presto.byteCode.ByteCodeNode;
 import com.facebook.presto.byteCode.CompilerContext;
+import com.facebook.presto.metadata.FunctionInfo;
 import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.relational.RowExpression;
 import com.facebook.presto.type.UnknownType;
+import com.google.common.collect.ImmutableList;
 
 import java.util.List;
 
@@ -38,9 +40,13 @@ public class CastCodeGenerator
             return new Block(context).putVariable("wasNull", true).pushJavaDefault(returnType.getJavaType());
         }
 
+        FunctionInfo function = generatorContext
+                .getRegistry()
+                .getCoercion(argument.getType(), returnType);
+
         FunctionBinding binding = generatorContext
                 .getBootstrapBinder()
-                .bindCastOperator(generatorContext.generateGetSession(), generatorContext.generate(argument), argument.getType(), returnType);
+                .bindFunction(function.getSignature().getName(), generatorContext.generateGetSession(), ImmutableList.of(generatorContext.generate(argument)), function.getFunctionBinder());
 
         return generateFunctionCall(signature, context, binding, "cast");
     }

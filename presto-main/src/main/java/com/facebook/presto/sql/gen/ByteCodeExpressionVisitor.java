@@ -17,6 +17,7 @@ import com.facebook.presto.byteCode.Block;
 import com.facebook.presto.byteCode.ByteCodeNode;
 import com.facebook.presto.byteCode.CompilerContext;
 import com.facebook.presto.byteCode.control.IfStatement;
+import com.facebook.presto.metadata.FunctionRegistry;
 import com.facebook.presto.spi.RecordCursor;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.relational.CallExpression;
@@ -46,15 +47,18 @@ public class ByteCodeExpressionVisitor
 {
     private final BootstrapFunctionBinder bootstrapFunctionBinder;
     private final ByteCodeNode getSessionByteCode;
+    private final FunctionRegistry registry;
     private final boolean sourceIsCursor;
 
     public ByteCodeExpressionVisitor(
             BootstrapFunctionBinder bootstrapFunctionBinder,
             ByteCodeNode getSessionByteCode,
+            FunctionRegistry registry,
             boolean sourceIsCursor)
     {
         this.bootstrapFunctionBinder = bootstrapFunctionBinder;
         this.getSessionByteCode = getSessionByteCode;
+        this.registry = registry;
         this.sourceIsCursor = sourceIsCursor;
     }
 
@@ -110,8 +114,8 @@ public class ByteCodeExpressionVisitor
                 this,
                 context,
                 bootstrapFunctionBinder,
-                getSessionByteCode
-        );
+                getSessionByteCode,
+                registry);
 
         return generator.generateExpression(call.getSignature(), generatorContext, call.getType(), call.getArguments());
     }

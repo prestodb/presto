@@ -18,6 +18,7 @@ import com.facebook.presto.byteCode.ByteCodeNode;
 import com.facebook.presto.byteCode.CompilerContext;
 import com.facebook.presto.byteCode.control.IfStatement;
 import com.facebook.presto.byteCode.instruction.LabelNode;
+import com.facebook.presto.metadata.FunctionInfo;
 import com.facebook.presto.metadata.FunctionRegistry;
 import com.facebook.presto.metadata.OperatorType;
 import com.facebook.presto.metadata.Signature;
@@ -31,7 +32,7 @@ import java.lang.invoke.MethodType;
 import java.util.ArrayList;
 import java.util.List;
 
-import static com.facebook.presto.sql.gen.ByteCodeUtils.ifWasNullPopAndGoto;
+import static com.facebook.presto.sql.gen.ByteCodeUtils.generateFunctionCall;
 
 public class NullIfCodeGenerator
         implements ByteCodeGenerator
@@ -59,25 +60,13 @@ public class NullIfCodeGenerator
         // around it in the current expression AST
         Type commonType = FunctionRegistry.getCommonSuperType(firstType, secondType).get();
 
-        FunctionBinding castFirst = generatorContext.getBootstrapBinder().bindCastOperator(
-                generatorContext.generateGetSession(),
-                new Block(context).dup(firstType.getJavaType()),
-                firstType,
-                commonType);
-
-        FunctionBinding castSecond = generatorContext.getBootstrapBinder().bindCastOperator(
-                generatorContext.generateGetSession(),
-                generatorContext.generate(second),
-                secondType,
-                commonType);
-
         // if (equal(cast(first as <common type>), cast(second as <common type>))
         FunctionBinding functionBinding = generatorContext.getBootstrapBinder().bindOperator(
                 OperatorType.EQUAL,
                 generatorContext.generateGetSession(),
                 ImmutableList.of(
-                        invoke(context, castFirst, "cast(first)"),
-                        invoke(context, castSecond, "cast(second)")),
+                        cast(generatorContext, new Block(context).dup(firstType.getJavaType()), firstType, commonType),
+                        cast(generatorContext, generatorContext.generate(second), secondType, commonType)),
                 ImmutableList.of(firstType, secondType));
 
         MethodType methodType = functionBinding.getCallSite().type();
@@ -114,26 +103,16 @@ public class NullIfCodeGenerator
         return block;
     }
 
-    private ByteCodeNode invoke(CompilerContext context, FunctionBinding functionBinding, String comment)
+    private ByteCodeNode cast(ByteCodeGeneratorContext generatorContext, ByteCodeNode argument, Type fromType, Type toType)
     {
-        List<ByteCodeNode> arguments = functionBinding.getArguments();
-        MethodType methodType = functionBinding.getCallSite().type();
-        Class<?> unboxedReturnType = Primitives.unwrap(methodType.returnType());
+        FunctionInfo function = generatorContext
+            .getRegistry()
+            .getCoercion(fromType, toType);
 
-        LabelNode end = new LabelNode("end");
-        Block block = new Block(context)
-                .setDescription("invoke")
-                .comment(comment);
-        ArrayList<Class<?>> stackTypes = new ArrayList<>();
-        for (int i = 0; i < arguments.size(); i++) {
-            block.append(arguments.get(i));
-            stackTypes.add(methodType.parameterType(i));
-            block.append(ifWasNullPopAndGoto(context, end, unboxedReturnType, Lists.reverse(stackTypes)));
-        }
-        block.invokeDynamic(functionBinding.getName(), methodType, functionBinding.getBindingId());
+        FunctionBinding binding = generatorContext
+                .getBootstrapBinder()
+                .bindFunction(function.getSignature().getName(), generatorContext.generateGetSession(), ImmutableList.of(argument), function.getFunctionBinder());
 
-        block.visitLabel(end);
-
-        return block;
+        return generateFunctionCall(function.getSignature(), generatorContext.getContext(), binding, "cast(" + fromType + ", " + toType + ")");
     }
 }

@@ -648,7 +648,7 @@ public class ExpressionCompiler
             CompilerContext context,
             Block getSessionByteCode)
     {
-        ByteCodeExpressionVisitor visitor = new ByteCodeExpressionVisitor(bootstrap.getFunctionBinder(), getSessionByteCode, sourceIsCursor);
+        ByteCodeExpressionVisitor visitor = new ByteCodeExpressionVisitor(bootstrap.getFunctionBinder(), getSessionByteCode, metadata.getFunctionRegistry(), sourceIsCursor);
         return expression.accept(visitor, context);
     }
 
