@@ -14,13 +14,13 @@
 package com.facebook.presto.operator.aggregation;
 
 import com.facebook.presto.operator.aggregation.state.InitialLongValue;
-import com.facebook.presto.operator.aggregation.state.NullableLongState;
+import com.facebook.presto.operator.aggregation.state.NullableBigintState;
 import com.facebook.presto.spi.block.Block;
 
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 
 public class LongMaxAggregation
-        extends AbstractSimpleAggregationFunction<LongMaxAggregation.LongMaxState>
+        extends AbstractSimpleAggregationFunction<LongMaxAggregation.BigintMaxState>
 {
     public static final LongMaxAggregation LONG_MAX = new LongMaxAggregation();
 
@@ -30,14 +30,14 @@ public class LongMaxAggregation
     }
 
     @Override
-    public void processInput(LongMaxState state, Block block, int index)
+    public void processInput(BigintMaxState state, Block block, int index)
     {
         state.setNull(false);
         state.setLong(Math.max(state.getLong(), block.getLong(index)));
     }
 
-    public interface LongMaxState
-            extends NullableLongState
+    public interface BigintMaxState
+            extends NullableBigintState
     {
         @Override
         @InitialLongValue(Long.MIN_VALUE)

@@ -13,15 +13,16 @@
  */
 package com.facebook.presto.operator.aggregation.state;
 
-import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.type.Type;
-
-public interface AccumulatorStateSerializer<T>
+@AccumulatorStateMetadata(stateSerializerClass = NullableBigintStateSerializer.class)
+public interface NullableBigintState
+        extends AccumulatorState
 {
-    Type getSerializedType();
+    long getLong();
 
-    void serialize(T state, BlockBuilder out);
+    void setLong(long value);
 
-    void deserialize(Block block, int index, T state);
+    @InitialBooleanValue(true)
+    boolean isNull();
+
+    void setNull(boolean value);
 }

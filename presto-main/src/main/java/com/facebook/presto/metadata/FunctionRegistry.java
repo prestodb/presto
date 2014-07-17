@@ -15,6 +15,10 @@ package com.facebook.presto.metadata;
 
 import com.facebook.presto.operator.Description;
 import com.facebook.presto.operator.aggregation.AggregationFunction;
+import com.facebook.presto.operator.aggregation.BooleanMinAggregation;
+import com.facebook.presto.operator.aggregation.DoubleSumAggregation;
+import com.facebook.presto.operator.aggregation.GenericAggregationFunctionFactory;
+import com.facebook.presto.operator.aggregation.MergeHyperLogLogAggregation;
 import com.facebook.presto.operator.scalar.ColorFunctions;
 import com.facebook.presto.operator.scalar.DateTimeFunctions;
 import com.facebook.presto.operator.scalar.HyperLogLogFunctions;
@@ -135,7 +139,6 @@ import static com.facebook.presto.operator.aggregation.ApproximatePercentileWeig
 import static com.facebook.presto.operator.aggregation.AverageAggregations.DOUBLE_AVERAGE;
 import static com.facebook.presto.operator.aggregation.AverageAggregations.LONG_AVERAGE;
 import static com.facebook.presto.operator.aggregation.BooleanMaxAggregation.BOOLEAN_MAX;
-import static com.facebook.presto.operator.aggregation.BooleanMinAggregation.BOOLEAN_MIN;
 import static com.facebook.presto.operator.aggregation.CountAggregation.COUNT;
 import static com.facebook.presto.operator.aggregation.CountColumnAggregations.COUNT_BOOLEAN_COLUMN;
 import static com.facebook.presto.operator.aggregation.CountColumnAggregations.COUNT_DOUBLE_COLUMN;
@@ -144,10 +147,8 @@ import static com.facebook.presto.operator.aggregation.CountColumnAggregations.C
 import static com.facebook.presto.operator.aggregation.CountIfAggregation.COUNT_IF;
 import static com.facebook.presto.operator.aggregation.DoubleMaxAggregation.DOUBLE_MAX;
 import static com.facebook.presto.operator.aggregation.DoubleMinAggregation.DOUBLE_MIN;
-import static com.facebook.presto.operator.aggregation.DoubleSumAggregation.DOUBLE_SUM;
 import static com.facebook.presto.operator.aggregation.HyperLogLogAggregations.BIGINT_APPROXIMATE_SET_AGGREGATION;
 import static com.facebook.presto.operator.aggregation.HyperLogLogAggregations.DOUBLE_APPROXIMATE_SET_AGGREGATION;
-import static com.facebook.presto.operator.aggregation.HyperLogLogAggregations.MERGE_HYPER_LOG_LOG_AGGREGATION;
 import static com.facebook.presto.operator.aggregation.HyperLogLogAggregations.VARCHAR_APPROXIMATE_SET_AGGREGATION;
 import static com.facebook.presto.operator.aggregation.LongMaxAggregation.LONG_MAX;
 import static com.facebook.presto.operator.aggregation.LongMinAggregation.LONG_MIN;
@@ -249,14 +250,12 @@ public class FunctionRegistry
                 .aggregate("count", BIGINT, ImmutableList.of(VARCHAR), BIGINT, COUNT_STRING_COLUMN)
                 .aggregate("count_if", BIGINT, ImmutableList.of(BOOLEAN), BIGINT, COUNT_IF)
                 .aggregate("sum", BIGINT, ImmutableList.of(BIGINT), BIGINT, LONG_SUM)
-                .aggregate("sum", DOUBLE, ImmutableList.of(DOUBLE), DOUBLE, DOUBLE_SUM)
                 .aggregate("avg", DOUBLE, ImmutableList.of(DOUBLE), VARCHAR, DOUBLE_AVERAGE)
                 .aggregate("avg", DOUBLE, ImmutableList.of(BIGINT), VARCHAR, LONG_AVERAGE)
                 .aggregate("max", BOOLEAN, ImmutableList.of(BOOLEAN), BOOLEAN, BOOLEAN_MAX)
                 .aggregate("max", BIGINT, ImmutableList.of(BIGINT), BIGINT, LONG_MAX)
                 .aggregate("max", DOUBLE, ImmutableList.of(DOUBLE), DOUBLE, DOUBLE_MAX)
                 .aggregate("max", VARCHAR, ImmutableList.of(VARCHAR), VARCHAR, VAR_BINARY_MAX)
-                .aggregate("min", BOOLEAN, ImmutableList.of(BOOLEAN), BOOLEAN, BOOLEAN_MIN)
                 .aggregate("min", BIGINT, ImmutableList.of(BIGINT), BIGINT, LONG_MIN)
                 .aggregate("min", DOUBLE, ImmutableList.of(DOUBLE), DOUBLE, DOUBLE_MIN)
                 .aggregate("min", VARCHAR, ImmutableList.of(VARCHAR), VARCHAR, VAR_BINARY_MIN)
@@ -279,13 +278,15 @@ public class FunctionRegistry
                 .aggregate("approx_set", HYPER_LOG_LOG, ImmutableList.of(BIGINT), HYPER_LOG_LOG, BIGINT_APPROXIMATE_SET_AGGREGATION)
                 .aggregate("approx_set", HYPER_LOG_LOG, ImmutableList.of(VARCHAR), HYPER_LOG_LOG, VARCHAR_APPROXIMATE_SET_AGGREGATION)
                 .aggregate("approx_set", HYPER_LOG_LOG, ImmutableList.of(DOUBLE), HYPER_LOG_LOG, DOUBLE_APPROXIMATE_SET_AGGREGATION)
-                .aggregate("merge", HYPER_LOG_LOG, ImmutableList.of(HYPER_LOG_LOG), HYPER_LOG_LOG, MERGE_HYPER_LOG_LOG_AGGREGATION)
                 .aggregate("approx_percentile", BIGINT, ImmutableList.of(BIGINT, DOUBLE), VARCHAR, LONG_APPROXIMATE_PERCENTILE_AGGREGATION)
                 .aggregate("approx_percentile", BIGINT, ImmutableList.of(BIGINT, BIGINT, DOUBLE), VARCHAR, LONG_APPROXIMATE_PERCENTILE_WEIGHTED_AGGREGATION)
                 .aggregate("approx_percentile", DOUBLE, ImmutableList.of(DOUBLE, DOUBLE), VARCHAR, DOUBLE_APPROXIMATE_PERCENTILE_AGGREGATION)
                 .aggregate("approx_percentile", DOUBLE, ImmutableList.of(DOUBLE, BIGINT, DOUBLE), VARCHAR, DOUBLE_APPROXIMATE_PERCENTILE_WEIGHTED_AGGREGATION)
                 .aggregate("approx_avg", VARCHAR, ImmutableList.of(BIGINT), VARCHAR, LONG_APPROXIMATE_AVERAGE_AGGREGATION)
                 .aggregate("approx_avg", VARCHAR, ImmutableList.of(DOUBLE), VARCHAR, DOUBLE_APPROXIMATE_AVERAGE_AGGREGATION)
+                .aggregate(BooleanMinAggregation.class)
+                .aggregate(DoubleSumAggregation.class)
+                .aggregate(MergeHyperLogLogAggregation.class)
                 .scalar(StringFunctions.class)
                 .scalar(VarbinaryFunctions.class)
                 .scalar(RegexpFunctions.class)
@@ -654,6 +655,17 @@ public class FunctionRegistry
         public FunctionListBuilder aggregate(String name, Type returnType, List<? extends Type> argumentTypes, Type intermediateType, AggregationFunction function)
         {
             return aggregate(name, returnType, argumentTypes, false, intermediateType, function);
+        }
+
+        public FunctionListBuilder aggregate(String name, AggregationFunction function)
+        {
+            return aggregate(name, function.getFinalType(), function.getParameterTypes(), false, function.getIntermediateType(), function);
+        }
+
+        public FunctionListBuilder aggregate(Class<?> aggregationDefinition)
+        {
+            functions.addAll(GenericAggregationFunctionFactory.fromAggregationDefinition(aggregationDefinition).listFunctions());
+            return this;
         }
 
         private FunctionListBuilder aggregate(String name, Type returnType, List<? extends Type> argumentTypes, boolean approximate, Type intermediateType,

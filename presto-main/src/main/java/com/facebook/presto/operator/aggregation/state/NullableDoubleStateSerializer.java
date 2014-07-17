@@ -15,10 +15,19 @@ package com.facebook.presto.operator.aggregation.state;
 
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
+import com.facebook.presto.spi.type.Type;
+
+import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 
 public class NullableDoubleStateSerializer
         implements AccumulatorStateSerializer<NullableDoubleState>
 {
+    @Override
+    public Type getSerializedType()
+    {
+        return DOUBLE;
+    }
+
     @Override
     public void serialize(NullableDoubleState state, BlockBuilder out)
     {

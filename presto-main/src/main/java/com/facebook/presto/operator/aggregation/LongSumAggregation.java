@@ -13,13 +13,13 @@
  */
 package com.facebook.presto.operator.aggregation;
 
-import com.facebook.presto.operator.aggregation.state.NullableLongState;
+import com.facebook.presto.operator.aggregation.state.NullableBigintState;
 import com.facebook.presto.spi.block.Block;
 
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 
 public class LongSumAggregation
-        extends AbstractSimpleAggregationFunction<NullableLongState>
+        extends AbstractSimpleAggregationFunction<NullableBigintState>
 {
     public static final AggregationFunction LONG_SUM = new LongSumAggregation();
 
@@ -29,7 +29,7 @@ public class LongSumAggregation
     }
 
     @Override
-    public void processInput(NullableLongState state, Block block, int index)
+    public void processInput(NullableBigintState state, Block block, int index)
     {
         state.setNull(false);
         state.setLong(state.getLong() + block.getLong(index));

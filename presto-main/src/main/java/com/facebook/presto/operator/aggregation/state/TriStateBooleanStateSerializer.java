@@ -15,14 +15,22 @@ package com.facebook.presto.operator.aggregation.state;
 
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
+import com.facebook.presto.spi.type.Type;
 
 import static com.facebook.presto.operator.aggregation.state.TriStateBooleanState.FALSE_VALUE;
 import static com.facebook.presto.operator.aggregation.state.TriStateBooleanState.NULL_VALUE;
 import static com.facebook.presto.operator.aggregation.state.TriStateBooleanState.TRUE_VALUE;
+import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 
 public class TriStateBooleanStateSerializer
         implements AccumulatorStateSerializer<TriStateBooleanState>
 {
+    @Override
+    public Type getSerializedType()
+    {
+        return BOOLEAN;
+    }
+
     @Override
     public void serialize(TriStateBooleanState state, BlockBuilder out)
     {

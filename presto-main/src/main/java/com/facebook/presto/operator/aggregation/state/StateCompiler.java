@@ -24,6 +24,11 @@ import com.facebook.presto.byteCode.LocalVariableDefinition;
 import com.facebook.presto.byteCode.SmartClassWriter;
 import com.facebook.presto.operator.aggregation.GroupedAccumulator;
 import com.facebook.presto.spi.block.BlockBuilder;
+import com.facebook.presto.spi.type.BigintType;
+import com.facebook.presto.spi.type.BooleanType;
+import com.facebook.presto.spi.type.DoubleType;
+import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.spi.type.VarcharType;
 import com.facebook.presto.util.array.BooleanBigArray;
 import com.facebook.presto.util.array.ByteBigArray;
 import com.facebook.presto.util.array.DoubleBigArray;
@@ -146,6 +151,7 @@ public class StateCompiler
         definition.declareDefaultConstructor(a(PUBLIC));
 
         List<StateField> fields = enumerateFields(clazz);
+        generateGetSerializedType(definition, fields);
         generateSerialize(definition, clazz, fields);
         generateDeserialize(definition, clazz, fields);
 
@@ -156,6 +162,42 @@ public class StateCompiler
         catch (InstantiationException | IllegalAccessException e) {
             throw Throwables.propagate(e);
         }
+    }
+
+    private static void generateGetSerializedType(ClassDefinition definition, List<StateField> fields)
+    {
+        CompilerContext compilerContext = new CompilerContext(null);
+        Block body = definition.declareMethod(compilerContext, a(PUBLIC), "getSerializedType", type(Type.class)).getBody();
+
+        Class<?> type;
+        if (fields.size() > 1) {
+            type = VarcharType.class;
+        }
+        else {
+            Class<?> stackType = fields.get(0).getType();
+            if (stackType == long.class) {
+                type = BigintType.class;
+            }
+            else if (stackType == double.class) {
+                type = DoubleType.class;
+            }
+            else if (stackType == boolean.class) {
+                type = BooleanType.class;
+            }
+            else if (stackType == byte.class) {
+                type = BigintType.class;
+            }
+            else if (stackType == Slice.class) {
+                type = VarcharType.class;
+            }
+            else {
+                throw new IllegalArgumentException("Unsupported type: " + stackType);
+            }
+        }
+
+        body.comment("return %s.getInstance()", type.getSimpleName())
+                .invokeStatic(type, "getInstance", type)
+                .retObject();
     }
 
     private static <T> AccumulatorStateMetadata getMetadataAnnotation(Class<T> clazz)
