@@ -11,18 +11,16 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.operator.aggregation.state;
+package com.facebook.presto.operator.aggregation;
 
-@AccumulatorStateMetadata(stateSerializerClass = NullableLongStateSerializer.class)
-public interface NullableLongState
-        extends AccumulatorState
+import java.lang.annotation.ElementType;
+import java.lang.annotation.Retention;
+import java.lang.annotation.RetentionPolicy;
+import java.lang.annotation.Target;
+
+@Retention(RetentionPolicy.RUNTIME)
+@Target(ElementType.TYPE)
+public @interface AggregationFunctionMetadata
 {
-    long getLong();
-
-    void setLong(long value);
-
-    @InitialBooleanValue(true)
-    boolean isNull();
-
-    void setNull(boolean value);
+    String value();
 }

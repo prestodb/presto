@@ -24,7 +24,5 @@ public final class HyperLogLogAggregations
     public static final AggregationFunction VARCHAR_APPROXIMATE_SET_AGGREGATION = createIsolatedAggregation(ApproximateSetAggregation.class, VARCHAR);
     public static final AggregationFunction DOUBLE_APPROXIMATE_SET_AGGREGATION = createIsolatedAggregation(ApproximateSetAggregation.class, DOUBLE);
 
-    public static final AggregationFunction MERGE_HYPER_LOG_LOG_AGGREGATION = new MergeHyperLogLogAggregation();
-
     private HyperLogLogAggregations() {}
 }

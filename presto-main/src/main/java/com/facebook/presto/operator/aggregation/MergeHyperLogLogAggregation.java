@@ -13,25 +13,27 @@
  */
 package com.facebook.presto.operator.aggregation;
 
+import com.facebook.presto.operator.aggregation.state.AccumulatorStateSerializer;
 import com.facebook.presto.operator.aggregation.state.HyperLogLogState;
-import com.facebook.presto.spi.block.Block;
+import com.facebook.presto.operator.aggregation.state.StateCompiler;
 import com.facebook.presto.spi.block.BlockBuilder;
+import com.facebook.presto.spi.type.HyperLogLogType;
+import com.facebook.presto.type.SqlType;
+import io.airlift.slice.Slice;
 import io.airlift.stats.cardinality.HyperLogLog;
 
-import static com.facebook.presto.spi.type.HyperLogLogType.HYPER_LOG_LOG;
-
-public class MergeHyperLogLogAggregation
-        extends AbstractSimpleAggregationFunction<HyperLogLogState>
+@AggregationFunctionMetadata("merge")
+public final class MergeHyperLogLogAggregation
 {
-    public MergeHyperLogLogAggregation()
-    {
-        super(HYPER_LOG_LOG, HYPER_LOG_LOG, HYPER_LOG_LOG);
-    }
+    private static final AccumulatorStateSerializer<HyperLogLogState> serializer = new StateCompiler().generateStateSerializer(HyperLogLogState.class);
 
-    @Override
-    protected void processInput(HyperLogLogState state, Block block, int index)
+    private MergeHyperLogLogAggregation() {}
+
+    @InputFunction
+    @IntermediateInputFunction
+    public static void merge(HyperLogLogState state, @SqlType(HyperLogLogType.class) Slice value)
     {
-        HyperLogLog input = HyperLogLog.newInstance(block.getSlice(index));
+        HyperLogLog input = HyperLogLog.newInstance(value);
 
         HyperLogLog previous = state.getHyperLogLog();
         if (previous == null) {
@@ -45,9 +47,9 @@ public class MergeHyperLogLogAggregation
         }
     }
 
-    @Override
-    protected void evaluateFinal(HyperLogLogState state, BlockBuilder out)
+    @OutputFunction(HyperLogLogType.class)
+    public static void output(HyperLogLogState state, BlockBuilder out)
     {
-        getStateSerializer().serialize(state, out);
+        serializer.serialize(state, out);
     }
 }
