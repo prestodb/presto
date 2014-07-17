@@ -15,8 +15,10 @@ package com.facebook.presto.sql.relational;
 
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.Signature;
+import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.type.TimeZoneKey;
 import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.sql.relational.optimizer.ExpressionOptimizer;
 import com.facebook.presto.sql.tree.ArithmeticExpression;
 import com.facebook.presto.sql.tree.AstVisitor;
 import com.facebook.presto.sql.tree.BetweenPredicate;
@@ -96,19 +98,25 @@ public final class SqlToRowExpressionTranslator
     {
     }
 
-    public static RowExpression translate(Expression expression, IdentityHashMap<Expression, Type> types, Metadata metadata, TimeZoneKey timeZoneKey)
+    public static RowExpression translate(Expression expression, IdentityHashMap<Expression, Type> types, Metadata metadata, ConnectorSession session, boolean optimize)
     {
-        RowExpression result = new Visitor(types, metadata, timeZoneKey).process(expression, null);
+        RowExpression result = new Visitor(types, metadata, session.getTimeZoneKey()).process(expression, null);
 
         Preconditions.checkNotNull(result, "translated expression is null");
+
+        if (optimize) {
+            ExpressionOptimizer optimizer = new ExpressionOptimizer(metadata.getFunctionRegistry(), session);
+            return optimizer.optimize(result);
+        }
+
         return result;
     }
 
-    public static List<RowExpression> translate(List<Expression> expressions, IdentityHashMap<Expression, Type> types, Metadata metadata, TimeZoneKey timeZoneKey)
+    public static List<RowExpression> translate(List<Expression> expressions, IdentityHashMap<Expression, Type> types, Metadata metadata, ConnectorSession session, boolean optimize)
     {
         ImmutableList.Builder<RowExpression> builder = ImmutableList.builder();
         for (Expression expression : expressions) {
-            builder.add(translate(expression, types, metadata, timeZoneKey));
+            builder.add(translate(expression, types, metadata, session, optimize));
         }
         return builder.build();
     }

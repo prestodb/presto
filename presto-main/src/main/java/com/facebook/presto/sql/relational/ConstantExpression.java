@@ -14,6 +14,7 @@
 package com.facebook.presto.sql.relational;
 
 import com.facebook.presto.spi.type.Type;
+import com.google.common.base.Function;
 import com.google.common.base.Preconditions;
 
 import java.util.Objects;
@@ -72,5 +73,17 @@ public final class ConstantExpression
     public <C, R> R accept(RowExpressionVisitor<C, R> visitor, C context)
     {
         return visitor.visitConstant(this, context);
+    }
+
+    public static Function<ConstantExpression, Object> valueGetter()
+    {
+        return new Function<ConstantExpression, Object>()
+        {
+            @Override
+            public Object apply(ConstantExpression input)
+            {
+                return input.getValue();
+            }
+        };
     }
 }
