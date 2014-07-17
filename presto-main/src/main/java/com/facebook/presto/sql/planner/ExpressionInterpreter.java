@@ -710,6 +710,12 @@ public class ExpressionInterpreter
                 return new Cast((Expression) value, node.getType(), node.isSafe());
             }
 
+            // hack!!! don't optimize CASTs for types that cannot be represented in the SQL AST
+            // TODO: this will not be an issue when we migrate to RowExpression tree for this, which allows arbitrary literals.
+            if (optimize && !FunctionRegistry.isSupportedLiteralType(expressionTypes.get(node))) {
+                return new Cast(toExpression(value, expressionTypes.get(node.getExpression())), node.getType(), node.isSafe());
+            }
+
             if (value == null) {
                 return null;
             }
