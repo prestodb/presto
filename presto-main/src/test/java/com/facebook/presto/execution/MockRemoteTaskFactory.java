@@ -49,7 +49,6 @@ import java.util.Set;
 import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicLong;
 
-import static com.facebook.presto.OutputBuffers.INITIAL_EMPTY_OUTPUT_BUFFERS;
 import static com.facebook.presto.execution.StateMachine.StateChangeListener;
 import static com.facebook.presto.spi.type.TimeZoneKey.UTC_KEY;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
@@ -139,7 +138,7 @@ public class MockRemoteTaskFactory
 
             this.location = URI.create("fake://task/" + taskId);
 
-            this.sharedBuffer = new SharedBuffer(taskId, executor, checkNotNull(new DataSize(1, DataSize.Unit.BYTE), "maxBufferSize is null"), INITIAL_EMPTY_OUTPUT_BUFFERS);
+            this.sharedBuffer = new SharedBuffer(taskId, executor, checkNotNull(new DataSize(1, DataSize.Unit.BYTE), "maxBufferSize is null"));
             this.fragment = checkNotNull(fragment, "fragment is null");
             splits.putAll(initialSplits);
         }

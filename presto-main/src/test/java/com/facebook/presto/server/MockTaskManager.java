@@ -32,9 +32,10 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
+import com.google.common.util.concurrent.Futures;
+import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.http.server.HttpServerInfo;
 import io.airlift.units.DataSize;
-import io.airlift.units.Duration;
 import org.joda.time.DateTime;
 
 import javax.inject.Inject;
@@ -45,7 +46,7 @@ import java.util.List;
 import java.util.NoSuchElementException;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
-import java.util.concurrent.Executor;
+import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.atomic.AtomicLong;
 
 import static com.facebook.presto.block.BlockAssertions.createStringsBlock;
@@ -55,12 +56,12 @@ import static com.google.common.base.Preconditions.checkState;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.airlift.http.client.HttpUriBuilder.uriBuilderFrom;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
-import static java.util.concurrent.Executors.newCachedThreadPool;
+import static java.util.concurrent.Executors.newScheduledThreadPool;
 
 public class MockTaskManager
         implements TaskManager
 {
-    private final Executor executor = newCachedThreadPool(daemonThreadsNamed("test-%d"));
+    private final ScheduledExecutorService stateNotificationExecutor = newScheduledThreadPool(5, daemonThreadsNamed("test-%d"));
 
     private final HttpServerInfo httpServerInfo;
     private final DataSize maxBufferSize;
@@ -96,12 +97,6 @@ public class MockTaskManager
     }
 
     @Override
-    public void waitForStateChange(TaskId taskId, TaskState currentState, Duration maxWait)
-            throws InterruptedException
-    {
-    }
-
-    @Override
     public synchronized TaskInfo getTaskInfo(TaskId taskId)
     {
         checkNotNull(taskId, "taskId is null");
@@ -111,6 +106,16 @@ public class MockTaskManager
             throw new NoSuchElementException();
         }
         return task.getTaskInfo();
+    }
+
+    @Override
+    public ListenableFuture<TaskInfo> getTaskInfo(TaskId taskId, TaskState currentState)
+    {
+        MockTask task = tasks.get(taskId);
+        if (task == null) {
+            throw new NoSuchElementException();
+        }
+        return Futures.immediateFuture(task.getTaskInfo());
     }
 
     @Override
@@ -129,7 +134,7 @@ public class MockTaskManager
                     outputBuffers,
                     maxBufferSize,
                     initialPages,
-                    executor
+                    stateNotificationExecutor
             );
             tasks.put(taskId, task);
         }
@@ -139,8 +144,7 @@ public class MockTaskManager
     }
 
     @Override
-    public BufferResult getTaskResults(TaskId taskId, String outputId, long startingSequenceId, DataSize maxSize, Duration maxWaitTime)
-            throws InterruptedException
+    public ListenableFuture<BufferResult> getTaskResults(TaskId taskId, String outputId, long startingSequenceId, DataSize maxSize)
     {
         checkNotNull(taskId, "taskId is null");
         checkNotNull(outputId, "outputId is null");
@@ -153,7 +157,7 @@ public class MockTaskManager
         if (task == null) {
             throw new NoSuchElementException();
         }
-        return task.getResults(outputId, startingSequenceId, maxSize, maxWaitTime);
+        return task.getResults(outputId, startingSequenceId, maxSize);
     }
 
     @Override
@@ -199,14 +203,15 @@ public class MockTaskManager
                 OutputBuffers outputBuffers,
                 DataSize maxBufferSize,
                 int initialPages,
-                Executor executor)
+                ScheduledExecutorService stateNotificationExecutor)
         {
-            this.taskStateMachine = new TaskStateMachine(checkNotNull(taskId, "taskId is null"), checkNotNull(executor, "executor is null"));
-            this.taskContext = new TaskContext(taskStateMachine, executor, session, new DataSize(256, MEGABYTE), new DataSize(1, MEGABYTE), true);
+            this.taskStateMachine = new TaskStateMachine(checkNotNull(taskId, "taskId is null"), checkNotNull(stateNotificationExecutor, "stateNotificationExecutor is null"));
+            this.taskContext = new TaskContext(taskStateMachine, stateNotificationExecutor, session, new DataSize(256, MEGABYTE), new DataSize(1, MEGABYTE), true);
 
             this.location = checkNotNull(location, "location is null");
 
-            this.sharedBuffer = new SharedBuffer(taskId, executor, checkNotNull(maxBufferSize, "maxBufferSize is null"), outputBuffers);
+            this.sharedBuffer = new SharedBuffer(taskId, stateNotificationExecutor, checkNotNull(maxBufferSize, "maxBufferSize is null"));
+            sharedBuffer.setOutputBuffers(outputBuffers);
 
             List<String> data = ImmutableList.of("apple", "banana", "cherry", "date");
 
@@ -214,7 +219,7 @@ public class MockTaskManager
             for (int i = 0; i < initialPages; i++) {
                 checkState(sharedBuffer.enqueue(new Page(createStringsBlock(Iterables.concat(Collections.nCopies(i + 1, data))))).isDone(), "Unable to add page to buffer");
             }
-            sharedBuffer.finish();
+            sharedBuffer.setNoMorePages();
         }
 
         public void abortResults(String outputId)
@@ -232,10 +237,9 @@ public class MockTaskManager
             taskStateMachine.cancel();
         }
 
-        public BufferResult getResults(String outputId, long startingSequenceId, DataSize maxSize, Duration maxWaitTime)
-                throws InterruptedException
+        public ListenableFuture<BufferResult> getResults(String outputId, long startingSequenceId, DataSize maxSize)
         {
-            return sharedBuffer.get(outputId, startingSequenceId, maxSize, maxWaitTime);
+            return sharedBuffer.get(outputId, startingSequenceId, maxSize);
         }
 
         public TaskInfo getTaskInfo()

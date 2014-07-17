@@ -275,6 +275,14 @@ public class ServerMainModule
         return newScheduledThreadPool(4, daemonThreadsNamed("exchange-client-%s"));
     }
 
+    @Provides
+    @Singleton
+    @ForAsyncHttpResponse
+    public static ScheduledExecutorService createAsyncHttpResponseExecutor()
+    {
+        return newScheduledThreadPool(10, daemonThreadsNamed("async-http-response-%s"));
+    }
+
     private static String detectPrestoVersion()
     {
         String title = PrestoServer.class.getPackage().getImplementationTitle();

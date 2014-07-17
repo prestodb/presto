@@ -16,22 +16,22 @@ package com.facebook.presto.execution;
 import com.facebook.presto.OutputBuffers;
 import com.facebook.presto.TaskSource;
 import com.facebook.presto.event.query.QueryMonitor;
-import com.facebook.presto.execution.SharedBuffer.QueueState;
-import com.facebook.presto.operator.TaskContext;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.sql.planner.LocalExecutionPlanner;
 import com.facebook.presto.sql.planner.PlanFragment;
-import com.facebook.presto.sql.planner.plan.PlanNodeId;
+import com.google.common.base.Function;
 import com.google.common.base.Preconditions;
+import com.google.common.cache.CacheBuilder;
+import com.google.common.cache.CacheLoader;
+import com.google.common.cache.LoadingCache;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableSet;
-import com.google.common.util.concurrent.Uninterruptibles;
+import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.concurrent.ThreadPoolExecutorMBean;
 import io.airlift.log.Logger;
-import io.airlift.stats.CounterStat;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import org.joda.time.DateTime;
+import org.weakref.jmx.Flatten;
 import org.weakref.jmx.Managed;
 import org.weakref.jmx.Nested;
 
@@ -39,88 +39,86 @@ import javax.annotation.PostConstruct;
 import javax.annotation.PreDestroy;
 import javax.inject.Inject;
 
-import java.net.URI;
-import java.util.HashMap;
+import java.io.Closeable;
 import java.util.List;
-import java.util.Map;
-import java.util.NoSuchElementException;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 
 import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Predicates.notNull;
+import static com.google.common.collect.Iterables.filter;
+import static com.google.common.collect.Iterables.transform;
 import static io.airlift.concurrent.Threads.threadsNamed;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
 
 public class SqlTaskManager
-        implements TaskManager
+        implements TaskManager, Closeable
 {
     private static final Logger log = Logger.get(SqlTaskManager.class);
-
-    private final DataSize maxBufferSize;
 
     private final ExecutorService taskNotificationExecutor;
     private final ThreadPoolExecutorMBean taskNotificationExecutorMBean;
 
-    private final TaskExecutor taskExecutor;
-
     private final ScheduledExecutorService taskManagementExecutor;
     private final ThreadPoolExecutorMBean taskManagementExecutorMBean;
 
-    private final LocalExecutionPlanner planner;
-    private final LocationFactory locationFactory;
-    private final QueryMonitor queryMonitor;
-    private final DataSize maxTaskMemoryUsage;
-    private final DataSize operatorPreAllocatedMemory;
     private final Duration infoCacheTime;
     private final Duration clientTimeout;
-    private final boolean cpuTimerEnabled;
 
-    private final ConcurrentMap<TaskId, TaskInfo> taskInfos = new ConcurrentHashMap<>();
-    private final ConcurrentMap<TaskId, TaskExecution> tasks = new ConcurrentHashMap<>();
+    private final LoadingCache<TaskId, SqlTask> tasks;
 
-    private final CounterStat inputDataSize = new CounterStat();
-    private final CounterStat finishedInputDataSize = new CounterStat();
-
-    private final CounterStat inputPositions = new CounterStat();
-    private final CounterStat finishedInputPositions = new CounterStat();
-
-    private final CounterStat outputDataSize = new CounterStat();
-    private final CounterStat finishedOutputDataSize = new CounterStat();
-
-    private final CounterStat outputPositions = new CounterStat();
-    private final CounterStat finishedOutputPositions = new CounterStat();
+    private final SqlTaskIoStats cachedStats = new SqlTaskIoStats();
+    private final SqlTaskIoStats finishedTaskStats = new SqlTaskIoStats();
 
     @Inject
     public SqlTaskManager(
             LocalExecutionPlanner planner,
-            LocationFactory locationFactory,
+            final LocationFactory locationFactory,
             TaskExecutor taskExecutor,
             QueryMonitor queryMonitor,
             TaskManagerConfig config)
     {
-        this.planner = checkNotNull(planner, "planner is null");
-        this.locationFactory = checkNotNull(locationFactory, "locationFactory is null");
-        this.taskExecutor = checkNotNull(taskExecutor, "taskExecutor is null");
-        this.queryMonitor = checkNotNull(queryMonitor, "queryMonitor is null");
-
         checkNotNull(config, "config is null");
-        this.maxBufferSize = config.getSinkMaxBufferSize();
-        this.maxTaskMemoryUsage = config.getMaxTaskMemoryUsage();
-        this.operatorPreAllocatedMemory = config.getOperatorPreAllocatedMemory();
-        this.infoCacheTime = config.getInfoMaxAge();
-        this.clientTimeout = config.getClientTimeout();
-        this.cpuTimerEnabled = config.isTaskCpuTimerEnabled();
+        infoCacheTime = config.getInfoMaxAge();
+        clientTimeout = config.getClientTimeout();
+
+        final DataSize maxBufferSize = config.getSinkMaxBufferSize();
 
         taskNotificationExecutor = newCachedThreadPool(threadsNamed("task-notification-%d"));
         taskNotificationExecutorMBean = new ThreadPoolExecutorMBean((ThreadPoolExecutor) taskNotificationExecutor);
 
         taskManagementExecutor = newScheduledThreadPool(5, threadsNamed("task-management-%d"));
         taskManagementExecutorMBean = new ThreadPoolExecutorMBean((ThreadPoolExecutor) taskManagementExecutor);
+
+        final SqlTaskExecutionFactory sqlTaskExecutionFactory = new SqlTaskExecutionFactory(taskNotificationExecutor, taskExecutor, planner, queryMonitor, config);
+
+        tasks = CacheBuilder.newBuilder().build(new CacheLoader<TaskId, SqlTask>()
+        {
+            @Override
+            public SqlTask load(TaskId taskId)
+                    throws Exception
+            {
+                return new SqlTask(
+                        taskId,
+                        locationFactory.createLocalTaskLocation(taskId),
+                        sqlTaskExecutionFactory,
+                        taskNotificationExecutor,
+                        new Function<SqlTask, Void>()
+                        {
+                            @Override
+                            public Void apply(SqlTask sqlTask)
+                            {
+                                finishedTaskStats.merge(sqlTask.getIoStats());
+                                return null;
+                            }
+                        },
+                        maxBufferSize
+                );
+            }
+        });
     }
 
     @PostConstruct
@@ -162,38 +160,17 @@ public class SqlTaskManager
     }
 
     @PreDestroy
-    public void stop()
+    public void close()
     {
         taskNotificationExecutor.shutdownNow();
         taskManagementExecutor.shutdownNow();
     }
 
     @Managed
-    @Nested
-    public CounterStat getInputDataSize()
+    @Flatten
+    public SqlTaskIoStats getIoStats()
     {
-        return inputDataSize;
-    }
-
-    @Managed
-    @Nested
-    public CounterStat getInputPositions()
-    {
-        return inputPositions;
-    }
-
-    @Managed
-    @Nested
-    public CounterStat getOutputDataSize()
-    {
-        return outputDataSize;
-    }
-
-    @Managed
-    @Nested
-    public CounterStat getOutputPositions()
-    {
-        return outputPositions;
+        return cachedStats;
     }
 
     @Managed(description = "Task notification executor")
@@ -213,28 +190,7 @@ public class SqlTaskManager
     @Override
     public List<TaskInfo> getAllTaskInfo()
     {
-        Map<TaskId, TaskInfo> taskInfos = new HashMap<>();
-        for (TaskExecution taskExecution : tasks.values()) {
-            taskInfos.put(taskExecution.getTaskId(), getTaskInfo(taskExecution));
-        }
-        taskInfos.putAll(this.taskInfos);
-        return ImmutableList.copyOf(taskInfos.values());
-    }
-
-    @Override
-    public void waitForStateChange(TaskId taskId, TaskState currentState, Duration maxWait)
-            throws InterruptedException
-    {
-        checkNotNull(taskId, "taskId is null");
-        checkNotNull(maxWait, "maxWait is null");
-
-        TaskExecution taskExecution = tasks.get(taskId);
-        if (taskExecution == null) {
-            return;
-        }
-
-        taskExecution.recordHeartbeat();
-        taskExecution.waitForStateChange(currentState, maxWait);
+        return ImmutableList.copyOf(transform(tasks.asMap().values(), SqlTask.taskInfoGetter()));
     }
 
     @Override
@@ -242,113 +198,39 @@ public class SqlTaskManager
     {
         checkNotNull(taskId, "taskId is null");
 
-        TaskExecution taskExecution = tasks.get(taskId);
-        if (taskExecution != null) {
-            taskExecution.recordHeartbeat();
-            return getTaskInfo(taskExecution);
-        }
-
-        TaskInfo taskInfo = taskInfos.get(taskId);
-        if (taskInfo == null) {
-            throw new NoSuchElementException("Unknown query task " + taskId);
-        }
-        return taskInfo;
+        return tasks.getUnchecked(taskId).getTaskInfo();
     }
 
-    private TaskInfo getTaskInfo(TaskExecution taskExecution)
+    @Override
+    public ListenableFuture<TaskInfo> getTaskInfo(TaskId taskId, TaskState currentState)
     {
-        TaskInfo taskInfo = taskExecution.getTaskInfo();
-        if (taskInfo.getState().isDone()) {
-            if (taskInfo.getStats().getEndTime() == null) {
-                log.warn("Task %s is in done state %s but does not have an end time", taskInfo.getTaskId(), taskInfo.getState());
-            }
+        checkNotNull(taskId, "taskId is null");
+        checkNotNull(currentState, "currentState is null");
 
-            // cache task info
-            taskInfos.putIfAbsent(taskInfo.getTaskId(), taskInfo);
-
-            // record input and output stats
-            TaskContext taskContext = taskExecution.getTaskContext();
-            finishedInputDataSize.merge(taskContext.getInputDataSize());
-            finishedInputPositions.merge(taskContext.getInputPositions());
-            finishedOutputDataSize.merge(taskContext.getOutputDataSize());
-            finishedOutputPositions.merge(taskContext.getOutputPositions());
-
-            // remove task (after caching the task info)
-            tasks.remove(taskInfo.getTaskId());
-        }
-        return taskInfo;
+        return tasks.getUnchecked(taskId).getTaskInfo(currentState);
     }
 
     @Override
     public TaskInfo updateTask(ConnectorSession session, TaskId taskId, PlanFragment fragment, List<TaskSource> sources, OutputBuffers outputBuffers)
     {
-        URI location = locationFactory.createLocalTaskLocation(taskId);
+        checkNotNull(session, "session is null");
+        checkNotNull(taskId, "taskId is null");
+        checkNotNull(fragment, "fragment is null");
+        checkNotNull(sources, "sources is null");
+        checkNotNull(outputBuffers, "outputBuffers is null");
 
-        TaskExecution taskExecution;
-        synchronized (this) {
-            taskExecution = tasks.get(taskId);
-            if (taskExecution == null) {
-                // is task already complete?
-                TaskInfo taskInfo = taskInfos.get(taskId);
-                if (taskInfo != null) {
-                    return taskInfo;
-                }
-
-                taskExecution = SqlTaskExecution.createSqlTaskExecution(session,
-                        taskId,
-                        location,
-                        fragment,
-                        sources,
-                        outputBuffers,
-                        planner,
-                        maxBufferSize,
-                        taskExecutor,
-                        taskNotificationExecutor,
-                        maxTaskMemoryUsage,
-                        operatorPreAllocatedMemory,
-                        queryMonitor,
-                        cpuTimerEnabled
-                );
-                tasks.put(taskId, taskExecution);
-            }
-        }
-
-        taskExecution.recordHeartbeat();
-        taskExecution.addSources(sources);
-        taskExecution.addResultQueue(outputBuffers);
-
-        return getTaskInfo(taskExecution);
+        return tasks.getUnchecked(taskId).updateTask(session, fragment, sources, outputBuffers);
     }
 
     @Override
-    public BufferResult getTaskResults(TaskId taskId, String outputName, long startingSequenceId, DataSize maxSize, Duration maxWaitTime)
-            throws InterruptedException
+    public ListenableFuture<BufferResult> getTaskResults(TaskId taskId, String outputName, long startingSequenceId, DataSize maxSize)
     {
         checkNotNull(taskId, "taskId is null");
         checkNotNull(outputName, "outputName is null");
-        Preconditions.checkArgument(maxSize.toBytes() > 0, "maxSize must be at least 1 byte");
-        checkNotNull(maxWaitTime, "maxWaitTime is null");
+        Preconditions.checkArgument(startingSequenceId >= 0, "startingSequenceId is negative");
+        checkNotNull(maxSize, "maxSize is null");
 
-        TaskExecution taskExecution = tasks.get(taskId);
-        if (taskExecution == null) {
-            TaskInfo taskInfo = taskInfos.get(taskId);
-            if (taskInfo == null) {
-                throw new NoSuchElementException("Unknown query task " + taskId);
-            }
-            else if (taskInfo.getState() == TaskState.FAILED) {
-                // for a failed query, do not return a closed buffer as a
-                // closed buffer signals to upstream tasks that everything
-                // finished cleanly
-                Uninterruptibles.sleepUninterruptibly(100, TimeUnit.MILLISECONDS);
-                return BufferResult.emptyResults(startingSequenceId, false);
-            }
-            else {
-                // query is finished
-                return BufferResult.emptyResults(taskInfo.getOutputBuffers().getMasterSequenceId(), true);
-            }
-        }
-        taskExecution.recordHeartbeat();
-        return taskExecution.getResults(outputName, startingSequenceId, maxSize, maxWaitTime);
+        return tasks.getUnchecked(taskId).getTaskResults(outputName, startingSequenceId, maxSize);
     }
 
     @Override
@@ -357,22 +239,7 @@ public class SqlTaskManager
         checkNotNull(taskId, "taskId is null");
         checkNotNull(outputId, "outputId is null");
 
-        TaskExecution taskExecution = tasks.get(taskId);
-        if (taskExecution == null) {
-            TaskInfo taskInfo = taskInfos.get(taskId);
-            if (taskInfo != null) {
-                // todo this is not safe since task can be expired at any time
-                // task was finished early, so the new split should be ignored
-                return taskInfo;
-            }
-            else {
-                throw new NoSuchElementException("Unknown query task " + taskId);
-            }
-        }
-        log.debug("Aborting task %s output %s", taskId, outputId);
-        taskExecution.abortResults(outputId);
-
-        return getTaskInfo(taskExecution);
+        return tasks.getUnchecked(taskId).abortTaskResults(outputId);
     }
 
     @Override
@@ -380,51 +247,17 @@ public class SqlTaskManager
     {
         checkNotNull(taskId, "taskId is null");
 
-        TaskExecution taskExecution = tasks.get(taskId);
-        if (taskExecution == null) {
-            TaskInfo taskInfo = taskInfos.get(taskId);
-            if (taskInfo == null) {
-                // task does not exist yet, mark the task as canceled, so later if a late request
-                // comes in to create the task, the task remains canceled
-                TaskContext taskContext = new TaskContext(
-                        new TaskStateMachine(taskId, taskNotificationExecutor),
-                        taskManagementExecutor,
-                        null,
-                        maxTaskMemoryUsage,
-                        operatorPreAllocatedMemory,
-                        cpuTimerEnabled);
-
-                taskInfo = new TaskInfo(taskId,
-                        Long.MAX_VALUE,
-                        TaskState.CANCELED,
-                        URI.create("unknown"),
-                        DateTime.now(),
-                        new SharedBufferInfo(QueueState.FINISHED, 0, 0, ImmutableList.<BufferInfo>of()),
-                        ImmutableSet.<PlanNodeId>of(),
-                        taskContext.getTaskStats(),
-                        ImmutableList.<ExecutionFailureInfo>of());
-                TaskInfo existingTaskInfo = taskInfos.putIfAbsent(taskId, taskInfo);
-                if (existingTaskInfo != null) {
-                    taskInfo = existingTaskInfo;
-                }
-            }
-            return taskInfo;
-        }
-
-        // make sure task is finished
-        taskExecution.cancel();
-
-        return getTaskInfo(taskExecution);
+        return tasks.getUnchecked(taskId).cancel();
     }
 
     public void removeOldTasks()
     {
         DateTime oldestAllowedTask = DateTime.now().minus(infoCacheTime.toMillis());
-        for (TaskInfo taskInfo : taskInfos.values()) {
+        for (TaskInfo taskInfo : filter(transform(tasks.asMap().values(), SqlTask.taskInfoGetter()), notNull())) {
             try {
                 DateTime endTime = taskInfo.getStats().getEndTime();
                 if (endTime != null && endTime.isBefore(oldestAllowedTask)) {
-                    taskInfos.remove(taskInfo.getTaskId());
+                    tasks.asMap().remove(taskInfo.getTaskId());
                 }
             }
             catch (RuntimeException e) {
@@ -437,23 +270,20 @@ public class SqlTaskManager
     {
         DateTime now = DateTime.now();
         DateTime oldestAllowedHeartbeat = now.minus(clientTimeout.toMillis());
-        for (TaskExecution taskExecution : tasks.values()) {
+        for (SqlTask sqlTask : tasks.asMap().values()) {
             try {
-                TaskInfo taskInfo = taskExecution.getTaskInfo();
+                TaskInfo taskInfo = sqlTask.getTaskInfo();
                 if (taskInfo.getState().isDone()) {
                     continue;
                 }
                 DateTime lastHeartbeat = taskInfo.getLastHeartbeat();
                 if (lastHeartbeat != null && lastHeartbeat.isBefore(oldestAllowedHeartbeat)) {
-                    log.info("Failing abandoned task %s", taskExecution.getTaskId());
-                    taskExecution.fail(new AbandonedException("Task " + taskInfo.getTaskId(), lastHeartbeat, now));
-
-                    // trigger caching
-                    getTaskInfo(taskExecution);
+                    log.info("Failing abandoned task %s", taskInfo.getTaskId());
+                    sqlTask.failed(new AbandonedException("Task " + taskInfo.getTaskId(), lastHeartbeat, now));
                 }
             }
             catch (RuntimeException e) {
-                log.warn(e, "Error while inspecting age of task %s", taskExecution.getTaskId());
+                log.warn(e, "Error while inspecting age of task %s", sqlTask.getTaskId());
             }
         }
     }
@@ -462,41 +292,20 @@ public class SqlTaskManager
     // Jmxutils only calls nested getters once, so we are forced to maintain a single
     // instance and periodically recalculate the stats.
     //
-    @SuppressWarnings("deprecation")
     private void updateStats()
     {
-        CounterStat temp;
+        SqlTaskIoStats tempIoStats = new SqlTaskIoStats();
+        tempIoStats.merge(finishedTaskStats);
 
-        temp = new CounterStat();
-        temp.merge(finishedInputDataSize);
-        for (TaskExecution taskExecution : tasks.values()) {
-            TaskContext taskContext = taskExecution.getTaskContext();
-            temp.merge(taskContext.getInputDataSize());
+        for (SqlTask task : tasks.asMap().values()) {
+            // there is a race here between task completion, which merges stats into
+            // finishedTaskStats, and getting the stats from the task.  Since we have
+            // already merged the final stats, we could miss the stats from this task
+            // which would result in an under-count, but we will not get an over-count.
+            if (!task.getTaskInfo().getState().isDone()) {
+                tempIoStats.merge(task.getIoStats());
+            }
         }
-        inputDataSize.resetTo(temp);
-
-        temp = new CounterStat();
-        temp.merge(finishedInputPositions);
-        for (TaskExecution taskExecution : tasks.values()) {
-            TaskContext taskContext = taskExecution.getTaskContext();
-            temp.merge(taskContext.getInputPositions());
-        }
-        inputPositions.resetTo(temp);
-
-        temp = new CounterStat();
-        temp.merge(finishedOutputDataSize);
-        for (TaskExecution taskExecution : tasks.values()) {
-            TaskContext taskContext = taskExecution.getTaskContext();
-            temp.merge(taskContext.getOutputDataSize());
-        }
-        outputDataSize.resetTo(temp);
-
-        temp = new CounterStat();
-        temp.merge(finishedOutputPositions);
-        for (TaskExecution taskExecution : tasks.values()) {
-            TaskContext taskContext = taskExecution.getTaskContext();
-            temp.merge(taskContext.getOutputPositions());
-        }
-        outputPositions.resetTo(temp);
+        cachedStats.resetTo(tempIoStats);
     }
 }

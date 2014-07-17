@@ -15,6 +15,9 @@ package com.facebook.presto.execution;
 
 import com.google.common.base.Predicate;
 import com.google.common.collect.ImmutableList;
+import com.google.common.util.concurrent.Futures;
+import com.google.common.util.concurrent.ListenableFuture;
+import com.google.common.util.concurrent.SettableFuture;
 import io.airlift.log.Logger;
 import io.airlift.units.Duration;
 
@@ -48,6 +51,9 @@ public class StateMachine<T>
     @GuardedBy("this")
     private final List<StateChangeListener<T>> stateChangeListeners = new ArrayList<>();
 
+    @GuardedBy("this")
+    private final List<SettableFuture<T>> futureStateChanges = new ArrayList<>();
+
     /**
      * Creates a state machine with the specified initial value
      *
@@ -67,6 +73,21 @@ public class StateMachine<T>
         return state;
     }
 
+    public ListenableFuture<T> getStateChange(T currentState)
+    {
+        checkState(!Thread.holdsLock(this), "Can not wait for state change while holding a lock on this");
+
+        synchronized (this) {
+            if (!Objects.equals(state, currentState)) {
+                return Futures.immediateFuture(state);
+            }
+
+            SettableFuture<T> futureStateChange = SettableFuture.create();
+            futureStateChanges.add(futureStateChange);
+            return futureStateChange;
+        }
+    }
+
     /**
      * Sets the state.
      * If the new state does not {@code .equals()} the current state, listeners and waiters will be notified.
@@ -79,6 +100,7 @@ public class StateMachine<T>
         checkNotNull(newState, "newState is null");
 
         T oldState;
+        ImmutableList<SettableFuture<T>> futureStateChanges;
         ImmutableList<StateChangeListener<T>> stateChangeListeners;
         synchronized (this) {
             if (Objects.equals(state, newState)) {
@@ -88,11 +110,13 @@ public class StateMachine<T>
             oldState = state;
             state = newState;
 
+            futureStateChanges = ImmutableList.copyOf(this.futureStateChanges);
+            this.futureStateChanges.clear();
             stateChangeListeners = ImmutableList.copyOf(this.stateChangeListeners);
             this.notifyAll();
         }
 
-        fireStateChanged(newState, stateChangeListeners);
+        fireStateChanged(newState, futureStateChanges, stateChangeListeners);
         return oldState;
     }
 
@@ -133,6 +157,7 @@ public class StateMachine<T>
         checkNotNull(expectedState, "expectedState is null");
         checkNotNull(newState, "newState is null");
 
+        ImmutableList<SettableFuture<T>> futureStateChanges;
         ImmutableList<StateChangeListener<T>> stateChangeListeners;
         synchronized (this) {
             if (!Objects.equals(state, expectedState)) {
@@ -146,15 +171,20 @@ public class StateMachine<T>
 
             state = newState;
 
+            futureStateChanges = ImmutableList.copyOf(this.futureStateChanges);
+            this.futureStateChanges.clear();
             stateChangeListeners = ImmutableList.copyOf(this.stateChangeListeners);
             this.notifyAll();
         }
 
-        fireStateChanged(newState, stateChangeListeners);
+        fireStateChanged(newState, futureStateChanges, stateChangeListeners);
         return true;
     }
 
-    private void fireStateChanged(final T newState, final ImmutableList<StateChangeListener<T>> stateChangeListeners)
+    private void fireStateChanged(
+            final T newState,
+            final ImmutableList<SettableFuture<T>> futureStateChanges,
+            final ImmutableList<StateChangeListener<T>> stateChangeListeners)
     {
         checkState(!Thread.holdsLock(this), "Can not fire state change event while holding a lock on this");
 
@@ -164,6 +194,14 @@ public class StateMachine<T>
             public void run()
             {
                 checkState(!Thread.holdsLock(StateMachine.this), "Can not notify while holding a lock on this");
+                for (SettableFuture<T> futureStateChange : futureStateChanges) {
+                    try {
+                        futureStateChange.set(newState);
+                    }
+                    catch (Throwable e) {
+                        log.error(e, "Error setting future state for %s", name);
+                    }
+                }
                 for (StateChangeListener<T> stateChangeListener : stateChangeListeners) {
                     try {
                         stateChangeListener.stateChanged(newState);
@@ -214,9 +252,9 @@ public class StateMachine<T>
         return new Duration(remainingNanos, NANOSECONDS);
     }
 
-    public static interface StateChangeListener<T>
+    public interface StateChangeListener<T>
     {
-        public void stateChanged(T newValue);
+        void stateChanged(T newValue);
     }
 
     @Override

@@ -1,0 +1,110 @@
+/*
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package com.facebook.presto.execution;
+
+import com.facebook.presto.OutputBuffers;
+import com.facebook.presto.ScheduledSplit;
+import com.facebook.presto.TaskSource;
+import com.facebook.presto.execution.TestSqlTaskManager.MockExchangeClientSupplier;
+import com.facebook.presto.index.IndexManager;
+import com.facebook.presto.metadata.ColumnHandle;
+import com.facebook.presto.metadata.MetadataManager;
+import com.facebook.presto.metadata.Split;
+import com.facebook.presto.metadata.TableHandle;
+import com.facebook.presto.operator.RecordSinkManager;
+import com.facebook.presto.operator.index.IndexJoinLookupStats;
+import com.facebook.presto.spi.ConnectorSession;
+import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.split.DataStreamManager;
+import com.facebook.presto.sql.analyzer.FeaturesConfig;
+import com.facebook.presto.sql.gen.ExpressionCompiler;
+import com.facebook.presto.sql.parser.SqlParser;
+import com.facebook.presto.sql.planner.CompilerConfig;
+import com.facebook.presto.sql.planner.LocalExecutionPlanner;
+import com.facebook.presto.sql.planner.PlanFragment;
+import com.facebook.presto.sql.planner.PlanFragment.OutputPartitioning;
+import com.facebook.presto.sql.planner.PlanFragment.PlanDistribution;
+import com.facebook.presto.sql.planner.Symbol;
+import com.facebook.presto.sql.planner.TestingColumnHandle;
+import com.facebook.presto.sql.planner.TestingTableHandle;
+import com.facebook.presto.sql.planner.plan.PlanFragmentId;
+import com.facebook.presto.sql.planner.plan.PlanNodeId;
+import com.facebook.presto.sql.planner.plan.TableScanNode;
+import com.facebook.presto.sql.planner.plan.TableScanNode.GeneratedPartitions;
+import com.facebook.presto.type.TypeRegistry;
+import com.google.common.base.Optional;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
+
+import java.util.List;
+import java.util.Locale;
+
+import static com.facebook.presto.spi.type.TimeZoneKey.UTC_KEY;
+import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
+
+public final class TaskTestUtils
+{
+    private TaskTestUtils()
+    {
+    }
+
+    public static final ConnectorSession SESSION = new ConnectorSession("user", "test", "default", "default", UTC_KEY, Locale.ENGLISH, "test", "test");
+
+    public static final ScheduledSplit SPLIT = new ScheduledSplit(0, new Split("test", new TestingSplit()));
+
+    public static final PlanNodeId TABLE_SCAN_NODE_ID = new PlanNodeId("tableScan");
+
+    public static final ImmutableList<TaskSource> EMPTY_SOURCES = ImmutableList.of();
+
+    public static final Symbol SYMBOL = new Symbol("column");
+
+    public static final PlanFragment PLAN_FRAGMENT = new PlanFragment(
+            new PlanFragmentId("fragment"),
+            new TableScanNode(
+                    TABLE_SCAN_NODE_ID,
+                    new TableHandle("test", new TestingTableHandle()),
+                    ImmutableList.of(SYMBOL),
+                    ImmutableMap.of(SYMBOL, new ColumnHandle("test", new TestingColumnHandle("column"))),
+                    null,
+                    Optional.<GeneratedPartitions>absent()),
+            ImmutableMap.<Symbol, Type>of(SYMBOL, VARCHAR),
+            PlanDistribution.SOURCE,
+            TABLE_SCAN_NODE_ID,
+            OutputPartitioning.NONE,
+            ImmutableList.<Symbol>of());
+
+    public static LocalExecutionPlanner createTestingPlanner()
+    {
+        MetadataManager metadata = new MetadataManager(new FeaturesConfig(), new TypeRegistry());
+
+        DataStreamManager dataStreamProvider = new DataStreamManager();
+        dataStreamProvider.addConnectorDataStreamProvider("test", new TestingDataStreamProvider());
+        return new LocalExecutionPlanner(
+                metadata,
+                new SqlParser(),
+                dataStreamProvider,
+                new IndexManager(),
+                new RecordSinkManager(),
+                new MockExchangeClientSupplier(),
+                new ExpressionCompiler(metadata),
+                new IndexJoinLookupStats(),
+                new CompilerConfig(),
+                new TaskManagerConfig());
+    }
+
+    public static TaskInfo updateTask(SqlTask sqlTask, List<TaskSource> taskSources, OutputBuffers outputBuffers)
+    {
+        return sqlTask.updateTask(SESSION, PLAN_FRAGMENT, taskSources, outputBuffers);
+    }
+}

@@ -13,16 +13,18 @@
  */
 package com.facebook.presto.server;
 
-import com.facebook.presto.PrestoMediaTypes;
 import com.facebook.presto.execution.BufferResult;
-import com.facebook.presto.execution.NoSuchBufferException;
 import com.facebook.presto.execution.TaskId;
 import com.facebook.presto.execution.TaskInfo;
 import com.facebook.presto.execution.TaskManager;
 import com.facebook.presto.execution.TaskState;
 import com.facebook.presto.operator.Page;
+import com.facebook.presto.util.MoreFutures;
+import com.google.common.base.Function;
 import com.google.common.collect.ImmutableList;
 import com.google.common.reflect.TypeToken;
+import com.google.common.util.concurrent.Futures;
+import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.units.DataSize;
 import io.airlift.units.DataSize.Unit;
 import io.airlift.units.Duration;
@@ -36,6 +38,8 @@ import javax.ws.rs.POST;
 import javax.ws.rs.Path;
 import javax.ws.rs.PathParam;
 import javax.ws.rs.Produces;
+import javax.ws.rs.container.AsyncResponse;
+import javax.ws.rs.container.Suspended;
 import javax.ws.rs.core.Context;
 import javax.ws.rs.core.GenericEntity;
 import javax.ws.rs.core.MediaType;
@@ -44,8 +48,10 @@ import javax.ws.rs.core.Response.Status;
 import javax.ws.rs.core.UriInfo;
 
 import java.util.List;
-import java.util.NoSuchElementException;
+import java.util.concurrent.Callable;
+import java.util.concurrent.ScheduledExecutorService;
 
+import static com.facebook.presto.PrestoMediaTypes.PRESTO_PAGES;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_CURRENT_STATE;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_MAX_WAIT;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_PAGE_NEXT_TOKEN;
@@ -54,7 +60,6 @@ import static com.facebook.presto.execution.TaskInfo.summarizeTaskInfo;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.collect.Iterables.transform;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
-import static java.util.concurrent.TimeUnit.NANOSECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
 
 /**
@@ -67,11 +72,13 @@ public class TaskResource
     private static final Duration DEFAULT_MAX_WAIT_TIME = new Duration(1, SECONDS);
 
     private final TaskManager taskManager;
+    private final ScheduledExecutorService executor;
 
     @Inject
-    public TaskResource(TaskManager taskManager)
+    public TaskResource(TaskManager taskManager, @ForAsyncHttpResponse ScheduledExecutorService executor)
     {
         this.taskManager = checkNotNull(taskManager, "taskManager is null");
+        this.executor = checkNotNull(executor, "executor is null");
     }
 
     @GET
@@ -109,28 +116,46 @@ public class TaskResource
     @GET
     @Path("{taskId}")
     @Produces(MediaType.APPLICATION_JSON)
-    public Response getTaskInfo(@PathParam("taskId") TaskId taskId,
+    public void getTaskInfo(@PathParam("taskId") final TaskId taskId,
             @HeaderParam(PRESTO_CURRENT_STATE) TaskState currentState,
             @HeaderParam(PRESTO_MAX_WAIT) Duration maxWait,
-            @Context UriInfo uriInfo)
-            throws InterruptedException
+            @Context UriInfo uriInfo,
+            @Suspended AsyncResponse asyncResponse)
     {
         checkNotNull(taskId, "taskId is null");
 
-        if (maxWait != null) {
-            taskManager.waitForStateChange(taskId, currentState, maxWait);
+        if (currentState == null || maxWait == null) {
+            asyncResponse.resume(taskManager.getTaskInfo(taskId));
+            return;
         }
 
-        try {
-            TaskInfo taskInfo = taskManager.getTaskInfo(taskId);
-            if (shouldSummarize(uriInfo)) {
-                taskInfo = taskInfo.summarize();
-            }
-            return Response.ok(taskInfo).build();
+        ListenableFuture<TaskInfo> futureTaskInfo = MoreFutures.addTimeout(
+                taskManager.getTaskInfo(taskId, currentState),
+                new Callable<TaskInfo>()
+                {
+                    @Override
+                    public TaskInfo call()
+                    {
+                        return taskManager.getTaskInfo(taskId);
+                    }
+                },
+                maxWait,
+                executor);
+
+        if (shouldSummarize(uriInfo)) {
+            futureTaskInfo = Futures.transform(futureTaskInfo, new Function<TaskInfo, TaskInfo>()
+            {
+                @Override
+                public TaskInfo apply(TaskInfo taskInfo)
+                {
+                    return taskInfo.summarize();
+                }
+            });
         }
-        catch (NoSuchElementException e) {
-            return Response.status(Status.GONE).build();
-        }
+
+        // For hard timeout, add an additional 5 seconds to max wait for thread scheduling contention and GC
+        Duration timeout = new Duration(maxWait.toMillis() + 5000, MILLISECONDS);
+        AsyncResponseUtils.registerAsyncResponse(asyncResponse, futureTaskInfo, timeout, executor);
     }
 
     @DELETE
@@ -140,77 +165,78 @@ public class TaskResource
     {
         checkNotNull(taskId, "taskId is null");
 
-        try {
-            TaskInfo taskInfo = taskManager.cancelTask(taskId);
-            if (taskInfo != null) {
-                if (shouldSummarize(uriInfo)) {
-                    taskInfo = taskInfo.summarize();
-                }
-                return Response.ok(taskInfo).build();
-            }
+        TaskInfo taskInfo = taskManager.cancelTask(taskId);
+        if (shouldSummarize(uriInfo)) {
+            taskInfo = taskInfo.summarize();
         }
-        catch (NoSuchElementException ignored) {
-        }
-        return Response.status(Status.NOT_FOUND).build();
+        return Response.ok(taskInfo).build();
     }
 
     @GET
     @Path("{taskId}/results/{outputId}/{token}")
-    @Produces(PrestoMediaTypes.PRESTO_PAGES)
-    public Response getResults(@PathParam("taskId") TaskId taskId,
+    @Produces(PRESTO_PAGES)
+    public void getResults(@PathParam("taskId") final TaskId taskId,
             @PathParam("outputId") String outputId,
-            @PathParam("token") long token)
+            @PathParam("token") final long token,
+            @Suspended AsyncResponse asyncResponse)
             throws InterruptedException
     {
         checkNotNull(taskId, "taskId is null");
         checkNotNull(outputId, "outputId is null");
 
-        long remainingNanos = DEFAULT_MAX_WAIT_TIME.roundTo(NANOSECONDS);
-        long start = System.nanoTime();
-        long end = start + remainingNanos;
-        int maxSleepMillis = 1;
+        ListenableFuture<BufferResult> bufferResultFuture = taskManager.getTaskResults(taskId, outputId, token, DEFAULT_MAX_SIZE);
+        bufferResultFuture = MoreFutures.addTimeout(
+                bufferResultFuture,
+                new Callable<BufferResult>()
+                {
+                    @Override
+                    public BufferResult call()
+                    {
+                        return BufferResult.emptyResults(token, false);
+                    }
+                },
+                DEFAULT_MAX_WAIT_TIME,
+                executor);
 
-        while (remainingNanos > 0) {
-            // todo we need a much better way to determine if a task is unknown (e.g. not scheduled yet), done, or there is current no more data
-            try {
-                BufferResult result = taskManager.getTaskResults(taskId, outputId, token, DEFAULT_MAX_SIZE, new Duration(remainingNanos, NANOSECONDS));
+        ListenableFuture<Response> responseFuture = Futures.transform(bufferResultFuture, new Function<BufferResult, Response>()
+        {
+            @Override
+            public Response apply(BufferResult result)
+            {
                 List<Page> pages = result.getPages();
 
+                GenericEntity<?> entity = null;
+                Status status;
                 if (!pages.isEmpty()) {
-                    GenericEntity<?> entity = new GenericEntity<>(pages, new TypeToken<List<Page>>() {}.getType());
-                    return Response.ok(entity)
-                            .header(PRESTO_PAGE_TOKEN, result.getToken())
-                            .header(PRESTO_PAGE_NEXT_TOKEN, result.getNextToken())
-                            .build();
+                    entity = new GenericEntity<>(pages, new TypeToken<List<Page>>() {}.getType());
+                    status = Status.OK;
                 }
                 else if (result.isBufferClosed()) {
-                    return Response.status(Status.GONE)
-                            .header(PRESTO_PAGE_TOKEN, result.getToken())
-                            .header(PRESTO_PAGE_NEXT_TOKEN, result.getNextToken())
-                            .build();
+                    status = Status.GONE;
                 }
                 else {
-                    return Response.status(Status.NO_CONTENT)
-                            .header(PRESTO_PAGE_TOKEN, result.getToken())
-                            .header(PRESTO_PAGE_NEXT_TOKEN, result.getNextToken())
-                            .build();
+                    status = Status.NO_CONTENT;
                 }
-            }
-            catch (NoSuchElementException | NoSuchBufferException ignored) {
-            }
 
-            // task hasn't been scheduled yet.
-            // sleep for a bit, before retrying
-            NANOSECONDS.sleep(Math.min(remainingNanos, MILLISECONDS.toNanos(maxSleepMillis)));
-            remainingNanos = end - System.nanoTime();
-            maxSleepMillis *= 2;
-        }
+                return Response.status(status)
+                        .entity(entity)
+                        .header(PRESTO_PAGE_TOKEN, result.getToken())
+                        .header(PRESTO_PAGE_NEXT_TOKEN, result.getNextToken())
+                        .build();
+            }
+        });
 
-        // task doesn't exist yet and wait time has expired
-        return Response.status(Status.NO_CONTENT)
-                .header(PRESTO_PAGE_TOKEN, token)
-                .header(PRESTO_PAGE_NEXT_TOKEN, token)
-                .build();
+        // For hard timeout, add an additional 5 seconds to max wait for thread scheduling contention and GC
+        Duration timeout = new Duration(DEFAULT_MAX_WAIT_TIME.toMillis() + 5000, MILLISECONDS);
+        AsyncResponseUtils.registerAsyncResponse(
+                asyncResponse,
+                responseFuture,
+                timeout,
+                executor,
+                Response.status(Status.NO_CONTENT)
+                        .header(PRESTO_PAGE_TOKEN, token)
+                        .header(PRESTO_PAGE_NEXT_TOKEN, token)
+                        .build());
     }
 
     @DELETE
@@ -221,16 +247,11 @@ public class TaskResource
         checkNotNull(taskId, "taskId is null");
         checkNotNull(outputId, "outputId is null");
 
-        try {
-            TaskInfo taskInfo = taskManager.abortTaskResults(taskId, outputId);
-            if (shouldSummarize(uriInfo)) {
-                taskInfo = taskInfo.summarize();
-            }
-            return Response.ok(taskInfo).build();
+        TaskInfo taskInfo = taskManager.abortTaskResults(taskId, outputId);
+        if (shouldSummarize(uriInfo)) {
+            taskInfo = taskInfo.summarize();
         }
-        catch (NoSuchElementException e) {
-            return Response.status(Status.NOT_FOUND).build();
-        }
+        return Response.ok(taskInfo).build();
     }
 
     private static boolean shouldSummarize(UriInfo uriInfo)
