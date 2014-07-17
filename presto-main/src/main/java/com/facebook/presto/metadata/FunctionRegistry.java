@@ -69,6 +69,7 @@ import com.facebook.presto.type.DateTimeOperators;
 import com.facebook.presto.type.DoubleOperators;
 import com.facebook.presto.type.IntervalDayTimeOperators;
 import com.facebook.presto.type.IntervalYearMonthOperators;
+import com.facebook.presto.type.LikeFunctions;
 import com.facebook.presto.type.SqlType;
 import com.facebook.presto.type.TimeOperators;
 import com.facebook.presto.type.TimeWithTimeZoneOperators;
@@ -94,6 +95,7 @@ import com.google.common.collect.Multimap;
 import com.google.common.collect.Multimaps;
 import com.google.common.primitives.Primitives;
 import io.airlift.slice.Slice;
+import org.joni.Regex;
 
 import javax.annotation.Nullable;
 import javax.annotation.concurrent.ThreadSafe;
@@ -171,6 +173,7 @@ import static com.facebook.presto.spi.type.TimeWithTimeZoneType.TIME_WITH_TIME_Z
 import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
+import static com.facebook.presto.type.LikePatternType.LIKE_PATTERN;
 import static com.facebook.presto.type.RegexpType.REGEXP;
 import static com.facebook.presto.type.UnknownType.UNKNOWN;
 import static com.google.common.base.CaseFormat.LOWER_CAMEL;
@@ -304,7 +307,8 @@ public class FunctionRegistry
                 .scalar(IntervalYearMonthOperators.class)
                 .scalar(TimeWithTimeZoneOperators.class)
                 .scalar(TimestampWithTimeZoneOperators.class)
-                .scalar(DateTimeOperators.class);
+                .scalar(DateTimeOperators.class)
+                .scalar(LikeFunctions.class);
 
         if (experimentalSyntaxEnabled) {
             builder.approximateAggregate("avg", VARCHAR, ImmutableList.of(BIGINT), VARCHAR, LONG_APPROXIMATE_AVERAGE_AGGREGATION)
@@ -508,6 +512,10 @@ public class FunctionRegistry
         }
 
         if (actualType.equals(VARCHAR) && expectedType.equals(REGEXP)) {
+            return true;
+        }
+
+        if (actualType.equals(VARCHAR) && expectedType.equals(LIKE_PATTERN)) {
             return true;
         }
 
@@ -777,8 +785,8 @@ public class FunctionRegistry
             return LOWER_CAMEL.to(LOWER_UNDERSCORE, name);
         }
 
-        private static final Set<Class<?>> SUPPORTED_TYPES = ImmutableSet.<Class<?>>of(long.class, double.class, Slice.class, boolean.class, Pattern.class);
-        private static final Set<Class<?>> SUPPORTED_RETURN_TYPES = ImmutableSet.<Class<?>>of(long.class, double.class, Slice.class, boolean.class, int.class, Pattern.class);
+        private static final Set<Class<?>> SUPPORTED_TYPES = ImmutableSet.<Class<?>>of(long.class, double.class, Slice.class, boolean.class, Pattern.class, Regex.class);
+        private static final Set<Class<?>> SUPPORTED_RETURN_TYPES = ImmutableSet.<Class<?>>of(long.class, double.class, Slice.class, boolean.class, int.class, Pattern.class, Regex.class);
 
         private static void checkValidMethod(Method method)
         {
