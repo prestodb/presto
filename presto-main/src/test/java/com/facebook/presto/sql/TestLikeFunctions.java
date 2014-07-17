@@ -13,54 +13,55 @@
  */
 package com.facebook.presto.sql;
 
-import com.facebook.presto.sql.planner.LikeUtils;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import org.joni.Regex;
 import org.testng.annotations.Test;
 
+import static com.facebook.presto.type.LikeFunctions.like;
+import static com.facebook.presto.type.LikeFunctions.likePattern;
 import static io.airlift.slice.Slices.utf8Slice;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 
-public class TestLikeUtils
+public class TestLikeFunctions
 {
     @Test(timeOut = 1000)
     public void testLikeUtf8Pattern()
     {
-        Regex regex = LikeUtils.likeToPattern(utf8Slice("%\u540d\u8a89%"), utf8Slice("\\"));
-        assertFalse(LikeUtils.regexMatches(regex, utf8Slice("foo")));
+        Regex regex = likePattern(utf8Slice("%\u540d\u8a89%"), utf8Slice("\\"));
+        assertFalse(like(utf8Slice("foo"), regex));
     }
 
     @Test(timeOut = 1000)
     public void testLikeInvalidUtf8Value()
     {
         Slice value = Slices.wrappedBuffer(new byte[] {'a', 'b', 'c', (byte) 0xFF, 'x', 'y'});
-        Regex regex = LikeUtils.likeToPattern("%b%", '\\');
-        assertTrue(LikeUtils.regexMatches(regex, value));
+        Regex regex = likePattern(utf8Slice("%b%"), utf8Slice("\\"));
+        assertTrue(like(value, regex));
     }
 
     @Test
     public void testBackslashesNoSpecialTreatment()
             throws Exception
     {
-        Regex regex = LikeUtils.likeToPattern("\\abc\\/\\\\");
-        assertTrue(LikeUtils.regexMatches(regex, utf8Slice("\\abc\\/\\\\")));
+        Regex regex = likePattern(utf8Slice("\\abc\\/\\\\"));
+        assertTrue(like(utf8Slice("\\abc\\/\\\\"), regex));
     }
 
     @Test
     public void testSelfEscaping()
             throws Exception
     {
-        Regex regex = LikeUtils.likeToPattern("\\\\abc\\%", '\\');
-        assertTrue(LikeUtils.regexMatches(regex, utf8Slice("\\abc%")));
+        Regex regex = likePattern(utf8Slice("\\\\abc\\%"), utf8Slice("\\"));
+        assertTrue(like(utf8Slice("\\abc%"), regex));
     }
 
     @Test
     public void testAlternateEscapedCharacters()
             throws Exception
     {
-        Regex regex = LikeUtils.likeToPattern("xxx%x_xabcxx", 'x');
-        assertTrue(LikeUtils.regexMatches(regex, utf8Slice("x%_abcx")));
+        Regex regex = likePattern(utf8Slice("xxx%x_xabcxx"), utf8Slice("x"));
+        assertTrue(like(utf8Slice("x%_abcx"), regex));
     }
 }

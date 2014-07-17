@@ -21,8 +21,8 @@ import com.facebook.presto.operator.scalar.RegexpFunctions;
 import com.facebook.presto.operator.scalar.StringFunctions;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.type.SqlTimestampWithTimeZone;
-import com.facebook.presto.sql.planner.LikeUtils;
 import com.facebook.presto.sql.tree.Extract.Field;
+import com.facebook.presto.type.LikeFunctions;
 import com.google.common.base.Function;
 import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
@@ -56,7 +56,6 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.Callable;
-import java.util.regex.Pattern;
 
 import static com.facebook.presto.operator.scalar.FunctionAssertions.SESSION;
 import static com.facebook.presto.spi.type.DateTimeEncoding.packDateTimeWithZone;
@@ -65,6 +64,7 @@ import static com.google.common.collect.Iterables.transform;
 import static com.google.common.util.concurrent.MoreExecutors.listeningDecorator;
 import static com.google.common.util.concurrent.MoreExecutors.sameThreadExecutor;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
+import static io.airlift.slice.Slices.utf8Slice;
 import static java.lang.Math.cos;
 import static java.lang.Runtime.getRuntime;
 import static java.util.concurrent.Executors.newFixedThreadPool;
@@ -1007,8 +1007,8 @@ public class TestExpressionCompiler
             for (String pattern : stringLefts) {
                 Boolean expected = null;
                 if (value != null && pattern != null) {
-                    Regex regex = LikeUtils.likeToPattern(pattern, '\\');
-                    expected = LikeUtils.regexMatches(regex, Slices.copiedBuffer(value, UTF_8));
+                    Regex regex = LikeFunctions.likePattern(utf8Slice(pattern), utf8Slice("\\"));
+                    expected = LikeFunctions.like(Slices.copiedBuffer(value, UTF_8), regex);
                 }
                 assertExecute(generateExpression("%s like %s", value, pattern), expected);
             }

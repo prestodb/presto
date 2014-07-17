@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.type;
 
-import com.facebook.presto.operator.scalar.ScalarFunction;
 import com.facebook.presto.operator.scalar.ScalarOperator;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.type.BigintType;
@@ -21,7 +20,6 @@ import com.facebook.presto.spi.type.BooleanType;
 import com.facebook.presto.spi.type.DoubleType;
 import com.facebook.presto.spi.type.VarbinaryType;
 import com.facebook.presto.spi.type.VarcharType;
-import com.facebook.presto.sql.gen.LikeFunctionBinder;
 import io.airlift.slice.Slice;
 
 import static com.facebook.presto.metadata.OperatorType.BETWEEN;
@@ -168,21 +166,5 @@ public final class VarcharOperators
     public static int hashCode(@SqlType(VarcharType.class) Slice value)
     {
         return value.hashCode();
-    }
-
-    // TODO: this should not be callable from SQL
-    @ScalarFunction(value = "like", functionBinder = LikeFunctionBinder.class, hidden = true)
-    @SqlType(BooleanType.class)
-    public static boolean like(@SqlType(VarcharType.class) Slice value, @SqlType(VarcharType.class) Slice pattern)
-    {
-        throw new UnsupportedOperationException("not yet implemented");
-    }
-
-    // TODO: this should not be callable from SQL
-    @ScalarFunction(value = "like", functionBinder = LikeFunctionBinder.class, hidden = true)
-    @SqlType(BooleanType.class)
-    public static boolean like(@SqlType(VarcharType.class) Slice value, @SqlType(VarcharType.class) Slice pattern, @SqlType(VarcharType.class) Slice escape)
-    {
-        throw new UnsupportedOperationException("not yet implemented");
     }
 }

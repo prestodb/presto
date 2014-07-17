@@ -75,13 +75,14 @@ import static com.facebook.presto.sql.relational.Signatures.betweenSignature;
 import static com.facebook.presto.sql.relational.Signatures.castSignature;
 import static com.facebook.presto.sql.relational.Signatures.coalesceSignature;
 import static com.facebook.presto.sql.relational.Signatures.comparisonExpressionSignature;
+import static com.facebook.presto.sql.relational.Signatures.likePatternSignature;
 import static com.facebook.presto.sql.relational.Signatures.likeSignature;
-import static com.facebook.presto.sql.relational.Signatures.likeWithEscapeSignature;
 import static com.facebook.presto.sql.relational.Signatures.logicalExpressionSignature;
 import static com.facebook.presto.sql.relational.Signatures.nullIfSignature;
 import static com.facebook.presto.sql.relational.Signatures.switchSignature;
 import static com.facebook.presto.sql.relational.Signatures.tryCastSignature;
 import static com.facebook.presto.sql.relational.Signatures.whenSignature;
+import static com.facebook.presto.type.LikePatternType.LIKE_PATTERN;
 import static com.facebook.presto.util.DateTimeUtils.parseDayTimeInterval;
 import static com.facebook.presto.util.DateTimeUtils.parseTimeWithTimeZone;
 import static com.facebook.presto.util.DateTimeUtils.parseTimeWithoutTimeZone;
@@ -450,10 +451,10 @@ public final class SqlToRowExpressionTranslator
 
             if (node.getEscape() != null) {
                 RowExpression escape = process(node.getEscape(), context);
-                return call(likeWithEscapeSignature(), value, pattern, escape);
+                return call(likeSignature(), value, call(likePatternSignature(), pattern, escape));
             }
 
-            return call(likeSignature(), value, pattern);
+            return call(likeSignature(), value, call(castSignature(LIKE_PATTERN, VARCHAR), pattern));
         }
     }
 }
