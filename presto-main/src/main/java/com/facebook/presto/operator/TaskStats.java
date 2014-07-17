@@ -28,6 +28,8 @@ import static com.facebook.presto.operator.PipelineStats.summarizePipelineStats;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.collect.Iterables.transform;
+import static io.airlift.units.DataSize.Unit.BYTE;
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 public class TaskStats
 {
@@ -63,6 +65,34 @@ public class TaskStats
     private final long outputPositions;
 
     private final List<PipelineStats> pipelines;
+
+    public TaskStats(DateTime createTime)
+    {
+        this(createTime,
+                null,
+                null,
+                null,
+                new Duration(0, MILLISECONDS),
+                new Duration(0, MILLISECONDS),
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                new DataSize(0, BYTE),
+                new Duration(0, MILLISECONDS),
+                new Duration(0, MILLISECONDS),
+                new Duration(0, MILLISECONDS),
+                new Duration(0, MILLISECONDS),
+                new DataSize(0, BYTE),
+                0,
+                new DataSize(0, BYTE),
+                0,
+                new DataSize(0, BYTE),
+                0,
+                ImmutableList.<PipelineStats>of());
+    }
 
     @JsonCreator
     public TaskStats(

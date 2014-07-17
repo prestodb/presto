@@ -54,7 +54,6 @@ public class TaskContext
 
     private final AtomicLong memoryReservation = new AtomicLong();
 
-    private final DateTime createdTime = DateTime.now();
     private final long createNanos = System.nanoTime();
 
     private final AtomicLong startNanos = new AtomicLong();
@@ -307,7 +306,7 @@ public class TaskContext
         }
 
         return new TaskStats(
-                createdTime,
+                taskStateMachine.getCreatedTime(),
                 executionStartTime.get(),
                 lastExecutionStartTime.get(),
                 executionEndTime.get(),
