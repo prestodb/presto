@@ -56,6 +56,7 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.Callable;
+import java.util.regex.Pattern;
 
 import static com.facebook.presto.operator.scalar.FunctionAssertions.SESSION;
 import static com.facebook.presto.spi.type.DateTimeEncoding.packDateTimeWithZone;
@@ -895,11 +896,11 @@ public class TestExpressionCompiler
         for (String value : stringLefts) {
             for (String pattern : stringRights) {
                 assertExecute(generateExpression("regexp_like(%s, %s)", value, pattern),
-                        value == null || pattern == null ? null : RegexpFunctions.regexpLike(Slices.copiedBuffer(value, UTF_8), Slices.copiedBuffer(pattern, UTF_8)));
+                        value == null || pattern == null ? null : RegexpFunctions.regexpLike(Slices.copiedBuffer(value, UTF_8), RegexpFunctions.castToRegexp(Slices.copiedBuffer(pattern, UTF_8))));
                 assertExecute(generateExpression("regexp_replace(%s, %s)", value, pattern),
-                        value == null || pattern == null ? null : RegexpFunctions.regexpReplace(Slices.copiedBuffer(value, UTF_8), Slices.copiedBuffer(pattern, UTF_8)));
+                        value == null || pattern == null ? null : RegexpFunctions.regexpReplace(Slices.copiedBuffer(value, UTF_8), RegexpFunctions.castToRegexp(Slices.copiedBuffer(pattern, UTF_8))));
                 assertExecute(generateExpression("regexp_extract(%s, %s)", value, pattern),
-                        value == null || pattern == null ? null : RegexpFunctions.regexpExtract(Slices.copiedBuffer(value, UTF_8), Slices.copiedBuffer(pattern, UTF_8)));
+                        value == null || pattern == null ? null : RegexpFunctions.regexpExtract(Slices.copiedBuffer(value, UTF_8), RegexpFunctions.castToRegexp(Slices.copiedBuffer(pattern, UTF_8))));
             }
         }
 
