@@ -111,6 +111,7 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.regex.Pattern;
 
 import static com.facebook.presto.metadata.FunctionInfo.isAggregationPredicate;
 import static com.facebook.presto.metadata.FunctionInfo.isHiddenPredicate;
@@ -170,6 +171,7 @@ import static com.facebook.presto.spi.type.TimeWithTimeZoneType.TIME_WITH_TIME_Z
 import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
+import static com.facebook.presto.type.RegexpType.REGEXP;
 import static com.facebook.presto.type.UnknownType.UNKNOWN;
 import static com.google.common.base.CaseFormat.LOWER_CAMEL;
 import static com.google.common.base.CaseFormat.LOWER_UNDERSCORE;
@@ -504,6 +506,11 @@ public class FunctionRegistry
         if (actualType.equals(TIMESTAMP) && expectedType.equals(TIMESTAMP_WITH_TIME_ZONE)) {
             return true;
         }
+
+        if (actualType.equals(VARCHAR) && expectedType.equals(REGEXP)) {
+            return true;
+        }
+
         return false;
     }
 
@@ -770,8 +777,8 @@ public class FunctionRegistry
             return LOWER_CAMEL.to(LOWER_UNDERSCORE, name);
         }
 
-        private static final Set<Class<?>> SUPPORTED_TYPES = ImmutableSet.<Class<?>>of(long.class, double.class, Slice.class, boolean.class);
-        private static final Set<Class<?>> SUPPORTED_RETURN_TYPES = ImmutableSet.<Class<?>>of(long.class, double.class, Slice.class, boolean.class, int.class);
+        private static final Set<Class<?>> SUPPORTED_TYPES = ImmutableSet.<Class<?>>of(long.class, double.class, Slice.class, boolean.class, Pattern.class);
+        private static final Set<Class<?>> SUPPORTED_RETURN_TYPES = ImmutableSet.<Class<?>>of(long.class, double.class, Slice.class, boolean.class, int.class, Pattern.class);
 
         private static void checkValidMethod(Method method)
         {
