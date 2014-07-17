@@ -696,16 +696,16 @@ public class LocalExecutionPlanner
                             sourceNode.getId(),
                             dataStreamProvider,
                             columns,
-                            SqlToRowExpressionTranslator.translate(rewrittenFilter, expressionTypes, metadata, session.getTimeZoneKey()),
-                            SqlToRowExpressionTranslator.translate(rewrittenProjections, expressionTypes, metadata, session.getTimeZoneKey()));
+                            SqlToRowExpressionTranslator.translate(rewrittenFilter, expressionTypes, metadata, session),
+                            SqlToRowExpressionTranslator.translate(rewrittenProjections, expressionTypes, metadata, session));
 
                     return new PhysicalOperation(operatorFactory, outputMappings);
                 }
                 else {
                     OperatorFactory operatorFactory = compiler.compileFilterAndProjectOperator(
                             context.getNextOperatorId(),
-                            SqlToRowExpressionTranslator.translate(rewrittenFilter, expressionTypes, metadata, session.getTimeZoneKey()),
-                            SqlToRowExpressionTranslator.translate(rewrittenProjections, expressionTypes, metadata, session.getTimeZoneKey()));
+                            SqlToRowExpressionTranslator.translate(rewrittenFilter, expressionTypes, metadata, session),
+                            SqlToRowExpressionTranslator.translate(rewrittenProjections, expressionTypes, metadata, session));
                     return new PhysicalOperation(operatorFactory, outputMappings, source);
                 }
             }
