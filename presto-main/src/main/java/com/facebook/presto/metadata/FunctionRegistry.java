@@ -15,10 +15,18 @@ package com.facebook.presto.metadata;
 
 import com.facebook.presto.operator.Description;
 import com.facebook.presto.operator.aggregation.AggregationFunction;
+import com.facebook.presto.operator.aggregation.BooleanMaxAggregation;
 import com.facebook.presto.operator.aggregation.BooleanMinAggregation;
+import com.facebook.presto.operator.aggregation.DoubleMaxAggregation;
+import com.facebook.presto.operator.aggregation.DoubleMinAggregation;
 import com.facebook.presto.operator.aggregation.DoubleSumAggregation;
 import com.facebook.presto.operator.aggregation.GenericAggregationFunctionFactory;
+import com.facebook.presto.operator.aggregation.LongMaxAggregation;
+import com.facebook.presto.operator.aggregation.LongMinAggregation;
+import com.facebook.presto.operator.aggregation.LongSumAggregation;
 import com.facebook.presto.operator.aggregation.MergeHyperLogLogAggregation;
+import com.facebook.presto.operator.aggregation.VarBinaryMaxAggregation;
+import com.facebook.presto.operator.aggregation.VarBinaryMinAggregation;
 import com.facebook.presto.operator.scalar.ColorFunctions;
 import com.facebook.presto.operator.scalar.DateTimeFunctions;
 import com.facebook.presto.operator.scalar.HyperLogLogFunctions;
@@ -138,23 +146,15 @@ import static com.facebook.presto.operator.aggregation.ApproximatePercentileWeig
 import static com.facebook.presto.operator.aggregation.ApproximatePercentileWeightedAggregations.LONG_APPROXIMATE_PERCENTILE_WEIGHTED_AGGREGATION;
 import static com.facebook.presto.operator.aggregation.AverageAggregations.DOUBLE_AVERAGE;
 import static com.facebook.presto.operator.aggregation.AverageAggregations.LONG_AVERAGE;
-import static com.facebook.presto.operator.aggregation.BooleanMaxAggregation.BOOLEAN_MAX;
 import static com.facebook.presto.operator.aggregation.CountAggregation.COUNT;
 import static com.facebook.presto.operator.aggregation.CountColumnAggregations.COUNT_BOOLEAN_COLUMN;
 import static com.facebook.presto.operator.aggregation.CountColumnAggregations.COUNT_DOUBLE_COLUMN;
 import static com.facebook.presto.operator.aggregation.CountColumnAggregations.COUNT_LONG_COLUMN;
 import static com.facebook.presto.operator.aggregation.CountColumnAggregations.COUNT_STRING_COLUMN;
 import static com.facebook.presto.operator.aggregation.CountIfAggregation.COUNT_IF;
-import static com.facebook.presto.operator.aggregation.DoubleMaxAggregation.DOUBLE_MAX;
-import static com.facebook.presto.operator.aggregation.DoubleMinAggregation.DOUBLE_MIN;
 import static com.facebook.presto.operator.aggregation.HyperLogLogAggregations.BIGINT_APPROXIMATE_SET_AGGREGATION;
 import static com.facebook.presto.operator.aggregation.HyperLogLogAggregations.DOUBLE_APPROXIMATE_SET_AGGREGATION;
 import static com.facebook.presto.operator.aggregation.HyperLogLogAggregations.VARCHAR_APPROXIMATE_SET_AGGREGATION;
-import static com.facebook.presto.operator.aggregation.LongMaxAggregation.LONG_MAX;
-import static com.facebook.presto.operator.aggregation.LongMinAggregation.LONG_MIN;
-import static com.facebook.presto.operator.aggregation.LongSumAggregation.LONG_SUM;
-import static com.facebook.presto.operator.aggregation.VarBinaryMaxAggregation.VAR_BINARY_MAX;
-import static com.facebook.presto.operator.aggregation.VarBinaryMinAggregation.VAR_BINARY_MIN;
 import static com.facebook.presto.operator.aggregation.VarianceAggregations.DOUBLE_STDDEV_INSTANCE;
 import static com.facebook.presto.operator.aggregation.VarianceAggregations.DOUBLE_STDDEV_POP_INSTANCE;
 import static com.facebook.presto.operator.aggregation.VarianceAggregations.DOUBLE_VARIANCE_INSTANCE;
@@ -249,16 +249,8 @@ public class FunctionRegistry
                 .aggregate("count", BIGINT, ImmutableList.of(DOUBLE), BIGINT, COUNT_DOUBLE_COLUMN)
                 .aggregate("count", BIGINT, ImmutableList.of(VARCHAR), BIGINT, COUNT_STRING_COLUMN)
                 .aggregate("count_if", BIGINT, ImmutableList.of(BOOLEAN), BIGINT, COUNT_IF)
-                .aggregate("sum", BIGINT, ImmutableList.of(BIGINT), BIGINT, LONG_SUM)
                 .aggregate("avg", DOUBLE, ImmutableList.of(DOUBLE), VARCHAR, DOUBLE_AVERAGE)
                 .aggregate("avg", DOUBLE, ImmutableList.of(BIGINT), VARCHAR, LONG_AVERAGE)
-                .aggregate("max", BOOLEAN, ImmutableList.of(BOOLEAN), BOOLEAN, BOOLEAN_MAX)
-                .aggregate("max", BIGINT, ImmutableList.of(BIGINT), BIGINT, LONG_MAX)
-                .aggregate("max", DOUBLE, ImmutableList.of(DOUBLE), DOUBLE, DOUBLE_MAX)
-                .aggregate("max", VARCHAR, ImmutableList.of(VARCHAR), VARCHAR, VAR_BINARY_MAX)
-                .aggregate("min", BIGINT, ImmutableList.of(BIGINT), BIGINT, LONG_MIN)
-                .aggregate("min", DOUBLE, ImmutableList.of(DOUBLE), DOUBLE, DOUBLE_MIN)
-                .aggregate("min", VARCHAR, ImmutableList.of(VARCHAR), VARCHAR, VAR_BINARY_MIN)
                 .aggregate("var_pop", DOUBLE, ImmutableList.of(DOUBLE), VARCHAR, DOUBLE_VARIANCE_POP_INSTANCE)
                 .aggregate("var_pop", DOUBLE, ImmutableList.of(BIGINT), VARCHAR, LONG_VARIANCE_POP_INSTANCE)
                 .aggregate("var_samp", DOUBLE, ImmutableList.of(DOUBLE), VARCHAR, DOUBLE_VARIANCE_INSTANCE)
@@ -285,7 +277,15 @@ public class FunctionRegistry
                 .aggregate("approx_avg", VARCHAR, ImmutableList.of(BIGINT), VARCHAR, LONG_APPROXIMATE_AVERAGE_AGGREGATION)
                 .aggregate("approx_avg", VARCHAR, ImmutableList.of(DOUBLE), VARCHAR, DOUBLE_APPROXIMATE_AVERAGE_AGGREGATION)
                 .aggregate(BooleanMinAggregation.class)
+                .aggregate(BooleanMaxAggregation.class)
+                .aggregate(DoubleMinAggregation.class)
+                .aggregate(DoubleMaxAggregation.class)
+                .aggregate(LongMinAggregation.class)
+                .aggregate(LongMaxAggregation.class)
+                .aggregate(VarBinaryMinAggregation.class)
+                .aggregate(VarBinaryMaxAggregation.class)
                 .aggregate(DoubleSumAggregation.class)
+                .aggregate(LongSumAggregation.class)
                 .aggregate(MergeHyperLogLogAggregation.class)
                 .scalar(StringFunctions.class)
                 .scalar(VarbinaryFunctions.class)

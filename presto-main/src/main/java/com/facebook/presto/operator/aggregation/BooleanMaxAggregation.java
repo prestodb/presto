@@ -14,28 +14,26 @@
 package com.facebook.presto.operator.aggregation;
 
 import com.facebook.presto.operator.aggregation.state.TriStateBooleanState;
-import com.facebook.presto.spi.block.Block;
+import com.facebook.presto.spi.type.BooleanType;
+import com.facebook.presto.type.SqlType;
 
 import static com.facebook.presto.operator.aggregation.state.TriStateBooleanState.FALSE_VALUE;
 import static com.facebook.presto.operator.aggregation.state.TriStateBooleanState.NULL_VALUE;
 import static com.facebook.presto.operator.aggregation.state.TriStateBooleanState.TRUE_VALUE;
-import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 
-public class BooleanMaxAggregation
-        extends AbstractSimpleAggregationFunction<TriStateBooleanState>
+@AggregationFunctionMetadata("max")
+public final class BooleanMaxAggregation
 {
-    public static final BooleanMaxAggregation BOOLEAN_MAX = new BooleanMaxAggregation();
+    public static final AggregationFunction BOOLEAN_MAX = new AggregationCompiler().generateAggregationFunction(BooleanMaxAggregation.class);
 
-    public BooleanMaxAggregation()
-    {
-        super(BOOLEAN, BOOLEAN, BOOLEAN);
-    }
+    private BooleanMaxAggregation() {}
 
-    @Override
-    protected void processInput(TriStateBooleanState state, Block block, int index)
+    @InputFunction
+    @IntermediateInputFunction
+    public static void max(TriStateBooleanState state, @SqlType(BooleanType.class) boolean value)
     {
         // if value is true, update the max to true
-        if (block.getBoolean(index)) {
+        if (value) {
             state.setByte(TRUE_VALUE);
         }
         else {
