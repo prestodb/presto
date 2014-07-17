@@ -15,25 +15,22 @@ package com.facebook.presto.operator.aggregation;
 
 import com.facebook.presto.operator.aggregation.state.InitialLongValue;
 import com.facebook.presto.operator.aggregation.state.NullableBigintState;
-import com.facebook.presto.spi.block.Block;
+import com.facebook.presto.spi.type.BigintType;
+import com.facebook.presto.type.SqlType;
 
-import static com.facebook.presto.spi.type.BigintType.BIGINT;
-
-public class LongMaxAggregation
-        extends AbstractSimpleAggregationFunction<LongMaxAggregation.BigintMaxState>
+@AggregationFunctionMetadata("max")
+public final class LongMaxAggregation
 {
-    public static final LongMaxAggregation LONG_MAX = new LongMaxAggregation();
+    public static final AggregationFunction LONG_MAX = new AggregationCompiler().generateAggregationFunction(LongMaxAggregation.class);
 
-    public LongMaxAggregation()
-    {
-        super(BIGINT, BIGINT, BIGINT);
-    }
+    private LongMaxAggregation() {}
 
-    @Override
-    public void processInput(BigintMaxState state, Block block, int index)
+    @InputFunction
+    @IntermediateInputFunction
+    public static void max(BigintMaxState state, @SqlType(BigintType.class) long value)
     {
         state.setNull(false);
-        state.setLong(Math.max(state.getLong(), block.getLong(index)));
+        state.setLong(Math.max(state.getLong(), value));
     }
 
     public interface BigintMaxState

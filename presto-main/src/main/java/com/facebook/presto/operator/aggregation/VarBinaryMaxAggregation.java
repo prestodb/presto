@@ -14,25 +14,22 @@
 package com.facebook.presto.operator.aggregation;
 
 import com.facebook.presto.operator.aggregation.state.SliceState;
-import com.facebook.presto.spi.block.Block;
+import com.facebook.presto.spi.type.VarcharType;
+import com.facebook.presto.type.SqlType;
 import io.airlift.slice.Slice;
 
-import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
-
-public class VarBinaryMaxAggregation
-        extends AbstractSimpleAggregationFunction<SliceState>
+@AggregationFunctionMetadata("max")
+public final class VarBinaryMaxAggregation
 {
-    public static final VarBinaryMaxAggregation VAR_BINARY_MAX = new VarBinaryMaxAggregation();
+    public static final AggregationFunction VAR_BINARY_MAX = new AggregationCompiler().generateAggregationFunction(VarBinaryMaxAggregation.class);
 
-    public VarBinaryMaxAggregation()
-    {
-        super(VARCHAR, VARCHAR, VARCHAR);
-    }
+    private VarBinaryMaxAggregation() {}
 
-    @Override
-    protected void processInput(SliceState state, Block block, int index)
+    @InputFunction
+    @IntermediateInputFunction
+    public static void max(SliceState state, @SqlType(VarcharType.class) Slice value)
     {
-        state.setSlice(max(state.getSlice(), block.getSlice(index)));
+        state.setSlice(max(state.getSlice(), value));
     }
 
     private static Slice max(Slice a, Slice b)
