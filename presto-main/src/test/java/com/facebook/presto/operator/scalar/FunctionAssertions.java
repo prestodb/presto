@@ -498,7 +498,7 @@ public final class FunctionAssertions
 
         try {
             return compiler.compileFilterAndProjectOperator(0,
-                    SqlToRowExpressionTranslator.translate(filter, expressionTypes, metadata, session.getTimeZoneKey()),
+                    SqlToRowExpressionTranslator.translate(filter, expressionTypes, metadata, session, false),
                     ImmutableList.<RowExpression>of());
         }
         catch (Throwable e) {
@@ -518,8 +518,8 @@ public final class FunctionAssertions
 
         try {
             return compiler.compileFilterAndProjectOperator(0,
-                    SqlToRowExpressionTranslator.translate(filter, expressionTypes, metadata, session.getTimeZoneKey()),
-                    ImmutableList.of(SqlToRowExpressionTranslator.translate(projection, expressionTypes, metadata, session.getTimeZoneKey())));
+                    SqlToRowExpressionTranslator.translate(filter, expressionTypes, metadata, session, false),
+                    ImmutableList.of(SqlToRowExpressionTranslator.translate(projection, expressionTypes, metadata, session, false)));
         }
         catch (Throwable e) {
             if (e instanceof UncheckedExecutionException) {
@@ -542,8 +542,8 @@ public final class FunctionAssertions
                     SOURCE_ID,
                     DATA_STREAM_PROVIDER,
                     ImmutableList.<ColumnHandle>of(),
-                    SqlToRowExpressionTranslator.translate(filter, expressionTypes, metadata, session.getTimeZoneKey()),
-                    ImmutableList.of(SqlToRowExpressionTranslator.translate(projection, expressionTypes, metadata, session.getTimeZoneKey())));
+                    SqlToRowExpressionTranslator.translate(filter, expressionTypes, metadata, session, false),
+                    ImmutableList.of(SqlToRowExpressionTranslator.translate(projection, expressionTypes, metadata, session, false)));
         }
         catch (Throwable e) {
             if (e instanceof UncheckedExecutionException) {

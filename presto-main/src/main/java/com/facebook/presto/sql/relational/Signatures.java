@@ -18,6 +18,7 @@ import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.tree.ArithmeticExpression;
 import com.facebook.presto.sql.tree.ComparisonExpression;
 import com.facebook.presto.sql.tree.LogicalBinaryExpression;
+import com.google.common.collect.ImmutableList;
 
 import java.util.List;
 
@@ -44,7 +45,7 @@ public final class Signatures
     // **************** sql operators ****************
     public static Signature notSignature()
     {
-        return internalFunction("NOT", BOOLEAN, BOOLEAN);
+        return new Signature("not", BOOLEAN, ImmutableList.of(BOOLEAN), false, false);
     }
 
     public static Signature betweenSignature(Type valueType, Type minType, Type maxType)
