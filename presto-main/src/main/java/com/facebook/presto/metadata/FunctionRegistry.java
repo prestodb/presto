@@ -185,6 +185,9 @@ public class FunctionRegistry
 {
     private static final String MAGIC_LITERAL_FUNCTION_PREFIX = "$literal$";
 
+    // hack: java classes for types that can be used with magic literals
+    private static final Set<Class<?>> SUPPORTED_LITERAL_TYPES = ImmutableSet.<Class<?>>of(long.class, double.class, Slice.class, boolean.class);
+
     private final TypeManager typeManager;
     private volatile FunctionMap functions = new FunctionMap();
 
@@ -603,6 +606,11 @@ public class FunctionRegistry
                 ImmutableList.of(type(type.getJavaType())),
                 false,
                 false);
+    }
+
+    public static boolean isSupportedLiteralType(Type type)
+    {
+        return SUPPORTED_LITERAL_TYPES.contains(type.getJavaType());
     }
 
     public static class FunctionListBuilder
