@@ -48,6 +48,7 @@ import com.facebook.presto.sql.tree.SearchedCaseExpression;
 import com.facebook.presto.sql.tree.SimpleCaseExpression;
 import com.facebook.presto.sql.tree.StringLiteral;
 import com.facebook.presto.sql.tree.WhenClause;
+import com.facebook.presto.type.LikeFunctions;
 import com.google.common.base.Charsets;
 import com.google.common.base.Functions;
 import com.google.common.base.Predicate;
@@ -638,7 +639,7 @@ public class ExpressionInterpreter
                     node.getPattern() instanceof StringLiteral &&
                     (node.getEscape() instanceof StringLiteral || node.getEscape() == null)) {
                 // fast path when we know the pattern and escape are constant
-                return LikeUtils.regexMatches(getConstantPattern(node), (Slice) value);
+                return LikeFunctions.like((Slice) value, getConstantPattern(node));
             }
 
             Object pattern = process(node.getPattern(), context);
@@ -659,9 +660,15 @@ public class ExpressionInterpreter
             if (value instanceof Slice &&
                     pattern instanceof Slice &&
                     (escape == null || escape instanceof Slice)) {
-                Regex regex = LikeUtils.likeToPattern((Slice) pattern, (Slice) escape);
+                Regex regex;
+                if (escape == null) {
+                    regex = LikeFunctions.likePattern((Slice) pattern);
+                }
+                else {
+                    regex = LikeFunctions.likePattern((Slice) pattern, (Slice) escape);
+                }
 
-                return LikeUtils.regexMatches(regex, (Slice) value);
+                return LikeFunctions.like((Slice) value, regex);
             }
 
             // if pattern is a constant without % or _ replace with a comparison
@@ -693,7 +700,12 @@ public class ExpressionInterpreter
                 StringLiteral pattern = (StringLiteral) node.getPattern();
                 StringLiteral escape = (StringLiteral) node.getEscape();
 
-                result = LikeUtils.likeToPattern(pattern.getSlice(), escape == null ? null : escape.getSlice());
+                if (escape == null) {
+                    result = LikeFunctions.likePattern(pattern.getSlice());
+                }
+                else {
+                    result = LikeFunctions.likePattern(pattern.getSlice(), escape.getSlice());
+                }
 
                 likePatternCache.put(node, result);
             }

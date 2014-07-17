@@ -24,6 +24,7 @@ import java.util.List;
 import static com.facebook.presto.metadata.Signature.internalFunction;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
+import static com.facebook.presto.type.LikePatternType.LIKE_PATTERN;
 
 public final class Signatures
 {
@@ -53,12 +54,12 @@ public final class Signatures
 
     public static Signature likeSignature()
     {
-        return internalFunction("LIKE", BOOLEAN, VARCHAR, VARCHAR);
+        return internalFunction("LIKE", BOOLEAN, VARCHAR, LIKE_PATTERN);
     }
 
-    public static Signature likeWithEscapeSignature()
+    public static Signature likePatternSignature()
     {
-        return internalFunction("LIKE", BOOLEAN, VARCHAR, VARCHAR, VARCHAR);
+        return internalFunction("LIKE_PATTERN", LIKE_PATTERN, VARCHAR, VARCHAR);
     }
 
     public static Signature castSignature(Type returnType, Type valueType)

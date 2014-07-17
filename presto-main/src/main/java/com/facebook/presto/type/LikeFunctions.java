@@ -11,24 +11,24 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.sql.planner;
+package com.facebook.presto.type;
 
-import com.facebook.presto.util.ThreadLocalCache;
+import com.facebook.presto.metadata.OperatorType;
+import com.facebook.presto.operator.scalar.ScalarFunction;
+import com.facebook.presto.operator.scalar.ScalarOperator;
+import com.facebook.presto.spi.type.BooleanType;
+import com.facebook.presto.spi.type.VarcharType;
 import com.google.common.base.Charsets;
-import com.google.common.base.Objects;
 import io.airlift.slice.Slice;
 import org.jcodings.specific.UTF8Encoding;
 import org.joni.Option;
 import org.joni.Regex;
 import org.joni.Syntax;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
-
 import static com.google.common.base.Charsets.UTF_8;
 import static org.joni.constants.MetaChar.INEFFECTIVE_META_CHAR;
 
-public final class LikeUtils
+public final class LikeFunctions
 {
     private static final Syntax SYNTAX = new Syntax(
             Syntax.OP_DOT_ANYCHAR | Syntax.OP_ASTERISK_ZERO_INF | Syntax.OP_LINE_ANCHOR,
@@ -45,77 +45,41 @@ public final class LikeUtils
             )
     );
 
-    private LikeUtils()
+    private LikeFunctions()
     {
     }
 
-    public static boolean dynamicLike(LikePatternCache callSiteCache, Slice value, Slice pattern, Slice escape)
-    {
-        LikeCacheKey key = new LikeCacheKey(pattern, escape);
-        Regex regex = callSiteCache.get(key);
-        return regexMatches(regex, value);
-    }
-
-    public static boolean regexMatches(Regex regex, Slice value)
+    // TODO: this should not be callable from SQL
+    @ScalarFunction(value = "like", hidden = true)
+    @SqlType(BooleanType.class)
+    public static boolean like(@SqlType(VarcharType.class) Slice value, @SqlType(LikePatternType.class) Regex pattern)
     {
         // Joni doesn't handle invalid UTF-8, so replace invalid characters
         byte[] bytes = value.getBytes();
         if (isAscii(bytes)) {
-            return regexMatches(regex, bytes);
+            return regexMatches(pattern, bytes);
         }
-        return regexMatches(regex, value.toString(UTF_8).getBytes(UTF_8));
+        // convert to a String and back to "fix" any broken UTF-8 sequences
+        return regexMatches(pattern, value.toStringUtf8().getBytes(UTF_8));
     }
 
-    public static boolean regexMatches(Regex regex, byte[] bytes)
+    @ScalarOperator(OperatorType.CAST)
+    @SqlType(LikePatternType.class)
+    public static Regex likePattern(@SqlType(VarcharType.class) Slice pattern)
+    {
+        return likeToPattern(pattern.toStringUtf8(), '0', false);
+    }
+
+    @ScalarFunction
+    @SqlType(LikePatternType.class)
+    public static Regex likePattern(@SqlType(VarcharType.class) Slice pattern, @SqlType(VarcharType.class) Slice escape)
+    {
+        return likeToPattern(pattern.toStringUtf8(), getEscapeChar(escape), true);
+    }
+
+    private static boolean regexMatches(Regex regex, byte[] bytes)
     {
         return regex.matcher(bytes).match(0, bytes.length, Option.NONE) != -1;
-    }
-
-    public static char getEscapeChar(Slice escape)
-    {
-        char escapeChar;
-        String escapeString = escape.toString(UTF_8);
-        if (escapeString.length() == 0) {
-            // escaping disabled
-            escapeChar = (char) -1; // invalid character
-        }
-        else if (escapeString.length() == 1) {
-            escapeChar = escapeString.charAt(0);
-        }
-        else {
-            throw new IllegalArgumentException("escape must be empty or a single character: " + escapeString);
-        }
-        return escapeChar;
-    }
-
-    public static boolean isAscii(byte[] bytes)
-    {
-        boolean high = false;
-        for (byte b : bytes) {
-            high |= (b & 0x80) != 0;
-        }
-        return !high;
-    }
-
-    public static Regex likeToPattern(Slice pattern, @Nullable Slice escapeSlice)
-    {
-        String patternString = pattern.toString(UTF_8);
-        if (escapeSlice != null) {
-            return likeToPattern(patternString, getEscapeChar(escapeSlice));
-        }
-        else {
-            return likeToPattern(patternString);
-        }
-    }
-
-    public static Regex likeToPattern(String patternString, char escapeChar)
-    {
-        return likeToPattern(patternString, escapeChar, true);
-    }
-
-    public static Regex likeToPattern(String patternString)
-    {
-        return likeToPattern(patternString, 'x', false);
     }
 
     private static Regex likeToPattern(String patternString, char escapeChar, boolean shouldEscape)
@@ -170,59 +134,29 @@ public final class LikeUtils
         return new Regex(bytes, 0, bytes.length, 0, UTF8Encoding.INSTANCE, SYNTAX);
     }
 
-    public static class LikePatternCache
-            extends ThreadLocalCache<LikeCacheKey, Regex>
+    private static char getEscapeChar(Slice escape)
     {
-        public LikePatternCache(int maxSizePerThread)
-        {
-            super(maxSizePerThread);
+        char escapeChar;
+        String escapeString = escape.toString(UTF_8);
+        if (escapeString.length() == 0) {
+            // escaping disabled
+            escapeChar = (char) -1; // invalid character
         }
-
-        @Nonnull
-        @Override
-        protected Regex load(LikeCacheKey key)
-        {
-            return likeToPattern(key.pattern, key.escape);
+        else if (escapeString.length() == 1) {
+            escapeChar = escapeString.charAt(0);
         }
+        else {
+            throw new IllegalArgumentException("escape must be empty or a single character: " + escapeString);
+        }
+        return escapeChar;
     }
 
-    public static class LikeCacheKey
+    private static boolean isAscii(byte[] bytes)
     {
-        private final Slice pattern;
-        private final Slice escape;
-
-        public LikeCacheKey(Slice pattern, Slice escape)
-        {
-            this.pattern = pattern;
-            this.escape = escape;
+        boolean high = false;
+        for (byte b : bytes) {
+            high |= (b & 0x80) != 0;
         }
-
-        @Override
-        public int hashCode()
-        {
-            return Objects.hashCode(pattern, escape);
-        }
-
-        @Override
-        public boolean equals(Object obj)
-        {
-            if (this == obj) {
-                return true;
-            }
-            if (obj == null || getClass() != obj.getClass()) {
-                return false;
-            }
-            final LikeCacheKey other = (LikeCacheKey) obj;
-            return Objects.equal(this.pattern, other.pattern) && Objects.equal(this.escape, other.escape);
-        }
-
-        @Override
-        public String toString()
-        {
-            return Objects.toStringHelper(this)
-                    .add("pattern", pattern.toString(UTF_8))
-                    .add("escape", escape.toString(UTF_8))
-                    .toString();
-        }
+        return !high;
     }
 }
