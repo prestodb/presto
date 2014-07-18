@@ -249,7 +249,7 @@ public final class SqlToRowExpressionTranslator
             List<RowExpression> arguments = Lists.transform(node.getArguments(), processFunction(context));
 
             List<Type> argumentTypes = Lists.transform(arguments, typeGetter());
-            Signature signature = new Signature(node.getName().getSuffix(), types.get(node), argumentTypes, false, false);
+            Signature signature = new Signature(node.getName().getSuffix(), types.get(node), argumentTypes, false);
 
             return call(signature, arguments);
         }

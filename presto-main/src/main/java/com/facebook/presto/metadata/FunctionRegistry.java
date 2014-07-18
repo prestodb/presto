@@ -622,7 +622,6 @@ public class FunctionRegistry
         return new Signature(MAGIC_LITERAL_FUNCTION_PREFIX + type.getName(),
                 type,
                 ImmutableList.of(type(type.getJavaType())),
-                false,
                 false);
     }
 
@@ -662,7 +661,7 @@ public class FunctionRegistry
             name = name.toLowerCase();
 
             String description = getDescription(function.getClass());
-            functions.add(new FunctionInfo(new Signature(name, returnType, ImmutableList.copyOf(argumentTypes), approximate, false), description, intermediateType, function));
+            functions.add(new FunctionInfo(new Signature(name, returnType, ImmutableList.copyOf(argumentTypes), false), description, intermediateType, function, approximate));
             return this;
         }
 
@@ -712,7 +711,7 @@ public class FunctionRegistry
             SqlType returnTypeAnnotation = method.getAnnotation(SqlType.class);
             checkArgument(returnTypeAnnotation != null, "Method %s return type does not have a @SqlType annotation", method);
             Type returnType = type(returnTypeAnnotation);
-            Signature signature = new Signature(name.toLowerCase(), returnType, parameterTypes(method), false, false);
+            Signature signature = new Signature(name.toLowerCase(), returnType, parameterTypes(method), false);
 
             verifyMethodSignature(method, signature.getReturnType(), signature.getArgumentTypes());
 
@@ -817,7 +816,7 @@ public class FunctionRegistry
     {
         operatorType.validateSignature(returnType, ImmutableList.copyOf(argumentTypes));
 
-        Signature signature = new Signature(operatorType.name(), returnType, argumentTypes, false, true);
+        Signature signature = new Signature(operatorType.name(), returnType, argumentTypes, true);
         return new FunctionInfo(signature, operatorType.getOperator(), true, method, true, nullable);
     }
 
