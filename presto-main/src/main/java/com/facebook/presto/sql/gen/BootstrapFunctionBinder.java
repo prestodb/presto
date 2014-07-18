@@ -14,14 +14,17 @@
 package com.facebook.presto.sql.gen;
 
 import com.facebook.presto.byteCode.ByteCodeNode;
+import com.facebook.presto.byteCode.instruction.Constant;
 import com.facebook.presto.metadata.FunctionInfo;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.OperatorType;
+import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableList;
 
 import java.lang.invoke.CallSite;
 import java.lang.invoke.ConstantCallSite;
+import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;
 import java.lang.invoke.MethodType;
 import java.util.List;
@@ -45,21 +48,17 @@ public class BootstrapFunctionBinder
         this.metadata = checkNotNull(metadata, "metadata is null");
     }
 
-    public FunctionBinding bindFunction(String name, ByteCodeNode getSessionByteCode, List<ByteCodeNode> arguments, FunctionBinder defaultFunctionBinder)
+    public FunctionBinding bindFunction(FunctionInfo function, ByteCodeNode getSessionByteCode, List<ByteCodeNode> arguments)
     {
-        // perform binding
-        FunctionBinding functionBinding = defaultFunctionBinder.bindFunction(NEXT_BINDING_ID.getAndIncrement(), name, getSessionByteCode, arguments);
-
-        // record binding for use by invokedynamic bootstrap call
-        bindings.put(functionBinding.getBindingId(), functionBinding.getCallSite());
-
-        return functionBinding;
+        FunctionBinding binding = bindConstantArguments(NEXT_BINDING_ID.getAndIncrement(), function.getSignature().getName(), getSessionByteCode, arguments, function.getMethodHandle(), function.isNullable());
+        bindings.put(binding.getBindingId(), binding.getCallSite());
+        return binding;
     }
 
     public FunctionBinding bindOperator(OperatorType operatorType, ByteCodeNode getSessionByteCode, List<ByteCodeNode> arguments, List<Type> argumentTypes)
     {
         FunctionInfo operatorInfo = metadata.resolveOperator(operatorType, argumentTypes);
-        return bindFunction(operatorInfo.getSignature().getName(), getSessionByteCode, arguments, operatorInfo.getFunctionBinder());
+        return bindFunction(operatorInfo, getSessionByteCode, arguments);
     }
 
     public FunctionBinding bindConstant(Object constant, Class<?> type)
@@ -76,5 +75,39 @@ public class BootstrapFunctionBinder
         checkArgument(callSite != null, "Binding %s for function %s%s not found", bindingId, name, type.parameterList());
 
         return callSite;
+    }
+
+    private static FunctionBinding bindConstantArguments(long bindingId, String name, ByteCodeNode getSessionByteCode, List<ByteCodeNode> arguments, MethodHandle methodHandle, boolean nullable)
+    {
+        ImmutableList.Builder<ByteCodeNode> unboundArguments = ImmutableList.builder();
+
+        int argIndex = 0;
+
+        // bind session
+        if (methodHandle.type().parameterCount() > 0 && methodHandle.type().parameterType(0) == ConnectorSession.class) {
+            unboundArguments.add(getSessionByteCode);
+            argIndex++;
+        }
+
+        for (ByteCodeNode argument : arguments) {
+            ByteCodeNode node = argument;
+            if (node instanceof Constant) {
+                Object value = ((Constant) node).getValue();
+                if (methodHandle.type().parameterType(argIndex) == boolean.class) {
+                    checkArgument(value instanceof Integer, "boolean should be represented as an integer");
+                    value = (((Integer) value) != 0);
+                }
+                // bind constant argument
+                methodHandle = MethodHandles.insertArguments(methodHandle, argIndex, value);
+                // we bound an argument so don't increment the argIndex
+            }
+            else {
+                unboundArguments.add(argument);
+                argIndex++;
+            }
+        }
+
+        CallSite callSite = new ConstantCallSite(methodHandle);
+        return new FunctionBinding(bindingId, name, callSite, unboundArguments.build(), nullable);
     }
 }

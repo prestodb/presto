@@ -46,7 +46,7 @@ public class CastCodeGenerator
 
         FunctionBinding binding = generatorContext
                 .getBootstrapBinder()
-                .bindFunction(function.getSignature().getName(), generatorContext.generateGetSession(), ImmutableList.of(generatorContext.generate(argument)), function.getFunctionBinder());
+                .bindFunction(function, generatorContext.generateGetSession(), ImmutableList.of(generatorContext.generate(argument)));
 
         return generateFunctionCall(signature, context, binding, "cast");
     }

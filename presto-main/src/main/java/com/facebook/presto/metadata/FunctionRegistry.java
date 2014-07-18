@@ -60,8 +60,6 @@ import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.StandardErrorCode;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
-import com.facebook.presto.sql.gen.DefaultFunctionBinder;
-import com.facebook.presto.sql.gen.FunctionBinder;
 import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.type.BigintOperators;
 import com.facebook.presto.type.BooleanOperators;
@@ -105,7 +103,6 @@ import java.lang.annotation.Annotation;
 import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;
 import java.lang.reflect.AnnotatedElement;
-import java.lang.reflect.Constructor;
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
 import java.util.ArrayList;
@@ -408,7 +405,7 @@ public class FunctionRegistry
                     true,
                     identity,
                     true,
-                    new DefaultFunctionBinder(identity, false));
+                    false);
         }
 
         throw new PrestoException(StandardErrorCode.FUNCTION_NOT_FOUND.toErrorCode(), message);
@@ -461,7 +458,7 @@ public class FunctionRegistry
         // if identity cast, return a custom operator info
         if ((operatorType == OperatorType.CAST) && (argumentTypes.size() == 1) && argumentTypes.get(0).equals(returnType)) {
             MethodHandle identity = MethodHandles.identity(returnType.getJavaType());
-            return operatorInfo(OperatorType.CAST, returnType, argumentTypes, identity, new DefaultFunctionBinder(identity, false));
+            return operatorInfo(OperatorType.CAST, returnType, argumentTypes, identity, false);
         }
 
         throw new OperatorNotFoundException(operatorType, argumentTypes, returnType);
@@ -669,15 +666,15 @@ public class FunctionRegistry
             return this;
         }
 
-        public FunctionListBuilder scalar(Signature signature, MethodHandle function, boolean deterministic, FunctionBinder functionBinder, String description, boolean hidden)
+        public FunctionListBuilder scalar(Signature signature, MethodHandle function, boolean deterministic, String description, boolean hidden, boolean nullable)
         {
-            functions.add(new FunctionInfo(signature, description, hidden, function, deterministic, functionBinder));
+            functions.add(new FunctionInfo(signature, description, hidden, function, deterministic, nullable));
             return this;
         }
 
-        private FunctionListBuilder operator(OperatorType operatorType, Type returnType, List<Type> parameterTypes, MethodHandle function, FunctionBinder functionBinder)
+        private FunctionListBuilder operator(OperatorType operatorType, Type returnType, List<Type> parameterTypes, MethodHandle function, boolean nullable)
         {
-            FunctionInfo operatorInfo = operatorInfo(operatorType, returnType, parameterTypes, function, functionBinder);
+            FunctionInfo operatorInfo = operatorInfo(operatorType, returnType, parameterTypes, function, nullable);
             operators.put(operatorType, operatorInfo);
             functions.add(operatorInfo);
             return this;
@@ -719,11 +716,9 @@ public class FunctionRegistry
 
             verifyMethodSignature(method, signature.getReturnType(), signature.getArgumentTypes());
 
-            FunctionBinder functionBinder = createFunctionBinder(method, scalarFunction.functionBinder());
-
-            scalar(signature, methodHandle, scalarFunction.deterministic(), functionBinder, getDescription(method), scalarFunction.hidden());
+            scalar(signature, methodHandle, scalarFunction.deterministic(), getDescription(method), scalarFunction.hidden(), method.isAnnotationPresent(Nullable.class));
             for (String alias : scalarFunction.alias()) {
-                scalar(signature.withAlias(alias.toLowerCase()), methodHandle, scalarFunction.deterministic(), functionBinder, getDescription(method), scalarFunction.hidden());
+                scalar(signature.withAlias(alias.toLowerCase()), methodHandle, scalarFunction.deterministic(), getDescription(method), scalarFunction.hidden(), method.isAnnotationPresent(Nullable.class));
             }
             return true;
         }
@@ -754,30 +749,8 @@ public class FunctionRegistry
                 verifyMethodSignature(method, returnType, parameterTypes);
             }
 
-            FunctionBinder functionBinder = createFunctionBinder(method, scalarOperator.functionBinder());
-
-            operator(operatorType, returnType, parameterTypes, methodHandle, functionBinder);
+            operator(operatorType, returnType, parameterTypes, methodHandle, method.isAnnotationPresent(Nullable.class));
             return true;
-        }
-
-        private FunctionBinder createFunctionBinder(Method method, Class<? extends FunctionBinder> functionBinderClass)
-        {
-            try {
-                // look for <init>(MethodHandle,boolean)
-                Constructor<? extends FunctionBinder> constructor = functionBinderClass.getConstructor(MethodHandle.class, boolean.class);
-                return constructor.newInstance(lookup().unreflect(method), method.isAnnotationPresent(Nullable.class));
-            }
-            catch (ReflectiveOperationException | RuntimeException ignored) {
-            }
-
-            try {
-                // try with default constructor
-                return functionBinderClass.newInstance();
-            }
-            catch (Exception e) {
-            }
-
-            throw new IllegalArgumentException("Unable to create function binder " + functionBinderClass.getName() + " for function " + method);
         }
 
         private static String getDescription(AnnotatedElement annotatedElement)
@@ -840,12 +813,12 @@ public class FunctionRegistry
         }
     }
 
-    private static FunctionInfo operatorInfo(OperatorType operatorType, Type returnType, List<? extends Type> argumentTypes, MethodHandle method, FunctionBinder functionBinder)
+    private static FunctionInfo operatorInfo(OperatorType operatorType, Type returnType, List<? extends Type> argumentTypes, MethodHandle method, boolean nullable)
     {
         operatorType.validateSignature(returnType, ImmutableList.copyOf(argumentTypes));
 
         Signature signature = new Signature(operatorType.name(), returnType, argumentTypes, false, true);
-        return new FunctionInfo(signature, operatorType.getOperator(), true, method, true, functionBinder);
+        return new FunctionInfo(signature, operatorType.getOperator(), true, method, true, nullable);
     }
 
     private static void verifyMethodSignature(Method method, Type returnType, List<Type> argumentTypes)

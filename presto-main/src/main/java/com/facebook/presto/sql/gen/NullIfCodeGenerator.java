@@ -111,7 +111,7 @@ public class NullIfCodeGenerator
 
         FunctionBinding binding = generatorContext
                 .getBootstrapBinder()
-                .bindFunction(function.getSignature().getName(), generatorContext.generateGetSession(), ImmutableList.of(argument), function.getFunctionBinder());
+                .bindFunction(function, generatorContext.generateGetSession(), ImmutableList.of(argument));
 
         return generateFunctionCall(function.getSignature(), generatorContext.getContext(), binding, "cast(" + fromType + ", " + toType + ")");
     }

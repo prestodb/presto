@@ -18,7 +18,6 @@ import com.facebook.presto.operator.WindowFunctionDefinition;
 import com.facebook.presto.operator.aggregation.AggregationFunction;
 import com.facebook.presto.operator.window.WindowFunctionSupplier;
 import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.sql.gen.FunctionBinder;
 import com.facebook.presto.sql.tree.QualifiedName;
 import com.google.common.base.Function;
 import com.google.common.base.Objects;
@@ -38,6 +37,7 @@ public final class FunctionInfo
     private final Signature signature;
     private final String description;
     private final boolean hidden;
+    private final boolean nullable;
 
     private final boolean isAggregate;
     private final Type intermediateType;
@@ -45,7 +45,6 @@ public final class FunctionInfo
 
     private final MethodHandle methodHandle;
     private final boolean deterministic;
-    private final FunctionBinder functionBinder;
 
     private final boolean isWindow;
     private final WindowFunctionSupplier windowFunctionSupplier;
@@ -56,12 +55,12 @@ public final class FunctionInfo
         this.description = description;
         this.hidden = false;
         this.deterministic = true;
+        this.nullable = false;
 
         this.isAggregate = false;
         this.intermediateType = null;
         this.aggregationFunction = null;
         this.methodHandle = null;
-        this.functionBinder = null;
 
         this.isWindow = true;
         this.windowFunctionSupplier = checkNotNull(windowFunctionSupplier, "windowFunction is null");
@@ -77,18 +76,18 @@ public final class FunctionInfo
         this.isAggregate = true;
         this.methodHandle = null;
         this.deterministic = true;
-        this.functionBinder = null;
+        this.nullable = false;
         this.isWindow = false;
         this.windowFunctionSupplier = null;
     }
 
-    public FunctionInfo(Signature signature, String description, boolean hidden, MethodHandle function, boolean deterministic, FunctionBinder functionBinder)
+    public FunctionInfo(Signature signature, String description, boolean hidden, MethodHandle function, boolean deterministic, boolean nullable)
     {
         this.signature = signature;
         this.description = description;
         this.hidden = hidden;
         this.deterministic = deterministic;
-        this.functionBinder = functionBinder;
+        this.nullable = nullable;
 
         this.isAggregate = false;
         this.intermediateType = null;
@@ -183,9 +182,9 @@ public final class FunctionInfo
         return deterministic;
     }
 
-    public FunctionBinder getFunctionBinder()
+    public boolean isNullable()
     {
-        return functionBinder;
+        return nullable;
     }
 
     @Override

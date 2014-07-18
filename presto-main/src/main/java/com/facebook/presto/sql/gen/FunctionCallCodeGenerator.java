@@ -50,7 +50,7 @@ public class FunctionCallCodeGenerator
 
         FunctionBinding binding = context
                 .getBootstrapBinder()
-                .bindFunction(signature.getName(), context.generateGetSession(), argumentsByteCode, function.getFunctionBinder());
+                .bindFunction(function, context.generateGetSession(), argumentsByteCode);
 
         return generateFunctionCall(signature, context.getContext(), binding, signature.toString());
     }
