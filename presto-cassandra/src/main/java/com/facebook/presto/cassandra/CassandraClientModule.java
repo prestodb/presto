@@ -13,21 +13,6 @@
  */
 package com.facebook.presto.cassandra;
 
-import com.datastax.driver.core.Cluster;
-import com.datastax.driver.core.QueryOptions;
-import com.datastax.driver.core.SocketOptions;
-import com.datastax.driver.core.policies.ExponentialReconnectionPolicy;
-import com.google.inject.Binder;
-import com.google.inject.Module;
-import com.google.inject.Provides;
-import com.google.inject.Scopes;
-import io.airlift.json.JsonCodec;
-
-import javax.inject.Singleton;
-
-import java.util.List;
-import java.util.concurrent.ExecutorService;
-
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
@@ -36,10 +21,32 @@ import static io.airlift.json.JsonCodecBinder.jsonCodecBinder;
 import static java.util.concurrent.Executors.newFixedThreadPool;
 import static org.weakref.jmx.ObjectNames.generatedNameOf;
 import static org.weakref.jmx.guice.ExportBinder.newExporter;
+import io.airlift.json.JsonCodec;
+import io.airlift.log.Logger;
+
+import java.util.List;
+import java.util.concurrent.ExecutorService;
+
+import javax.inject.Singleton;
+
+import com.datastax.driver.core.Cluster;
+import com.datastax.driver.core.QueryOptions;
+import com.datastax.driver.core.SocketOptions;
+import com.datastax.driver.core.policies.DefaultRetryPolicy;
+import com.datastax.driver.core.policies.DowngradingConsistencyRetryPolicy;
+import com.datastax.driver.core.policies.ExponentialReconnectionPolicy;
+import com.datastax.driver.core.policies.FallthroughRetryPolicy;
+import com.datastax.driver.core.policies.RetryPolicy;
+import com.google.inject.Binder;
+import com.google.inject.Module;
+import com.google.inject.Provides;
+import com.google.inject.Scopes;
 
 public class CassandraClientModule
         implements Module
 {
+    private static final Logger log = Logger.get(CassandraClientModule.class);
+
     private final String connectorId;
 
     public CassandraClientModule(String connectorId)
@@ -82,6 +89,44 @@ public class CassandraClientModule
                 daemonThreadsNamed("cassandra-" + clientId + "-%s"));
     }
 
+    private static enum RetryPolicyClass
+    {
+        defaultRetryPolicy(DefaultRetryPolicy.INSTANCE, "DefaultRetryPolicy"),
+        peakNetworkRetryPolicy(PeakNetworkTrafficRetryPolicy.INSTANCE, "PeakNetworkTrafficRetryPolicy"),
+        downgradingConsistencyRetryPolicy(DowngradingConsistencyRetryPolicy.INSTANCE, "DowngradingConsistencyRetryPolicy"),
+        fallthroughRetryPolicy(FallthroughRetryPolicy.INSTANCE, "FallthroughRetryPolicy");
+        private RetryPolicyClass(RetryPolicy policy, String name)
+        {
+            this.name = name;
+            this.policy = policy;
+        }
+        private RetryPolicy policy;
+        public RetryPolicy getPolicy()
+        {
+            return policy;
+        }
+        private String name;
+        public String getName()
+        {
+            return name;
+        }
+        public static RetryPolicy getPolicyForName(String name)
+        {
+            if (name == null) {
+                return defaultRetryPolicy.getPolicy();
+            }
+            for (RetryPolicyClass retPolicy : values()) {
+                log.warn("found: " + retPolicy.getName());
+                if (retPolicy.getName().equals(name)) {
+                    log.warn("using: " + retPolicy.getName());
+                    return retPolicy.getPolicy();
+                }
+            }
+            log.warn("Could not find Cassandra.RetryPolicy with name %s. Using DefaultRetryPolicy", name);
+            return defaultRetryPolicy.getPolicy();
+        }
+    }
+
     @Singleton
     @Provides
     public static CassandraSession createCassandraSession(
@@ -100,6 +145,7 @@ public class CassandraClientModule
 
         clusterBuilder.withPort(config.getNativeProtocolPort());
         clusterBuilder.withReconnectionPolicy(new ExponentialReconnectionPolicy(500, 10000));
+        clusterBuilder.withRetryPolicy(RetryPolicyClass.getPolicyForName(config.getRetryPolicyClass()));
 
         SocketOptions socketOptions = new SocketOptions();
         socketOptions.setReadTimeoutMillis(config.getClientReadTimeout());

@@ -59,6 +59,7 @@ public class CassandraClientConfig
     private int clientReadTimeout = SocketOptions.DEFAULT_READ_TIMEOUT_MILLIS;
     private int clientConnectTimeout = SocketOptions.DEFAULT_CONNECT_TIMEOUT_MILLIS;
     private Integer clientSoLinger;
+    private String retryPolicyClass = "com.datastax.driver.core.policies.DefaultRetryPolicy";
 
     @Min(0)
     public int getLimitForPartitionKeySelect()
@@ -332,6 +333,18 @@ public class CassandraClientConfig
     public CassandraClientConfig setClientSoLinger(Integer clientSoLinger)
     {
         this.clientSoLinger = clientSoLinger;
+        return this;
+    }
+
+    public String getRetryPolicyClass()
+    {
+        return retryPolicyClass;
+    }
+
+    @Config("cassandra.retrypolicyclass")
+    public CassandraClientConfig setRetryPolicyClass(String retryPolicyClass)
+    {
+        this.retryPolicyClass = retryPolicyClass;
         return this;
     }
 }
