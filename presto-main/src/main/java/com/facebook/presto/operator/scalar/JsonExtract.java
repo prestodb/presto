@@ -13,23 +13,19 @@
  */
 package com.facebook.presto.operator.scalar;
 
-import com.facebook.presto.util.ThreadLocalCache;
 import com.fasterxml.jackson.core.JsonFactory;
 import com.fasterxml.jackson.core.JsonGenerator;
 import com.fasterxml.jackson.core.JsonParseException;
 import com.fasterxml.jackson.core.JsonParser;
 import com.fasterxml.jackson.core.JsonToken;
 import com.fasterxml.jackson.core.io.SerializedString;
-import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Charsets;
 import com.google.common.base.Splitter;
-import com.google.common.base.Supplier;
+import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
-
-import javax.annotation.Nullable;
 
 import java.io.IOException;
 import java.util.Iterator;
@@ -118,153 +114,27 @@ public final class JsonExtract
     private static final JsonFactory JSON_FACTORY = new JsonFactory()
             .disable(CANONICALIZE_FIELD_NAMES);
 
-    private static final JsonExtractCache<Slice> SCALAR_CACHE = new JsonExtractCache<>(20, new Supplier<JsonExtractor<Slice>>() {
-        @Override
-        public JsonExtractor<Slice> get()
-        {
-            return new ScalarValueJsonExtractor();
-        }
-    });
-
-    private static final JsonExtractCache<Slice> JSON_CACHE = new JsonExtractCache<>(20, new Supplier<JsonExtractor<Slice>>() {
-        @Override
-        public JsonExtractor<Slice> get()
-        {
-            return new JsonValueJsonExtractor();
-        }
-    });
-
-    private static final JsonExtractCache<Long> JSON_SIZE_CACHE = new JsonExtractCache<>(20, new Supplier<JsonExtractor<Long>>() {
-        @Override
-        public JsonExtractor<Long> get()
-        {
-            return new JsonSizeExtractor();
-        }
-    });
-
     private JsonExtract() {}
 
-    /**
-     * Main scalar extraction entry point
-     *
-     * @param jsonInput - Slice representation of a JSON object to inspect
-     * @param jsonPath - Slice representation of the extraction path
-     * @return extracted scalar value as Slice, or NULL on mismatch
-     * @throws JsonParseException - jsonInput is malformed
-     * @throws IOException
-     */
-    public static Slice extractScalar(@Nullable Slice jsonInput, Slice jsonPath)
-            throws IOException
-    {
-        return extract(SCALAR_CACHE, jsonInput, jsonPath);
-    }
-
-    /**
-     * Main json extraction entry point
-     *
-     * @param jsonInput - Slice representation of a JSON object to inspect
-     * @param jsonPath - Slice representation of the extraction path
-     * @return extracted json value as Slice, or NULL on mismatch
-     * @throws JsonParseException - jsonInput is malformed
-     * @throws IOException
-     */
-    public static Slice extractJson(@Nullable Slice jsonInput, Slice jsonPath)
-            throws IOException
-    {
-        return extract(JSON_CACHE, jsonInput, jsonPath);
-    }
-
-    public static Slice extract(ThreadLocalCache<Slice, JsonExtractor<Slice>> cache, @Nullable Slice jsonInput, Slice jsonPath)
-            throws IOException
-    {
-        checkNotNull(jsonPath, "jsonPath is null");
-        if (jsonInput == null) {
-            return null;
-        }
-
-        try {
-            return extractInternal(jsonInput, cache.get(jsonPath));
-        }
-        catch (JsonParseException e) {
-            // Return null if we failed to parse something
-            return null;
-        }
-    }
-
-    public static Slice extract(Slice jsonInput, JsonExtractor<Slice> jsonExtractor)
-            throws IOException
-    {
-        try {
-            return extractInternal(jsonInput, jsonExtractor);
-        }
-        catch (JsonParseException e) {
-            // Return null if we failed to parse something
-            return null;
-        }
-    }
-
-    @VisibleForTesting
-    static Slice extractInternal(Slice jsonInput, JsonExtractor<Slice> jsonExtractor)
-            throws IOException
+    public static <T> T extract(Slice jsonInput, JsonExtractor<T> jsonExtractor)
     {
         checkNotNull(jsonInput, "jsonInput is null");
-        try (JsonParser jsonParser = JSON_FACTORY.createJsonParser(jsonInput.getInput())) {
-            // Initialize by advancing to first token and make sure it exists
-            if (jsonParser.nextToken() == null) {
-                throw new JsonParseException("Missing starting token", jsonParser.getCurrentLocation());
-            }
-
-            return jsonExtractor.extract(jsonParser);
-        }
-    }
-
-    public static Long extractSize(Slice jsonInput, Slice jsonPath)
-            throws IOException
-    {
-        return extractSize(JSON_SIZE_CACHE, jsonInput, jsonPath);
-    }
-
-    public static Long extractSize(ThreadLocalCache<Slice, JsonExtractor<Long>> cache, @Nullable Slice jsonInput, Slice jsonPath)
-            throws IOException
-    {
-        checkNotNull(jsonPath, "jsonPath is null");
-        if (jsonInput == null) {
-            return null;
-        }
-
         try {
-            return extractSizeInternal(jsonInput, cache.get(jsonPath));
+            try (JsonParser jsonParser = JSON_FACTORY.createJsonParser(jsonInput.getInput())) {
+                // Initialize by advancing to first token and make sure it exists
+                if (jsonParser.nextToken() == null) {
+                    throw new JsonParseException("Missing starting token", jsonParser.getCurrentLocation());
+                }
+
+                return jsonExtractor.extract(jsonParser);
+            }
         }
         catch (JsonParseException e) {
             // Return null if we failed to parse something
             return null;
         }
-    }
-
-    public static Long extractSize(Slice jsonInput, JsonExtractor<Long> jsonExtractor)
-            throws IOException
-    {
-        try {
-            return extractSizeInternal(jsonInput, jsonExtractor);
-        }
-        catch (JsonParseException e) {
-            // Return null if we failed to parse something
-            return null;
-        }
-    }
-
-    @VisibleForTesting
-    static Long extractSizeInternal(Slice jsonInput, JsonExtractor<Long> jsonExtractor)
-            throws IOException
-    {
-        checkNotNull(jsonInput, "jsonInput is null");
-        try (JsonParser jsonParser = JSON_FACTORY.createJsonParser(jsonInput.getInput())) {
-            // Initialize by advancing to first token and make sure it exists
-            if (jsonParser.nextToken() == null) {
-                throw new JsonParseException("Missing starting token", jsonParser.getCurrentLocation());
-            }
-
-            return jsonExtractor.extract(jsonParser);
+        catch (IOException e) {
+            throw Throwables.propagate(e);
         }
     }
 
@@ -501,24 +371,6 @@ public final class JsonExtract
         public String replace(String target)
         {
             return pattern.matcher(target).replaceAll(replacement);
-        }
-    }
-
-    public static class JsonExtractCache<T>
-            extends ThreadLocalCache<Slice, JsonExtractor<T>>
-    {
-        private final Supplier<JsonExtractor<T>> rootSupplier;
-
-        public JsonExtractCache(int maxSizePerThread, Supplier<JsonExtractor<T>> rootSupplier)
-        {
-            super(maxSizePerThread);
-            this.rootSupplier = rootSupplier;
-        }
-
-        @Override
-        protected JsonExtractor<T> load(Slice jsonPath)
-        {
-            return generateExtractor(jsonPath.toString(Charsets.UTF_8), rootSupplier.get());
         }
     }
 }

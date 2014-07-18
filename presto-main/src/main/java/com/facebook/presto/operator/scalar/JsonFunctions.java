@@ -13,42 +13,26 @@
  */
 package com.facebook.presto.operator.scalar;
 
-import com.facebook.presto.byteCode.ByteCodeNode;
-import com.facebook.presto.byteCode.instruction.Constant;
-import com.facebook.presto.operator.scalar.JsonExtract.JsonExtractCache;
-import com.facebook.presto.operator.scalar.JsonExtract.JsonExtractor;
-import com.facebook.presto.operator.scalar.JsonExtract.JsonSizeExtractor;
-import com.facebook.presto.operator.scalar.JsonExtract.JsonValueJsonExtractor;
-import com.facebook.presto.operator.scalar.JsonExtract.ScalarValueJsonExtractor;
+import com.facebook.presto.metadata.OperatorType;
 import com.facebook.presto.spi.type.BigintType;
 import com.facebook.presto.spi.type.BooleanType;
 import com.facebook.presto.spi.type.DoubleType;
 import com.facebook.presto.spi.type.VarcharType;
-import com.facebook.presto.sql.gen.DefaultFunctionBinder;
-import com.facebook.presto.sql.gen.FunctionBinder;
-import com.facebook.presto.sql.gen.FunctionBinding;
+import com.facebook.presto.type.JsonPathType;
 import com.facebook.presto.type.SqlType;
-import com.facebook.presto.util.ThreadLocalCache;
 import com.fasterxml.jackson.core.JsonFactory;
 import com.fasterxml.jackson.core.JsonParser;
 import com.fasterxml.jackson.core.JsonToken;
 import com.google.common.base.Charsets;
-import com.google.common.base.Supplier;
-import com.google.common.base.Throwables;
-import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Doubles;
 import io.airlift.slice.Slice;
 
 import javax.annotation.Nullable;
 
 import java.io.IOException;
-import java.lang.invoke.MethodHandle;
-import java.lang.invoke.MethodHandles;
-import java.util.ArrayList;
 import java.util.LinkedList;
 import java.util.List;
 
-import static com.facebook.presto.operator.scalar.JsonExtract.generateExtractor;
 import static com.fasterxml.jackson.core.JsonFactory.Feature.CANONICALIZE_FIELD_NAMES;
 import static com.fasterxml.jackson.core.JsonParser.NumberType;
 import static com.fasterxml.jackson.core.JsonToken.END_ARRAY;
@@ -59,19 +43,21 @@ import static com.fasterxml.jackson.core.JsonToken.VALUE_NUMBER_INT;
 import static com.fasterxml.jackson.core.JsonToken.VALUE_STRING;
 import static com.fasterxml.jackson.core.JsonToken.VALUE_TRUE;
 import static io.airlift.slice.Slices.utf8Slice;
-import static java.lang.invoke.MethodHandles.lookup;
-import static java.lang.invoke.MethodType.methodType;
+import static java.nio.charset.StandardCharsets.UTF_8;
 
 public final class JsonFunctions
 {
-    private static final String JSON_EXTRACT_SCALAR_FUNCTION_NAME = "json_extract_scalar";
-    private static final String JSON_EXTRACT_FUNCTION_NAME = "json_extract";
-    private static final String JSON_SIZE_FUNCTION_NAME = "json_size";
-
     private static final JsonFactory JSON_FACTORY = new JsonFactory()
             .disable(CANONICALIZE_FIELD_NAMES);
 
     private JsonFunctions() {}
+
+    @ScalarOperator(OperatorType.CAST)
+    @SqlType(JsonPathType.class)
+    public static JsonPath castToJsonPath(@SqlType(VarcharType.class) Slice pattern)
+    {
+        return new JsonPath(pattern.toString(UTF_8));
+    }
 
     @Nullable
     @ScalarFunction
@@ -286,142 +272,27 @@ public final class JsonFunctions
         }
     }
 
-    @ScalarFunction(value = JSON_EXTRACT_SCALAR_FUNCTION_NAME, functionBinder = JsonFunctionBinder.class)
+    @ScalarFunction
+    @Nullable
     @SqlType(VarcharType.class)
-    public static Slice jsonExtractScalar(@SqlType(VarcharType.class) Slice json, @SqlType(VarcharType.class) Slice jsonPath)
+    public static Slice jsonExtractScalar(@SqlType(VarcharType.class) Slice json, @SqlType(JsonPathType.class) JsonPath jsonPath)
     {
-        try {
-            return JsonExtract.extractScalar(json, jsonPath);
-        }
-        catch (IOException e) {
-            throw Throwables.propagate(e);
-        }
+        return JsonExtract.extract(json, jsonPath.getScalarExtractor());
     }
 
-    @ScalarFunction(value = JSON_EXTRACT_FUNCTION_NAME, functionBinder = JsonFunctionBinder.class)
+    @ScalarFunction
+    @Nullable
     @SqlType(VarcharType.class)
-    public static Slice jsonExtract(@SqlType(VarcharType.class) Slice json, @SqlType(VarcharType.class) Slice jsonPath)
+    public static Slice jsonExtract(@SqlType(VarcharType.class) Slice json, @SqlType(JsonPathType.class) JsonPath jsonPath)
     {
-        try {
-            return JsonExtract.extractJson(json, jsonPath);
-        }
-        catch (IOException e) {
-            throw Throwables.propagate(e);
-        }
+        return JsonExtract.extract(json, jsonPath.getObjectExtractor());
     }
 
-    @ScalarFunction(value = JSON_SIZE_FUNCTION_NAME, functionBinder = JsonFunctionBinder.class)
+    @ScalarFunction
     @Nullable
     @SqlType(BigintType.class)
-    public static Long jsonSize(@SqlType(VarcharType.class) Slice json, @SqlType(VarcharType.class) Slice jsonPath)
+    public static Long jsonSize(@SqlType(VarcharType.class) Slice json, @SqlType(JsonPathType.class) JsonPath jsonPath)
     {
-        try {
-            return JsonExtract.extractSize(json, jsonPath);
-        }
-        catch (IOException e) {
-            throw Throwables.propagate(e);
-        }
-    }
-
-    public static class JsonFunctionBinder
-            implements FunctionBinder
-    {
-        private static final MethodHandle constantJsonExtract;
-        private static final MethodHandle dynamicJsonExtract;
-        private static final MethodHandle constantJsonSize;
-        private static final MethodHandle dynamicJsonSize;
-
-        static {
-            try {
-                constantJsonExtract = lookup().findStatic(JsonExtract.class, "extract", methodType(Slice.class, Slice.class, JsonExtractor.class));
-                dynamicJsonExtract = lookup().findStatic(JsonExtract.class, "extract", methodType(Slice.class, ThreadLocalCache.class, Slice.class, Slice.class));
-                constantJsonSize = lookup().findStatic(JsonExtract.class, "extractSize", methodType(Long.class, Slice.class, JsonExtractor.class));
-                dynamicJsonSize = lookup().findStatic(JsonExtract.class, "extractSize", methodType(Long.class, ThreadLocalCache.class, Slice.class, Slice.class));
-            }
-            catch (ReflectiveOperationException e) {
-                throw Throwables.propagate(e);
-            }
-        }
-
-        @Override
-        public FunctionBinding bindFunction(long bindingId, String name, ByteCodeNode getSessionByteCode, List<ByteCodeNode> arguments)
-        {
-            ByteCodeNode patternNode = arguments.get(1);
-
-            MethodHandle methodHandle;
-            if (patternNode instanceof Constant) {
-                Slice patternSlice = (Slice) ((Constant) patternNode).getValue();
-                String pattern = patternSlice.toString(Charsets.UTF_8);
-
-                JsonExtractor<?> jsonExtractor;
-                switch (name) {
-                    case JSON_EXTRACT_SCALAR_FUNCTION_NAME:
-                        methodHandle = constantJsonExtract;
-                        jsonExtractor = generateExtractor(pattern, new ScalarValueJsonExtractor());
-                        break;
-                    case JSON_EXTRACT_FUNCTION_NAME:
-                        methodHandle = constantJsonExtract;
-                        jsonExtractor = generateExtractor(pattern, new JsonValueJsonExtractor());
-                        break;
-                    case JSON_SIZE_FUNCTION_NAME:
-                        methodHandle = constantJsonSize;
-                        jsonExtractor = generateExtractor(pattern, new JsonSizeExtractor());
-                        break;
-                    default:
-                        throw new IllegalArgumentException("Unsupported method " + name);
-                }
-
-                methodHandle = MethodHandles.insertArguments(methodHandle, 1, jsonExtractor);
-
-                // remove the pattern argument
-                arguments = new ArrayList<>(arguments);
-                arguments.remove(1);
-                arguments = ImmutableList.copyOf(arguments);
-            }
-            else {
-                JsonExtractCache<?> cache;
-                switch (name) {
-                    case JSON_EXTRACT_SCALAR_FUNCTION_NAME:
-                        methodHandle = dynamicJsonExtract;
-                        cache = new JsonExtractCache<>(20, new Supplier<JsonExtractor<Slice>>()
-                        {
-                            @Override
-                            public JsonExtractor<Slice> get()
-                            {
-                                return new ScalarValueJsonExtractor();
-                            }
-                        });
-                        break;
-                    case JSON_EXTRACT_FUNCTION_NAME:
-                        methodHandle = dynamicJsonExtract;
-                        cache = new JsonExtractCache<>(20, new Supplier<JsonExtractor<Slice>>()
-                        {
-                            @Override
-                            public JsonExtractor<Slice> get()
-                            {
-                                return new JsonValueJsonExtractor();
-                            }
-                        });
-                        break;
-                    case JSON_SIZE_FUNCTION_NAME:
-                        methodHandle = dynamicJsonSize;
-                        cache = new JsonExtractCache<>(20, new Supplier<JsonExtractor<Long>>()
-                        {
-                            @Override
-                            public JsonExtractor<Long> get()
-                            {
-                                return new JsonSizeExtractor();
-                            }
-                        });
-                        break;
-                    default:
-                        throw new IllegalArgumentException("Unsupported method " + name);
-                }
-
-                methodHandle = methodHandle.bindTo(cache);
-            }
-
-            return DefaultFunctionBinder.bindConstantArguments(bindingId, name, getSessionByteCode, arguments, methodHandle, true);
-        }
+        return JsonExtract.extract(json, jsonPath.getSizeExtractor());
     }
 }
