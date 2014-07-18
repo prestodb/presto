@@ -16,45 +16,49 @@ package com.facebook.presto.verifier;
 import com.facebook.presto.util.IterableTransformer;
 import com.google.common.base.Function;
 import com.google.common.base.Optional;
-import com.google.common.collect.ImmutableMap;
-import io.airlift.configuration.ConfigurationFactory;
-import io.airlift.configuration.ConfigurationLoader;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Iterables;
+import com.google.inject.Injector;
+import com.google.inject.Key;
+import com.google.inject.Module;
+import com.google.inject.TypeLiteral;
+import io.airlift.bootstrap.Bootstrap;
+import io.airlift.bootstrap.LifeCycleManager;
 import io.airlift.event.client.EventClient;
 import org.skife.jdbi.v2.DBI;
 
-import java.io.FileNotFoundException;
-import java.io.IOException;
-import java.io.PrintStream;
 import java.util.List;
-
-import static com.google.common.base.Preconditions.checkNotNull;
-import static java.lang.String.format;
+import java.util.Set;
 
 public class PrestoVerifier
 {
-    private final VerifierConfig config;
-
-    protected PrestoVerifier(VerifierConfig config)
+    protected PrestoVerifier()
     {
-        this.config = checkNotNull(config, "config is null");
     }
 
     public static void main(String[] args)
             throws Exception
     {
-        Optional<String> configPath = Optional.fromNullable((args.length > 0) ? args[0] : null);
-        VerifierConfig config = loadConfig(VerifierConfig.class, configPath);
-        PrestoVerifier verifier = new PrestoVerifier(config);
-        verifier.run();
-
-        // HttpClient's threads don't seem to shutdown properly, so force the VM to exit
-        System.exit(0);
+        new PrestoVerifier().run(args);
     }
 
-    public void run()
+    public void run(String[] args)
             throws Exception
     {
-        EventClient eventClient = getEventClient(config);
+        if (args.length > 0) {
+            System.setProperty("config", args[0]);
+        }
+
+        ImmutableList.Builder<Module> builder = ImmutableList.<Module>builder()
+                .add(new PrestoVerifierModule())
+                .addAll(getAdditionalModules());
+
+        Bootstrap app = new Bootstrap(builder.build());
+        Injector injector = app.strictConfig().initialize();
+
+        VerifierConfig config = injector.getInstance(VerifierConfig.class);
+        injector.injectMembers(this);
+        EventClient eventClient = Iterables.getOnlyElement(injector.getInstance(Key.get(new TypeLiteral<Set<EventClient>>() {})));
 
         VerifierDao dao = new DBI(config.getQueryDatabase()).onDemand(VerifierDao.class);
         List<QueryPair> queries = dao.getQueriesBySuite(config.getSuite(), config.getMaxQueries());
@@ -62,8 +66,11 @@ public class PrestoVerifier
         queries = applyOverrides(config, queries);
         queries = filterQueries(queries);
 
+        // TODO: construct this with Guice
         Verifier verifier = new Verifier(System.out, config, eventClient);
         verifier.run(queries);
+
+        injector.getInstance(LifeCycleManager.class).stop();
     }
 
     /**
@@ -72,6 +79,11 @@ public class PrestoVerifier
     protected List<QueryPair> filterQueries(List<QueryPair> queries)
     {
         return queries;
+    }
+
+    protected Iterable<Module> getAdditionalModules()
+    {
+        return ImmutableList.of();
     }
 
     private static List<QueryPair> applyOverrides(final VerifierConfig config, List<QueryPair> queries)
@@ -92,42 +104,5 @@ public class PrestoVerifier
                 return new QueryPair(input.getSuite(), input.getName(), test, control);
             }
         }).list();
-    }
-
-    private EventClient getEventClient(VerifierConfig config)
-            throws FileNotFoundException
-    {
-        switch (config.getEventClient()) {
-            case "human-readable":
-                return new HumanReadableEventClient(System.out, config.isAlwaysReport());
-            case "file":
-                checkNotNull(config.getEventLogFile(), "event log file path is null");
-                return new JsonEventClient(new PrintStream(config.getEventLogFile()));
-        }
-        EventClient client = getEventClient(config.getEventClient());
-        if (client != null) {
-            return client;
-        }
-        throw new RuntimeException(format("Unsupported event client %s", config.getEventClient()));
-    }
-
-    /**
-     * Override this method to provide other event client implementations.
-     */
-    protected EventClient getEventClient(String name)
-    {
-        return null;
-    }
-
-    public static <T> T loadConfig(Class<T> clazz, Optional<String> path)
-            throws IOException
-    {
-        ImmutableMap.Builder<String, String> map = ImmutableMap.builder();
-        ConfigurationLoader loader = new ConfigurationLoader();
-        if (path.isPresent()) {
-            map.putAll(loader.loadPropertiesFrom(path.get()));
-        }
-        map.putAll(loader.getSystemProperties());
-        return new ConfigurationFactory(map.build()).build(clazz);
     }
 }

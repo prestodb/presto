@@ -16,21 +16,21 @@ package com.facebook.presto.verifier;
 import com.facebook.presto.util.Types;
 import io.airlift.event.client.AbstractEventClient;
 
-import java.io.IOException;
-import java.io.PrintStream;
+import javax.inject.Inject;
 
-import static com.google.common.base.Preconditions.checkNotNull;
+import java.io.IOException;
+
+import static java.lang.System.out;
 
 public class HumanReadableEventClient
         extends AbstractEventClient
 {
-    private final PrintStream out;
     private final boolean alwaysPrint;
 
-    public HumanReadableEventClient(PrintStream out, boolean alwaysPrint)
+    @Inject
+    public HumanReadableEventClient(VerifierConfig config)
     {
-        this.out = checkNotNull(out, "out is null");
-        this.alwaysPrint = alwaysPrint;
+        this.alwaysPrint = config.isAlwaysReport();
     }
 
     @Override
@@ -44,7 +44,7 @@ public class HumanReadableEventClient
         }
     }
 
-    private void printEvent(VerifierQueryEvent queryEvent)
+    private static void printEvent(VerifierQueryEvent queryEvent)
     {
         out.println("----------");
         out.println("Name: " + queryEvent.getName());
