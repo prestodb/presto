@@ -17,24 +17,21 @@ import com.facebook.presto.byteCode.ByteCodeNode;
 import com.facebook.presto.metadata.FunctionInfo;
 import com.facebook.presto.spi.ConnectorSession;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 
 import java.lang.invoke.CallSite;
 import java.lang.invoke.ConstantCallSite;
 import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;
-import java.lang.invoke.MethodType;
+import java.util.HashMap;
 import java.util.List;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ConcurrentMap;
-import java.util.concurrent.atomic.AtomicLong;
-
-import static com.google.common.base.Preconditions.checkArgument;
+import java.util.Map;
 
 public class BootstrapFunctionBinder
 {
-    private static final AtomicLong NEXT_BINDING_ID = new AtomicLong();
+    private int nextBindingId;
 
-    private final ConcurrentMap<Long, CallSite> bindings = new ConcurrentHashMap<>();
+    private final Map<Long, CallSite> bindings = new HashMap<>();
 
     public FunctionBinding bindFunction(FunctionInfo function, ByteCodeNode getSessionByteCode, List<? extends ByteCodeNode> arguments)
     {
@@ -55,7 +52,7 @@ public class BootstrapFunctionBinder
         }
 
         FunctionBinding binding = new FunctionBinding(
-                NEXT_BINDING_ID.getAndIncrement(),
+                nextBindingId++,
                 function.getSignature().getName(),
                 new ConstantCallSite(method),
                 actualArguments.build(),
@@ -67,17 +64,14 @@ public class BootstrapFunctionBinder
 
     public FunctionBinding bindConstant(Object constant, Class<?> type)
     {
-        long bindingId = NEXT_BINDING_ID.getAndIncrement();
-        ConstantCallSite callsite = new ConstantCallSite(MethodHandles.constant(type, constant));
-        bindings.put(bindingId, callsite);
-        return new FunctionBinding(bindingId, "constant_" + bindingId, callsite, ImmutableList.<ByteCodeNode>of(), true);
+        long bindingId = nextBindingId++;
+        ConstantCallSite callSite = new ConstantCallSite(MethodHandles.constant(type, constant));
+        bindings.put(bindingId, callSite);
+        return new FunctionBinding(bindingId, "constant_" + bindingId, callSite, ImmutableList.<ByteCodeNode>of(), true);
     }
 
-    public CallSite bootstrap(String name, MethodType type, long bindingId)
+    public Map<Long, CallSite> getCallSites()
     {
-        CallSite callSite = bindings.get(bindingId);
-        checkArgument(callSite != null, "Binding %s for function %s%s not found", bindingId, name, type.parameterList());
-
-        return callSite;
+        return ImmutableMap.copyOf(bindings);
     }
 }

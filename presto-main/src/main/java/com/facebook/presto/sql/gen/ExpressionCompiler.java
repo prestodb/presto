@@ -42,7 +42,6 @@ import com.facebook.presto.operator.OperatorFactory;
 import com.facebook.presto.operator.PageBuilder;
 import com.facebook.presto.operator.SourceOperator;
 import com.facebook.presto.operator.SourceOperatorFactory;
-import com.facebook.presto.operator.aggregation.IsolatedClass;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.RecordCursor;
 import com.facebook.presto.spi.block.BlockBuilder;
@@ -74,11 +73,10 @@ import javax.inject.Inject;
 import java.io.File;
 import java.io.IOException;
 import java.io.PrintWriter;
-import java.lang.invoke.MethodHandles.Lookup;
-import java.lang.invoke.MethodType;
+import java.lang.invoke.CallSite;
 import java.lang.reflect.Constructor;
+import java.lang.reflect.Field;
 import java.lang.reflect.InvocationTargetException;
-import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -91,12 +89,15 @@ import java.util.concurrent.atomic.AtomicReference;
 import static com.facebook.presto.byteCode.Access.FINAL;
 import static com.facebook.presto.byteCode.Access.PRIVATE;
 import static com.facebook.presto.byteCode.Access.PUBLIC;
+import static com.facebook.presto.byteCode.Access.STATIC;
+import static com.facebook.presto.byteCode.Access.VOLATILE;
 import static com.facebook.presto.byteCode.Access.a;
 import static com.facebook.presto.byteCode.NamedParameterDefinition.arg;
 import static com.facebook.presto.byteCode.OpCodes.NOP;
 import static com.facebook.presto.byteCode.ParameterizedType.type;
 import static com.facebook.presto.byteCode.ParameterizedType.typeFromPathName;
 import static com.facebook.presto.byteCode.control.ForLoop.forLoopBuilder;
+import static com.facebook.presto.sql.gen.Bootstrap.BOOTSTRAP_METHOD;
 import static com.google.common.base.Objects.toStringHelper;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
@@ -202,18 +203,19 @@ public class ExpressionCompiler
             List<RowExpression> projections,
             DynamicClassLoader classLoader)
     {
-        BootstrapEntry bootstrap = BootstrapEntry.makeBootstrap(classLoader, metadata);
+        BootstrapFunctionBinder functionBinder = new BootstrapFunctionBinder();
 
-        ClassDefinition classDefinition = new ClassDefinition(new CompilerContext(bootstrap.getBootstrapMethod()),
+        ClassDefinition classDefinition = new ClassDefinition(new CompilerContext(BOOTSTRAP_METHOD),
                 a(PUBLIC, FINAL),
                 typeFromPathName("FilterAndProjectOperator_" + CLASS_ID.incrementAndGet()),
                 type(AbstractFilterAndProjectOperator.class));
 
         // declare fields
         FieldDefinition sessionField = classDefinition.declareField(a(PRIVATE, FINAL), "session", ConnectorSession.class);
+        classDefinition.declareField(a(PRIVATE, VOLATILE, STATIC), "callSites", Map.class);
 
         // constructor
-        classDefinition.declareConstructor(new CompilerContext(bootstrap.getBootstrapMethod()),
+        classDefinition.declareConstructor(new CompilerContext(BOOTSTRAP_METHOD),
                 a(PUBLIC),
                 arg("operatorContext", OperatorContext.class),
                 arg("types", type(Iterable.class, Type.class)))
@@ -230,13 +232,13 @@ public class ExpressionCompiler
                 .putField(sessionField)
                 .ret();
 
-        generateFilterAndProjectRowOriented(bootstrap, classDefinition, filter, projections);
+        generateFilterAndProjectRowOriented(classDefinition, filter, projections);
 
         //
         // filter method
         //
-        generateFilterMethod(bootstrap, classDefinition, filter, true);
-        generateFilterMethod(bootstrap, classDefinition, filter, false);
+        generateFilterMethod(functionBinder, classDefinition, filter, true);
+        generateFilterMethod(functionBinder, classDefinition, filter, false);
 
         //
         // project methods
@@ -244,8 +246,8 @@ public class ExpressionCompiler
         List<Type> types = new ArrayList<>();
         int projectionIndex = 0;
         for (RowExpression projection : projections) {
-            generateProjectMethod(bootstrap, classDefinition, "project_" + projectionIndex, projection, true);
-            generateProjectMethod(bootstrap, classDefinition, "project_" + projectionIndex, projection, false);
+            generateProjectMethod(functionBinder, classDefinition, "project_" + projectionIndex, projection, true);
+            generateProjectMethod(functionBinder, classDefinition, "project_" + projectionIndex, projection, false);
             types.add(projection.getType());
             projectionIndex++;
         }
@@ -253,7 +255,7 @@ public class ExpressionCompiler
         //
         // toString method
         //
-        generateToString(bootstrap,
+        generateToString(
                 classDefinition,
                 toStringHelper(classDefinition.getType().getJavaClassName())
                         .add("filter", filter)
@@ -261,6 +263,8 @@ public class ExpressionCompiler
                         .toString());
 
         Class<? extends Operator> filterAndProjectClass = defineClass(classDefinition, Operator.class, classLoader);
+        setCallSitesField(filterAndProjectClass, functionBinder.getCallSites());
+
         return new TypedOperatorClass(filterAndProjectClass, types);
     }
 
@@ -313,18 +317,19 @@ public class ExpressionCompiler
             List<RowExpression> projections,
             DynamicClassLoader classLoader)
     {
-        BootstrapEntry bootstrap = BootstrapEntry.makeBootstrap(classLoader, metadata);
+        BootstrapFunctionBinder functionBinder = new BootstrapFunctionBinder();
 
-        ClassDefinition classDefinition = new ClassDefinition(new CompilerContext(bootstrap.getBootstrapMethod()),
+        ClassDefinition classDefinition = new ClassDefinition(new CompilerContext(BOOTSTRAP_METHOD),
                 a(PUBLIC, FINAL),
                 typeFromPathName("ScanFilterAndProjectOperator_" + CLASS_ID.incrementAndGet()),
                 type(AbstractScanFilterAndProjectOperator.class));
 
         // declare fields
         FieldDefinition sessionField = classDefinition.declareField(a(PRIVATE, FINAL), "session", ConnectorSession.class);
+        classDefinition.declareField(a(PRIVATE, VOLATILE, STATIC), "callSites", Map.class);
 
         // constructor
-        classDefinition.declareConstructor(new CompilerContext(bootstrap.getBootstrapMethod()),
+        classDefinition.declareConstructor(new CompilerContext(BOOTSTRAP_METHOD),
                 a(PUBLIC),
                 arg("operatorContext", OperatorContext.class),
                 arg("sourceId", PlanNodeId.class),
@@ -347,14 +352,14 @@ public class ExpressionCompiler
                 .putField(sessionField)
                 .ret();
 
-        generateFilterAndProjectRowOriented(bootstrap, classDefinition, filter, projections);
-        generateFilterAndProjectCursorMethod(bootstrap, classDefinition, projections);
+        generateFilterAndProjectRowOriented(classDefinition, filter, projections);
+        generateFilterAndProjectCursorMethod(classDefinition, projections);
 
         //
         // filter method
         //
-        generateFilterMethod(bootstrap, classDefinition, filter, true);
-        generateFilterMethod(bootstrap, classDefinition, filter, false);
+        generateFilterMethod(functionBinder, classDefinition, filter, true);
+        generateFilterMethod(functionBinder, classDefinition, filter, false);
 
         //
         // project methods
@@ -362,8 +367,8 @@ public class ExpressionCompiler
         List<Type> types = new ArrayList<>();
         int projectionIndex = 0;
         for (RowExpression projection : projections) {
-            generateProjectMethod(bootstrap, classDefinition, "project_" + projectionIndex, projection, true);
-            generateProjectMethod(bootstrap, classDefinition, "project_" + projectionIndex, projection, false);
+            generateProjectMethod(functionBinder, classDefinition, "project_" + projectionIndex, projection, true);
+            generateProjectMethod(functionBinder, classDefinition, "project_" + projectionIndex, projection, false);
             types.add(projection.getType());
             projectionIndex++;
         }
@@ -371,7 +376,7 @@ public class ExpressionCompiler
         //
         // toString method
         //
-        generateToString(bootstrap,
+        generateToString(
                 classDefinition,
                 toStringHelper(classDefinition.getType().getJavaClassName())
                         .add("filter", filter)
@@ -379,29 +384,30 @@ public class ExpressionCompiler
                         .toString());
 
         Class<? extends SourceOperator> filterAndProjectClass = defineClass(classDefinition, SourceOperator.class, classLoader);
+        setCallSitesField(filterAndProjectClass, functionBinder.getCallSites());
+
         return new TypedOperatorClass(filterAndProjectClass, types);
     }
 
-    private void generateToString(BootstrapEntry bootstrap, ClassDefinition classDefinition, String string)
+    private void generateToString(ClassDefinition classDefinition, String string)
     {
         // Constant strings can't be too large or the bytecode becomes invalid
         if (string.length() > 100) {
             string = string.substring(0, 100) + "...";
         }
 
-        classDefinition.declareMethod(new CompilerContext(bootstrap.getBootstrapMethod()), a(PUBLIC), "toString", type(String.class))
+        classDefinition.declareMethod(new CompilerContext(BOOTSTRAP_METHOD), a(PUBLIC), "toString", type(String.class))
                 .getBody()
                 .push(string)
                 .retObject();
     }
 
     private void generateFilterAndProjectRowOriented(
-            BootstrapEntry bootstrap,
             ClassDefinition classDefinition,
             RowExpression filter,
             List<RowExpression> projections)
     {
-        MethodDefinition filterAndProjectMethod = classDefinition.declareMethod(new CompilerContext(bootstrap.getBootstrapMethod()),
+        MethodDefinition filterAndProjectMethod = classDefinition.declareMethod(new CompilerContext(BOOTSTRAP_METHOD),
                 a(PUBLIC),
                 "filterAndProjectRowOriented",
                 type(void.class),
@@ -506,9 +512,9 @@ public class ExpressionCompiler
         filterAndProjectMethod.getBody().ret();
     }
 
-    private void generateFilterAndProjectCursorMethod(BootstrapEntry bootstrap, ClassDefinition classDefinition, List<RowExpression> projections)
+    private void generateFilterAndProjectCursorMethod(ClassDefinition classDefinition, List<RowExpression> projections)
     {
-        MethodDefinition filterAndProjectMethod = classDefinition.declareMethod(new CompilerContext(bootstrap.getBootstrapMethod()),
+        MethodDefinition filterAndProjectMethod = classDefinition.declareMethod(new CompilerContext(BOOTSTRAP_METHOD),
                 a(PUBLIC),
                 "filterAndProjectRowOriented",
                 type(int.class),
@@ -597,21 +603,21 @@ public class ExpressionCompiler
     }
 
     private void generateFilterMethod(
-            BootstrapEntry bootstrap,
+            BootstrapFunctionBinder functionBinder,
             ClassDefinition classDefinition,
             RowExpression filter,
             boolean sourceIsCursor)
     {
         MethodDefinition filterMethod;
         if (sourceIsCursor) {
-            filterMethod = classDefinition.declareMethod(new CompilerContext(bootstrap.getBootstrapMethod()),
+            filterMethod = classDefinition.declareMethod(new CompilerContext(BOOTSTRAP_METHOD),
                     a(PUBLIC),
                     "filter",
                     type(boolean.class),
                     arg("cursor", RecordCursor.class));
         }
         else {
-            filterMethod = classDefinition.declareMethod(new CompilerContext(bootstrap.getBootstrapMethod()),
+            filterMethod = classDefinition.declareMethod(new CompilerContext(BOOTSTRAP_METHOD),
                     a(PUBLIC),
                     "filter",
                     type(boolean.class),
@@ -625,7 +631,7 @@ public class ExpressionCompiler
 
         filterMethod.getCompilerContext().declareVariable(type(boolean.class), "wasNull");
         Block getSessionByteCode = new Block(filterMethod.getCompilerContext()).pushThis().getField(classDefinition.getType(), "session", type(ConnectorSession.class));
-        ByteCodeNode body = compileExpression(bootstrap, filter, sourceIsCursor, filterMethod.getCompilerContext(), getSessionByteCode);
+        ByteCodeNode body = compileExpression(functionBinder, filter, sourceIsCursor, filterMethod.getCompilerContext(), getSessionByteCode);
 
         LabelNode end = new LabelNode("end");
         filterMethod
@@ -642,18 +648,18 @@ public class ExpressionCompiler
     }
 
     private ByteCodeNode compileExpression(
-            BootstrapEntry bootstrap,
+            BootstrapFunctionBinder functionBinder,
             RowExpression expression,
             boolean sourceIsCursor,
             CompilerContext context,
             Block getSessionByteCode)
     {
-        ByteCodeExpressionVisitor visitor = new ByteCodeExpressionVisitor(bootstrap.getFunctionBinder(), getSessionByteCode, metadata.getFunctionRegistry(), sourceIsCursor);
+        ByteCodeExpressionVisitor visitor = new ByteCodeExpressionVisitor(functionBinder, getSessionByteCode, metadata.getFunctionRegistry(), sourceIsCursor);
         return expression.accept(visitor, context);
     }
 
     private Class<?> generateProjectMethod(
-            BootstrapEntry bootstrap,
+            BootstrapFunctionBinder functionBinder,
             ClassDefinition classDefinition,
             String methodName,
             RowExpression projection,
@@ -661,7 +667,7 @@ public class ExpressionCompiler
     {
         MethodDefinition projectionMethod;
         if (sourceIsCursor) {
-            projectionMethod = classDefinition.declareMethod(new CompilerContext(bootstrap.getBootstrapMethod()),
+            projectionMethod = classDefinition.declareMethod(new CompilerContext(BOOTSTRAP_METHOD),
                     a(PUBLIC),
                     methodName,
                     type(void.class),
@@ -674,7 +680,7 @@ public class ExpressionCompiler
             parameters.addAll(toBlockParameters(getInputChannels(projection)));
             parameters.add(arg("output", BlockBuilder.class));
 
-            projectionMethod = classDefinition.declareMethod(new CompilerContext(bootstrap.getBootstrapMethod()),
+            projectionMethod = classDefinition.declareMethod(new CompilerContext(BOOTSTRAP_METHOD),
                     a(PUBLIC),
                     methodName,
                     type(void.class),
@@ -688,7 +694,7 @@ public class ExpressionCompiler
         context.declareVariable(type(boolean.class), "wasNull");
         Block getSessionByteCode = new Block(context).pushThis().getField(classDefinition.getType(), "session", type(ConnectorSession.class));
 
-        ByteCodeNode body = compileExpression(bootstrap, projection, sourceIsCursor, context, getSessionByteCode);
+        ByteCodeNode body = compileExpression(functionBinder, projection, sourceIsCursor, context, getSessionByteCode);
 
         projectionMethod
                 .getBody()
@@ -755,53 +761,6 @@ public class ExpressionCompiler
             }
         }
         return ImmutableList.copyOf(channels);
-    }
-
-    private static class BootstrapEntry
-    {
-        private final BootstrapFunctionBinder functionBinder;
-        private final Method bootstrapMethod;
-
-        public static BootstrapEntry makeBootstrap(DynamicClassLoader classLoader, Metadata metadata)
-        {
-            // Create an isolated version of Bootstrap with a reference to a new BootstrapFunctionBinder
-            // The Bootstrap class is loaded within the context of the provided dynamic classloader.
-            // The goal is for the BootstrapFunctionBinder to get garbage-collected once the associated
-            // compiled classes (and the dynamic classloader) become garbage.
-            Class<?> clazz = IsolatedClass.isolateClass(classLoader, Object.class, Bootstrap.class);
-
-            Method bootstrapMethod;
-            BootstrapFunctionBinder binder = new BootstrapFunctionBinder();
-            try {
-                bootstrapMethod = clazz.getMethod("bootstrap", Lookup.class, String.class, MethodType.class, long.class);
-                clazz.getMethod("setFunctionBinder", BootstrapFunctionBinder.class)
-                        .invoke(null, binder);
-            }
-            catch (IllegalAccessException | InvocationTargetException | NoSuchMethodException e) {
-                throw Throwables.propagate(e);
-            }
-
-            return new BootstrapEntry(binder, bootstrapMethod);
-        }
-
-        private BootstrapEntry(BootstrapFunctionBinder functionBinder, Method bootstrapMethod)
-        {
-            checkNotNull(functionBinder, "functionBinder is null");
-            checkNotNull(bootstrapMethod, "bootstrapMethod is null");
-
-            this.functionBinder = functionBinder;
-            this.bootstrapMethod = bootstrapMethod;
-        }
-
-        public BootstrapFunctionBinder getFunctionBinder()
-        {
-            return functionBinder;
-        }
-
-        public Method getBootstrapMethod()
-        {
-            return bootstrapMethod;
-        }
     }
 
     private static class TypedOperatorClass
@@ -887,6 +846,18 @@ public class ExpressionCompiler
         Map<String, Class<?>> classes = classLoader.defineClasses(byteCodes);
         generatedClasses.addAndGet(classes.size());
         return classes;
+    }
+
+    private static void setCallSitesField(Class<?> clazz, Map<Long, CallSite> callSites)
+    {
+        try {
+            Field field = clazz.getDeclaredField("callSites");
+            field.setAccessible(true);
+            field.set(null, callSites);
+        }
+        catch (IllegalAccessException | NoSuchFieldException e) {
+            throw Throwables.propagate(e);
+        }
     }
 
     private static final class OperatorCacheKey
