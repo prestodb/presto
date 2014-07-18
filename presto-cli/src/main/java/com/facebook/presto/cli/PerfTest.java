@@ -101,13 +101,16 @@ public class PerfTest
     @Option(name = {"-r", "--runs"}, title = "number", description = "Number of runs until exit (default: 10)")
     public int runs = 10;
 
+    @Option(name = "--timeout", title = "timeout", description = "Timeout for HTTP-Client to wait for query results (default: 600)")
+    public int timeout = 600;
+
     public void run()
             throws Exception
     {
         initializeLogging(debug);
         List<String> queries = loadQueries();
 
-        try (ParallelQueryRunner parallelQueryRunner = new ParallelQueryRunner(16, parseServer(server), catalog, schema, debug)) {
+        try (ParallelQueryRunner parallelQueryRunner = new ParallelQueryRunner(16, parseServer(server), catalog, schema, debug, timeout)) {
             for (int loop = 0; loop < runs; loop++) {
                 executeQueries(queries, parallelQueryRunner, 1);
                 executeQueries(queries, parallelQueryRunner, 2);
@@ -150,14 +153,14 @@ public class PerfTest
         private final ListeningExecutorService executor;
         private final List<QueryRunner> runners;
 
-        public ParallelQueryRunner(int maxParallelism, URI server, String catalog, String schema, boolean debug)
+        public ParallelQueryRunner(int maxParallelism, URI server, String catalog, String schema, boolean debug, int timeout)
         {
             executor = listeningDecorator(newCachedThreadPool(daemonThreadsNamed("query-runner-%s")));
 
             ImmutableList.Builder<QueryRunner> runners = ImmutableList.builder();
             for (int i = 0; i < maxParallelism; i++) {
                 ClientSession session = new ClientSession(server, "test-" + i, "presto-perf", catalog, schema, TimeZone.getDefault().getID(), Locale.getDefault(), debug);
-                runners.add(new QueryRunner(session, executor));
+                runners.add(new QueryRunner(session, executor, timeout));
             }
             this.runners = runners.build();
         }
@@ -227,12 +230,16 @@ public class PerfTest
         private final ListeningExecutorService executor;
         private final HttpClient httpClient;
 
-        public QueryRunner(ClientSession session, ListeningExecutorService executor)
+        public QueryRunner(ClientSession session, ListeningExecutorService executor, int timeout)
         {
             this.session = session;
             this.executor = executor;
 
-            httpClient = new JettyHttpClient(new HttpClientConfig().setConnectTimeout(new Duration(10, TimeUnit.SECONDS)));
+            HttpClientConfig clientConfig = new HttpClientConfig();
+            clientConfig.setConnectTimeout(new Duration(10, TimeUnit.SECONDS));
+            clientConfig.setReadTimeout(new Duration(timeout, TimeUnit.SECONDS));
+            clientConfig.setKeepAliveInterval(new Duration(timeout, TimeUnit.SECONDS));
+            httpClient = new JettyHttpClient(clientConfig);
         }
 
         public ListenableFuture<?> execute(final BlockingQueue<String> queue, final CountDownLatch remainingQueries)
