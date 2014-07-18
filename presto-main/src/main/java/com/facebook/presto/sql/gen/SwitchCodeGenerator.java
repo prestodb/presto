@@ -20,6 +20,7 @@ import com.facebook.presto.byteCode.Variable;
 import com.facebook.presto.byteCode.control.IfStatement;
 import com.facebook.presto.byteCode.instruction.LabelNode;
 import com.facebook.presto.byteCode.instruction.VariableInstruction;
+import com.facebook.presto.metadata.FunctionInfo;
 import com.facebook.presto.metadata.OperatorType;
 import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.spi.type.Type;
@@ -113,11 +114,11 @@ public class SwitchCodeGenerator
             RowExpression result = ((CallExpression) clause).getArguments().get(1);
 
             // call equals(value, operand)
-            FunctionBinding functionBinding = generatorContext.getBootstrapBinder().bindOperator(
-                    OperatorType.EQUAL,
-                    generatorContext.generateGetSession(),
-                    ImmutableList.of(generatorContext.generate(operand), getTempVariableNode),
-                    ImmutableList.of(value.getType(), operand.getType()));
+            FunctionInfo equalOperator = generatorContext.getRegistry().resolveOperator(OperatorType.EQUAL, ImmutableList.of(value.getType(), operand.getType()));
+
+            FunctionBinding functionBinding = generatorContext
+                    .getBootstrapBinder()
+                    .bindFunction(equalOperator, generatorContext.generateGetSession(), ImmutableList.of(generatorContext.generate(operand), getTempVariableNode));
 
             MethodType methodType = functionBinding.getCallSite().type();
             Class<?> unboxedReturnType = Primitives.unwrap(methodType.returnType());
