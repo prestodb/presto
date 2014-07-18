@@ -59,6 +59,7 @@ public class CassandraClientConfig
     private int clientReadTimeout = SocketOptions.DEFAULT_READ_TIMEOUT_MILLIS;
     private int clientConnectTimeout = SocketOptions.DEFAULT_CONNECT_TIMEOUT_MILLIS;
     private Integer clientSoLinger;
+    private RetryPolicyType retryPolicy = RetryPolicyType.DEFAULT;
 
     @Min(0)
     public int getLimitForPartitionKeySelect()
@@ -332,6 +333,19 @@ public class CassandraClientConfig
     public CassandraClientConfig setClientSoLinger(Integer clientSoLinger)
     {
         this.clientSoLinger = clientSoLinger;
+        return this;
+    }
+
+    @NotNull
+    public RetryPolicyType getRetryPolicy()
+    {
+        return retryPolicy;
+    }
+
+    @Config("cassandra.retry-policy")
+    public CassandraClientConfig setRetryPolicy(RetryPolicyType retryPolicy)
+    {
+        this.retryPolicy = retryPolicy;
         return this;
     }
 }
