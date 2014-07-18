@@ -45,7 +45,7 @@ public final class Signatures
     // **************** sql operators ****************
     public static Signature notSignature()
     {
-        return new Signature("not", BOOLEAN, ImmutableList.of(BOOLEAN), false, false);
+        return new Signature("not", BOOLEAN, ImmutableList.of(BOOLEAN), false);
     }
 
     public static Signature betweenSignature(Type valueType, Type minType, Type maxType)
