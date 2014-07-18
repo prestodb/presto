@@ -13,25 +13,51 @@
  */
 package com.facebook.presto.sql.gen;
 
+import com.google.common.base.Throwables;
+
 import java.lang.invoke.CallSite;
+import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;
 import java.lang.invoke.MethodType;
+import java.lang.reflect.Method;
+import java.util.Map;
+
+import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkNotNull;
 
 public final class Bootstrap
 {
-    private static volatile BootstrapFunctionBinder functionBinder;
+    public static final Method BOOTSTRAP_METHOD;
+
+    static {
+        try {
+            BOOTSTRAP_METHOD = Bootstrap.class.getMethod("bootstrap", MethodHandles.Lookup.class, String.class, MethodType.class, long.class);
+        }
+        catch (NoSuchMethodException e) {
+            throw Throwables.propagate(e);
+        }
+    }
 
     private Bootstrap()
     {
     }
 
-    public static CallSite bootstrap(MethodHandles.Lookup lookup, String name, MethodType type, long bindingId)
+    public static CallSite bootstrap(MethodHandles.Lookup callerLookup, String name, MethodType type, long bindingId)
     {
-        return functionBinder.bootstrap(name, type, bindingId);
-    }
+        try {
+            MethodHandle handle = callerLookup.findStaticGetter(callerLookup.lookupClass(), "callSites", Map.class);
+            Map<Long, CallSite> callSites = (Map<Long, CallSite>) handle.invokeExact();
+            checkNotNull(callSites, "'callSites' field in %s is null", callerLookup.lookupClass().getName());
 
-    public static void setFunctionBinder(BootstrapFunctionBinder binder)
-    {
-        functionBinder = binder;
+            CallSite callSite = callSites.get(bindingId);
+            checkArgument(callSite != null, "Binding %s for function %s%s not found", bindingId, name, type.parameterList());
+            return callSite;
+        }
+        catch (Throwable e) {
+            if (e instanceof InterruptedException) {
+                Thread.currentThread().interrupt();
+            }
+            throw Throwables.propagate(e);
+        }
     }
 }
