@@ -116,9 +116,7 @@ public class CassandraClientModule
                 return defaultRetryPolicy.getPolicy();
             }
             for (RetryPolicyClass retPolicy : values()) {
-                log.warn("found: " + retPolicy.getName());
                 if (retPolicy.getName().equals(name)) {
-                    log.warn("using: " + retPolicy.getName());
                     return retPolicy.getPolicy();
                 }
             }
