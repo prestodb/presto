@@ -14,7 +14,6 @@
 package com.facebook.presto.sql.gen;
 
 import com.facebook.presto.byteCode.ByteCodeNode;
-import com.facebook.presto.byteCode.instruction.Constant;
 import com.facebook.presto.metadata.FunctionInfo;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.OperatorType;
@@ -50,7 +49,29 @@ public class BootstrapFunctionBinder
 
     public FunctionBinding bindFunction(FunctionInfo function, ByteCodeNode getSessionByteCode, List<ByteCodeNode> arguments)
     {
-        FunctionBinding binding = bindConstantArguments(NEXT_BINDING_ID.getAndIncrement(), function.getSignature().getName(), getSessionByteCode, arguments, function.getMethodHandle(), function.isNullable());
+        MethodHandle method = function.getMethodHandle();
+
+        // bind session if necessary
+        ImmutableList.Builder<ByteCodeNode> actualArguments = ImmutableList.builder();
+
+        int index = 0;
+        for (Class<?> type : method.type().parameterArray()) {
+            if (type == ConnectorSession.class) {
+                actualArguments.add(getSessionByteCode);
+            }
+            else {
+                actualArguments.add(arguments.get(index));
+                index++;
+            }
+        }
+
+        FunctionBinding binding = new FunctionBinding(
+                NEXT_BINDING_ID.getAndIncrement(),
+                function.getSignature().getName(),
+                new ConstantCallSite(method),
+                actualArguments.build(),
+                function.isNullable());
+
         bindings.put(binding.getBindingId(), binding.getCallSite());
         return binding;
     }
@@ -75,39 +96,5 @@ public class BootstrapFunctionBinder
         checkArgument(callSite != null, "Binding %s for function %s%s not found", bindingId, name, type.parameterList());
 
         return callSite;
-    }
-
-    private static FunctionBinding bindConstantArguments(long bindingId, String name, ByteCodeNode getSessionByteCode, List<ByteCodeNode> arguments, MethodHandle methodHandle, boolean nullable)
-    {
-        ImmutableList.Builder<ByteCodeNode> unboundArguments = ImmutableList.builder();
-
-        int argIndex = 0;
-
-        // bind session
-        if (methodHandle.type().parameterCount() > 0 && methodHandle.type().parameterType(0) == ConnectorSession.class) {
-            unboundArguments.add(getSessionByteCode);
-            argIndex++;
-        }
-
-        for (ByteCodeNode argument : arguments) {
-            ByteCodeNode node = argument;
-            if (node instanceof Constant) {
-                Object value = ((Constant) node).getValue();
-                if (methodHandle.type().parameterType(argIndex) == boolean.class) {
-                    checkArgument(value instanceof Integer, "boolean should be represented as an integer");
-                    value = (((Integer) value) != 0);
-                }
-                // bind constant argument
-                methodHandle = MethodHandles.insertArguments(methodHandle, argIndex, value);
-                // we bound an argument so don't increment the argIndex
-            }
-            else {
-                unboundArguments.add(argument);
-                argIndex++;
-            }
-        }
-
-        CallSite callSite = new ConstantCallSite(methodHandle);
-        return new FunctionBinding(bindingId, name, callSite, unboundArguments.build(), nullable);
     }
 }
