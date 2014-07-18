@@ -48,6 +48,11 @@ public final class Signature
         this.internal = internal;
     }
 
+    public Signature(String name, Type returnType, List<? extends Type> argumentTypes)
+    {
+        this(name, returnType, argumentTypes, false);
+    }
+
     public Signature(String name, Type returnType, Type... argumentTypes)
     {
         this(name, returnType, ImmutableList.copyOf(argumentTypes), false);
