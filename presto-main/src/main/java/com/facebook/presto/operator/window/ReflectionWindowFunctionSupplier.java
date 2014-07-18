@@ -32,7 +32,7 @@ public class ReflectionWindowFunctionSupplier<T extends WindowFunction>
 
     public ReflectionWindowFunctionSupplier(String name, Type returnType, List<? extends Type> argumentTypes, Class<T> type)
     {
-        this(new Signature(name, returnType, argumentTypes, false), type);
+        this(new Signature(name, returnType, argumentTypes), type);
     }
 
     public ReflectionWindowFunctionSupplier(Signature signature, Class<T> type)

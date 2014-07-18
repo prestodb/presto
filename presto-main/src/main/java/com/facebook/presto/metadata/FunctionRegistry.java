@@ -621,8 +621,7 @@ public class FunctionRegistry
     {
         return new Signature(MAGIC_LITERAL_FUNCTION_PREFIX + type.getName(),
                 type,
-                ImmutableList.of(type(type.getJavaType())),
-                false);
+                ImmutableList.of(type(type.getJavaType())));
     }
 
     public static boolean isSupportedLiteralType(Type type)
@@ -638,7 +637,7 @@ public class FunctionRegistry
         public FunctionListBuilder window(String name, Type returnType, List<? extends Type> argumentTypes, Class<? extends WindowFunction> functionClass)
         {
             WindowFunctionSupplier windowFunctionSupplier = new ReflectionWindowFunctionSupplier<>(
-                    new Signature(name, returnType, ImmutableList.copyOf(argumentTypes), false),
+                    new Signature(name, returnType, ImmutableList.copyOf(argumentTypes)),
                     functionClass);
 
             functions.add(new FunctionInfo(windowFunctionSupplier.getSignature(), windowFunctionSupplier.getDescription(), windowFunctionSupplier));
@@ -661,7 +660,7 @@ public class FunctionRegistry
             name = name.toLowerCase();
 
             String description = getDescription(function.getClass());
-            functions.add(new FunctionInfo(new Signature(name, returnType, ImmutableList.copyOf(argumentTypes), false), description, intermediateType, function, approximate));
+            functions.add(new FunctionInfo(new Signature(name, returnType, ImmutableList.copyOf(argumentTypes)), description, intermediateType, function, approximate));
             return this;
         }
 
@@ -711,7 +710,7 @@ public class FunctionRegistry
             SqlType returnTypeAnnotation = method.getAnnotation(SqlType.class);
             checkArgument(returnTypeAnnotation != null, "Method %s return type does not have a @SqlType annotation", method);
             Type returnType = type(returnTypeAnnotation);
-            Signature signature = new Signature(name.toLowerCase(), returnType, parameterTypes(method), false);
+            Signature signature = new Signature(name.toLowerCase(), returnType, parameterTypes(method));
 
             verifyMethodSignature(method, signature.getReturnType(), signature.getArgumentTypes());
 

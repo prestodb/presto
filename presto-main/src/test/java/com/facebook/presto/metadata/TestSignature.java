@@ -39,7 +39,7 @@ public class TestSignature
         objectMapperProvider.setJsonDeserializers(ImmutableMap.<Class<?>, JsonDeserializer<?>>of(Type.class, new TypeDeserializer(new TypeRegistry())));
         JsonCodec<Signature> codec = new JsonCodecFactory(objectMapperProvider, true).jsonCodec(Signature.class);
 
-        Signature expected = new Signature("function", BIGINT, ImmutableList.of(BOOLEAN, DOUBLE, VARCHAR), false);
+        Signature expected = new Signature("function", BIGINT, ImmutableList.of(BOOLEAN, DOUBLE, VARCHAR));
 
         String json = codec.toJson(expected);
         Signature actual = codec.fromJson(json);
