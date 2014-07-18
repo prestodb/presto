@@ -19,6 +19,7 @@ import com.facebook.presto.operator.scalar.ColorFunctions;
 import com.facebook.presto.operator.scalar.DateTimeFunctions;
 import com.facebook.presto.operator.scalar.HyperLogLogFunctions;
 import com.facebook.presto.operator.scalar.JsonFunctions;
+import com.facebook.presto.operator.scalar.JsonPath;
 import com.facebook.presto.operator.scalar.MathFunctions;
 import com.facebook.presto.operator.scalar.RegexpFunctions;
 import com.facebook.presto.operator.scalar.ScalarFunction;
@@ -173,6 +174,7 @@ import static com.facebook.presto.spi.type.TimeWithTimeZoneType.TIME_WITH_TIME_Z
 import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
+import static com.facebook.presto.type.JsonPathType.JSON_PATH;
 import static com.facebook.presto.type.LikePatternType.LIKE_PATTERN;
 import static com.facebook.presto.type.RegexpType.REGEXP;
 import static com.facebook.presto.type.UnknownType.UNKNOWN;
@@ -519,6 +521,10 @@ public class FunctionRegistry
             return true;
         }
 
+        if (actualType.equals(VARCHAR) && expectedType.equals(JSON_PATH)) {
+            return true;
+        }
+
         return false;
     }
 
@@ -785,8 +791,24 @@ public class FunctionRegistry
             return LOWER_CAMEL.to(LOWER_UNDERSCORE, name);
         }
 
-        private static final Set<Class<?>> SUPPORTED_TYPES = ImmutableSet.<Class<?>>of(long.class, double.class, Slice.class, boolean.class, Pattern.class, Regex.class);
-        private static final Set<Class<?>> SUPPORTED_RETURN_TYPES = ImmutableSet.<Class<?>>of(long.class, double.class, Slice.class, boolean.class, int.class, Pattern.class, Regex.class);
+        private static final Set<Class<?>> SUPPORTED_TYPES = ImmutableSet.of(
+                long.class,
+                double.class,
+                Slice.class,
+                boolean.class,
+                Pattern.class,
+                Regex.class,
+                JsonPath.class);
+
+        private static final Set<Class<?>> SUPPORTED_RETURN_TYPES = ImmutableSet.of(
+                long.class,
+                double.class,
+                Slice.class,
+                boolean.class,
+                int.class,
+                Pattern.class,
+                Regex.class,
+                JsonPath.class);
 
         private static void checkValidMethod(Method method)
         {

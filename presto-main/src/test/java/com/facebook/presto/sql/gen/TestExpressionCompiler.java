@@ -16,6 +16,7 @@ package com.facebook.presto.sql.gen;
 import com.facebook.presto.operator.scalar.DateTimeFunctions;
 import com.facebook.presto.operator.scalar.FunctionAssertions;
 import com.facebook.presto.operator.scalar.JsonFunctions;
+import com.facebook.presto.operator.scalar.JsonPath;
 import com.facebook.presto.operator.scalar.MathFunctions;
 import com.facebook.presto.operator.scalar.RegexpFunctions;
 import com.facebook.presto.operator.scalar.StringFunctions;
@@ -914,14 +915,14 @@ public class TestExpressionCompiler
         for (String value : jsonValues) {
             for (String pattern : jsonPatterns) {
                 assertExecute(generateExpression("json_extract(%s, %s)", value, pattern),
-                        value == null || pattern == null ? null : JsonFunctions.jsonExtract(Slices.copiedBuffer(value, UTF_8), Slices.copiedBuffer(pattern, UTF_8)));
+                        value == null || pattern == null ? null : JsonFunctions.jsonExtract(Slices.copiedBuffer(value, UTF_8), new JsonPath(pattern)));
                 assertExecute(generateExpression("json_extract_scalar(%s, %s)", value, pattern),
-                        value == null || pattern == null ? null : JsonFunctions.jsonExtractScalar(Slices.copiedBuffer(value, UTF_8), Slices.copiedBuffer(pattern, UTF_8)));
+                        value == null || pattern == null ? null : JsonFunctions.jsonExtractScalar(Slices.copiedBuffer(value, UTF_8), new JsonPath(pattern)));
 
                 assertExecute(generateExpression("json_extract(%s, %s || '')", value, pattern),
-                        value == null || pattern == null ? null : JsonFunctions.jsonExtract(Slices.copiedBuffer(value, UTF_8), Slices.copiedBuffer(pattern, UTF_8)));
+                        value == null || pattern == null ? null : JsonFunctions.jsonExtract(Slices.copiedBuffer(value, UTF_8), new JsonPath(pattern)));
                 assertExecute(generateExpression("json_extract_scalar(%s, %s || '')", value, pattern),
-                        value == null || pattern == null ? null : JsonFunctions.jsonExtractScalar(Slices.copiedBuffer(value, UTF_8), Slices.copiedBuffer(pattern, UTF_8)));
+                        value == null || pattern == null ? null : JsonFunctions.jsonExtractScalar(Slices.copiedBuffer(value, UTF_8), new JsonPath(pattern)));
             }
         }
 

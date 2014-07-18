@@ -189,14 +189,14 @@ public class TestJsonExtract
     private static String doScalarExtract(String inputJson, String jsonPath)
             throws IOException
     {
-        Slice value = JsonExtract.extractInternal(Slices.wrappedBuffer(inputJson.getBytes(Charsets.UTF_8)), generateExtractor(jsonPath, new ScalarValueJsonExtractor()));
+        Slice value = JsonExtract.extract(Slices.utf8Slice(inputJson), generateExtractor(jsonPath, new ScalarValueJsonExtractor()));
         return (value == null) ? null : value.toString(Charsets.UTF_8);
     }
 
     private static String doJsonExtract(String inputJson, String jsonPath)
             throws IOException
     {
-        Slice value = JsonExtract.extractInternal(Slices.wrappedBuffer(inputJson.getBytes(Charsets.UTF_8)), generateExtractor(jsonPath, new JsonValueJsonExtractor()));
+        Slice value = JsonExtract.extract(Slices.utf8Slice(inputJson), generateExtractor(jsonPath, new JsonValueJsonExtractor()));
         return (value == null) ? null : value.toString(Charsets.UTF_8);
     }
 }
