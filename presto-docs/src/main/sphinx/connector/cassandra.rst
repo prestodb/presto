@@ -127,6 +127,11 @@ Property Name                                      Description
                                                    peer. This option can be used to avoid consuming sockets on a
                                                    Cassandra server by immediately closing connections when they
                                                    are no longer needed.
+
+``cassandra.retry-policy``                         Policy used to retry failed requests to Cassandra. This property
+                                                   defaults to ``DEFAULT``. Using ``BACKOFF`` may help when
+                                                   queries fail with *"not enough replicas"*. The other possible
+                                                   values are ``DOWNGRADING_CONSISTENCY`` and ``FALLTHROUGH``.
 ================================================== ======================================================================
 
 Querying Cassandra Tables

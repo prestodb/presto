@@ -49,7 +49,8 @@ public class TestCassandraClientConfig
                 .setPassword(null)
                 .setClientReadTimeout(SocketOptions.DEFAULT_READ_TIMEOUT_MILLIS)
                 .setClientConnectTimeout(SocketOptions.DEFAULT_CONNECT_TIMEOUT_MILLIS)
-                .setClientSoLinger(null));
+                .setClientSoLinger(null)
+                .setRetryPolicy(RetryPolicyType.DEFAULT));
     }
 
     @Test
@@ -77,6 +78,7 @@ public class TestCassandraClientConfig
                 .put("cassandra.client.read-timeout", "11")
                 .put("cassandra.client.connect-timeout", "22")
                 .put("cassandra.client.so-linger", "33")
+                .put("cassandra.retry-policy", "BACKOFF")
                 .build();
 
         CassandraClientConfig expected = new CassandraClientConfig()
@@ -100,7 +102,8 @@ public class TestCassandraClientConfig
                 .setPassword("my_password")
                 .setClientReadTimeout(11)
                 .setClientConnectTimeout(22)
-                .setClientSoLinger(33);
+                .setClientSoLinger(33)
+                .setRetryPolicy(RetryPolicyType.BACKOFF);
 
         ConfigAssertions.assertFullMapping(properties, expected);
     }

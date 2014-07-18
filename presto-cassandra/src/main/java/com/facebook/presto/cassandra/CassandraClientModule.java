@@ -99,6 +99,7 @@ public class CassandraClientModule
 
         clusterBuilder.withPort(config.getNativeProtocolPort());
         clusterBuilder.withReconnectionPolicy(new ExponentialReconnectionPolicy(500, 10000));
+        clusterBuilder.withRetryPolicy(config.getRetryPolicy().getPolicy());
 
         SocketOptions socketOptions = new SocketOptions();
         socketOptions.setReadTimeoutMillis(config.getClientReadTimeout());
