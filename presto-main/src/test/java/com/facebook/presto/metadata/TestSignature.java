@@ -39,7 +39,7 @@ public class TestSignature
         objectMapperProvider.setJsonDeserializers(ImmutableMap.<Class<?>, JsonDeserializer<?>>of(Type.class, new TypeDeserializer(new TypeRegistry())));
         JsonCodec<Signature> codec = new JsonCodecFactory(objectMapperProvider, true).jsonCodec(Signature.class);
 
-        Signature expected = new Signature("function", BIGINT, ImmutableList.of(BOOLEAN, DOUBLE, VARCHAR), false, false);
+        Signature expected = new Signature("function", BIGINT, ImmutableList.of(BOOLEAN, DOUBLE, VARCHAR), false);
 
         String json = codec.toJson(expected);
         Signature actual = codec.fromJson(json);
@@ -47,6 +47,5 @@ public class TestSignature
         assertEquals(actual.getName(), expected.getName());
         assertEquals(actual.getReturnType(), expected.getReturnType());
         assertEquals(actual.getArgumentTypes(), expected.getArgumentTypes());
-        assertEquals(actual.isApproximate(), expected.isApproximate());
     }
 }

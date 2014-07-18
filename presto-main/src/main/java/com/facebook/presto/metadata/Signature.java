@@ -29,7 +29,6 @@ public final class Signature
     private final String name;
     private final Type returnType;
     private final List<Type> argumentTypes;
-    private final boolean approximate;
     private final boolean internal;
 
     @JsonCreator
@@ -37,7 +36,6 @@ public final class Signature
             @JsonProperty("name") String name,
             @JsonProperty("returnType") Type returnType,
             @JsonProperty("argumentTypes") List<? extends Type> argumentTypes,
-            @JsonProperty("approximate") boolean approximate,
             @JsonProperty("internal") boolean internal)
     {
         checkNotNull(name, "name is null");
@@ -47,7 +45,6 @@ public final class Signature
         this.name = name;
         this.returnType = returnType;
         this.argumentTypes = ImmutableList.copyOf(argumentTypes);
-        this.approximate = approximate;
         this.internal = internal;
     }
 
@@ -56,25 +53,14 @@ public final class Signature
         this(name, returnType, ImmutableList.copyOf(argumentTypes), false);
     }
 
-    public Signature(String name, Type returnType, List<? extends Type> argumentTypes, boolean approximate)
-    {
-        this(name, returnType, argumentTypes, approximate, false);
-    }
-
     public static Signature internalFunction(String name, Type returnType, Type... argumentTypes)
     {
-        return new Signature(name, returnType, ImmutableList.copyOf(argumentTypes), false, true);
+        return new Signature(name, returnType, ImmutableList.copyOf(argumentTypes), true);
     }
 
     public static Signature internalFunction(String name, Type returnType, List<Type> argumentTypes)
     {
-        return new Signature(name, returnType, argumentTypes, false, true);
-    }
-
-    @JsonProperty
-    public boolean isApproximate()
-    {
-        return approximate;
+        return new Signature(name, returnType, argumentTypes, true);
     }
 
     @JsonProperty
@@ -104,12 +90,12 @@ public final class Signature
     @Override
     public int hashCode()
     {
-        return Objects.hash(name, returnType, argumentTypes, approximate, internal);
+        return Objects.hash(name, returnType, argumentTypes, internal);
     }
 
     Signature withAlias(String name)
     {
-        return new Signature(name, returnType, argumentTypes, approximate, internal);
+        return new Signature(name, returnType, argumentTypes, internal);
     }
 
     @Override
@@ -125,12 +111,11 @@ public final class Signature
         return Objects.equals(this.name, other.name) &&
                 Objects.equals(this.returnType, other.returnType) &&
                 Objects.equals(this.argumentTypes, other.argumentTypes) &&
-                Objects.equals(this.approximate, other.approximate) &&
                 Objects.equals(this.internal, other.internal);
     }
 
     public String toString()
     {
-        return (internal ? "%" : "") + name + (approximate ? "[approximate]" : "") + "(" + Joiner.on(",").join(argumentTypes) + "):" + returnType;
+        return (internal ? "%" : "") + name + "(" + Joiner.on(",").join(argumentTypes) + "):" + returnType;
     }
 }

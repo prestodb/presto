@@ -42,6 +42,7 @@ public final class FunctionInfo
     private final boolean isAggregate;
     private final Type intermediateType;
     private final AggregationFunction aggregationFunction;
+    private final boolean isApproximate;
 
     private final MethodHandle methodHandle;
     private final boolean deterministic;
@@ -60,16 +61,18 @@ public final class FunctionInfo
         this.isAggregate = false;
         this.intermediateType = null;
         this.aggregationFunction = null;
+        this.isApproximate = false;
         this.methodHandle = null;
 
         this.isWindow = true;
         this.windowFunctionSupplier = checkNotNull(windowFunctionSupplier, "windowFunction is null");
     }
 
-    public FunctionInfo(Signature signature, String description, Type intermediateType, AggregationFunction function)
+    public FunctionInfo(Signature signature, String description, Type intermediateType, AggregationFunction function, boolean isApproximate)
     {
         this.signature = signature;
         this.description = description;
+        this.isApproximate = isApproximate;
         this.hidden = false;
         this.intermediateType = intermediateType;
         this.aggregationFunction = function;
@@ -92,6 +95,7 @@ public final class FunctionInfo
         this.isAggregate = false;
         this.intermediateType = null;
         this.aggregationFunction = null;
+        this.isApproximate = false;
 
         this.isWindow = false;
         this.windowFunctionSupplier = null;
@@ -135,7 +139,7 @@ public final class FunctionInfo
 
     public boolean isApproximate()
     {
-        return signature.isApproximate();
+        return isApproximate;
     }
 
     public Type getReturnType()
