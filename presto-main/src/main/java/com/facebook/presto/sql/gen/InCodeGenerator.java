@@ -20,6 +20,7 @@ import com.facebook.presto.byteCode.Variable;
 import com.facebook.presto.byteCode.control.IfStatement;
 import com.facebook.presto.byteCode.control.LookupSwitch;
 import com.facebook.presto.byteCode.instruction.LabelNode;
+import com.facebook.presto.metadata.FunctionInfo;
 import com.facebook.presto.metadata.OperatorType;
 import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.spi.type.Type;
@@ -59,11 +60,11 @@ public class InCodeGenerator
         Type type = arguments.get(0).getType();
         Class<?> javaType = type.getJavaType();
 
-        FunctionBinding hashCodeFunction = generatorContext.getBootstrapBinder().bindOperator(
-                OperatorType.HASH_CODE,
-                generatorContext.generateGetSession(),
-                ImmutableList.<ByteCodeNode>of(NOP),
-                ImmutableList.of(type));
+        FunctionInfo hashCodeFunction = generatorContext.getRegistry().resolveOperator(OperatorType.HASH_CODE, ImmutableList.of(type));
+
+        FunctionBinding hashCodeBinding = generatorContext
+                .getBootstrapBinder()
+                .bindFunction(hashCodeFunction, generatorContext.generateGetSession(), ImmutableList.of(NOP));
 
         ImmutableListMultimap.Builder<Integer, ByteCodeNode> hashBucketsBuilder = ImmutableListMultimap.builder();
         ImmutableList.Builder<ByteCodeNode> defaultBucket = ImmutableList.builder();
@@ -78,7 +79,7 @@ public class InCodeGenerator
                 constantValuesBuilder.add(object);
 
                 try {
-                    int hashCode = (int) hashCodeFunction.getCallSite().dynamicInvoker().invoke(object);
+                    int hashCode = (int) hashCodeBinding.getCallSite().dynamicInvoker().invoke(object);
                     hashBucketsBuilder.put(hashCode, testByteCode);
                 }
                 catch (Throwable throwable) {
@@ -118,7 +119,7 @@ public class InCodeGenerator
             switchBlock = new Block(context)
                     .comment("lookupSwitch(hashCode(<stackValue>))")
                     .dup(javaType)
-                    .invokeDynamic(hashCodeFunction.getName(), hashCodeFunction.getCallSite().type(), hashCodeFunction.getBindingId())
+                    .invokeDynamic(hashCodeBinding.getName(), hashCodeBinding.getCallSite().type(), hashCodeBinding.getBindingId())
                     .append(switchBuilder.build())
                     .append(switchCaseBlocks);
         }
@@ -139,7 +140,7 @@ public class InCodeGenerator
                                             constant.getName(),
                                             constant.getCallSite().type(),
                                             constant.getBindingId())
-                                    // TODO: use invokeVirtual on the set instead. This requires swapping the two elements in the stack
+                                            // TODO: use invokeVirtual on the set instead. This requires swapping the two elements in the stack
                                     .invokeStatic(CompilerOperations.class, "in", boolean.class, Object.class, Set.class),
                             jump(match),
                             NOP));
@@ -208,11 +209,14 @@ public class InCodeGenerator
 
         elseBlock.gotoLabel(noMatchLabel);
 
-        FunctionBinding equalsFunction = generatorContext.getBootstrapBinder().bindOperator(
-                OperatorType.EQUAL,
-                generatorContext.generateGetSession(),
-                ImmutableList.<ByteCodeNode>of(NOP, NOP),
-                ImmutableList.of(type, type));
+        FunctionInfo operator = generatorContext.getRegistry().resolveOperator(OperatorType.EQUAL, ImmutableList.of(type, type));
+
+        FunctionBinding equalsFunction = generatorContext
+                .getBootstrapBinder()
+                .bindFunction(
+                        operator,
+                        generatorContext.generateGetSession(),
+                        ImmutableList.of(NOP, NOP));
 
         ByteCodeNode elseNode = elseBlock;
         for (ByteCodeNode testNode : testValues) {

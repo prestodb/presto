@@ -61,13 +61,13 @@ public class NullIfCodeGenerator
         Type commonType = FunctionRegistry.getCommonSuperType(firstType, secondType).get();
 
         // if (equal(cast(first as <common type>), cast(second as <common type>))
-        FunctionBinding functionBinding = generatorContext.getBootstrapBinder().bindOperator(
-                OperatorType.EQUAL,
+        FunctionInfo equalOperator = generatorContext.getRegistry().resolveOperator(OperatorType.EQUAL, ImmutableList.of(firstType, secondType));
+        FunctionBinding functionBinding = generatorContext.getBootstrapBinder().bindFunction(
+                equalOperator,
                 generatorContext.generateGetSession(),
                 ImmutableList.of(
                         cast(generatorContext, new Block(context).dup(firstType.getJavaType()), firstType, commonType),
-                        cast(generatorContext, generatorContext.generate(second), secondType, commonType)),
-                ImmutableList.of(firstType, secondType));
+                        cast(generatorContext, generatorContext.generate(second), secondType, commonType)));
 
         MethodType methodType = functionBinding.getCallSite().type();
         Class<?> unboxedReturnType = Primitives.unwrap(methodType.returnType());
