@@ -771,7 +771,7 @@ public class ExpressionCompiler
             Class<?> clazz = IsolatedClass.isolateClass(classLoader, Object.class, Bootstrap.class);
 
             Method bootstrapMethod;
-            BootstrapFunctionBinder binder = new BootstrapFunctionBinder(metadata);
+            BootstrapFunctionBinder binder = new BootstrapFunctionBinder();
             try {
                 bootstrapMethod = clazz.getMethod("bootstrap", Lookup.class, String.class, MethodType.class, long.class);
                 clazz.getMethod("setFunctionBinder", BootstrapFunctionBinder.class)

@@ -15,10 +15,7 @@ package com.facebook.presto.sql.gen;
 
 import com.facebook.presto.byteCode.ByteCodeNode;
 import com.facebook.presto.metadata.FunctionInfo;
-import com.facebook.presto.metadata.Metadata;
-import com.facebook.presto.metadata.OperatorType;
 import com.facebook.presto.spi.ConnectorSession;
-import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableList;
 
 import java.lang.invoke.CallSite;
@@ -32,22 +29,14 @@ import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.atomic.AtomicLong;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkNotNull;
 
 public class BootstrapFunctionBinder
 {
     private static final AtomicLong NEXT_BINDING_ID = new AtomicLong();
 
-    private final Metadata metadata;
-
     private final ConcurrentMap<Long, CallSite> bindings = new ConcurrentHashMap<>();
 
-    public BootstrapFunctionBinder(Metadata metadata)
-    {
-        this.metadata = checkNotNull(metadata, "metadata is null");
-    }
-
-    public FunctionBinding bindFunction(FunctionInfo function, ByteCodeNode getSessionByteCode, List<ByteCodeNode> arguments)
+    public FunctionBinding bindFunction(FunctionInfo function, ByteCodeNode getSessionByteCode, List<? extends ByteCodeNode> arguments)
     {
         MethodHandle method = function.getMethodHandle();
 
@@ -74,12 +63,6 @@ public class BootstrapFunctionBinder
 
         bindings.put(binding.getBindingId(), binding.getCallSite());
         return binding;
-    }
-
-    public FunctionBinding bindOperator(OperatorType operatorType, ByteCodeNode getSessionByteCode, List<ByteCodeNode> arguments, List<Type> argumentTypes)
-    {
-        FunctionInfo operatorInfo = metadata.resolveOperator(operatorType, argumentTypes);
-        return bindFunction(operatorInfo, getSessionByteCode, arguments);
     }
 
     public FunctionBinding bindConstant(Object constant, Class<?> type)
