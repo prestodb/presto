@@ -73,7 +73,7 @@ import javax.inject.Inject;
 import java.io.File;
 import java.io.IOException;
 import java.io.PrintWriter;
-import java.lang.invoke.CallSite;
+import java.lang.invoke.MethodHandle;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;
 import java.lang.reflect.InvocationTargetException;
@@ -848,7 +848,7 @@ public class ExpressionCompiler
         return classes;
     }
 
-    private static void setCallSitesField(Class<?> clazz, Map<Long, CallSite> callSites)
+    private static void setCallSitesField(Class<?> clazz, Map<Long, MethodHandle> callSites)
     {
         try {
             Field field = clazz.getDeclaredField("callSites");

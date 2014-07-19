@@ -13,9 +13,11 @@
  */
 package com.facebook.presto.sql.gen;
 
+import com.google.common.base.Objects;
+
 import java.lang.invoke.MethodType;
 
-public class Binding
+public final class Binding
 {
     private final long bindingId;
     private final MethodType type;
@@ -34,5 +36,14 @@ public class Binding
     public MethodType getType()
     {
         return type;
+    }
+
+    @Override
+    public String toString()
+    {
+        return Objects.toStringHelper(this)
+                .add("bindingId", bindingId)
+                .add("type", type)
+                .toString();
     }
 }
