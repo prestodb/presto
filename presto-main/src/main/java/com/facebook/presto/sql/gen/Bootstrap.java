@@ -16,6 +16,7 @@ package com.facebook.presto.sql.gen;
 import com.google.common.base.Throwables;
 
 import java.lang.invoke.CallSite;
+import java.lang.invoke.ConstantCallSite;
 import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;
 import java.lang.invoke.MethodType;
@@ -46,12 +47,12 @@ public final class Bootstrap
     {
         try {
             MethodHandle handle = callerLookup.findStaticGetter(callerLookup.lookupClass(), "callSites", Map.class);
-            Map<Long, CallSite> callSites = (Map<Long, CallSite>) handle.invokeExact();
-            checkNotNull(callSites, "'callSites' field in %s is null", callerLookup.lookupClass().getName());
+            Map<Long, MethodHandle> bindings = (Map<Long, MethodHandle>) handle.invokeExact();
+            checkNotNull(bindings, "'callSites' field in %s is null", callerLookup.lookupClass().getName());
 
-            CallSite callSite = callSites.get(bindingId);
-            checkArgument(callSite != null, "Binding %s for function %s%s not found", bindingId, name, type.parameterList());
-            return callSite;
+            MethodHandle method = bindings.get(bindingId);
+            checkArgument(method != null, "Binding %s for function %s%s not found", bindingId, name, type.parameterList());
+            return new ConstantCallSite(method);
         }
         catch (Throwable e) {
             if (e instanceof InterruptedException) {
