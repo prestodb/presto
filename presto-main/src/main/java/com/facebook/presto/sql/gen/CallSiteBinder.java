@@ -15,8 +15,6 @@ package com.facebook.presto.sql.gen;
 
 import com.google.common.collect.ImmutableMap;
 
-import java.lang.invoke.CallSite;
-import java.lang.invoke.ConstantCallSite;
 import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;
 import java.util.HashMap;
@@ -26,15 +24,14 @@ public class CallSiteBinder
 {
     private static int nextId;
 
-    private final Map<Long, CallSite> bindings = new HashMap<>();
+    private final Map<Long, MethodHandle> bindings = new HashMap<>();
 
     public Binding bind(MethodHandle method)
     {
         long bindingId = nextId++;
-        ConstantCallSite callSite = new ConstantCallSite(method);
-        Binding binding = new Binding(bindingId, callSite.type());
+        Binding binding = new Binding(bindingId, method.type());
 
-        bindings.put(bindingId, callSite);
+        bindings.put(bindingId, method);
         return binding;
     }
 
@@ -43,7 +40,7 @@ public class CallSiteBinder
         return bind(MethodHandles.constant(type, constant));
     }
 
-    public Map<Long, CallSite> getBindings()
+    public Map<Long, MethodHandle> getBindings()
     {
         return ImmutableMap.copyOf(bindings);
     }
