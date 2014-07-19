@@ -202,7 +202,7 @@ public class ExpressionCompiler
             List<RowExpression> projections,
             DynamicClassLoader classLoader)
     {
-        BootstrapFunctionBinder functionBinder = new BootstrapFunctionBinder();
+        CallSiteBinder callSiteBinder = new CallSiteBinder();
 
         ClassDefinition classDefinition = new ClassDefinition(new CompilerContext(Bootstrap.BOOTSTRAP_METHOD),
                 a(PUBLIC, FINAL),
@@ -236,8 +236,8 @@ public class ExpressionCompiler
         //
         // filter method
         //
-        generateFilterMethod(functionBinder, classDefinition, filter, true);
-        generateFilterMethod(functionBinder, classDefinition, filter, false);
+        generateFilterMethod(callSiteBinder, classDefinition, filter, true);
+        generateFilterMethod(callSiteBinder, classDefinition, filter, false);
 
         //
         // project methods
@@ -245,8 +245,8 @@ public class ExpressionCompiler
         List<Type> types = new ArrayList<>();
         int projectionIndex = 0;
         for (RowExpression projection : projections) {
-            generateProjectMethod(functionBinder, classDefinition, "project_" + projectionIndex, projection, true);
-            generateProjectMethod(functionBinder, classDefinition, "project_" + projectionIndex, projection, false);
+            generateProjectMethod(callSiteBinder, classDefinition, "project_" + projectionIndex, projection, true);
+            generateProjectMethod(callSiteBinder, classDefinition, "project_" + projectionIndex, projection, false);
             types.add(projection.getType());
             projectionIndex++;
         }
@@ -262,7 +262,7 @@ public class ExpressionCompiler
                         .toString());
 
         Class<? extends Operator> filterAndProjectClass = defineClass(classDefinition, Operator.class, classLoader);
-        setCallSitesField(filterAndProjectClass, functionBinder.getCallSites());
+        setCallSitesField(filterAndProjectClass, callSiteBinder.getBindings());
 
         return new TypedOperatorClass(filterAndProjectClass, types);
     }
@@ -316,7 +316,7 @@ public class ExpressionCompiler
             List<RowExpression> projections,
             DynamicClassLoader classLoader)
     {
-        BootstrapFunctionBinder functionBinder = new BootstrapFunctionBinder();
+        CallSiteBinder callSiteBinder = new CallSiteBinder();
 
         ClassDefinition classDefinition = new ClassDefinition(new CompilerContext(Bootstrap.BOOTSTRAP_METHOD),
                 a(PUBLIC, FINAL),
@@ -357,8 +357,8 @@ public class ExpressionCompiler
         //
         // filter method
         //
-        generateFilterMethod(functionBinder, classDefinition, filter, true);
-        generateFilterMethod(functionBinder, classDefinition, filter, false);
+        generateFilterMethod(callSiteBinder, classDefinition, filter, true);
+        generateFilterMethod(callSiteBinder, classDefinition, filter, false);
 
         //
         // project methods
@@ -366,8 +366,8 @@ public class ExpressionCompiler
         List<Type> types = new ArrayList<>();
         int projectionIndex = 0;
         for (RowExpression projection : projections) {
-            generateProjectMethod(functionBinder, classDefinition, "project_" + projectionIndex, projection, true);
-            generateProjectMethod(functionBinder, classDefinition, "project_" + projectionIndex, projection, false);
+            generateProjectMethod(callSiteBinder, classDefinition, "project_" + projectionIndex, projection, true);
+            generateProjectMethod(callSiteBinder, classDefinition, "project_" + projectionIndex, projection, false);
             types.add(projection.getType());
             projectionIndex++;
         }
@@ -383,7 +383,7 @@ public class ExpressionCompiler
                         .toString());
 
         Class<? extends SourceOperator> filterAndProjectClass = defineClass(classDefinition, SourceOperator.class, classLoader);
-        setCallSitesField(filterAndProjectClass, functionBinder.getCallSites());
+        setCallSitesField(filterAndProjectClass, callSiteBinder.getBindings());
 
         return new TypedOperatorClass(filterAndProjectClass, types);
     }
@@ -602,7 +602,7 @@ public class ExpressionCompiler
     }
 
     private void generateFilterMethod(
-            BootstrapFunctionBinder functionBinder,
+            CallSiteBinder callSiteBinder,
             ClassDefinition classDefinition,
             RowExpression filter,
             boolean sourceIsCursor)
@@ -630,7 +630,7 @@ public class ExpressionCompiler
 
         filterMethod.getCompilerContext().declareVariable(type(boolean.class), "wasNull");
         Block getSessionByteCode = new Block(filterMethod.getCompilerContext()).pushThis().getField(classDefinition.getType(), "session", type(ConnectorSession.class));
-        ByteCodeNode body = compileExpression(functionBinder, filter, sourceIsCursor, filterMethod.getCompilerContext(), getSessionByteCode);
+        ByteCodeNode body = compileExpression(callSiteBinder, filter, sourceIsCursor, filterMethod.getCompilerContext(), getSessionByteCode);
 
         LabelNode end = new LabelNode("end");
         filterMethod
@@ -647,18 +647,18 @@ public class ExpressionCompiler
     }
 
     private ByteCodeNode compileExpression(
-            BootstrapFunctionBinder functionBinder,
+            CallSiteBinder callSiteBinder,
             RowExpression expression,
             boolean sourceIsCursor,
             CompilerContext context,
             Block getSessionByteCode)
     {
-        ByteCodeExpressionVisitor visitor = new ByteCodeExpressionVisitor(functionBinder, getSessionByteCode, metadata.getFunctionRegistry(), sourceIsCursor);
+        ByteCodeExpressionVisitor visitor = new ByteCodeExpressionVisitor(callSiteBinder, getSessionByteCode, metadata.getFunctionRegistry(), sourceIsCursor);
         return expression.accept(visitor, context);
     }
 
     private Class<?> generateProjectMethod(
-            BootstrapFunctionBinder functionBinder,
+            CallSiteBinder callSiteBinder,
             ClassDefinition classDefinition,
             String methodName,
             RowExpression projection,
@@ -693,7 +693,7 @@ public class ExpressionCompiler
         context.declareVariable(type(boolean.class), "wasNull");
         Block getSessionByteCode = new Block(context).pushThis().getField(classDefinition.getType(), "session", type(ConnectorSession.class));
 
-        ByteCodeNode body = compileExpression(functionBinder, projection, sourceIsCursor, context, getSessionByteCode);
+        ByteCodeNode body = compileExpression(callSiteBinder, projection, sourceIsCursor, context, getSessionByteCode);
 
         projectionMethod
                 .getBody()

@@ -18,7 +18,9 @@ import com.facebook.presto.byteCode.ByteCodeNode;
 import com.facebook.presto.byteCode.CompilerContext;
 import com.facebook.presto.byteCode.control.IfStatement;
 import com.facebook.presto.byteCode.instruction.LabelNode;
+import com.facebook.presto.metadata.FunctionInfo;
 import com.facebook.presto.metadata.Signature;
+import com.facebook.presto.spi.ConnectorSession;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
@@ -124,25 +126,43 @@ public class ByteCodeUtils
         throw new UnsupportedOperationException("not yet implemented: " + unboxedType);
     }
 
-    public static ByteCodeNode generateFunctionCall(Signature signature, CompilerContext context, FunctionBinding functionBinding, String comment)
+    public static ByteCodeNode loadConstant(CompilerContext context, Binding binding)
     {
-        List<ByteCodeNode> arguments = functionBinding.getArguments();
-        MethodType methodType = functionBinding.getCallSite().type();
+        return new Block(context)
+                .invokeDynamic(
+                        "constant_" + binding.getBindingId(),
+                        binding.getType(),
+                        binding.getBindingId());
+    }
+
+    public static ByteCodeNode generateInvocation(CompilerContext context, FunctionInfo function, ByteCodeNode getSessionByteCode, List<ByteCodeNode> arguments, Binding binding)
+    {
+        MethodType methodType = binding.getType();
+
+        Signature signature = function.getSignature();
         Class<?> unboxedReturnType = Primitives.unwrap(methodType.returnType());
 
         LabelNode end = new LabelNode("end");
         Block block = new Block(context)
-                .setDescription("invoke " + signature)
-                .comment(comment);
-        ArrayList<Class<?>> stackTypes = new ArrayList<>();
-        for (int i = 0; i < arguments.size(); i++) {
-            block.append(arguments.get(i));
-            stackTypes.add(methodType.parameterType(i));
-            block.append(ByteCodeUtils.ifWasNullPopAndGoto(context, end, unboxedReturnType, Lists.reverse(stackTypes)));
-        }
-        block.invokeDynamic(functionBinding.getName(), methodType, functionBinding.getBindingId());
+                .setDescription("invoke " + signature);
 
-        if (functionBinding.isNullable()) {
+        ArrayList<Class<?>> stackTypes = new ArrayList<>();
+
+        int index = 0;
+        for (Class<?> type : methodType.parameterArray()) {
+            stackTypes.add(type);
+            if (type == ConnectorSession.class) {
+                block.append(getSessionByteCode);
+            }
+            else {
+                block.append(arguments.get(index));
+                index++;
+                block.append(ByteCodeUtils.ifWasNullPopAndGoto(context, end, unboxedReturnType, Lists.reverse(stackTypes)));
+            }
+        }
+        block.append(invoke(context, binding));
+
+        if (function.isNullable()) {
             if (unboxedReturnType.isPrimitive()) {
                 LabelNode notNull = new LabelNode("notNull");
                 block.dup(methodType.returnType())
@@ -164,5 +184,11 @@ public class ByteCodeUtils
         block.visitLabel(end);
 
         return block;
+    }
+
+    public static ByteCodeNode invoke(CompilerContext context, Binding binding)
+    {
+        return new Block(context)
+                .invokeDynamic("call_" + binding.getBindingId(), binding.getType(), binding.getBindingId());
     }
 }
