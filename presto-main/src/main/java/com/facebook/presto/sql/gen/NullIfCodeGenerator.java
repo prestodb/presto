@@ -25,14 +25,8 @@ import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.relational.RowExpression;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Lists;
-import com.google.common.primitives.Primitives;
 
-import java.lang.invoke.MethodType;
-import java.util.ArrayList;
 import java.util.List;
-
-import static com.facebook.presto.sql.gen.ByteCodeUtils.generateFunctionCall;
 
 public class NullIfCodeGenerator
         implements ByteCodeGenerator
@@ -61,31 +55,12 @@ public class NullIfCodeGenerator
         Type commonType = FunctionRegistry.getCommonSuperType(firstType, secondType).get();
 
         // if (equal(cast(first as <common type>), cast(second as <common type>))
-        FunctionInfo equalOperator = generatorContext.getRegistry().resolveOperator(OperatorType.EQUAL, ImmutableList.of(firstType, secondType));
-        FunctionBinding functionBinding = generatorContext.getBootstrapBinder().bindFunction(
-                equalOperator,
-                generatorContext.generateGetSession(),
+        FunctionInfo equalsFunction = generatorContext.getRegistry().resolveOperator(OperatorType.EQUAL, ImmutableList.of(firstType, secondType));
+        ByteCodeNode equalsCall = generatorContext.generateCall(
+                equalsFunction,
                 ImmutableList.of(
                         cast(generatorContext, new Block(context).dup(firstType.getJavaType()), firstType, commonType),
                         cast(generatorContext, generatorContext.generate(second), secondType, commonType)));
-
-        MethodType methodType = functionBinding.getCallSite().type();
-        Class<?> unboxedReturnType = Primitives.unwrap(methodType.returnType());
-
-        LabelNode end = new LabelNode("end");
-
-        Block equalsCall = new Block(context)
-                .setDescription("invoke")
-                .comment("equal");
-        ArrayList<Class<?>> stackTypes = new ArrayList<>();
-        for (int i = 0; i < functionBinding.getArguments().size(); i++) {
-            equalsCall.append(functionBinding.getArguments().get(i));
-            stackTypes.add(methodType.parameterType(i));
-            equalsCall.append(ByteCodeUtils.ifWasNullPopAndGoto(context, end, unboxedReturnType, Lists.reverse(stackTypes)));
-        }
-
-        equalsCall.invokeDynamic(functionBinding.getName(), functionBinding.getCallSite().type(), functionBinding.getBindingId())
-            .visitLabel(end);
 
         Block conditionBlock = new Block(context)
                 .append(equalsCall)
@@ -109,10 +84,7 @@ public class NullIfCodeGenerator
             .getRegistry()
             .getCoercion(fromType, toType);
 
-        FunctionBinding binding = generatorContext
-                .getBootstrapBinder()
-                .bindFunction(function, generatorContext.generateGetSession(), ImmutableList.of(argument));
-
-        return generateFunctionCall(function.getSignature(), generatorContext.getContext(), binding, "cast(" + fromType + ", " + toType + ")");
+        // TODO: do we need a full function call? (nullability checks, etc)
+        return generatorContext.generateCall(function, ImmutableList.of(argument));
     }
 }

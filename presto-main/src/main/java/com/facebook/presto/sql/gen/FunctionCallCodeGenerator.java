@@ -25,8 +25,6 @@ import com.google.common.base.Preconditions;
 import java.util.ArrayList;
 import java.util.List;
 
-import static com.facebook.presto.sql.gen.ByteCodeUtils.generateFunctionCall;
-
 public class FunctionCallCodeGenerator
         implements ByteCodeGenerator
 {
@@ -48,10 +46,6 @@ public class FunctionCallCodeGenerator
             argumentsByteCode.add(context.generate(argument));
         }
 
-        FunctionBinding binding = context
-                .getBootstrapBinder()
-                .bindFunction(function, context.generateGetSession(), argumentsByteCode);
-
-        return generateFunctionCall(signature, context.getContext(), binding, signature.toString());
+        return context.generateCall(function, argumentsByteCode);
     }
 }

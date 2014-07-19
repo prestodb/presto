@@ -29,10 +29,7 @@ import com.facebook.presto.sql.relational.RowExpression;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
-import com.google.common.primitives.Primitives;
 
-import java.lang.invoke.MethodType;
-import java.util.ArrayList;
 import java.util.List;
 
 public class SwitchCodeGenerator
@@ -114,27 +111,16 @@ public class SwitchCodeGenerator
             RowExpression result = ((CallExpression) clause).getArguments().get(1);
 
             // call equals(value, operand)
-            FunctionInfo equalOperator = generatorContext.getRegistry().resolveOperator(OperatorType.EQUAL, ImmutableList.of(value.getType(), operand.getType()));
+            FunctionInfo equalsFunction = generatorContext.getRegistry().resolveOperator(OperatorType.EQUAL, ImmutableList.of(value.getType(), operand.getType()));
 
-            FunctionBinding functionBinding = generatorContext
-                    .getBootstrapBinder()
-                    .bindFunction(equalOperator, generatorContext.generateGetSession(), ImmutableList.of(generatorContext.generate(operand), getTempVariableNode));
-
-            MethodType methodType = functionBinding.getCallSite().type();
-            Class<?> unboxedReturnType = Primitives.unwrap(methodType.returnType());
-
-            LabelNode end = new LabelNode("end");
-            Block equalsCall = new Block(context)
-                    .setDescription("invoke")
-                    .comment(operand.toString());
-            ArrayList<Class<?>> stackTypes = new ArrayList<>();
-            for (int i = 0; i < functionBinding.getArguments().size(); i++) {
-                equalsCall.append(functionBinding.getArguments().get(i));
-                stackTypes.add(methodType.parameterType(i));
-                equalsCall.append(ByteCodeUtils.ifWasNullPopAndGoto(context, end, unboxedReturnType, Lists.reverse(stackTypes)));
-            }
-            equalsCall.invokeDynamic(functionBinding.getName(), methodType, functionBinding.getBindingId());
-            equalsCall.visitLabel(end);
+            // TODO: what if operand is null? It seems that the call will return "null" (which is cleared below)
+            // and the code only does the right thing because the value in the stack for that scenario is
+            // Java's default for boolean == false
+            // This code should probably be checking for wasNull after the call and "failing" the equality
+            // check if wasNull is true
+            ByteCodeNode equalsCall = generatorContext.generateCall(
+                    equalsFunction,
+                    ImmutableList.of(generatorContext.generate(operand), getTempVariableNode));
 
             Block condition = new Block(context)
                     .append(equalsCall)

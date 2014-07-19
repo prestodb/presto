@@ -25,8 +25,6 @@ import com.google.common.collect.ImmutableList;
 
 import java.util.List;
 
-import static com.facebook.presto.sql.gen.ByteCodeUtils.generateFunctionCall;
-
 public class CastCodeGenerator
         implements ByteCodeGenerator
 {
@@ -44,10 +42,6 @@ public class CastCodeGenerator
                 .getRegistry()
                 .getCoercion(argument.getType(), returnType);
 
-        FunctionBinding binding = generatorContext
-                .getBootstrapBinder()
-                .bindFunction(function, generatorContext.generateGetSession(), ImmutableList.of(generatorContext.generate(argument)));
-
-        return generateFunctionCall(signature, context, binding, "cast");
+        return generatorContext.generateCall(function, ImmutableList.of(generatorContext.generate(argument)));
     }
 }

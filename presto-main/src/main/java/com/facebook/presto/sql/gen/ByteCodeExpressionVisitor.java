@@ -32,6 +32,7 @@ import static com.facebook.presto.byteCode.instruction.Constant.loadFloat;
 import static com.facebook.presto.byteCode.instruction.Constant.loadInt;
 import static com.facebook.presto.byteCode.instruction.Constant.loadLong;
 import static com.facebook.presto.byteCode.instruction.Constant.loadString;
+import static com.facebook.presto.sql.gen.ByteCodeUtils.loadConstant;
 import static com.facebook.presto.sql.relational.Signatures.CAST;
 import static com.facebook.presto.sql.relational.Signatures.COALESCE;
 import static com.facebook.presto.sql.relational.Signatures.IF;
@@ -45,18 +46,18 @@ import static java.lang.String.format;
 public class ByteCodeExpressionVisitor
         implements RowExpressionVisitor<CompilerContext, ByteCodeNode>
 {
-    private final BootstrapFunctionBinder bootstrapFunctionBinder;
+    private final CallSiteBinder callSiteBinder;
     private final ByteCodeNode getSessionByteCode;
     private final FunctionRegistry registry;
     private final boolean sourceIsCursor;
 
     public ByteCodeExpressionVisitor(
-            BootstrapFunctionBinder bootstrapFunctionBinder,
+            CallSiteBinder callSiteBinder,
             ByteCodeNode getSessionByteCode,
             FunctionRegistry registry,
             boolean sourceIsCursor)
     {
-        this.bootstrapFunctionBinder = bootstrapFunctionBinder;
+        this.callSiteBinder = callSiteBinder;
         this.getSessionByteCode = getSessionByteCode;
         this.registry = registry;
         this.sourceIsCursor = sourceIsCursor;
@@ -113,7 +114,7 @@ public class ByteCodeExpressionVisitor
         ByteCodeGeneratorContext generatorContext = new ByteCodeGeneratorContext(
                 this,
                 context,
-                bootstrapFunctionBinder,
+                callSiteBinder,
                 getSessionByteCode,
                 registry);
 
@@ -155,15 +156,12 @@ public class ByteCodeExpressionVisitor
         }
 
         // bind constant object directly into the call-site using invoke dynamic
-        FunctionBinding binding = bootstrapFunctionBinder.bindConstant(value, constant.getType().getJavaType());
+        Binding binding = callSiteBinder.bind(value, constant.getType().getJavaType());
 
         return new Block(context)
                 .setDescription("constant " + constant.getType())
                 .comment(constant.toString())
-                .invokeDynamic(
-                        binding.getName(),
-                        binding.getCallSite().type(),
-                        binding.getBindingId());
+                .append(loadConstant(context, binding));
     }
 
     @Override

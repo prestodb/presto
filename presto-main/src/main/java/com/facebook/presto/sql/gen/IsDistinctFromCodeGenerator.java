@@ -27,7 +27,7 @@ import com.google.common.collect.ImmutableList;
 
 import java.util.List;
 
-import static com.facebook.presto.byteCode.OpCodes.NOP;
+import static com.facebook.presto.sql.gen.ByteCodeUtils.invoke;
 
 public class IsDistinctFromCodeGenerator
         implements ByteCodeGenerator
@@ -45,13 +45,17 @@ public class IsDistinctFromCodeGenerator
         Type leftType = left.getType();
         Type rightType = right.getType();
 
-        FunctionInfo operator = generatorContext.getRegistry().resolveOperator(OperatorType.EQUAL, ImmutableList.of(leftType, rightType));
-        FunctionBinding functionBinding = generatorContext
-                .getBootstrapBinder()
-                .bindFunction(operator, generatorContext.generateGetSession(), ImmutableList.of(NOP, NOP));
+        FunctionInfo operator = generatorContext
+                .getRegistry()
+                .resolveOperator(OperatorType.EQUAL, ImmutableList.of(leftType, rightType));
 
-        ByteCodeNode equalsCall = new Block(context).comment("equals(%s, %s)", leftType, rightType)
-                .invokeDynamic(functionBinding.getName(), functionBinding.getCallSite().type(), functionBinding.getBindingId());
+        Binding binding = generatorContext
+                .getCallSiteBinder()
+                .bind(operator.getMethodHandle());
+
+        ByteCodeNode equalsCall = new Block(context)
+                .comment("equals(%s, %s)", leftType, rightType)
+                .append(invoke(generatorContext.getContext(), binding));
 
         Block block = new Block(context)
                 .comment("IS DISTINCT FROM")
