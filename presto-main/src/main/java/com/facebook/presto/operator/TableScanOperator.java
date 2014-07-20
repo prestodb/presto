@@ -21,6 +21,7 @@ import com.facebook.presto.spi.type.Type;
 import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListenableFuture;
+import com.google.common.util.concurrent.SettableFuture;
 
 import javax.annotation.concurrent.GuardedBy;
 
@@ -93,6 +94,7 @@ public class TableScanOperator
     private final DataStreamProvider dataStreamProvider;
     private final List<Type> types;
     private final List<ColumnHandle> columns;
+    private final SettableFuture<?> blocked;
 
     @GuardedBy("this")
     private Operator source;
@@ -109,6 +111,7 @@ public class TableScanOperator
         this.types = checkNotNull(types, "types is null");
         this.dataStreamProvider = checkNotNull(dataStreamProvider, "dataStreamProvider is null");
         this.columns = ImmutableList.copyOf(checkNotNull(columns, "columns is null"));
+        this.blocked = SettableFuture.create();
     }
 
     @Override
@@ -124,7 +127,7 @@ public class TableScanOperator
     }
 
     @Override
-    public synchronized void addSplit(final Split split)
+    public synchronized void addSplit(Split split)
     {
         checkNotNull(split, "split is null");
         checkState(getSource() == null, "Table scan split already set");
@@ -135,6 +138,7 @@ public class TableScanOperator
         if (splitInfo != null) {
             operatorContext.setInfoSupplier(Suppliers.ofInstance(splitInfo));
         }
+        blocked.set(null);
     }
 
     @Override
@@ -176,8 +180,11 @@ public class TableScanOperator
     @Override
     public ListenableFuture<?> isBlocked()
     {
-        // todo should be blocked until split is added
-        return NOT_BLOCKED;
+        Operator delegate = getSource();
+        if (delegate != null) {
+            return delegate.isBlocked();
+        }
+        return blocked;
     }
 
     @Override
