@@ -13,309 +13,92 @@
  */
 package com.facebook.presto.ml;
 
-import com.facebook.presto.operator.GroupByIdBlock;
-import com.facebook.presto.operator.Page;
-import com.facebook.presto.operator.aggregation.Accumulator;
-import com.facebook.presto.operator.aggregation.AggregationFunction;
-import com.facebook.presto.operator.aggregation.GroupedAccumulator;
-import com.facebook.presto.spi.block.Block;
+import com.facebook.presto.operator.aggregation.AggregationFunctionMetadata;
+import com.facebook.presto.operator.aggregation.CombineFunction;
+import com.facebook.presto.operator.aggregation.InputFunction;
+import com.facebook.presto.operator.aggregation.OutputFunction;
+import com.facebook.presto.operator.aggregation.state.AccumulatorState;
 import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.block.BlockBuilderStatus;
-import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.util.array.LongBigArray;
-import com.google.common.base.Optional;
-import com.google.common.collect.ImmutableList;
-import io.airlift.slice.Slice;
+import com.facebook.presto.spi.type.BigintType;
+import com.facebook.presto.spi.type.VarcharType;
+import com.facebook.presto.type.SqlType;
 import io.airlift.slice.Slices;
 
-import java.util.List;
-
-import static com.facebook.presto.spi.type.BigintType.BIGINT;
-import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkState;
-import static io.airlift.slice.SizeOf.SIZE_OF_LONG;
 
-public class EvaluateClassifierPredictionsAggregation
-        implements AggregationFunction
+@AggregationFunctionMetadata("evaluate_classifier_predictions")
+public final class EvaluateClassifierPredictionsAggregation
 {
-    @Override
-    public List<Type> getParameterTypes()
+    private EvaluateClassifierPredictionsAggregation() {}
+
+    @InputFunction
+    public static void input(EvaluateClassifierPredictionsState state, @SqlType(BigintType.class) long truth, @SqlType(BigintType.class) long prediction)
     {
-        return ImmutableList.<Type>of(BIGINT, BIGINT);
-    }
+        checkArgument(prediction == 1 || prediction == 0, "evaluate_predictions only supports binary classifiers");
+        checkArgument(truth == 1 || truth == 0, "evaluate_predictions only supports binary classifiers");
 
-    @Override
-    public Type getFinalType()
-    {
-        return VARCHAR;
-    }
-
-    @Override
-    public Type getIntermediateType()
-    {
-        return VARCHAR;
-    }
-
-    @Override
-    public boolean isDecomposable()
-    {
-        return true;
-    }
-
-    @Override
-    public Accumulator createAggregation(Optional<Integer> maskChannel, Optional<Integer> sampleWeight, double confidence, int... argumentChannels)
-    {
-        checkArgument(!maskChannel.isPresent(), "masking is not supported");
-        checkArgument(confidence == 1, "approximation is not supported");
-        checkArgument(!sampleWeight.isPresent(), "sample weight is not supported");
-        return new EvaluatePredictionsAccumulator(argumentChannels[0], argumentChannels[1]);
-    }
-
-    @Override
-    public Accumulator createIntermediateAggregation(double confidence)
-    {
-        checkArgument(confidence == 1, "approximation is not supported");
-        return new EvaluatePredictionsAccumulator(-1, -1);
-    }
-
-    public static class EvaluatePredictionsAccumulator
-            implements Accumulator
-    {
-        private final int labelChannel;
-        private final int predictionChannel;
-
-        private long truePositives;
-        private long falsePositives;
-        private long trueNegatives;
-        private long falseNegatives;
-
-        public EvaluatePredictionsAccumulator(int labelChannel, int predictionChannel)
-        {
-            this.labelChannel = labelChannel;
-            this.predictionChannel = predictionChannel;
-        }
-
-        @Override
-        public long getEstimatedSize()
-        {
-            return 0;
-        }
-
-        @Override
-        public Type getFinalType()
-        {
-            return VARCHAR;
-        }
-
-        @Override
-        public Type getIntermediateType()
-        {
-            return VARCHAR;
-        }
-
-        @Override
-        public void addInput(Page page)
-        {
-            Block labelBlock = page.getBlock(labelChannel);
-            Block predictionBlock = page.getBlock(predictionChannel);
-
-            for (int position = 0; position < labelBlock.getPositionCount(); position++) {
-                long predicted = predictionBlock.getLong(position);
-                long label = labelBlock.getLong(position);
-                checkArgument(predicted == 1 || predicted == 0, "evaluate_predictions only supports binary classifiers");
-                checkArgument(label == 1 || label == 0, "evaluate_predictions only supports binary classifiers");
-
-                if (label == 1) {
-                    if (predicted == 1) {
-                        truePositives++;
-                    }
-                    else {
-                        falseNegatives++;
-                    }
-                }
-                else {
-                    if (predicted == 0) {
-                        trueNegatives++;
-                    }
-                    else {
-                        falsePositives++;
-                    }
-                }
+        if (truth == 1) {
+            if (prediction == 1) {
+                state.setTruePositives(state.getTruePositives() + 1);
+            }
+            else {
+                state.setFalseNegatives(state.getFalseNegatives() + 1);
             }
         }
-
-        @Override
-        public void addIntermediate(Block block)
-        {
-            checkState(block.getPositionCount() == 1);
-            Slice slice = block.getSlice(0);
-            truePositives += slice.getLong(0);
-            falsePositives += slice.getLong(SIZE_OF_LONG);
-            trueNegatives += slice.getLong(2 * SIZE_OF_LONG);
-            falseNegatives += slice.getLong(3 * SIZE_OF_LONG);
-        }
-
-        @Override
-        public Block evaluateIntermediate()
-        {
-            BlockBuilder builder = getIntermediateType().createBlockBuilder(new BlockBuilderStatus());
-            return builder.appendSlice(createIntermediate(truePositives, falsePositives, trueNegatives, falseNegatives)).build();
-        }
-
-        @Override
-        public Block evaluateFinal()
-        {
-            StringBuilder sb = new StringBuilder();
-            long correct = trueNegatives + truePositives;
-            long total = truePositives + trueNegatives + falsePositives + falseNegatives;
-            sb.append(String.format("Accuracy: %d/%d (%.2f%%)\n", correct, total, 100.0 * correct / (double) total));
-            sb.append(String.format("Precision: %d/%d (%.2f%%)\n", truePositives, truePositives + falsePositives, 100.0 * truePositives / (double) (truePositives + falsePositives)));
-            sb.append(String.format("Recall: %d/%d (%.2f%%)", truePositives, truePositives + falseNegatives, 100.0 * truePositives / (double) (truePositives + falseNegatives)));
-
-            BlockBuilder builder = getFinalType().createBlockBuilder(new BlockBuilderStatus());
-            builder.appendSlice(Slices.utf8Slice(sb.toString()));
-            return builder.build();
-        }
-    }
-
-    @Override
-    public GroupedAccumulator createGroupedAggregation(Optional<Integer> maskChannel, Optional<Integer> sampleWeight, double confidence, int... argumentChannels)
-    {
-        checkArgument(!maskChannel.isPresent(), "masking is not supported");
-        checkArgument(confidence == 1, "approximation is not supported");
-        checkArgument(!sampleWeight.isPresent(), "sample weight is not supported");
-        return new EvaluatePredictionsGroupedAccumulator(argumentChannels[0], argumentChannels[1]);
-    }
-
-    @Override
-    public GroupedAccumulator createGroupedIntermediateAggregation(double confidence)
-    {
-        checkArgument(confidence == 1, "approximation is not supported");
-        return new EvaluatePredictionsGroupedAccumulator(-1, -1);
-    }
-
-    public static class EvaluatePredictionsGroupedAccumulator
-            implements GroupedAccumulator
-    {
-        private final int labelChannel;
-        private final int predictionChannel;
-
-        private final LongBigArray truePositives = new LongBigArray();
-        private final LongBigArray falsePositives = new LongBigArray();
-        private final LongBigArray trueNegatives = new LongBigArray();
-        private final LongBigArray falseNegatives = new LongBigArray();
-
-        public EvaluatePredictionsGroupedAccumulator(int labelChannel, int predictionChannel)
-        {
-            this.labelChannel = labelChannel;
-            this.predictionChannel = predictionChannel;
-        }
-
-        @Override
-        public Type getFinalType()
-        {
-            return VARCHAR;
-        }
-
-        @Override
-        public Type getIntermediateType()
-        {
-            return VARCHAR;
-        }
-
-        @Override
-        public long getEstimatedSize()
-        {
-            return truePositives.sizeOf() + falsePositives.sizeOf() + trueNegatives.sizeOf() + falseNegatives.sizeOf();
-        }
-
-        @Override
-        public void addInput(GroupByIdBlock groupIdsBlock, Page page)
-        {
-            truePositives.ensureCapacity(groupIdsBlock.getGroupCount());
-            falsePositives.ensureCapacity(groupIdsBlock.getGroupCount());
-            trueNegatives.ensureCapacity(groupIdsBlock.getGroupCount());
-            falseNegatives.ensureCapacity(groupIdsBlock.getGroupCount());
-
-            Block labelBlock = page.getBlock(labelChannel);
-            Block predictionBlock = page.getBlock(predictionChannel);
-
-            for (int position = 0; position < groupIdsBlock.getPositionCount(); position++) {
-                long groupId = groupIdsBlock.getGroupId(position);
-                long predicted = predictionBlock.getLong(position);
-                long label = labelBlock.getLong(position);
-                checkArgument(predicted == 1 || predicted == 0, "evaluate_predictions only supports binary classifiers");
-                checkArgument(label == 1 || label == 0, "evaluate_predictions only supports binary classifiers");
-
-                if (label == 1) {
-                    if (predicted == 1) {
-                        truePositives.increment(groupId);
-                    }
-                    else {
-                        falseNegatives.increment(groupId);
-                    }
-                }
-                else {
-                    if (predicted == 0) {
-                        trueNegatives.increment(groupId);
-                    }
-                    else {
-                        falsePositives.increment(groupId);
-                    }
-                }
+        else {
+            if (prediction == 0) {
+                state.setTrueNegatives(state.getTrueNegatives() + 1);
+            }
+            else {
+                state.setFalsePositives(state.getFalsePositives() + 1);
             }
         }
-
-        @Override
-        public void addIntermediate(GroupByIdBlock groupIdsBlock, Block block)
-        {
-            truePositives.ensureCapacity(groupIdsBlock.getGroupCount());
-            falsePositives.ensureCapacity(groupIdsBlock.getGroupCount());
-            trueNegatives.ensureCapacity(groupIdsBlock.getGroupCount());
-            falseNegatives.ensureCapacity(groupIdsBlock.getGroupCount());
-
-            for (int position = 0; position < groupIdsBlock.getPositionCount(); position++) {
-                long groupId = groupIdsBlock.getGroupId(position);
-                Slice slice = block.getSlice(position);
-                truePositives.add(groupId, slice.getLong(0));
-                falsePositives.add(groupId, slice.getLong(SIZE_OF_LONG));
-                trueNegatives.add(groupId, slice.getLong(2 * SIZE_OF_LONG));
-                falseNegatives.add(groupId, slice.getLong(3 * SIZE_OF_LONG));
-            }
-        }
-
-        @Override
-        public void evaluateIntermediate(int groupId, BlockBuilder output)
-        {
-            output.appendSlice(createIntermediate(truePositives.get(groupId), falsePositives.get(groupId), trueNegatives.get(groupId), falseNegatives.get(groupId))).build();
-        }
-
-        @Override
-        public void evaluateFinal(int groupId, BlockBuilder output)
-        {
-            output.appendSlice(Slices.utf8Slice(formatResults(truePositives.get(groupId), falsePositives.get(groupId), trueNegatives.get(groupId), falseNegatives.get(groupId))));
-        }
     }
 
-    public static String formatResults(long truePositives, long falsePositives, long trueNegatives, long falseNegatives)
+    @CombineFunction
+    public static void combine(EvaluateClassifierPredictionsState state, EvaluateClassifierPredictionsState scratchState)
     {
+        state.setTruePositives(state.getTruePositives() + scratchState.getTruePositives());
+        state.setFalsePositives(state.getFalsePositives() + scratchState.getFalsePositives());
+        state.setTrueNegatives(state.getTrueNegatives() + scratchState.getTrueNegatives());
+        state.setFalseNegatives(state.getFalseNegatives() + scratchState.getFalseNegatives());
+    }
+
+    @OutputFunction(VarcharType.class)
+    public static void output(EvaluateClassifierPredictionsState state, BlockBuilder out)
+    {
+        long truePositives = state.getTruePositives();
+        long falsePositives = state.getFalsePositives();
+        long trueNegatives = state.getTrueNegatives();
+        long falseNegatives = state.getFalseNegatives();
+
         StringBuilder sb = new StringBuilder();
         long correct = trueNegatives + truePositives;
         long total = truePositives + trueNegatives + falsePositives + falseNegatives;
-        sb.append(String.format("Accuracy: %d/%d (%.2f%%), ", correct, total, 100.0 * correct / (double) total));
-        sb.append(String.format("Precision: %d/%d (%.2f%%), ", truePositives, truePositives + falsePositives, 100.0 * truePositives / (double) (truePositives + falsePositives)));
+        sb.append(String.format("Accuracy: %d/%d (%.2f%%)\n", correct, total, 100.0 * correct / (double) total));
+        sb.append(String.format("Precision: %d/%d (%.2f%%)\n", truePositives, truePositives + falsePositives, 100.0 * truePositives / (double) (truePositives + falsePositives)));
         sb.append(String.format("Recall: %d/%d (%.2f%%)", truePositives, truePositives + falseNegatives, 100.0 * truePositives / (double) (truePositives + falseNegatives)));
-        return sb.toString();
+
+        out.appendSlice(Slices.utf8Slice(sb.toString()));
     }
 
-    public static Slice createIntermediate(long truePositives, long falsePositives, long trueNegatives, long falseNegatives)
+    public interface EvaluateClassifierPredictionsState
+            extends AccumulatorState
     {
-        Slice slice = Slices.allocate(4 * SIZE_OF_LONG);
-        slice.setLong(0, truePositives);
-        slice.setLong(SIZE_OF_LONG, falsePositives);
-        slice.setLong(2 * SIZE_OF_LONG, trueNegatives);
-        slice.setLong(3 * SIZE_OF_LONG, falseNegatives);
-        return slice;
+        long getTruePositives();
+
+        void setTruePositives(long value);
+
+        long getFalsePositives();
+
+        void setFalsePositives(long value);
+
+        long getTrueNegatives();
+
+        void setTrueNegatives(long value);
+
+        long getFalseNegatives();
+
+        void setFalseNegatives(long value);
     }
 }

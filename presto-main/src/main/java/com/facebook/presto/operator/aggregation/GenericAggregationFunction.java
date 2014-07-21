@@ -19,6 +19,7 @@ import com.google.common.collect.ImmutableList;
 
 import java.util.List;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 public final class GenericAggregationFunction
@@ -66,6 +67,7 @@ public final class GenericAggregationFunction
     @Override
     public Accumulator createAggregation(Optional<Integer> maskChannel, Optional<Integer> sampleWeight, double confidence, int... argumentChannels)
     {
+        checkArgument(argumentChannels.length == parameterTypes.size(), "Expected %d input channels, but got %d", parameterTypes.size(), argumentChannels.length);
         return accumulatorFactory.createAggregation(maskChannel, sampleWeight, confidence, argumentChannels);
     }
 
@@ -78,6 +80,7 @@ public final class GenericAggregationFunction
     @Override
     public GroupedAccumulator createGroupedAggregation(Optional<Integer> maskChannel, Optional<Integer> sampleWeight, double confidence, int... argumentChannels)
     {
+        checkArgument(argumentChannels.length == parameterTypes.size(), "Expected %d input channels, but got %d", parameterTypes.size(), argumentChannels.length);
         return accumulatorFactory.createGroupedAggregation(maskChannel, sampleWeight, confidence, argumentChannels);
     }
 

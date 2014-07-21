@@ -18,9 +18,12 @@ import com.facebook.presto.operator.aggregation.state.AccumulatorStateSerializer
 import com.facebook.presto.spi.type.Type;
 import com.google.common.base.Optional;
 import com.google.common.base.Throwables;
+import com.google.common.collect.ImmutableList;
+import com.google.common.primitives.Ints;
 
 import java.lang.reflect.Constructor;
 import java.lang.reflect.InvocationTargetException;
+import java.util.List;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
@@ -57,7 +60,7 @@ public class GenericAccumulatorFactory
                     Type.class,
                     AccumulatorStateSerializer.class,
                     AccumulatorStateFactory.class,
-                    int.class,
+                    List.class,
                     Optional.class,
                     Optional.class,
                     double.class);
@@ -67,7 +70,7 @@ public class GenericAccumulatorFactory
                     Type.class,
                     AccumulatorStateSerializer.class,
                     AccumulatorStateFactory.class,
-                    int.class,
+                    List.class,
                     Optional.class,
                     Optional.class,
                     double.class);
@@ -85,7 +88,7 @@ public class GenericAccumulatorFactory
             checkArgument(!sampleWeightChannel.isPresent(), "Sampled data not supported");
         }
         try {
-            return accumulatorConstructor.newInstance(finalType, intermediateType, stateSerializer, stateFactory, argumentChannels[0], maskChannel, sampleWeightChannel, confidence);
+            return accumulatorConstructor.newInstance(finalType, intermediateType, stateSerializer, stateFactory, Ints.asList(argumentChannels), maskChannel, sampleWeightChannel, confidence);
         }
         catch (InstantiationException | IllegalAccessException | InvocationTargetException e) {
             throw Throwables.propagate(e);
@@ -96,7 +99,7 @@ public class GenericAccumulatorFactory
     public Accumulator createIntermediateAggregation(double confidence)
     {
         try {
-            return accumulatorConstructor.newInstance(finalType, intermediateType, stateSerializer, stateFactory, -1, Optional.<Integer>absent(), Optional.<Integer>absent(), confidence);
+            return accumulatorConstructor.newInstance(finalType, intermediateType, stateSerializer, stateFactory, ImmutableList.of(), Optional.<Integer>absent(), Optional.<Integer>absent(), confidence);
         }
         catch (InstantiationException | IllegalAccessException | InvocationTargetException e) {
             throw Throwables.propagate(e);
@@ -111,7 +114,7 @@ public class GenericAccumulatorFactory
             checkArgument(!sampleWeightChannel.isPresent(), "Sampled data not supported");
         }
         try {
-            return groupedAccumulatorConstructor.newInstance(finalType, intermediateType, stateSerializer, stateFactory, argumentChannels[0], maskChannel, sampleWeightChannel, confidence);
+            return groupedAccumulatorConstructor.newInstance(finalType, intermediateType, stateSerializer, stateFactory, Ints.asList(argumentChannels), maskChannel, sampleWeightChannel, confidence);
         }
         catch (InstantiationException | IllegalAccessException | InvocationTargetException e) {
             throw Throwables.propagate(e);
@@ -122,7 +125,7 @@ public class GenericAccumulatorFactory
     public GroupedAccumulator createGroupedIntermediateAggregation(double confidence)
     {
         try {
-            return groupedAccumulatorConstructor.newInstance(finalType, intermediateType, stateSerializer, stateFactory, -1, Optional.<Integer>absent(), Optional.<Integer>absent(), confidence);
+            return groupedAccumulatorConstructor.newInstance(finalType, intermediateType, stateSerializer, stateFactory, ImmutableList.of(), Optional.<Integer>absent(), Optional.<Integer>absent(), confidence);
         }
         catch (InstantiationException | IllegalAccessException | InvocationTargetException e) {
             throw Throwables.propagate(e);
