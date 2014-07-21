@@ -13,40 +13,54 @@
  */
 package com.facebook.presto.spi.block;
 
-import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.VariableWidthType;
+import io.airlift.slice.SizeOf;
 import io.airlift.slice.Slice;
 
-import static java.util.Objects.requireNonNull;
+import java.util.Arrays;
 
 public class VariableWidthBlock
-        implements Block
+        extends AbstractVariableWidthBlock
 {
     private final int positionCount;
-    private final VariableWidthType type;
     private final Slice slice;
+    private final int[] offsets;
+    private final boolean[] valueIsNull;
 
-    public VariableWidthBlock(VariableWidthType type, int positionCount, Slice slice)
+    public VariableWidthBlock(VariableWidthType type, int positionCount, Slice slice, int[] offsets, boolean[] valueIsNull)
     {
-        this.type = requireNonNull(type, "type is null");
+        super(type);
 
-        if (positionCount < 0) {
-            throw new IllegalArgumentException("positionCount is negative");
-        }
         this.positionCount = positionCount;
+        this.slice = slice;
 
-        this.slice = requireNonNull(slice, "data is null");
+        if (offsets.length < positionCount + 1) {
+            throw new IllegalArgumentException("offsets length is less than positionCount");
+        }
+        this.offsets = offsets;
+
+        if (valueIsNull.length < positionCount) {
+            throw new IllegalArgumentException("valueIsNull length is less than positionCount");
+        }
+        this.valueIsNull = valueIsNull;
     }
 
     @Override
-    public Type getType()
+    protected final int getPositionOffset(int position)
     {
-        return type;
+        return offsets[position];
     }
 
-    Slice getRawSlice()
+    @Override
+    protected int getPositionLength(int position)
     {
-        return slice;
+        return offsets[position + 1] - offsets[position];
+    }
+
+    @Override
+    protected boolean isEntryNull(int position)
+    {
+        return valueIsNull[position];
     }
 
     @Override
@@ -58,43 +72,38 @@ public class VariableWidthBlock
     @Override
     public int getSizeInBytes()
     {
-        return slice.length();
+        long size = getRawSlice().length() + SizeOf.sizeOf(offsets) + SizeOf.sizeOf(valueIsNull);
+        if (size > Integer.MAX_VALUE) {
+            return Integer.MAX_VALUE;
+        }
+        return (int) size;
     }
 
     @Override
-    public BlockCursor cursor()
+    protected Slice getRawSlice()
     {
-        return new VariableWidthBlockCursor(type, positionCount, slice);
-    }
-
-    @Override
-    public BlockEncoding getEncoding()
-    {
-        return new VariableWidthBlockEncoding(getType());
+        return slice;
     }
 
     @Override
     public Block getRegion(int positionOffset, int length)
     {
+        int positionCount = getPositionCount();
         if (positionOffset < 0 || length < 0 || positionOffset + length > positionCount) {
             throw new IndexOutOfBoundsException("Invalid position " + positionOffset + " in block with " + positionCount + " positions");
         }
-        return cursor().getRegionAndAdvance(length);
-    }
 
-    @Override
-    public RandomAccessBlock toRandomAccessBlock()
-    {
-        return new VariableWidthRandomAccessBlock(type, positionCount, slice);
+        int[] newOffsets = Arrays.copyOfRange(offsets, positionOffset, positionOffset + length + 1);
+        boolean[] newValueIsNull = Arrays.copyOfRange(valueIsNull, positionOffset, positionOffset + length);
+        return new VariableWidthBlock(type, length, slice, newOffsets, newValueIsNull);
     }
 
     @Override
     public String toString()
     {
         StringBuilder sb = new StringBuilder("VariableWidthBlock{");
-        sb.append("positionCount=").append(positionCount);
-        sb.append(", type=").append(type);
-        sb.append(", slice=").append(slice);
+        sb.append("positionCount=").append(getPositionCount());
+        sb.append(", slice=").append(getRawSlice());
         sb.append('}');
         return sb.toString();
     }

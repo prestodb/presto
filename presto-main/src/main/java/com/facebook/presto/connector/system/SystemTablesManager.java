@@ -33,10 +33,10 @@ public class SystemTablesManager
 {
     private final SystemTablesMetadata metadata;
     private final SystemSplitManager splitManager;
-    private final SystemDataStreamProvider dataStreamProvider;
+    private final SystemRecordSetProvider dataStreamProvider;
 
     @Inject
-    public SystemTablesManager(SystemTablesMetadata metadata, SystemSplitManager splitManager, SystemDataStreamProvider dataStreamProvider, Set<SystemTable> tables)
+    public SystemTablesManager(SystemTablesMetadata metadata, SystemSplitManager splitManager, SystemRecordSetProvider dataStreamProvider, Set<SystemTable> tables)
     {
         this.metadata = metadata;
         this.splitManager = splitManager;

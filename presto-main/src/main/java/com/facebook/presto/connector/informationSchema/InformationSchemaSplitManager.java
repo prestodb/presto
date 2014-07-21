@@ -35,7 +35,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 
-import static com.google.common.base.Preconditions.checkArgument;
+import static com.facebook.presto.connector.system.SystemSplitManager.SYSTEM_DATASOURCE;
+import static com.facebook.presto.util.Types.checkType;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 public class InformationSchemaSplitManager
@@ -50,20 +51,10 @@ public class InformationSchemaSplitManager
     }
 
     @Override
-    public String getConnectorId()
-    {
-        // information schema is not a connector
-        return null;
-    }
-
-    @Override
     public ConnectorPartitionResult getPartitions(ConnectorTableHandle table, TupleDomain<ConnectorColumnHandle> tupleDomain)
     {
-        checkNotNull(table, "table is null");
         checkNotNull(tupleDomain, "tupleDomain is null");
-
-        checkArgument(table instanceof InformationSchemaTableHandle, "TableHandle must be an InformationSchemaTableHandle");
-        InformationSchemaTableHandle informationSchemaTableHandle = (InformationSchemaTableHandle) table;
+        InformationSchemaTableHandle informationSchemaTableHandle = checkType(table, InformationSchemaTableHandle.class, "table");
 
         Map<ConnectorColumnHandle, Comparable<?>> bindings = tupleDomain.extractFixedValues();
 
@@ -78,12 +69,11 @@ public class InformationSchemaSplitManager
     {
         checkNotNull(partitions, "partitions is null");
         if (partitions.isEmpty()) {
-            return new FixedSplitSource(null, ImmutableList.<ConnectorSplit>of());
+            return new FixedSplitSource(SYSTEM_DATASOURCE, ImmutableList.<ConnectorSplit>of());
         }
 
         ConnectorPartition partition = Iterables.getOnlyElement(partitions);
-        checkArgument(partition instanceof InformationSchemaPartition, "Partition must be an informationSchema partition");
-        InformationSchemaPartition informationSchemaPartition = (InformationSchemaPartition) partition;
+        InformationSchemaPartition informationSchemaPartition = checkType(partition, InformationSchemaPartition.class, "partition");
 
         List<HostAddress> localAddress = ImmutableList.of(nodeManager.getCurrentNode().getHostAndPort());
 
@@ -93,9 +83,9 @@ public class InformationSchemaSplitManager
             filters.put(informationSchemaColumnHandle.getColumnName(), entry.getValue());
         }
 
-        ConnectorSplit split = new InformationSchemaSplit(informationSchemaPartition.table, filters.build(), localAddress);
+        ConnectorSplit split = new InformationSchemaSplit(informationSchemaPartition.getTable(), filters.build(), localAddress);
 
-        return new FixedSplitSource(null, ImmutableList.of(split));
+        return new FixedSplitSource(SYSTEM_DATASOURCE, ImmutableList.of(split));
     }
 
     public static class InformationSchemaPartition

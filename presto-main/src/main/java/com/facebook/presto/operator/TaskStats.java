@@ -24,8 +24,10 @@ import javax.annotation.Nullable;
 
 import java.util.List;
 
+import static com.facebook.presto.operator.PipelineStats.summarizePipelineStats;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.collect.Iterables.transform;
 
 public class TaskStats
 {
@@ -263,5 +265,32 @@ public class TaskStats
     public List<PipelineStats> getPipelines()
     {
         return pipelines;
+    }
+
+    public TaskStats summarize()
+    {
+        return new TaskStats(
+                createTime,
+                firstStartTime,
+                lastStartTime,
+                endTime,
+                elapsedTime,
+                queuedTime,
+                totalDrivers,
+                queuedDrivers,
+                runningDrivers,
+                completedDrivers,
+                memoryReservation,
+                totalScheduledTime,
+                totalCpuTime,
+                totalUserTime,
+                totalBlockedTime,
+                rawInputDataSize,
+                rawInputPositions,
+                processedInputDataSize,
+                processedInputPositions,
+                outputDataSize,
+                outputPositions,
+                ImmutableList.copyOf(transform(pipelines, summarizePipelineStats())));
     }
 }

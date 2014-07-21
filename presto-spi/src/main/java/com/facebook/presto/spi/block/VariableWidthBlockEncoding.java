@@ -52,40 +52,90 @@ public class VariableWidthBlockEncoding
         }
 
         // The down casts here are safe because it is the block itself the provides this encoding implementation.
-        Slice rawSlice;
-        if (block instanceof AbstractVariableWidthRandomAccessBlock) {
-            AbstractVariableWidthRandomAccessBlock uncompressedBlock = (AbstractVariableWidthRandomAccessBlock) block;
-            rawSlice = uncompressedBlock.getRawSlice();
-        }
-        else if (block instanceof VariableWidthBlock) {
-            VariableWidthBlock variableWidthBlock = (VariableWidthBlock) block;
-            rawSlice = variableWidthBlock.getRawSlice();
-        }
-        else {
-            throw new IllegalArgumentException("Unsupported block type " + block.getClass().getName());
+        AbstractVariableWidthBlock variableWidthBlock = (AbstractVariableWidthBlock) block;
+
+        int positionCount = variableWidthBlock.getPositionCount();
+        sliceOutput.appendInt(positionCount);
+
+        // offsets
+        int totalLength = 0;
+        for (int position = 0; position < positionCount; position++) {
+            int length = variableWidthBlock.getPositionLength(position);
+            sliceOutput.appendInt(length);
+            totalLength += length;
         }
 
-        writeUncompressedBlock(sliceOutput,
-                block.getPositionCount(),
-                rawSlice);
+        // write null bits 8 at a time
+        for (int position = 0; position < (positionCount & ~0b111); position += 8) {
+            byte value = 0;
+            value |= variableWidthBlock.isNull(position)     ? 0b1000_0000 : 0;
+            value |= variableWidthBlock.isNull(position + 1) ? 0b0100_0000 : 0;
+            value |= variableWidthBlock.isNull(position + 2) ? 0b0010_0000 : 0;
+            value |= variableWidthBlock.isNull(position + 3) ? 0b0001_0000 : 0;
+            value |= variableWidthBlock.isNull(position + 4) ? 0b0000_1000 : 0;
+            value |= variableWidthBlock.isNull(position + 5) ? 0b0000_0100 : 0;
+            value |= variableWidthBlock.isNull(position + 6) ? 0b0000_0010 : 0;
+            value |= variableWidthBlock.isNull(position + 7) ? 0b0000_0001 : 0;
+            sliceOutput.appendByte(value);
+        }
+
+        // write last null bits
+        if ((positionCount & 0b111) > 0) {
+            byte value = 0;
+            int mask = 0b1000_0000;
+            for (int position = positionCount & ~0b111; position < positionCount; position++) {
+                value |= variableWidthBlock.isNull(position) ? mask : 0;
+                mask >>>= 1;
+            }
+            sliceOutput.appendByte(value);
+        }
+
+        sliceOutput
+                .appendInt(totalLength)
+                .writeBytes(variableWidthBlock.getRawSlice(), variableWidthBlock.getPositionOffset(0), totalLength);
     }
 
     @Override
     public Block readBlock(SliceInput sliceInput)
     {
-        int blockSize = sliceInput.readInt();
         int positionCount = sliceInput.readInt();
 
-        Slice slice = sliceInput.readSlice(blockSize);
-        return new VariableWidthBlock(type, positionCount, slice);
-    }
+        // offsets
+        int[] offsets = new int[positionCount + 1];
+        int offset = 0;
+        for (int position = 0; position < positionCount; position++) {
+            offset += sliceInput.readInt();
+            offsets[position + 1] = offset;
+        }
 
-    private static void writeUncompressedBlock(SliceOutput destination, int positionCount, Slice slice)
-    {
-        destination
-                .appendInt(slice.length())
-                .appendInt(positionCount)
-                .writeBytes(slice);
+        // read null bits 8 at a time
+        boolean[]  valueIsNull = new boolean[positionCount];
+        for (int position = 0; position < (positionCount & ~0b111); position += 8) {
+            byte value = sliceInput.readByte();
+            valueIsNull[position    ] = ((value & 0b1000_0000) != 0);
+            valueIsNull[position + 1] = ((value & 0b0100_0000) != 0);
+            valueIsNull[position + 2] = ((value & 0b0010_0000) != 0);
+            valueIsNull[position + 3] = ((value & 0b0001_0000) != 0);
+            valueIsNull[position + 4] = ((value & 0b0000_1000) != 0);
+            valueIsNull[position + 5] = ((value & 0b0000_0100) != 0);
+            valueIsNull[position + 6] = ((value & 0b0000_0010) != 0);
+            valueIsNull[position + 7] = ((value & 0b0000_0001) != 0);
+        }
+
+        // read last null bits
+        if ((positionCount & 0b111) > 0) {
+            byte value = sliceInput.readByte();
+            int mask = 0b1000_0000;
+            for (int position = positionCount & ~0b111; position < positionCount; position++) {
+                valueIsNull[position] = ((value & mask) != 0);
+                mask >>>= 1;
+            }
+        }
+
+        int blockSize = sliceInput.readInt();
+        Slice slice = sliceInput.readSlice(blockSize);
+
+        return new VariableWidthBlock(type, positionCount, slice, offsets, valueIsNull);
     }
 
     public static class VariableWidthBlockEncodingFactory

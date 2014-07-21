@@ -578,7 +578,7 @@ public final class ExpressionTreeRewriter<C>
             Expression expression = rewrite(node.getExpression(), context.get());
 
             if (node.getExpression() != expression) {
-                return new Cast(expression, node.getType());
+                return new Cast(expression, node.getType(), node.isSafe());
             }
 
             return node;

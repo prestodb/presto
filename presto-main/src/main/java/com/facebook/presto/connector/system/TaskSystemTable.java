@@ -109,7 +109,7 @@ public class TaskSystemTable
     public RecordCursor cursor()
     {
         Builder table = InMemoryRecordSet.builder(TASK_TABLE);
-        for (TaskInfo taskInfo : taskManager.getAllTaskInfo(false)) {
+        for (TaskInfo taskInfo : taskManager.getAllTaskInfo()) {
             TaskStats stats = taskInfo.getStats();
             table.addRow(
                     nodeId,
@@ -146,7 +146,7 @@ public class TaskSystemTable
         return table.build().cursor();
     }
 
-    private Long toMillis(Duration duration)
+    private static Long toMillis(Duration duration)
     {
         if (duration == null) {
             return null;
@@ -154,7 +154,7 @@ public class TaskSystemTable
         return duration.toMillis();
     }
 
-    private Long toBytes(DataSize dataSize)
+    private static Long toBytes(DataSize dataSize)
     {
         if (dataSize == null) {
             return null;
@@ -162,7 +162,7 @@ public class TaskSystemTable
         return dataSize.toBytes();
     }
 
-    private Long toTimeStamp(DateTime dateTime)
+    private static Long toTimeStamp(DateTime dateTime)
     {
         if (dateTime == null) {
             return null;

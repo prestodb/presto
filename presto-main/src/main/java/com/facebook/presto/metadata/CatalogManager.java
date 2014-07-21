@@ -38,6 +38,7 @@ public class CatalogManager
     private static final Logger log = Logger.get(CatalogManager.class);
     private final ConnectorManager connectorManager;
     private final File catalogConfigurationDir;
+    private final AtomicBoolean catalogsLoading = new AtomicBoolean();
     private final AtomicBoolean catalogsLoaded = new AtomicBoolean();
 
     @Inject
@@ -52,10 +53,15 @@ public class CatalogManager
         this.catalogConfigurationDir = catalogConfigurationDir;
     }
 
+    public boolean areCatalogsLoaded()
+    {
+        return catalogsLoaded.get();
+    }
+
     public void loadCatalogs()
             throws Exception
     {
-        if (!catalogsLoaded.compareAndSet(false, true)) {
+        if (!catalogsLoading.compareAndSet(false, true)) {
             return;
         }
 
@@ -64,11 +70,14 @@ public class CatalogManager
                 loadCatalog(file);
             }
         }
+
+        catalogsLoaded.set(true);
     }
 
     private void loadCatalog(File file)
             throws Exception
     {
+        log.info("-- Loading catalog %s --", file);
         Map<String, String> properties = new HashMap<>(loadProperties(file));
 
         String connectorName = properties.remove("connector.name");
@@ -77,10 +86,10 @@ public class CatalogManager
         String catalogName = Files.getNameWithoutExtension(file.getName());
 
         connectorManager.createConnection(catalogName, connectorName, ImmutableMap.copyOf(properties));
-        log.info("Added catalog %s using connector %s", catalogName, connectorName);
+        log.info("-- Added catalog %s using connector %s --", catalogName, connectorName);
     }
 
-    private List<File> listFiles(File installedPluginsDir)
+    private static List<File> listFiles(File installedPluginsDir)
     {
         if (installedPluginsDir != null && installedPluginsDir.isDirectory()) {
             File[] files = installedPluginsDir.listFiles();

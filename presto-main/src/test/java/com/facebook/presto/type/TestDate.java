@@ -160,4 +160,18 @@ public class TestDate
     {
         assertFunction("cast('2001-1-22' as date) = Date '2001-1-22'", true);
     }
+
+    @Test
+    public void testGreatest()
+            throws Exception
+    {
+        assertFunction("greatest(DATE '2013-03-30', DATE '2012-05-23')", new SqlDate(new LocalDate(2013, 3, 30).toDateMidnight(getDateTimeZone(TIME_ZONE_KEY)).getMillis(), TIME_ZONE_KEY));
+    }
+
+    @Test
+    public void testLeast()
+            throws Exception
+    {
+        assertFunction("least(DATE '2013-03-30', DATE '2012-05-23')", new SqlDate(new LocalDate(2012, 5, 23).toDateMidnight(getDateTimeZone(TIME_ZONE_KEY)).getMillis(), TIME_ZONE_KEY));
+    }
 }

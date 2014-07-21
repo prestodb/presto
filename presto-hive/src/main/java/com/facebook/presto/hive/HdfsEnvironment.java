@@ -18,6 +18,8 @@ import org.apache.hadoop.fs.Path;
 
 import javax.inject.Inject;
 
+import java.net.URI;
+
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 
@@ -33,13 +35,13 @@ public class HdfsEnvironment
 
     public Configuration getConfiguration(Path path)
     {
-        String host = path.toUri().getHost();
+        URI uri = path.toUri();
+        if ("file".equals(uri.getScheme())) {
+            return new Configuration();
+        }
+
+        String host = uri.getHost();
         checkArgument(host != null, "path host is null: %s", path);
         return hdfsConfiguration.getConfiguration(host);
-    }
-
-    public Path wrapInputPath(Path path)
-    {
-        return path;
     }
 }

@@ -138,7 +138,7 @@ public class SqlTaskExecution
                 cpuTimerEnabled
         );
 
-        try (SetThreadName setThreadName = new SetThreadName("Task-%s", taskId)) {
+        try (SetThreadName ignored = new SetThreadName("Task-%s", taskId)) {
             task.start();
             task.addSources(sources);
             task.recordHeartbeat();
@@ -160,7 +160,7 @@ public class SqlTaskExecution
             Executor notificationExecutor,
             boolean cpuTimerEnabled)
     {
-        try (SetThreadName setThreadName = new SetThreadName("Task-%s", taskId)) {
+        try (SetThreadName ignored = new SetThreadName("Task-%s", taskId)) {
             this.taskId = checkNotNull(taskId, "taskId is null");
             this.location = checkNotNull(location, "location is null");
             this.taskExecutor = checkNotNull(taskExecutor, "driverExecutor is null");
@@ -266,15 +266,15 @@ public class SqlTaskExecution
     public void waitForStateChange(TaskState currentState, Duration maxWait)
             throws InterruptedException
     {
-        try (SetThreadName setThreadName = new SetThreadName("Task-%s", taskId)) {
+        try (SetThreadName ignored = new SetThreadName("Task-%s", taskId)) {
             taskStateMachine.waitForStateChange(currentState, maxWait);
         }
     }
 
     @Override
-    public TaskInfo getTaskInfo(boolean full)
+    public TaskInfo getTaskInfo()
     {
-        try (SetThreadName setThreadName = new SetThreadName("Task-%s", taskId)) {
+        try (SetThreadName ignored = new SetThreadName("Task-%s", taskId)) {
             checkTaskCompletion();
 
             TaskState state = taskStateMachine.getState();
@@ -302,7 +302,7 @@ public class SqlTaskExecution
         checkNotNull(sources, "sources is null");
         checkState(!Thread.holdsLock(this), "Can not add sources while holding a lock on the %s", getClass().getSimpleName());
 
-        try (SetThreadName setThreadName = new SetThreadName("Task-%s", taskId)) {
+        try (SetThreadName ignored = new SetThreadName("Task-%s", taskId)) {
             // update our record of sources and schedule drivers for new partitioned splits
             Map<PlanNodeId, TaskSource> updatedUnpartitionedSources = updateSources(sources);
 
@@ -389,7 +389,7 @@ public class SqlTaskExecution
     {
         checkNotNull(outputBuffers, "outputBuffers is null");
 
-        try (SetThreadName setThreadName = new SetThreadName("Task-%s", taskId)) {
+        try (SetThreadName ignored = new SetThreadName("Task-%s", taskId)) {
             sharedBuffer.setOutputBuffers(outputBuffers);
         }
     }
@@ -412,38 +412,43 @@ public class SqlTaskExecution
                 @Override
                 public void onSuccess(Object result)
                 {
-                    try (SetThreadName setThreadName = new SetThreadName("Task-%s", taskId)) {
+                    try (SetThreadName ignored = new SetThreadName("Task-%s", taskId)) {
                         // record driver is finished
                         remainingDrivers.decrementAndGet();
 
                         checkTaskCompletion();
 
-                        queryMonitor.splitCompletionEvent(taskId, splitRunner.getDriverContext().getDriverStats());
+                        queryMonitor.splitCompletionEvent(taskId, getDriverStats());
                     }
                 }
 
                 @Override
                 public void onFailure(Throwable cause)
                 {
-                    try (SetThreadName setThreadName = new SetThreadName("Task-%s", taskId)) {
+                    try (SetThreadName ignored = new SetThreadName("Task-%s", taskId)) {
                         taskStateMachine.failed(cause);
 
                         // record driver is finished
                         remainingDrivers.decrementAndGet();
 
-                        DriverContext driverContext = splitRunner.getDriverContext();
-                        DriverStats driverStats;
-                        if (driverContext != null) {
-                            driverStats = driverContext.getDriverStats();
-                        }
-                        else {
-                            // split runner did not start successfully
-                            driverStats = new DriverStats();
-                        }
-
                         // fire failed event with cause
-                        queryMonitor.splitFailedEvent(taskId, driverStats, cause);
+                        queryMonitor.splitFailedEvent(taskId, getDriverStats(), cause);
                     }
+                }
+
+                private DriverStats getDriverStats()
+                {
+                    DriverContext driverContext = splitRunner.getDriverContext();
+                    DriverStats driverStats;
+                    if (driverContext != null) {
+                        driverStats = driverContext.getDriverStats();
+                    }
+                    else {
+                        // split runner did not start successfully
+                        driverStats = new DriverStats();
+                    }
+
+                    return driverStats;
                 }
             }, notificationExecutor);
         }
@@ -493,7 +498,7 @@ public class SqlTaskExecution
     @Override
     public void cancel()
     {
-        try (SetThreadName setThreadName = new SetThreadName("Task-%s", taskId)) {
+        try (SetThreadName ignored = new SetThreadName("Task-%s", taskId)) {
             taskStateMachine.cancel();
         }
     }
@@ -501,7 +506,7 @@ public class SqlTaskExecution
     @Override
     public void fail(Throwable cause)
     {
-        try (SetThreadName setThreadName = new SetThreadName("Task-%s", taskId)) {
+        try (SetThreadName ignored = new SetThreadName("Task-%s", taskId)) {
             taskStateMachine.failed(cause);
         }
     }
@@ -515,7 +520,7 @@ public class SqlTaskExecution
         checkNotNull(maxWait, "maxWait is null");
         checkState(!Thread.holdsLock(this), "Can not get result data while holding a lock on the %s", getClass().getSimpleName());
 
-        try (SetThreadName setThreadName = new SetThreadName("Task-%s", taskId)) {
+        try (SetThreadName ignored = new SetThreadName("Task-%s", taskId)) {
             return sharedBuffer.get(outputId, startingSequenceId, maxSize, maxWait);
         }
     }
@@ -523,7 +528,7 @@ public class SqlTaskExecution
     @Override
     public void abortResults(String outputId)
     {
-        try (SetThreadName setThreadName = new SetThreadName("Task-%s", taskId)) {
+        try (SetThreadName ignored = new SetThreadName("Task-%s", taskId)) {
             sharedBuffer.abort(outputId);
         }
     }

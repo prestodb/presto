@@ -41,6 +41,8 @@ import javax.management.loading.ClassLoaderRepository;
 import java.io.ObjectInputStream;
 import java.util.Set;
 
+import static com.google.common.base.Preconditions.checkNotNull;
+
 /**
  * MBeanServer wrapper that a ignores calls to registerMBean when there is already
  * a MBean registered with the specified object name.
@@ -56,7 +58,7 @@ public class RebindSafeMBeanServer
 
     public RebindSafeMBeanServer(MBeanServer mbeanServer)
     {
-        this.mbeanServer = mbeanServer;
+        this.mbeanServer = checkNotNull(mbeanServer, "mbeanServer is null");
     }
 
     /**

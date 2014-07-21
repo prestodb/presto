@@ -34,7 +34,7 @@ public class LabelNode
         this.name = "label@" + label.hashCode();
     }
 
-    public LabelNode(com.facebook.presto.byteCode.instruction.LabelNode labelNode)
+    public LabelNode(LabelNode labelNode)
     {
         this.label = labelNode.getLabel();
         this.name = "label@" + label.hashCode();

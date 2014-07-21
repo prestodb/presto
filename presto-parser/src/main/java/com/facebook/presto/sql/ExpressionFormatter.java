@@ -19,6 +19,7 @@ import com.facebook.presto.sql.tree.AstVisitor;
 import com.facebook.presto.sql.tree.BetweenPredicate;
 import com.facebook.presto.sql.tree.BooleanLiteral;
 import com.facebook.presto.sql.tree.Cast;
+import com.facebook.presto.sql.tree.InputReference;
 import com.facebook.presto.sql.tree.CoalesceExpression;
 import com.facebook.presto.sql.tree.ComparisonExpression;
 import com.facebook.presto.sql.tree.CurrentTime;
@@ -32,7 +33,6 @@ import com.facebook.presto.sql.tree.GenericLiteral;
 import com.facebook.presto.sql.tree.IfExpression;
 import com.facebook.presto.sql.tree.InListExpression;
 import com.facebook.presto.sql.tree.InPredicate;
-import com.facebook.presto.sql.tree.InputReference;
 import com.facebook.presto.sql.tree.IntervalLiteral;
 import com.facebook.presto.sql.tree.IsNotNullPredicate;
 import com.facebook.presto.sql.tree.IsNullPredicate;
@@ -82,7 +82,7 @@ public final class ExpressionFormatter
             @Override
             public String apply(Expression input)
             {
-                return ExpressionFormatter.formatExpression(input);
+                return formatExpression(input);
             }
         };
     }
@@ -106,19 +106,8 @@ public final class ExpressionFormatter
         protected String visitCurrentTime(CurrentTime node, Void context)
         {
             StringBuilder builder = new StringBuilder();
-            switch (node.getType()) {
-                case TIME:
-                    builder.append("current_time");
-                    break;
-                case DATE:
-                    builder.append("current_date");
-                    break;
-                case TIMESTAMP:
-                    builder.append("current_timestamp");
-                    break;
-                default:
-                    throw new UnsupportedOperationException("not yet implemented: " + node.getType());
-            }
+
+            builder.append(node.getType().getName());
 
             if (node.getPrecision() != null) {
                 builder.append('(')
@@ -162,7 +151,7 @@ public final class ExpressionFormatter
         @Override
         protected String visitGenericLiteral(GenericLiteral node, Void context)
         {
-            return "" + node.getType() + " '" + node.getValue() + "'";
+            return node.getType() + " '" + node.getValue() + "'";
         }
 
         @Override
@@ -230,7 +219,7 @@ public final class ExpressionFormatter
         public String visitInputReference(InputReference node, Void context)
         {
             // add colon so this won't parse
-            return ":input(" + node.getInput().getChannel() + ")";
+            return ":input(" + node.getChannel() + ")";
         }
 
         @Override
@@ -317,7 +306,9 @@ public final class ExpressionFormatter
         @Override
         protected String visitNegativeExpression(NegativeExpression node, Void context)
         {
-            return "-" + process(node.getValue(), null);
+            String value = process(node.getValue(), null);
+            String separator = value.startsWith("-") ? " " : "";
+            return "-" + separator + value;
         }
 
         @Override
@@ -359,7 +350,8 @@ public final class ExpressionFormatter
         @Override
         public String visitCast(Cast node, Void context)
         {
-            return "CAST(" + process(node.getExpression(), context) + " AS " + node.getType() + ")";
+            return (node.isSafe() ? "TRY_CAST" : "CAST") +
+                    "(" + process(node.getExpression(), context) + " AS " + node.getType() + ")";
         }
 
         @Override

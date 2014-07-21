@@ -13,15 +13,19 @@
  */
 package com.facebook.presto.operator;
 
+import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.block.Block;
 import com.google.common.base.Function;
-import com.facebook.presto.spi.block.RandomAccessBlock;
 import com.google.common.base.Objects;
 import com.google.common.base.Preconditions;
+import io.airlift.slice.Slice;
 import io.airlift.units.DataSize;
 import io.airlift.units.DataSize.Unit;
 
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
+import java.util.List;
 
 public class Page
 {
@@ -69,13 +73,45 @@ public class Page
         return blocks[channel];
     }
 
-    public RandomAccessPage toRandomAccessPage()
+    public boolean getBoolean(int channel, int position)
     {
-        RandomAccessBlock[] randomAccessBlocks = new RandomAccessBlock[blocks.length];
+        return getBlock(channel).getBoolean(position);
+    }
+
+    public long getLong(int channel, int position)
+    {
+        return getBlock(channel).getLong(position);
+    }
+
+    public double getDouble(int channel, int position)
+    {
+        return getBlock(channel).getDouble(position);
+    }
+
+    public Slice getSlice(int channel, int position)
+    {
+        return getBlock(channel).getSlice(position);
+    }
+
+    public boolean isNull(int channel, int position)
+    {
+        return getBlock(channel).isNull(position);
+    }
+
+    public void appendTo(int position, PageBuilder pageBuilder)
+    {
         for (int channel = 0; channel < blocks.length; channel++) {
-            randomAccessBlocks[channel] = blocks[channel].toRandomAccessBlock();
+            blocks[channel].appendTo(position, pageBuilder.getBlockBuilder(channel));
         }
-        return new RandomAccessPage(positionCount, randomAccessBlocks);
+    }
+
+    public List<Object> getObjectValues(ConnectorSession session, int position)
+    {
+        List<Object> values = new ArrayList<>(blocks.length);
+        for (Block block : blocks) {
+            values.add(block.getObjectValue(session, position));
+        }
+        return Collections.unmodifiableList(values);
     }
 
     @Override

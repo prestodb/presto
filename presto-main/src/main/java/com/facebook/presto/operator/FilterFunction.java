@@ -13,12 +13,12 @@
  */
 package com.facebook.presto.operator;
 
-import com.facebook.presto.spi.block.BlockCursor;
 import com.facebook.presto.spi.RecordCursor;
+import com.facebook.presto.spi.block.Block;
 
 public interface FilterFunction
 {
-    boolean filter(BlockCursor... cursors);
+    boolean filter(int position, Block... blocks);
 
     boolean filter(RecordCursor cursor);
 }

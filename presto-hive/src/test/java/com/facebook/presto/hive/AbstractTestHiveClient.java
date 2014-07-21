@@ -13,6 +13,8 @@
  */
 package com.facebook.presto.hive;
 
+import com.facebook.presto.hive.metastore.CachingHiveMetastore;
+import com.facebook.presto.hive.metastore.HiveMetastore;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorColumnHandle;
 import com.facebook.presto.spi.ConnectorMetadata;
@@ -31,11 +33,11 @@ import com.facebook.presto.spi.Domain;
 import com.facebook.presto.spi.RecordCursor;
 import com.facebook.presto.spi.RecordSet;
 import com.facebook.presto.spi.RecordSink;
-import com.facebook.presto.spi.SchemaNotFoundException;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.SchemaTablePrefix;
 import com.facebook.presto.spi.TableNotFoundException;
 import com.facebook.presto.spi.TupleDomain;
+import com.facebook.presto.spi.ViewNotFoundException;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.base.Function;
 import com.google.common.base.Optional;
@@ -67,6 +69,7 @@ import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.TimeZoneKey.UTC_KEY;
 import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
+import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.Iterables.getOnlyElement;
@@ -89,7 +92,8 @@ public abstract class AbstractTestHiveClient
 {
     private static final ConnectorSession SESSION = new ConnectorSession("user", "test", "default", "default", UTC_KEY, Locale.ENGLISH, null, null);
 
-    protected static final String INVALID_DATABASE = "totally_invalid_database";
+    protected static final String INVALID_DATABASE = "totally_invalid_database_name";
+    protected static final String INVALID_TABLE = "totally_invalid_table_name";
     protected static final String INVALID_COLUMN = "totally_invalid_column_name";
 
     protected String database;
@@ -105,6 +109,7 @@ public abstract class AbstractTestHiveClient
 
     protected SchemaTableName temporaryCreateTable;
     protected SchemaTableName temporaryCreateSampledTable;
+    protected SchemaTableName temporaryCreateView;
     protected String tableOwner;
 
     protected ConnectorTableHandle invalidTableHandle;
@@ -121,7 +126,7 @@ public abstract class AbstractTestHiveClient
 
     protected DateTimeZone timeZone;
 
-    protected CachingHiveMetastore metastoreClient;
+    protected HiveMetastore metastoreClient;
 
     protected ConnectorMetadata metadata;
     protected ConnectorSplitManager splitManager;
@@ -136,18 +141,17 @@ public abstract class AbstractTestHiveClient
         tableOffline = new SchemaTableName(database, "presto_test_offline");
         tableOfflinePartition = new SchemaTableName(database, "presto_test_offline_partition");
         view = new SchemaTableName(database, "presto_test_view");
-        invalidTable = new SchemaTableName(database, "totally_invalid_table_name");
+        invalidTable = new SchemaTableName(database, INVALID_TABLE);
         tableBucketedStringInt = new SchemaTableName(database, "presto_test_bucketed_by_string_int");
         tableBucketedBigintBoolean = new SchemaTableName(database, "presto_test_bucketed_by_bigint_boolean");
         tableBucketedDoubleFloat = new SchemaTableName(database, "presto_test_bucketed_by_double_float");
 
-        String random = UUID.randomUUID().toString().toLowerCase().replace("-", "");
-        temporaryCreateTable = new SchemaTableName(database, "tmp_presto_test_create_" + random);
-        random = UUID.randomUUID().toString().toLowerCase().replace("-", "");
-        temporaryCreateSampledTable = new SchemaTableName(database, "tmp_presto_test_create_" + random);
+        temporaryCreateTable = new SchemaTableName(database, "tmp_presto_test_create_" + randomName());
+        temporaryCreateSampledTable = new SchemaTableName(database, "tmp_presto_test_create_" + randomName());
+        temporaryCreateView = new SchemaTableName(database, "tmp_presto_test_create_" + randomName());
         tableOwner = "presto_test";
 
-        invalidTableHandle = new HiveTableHandle("hive", database, "totally_invalid_table_name", SESSION);
+        invalidTableHandle = new HiveTableHandle("hive", database, INVALID_TABLE, SESSION);
 
         dsColumn = new HiveColumnHandle(connectorId, "ds", 0, HiveType.STRING, -1, true);
         fileFormatColumn = new HiveColumnHandle(connectorId, "file_format", 1, HiveType.STRING, -1, true);
@@ -209,7 +213,12 @@ public abstract class AbstractTestHiveClient
                 maxOutstandingSplits,
                 maxThreads,
                 hiveClientConfig.getMinPartitionBatchSize(),
-                hiveClientConfig.getMaxPartitionBatchSize());
+                hiveClientConfig.getMaxPartitionBatchSize(),
+                hiveClientConfig.getMaxInitialSplitSize(),
+                hiveClientConfig.getMaxInitialSplits(),
+                false,
+                hiveClientConfig.getHiveStorageFormat(),
+                false);
 
         metadata = client;
         splitManager = client;
@@ -233,20 +242,14 @@ public abstract class AbstractTestHiveClient
         assertTrue(tables.contains(table));
     }
 
-    // disabled until metadata manager is updated to handle invalid catalogs and schemas
-    @Test(enabled = false, expectedExceptions = SchemaNotFoundException.class)
-    public void testGetTableNamesException()
-            throws Exception
-    {
-        metadata.listTables(SESSION, INVALID_DATABASE);
-    }
-
     @Test
     public void testListUnknownSchema()
     {
-        assertNull(metadata.getTableHandle(SESSION, new SchemaTableName("totally_invalid_database_name", "dual")));
-        assertEquals(metadata.listTables(SESSION, "totally_invalid_database_name"), ImmutableList.of());
-        assertEquals(metadata.listTableColumns(SESSION, new SchemaTablePrefix("totally_invalid_database_name", "dual")), ImmutableMap.of());
+        assertNull(metadata.getTableHandle(SESSION, new SchemaTableName(INVALID_DATABASE, INVALID_TABLE)));
+        assertEquals(metadata.listTables(SESSION, INVALID_DATABASE), ImmutableList.of());
+        assertEquals(metadata.listTableColumns(SESSION, new SchemaTablePrefix(INVALID_DATABASE, INVALID_TABLE)), ImmutableMap.of());
+        assertEquals(metadata.listViews(SESSION, INVALID_DATABASE), ImmutableList.of());
+        assertEquals(metadata.getViews(SESSION, new SchemaTablePrefix(INVALID_DATABASE, INVALID_TABLE)), ImmutableMap.of());
     }
 
     @Test
@@ -340,7 +343,7 @@ public abstract class AbstractTestHiveClient
         assertPrimitiveField(map, i++, "t_map", VARCHAR, false); // Currently mapped as a string
         assertPrimitiveField(map, i++, "t_boolean", BOOLEAN, false);
         assertPrimitiveField(map, i++, "t_timestamp", TIMESTAMP, false);
-        assertPrimitiveField(map, i++, "t_binary", VARCHAR, false);
+        assertPrimitiveField(map, i++, "t_binary", VARBINARY, false);
         assertPrimitiveField(map, i++, "t_array_string", VARCHAR, false); // Currently mapped as a string
         assertPrimitiveField(map, i++, "t_complex", VARCHAR, false); // Currently mapped as a string
         assertPrimitiveField(map, i++, "ds", VARCHAR, true);
@@ -488,7 +491,7 @@ public abstract class AbstractTestHiveClient
         // Reverse the order of bindings as compared to bucketing order
         ImmutableMap<ConnectorColumnHandle, Comparable<?>> bindings = ImmutableMap.<ConnectorColumnHandle, Comparable<?>>builder()
                 .put(columnHandles.get(columnIndex.get("t_int")), testInt)
-                .put(columnHandles.get(columnIndex.get("t_string")), testString)
+                .put(columnHandles.get(columnIndex.get("t_string")), utf8Slice(testString))
                 .put(columnHandles.get(columnIndex.get("t_smallint")), testSmallint)
                 .build();
 
@@ -526,7 +529,7 @@ public abstract class AbstractTestHiveClient
         Boolean testBoolean = true;
 
         ImmutableMap<ConnectorColumnHandle, Comparable<?>> bindings = ImmutableMap.<ConnectorColumnHandle, Comparable<?>>builder()
-                .put(columnHandles.get(columnIndex.get("t_string")), testString)
+                .put(columnHandles.get(columnIndex.get("t_string")), utf8Slice(testString))
                 .put(columnHandles.get(columnIndex.get("t_bigint")), testBigint)
                 .put(columnHandles.get(columnIndex.get("t_boolean")), testBoolean)
                 .build();
@@ -810,7 +813,7 @@ public abstract class AbstractTestHiveClient
     }
 
     @Test
-    public void testViewsAreNotSupported()
+    public void testHiveViewsAreNotSupported()
             throws Exception
     {
         try {
@@ -820,6 +823,13 @@ public abstract class AbstractTestHiveClient
         catch (HiveViewNotSupportedException e) {
             assertEquals(e.getTableName(), view);
         }
+    }
+
+    @Test
+    public void testHiveViewsHaveNoColumns()
+            throws Exception
+    {
+        assertEquals(metadata.listTableColumns(SESSION, new SchemaTablePrefix(view.getSchemaName(), view.getTableName())), ImmutableMap.of());
     }
 
     @Test
@@ -844,6 +854,70 @@ public abstract class AbstractTestHiveClient
         finally {
             dropTable(temporaryCreateSampledTable);
         }
+    }
+
+    @Test
+    public void testViewCreation()
+    {
+        try {
+            verifyViewCreation();
+        }
+        finally {
+            try {
+                metadata.dropView(SESSION, temporaryCreateView);
+            }
+            catch (RuntimeException e) {
+                Logger.get(getClass()).warn(e, "Failed to drop view: %s", temporaryCreateView);
+            }
+        }
+    }
+
+    private void verifyViewCreation()
+    {
+        // replace works for new view
+        doCreateView(temporaryCreateView, true);
+
+        // replace works for existing view
+        doCreateView(temporaryCreateView, true);
+
+        // create fails for existing view
+        try {
+            doCreateView(temporaryCreateView, false);
+            fail("create existing should fail");
+        }
+        catch (ViewAlreadyExistsException e) {
+            assertEquals(e.getViewName(), temporaryCreateView);
+        }
+
+        // drop works when view exists
+        metadata.dropView(SESSION, temporaryCreateView);
+        assertEquals(metadata.getViews(SESSION, temporaryCreateView.toSchemaTablePrefix()).size(), 0);
+        assertFalse(metadata.listViews(SESSION, temporaryCreateView.getSchemaName()).contains(temporaryCreateView));
+
+        // drop fails when view does not exist
+        try {
+            metadata.dropView(SESSION, temporaryCreateView);
+            fail("drop non-existing should fail");
+        }
+        catch (ViewNotFoundException e) {
+            assertEquals(e.getViewName(), temporaryCreateView);
+        }
+
+        // create works for new view
+        doCreateView(temporaryCreateView, false);
+    }
+
+    private void doCreateView(SchemaTableName viewName, boolean replace)
+    {
+        String viewData = "test data";
+
+        metadata.createView(SESSION, viewName, viewData, replace);
+
+        Map<SchemaTableName, String> views = metadata.getViews(SESSION, viewName.toSchemaTablePrefix());
+        assertEquals(views.size(), 1);
+        assertEquals(views.get(viewName), viewData);
+
+        assertTrue(metadata.listViews(SESSION, viewName.getSchemaName()).contains(viewName));
     }
 
     private void doCreateSampledTable()
@@ -1098,7 +1172,7 @@ public abstract class AbstractTestHiveClient
                 else if (DOUBLE.equals(column.getType())) {
                     cursor.getDouble(columnIndex);
                 }
-                else if (VARCHAR.equals(column.getType())) {
+                else if (VARCHAR.equals(column.getType()) || VARBINARY.equals(column.getType())) {
                     try {
                         cursor.getSlice(columnIndex);
                     }
@@ -1135,6 +1209,11 @@ public abstract class AbstractTestHiveClient
             i++;
         }
         return index.build();
+    }
+
+    private static String randomName()
+    {
+        return UUID.randomUUID().toString().toLowerCase().replace("-", "");
     }
 
     private static Function<ColumnMetadata, String> columnNameGetter()

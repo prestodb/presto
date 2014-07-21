@@ -26,11 +26,10 @@ import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.ListeningExecutorService;
-import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import io.airlift.command.Command;
 import io.airlift.command.HelpOption;
 import io.airlift.command.Option;
-import io.airlift.http.client.AsyncHttpClient;
+import io.airlift.http.client.HttpClient;
 import io.airlift.http.client.HttpClientConfig;
 import io.airlift.http.client.Request;
 import io.airlift.http.client.StatusResponseHandler.StatusResponse;
@@ -65,6 +64,7 @@ import static com.google.common.io.ByteStreams.nullOutputStream;
 import static com.google.common.net.HttpHeaders.USER_AGENT;
 import static com.google.common.util.concurrent.MoreExecutors.listeningDecorator;
 import static io.airlift.command.SingleCommand.singleCommand;
+import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.airlift.http.client.HttpUriBuilder.uriBuilderFrom;
 import static io.airlift.http.client.Request.Builder.preparePost;
 import static io.airlift.http.client.StaticBodyGenerator.createStaticBodyGenerator;
@@ -98,6 +98,9 @@ public class PerfTest
     @Option(name = "--debug", title = "debug", description = "Enable debug information")
     public boolean debug;
 
+    @Option(name = {"-r", "--runs"}, title = "number", description = "Number of runs until exit (default: 10)")
+    public int runs = 10;
+
     public void run()
             throws Exception
     {
@@ -105,7 +108,7 @@ public class PerfTest
         List<String> queries = loadQueries();
 
         try (ParallelQueryRunner parallelQueryRunner = new ParallelQueryRunner(16, parseServer(server), catalog, schema, debug)) {
-            for (int loop = 0; loop < 10; loop++) {
+            for (int loop = 0; loop < runs; loop++) {
                 executeQueries(queries, parallelQueryRunner, 1);
                 executeQueries(queries, parallelQueryRunner, 2);
                 executeQueries(queries, parallelQueryRunner, 4);
@@ -149,7 +152,7 @@ public class PerfTest
 
         public ParallelQueryRunner(int maxParallelism, URI server, String catalog, String schema, boolean debug)
         {
-            executor = listeningDecorator(newCachedThreadPool(new ThreadFactoryBuilder().setNameFormat("query-runner-%s").setDaemon(true).build()));
+            executor = listeningDecorator(newCachedThreadPool(daemonThreadsNamed("query-runner-%s")));
 
             ImmutableList.Builder<QueryRunner> runners = ImmutableList.builder();
             for (int i = 0; i < maxParallelism; i++) {
@@ -222,7 +225,7 @@ public class PerfTest
     {
         private final ClientSession session;
         private final ListeningExecutorService executor;
-        private final AsyncHttpClient httpClient;
+        private final HttpClient httpClient;
 
         public QueryRunner(ClientSession session, ListeningExecutorService executor)
         {
@@ -274,7 +277,7 @@ public class PerfTest
             if (session.getSchema() != null) {
                 builder.setHeader(PrestoHeaders.PRESTO_SCHEMA, session.getSchema());
             }
-            builder.setHeader(PrestoHeaders.PRESTO_SCHEMA, session.getTimeZoneId());
+            builder.setHeader(PrestoHeaders.PRESTO_TIME_ZONE, session.getTimeZoneId());
             builder.setHeader(USER_AGENT, USER_AGENT_VALUE);
 
             return builder.build();

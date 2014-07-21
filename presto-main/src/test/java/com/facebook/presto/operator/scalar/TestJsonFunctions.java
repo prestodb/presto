@@ -144,6 +144,19 @@ public class TestJsonFunctions
         }
     }
 
+    @Test
+    public void testJsonSize()
+    {
+        assertFunction(format("JSON_SIZE('%s', '%s')", "{\"x\": {\"a\" : 1, \"b\" : 2} }", "$"), 1);
+        assertFunction(format("JSON_SIZE('%s', '%s')", "{\"x\": {\"a\" : 1, \"b\" : 2} }", "$.x"), 2);
+        assertFunction(format("JSON_SIZE('%s', '%s')", "{\"x\": {\"a\" : 1, \"b\" : [1,2,3], \"c\" : {\"w\":9}} }", "$.x"), 3);
+        assertFunction(format("JSON_SIZE('%s', '%s')", "{\"x\": {\"a\" : 1, \"b\" : 2} }", "$.x.a"), 0);
+        assertFunction(format("JSON_SIZE('%s', '%s')", "[1,2,3]", "$"), 3);
+        assertFunction(format("JSON_SIZE(null, '%s')", "$"), null);
+        assertFunction(format("JSON_SIZE('%s', '%s')", "INVALID_JSON", "$"), null);
+        assertFunction(format("JSON_SIZE('%s', null)", "[1,2,3]"), null);
+    }
+
     private void assertFunction(String projection, Object expected)
     {
         functionAssertions.assertFunction(projection, expected);

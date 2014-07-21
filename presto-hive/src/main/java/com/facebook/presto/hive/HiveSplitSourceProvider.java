@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.hive;
 
-import com.facebook.presto.hive.util.AsyncRecursiveWalker;
+import com.facebook.presto.hive.util.AsyncWalker;
 import com.facebook.presto.hive.util.BoundedExecutor;
 import com.facebook.presto.hive.util.FileStatusCallback;
 import com.facebook.presto.hive.util.SetThreadName;
@@ -116,7 +116,10 @@ class HiveSplitSourceProvider
     private final ClassLoader classLoader;
     private final DataSize maxSplitSize;
     private final int maxPartitionBatchSize;
+    private final DataSize maxInitialSplitSize;
+    private long remainingInitialSplits;
     private final ConnectorSession session;
+    private final boolean recursiveDirWalkerEnabled;
 
     HiveSplitSourceProvider(String connectorId,
             Table table,
@@ -131,7 +134,10 @@ class HiveSplitSourceProvider
             DirectoryLister directoryLister,
             Executor executor,
             int maxPartitionBatchSize,
-            ConnectorSession session)
+            ConnectorSession session,
+            DataSize maxInitialSplitSize,
+            int maxInitialSplits,
+            boolean recursiveDirWalkerEnabled)
     {
         this.connectorId = connectorId;
         this.table = table;
@@ -148,6 +154,9 @@ class HiveSplitSourceProvider
         this.executor = executor;
         this.session = session;
         this.classLoader = Thread.currentThread().getContextClassLoader();
+        this.maxInitialSplitSize = maxInitialSplitSize;
+        this.remainingInitialSplits = maxInitialSplits;
+        this.recursiveDirWalkerEnabled = recursiveDirWalkerEnabled;
     }
 
     public ConnectorSplitSource get()
@@ -240,7 +249,7 @@ class HiveSplitSourceProvider
                     return;
                 }
 
-                ListenableFuture<Void> partitionFuture = createRecursiveWalker(fs, suspendingExecutor).beginWalk(path, new FileStatusCallback()
+                ListenableFuture<Void> partitionFuture = createAsyncWalker(fs, suspendingExecutor).beginWalk(path, new FileStatusCallback()
                 {
                     @Override
                     public void process(FileStatus file, BlockLocation[] blockLocations)
@@ -297,9 +306,9 @@ class HiveSplitSourceProvider
         }
     }
 
-    private AsyncRecursiveWalker createRecursiveWalker(FileSystem fs, SuspendingExecutor suspendingExecutor)
+    private AsyncWalker createAsyncWalker(FileSystem fs, SuspendingExecutor suspendingExecutor)
     {
-        return new AsyncRecursiveWalker(fs, suspendingExecutor, directoryLister, namenodeStats);
+        return new AsyncWalker(fs, suspendingExecutor, directoryLister, namenodeStats, recursiveDirWalkerEnabled);
     }
 
     private static Optional<FileStatus> getBucketFile(HiveBucket bucket, FileSystem fs, Path path)
@@ -356,8 +365,14 @@ class HiveSplitSourceProvider
                 // get the addresses for the block
                 List<HostAddress> addresses = toHostAddress(blockLocation.getHosts());
 
+                long maxBytes = maxSplitSize.toBytes();
+
+                if (remainingInitialSplits > 0) {
+                    maxBytes = maxInitialSplitSize.toBytes();
+                }
+
                 // divide the block into uniform chunks that are smaller than the max split size
-                int chunks = Math.max(1, (int) (blockLocation.getLength() / maxSplitSize.toBytes()));
+                int chunks = Math.max(1, (int) (blockLocation.getLength() / maxBytes));
                 // when block does not divide evenly into chunks, make the chunk size slightly bigger than necessary
                 long targetChunkSize = (long) Math.ceil(blockLocation.getLength() * 1.0 / chunks);
 
@@ -379,6 +394,7 @@ class HiveSplitSourceProvider
                             session));
 
                     chunkOffset += chunkLength;
+                    remainingInitialSplits--;
                 }
                 checkState(chunkOffset == blockLocation.getLength(), "Error splitting blocks");
             }

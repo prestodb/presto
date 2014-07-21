@@ -13,11 +13,10 @@
  */
 package com.facebook.presto.sql.planner;
 
+import com.facebook.presto.sql.tree.InputReference;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.ExpressionRewriter;
 import com.facebook.presto.sql.tree.ExpressionTreeRewriter;
-import com.facebook.presto.sql.tree.Input;
-import com.facebook.presto.sql.tree.InputReference;
 import com.facebook.presto.sql.tree.QualifiedNameReference;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
@@ -29,20 +28,20 @@ import static com.google.common.base.Preconditions.checkNotNull;
 public class SymbolToInputRewriter
         extends ExpressionRewriter<Void>
 {
-    private final Map<Symbol, Input> symbolToInputMapping;
+    private final Map<Symbol, Integer> symbolToChannelMapping;
 
-    public SymbolToInputRewriter(Map<Symbol, Input> symbolToInputMapping)
+    public SymbolToInputRewriter(Map<Symbol, Integer> symbolToChannelMapping)
     {
-        checkNotNull(symbolToInputMapping, "symbolToInputMapping is null");
-        this.symbolToInputMapping = ImmutableMap.copyOf(symbolToInputMapping);
+        checkNotNull(symbolToChannelMapping, "symbolToChannelMapping is null");
+        this.symbolToChannelMapping = ImmutableMap.copyOf(symbolToChannelMapping);
     }
 
     @Override
     public Expression rewriteQualifiedNameReference(QualifiedNameReference node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
     {
-        Input input = symbolToInputMapping.get(Symbol.fromQualifiedName(node.getName()));
-        Preconditions.checkArgument(input != null, "Cannot resolve symbol %s", node.getName());
+        Integer channel = symbolToChannelMapping.get(Symbol.fromQualifiedName(node.getName()));
+        Preconditions.checkArgument(channel != null, "Cannot resolve symbol %s", node.getName());
 
-        return new InputReference(input);
+        return new InputReference(channel);
     }
 }

@@ -15,6 +15,7 @@ package com.facebook.presto.operator;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.google.common.base.Function;
 import com.google.common.collect.ImmutableList;
 import io.airlift.stats.Distribution.DistributionSnapshot;
 import io.airlift.units.DataSize;
@@ -254,5 +255,43 @@ public class PipelineStats
     public List<DriverStats> getDrivers()
     {
         return drivers;
+    }
+
+    public PipelineStats summarize()
+    {
+        return new PipelineStats(
+                inputPipeline,
+                outputPipeline,
+                totalDrivers,
+                queuedDrivers,
+                runningDrivers,
+                completedDrivers,
+                memoryReservation,
+                queuedTime,
+                elapsedTime,
+                totalScheduledTime,
+                totalCpuTime,
+                totalUserTime,
+                totalBlockedTime,
+                rawInputDataSize,
+                rawInputPositions,
+                processedInputDataSize,
+                processedInputPositions,
+                outputDataSize,
+                outputPositions,
+                operatorSummaries,
+                ImmutableList.<DriverStats>of());
+    }
+
+    public static Function<PipelineStats, PipelineStats> summarizePipelineStats()
+    {
+        return new Function<PipelineStats, PipelineStats>()
+        {
+            @Override
+            public PipelineStats apply(PipelineStats input)
+            {
+                return input.summarize();
+            }
+        };
     }
 }

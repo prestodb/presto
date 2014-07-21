@@ -67,14 +67,14 @@ public class TestDateTimeOperators
         assertFunction("INTERVAL '3' year + DATE '2001-1-22'", new SqlDate(new DateTime(2004, 1, 22, 0, 0, 0, 0, TIME_ZONE).getMillis(), TIME_ZONE_KEY));
 
         try {
-            functionAssertions.selectSingleValue("DATE '2001-1-22' + INTERVAL '3' hour");
+            functionAssertions.tryEvaluate("DATE '2001-1-22' + INTERVAL '3' hour");
             fail("Expected IllegalArgumentException");
         }
         catch (IllegalArgumentException expected) {
         }
 
         try {
-            functionAssertions.selectSingleValue("INTERVAL '3' hour + DATE '2001-1-22'");
+            functionAssertions.tryEvaluate("INTERVAL '3' hour + DATE '2001-1-22'");
             fail("Expected IllegalArgumentException");
         }
         catch (IllegalArgumentException expected) {
@@ -163,7 +163,7 @@ public class TestDateTimeOperators
         assertFunction("DATE '2001-1-22' - INTERVAL '3' day", new SqlDate(new DateTime(2001, 1, 19, 0, 0, 0, 0, TIME_ZONE).getMillis(), TIME_ZONE_KEY));
 
         try {
-            functionAssertions.selectSingleValue("DATE '2001-1-22' - INTERVAL '3' hour");
+            functionAssertions.tryEvaluate("DATE '2001-1-22' - INTERVAL '3' hour");
             fail("Expected IllegalArgumentException");
         }
         catch (IllegalArgumentException expected) {
@@ -199,6 +199,10 @@ public class TestDateTimeOperators
                 new SqlTimestamp(new DateTime(2001, 1, 19, 3, 4, 5, 321, TIME_ZONE).getMillis(), TIME_ZONE_KEY));
         assertFunction("TIMESTAMP '2001-1-22 03:04:05.321 +05:09' - INTERVAL '3' day",
                 new SqlTimestampWithTimeZone(new DateTime(2001, 1, 19, 3, 4, 5, 321, WEIRD_TIME_ZONE).getMillis(), WEIRD_TIME_ZONE_KEY));
+        assertFunction("TIMESTAMP '2001-1-22 03:04:05.321' - INTERVAL '3' month",
+                new SqlTimestamp(new DateTime(2000, 10, 22, 3, 4, 5, 321, TIME_ZONE).getMillis(), TIME_ZONE_KEY));
+        assertFunction("TIMESTAMP '2001-1-22 03:04:05.321 +05:09' - INTERVAL '3' month",
+                new SqlTimestampWithTimeZone(new DateTime(2000, 10, 22, 3, 4, 5, 321, WEIRD_TIME_ZONE).getMillis(), WEIRD_TIME_ZONE_KEY));
     }
 
     @Test
@@ -211,6 +215,24 @@ public class TestDateTimeOperators
         assertFunction("TIMESTAMP '2013-03-31 04:05' - INTERVAL '3' hour", new SqlTimestamp(new DateTime(2013, 3, 31, 0, 5, 0, 0, TIME_ZONE).getMillis(), TIME_ZONE_KEY));
         assertFunction("TIMESTAMP '2013-03-31 03:05' - INTERVAL '2' hour", new SqlTimestamp(new DateTime(2013, 3, 31, 0, 5, 0, 0, TIME_ZONE).getMillis(), TIME_ZONE_KEY));
         assertFunction("TIMESTAMP '2013-03-31 01:05' - INTERVAL '1' hour", new SqlTimestamp(new DateTime(2013, 3, 31, 0, 5, 0, 0, TIME_ZONE).getMillis(), TIME_ZONE_KEY));
+    }
+
+    @Test
+    public void testDateToTimestampCoercing()
+    {
+        assertFunction("date_format(DATE '2013-10-27', '%Y-%m-%d %H:%i:%s')", "2013-10-27 00:00:00");
+
+        assertFunction("DATE '2013-10-27' = TIMESTAMP '2013-10-27 00:00:00'", true);
+        assertFunction("DATE '2013-10-27' < TIMESTAMP '2013-10-27 00:00:01'", true);
+        assertFunction("DATE '2013-10-27' > TIMESTAMP '2013-10-26 23:59:59'", true);
+    }
+
+    @Test
+    public void testDateToTimestampWithZoneCoercing()
+    {
+        assertFunction("DATE '2013-10-27' = TIMESTAMP '2013-10-27 00:00:00 Europe/Berlin'", true);
+        assertFunction("DATE '2013-10-27' < TIMESTAMP '2013-10-27 00:00:01 Europe/Berlin'", true);
+        assertFunction("DATE '2013-10-27' > TIMESTAMP '2013-10-26 23:59:59 Europe/Berlin'", true);
     }
 
     @Test

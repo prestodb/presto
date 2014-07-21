@@ -55,6 +55,7 @@ import java.util.Properties;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
+import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.google.common.collect.Iterables.transform;
 import static org.apache.hadoop.hive.serde2.objectinspector.ObjectInspectorFactory.getStandardListObjectInspector;
@@ -301,6 +302,9 @@ public abstract class AbstractTestHiveFileFormats
                     fieldFromCursor = cursor.getDouble(i);
                 }
                 else if (VARCHAR.equals(type)) {
+                    fieldFromCursor = cursor.getSlice(i);
+                }
+                else if (VARBINARY.equals(type)) {
                     fieldFromCursor = cursor.getSlice(i);
                 }
                 else if (TimestampType.TIMESTAMP.equals(type)) {

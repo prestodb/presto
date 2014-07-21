@@ -13,8 +13,7 @@
  */
 package com.facebook.presto.operator;
 
-import com.facebook.presto.spi.block.BlockCursor;
-import com.facebook.presto.spi.block.RandomAccessBlock;
+import com.facebook.presto.spi.block.Block;
 
 import java.util.List;
 
@@ -22,12 +21,12 @@ import java.util.List;
 public class TwoChannelPagesHashStrategy
         implements PagesHashStrategy
 {
-    private final List<RandomAccessBlock> channelA;
-    private final List<RandomAccessBlock> channelB;
-    private final List<RandomAccessBlock> hashChannelA;
-    private final List<RandomAccessBlock> hashChannelB;
+    private final List<Block> channelA;
+    private final List<Block> channelB;
+    private final List<Block> hashChannelA;
+    private final List<Block> hashChannelB;
 
-    public TwoChannelPagesHashStrategy(List<List<RandomAccessBlock>> channels)
+    public TwoChannelPagesHashStrategy(List<List<Block>> channels)
     {
         this.channelA = channels.get(0);
         this.channelB = channels.get(1);
@@ -58,12 +57,12 @@ public class TwoChannelPagesHashStrategy
     }
 
     @Override
-    public boolean positionEqualsCursors(int blockIndex, int blockPosition, BlockCursor[] cursors)
+    public boolean positionEqualsRow(int leftBlockIndex, int leftBlockPosition, int rightPosition, Block[] rightBlocks)
     {
-        if (!hashChannelA.get(blockIndex).equalTo(blockPosition, cursors[0])) {
+        if (!hashChannelA.get(leftBlockIndex).equalTo(leftBlockPosition, rightBlocks[0], rightPosition)) {
             return false;
         }
-        if (!hashChannelB.get(blockIndex).equalTo(blockPosition, cursors[1])) {
+        if (!hashChannelB.get(leftBlockIndex).equalTo(leftBlockPosition, rightBlocks[1], rightPosition)) {
             return false;
         }
         return true;

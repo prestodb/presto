@@ -16,13 +16,12 @@ package com.facebook.presto.spi.block;
 import org.testng.annotations.Test;
 
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
-import static io.airlift.slice.SizeOf.SIZE_OF_BYTE;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
 
 public class TestFixedWidthBlockBuilder
 {
-    private static final int BOOLEAN_ENTRY_SIZE = BOOLEAN.getFixedSize() + SIZE_OF_BYTE;
+    private static final int BOOLEAN_ENTRY_SIZE = BOOLEAN.getFixedSize();
     private static final int EXPECTED_ENTRY_COUNT = 3;
 
     @Test
@@ -34,7 +33,7 @@ public class TestFixedWidthBlockBuilder
         testIsFull(new FixedWidthBlockBuilder(BOOLEAN, new BlockBuilderStatus(1024, BOOLEAN_ENTRY_SIZE * EXPECTED_ENTRY_COUNT)));
     }
 
-    private void testIsFull(FixedWidthBlockBuilder blockBuilder)
+    private static void testIsFull(FixedWidthBlockBuilder blockBuilder)
     {
         assertTrue(blockBuilder.isEmpty());
         while (!blockBuilder.isFull()) {

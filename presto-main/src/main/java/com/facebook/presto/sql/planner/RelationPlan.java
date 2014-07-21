@@ -35,7 +35,8 @@ class RelationPlan
         checkNotNull(outputSymbols, "outputSymbols is null");
         checkNotNull(descriptor, "descriptor is null");
 
-        checkArgument(descriptor.getFields().size() == outputSymbols.size(), "Number of outputs (%s) doesn't match descriptor size (%s)", outputSymbols.size(), descriptor.getFields().size());
+        checkArgument(descriptor.getAllFieldCount() == outputSymbols.size(),
+                "Number of outputs (%s) doesn't match descriptor size (%s)", outputSymbols.size(), descriptor.getAllFieldCount());
 
         this.root = root;
         this.descriptor = descriptor;

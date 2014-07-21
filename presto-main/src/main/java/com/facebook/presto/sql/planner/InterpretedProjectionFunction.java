@@ -17,12 +17,12 @@ import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.operator.ProjectionFunction;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.RecordCursor;
+import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.block.BlockCursor;
 import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.ExpressionTreeRewriter;
-import com.facebook.presto.sql.tree.Input;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.Slice;
 
@@ -38,21 +38,23 @@ public class InterpretedProjectionFunction
     private final Type type;
     private final ExpressionInterpreter evaluator;
 
-    public InterpretedProjectionFunction(Expression expression,
+    public InterpretedProjectionFunction(
+            Expression expression,
             Map<Symbol, Type> symbolTypes,
-            Map<Symbol, Input> symbolToInputMappings,
+            Map<Symbol, Integer> symbolToInputMappings,
             Metadata metadata,
+            SqlParser sqlParser,
             ConnectorSession session)
     {
         // pre-compute symbol -> input mappings and replace the corresponding nodes in the tree
         Expression rewritten = ExpressionTreeRewriter.rewriteWith(new SymbolToInputRewriter(symbolToInputMappings), expression);
 
         // analyze expression so we can know the type of every expression in the tree
-        ImmutableMap.Builder<Input, Type> inputTypes = ImmutableMap.builder();
-        for (Map.Entry<Symbol, Input> entry : symbolToInputMappings.entrySet()) {
+        ImmutableMap.Builder<Integer, Type> inputTypes = ImmutableMap.builder();
+        for (Map.Entry<Symbol, Integer> entry : symbolToInputMappings.entrySet()) {
             inputTypes.put(entry.getValue(), symbolTypes.get(entry.getKey()));
         }
-        IdentityHashMap<Expression, Type> expressionTypes = getExpressionTypesFromInput(session, metadata, inputTypes.build(), rewritten);
+        IdentityHashMap<Expression, Type> expressionTypes = getExpressionTypesFromInput(session, metadata, sqlParser, inputTypes.build(), rewritten);
         this.type = checkNotNull(expressionTypes.get(rewritten), "type is null");
 
         evaluator = ExpressionInterpreter.expressionInterpreter(rewritten, metadata, session, expressionTypes);
@@ -65,9 +67,9 @@ public class InterpretedProjectionFunction
     }
 
     @Override
-    public void project(BlockCursor[] cursors, BlockBuilder output)
+    public void project(int position, Block[] blocks, BlockBuilder output)
     {
-        Object value = evaluator.evaluate(cursors);
+        Object value = evaluator.evaluate(position, blocks);
         append(output, value);
     }
 

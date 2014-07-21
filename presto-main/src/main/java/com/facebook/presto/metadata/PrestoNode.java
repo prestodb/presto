@@ -105,16 +105,4 @@ public class PrestoNode
             }
         };
     }
-
-    public static Function<Node, HostAddress> hostAndPortGetter()
-    {
-        return new Function<Node, HostAddress>()
-        {
-            @Override
-            public HostAddress apply(Node node)
-            {
-                return node.getHostAndPort();
-            }
-        };
-    }
 }

@@ -19,9 +19,10 @@ import com.google.common.base.Throwables;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
-import org.apache.hadoop.hive.metastore.api.MetaException;
+import org.apache.hadoop.hive.common.JavaUtils;
 import org.apache.hadoop.hive.metastore.api.Table;
 import org.apache.hadoop.hive.ql.io.SymlinkTextInputFormat;
+import org.apache.hadoop.hive.serde2.Deserializer;
 import org.apache.hadoop.hive.serde2.SerDeException;
 import org.apache.hadoop.hive.serde2.objectinspector.ObjectInspector;
 import org.apache.hadoop.hive.serde2.objectinspector.PrimitiveObjectInspector;
@@ -43,13 +44,20 @@ import java.util.List;
 import java.util.Properties;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static org.apache.hadoop.hive.metastore.MetaStoreUtils.getDeserializer;
+import static com.google.common.io.BaseEncoding.base64;
+import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.apache.hadoop.hive.metastore.MetaStoreUtils.getTableMetadata;
 import static org.apache.hadoop.hive.metastore.api.hive_metastoreConstants.FILE_INPUT_FORMAT;
+import static org.apache.hadoop.hive.serde.serdeConstants.SERIALIZATION_LIB;
 import static org.apache.hadoop.hive.serde2.objectinspector.ObjectInspector.Category;
 
-final class HiveUtil
+public final class HiveUtil
 {
+    public static final String PRESTO_VIEW_FLAG = "presto_view";
+
+    private static final String VIEW_PREFIX = "/* Presto View: ";
+    private static final String VIEW_SUFFIX = " */";
+
     private static final DateTimeFormatter HIVE_TIMESTAMP_PARSER = new DateTimeFormatterBuilder()
             .append(DateTimeFormat.forPattern("yyyy-MM-dd HH:mm:ss"))
             .appendOptional(DateTimeFormat.forPattern(".SSSSSSSSS").getParser())
@@ -143,12 +151,17 @@ final class HiveUtil
 
     public static StructObjectInspector getTableObjectInspector(Properties schema)
     {
+        return getTableObjectInspector(getDeserializer(schema));
+    }
+
+    public static StructObjectInspector getTableObjectInspector(Deserializer deserializer)
+    {
         try {
-            ObjectInspector inspector = getDeserializer(null, schema).getObjectInspector();
+            ObjectInspector inspector = deserializer.getObjectInspector();
             checkArgument(inspector.getCategory() == Category.STRUCT, "expected STRUCT: %s", inspector.getCategory());
             return (StructObjectInspector) inspector;
         }
-        catch (SerDeException | MetaException e) {
+        catch (SerDeException e) {
             throw Throwables.propagate(e);
         }
     }
@@ -156,5 +169,71 @@ final class HiveUtil
     public static List<? extends StructField> getTableStructFields(Table table)
     {
         return getTableObjectInspector(getTableMetadata(table)).getAllStructFieldRefs();
+    }
+
+    @SuppressWarnings("deprecation")
+    public static Deserializer getDeserializer(Properties schema)
+    {
+        String name = schema.getProperty(SERIALIZATION_LIB);
+        checkArgument(name != null, "missing property: %s", SERIALIZATION_LIB);
+
+        Deserializer deserializer = createDeserializer(getDeserializerClass(name));
+        initializeDeserializer(deserializer, schema);
+        return deserializer;
+    }
+
+    @SuppressWarnings("deprecation")
+    private static Class<? extends Deserializer> getDeserializerClass(String name)
+    {
+        try {
+            return Class.forName(name, true, JavaUtils.getClassLoader()).asSubclass(Deserializer.class);
+        }
+        catch (ClassNotFoundException e) {
+            throw new RuntimeException("deserializer does not exist: " + name);
+        }
+        catch (ClassCastException e) {
+            throw new RuntimeException("invalid deserializer class: " + name);
+        }
+    }
+
+    @SuppressWarnings("deprecation")
+    private static Deserializer createDeserializer(Class<? extends Deserializer> clazz)
+    {
+        try {
+            return clazz.getConstructor().newInstance();
+        }
+        catch (ReflectiveOperationException e) {
+            throw new RuntimeException("error creating deserializer: " + clazz.getName(), e);
+        }
+    }
+
+    @SuppressWarnings("deprecation")
+    private static void initializeDeserializer(Deserializer deserializer, Properties schema)
+    {
+        try {
+            deserializer.initialize(null, schema);
+        }
+        catch (SerDeException e) {
+            throw new RuntimeException("error initializing deserializer: " + deserializer.getClass().getName());
+        }
+    }
+
+    public static boolean isPrestoView(Table table)
+    {
+        return "true".equals(table.getParameters().get(PRESTO_VIEW_FLAG));
+    }
+
+    public static String encodeViewData(String data)
+    {
+        return VIEW_PREFIX + base64().encode(data.getBytes(UTF_8)) + VIEW_SUFFIX;
+    }
+
+    public static String decodeViewData(String data)
+    {
+        checkArgument(data.startsWith(VIEW_PREFIX), "View data missing prefix: %s", data);
+        checkArgument(data.endsWith(VIEW_SUFFIX), "View data missing suffix: %s", data);
+        data = data.substring(VIEW_PREFIX.length());
+        data = data.substring(0, data.length() - VIEW_SUFFIX.length());
+        return new String(base64().decode(data), UTF_8);
     }
 }

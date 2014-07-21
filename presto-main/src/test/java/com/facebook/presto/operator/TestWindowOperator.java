@@ -16,11 +16,17 @@ package com.facebook.presto.operator;
 import com.facebook.presto.ExceededMemoryLimitException;
 import com.facebook.presto.execution.TaskId;
 import com.facebook.presto.operator.WindowOperator.WindowOperatorFactory;
+import com.facebook.presto.operator.window.FirstValueFunction.VarcharFirstValueFunction;
+import com.facebook.presto.operator.window.LagFunction.VarcharLagFunction;
+import com.facebook.presto.operator.window.LastValueFunction.VarcharLastValueFunction;
+import com.facebook.presto.operator.window.LeadFunction.VarcharLeadFunction;
+import com.facebook.presto.operator.window.NthValueFunction.VarcharNthValueFunction;
+import com.facebook.presto.operator.window.ReflectionWindowFunctionSupplier;
 import com.facebook.presto.operator.window.RowNumberFunction;
-import com.facebook.presto.operator.window.WindowFunction;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.block.SortOrder;
-import com.facebook.presto.util.MaterializedResult;
+import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.testing.MaterializedResult;
 import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Ints;
 import io.airlift.units.DataSize;
@@ -36,19 +42,42 @@ import java.util.concurrent.ExecutorService;
 import static com.facebook.presto.operator.OperatorAssertion.assertOperatorEquals;
 import static com.facebook.presto.operator.OperatorAssertion.toPages;
 import static com.facebook.presto.operator.RowPagesBuilder.rowPagesBuilder;
+import static com.facebook.presto.operator.WindowFunctionDefinition.window;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.TimeZoneKey.UTC_KEY;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
-import static com.facebook.presto.util.MaterializedResult.resultBuilder;
+import static com.facebook.presto.testing.MaterializedResult.resultBuilder;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 
 @Test(singleThreaded = true)
 public class TestWindowOperator
 {
-    private static final List<WindowFunction> ROW_NUMBER = ImmutableList.<WindowFunction>of(new RowNumberFunction());
+    private static final List<WindowFunctionDefinition> ROW_NUMBER = ImmutableList.of(
+            window(new ReflectionWindowFunctionSupplier<>("row_number", BIGINT, ImmutableList.<Type>of(), RowNumberFunction.class))
+    );
+
+    private static final List<WindowFunctionDefinition> FIRST_VALUE = ImmutableList.of(
+            window(new ReflectionWindowFunctionSupplier<>("first_value", VARCHAR, ImmutableList.<Type>of(VARCHAR), VarcharFirstValueFunction.class), 1)
+    );
+
+    private static final List<WindowFunctionDefinition> LAST_VALUE = ImmutableList.of(
+            window(new ReflectionWindowFunctionSupplier<>("last_value", VARCHAR, ImmutableList.<Type>of(VARCHAR), VarcharLastValueFunction.class), 1)
+    );
+
+    private static final List<WindowFunctionDefinition> NTH_VALUE = ImmutableList.of(
+            window(new ReflectionWindowFunctionSupplier<>("nth_value", VARCHAR, ImmutableList.of(VARCHAR, BIGINT), VarcharNthValueFunction.class), 1, 3)
+    );
+
+    private static final List<WindowFunctionDefinition> LAG = ImmutableList.of(
+            window(new ReflectionWindowFunctionSupplier<>("lag", VARCHAR, ImmutableList.of(VARCHAR, BIGINT, VARCHAR), VarcharLagFunction.class), 1, 3, 4)
+    );
+
+    private static final List<WindowFunctionDefinition> LEAD = ImmutableList.of(
+            window(new ReflectionWindowFunctionSupplier<>("lead", VARCHAR, ImmutableList.of(VARCHAR, BIGINT, VARCHAR), VarcharLeadFunction.class), 1, 3, 4)
+    );
 
     private ExecutorService executor;
     private DriverContext driverContext;
@@ -212,5 +241,195 @@ public class TestWindowOperator
         Operator operator = operatorFactory.createOperator(driverContext);
 
         toPages(operator, input);
+    }
+
+    @Test
+    public void testFirstValuePartition()
+            throws Exception
+    {
+        List<Page> input = rowPagesBuilder(VARCHAR, VARCHAR, BIGINT, BOOLEAN, VARCHAR)
+                .row("b", "A1", 1, true, "")
+                .row("a", "A2", 1, false, "")
+                .row("a", "B1", 2, true, "")
+                .pageBreak()
+                .row("b", "C1", 2, false, "")
+                .row("a", "C2", 3, true, "")
+                .row("c", "A3", 1, true, "")
+                .build();
+
+        WindowOperatorFactory operatorFactory = new WindowOperatorFactory(
+                0,
+                ImmutableList.of(VARCHAR, VARCHAR, BIGINT, BOOLEAN, VARCHAR),
+                Ints.asList(0, 1, 2, 3),
+                FIRST_VALUE,
+                Ints.asList(0),
+                Ints.asList(2),
+                ImmutableList.copyOf(new SortOrder[] {SortOrder.ASC_NULLS_LAST}),
+                100);
+
+        Operator operator = operatorFactory.createOperator(driverContext);
+
+        MaterializedResult expected = resultBuilder(driverContext.getSession(), VARCHAR, VARCHAR, BIGINT, BOOLEAN, VARCHAR)
+                .row("a", "A2", 1, false, "A2")
+                .row("a", "B1", 2, true, "A2")
+                .row("a", "C2", 3, true, "A2")
+                .row("b", "A1", 1, true, "A1")
+                .row("b", "C1", 2, false, "A1")
+                .row("c", "A3", 1, true, "A3")
+                .build();
+
+        assertOperatorEquals(operator, input, expected);
+    }
+
+    @Test
+    public void testLastValuePartition()
+            throws Exception
+    {
+        List<Page> input = rowPagesBuilder(VARCHAR, VARCHAR, BIGINT, BOOLEAN, VARCHAR)
+                .row("b", "A1", 1, true, "")
+                .row("a", "A2", 1, false, "")
+                .row("a", "B1", 2, true, "")
+                .pageBreak()
+                .row("b", "C1", 2, false, "")
+                .row("a", "C2", 3, true, "")
+                .row("c", "A3", 1, true, "")
+                .build();
+
+        WindowOperatorFactory operatorFactory = new WindowOperatorFactory(
+                0,
+                ImmutableList.of(VARCHAR, VARCHAR, BIGINT, BOOLEAN, VARCHAR),
+                Ints.asList(0, 1, 2, 3),
+                LAST_VALUE,
+                Ints.asList(0),
+                Ints.asList(2),
+                ImmutableList.copyOf(new SortOrder[] {SortOrder.ASC_NULLS_LAST}),
+                100);
+
+        Operator operator = operatorFactory.createOperator(driverContext);
+
+        MaterializedResult expected = resultBuilder(driverContext.getSession(), VARCHAR, VARCHAR, BIGINT, BOOLEAN, VARCHAR)
+                .row("a", "A2", 1, false, "C2")
+                .row("a", "B1", 2, true, "C2")
+                .row("a", "C2", 3, true, "C2")
+                .row("b", "A1", 1, true, "C1")
+                .row("b", "C1", 2, false, "C1")
+                .row("c", "A3", 1, true, "A3")
+                .build();
+
+        assertOperatorEquals(operator, input, expected);
+    }
+
+    @Test
+    public void testNthValuePartition()
+            throws Exception
+    {
+        List<Page> input = rowPagesBuilder(VARCHAR, VARCHAR, BIGINT, BIGINT, BOOLEAN, VARCHAR)
+                .row("b", "A1", 1, 2, true, "")
+                .row("a", "A2", 1, 3, false, "")
+                .row("a", "B1", 2, 2, true, "")
+                .pageBreak()
+                .row("b", "C1", 2, 3, false, "")
+                .row("a", "C2", 3, 1, true, "")
+                .row("c", "A3", 1, null, true, "")
+                .build();
+
+        WindowOperatorFactory operatorFactory = new WindowOperatorFactory(
+                0,
+                ImmutableList.of(VARCHAR, VARCHAR, BIGINT, BIGINT, BOOLEAN, VARCHAR),
+                Ints.asList(0, 1, 2, 4),
+                NTH_VALUE,
+                Ints.asList(0),
+                Ints.asList(2),
+                ImmutableList.copyOf(new SortOrder[] {SortOrder.ASC_NULLS_LAST}),
+                100);
+
+        Operator operator = operatorFactory.createOperator(driverContext);
+
+        MaterializedResult expected = resultBuilder(driverContext.getSession(), VARCHAR, VARCHAR, BIGINT, BOOLEAN, VARCHAR)
+                .row("a", "A2", 1, false, "C2")
+                .row("a", "B1", 2, true, "B1")
+                .row("a", "C2", 3, true, "A2")
+                .row("b", "A1", 1, true, "C1")
+                .row("b", "C1", 2, false, null)
+                .row("c", "A3", 1, true, null)
+                .build();
+
+        assertOperatorEquals(operator, input, expected);
+    }
+
+    @Test
+    public void testLagPartition()
+            throws Exception
+    {
+        List<Page> input = rowPagesBuilder(VARCHAR, VARCHAR, BIGINT, BIGINT, VARCHAR, BOOLEAN, VARCHAR)
+                .row("b", "A1", 1, 1, "D", true, "")
+                .row("a", "A2", 1, 2, "D", false, "")
+                .row("a", "B1", 2, 2, "D", true, "")
+                .pageBreak()
+                .row("b", "C1", 2, 1, "D", false, "")
+                .row("a", "C2", 3, 2, "D", true, "")
+                .row("c", "A3", 1, 1, "D", true, "")
+                .build();
+
+        WindowOperatorFactory operatorFactory = new WindowOperatorFactory(
+                0,
+                ImmutableList.of(VARCHAR, VARCHAR, BIGINT, BIGINT, VARCHAR, BOOLEAN, VARCHAR),
+                Ints.asList(0, 1, 2, 5),
+                LAG,
+                Ints.asList(0),
+                Ints.asList(2),
+                ImmutableList.copyOf(new SortOrder[] {SortOrder.ASC_NULLS_LAST}),
+                100);
+
+        Operator operator = operatorFactory.createOperator(driverContext);
+
+        MaterializedResult expected = resultBuilder(driverContext.getSession(), VARCHAR, VARCHAR, BIGINT, BOOLEAN, VARCHAR)
+                .row("a", "A2", 1, false, "D")
+                .row("a", "B1", 2, true, "D")
+                .row("a", "C2", 3, true, "A2")
+                .row("b", "A1", 1, true, "D")
+                .row("b", "C1", 2, false, "A1")
+                .row("c", "A3", 1, true, "D")
+                .build();
+
+        assertOperatorEquals(operator, input, expected);
+    }
+
+    @Test
+    public void testLeadPartition()
+            throws Exception
+    {
+        List<Page> input = rowPagesBuilder(VARCHAR, VARCHAR, BIGINT, BIGINT, VARCHAR, BOOLEAN, VARCHAR)
+                .row("b", "A1", 1, 1, "D", true, "")
+                .row("a", "A2", 1, 2, "D", false, "")
+                .row("a", "B1", 2, 2, "D", true, "")
+                .pageBreak()
+                .row("b", "C1", 2, 1, "D", false, "")
+                .row("a", "C2", 3, 2, "D", true, "")
+                .row("c", "A3", 1, 1, "D", true, "")
+                .build();
+
+        WindowOperatorFactory operatorFactory = new WindowOperatorFactory(
+                0,
+                ImmutableList.of(VARCHAR, VARCHAR, BIGINT, BIGINT, VARCHAR, BOOLEAN, VARCHAR),
+                Ints.asList(0, 1, 2, 5),
+                LEAD,
+                Ints.asList(0),
+                Ints.asList(2),
+                ImmutableList.copyOf(new SortOrder[] {SortOrder.ASC_NULLS_LAST}),
+                100);
+
+        Operator operator = operatorFactory.createOperator(driverContext);
+
+        MaterializedResult expected = resultBuilder(driverContext.getSession(), VARCHAR, VARCHAR, BIGINT, BOOLEAN, VARCHAR)
+                .row("a", "A2", 1, false, "C2")
+                .row("a", "B1", 2, true, "D")
+                .row("a", "C2", 3, true, "D")
+                .row("b", "A1", 1, true, "C1")
+                .row("b", "C1", 2, false, "D")
+                .row("c", "A3", 1, true, "D")
+                .build();
+
+        assertOperatorEquals(operator, input, expected);
     }
 }

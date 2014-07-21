@@ -18,6 +18,7 @@ import com.google.common.base.Objects;
 import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
 import io.airlift.log.Logger;
+import io.airlift.slice.Slice;
 import org.apache.hadoop.hive.metastore.api.Table;
 import org.apache.hadoop.hive.ql.io.DefaultHivePartitioner;
 import org.apache.hadoop.hive.ql.io.HiveKey;
@@ -117,6 +118,7 @@ final class HiveBucketing
     public static Optional<HiveBucket> getHiveBucket(List<Entry<ObjectInspector, Object>> columnBindings, int bucketCount)
     {
         try {
+            @SuppressWarnings("resource")
             GenericUDFHash udf = new GenericUDFHash();
             ObjectInspector[] objectInspectors = new ObjectInspector[columnBindings.size()];
             DeferredObject[] deferredObjects = new DeferredObject[columnBindings.size()];
@@ -182,7 +184,7 @@ final class HiveBucketing
             case LONG:
                 return new DeferredJavaObject(object);
             case STRING:
-                return new DeferredJavaObject(object);
+                return new DeferredJavaObject(((Slice) object).toStringUtf8());
         }
         throw new RuntimeException("Unsupported type: " + poi.getPrimitiveCategory());
     }

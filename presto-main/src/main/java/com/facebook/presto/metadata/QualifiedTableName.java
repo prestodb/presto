@@ -14,7 +14,6 @@
 package com.facebook.presto.metadata;
 
 import com.facebook.presto.spi.SchemaTableName;
-import com.facebook.presto.sql.tree.QualifiedName;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonValue;
 import com.google.common.base.Function;
@@ -67,11 +66,6 @@ public class QualifiedTableName
     public String getTableName()
     {
         return tableName;
-    }
-
-    public QualifiedName asQualifiedName()
-    {
-        return new QualifiedName(ImmutableList.of(catalogName, schemaName, tableName));
     }
 
     public SchemaTableName asSchemaTableName()

@@ -14,12 +14,11 @@
 package com.facebook.presto.sql.gen;
 
 import com.facebook.presto.block.BlockAssertions;
-import com.facebook.presto.spi.block.BlockCursor;
-import com.facebook.presto.spi.block.RandomAccessBlock;
 import com.facebook.presto.operator.Page;
 import com.facebook.presto.operator.PageBuilder;
 import com.facebook.presto.operator.PagesHashStrategy;
 import com.facebook.presto.operator.SimplePagesHashStrategy;
+import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.sql.gen.JoinCompiler.PagesHashStrategyFactory;
 import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Ints;
@@ -47,10 +46,10 @@ public class TestJoinCompiler
         PagesHashStrategyFactory pagesHashStrategyFactory = joinCompiler.compilePagesHashStrategy(1, Ints.asList(0));
 
         // crate hash strategy with a single channel blocks -- make sure there is some overlap in values
-        List<RandomAccessBlock> channel = ImmutableList.of(
-                BlockAssertions.createStringSequenceBlock(10, 20).toRandomAccessBlock(),
-                BlockAssertions.createStringSequenceBlock(20, 30).toRandomAccessBlock(),
-                BlockAssertions.createStringSequenceBlock(15, 25).toRandomAccessBlock());
+        List<Block> channel = ImmutableList.of(
+                BlockAssertions.createStringSequenceBlock(10, 20),
+                BlockAssertions.createStringSequenceBlock(20, 30),
+                BlockAssertions.createStringSequenceBlock(15, 25));
         PagesHashStrategy hashStrategy = pagesHashStrategyFactory.createPagesHashStrategy(ImmutableList.of(channel));
 
         // verify channel count
@@ -58,7 +57,7 @@ public class TestJoinCompiler
 
         // verify hashStrategy is consistent with equals and hash code from block
         for (int leftBlockIndex = 0; leftBlockIndex < channel.size(); leftBlockIndex++) {
-            RandomAccessBlock leftBlock = channel.get(leftBlockIndex);
+            Block leftBlock = channel.get(leftBlockIndex);
 
             PageBuilder pageBuilder = new PageBuilder(ImmutableList.of(VARCHAR));
 
@@ -71,7 +70,7 @@ public class TestJoinCompiler
 
                 // check equality of every position against every other position in the block
                 for (int rightBlockIndex = 0; rightBlockIndex < channel.size(); rightBlockIndex++) {
-                    RandomAccessBlock rightBlock = channel.get(rightBlockIndex);
+                    Block rightBlock = channel.get(rightBlockIndex);
                     for (int rightBlockPosition = 0; rightBlockPosition < rightBlock.getPositionCount(); rightBlockPosition++) {
                         assertEquals(
                                 hashStrategy.positionEqualsPosition(leftBlockIndex, leftBlockPosition, rightBlockIndex, rightBlockPosition),
@@ -80,13 +79,11 @@ public class TestJoinCompiler
                 }
 
                 // check equality of every position against every other position in the block cursor
-                for (RandomAccessBlock rightBlock : channel) {
-                    BlockCursor rightCursor = rightBlock.cursor();
-                    BlockCursor[] rightCursors = new BlockCursor[]{rightCursor};
-                    while (rightCursor.advanceNextPosition()) {
+                for (Block rightBlock : channel) {
+                    for (int position = 0; position < rightBlock.getPositionCount(); position++) {
                         assertEquals(
-                                hashStrategy.positionEqualsCursors(leftBlockIndex, leftBlockPosition, rightCursors),
-                                leftBlock.equalTo(leftBlockPosition, rightCursor));
+                                hashStrategy.positionEqualsRow(leftBlockIndex, leftBlockPosition, position, rightBlock),
+                                leftBlock.equalTo(leftBlockPosition, rightBlock, position));
                     }
                 }
 
@@ -108,27 +105,27 @@ public class TestJoinCompiler
         PagesHashStrategyFactory pagesHashStrategyFactory = joinCompiler.compilePagesHashStrategy(5, Ints.asList(1, 2, 3, 4));
 
         // crate hash strategy with a single channel blocks -- make sure there is some overlap in values
-        List<RandomAccessBlock> extraChannel = ImmutableList.of(
-                BlockAssertions.createStringSequenceBlock(10, 20).toRandomAccessBlock(),
-                BlockAssertions.createStringSequenceBlock(20, 30).toRandomAccessBlock(),
-                BlockAssertions.createStringSequenceBlock(15, 25).toRandomAccessBlock());
-        List<RandomAccessBlock> varcharChannel = ImmutableList.of(
-                BlockAssertions.createStringSequenceBlock(10, 20).toRandomAccessBlock(),
-                BlockAssertions.createStringSequenceBlock(20, 30).toRandomAccessBlock(),
-                BlockAssertions.createStringSequenceBlock(15, 25).toRandomAccessBlock());
-        List<RandomAccessBlock> longChannel = ImmutableList.of(
-                BlockAssertions.createLongSequenceBlock(10, 20).toRandomAccessBlock(),
-                BlockAssertions.createLongSequenceBlock(20, 30).toRandomAccessBlock(),
-                BlockAssertions.createLongSequenceBlock(15, 25).toRandomAccessBlock());
-        List<RandomAccessBlock> doubleChannel = ImmutableList.of(
-                BlockAssertions.createDoubleSequenceBlock(10, 20).toRandomAccessBlock(),
-                BlockAssertions.createDoubleSequenceBlock(20, 30).toRandomAccessBlock(),
-                BlockAssertions.createDoubleSequenceBlock(15, 25).toRandomAccessBlock());
-        List<RandomAccessBlock> booleanChannel = ImmutableList.of(
-                BlockAssertions.createBooleanSequenceBlock(10, 20).toRandomAccessBlock(),
-                BlockAssertions.createBooleanSequenceBlock(20, 30).toRandomAccessBlock(),
-                BlockAssertions.createBooleanSequenceBlock(15, 25).toRandomAccessBlock());
-        ImmutableList<List<RandomAccessBlock>> channels = ImmutableList.of(extraChannel, varcharChannel, longChannel, doubleChannel, booleanChannel);
+        List<Block> extraChannel = ImmutableList.of(
+                BlockAssertions.createStringSequenceBlock(10, 20),
+                BlockAssertions.createStringSequenceBlock(20, 30),
+                BlockAssertions.createStringSequenceBlock(15, 25));
+        List<Block> varcharChannel = ImmutableList.of(
+                BlockAssertions.createStringSequenceBlock(10, 20),
+                BlockAssertions.createStringSequenceBlock(20, 30),
+                BlockAssertions.createStringSequenceBlock(15, 25));
+        List<Block> longChannel = ImmutableList.of(
+                BlockAssertions.createLongSequenceBlock(10, 20),
+                BlockAssertions.createLongSequenceBlock(20, 30),
+                BlockAssertions.createLongSequenceBlock(15, 25));
+        List<Block> doubleChannel = ImmutableList.of(
+                BlockAssertions.createDoubleSequenceBlock(10, 20),
+                BlockAssertions.createDoubleSequenceBlock(20, 30),
+                BlockAssertions.createDoubleSequenceBlock(15, 25));
+        List<Block> booleanChannel = ImmutableList.of(
+                BlockAssertions.createBooleanSequenceBlock(10, 20),
+                BlockAssertions.createBooleanSequenceBlock(20, 30),
+                BlockAssertions.createBooleanSequenceBlock(15, 25));
+        ImmutableList<List<Block>> channels = ImmutableList.of(extraChannel, varcharChannel, longChannel, doubleChannel, booleanChannel);
         PagesHashStrategy hashStrategy = pagesHashStrategyFactory.createPagesHashStrategy(channels);
 
         // verify channel count
@@ -152,7 +149,7 @@ public class TestJoinCompiler
 
                 // check equality of every position against every other position in the block
                 for (int rightBlockIndex = 0; rightBlockIndex < varcharChannel.size(); rightBlockIndex++) {
-                    RandomAccessBlock rightBlock = varcharChannel.get(rightBlockIndex);
+                    Block rightBlock = varcharChannel.get(rightBlockIndex);
                     for (int rightBlockPosition = 0; rightBlockPosition < rightBlock.getPositionCount(); rightBlockPosition++) {
                         assertEquals(
                                 hashStrategy.positionEqualsPosition(leftBlockIndex, leftBlockPosition, rightBlockIndex, rightBlockPosition),
@@ -162,21 +159,17 @@ public class TestJoinCompiler
 
                 // check equality of every position against every other position in the block cursor
                 for (int rightBlockIndex = 0; rightBlockIndex < varcharChannel.size(); rightBlockIndex++) {
-                    BlockCursor[] rightCursors = new BlockCursor[4];
-                    rightCursors[0] = varcharChannel.get(rightBlockIndex).cursor();
-                    rightCursors[1] = longChannel.get(rightBlockIndex).cursor();
-                    rightCursors[2] = doubleChannel.get(rightBlockIndex).cursor();
-                    rightCursors[3] = booleanChannel.get(rightBlockIndex).cursor();
+                    Block[] rightBlocks = new Block[4];
+                    rightBlocks[0] = varcharChannel.get(rightBlockIndex);
+                    rightBlocks[1] = longChannel.get(rightBlockIndex);
+                    rightBlocks[2] = doubleChannel.get(rightBlockIndex);
+                    rightBlocks[3] = booleanChannel.get(rightBlockIndex);
 
                     int rightPositionCount = varcharChannel.get(rightBlockIndex).getPositionCount();
                     for (int rightPosition = 0; rightPosition < rightPositionCount; rightPosition++) {
-                        for (BlockCursor rightCursor : rightCursors) {
-                            assertTrue(rightCursor.advanceNextPosition());
-                        }
-
                         assertEquals(
-                                hashStrategy.positionEqualsCursors(leftBlockIndex, leftBlockPosition, rightCursors),
-                                expectedHashStrategy.positionEqualsCursors(leftBlockIndex, leftBlockPosition, rightCursors));
+                                hashStrategy.positionEqualsRow(leftBlockIndex, leftBlockPosition, rightPosition, rightBlocks),
+                                expectedHashStrategy.positionEqualsRow(leftBlockIndex, leftBlockPosition, rightPosition, rightBlocks));
                     }
                 }
 

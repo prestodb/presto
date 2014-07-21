@@ -32,7 +32,7 @@ public class TpchColumnHandle
     public TpchColumnHandle(@JsonProperty("columnName") String columnName, @JsonProperty("fieldIndex") int fieldIndex, @JsonProperty("type") Type type)
     {
         this.columnName = checkNotNull(columnName, "columnName is null");
-        checkArgument(fieldIndex >= 0, "fieldIndex must be at least zero");
+        checkArgument(fieldIndex >= -1, "Invalid fieldIndex");
         this.fieldIndex = fieldIndex;
         this.type = checkNotNull(type, "type is null");
     }

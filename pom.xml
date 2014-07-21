@@ -5,12 +5,12 @@
     <parent>
         <groupId>io.airlift</groupId>
         <artifactId>airbase</artifactId>
-        <version>19</version>
+        <version>24</version>
     </parent>
 
     <groupId>com.facebook.presto</groupId>
     <artifactId>presto-root</artifactId>
-    <version>0.67-SNAPSHOT</version>
+    <version>0.74-SNAPSHOT</version>
     <packaging>pom</packaging>
 
     <name>presto-root</name>
@@ -39,8 +39,12 @@
         <air.check.skip-extended>true</air.check.skip-extended>
         <air.check.skip-license>false</air.check.skip-license>
 
+        <air.check.fail-checkstyle>true</air.check.fail-checkstyle>
+        <air.check.skip-checkstyle>false</air.check.skip-checkstyle>
+
         <dep.antlr.version>3.4</dep.antlr.version>
-        <dep.airlift.version>0.88</dep.airlift.version>
+        <dep.slice.version>0.7-SNAPSHOT</dep.slice.version>
+        <dep.airlift.version>0.92-SNAPSHOT</dep.airlift.version>
         <dep.packaging.version>${dep.airlift.version}</dep.packaging.version>
 
         <cli.skip-execute>true</cli.skip-execute>
@@ -60,13 +64,21 @@
         <module>presto-hive-cdh5</module>
         <module>presto-example-http</module>
         <module>presto-tpch</module>
+        <module>presto-raptor</module>
         <module>presto-client</module>
         <module>presto-parser</module>
         <module>presto-main</module>
+        <module>presto-ml</module>
+        <module>presto-benchmark</module>
+        <module>presto-tests</module>
         <module>presto-jdbc</module>
         <module>presto-cli</module>
+
+        <!-- Important: presto-server needs to be listed *after* all plugins in order for them to be included in the tgz.
+             The dependency resolution rules in the maven assembly are broken, so presto-server can't depend on the plugins -->
         <module>presto-server</module>
         <module>presto-docs</module>
+        <module>presto-verifier</module>
     </modules>
 
     <dependencyManagement>
@@ -108,12 +120,11 @@
                 <groupId>com.facebook.presto</groupId>
                 <artifactId>presto-tpch</artifactId>
                 <version>${project.version}</version>
-                <type>zip</type>
             </dependency>
 
             <dependency>
                 <groupId>com.facebook.presto</groupId>
-                <artifactId>presto-tpch</artifactId>
+                <artifactId>presto-raptor</artifactId>
                 <version>${project.version}</version>
             </dependency>
 
@@ -163,9 +174,14 @@
 
             <dependency>
                 <groupId>com.facebook.presto</groupId>
-                <artifactId>presto-server</artifactId>
+                <artifactId>presto-tests</artifactId>
                 <version>${project.version}</version>
-                <type>test-jar</type>
+            </dependency>
+
+            <dependency>
+                <groupId>com.facebook.presto</groupId>
+                <artifactId>presto-benchmark</artifactId>
+                <version>${project.version}</version>
             </dependency>
 
             <dependency>
@@ -189,7 +205,7 @@
             <dependency>
                 <groupId>com.facebook.presto.hive</groupId>
                 <artifactId>hive-apache</artifactId>
-                <version>0.5</version>
+                <version>0.9</version>
             </dependency>
 
             <dependency>
@@ -309,7 +325,7 @@
             <dependency>
                 <groupId>io.airlift.tpch</groupId>
                 <artifactId>tpch</artifactId>
-                <version>0.1</version>
+                <version>0.2</version>
             </dependency>
 
             <dependency>
@@ -349,6 +365,12 @@
             </dependency>
 
             <dependency>
+                <groupId>org.openjdk.jol</groupId>
+                <artifactId>jol-core</artifactId>
+                <version>0.1</version>
+            </dependency>
+
+            <dependency>
                 <groupId>com.intellij</groupId>
                 <artifactId>annotations</artifactId>
                 <version>9.0.4</version>
@@ -364,6 +386,18 @@
                 <groupId>org.jruby.joni</groupId>
                 <artifactId>joni</artifactId>
                 <version>2.0.0</version>
+            </dependency>
+
+            <dependency>
+                <groupId>com.facebook.thirdparty</groupId>
+                <artifactId>libsvm</artifactId>
+                <version>3.18.1</version>
+            </dependency>
+
+            <dependency>
+                <groupId>mysql</groupId>
+                <artifactId>mysql-connector-java</artifactId>
+                <version>5.1.25</version>
             </dependency>
 
             <dependency>
@@ -453,13 +487,13 @@
             <dependency>
                 <groupId>io.airlift.discovery</groupId>
                 <artifactId>discovery-server</artifactId>
-                <version>1.17</version>
+                <version>1.19-SNAPSHOT</version>
             </dependency>
 
             <dependency>
                 <groupId>com.amazonaws</groupId>
                 <artifactId>aws-java-sdk</artifactId>
-                <version>1.6.12</version>
+                <version>1.7.1</version>
                 <exclusions>
                     <exclusion>
                         <groupId>commons-logging</groupId>
@@ -483,8 +517,15 @@
                     <configuration combine.children="append">
                         <argLine>-Duser.timezone=${test.timezone} -Xmx2g -Xms2g -XX:MaxPermSize=512m</argLine>
                         <parallel>methods</parallel>
-                        <threadCount>2</threadCount>
+                        <threadCount>4</threadCount>
                         <perCoreThreadCount>true</perCoreThreadCount>
+                        <systemPropertyVariables>
+                            <file.encoding>${project.build.sourceEncoding}</file.encoding>
+                            <sun.jnu.encoding>${project.build.sourceEncoding}</sun.jnu.encoding>
+                            <user.timezone>${test.timezone}</user.timezone>
+                            <java.awt.headless>true</java.awt.headless>
+                            <java.util.logging.SimpleFormatter.format>%1$tY-%1$tm-%1$td %1$tH:%1$tM:%1$tS %4$s %5$s%6$s%n</java.util.logging.SimpleFormatter.format>
+                        </systemPropertyVariables>
                     </configuration>
                 </plugin>
 
@@ -610,6 +651,8 @@
                             <goal>check</goal>
                         </goals>
                         <configuration>
+                            <skip>${air.check.skip-checkstyle}</skip>
+                            <failOnViolation>${air.check.fail-checkstyle}</failOnViolation>
                             <consoleOutput>true</consoleOutput>
                             <includeTestSourceDirectory>true</includeTestSourceDirectory>
                             <configLocation>${air.main.basedir}/src/checkstyle/checks.xml</configLocation>
@@ -622,22 +665,14 @@
     </build>
 
     <profiles>
-        <!-- run console for development: mvn -q -P console compile exec:java -->
+        <!-- run cli for development: mvn -am -pl presto-cli -P cli compile exec:java -->
         <profile>
-            <id>console</id>
+            <id>cli</id>
             <build>
                 <plugins>
                     <plugin>
                         <groupId>org.codehaus.mojo</groupId>
                         <artifactId>exec-maven-plugin</artifactId>
-                        <executions>
-                            <execution>
-                                <id>console</id>
-                                <goals>
-                                    <goal>java</goal>
-                                </goals>
-                            </execution>
-                        </executions>
                         <configuration>
                             <skip>${cli.skip-execute}</skip>
                             <executable>${java.home}/bin/java</executable>

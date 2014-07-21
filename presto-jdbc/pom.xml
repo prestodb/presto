@@ -5,7 +5,7 @@
     <parent>
         <groupId>com.facebook.presto</groupId>
         <artifactId>presto-root</artifactId>
-        <version>0.67-SNAPSHOT</version>
+        <version>0.74-SNAPSHOT</version>
     </parent>
 
     <artifactId>presto-jdbc</artifactId>
@@ -106,7 +106,7 @@
         <!-- for testing -->
         <dependency>
             <groupId>com.facebook.presto</groupId>
-            <artifactId>presto-server</artifactId>
+            <artifactId>presto-main</artifactId>
             <scope>test</scope>
         </dependency>
 

@@ -20,13 +20,14 @@ import com.facebook.presto.byteCode.Variable;
 import com.facebook.presto.byteCode.control.IfStatement;
 import com.facebook.presto.byteCode.control.IfStatement.IfStatementBuilder;
 import com.facebook.presto.byteCode.control.LookupSwitch.LookupSwitchBuilder;
+import com.facebook.presto.byteCode.control.TryCatch;
 import com.facebook.presto.byteCode.instruction.Constant;
 import com.facebook.presto.byteCode.instruction.LabelNode;
 import com.facebook.presto.byteCode.instruction.VariableInstruction;
+import com.facebook.presto.metadata.FunctionRegistry;
 import com.facebook.presto.metadata.Metadata;
-import com.facebook.presto.metadata.OperatorInfo.OperatorType;
+import com.facebook.presto.metadata.OperatorType;
 import com.facebook.presto.spi.RecordCursor;
-import com.facebook.presto.spi.block.BlockCursor;
 import com.facebook.presto.spi.type.TimeZoneKey;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.tree.ArithmeticExpression;
@@ -42,7 +43,6 @@ import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.GenericLiteral;
 import com.facebook.presto.sql.tree.InListExpression;
 import com.facebook.presto.sql.tree.InPredicate;
-import com.facebook.presto.sql.tree.Input;
 import com.facebook.presto.sql.tree.InputReference;
 import com.facebook.presto.sql.tree.IntervalLiteral;
 import com.facebook.presto.sql.tree.IsNullPredicate;
@@ -61,7 +61,6 @@ import com.facebook.presto.sql.tree.TimestampLiteral;
 import com.facebook.presto.sql.tree.WhenClause;
 import com.google.common.base.Function;
 import com.google.common.base.Functions;
-import com.google.common.base.Joiner;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
@@ -80,6 +79,7 @@ import java.util.Map;
 import java.util.Map.Entry;
 
 import static com.facebook.presto.byteCode.OpCodes.NOP;
+import static com.facebook.presto.byteCode.ParameterizedType.type;
 import static com.facebook.presto.byteCode.control.IfStatement.ifStatementBuilder;
 import static com.facebook.presto.byteCode.control.LookupSwitch.lookupSwitchBuilder;
 import static com.facebook.presto.byteCode.instruction.Constant.loadBoolean;
@@ -89,6 +89,9 @@ import static com.facebook.presto.byteCode.instruction.JumpInstruction.jump;
 import static com.facebook.presto.spi.type.TimeWithTimeZoneType.TIME_WITH_TIME_ZONE;
 import static com.facebook.presto.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
+import static com.facebook.presto.sql.gen.ByteCodeUtils.ifWasNullClearPopAndGoto;
+import static com.facebook.presto.sql.gen.ByteCodeUtils.ifWasNullPopAndGoto;
+import static com.facebook.presto.sql.gen.ByteCodeUtils.unboxPrimitive;
 import static com.facebook.presto.sql.gen.SliceConstant.sliceConstant;
 import static com.facebook.presto.type.UnknownType.UNKNOWN;
 import static com.facebook.presto.util.DateTimeUtils.parseDayTimeInterval;
@@ -217,11 +220,10 @@ public class ByteCodeExpressionVisitor
     @Override
     public ByteCodeNode visitInputReference(InputReference node, CompilerContext context)
     {
-        Input input = node.getInput();
-        int channel = input.getChannel();
+        int channel = node.getChannel();
 
         Type type = expressionTypes.get(node);
-        checkState(type != null, "No type for input %s", input);
+        checkState(type != null, "No type for input %d", channel);
         Class<?> javaType = type.getJavaType();
 
         if (sourceIsCursor) {
@@ -268,35 +270,40 @@ public class ByteCodeExpressionVisitor
         }
         else {
             Block isNullCheck = new Block(context)
-                    .setDescription(format("channel_%d.get%s()", channel, type))
-                    .getVariable("channel_" + channel)
-                    .invokeInterface(BlockCursor.class, "isNull", boolean.class);
+                    .setDescription(format("block_%d.get%s()", channel, type))
+                    .getVariable("block_" + channel)
+                    .getVariable("position")
+                    .invokeInterface(com.facebook.presto.spi.block.Block.class, "isNull", boolean.class, int.class);
 
             Block isNull = new Block(context)
                     .putVariable("wasNull", true)
                     .pushJavaDefault(javaType);
             if (javaType == boolean.class) {
                 Block isNotNull = new Block(context)
-                        .getVariable("channel_" + channel)
-                        .invokeInterface(BlockCursor.class, "getBoolean", boolean.class);
+                        .getVariable("block_" + channel)
+                        .getVariable("position")
+                        .invokeInterface(com.facebook.presto.spi.block.Block.class, "getBoolean", boolean.class, int.class);
                 return new IfStatement(context, isNullCheck, isNull, isNotNull);
             }
             else if (javaType == long.class) {
                 Block isNotNull = new Block(context)
-                        .getVariable("channel_" + channel)
-                        .invokeInterface(BlockCursor.class, "getLong", long.class);
+                        .getVariable("block_" + channel)
+                        .getVariable("position")
+                        .invokeInterface(com.facebook.presto.spi.block.Block.class, "getLong", long.class, int.class);
                 return new IfStatement(context, isNullCheck, isNull, isNotNull);
             }
             else if (javaType == double.class) {
                 Block isNotNull = new Block(context)
-                        .getVariable("channel_" + channel)
-                        .invokeInterface(BlockCursor.class, "getDouble", double.class);
+                        .getVariable("block_" + channel)
+                        .getVariable("position")
+                        .invokeInterface(com.facebook.presto.spi.block.Block.class, "getDouble", double.class, int.class);
                 return new IfStatement(context, isNullCheck, isNull, isNotNull);
             }
             else if (javaType == Slice.class) {
                 Block isNotNull = new Block(context)
-                        .getVariable("channel_" + channel)
-                        .invokeInterface(BlockCursor.class, "getSlice", Slice.class);
+                        .getVariable("block_" + channel)
+                        .getVariable("position")
+                        .invokeInterface(com.facebook.presto.spi.block.Block.class, "getSlice", Slice.class, int.class);
                 return new IfStatement(context, isNullCheck, isNull, isNotNull);
             }
             else {
@@ -381,21 +388,6 @@ public class ByteCodeExpressionVisitor
         return block;
     }
 
-    private static ByteCodeNode unboxPrimitive(CompilerContext context, Class<?> unboxedType)
-    {
-        Block block = new Block(context).comment("unbox primitive");
-        if (unboxedType == long.class) {
-            return block.invokeVirtual(Long.class, "longValue", long.class);
-        }
-        if (unboxedType == double.class) {
-            return block.invokeVirtual(Double.class, "doubleValue", double.class);
-        }
-        if (unboxedType == boolean.class) {
-            return block.invokeVirtual(Boolean.class, "booleanValue", boolean.class);
-        }
-        throw new UnsupportedOperationException("not yet implemented: " + unboxedType);
-    }
-
     @Override
     public ByteCodeNode visitCast(Cast node, CompilerContext context)
     {
@@ -416,7 +408,23 @@ public class ByteCodeExpressionVisitor
                 expressionTypes.get(node.getExpression()),
                 type);
 
-        return visitFunctionBinding(context, functionBinding, node.toString());
+        ByteCodeNode castFunction = visitFunctionBinding(context, functionBinding, node.toString());
+
+        if (!node.isSafe()) {
+            return castFunction;
+        }
+
+        Block catchBlock = new Block(context)
+                .comment("propagate InterruptedException")
+                .invokeStatic(CompilerOperations.class, "propagateInterruptedException", void.class, Throwable.class)
+                .comment("wasNull = true;")
+                .putVariable("wasNull", true)
+                .comment("restore stack after exception")
+                .getVariable("output")
+                .comment("return dummy value for null")
+                .pushJavaDefault(type.getJavaType());
+
+        return new TryCatch(context, node.toString(), castFunction, catchBlock, type(Exception.class));
     }
 
     @Override
@@ -812,8 +820,9 @@ public class ByteCodeExpressionVisitor
     protected ByteCodeNode visitNullIfExpression(NullIfExpression node, CompilerContext context)
     {
         ByteCodeNode first = process(node.getFirst(), context);
-        Type firstType = expressionTypes.get(node.getFirst());
         ByteCodeNode second = process(node.getSecond(), context);
+        Type firstType = expressionTypes.get(node.getFirst());
+        Type secondType = expressionTypes.get(node.getSecond());
 
         LabelNode notMatch = new LabelNode("notMatch");
 
@@ -823,12 +832,31 @@ public class ByteCodeExpressionVisitor
                 .append(first)
                 .append(ifWasNullPopAndGoto(context, notMatch, void.class));
 
-        // if (equal(dupe(first), second)
+        // this is a hack! We shouldn't be determining type coercions at this point, but there's no way
+        // around it in the current expression AST
+        Type commonType = FunctionRegistry.getCommonSuperType(firstType, secondType).get();
+
+        FunctionBinding castFirst = bootstrapFunctionBinder.bindCastOperator(
+                getSessionByteCode,
+                new Block(context).dup(firstType.getJavaType()),
+                firstType,
+                commonType);
+
+        FunctionBinding castSecond = bootstrapFunctionBinder.bindCastOperator(
+                getSessionByteCode,
+                second,
+                secondType,
+                commonType);
+
+        // if (equal(cast(first as <common type>), cast(second as <common type>))
         FunctionBinding functionBinding = bootstrapFunctionBinder.bindOperator(
                 OperatorType.EQUAL,
                 getSessionByteCode,
-                ImmutableList.of(new Block(context).dup(firstType.getJavaType()), second),
+                ImmutableList.of(
+                        visitFunctionBinding(context, castFirst, "cast(first)"),
+                        visitFunctionBinding(context, castSecond, "cast(second)")),
                 types(node.getFirst(), node.getSecond()));
+
         ByteCodeNode equalsCall = visitFunctionBinding(context, functionBinding, "equal");
 
         Block conditionBlock = new Block(context)
@@ -1077,59 +1105,6 @@ public class ByteCodeExpressionVisitor
     protected ByteCodeNode visitExpression(Expression node, CompilerContext context)
     {
         throw new UnsupportedOperationException(format("Compilation of %s not supported yet", node.getClass().getSimpleName()));
-    }
-
-    private ByteCodeNode ifWasNullPopAndGoto(CompilerContext context, LabelNode label, Class<?> returnType, Class<?>... stackArgsToPop)
-    {
-        return handleNullValue(context, label, returnType, ImmutableList.copyOf(stackArgsToPop), false);
-    }
-
-    private ByteCodeNode ifWasNullPopAndGoto(CompilerContext context, LabelNode label, Class<?> returnType, Iterable<? extends Class<?>> stackArgsToPop)
-    {
-        return handleNullValue(context, label, returnType, ImmutableList.copyOf(stackArgsToPop), false);
-    }
-
-    private ByteCodeNode ifWasNullClearPopAndGoto(CompilerContext context, LabelNode label, Class<?> returnType, Class<?>... stackArgsToPop)
-    {
-        return handleNullValue(context, label, returnType, ImmutableList.copyOf(stackArgsToPop), true);
-    }
-
-    private ByteCodeNode handleNullValue(CompilerContext context,
-            LabelNode label,
-            Class<?> returnType,
-            List<? extends Class<?>> stackArgsToPop,
-            boolean clearNullFlag)
-    {
-        Block nullCheck = new Block(context)
-                .setDescription("ifWasNullGoto")
-                .getVariable("wasNull");
-
-        String clearComment = null;
-        if (clearNullFlag) {
-            nullCheck.putVariable("wasNull", false);
-            clearComment = "clear wasNull";
-        }
-
-        Block isNull = new Block(context);
-        for (Class<?> parameterType : stackArgsToPop) {
-            isNull.pop(parameterType);
-        }
-
-        isNull.pushJavaDefault(returnType);
-        String loadDefaultComment = null;
-        if (returnType != void.class) {
-            loadDefaultComment = format("loadJavaDefault(%s)", returnType.getName());
-        }
-
-        isNull.gotoLabel(label);
-
-        String popComment = null;
-        if (!stackArgsToPop.isEmpty()) {
-            popComment = format("pop(%s)", Joiner.on(", ").join(stackArgsToPop));
-        }
-
-        String comment = format("if wasNull then %s", Joiner.on(", ").skipNulls().join(clearComment, popComment, loadDefaultComment, "goto " + label.getLabel()));
-        return new IfStatement(context, comment, nullCheck, isNull, NOP);
     }
 
     private ByteCodeNode typedNull(CompilerContext context, Class<?> type)

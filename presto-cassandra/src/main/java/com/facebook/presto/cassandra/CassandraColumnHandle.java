@@ -14,25 +14,29 @@
 package com.facebook.presto.cassandra;
 
 import com.facebook.presto.cassandra.util.CassandraCqlUtils;
-import com.facebook.presto.spi.ConnectorColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
+import com.facebook.presto.spi.ConnectorColumnHandle;
 import com.facebook.presto.spi.type.Type;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.base.Function;
 import com.google.common.base.Objects;
 import com.google.common.base.Objects.ToStringHelper;
+import com.google.common.base.Predicate;
 
 import javax.annotation.Nullable;
 
 import java.util.List;
 
+import static com.facebook.presto.cassandra.util.Types.checkType;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 public class CassandraColumnHandle
         implements ConnectorColumnHandle
 {
+    public static final String SAMPLE_WEIGHT_COLUMN_NAME = "presto_sample_weight";
+
     private final String connectorId;
     private final String name;
     private final int ordinalPosition;
@@ -40,6 +44,8 @@ public class CassandraColumnHandle
     private final List<CassandraType> typeArguments;
     private final boolean partitionKey;
     private final boolean clusteringKey;
+    private final boolean indexed;
+    private final boolean hidden;
 
     @JsonCreator
     public CassandraColumnHandle(
@@ -49,7 +55,9 @@ public class CassandraColumnHandle
             @JsonProperty("cassandraType") CassandraType cassandraType,
             @Nullable @JsonProperty("typeArguments") List<CassandraType> typeArguments,
             @JsonProperty("partitionKey") boolean partitionKey,
-            @JsonProperty("clusteringKey") boolean clusteringKey)
+            @JsonProperty("clusteringKey") boolean clusteringKey,
+            @JsonProperty("indexed") boolean indexed,
+            @JsonProperty("hidden") boolean hidden)
     {
         this.connectorId = checkNotNull(connectorId, "connectorId is null");
         this.name = checkNotNull(name, "name is null");
@@ -67,6 +75,8 @@ public class CassandraColumnHandle
         }
         this.partitionKey = partitionKey;
         this.clusteringKey = clusteringKey;
+        this.indexed = indexed;
+        this.hidden = hidden;
     }
 
     @JsonProperty
@@ -111,9 +121,21 @@ public class CassandraColumnHandle
         return clusteringKey;
     }
 
+    @JsonProperty
+    public boolean isIndexed()
+    {
+        return indexed;
+    }
+
+    @JsonProperty
+    public boolean isHidden()
+    {
+        return hidden;
+    }
+
     public ColumnMetadata getColumnMetadata()
     {
-        return new ColumnMetadata(CassandraCqlUtils.cqlNameToSqlName(name), cassandraType.getNativeType(), ordinalPosition, partitionKey);
+        return new ColumnMetadata(CassandraCqlUtils.cqlNameToSqlName(name), cassandraType.getNativeType(), ordinalPosition, partitionKey, null, hidden);
     }
 
     public Type getType()
@@ -131,7 +153,9 @@ public class CassandraColumnHandle
                 cassandraType,
                 typeArguments,
                 partitionKey,
-                clusteringKey);
+                clusteringKey,
+                indexed,
+                hidden);
     }
 
     @Override
@@ -150,7 +174,9 @@ public class CassandraColumnHandle
                 && Objects.equal(this.cassandraType, other.cassandraType)
                 && Objects.equal(this.typeArguments, other.typeArguments)
                 && Objects.equal(this.partitionKey, other.partitionKey)
-                && Objects.equal(this.clusteringKey, other.clusteringKey);
+                && Objects.equal(this.clusteringKey, other.clusteringKey)
+                && Objects.equal(this.indexed, other.indexed)
+                && Objects.equal(this.hidden, other.hidden);
     }
 
     @Override
@@ -167,7 +193,9 @@ public class CassandraColumnHandle
         }
 
         helper.add("partitionKey", partitionKey)
-                .add("clusteringKey", clusteringKey);
+                .add("clusteringKey", clusteringKey)
+                .add("indexed", indexed)
+                .add("hidden", hidden);
 
         return helper.toString();
     }
@@ -179,22 +207,22 @@ public class CassandraColumnHandle
             @Override
             public CassandraColumnHandle apply(ConnectorColumnHandle columnHandle)
             {
-                checkNotNull(columnHandle, "columnHandle is null");
-                checkArgument(columnHandle instanceof CassandraColumnHandle,
-                        "columnHandle is not an instance of CassandraColumnHandle");
-                return (CassandraColumnHandle) columnHandle;
+                return checkType(columnHandle, CassandraColumnHandle.class, "columnHandle");
             }
         };
     }
 
-    public static Function<CassandraColumnHandle, ColumnMetadata> columnMetadataGetter()
+    public static Function<ConnectorColumnHandle, ColumnMetadata> columnMetadataGetter()
     {
-        return new Function<CassandraColumnHandle, ColumnMetadata>()
+        return new Function<ConnectorColumnHandle, ColumnMetadata>()
         {
             @Override
-            public ColumnMetadata apply(CassandraColumnHandle input)
+            public ColumnMetadata apply(ConnectorColumnHandle columnHandle)
             {
-                return input.getColumnMetadata();
+                checkNotNull(columnHandle, "columnHandle is null");
+                checkArgument(columnHandle instanceof CassandraColumnHandle,
+                        "columnHandle is not an instance of CassandraColumnHandle");
+                return ((CassandraColumnHandle) columnHandle).getColumnMetadata();
             }
         };
     }
@@ -224,6 +252,18 @@ public class CassandraColumnHandle
                 else {
                     return new CassandraTypeWithTypeArguments(input.getCassandraType(), input.getTypeArguments());
                 }
+            }
+        };
+    }
+
+    public static Predicate<CassandraColumnHandle> partitionKeyPredicate()
+    {
+        return new Predicate<CassandraColumnHandle>()
+        {
+            @Override
+            public boolean apply(CassandraColumnHandle columnHandle)
+            {
+                return columnHandle.isPartitionKey();
             }
         };
     }

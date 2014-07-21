@@ -13,11 +13,10 @@
  */
 package com.facebook.presto.serde;
 
+import com.facebook.presto.operator.ChannelSet.ChannelSetBuilder;
 import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.block.BlockCursor;
 import com.facebook.presto.spi.block.BlockEncoding;
 import com.facebook.presto.spi.block.BlockEncodingSerde;
-import com.facebook.presto.spi.block.RandomAccessBlock;
 import com.google.common.base.Throwables;
 import com.google.common.io.OutputSupplier;
 import io.airlift.slice.OutputStreamSliceOutput;
@@ -131,32 +130,31 @@ public class BlocksFileWriter
 
         private long rowCount;
         private long runsCount;
-        private RandomAccessBlock lastValue;
-        private DictionaryBuilder dictionaryBuilder;
+        private Block lastValue;
+        private ChannelSetBuilder dictionaryBuilder;
 
         public void process(Block block)
         {
             checkNotNull(block, "block is null");
 
             if (dictionaryBuilder == null) {
-                dictionaryBuilder = new DictionaryBuilder(block.getType());
+                dictionaryBuilder = new ChannelSetBuilder(block.getType(), MAX_UNIQUE_COUNT, null);
             }
 
-            BlockCursor cursor = block.cursor();
-            while (cursor.advanceNextPosition()) {
+            for (int position = 0; position < block.getPositionCount(); position++) {
                 // update run length stats
-                RandomAccessBlock randomAccessBlock = cursor.getSingleValueBlock();
+                Block value = block.getSingleValueBlock(position);
                 if (lastValue == null) {
-                    lastValue = randomAccessBlock;
+                    lastValue = value;
                 }
-                else if (!randomAccessBlock.equalTo(0, lastValue, 0)) {
+                else if (!value.equalTo(0, lastValue, 0)) {
                     runsCount++;
-                    lastValue = randomAccessBlock;
+                    lastValue = value;
                 }
 
                 // update dictionary stats
                 if (dictionaryBuilder.size() < MAX_UNIQUE_COUNT) {
-                    dictionaryBuilder.putIfAbsent(cursor);
+                    dictionaryBuilder.add(position, block);
                 }
 
                 rowCount++;

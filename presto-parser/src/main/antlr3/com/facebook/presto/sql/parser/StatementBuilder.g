@@ -67,6 +67,8 @@ statement returns [Statement value]
     | useCollection             { $value = $useCollection.value; }
     | createTable               { $value = $createTable.value; }
     | dropTable                 { $value = $dropTable.value; }
+    | createView                { $value = $createView.value; }
+    | dropView                  { $value = $dropView.value; }
     ;
 
 query returns [Query value]
@@ -404,7 +406,8 @@ extract returns [Extract value]
     ;
 
 cast returns [Cast value]
-    : ^(CAST expr IDENT) { $value = new Cast($expr.value, $IDENT.text); }
+    : ^(CAST expr IDENT)     { $value = new Cast($expr.value, $IDENT.text, false); }
+    | ^(TRY_CAST expr IDENT) { $value = new Cast($expr.value, $IDENT.text, true); }
     ;
 
 current_time returns [CurrentTime value]
@@ -553,4 +556,17 @@ createTable returns [Statement value]
 
 dropTable returns [Statement value]
     : ^(DROP_TABLE qname) { $value = new DropTable($qname.value); }
+    ;
+
+createView returns [Statement value]
+    : ^(CREATE_VIEW qname query orReplace) { $value = new CreateView($qname.value, $query.value, $orReplace.value); }
+    ;
+
+dropView returns [Statement value]
+    : ^(DROP_VIEW qname) { $value = new DropView($qname.value); }
+    ;
+
+orReplace returns [boolean value]
+    : OR_REPLACE { $value = true; }
+    |            { $value = false; }
     ;

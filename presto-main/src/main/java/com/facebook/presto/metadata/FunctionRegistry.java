@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.metadata;
 
-import com.facebook.presto.metadata.OperatorInfo.OperatorType;
 import com.facebook.presto.operator.Description;
 import com.facebook.presto.operator.aggregation.AggregationFunction;
 import com.facebook.presto.operator.scalar.ColorFunctions;
@@ -26,12 +25,35 @@ import com.facebook.presto.operator.scalar.ScalarFunction;
 import com.facebook.presto.operator.scalar.ScalarOperator;
 import com.facebook.presto.operator.scalar.StringFunctions;
 import com.facebook.presto.operator.scalar.UrlFunctions;
+import com.facebook.presto.operator.scalar.VarbinaryFunctions;
 import com.facebook.presto.operator.window.CumulativeDistributionFunction;
 import com.facebook.presto.operator.window.DenseRankFunction;
+import com.facebook.presto.operator.window.FirstValueFunction.BigintFirstValueFunction;
+import com.facebook.presto.operator.window.FirstValueFunction.BooleanFirstValueFunction;
+import com.facebook.presto.operator.window.FirstValueFunction.DoubleFirstValueFunction;
+import com.facebook.presto.operator.window.FirstValueFunction.VarcharFirstValueFunction;
+import com.facebook.presto.operator.window.LagFunction.BigintLagFunction;
+import com.facebook.presto.operator.window.LagFunction.BooleanLagFunction;
+import com.facebook.presto.operator.window.LagFunction.DoubleLagFunction;
+import com.facebook.presto.operator.window.LagFunction.VarcharLagFunction;
+import com.facebook.presto.operator.window.LastValueFunction.BigintLastValueFunction;
+import com.facebook.presto.operator.window.LastValueFunction.BooleanLastValueFunction;
+import com.facebook.presto.operator.window.LastValueFunction.DoubleLastValueFunction;
+import com.facebook.presto.operator.window.LastValueFunction.VarcharLastValueFunction;
+import com.facebook.presto.operator.window.LeadFunction.BigintLeadFunction;
+import com.facebook.presto.operator.window.LeadFunction.BooleanLeadFunction;
+import com.facebook.presto.operator.window.LeadFunction.DoubleLeadFunction;
+import com.facebook.presto.operator.window.LeadFunction.VarcharLeadFunction;
+import com.facebook.presto.operator.window.NthValueFunction.BigintNthValueFunction;
+import com.facebook.presto.operator.window.NthValueFunction.BooleanNthValueFunction;
+import com.facebook.presto.operator.window.NthValueFunction.DoubleNthValueFunction;
+import com.facebook.presto.operator.window.NthValueFunction.VarcharNthValueFunction;
 import com.facebook.presto.operator.window.PercentRankFunction;
 import com.facebook.presto.operator.window.RankFunction;
+import com.facebook.presto.operator.window.ReflectionWindowFunctionSupplier;
 import com.facebook.presto.operator.window.RowNumberFunction;
 import com.facebook.presto.operator.window.WindowFunction;
+import com.facebook.presto.operator.window.WindowFunctionSupplier;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.StandardErrorCode;
@@ -52,17 +74,19 @@ import com.facebook.presto.type.TimeOperators;
 import com.facebook.presto.type.TimeWithTimeZoneOperators;
 import com.facebook.presto.type.TimestampOperators;
 import com.facebook.presto.type.TimestampWithTimeZoneOperators;
+import com.facebook.presto.type.VarbinaryOperators;
 import com.facebook.presto.type.VarcharOperators;
 import com.facebook.presto.util.IterableTransformer;
 import com.google.common.base.Joiner;
 import com.google.common.base.Optional;
 import com.google.common.base.Predicate;
-import com.google.common.base.Supplier;
 import com.google.common.base.Throwables;
+import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.FluentIterable;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
@@ -138,6 +162,7 @@ import static com.facebook.presto.operator.aggregation.VarianceAggregations.LONG
 import static com.facebook.presto.operator.aggregation.VarianceAggregations.LONG_VARIANCE_POP_INSTANCE;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
+import static com.facebook.presto.spi.type.DateType.DATE;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.HyperLogLogType.HYPER_LOG_LOG;
 import static com.facebook.presto.spi.type.TimeType.TIME;
@@ -168,11 +193,47 @@ public class FunctionRegistry
         this.typeManager = checkNotNull(typeManager, "typeManager is null");
 
         FunctionListBuilder builder = new FunctionListBuilder()
-                .window("row_number", BIGINT, ImmutableList.<Type>of(), supplier(RowNumberFunction.class))
-                .window("rank", BIGINT, ImmutableList.<Type>of(), supplier(RankFunction.class))
-                .window("dense_rank", BIGINT, ImmutableList.<Type>of(), supplier(DenseRankFunction.class))
-                .window("percent_rank", DOUBLE, ImmutableList.<Type>of(), supplier(PercentRankFunction.class))
-                .window("cume_dist", DOUBLE, ImmutableList.<Type>of(), supplier(CumulativeDistributionFunction.class))
+                .window("row_number", BIGINT, ImmutableList.<Type>of(), RowNumberFunction.class)
+                .window("rank", BIGINT, ImmutableList.<Type>of(), RankFunction.class)
+                .window("dense_rank", BIGINT, ImmutableList.<Type>of(), DenseRankFunction.class)
+                .window("percent_rank", DOUBLE, ImmutableList.<Type>of(), PercentRankFunction.class)
+                .window("cume_dist", DOUBLE, ImmutableList.<Type>of(), CumulativeDistributionFunction.class)
+                .window("first_value", BIGINT, ImmutableList.<Type>of(BIGINT), BigintFirstValueFunction.class)
+                .window("first_value", DOUBLE, ImmutableList.<Type>of(DOUBLE), DoubleFirstValueFunction.class)
+                .window("first_value", BOOLEAN, ImmutableList.<Type>of(BOOLEAN), BooleanFirstValueFunction.class)
+                .window("first_value", VARCHAR, ImmutableList.<Type>of(VARCHAR), VarcharFirstValueFunction.class)
+                .window("last_value", BIGINT, ImmutableList.<Type>of(BIGINT), BigintLastValueFunction.class)
+                .window("last_value", DOUBLE, ImmutableList.<Type>of(DOUBLE), DoubleLastValueFunction.class)
+                .window("last_value", BOOLEAN, ImmutableList.<Type>of(BOOLEAN), BooleanLastValueFunction.class)
+                .window("last_value", VARCHAR, ImmutableList.<Type>of(VARCHAR), VarcharLastValueFunction.class)
+                .window("nth_value", BIGINT, ImmutableList.<Type>of(BIGINT, BIGINT), BigintNthValueFunction.class)
+                .window("nth_value", DOUBLE, ImmutableList.<Type>of(DOUBLE, BIGINT), DoubleNthValueFunction.class)
+                .window("nth_value", BOOLEAN, ImmutableList.<Type>of(BOOLEAN, BIGINT), BooleanNthValueFunction.class)
+                .window("nth_value", VARCHAR, ImmutableList.<Type>of(VARCHAR, BIGINT), VarcharNthValueFunction.class)
+                .window("lag", BIGINT, ImmutableList.<Type>of(BIGINT), BigintLagFunction.class)
+                .window("lag", BIGINT, ImmutableList.<Type>of(BIGINT, BIGINT), BigintLagFunction.class)
+                .window("lag", BIGINT, ImmutableList.<Type>of(BIGINT, BIGINT, BIGINT), BigintLagFunction.class)
+                .window("lag", DOUBLE, ImmutableList.<Type>of(DOUBLE), DoubleLagFunction.class)
+                .window("lag", DOUBLE, ImmutableList.<Type>of(DOUBLE, BIGINT), DoubleLagFunction.class)
+                .window("lag", DOUBLE, ImmutableList.<Type>of(DOUBLE, BIGINT, DOUBLE), DoubleLagFunction.class)
+                .window("lag", BOOLEAN, ImmutableList.<Type>of(BOOLEAN), BooleanLagFunction.class)
+                .window("lag", BOOLEAN, ImmutableList.<Type>of(BOOLEAN, BIGINT), BooleanLagFunction.class)
+                .window("lag", BOOLEAN, ImmutableList.<Type>of(BOOLEAN, BIGINT, BOOLEAN), BooleanLagFunction.class)
+                .window("lag", VARCHAR, ImmutableList.<Type>of(VARCHAR), VarcharLagFunction.class)
+                .window("lag", VARCHAR, ImmutableList.<Type>of(VARCHAR, BIGINT), VarcharLagFunction.class)
+                .window("lag", VARCHAR, ImmutableList.<Type>of(VARCHAR, BIGINT, VARCHAR), VarcharLagFunction.class)
+                .window("lead", BIGINT, ImmutableList.<Type>of(BIGINT), BigintLeadFunction.class)
+                .window("lead", BIGINT, ImmutableList.<Type>of(BIGINT, BIGINT), BigintLeadFunction.class)
+                .window("lead", BIGINT, ImmutableList.<Type>of(BIGINT, BIGINT, BIGINT), BigintLeadFunction.class)
+                .window("lead", DOUBLE, ImmutableList.<Type>of(DOUBLE), DoubleLeadFunction.class)
+                .window("lead", DOUBLE, ImmutableList.<Type>of(DOUBLE, BIGINT), DoubleLeadFunction.class)
+                .window("lead", DOUBLE, ImmutableList.<Type>of(DOUBLE, BIGINT, DOUBLE), DoubleLeadFunction.class)
+                .window("lead", BOOLEAN, ImmutableList.<Type>of(BOOLEAN), BooleanLeadFunction.class)
+                .window("lead", BOOLEAN, ImmutableList.<Type>of(BOOLEAN, BIGINT), BooleanLeadFunction.class)
+                .window("lead", BOOLEAN, ImmutableList.<Type>of(BOOLEAN, BIGINT, BOOLEAN), BooleanLeadFunction.class)
+                .window("lead", VARCHAR, ImmutableList.<Type>of(VARCHAR), VarcharLeadFunction.class)
+                .window("lead", VARCHAR, ImmutableList.<Type>of(VARCHAR, BIGINT), VarcharLeadFunction.class)
+                .window("lead", VARCHAR, ImmutableList.<Type>of(VARCHAR, BIGINT, VARCHAR), VarcharLeadFunction.class)
                 .aggregate("count", BIGINT, ImmutableList.<Type>of(), BIGINT, COUNT)
                 .aggregate("count", BIGINT, ImmutableList.of(BOOLEAN), BIGINT, COUNT_BOOLEAN_COLUMN)
                 .aggregate("count", BIGINT, ImmutableList.of(BIGINT), BIGINT, COUNT_LONG_COLUMN)
@@ -218,6 +279,7 @@ public class FunctionRegistry
                 .aggregate("approx_avg", VARCHAR, ImmutableList.of(BIGINT), VARCHAR, LONG_APPROXIMATE_AVERAGE_AGGREGATION)
                 .aggregate("approx_avg", VARCHAR, ImmutableList.of(DOUBLE), VARCHAR, DOUBLE_APPROXIMATE_AVERAGE_AGGREGATION)
                 .scalar(StringFunctions.class)
+                .scalar(VarbinaryFunctions.class)
                 .scalar(RegexpFunctions.class)
                 .scalar(UrlFunctions.class)
                 .scalar(MathFunctions.class)
@@ -229,6 +291,7 @@ public class FunctionRegistry
                 .scalar(BigintOperators.class)
                 .scalar(DoubleOperators.class)
                 .scalar(VarcharOperators.class)
+                .scalar(VarbinaryOperators.class)
                 .scalar(DateOperators.class)
                 .scalar(TimeOperators.class)
                 .scalar(TimestampOperators.class)
@@ -253,11 +316,11 @@ public class FunctionRegistry
         addFunctions(builder.getFunctions(), builder.getOperators());
     }
 
-    public final synchronized void addFunctions(List<FunctionInfo> functions, List<OperatorInfo> operators)
+    public final synchronized void addFunctions(List<FunctionInfo> functions, Multimap<OperatorType, FunctionInfo> operators)
     {
         for (FunctionInfo function : functions) {
-            checkArgument(this.functions.get(function.getHandle()) == null,
-                    "Function already registered: %s", function.getHandle());
+            checkArgument(this.functions.get(function.getSignature()) == null,
+                    "Function already registered: %s", function.getSignature());
         }
 
         this.functions = new FunctionMap(this.functions, functions, operators);
@@ -329,7 +392,7 @@ public class FunctionRegistry
 
             MethodHandle identity = MethodHandles.identity(parameterTypes.get(0).getJavaType());
             return new FunctionInfo(
-                    new Signature(MAGIC_LITERAL_FUNCTION_PREFIX, type, ImmutableList.copyOf(parameterTypes), false),
+                    getMagicLiteralFunctionSignature(type),
                     null,
                     true,
                     identity,
@@ -345,20 +408,20 @@ public class FunctionRegistry
         return functions.get(signature);
     }
 
-    public OperatorInfo resolveOperator(OperatorType operatorType, List<? extends Type> argumentTypes)
+    public FunctionInfo resolveOperator(OperatorType operatorType, List<? extends Type> argumentTypes)
             throws OperatorNotFoundException
     {
-        Iterable<OperatorInfo> candidates = functions.getOperators(operatorType);
+        Iterable<FunctionInfo> candidates = functions.getOperators(operatorType);
 
         // search for exact match
-        for (OperatorInfo operatorInfo : candidates) {
+        for (FunctionInfo operatorInfo : candidates) {
             if (operatorInfo.getArgumentTypes().equals(argumentTypes)) {
                 return operatorInfo;
             }
         }
 
         // search for coerced match
-        for (OperatorInfo operatorInfo : candidates) {
+        for (FunctionInfo operatorInfo : candidates) {
             if (canCoerce(argumentTypes, operatorInfo.getArgumentTypes())) {
                 return operatorInfo;
             }
@@ -367,13 +430,13 @@ public class FunctionRegistry
         throw new OperatorNotFoundException(operatorType, argumentTypes);
     }
 
-    public OperatorInfo getExactOperator(OperatorType operatorType, List<? extends Type> argumentTypes, Type returnType)
+    public FunctionInfo getExactOperator(OperatorType operatorType, List<? extends Type> argumentTypes, Type returnType)
             throws OperatorNotFoundException
     {
-        Iterable<OperatorInfo> candidates = functions.getOperators(operatorType);
+        Iterable<FunctionInfo> candidates = functions.getOperators(operatorType);
 
         // search for exact match
-        for (OperatorInfo operatorInfo : candidates) {
+        for (FunctionInfo operatorInfo : candidates) {
             if (operatorInfo.getReturnType().equals(returnType) && operatorInfo.getArgumentTypes().equals(argumentTypes)) {
                 return operatorInfo;
             }
@@ -382,7 +445,7 @@ public class FunctionRegistry
         // if identity cast, return a custom operator info
         if ((operatorType == OperatorType.CAST) && (argumentTypes.size() == 1) && argumentTypes.get(0).equals(returnType)) {
             MethodHandle identity = MethodHandles.identity(returnType.getJavaType());
-            return new OperatorInfo(OperatorType.CAST, returnType, argumentTypes, identity, new DefaultFunctionBinder(identity, false));
+            return operatorInfo(OperatorType.CAST, returnType, argumentTypes, identity, new DefaultFunctionBinder(identity, false));
         }
 
         throw new OperatorNotFoundException(operatorType, argumentTypes, returnType);
@@ -415,6 +478,14 @@ public class FunctionRegistry
         }
         // widen bigint to double
         if (actualType.equals(BIGINT) && expectedType.equals(DOUBLE)) {
+            return true;
+        }
+        // widen date to timestamp
+        if (actualType.equals(DATE) && expectedType.equals(TIMESTAMP)) {
+            return true;
+        }
+        // widen date to timestamp with time zone
+        if (actualType.equals(DATE) && expectedType.equals(TIMESTAMP_WITH_TIME_ZONE)) {
             return true;
         }
         // widen time to time with time zone
@@ -525,20 +596,22 @@ public class FunctionRegistry
         return new Signature(MAGIC_LITERAL_FUNCTION_PREFIX + type.getName(),
                 type,
                 ImmutableList.of(type(type.getJavaType())),
+                false,
                 false);
     }
 
     public static class FunctionListBuilder
     {
         private final List<FunctionInfo> functions = new ArrayList<>();
-        private final List<OperatorInfo> operators = new ArrayList<>();
+        private final Multimap<OperatorType, FunctionInfo> operators = ArrayListMultimap.create();
 
-        public FunctionListBuilder window(String name, Type returnType, List<? extends Type> argumentTypes, Supplier<WindowFunction> function)
+        public FunctionListBuilder window(String name, Type returnType, List<? extends Type> argumentTypes, Class<? extends WindowFunction> functionClass)
         {
-            name = name.toLowerCase();
+            WindowFunctionSupplier windowFunctionSupplier = new ReflectionWindowFunctionSupplier<>(
+                    new Signature(name, returnType, ImmutableList.copyOf(argumentTypes), false),
+                    functionClass);
 
-            String description = getDescription(function.getClass());
-            functions.add(new FunctionInfo(new Signature(name, returnType, ImmutableList.copyOf(argumentTypes), false), description, function));
+            functions.add(new FunctionInfo(windowFunctionSupplier.getSignature(), windowFunctionSupplier.getDescription(), windowFunctionSupplier));
             return this;
         }
 
@@ -558,7 +631,7 @@ public class FunctionRegistry
             name = name.toLowerCase();
 
             String description = getDescription(function.getClass());
-            functions.add(new FunctionInfo(new Signature(name, returnType, ImmutableList.copyOf(argumentTypes), approximate), description, intermediateType, function));
+            functions.add(new FunctionInfo(new Signature(name, returnType, ImmutableList.copyOf(argumentTypes), approximate, false), description, intermediateType, function));
             return this;
         }
 
@@ -570,7 +643,9 @@ public class FunctionRegistry
 
         private FunctionListBuilder operator(OperatorType operatorType, Type returnType, List<Type> parameterTypes, MethodHandle function, FunctionBinder functionBinder)
         {
-            operators.add(new OperatorInfo(operatorType, returnType, parameterTypes, function, functionBinder));
+            FunctionInfo operatorInfo = operatorInfo(operatorType, returnType, parameterTypes, function, functionBinder);
+            operators.put(operatorType, operatorInfo);
+            functions.add(operatorInfo);
             return this;
         }
 
@@ -606,7 +681,7 @@ public class FunctionRegistry
             SqlType returnTypeAnnotation = method.getAnnotation(SqlType.class);
             checkArgument(returnTypeAnnotation != null, "Method %s return type does not have a @SqlType annotation", method);
             Type returnType = type(returnTypeAnnotation);
-            Signature signature = new Signature(name.toLowerCase(), returnType, parameterTypes(method), false);
+            Signature signature = new Signature(name.toLowerCase(), returnType, parameterTypes(method), false, false);
 
             verifyMethodSignature(method, signature.getReturnType(), signature.getArgumentTypes());
 
@@ -709,10 +784,18 @@ public class FunctionRegistry
             return ImmutableList.copyOf(functions);
         }
 
-        public List<OperatorInfo> getOperators()
+        public Multimap<OperatorType, FunctionInfo> getOperators()
         {
-            return ImmutableList.copyOf(operators);
+            return ImmutableMultimap.copyOf(operators);
         }
+    }
+
+    private static FunctionInfo operatorInfo(OperatorType operatorType, Type returnType, List<? extends Type> argumentTypes, MethodHandle method, FunctionBinder functionBinder)
+    {
+        operatorType.validateSignature(returnType, ImmutableList.copyOf(argumentTypes));
+
+        Signature signature = new Signature(operatorType.name(), returnType, argumentTypes, false, true);
+        return new FunctionInfo(signature, operatorType.getOperator(), true, method, true, functionBinder);
     }
 
     private static void verifyMethodSignature(Method method, Type returnType, List<Type> argumentTypes)
@@ -741,28 +824,11 @@ public class FunctionRegistry
         }
     }
 
-    public static Supplier<WindowFunction> supplier(final Class<? extends WindowFunction> clazz)
-    {
-        return new Supplier<WindowFunction>()
-        {
-            @Override
-            public WindowFunction get()
-            {
-                try {
-                    return clazz.getConstructor().newInstance();
-                }
-                catch (ReflectiveOperationException e) {
-                    throw Throwables.propagate(e);
-                }
-            }
-        };
-    }
-
     private static class FunctionMap
     {
         private final Multimap<QualifiedName, FunctionInfo> functionsByName;
         private final Map<Signature, FunctionInfo> functionsBySignature;
-        private final Multimap<OperatorType, OperatorInfo> byOperator;
+        private final Multimap<OperatorType, FunctionInfo> byOperator;
 
         public FunctionMap()
         {
@@ -771,7 +837,7 @@ public class FunctionRegistry
             byOperator = ImmutableListMultimap.of();
         }
 
-        public FunctionMap(FunctionMap map, Iterable<FunctionInfo> functions, Iterable<OperatorInfo> operator)
+        public FunctionMap(FunctionMap map, Iterable<FunctionInfo> functions, Multimap<OperatorType, FunctionInfo> operators)
         {
             functionsByName = ImmutableListMultimap.<QualifiedName, FunctionInfo>builder()
                     .putAll(map.functionsByName)
@@ -783,9 +849,9 @@ public class FunctionRegistry
                     .putAll(Maps.uniqueIndex(functions, FunctionInfo.handleGetter()))
                     .build();
 
-            byOperator = ImmutableListMultimap.<OperatorType, OperatorInfo>builder()
+            byOperator = ImmutableListMultimap.<OperatorType, FunctionInfo>builder()
                     .putAll(map.byOperator)
-                    .putAll(Multimaps.index(operator, OperatorInfo.operatorGetter()))
+                    .putAll(operators)
                     .build();
 
             // Make sure all functions with the same name are aggregations or none of them are
@@ -811,7 +877,7 @@ public class FunctionRegistry
             return functionsBySignature.get(signature);
         }
 
-        public Collection<OperatorInfo> getOperators(OperatorType operatorType)
+        public Collection<FunctionInfo> getOperators(OperatorType operatorType)
         {
             return byOperator.get(operatorType);
         }

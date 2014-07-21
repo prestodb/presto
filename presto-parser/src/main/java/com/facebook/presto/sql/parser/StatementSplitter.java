@@ -23,6 +23,7 @@ import org.antlr.runtime.RecognitionException;
 import org.antlr.runtime.Token;
 import org.antlr.runtime.TokenSource;
 
+import java.util.EnumSet;
 import java.util.List;
 import java.util.Set;
 
@@ -77,17 +78,8 @@ public class StatementSplitter
     {
         TokenSource tokens = getLexer(sql, ImmutableSet.<String>of());
         StringBuilder sb = new StringBuilder();
-        int index = 0;
         while (true) {
-            Token token;
-            try {
-                token = tokens.nextToken();
-                index = ((CommonToken) token).getStopIndex() + 1;
-            }
-            catch (ParsingException e) {
-                sb.append(sql.substring(index));
-                break;
-            }
+            Token token = tokens.nextToken();
             if (token.getType() == Token.EOF) {
                 break;
             }
@@ -99,6 +91,20 @@ public class StatementSplitter
             }
         }
         return sb.toString().trim();
+    }
+
+    public static boolean isEmptyStatement(String sql)
+    {
+        TokenSource tokens = getLexer(sql, ImmutableSet.<String>of());
+        while (true) {
+            Token token = tokens.nextToken();
+            if (token.getType() == Token.EOF) {
+                return true;
+            }
+            if (token.getChannel() != Token.HIDDEN_CHANNEL) {
+                return false;
+            }
+        }
     }
 
     private static String getTokenText(Token token)
@@ -140,6 +146,10 @@ public class StatementSplitter
         public ErrorHandlingLexer(CharStream input, Set<String> terminators)
         {
             super(input);
+
+            // allow identifier symbols, since illegal identifiers will be handled by the main parser
+            setAllowedIdentifierSymbols(EnumSet.allOf(IdentifierSymbol.class));
+
             this.terminators = ImmutableSet.copyOf(checkNotNull(terminators, "terminators is null"));
         }
 

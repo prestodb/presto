@@ -21,6 +21,7 @@ public class NodeSchedulerConfig
 {
     private int minCandidates = 10;
     private boolean locationAwareScheduling = true;
+    private boolean includeCoordinator = true;
 
     @Min(1)
     public int getMinCandidates()
@@ -44,6 +45,18 @@ public class NodeSchedulerConfig
     public NodeSchedulerConfig setLocationAwareSchedulingEnabled(boolean locationAwareScheduling)
     {
         this.locationAwareScheduling = locationAwareScheduling;
+        return this;
+    }
+
+    public boolean isIncludeCoordinator()
+    {
+        return includeCoordinator;
+    }
+
+    @Config("node-scheduler.include-coordinator")
+    public NodeSchedulerConfig setIncludeCoordinator(boolean includeCoordinator)
+    {
+        this.includeCoordinator = includeCoordinator;
         return this;
     }
 }

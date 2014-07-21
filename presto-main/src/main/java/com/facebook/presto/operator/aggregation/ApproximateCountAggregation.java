@@ -18,7 +18,6 @@ import com.facebook.presto.operator.Page;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
-import com.facebook.presto.spi.block.BlockCursor;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.util.array.LongBigArray;
 import com.google.common.base.Optional;
@@ -32,7 +31,6 @@ import static com.facebook.presto.operator.aggregation.ApproximateUtils.countErr
 import static com.facebook.presto.operator.aggregation.ApproximateUtils.formatApproximateResult;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkState;
 import static io.airlift.slice.SizeOf.SIZE_OF_DOUBLE;
 import static io.airlift.slice.SizeOf.SIZE_OF_INT;
 import static io.airlift.slice.SizeOf.SIZE_OF_LONG;
@@ -71,7 +69,7 @@ public class ApproximateCountAggregation
     }
 
     @Override
-    public ApproximateCountGroupedAccumulator createGroupedAggregation(Optional<Integer> maskChannel, Optional<Integer> sampleWeightChannel, double confidence, int[] argumentChannels)
+    public ApproximateCountGroupedAccumulator createGroupedAggregation(Optional<Integer> maskChannel, Optional<Integer> sampleWeightChannel, double confidence, int... argumentChannels)
     {
         checkArgument(sampleWeightChannel.isPresent(), "sampleWeightChannel missing");
         return new ApproximateCountGroupedAccumulator(maskChannel, sampleWeightChannel.get(), confidence);
@@ -124,17 +122,15 @@ public class ApproximateCountAggregation
         {
             counts.ensureCapacity(groupIdsBlock.getGroupCount());
             samples.ensureCapacity(groupIdsBlock.getGroupCount());
-            BlockCursor masks = null;
+            Block masks = null;
             if (maskChannel.isPresent()) {
-                masks = page.getBlock(maskChannel.get()).cursor();
+                masks = page.getBlock(maskChannel.get());
             }
-            BlockCursor sampleWeights = page.getBlock(sampleWeightChannel).cursor();
+            Block sampleWeights = page.getBlock(sampleWeightChannel);
 
             for (int position = 0; position < groupIdsBlock.getPositionCount(); position++) {
                 long groupId = groupIdsBlock.getGroupId(position);
-                checkState(masks == null || masks.advanceNextPosition(), "failed to advance mask cursor");
-                checkState(sampleWeights.advanceNextPosition(), "failed to advance weight cursor");
-                long weight = SimpleAggregationFunction.computeSampleWeight(masks, sampleWeights);
+                long weight = ApproximateUtils.computeSampleWeight(masks, sampleWeights, position);
                 counts.add(groupId, weight);
                 if (weight > 0) {
                     samples.increment(groupId);
@@ -143,18 +139,14 @@ public class ApproximateCountAggregation
         }
 
         @Override
-        public void addIntermediate(GroupByIdBlock groupIdsBlock, Block block)
+        public void addIntermediate(GroupByIdBlock groupIdsBlock, Block intermediates)
         {
             counts.ensureCapacity(groupIdsBlock.getGroupCount());
             samples.ensureCapacity(groupIdsBlock.getGroupCount());
 
-            BlockCursor intermediates = block.cursor();
-
             for (int position = 0; position < groupIdsBlock.getPositionCount(); position++) {
-                checkState(intermediates.advanceNextPosition(), "failed to advance intermediates cursor");
-
                 long groupId = groupIdsBlock.getGroupId(position);
-                Slice slice = intermediates.getSlice();
+                Slice slice = intermediates.getSlice(position);
                 counts.add(groupId, slice.getLong(COUNT_OFFSET));
                 samples.add(groupId, slice.getLong(SAMPLES_OFFSET));
             }
@@ -226,16 +218,14 @@ public class ApproximateCountAggregation
         @Override
         public void addInput(Page page)
         {
-            BlockCursor masks = null;
+            Block masks = null;
             if (maskChannel.isPresent()) {
-                masks = page.getBlock(maskChannel.get()).cursor();
+                masks = page.getBlock(maskChannel.get());
             }
-            BlockCursor sampleWeights = page.getBlock(sampleWeightChannel).cursor();
+            Block sampleWeights = page.getBlock(sampleWeightChannel);
 
-            for (int i = 0; i < page.getPositionCount(); i++) {
-                checkState(masks == null || masks.advanceNextPosition(), "failed to advance mask cursor");
-                checkState(sampleWeights.advanceNextPosition(), "failed to advance weight cursor");
-                long weight = SimpleAggregationFunction.computeSampleWeight(masks, sampleWeights);
+            for (int position = 0; position < page.getPositionCount(); position++) {
+                long weight = ApproximateUtils.computeSampleWeight(masks, sampleWeights, position);
                 count += weight;
                 if (weight > 0) {
                     samples++;
@@ -244,13 +234,10 @@ public class ApproximateCountAggregation
         }
 
         @Override
-        public void addIntermediate(Block block)
+        public void addIntermediate(Block intermediates)
         {
-            BlockCursor intermediates = block.cursor();
-
-            for (int position = 0; position < block.getPositionCount(); position++) {
-                checkState(intermediates.advanceNextPosition(), "failed to advance intermediates cursor");
-                Slice slice = intermediates.getSlice();
+            for (int position = 0; position < intermediates.getPositionCount(); position++) {
+                Slice slice = intermediates.getSlice(position);
                 count += slice.getLong(COUNT_OFFSET);
                 samples += slice.getLong(SAMPLES_OFFSET);
             }

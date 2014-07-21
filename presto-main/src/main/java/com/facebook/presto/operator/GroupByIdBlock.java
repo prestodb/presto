@@ -14,10 +14,9 @@
 package com.facebook.presto.operator;
 
 import com.facebook.presto.spi.ConnectorSession;
+import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.block.BlockCursor;
 import com.facebook.presto.spi.block.BlockEncoding;
-import com.facebook.presto.spi.block.RandomAccessBlock;
 import com.facebook.presto.spi.block.SortOrder;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.base.Objects;
@@ -28,12 +27,12 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 public class GroupByIdBlock
-        implements RandomAccessBlock
+        implements Block
 {
     private final long groupCount;
-    private final RandomAccessBlock block;
+    private final Block block;
 
-    public GroupByIdBlock(long groupCount, RandomAccessBlock block)
+    public GroupByIdBlock(long groupCount, Block block)
     {
         checkNotNull(block, "block is null");
         checkArgument(block.getType().equals(BIGINT));
@@ -52,7 +51,7 @@ public class GroupByIdBlock
     }
 
     @Override
-    public RandomAccessBlock getRegion(int positionOffset, int length)
+    public Block getRegion(int positionOffset, int length)
     {
         return block.getRegion(positionOffset, length);
     }
@@ -88,7 +87,7 @@ public class GroupByIdBlock
     }
 
     @Override
-    public RandomAccessBlock getSingleValueBlock(int position)
+    public Block getSingleValueBlock(int position)
     {
         return block.getSingleValueBlock(position);
     }
@@ -100,21 +99,15 @@ public class GroupByIdBlock
     }
 
     @Override
-    public boolean equalTo(int position, RandomAccessBlock otherBlock, int otherPosition)
+    public boolean equalTo(int position, Block otherBlock, int otherPosition)
     {
         return block.equalTo(position, otherBlock, otherPosition);
     }
 
     @Override
-    public boolean equalTo(int position, BlockCursor cursor)
+    public boolean equalTo(int position, Slice otherSlice, int otherOffset, int otherLength)
     {
-        return block.equalTo(position, cursor);
-    }
-
-    @Override
-    public boolean equalTo(int position, Slice otherSlice, int otherOffset)
-    {
-        return block.equalTo(position, otherSlice, otherOffset);
+        return block.equalTo(position, otherSlice, otherOffset, otherLength);
     }
 
     @Override
@@ -124,21 +117,15 @@ public class GroupByIdBlock
     }
 
     @Override
-    public int compareTo(SortOrder sortOrder, int position, RandomAccessBlock otherBlock, int otherPosition)
+    public int compareTo(SortOrder sortOrder, int position, Block otherBlock, int otherPosition)
     {
         return block.compareTo(sortOrder, position, otherBlock, otherPosition);
     }
 
     @Override
-    public int compareTo(SortOrder sortOrder, int position, BlockCursor cursor)
+    public int compareTo(int position, Slice otherSlice, int otherOffset, int otherLength)
     {
-        return block.compareTo(sortOrder, position, cursor);
-    }
-
-    @Override
-    public int compareTo(int position, Slice otherSlice, int otherOffset)
-    {
-        return block.compareTo(position, otherSlice, otherOffset);
+        return block.compareTo(position, otherSlice, otherOffset, otherLength);
     }
 
     @Override
@@ -166,21 +153,9 @@ public class GroupByIdBlock
     }
 
     @Override
-    public BlockCursor cursor()
-    {
-        return block.cursor();
-    }
-
-    @Override
     public BlockEncoding getEncoding()
     {
         return block.getEncoding();
-    }
-
-    @Override
-    public RandomAccessBlock toRandomAccessBlock()
-    {
-        return block.toRandomAccessBlock();
     }
 
     @Override

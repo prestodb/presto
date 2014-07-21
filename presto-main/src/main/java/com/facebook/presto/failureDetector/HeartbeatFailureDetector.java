@@ -22,7 +22,7 @@ import com.google.common.collect.ImmutableMap;
 import io.airlift.discovery.client.ServiceDescriptor;
 import io.airlift.discovery.client.ServiceSelector;
 import io.airlift.discovery.client.ServiceType;
-import io.airlift.http.client.AsyncHttpClient;
+import io.airlift.http.client.HttpClient;
 import io.airlift.http.client.Request;
 import io.airlift.http.client.Response;
 import io.airlift.http.client.ResponseHandler;
@@ -49,7 +49,6 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
-import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
@@ -63,6 +62,7 @@ import static com.google.common.base.Predicates.in;
 import static com.google.common.base.Predicates.not;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.airlift.http.client.Request.Builder.prepareHead;
+import static java.util.concurrent.Executors.newSingleThreadScheduledExecutor;
 
 public class HeartbeatFailureDetector
         implements FailureDetector
@@ -70,10 +70,10 @@ public class HeartbeatFailureDetector
     private static final Logger log = Logger.get(HeartbeatFailureDetector.class);
 
     private final ServiceSelector selector;
-    private final AsyncHttpClient httpClient;
+    private final HttpClient httpClient;
     private final NodeInfo nodeInfo;
 
-    private final ScheduledExecutorService executor = Executors.newSingleThreadScheduledExecutor(daemonThreadsNamed("failure-detector"));
+    private final ScheduledExecutorService executor = newSingleThreadScheduledExecutor(daemonThreadsNamed("failure-detector"));
 
     // monitoring tasks by service id
     private final ConcurrentMap<UUID, MonitoringTask> tasks = new ConcurrentHashMap<>();
@@ -89,7 +89,7 @@ public class HeartbeatFailureDetector
     @Inject
     public HeartbeatFailureDetector(
             @ServiceType("presto") ServiceSelector selector,
-            @ForFailureDetector AsyncHttpClient httpClient,
+            @ForFailureDetector HttpClient httpClient,
             FailureDetectorConfig config,
             NodeInfo nodeInfo)
     {

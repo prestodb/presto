@@ -23,6 +23,8 @@ import com.fasterxml.jackson.databind.JsonDeserializer;
 import com.fasterxml.jackson.databind.JsonSerializer;
 import com.fasterxml.jackson.databind.SerializerProvider;
 
+import javax.inject.Inject;
+
 import java.io.IOException;
 
 public final class Serialization
@@ -43,22 +45,38 @@ public final class Serialization
     public static class ExpressionDeserializer
             extends JsonDeserializer<Expression>
     {
+        private final SqlParser sqlParser;
+
+        @Inject
+        public ExpressionDeserializer(SqlParser sqlParser)
+        {
+            this.sqlParser = sqlParser;
+        }
+
         @Override
         public Expression deserialize(JsonParser jsonParser, DeserializationContext deserializationContext)
                 throws IOException
         {
-            return SqlParser.createExpression(jsonParser.readValueAs(String.class));
+            return sqlParser.createExpression(jsonParser.readValueAs(String.class));
         }
     }
 
     public static class FunctionCallDeserializer
             extends JsonDeserializer<FunctionCall>
     {
+        private final SqlParser sqlParser;
+
+        @Inject
+        public FunctionCallDeserializer(SqlParser sqlParser)
+        {
+            this.sqlParser = sqlParser;
+        }
+
         @Override
         public FunctionCall deserialize(JsonParser jsonParser, DeserializationContext deserializationContext)
                 throws IOException
         {
-            return (FunctionCall) SqlParser.createExpression(jsonParser.readValueAs(String.class));
+            return (FunctionCall) sqlParser.createExpression(jsonParser.readValueAs(String.class));
         }
     }
 }

@@ -22,6 +22,7 @@ import java.util.List;
 
 import static com.facebook.presto.hive.HiveBucketing.HiveBucket;
 import static com.google.common.collect.Maps.immutableEntry;
+import static io.airlift.slice.Slices.utf8Slice;
 import static java.util.Map.Entry;
 import static org.apache.hadoop.hive.serde2.objectinspector.primitive.PrimitiveObjectInspectorFactory.javaBooleanObjectInspector;
 import static org.apache.hadoop.hive.serde2.objectinspector.primitive.PrimitiveObjectInspectorFactory.javaLongObjectInspector;
@@ -51,7 +52,7 @@ public class TestHiveBucketing
             throws Exception
     {
         List<Entry<ObjectInspector, Object>> bindings = ImmutableList.<Entry<ObjectInspector, Object>>builder()
-                .add(entry(javaStringObjectInspector, "sequencefile test"))
+                .add(entry(javaStringObjectInspector, utf8Slice("sequencefile test")))
                 .build();
 
         Optional<HiveBucket> bucket = HiveBucketing.getHiveBucket(bindings, 32);

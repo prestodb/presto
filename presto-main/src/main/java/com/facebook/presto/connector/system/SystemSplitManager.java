@@ -37,12 +37,14 @@ import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 
+import static com.facebook.presto.util.Types.checkType;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 public class SystemSplitManager
         implements ConnectorSplitManager
 {
+    public static final String SYSTEM_DATASOURCE = "system";
     private final NodeManager nodeManager;
     private final ConcurrentMap<SchemaTableName, SystemTable> tables = new ConcurrentHashMap<>();
 
@@ -60,20 +62,10 @@ public class SystemSplitManager
     }
 
     @Override
-    public String getConnectorId()
-    {
-        // system is not a connector
-        return null;
-    }
-
-    @Override
     public ConnectorPartitionResult getPartitions(ConnectorTableHandle table, TupleDomain<ConnectorColumnHandle> tupleDomain)
     {
-        checkNotNull(table, "table is null");
         checkNotNull(tupleDomain, "tupleDomain is null");
-
-        checkArgument(table instanceof SystemTableHandle, "TableHandle must be an SystemTableHandle");
-        SystemTableHandle systemTableHandle = (SystemTableHandle) table;
+        SystemTableHandle systemTableHandle = checkType(table, SystemTableHandle.class, "table");
 
         List<ConnectorPartition> partitions = ImmutableList.<ConnectorPartition>of(new SystemPartition(systemTableHandle));
         return new ConnectorPartitionResult(partitions, tupleDomain);
@@ -84,12 +76,11 @@ public class SystemSplitManager
     {
         checkNotNull(partitions, "partitions is null");
         if (partitions.isEmpty()) {
-            return new FixedSplitSource(null, ImmutableList.<ConnectorSplit>of());
+            return new FixedSplitSource(SYSTEM_DATASOURCE, ImmutableList.<ConnectorSplit>of());
         }
 
         ConnectorPartition partition = Iterables.getOnlyElement(partitions);
-        checkArgument(partition instanceof SystemPartition, "Partition must be a system partition");
-        SystemPartition systemPartition = (SystemPartition) partition;
+        SystemPartition systemPartition = checkType(partition, SystemPartition.class, "partition");
 
         SystemTable systemTable = tables.get(systemPartition.getTableHandle().getSchemaTableName());
         checkArgument(systemTable != null, "Table %s does not exist", systemPartition.getTableHandle().getTableName());
@@ -97,14 +88,14 @@ public class SystemSplitManager
         if (systemTable.isDistributed()) {
             ImmutableList.Builder<ConnectorSplit> splits = ImmutableList.builder();
             for (Node node : nodeManager.getActiveNodes()) {
-                splits.add(new SystemSplit(systemPartition.tableHandle, node.getHostAndPort()));
+                splits.add(new SystemSplit(systemPartition.getTableHandle(), node.getHostAndPort()));
             }
-            return new FixedSplitSource(null, splits.build());
+            return new FixedSplitSource(SYSTEM_DATASOURCE, splits.build());
         }
 
         HostAddress address = nodeManager.getCurrentNode().getHostAndPort();
-        ConnectorSplit split = new SystemSplit(systemPartition.tableHandle, address);
-        return new FixedSplitSource(null, ImmutableList.of(split));
+        ConnectorSplit split = new SystemSplit(systemPartition.getTableHandle(), address);
+        return new FixedSplitSource(SYSTEM_DATASOURCE, ImmutableList.of(split));
     }
 
     public static class SystemPartition

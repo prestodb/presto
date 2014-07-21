@@ -14,9 +14,9 @@
 
 package com.facebook.presto.metadata;
 
-import java.util.List;
+import com.google.common.collect.Multimap;
 
 public interface OperatorFactory
 {
-    List<OperatorInfo> listOperators();
+    Multimap<OperatorType, FunctionInfo> listOperators();
 }

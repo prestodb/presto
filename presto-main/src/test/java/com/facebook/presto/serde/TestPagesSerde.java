@@ -27,7 +27,7 @@ import java.util.Iterator;
 import static com.facebook.presto.operator.PageAssertions.assertPageEquals;
 import static com.facebook.presto.serde.PagesSerde.readPages;
 import static com.facebook.presto.serde.PagesSerde.writePages;
-import static com.facebook.presto.serde.TestingBlockEncodingManager.createTestingBlockEncodingManager;
+import static com.facebook.presto.testing.TestingBlockEncodingManager.createTestingBlockEncodingManager;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static org.testng.Assert.assertEquals;
@@ -68,12 +68,12 @@ public class TestPagesSerde
         // page with one value
         page = new Page(builder.appendLong(123).build());
         int firstValueSize = serializedSize(page) - pageSize;
-        assertEquals(firstValueSize, 8 + 1); // value size + value overhead
+        assertEquals(firstValueSize, 9); // value size + value overhead
 
         // page with two values
         page = new Page(builder.appendLong(456).build());
         int secondValueSize = serializedSize(page) - (pageSize + firstValueSize);
-        assertEquals(secondValueSize, 8 + 1); // value size + value overhead
+        assertEquals(secondValueSize, 8); // value size (value overhead is shared with previous value)
     }
 
     @Test
@@ -89,12 +89,12 @@ public class TestPagesSerde
         // page with one value
         page = new Page(builder.appendSlice(Slices.utf8Slice("alice")).build());
         int firstValueSize = serializedSize(page) - pageSize;
-        assertEquals(firstValueSize, 5 + 5); // "alice" + value overhead
+        assertEquals(firstValueSize, 4 + 5 + 1); // length + "alice" + null
 
         // page with two values
         page = new Page(builder.appendSlice(Slices.utf8Slice("bob")).build());
         int secondValueSize = serializedSize(page) - (pageSize + firstValueSize);
-        assertEquals(secondValueSize, 3 + 5); // "bob" + value overhead
+        assertEquals(secondValueSize, 4  + 3); // length + "bob" (null shared with first entry)
     }
 
     private static int serializedSize(Page expectedPage)

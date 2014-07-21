@@ -16,7 +16,6 @@ package com.facebook.presto.spi.type;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
-import com.facebook.presto.spi.block.BlockCursor;
 import com.facebook.presto.spi.block.BlockEncodingFactory;
 import com.facebook.presto.spi.block.FixedWidthBlockUtil.FixedWidthBlockBuilderFactory;
 import io.airlift.slice.Slice;
@@ -136,14 +135,6 @@ public final class TimestampType
     {
         long leftValue = leftSlice.getLong(leftOffset);
         long rightValue = rightSlice.getLong(rightOffset);
-        return leftValue == rightValue;
-    }
-
-    @Override
-    public boolean equalTo(Slice leftSlice, int leftOffset, BlockCursor rightCursor)
-    {
-        long leftValue = leftSlice.getLong(leftOffset);
-        long rightValue = rightCursor.getLong();
         return leftValue == rightValue;
     }
 

@@ -13,19 +13,16 @@
  */
 package com.facebook.presto.operator.aggregation;
 
+import com.facebook.presto.operator.aggregation.state.TriStateBooleanState;
 import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.block.BlockCursor;
-import com.facebook.presto.operator.GroupByIdBlock;
-import com.facebook.presto.util.array.ByteBigArray;
-import com.google.common.base.Optional;
 
+import static com.facebook.presto.operator.aggregation.state.TriStateBooleanState.FALSE_VALUE;
+import static com.facebook.presto.operator.aggregation.state.TriStateBooleanState.NULL_VALUE;
+import static com.facebook.presto.operator.aggregation.state.TriStateBooleanState.TRUE_VALUE;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
-import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkState;
 
 public class BooleanMinAggregation
-        extends SimpleAggregationFunction
+        extends AbstractSimpleAggregationFunction<TriStateBooleanState>
 {
     public static final BooleanMinAggregation BOOLEAN_MIN = new BooleanMinAggregation();
 
@@ -35,124 +32,16 @@ public class BooleanMinAggregation
     }
 
     @Override
-    protected GroupedAccumulator createGroupedAccumulator(Optional<Integer> maskChannel, Optional<Integer> sampleWeightChannel, double confidence, int valueChannel)
+    protected void processInput(TriStateBooleanState state, Block block, int index)
     {
-        // Min/max are not effected by distinct, so ignore it.
-        checkArgument(confidence == 1.0, "min does not support approximate queries");
-        return new BooleanMinGroupedAccumulator(valueChannel);
-    }
-
-    public static class BooleanMinGroupedAccumulator
-            extends SimpleGroupedAccumulator
-    {
-        // null flag is zero so the default value in the min array is null
-        private static final byte NULL_VALUE = 0;
-        private static final byte TRUE_VALUE = 1;
-        private static final byte FALSE_VALUE = -1;
-
-        private final ByteBigArray minValues;
-
-        public BooleanMinGroupedAccumulator(int valueChannel)
-        {
-            // Min/max are not effected by distinct, so ignore it.
-            super(valueChannel, BOOLEAN, BOOLEAN, Optional.<Integer>absent(), Optional.<Integer>absent());
-            this.minValues = new ByteBigArray();
+        // if value is false, update the min to false
+        if (!block.getBoolean(index)) {
+            state.setByte(FALSE_VALUE);
         }
-
-        @Override
-        public long getEstimatedSize()
-        {
-            return minValues.sizeOf();
-        }
-
-        @Override
-        protected void processInput(GroupByIdBlock groupIdsBlock, Block valuesBlock, Optional<Block> maskBlock, Optional<Block> sampleWeightBlock)
-        {
-            minValues.ensureCapacity(groupIdsBlock.getGroupCount());
-
-            BlockCursor values = valuesBlock.cursor();
-
-            for (int position = 0; position < groupIdsBlock.getPositionCount(); position++) {
-                checkState(values.advanceNextPosition());
-
-                // skip null values
-                if (!values.isNull()) {
-                    long groupId = groupIdsBlock.getGroupId(position);
-
-                    // if value is false, update the min to false
-                    if (!values.getBoolean()) {
-                        minValues.set(groupId, FALSE_VALUE);
-                    }
-                    else {
-                        // if the current value is null, set the min to true
-                        if (minValues.get(groupId) == NULL_VALUE) {
-                            minValues.set(groupId, TRUE_VALUE);
-                        }
-                    }
-                }
-            }
-            checkState(!values.advanceNextPosition());
-        }
-
-        @Override
-        public void evaluateFinal(int groupId, BlockBuilder output)
-        {
-            byte value = minValues.get((long) groupId);
-            if (value == NULL_VALUE) {
-                output.appendNull();
-            }
-            else {
-                output.appendBoolean(value == TRUE_VALUE);
-            }
-        }
-    }
-
-    @Override
-    protected Accumulator createAccumulator(Optional<Integer> maskChannel, Optional<Integer> sampleWeightChannel, double confidence, int valueChannel)
-    {
-        // Min/max are not effected by distinct, so ignore it.
-        checkArgument(confidence == 1.0, "min does not support approximate queries");
-        return new BooleanMinAccumulator(valueChannel);
-    }
-
-    public static class BooleanMinAccumulator
-            extends SimpleAccumulator
-    {
-        private boolean notNull;
-        private boolean min = true;
-
-        public BooleanMinAccumulator(int valueChannel)
-        {
-            // Min/max are not effected by distinct, so ignore it.
-            super(valueChannel, BOOLEAN, BOOLEAN, Optional.<Integer>absent(), Optional.<Integer>absent());
-        }
-
-        @Override
-        protected void processInput(Block block, Optional<Block> maskBlock, Optional<Block> sampleWeightBlock)
-        {
-            BlockCursor values = block.cursor();
-
-            for (int position = 0; position < block.getPositionCount(); position++) {
-                checkState(values.advanceNextPosition());
-                if (!values.isNull()) {
-                    notNull = true;
-
-                    // if value is false, update the max to false
-                    if (!values.getBoolean()) {
-                        min = false;
-                    }
-                }
-            }
-        }
-
-        @Override
-        public void evaluateFinal(BlockBuilder out)
-        {
-            if (notNull) {
-                out.appendBoolean(min);
-            }
-            else {
-                out.appendNull();
+        else {
+            // if the current value is null, set the min to true
+            if (state.getByte() == NULL_VALUE) {
+                state.setByte(TRUE_VALUE);
             }
         }
     }

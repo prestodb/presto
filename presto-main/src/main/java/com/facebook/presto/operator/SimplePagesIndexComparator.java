@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.operator;
 
-import com.facebook.presto.spi.block.RandomAccessBlock;
+import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.SortOrder;
 import com.google.common.collect.ImmutableList;
 
@@ -48,8 +48,8 @@ public class SimplePagesIndexComparator
 
         for (int i = 0; i < sortChannels.size(); i++) {
             int sortChannel = sortChannels.get(i);
-            RandomAccessBlock leftBlock = pagesIndex.getChannel(sortChannel).get(leftBlockIndex);
-            RandomAccessBlock rightBlock = pagesIndex.getChannel(sortChannel).get(rightBlockIndex);
+            Block leftBlock = pagesIndex.getChannel(sortChannel).get(leftBlockIndex);
+            Block rightBlock = pagesIndex.getChannel(sortChannel).get(rightBlockIndex);
 
             int compare = leftBlock.compareTo(sortOrders.get(i), leftBlockPosition, rightBlock, rightBlockPosition);
             if (compare != 0) {

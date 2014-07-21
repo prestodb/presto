@@ -27,6 +27,7 @@ import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import static com.datastax.driver.core.RowUtil.createSingleStringRow;
+import static io.airlift.json.JsonCodec.listJsonCodec;
 
 public class MockCassandraSession
         extends CassandraSession
@@ -47,7 +48,8 @@ public class MockCassandraSession
         super(connectorId,
                 null,
                 config.getFetchSizeForPartitionKeySelect(),
-                config.getLimitForPartitionKeySelect());
+                config.getLimitForPartitionKeySelect(),
+                listJsonCodec(ExtraColumnMetadata.class));
     }
 
     public void setThrowException(boolean throwException)
@@ -113,8 +115,8 @@ public class MockCassandraSession
             return new CassandraTable(
                     new CassandraTableHandle(connectorId, TEST_SCHEMA, TEST_TABLE),
                     ImmutableList.of(
-                            new CassandraColumnHandle(connectorId, TEST_COLUMN1, 0, CassandraType.VARCHAR, null, true, false),
-                            new CassandraColumnHandle(connectorId, TEST_COLUMN2, 0, CassandraType.INT, null, false, false)));
+                            new CassandraColumnHandle(connectorId, TEST_COLUMN1, 0, CassandraType.VARCHAR, null, true, false, false, false),
+                            new CassandraColumnHandle(connectorId, TEST_COLUMN2, 0, CassandraType.INT, null, false, false, false, false)));
         }
         throw new TableNotFoundException(tableName);
     }
@@ -143,13 +145,13 @@ public class MockCassandraSession
     }
 
     @Override
-    public Set<Host> getReplicas(String schema, ByteBuffer partitionKey)
+    public Set<Host> getReplicas(String schemaName, ByteBuffer partitionKey)
     {
         throw new UnsupportedOperationException();
     }
 
     @Override
-    public ResultSet executeQuery(String cql)
+    public ResultSet executeQuery(String schemaName, String cql)
     {
         throw new IllegalStateException("unexpected CQL query: " + cql);
     }

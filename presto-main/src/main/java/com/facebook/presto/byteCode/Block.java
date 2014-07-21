@@ -58,7 +58,6 @@ public class Block
 {
     private final CompilerContext context;
     private final List<ByteCodeNode> nodes = new ArrayList<>();
-//    private final List<TryCatchBlockNode> tryCatchBlocks = new ArrayList<>();
 
     private String description;
 
@@ -109,54 +108,6 @@ public class Block
         return nodes.size() == 0;
     }
 
-//    public List<TryCatchBlockNode> getTryCatchBlocks()
-//    {
-//        return tryCatchBlocks;
-//    }
-//
-//    public BlockDefinition tryCatch(BlockDefinition tryBlock, BlockDefinition handlerBlock, ParameterizedType exceptionType)
-//    {
-//        LabelNode tryStart = new LabelNode();
-//        LabelNode tryEnd = new LabelNode();
-//        LabelNode handler = new LabelNode();
-//        LabelNode done = new LabelNode();
-//
-//        String exceptionName = null;
-//        if (exceptionType != null) {
-//            exceptionName = exceptionType.getClassName();
-//        }
-//        tryCatchBlocks.add(new TryCatchBlockNode(tryStart, tryEnd, handler, exceptionName));
-//
-//        //
-//        // try block
-//        visitLabel(tryStart);
-//        append(tryBlock);
-//        visitLabel(tryEnd);
-//        gotoLabel(done);
-//
-//        //
-//        // handler block
-//
-//        visitLabel(handler);
-//
-//        // store exception
-//        Variable exception = context.createTempVariable();
-//        storeVariable(exception.getLocalVariableDefinition());
-//
-//        // execute handler code
-//        append(handlerBlock);
-//
-//        // load and rethrow exception
-//        loadVariable(exception.getLocalVariableDefinition());
-//        context.dropTempVariable(exception);
-//        throwObject();
-//
-//        // all done
-//        visitLabel(done);
-//
-//        return this;
-//    }
-
     public Block visitLabel(LabelNode label)
     {
         nodes.add(label);
@@ -200,6 +151,42 @@ public class Block
     public Block ifNotNullGoto(LabelNode label)
     {
         nodes.add(JumpInstruction.jumpIfNotNull(label));
+        return this;
+    }
+
+    public Block intAdd()
+    {
+        nodes.add(OpCodes.IADD);
+        return this;
+    }
+
+    public Block longAdd()
+    {
+        nodes.add(OpCodes.LADD);
+        return this;
+    }
+
+    public Block longCompare()
+    {
+        nodes.add(OpCodes.LCMP);
+        return this;
+    }
+
+    /**
+     * Compare two doubles. If either is NaN comparison is -1.
+     */
+    public Block doubleCompareNanLess()
+    {
+        nodes.add(OpCodes.DCMPL);
+        return this;
+    }
+
+    /**
+     * Compare two doubles. If either is NaN comparison is 1.
+     */
+    public Block doubleCompareNanGreater()
+    {
+        nodes.add(OpCodes.DCMPG);
         return this;
     }
 
@@ -518,6 +505,36 @@ public class Block
         return this;
     }
 
+    public Block ret(Class<?> type)
+    {
+        if (type == long.class) {
+            retLong();
+        }
+        else if (type == boolean.class) {
+            retBoolean();
+        }
+        else if (type == int.class || type == byte.class || type == char.class || type == short.class) {
+            retInt();
+        }
+        else if (type == float.class) {
+            retFloat();
+        }
+        else if (type == double.class) {
+            retDouble();
+        }
+        else if (type == void.class) {
+            ret();
+        }
+        else if (!type.isPrimitive()) {
+            retObject();
+        }
+        else {
+            throw new IllegalArgumentException("Unsupported type: " + type.getName());
+        }
+
+        return this;
+    }
+
     public Block ret()
     {
         nodes.add(OpCodes.RETURN);
@@ -527,6 +544,18 @@ public class Block
     public Block retObject()
     {
         nodes.add(OpCodes.ARETURN);
+        return this;
+    }
+
+    public Block retFloat()
+    {
+        nodes.add(OpCodes.FRETURN);
+        return this;
+    }
+
+    public Block retDouble()
+    {
+        nodes.add(OpCodes.DRETURN);
         return this;
     }
 

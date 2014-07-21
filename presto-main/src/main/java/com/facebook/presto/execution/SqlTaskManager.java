@@ -47,13 +47,14 @@ import java.util.NoSuchElementException;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 import static io.airlift.concurrent.Threads.threadsNamed;
+import static java.util.concurrent.Executors.newCachedThreadPool;
+import static java.util.concurrent.Executors.newScheduledThreadPool;
 
 public class SqlTaskManager
         implements TaskManager
@@ -115,10 +116,10 @@ public class SqlTaskManager
         this.clientTimeout = config.getClientTimeout();
         this.cpuTimerEnabled = config.isTaskCpuTimerEnabled();
 
-        taskNotificationExecutor = Executors.newCachedThreadPool(threadsNamed("task-notification-%d"));
+        taskNotificationExecutor = newCachedThreadPool(threadsNamed("task-notification-%d"));
         taskNotificationExecutorMBean = new ThreadPoolExecutorMBean((ThreadPoolExecutor) taskNotificationExecutor);
 
-        taskManagementExecutor = Executors.newScheduledThreadPool(5, threadsNamed("task-management-%d"));
+        taskManagementExecutor = newScheduledThreadPool(5, threadsNamed("task-management-%d"));
         taskManagementExecutorMBean = new ThreadPoolExecutorMBean((ThreadPoolExecutor) taskManagementExecutor);
     }
 
@@ -210,11 +211,11 @@ public class SqlTaskManager
     }
 
     @Override
-    public List<TaskInfo> getAllTaskInfo(boolean full)
+    public List<TaskInfo> getAllTaskInfo()
     {
         Map<TaskId, TaskInfo> taskInfos = new HashMap<>();
         for (TaskExecution taskExecution : tasks.values()) {
-            taskInfos.put(taskExecution.getTaskId(), getTaskInfo(taskExecution, full));
+            taskInfos.put(taskExecution.getTaskId(), getTaskInfo(taskExecution));
         }
         taskInfos.putAll(this.taskInfos);
         return ImmutableList.copyOf(taskInfos.values());
@@ -237,14 +238,14 @@ public class SqlTaskManager
     }
 
     @Override
-    public TaskInfo getTaskInfo(TaskId taskId, boolean full)
+    public TaskInfo getTaskInfo(TaskId taskId)
     {
         checkNotNull(taskId, "taskId is null");
 
         TaskExecution taskExecution = tasks.get(taskId);
         if (taskExecution != null) {
             taskExecution.recordHeartbeat();
-            return getTaskInfo(taskExecution, full);
+            return getTaskInfo(taskExecution);
         }
 
         TaskInfo taskInfo = taskInfos.get(taskId);
@@ -254,9 +255,9 @@ public class SqlTaskManager
         return taskInfo;
     }
 
-    private TaskInfo getTaskInfo(TaskExecution taskExecution, boolean full)
+    private TaskInfo getTaskInfo(TaskExecution taskExecution)
     {
-        TaskInfo taskInfo = taskExecution.getTaskInfo(full);
+        TaskInfo taskInfo = taskExecution.getTaskInfo();
         if (taskInfo.getState().isDone()) {
             if (taskInfo.getStats().getEndTime() == null) {
                 log.warn("Task %s is in done state %s but does not have an end time", taskInfo.getTaskId(), taskInfo.getState());
@@ -316,7 +317,7 @@ public class SqlTaskManager
         taskExecution.addSources(sources);
         taskExecution.addResultQueue(outputBuffers);
 
-        return getTaskInfo(taskExecution, false);
+        return getTaskInfo(taskExecution);
     }
 
     @Override
@@ -371,7 +372,7 @@ public class SqlTaskManager
         log.debug("Aborting task %s output %s", taskId, outputId);
         taskExecution.abortResults(outputId);
 
-        return getTaskInfo(taskExecution, false);
+        return getTaskInfo(taskExecution);
     }
 
     @Override
@@ -413,7 +414,7 @@ public class SqlTaskManager
         // make sure task is finished
         taskExecution.cancel();
 
-        return getTaskInfo(taskExecution, false);
+        return getTaskInfo(taskExecution);
     }
 
     public void removeOldTasks()
@@ -438,7 +439,7 @@ public class SqlTaskManager
         DateTime oldestAllowedHeartbeat = now.minus(clientTimeout.toMillis());
         for (TaskExecution taskExecution : tasks.values()) {
             try {
-                TaskInfo taskInfo = taskExecution.getTaskInfo(false);
+                TaskInfo taskInfo = taskExecution.getTaskInfo();
                 if (taskInfo.getState().isDone()) {
                     continue;
                 }
@@ -448,7 +449,7 @@ public class SqlTaskManager
                     taskExecution.fail(new AbandonedException("Task " + taskInfo.getTaskId(), lastHeartbeat, now));
 
                     // trigger caching
-                    getTaskInfo(taskExecution, false);
+                    getTaskInfo(taskExecution);
                 }
             }
             catch (RuntimeException e) {

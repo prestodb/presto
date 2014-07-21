@@ -17,7 +17,6 @@ import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.block.BlockAssertions;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
-import com.facebook.presto.spi.block.RandomAccessBlock;
 import com.facebook.presto.block.rle.RunLengthEncodedBlock;
 import com.facebook.presto.operator.GroupByIdBlock;
 import com.facebook.presto.operator.Page;
@@ -391,10 +390,9 @@ public final class AggregationTestUtils
 
     private static RunLengthEncodedBlock createNullRLEBlock(int positionCount)
     {
-        RandomAccessBlock value = BOOLEAN.createBlockBuilder(new BlockBuilderStatus())
+        Block value = BOOLEAN.createBlockBuilder(new BlockBuilderStatus())
                 .appendNull()
-                .build()
-                .toRandomAccessBlock();
+                .build();
 
         return new RunLengthEncodedBlock(value, positionCount);
     }

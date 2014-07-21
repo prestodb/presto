@@ -13,44 +13,14 @@
  */
 package com.facebook.presto.operator.aggregation;
 
-import com.facebook.presto.operator.aggregation.AverageAggregation.AverageAccumulator;
-import com.facebook.presto.operator.aggregation.AverageAggregation.AverageGroupedAccumulator;
-import com.facebook.presto.operator.aggregation.SimpleAggregationFunction.SimpleAccumulator;
-import com.facebook.presto.operator.aggregation.SimpleAggregationFunction.SimpleGroupedAccumulator;
-import com.facebook.presto.spi.type.Type;
-import com.google.common.base.Throwables;
-
+import static com.facebook.presto.operator.aggregation.AggregationUtils.createIsolatedAggregation;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 
 public final class AverageAggregations
 {
-    public static final AggregationFunction LONG_AVERAGE = createIsolatedAggregation(BIGINT);
-    public static final AggregationFunction DOUBLE_AVERAGE = createIsolatedAggregation(DOUBLE);
+    public static final AggregationFunction LONG_AVERAGE = createIsolatedAggregation(AverageAggregation.class, BIGINT);
+    public static final AggregationFunction DOUBLE_AVERAGE = createIsolatedAggregation(AverageAggregation.class, DOUBLE);
 
     private AverageAggregations() {}
-
-    private static AggregationFunction createIsolatedAggregation(Type parameterType)
-    {
-        Class<? extends AggregationFunction> functionClass = IsolatedClass.isolateClass(
-                AggregationFunction.class,
-
-                AverageAggregation.class,
-                SimpleAggregationFunction.class,
-
-                AverageGroupedAccumulator.class,
-                SimpleGroupedAccumulator.class,
-
-                AverageAccumulator.class,
-                SimpleAccumulator.class);
-
-        try {
-            return functionClass
-                    .getConstructor(Type.class)
-                    .newInstance(parameterType);
-        }
-        catch (Exception e) {
-            throw Throwables.propagate(e);
-        }
-    }
 }

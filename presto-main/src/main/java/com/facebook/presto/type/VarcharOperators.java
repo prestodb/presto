@@ -13,23 +13,26 @@
  */
 package com.facebook.presto.type;
 
+import com.facebook.presto.operator.scalar.ScalarFunction;
 import com.facebook.presto.operator.scalar.ScalarOperator;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.type.BigintType;
 import com.facebook.presto.spi.type.BooleanType;
 import com.facebook.presto.spi.type.DoubleType;
+import com.facebook.presto.spi.type.VarbinaryType;
 import com.facebook.presto.spi.type.VarcharType;
+import com.facebook.presto.sql.gen.LikeFunctionBinder;
 import io.airlift.slice.Slice;
 
-import static com.facebook.presto.metadata.OperatorInfo.OperatorType.BETWEEN;
-import static com.facebook.presto.metadata.OperatorInfo.OperatorType.CAST;
-import static com.facebook.presto.metadata.OperatorInfo.OperatorType.EQUAL;
-import static com.facebook.presto.metadata.OperatorInfo.OperatorType.GREATER_THAN;
-import static com.facebook.presto.metadata.OperatorInfo.OperatorType.GREATER_THAN_OR_EQUAL;
-import static com.facebook.presto.metadata.OperatorInfo.OperatorType.HASH_CODE;
-import static com.facebook.presto.metadata.OperatorInfo.OperatorType.LESS_THAN;
-import static com.facebook.presto.metadata.OperatorInfo.OperatorType.LESS_THAN_OR_EQUAL;
-import static com.facebook.presto.metadata.OperatorInfo.OperatorType.NOT_EQUAL;
+import static com.facebook.presto.metadata.OperatorType.BETWEEN;
+import static com.facebook.presto.metadata.OperatorType.CAST;
+import static com.facebook.presto.metadata.OperatorType.EQUAL;
+import static com.facebook.presto.metadata.OperatorType.GREATER_THAN;
+import static com.facebook.presto.metadata.OperatorType.GREATER_THAN_OR_EQUAL;
+import static com.facebook.presto.metadata.OperatorType.HASH_CODE;
+import static com.facebook.presto.metadata.OperatorType.LESS_THAN;
+import static com.facebook.presto.metadata.OperatorType.LESS_THAN_OR_EQUAL;
+import static com.facebook.presto.metadata.OperatorType.NOT_EQUAL;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
@@ -154,9 +157,32 @@ public final class VarcharOperators
         }
     }
 
+    @ScalarOperator(CAST)
+    @SqlType(VarbinaryType.class)
+    public static Slice castToBinary(@SqlType(VarcharType.class) Slice slice)
+    {
+        return slice;
+    }
+
     @ScalarOperator(HASH_CODE)
     public static int hashCode(@SqlType(VarcharType.class) Slice value)
     {
         return value.hashCode();
+    }
+
+    // TODO: this should not be callable from SQL
+    @ScalarFunction(value = "like", functionBinder = LikeFunctionBinder.class, hidden = true)
+    @SqlType(BooleanType.class)
+    public static boolean like(@SqlType(VarcharType.class) Slice value, @SqlType(VarcharType.class) Slice pattern)
+    {
+        throw new UnsupportedOperationException("not yet implemented");
+    }
+
+    // TODO: this should not be callable from SQL
+    @ScalarFunction(value = "like", functionBinder = LikeFunctionBinder.class, hidden = true)
+    @SqlType(BooleanType.class)
+    public static boolean like(@SqlType(VarcharType.class) Slice value, @SqlType(VarcharType.class) Slice pattern, @SqlType(VarcharType.class) Slice escape)
+    {
+        throw new UnsupportedOperationException("not yet implemented");
     }
 }

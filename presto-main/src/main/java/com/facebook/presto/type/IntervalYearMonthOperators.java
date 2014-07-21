@@ -22,20 +22,20 @@ import com.facebook.presto.spi.type.IntervalYearMonthType;
 import com.facebook.presto.spi.type.VarcharType;
 import io.airlift.slice.Slice;
 
-import static com.facebook.presto.metadata.OperatorInfo.OperatorType.ADD;
-import static com.facebook.presto.metadata.OperatorInfo.OperatorType.BETWEEN;
-import static com.facebook.presto.metadata.OperatorInfo.OperatorType.CAST;
-import static com.facebook.presto.metadata.OperatorInfo.OperatorType.DIVIDE;
-import static com.facebook.presto.metadata.OperatorInfo.OperatorType.EQUAL;
-import static com.facebook.presto.metadata.OperatorInfo.OperatorType.GREATER_THAN;
-import static com.facebook.presto.metadata.OperatorInfo.OperatorType.GREATER_THAN_OR_EQUAL;
-import static com.facebook.presto.metadata.OperatorInfo.OperatorType.HASH_CODE;
-import static com.facebook.presto.metadata.OperatorInfo.OperatorType.LESS_THAN;
-import static com.facebook.presto.metadata.OperatorInfo.OperatorType.LESS_THAN_OR_EQUAL;
-import static com.facebook.presto.metadata.OperatorInfo.OperatorType.MULTIPLY;
-import static com.facebook.presto.metadata.OperatorInfo.OperatorType.NEGATION;
-import static com.facebook.presto.metadata.OperatorInfo.OperatorType.NOT_EQUAL;
-import static com.facebook.presto.metadata.OperatorInfo.OperatorType.SUBTRACT;
+import static com.facebook.presto.metadata.OperatorType.ADD;
+import static com.facebook.presto.metadata.OperatorType.BETWEEN;
+import static com.facebook.presto.metadata.OperatorType.CAST;
+import static com.facebook.presto.metadata.OperatorType.DIVIDE;
+import static com.facebook.presto.metadata.OperatorType.EQUAL;
+import static com.facebook.presto.metadata.OperatorType.GREATER_THAN;
+import static com.facebook.presto.metadata.OperatorType.GREATER_THAN_OR_EQUAL;
+import static com.facebook.presto.metadata.OperatorType.HASH_CODE;
+import static com.facebook.presto.metadata.OperatorType.LESS_THAN;
+import static com.facebook.presto.metadata.OperatorType.LESS_THAN_OR_EQUAL;
+import static com.facebook.presto.metadata.OperatorType.MULTIPLY;
+import static com.facebook.presto.metadata.OperatorType.NEGATION;
+import static com.facebook.presto.metadata.OperatorType.NOT_EQUAL;
+import static com.facebook.presto.metadata.OperatorType.SUBTRACT;
 import static io.airlift.slice.Slices.utf8Slice;
 
 public final class IntervalYearMonthOperators

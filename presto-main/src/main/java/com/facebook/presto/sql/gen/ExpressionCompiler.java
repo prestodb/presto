@@ -46,21 +46,24 @@ import com.facebook.presto.operator.aggregation.IsolatedClass;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.RecordCursor;
 import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.block.BlockCursor;
 import com.facebook.presto.spi.type.TimeZoneKey;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.split.DataStreamProvider;
+import com.facebook.presto.sql.planner.CompilerConfig;
+import com.facebook.presto.sql.planner.SubExpressionExtractor;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
+import com.facebook.presto.sql.relational.RowExpression;
+import com.facebook.presto.sql.relational.SqlToRowExpressionTranslator;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.InputReference;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Objects;
-import com.google.common.base.Preconditions;
 import com.google.common.base.Throwables;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Iterables;
 import com.google.common.io.Files;
 import io.airlift.log.Logger;
 import io.airlift.slice.Slice;
@@ -86,6 +89,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.TreeSet;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 
@@ -114,6 +118,8 @@ public class ExpressionCompiler
     private static final boolean RUN_ASM_VERIFIER = false; // verifier doesn't work right now
     private static final AtomicReference<String> DUMP_CLASS_FILES_TO = new AtomicReference<>();
 
+    private final boolean useNewByteCodeGenerator;
+
     private final Metadata metadata;
 
     private final LoadingCache<OperatorCacheKey, FilterAndProjectOperatorFactoryFactory> operatorFactories = CacheBuilder.newBuilder().maximumSize(1000).build(
@@ -141,9 +147,10 @@ public class ExpressionCompiler
     private final AtomicLong generatedClasses = new AtomicLong();
 
     @Inject
-    public ExpressionCompiler(Metadata metadata)
+    public ExpressionCompiler(Metadata metadata, CompilerConfig config)
     {
         this.metadata = metadata;
+        this.useNewByteCodeGenerator = config.isUseNewByteCodeGenerator();
     }
 
     @Managed
@@ -237,7 +244,7 @@ public class ExpressionCompiler
                 .putField(sessionField)
                 .ret();
 
-        generateFilterAndProjectRowOriented(bootstrap, classDefinition, projections, expressionTypes);
+        generateFilterAndProjectRowOriented(bootstrap, classDefinition, filter, projections, expressionTypes);
 
         //
         // filter method
@@ -361,7 +368,7 @@ public class ExpressionCompiler
                 .putField(sessionField)
                 .ret();
 
-        generateFilterAndProjectRowOriented(bootstrap, classDefinition, projections, expressionTypes);
+        generateFilterAndProjectRowOriented(bootstrap, classDefinition, filter, projections, expressionTypes);
         generateFilterAndProjectCursorMethod(bootstrap, classDefinition, projections);
 
         //
@@ -400,6 +407,7 @@ public class ExpressionCompiler
     private void generateFilterAndProjectRowOriented(
             BootstrapEntry bootstrap,
             ClassDefinition classDefinition,
+            Expression filter,
             List<Expression> projections,
             IdentityHashMap<Expression, Type> expressionTypes)
     {
@@ -421,18 +429,15 @@ public class ExpressionCompiler
                 .invokeVirtual(com.facebook.presto.operator.Page.class, "getPositionCount", int.class)
                 .putVariable(rowsVariable);
 
-        List<LocalVariableDefinition> cursorVariables = new ArrayList<>();
-        int channels = getMaxInputChannel(expressionTypes) + 1;
-        for (int i = 0; i < channels; i++) {
-            LocalVariableDefinition cursorVariable = compilerContext.declareVariable(BlockCursor.class, "cursor_" + i);
-            cursorVariables.add(cursorVariable);
+        List<Integer> allInputChannels = getInputChannels(Iterables.concat(projections, ImmutableList.of(filter)));
+        for (int channel : allInputChannels) {
+            LocalVariableDefinition blockVariable = compilerContext.declareVariable(com.facebook.presto.spi.block.Block.class, "block_" + channel);
             filterAndProjectMethod.getBody()
-                    .comment("BlockCursor %s = page.getBlock(%s).cursor();", cursorVariable.getName(), i)
+                    .comment("Block %s = page.getBlock(%s);", blockVariable.getName(), channel)
                     .getVariable("page")
-                    .push(i)
+                    .push(channel)
                     .invokeVirtual(com.facebook.presto.operator.Page.class, "getBlock", com.facebook.presto.spi.block.Block.class, int.class)
-                    .invokeInterface(com.facebook.presto.spi.block.Block.class, "cursor", BlockCursor.class)
-                    .putVariable(cursorVariable);
+                    .putVariable(blockVariable);
         }
 
         //
@@ -451,23 +456,22 @@ public class ExpressionCompiler
 
         Block forLoopBody = new Block(compilerContext);
 
-        // cursor.advanceNextPosition()
-        for (LocalVariableDefinition cursorVariable : cursorVariables) {
-            forLoopBody
-                    .comment("checkState(%s.advanceNextPosition());", cursorVariable.getName())
-                    .getVariable(cursorVariable)
-                    .invokeInterface(BlockCursor.class, "advanceNextPosition", boolean.class)
-                    .invokeStatic(Preconditions.class, "checkState", void.class, boolean.class);
-        }
-
         IfStatementBuilder ifStatement = new IfStatementBuilder(compilerContext)
-                .comment("if (filter(cursors...)");
+                .comment("if (filter(position, blocks...)");
         Block condition = new Block(compilerContext);
         condition.pushThis();
-        for (int channel = 0; channel < channels; channel++) {
-            condition.getVariable("cursor_" + channel);
+        condition.getVariable(positionVariable);
+        List<Integer> filterInputChannels = getInputChannels(filter);
+        for (int channel : filterInputChannels) {
+            condition.getVariable("block_" + channel);
         }
-        condition.invokeVirtual(classDefinition.getType(), "filter", type(boolean.class), nCopies(channels, type(BlockCursor.class)));
+        condition.invokeVirtual(classDefinition.getType(),
+                "filter",
+                type(boolean.class),
+                ImmutableList.<ParameterizedType>builder()
+                        .add(type(int.class))
+                        .addAll(nCopies(filterInputChannels.size(), type(com.facebook.presto.spi.block.Block.class)))
+                        .build());
         ifStatement.condition(condition);
 
         Block trueBlock = new Block(compilerContext);
@@ -478,12 +482,14 @@ public class ExpressionCompiler
                     .invokeVirtual(PageBuilder.class, "declarePosition", void.class);
         }
         else {
-            // pageBuilder.getBlockBuilder(0).append(cursor.getDouble(0);
+            // pageBuilder.getBlockBuilder(0).append(block.getDouble(0);
             for (int projectionIndex = 0; projectionIndex < projections.size(); projectionIndex++) {
-                trueBlock.comment("project_%s(cursors..., pageBuilder.getBlockBuilder(%s))", projectionIndex, projectionIndex);
+                trueBlock.comment("project_%s(position, blocks..., pageBuilder.getBlockBuilder(%s))", projectionIndex, projectionIndex);
                 trueBlock.pushThis();
-                for (int channel = 0; channel < channels; channel++) {
-                    trueBlock.getVariable("cursor_" + channel);
+                List<Integer> projectionInputs = getInputChannels(projections.get(projectionIndex));
+                trueBlock.getVariable(positionVariable);
+                for (int channel : projectionInputs) {
+                    trueBlock.getVariable("block_" + channel);
                 }
 
                 // pageBuilder.getBlockBuilder(0)
@@ -491,31 +497,21 @@ public class ExpressionCompiler
                         .push(projectionIndex)
                         .invokeVirtual(PageBuilder.class, "getBlockBuilder", BlockBuilder.class, int.class);
 
-                // project(cursor_0, cursor_1, blockBuilder)
+                // project(position, block_0, block_1, blockBuilder)
                 trueBlock.invokeVirtual(classDefinition.getType(),
                         "project_" + projectionIndex,
                         type(void.class),
-                        ImmutableList.<ParameterizedType>builder().addAll(nCopies(channels, type(BlockCursor.class))).add(type(BlockBuilder.class)).build());
+                        ImmutableList.<ParameterizedType>builder()
+                                .add(type(int.class))
+                                .addAll(nCopies(projectionInputs.size(), type(com.facebook.presto.spi.block.Block.class)))
+                                .add(type(BlockBuilder.class))
+                                .build());
             }
         }
         ifStatement.ifTrue(trueBlock);
 
         forLoopBody.append(ifStatement.build());
         filterAndProjectMethod.getBody().append(forLoop.body(forLoopBody).build());
-
-        //
-        //  Verify all cursors ended together
-        //
-
-        // checkState(!cursor.advanceNextPosition());
-        for (LocalVariableDefinition cursorVariable : cursorVariables) {
-            filterAndProjectMethod.getBody()
-                    .comment("checkState(not(%s.advanceNextPosition))", cursorVariable.getName())
-                    .getVariable(cursorVariable)
-                    .invokeInterface(BlockCursor.class, "advanceNextPosition", boolean.class)
-                    .invokeStatic(CompilerOperations.class, "not", boolean.class, boolean.class)
-                    .invokeStatic(Preconditions.class, "checkState", void.class, boolean.class);
-        }
 
         filterAndProjectMethod.getBody().ret();
     }
@@ -582,7 +578,7 @@ public class ExpressionCompiler
             trueBlock.getVariable("pageBuilder").invokeVirtual(PageBuilder.class, "declarePosition", void.class);
         }
         else {
-            // project_43(cursor_0, cursor_1, pageBuilder.getBlockBuilder(42)));
+            // project_43(block..., pageBuilder.getBlockBuilder(42)));
             for (int projectionIndex = 0; projectionIndex < projections.size(); projectionIndex++) {
                 trueBlock.pushThis();
                 trueBlock.getVariable("cursor");
@@ -592,7 +588,7 @@ public class ExpressionCompiler
                         .push(projectionIndex)
                         .invokeVirtual(PageBuilder.class, "getBlockBuilder", BlockBuilder.class, int.class);
 
-                // project(cursor_0, cursor_1, blockBuilder)
+                // project(block..., blockBuilder)
                 trueBlock.invokeVirtual(classDefinition.getType(),
                         "project_" + projectionIndex,
                         type(void.class),
@@ -631,15 +627,17 @@ public class ExpressionCompiler
                     a(PUBLIC),
                     "filter",
                     type(boolean.class),
-                    toBlockCursorParameters(expressionTypes));
+                    ImmutableList.<NamedParameterDefinition>builder()
+                        .add(arg("position", int.class))
+                        .addAll(toBlockParameters(getInputChannels(filter)))
+                        .build());
         }
 
         filterMethod.comment("Filter: %s", filter.toString());
 
         filterMethod.getCompilerContext().declareVariable(type(boolean.class), "wasNull");
         Block getSessionByteCode = new Block(filterMethod.getCompilerContext()).pushThis().getField(classDefinition.getType(), "session", type(ConnectorSession.class));
-        ByteCodeExpressionVisitor visitor = new ByteCodeExpressionVisitor(metadata, bootstrap.getFunctionBinder(), expressionTypes, getSessionByteCode, sourceIsCursor, timeZoneKey);
-        ByteCodeNode body = visitor.process(filter, filterMethod.getCompilerContext());
+        ByteCodeNode body = compileExpression(bootstrap, filter, expressionTypes, sourceIsCursor, timeZoneKey, filterMethod.getCompilerContext(), getSessionByteCode);
 
         LabelNode end = new LabelNode("end");
         filterMethod
@@ -653,6 +651,26 @@ public class ExpressionCompiler
                 .push(false)
                 .visitLabel(end)
                 .retBoolean();
+    }
+
+    private ByteCodeNode compileExpression(
+            BootstrapEntry bootstrap,
+            Expression expression,
+            IdentityHashMap<Expression, Type> types,
+            boolean sourceIsCursor,
+            TimeZoneKey timeZoneKey,
+            CompilerContext context,
+            Block getSessionByteCode)
+    {
+        if (useNewByteCodeGenerator) {
+            RowExpression translated = SqlToRowExpressionTranslator.translate(expression, types, metadata, timeZoneKey);
+            NewByteCodeExpressionVisitor visitor = new NewByteCodeExpressionVisitor(bootstrap.getFunctionBinder(), getSessionByteCode, sourceIsCursor);
+            return translated.accept(visitor, context);
+        }
+        else {
+            ByteCodeExpressionVisitor visitor = new ByteCodeExpressionVisitor(metadata, bootstrap.getFunctionBinder(), types, getSessionByteCode, sourceIsCursor, timeZoneKey);
+            return visitor.process(expression, context);
+        }
     }
 
     private Class<?> generateProjectMethod(
@@ -675,7 +693,8 @@ public class ExpressionCompiler
         }
         else {
             ImmutableList.Builder<NamedParameterDefinition> parameters = ImmutableList.builder();
-            parameters.addAll(toBlockCursorParameters(expressionTypes));
+            parameters.add(arg("position", int.class));
+            parameters.addAll(toBlockParameters(getInputChannels(projection)));
             parameters.add(arg("output", BlockBuilder.class));
 
             projectionMethod = classDefinition.declareMethod(new CompilerContext(bootstrap.getBootstrapMethod()),
@@ -691,8 +710,8 @@ public class ExpressionCompiler
         CompilerContext context = projectionMethod.getCompilerContext();
         context.declareVariable(type(boolean.class), "wasNull");
         Block getSessionByteCode = new Block(context).pushThis().getField(classDefinition.getType(), "session", type(ConnectorSession.class));
-        ByteCodeExpressionVisitor visitor = new ByteCodeExpressionVisitor(metadata, bootstrap.getFunctionBinder(), expressionTypes, getSessionByteCode, sourceIsCursor, timeZoneKey);
-        ByteCodeNode body = visitor.process(projection, context);
+
+        ByteCodeNode body = compileExpression(bootstrap, projection, expressionTypes, sourceIsCursor, timeZoneKey, context, getSessionByteCode);
 
         projectionMethod
                 .getBody()
@@ -745,15 +764,20 @@ public class ExpressionCompiler
         return projectionType.getJavaType();
     }
 
-    private Integer getMaxInputChannel(IdentityHashMap<Expression, Type> expressionTypes)
+    private static List<Integer> getInputChannels(Expression expression)
     {
-        int maxInputChannel = -1;
-        for (Expression expression : expressionTypes.keySet()) {
+        return getInputChannels(ImmutableList.of(expression));
+    }
+
+    private static List<Integer> getInputChannels(Iterable<Expression> expressions)
+    {
+        TreeSet<Integer> channels = new TreeSet<>();
+        for (Expression expression : SubExpressionExtractor.extractAll(expressions)) {
             if (expression instanceof InputReference) {
-                maxInputChannel = Math.max(maxInputChannel, ((InputReference) expression).getInput().getChannel());
+                channels.add(((InputReference) expression).getChannel());
             }
         }
-        return maxInputChannel;
+        return ImmutableList.copyOf(channels);
     }
 
     private static class BootstrapEntry
@@ -825,12 +849,11 @@ public class ExpressionCompiler
         }
     }
 
-    private List<NamedParameterDefinition> toBlockCursorParameters(IdentityHashMap<Expression, Type> expressionTypes)
+    private static List<NamedParameterDefinition> toBlockParameters(List<Integer> inputChannels)
     {
         ImmutableList.Builder<NamedParameterDefinition> parameters = ImmutableList.builder();
-        int channels = getMaxInputChannel(expressionTypes) + 1;
-        for (int i = 0; i < channels; i++) {
-            parameters.add(arg("channel_" + i, BlockCursor.class));
+        for (int channel : inputChannels) {
+            parameters.add(arg("block_" + channel, com.facebook.presto.spi.block.Block.class));
         }
         return parameters.build();
     }
@@ -896,14 +919,22 @@ public class ExpressionCompiler
         private final IdentityHashMap<Expression, Type> expressionTypes;
         private final PlanNodeId sourceId;
         private final TimeZoneKey timeZoneKey;
+        private final List<ExpressionKey> expressionKeys;
 
-        private OperatorCacheKey(Expression expression, List<Expression> projections, IdentityHashMap<Expression, Type> expressionTypes, PlanNodeId sourceId, TimeZoneKey timeZoneKey)
+        private OperatorCacheKey(Expression filter, List<Expression> projections, IdentityHashMap<Expression, Type> expressionTypes, PlanNodeId sourceId, TimeZoneKey timeZoneKey)
         {
-            this.filter = expression;
+            this.filter = filter;
             this.projections = ImmutableList.copyOf(projections);
             this.expressionTypes = expressionTypes;
             this.sourceId = sourceId;
             this.timeZoneKey = timeZoneKey;
+
+            ImmutableList.Builder<ExpressionKey> expressionKeys = ImmutableList.builder();
+            expressionKeys.add(new ExpressionKey(filter, expressionTypes));
+            for (Expression projection : projections) {
+                expressionKeys.add(new ExpressionKey(projection, expressionTypes));
+            }
+            this.expressionKeys = expressionKeys.build();
         }
 
         private Expression getFilter()
@@ -934,7 +965,7 @@ public class ExpressionCompiler
         @Override
         public int hashCode()
         {
-            return Objects.hashCode(filter, projections, expressionTypes, sourceId, timeZoneKey);
+            return Objects.hashCode(expressionKeys, sourceId, timeZoneKey);
         }
 
         @Override
@@ -947,9 +978,7 @@ public class ExpressionCompiler
                 return false;
             }
             OperatorCacheKey other = (OperatorCacheKey) obj;
-            return Objects.equal(this.filter, other.filter) &&
-                    Objects.equal(this.projections, other.projections) &&
-                    Objects.equal(this.expressionTypes, other.expressionTypes) &&
+            return Objects.equal(this.expressionKeys, other.expressionKeys) &&
                     Objects.equal(this.sourceId, other.sourceId) &&
                     Objects.equal(this.timeZoneKey, other.timeZoneKey);
         }

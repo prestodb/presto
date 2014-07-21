@@ -13,12 +13,12 @@
  */
 package com.facebook.presto.metadata;
 
-import com.facebook.presto.metadata.OperatorInfo.OperatorType;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorSession;
-import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.sql.tree.QualifiedName;
 import com.google.common.base.Optional;
+import com.google.common.collect.Multimap;
 
 import javax.validation.constraints.NotNull;
 
@@ -42,12 +42,12 @@ public interface Metadata
 
     void addFunctions(List<FunctionInfo> functions);
 
-    void addOperators(List<OperatorInfo> operators);
+    void addOperators(Multimap<OperatorType, FunctionInfo> operators);
 
-    OperatorInfo resolveOperator(OperatorType operatorType, List<? extends Type> argumentTypes)
+    FunctionInfo resolveOperator(OperatorType operatorType, List<? extends Type> argumentTypes)
             throws OperatorNotFoundException;
 
-    OperatorInfo getExactOperator(OperatorType operatorType, Type returnType, List<? extends Type> argumentTypes)
+    FunctionInfo getExactOperator(OperatorType operatorType, Type returnType, List<? extends Type> argumentTypes)
             throws OperatorNotFoundException;
 
     @NotNull
@@ -147,4 +147,32 @@ public interface Metadata
      */
     @NotNull
     Map<String, String> getCatalogNames();
+
+    /**
+     * Get the names that match the specified table prefix (never null).
+     */
+    @NotNull
+    List<QualifiedTableName> listViews(ConnectorSession session, QualifiedTablePrefix prefix);
+
+    /**
+     * Get the view definitions that match the specified table prefix (never null).
+     */
+    @NotNull
+    Map<QualifiedTableName, ViewDefinition> getViews(ConnectorSession session, QualifiedTablePrefix prefix);
+
+    /**
+     * Returns the view definition for the specified view name.
+     */
+    @NotNull
+    Optional<ViewDefinition> getView(ConnectorSession session, QualifiedTableName viewName);
+
+    /**
+     * Creates the specified view with the specified view definition.
+     */
+    void createView(ConnectorSession session, QualifiedTableName viewName, String viewData, boolean replace);
+
+    /**
+     * Drops the specified view.
+     */
+    void dropView(ConnectorSession session, QualifiedTableName viewName);
 }

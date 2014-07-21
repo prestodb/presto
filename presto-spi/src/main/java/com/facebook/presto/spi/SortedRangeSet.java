@@ -20,6 +20,7 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
@@ -320,8 +321,17 @@ public final class SortedRangeSet
 
     public static class Builder
     {
+        private static final Comparator<Range> LOW_MARKER_COMPARATOR = new Comparator<Range>()
+        {
+            @Override
+            public int compare(Range o1, Range o2)
+            {
+                return o1.getLow().compareTo(o2.getLow());
+            }
+        };
+
         private final Class<?> type;
-        private final NavigableMap<Marker, Range> lowIndexedRanges = new TreeMap<>();
+        private final List<Range> ranges = new ArrayList<>();
 
         public Builder(Class<?> type)
         {
@@ -334,30 +344,7 @@ public final class SortedRangeSet
                 throw new IllegalArgumentException(String.format("Range type %s does not match builder type %s", range.getType(), type));
             }
 
-            // Merge with any overlapping ranges
-            Map.Entry<Marker, Range> lowFloorEntry = lowIndexedRanges.floorEntry(range.getLow());
-            if (lowFloorEntry != null && lowFloorEntry.getValue().overlaps(range)) {
-                range = lowFloorEntry.getValue().span(range);
-            }
-            Map.Entry<Marker, Range> highFloorEntry = lowIndexedRanges.floorEntry(range.getHigh());
-            if (highFloorEntry != null && highFloorEntry.getValue().overlaps(range)) {
-                range = highFloorEntry.getValue().span(range);
-            }
-
-            // Merge with any adjacent ranges
-            if (lowFloorEntry != null && lowFloorEntry.getValue().getHigh().isAdjacent(range.getLow())) {
-                range = lowFloorEntry.getValue().span(range);
-            }
-            Map.Entry<Marker, Range> highHigherEntry = lowIndexedRanges.higherEntry(range.getHigh());
-            if (highHigherEntry != null && highHigherEntry.getValue().getLow().isAdjacent(range.getHigh())) {
-                range = highHigherEntry.getValue().span(range);
-            }
-
-            // Delete all encompassed ranges
-            NavigableMap<Marker, Range> subMap = lowIndexedRanges.subMap(range.getLow(), true, range.getHigh(), true);
-            subMap.clear();
-
-            lowIndexedRanges.put(range.getLow(), range);
+            ranges.add(range);
             return this;
         }
 
@@ -371,7 +358,31 @@ public final class SortedRangeSet
 
         public SortedRangeSet build()
         {
-            return new SortedRangeSet(type, lowIndexedRanges);
+            Collections.sort(ranges, LOW_MARKER_COMPARATOR);
+
+            NavigableMap<Marker, Range> result = new TreeMap<>();
+
+            Range current = null;
+            for (Range next : ranges) {
+                if (current == null) {
+                    current = next;
+                    continue;
+                }
+
+                if (current.overlaps(next) || current.getHigh().isAdjacent(next.getLow())) {
+                    current = current.span(next);
+                }
+                else {
+                    result.put(current.getLow(), current);
+                    current = next;
+                }
+            }
+
+            if (current != null) {
+                result.put(current.getLow(), current);
+            }
+
+            return new SortedRangeSet(type, result);
         }
     }
 }

@@ -28,24 +28,32 @@ public class CassandraPartition
     private final String partitionId;
     private final byte[] key;
     private final TupleDomain<ConnectorColumnHandle> tupleDomain;
+    private final boolean indexedColumnPredicatePushdown;
 
     private CassandraPartition()
     {
         partitionId = UNPARTITIONED_ID;
         tupleDomain = TupleDomain.all();
         key = null;
+        indexedColumnPredicatePushdown = false;
     }
 
-    public CassandraPartition(byte[] key, String partitionId, TupleDomain<ConnectorColumnHandle> tupleDomain)
+    public CassandraPartition(byte[] key, String partitionId, TupleDomain<ConnectorColumnHandle> tupleDomain, boolean indexedColumnPredicatePushdown)
     {
         this.key = key;
         this.partitionId = partitionId;
         this.tupleDomain = tupleDomain;
+        this.indexedColumnPredicatePushdown = indexedColumnPredicatePushdown;
     }
 
     public boolean isUnpartitioned()
     {
         return partitionId.equals(UNPARTITIONED_ID);
+    }
+
+    public boolean isIndexedColumnPredicatePushdown()
+    {
+        return indexedColumnPredicatePushdown;
     }
 
     @Override
@@ -54,6 +62,7 @@ public class CassandraPartition
         return tupleDomain;
     }
 
+    @Override
     public String getPartitionId()
     {
         return partitionId;
@@ -68,5 +77,10 @@ public class CassandraPartition
     public ByteBuffer getKeyAsByteBuffer()
     {
         return ByteBuffer.wrap(key);
+    }
+
+    public byte[] getKey()
+    {
+        return key;
     }
 }

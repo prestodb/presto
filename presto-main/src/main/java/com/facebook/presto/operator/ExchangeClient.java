@@ -21,7 +21,7 @@ import com.google.common.collect.Sets;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
-import io.airlift.http.client.AsyncHttpClient;
+import io.airlift.http.client.HttpClient;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 
@@ -59,7 +59,7 @@ public class ExchangeClient
     private final DataSize maxResponseSize;
     private final int concurrentRequestMultiplier;
     private final Duration minErrorDuration;
-    private final AsyncHttpClient httpClient;
+    private final HttpClient httpClient;
     private final ScheduledExecutorService executor;
 
     @GuardedBy("this")
@@ -95,7 +95,7 @@ public class ExchangeClient
             DataSize maxResponseSize,
             int concurrentRequestMultiplier,
             Duration minErrorDuration,
-            AsyncHttpClient httpClient,
+            HttpClient httpClient,
             ScheduledExecutorService executor)
     {
         this.blockEncodingSerde = blockEncodingSerde;

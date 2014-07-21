@@ -27,6 +27,11 @@ VARCHAR
 
     Variable length character data.
 
+VARBINARY
+---------
+
+    Variable length binary data.
+
 DATE
 ----
 

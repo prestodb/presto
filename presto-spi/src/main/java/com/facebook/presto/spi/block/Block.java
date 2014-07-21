@@ -13,10 +13,83 @@
  */
 package com.facebook.presto.spi.block;
 
+import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.type.Type;
+import io.airlift.slice.Slice;
 
 public interface Block
 {
+    /**
+     * Appends the value at the specified position to the block builder.
+     */
+    void appendTo(int position, BlockBuilder blockBuilder);
+
+    /**
+     * Compares the value at the specified position to the value at the other position
+     * in the other block.
+     */
+    int compareTo(SortOrder sortOrder, int position, Block otherBlock, int otherPosition);
+
+    /**
+     * Compares the value at the specified position to the value at the other offset
+     * in the other slice.
+     */
+    int compareTo(int position, Slice otherSlice, int otherOffset, int otherLength);
+
+    /**
+     * Is the value at the specified position equal to the value at the other position
+     * in the other block?
+     */
+    boolean equalTo(int position, Block otherBlock, int otherPosition);
+
+    /**
+     * Is the value at the specified position equal to the value at the other offset
+     * in the other slice?
+     */
+    boolean equalTo(int position, Slice otherSlice, int otherOffset, int otherLength);
+
+    /**
+     * Gets the value at the specified position as a boolean.
+     *
+     * @throws IllegalArgumentException if this position is not valid
+     */
+    boolean getBoolean(int position);
+
+    /**
+     * Gets the value at the specified position as a double.
+     *
+     * @throws IllegalArgumentException if this position is not valid
+     */
+    double getDouble(int position);
+
+    /**
+     * Gets the value at the specified position as a long.
+     *
+     * @throws IllegalArgumentException if this position is not valid
+     */
+    long getLong(int position);
+
+    /**
+     * Gets the value at the specified position as an Object.
+     *
+     * @throws IllegalArgumentException if this position is not valid
+     */
+    Object getObjectValue(ConnectorSession session, int position);
+
+    /**
+     * Gets the value at the specified position as a single element block.
+     *
+     * @throws IllegalArgumentException if this position is not valid
+     */
+    Block getSingleValueBlock(int position);
+
+    /**
+     * Gets the value at the specified position as a Slice.
+     *
+     * @throws IllegalArgumentException if this position is not valid
+     */
+    Slice getSlice(int position);
+
     /**
      * Gets the type of this block.
      */
@@ -33,11 +106,6 @@ public interface Block
     int getSizeInBytes();
 
     /**
-     * Gets a cursor over the block.
-     */
-    BlockCursor cursor();
-
-    /**
      * Get the encoding for this block.
      */
     BlockEncoding getEncoding();
@@ -50,7 +118,14 @@ public interface Block
     Block getRegion(int positionOffset, int length);
 
     /**
-     * Converts this block to a random access block.
+     * Calculates the hash code of the value at the specified position.
      */
-    RandomAccessBlock toRandomAccessBlock();
+    int hash(int position);
+
+    /**
+     * Is the specified position null?
+     *
+     * @throws IllegalArgumentException if this position is not valid
+     */
+    boolean isNull(int position);
 }

@@ -41,7 +41,6 @@ import static org.joda.time.Months.monthsBetween;
 import static org.joda.time.Seconds.secondsBetween;
 import static org.joda.time.Weeks.weeksBetween;
 import static org.joda.time.Years.yearsBetween;
-import static org.testng.Assert.assertEquals;
 
 public class TestDateTimeFunctions
 {
@@ -102,14 +101,14 @@ public class TestDateTimeFunctions
     @Test
     public void testLocalTimestamp()
     {
-        assertEquals(functionAssertions.selectSingleValue("localtimestamp"), toTimestamp(session.getStartTime()));
+        functionAssertions.assertFunction("localtimestamp", toTimestamp(session.getStartTime()));
     }
 
     @Test
     public void testCurrentTimestamp()
     {
-        assertEquals(functionAssertions.selectSingleValue("current_timestamp"), new SqlTimestampWithTimeZone(session.getStartTime(), session.getTimeZoneKey()));
-        assertEquals(functionAssertions.selectSingleValue("now()"), new SqlTimestampWithTimeZone(session.getStartTime(), session.getTimeZoneKey()));
+        functionAssertions.assertFunction("current_timestamp", new SqlTimestampWithTimeZone(session.getStartTime(), session.getTimeZoneKey()));
+        functionAssertions.assertFunction("now()", new SqlTimestampWithTimeZone(session.getStartTime(), session.getTimeZoneKey()));
     }
 
     @Test
@@ -143,12 +142,12 @@ public class TestDateTimeFunctions
     @Test
     public void testAtTimeZone()
     {
-        assertEquals(functionAssertions.selectSingleValue("current_timestamp at time zone interval '07:09' hour to minute"),
+        functionAssertions.assertFunction("current_timestamp at time zone interval '07:09' hour to minute",
                 new SqlTimestampWithTimeZone(session.getStartTime(), WEIRD_TIME_ZONE_KEY));
 
-        assertEquals(functionAssertions.selectSingleValue("current_timestamp at time zone 'Asia/Oral'"), new SqlTimestampWithTimeZone(session.getStartTime(), TimeZone.getTimeZone("Asia/Oral")));
-        assertEquals(functionAssertions.selectSingleValue("now() at time zone 'Asia/Oral'"), new SqlTimestampWithTimeZone(session.getStartTime(), TimeZone.getTimeZone("Asia/Oral")));
-        assertEquals(functionAssertions.selectSingleValue("current_timestamp at time zone '+07:09'"), new SqlTimestampWithTimeZone(session.getStartTime(), WEIRD_TIME_ZONE_KEY));
+        functionAssertions.assertFunction("current_timestamp at time zone 'Asia/Oral'", new SqlTimestampWithTimeZone(session.getStartTime(), TimeZone.getTimeZone("Asia/Oral")));
+        functionAssertions.assertFunction("now() at time zone 'Asia/Oral'", new SqlTimestampWithTimeZone(session.getStartTime(), TimeZone.getTimeZone("Asia/Oral")));
+        functionAssertions.assertFunction("current_timestamp at time zone '+07:09'", new SqlTimestampWithTimeZone(session.getStartTime(), WEIRD_TIME_ZONE_KEY));
     }
 
     @Test
@@ -168,6 +167,9 @@ public class TestDateTimeFunctions
         assertFunction("month(" + TIMESTAMP_LITERAL + ")", TIMESTAMP.getMonthOfYear());
         assertFunction("quarter(" + TIMESTAMP_LITERAL + ")", TIMESTAMP.getMonthOfYear() / 4 + 1);
         assertFunction("year(" + TIMESTAMP_LITERAL + ")", TIMESTAMP.getYear());
+        assertFunction("timezone_hour(" + TIMESTAMP_LITERAL + ")", 5);
+        assertFunction("timezone_hour(localtimestamp)", 5);
+        assertFunction("timezone_hour(current_timestamp)", 5);
 
         assertFunction("second(" + WEIRD_TIMESTAMP_LITERAL + ")", WEIRD_TIMESTAMP.getSecondOfMinute());
         assertFunction("minute(" + WEIRD_TIMESTAMP_LITERAL + ")", WEIRD_TIMESTAMP.getMinuteOfHour());
@@ -618,31 +620,31 @@ public class TestDateTimeFunctions
     public void testLocale()
     {
         Locale locale = Locale.JAPANESE;
-        session = new ConnectorSession("user", "test", "catalog", "schema", TIME_ZONE_KEY, locale, null, null);
+        ConnectorSession localeSession = new ConnectorSession("user", "test", "catalog", "schema", TIME_ZONE_KEY, locale, null, null);
 
-        functionAssertions = new FunctionAssertions(session);
+        FunctionAssertions localeAssertions = new FunctionAssertions(localeSession);
 
         String dateTimeLiteral = "TIMESTAMP '2001-01-09 13:04:05.321'";
 
-        assertFunction("date_format(" + dateTimeLiteral + ", '%a')", "火");
-        assertFunction("date_format(" + dateTimeLiteral + ", '%W')", "火曜日");
-        assertFunction("date_format(" + dateTimeLiteral + ", '%p')", "午後");
-        assertFunction("date_format(" + dateTimeLiteral + ", '%r')", "01:04:05 午後");
-        assertFunction("date_format(" + dateTimeLiteral + ", '%b')", "1");
-        assertFunction("date_format(" + dateTimeLiteral + ", '%M')", "1月");
+        localeAssertions.assertFunction("date_format(" + dateTimeLiteral + ", '%a')", "火");
+        localeAssertions.assertFunction("date_format(" + dateTimeLiteral + ", '%W')", "火曜日");
+        localeAssertions.assertFunction("date_format(" + dateTimeLiteral + ", '%p')", "午後");
+        localeAssertions.assertFunction("date_format(" + dateTimeLiteral + ", '%r')", "01:04:05 午後");
+        localeAssertions.assertFunction("date_format(" + dateTimeLiteral + ", '%b')", "1");
+        localeAssertions.assertFunction("date_format(" + dateTimeLiteral + ", '%M')", "1月");
 
-        assertFunction("format_datetime(" + dateTimeLiteral + ", 'EEE')", "火");
-        assertFunction("format_datetime(" + dateTimeLiteral + ", 'EEEE')", "火曜日");
-        assertFunction("format_datetime(" + dateTimeLiteral + ", 'a')", "午後");
-        assertFunction("format_datetime(" + dateTimeLiteral + ", 'MMM')", "1");
-        assertFunction("format_datetime(" + dateTimeLiteral + ", 'MMMM')", "1月");
+        localeAssertions.assertFunction("format_datetime(" + dateTimeLiteral + ", 'EEE')", "火");
+        localeAssertions.assertFunction("format_datetime(" + dateTimeLiteral + ", 'EEEE')", "火曜日");
+        localeAssertions.assertFunction("format_datetime(" + dateTimeLiteral + ", 'a')", "午後");
+        localeAssertions.assertFunction("format_datetime(" + dateTimeLiteral + ", 'MMM')", "1");
+        localeAssertions.assertFunction("format_datetime(" + dateTimeLiteral + ", 'MMMM')", "1月");
 
-        assertFunction("date_parse('2013-05-17 12:35:10 午後', '%Y-%m-%d %h:%i:%s %p')", toTimestamp(new DateTime(2013, 5, 17, 12, 35, 10, 0, DATE_TIME_ZONE)));
-        assertFunction("date_parse('2013-05-17 12:35:10 午前', '%Y-%m-%d %h:%i:%s %p')", toTimestamp(new DateTime(2013, 5, 17, 0, 35, 10, 0, DATE_TIME_ZONE)));
+        localeAssertions.assertFunction("date_parse('2013-05-17 12:35:10 午後', '%Y-%m-%d %h:%i:%s %p')", toTimestamp(new DateTime(2013, 5, 17, 12, 35, 10, 0, DATE_TIME_ZONE), localeSession));
+        localeAssertions.assertFunction("date_parse('2013-05-17 12:35:10 午前', '%Y-%m-%d %h:%i:%s %p')", toTimestamp(new DateTime(2013, 5, 17, 0, 35, 10, 0, DATE_TIME_ZONE), localeSession));
 
-        assertFunction("parse_datetime('2013-05-17 12:35:10 午後', 'yyyy-MM-dd hh:mm:ss a')",
+        localeAssertions.assertFunction("parse_datetime('2013-05-17 12:35:10 午後', 'yyyy-MM-dd hh:mm:ss a')",
                 toTimestampWithTimeZone(new DateTime(2013, 5, 17, 12, 35, 10, 0, DATE_TIME_ZONE)));
-        assertFunction("parse_datetime('2013-05-17 12:35:10 午前', 'yyyy-MM-dd hh:mm:ss aaa')",
+        localeAssertions.assertFunction("parse_datetime('2013-05-17 12:35:10 午前', 'yyyy-MM-dd hh:mm:ss aaa')",
                 toTimestampWithTimeZone(new DateTime(2013, 5, 17, 0, 35, 10, 0, DATE_TIME_ZONE)));
     }
 
@@ -684,6 +686,11 @@ public class TestDateTimeFunctions
     private SqlTimestamp toTimestamp(DateTime dateTime)
     {
         return new SqlTimestamp(dateTime.getMillis(), session.getTimeZoneKey());
+    }
+
+    private SqlTimestamp toTimestamp(DateTime dateTime, ConnectorSession connectorSession)
+    {
+        return new SqlTimestamp(dateTime.getMillis(), connectorSession.getTimeZoneKey());
     }
 
     private SqlTimestampWithTimeZone toTimestampWithTimeZone(DateTime dateTime)

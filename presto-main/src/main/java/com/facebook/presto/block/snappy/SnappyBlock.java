@@ -13,13 +13,13 @@
  */
 package com.facebook.presto.block.snappy;
 
+import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.block.BlockCursor;
-import com.facebook.presto.spi.block.RandomAccessBlock;
+import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockEncoding;
+import com.facebook.presto.spi.block.SortOrder;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.base.Objects;
-import com.google.common.base.Preconditions;
 import com.google.common.primitives.Ints;
 import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.Slice;
@@ -113,12 +113,6 @@ public class SnappyBlock
     }
 
     @Override
-    public BlockCursor cursor()
-    {
-        return getUncompressedBlock().cursor();
-    }
-
-    @Override
     public SnappyBlockEncoding getEncoding()
     {
         return new SnappyBlockEncoding(type, uncompressedBlockEncoding);
@@ -127,14 +121,85 @@ public class SnappyBlock
     @Override
     public Block getRegion(int positionOffset, int length)
     {
-        Preconditions.checkPositionIndexes(positionOffset, positionOffset + length, positionCount);
-        return cursor().getRegionAndAdvance(length);
+        return getUncompressedBlock().getRegion(positionOffset, length);
     }
 
     @Override
-    public RandomAccessBlock toRandomAccessBlock()
+    public boolean getBoolean(int position)
     {
-        return getUncompressedBlock().toRandomAccessBlock();
+        return getUncompressedBlock().getBoolean(position);
+    }
+
+    @Override
+    public long getLong(int position)
+    {
+        return getUncompressedBlock().getLong(position);
+    }
+
+    @Override
+    public double getDouble(int position)
+    {
+        return getUncompressedBlock().getDouble(position);
+    }
+
+    @Override
+    public Slice getSlice(int position)
+    {
+        return getUncompressedBlock().getSlice(position);
+    }
+
+    @Override
+    public Object getObjectValue(ConnectorSession session, int position)
+    {
+        return getUncompressedBlock().getObjectValue(session, position);
+    }
+
+    @Override
+    public Block getSingleValueBlock(int position)
+    {
+        return getUncompressedBlock().getSingleValueBlock(position);
+    }
+
+    @Override
+    public boolean isNull(int position)
+    {
+        return getUncompressedBlock().isNull(position);
+    }
+
+    @Override
+    public boolean equalTo(int position, Block otherBlock, int otherPosition)
+    {
+        return getUncompressedBlock().equalTo(position, otherBlock, otherPosition);
+    }
+
+    @Override
+    public boolean equalTo(int position, Slice otherSlice, int otherOffset, int otherLength)
+    {
+        return getUncompressedBlock().equalTo(position, otherSlice, otherOffset, otherLength);
+    }
+
+    @Override
+    public int hash(int position)
+    {
+        return getUncompressedBlock().hash(position);
+    }
+
+    @Override
+    public int compareTo(SortOrder sortOrder, int position, Block otherBlock, int otherPosition)
+    {
+        return getUncompressedBlock().compareTo(sortOrder, position, otherBlock, otherPosition);
+    }
+
+    @Override
+    public int compareTo(int position, Slice otherSlice, int otherOffset, int otherLength)
+    {
+        return getUncompressedBlock().compareTo(position, otherSlice, otherOffset, otherLength);
+    }
+
+    @Override
+    public void appendTo(int position, BlockBuilder blockBuilder)
+    {
+        getUncompressedBlock().appendTo(position, blockBuilder);
     }
 
     @Override

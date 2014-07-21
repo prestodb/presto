@@ -18,6 +18,7 @@ import com.facebook.presto.byteCode.control.DoWhileLoop;
 import com.facebook.presto.byteCode.control.ForLoop;
 import com.facebook.presto.byteCode.control.IfStatement;
 import com.facebook.presto.byteCode.control.LookupSwitch;
+import com.facebook.presto.byteCode.control.TryCatch;
 import com.facebook.presto.byteCode.control.WhileLoop;
 import com.facebook.presto.byteCode.debug.LineNumberNode;
 import com.facebook.presto.byteCode.instruction.Constant.BoxedBooleanConstant;
@@ -134,18 +135,7 @@ public class DumpByteCodeVisitor
         }
 
         // print method declaration
-        Line methodDeclaration = line().addAll(methodDefinition.getAccess()).add(methodDefinition.getReturnType().getJavaClassName());
-        if (!methodDefinition.getParameters().isEmpty()) {
-            Line parameters = line(", ");
-            for (NamedParameterDefinition parameterDefinition : methodDefinition.getParameters()) {
-                parameters.add(line().add(parameterDefinition.getType().getJavaClassName()).add(parameterDefinition.getName()));
-            }
-            methodDeclaration.add(methodDefinition.getName() + "(" + parameters + ")");
-        }
-        else {
-            methodDeclaration.add(methodDefinition.getName() + "()");
-        }
-        methodDeclaration.print();
+        printLine(methodDefinition.toSourceString());
 
         // print body
         methodDefinition.getBody().accept(null, this);
@@ -274,6 +264,29 @@ public class DumpByteCodeVisitor
     //
     // Control Flow
     //
+
+    @Override
+    public Void visitTryCatch(ByteCodeNode parent, TryCatch tryCatch)
+    {
+        if (tryCatch.getComment() != null) {
+            printLine();
+            printLine("// %s", tryCatch.getComment());
+        }
+
+        printLine("try {");
+        indentLevel++;
+        tryCatch.getTryNode().accept(tryCatch, this);
+        indentLevel--;
+        printLine("}");
+
+        printLine("catch (%s) {", tryCatch.getExceptionName());
+        indentLevel++;
+        tryCatch.getCatchNode().accept(tryCatch, this);
+        indentLevel--;
+        printLine("}");
+
+        return null;
+    }
 
     @Override
     public Void visitIf(ByteCodeNode parent, IfStatement ifStatement)

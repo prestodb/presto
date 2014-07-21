@@ -13,10 +13,6 @@
  */
 package com.facebook.presto.operator.aggregation;
 
-import com.facebook.presto.operator.aggregation.SimpleAggregationFunction.SimpleAccumulator;
-import com.facebook.presto.operator.aggregation.SimpleAggregationFunction.SimpleGroupedAccumulator;
-import com.facebook.presto.operator.aggregation.VarianceAggregation.VarianceAccumulator;
-import com.facebook.presto.operator.aggregation.VarianceAggregation.VarianceGroupedAccumulator;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.base.Throwables;
 
@@ -42,13 +38,13 @@ public final class VarianceAggregations
                 AggregationFunction.class,
 
                 VarianceAggregation.class,
-                SimpleAggregationFunction.class,
 
-                VarianceGroupedAccumulator.class,
-                SimpleGroupedAccumulator.class,
+                AbstractAggregationFunction.class,
+                AbstractExactAggregationFunction.class,
 
-                VarianceAccumulator.class,
-                SimpleAccumulator.class);
+                AbstractExactAggregationFunction.GenericGroupedAccumulator.class,
+
+                AbstractExactAggregationFunction.GenericAccumulator.class);
 
         try {
             return functionClass
