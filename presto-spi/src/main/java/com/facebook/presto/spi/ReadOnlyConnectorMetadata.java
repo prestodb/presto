@@ -60,25 +60,25 @@ public abstract class ReadOnlyConnectorMetadata
     }
 
     @Override
-    public void createView(ConnectorSession session, SchemaTableName viewName, String viewData, boolean replace)
+    public final void createView(ConnectorSession session, SchemaTableName viewName, String viewData, boolean replace)
     {
         throw new UnsupportedOperationException();
     }
 
     @Override
-    public void dropView(ConnectorSession session, SchemaTableName viewName)
+    public final void dropView(ConnectorSession session, SchemaTableName viewName)
     {
         throw new UnsupportedOperationException();
     }
 
     @Override
-    public List<SchemaTableName> listViews(ConnectorSession session, String schemaNameOrNull)
+    public final List<SchemaTableName> listViews(ConnectorSession session, String schemaNameOrNull)
     {
         return emptyList();
     }
 
     @Override
-    public Map<SchemaTableName, String> getViews(ConnectorSession session, SchemaTablePrefix prefix)
+    public final Map<SchemaTableName, String> getViews(ConnectorSession session, SchemaTablePrefix prefix)
     {
         return emptyMap();
     }
