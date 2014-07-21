@@ -22,6 +22,7 @@ import com.facebook.presto.operator.aggregation.state.GroupedAccumulatorState;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.util.IterableTransformer;
 import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
 
@@ -37,7 +38,7 @@ public abstract class AbstractGroupedAccumulator<T extends AccumulatorState>
     // Reference to state cast as a GroupedAccumulatorState
     private final GroupedAccumulatorState groupedState;
     private final double confidence;
-    private final int valueChannel;
+    private final List<Integer> inputChannels;
     private final Optional<Integer> maskChannel;
     private final Optional<Integer> sampleWeightChannel;
     private final Type finalType;
@@ -50,7 +51,7 @@ public abstract class AbstractGroupedAccumulator<T extends AccumulatorState>
             Type intermediateType,
             AccumulatorStateSerializer<T> stateSerializer,
             AccumulatorStateFactory<T> stateFactory,
-            int valueChannel,
+            List<Integer> inputChannels,
             Optional<Integer> maskChannel,
             Optional<Integer> sampleWeightChannel,
             double confidence)
@@ -59,7 +60,7 @@ public abstract class AbstractGroupedAccumulator<T extends AccumulatorState>
         this.intermediateType = checkNotNull(intermediateType, "intermediateType is null");
         this.stateSerializer = checkNotNull(stateSerializer, "stateSerializer is null");
         this.stateFactory = checkNotNull(stateFactory, "stateFactory is null");
-        this.valueChannel = valueChannel;
+        this.inputChannels = ImmutableList.copyOf(checkNotNull(inputChannels, "inputChannels is null"));
         this.maskChannel = maskChannel;
         this.sampleWeightChannel = sampleWeightChannel;
         this.state = stateFactory.createGroupedState();
@@ -91,11 +92,11 @@ public abstract class AbstractGroupedAccumulator<T extends AccumulatorState>
     @Override
     public void addInput(GroupByIdBlock groupIdsBlock, Page page)
     {
-        checkArgument(valueChannel != -1, "Raw input is not allowed for a final aggregation");
+        checkArgument(!inputChannels.isEmpty(), "Aggregation has no input channels");
 
         groupedState.ensureCapacity(groupIdsBlock.getGroupCount());
 
-        List<Block> values = ImmutableList.of(page.getBlock(valueChannel));
+        List<Block> values = IterableTransformer.on(inputChannels).transform(page.blockGetter()).list();
         Block masks = maskChannel.transform(page.blockGetter()).orNull();
         Block sampleWeights = sampleWeightChannel.transform(page.blockGetter()).orNull();
 
@@ -128,7 +129,7 @@ public abstract class AbstractGroupedAccumulator<T extends AccumulatorState>
     @Override
     public void addIntermediate(GroupByIdBlock groupIdsBlock, Block block)
     {
-        checkArgument(valueChannel == -1, "Intermediate input is only allowed for a final aggregation");
+        checkArgument(inputChannels.isEmpty(), "Intermediate input is only allowed for a final aggregation");
 
         groupedState.ensureCapacity(groupIdsBlock.getGroupCount());
         T scratchState = stateFactory.createSingleState();
