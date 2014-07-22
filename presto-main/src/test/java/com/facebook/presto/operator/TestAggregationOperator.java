@@ -33,7 +33,7 @@ import static com.facebook.presto.operator.OperatorAssertion.assertOperatorEqual
 import static com.facebook.presto.operator.RowPagesBuilder.rowPagesBuilder;
 import static com.facebook.presto.operator.aggregation.AverageAggregations.LONG_AVERAGE;
 import static com.facebook.presto.operator.aggregation.CountAggregation.COUNT;
-import static com.facebook.presto.operator.aggregation.CountColumnAggregations.COUNT_STRING_COLUMN;
+import static com.facebook.presto.operator.aggregation.CountColumnAggregations.COUNT_VARCHAR_COLUMN;
 import static com.facebook.presto.operator.aggregation.DoubleSumAggregation.DOUBLE_SUM;
 import static com.facebook.presto.operator.aggregation.LongSumAggregation.LONG_SUM;
 import static com.facebook.presto.operator.aggregation.VarBinaryMaxAggregation.VAR_BINARY_MAX;
@@ -82,7 +82,7 @@ public class TestAggregationOperator
                         aggregation(LONG_SUM, ImmutableList.of(1), Optional.<Integer>absent(), Optional.<Integer>absent(), 1.0),
                         aggregation(LONG_AVERAGE, ImmutableList.of(1), Optional.<Integer>absent(), Optional.<Integer>absent(), 1.0),
                         aggregation(VAR_BINARY_MAX, ImmutableList.of(2), Optional.<Integer>absent(), Optional.<Integer>absent(), 1.0),
-                        aggregation(COUNT_STRING_COLUMN, ImmutableList.of(0), Optional.<Integer>absent(), Optional.<Integer>absent(), 1.0),
+                        aggregation(COUNT_VARCHAR_COLUMN, ImmutableList.of(0), Optional.<Integer>absent(), Optional.<Integer>absent(), 1.0),
                         aggregation(LONG_SUM, ImmutableList.of(3), Optional.<Integer>absent(), Optional.<Integer>absent(), 1.0),
                         aggregation(DOUBLE_SUM, ImmutableList.of(4), Optional.<Integer>absent(), Optional.<Integer>absent(), 1.0),
                         aggregation(VAR_BINARY_MAX, ImmutableList.of(5), Optional.<Integer>absent(), Optional.<Integer>absent(), 1.0)));
