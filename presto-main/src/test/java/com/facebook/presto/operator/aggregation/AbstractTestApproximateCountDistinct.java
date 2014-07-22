@@ -95,7 +95,7 @@ public abstract class AbstractTestApproximateCountDistinct
         }
 
         assertLessThan(stats.getMean(), 1.0e-2);
-        assertLessThan(Math.abs(stats.getStandardDeviation() - ApproximateCountDistinctAggregation.getStandardError()), 1.0e-2);
+        assertLessThan(Math.abs(stats.getStandardDeviation() - ApproximateCountDistinctAggregations.getStandardError()), 1.0e-2);
     }
 
     @Test
