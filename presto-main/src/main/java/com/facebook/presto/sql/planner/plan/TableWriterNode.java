@@ -18,6 +18,8 @@ import com.facebook.presto.metadata.TableMetadata;
 import com.facebook.presto.sql.planner.Symbol;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.fasterxml.jackson.annotation.JsonSubTypes;
+import com.fasterxml.jackson.annotation.JsonTypeInfo;
 import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
 
@@ -33,63 +35,34 @@ public class TableWriterNode
         extends PlanNode
 {
     private final PlanNode source;
-    private final OutputTableHandle target;
+    private final WriterTarget target;
     private final List<Symbol> outputs;
     private final List<Symbol> columns;
     private final List<String> columnNames;
     private final Optional<Symbol> sampleWeightSymbol;
-    private final String catalog;
-    private final TableMetadata tableMetadata;
 
     @JsonCreator
     public TableWriterNode(
             @JsonProperty("id") PlanNodeId id,
             @JsonProperty("source") PlanNode source,
-            @JsonProperty("target") OutputTableHandle target,
+            @JsonProperty("target") WriterTarget target,
             @JsonProperty("columns") List<Symbol> columns,
             @JsonProperty("columnNames") List<String> columnNames,
             @JsonProperty("outputs") List<Symbol> outputs,
             @JsonProperty("sampleWeightSymbol") Optional<Symbol> sampleWeightSymbol)
-    {
-        this(id, source, target, columns, columnNames, outputs, sampleWeightSymbol, null, null);
-    }
-
-    public TableWriterNode(
-            PlanNodeId id,
-            PlanNode source,
-            OutputTableHandle target,
-            List<Symbol> columns,
-            List<String> columnNames,
-            List<Symbol> outputs,
-            Optional<Symbol> sampleWeightSymbol,
-            String catalog,
-            TableMetadata tableMetadata)
     {
         super(id);
 
         checkNotNull(columns, "columns is null");
         checkNotNull(columnNames, "columnNames is null");
         checkArgument(columns.size() == columnNames.size(), "columns and columnNames sizes don't match");
-        checkArgument((target == null) ^ (catalog == null && tableMetadata == null), "exactly one of target or (catalog, tableMetadata) must be set");
 
         this.source = checkNotNull(source, "source is null");
-        this.target = target;
+        this.target = checkNotNull(target, "target is null");
         this.columns = ImmutableList.copyOf(columns);
         this.columnNames = ImmutableList.copyOf(columnNames);
         this.outputs = ImmutableList.copyOf(checkNotNull(outputs, "outputs is null"));
         this.sampleWeightSymbol = checkNotNull(sampleWeightSymbol, "sampleWeightSymbol is null");
-        this.catalog = catalog;
-        this.tableMetadata = tableMetadata;
-    }
-
-    public String getCatalog()
-    {
-        return catalog;
-    }
-
-    public TableMetadata getTableMetadata()
-    {
-        return tableMetadata;
     }
 
     @JsonProperty
@@ -105,7 +78,7 @@ public class TableWriterNode
     }
 
     @JsonProperty
-    public OutputTableHandle getTarget()
+    public WriterTarget getTarget()
     {
         return target;
     }
@@ -139,5 +112,70 @@ public class TableWriterNode
     public <C, R> R accept(PlanVisitor<C, R> visitor, C context)
     {
         return visitor.visitTableWriter(this, context);
+    }
+
+    @JsonTypeInfo(use = JsonTypeInfo.Id.NAME, property = "type")
+    @JsonSubTypes({
+            @JsonSubTypes.Type(value = CreateHandle.class, name = "CreateHandle"),
+    })
+    @SuppressWarnings({"EmptyClass", "ClassMayBeInterface"})
+    public abstract static class WriterTarget
+    {
+        @Override
+        public abstract String toString();
+    }
+
+    // only used during planning -- will not be serialized
+    public static class CreateName
+            extends WriterTarget
+    {
+        private final String catalog;
+        private final TableMetadata tableMetadata;
+
+        public CreateName(String catalog, TableMetadata tableMetadata)
+        {
+            this.catalog = checkNotNull(catalog, "catalog is null");
+            this.tableMetadata = checkNotNull(tableMetadata, "tableMetadata is null");
+        }
+
+        public String getCatalog()
+        {
+            return catalog;
+        }
+
+        public TableMetadata getTableMetadata()
+        {
+            return tableMetadata;
+        }
+
+        @Override
+        public String toString()
+        {
+            return catalog + "." + tableMetadata.getTable();
+        }
+    }
+
+    public static class CreateHandle
+            extends WriterTarget
+    {
+        private final OutputTableHandle handle;
+
+        @JsonCreator
+        public CreateHandle(@JsonProperty("handle") OutputTableHandle handle)
+        {
+            this.handle = checkNotNull(handle, "handle is null");
+        }
+
+        @JsonProperty
+        public OutputTableHandle getHandle()
+        {
+            return handle;
+        }
+
+        @Override
+        public String toString()
+        {
+            return handle.toString();
+        }
     }
 }

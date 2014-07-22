@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.sql.planner.plan;
 
-import com.facebook.presto.metadata.OutputTableHandle;
 import com.facebook.presto.sql.planner.Symbol;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
@@ -23,6 +22,7 @@ import javax.annotation.concurrent.Immutable;
 
 import java.util.List;
 
+import static com.facebook.presto.sql.planner.plan.TableWriterNode.WriterTarget;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 
@@ -31,21 +31,21 @@ public class TableCommitNode
         extends PlanNode
 {
     private final PlanNode source;
-    private final OutputTableHandle target;
+    private final WriterTarget target;
     private final List<Symbol> outputs;
 
     @JsonCreator
     public TableCommitNode(
             @JsonProperty("id") PlanNodeId id,
             @JsonProperty("source") PlanNode source,
-            @JsonProperty("target") OutputTableHandle target,
+            @JsonProperty("target") WriterTarget target,
             @JsonProperty("outputs") List<Symbol> outputs)
     {
         super(id);
 
         checkArgument(target != null || source instanceof TableWriterNode);
         this.source = checkNotNull(source, "source is null");
-        this.target = target;
+        this.target = checkNotNull(target, "target is null");
         this.outputs = ImmutableList.copyOf(checkNotNull(outputs, "outputs is null"));
     }
 
@@ -56,7 +56,7 @@ public class TableCommitNode
     }
 
     @JsonProperty
-    public OutputTableHandle getTarget()
+    public WriterTarget getTarget()
     {
         return target;
     }
