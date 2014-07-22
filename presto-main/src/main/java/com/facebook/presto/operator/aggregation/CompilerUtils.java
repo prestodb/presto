@@ -13,9 +13,14 @@
  */
 package com.facebook.presto.operator.aggregation;
 
+import com.google.common.collect.ImmutableList;
+
+import javax.annotation.Nullable;
+
 import java.lang.annotation.Annotation;
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
+import java.util.List;
 
 import static com.google.common.base.Preconditions.checkArgument;
 
@@ -23,19 +28,27 @@ public final class CompilerUtils
 {
     private CompilerUtils() {}
 
+    @Nullable
     public static Method findPublicStaticMethodWithAnnotation(Class<?> clazz, Class<?> annotationClass)
     {
-        Method ret = null;
+        List<Method> methods = findPublicStaticMethodsWithAnnotation(clazz, annotationClass);
+        if (methods.isEmpty()) {
+            return null;
+        }
+        return methods.get(0);
+    }
+
+    public static List<Method> findPublicStaticMethodsWithAnnotation(Class<?> clazz, Class<?> annotationClass)
+    {
+        ImmutableList.Builder<Method> methods = ImmutableList.builder();
         for (Method method : clazz.getMethods()) {
             for (Annotation annotation : method.getAnnotations()) {
                 if (annotationClass.isInstance(annotation)) {
                     checkArgument(Modifier.isStatic(method.getModifiers()) && Modifier.isPublic(method.getModifiers()), "%s annotated with %s must be public and static", method.getName(), annotationClass.getSimpleName());
-                    checkArgument(ret == null, "Methods %s and %s both annotated with %s", ret, method, annotationClass);
-                    ret = method;
-                    break;
+                    methods.add(method);
                 }
             }
         }
-        return ret;
+        return methods.build();
     }
 }

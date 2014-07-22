@@ -32,9 +32,12 @@ import com.google.common.collect.ImmutableSet;
 import io.airlift.slice.Slice;
 import org.objectweb.asm.ClassWriter;
 
+import javax.annotation.Nullable;
+
 import java.lang.annotation.Annotation;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Method;
+import java.lang.reflect.Modifier;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -60,7 +63,11 @@ public class AccumulatorCompiler
     public static final Set<Class<?>> SUPPORTED_PARAMETER_TYPES = ImmutableSet.of(com.facebook.presto.spi.block.Block.class, long.class, double.class, boolean.class, Slice.class);
 
     public AccumulatorFactory generateAccumulatorFactory(
-            Class<?> aggregationDefinitionClass,
+            String name,
+            Method inputFunction,
+            @Nullable Method intermediateInputFunction,
+            @Nullable Method combineFunction,
+            @Nullable Method outputFunction,
             Class<?> stateClass,
             Type intermediateType,
             Type finalType,
@@ -69,8 +76,17 @@ public class AccumulatorCompiler
             boolean approximateSupported)
     {
         DynamicClassLoader classLoader = createClassLoader();
-        Class<? extends Accumulator> accumulatorClass = generateAccumulatorClass(aggregationDefinitionClass, stateClass, classLoader);
-        Class<? extends GroupedAccumulator> groupedAccumulatorClass = generateGroupedAccumulatorClass(aggregationDefinitionClass, stateClass, classLoader);
+
+        checkNotNull(inputFunction, "inputFunction is null");
+        checkArgument(combineFunction == null || intermediateInputFunction == null, "Aggregation cannot have both a combine and a intermediate input method");
+        checkArgument(combineFunction != null || intermediateInputFunction != null, "Aggregation must have either a combine or a intermediate input method");
+        verifyInputFunctionSignature(inputFunction, stateClass);
+        verifyInputFunctionSignature(intermediateInputFunction, stateClass);
+        verifyCombineFunction(combineFunction, stateClass);
+        verifyOutputFunction(outputFunction, stateClass);
+
+        Class<? extends Accumulator> accumulatorClass = generateAccumulatorClass(name, AbstractAccumulator.class, inputFunction, intermediateInputFunction, combineFunction, outputFunction, stateClass, classLoader);
+        Class<? extends GroupedAccumulator> groupedAccumulatorClass = generateAccumulatorClass(name, AbstractGroupedAccumulator.class, inputFunction, intermediateInputFunction, combineFunction, outputFunction, stateClass, classLoader);
         return new GenericAccumulatorFactory(
                 finalType,
                 intermediateType,
@@ -81,48 +97,46 @@ public class AccumulatorCompiler
                 approximateSupported);
     }
 
-    private static Class<? extends GroupedAccumulator> generateGroupedAccumulatorClass(Class<?> aggregationClass, Class<?> stateClass, DynamicClassLoader classLoader)
+    private static void verifyStaticAndPublic(@Nullable Method method)
+    {
+        if (method == null) {
+            return;
+        }
+        checkArgument(Modifier.isStatic(method.getModifiers()), "%s is not static", method.getName());
+        checkArgument(Modifier.isPublic(method.getModifiers()), "%s is not public", method.getName());
+    }
+
+    private static <T> Class<? extends T> generateAccumulatorClass(
+            String name,
+            Class<T> accumulatorClass,
+            Method inputFunction,
+            @Nullable Method intermediateInputFunction,
+            @Nullable Method combineFunction,
+            @Nullable Method outputFunction,
+            Class<?> stateClass,
+            DynamicClassLoader classLoader)
     {
         ClassDefinition definition = new ClassDefinition(new CompilerContext(null),
                 a(PUBLIC, FINAL),
-                typeFromPathName(aggregationClass.getSimpleName() + "GroupedAccumulator_" + CLASS_ID.incrementAndGet()),
-                type(AbstractGroupedAccumulator.class));
+                typeFromPathName(name + accumulatorClass.getSimpleName() + "_" + CLASS_ID.incrementAndGet()),
+                type(accumulatorClass));
 
         // Generate constructor
-        generateMatchingConstructors(definition, AbstractGroupedAccumulator.class);
+        generateMatchingConstructors(definition, accumulatorClass);
 
         // Generate methods
-        generateProcessInput(definition, AbstractGroupedAccumulator.class, aggregationClass, stateClass);
-        generateProcessIntermediate(definition, AbstractGroupedAccumulator.class, aggregationClass, stateClass);
-        generateEvaluateFinal(definition, AbstractGroupedAccumulator.class, aggregationClass, stateClass);
+        generateProcessInput(definition, inputFunction, stateClass);
+        generateProcessIntermediate(definition, accumulatorClass, intermediateInputFunction, combineFunction, stateClass);
+        generateEvaluateFinal(definition, accumulatorClass, outputFunction, stateClass);
 
-        return defineClass(definition, AbstractGroupedAccumulator.class, classLoader);
+        return defineClass(definition, accumulatorClass, classLoader);
     }
 
-    private static Class<? extends Accumulator> generateAccumulatorClass(Class<?> aggregationClass, Class<?> stateClass, DynamicClassLoader classLoader)
-    {
-        ClassDefinition definition = new ClassDefinition(new CompilerContext(null),
-                a(PUBLIC, FINAL),
-                typeFromPathName(aggregationClass.getSimpleName() + "Accumulator_" + CLASS_ID.incrementAndGet()),
-                type(AbstractAccumulator.class));
-
-        // Generate constructor
-        generateMatchingConstructors(definition, AbstractAccumulator.class);
-
-        // Generate methods
-        generateProcessInput(definition, AbstractAccumulator.class, aggregationClass, stateClass);
-        generateProcessIntermediate(definition, AbstractAccumulator.class, aggregationClass, stateClass);
-        generateEvaluateFinal(definition, AbstractAccumulator.class, aggregationClass, stateClass);
-
-        return defineClass(definition, AbstractAccumulator.class, classLoader);
-    }
-
-    private static void generateProcessInput(ClassDefinition definition, Class<?> clazz, Class<?> aggregationClass, Class<?> stateClass)
+    private static void generateProcessInput(ClassDefinition definition, Method inputFunction, Class<?> stateClass)
     {
         Block body = definition.declareMethod(new CompilerContext(null), a(PUBLIC), "processInput", type(void.class), arg("state", AccumulatorState.class), arg("blocks", List.class), arg("position", int.class), arg("sampleWeight", long.class))
                 .getBody();
 
-        Method inputFunction = findInputFunction(aggregationClass, stateClass);
         body.comment("Call input function with unpacked Block arguments")
                 .getVariable("state")
                 .checkCast(stateClass);
@@ -180,18 +194,12 @@ public class AccumulatorCompiler
         return block;
     }
 
-    private static Method findInputFunction(Class<?> clazz, Class<?> stateClass)
-    {
-        Method method = CompilerUtils.findPublicStaticMethodWithAnnotation(clazz, InputFunction.class);
-        checkNotNull(method, "Aggregation function class %s does not have an @InputFunction", clazz.getName());
-        verifyInputFunctionSignature(method, stateClass);
-
-        return method;
-    }
-
     private static void verifyInputFunctionSignature(Method method, Class<?> stateClass)
     {
-        checkNotNull(method, "method is null");
+        if (method == null) {
+            return;
+        }
+        verifyStaticAndPublic(method);
         Class<?>[] parameters = method.getParameterTypes();
         Annotation[][] annotations = method.getParameterAnnotations();
         checkArgument(stateClass == parameters[0], "First argument of aggregation input function must be %s", stateClass.getSimpleName());
@@ -212,7 +220,7 @@ public class AccumulatorCompiler
         }
     }
 
-    private static void generateProcessIntermediate(ClassDefinition definition, Class<?> clazz, Class<?> aggregationClass, Class<?> stateClass)
+    private static void generateProcessIntermediate(ClassDefinition definition, Class<?> accumulatorClass, Method intermediateInputFunction, Method combineFunction, Class<?> stateClass)
     {
         Block body = definition.declareMethod(
                 new CompilerContext(null),
@@ -225,14 +233,10 @@ public class AccumulatorCompiler
                 arg("position", int.class))
                 .getBody();
 
-        Method combineFunction = findCombineFunction(aggregationClass, stateClass);
-        Method intermediateInputFunction = findIntermediateInputFunction(aggregationClass, stateClass);
-        checkArgument(combineFunction == null || intermediateInputFunction == null, "Aggregation (%s) cannot have both a combine and a intermediate input method", aggregationClass.getSimpleName());
-        checkArgument(combineFunction != null || intermediateInputFunction != null, "Aggregation (%s) must have either a combine or a intermediate input method", aggregationClass.getSimpleName());
         if (combineFunction != null) {
             body.pushThis()
                     .comment("stateSerializer.deserialize(block, position, scratchState)")
-                    .getField(clazz, "stateSerializer", AccumulatorStateSerializer.class)
+                    .getField(accumulatorClass, "stateSerializer", AccumulatorStateSerializer.class)
                     .getVariable("block")
                     .getVariable("position")
                     .getVariable("scratchState")
@@ -266,28 +270,17 @@ public class AccumulatorCompiler
         }
     }
 
-    private static Method findIntermediateInputFunction(Class<?> clazz, Class<?> stateClass)
+    private static void verifyCombineFunction(Method method, Class<?> stateClass)
     {
-        Method method = CompilerUtils.findPublicStaticMethodWithAnnotation(clazz, IntermediateInputFunction.class);
         if (method == null) {
-            return null;
+            return;
         }
-        verifyInputFunctionSignature(method, stateClass);
-        return method;
-    }
-
-    private static Method findCombineFunction(Class<?> clazz, Class<?> stateClass)
-    {
-        Method method = CompilerUtils.findPublicStaticMethodWithAnnotation(clazz, CombineFunction.class);
-        if (method == null) {
-            return null;
-        }
+        verifyStaticAndPublic(method);
         Class<?>[] parameterTypes = method.getParameterTypes();
         checkArgument(parameterTypes.length == 2 && parameterTypes[0] == stateClass && parameterTypes[1] == stateClass, "Combine function must have the signature (%s, %s)", stateClass.getSimpleName(), stateClass.getSimpleName());
-        return method;
     }
 
-    private static void generateEvaluateFinal(ClassDefinition definition, Class<?> clazz, Class<?> aggregationClass, Class<?> stateClass)
+    private static void generateEvaluateFinal(ClassDefinition definition, Class<?> accumulatorClass, Method outputFunction, Class<?> stateClass)
     {
         Block body = definition.declareMethod(
                 new CompilerContext(null),
@@ -299,7 +292,6 @@ public class AccumulatorCompiler
                 arg("out", BlockBuilder.class))
                 .getBody();
 
-        Method outputFunction = findOutputFunction(aggregationClass, stateClass);
         if (outputFunction != null) {
             body.comment("output(state, out)")
                     .getVariable("state")
@@ -311,7 +303,7 @@ public class AccumulatorCompiler
         else {
             body.pushThis()
                     .comment("stateSerializer.serialize(state, out)")
-                    .getField(clazz, "stateSerializer", AccumulatorStateSerializer.class)
+                    .getField(accumulatorClass, "stateSerializer", AccumulatorStateSerializer.class)
                     .getVariable("state")
                     .getVariable("out")
                     .invokeInterface(AccumulatorStateSerializer.class, "serialize", void.class, Object.class, BlockBuilder.class)
@@ -319,15 +311,14 @@ public class AccumulatorCompiler
         }
     }
 
-    private static Method findOutputFunction(Class<?> clazz, Class<?> stateClass)
+    private static void verifyOutputFunction(Method method, Class<?> stateClass)
     {
-        Method method = CompilerUtils.findPublicStaticMethodWithAnnotation(clazz, OutputFunction.class);
         if (method == null) {
-            return null;
+            return;
         }
+        verifyStaticAndPublic(method);
         Class<?>[] parameterTypes = method.getParameterTypes();
         checkArgument(parameterTypes.length == 2 && parameterTypes[0] == stateClass && parameterTypes[1] == BlockBuilder.class, "Output function must have the signature (%s, BlockBuilder)", stateClass.getSimpleName());
-        return method;
     }
 
     private static void generateMatchingConstructors(ClassDefinition definition, Class<?> superClass)

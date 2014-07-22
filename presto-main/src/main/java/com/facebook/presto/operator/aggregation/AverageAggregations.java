@@ -13,14 +13,56 @@
  */
 package com.facebook.presto.operator.aggregation;
 
-import static com.facebook.presto.operator.aggregation.AggregationUtils.createIsolatedAggregation;
+import com.facebook.presto.operator.aggregation.state.LongAndDoubleState;
+import com.facebook.presto.spi.block.BlockBuilder;
+import com.facebook.presto.spi.type.BigintType;
+import com.facebook.presto.spi.type.DoubleType;
+import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.type.SqlType;
+import com.google.common.collect.ImmutableList;
+
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 
+@AggregationFunctionMetadata("avg")
 public final class AverageAggregations
 {
-    public static final AggregationFunction LONG_AVERAGE = createIsolatedAggregation(AverageAggregation.class, BIGINT);
-    public static final AggregationFunction DOUBLE_AVERAGE = createIsolatedAggregation(AverageAggregation.class, DOUBLE);
+    public static final AggregationFunction LONG_AVERAGE = new AggregationCompiler().generateAggregationFunction(AverageAggregations.class, DOUBLE, ImmutableList.<Type>of(BIGINT));
+    public static final AggregationFunction DOUBLE_AVERAGE = new AggregationCompiler().generateAggregationFunction(AverageAggregations.class, DOUBLE, ImmutableList.<Type>of(DOUBLE));
 
     private AverageAggregations() {}
+
+    @InputFunction
+    public static void input(LongAndDoubleState state, @SqlType(BigintType.class) long value)
+    {
+        state.setLong(state.getLong() + 1);
+        state.setDouble(state.getDouble() + value);
+    }
+
+    @InputFunction
+    public static void input(LongAndDoubleState state, @SqlType(DoubleType.class) double value)
+    {
+        state.setLong(state.getLong() + 1);
+        state.setDouble(state.getDouble() + value);
+    }
+
+    @CombineFunction
+    public static void combine(LongAndDoubleState state, LongAndDoubleState otherState)
+    {
+        state.setLong(state.getLong() + otherState.getLong());
+        state.setDouble(state.getDouble() + otherState.getDouble());
+    }
+
+    @OutputFunction(DoubleType.class)
+    public static void output(LongAndDoubleState state, BlockBuilder out)
+    {
+        long count = state.getLong();
+        if (count == 0) {
+            out.appendNull();
+        }
+        else {
+            double value = state.getDouble();
+            out.appendDouble(value / count);
+        }
+    }
 }
