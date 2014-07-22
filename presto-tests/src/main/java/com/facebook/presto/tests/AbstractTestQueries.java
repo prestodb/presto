@@ -69,11 +69,7 @@ public abstract class AbstractTestQueries
         extends AbstractTestQueryFramework
 {
     protected static final List<FunctionInfo> CUSTOM_FUNCTIONS = new FunctionRegistry.FunctionListBuilder()
-            .aggregate("custom_sum",
-                    BIGINT,
-                    ImmutableList.of(BIGINT),
-                    BIGINT,
-                    new CustomSum())
+            .aggregate(CustomSum.class)
             .window("custom_rank", BIGINT, ImmutableList.<Type>of(), CustomRank.class)
             .scalar(CustomAdd.class)
             .scalar(CreateHll.class)
