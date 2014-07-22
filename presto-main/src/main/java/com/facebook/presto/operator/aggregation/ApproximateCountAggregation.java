@@ -44,6 +44,12 @@ public class ApproximateCountAggregation
     private static final int SAMPLES_OFFSET = SIZE_OF_LONG;
 
     @Override
+    public String name()
+    {
+        return "count";
+    }
+
+    @Override
     public List<Type> getParameterTypes()
     {
         return ImmutableList.of();
@@ -64,6 +70,12 @@ public class ApproximateCountAggregation
 
     @Override
     public boolean isDecomposable()
+    {
+        return true;
+    }
+
+    @Override
+    public boolean isApproximate()
     {
         return true;
     }

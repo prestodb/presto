@@ -20,6 +20,8 @@ import java.util.List;
 
 public interface InternalAggregationFunction
 {
+    String name();
+
     List<Type> getParameterTypes();
 
     Type getFinalType();
@@ -30,6 +32,8 @@ public interface InternalAggregationFunction
      * Indicates that the aggregation can be decomposed, and run as partial aggregations followed by a final aggregation to combine the intermediate results
      */
     boolean isDecomposable();
+
+    boolean isApproximate();
 
     Accumulator createAggregation(Optional<Integer> maskChannel, Optional<Integer> sampleWeight, double confidence, int... argumentChannels);
 

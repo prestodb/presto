@@ -20,7 +20,6 @@ import com.google.common.collect.ImmutableList;
 
 import java.util.List;
 
-import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 public class GenericAggregationFunctionFactory
@@ -30,22 +29,9 @@ public class GenericAggregationFunctionFactory
 
     public static GenericAggregationFunctionFactory fromAggregationDefinition(Class<?> clazz)
     {
-        AggregationFunction metadata = clazz.getAnnotation(AggregationFunction.class);
-        ApproximateAggregationFunction approximateMetadata = clazz.getAnnotation(ApproximateAggregationFunction.class);
-        checkArgument(metadata != null || approximateMetadata != null, "Aggregation function annotation is missing");
-        checkArgument(metadata == null || approximateMetadata == null, "Aggregation function cannot be exact and approximate");
-
-        String name;
-        if (metadata != null) {
-            name = metadata.value();
-        }
-        else {
-            name = approximateMetadata.value();
-        }
-
         FunctionRegistry.FunctionListBuilder builder = new FunctionRegistry.FunctionListBuilder();
         for (InternalAggregationFunction aggregation : new AggregationCompiler().generateAggregationFunctions(clazz)) {
-            builder.aggregate(name, aggregation);
+            builder.aggregate(aggregation);
         }
 
         return new GenericAggregationFunctionFactory(builder.getFunctions());

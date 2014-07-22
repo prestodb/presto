@@ -14,91 +14,110 @@
 package com.facebook.presto.operator.aggregation;
 
 import com.facebook.presto.operator.aggregation.state.VarianceState;
-import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.spi.type.BigintType;
+import com.facebook.presto.spi.type.DoubleType;
+import com.facebook.presto.type.SqlType;
 
 import static com.facebook.presto.operator.aggregation.AggregationUtils.mergeVarianceState;
 import static com.facebook.presto.operator.aggregation.AggregationUtils.updateVarianceState;
-import static com.facebook.presto.spi.type.BigintType.BIGINT;
-import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
-import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 
-public class VarianceAggregation
-        extends AbstractExactAggregationFunction<VarianceState>
+@AggregationFunction("") // Names are on output methods
+public final class VarianceAggregation
 {
-    protected final boolean population;
-    protected final boolean inputIsLong;
-    protected final boolean standardDeviation;
+    private VarianceAggregation() {}
 
-    public VarianceAggregation(Type parameterType,
-            boolean population,
-            boolean standardDeviation)
+    @InputFunction
+    public static void doubleInput(VarianceState state, @SqlType(DoubleType.class) double value)
     {
-        // Intermediate type should be a fixed width structure
-        super(DOUBLE, VARCHAR, parameterType);
-        this.population = population;
-        if (parameterType == BIGINT) {
-            this.inputIsLong = true;
-        }
-        else if (parameterType == DOUBLE) {
-            this.inputIsLong = false;
-        }
-        else {
-            throw new IllegalArgumentException("Expected parameter type to be BIGINT or DOUBLE, but was " + parameterType);
-        }
-        this.standardDeviation = standardDeviation;
+        updateVarianceState(state, value);
     }
 
-    @Override
-    protected void processInput(VarianceState state, Block block, int index)
+    @InputFunction
+    public static void bigintInput(VarianceState state, @SqlType(BigintType.class) long value)
     {
-        double inputValue;
-        if (inputIsLong) {
-            inputValue = block.getLong(index);
-        }
-        else {
-            inputValue = block.getDouble(index);
-        }
-
-        updateVarianceState(state, inputValue);
+        updateVarianceState(state, (double) value);
     }
 
-    @Override
-    protected void evaluateFinal(VarianceState state, BlockBuilder out)
-    {
-        long count = state.getCount();
-        if (population) {
-            if (count == 0) {
-                out.appendNull();
-            }
-            else {
-                double m2 = state.getM2();
-                double result = m2 / count;
-                if (standardDeviation) {
-                    result = Math.sqrt(result);
-                }
-                out.appendDouble(result);
-            }
-        }
-        else {
-            if (count < 2) {
-                out.appendNull();
-            }
-            else {
-                double m2 = state.getM2();
-                double result = m2 / (count - 1);
-                if (standardDeviation) {
-                    result = Math.sqrt(result);
-                }
-                out.appendDouble(result);
-            }
-        }
-    }
-
-    @Override
-    protected void combineState(VarianceState state, VarianceState otherState)
+    @CombineFunction
+    public static void combine(VarianceState state, VarianceState otherState)
     {
         mergeVarianceState(state, otherState);
+    }
+
+    @AggregationFunction("var_samp")
+    @OutputFunction(DoubleType.class)
+    public static void varianceSamp(VarianceState state, BlockBuilder out)
+    {
+        variance(state, out);
+    }
+
+    @AggregationFunction("variance")
+    @OutputFunction(DoubleType.class)
+    public static void variance(VarianceState state, BlockBuilder out)
+    {
+        long count = state.getCount();
+        if (count < 2) {
+            out.appendNull();
+        }
+        else {
+            double m2 = state.getM2();
+            double result = m2 / (count - 1);
+            out.appendDouble(result);
+        }
+    }
+
+    @AggregationFunction("var_pop")
+    @OutputFunction(DoubleType.class)
+    public static void variancePop(VarianceState state, BlockBuilder out)
+    {
+        long count = state.getCount();
+        if (count == 0) {
+            out.appendNull();
+        }
+        else {
+            double m2 = state.getM2();
+            double result = m2 / count;
+            out.appendDouble(result);
+        }
+    }
+
+    @AggregationFunction("stddev")
+    @OutputFunction(DoubleType.class)
+    public static void stddevSamp(VarianceState state, BlockBuilder out)
+    {
+        stddev(state, out);
+    }
+
+    @AggregationFunction("stddev_samp")
+    @OutputFunction(DoubleType.class)
+    public static void stddev(VarianceState state, BlockBuilder out)
+    {
+        long count = state.getCount();
+        if (count < 2) {
+            out.appendNull();
+        }
+        else {
+            double m2 = state.getM2();
+            double result = m2 / (count - 1);
+            result = Math.sqrt(result);
+            out.appendDouble(result);
+        }
+    }
+
+    @AggregationFunction("stddev_pop")
+    @OutputFunction(DoubleType.class)
+    public static void stddevPop(VarianceState state, BlockBuilder out)
+    {
+        long count = state.getCount();
+        if (count == 0) {
+            out.appendNull();
+        }
+        else {
+            double m2 = state.getM2();
+            double result = m2 / count;
+            result = Math.sqrt(result);
+            out.appendDouble(result);
+        }
     }
 }

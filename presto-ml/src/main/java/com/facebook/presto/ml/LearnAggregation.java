@@ -16,8 +16,8 @@ package com.facebook.presto.ml;
 import com.facebook.presto.ml.type.RegressorType;
 import com.facebook.presto.operator.Page;
 import com.facebook.presto.operator.aggregation.Accumulator;
-import com.facebook.presto.operator.aggregation.InternalAggregationFunction;
 import com.facebook.presto.operator.aggregation.GroupedAccumulator;
+import com.facebook.presto.operator.aggregation.InternalAggregationFunction;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
@@ -28,8 +28,10 @@ import com.google.common.collect.ImmutableList;
 import java.util.ArrayList;
 import java.util.List;
 
+import static com.facebook.presto.ml.type.ClassifierType.CLASSIFIER;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
+import static com.facebook.presto.type.UnknownType.UNKNOWN;
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.slice.SizeOf.SIZE_OF_DOUBLE;
 
@@ -43,6 +45,12 @@ public class LearnAggregation
     {
         this.modelType = modelType;
         this.labelType = labelType;
+    }
+
+    @Override
+    public String name()
+    {
+        return modelType == CLASSIFIER ? "learn_classifier" : "learn_regressor";
     }
 
     @Override
@@ -60,11 +68,17 @@ public class LearnAggregation
     @Override
     public Type getIntermediateType()
     {
-        throw new UnsupportedOperationException("LEARN must run on a single machine");
+        return UNKNOWN;
     }
 
     @Override
     public boolean isDecomposable()
+    {
+        return false;
+    }
+
+    @Override
+    public boolean isApproximate()
     {
         return false;
     }
