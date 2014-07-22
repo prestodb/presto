@@ -22,7 +22,7 @@ import com.facebook.presto.type.SqlType;
 import io.airlift.slice.Slice;
 import io.airlift.stats.cardinality.HyperLogLog;
 
-@AggregationFunctionMetadata("merge")
+@AggregationFunction("merge")
 public final class MergeHyperLogLogAggregation
 {
     private static final AccumulatorStateSerializer<HyperLogLogState> serializer = new StateCompiler().generateStateSerializer(HyperLogLogState.class);

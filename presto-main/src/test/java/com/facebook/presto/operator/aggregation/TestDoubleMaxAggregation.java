@@ -34,7 +34,7 @@ public class TestDoubleMaxAggregation
     }
 
     @Override
-    public AggregationFunction getFunction()
+    public InternalAggregationFunction getFunction()
     {
         return DOUBLE_MAX;
     }

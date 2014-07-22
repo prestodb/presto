@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.operator;
 
-import com.facebook.presto.operator.aggregation.AggregationFunction;
+import com.facebook.presto.operator.aggregation.InternalAggregationFunction;
 import com.google.common.base.Optional;
 import com.google.common.base.Preconditions;
 
@@ -21,7 +21,7 @@ import java.util.List;
 
 public class AggregationFunctionDefinition
 {
-    public static AggregationFunctionDefinition aggregation(AggregationFunction function, List<Integer> inputs, Optional<Integer> mask, Optional<Integer> sampleWeight, double confidence)
+    public static AggregationFunctionDefinition aggregation(InternalAggregationFunction function, List<Integer> inputs, Optional<Integer> mask, Optional<Integer> sampleWeight, double confidence)
     {
         Preconditions.checkNotNull(function, "function is null");
         Preconditions.checkNotNull(inputs, "inputs is null");
@@ -29,13 +29,13 @@ public class AggregationFunctionDefinition
         return new AggregationFunctionDefinition(function, inputs, mask, sampleWeight, confidence);
     }
 
-    private final AggregationFunction function;
+    private final InternalAggregationFunction function;
     private final List<Integer> inputs;
     private final Optional<Integer> mask;
     private final Optional<Integer> sampleWeight;
     private final double confidence;
 
-    AggregationFunctionDefinition(AggregationFunction function, List<Integer> inputs, Optional<Integer> mask, Optional<Integer> sampleWeight, double confidence)
+    AggregationFunctionDefinition(InternalAggregationFunction function, List<Integer> inputs, Optional<Integer> mask, Optional<Integer> sampleWeight, double confidence)
     {
         this.function = function;
         this.inputs = inputs;
@@ -44,7 +44,7 @@ public class AggregationFunctionDefinition
         this.confidence = confidence;
     }
 
-    public AggregationFunction getFunction()
+    public InternalAggregationFunction getFunction()
     {
         return function;
     }

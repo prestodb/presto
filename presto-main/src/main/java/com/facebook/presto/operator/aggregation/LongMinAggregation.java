@@ -18,10 +18,10 @@ import com.facebook.presto.operator.aggregation.state.NullableBigintState;
 import com.facebook.presto.spi.type.BigintType;
 import com.facebook.presto.type.SqlType;
 
-@AggregationFunctionMetadata("min")
+@AggregationFunction("min")
 public final class LongMinAggregation
 {
-    public static final AggregationFunction LONG_MIN = new AggregationCompiler().generateAggregationFunction(LongMinAggregation.class);
+    public static final InternalAggregationFunction LONG_MIN = new AggregationCompiler().generateAggregationFunction(LongMinAggregation.class);
 
     private LongMinAggregation() {}
 

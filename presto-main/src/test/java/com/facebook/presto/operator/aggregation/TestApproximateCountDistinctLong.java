@@ -24,7 +24,7 @@ public class TestApproximateCountDistinctLong
         extends AbstractTestApproximateCountDistinct
 {
     @Override
-    public AggregationFunction getAggregationFunction()
+    public InternalAggregationFunction getAggregationFunction()
     {
         return LONG_APPROXIMATE_COUNT_DISTINCT_AGGREGATIONS;
     }

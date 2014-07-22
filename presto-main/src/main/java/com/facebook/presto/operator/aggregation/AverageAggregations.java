@@ -24,11 +24,11 @@ import com.google.common.collect.ImmutableList;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 
-@AggregationFunctionMetadata("avg")
+@AggregationFunction("avg")
 public final class AverageAggregations
 {
-    public static final AggregationFunction LONG_AVERAGE = new AggregationCompiler().generateAggregationFunction(AverageAggregations.class, DOUBLE, ImmutableList.<Type>of(BIGINT));
-    public static final AggregationFunction DOUBLE_AVERAGE = new AggregationCompiler().generateAggregationFunction(AverageAggregations.class, DOUBLE, ImmutableList.<Type>of(DOUBLE));
+    public static final InternalAggregationFunction LONG_AVERAGE = new AggregationCompiler().generateAggregationFunction(AverageAggregations.class, DOUBLE, ImmutableList.<Type>of(BIGINT));
+    public static final InternalAggregationFunction DOUBLE_AVERAGE = new AggregationCompiler().generateAggregationFunction(AverageAggregations.class, DOUBLE, ImmutableList.<Type>of(DOUBLE));
 
     private AverageAggregations() {}
 

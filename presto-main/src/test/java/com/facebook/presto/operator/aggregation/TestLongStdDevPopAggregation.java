@@ -35,7 +35,7 @@ public class TestLongStdDevPopAggregation
     }
 
     @Override
-    public AggregationFunction getFunction()
+    public InternalAggregationFunction getFunction()
     {
         return LONG_STDDEV_POP_INSTANCE;
     }

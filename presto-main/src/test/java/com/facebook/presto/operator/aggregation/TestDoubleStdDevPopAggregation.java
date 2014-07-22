@@ -35,7 +35,7 @@ public class TestDoubleStdDevPopAggregation
     }
 
     @Override
-    public AggregationFunction getFunction()
+    public InternalAggregationFunction getFunction()
     {
         return DOUBLE_STDDEV_POP_INSTANCE;
     }

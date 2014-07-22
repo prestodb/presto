@@ -17,10 +17,10 @@ import com.facebook.presto.operator.aggregation.state.NullableDoubleState;
 import com.facebook.presto.spi.type.DoubleType;
 import com.facebook.presto.type.SqlType;
 
-@AggregationFunctionMetadata("sum")
+@AggregationFunction("sum")
 public final class DoubleSumAggregation
 {
-    public static final AggregationFunction DOUBLE_SUM = new AggregationCompiler().generateAggregationFunction(DoubleSumAggregation.class);
+    public static final InternalAggregationFunction DOUBLE_SUM = new AggregationCompiler().generateAggregationFunction(DoubleSumAggregation.class);
 
     private DoubleSumAggregation() {}
 

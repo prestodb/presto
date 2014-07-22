@@ -34,7 +34,7 @@ public class TestCountIfAggregation
     }
 
     @Override
-    public AggregationFunction getFunction()
+    public InternalAggregationFunction getFunction()
     {
         return COUNT_IF;
     }

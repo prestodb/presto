@@ -15,7 +15,7 @@ package com.facebook.presto.operator;
 
 import com.facebook.presto.ExceededMemoryLimitException;
 import com.facebook.presto.operator.aggregation.Accumulator;
-import com.facebook.presto.operator.aggregation.AggregationFunction;
+import com.facebook.presto.operator.aggregation.InternalAggregationFunction;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.planner.plan.AggregationNode.Step;
@@ -192,7 +192,7 @@ public class AggregationOperator
 
         private Aggregator(AggregationFunctionDefinition functionDefinition, Step step, MemoryManager memoryManager)
         {
-            AggregationFunction function = functionDefinition.getFunction();
+            InternalAggregationFunction function = functionDefinition.getFunction();
 
             if (step != Step.FINAL) {
                 int[] argumentChannels = new int[functionDefinition.getInputs().size()];

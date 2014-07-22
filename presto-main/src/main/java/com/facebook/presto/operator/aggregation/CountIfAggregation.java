@@ -17,10 +17,10 @@ import com.facebook.presto.operator.aggregation.state.LongState;
 import com.facebook.presto.spi.type.BooleanType;
 import com.facebook.presto.type.SqlType;
 
-@AggregationFunctionMetadata("count_if")
+@AggregationFunction("count_if")
 public final class CountIfAggregation
 {
-    public static final AggregationFunction COUNT_IF = new AggregationCompiler().generateAggregationFunction(CountIfAggregation.class);
+    public static final InternalAggregationFunction COUNT_IF = new AggregationCompiler().generateAggregationFunction(CountIfAggregation.class);
 
     private CountIfAggregation() {}
 

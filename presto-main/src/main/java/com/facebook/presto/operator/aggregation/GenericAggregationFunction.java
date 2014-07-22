@@ -23,7 +23,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 public final class GenericAggregationFunction
-        implements AggregationFunction
+        implements InternalAggregationFunction
 {
     private final List<Type> parameterTypes;
     private final Type intermediateType;

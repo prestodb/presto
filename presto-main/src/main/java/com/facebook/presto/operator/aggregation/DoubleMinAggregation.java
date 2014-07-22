@@ -18,10 +18,10 @@ import com.facebook.presto.operator.aggregation.state.NullableDoubleState;
 import com.facebook.presto.spi.type.DoubleType;
 import com.facebook.presto.type.SqlType;
 
-@AggregationFunctionMetadata("min")
+@AggregationFunction("min")
 public final class DoubleMinAggregation
 {
-    public static final AggregationFunction DOUBLE_MIN = new AggregationCompiler().generateAggregationFunction(DoubleMinAggregation.class);
+    public static final InternalAggregationFunction DOUBLE_MIN = new AggregationCompiler().generateAggregationFunction(DoubleMinAggregation.class);
 
     private DoubleMinAggregation() {}
 

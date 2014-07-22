@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.ml;
 
-import com.facebook.presto.operator.aggregation.AggregationFunctionMetadata;
+import com.facebook.presto.operator.aggregation.AggregationFunction;
 import com.facebook.presto.operator.aggregation.CombineFunction;
 import com.facebook.presto.operator.aggregation.InputFunction;
 import com.facebook.presto.operator.aggregation.OutputFunction;
@@ -26,7 +26,7 @@ import io.airlift.slice.Slices;
 
 import static com.google.common.base.Preconditions.checkArgument;
 
-@AggregationFunctionMetadata("evaluate_classifier_predictions")
+@AggregationFunction("evaluate_classifier_predictions")
 public final class EvaluateClassifierPredictionsAggregation
 {
     private EvaluateClassifierPredictionsAggregation() {}

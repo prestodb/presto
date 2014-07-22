@@ -13,29 +13,14 @@
  */
 package com.facebook.presto.operator.aggregation;
 
-import com.facebook.presto.spi.type.Type;
-import com.google.common.base.Optional;
+import java.lang.annotation.ElementType;
+import java.lang.annotation.Retention;
+import java.lang.annotation.RetentionPolicy;
+import java.lang.annotation.Target;
 
-import java.util.List;
-
-public interface AggregationFunction
+@Retention(RetentionPolicy.RUNTIME)
+@Target(ElementType.TYPE)
+public @interface AggregationFunction
 {
-    List<Type> getParameterTypes();
-
-    Type getFinalType();
-
-    Type getIntermediateType();
-
-    /**
-     * Indicates that the aggregation can be decomposed, and run as partial aggregations followed by a final aggregation to combine the intermediate results
-     */
-    boolean isDecomposable();
-
-    Accumulator createAggregation(Optional<Integer> maskChannel, Optional<Integer> sampleWeight, double confidence, int... argumentChannels);
-
-    Accumulator createIntermediateAggregation(double confidence);
-
-    GroupedAccumulator createGroupedAggregation(Optional<Integer> maskChannel, Optional<Integer> sampleWeight, double confidence, int... argumentChannels);
-
-    GroupedAccumulator createGroupedIntermediateAggregation(double confidence);
+    String value();
 }

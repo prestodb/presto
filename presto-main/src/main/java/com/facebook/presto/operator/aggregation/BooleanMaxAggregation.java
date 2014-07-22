@@ -21,10 +21,10 @@ import static com.facebook.presto.operator.aggregation.state.TriStateBooleanStat
 import static com.facebook.presto.operator.aggregation.state.TriStateBooleanState.NULL_VALUE;
 import static com.facebook.presto.operator.aggregation.state.TriStateBooleanState.TRUE_VALUE;
 
-@AggregationFunctionMetadata("max")
+@AggregationFunction("max")
 public final class BooleanMaxAggregation
 {
-    public static final AggregationFunction BOOLEAN_MAX = new AggregationCompiler().generateAggregationFunction(BooleanMaxAggregation.class);
+    public static final InternalAggregationFunction BOOLEAN_MAX = new AggregationCompiler().generateAggregationFunction(BooleanMaxAggregation.class);
 
     private BooleanMaxAggregation() {}
 

@@ -25,10 +25,10 @@ public final class AggregationUtils
     {
     }
 
-    public static AggregationFunction createIsolatedApproximateAggregation(Class<? extends AbstractAggregationFunction> aggregationClass, Type parameterType)
+    public static InternalAggregationFunction createIsolatedApproximateAggregation(Class<? extends AbstractAggregationFunction> aggregationClass, Type parameterType)
     {
-        Class<? extends AggregationFunction> functionClass = IsolatedClass.isolateClass(
-                AggregationFunction.class,
+        Class<? extends InternalAggregationFunction> functionClass = IsolatedClass.isolateClass(
+                InternalAggregationFunction.class,
 
                 aggregationClass,
 
@@ -48,10 +48,10 @@ public final class AggregationUtils
         }
     }
 
-    public static AggregationFunction createIsolatedAggregation(Class<? extends AggregationFunction> aggregationClass, Type parameterType)
+    public static InternalAggregationFunction createIsolatedAggregation(Class<? extends InternalAggregationFunction> aggregationClass, Type parameterType)
     {
-        Class<? extends AggregationFunction> functionClass = IsolatedClass.isolateClass(
-                AggregationFunction.class,
+        Class<? extends InternalAggregationFunction> functionClass = IsolatedClass.isolateClass(
+                InternalAggregationFunction.class,
 
                 aggregationClass,
 

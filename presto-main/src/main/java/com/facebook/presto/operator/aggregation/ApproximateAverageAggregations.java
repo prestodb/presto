@@ -19,8 +19,8 @@ import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 
 public final class ApproximateAverageAggregations
 {
-    public static final AggregationFunction LONG_APPROXIMATE_AVERAGE_AGGREGATION = createIsolatedApproximateAggregation(ApproximateAverageAggregation.class, BIGINT);
-    public static final AggregationFunction DOUBLE_APPROXIMATE_AVERAGE_AGGREGATION = createIsolatedApproximateAggregation(ApproximateAverageAggregation.class, DOUBLE);
+    public static final InternalAggregationFunction LONG_APPROXIMATE_AVERAGE_AGGREGATION = createIsolatedApproximateAggregation(ApproximateAverageAggregation.class, BIGINT);
+    public static final InternalAggregationFunction DOUBLE_APPROXIMATE_AVERAGE_AGGREGATION = createIsolatedApproximateAggregation(ApproximateAverageAggregation.class, DOUBLE);
 
     private ApproximateAverageAggregations() {}
 }

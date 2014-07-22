@@ -37,7 +37,7 @@ import static com.google.common.base.Preconditions.checkState;
 import static io.airlift.slice.SizeOf.SIZE_OF_DOUBLE;
 
 public class ApproximatePercentileWeightedAggregation
-        implements AggregationFunction
+        implements InternalAggregationFunction
 {
     private final Type parameterType;
 

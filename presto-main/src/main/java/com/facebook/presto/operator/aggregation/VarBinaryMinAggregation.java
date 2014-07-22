@@ -18,10 +18,10 @@ import com.facebook.presto.spi.type.VarcharType;
 import com.facebook.presto.type.SqlType;
 import io.airlift.slice.Slice;
 
-@AggregationFunctionMetadata("min")
+@AggregationFunction("min")
 public final class VarBinaryMinAggregation
 {
-    public static final AggregationFunction VAR_BINARY_MIN = new AggregationCompiler().generateAggregationFunction(VarBinaryMinAggregation.class);
+    public static final InternalAggregationFunction VAR_BINARY_MIN = new AggregationCompiler().generateAggregationFunction(VarBinaryMinAggregation.class);
 
     private VarBinaryMinAggregation() {}
 

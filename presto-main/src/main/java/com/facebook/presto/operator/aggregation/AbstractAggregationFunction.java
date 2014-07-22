@@ -35,7 +35,7 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 
 public abstract class AbstractAggregationFunction<T extends AccumulatorState>
-        implements AggregationFunction
+        implements InternalAggregationFunction
 {
     private final Type finalType;
     private final Type intermediateType;

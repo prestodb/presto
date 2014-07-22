@@ -14,7 +14,7 @@
 package com.facebook.presto.operator;
 
 import com.facebook.presto.ExceededMemoryLimitException;
-import com.facebook.presto.operator.aggregation.AggregationFunction;
+import com.facebook.presto.operator.aggregation.InternalAggregationFunction;
 import com.facebook.presto.operator.aggregation.GroupedAccumulator;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.type.Type;
@@ -333,7 +333,7 @@ public class HashAggregationOperator
 
         private Aggregator(AggregationFunctionDefinition functionDefinition, Step step)
         {
-            AggregationFunction function = functionDefinition.getFunction();
+            InternalAggregationFunction function = functionDefinition.getFunction();
 
             if (step == Step.FINAL) {
                 checkArgument(functionDefinition.getInputs().size() == 1, "Expected a single input for an intermediate aggregation");

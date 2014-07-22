@@ -35,7 +35,7 @@ public class TestDoubleVariancePopAggregation
     }
 
     @Override
-    public AggregationFunction getFunction()
+    public InternalAggregationFunction getFunction()
     {
         return DOUBLE_VARIANCE_POP_INSTANCE;
     }

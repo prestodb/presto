@@ -34,7 +34,7 @@ public class TestDoubleAverageAggregation
     }
 
     @Override
-    public AggregationFunction getFunction()
+    public InternalAggregationFunction getFunction()
     {
         return DOUBLE_AVERAGE;
     }

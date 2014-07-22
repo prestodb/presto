@@ -34,7 +34,7 @@ public class TestLongMinAggregation
     }
 
     @Override
-    public AggregationFunction getFunction()
+    public InternalAggregationFunction getFunction()
     {
         return LONG_MIN;
     }

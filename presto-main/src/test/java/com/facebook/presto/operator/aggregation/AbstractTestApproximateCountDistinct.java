@@ -37,7 +37,7 @@ import static org.testng.Assert.assertEquals;
 
 public abstract class AbstractTestApproximateCountDistinct
 {
-    public abstract AggregationFunction getAggregationFunction();
+    public abstract InternalAggregationFunction getAggregationFunction();
 
     public abstract Type getValueType();
 

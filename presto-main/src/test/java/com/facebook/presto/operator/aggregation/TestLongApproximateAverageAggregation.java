@@ -24,7 +24,7 @@ public class TestLongApproximateAverageAggregation
         extends AbstractTestApproximateAggregationFunction
 {
     @Override
-    public AggregationFunction getFunction()
+    public InternalAggregationFunction getFunction()
     {
         return LONG_APPROXIMATE_AVERAGE_AGGREGATION;
     }

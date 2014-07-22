@@ -21,10 +21,10 @@ import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 
 public final class ApproximateCountColumnAggregations
 {
-    public static final AggregationFunction BOOLEAN_APPROXIMATE_COUNT_AGGREGATION = createIsolatedApproximateAggregation(ApproximateCountColumnAggregation.class, BOOLEAN);
-    public static final AggregationFunction LONG_APPROXIMATE_COUNT_AGGREGATION = createIsolatedApproximateAggregation(ApproximateCountColumnAggregation.class, BIGINT);
-    public static final AggregationFunction DOUBLE_APPROXIMATE_COUNT_AGGREGATION = createIsolatedApproximateAggregation(ApproximateCountColumnAggregation.class, DOUBLE);
-    public static final AggregationFunction VARBINARY_APPROXIMATE_COUNT_AGGREGATION = createIsolatedApproximateAggregation(ApproximateCountColumnAggregation.class, VARCHAR);
+    public static final InternalAggregationFunction BOOLEAN_APPROXIMATE_COUNT_AGGREGATION = createIsolatedApproximateAggregation(ApproximateCountColumnAggregation.class, BOOLEAN);
+    public static final InternalAggregationFunction LONG_APPROXIMATE_COUNT_AGGREGATION = createIsolatedApproximateAggregation(ApproximateCountColumnAggregation.class, BIGINT);
+    public static final InternalAggregationFunction DOUBLE_APPROXIMATE_COUNT_AGGREGATION = createIsolatedApproximateAggregation(ApproximateCountColumnAggregation.class, DOUBLE);
+    public static final InternalAggregationFunction VARBINARY_APPROXIMATE_COUNT_AGGREGATION = createIsolatedApproximateAggregation(ApproximateCountColumnAggregation.class, VARCHAR);
 
     private ApproximateCountColumnAggregations() {}
 }

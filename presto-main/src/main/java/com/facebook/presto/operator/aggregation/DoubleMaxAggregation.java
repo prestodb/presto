@@ -18,10 +18,10 @@ import com.facebook.presto.operator.aggregation.state.NullableDoubleState;
 import com.facebook.presto.spi.type.DoubleType;
 import com.facebook.presto.type.SqlType;
 
-@AggregationFunctionMetadata("max")
+@AggregationFunction("max")
 public final class DoubleMaxAggregation
 {
-    public static final AggregationFunction DOUBLE_MAX = new AggregationCompiler().generateAggregationFunction(DoubleMaxAggregation.class);
+    public static final InternalAggregationFunction DOUBLE_MAX = new AggregationCompiler().generateAggregationFunction(DoubleMaxAggregation.class);
 
     private DoubleMaxAggregation() {}
 

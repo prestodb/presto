@@ -34,7 +34,7 @@ public class TestLongMaxAggregation
     }
 
     @Override
-    public AggregationFunction getFunction()
+    public InternalAggregationFunction getFunction()
     {
         return LONG_MAX;
     }

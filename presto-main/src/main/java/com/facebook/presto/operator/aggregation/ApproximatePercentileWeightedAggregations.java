@@ -24,15 +24,15 @@ import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 
 public final class ApproximatePercentileWeightedAggregations
 {
-    public static final AggregationFunction LONG_APPROXIMATE_PERCENTILE_WEIGHTED_AGGREGATION = createIsolatedAggregation(BIGINT);
-    public static final AggregationFunction DOUBLE_APPROXIMATE_PERCENTILE_WEIGHTED_AGGREGATION = createIsolatedAggregation(DOUBLE);
+    public static final InternalAggregationFunction LONG_APPROXIMATE_PERCENTILE_WEIGHTED_AGGREGATION = createIsolatedAggregation(BIGINT);
+    public static final InternalAggregationFunction DOUBLE_APPROXIMATE_PERCENTILE_WEIGHTED_AGGREGATION = createIsolatedAggregation(DOUBLE);
 
     private ApproximatePercentileWeightedAggregations() {}
 
-    private static AggregationFunction createIsolatedAggregation(Type parameterType)
+    private static InternalAggregationFunction createIsolatedAggregation(Type parameterType)
     {
-        Class<? extends AggregationFunction> functionClass = IsolatedClass.isolateClass(
-                AggregationFunction.class,
+        Class<? extends InternalAggregationFunction> functionClass = IsolatedClass.isolateClass(
+                InternalAggregationFunction.class,
 
                 ApproximatePercentileWeightedAggregation.class,
 

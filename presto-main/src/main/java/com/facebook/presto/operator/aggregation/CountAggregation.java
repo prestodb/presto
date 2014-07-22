@@ -29,7 +29,7 @@ import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.google.common.base.Preconditions.checkArgument;
 
 public class CountAggregation
-        implements AggregationFunction
+        implements InternalAggregationFunction
 {
     public static final CountAggregation COUNT = new CountAggregation();
 

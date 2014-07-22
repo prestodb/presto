@@ -21,21 +21,21 @@ import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 
 public final class VarianceAggregations
 {
-    public static final AggregationFunction LONG_VARIANCE_INSTANCE = createIsolatedAggregation(BIGINT, false, false);
-    public static final AggregationFunction LONG_VARIANCE_POP_INSTANCE = createIsolatedAggregation(BIGINT, true, false);
-    public static final AggregationFunction LONG_STDDEV_INSTANCE = createIsolatedAggregation(BIGINT, false, true);
-    public static final AggregationFunction LONG_STDDEV_POP_INSTANCE = createIsolatedAggregation(BIGINT, true, true);
-    public static final AggregationFunction DOUBLE_VARIANCE_INSTANCE = createIsolatedAggregation(DOUBLE, false, false);
-    public static final AggregationFunction DOUBLE_VARIANCE_POP_INSTANCE = createIsolatedAggregation(DOUBLE, true, false);
-    public static final AggregationFunction DOUBLE_STDDEV_INSTANCE = createIsolatedAggregation(DOUBLE, false, true);
-    public static final AggregationFunction DOUBLE_STDDEV_POP_INSTANCE = createIsolatedAggregation(DOUBLE, true, true);
+    public static final InternalAggregationFunction LONG_VARIANCE_INSTANCE = createIsolatedAggregation(BIGINT, false, false);
+    public static final InternalAggregationFunction LONG_VARIANCE_POP_INSTANCE = createIsolatedAggregation(BIGINT, true, false);
+    public static final InternalAggregationFunction LONG_STDDEV_INSTANCE = createIsolatedAggregation(BIGINT, false, true);
+    public static final InternalAggregationFunction LONG_STDDEV_POP_INSTANCE = createIsolatedAggregation(BIGINT, true, true);
+    public static final InternalAggregationFunction DOUBLE_VARIANCE_INSTANCE = createIsolatedAggregation(DOUBLE, false, false);
+    public static final InternalAggregationFunction DOUBLE_VARIANCE_POP_INSTANCE = createIsolatedAggregation(DOUBLE, true, false);
+    public static final InternalAggregationFunction DOUBLE_STDDEV_INSTANCE = createIsolatedAggregation(DOUBLE, false, true);
+    public static final InternalAggregationFunction DOUBLE_STDDEV_POP_INSTANCE = createIsolatedAggregation(DOUBLE, true, true);
 
     private VarianceAggregations() {}
 
-    private static AggregationFunction createIsolatedAggregation(Type parameterType, boolean population, boolean standardDeviation)
+    private static InternalAggregationFunction createIsolatedAggregation(Type parameterType, boolean population, boolean standardDeviation)
     {
-        Class<? extends AggregationFunction> functionClass = IsolatedClass.isolateClass(
-                AggregationFunction.class,
+        Class<? extends InternalAggregationFunction> functionClass = IsolatedClass.isolateClass(
+                InternalAggregationFunction.class,
 
                 VarianceAggregation.class,
 

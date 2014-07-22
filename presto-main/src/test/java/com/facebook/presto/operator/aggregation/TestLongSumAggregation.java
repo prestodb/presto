@@ -34,7 +34,7 @@ public class TestLongSumAggregation
     }
 
     @Override
-    public AggregationFunction getFunction()
+    public InternalAggregationFunction getFunction()
     {
         return LONG_SUM;
     }

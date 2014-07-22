@@ -34,7 +34,7 @@ public class TestLongAverageAggregation
     }
 
     @Override
-    public AggregationFunction getFunction()
+    public InternalAggregationFunction getFunction()
     {
         return LONG_AVERAGE;
     }

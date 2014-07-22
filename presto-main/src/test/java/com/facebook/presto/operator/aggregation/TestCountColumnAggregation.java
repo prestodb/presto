@@ -34,7 +34,7 @@ public class TestCountColumnAggregation
     }
 
     @Override
-    public AggregationFunction getFunction()
+    public InternalAggregationFunction getFunction()
     {
         return COUNT_LONG_COLUMN;
     }
