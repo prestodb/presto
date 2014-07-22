@@ -14,8 +14,6 @@
 package com.facebook.presto.operator.aggregation;
 
 import com.facebook.presto.operator.aggregation.state.VarianceState;
-import com.facebook.presto.spi.type.Type;
-import com.google.common.base.Throwables;
 
 import static com.google.common.base.Preconditions.checkArgument;
 
@@ -23,53 +21,6 @@ public final class AggregationUtils
 {
     private AggregationUtils()
     {
-    }
-
-    public static InternalAggregationFunction createIsolatedApproximateAggregation(Class<? extends AbstractAggregationFunction> aggregationClass, Type parameterType)
-    {
-        Class<? extends InternalAggregationFunction> functionClass = IsolatedClass.isolateClass(
-                InternalAggregationFunction.class,
-
-                aggregationClass,
-
-                AbstractAggregationFunction.class,
-
-                AbstractAggregationFunction.GenericGroupedAccumulator.class,
-
-                AbstractAggregationFunction.GenericAccumulator.class);
-
-        try {
-            return functionClass
-                    .getConstructor(Type.class)
-                    .newInstance(parameterType);
-        }
-        catch (Exception e) {
-            throw Throwables.propagate(e);
-        }
-    }
-
-    public static InternalAggregationFunction createIsolatedAggregation(Class<? extends InternalAggregationFunction> aggregationClass, Type parameterType)
-    {
-        Class<? extends InternalAggregationFunction> functionClass = IsolatedClass.isolateClass(
-                InternalAggregationFunction.class,
-
-                aggregationClass,
-
-                AbstractAggregationFunction.class,
-                AbstractExactAggregationFunction.class,
-
-                AbstractExactAggregationFunction.GenericGroupedAccumulator.class,
-
-                AbstractExactAggregationFunction.GenericAccumulator.class);
-
-        try {
-            return functionClass
-                    .getConstructor(Type.class)
-                    .newInstance(parameterType);
-        }
-        catch (Exception e) {
-            throw Throwables.propagate(e);
-        }
     }
 
     public static void updateVarianceState(VarianceState state, double value)

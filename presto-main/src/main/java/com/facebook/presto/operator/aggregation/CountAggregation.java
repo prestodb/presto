@@ -34,6 +34,12 @@ public class CountAggregation
     public static final CountAggregation COUNT = new CountAggregation();
 
     @Override
+    public String name()
+    {
+        return "count";
+    }
+
+    @Override
     public List<Type> getParameterTypes()
     {
         return ImmutableList.of();
@@ -55,6 +61,12 @@ public class CountAggregation
     public boolean isDecomposable()
     {
         return true;
+    }
+
+    @Override
+    public boolean isApproximate()
+    {
+        return false;
     }
 
     @Override

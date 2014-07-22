@@ -15,7 +15,6 @@ package com.facebook.presto.ml;
 
 import com.facebook.presto.metadata.FunctionFactory;
 import com.facebook.presto.metadata.FunctionInfo;
-import com.google.common.collect.ImmutableList;
 
 import java.util.List;
 
@@ -24,21 +23,19 @@ import static com.facebook.presto.ml.type.ClassifierType.CLASSIFIER;
 import static com.facebook.presto.ml.type.RegressorType.REGRESSOR;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
-import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
-import static com.facebook.presto.type.UnknownType.UNKNOWN;
 
 public class MLFunctionFactory
         implements FunctionFactory
 {
     private static final List<FunctionInfo> FUNCTIONS = new FunctionListBuilder()
-            .aggregate("learn_classifier", CLASSIFIER, ImmutableList.of(BIGINT, VARCHAR), UNKNOWN, new LearnAggregation(CLASSIFIER, BIGINT))
-            .aggregate("learn_classifier", CLASSIFIER, ImmutableList.of(DOUBLE, VARCHAR), UNKNOWN, new LearnAggregation(CLASSIFIER, DOUBLE))
-            .aggregate("learn_regressor", REGRESSOR, ImmutableList.of(BIGINT, VARCHAR), UNKNOWN, new LearnAggregation(REGRESSOR, BIGINT))
-            .aggregate("learn_regressor", REGRESSOR, ImmutableList.of(DOUBLE, VARCHAR), UNKNOWN, new LearnAggregation(REGRESSOR, DOUBLE))
-            .aggregate("learn_libsvm_classifier", CLASSIFIER, ImmutableList.of(BIGINT, VARCHAR, VARCHAR), UNKNOWN, new LearnLibSvmAggregation(CLASSIFIER, BIGINT))
-            .aggregate("learn_libsvm_classifier", CLASSIFIER, ImmutableList.of(DOUBLE, VARCHAR, VARCHAR), UNKNOWN, new LearnLibSvmAggregation(CLASSIFIER, DOUBLE))
-            .aggregate("learn_libsvm_regressor", REGRESSOR, ImmutableList.of(BIGINT, VARCHAR, VARCHAR), UNKNOWN, new LearnLibSvmAggregation(REGRESSOR, BIGINT))
-            .aggregate("learn_libsvm_regressor", REGRESSOR, ImmutableList.of(DOUBLE, VARCHAR, VARCHAR), UNKNOWN, new LearnLibSvmAggregation(REGRESSOR, DOUBLE))
+            .aggregate(new LearnAggregation(CLASSIFIER, BIGINT))
+            .aggregate(new LearnAggregation(CLASSIFIER, DOUBLE))
+            .aggregate(new LearnAggregation(REGRESSOR, BIGINT))
+            .aggregate(new LearnAggregation(REGRESSOR, DOUBLE))
+            .aggregate(new LearnLibSvmAggregation(CLASSIFIER, BIGINT))
+            .aggregate(new LearnLibSvmAggregation(CLASSIFIER, DOUBLE))
+            .aggregate(new LearnLibSvmAggregation(REGRESSOR, BIGINT))
+            .aggregate(new LearnLibSvmAggregation(REGRESSOR, DOUBLE))
             .aggregate(EvaluateClassifierPredictionsAggregation.class)
             .scalar(MLFunctions.class)
             .getFunctions();

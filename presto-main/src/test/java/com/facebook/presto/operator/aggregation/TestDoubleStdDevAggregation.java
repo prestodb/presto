@@ -13,17 +13,22 @@
  */
 package com.facebook.presto.operator.aggregation;
 
+import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
+import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.sql.tree.QualifiedName;
+import com.google.common.collect.ImmutableList;
 import org.apache.commons.math3.stat.descriptive.moment.StandardDeviation;
 
-import static com.facebook.presto.operator.aggregation.VarianceAggregations.DOUBLE_STDDEV_INSTANCE;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 
 public class TestDoubleStdDevAggregation
         extends AbstractTestAggregationFunction
 {
+    protected final MetadataManager metadata = new MetadataManager();
+
     @Override
     public Block getSequenceBlock(int start, int length)
     {
@@ -37,7 +42,7 @@ public class TestDoubleStdDevAggregation
     @Override
     public InternalAggregationFunction getFunction()
     {
-        return DOUBLE_STDDEV_INSTANCE;
+        return metadata.resolveFunction(new QualifiedName("stddev"), ImmutableList.<Type>of(DOUBLE), false).getAggregationFunction();
     }
 
     @Override

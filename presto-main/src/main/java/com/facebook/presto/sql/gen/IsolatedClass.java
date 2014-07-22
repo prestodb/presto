@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.operator.aggregation;
+package com.facebook.presto.sql.gen;
 
 import com.facebook.presto.byteCode.DynamicClassLoader;
 import com.google.common.base.Throwables;
@@ -28,11 +28,6 @@ import static com.google.common.base.Preconditions.checkState;
 public final class IsolatedClass
 {
     private IsolatedClass() {}
-
-    public static <T> Class<? extends T> isolateClass(Class<T> publicBaseClass, Class<? extends T> implementationClass, Class<?>... additionalClasses)
-    {
-        return isolateClass(new DynamicClassLoader(publicBaseClass.getClassLoader()), publicBaseClass, implementationClass, additionalClasses);
-    }
 
     public static <T> Class<? extends T> isolateClass(
             DynamicClassLoader dynamicClassLoader,

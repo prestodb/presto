@@ -26,9 +26,12 @@ import com.google.common.collect.FluentIterable;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 
+import javax.annotation.Nullable;
+
 import java.lang.annotation.Annotation;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
+import java.lang.reflect.Modifier;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
@@ -38,6 +41,20 @@ import static com.google.common.base.Preconditions.checkNotNull;
 
 public class AggregationCompiler
 {
+    private static List<Method> findPublicStaticMethodsWithAnnotation(Class<?> clazz, Class<?> annotationClass)
+    {
+        ImmutableList.Builder<Method> methods = ImmutableList.builder();
+        for (Method method : clazz.getMethods()) {
+            for (Annotation annotation : method.getAnnotations()) {
+                if (annotationClass.isInstance(annotation)) {
+                    checkArgument(Modifier.isStatic(method.getModifiers()) && Modifier.isPublic(method.getModifiers()), "%s annotated with %s must be static and public", method.getName(), annotationClass.getSimpleName());
+                    methods.add(method);
+                }
+            }
+        }
+        return methods.build();
+    }
+
     public InternalAggregationFunction generateAggregationFunction(Class<?> clazz)
     {
         List<InternalAggregationFunction> aggregations = generateAggregationFunctions(clazz);
@@ -59,18 +76,10 @@ public class AggregationCompiler
 
     public List<InternalAggregationFunction> generateAggregationFunctions(Class<?> clazz)
     {
-        AggregationFunction metadata = clazz.getAnnotation(AggregationFunction.class);
-        ApproximateAggregationFunction approximateMetadata = clazz.getAnnotation(ApproximateAggregationFunction.class);
-        checkArgument(metadata != null || approximateMetadata != null, "Aggregation function annotation is missing");
-        checkArgument(metadata == null || approximateMetadata == null, "Aggregation function cannot be exact and approximate");
-
-        String name;
-        if (metadata != null) {
-            name = metadata.value();
-        }
-        else {
-            name = approximateMetadata.value();
-        }
+        AggregationFunction aggregationAnnotation = clazz.getAnnotation(AggregationFunction.class);
+        ApproximateAggregationFunction approximateAnnotation = clazz.getAnnotation(ApproximateAggregationFunction.class);
+        checkArgument(aggregationAnnotation != null || approximateAnnotation != null, "Aggregation function annotation is missing");
+        checkArgument(aggregationAnnotation == null || approximateAnnotation == null, "Aggregation function cannot be exact and approximate");
 
         ImmutableList.Builder<InternalAggregationFunction> builder = ImmutableList.builder();
         for (Class<?> stateClass : getStateClasses(clazz)) {
@@ -84,13 +93,15 @@ public class AggregationCompiler
                 for (Method inputFunction : getInputFunctions(clazz, stateClass)) {
                     List<Type> inputTypes = getInputTypes(inputFunction);
                     Type outputType = getOutputType(outputFunction, stateSerializer);
+                    String name = getName(outputFunction, aggregationAnnotation, approximateAnnotation);
+
                     StringBuilder sb = new StringBuilder();
                     sb.append(outputType.getName());
                     for (Type inputType : inputTypes) {
                         sb.append(inputType.getName());
                     }
                     sb.append(CaseFormat.LOWER_UNDERSCORE.to(CaseFormat.UPPER_CAMEL, name.toLowerCase()));
-                    // TODO: support approximate aggregations
+
                     AccumulatorFactory factory = new AccumulatorCompiler().generateAccumulatorFactory(
                             sb.toString(),
                             inputFunction,
@@ -102,9 +113,9 @@ public class AggregationCompiler
                             outputType,
                             stateSerializer,
                             stateFactory,
-                            approximateMetadata != null);
+                            approximateAnnotation != null);
                     // TODO: support un-decomposable aggregations
-                    builder.add(new GenericAggregationFunction(inputTypes, intermediateType, outputType, false, factory));
+                    builder.add(new GenericAggregationFunction(name, inputTypes, intermediateType, outputType, false, approximateAnnotation != null, factory));
                 }
             }
         }
@@ -112,9 +123,32 @@ public class AggregationCompiler
         return builder.build();
     }
 
+    private static String getName(@Nullable Method outputFunction, AggregationFunction aggregationAnnotation, ApproximateAggregationFunction approximateAnnotation)
+    {
+        String defaultName;
+        if (aggregationAnnotation != null) {
+            defaultName = aggregationAnnotation.value();
+        }
+        else {
+            defaultName = approximateAnnotation.value();
+        }
+
+        if (outputFunction == null) {
+            return defaultName;
+        }
+
+        AggregationFunction annotation = outputFunction.getAnnotation(AggregationFunction.class);
+        if (annotation == null) {
+            return defaultName;
+        }
+        else {
+            return annotation.value();
+        }
+    }
+
     private static Method getIntermediateInputFunction(Class<?> clazz, Class<?> stateClass)
     {
-        for (Method method : CompilerUtils.findPublicStaticMethodsWithAnnotation(clazz, IntermediateInputFunction.class)) {
+        for (Method method : findPublicStaticMethodsWithAnnotation(clazz, IntermediateInputFunction.class)) {
             if (method.getParameterTypes()[0] == stateClass) {
                 return method;
             }
@@ -124,7 +158,7 @@ public class AggregationCompiler
 
     private static Method getCombineFunction(Class<?> clazz, Class<?> stateClass)
     {
-        for (Method method : CompilerUtils.findPublicStaticMethodsWithAnnotation(clazz, CombineFunction.class)) {
+        for (Method method : findPublicStaticMethodsWithAnnotation(clazz, CombineFunction.class)) {
             if (method.getParameterTypes()[0] == stateClass) {
                 return method;
             }
@@ -134,7 +168,7 @@ public class AggregationCompiler
 
     private static List<Method> getOutputFunctions(Class<?> clazz, final Class<?> stateClass)
     {
-        ImmutableList<Method> methods = FluentIterable.from(CompilerUtils.findPublicStaticMethodsWithAnnotation(clazz, OutputFunction.class))
+        ImmutableList<Method> methods = FluentIterable.from(findPublicStaticMethodsWithAnnotation(clazz, OutputFunction.class))
                 .filter(new Predicate<Method>()
                 {
                     @Override
@@ -164,7 +198,7 @@ public class AggregationCompiler
 
     private static List<Method> getInputFunctions(Class<?> clazz, final Class<?> stateClass)
     {
-        List<Method> inputFunctions = FluentIterable.from(CompilerUtils.findPublicStaticMethodsWithAnnotation(clazz, InputFunction.class))
+        List<Method> inputFunctions = FluentIterable.from(findPublicStaticMethodsWithAnnotation(clazz, InputFunction.class))
                 .filter(new Predicate<Method>()
                 {
                     @Override
@@ -198,7 +232,7 @@ public class AggregationCompiler
     private static Set<Class<?>> getStateClasses(Class<?> clazz)
     {
         ImmutableSet.Builder<Class<?>> builder = ImmutableSet.builder();
-        for (Method inputFunction : CompilerUtils.findPublicStaticMethodsWithAnnotation(clazz, InputFunction.class)) {
+        for (Method inputFunction : findPublicStaticMethodsWithAnnotation(clazz, InputFunction.class)) {
             checkArgument(inputFunction.getParameterTypes().length > 0, "Input function has no parameters");
             Class<?> stateClass = inputFunction.getParameterTypes()[0];
             checkArgument(AccumulatorState.class.isAssignableFrom(stateClass), "stateClass is not a subclass of AccumulatorState");

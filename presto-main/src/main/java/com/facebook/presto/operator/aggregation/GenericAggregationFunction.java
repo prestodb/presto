@@ -25,19 +25,30 @@ import static com.google.common.base.Preconditions.checkNotNull;
 public final class GenericAggregationFunction
         implements InternalAggregationFunction
 {
+    private final String name;
     private final List<Type> parameterTypes;
     private final Type intermediateType;
     private final Type finalType;
     private final boolean decomposable;
+    private final boolean approximate;
     private final AccumulatorFactory accumulatorFactory;
 
-    public GenericAggregationFunction(List<Type> parameterTypes, Type intermediateType, Type finalType, boolean decomposable, AccumulatorFactory accumulatorFactory)
+    public GenericAggregationFunction(String name, List<Type> parameterTypes, Type intermediateType, Type finalType, boolean decomposable, boolean approximate, AccumulatorFactory accumulatorFactory)
     {
+        this.name = checkNotNull(name, "name is null");
+        checkArgument(!name.isEmpty(), "name is empty");
         this.parameterTypes = ImmutableList.copyOf(checkNotNull(parameterTypes, "parameterTypes is null"));
         this.intermediateType = checkNotNull(intermediateType, "intermediateType is null");
         this.finalType = checkNotNull(finalType, "finalType is null");
         this.decomposable = decomposable;
+        this.approximate = approximate;
         this.accumulatorFactory = checkNotNull(accumulatorFactory, "accumulatorFactory is null");
+    }
+
+    @Override
+    public String name()
+    {
+        return name;
     }
 
     @Override
@@ -62,6 +73,12 @@ public final class GenericAggregationFunction
     public boolean isDecomposable()
     {
         return decomposable;
+    }
+
+    @Override
+    public boolean isApproximate()
+    {
+        return approximate;
     }
 
     @Override
