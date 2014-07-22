@@ -13,16 +13,84 @@
  */
 package com.facebook.presto.operator.aggregation;
 
-import static com.facebook.presto.operator.aggregation.AggregationUtils.createIsolatedAggregation;
+import com.facebook.presto.operator.aggregation.state.SliceState;
+import com.facebook.presto.spi.block.BlockBuilder;
+import com.facebook.presto.spi.type.BigintType;
+import com.facebook.presto.spi.type.DoubleType;
+import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.spi.type.VarcharType;
+import com.facebook.presto.type.SqlType;
+import com.google.common.annotations.VisibleForTesting;
+import com.google.common.collect.ImmutableList;
+import io.airlift.slice.Murmur3;
+import io.airlift.slice.Slice;
+import io.airlift.slice.Slices;
+
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 
+@AggregationFunctionMetadata("approx_distinct")
 public final class ApproximateCountDistinctAggregations
 {
-    public static final AggregationFunction LONG_APPROXIMATE_COUNT_DISTINCT_AGGREGATIONS = createIsolatedAggregation(ApproximateCountDistinctAggregation.class, BIGINT);
-    public static final AggregationFunction DOUBLE_APPROXIMATE_COUNT_DISTINCT_AGGREGATIONS = createIsolatedAggregation(ApproximateCountDistinctAggregation.class, DOUBLE);
-    public static final AggregationFunction VARBINARY_APPROXIMATE_COUNT_DISTINCT_AGGREGATIONS = createIsolatedAggregation(ApproximateCountDistinctAggregation.class, VARCHAR);
+    public static final AggregationFunction LONG_APPROXIMATE_COUNT_DISTINCT_AGGREGATIONS = new AggregationCompiler().generateAggregationFunction(ApproximateCountDistinctAggregations.class, BIGINT, ImmutableList.<Type>of(BIGINT));
+    public static final AggregationFunction DOUBLE_APPROXIMATE_COUNT_DISTINCT_AGGREGATIONS = new AggregationCompiler().generateAggregationFunction(ApproximateCountDistinctAggregations.class, BIGINT, ImmutableList.<Type>of(DOUBLE));
+    public static final AggregationFunction VARBINARY_APPROXIMATE_COUNT_DISTINCT_AGGREGATIONS = new AggregationCompiler().generateAggregationFunction(ApproximateCountDistinctAggregations.class, BIGINT, ImmutableList.<Type>of(VARCHAR));
+    private static final HyperLogLog ESTIMATOR = new HyperLogLog(2048);
 
     private ApproximateCountDistinctAggregations() {}
+
+    @InputFunction
+    public static void input(SliceState state, @SqlType(VarcharType.class) Slice value)
+    {
+        update(state, Murmur3.hash64(value));
+    }
+
+    @InputFunction
+    public static void input(SliceState state, @SqlType(DoubleType.class) double value)
+    {
+        update(state, Murmur3.hash64(Double.doubleToLongBits(value)));
+    }
+
+    @InputFunction
+    public static void input(SliceState state, @SqlType(BigintType.class) long value)
+    {
+        update(state, Murmur3.hash64(value));
+    }
+
+    private static void update(SliceState state, long hash)
+    {
+        if (state.getSlice() == null) {
+            state.setSlice(Slices.allocate(ESTIMATOR.getSizeInBytes()));
+        }
+        ESTIMATOR.update(hash, state.getSlice(), 0);
+    }
+
+    @CombineFunction
+    public static void combine(SliceState state, SliceState otherState)
+    {
+        if (state.getSlice() == null) {
+            state.setSlice(otherState.getSlice());
+        }
+        else {
+            ESTIMATOR.mergeInto(state.getSlice(), 0, otherState.getSlice(), 0);
+        }
+    }
+
+    @OutputFunction(BigintType.class)
+    public static void output(SliceState state, BlockBuilder out)
+    {
+        if (state.getSlice() != null) {
+            out.appendLong(ESTIMATOR.estimate(state.getSlice(), 0));
+        }
+        else {
+            out.appendLong(0);
+        }
+    }
+
+    @VisibleForTesting
+    public static double getStandardError()
+    {
+        return ESTIMATOR.getStandardError();
+    }
 }
