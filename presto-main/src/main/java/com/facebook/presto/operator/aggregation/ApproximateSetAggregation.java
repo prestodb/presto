@@ -13,37 +13,54 @@
  */
 package com.facebook.presto.operator.aggregation;
 
+import com.facebook.presto.operator.aggregation.state.AccumulatorStateSerializer;
 import com.facebook.presto.operator.aggregation.state.HyperLogLogState;
-import com.facebook.presto.spi.block.Block;
+import com.facebook.presto.operator.aggregation.state.StateCompiler;
 import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.spi.type.BigintType;
+import com.facebook.presto.spi.type.DoubleType;
+import com.facebook.presto.spi.type.HyperLogLogType;
+import com.facebook.presto.spi.type.VarcharType;
+import com.facebook.presto.type.SqlType;
+import io.airlift.slice.Slice;
 import io.airlift.stats.cardinality.HyperLogLog;
 
-import static com.facebook.presto.spi.type.BigintType.BIGINT;
-import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
-import static com.facebook.presto.spi.type.HyperLogLogType.HYPER_LOG_LOG;
-import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
-import static com.google.common.base.Preconditions.checkArgument;
-
-public class ApproximateSetAggregation
-        extends AbstractExactAggregationFunction<HyperLogLogState>
+@AggregationFunctionMetadata("approx_set")
+public final class ApproximateSetAggregation
 {
     private static final int NUMBER_OF_BUCKETS = 4096;
-    private final Type parameterType;
+    private static final AccumulatorStateSerializer<HyperLogLogState> SERIALIZER = new StateCompiler().generateStateSerializer(HyperLogLogState.class);
 
-    public ApproximateSetAggregation(Type parameterType)
+    private ApproximateSetAggregation() {}
+
+    @InputFunction
+    public static void input(HyperLogLogState state, @SqlType(DoubleType.class) double value)
     {
-        super(HYPER_LOG_LOG, HYPER_LOG_LOG, parameterType);
-
-        checkArgument(parameterType.equals(BIGINT) || parameterType.equals(DOUBLE) || parameterType.equals(VARCHAR),
-                "Expected parameter type to be BIGINT, DOUBLE, or VARCHAR, but was %s",
-                parameterType);
-
-        this.parameterType = parameterType;
+        HyperLogLog hll = getOrCreateHyperLogLog(state);
+        state.addMemoryUsage(-hll.estimatedInMemorySize());
+        hll.add(Double.doubleToLongBits(value));
+        state.addMemoryUsage(hll.estimatedInMemorySize());
     }
 
-    @Override
-    protected void processInput(HyperLogLogState state, Block block, int index)
+    @InputFunction
+    public static void input(HyperLogLogState state, @SqlType(VarcharType.class) Slice value)
+    {
+        HyperLogLog hll = getOrCreateHyperLogLog(state);
+        state.addMemoryUsage(-hll.estimatedInMemorySize());
+        hll.add(value);
+        state.addMemoryUsage(hll.estimatedInMemorySize());
+    }
+
+    @InputFunction
+    public static void input(HyperLogLogState state, @SqlType(BigintType.class) long value)
+    {
+        HyperLogLog hll = getOrCreateHyperLogLog(state);
+        state.addMemoryUsage(-hll.estimatedInMemorySize());
+        hll.add(value);
+        state.addMemoryUsage(hll.estimatedInMemorySize());
+    }
+
+    private static HyperLogLog getOrCreateHyperLogLog(HyperLogLogState state)
     {
         HyperLogLog hll = state.getHyperLogLog();
         if (hll == null) {
@@ -51,14 +68,11 @@ public class ApproximateSetAggregation
             state.setHyperLogLog(hll);
             state.addMemoryUsage(hll.estimatedInMemorySize());
         }
-
-        state.addMemoryUsage(-hll.estimatedInMemorySize());
-        add(block, index, parameterType, hll);
-        state.addMemoryUsage(hll.estimatedInMemorySize());
+        return hll;
     }
 
-    @Override
-    protected void combineState(HyperLogLogState state, HyperLogLogState otherState)
+    @CombineFunction
+    public static void combineState(HyperLogLogState state, HyperLogLogState otherState)
     {
         HyperLogLog input = otherState.getHyperLogLog();
 
@@ -74,25 +88,9 @@ public class ApproximateSetAggregation
         }
     }
 
-    @Override
-    protected void evaluateFinal(HyperLogLogState state, BlockBuilder out)
+    @OutputFunction(HyperLogLogType.class)
+    public static void evaluateFinal(HyperLogLogState state, BlockBuilder out)
     {
-        getStateSerializer().serialize(state, out);
-    }
-
-    private static void add(Block block, int index, Type parameterType, HyperLogLog estimator)
-    {
-        if (parameterType.equals(BIGINT)) {
-            estimator.add(block.getLong(index));
-        }
-        else if (parameterType.equals(DOUBLE)) {
-            estimator.add(Double.doubleToLongBits(block.getDouble(index)));
-        }
-        else if (parameterType.equals(VARCHAR)) {
-            estimator.add(block.getSlice(index));
-        }
-        else {
-            throw new IllegalArgumentException("Expected parameter type to be BIGINT, DOUBLE, or VARCHAR");
-        }
+        SERIALIZER.serialize(state, out);
     }
 }
