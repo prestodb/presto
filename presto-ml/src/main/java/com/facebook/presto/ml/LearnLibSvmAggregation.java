@@ -16,7 +16,7 @@ package com.facebook.presto.ml;
 import com.facebook.presto.ml.type.RegressorType;
 import com.facebook.presto.operator.Page;
 import com.facebook.presto.operator.aggregation.Accumulator;
-import com.facebook.presto.operator.aggregation.AggregationFunction;
+import com.facebook.presto.operator.aggregation.InternalAggregationFunction;
 import com.facebook.presto.operator.aggregation.GroupedAccumulator;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
@@ -35,7 +35,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.slice.SizeOf.SIZE_OF_DOUBLE;
 
 public class LearnLibSvmAggregation
-        implements AggregationFunction
+        implements InternalAggregationFunction
 {
     private final Type modelType;
     private final Type labelType;

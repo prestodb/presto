@@ -34,7 +34,7 @@ public class TestDoubleSumAggregation
     }
 
     @Override
-    public AggregationFunction getFunction()
+    public InternalAggregationFunction getFunction()
     {
         return DOUBLE_SUM;
     }

@@ -41,7 +41,7 @@ public class TestApproximateCountLongAggregation
     }
 
     @Override
-    public AggregationFunction getFunction()
+    public InternalAggregationFunction getFunction()
     {
         return LONG_APPROXIMATE_COUNT_AGGREGATION;
     }

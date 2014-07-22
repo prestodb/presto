@@ -27,12 +27,12 @@ import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 
-@AggregationFunctionMetadata("count")
+@AggregationFunction("count")
 public final class CountColumnAggregations
 {
-    public static final AggregationFunction COUNT_BOOLEAN_COLUMN = new AggregationCompiler().generateAggregationFunction(CountColumnAggregations.class, BIGINT, ImmutableList.<Type>of(BOOLEAN));
-    public static final AggregationFunction COUNT_LONG_COLUMN = new AggregationCompiler().generateAggregationFunction(CountColumnAggregations.class, BIGINT, ImmutableList.<Type>of(BIGINT));
-    public static final AggregationFunction COUNT_VARCHAR_COLUMN = new AggregationCompiler().generateAggregationFunction(CountColumnAggregations.class, BIGINT, ImmutableList.<Type>of(VARCHAR));
+    public static final InternalAggregationFunction COUNT_BOOLEAN_COLUMN = new AggregationCompiler().generateAggregationFunction(CountColumnAggregations.class, BIGINT, ImmutableList.<Type>of(BOOLEAN));
+    public static final InternalAggregationFunction COUNT_LONG_COLUMN = new AggregationCompiler().generateAggregationFunction(CountColumnAggregations.class, BIGINT, ImmutableList.<Type>of(BIGINT));
+    public static final InternalAggregationFunction COUNT_VARCHAR_COLUMN = new AggregationCompiler().generateAggregationFunction(CountColumnAggregations.class, BIGINT, ImmutableList.<Type>of(VARCHAR));
 
     private CountColumnAggregations() {}
 

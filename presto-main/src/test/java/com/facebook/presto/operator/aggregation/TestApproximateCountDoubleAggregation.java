@@ -41,7 +41,7 @@ public class TestApproximateCountDoubleAggregation
     }
 
     @Override
-    public AggregationFunction getFunction()
+    public InternalAggregationFunction getFunction()
     {
         return DOUBLE_APPROXIMATE_COUNT_AGGREGATION;
     }

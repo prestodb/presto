@@ -48,7 +48,7 @@ public class TestApproximateDoubleSumAggregation
     }
 
     @Override
-    public AggregationFunction getFunction()
+    public InternalAggregationFunction getFunction()
     {
         return DOUBLE_APPROXIMATE_SUM_AGGREGATION;
     }

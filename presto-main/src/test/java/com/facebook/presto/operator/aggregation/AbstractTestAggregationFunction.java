@@ -26,7 +26,7 @@ public abstract class AbstractTestAggregationFunction
 {
     public abstract Block getSequenceBlock(int start, int length);
 
-    public abstract AggregationFunction getFunction();
+    public abstract InternalAggregationFunction getFunction();
 
     public abstract Object getExpectedValue(int start, int length);
 

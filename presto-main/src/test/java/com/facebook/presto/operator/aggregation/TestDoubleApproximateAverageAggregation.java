@@ -24,7 +24,7 @@ public class TestDoubleApproximateAverageAggregation
         extends AbstractTestApproximateAggregationFunction
 {
     @Override
-    public AggregationFunction getFunction()
+    public InternalAggregationFunction getFunction()
     {
         return DOUBLE_APPROXIMATE_AVERAGE_AGGREGATION;
     }

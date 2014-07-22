@@ -29,11 +29,11 @@ public class GenericAggregationFunctionFactory
 
     public static GenericAggregationFunctionFactory fromAggregationDefinition(Class<?> clazz)
     {
-        AggregationFunctionMetadata metadata = clazz.getAnnotation(AggregationFunctionMetadata.class);
+        AggregationFunction metadata = clazz.getAnnotation(AggregationFunction.class);
         checkNotNull(metadata, "AggregationFunctionMetadata annotate missing");
 
         FunctionRegistry.FunctionListBuilder builder = new FunctionRegistry.FunctionListBuilder();
-        for (AggregationFunction aggregation : new AggregationCompiler().generateAggregationFunctions(clazz)) {
+        for (InternalAggregationFunction aggregation : new AggregationCompiler().generateAggregationFunctions(clazz)) {
             builder.aggregate(metadata.value(), aggregation);
         }
 

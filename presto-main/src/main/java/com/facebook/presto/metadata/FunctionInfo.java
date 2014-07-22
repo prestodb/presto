@@ -15,7 +15,7 @@ package com.facebook.presto.metadata;
 
 import com.facebook.presto.operator.AggregationFunctionDefinition;
 import com.facebook.presto.operator.WindowFunctionDefinition;
-import com.facebook.presto.operator.aggregation.AggregationFunction;
+import com.facebook.presto.operator.aggregation.InternalAggregationFunction;
 import com.facebook.presto.operator.window.WindowFunctionSupplier;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.tree.QualifiedName;
@@ -41,7 +41,7 @@ public final class FunctionInfo
 
     private final boolean isAggregate;
     private final Type intermediateType;
-    private final AggregationFunction aggregationFunction;
+    private final InternalAggregationFunction aggregationFunction;
     private final boolean isApproximate;
 
     private final MethodHandle methodHandle;
@@ -68,7 +68,7 @@ public final class FunctionInfo
         this.windowFunctionSupplier = checkNotNull(windowFunctionSupplier, "windowFunction is null");
     }
 
-    public FunctionInfo(Signature signature, String description, Type intermediateType, AggregationFunction function, boolean isApproximate)
+    public FunctionInfo(Signature signature, String description, Type intermediateType, InternalAggregationFunction function, boolean isApproximate)
     {
         this.signature = signature;
         this.description = description;
@@ -169,7 +169,7 @@ public final class FunctionInfo
         return aggregation(aggregationFunction, inputs, mask, sampleWeight, confidence);
     }
 
-    public AggregationFunction getAggregationFunction()
+    public InternalAggregationFunction getAggregationFunction()
     {
         checkState(aggregationFunction != null, "not an aggregation function");
         return aggregationFunction;
@@ -200,7 +200,7 @@ public final class FunctionInfo
         if (obj == null || getClass() != obj.getClass()) {
             return false;
         }
-        final FunctionInfo other = (FunctionInfo) obj;
+        FunctionInfo other = (FunctionInfo) obj;
         return Objects.equal(this.signature, other.signature) &&
                 Objects.equal(this.isAggregate, other.isAggregate) &&
                 Objects.equal(this.isWindow, other.isWindow);

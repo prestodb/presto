@@ -39,7 +39,7 @@ public class TestVarBinaryMinAggregation
     }
 
     @Override
-    public AggregationFunction getFunction()
+    public InternalAggregationFunction getFunction()
     {
         return VAR_BINARY_MIN;
     }

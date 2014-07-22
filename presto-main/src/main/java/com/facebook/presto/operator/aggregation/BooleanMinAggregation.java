@@ -21,10 +21,10 @@ import static com.facebook.presto.operator.aggregation.state.TriStateBooleanStat
 import static com.facebook.presto.operator.aggregation.state.TriStateBooleanState.NULL_VALUE;
 import static com.facebook.presto.operator.aggregation.state.TriStateBooleanState.TRUE_VALUE;
 
-@AggregationFunctionMetadata("min")
+@AggregationFunction("min")
 public final class BooleanMinAggregation
 {
-    public static final AggregationFunction BOOLEAN_MIN = new AggregationCompiler().generateAggregationFunction(BooleanMinAggregation.class);
+    public static final InternalAggregationFunction BOOLEAN_MIN = new AggregationCompiler().generateAggregationFunction(BooleanMinAggregation.class);
 
     private BooleanMinAggregation() {}
 

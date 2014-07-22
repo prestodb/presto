@@ -35,7 +35,7 @@ public class TestLongVarianceAggregation
     }
 
     @Override
-    public AggregationFunction getFunction()
+    public InternalAggregationFunction getFunction()
     {
         return LONG_VARIANCE_INSTANCE;
     }

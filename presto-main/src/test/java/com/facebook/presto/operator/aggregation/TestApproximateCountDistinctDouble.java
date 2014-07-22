@@ -24,7 +24,7 @@ public class TestApproximateCountDistinctDouble
         extends AbstractTestApproximateCountDistinct
 {
     @Override
-    public AggregationFunction getAggregationFunction()
+    public InternalAggregationFunction getAggregationFunction()
     {
         return DOUBLE_APPROXIMATE_COUNT_DISTINCT_AGGREGATIONS;
     }

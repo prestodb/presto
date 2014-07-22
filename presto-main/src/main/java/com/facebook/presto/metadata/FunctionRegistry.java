@@ -14,7 +14,7 @@
 package com.facebook.presto.metadata;
 
 import com.facebook.presto.operator.Description;
-import com.facebook.presto.operator.aggregation.AggregationFunction;
+import com.facebook.presto.operator.aggregation.InternalAggregationFunction;
 import com.facebook.presto.operator.aggregation.ApproximateCountDistinctAggregations;
 import com.facebook.presto.operator.aggregation.ApproximateSetAggregation;
 import com.facebook.presto.operator.aggregation.AverageAggregations;
@@ -629,17 +629,17 @@ public class FunctionRegistry
             return this;
         }
 
-        public FunctionListBuilder approximateAggregate(String name, Type returnType, List<? extends Type> argumentTypes, Type intermediateType, AggregationFunction function)
+        public FunctionListBuilder approximateAggregate(String name, Type returnType, List<? extends Type> argumentTypes, Type intermediateType, InternalAggregationFunction function)
         {
             return aggregate(name, returnType, argumentTypes, true, intermediateType, function);
         }
 
-        public FunctionListBuilder aggregate(String name, Type returnType, List<? extends Type> argumentTypes, Type intermediateType, AggregationFunction function)
+        public FunctionListBuilder aggregate(String name, Type returnType, List<? extends Type> argumentTypes, Type intermediateType, InternalAggregationFunction function)
         {
             return aggregate(name, returnType, argumentTypes, false, intermediateType, function);
         }
 
-        public FunctionListBuilder aggregate(String name, AggregationFunction function)
+        public FunctionListBuilder aggregate(String name, InternalAggregationFunction function)
         {
             return aggregate(name, function.getFinalType(), function.getParameterTypes(), false, function.getIntermediateType(), function);
         }
@@ -651,7 +651,7 @@ public class FunctionRegistry
         }
 
         private FunctionListBuilder aggregate(String name, Type returnType, List<? extends Type> argumentTypes, boolean approximate, Type intermediateType,
-                AggregationFunction function)
+                InternalAggregationFunction function)
         {
             name = name.toLowerCase();
 

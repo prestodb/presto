@@ -38,18 +38,18 @@ import static com.google.common.base.Preconditions.checkNotNull;
 
 public class AggregationCompiler
 {
-    public AggregationFunction generateAggregationFunction(Class<?> clazz)
+    public InternalAggregationFunction generateAggregationFunction(Class<?> clazz)
     {
-        List<AggregationFunction> aggregations = generateAggregationFunctions(clazz);
+        List<InternalAggregationFunction> aggregations = generateAggregationFunctions(clazz);
         checkArgument(aggregations.size() == 1, "More than one aggregation function found");
         return aggregations.get(0);
     }
 
-    public AggregationFunction generateAggregationFunction(Class<?> clazz, Type returnType, List<Type> argumentTypes)
+    public InternalAggregationFunction generateAggregationFunction(Class<?> clazz, Type returnType, List<Type> argumentTypes)
     {
         checkNotNull(returnType, "returnType is null");
         checkNotNull(argumentTypes, "argumentTypes is null");
-        for (AggregationFunction aggregation : generateAggregationFunctions(clazz)) {
+        for (InternalAggregationFunction aggregation : generateAggregationFunctions(clazz)) {
             if (aggregation.getFinalType() == returnType && aggregation.getParameterTypes().equals(argumentTypes)) {
                 return aggregation;
             }
@@ -57,12 +57,12 @@ public class AggregationCompiler
         throw new IllegalArgumentException(String.format("No method with return type %s and arguments %s", returnType, argumentTypes));
     }
 
-    public List<AggregationFunction> generateAggregationFunctions(Class<?> clazz)
+    public List<InternalAggregationFunction> generateAggregationFunctions(Class<?> clazz)
     {
-        AggregationFunctionMetadata metadata = clazz.getAnnotation(AggregationFunctionMetadata.class);
+        AggregationFunction metadata = clazz.getAnnotation(AggregationFunction.class);
         checkNotNull(metadata, "AggregationFunctionMetadata annotate missing");
 
-        ImmutableList.Builder<AggregationFunction> builder = ImmutableList.builder();
+        ImmutableList.Builder<InternalAggregationFunction> builder = ImmutableList.builder();
         for (Class<?> stateClass : getStateClasses(clazz)) {
             AccumulatorStateSerializer<?> stateSerializer = new StateCompiler().generateStateSerializer(stateClass);
             Type intermediateType = stateSerializer.getSerializedType();

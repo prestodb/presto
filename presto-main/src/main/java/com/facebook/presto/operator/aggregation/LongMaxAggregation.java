@@ -18,10 +18,10 @@ import com.facebook.presto.operator.aggregation.state.NullableBigintState;
 import com.facebook.presto.spi.type.BigintType;
 import com.facebook.presto.type.SqlType;
 
-@AggregationFunctionMetadata("max")
+@AggregationFunction("max")
 public final class LongMaxAggregation
 {
-    public static final AggregationFunction LONG_MAX = new AggregationCompiler().generateAggregationFunction(LongMaxAggregation.class);
+    public static final InternalAggregationFunction LONG_MAX = new AggregationCompiler().generateAggregationFunction(LongMaxAggregation.class);
 
     private LongMaxAggregation() {}
 

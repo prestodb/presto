@@ -37,7 +37,7 @@ public class TestBooleanMinAggregation
     }
 
     @Override
-    public AggregationFunction getFunction()
+    public InternalAggregationFunction getFunction()
     {
         return BOOLEAN_MIN;
     }

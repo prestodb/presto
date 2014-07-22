@@ -34,7 +34,7 @@ public class TestDoubleMinAggregation
     }
 
     @Override
-    public AggregationFunction getFunction()
+    public InternalAggregationFunction getFunction()
     {
         return DOUBLE_MIN;
     }

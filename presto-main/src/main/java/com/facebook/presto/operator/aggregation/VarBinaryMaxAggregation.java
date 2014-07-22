@@ -18,10 +18,10 @@ import com.facebook.presto.spi.type.VarcharType;
 import com.facebook.presto.type.SqlType;
 import io.airlift.slice.Slice;
 
-@AggregationFunctionMetadata("max")
+@AggregationFunction("max")
 public final class VarBinaryMaxAggregation
 {
-    public static final AggregationFunction VAR_BINARY_MAX = new AggregationCompiler().generateAggregationFunction(VarBinaryMaxAggregation.class);
+    public static final InternalAggregationFunction VAR_BINARY_MAX = new AggregationCompiler().generateAggregationFunction(VarBinaryMaxAggregation.class);
 
     private VarBinaryMaxAggregation() {}
 

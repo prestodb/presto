@@ -35,7 +35,7 @@ public class TestLongVariancePopAggregation
     }
 
     @Override
-    public AggregationFunction getFunction()
+    public InternalAggregationFunction getFunction()
     {
         return LONG_VARIANCE_POP_INSTANCE;
     }

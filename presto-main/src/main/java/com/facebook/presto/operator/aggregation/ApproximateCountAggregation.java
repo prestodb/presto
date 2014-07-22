@@ -36,7 +36,7 @@ import static io.airlift.slice.SizeOf.SIZE_OF_INT;
 import static io.airlift.slice.SizeOf.SIZE_OF_LONG;
 
 public class ApproximateCountAggregation
-        implements AggregationFunction
+        implements InternalAggregationFunction
 {
     public static final ApproximateCountAggregation APPROXIMATE_COUNT_AGGREGATION = new ApproximateCountAggregation();
 
