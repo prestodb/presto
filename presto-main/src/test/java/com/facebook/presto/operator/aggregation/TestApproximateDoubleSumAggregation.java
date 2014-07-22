@@ -19,7 +19,7 @@ import com.google.common.base.Predicates;
 
 import java.util.List;
 
-import static com.facebook.presto.operator.aggregation.ApproximateDoubleSumAggregation.DOUBLE_APPROXIMATE_SUM_AGGREGATION;
+import static com.facebook.presto.operator.aggregation.ApproximateSumAggregations.DOUBLE_APPROXIMATE_SUM_AGGREGATION;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 
 public class TestApproximateDoubleSumAggregation
