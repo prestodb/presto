@@ -19,13 +19,19 @@ import com.facebook.presto.operator.aggregation.state.AccumulatorStateSerializer
 import com.facebook.presto.operator.aggregation.state.StateCompiler;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.type.SqlType;
+import com.google.common.base.CaseFormat;
+import com.google.common.base.Predicate;
 import com.google.common.base.Throwables;
+import com.google.common.collect.FluentIterable;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 
 import java.lang.annotation.Annotation;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
@@ -34,23 +40,110 @@ public class AggregationCompiler
 {
     public AggregationFunction generateAggregationFunction(Class<?> clazz)
     {
+        List<AggregationFunction> aggregations = generateAggregationFunctions(clazz);
+        checkArgument(aggregations.size() == 1, "More than one aggregation function found");
+        return aggregations.get(0);
+    }
+
+    public AggregationFunction generateAggregationFunction(Class<?> clazz, Type returnType, List<Type> argumentTypes)
+    {
+        checkNotNull(returnType, "returnType is null");
+        checkNotNull(argumentTypes, "argumentTypes is null");
+        for (AggregationFunction aggregation : generateAggregationFunctions(clazz)) {
+            if (aggregation.getFinalType() == returnType && aggregation.getParameterTypes().equals(argumentTypes)) {
+                return aggregation;
+            }
+        }
+        throw new IllegalArgumentException(String.format("No method with return type %s and arguments %s", returnType, argumentTypes));
+    }
+
+    public List<AggregationFunction> generateAggregationFunctions(Class<?> clazz)
+    {
         AggregationFunctionMetadata metadata = clazz.getAnnotation(AggregationFunctionMetadata.class);
         checkNotNull(metadata, "AggregationFunctionMetadata annotate missing");
 
-        Class<?> stateClass = getStateClass(clazz);
-        AccumulatorStateSerializer<?> stateSerializer = new StateCompiler().generateStateSerializer(stateClass);
-        Type intermediateType = stateSerializer.getSerializedType();
-        Type outputType = getOutputType(clazz, stateSerializer);
-        AccumulatorStateFactory<?> stateFactory = new StateCompiler().generateStateFactory(stateClass);
-        // TODO: support approximate aggregations
-        AccumulatorFactory factory = new AccumulatorCompiler().generateAccumulatorFactory(clazz, stateClass, intermediateType, outputType, stateSerializer, stateFactory, false);
-        // TODO: support un-decomposable aggregations
-        return new GenericAggregationFunction(getParameterTypes(clazz), intermediateType, outputType, false, factory);
+        ImmutableList.Builder<AggregationFunction> builder = ImmutableList.builder();
+        for (Class<?> stateClass : getStateClasses(clazz)) {
+            AccumulatorStateSerializer<?> stateSerializer = new StateCompiler().generateStateSerializer(stateClass);
+            Type intermediateType = stateSerializer.getSerializedType();
+            Method intermediateInputFunction = getIntermediateInputFunction(clazz, stateClass);
+            Method combineFunction = getCombineFunction(clazz, stateClass);
+            AccumulatorStateFactory<?> stateFactory = new StateCompiler().generateStateFactory(stateClass);
+
+            for (Method outputFunction : getOutputFunctions(clazz, stateClass)) {
+                for (Method inputFunction : getInputFunctions(clazz, stateClass)) {
+                    List<Type> inputTypes = getInputTypes(inputFunction);
+                    Type outputType = getOutputType(outputFunction, stateSerializer);
+                    StringBuilder sb = new StringBuilder();
+                    sb.append(outputType.getName());
+                    for (Type inputType : inputTypes) {
+                        sb.append(inputType.getName());
+                    }
+                    sb.append(CaseFormat.LOWER_UNDERSCORE.to(CaseFormat.UPPER_CAMEL, metadata.value().toLowerCase()));
+                    // TODO: support approximate aggregations
+                    AccumulatorFactory factory = new AccumulatorCompiler().generateAccumulatorFactory(
+                            sb.toString(),
+                            inputFunction,
+                            intermediateInputFunction,
+                            combineFunction,
+                            outputFunction,
+                            stateClass,
+                            intermediateType,
+                            outputType,
+                            stateSerializer,
+                            stateFactory,
+                            false);
+                    // TODO: support un-decomposable aggregations
+                    builder.add(new GenericAggregationFunction(inputTypes, intermediateType, outputType, false, factory));
+                }
+            }
+        }
+
+        return builder.build();
     }
 
-    private static Type getOutputType(Class<?> clazz, AccumulatorStateSerializer<?> serializer)
+    private static Method getIntermediateInputFunction(Class<?> clazz, Class<?> stateClass)
     {
-        Method outputFunction = CompilerUtils.findPublicStaticMethodWithAnnotation(clazz, OutputFunction.class);
+        for (Method method : CompilerUtils.findPublicStaticMethodsWithAnnotation(clazz, IntermediateInputFunction.class)) {
+            if (method.getParameterTypes()[0] == stateClass) {
+                return method;
+            }
+        }
+        return null;
+    }
+
+    private static Method getCombineFunction(Class<?> clazz, Class<?> stateClass)
+    {
+        for (Method method : CompilerUtils.findPublicStaticMethodsWithAnnotation(clazz, CombineFunction.class)) {
+            if (method.getParameterTypes()[0] == stateClass) {
+                return method;
+            }
+        }
+        return null;
+    }
+
+    private static List<Method> getOutputFunctions(Class<?> clazz, final Class<?> stateClass)
+    {
+        ImmutableList<Method> methods = FluentIterable.from(CompilerUtils.findPublicStaticMethodsWithAnnotation(clazz, OutputFunction.class))
+                .filter(new Predicate<Method>()
+                {
+                    @Override
+                    public boolean apply(Method method)
+                    {
+                        // Filter out methods that don't match this state class
+                        return method.getParameterTypes()[0] == stateClass;
+                    }
+                }).toList();
+        if (methods.isEmpty()) {
+            List<Method> noOutputFunction = new ArrayList<>();
+            noOutputFunction.add(null);
+            return noOutputFunction;
+        }
+        return methods;
+    }
+
+    private static Type getOutputType(Method outputFunction, AccumulatorStateSerializer<?> serializer)
+    {
         if (outputFunction == null) {
             return serializer.getSerializedType();
         }
@@ -59,37 +152,52 @@ public class AggregationCompiler
         }
     }
 
-    private static List<Type> getParameterTypes(Class<?> clazz)
+    private static List<Method> getInputFunctions(Class<?> clazz, final Class<?> stateClass)
     {
-        Method inputFunction = CompilerUtils.findPublicStaticMethodWithAnnotation(clazz, InputFunction.class);
+        List<Method> inputFunctions = FluentIterable.from(CompilerUtils.findPublicStaticMethodsWithAnnotation(clazz, InputFunction.class))
+                .filter(new Predicate<Method>()
+                {
+                    @Override
+                    public boolean apply(Method method)
+                    {
+                        // Filter out methods that don't match this state class
+                        return method.getParameterTypes()[0] == stateClass;
+                    }
+                }).toList();
+        checkArgument(!inputFunctions.isEmpty(), "Aggregation has no input functions");
+        return inputFunctions;
+    }
 
+    private static List<Type> getInputTypes(Method inputFunction)
+    {
         ImmutableList.Builder<Type> builder = ImmutableList.builder();
-        Annotation[][] annotations = inputFunction.getParameterAnnotations();
-        Class<?>[] parameters = inputFunction.getParameterTypes();
-        for (int i = 0; i < parameters.length; i++) {
-            Class<?> parameter = parameters[i];
-            for (Annotation annotation : annotations[i]) {
+        Annotation[][] parameterAnnotations = inputFunction.getParameterAnnotations();
+        for (Annotation[] annotations : parameterAnnotations) {
+            for (Annotation annotation : annotations) {
                 if (annotation instanceof SqlType) {
-                    checkArgument(AccumulatorCompiler.SUPPORTED_PARAMETER_TYPES.contains(parameter), "Unsupported type %s", parameter.getSimpleName());
                     builder.add(getTypeInstance(((SqlType) annotation).value()));
                 }
             }
         }
 
         ImmutableList<Type> types = builder.build();
-        checkArgument(!types.isEmpty(), "Aggregation has no input parameters");
+        checkArgument(!types.isEmpty(), "Input function has no parameters");
         return types;
     }
 
-    private static Class<?> getStateClass(Class<?> clazz)
+    private static Set<Class<?>> getStateClasses(Class<?> clazz)
     {
-        Method inputFunction = CompilerUtils.findPublicStaticMethodWithAnnotation(clazz, InputFunction.class);
-        checkNotNull(inputFunction, "Input function is null");
-        checkArgument(inputFunction.getParameterTypes().length > 0, "Input function has no parameters");
-        Class<?> stateClass = inputFunction.getParameterTypes()[0];
-        checkArgument(AccumulatorState.class.isAssignableFrom(stateClass), "stateClass is not a subclass of AccumulatorState");
+        ImmutableSet.Builder<Class<?>> builder = ImmutableSet.builder();
+        for (Method inputFunction : CompilerUtils.findPublicStaticMethodsWithAnnotation(clazz, InputFunction.class)) {
+            checkArgument(inputFunction.getParameterTypes().length > 0, "Input function has no parameters");
+            Class<?> stateClass = inputFunction.getParameterTypes()[0];
+            checkArgument(AccumulatorState.class.isAssignableFrom(stateClass), "stateClass is not a subclass of AccumulatorState");
+            builder.add(stateClass);
+        }
+        ImmutableSet<Class<?>> stateClasses = builder.build();
+        checkArgument(!stateClasses.isEmpty(), "No input functions found");
 
-        return stateClass;
+        return stateClasses;
     }
 
     private static Type getTypeInstance(Class<?> clazz)

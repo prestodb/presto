@@ -16,40 +16,38 @@ package com.facebook.presto.operator.aggregation;
 import com.facebook.presto.metadata.FunctionFactory;
 import com.facebook.presto.metadata.FunctionInfo;
 import com.facebook.presto.metadata.FunctionRegistry;
-import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableList;
 
 import java.util.List;
-import java.util.Map;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 
 public class GenericAggregationFunctionFactory
         implements FunctionFactory
 {
-    private final Map<String, AggregationFunction> aggregations;
+    private final List<FunctionInfo> aggregations;
 
     public static GenericAggregationFunctionFactory fromAggregationDefinition(Class<?> clazz)
     {
         AggregationFunctionMetadata metadata = clazz.getAnnotation(AggregationFunctionMetadata.class);
         checkNotNull(metadata, "AggregationFunctionMetadata annotate missing");
 
-        return new GenericAggregationFunctionFactory(ImmutableMap.of(metadata.value(), new AggregationCompiler().generateAggregationFunction(clazz)));
+        FunctionRegistry.FunctionListBuilder builder = new FunctionRegistry.FunctionListBuilder();
+        for (AggregationFunction aggregation : new AggregationCompiler().generateAggregationFunctions(clazz)) {
+            builder.aggregate(metadata.value(), aggregation);
+        }
+
+        return new GenericAggregationFunctionFactory(builder.getFunctions());
     }
 
-    private GenericAggregationFunctionFactory(Map<String, AggregationFunction> aggregations)
+    private GenericAggregationFunctionFactory(List<FunctionInfo> aggregations)
     {
-        this.aggregations = ImmutableMap.copyOf(checkNotNull(aggregations, "aggregations is null"));
+        this.aggregations = ImmutableList.copyOf(checkNotNull(aggregations, "aggregations is null"));
     }
 
     @Override
     public List<FunctionInfo> listFunctions()
     {
-        FunctionRegistry.FunctionListBuilder builder = new FunctionRegistry.FunctionListBuilder();
-
-        for (Map.Entry<String, AggregationFunction> entry : aggregations.entrySet()) {
-            builder.aggregate(entry.getKey(), entry.getValue());
-        }
-
-        return builder.getFunctions();
+        return aggregations;
     }
 }
