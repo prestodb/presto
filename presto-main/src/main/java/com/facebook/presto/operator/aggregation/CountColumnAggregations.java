@@ -13,18 +13,56 @@
  */
 package com.facebook.presto.operator.aggregation;
 
-import static com.facebook.presto.operator.aggregation.AggregationUtils.createIsolatedAggregation;
+import com.facebook.presto.operator.aggregation.state.LongState;
+import com.facebook.presto.spi.block.Block;
+import com.facebook.presto.spi.type.BigintType;
+import com.facebook.presto.spi.type.BooleanType;
+import com.facebook.presto.spi.type.DoubleType;
+import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.spi.type.VarcharType;
+import com.facebook.presto.type.SqlType;
+import com.google.common.collect.ImmutableList;
+
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
-import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 
+@AggregationFunctionMetadata("count")
 public final class CountColumnAggregations
 {
-    public static final AggregationFunction COUNT_BOOLEAN_COLUMN = createIsolatedAggregation(CountColumnAggregation.class, BOOLEAN);
-    public static final AggregationFunction COUNT_LONG_COLUMN = createIsolatedAggregation(CountColumnAggregation.class, BIGINT);
-    public static final AggregationFunction COUNT_DOUBLE_COLUMN = createIsolatedAggregation(CountColumnAggregation.class, DOUBLE);
-    public static final AggregationFunction COUNT_STRING_COLUMN = createIsolatedAggregation(CountColumnAggregation.class, VARCHAR);
+    public static final AggregationFunction COUNT_BOOLEAN_COLUMN = new AggregationCompiler().generateAggregationFunction(CountColumnAggregations.class, BIGINT, ImmutableList.<Type>of(BOOLEAN));
+    public static final AggregationFunction COUNT_LONG_COLUMN = new AggregationCompiler().generateAggregationFunction(CountColumnAggregations.class, BIGINT, ImmutableList.<Type>of(BIGINT));
+    public static final AggregationFunction COUNT_VARCHAR_COLUMN = new AggregationCompiler().generateAggregationFunction(CountColumnAggregations.class, BIGINT, ImmutableList.<Type>of(VARCHAR));
 
     private CountColumnAggregations() {}
+
+    @InputFunction
+    public static void booleanInput(LongState state, @SqlType(BooleanType.class) Block block, @BlockIndex int index)
+    {
+        state.setLong(state.getLong() + 1);
+    }
+
+    @InputFunction
+    public static void doubleInput(LongState state, @SqlType(DoubleType.class) Block block, @BlockIndex int index)
+    {
+        state.setLong(state.getLong() + 1);
+    }
+
+    @InputFunction
+    public static void varcharInput(LongState state, @SqlType(VarcharType.class) Block block, @BlockIndex int index)
+    {
+        state.setLong(state.getLong() + 1);
+    }
+
+    @InputFunction
+    public static void bigintInput(LongState state, @SqlType(BigintType.class) Block block, @BlockIndex int index)
+    {
+        state.setLong(state.getLong() + 1);
+    }
+
+    @CombineFunction
+    public static void combine(LongState state, LongState otherState)
+    {
+        state.setLong(state.getLong() + otherState.getLong());
+    }
 }

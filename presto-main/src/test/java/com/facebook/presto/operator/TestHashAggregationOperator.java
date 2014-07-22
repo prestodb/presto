@@ -43,7 +43,7 @@ import static com.facebook.presto.operator.RowPagesBuilder.rowPagesBuilder;
 import static com.facebook.presto.operator.aggregation.AverageAggregations.LONG_AVERAGE;
 import static com.facebook.presto.operator.aggregation.CountAggregation.COUNT;
 import static com.facebook.presto.operator.aggregation.CountColumnAggregations.COUNT_BOOLEAN_COLUMN;
-import static com.facebook.presto.operator.aggregation.CountColumnAggregations.COUNT_STRING_COLUMN;
+import static com.facebook.presto.operator.aggregation.CountColumnAggregations.COUNT_VARCHAR_COLUMN;
 import static com.facebook.presto.operator.aggregation.LongSumAggregation.LONG_SUM;
 import static com.facebook.presto.operator.aggregation.VarBinaryMaxAggregation.VAR_BINARY_MAX;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
@@ -99,7 +99,7 @@ public class TestHashAggregationOperator
                         aggregation(LONG_SUM, ImmutableList.of(3), Optional.<Integer>absent(), Optional.<Integer>absent(), 1.0),
                         aggregation(LONG_AVERAGE, ImmutableList.of(3), Optional.<Integer>absent(), Optional.<Integer>absent(), 1.0),
                         aggregation(VAR_BINARY_MAX, ImmutableList.of(2), Optional.<Integer>absent(), Optional.<Integer>absent(), 1.0),
-                        aggregation(COUNT_STRING_COLUMN, ImmutableList.of(0), Optional.<Integer>absent(), Optional.<Integer>absent(), 1.0),
+                        aggregation(COUNT_VARCHAR_COLUMN, ImmutableList.of(0), Optional.<Integer>absent(), Optional.<Integer>absent(), 1.0),
                         aggregation(COUNT_BOOLEAN_COLUMN, ImmutableList.of(4), Optional.<Integer>absent(), Optional.<Integer>absent(), 1.0)),
                 100_000);
 
