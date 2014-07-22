@@ -60,7 +60,17 @@ public class AggregationCompiler
     public List<InternalAggregationFunction> generateAggregationFunctions(Class<?> clazz)
     {
         AggregationFunction metadata = clazz.getAnnotation(AggregationFunction.class);
-        checkNotNull(metadata, "AggregationFunctionMetadata annotate missing");
+        ApproximateAggregationFunction approximateMetadata = clazz.getAnnotation(ApproximateAggregationFunction.class);
+        checkArgument(metadata != null || approximateMetadata != null, "Aggregation function annotation is missing");
+        checkArgument(metadata == null || approximateMetadata == null, "Aggregation function cannot be exact and approximate");
+
+        String name;
+        if (metadata != null) {
+            name = metadata.value();
+        }
+        else {
+            name = approximateMetadata.value();
+        }
 
         ImmutableList.Builder<InternalAggregationFunction> builder = ImmutableList.builder();
         for (Class<?> stateClass : getStateClasses(clazz)) {
@@ -79,7 +89,7 @@ public class AggregationCompiler
                     for (Type inputType : inputTypes) {
                         sb.append(inputType.getName());
                     }
-                    sb.append(CaseFormat.LOWER_UNDERSCORE.to(CaseFormat.UPPER_CAMEL, metadata.value().toLowerCase()));
+                    sb.append(CaseFormat.LOWER_UNDERSCORE.to(CaseFormat.UPPER_CAMEL, name.toLowerCase()));
                     // TODO: support approximate aggregations
                     AccumulatorFactory factory = new AccumulatorCompiler().generateAccumulatorFactory(
                             sb.toString(),
@@ -92,7 +102,7 @@ public class AggregationCompiler
                             outputType,
                             stateSerializer,
                             stateFactory,
-                            false);
+                            approximateMetadata != null);
                     // TODO: support un-decomposable aggregations
                     builder.add(new GenericAggregationFunction(inputTypes, intermediateType, outputType, false, factory));
                 }

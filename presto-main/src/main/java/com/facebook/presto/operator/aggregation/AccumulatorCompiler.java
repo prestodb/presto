@@ -83,10 +83,15 @@ public class AccumulatorCompiler
         verifyInputFunctionSignature(inputFunction, stateClass);
         verifyInputFunctionSignature(intermediateInputFunction, stateClass);
         verifyCombineFunction(combineFunction, stateClass);
-        verifyOutputFunction(outputFunction, stateClass);
+        if (approximateSupported) {
+            verifyApproximateOutputFunction(outputFunction, stateClass);
+        }
+        else {
+            verifyExactOutputFunction(outputFunction, stateClass);
+        }
 
-        Class<? extends Accumulator> accumulatorClass = generateAccumulatorClass(name, AbstractAccumulator.class, inputFunction, intermediateInputFunction, combineFunction, outputFunction, stateClass, classLoader);
-        Class<? extends GroupedAccumulator> groupedAccumulatorClass = generateAccumulatorClass(name, AbstractGroupedAccumulator.class, inputFunction, intermediateInputFunction, combineFunction, outputFunction, stateClass, classLoader);
+        Class<? extends Accumulator> accumulatorClass = generateAccumulatorClass(name, AbstractAccumulator.class, inputFunction, intermediateInputFunction, combineFunction, outputFunction, stateClass, approximateSupported, classLoader);
+        Class<? extends GroupedAccumulator> groupedAccumulatorClass = generateAccumulatorClass(name, AbstractGroupedAccumulator.class, inputFunction, intermediateInputFunction, combineFunction, outputFunction, stateClass, approximateSupported, classLoader);
         return new GenericAccumulatorFactory(
                 finalType,
                 intermediateType,
@@ -114,6 +119,7 @@ public class AccumulatorCompiler
             @Nullable Method combineFunction,
             @Nullable Method outputFunction,
             Class<?> stateClass,
+            boolean approximate,
             DynamicClassLoader classLoader)
     {
         ClassDefinition definition = new ClassDefinition(new CompilerContext(null),
@@ -127,7 +133,7 @@ public class AccumulatorCompiler
         // Generate methods
         generateProcessInput(definition, inputFunction, stateClass);
         generateProcessIntermediate(definition, accumulatorClass, intermediateInputFunction, combineFunction, stateClass);
-        generateEvaluateFinal(definition, accumulatorClass, outputFunction, stateClass);
+        generateEvaluateFinal(definition, accumulatorClass, outputFunction, stateClass, approximate);
 
         return defineClass(definition, accumulatorClass, classLoader);
     }
@@ -146,6 +152,9 @@ public class AccumulatorCompiler
         for (int i = 1, blockNum = 0; i < parameters.length; i++) {
             if (annotations[i][0] instanceof BlockIndex) {
                 body.getVariable("position");
+            }
+            else if (annotations[i][0] instanceof SampleWeight) {
+                body.getVariable("sampleWeight");
             }
             else {
                 body.getVariable("blocks")
@@ -214,6 +223,9 @@ public class AccumulatorCompiler
             else if (annotation instanceof BlockIndex) {
                 checkArgument(parameters[i] == int.class, "Block index parameter must be an int");
             }
+            else if (annotation instanceof SampleWeight) {
+                checkArgument(parameters[i] == long.class, "Sample weight parameter must be a long");
+            }
             else {
                 throw new IllegalArgumentException("Unsupported annotation: " + annotation);
             }
@@ -280,7 +292,7 @@ public class AccumulatorCompiler
         checkArgument(parameterTypes.length == 2 && parameterTypes[0] == stateClass && parameterTypes[1] == stateClass, "Combine function must have the signature (%s, %s)", stateClass.getSimpleName(), stateClass.getSimpleName());
     }
 
-    private static void generateEvaluateFinal(ClassDefinition definition, Class<?> accumulatorClass, Method outputFunction, Class<?> stateClass)
+    private static void generateEvaluateFinal(ClassDefinition definition, Class<?> accumulatorClass, Method outputFunction, Class<?> stateClass, boolean approximate)
     {
         Block body = definition.declareMethod(
                 new CompilerContext(null),
@@ -295,12 +307,16 @@ public class AccumulatorCompiler
         if (outputFunction != null) {
             body.comment("output(state, out)")
                     .getVariable("state")
-                    .checkCast(stateClass)
-                    .getVariable("out")
+                    .checkCast(stateClass);
+            if (approximate) {
+                body.getVariable("confidence");
+            }
+            body.getVariable("out")
                     .invokeStatic(outputFunction)
                     .ret();
         }
         else {
+            checkArgument(!approximate, "Approximate aggregations must specify an output function");
             body.pushThis()
                     .comment("stateSerializer.serialize(state, out)")
                     .getField(accumulatorClass, "stateSerializer", AccumulatorStateSerializer.class)
@@ -311,7 +327,14 @@ public class AccumulatorCompiler
         }
     }
 
-    private static void verifyOutputFunction(Method method, Class<?> stateClass)
+    private static void verifyApproximateOutputFunction(Method method, Class<?> stateClass)
+    {
+        checkNotNull(method, "Approximate aggregations must specify an output function");
+        Class<?>[] parameterTypes = method.getParameterTypes();
+        checkArgument(parameterTypes.length == 3 && parameterTypes[0] == stateClass && parameterTypes[1] == double.class && parameterTypes[2] == BlockBuilder.class, "Output function must have the signature (%s, double, BlockBuilder)", stateClass.getSimpleName());
+    }
+
+    private static void verifyExactOutputFunction(Method method, Class<?> stateClass)
     {
         if (method == null) {
             return;
