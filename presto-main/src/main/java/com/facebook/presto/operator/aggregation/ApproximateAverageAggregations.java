@@ -13,14 +13,115 @@
  */
 package com.facebook.presto.operator.aggregation;
 
-import static com.facebook.presto.operator.aggregation.AggregationUtils.createIsolatedApproximateAggregation;
+import com.facebook.presto.operator.aggregation.state.AccumulatorState;
+import com.facebook.presto.spi.block.BlockBuilder;
+import com.facebook.presto.spi.type.BigintType;
+import com.facebook.presto.spi.type.DoubleType;
+import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.spi.type.VarcharType;
+import com.facebook.presto.type.SqlType;
+import com.google.common.collect.ImmutableList;
+import io.airlift.slice.Slices;
+
+import static com.facebook.presto.operator.aggregation.ApproximateUtils.formatApproximateResult;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 
+@ApproximateAggregationFunction("avg")
 public final class ApproximateAverageAggregations
 {
-    public static final InternalAggregationFunction LONG_APPROXIMATE_AVERAGE_AGGREGATION = createIsolatedApproximateAggregation(ApproximateAverageAggregation.class, BIGINT);
-    public static final InternalAggregationFunction DOUBLE_APPROXIMATE_AVERAGE_AGGREGATION = createIsolatedApproximateAggregation(ApproximateAverageAggregation.class, DOUBLE);
+    public static final InternalAggregationFunction LONG_APPROXIMATE_AVERAGE_AGGREGATION = new AggregationCompiler().generateAggregationFunction(ApproximateAverageAggregations.class, VarcharType.VARCHAR, ImmutableList.<Type>of(BIGINT));
+    public static final InternalAggregationFunction DOUBLE_APPROXIMATE_AVERAGE_AGGREGATION = new AggregationCompiler().generateAggregationFunction(ApproximateAverageAggregations.class, VarcharType.VARCHAR, ImmutableList.<Type>of(DOUBLE));
 
     private ApproximateAverageAggregations() {}
+
+    @InputFunction
+    public static void bigintInput(ApproximateAverageState state, @SqlType(BigintType.class) long value, @SampleWeight long sampleWeight)
+    {
+        doubleInput(state, (double) value, sampleWeight);
+    }
+
+    @InputFunction
+    public static void doubleInput(ApproximateAverageState state, @SqlType(DoubleType.class) double value, @SampleWeight long sampleWeight)
+    {
+        long currentCount = state.getCount();
+        double currentMean = state.getMean();
+
+        // Use numerically stable variant
+        for (int i = 0; i < sampleWeight; i++) {
+            currentCount++;
+            double delta = value - currentMean;
+            currentMean += (delta / currentCount);
+            // update m2 inline
+            state.setM2(state.getM2() + (delta * (value - currentMean)));
+        }
+
+        // write values back out
+        state.setCount(currentCount);
+        state.setMean(currentMean);
+        state.setSamples(state.getSamples() + 1);
+    }
+
+    @CombineFunction
+    public static void combine(ApproximateAverageState state, ApproximateAverageState otherState)
+    {
+        long inputCount = otherState.getCount();
+        long inputSamples = otherState.getSamples();
+        double inputMean = otherState.getMean();
+        double inputM2 = otherState.getM2();
+
+        long currentCount = state.getCount();
+        double currentMean = state.getMean();
+        double currentM2 = state.getM2();
+
+        // Use numerically stable variant
+        if (inputCount > 0) {
+            long newCount = currentCount + inputCount;
+            double newMean = ((currentCount * currentMean) + (inputCount * inputMean)) / newCount;
+            double delta = inputMean - currentMean;
+            double newM2 = currentM2 + inputM2 + ((delta * delta) * (currentCount * inputCount)) / newCount;
+
+            state.setCount(newCount);
+            state.setSamples(state.getSamples() + inputSamples);
+            state.setMean(newMean);
+            state.setM2(newM2);
+        }
+    }
+
+    @OutputFunction(VarcharType.class)
+    public static void output(ApproximateAverageState state, double confidence, BlockBuilder out)
+    {
+        if (state.getCount() == 0) {
+            out.appendNull();
+        }
+        else {
+            String result = formatApproximateAverage(state.getSamples(), state.getMean(), state.getM2() / state.getCount(), confidence);
+            out.appendSlice(Slices.utf8Slice(result));
+        }
+    }
+
+    private static String formatApproximateAverage(long samples, double mean, double variance, double confidence)
+    {
+        return formatApproximateResult(mean, Math.sqrt(variance / samples), confidence, false);
+    }
+
+    public interface ApproximateAverageState
+            extends AccumulatorState
+    {
+        long getCount();
+
+        void setCount(long value);
+
+        long getSamples();
+
+        void setSamples(long value);
+
+        double getMean();
+
+        void setMean(double value);
+
+        double getM2();
+
+        void setM2(double value);
+    }
 }
