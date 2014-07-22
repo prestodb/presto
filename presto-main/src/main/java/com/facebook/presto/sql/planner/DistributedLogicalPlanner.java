@@ -15,7 +15,6 @@ package com.facebook.presto.sql.planner;
 
 import com.facebook.presto.metadata.FunctionInfo;
 import com.facebook.presto.metadata.Metadata;
-import com.facebook.presto.metadata.OutputTableHandle;
 import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.sql.planner.PlanFragment.OutputPartitioning;
@@ -61,6 +60,9 @@ import java.util.Map;
 import static com.facebook.presto.sql.planner.plan.AggregationNode.Step.FINAL;
 import static com.facebook.presto.sql.planner.plan.AggregationNode.Step.PARTIAL;
 import static com.facebook.presto.sql.planner.plan.AggregationNode.Step.SINGLE;
+import static com.facebook.presto.sql.planner.plan.TableWriterNode.CreateHandle;
+import static com.facebook.presto.sql.planner.plan.TableWriterNode.CreateName;
+import static com.facebook.presto.sql.planner.plan.TableWriterNode.WriterTarget;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 
@@ -386,11 +388,20 @@ public class DistributedLogicalPlanner
             // TODO: create table in pre-execution step, not here
             // Part of the plan should be an Optional<StateChangeListener<QueryState>> and this
             // callback can create the table and abort the table creation if the query fails.
-            OutputTableHandle target = metadata.beginCreateTable(session, node.getCatalog(), node.getTableMetadata());
+            WriterTarget target = createWriterTarget(node.getTarget());
 
             SubPlanBuilder current = node.getSource().accept(this, context);
             current.setRoot(new TableWriterNode(node.getId(), current.getRoot(), target, node.getColumns(), node.getColumnNames(), node.getOutputSymbols(), node.getSampleWeightSymbol()));
             return current;
+        }
+
+        private WriterTarget createWriterTarget(WriterTarget target)
+        {
+            if (target instanceof CreateName) {
+                CreateName create = (CreateName) target;
+                return new CreateHandle(metadata.beginCreateTable(session, create.getCatalog(), create.getTableMetadata()));
+            }
+            throw new AssertionError("Unhandled target type: " + target.getClass().getName());
         }
 
         @Override
@@ -398,8 +409,7 @@ public class DistributedLogicalPlanner
         {
             SubPlanBuilder current = node.getSource().accept(this, context);
             checkState(current.getRoot() instanceof TableWriterNode, "table commit node must be preceeded by table writer node");
-            OutputTableHandle target = ((TableWriterNode) current.getRoot()).getTarget();
-            checkNotNull(target, "target table handle should have been constructed when we visited the table writer node");
+            WriterTarget target = ((TableWriterNode) current.getRoot()).getTarget();
 
             if (current.getDistribution() != PlanDistribution.COORDINATOR_ONLY && !createSingleNodePlan) {
                 current.setRoot(new SinkNode(idAllocator.getNextId(), current.getRoot(), current.getRoot().getOutputSymbols()));

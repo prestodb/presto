@@ -140,6 +140,8 @@ import static com.facebook.presto.sql.planner.plan.IndexJoinNode.EquiJoinClause.
 import static com.facebook.presto.sql.planner.plan.IndexJoinNode.EquiJoinClause.probeGetter;
 import static com.facebook.presto.sql.planner.plan.JoinNode.EquiJoinClause.leftGetter;
 import static com.facebook.presto.sql.planner.plan.JoinNode.EquiJoinClause.rightGetter;
+import static com.facebook.presto.sql.planner.plan.TableWriterNode.CreateHandle;
+import static com.facebook.presto.sql.planner.plan.TableWriterNode.WriterTarget;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
@@ -1102,7 +1104,7 @@ public class LocalExecutionPlanner
             Optional<Integer> sampleWeightChannel = node.getSampleWeightSymbol().transform(exchange.channelGetter());
 
             // create the table writer
-            RecordSink recordSink = recordSinkManager.getRecordSink(node.getTarget());
+            RecordSink recordSink = getRecordSink(node);
 
             List<Type> types = IterableTransformer.on(node.getColumns())
                     .transform(Functions.forMap(context.getTypes()))
@@ -1159,7 +1161,7 @@ public class LocalExecutionPlanner
         {
             PhysicalOperation source = node.getSource().accept(this, context);
 
-            OperatorFactory operatorFactory = new TableCommitOperatorFactory(context.getNextOperatorId(), createTableCommitter(node, metadata));
+            OperatorFactory operatorFactory = new TableCommitOperatorFactory(context.getNextOperatorId(), createTableCommitter(node));
             Map<Symbol, Integer> layout = ImmutableMap.of(node.getOutputSymbols().get(0), 0);
 
             return new PhysicalOperation(operatorFactory, layout, source);
@@ -1316,14 +1318,29 @@ public class LocalExecutionPlanner
         }
     }
 
-    private static TableCommitter createTableCommitter(final TableCommitNode node, final Metadata metadata)
+    private RecordSink getRecordSink(TableWriterNode node)
     {
+        WriterTarget target = node.getTarget();
+        if (target instanceof CreateHandle) {
+            return recordSinkManager.getRecordSink(((CreateHandle) target).getHandle());
+        }
+        throw new AssertionError("Unhandled target type: " + target.getClass().getName());
+    }
+
+    private TableCommitter createTableCommitter(TableCommitNode node)
+    {
+        final WriterTarget target = node.getTarget();
         return new TableCommitter()
         {
             @Override
             public void commitTable(Collection<String> fragments)
             {
-                metadata.commitCreateTable(node.getTarget(), fragments);
+                if (target instanceof CreateHandle) {
+                    metadata.commitCreateTable(((CreateHandle) target).getHandle(), fragments);
+                }
+                else {
+                    throw new AssertionError("Unhandled target type: " + target.getClass().getName());
+                }
             }
         };
     }

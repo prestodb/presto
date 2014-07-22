@@ -35,6 +35,8 @@ import java.util.List;
 
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
+import static com.facebook.presto.sql.planner.plan.TableWriterNode.CreateName;
+import static com.facebook.presto.sql.planner.plan.TableWriterNode.WriterTarget;
 import static com.google.common.base.Preconditions.checkState;
 
 public class LogicalPlanner
@@ -102,23 +104,23 @@ public class LogicalPlanner
                 symbolAllocator.newSymbol("partialrows", BIGINT),
                 symbolAllocator.newSymbol("fragment", VARCHAR));
 
+        WriterTarget target = new CreateName(destination.getCatalogName(), tableMetadata);
+
         TableWriterNode writerNode = new TableWriterNode(
                 idAllocator.getNextId(),
                 plan.getRoot(),
-                null,
+                target,
                 plan.getOutputSymbols(),
                 getColumnNames(tableMetadata),
                 writerOutputs,
-                plan.getSampleWeight(),
-                destination.getCatalogName(),
-                tableMetadata);
+                plan.getSampleWeight());
 
         List<Symbol> outputs = ImmutableList.of(symbolAllocator.newSymbol("rows", BIGINT));
 
         TableCommitNode commitNode = new TableCommitNode(
                 idAllocator.getNextId(),
                 writerNode,
-                null,
+                target,
                 outputs);
 
         return new RelationPlan(commitNode, analysis.getOutputDescriptor(), outputs, Optional.<Symbol>absent());
