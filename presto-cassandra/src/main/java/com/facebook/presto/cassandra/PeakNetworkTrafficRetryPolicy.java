@@ -19,13 +19,9 @@ import com.datastax.driver.core.WriteType;
 import com.datastax.driver.core.policies.DefaultRetryPolicy;
 import com.datastax.driver.core.policies.RetryPolicy;
 
-import io.airlift.log.Logger;
-
 public class PeakNetworkTrafficRetryPolicy implements RetryPolicy
 {
     public static final PeakNetworkTrafficRetryPolicy INSTANCE = new PeakNetworkTrafficRetryPolicy();
-
-    private static final Logger log = Logger.get(PeakNetworkTrafficRetryPolicy.class);
 
     private PeakNetworkTrafficRetryPolicy() {}
 
@@ -44,7 +40,8 @@ public class PeakNetworkTrafficRetryPolicy implements RetryPolicy
                 Thread.sleep(1000);
             }
             catch (InterruptedException e) {
-                log.error("Sleeping 1s has been interrupted, retry was " + nbRetry, e);
+                Thread.currentThread().interrupt();
+                RetryDecision.rethrow();
             }
             return RetryDecision.retry(cl);
         }

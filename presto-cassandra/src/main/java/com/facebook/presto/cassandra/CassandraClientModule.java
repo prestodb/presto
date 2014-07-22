@@ -89,42 +89,6 @@ public class CassandraClientModule
                 daemonThreadsNamed("cassandra-" + clientId + "-%s"));
     }
 
-    private static enum RetryPolicyClass
-    {
-        defaultRetryPolicy(DefaultRetryPolicy.INSTANCE, "DefaultRetryPolicy"),
-        peakNetworkRetryPolicy(PeakNetworkTrafficRetryPolicy.INSTANCE, "PeakNetworkTrafficRetryPolicy"),
-        downgradingConsistencyRetryPolicy(DowngradingConsistencyRetryPolicy.INSTANCE, "DowngradingConsistencyRetryPolicy"),
-        fallthroughRetryPolicy(FallthroughRetryPolicy.INSTANCE, "FallthroughRetryPolicy");
-        private RetryPolicyClass(RetryPolicy policy, String name)
-        {
-            this.name = name;
-            this.policy = policy;
-        }
-        private RetryPolicy policy;
-        public RetryPolicy getPolicy()
-        {
-            return policy;
-        }
-        private String name;
-        public String getName()
-        {
-            return name;
-        }
-        public static RetryPolicy getPolicyForName(String name)
-        {
-            if (name == null) {
-                return defaultRetryPolicy.getPolicy();
-            }
-            for (RetryPolicyClass retPolicy : values()) {
-                if (retPolicy.getName().equals(name)) {
-                    return retPolicy.getPolicy();
-                }
-            }
-            log.warn("Could not find Cassandra.RetryPolicy with name %s. Using DefaultRetryPolicy", name);
-            return defaultRetryPolicy.getPolicy();
-        }
-    }
-
     @Singleton
     @Provides
     public static CassandraSession createCassandraSession(
@@ -143,7 +107,7 @@ public class CassandraClientModule
 
         clusterBuilder.withPort(config.getNativeProtocolPort());
         clusterBuilder.withReconnectionPolicy(new ExponentialReconnectionPolicy(500, 10000));
-        clusterBuilder.withRetryPolicy(RetryPolicyClass.getPolicyForName(config.getRetryPolicyClass()));
+        clusterBuilder.withRetryPolicy(config.getRetryPolicyClass().getPolicy());
 
         SocketOptions socketOptions = new SocketOptions();
         socketOptions.setReadTimeoutMillis(config.getClientReadTimeout());
@@ -168,5 +132,22 @@ public class CassandraClientModule
                 config.getFetchSizeForPartitionKeySelect(),
                 config.getLimitForPartitionKeySelect(),
                 extraColumnMetadataCodec);
+    }
+    
+    static enum RetryPolicyClass
+    {
+        DEFAULT(DefaultRetryPolicy.INSTANCE),
+        PEAK_NETWORK(PeakNetworkTrafficRetryPolicy.INSTANCE),
+        DOWNGRADING_CONSISTENCY(DowngradingConsistencyRetryPolicy.INSTANCE),
+        FALLTHROUGH(FallthroughRetryPolicy.INSTANCE);
+        private RetryPolicyClass(RetryPolicy policy)
+        {
+            this.policy = policy;
+        }
+        private RetryPolicy policy;
+        public RetryPolicy getPolicy()
+        {
+            return policy;
+        }
     }
 }
