@@ -262,7 +262,7 @@ public abstract class AbstractTestHiveClient
     {
         ConnectorTableHandle tableHandle = getTableHandle(table);
         ConnectorPartitionResult partitionResult = splitManager.getPartitions(tableHandle, TupleDomain.<ConnectorColumnHandle>all());
-        assertExpectedPartitions(partitionResult.getPartitions());
+        assertExpectedPartitions(partitionResult.getPartitions(), partitions);
     }
 
     @Test
@@ -271,7 +271,7 @@ public abstract class AbstractTestHiveClient
     {
         ConnectorTableHandle tableHandle = getTableHandle(table);
         ConnectorPartitionResult partitionResult = splitManager.getPartitions(tableHandle, TupleDomain.withColumnDomains(ImmutableMap.<ConnectorColumnHandle, Domain>of(intColumn, Domain.singleValue(5L))));
-        assertExpectedPartitions(partitionResult.getPartitions());
+        assertExpectedPartitions(partitionResult.getPartitions(), partitions);
     }
 
     @Test(expectedExceptions = TableNotFoundException.class)
@@ -287,13 +287,13 @@ public abstract class AbstractTestHiveClient
     {
         ConnectorTableHandle tableHandle = getTableHandle(table);
         ConnectorPartitionResult partitionResult = splitManager.getPartitions(tableHandle, TupleDomain.<ConnectorColumnHandle>all());
-        assertExpectedPartitions(partitionResult.getPartitions());
+        assertExpectedPartitions(partitionResult.getPartitions(), partitions);
     }
 
-    protected void assertExpectedPartitions(List<ConnectorPartition> actualPartitions)
+    protected void assertExpectedPartitions(List<ConnectorPartition> actualPartitions, Iterable<ConnectorPartition> expectedPartitions)
     {
         Map<String, ConnectorPartition> actualById = uniqueIndex(actualPartitions, partitionIdGetter());
-        for (ConnectorPartition expected : partitions) {
+        for (ConnectorPartition expected : expectedPartitions) {
             assertInstanceOf(expected, HivePartition.class);
             HivePartition expectedPartition = (HivePartition) expected;
 
