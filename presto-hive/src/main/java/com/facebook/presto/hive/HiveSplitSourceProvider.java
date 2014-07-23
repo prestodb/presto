@@ -196,10 +196,9 @@ class HiveSplitSourceProvider
                 final List<HivePartitionKey> partitionKeys = getPartitionKeys(table, partition);
 
                 Path path = new Path(getPartitionLocation(table, partition));
+
                 final Configuration configuration = hdfsEnvironment.getConfiguration(path);
                 final InputFormat<?, ?> inputFormat = getInputFormat(configuration, schema, false);
-
-                FileSystem fs = path.getFileSystem(configuration);
 
                 if (inputFormat instanceof SymlinkTextInputFormat) {
                     JobConf jobConf = new JobConf(configuration);
@@ -209,7 +208,7 @@ class HiveSplitSourceProvider
                         FileSplit split = ((SymlinkTextInputFormat.SymlinkTextInputSplit) rawSplit).getTargetSplit();
 
                         // get the filesystem for the target path -- it may be a different hdfs instance
-                        FileSystem targetFilesystem = split.getPath().getFileSystem(configuration);
+                        FileSystem targetFilesystem = hdfsEnvironment.getFileSystem(split.getPath());
                         FileStatus fileStatus = targetFilesystem.getFileStatus(split.getPath());
                         hiveSplitSource.addToQueue(createHiveSplits(
                                 partitionName,
@@ -226,6 +225,7 @@ class HiveSplitSourceProvider
                 }
 
                 // TODO: this is currently serial across all partitions and should be done in suspendingExecutor
+                FileSystem fs = hdfsEnvironment.getFileSystem(path);
                 if (bucket.isPresent()) {
                     Optional<FileStatus> bucketFile = getBucketFile(bucket.get(), fs, path);
                     if (bucketFile.isPresent()) {
@@ -255,7 +255,7 @@ class HiveSplitSourceProvider
                     public void process(FileStatus file, BlockLocation[] blockLocations)
                     {
                         try {
-                            boolean splittable = isSplittable(inputFormat, file.getPath().getFileSystem(configuration), file.getPath());
+                            boolean splittable = isSplittable(inputFormat, hdfsEnvironment.getFileSystem(file.getPath()), file.getPath());
 
                             hiveSplitSource.addToQueue(createHiveSplits(partitionName, file, blockLocations, 0, file.getLen(), schema, partitionKeys, splittable, session));
                         }

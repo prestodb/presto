@@ -48,6 +48,7 @@ public class HdfsConfiguration
     private final Duration s3ConnectTimeout;
     private final File s3StagingDirectory;
     private final List<String> resourcePaths;
+    private final boolean verifyChecksum;
 
     @SuppressWarnings("ThreadLocalNotStaticFinal")
     private final ThreadLocal<Configuration> hadoopConfiguration = new ThreadLocal<Configuration>()
@@ -79,6 +80,12 @@ public class HdfsConfiguration
         this.s3ConnectTimeout = hiveClientConfig.getS3ConnectTimeout();
         this.s3StagingDirectory = hiveClientConfig.getS3StagingDirectory();
         this.resourcePaths = hiveClientConfig.getResourceConfigFiles();
+        this.verifyChecksum = hiveClientConfig.isVerifyChecksum();
+    }
+
+    public boolean verifyChecksum()
+    {
+        return verifyChecksum;
     }
 
     @SuppressWarnings("UnusedParameters")
