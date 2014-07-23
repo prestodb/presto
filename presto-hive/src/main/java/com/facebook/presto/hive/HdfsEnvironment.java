@@ -14,10 +14,12 @@
 package com.facebook.presto.hive;
 
 import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 
 import javax.inject.Inject;
 
+import java.io.IOException;
 import java.net.URI;
 
 import static com.google.common.base.Preconditions.checkArgument;
@@ -43,5 +45,14 @@ public class HdfsEnvironment
         String host = uri.getHost();
         checkArgument(host != null, "path host is null: %s", path);
         return hdfsConfiguration.getConfiguration(host);
+    }
+
+    public FileSystem getFileSystem(Path path)
+            throws IOException
+    {
+        FileSystem fileSystem = path.getFileSystem(getConfiguration(path));
+        fileSystem.setVerifyChecksum(hdfsConfiguration.verifyChecksum());
+
+        return fileSystem;
     }
 }

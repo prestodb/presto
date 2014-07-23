@@ -58,6 +58,7 @@ public class HiveClientConfig
     private Duration dfsTimeout = new Duration(10, TimeUnit.SECONDS);
     private Duration dfsConnectTimeout = new Duration(500, TimeUnit.MILLISECONDS);
     private int dfsConnectMaxRetries = 5;
+    private boolean verifyChecksum = true;
 
     private String domainSocketPath;
 
@@ -355,6 +356,18 @@ public class HiveClientConfig
     public HiveClientConfig setDomainSocketPath(String domainSocketPath)
     {
         this.domainSocketPath = domainSocketPath;
+        return this;
+    }
+
+    public boolean isVerifyChecksum()
+    {
+        return verifyChecksum;
+    }
+
+    @Config("hive.dfs.verify-checksum")
+    public HiveClientConfig setVerifyChecksum(boolean verifyChecksum)
+    {
+        this.verifyChecksum = verifyChecksum;
         return this;
     }
 

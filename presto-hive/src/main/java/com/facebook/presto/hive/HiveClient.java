@@ -65,7 +65,6 @@ import com.google.inject.Inject;
 import io.airlift.log.Logger;
 import io.airlift.slice.Slice;
 import io.airlift.units.DataSize;
-import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hive.metastore.ProtectMode;
 import org.apache.hadoop.hive.metastore.TableType;
@@ -617,7 +616,7 @@ public class HiveClient
     {
         try {
             // skip using temporary directory for S3
-            return !(getFileSystem(path) instanceof PrestoS3FileSystem);
+            return !(hdfsEnvironment.getFileSystem(path) instanceof PrestoS3FileSystem);
         }
         catch (IOException e) {
             throw new RuntimeException("Failed checking path: " + path, e);
@@ -627,7 +626,7 @@ public class HiveClient
     private boolean pathExists(Path path)
     {
         try {
-            return getFileSystem(path).exists(path);
+            return hdfsEnvironment.getFileSystem(path).exists(path);
         }
         catch (IOException e) {
             throw new RuntimeException("Failed checking path: " + path, e);
@@ -637,7 +636,7 @@ public class HiveClient
     private boolean isDirectory(Path path)
     {
         try {
-            return getFileSystem(path).isDirectory(path);
+            return hdfsEnvironment.getFileSystem(path).isDirectory(path);
         }
         catch (IOException e) {
             throw new RuntimeException("Failed checking path: " + path, e);
@@ -647,7 +646,7 @@ public class HiveClient
     private void createDirectories(Path path)
     {
         try {
-            if (!getFileSystem(path).mkdirs(path)) {
+            if (!hdfsEnvironment.getFileSystem(path).mkdirs(path)) {
                 throw new IOException("mkdirs returned false");
             }
         }
@@ -656,16 +655,10 @@ public class HiveClient
         }
     }
 
-    private FileSystem getFileSystem(Path path)
-            throws IOException
-    {
-        return path.getFileSystem(hdfsEnvironment.getConfiguration(path));
-    }
-
     private void rename(Path source, Path target)
     {
         try {
-            if (!getFileSystem(source).rename(source, target)) {
+            if (!hdfsEnvironment.getFileSystem(source).rename(source, target)) {
                 throw new IOException("rename returned false");
             }
         }
