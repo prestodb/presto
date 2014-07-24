@@ -425,4 +425,9 @@ public abstract class AstVisitor<R, C>
             }
         };
     }
+
+    protected R visitInsert(Insert node, C context)
+    {
+        return visitNode(node, context);
+    }
 }

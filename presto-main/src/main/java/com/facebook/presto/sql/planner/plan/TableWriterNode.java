@@ -13,7 +13,9 @@
  */
 package com.facebook.presto.sql.planner.plan;
 
+import com.facebook.presto.metadata.InsertTableHandle;
 import com.facebook.presto.metadata.OutputTableHandle;
+import com.facebook.presto.metadata.TableHandle;
 import com.facebook.presto.metadata.TableMetadata;
 import com.facebook.presto.sql.planner.Symbol;
 import com.fasterxml.jackson.annotation.JsonCreator;
@@ -117,6 +119,7 @@ public class TableWriterNode
     @JsonTypeInfo(use = JsonTypeInfo.Id.NAME, property = "type")
     @JsonSubTypes({
             @JsonSubTypes.Type(value = CreateHandle.class, name = "CreateHandle"),
+            @JsonSubTypes.Type(value = InsertHandle.class, name = "InsertHandle"),
     })
     @SuppressWarnings({"EmptyClass", "ClassMayBeInterface"})
     public abstract static class WriterTarget
@@ -168,6 +171,53 @@ public class TableWriterNode
 
         @JsonProperty
         public OutputTableHandle getHandle()
+        {
+            return handle;
+        }
+
+        @Override
+        public String toString()
+        {
+            return handle.toString();
+        }
+    }
+
+    // only used during planning -- will not be serialized
+    public static class InsertReference
+            extends WriterTarget
+    {
+        private final TableHandle handle;
+
+        public InsertReference(TableHandle handle)
+        {
+            this.handle = checkNotNull(handle, "handle is null");
+        }
+
+        public TableHandle getHandle()
+        {
+            return handle;
+        }
+
+        @Override
+        public String toString()
+        {
+            return handle.toString();
+        }
+    }
+
+    public static class InsertHandle
+            extends WriterTarget
+    {
+        private final InsertTableHandle handle;
+
+        @JsonCreator
+        public InsertHandle(@JsonProperty("handle") InsertTableHandle handle)
+        {
+            this.handle = checkNotNull(handle, "handle is null");
+        }
+
+        @JsonProperty
+        public InsertTableHandle getHandle()
         {
             return handle;
         }

@@ -21,6 +21,7 @@ import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorColumnHandle;
 import com.facebook.presto.spi.ConnectorHandleResolver;
 import com.facebook.presto.spi.ConnectorIndexHandle;
+import com.facebook.presto.spi.ConnectorInsertTableHandle;
 import com.facebook.presto.spi.ConnectorMetadata;
 import com.facebook.presto.spi.ConnectorOutputTableHandle;
 import com.facebook.presto.spi.ConnectorPartition;
@@ -616,6 +617,12 @@ public class HiveClient
         return new HiveRecordSink(handle, target, conf);
     }
 
+    @Override
+    public RecordSink getRecordSink(ConnectorInsertTableHandle tableHandle)
+    {
+        throw new UnsupportedOperationException();
+    }
+
     private Database getDatabase(String database)
     {
         try {
@@ -778,6 +785,18 @@ public class HiveClient
         }
 
         return views.build();
+    }
+
+    @Override
+    public ConnectorInsertTableHandle beginInsert(ConnectorSession session, ConnectorTableHandle tableHandle)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public void commitInsert(ConnectorInsertTableHandle insertHandle, Collection<String> fragments)
+    {
+        throw new UnsupportedOperationException();
     }
 
     @Override
@@ -1011,6 +1030,12 @@ public class HiveClient
     }
 
     @Override
+    public boolean canHandle(ConnectorInsertTableHandle tableHandle)
+    {
+        return false;
+    }
+
+    @Override
     public boolean canHandle(ConnectorIndexHandle indexHandle)
     {
         return false;
@@ -1042,6 +1067,12 @@ public class HiveClient
 
     @Override
     public Class<? extends ConnectorIndexHandle> getIndexHandleClass()
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public Class<? extends ConnectorInsertTableHandle> getInsertTableHandleClass()
     {
         throw new UnsupportedOperationException();
     }

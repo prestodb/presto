@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.operator;
 
+import com.facebook.presto.metadata.InsertTableHandle;
 import com.facebook.presto.metadata.OutputTableHandle;
 import com.facebook.presto.spi.ConnectorRecordSinkProvider;
 import com.facebook.presto.spi.RecordSink;
@@ -35,6 +36,12 @@ public class RecordSinkManager
 
     @Override
     public RecordSink getRecordSink(OutputTableHandle tableHandle)
+    {
+        return providerFor(tableHandle.getConnectorId()).getRecordSink(tableHandle.getConnectorHandle());
+    }
+
+    @Override
+    public RecordSink getRecordSink(InsertTableHandle tableHandle)
     {
         return providerFor(tableHandle.getConnectorId()).getRecordSink(tableHandle.getConnectorHandle());
     }

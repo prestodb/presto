@@ -16,6 +16,7 @@ package com.facebook.presto.metadata;
 import com.facebook.presto.connector.informationSchema.InformationSchemaMetadata;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorColumnHandle;
+import com.facebook.presto.spi.ConnectorInsertTableHandle;
 import com.facebook.presto.spi.ConnectorMetadata;
 import com.facebook.presto.spi.ConnectorOutputTableHandle;
 import com.facebook.presto.spi.ConnectorSession;
@@ -382,6 +383,19 @@ public class MetadataManager
     }
 
     @Override
+    public InsertTableHandle beginInsert(ConnectorSession session, TableHandle tableHandle)
+    {
+        ConnectorInsertTableHandle handle = lookupConnectorFor(tableHandle).beginInsert(session, tableHandle.getConnectorHandle());
+        return new InsertTableHandle(tableHandle.getConnectorId(), handle);
+    }
+
+    @Override
+    public void commitInsert(InsertTableHandle tableHandle, Collection<String> fragments)
+    {
+        lookupConnectorFor(tableHandle).commitInsert(tableHandle.getConnectorHandle(), fragments);
+    }
+
+    @Override
     public Map<String, String> getCatalogNames()
     {
         ImmutableMap.Builder<String, String> catalogsMap = ImmutableMap.builder();
@@ -504,6 +518,11 @@ public class MetadataManager
     }
 
     private ConnectorMetadata lookupConnectorFor(OutputTableHandle tableHandle)
+    {
+        return getConnectorMetadata(tableHandle.getConnectorId());
+    }
+
+    private ConnectorMetadata lookupConnectorFor(InsertTableHandle tableHandle)
     {
         return getConnectorMetadata(tableHandle.getConnectorId());
     }

@@ -147,6 +147,16 @@ public interface Metadata
     void commitCreateTable(OutputTableHandle tableHandle, Collection<String> fragments);
 
     /**
+     * Begin insert query
+     */
+    InsertTableHandle beginInsert(ConnectorSession session, TableHandle tableHandle);
+
+    /**
+     * Commit insert query
+     */
+    void commitInsert(InsertTableHandle tableHandle, Collection<String> fragments);
+
+    /**
      * Gets all the loaded catalogs
      *
      * @return Map of catalog name to connector id
