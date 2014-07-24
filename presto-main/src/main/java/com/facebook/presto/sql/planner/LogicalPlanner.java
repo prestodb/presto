@@ -15,6 +15,7 @@ package com.facebook.presto.sql.planner;
 
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.QualifiedTableName;
+import com.facebook.presto.metadata.TableHandle;
 import com.facebook.presto.metadata.TableMetadata;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorSession;
@@ -36,6 +37,7 @@ import java.util.List;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.sql.planner.plan.TableWriterNode.CreateName;
+import static com.facebook.presto.sql.planner.plan.TableWriterNode.InsertReference;
 import static com.facebook.presto.sql.planner.plan.TableWriterNode.WriterTarget;
 import static com.google.common.base.Preconditions.checkState;
 
@@ -70,6 +72,9 @@ public class LogicalPlanner
         if (analysis.getCreateTableDestination().isPresent()) {
             plan = createTableCreationPlan(analysis);
         }
+        else if (analysis.getInsertTarget().isPresent()) {
+            plan = createInsertPlan(analysis);
+        }
         else {
             plan = createRelationPlan(analysis);
         }
@@ -103,6 +108,17 @@ public class LogicalPlanner
                 plan,
                 tableMetadata,
                 new CreateName(destination.getCatalogName(), tableMetadata));
+    }
+
+    private RelationPlan createInsertPlan(Analysis analysis)
+    {
+        TableHandle target = analysis.getInsertTarget().get();
+
+        return createTableWriterPlan(
+                analysis,
+                createRelationPlan(analysis),
+                metadata.getTableMetadata(target),
+                new InsertReference(target));
     }
 
     private RelationPlan createTableWriterPlan(Analysis analysis, RelationPlan plan, TableMetadata tableMetadata, WriterTarget target)

@@ -11,15 +11,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.operator;
+package com.facebook.presto.spi;
 
-import com.facebook.presto.metadata.InsertTableHandle;
-import com.facebook.presto.metadata.OutputTableHandle;
-import com.facebook.presto.spi.RecordSink;
-
-public interface RecordSinkProvider
+@SuppressWarnings("MarkerInterface")
+public interface ConnectorInsertTableHandle
 {
-    RecordSink getRecordSink(OutputTableHandle tableHandle);
-
-    RecordSink getRecordSink(InsertTableHandle tableHandle);
 }

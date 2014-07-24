@@ -23,6 +23,7 @@ import com.facebook.presto.raptor.metadata.TablePartition;
 import com.facebook.presto.raptor.metadata.ViewResult;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorColumnHandle;
+import com.facebook.presto.spi.ConnectorInsertTableHandle;
 import com.facebook.presto.spi.ConnectorMetadata;
 import com.facebook.presto.spi.ConnectorOutputTableHandle;
 import com.facebook.presto.spi.ConnectorSession;
@@ -368,6 +369,18 @@ public class RaptorMetadata
         ConnectorTableHandle tableHandle = getTableHandle(new SchemaTableName(table.getSchemaName(), table.getTableName()));
 
         shardManager.commitUnpartitionedTable(tableHandle, shards.build());
+    }
+
+    @Override
+    public ConnectorInsertTableHandle beginInsert(ConnectorSession session, ConnectorTableHandle tableHandle)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public void commitInsert(ConnectorInsertTableHandle insertHandle, Collection<String> fragments)
+    {
+        throw new UnsupportedOperationException();
     }
 
     @Override

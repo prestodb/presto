@@ -114,6 +114,8 @@ public class TestStatementBuilder
         printStatement("create table foo as select * from abc");
         printStatement("drop table foo");
 
+        printStatement("insert into foo select * from abc");
+
         printStatement("values ('a', 1, 2.2), ('b', 2, 3.3)");
 
         printStatement("table foo");

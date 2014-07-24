@@ -70,6 +70,7 @@ statement returns [Statement value]
     | renameTable               { $value = $renameTable.value; }
     | createView                { $value = $createView.value; }
     | dropView                  { $value = $dropView.value; }
+    | insert                    { $value = $insert.value; }
     ;
 
 query returns [Query value]
@@ -574,4 +575,8 @@ dropView returns [Statement value]
 orReplace returns [boolean value]
     : OR_REPLACE { $value = true; }
     |            { $value = false; }
+	;
+
+insert returns [Statement value]
+    : ^(INSERT qname query) { $value = new Insert($qname.value, $query.value); }
     ;

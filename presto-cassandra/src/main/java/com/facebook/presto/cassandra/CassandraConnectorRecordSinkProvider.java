@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.cassandra;
 
+import com.facebook.presto.spi.ConnectorInsertTableHandle;
 import com.facebook.presto.spi.ConnectorOutputTableHandle;
 import com.facebook.presto.spi.ConnectorRecordSinkProvider;
 import com.facebook.presto.spi.RecordSink;
@@ -41,5 +42,11 @@ public class CassandraConnectorRecordSinkProvider
         CassandraOutputTableHandle handle = (CassandraOutputTableHandle) tableHandle;
 
         return new CassandraRecordSink(handle, cassandraSession);
+    }
+
+    @Override
+    public RecordSink getRecordSink(ConnectorInsertTableHandle tableHandle)
+    {
+        throw new UnsupportedOperationException();
     }
 }

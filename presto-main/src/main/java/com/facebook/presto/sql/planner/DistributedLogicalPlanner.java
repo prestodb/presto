@@ -62,6 +62,8 @@ import static com.facebook.presto.sql.planner.plan.AggregationNode.Step.PARTIAL;
 import static com.facebook.presto.sql.planner.plan.AggregationNode.Step.SINGLE;
 import static com.facebook.presto.sql.planner.plan.TableWriterNode.CreateHandle;
 import static com.facebook.presto.sql.planner.plan.TableWriterNode.CreateName;
+import static com.facebook.presto.sql.planner.plan.TableWriterNode.InsertHandle;
+import static com.facebook.presto.sql.planner.plan.TableWriterNode.InsertReference;
 import static com.facebook.presto.sql.planner.plan.TableWriterNode.WriterTarget;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
@@ -385,7 +387,7 @@ public class DistributedLogicalPlanner
         @Override
         public SubPlanBuilder visitTableWriter(TableWriterNode node, Void context)
         {
-            // TODO: create table in pre-execution step, not here
+            // TODO: begin create table or insert in pre-execution step, not here
             // Part of the plan should be an Optional<StateChangeListener<QueryState>> and this
             // callback can create the table and abort the table creation if the query fails.
             WriterTarget target = createWriterTarget(node.getTarget());
@@ -400,6 +402,10 @@ public class DistributedLogicalPlanner
             if (target instanceof CreateName) {
                 CreateName create = (CreateName) target;
                 return new CreateHandle(metadata.beginCreateTable(session, create.getCatalog(), create.getTableMetadata()));
+            }
+            if (target instanceof InsertReference) {
+                InsertReference insert = (InsertReference) target;
+                return new InsertHandle(metadata.beginInsert(session, insert.getHandle()));
             }
             throw new AssertionError("Unhandled target type: " + target.getClass().getName());
         }

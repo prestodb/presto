@@ -60,6 +60,18 @@ public abstract class ReadOnlyConnectorMetadata
     }
 
     @Override
+    public final ConnectorInsertTableHandle beginInsert(ConnectorSession session, ConnectorTableHandle tableHandle)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public void commitInsert(ConnectorInsertTableHandle insertHandle, Collection<String> fragments)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
     public final void createView(ConnectorSession session, SchemaTableName viewName, String viewData, boolean replace)
     {
         throw new UnsupportedOperationException();

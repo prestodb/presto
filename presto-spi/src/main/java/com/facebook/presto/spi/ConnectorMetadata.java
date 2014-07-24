@@ -107,6 +107,16 @@ public interface ConnectorMetadata
     void commitCreateTable(ConnectorOutputTableHandle tableHandle, Collection<String> fragments);
 
     /**
+     * Begin insert query
+     */
+    ConnectorInsertTableHandle beginInsert(ConnectorSession session, ConnectorTableHandle tableHandle);
+
+    /**
+     * Commit insert query
+     */
+    void commitInsert(ConnectorInsertTableHandle insertHandle, Collection<String> fragments);
+
+    /**
      * Create the specified view. The data for the view is opaque to the connector.
      */
     void createView(ConnectorSession session, SchemaTableName viewName, String viewData, boolean replace);

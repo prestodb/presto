@@ -16,6 +16,7 @@ package com.facebook.presto.raptor;
 import com.facebook.presto.raptor.storage.ColumnFileHandle;
 import com.facebook.presto.raptor.storage.LocalStorageManager;
 import com.facebook.presto.raptor.util.CurrentNodeId;
+import com.facebook.presto.spi.ConnectorInsertTableHandle;
 import com.facebook.presto.spi.ConnectorOutputTableHandle;
 import com.facebook.presto.spi.ConnectorRecordSinkProvider;
 import com.facebook.presto.spi.RecordSink;
@@ -56,6 +57,12 @@ public class RaptorRecordSinkProvider
         ColumnFileHandle fileHandle = createStagingFileHandle(handle.getColumnHandles());
 
         return new RaptorRecordSink(nodeId, fileHandle, storageManager, handle.getColumnTypes(), handle.getSampleWeightColumnHandle());
+    }
+
+    @Override
+    public RecordSink getRecordSink(ConnectorInsertTableHandle tableHandle)
+    {
+        throw new UnsupportedOperationException();
     }
 
     private ColumnFileHandle createStagingFileHandle(List<RaptorColumnHandle> columnHandles)

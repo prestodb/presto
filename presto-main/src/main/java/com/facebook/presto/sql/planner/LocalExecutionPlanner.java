@@ -141,6 +141,7 @@ import static com.facebook.presto.sql.planner.plan.IndexJoinNode.EquiJoinClause.
 import static com.facebook.presto.sql.planner.plan.JoinNode.EquiJoinClause.leftGetter;
 import static com.facebook.presto.sql.planner.plan.JoinNode.EquiJoinClause.rightGetter;
 import static com.facebook.presto.sql.planner.plan.TableWriterNode.CreateHandle;
+import static com.facebook.presto.sql.planner.plan.TableWriterNode.InsertHandle;
 import static com.facebook.presto.sql.planner.plan.TableWriterNode.WriterTarget;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
@@ -1324,6 +1325,9 @@ public class LocalExecutionPlanner
         if (target instanceof CreateHandle) {
             return recordSinkManager.getRecordSink(((CreateHandle) target).getHandle());
         }
+        if (target instanceof InsertHandle) {
+            return recordSinkManager.getRecordSink(((InsertHandle) target).getHandle());
+        }
         throw new AssertionError("Unhandled target type: " + target.getClass().getName());
     }
 
@@ -1337,6 +1341,9 @@ public class LocalExecutionPlanner
             {
                 if (target instanceof CreateHandle) {
                     metadata.commitCreateTable(((CreateHandle) target).getHandle(), fragments);
+                }
+                else if (target instanceof InsertHandle) {
+                    metadata.commitInsert(((InsertHandle) target).getHandle(), fragments);
                 }
                 else {
                     throw new AssertionError("Unhandled target type: " + target.getClass().getName());

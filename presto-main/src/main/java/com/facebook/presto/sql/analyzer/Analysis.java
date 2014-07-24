@@ -77,6 +77,9 @@ public class Analysis
     // for create table
     private Optional<QualifiedTableName> createTableDestination = Optional.absent();
 
+    // for insert
+    private Optional<TableHandle> insertTarget = Optional.absent();
+
     public Query getQuery()
     {
         return query;
@@ -302,6 +305,16 @@ public class Analysis
     public Optional<QualifiedTableName> getCreateTableDestination()
     {
         return createTableDestination;
+    }
+
+    public void setInsertTarget(TableHandle target)
+    {
+        this.insertTarget = Optional.of(target);
+    }
+
+    public Optional<TableHandle> getInsertTarget()
+    {
+        return insertTarget;
     }
 
     public Query getNamedQuery(Table table)

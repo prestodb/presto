@@ -167,6 +167,7 @@ statement
     | showFunctionsStmt
     | useCollectionStmt
     | createTableStmt
+    | insertStmt
     | dropTableStmt
     | alterTableStmt
     | createViewStmt
@@ -631,6 +632,10 @@ dropTableStmt
     : DROP TABLE qname -> ^(DROP_TABLE qname)
     ;
 
+insertStmt
+    : INSERT INTO qname query -> ^(INSERT qname query)
+    ;
+
 createTableStmt
     : CREATE TABLE qname s=tableContentsSource -> ^(CREATE_TABLE qname $s)
     ;
@@ -824,6 +829,8 @@ CREATE: 'CREATE';
 TABLE: 'TABLE';
 VIEW: 'VIEW';
 REPLACE: 'REPLACE';
+INSERT: 'INSERT';
+INTO: 'INTO';
 CHAR: 'CHAR';
 CHARACTER: 'CHARACTER';
 VARYING: 'VARYING';

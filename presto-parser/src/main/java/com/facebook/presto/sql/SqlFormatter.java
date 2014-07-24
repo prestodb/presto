@@ -21,6 +21,7 @@ import com.facebook.presto.sql.tree.DropView;
 import com.facebook.presto.sql.tree.CreateTable;
 import com.facebook.presto.sql.tree.DropTable;
 import com.facebook.presto.sql.tree.Except;
+import com.facebook.presto.sql.tree.Insert;
 import com.facebook.presto.sql.tree.Explain;
 import com.facebook.presto.sql.tree.ExplainFormat;
 import com.facebook.presto.sql.tree.ExplainOption;
@@ -594,6 +595,18 @@ public final class SqlFormatter
                     .append(node.getSource())
                     .append(" RENAME TO ")
                     .append(node.getTarget());
+
+            return null;
+        }
+
+        @Override
+        protected Void visitInsert(Insert node, Integer indent)
+        {
+            builder.append("INSERT INTO ")
+                    .append(node.getTarget())
+                    .append(" ");
+
+            process(node.getQuery(), indent);
 
             return null;
         }
