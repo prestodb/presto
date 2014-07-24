@@ -1,0 +1,126 @@
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>2.10. URL Functions &mdash; Presto 0.74 Documentation</title>
+    
+    <link rel="stylesheet" href="../_static/presto.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '../',
+        VERSION:     '0.74',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="../_static/jquery.js"></script>
+    <script type="text/javascript" src="../_static/underscore.js"></script>
+    <script type="text/javascript" src="../_static/doctools.js"></script>
+    <link rel="top" title="Presto 0.74 Documentation" href="../index.html" />
+    <link rel="up" title="2. Functions and Operators" href="../functions.html" />
+    <link rel="next" title="2.11. Aggregate Functions" href="aggregate.html" />
+    <link rel="prev" title="2.9. JSON Functions" href="json.html" /> 
+  </head>
+  <body>
+<div class="header">
+    <h1 class="heading"><a href="../index.html">
+        <span>Presto 0.74 Documentation</span></a></h1>
+    <h2 class="heading"><span>2.10. URL Functions</span></h2>
+</div>
+<div class="topnav">
+    
+<p class="nav">
+    <span class="left">
+        &laquo; <a href="json.html">2.9. JSON Functions</a>
+    </span>
+    <span class="right">
+        <a href="aggregate.html">2.11. Aggregate Functions</a> &raquo;
+    </span>
+</p>
+
+</div>
+<div class="content">
+    
+  <div class="section" id="url-functions">
+<h1>2.10. URL Functions</h1>
+<p>The URL functions extract components from HTTP URLs
+(or any valid URIs conforming to <span class="target" id="index-0"></span><a class="rfc reference external" href="http://tools.ietf.org/html/rfc2396.html"><strong>RFC 2396</strong></a>).
+The following syntax is supported:</p>
+<div class="highlight-none"><div class="highlight"><pre>[protocol:][//host[:port]][path][?query][#fragment]
+</pre></div>
+</div>
+<p>The extracted components do not contain URI syntax separators
+such as <tt class="docutils literal"><span class="pre">:</span></tt> or <tt class="docutils literal"><span class="pre">?</span></tt>.</p>
+<dl class="function">
+<dt id="url_extract_fragment">
+<tt class="descname">url_extract_fragment</tt><big>(</big><em>url</em><big>)</big> &rarr; varchar</dt>
+<dd><p>Returns the fragment identifier from <tt class="docutils literal"><span class="pre">url</span></tt>.</p>
+</dd></dl>
+
+<dl class="function">
+<dt id="url_extract_host">
+<tt class="descname">url_extract_host</tt><big>(</big><em>url</em><big>)</big> &rarr; varchar</dt>
+<dd><p>Returns the host from <tt class="docutils literal"><span class="pre">url</span></tt>.</p>
+</dd></dl>
+
+<dl class="function">
+<dt id="url_extract_parameter">
+<tt class="descname">url_extract_parameter</tt><big>(</big><em>url</em>, <em>name</em><big>)</big> &rarr; varchar</dt>
+<dd><p>Returns the value of the first query string parameter named <tt class="docutils literal"><span class="pre">name</span></tt>
+from <tt class="docutils literal"><span class="pre">url</span></tt>. Parameter extraction is handled in the typical manner
+as specified by <span class="target" id="index-1"></span><a class="rfc reference external" href="http://tools.ietf.org/html/rfc1866.html#section-8.2.1"><strong>RFC 1866</strong></a>.</p>
+</dd></dl>
+
+<dl class="function">
+<dt id="url_extract_path">
+<tt class="descname">url_extract_path</tt><big>(</big><em>url</em><big>)</big> &rarr; varchar</dt>
+<dd><p>Returns the path from <tt class="docutils literal"><span class="pre">url</span></tt>.</p>
+</dd></dl>
+
+<dl class="function">
+<dt id="url_extract_port">
+<tt class="descname">url_extract_port</tt><big>(</big><em>url</em><big>)</big> &rarr; bigint</dt>
+<dd><p>Returns the port number from <tt class="docutils literal"><span class="pre">url</span></tt>.</p>
+</dd></dl>
+
+<dl class="function">
+<dt id="url_extract_protocol">
+<tt class="descname">url_extract_protocol</tt><big>(</big><em>url</em><big>)</big> &rarr; varchar</dt>
+<dd><p>Returns the protocol from <tt class="docutils literal"><span class="pre">url</span></tt>.</p>
+</dd></dl>
+
+<dl class="function">
+<dt id="url_extract_query">
+<tt class="descname">url_extract_query</tt><big>(</big><em>url</em><big>)</big> &rarr; varchar</dt>
+<dd><p>Returns the query string from <tt class="docutils literal"><span class="pre">url</span></tt>.</p>
+</dd></dl>
+
+</div>
+
+
+</div>
+<div class="bottomnav">
+    
+<p class="nav">
+    <span class="left">
+        &laquo; <a href="json.html">2.9. JSON Functions</a>
+    </span>
+    <span class="right">
+        <a href="aggregate.html">2.11. Aggregate Functions</a> &raquo;
+    </span>
+</p>
+
+</div>
+
+    <div class="footer">
+    </div>
+  </body>
+</html>
