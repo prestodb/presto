@@ -55,7 +55,7 @@ public class VarbinaryType
     @Override
     public Object getObjectValue(ConnectorSession session, Slice slice, int offset, int length)
     {
-        return slice.slice(offset, length);
+        return slice.getBytes(offset, length);
     }
 
     @Override

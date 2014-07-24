@@ -95,7 +95,7 @@ public class HyperLogLogType
     @Override
     public Object getObjectValue(ConnectorSession session, Slice slice, int offset, int length)
     {
-        return "<HyperLogLog>";
+        return slice.getBytes(offset, length);
     }
 
     @Override
