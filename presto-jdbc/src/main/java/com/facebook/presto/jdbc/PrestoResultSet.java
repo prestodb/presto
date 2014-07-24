@@ -117,6 +117,7 @@ public class PrestoResultSet
     private static final int MILLIS_FIELD = 7;
 
     private static final int VARCHAR_MAX = 1024 * 1024 * 1024;
+    private static final int VARBINARY_MAX = 1024 * 1024 * 1024;
     private static final int TIME_ZONE_MAX = 40; // current longest time zone is 32
     private static final int TIME_MAX = "HH:mm:ss.SSS".length();
     private static final int TIME_WITH_TIME_ZONE_MAX = TIME_MAX + TIME_ZONE_MAX;
@@ -255,7 +256,7 @@ public class PrestoResultSet
     public byte[] getBytes(int columnIndex)
             throws SQLException
     {
-        throw new UnsupportedOperationException("getBytes");
+        return (byte[]) column(columnIndex);
     }
 
     @Override
@@ -451,7 +452,7 @@ public class PrestoResultSet
     public byte[] getBytes(String columnLabel)
             throws SQLException
     {
-        throw new UnsupportedOperationException("getBytes");
+        return (byte[]) column(columnLabel);
     }
 
     @Override
@@ -1815,6 +1816,13 @@ public class PrestoResultSet
                 builder.setScale(0);
                 builder.setColumnDisplaySize(VARCHAR_MAX);
                 break;
+            case "varbinary":
+                builder.setColumnType(Types.LONGVARBINARY);
+                builder.setSigned(true);
+                builder.setPrecision(VARBINARY_MAX);
+                builder.setScale(0);
+                builder.setColumnDisplaySize(VARBINARY_MAX);
+                break;
             case "time":
                 builder.setColumnType(Types.TIME);
                 builder.setSigned(true);
@@ -1858,7 +1866,8 @@ public class PrestoResultSet
                 builder.setColumnDisplaySize(TIMESTAMP_MAX);
                 break;
             default:
-                throw new AssertionError("unimplemented type: " + type);
+                builder.setColumnType(Types.JAVA_OBJECT);
+                break;
         }
     }
 }
