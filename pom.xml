@@ -487,7 +487,7 @@
             <dependency>
                 <groupId>io.airlift.discovery</groupId>
                 <artifactId>discovery-server</artifactId>
-                <version>1.19</version>
+                <version>1.20-SNAPSHOT</version>
             </dependency>
 
             <dependency>
