@@ -92,6 +92,9 @@
         <dt>Raw</dt>
         <dd><a id="rawJson"></a></dd>
 
+        <dt>Kill</dt>
+        <dd id="killQuery"></dd>
+
         <dt>Message</dt>
         <dd id="failureMessage"></dd>
 
@@ -142,10 +145,22 @@ d3.json('/v1/query/' + window.location.search.substring(1), function (query) {
     d3.select('#rows').text(formatCount(query.queryStats.rawInputPositions));
     d3.select('#dataSize').text(query.queryStats.rawInputDataSize);
 
+    var button = d3.select('#killQuery')
+        .append('button')
+        .text('Kill')
+        .attr('type', 'button');
+    if (query.state != 'FINISHED' && query.state != 'FAILED' && query.state != 'CANCELED') {
+        button.on('click', function() {
+                d3.xhr("/v1/query/" + query.queryId).send('DELETE');
+                button.attr('disabled', 'disabled');
+            });
+    } else {
+        button.attr('disabled', 'disabled');
+    }
+
     if (query.failureInfo) {
         d3.select('#failureMessage').text(query.failureInfo.type + ": " + query.failureInfo.message);
     }
-
 
     var uri = "/v1/query/" + query.queryId + "?pretty"
     d3.select('#rawJson').text(uri);
