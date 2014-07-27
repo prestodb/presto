@@ -17,7 +17,6 @@ import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockEncoding;
 import com.facebook.presto.spi.block.BlockEncodingFactory;
 import com.facebook.presto.spi.block.BlockEncodingSerde;
-import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
 import com.google.common.base.Preconditions;
 import io.airlift.slice.SliceInput;
@@ -44,12 +43,6 @@ public class DictionaryBlockEncoding
     public String getName()
     {
         return NAME;
-    }
-
-    @Override
-    public Type getType()
-    {
-        return dictionary.getType();
     }
 
     @Override

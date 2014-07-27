@@ -44,12 +44,6 @@ public class VariableWidthBlockEncoding
     }
 
     @Override
-    public Type getType()
-    {
-        return type;
-    }
-
-    @Override
     public void writeBlock(SliceOutput sliceOutput, Block block)
     {
         if (!block.getType().equals(type)) {
@@ -161,7 +155,7 @@ public class VariableWidthBlockEncoding
         @Override
         public void writeEncoding(BlockEncodingSerde serde, SliceOutput output, VariableWidthBlockEncoding blockEncoding)
         {
-            writeType(output, blockEncoding.getType());
+            writeType(output, blockEncoding.type);
         }
     }
 }

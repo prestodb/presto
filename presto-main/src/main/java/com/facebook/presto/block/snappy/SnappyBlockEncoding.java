@@ -48,12 +48,6 @@ public class SnappyBlockEncoding
     }
 
     @Override
-    public Type getType()
-    {
-        return type;
-    }
-
-    @Override
     public void writeBlock(SliceOutput sliceOutput, Block block)
     {
         SnappyBlock snappyBlock = (SnappyBlock) block;

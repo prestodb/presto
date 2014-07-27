@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.spi.block;
 
-import com.facebook.presto.spi.type.Type;
 import io.airlift.slice.SliceInput;
 import io.airlift.slice.SliceOutput;
 
@@ -23,11 +22,6 @@ public interface BlockEncoding
      * Gets the unique name of this encoding.
      */
     String getName();
-
-    /**
-     * Gets the type this encoding supports.
-     */
-    Type getType();
 
     /**
      * Read a block from the specified input.  The returned

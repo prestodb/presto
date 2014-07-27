@@ -44,12 +44,6 @@ public class FixedWidthBlockEncoding
     }
 
     @Override
-    public Type getType()
-    {
-        return type;
-    }
-
-    @Override
     public void writeBlock(SliceOutput sliceOutput, Block block)
     {
         AbstractFixedWidthBlock fixedWidthBlock = (AbstractFixedWidthBlock) block;
@@ -145,7 +139,7 @@ public class FixedWidthBlockEncoding
         @Override
         public void writeEncoding(BlockEncodingSerde serde, SliceOutput output, FixedWidthBlockEncoding blockEncoding)
         {
-            writeType(output, blockEncoding.getType());
+            writeType(output, blockEncoding.type);
         }
     }
 }
