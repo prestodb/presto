@@ -11,6 +11,7 @@ Functions and Operators
     functions/conversion
     functions/math
     functions/string
+    functions/binary
     functions/datetime
     functions/regexp
     functions/json
