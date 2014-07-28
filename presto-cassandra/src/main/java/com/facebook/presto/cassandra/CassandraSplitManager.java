@@ -13,6 +13,24 @@
  */
 package com.facebook.presto.cassandra;
 
+import static com.facebook.presto.cassandra.util.CassandraCqlUtils.toCQLCompatibleString;
+import static com.facebook.presto.cassandra.util.Types.checkType;
+import static com.facebook.presto.spi.StandardErrorCode.EXTERNAL;
+import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Predicates.in;
+import static com.google.common.base.Predicates.not;
+import static com.google.common.util.concurrent.MoreExecutors.listeningDecorator;
+import io.airlift.log.Logger;
+
+import java.io.IOException;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.concurrent.Callable;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
+
 import com.datastax.driver.core.Host;
 import com.facebook.presto.cassandra.util.CassandraCqlUtils;
 import com.facebook.presto.cassandra.util.HostAddressFactory;
@@ -26,6 +44,7 @@ import com.facebook.presto.spi.ConnectorTableHandle;
 import com.facebook.presto.spi.Domain;
 import com.facebook.presto.spi.FixedSplitSource;
 import com.facebook.presto.spi.HostAddress;
+import com.facebook.presto.spi.Marker.Bound;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.Range;
 import com.facebook.presto.spi.TupleDomain;
@@ -41,24 +60,6 @@ import com.google.common.collect.Sets;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.ListeningExecutorService;
 import com.google.inject.Inject;
-import io.airlift.log.Logger;
-
-import java.io.IOException;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
-import java.util.concurrent.Callable;
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.ExecutorService;
-
-import static com.facebook.presto.cassandra.util.CassandraCqlUtils.toCQLCompatibleString;
-import static com.facebook.presto.cassandra.util.Types.checkType;
-import static com.facebook.presto.spi.StandardErrorCode.EXTERNAL;
-import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkNotNull;
-import static com.google.common.base.Predicates.in;
-import static com.google.common.base.Predicates.not;
-import static com.google.common.util.concurrent.MoreExecutors.listeningDecorator;
 
 public class CassandraSplitManager
         implements ConnectorSplitManager
@@ -119,33 +120,128 @@ public class CassandraSplitManager
             }
         }
 
-        // push down indexed column fixed value predicates only for unpartitioned partition which uses token range query
-        if (partitions.size() == 1 && ((CassandraPartition) partitions.get(0)).isUnpartitioned()) {
+        // opt 1: push down indexed column fixed value predicates only for unpartitioned partition which uses token range query
+        // opt 2: push down clustered columns predicates if all previous columns in order of ordinalPosition have predicates, too
+        if (partitions.size() == 1) {
+            boolean partitioned = !((CassandraPartition) partitions.get(0)).isUnpartitioned();
             Map<ConnectorColumnHandle, Domain> domains = tupleDomain.getDomains();
             List<ConnectorColumnHandle> indexedColumns = Lists.newArrayList();
             // compose partitionId by using indexed column
             StringBuilder sb = new StringBuilder();
+            if (partitioned) {
+                sb.append(((CassandraPartition) partitions.get(0)).getPartitionId());
+            }
+            boolean indexedColumnUsed = false;
             for (Map.Entry<ConnectorColumnHandle, Domain> entry : domains.entrySet()) {
                 CassandraColumnHandle column = (CassandraColumnHandle) entry.getKey();
                 Domain domain = entry.getValue();
-                if (column.isIndexed() && domain.isSingleValue()) {
-                    sb.append(CassandraCqlUtils.validColumnName(column.getName()))
-                      .append(" = ")
-                      .append(CassandraCqlUtils.cqlValue(toCQLCompatibleString(entry.getValue().getSingleValue()), column.getCassandraType()));
-                    indexedColumns.add(column);
-                    // Only one indexed column predicate can be pushed down.
-                    break;
-                }
+                indexedColumnUsed |= addCQLRequestPredicate(sb, column, domains, domain, indexedColumns, indexedColumnUsed, partitioned);
             }
             if (sb.length() > 0) {
                 CassandraPartition partition = (CassandraPartition) partitions.get(0);
                 TupleDomain<ConnectorColumnHandle> filterIndexedColumn = TupleDomain.withColumnDomains(Maps.filterKeys(remainingTupleDomain.getDomains(), not(in(indexedColumns))));
                 partitions = Lists.newArrayList();
-                partitions.add(new CassandraPartition(partition.getKey(), sb.toString(), filterIndexedColumn, true));
+                partitions.add(new CassandraPartition(partition.getKey(), sb.toString(), filterIndexedColumn, indexedColumnUsed));
                 return new ConnectorPartitionResult(partitions, filterIndexedColumn);
             }
         }
         return new ConnectorPartitionResult(partitions, remainingTupleDomain);
+    }
+
+    /**
+     * checks if this is a predicate which should be processed by Cassandra and adds it to a query
+     * @param sb contains the query to potentially append to
+     * @param column is the column which needs to be investigated
+     * @param domains the list of all TupleDomains for this query
+     * @param domain is the domain which needs to be investigated
+     * @param addedColumns is a list of already processed columns, which have been added to the query
+     * @param indexedColumnUsed is a marker whether an indexed column has been added already
+     * @param partitioned indicates whether this is a partitioned query
+     * @return whether an indexed column has been used
+     */
+    private static boolean addCQLRequestPredicate(StringBuilder sb, CassandraColumnHandle column, Map<ConnectorColumnHandle, Domain> domains, Domain domain, List<ConnectorColumnHandle> addedColumns, boolean indexedColumnUsed, boolean partitioned)
+    {
+        boolean result = indexedColumnUsed;
+        if (!partitioned && column.isIndexed() && domain.isSingleValue() && !indexedColumnUsed) {
+            if (sb.length() > 0) {
+                sb.append(" AND ");
+            }
+            sb.append(CassandraCqlUtils.validColumnName(column.getName()))
+              .append(" = ")
+              .append(CassandraCqlUtils.cqlValue(toCQLCompatibleString(domain.getSingleValue()), column.getCassandraType()));
+            addedColumns.add(column);
+            result = true;
+        }
+        if (partitioned && column.isClusteringKey() && (domain.getRanges() != null) && (domain.getRanges().getRangeCount() == 1) && checkPreviousClusteredKey(column, domains)) {
+            if (sb.length() > 0) {
+                sb.append(" AND ");
+            }
+            for (int i = 0; i < domain.getRanges().getRangeCount(); i++) {
+                boolean first = true;
+                if (!domain.getRanges().getRanges().get(i).getHigh().isUpperUnbounded()) {
+                    sb.append(CassandraCqlUtils.validColumnName(column.getName()));
+                    if (domain.getRanges().getRanges().get(i).getHigh().getBound() == Bound.EXACTLY) {
+                        sb.append(" <= ");
+                    }
+                    else {
+                        sb.append(" < ");
+                    }
+                    sb.append(CassandraCqlUtils.cqlValue(toCQLCompatibleString(domain.getRanges().getRanges().get(i).getHigh().getValue()), column.getCassandraType()));
+                    first = false;
+                }
+                if (!domain.getRanges().getRanges().get(i).getLow().isLowerUnbounded()) {
+                    if (!first) {
+                        sb.append(" AND ");
+                    }
+                    sb.append(CassandraCqlUtils.validColumnName(column.getName()));
+                    if (domain.getRanges().getRanges().get(i).getLow().getBound() == Bound.EXACTLY) {
+                        sb.append(" >= ");
+                    }
+                    else {
+                        sb.append(" > ");
+                    }
+                    sb.append(CassandraCqlUtils.cqlValue(toCQLCompatibleString(domain.getRanges().getRanges().get(i).getLow().getValue()), column.getCassandraType()));
+                }
+            }
+            addedColumns.add(column);
+        }
+        return result;
+    }
+
+    /**
+     * checks if column with previous ordinal number is included as a predicate
+     * using a loop over TupleDomains
+     */
+    private static boolean checkPreviousClusteredKey(CassandraColumnHandle column, Map<ConnectorColumnHandle, Domain> domains)
+    {
+        boolean result = true;
+        for (int i = 2; i < column.getOrdinalPosition(); i++) {
+            boolean found = false;
+            for (Map.Entry<ConnectorColumnHandle, Domain> entry : domains.entrySet()) {
+                CassandraColumnHandle tmpColumn = (CassandraColumnHandle) entry.getKey();
+                Domain domain = entry.getValue();
+                if (tmpColumn.getOrdinalPosition() == i && tmpColumn.isClusteringKey()) {
+                    boolean rangeRestricted = false;
+                    if (domain.getRanges() != null && domain.getRanges().getRangeCount() == 1) {
+                        for (int j = 0; j < domain.getRanges().getRangeCount(); j++) {
+                            if (domain.getRanges().getRanges().get(j).getHigh().getValue() != null
+                                    || domain.getRanges().getRanges().get(j).getLow().getValue() != null) {
+                                // we have bounds, so this is a match
+                                rangeRestricted = true;
+                            }
+                        }
+                    }
+                    if (domain.isSingleValue() || rangeRestricted) {
+                        found = true;
+                    }
+                }
+            }
+            if (!found) {
+                result = false;
+                break;
+            }
+        }
+        return result;
     }
 
     private List<CassandraPartition> getCassandraPartitions(final CassandraTable table, TupleDomain<ConnectorColumnHandle> tupleDomain)
