@@ -112,6 +112,8 @@ public class RaptorSplitManager
     {
         Stopwatch splitTimer = Stopwatch.createStarted();
 
+        RaptorTableHandle raptorTableHandle = checkType(tableHandle, RaptorTableHandle.class, "tableHandle");
+
         checkNotNull(partitions, "partitions is null");
         if (partitions.isEmpty()) {
             return new FixedSplitSource(connectorId, ImmutableList.<ConnectorSplit>of());
@@ -121,7 +123,7 @@ public class RaptorSplitManager
 
         List<ConnectorSplit> splits = new ArrayList<>();
 
-        Multimap<Long, Entry<UUID, String>> partitionShardNodes = shardManager.getShardNodesByPartition(tableHandle);
+        Multimap<Long, Entry<UUID, String>> partitionShardNodes = shardManager.getShardNodesByPartition(raptorTableHandle);
 
         for (ConnectorPartition partition : partitions) {
             RaptorPartition raptorPartition = checkType(partition, RaptorPartition.class, "partition");
@@ -134,7 +136,7 @@ public class RaptorSplitManager
             for (Map.Entry<UUID, Collection<String>> entry : shardNodes.build().asMap().entrySet()) {
                 List<HostAddress> addresses = getAddressesForNodes(nodesById, entry.getValue());
                 checkState(!addresses.isEmpty(), "no host for shard %s found: %s", entry.getKey(), entry.getValue());
-                ConnectorSplit split = new RaptorSplit(entry.getKey(), addresses);
+                ConnectorSplit split = new RaptorSplit(entry.getKey(), addresses, raptorTableHandle.getCountColumnHandle());
                 splits.add(split);
             }
         }

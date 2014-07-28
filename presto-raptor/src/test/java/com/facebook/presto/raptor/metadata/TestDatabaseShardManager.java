@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.raptor.metadata;
 
+import com.facebook.presto.raptor.RaptorColumnHandle;
 import com.facebook.presto.raptor.RaptorTableHandle;
 import com.facebook.presto.spi.ConnectorTableHandle;
 import com.facebook.presto.spi.PartitionKey;
@@ -35,6 +36,7 @@ import java.util.Map.Entry;
 import java.util.Set;
 import java.util.UUID;
 
+import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotEquals;
 import static org.testng.Assert.assertNotNull;
@@ -69,7 +71,7 @@ public class TestDatabaseShardManager
             throws Exception
     {
         long tableId = 1;
-        ConnectorTableHandle tableHandle = new RaptorTableHandle("test", "demo", "test", tableId, null);
+        ConnectorTableHandle tableHandle = new RaptorTableHandle("test", "demo", "test", tableId, new RaptorColumnHandle("test", "foo", 1, BIGINT), null);
         UUID shardId1 = UUID.randomUUID();
         UUID shardId2 = UUID.randomUUID();
 

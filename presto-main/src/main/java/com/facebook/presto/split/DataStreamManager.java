@@ -51,7 +51,6 @@ public class DataStreamManager
         checkNotNull(operatorContext, "operatorContext is null");
         checkNotNull(split, "split is null");
         checkNotNull(columns, "columns is null");
-        checkArgument(!columns.isEmpty(), "no columns specified");
 
         List<ConnectorColumnHandle> handles = Lists.transform(columns, connectorHandleGetter());
 

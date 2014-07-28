@@ -59,12 +59,9 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-import static com.facebook.presto.spi.type.BigintType.BIGINT;
-import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.sql.planner.plan.JoinNode.EquiJoinClause.leftGetter;
 import static com.facebook.presto.sql.planner.plan.JoinNode.EquiJoinClause.rightGetter;
 import static com.google.common.base.Preconditions.checkNotNull;
-import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Predicates.in;
 import static com.google.common.collect.Iterables.concat;
 
@@ -247,19 +244,6 @@ public class PruneUnreferencedOutputs
             Set<Symbol> requiredTableScanOutputs = FluentIterable.from(expectedOutputs)
                     .filter(in(node.getOutputSymbols()))
                     .toSet();
-            if (requiredTableScanOutputs.isEmpty()) {
-                for (Symbol symbol : node.getOutputSymbols()) {
-                    Type type = types.get(symbol);
-                    if (type.equals(BIGINT) || type.equals(DOUBLE)) {
-                        requiredTableScanOutputs = ImmutableSet.of(symbol);
-                        break;
-                    }
-                }
-                if (requiredTableScanOutputs.isEmpty()) {
-                    requiredTableScanOutputs = ImmutableSet.of(node.getOutputSymbols().get(0));
-                }
-            }
-            checkState(!requiredTableScanOutputs.isEmpty());
 
             List<Symbol> newOutputSymbols = FluentIterable.from(node.getOutputSymbols())
                     .filter(in(requiredTableScanOutputs))
