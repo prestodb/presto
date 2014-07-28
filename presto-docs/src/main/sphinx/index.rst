@@ -8,6 +8,7 @@ Presto Documentation
 
     overview
     installation
+    connector
     functions
     language
     sql

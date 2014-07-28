@@ -22,7 +22,7 @@ This will hold the following configuration:
 * Node Properties: environmental configuration specific to each node
 * JVM Config: command line options for the Java Virtual Machine
 * Config Properties: configuration for the Presto server
-* Catalog Properties: configuration for connectors (data sources)
+* Catalog Properties: configuration for :doc:`/connector` (data sources)
 
 .. _presto_node_properties:
 
