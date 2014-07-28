@@ -207,7 +207,7 @@ public class LocalQueryRunner
         connectorManager.createConnection(catalogName, connectorFactory, properties);
     }
 
-    public QueryRunner printPlan()
+    public LocalQueryRunner printPlan()
     {
         printPlan = true;
         return this;
