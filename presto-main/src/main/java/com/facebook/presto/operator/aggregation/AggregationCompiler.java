@@ -22,7 +22,6 @@ import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.type.SqlType;
 import com.google.common.base.CaseFormat;
 import com.google.common.base.Predicate;
-import com.google.common.base.Throwables;
 import com.google.common.collect.FluentIterable;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -30,7 +29,6 @@ import com.google.common.collect.ImmutableSet;
 import javax.annotation.Nullable;
 
 import java.lang.annotation.Annotation;
-import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
 import java.util.ArrayList;
@@ -38,8 +36,13 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Set;
 
+import static com.facebook.presto.operator.aggregation.AggregationMetadata.ParameterMetadata;
+import static com.facebook.presto.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.STATE;
+import static com.facebook.presto.operator.aggregation.AggregationMetadata.ParameterMetadata.fromAnnotation;
+import static com.facebook.presto.operator.aggregation.AggregationUtils.getTypeInstance;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Preconditions.checkState;
 
 public class AggregationCompiler
 {
@@ -85,38 +88,40 @@ public class AggregationCompiler
 
         ImmutableList.Builder<InternalAggregationFunction> builder = ImmutableList.builder();
         for (Class<?> stateClass : getStateClasses(clazz)) {
-            AccumulatorStateSerializer<?> stateSerializer = new StateCompiler().generateStateSerializer(stateClass);
+            AccumulatorStateSerializer<?> stateSerializer = new StateCompiler().generateStateSerializer(stateClass, classLoader);
             Type intermediateType = stateSerializer.getSerializedType();
             Method intermediateInputFunction = getIntermediateInputFunction(clazz, stateClass);
             Method combineFunction = getCombineFunction(clazz, stateClass);
-            AccumulatorStateFactory<?> stateFactory = new StateCompiler().generateStateFactory(stateClass);
+            AccumulatorStateFactory<?> stateFactory = new StateCompiler().generateStateFactory(stateClass, classLoader);
 
             for (Method outputFunction : getOutputFunctions(clazz, stateClass)) {
                 for (Method inputFunction : getInputFunctions(clazz, stateClass)) {
                     for (String name : getNames(outputFunction, aggregationAnnotation)) {
                         List<Type> inputTypes = getInputTypes(inputFunction);
-                        Type outputType = getOutputType(outputFunction, stateSerializer);
+                        Type outputType = AggregationUtils.getOutputType(outputFunction, stateSerializer);
 
                         StringBuilder sb = new StringBuilder();
-                        sb.append(outputType.getName());
+                        sb.append(CaseFormat.LOWER_CAMEL.to(CaseFormat.UPPER_CAMEL, outputType.getName()));
                         for (Type inputType : inputTypes) {
-                            sb.append(inputType.getName());
+                            sb.append(CaseFormat.LOWER_CAMEL.to(CaseFormat.UPPER_CAMEL, inputType.getName()));
                         }
                         sb.append(CaseFormat.LOWER_UNDERSCORE.to(CaseFormat.UPPER_CAMEL, name.toLowerCase()));
 
-                        AccumulatorFactory factory = new AccumulatorCompiler().generateAccumulatorFactory(
+                        AggregationMetadata metadata = new AggregationMetadata(
                                 sb.toString(),
+                                getParameterMetadata(inputFunction, aggregationAnnotation.approximate()),
                                 inputFunction,
+                                getParameterMetadata(intermediateInputFunction, false),
                                 intermediateInputFunction,
                                 combineFunction,
                                 outputFunction,
                                 stateClass,
-                                intermediateType,
-                                outputType,
                                 stateSerializer,
                                 stateFactory,
-                                aggregationAnnotation.approximate(),
-                                classLoader);
+                                outputType,
+                                aggregationAnnotation.approximate());
+
+                        AccumulatorFactory factory = new AccumulatorCompiler().generateAccumulatorFactory(metadata, classLoader);
                         // TODO: support un-decomposable aggregations
                         builder.add(new GenericAggregationFunction(name, inputTypes, intermediateType, outputType, false, aggregationAnnotation.approximate(), factory));
                     }
@@ -124,6 +129,31 @@ public class AggregationCompiler
             }
         }
 
+        return builder.build();
+    }
+
+    private static List<ParameterMetadata> getParameterMetadata(@Nullable Method method, boolean sampleWeightAllowed)
+    {
+        if (method == null) {
+            return null;
+        }
+
+        ImmutableList.Builder<ParameterMetadata> builder = ImmutableList.builder();
+        builder.add(new ParameterMetadata(STATE));
+
+        Annotation[][] annotations = method.getParameterAnnotations();
+        // Start at 1 because 0 is the STATE
+        for (int i = 1; i < annotations.length; i++) {
+            Annotation foundAnnotation = null;
+            for (Annotation annotation : annotations[i]) {
+                if (annotation instanceof SqlType || annotation instanceof BlockIndex || (sampleWeightAllowed && annotation instanceof SampleWeight)) {
+                    checkState(foundAnnotation == null, "%s may only have one of @SqlType, @BlockIndex, @SampleWeight per parameter", method.getName());
+                    foundAnnotation = annotation;
+                }
+            }
+            checkNotNull(foundAnnotation, "Parameter %d of %s must have @SqlType, @BlockIndex, or @SampleWeight", i, method.getName());
+            builder.add(fromAnnotation(foundAnnotation));
+        }
         return builder.build();
     }
 
@@ -184,16 +214,6 @@ public class AggregationCompiler
         return methods;
     }
 
-    private static Type getOutputType(Method outputFunction, AccumulatorStateSerializer<?> serializer)
-    {
-        if (outputFunction == null) {
-            return serializer.getSerializedType();
-        }
-        else {
-            return getTypeInstance(outputFunction.getAnnotation(OutputFunction.class).value());
-        }
-    }
-
     private static List<Method> getInputFunctions(Class<?> clazz, final Class<?> stateClass)
     {
         List<Method> inputFunctions = FluentIterable.from(findPublicStaticMethodsWithAnnotation(clazz, InputFunction.class))
@@ -242,13 +262,8 @@ public class AggregationCompiler
         return stateClasses;
     }
 
-    private static Type getTypeInstance(Class<?> clazz)
+    private static DynamicClassLoader createClassLoader()
     {
-        try {
-            return (Type) clazz.getMethod("getInstance").invoke(null);
-        }
-        catch (IllegalAccessException | InvocationTargetException | NoSuchMethodException e) {
-            throw Throwables.propagate(e);
-        }
+        return new DynamicClassLoader(AggregationCompiler.class.getClassLoader());
     }
 }

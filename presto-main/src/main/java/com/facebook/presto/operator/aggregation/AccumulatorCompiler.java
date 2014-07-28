@@ -19,40 +19,50 @@ import com.facebook.presto.byteCode.ClassInfoLoader;
 import com.facebook.presto.byteCode.CompilerContext;
 import com.facebook.presto.byteCode.DumpByteCodeVisitor;
 import com.facebook.presto.byteCode.DynamicClassLoader;
+import com.facebook.presto.byteCode.FieldDefinition;
+import com.facebook.presto.byteCode.LocalVariableDefinition;
+import com.facebook.presto.byteCode.MethodDefinition;
 import com.facebook.presto.byteCode.NamedParameterDefinition;
 import com.facebook.presto.byteCode.SmartClassWriter;
-import com.facebook.presto.operator.aggregation.state.AccumulatorState;
+import com.facebook.presto.byteCode.control.ForLoop;
+import com.facebook.presto.operator.GroupByIdBlock;
+import com.facebook.presto.operator.Page;
 import com.facebook.presto.operator.aggregation.state.AccumulatorStateFactory;
 import com.facebook.presto.operator.aggregation.state.AccumulatorStateSerializer;
 import com.facebook.presto.spi.block.BlockBuilder;
+import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.type.SqlType;
+import com.facebook.presto.sql.gen.CompilerOperations;
+import com.google.common.base.Function;
+import com.google.common.base.Optional;
+import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableSet;
 import io.airlift.slice.Slice;
 import org.objectweb.asm.ClassWriter;
 
 import javax.annotation.Nullable;
 
-import java.lang.annotation.Annotation;
-import java.lang.reflect.Constructor;
 import java.lang.reflect.Method;
-import java.lang.reflect.Modifier;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.concurrent.atomic.AtomicLong;
 
 import static com.facebook.presto.byteCode.Access.FINAL;
+import static com.facebook.presto.byteCode.Access.PRIVATE;
 import static com.facebook.presto.byteCode.Access.PUBLIC;
 import static com.facebook.presto.byteCode.Access.a;
 import static com.facebook.presto.byteCode.NamedParameterDefinition.arg;
+import static com.facebook.presto.byteCode.OpCodes.NOP;
 import static com.facebook.presto.byteCode.ParameterizedType.type;
 import static com.facebook.presto.byteCode.ParameterizedType.typeFromPathName;
+import static com.facebook.presto.byteCode.control.IfStatement.IfStatementBuilder;
+import static com.facebook.presto.byteCode.control.IfStatement.ifStatementBuilder;
+import static com.facebook.presto.operator.aggregation.AggregationMetadata.ParameterMetadata;
+import static com.facebook.presto.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.BLOCK_INDEX;
+import static com.facebook.presto.operator.aggregation.AggregationMetadata.countInputChannels;
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkNotNull;
 
 public class AccumulatorCompiler
 {
@@ -60,120 +70,316 @@ public class AccumulatorCompiler
 
     private static final AtomicLong CLASS_ID = new AtomicLong();
 
-    public static final Set<Class<?>> SUPPORTED_PARAMETER_TYPES = ImmutableSet.of(com.facebook.presto.spi.block.Block.class, long.class, double.class, boolean.class, Slice.class);
-
-    public AccumulatorFactory generateAccumulatorFactory(
-            String name,
-            Method inputFunction,
-            @Nullable Method intermediateInputFunction,
-            @Nullable Method combineFunction,
-            @Nullable Method outputFunction,
-            Class<?> stateClass,
-            Type intermediateType,
-            Type finalType,
-            AccumulatorStateSerializer<?> stateSerializer,
-            AccumulatorStateFactory<?> stateFactory,
-            boolean approximateSupported,
-            DynamicClassLoader classLoader)
+    public AccumulatorFactory generateAccumulatorFactory(AggregationMetadata metadata, DynamicClassLoader classLoader)
     {
-        checkNotNull(inputFunction, "inputFunction is null");
-        checkArgument(combineFunction == null || intermediateInputFunction == null, "Aggregation cannot have both a combine and a intermediate input method");
-        checkArgument(combineFunction != null || intermediateInputFunction != null, "Aggregation must have either a combine or a intermediate input method");
-        verifyInputFunctionSignature(inputFunction, stateClass);
-        verifyInputFunctionSignature(intermediateInputFunction, stateClass);
-        verifyCombineFunction(combineFunction, stateClass);
-        if (approximateSupported) {
-            verifyApproximateOutputFunction(outputFunction, stateClass);
-        }
-        else {
-            verifyExactOutputFunction(outputFunction, stateClass);
-        }
+        Class<? extends Accumulator> accumulatorClass = generateAccumulatorClass(
+                Accumulator.class,
+                metadata,
+                classLoader);
 
-        Class<? extends Accumulator> accumulatorClass = generateAccumulatorClass(name, AbstractAccumulator.class, inputFunction, intermediateInputFunction, combineFunction, outputFunction, stateClass, approximateSupported, classLoader);
-        Class<? extends GroupedAccumulator> groupedAccumulatorClass = generateAccumulatorClass(name, AbstractGroupedAccumulator.class, inputFunction, intermediateInputFunction, combineFunction, outputFunction, stateClass, approximateSupported, classLoader);
+        Class<? extends GroupedAccumulator> groupedAccumulatorClass = generateAccumulatorClass(
+                GroupedAccumulator.class,
+                metadata,
+                classLoader);
+
         return new GenericAccumulatorFactory(
-                finalType,
-                intermediateType,
-                stateSerializer,
-                stateFactory,
+                metadata.getStateSerializer(),
+                metadata.getStateFactory(),
                 accumulatorClass,
                 groupedAccumulatorClass,
-                approximateSupported);
-    }
-
-    private static void verifyStaticAndPublic(@Nullable Method method)
-    {
-        if (method == null) {
-            return;
-        }
-        checkArgument(Modifier.isStatic(method.getModifiers()), "%s is not static", method.getName());
-        checkArgument(Modifier.isPublic(method.getModifiers()), "%s is not public", method.getName());
+                metadata.isApproximate());
     }
 
     private static <T> Class<? extends T> generateAccumulatorClass(
-            String name,
-            Class<T> accumulatorClass,
-            Method inputFunction,
-            @Nullable Method intermediateInputFunction,
-            @Nullable Method combineFunction,
-            @Nullable Method outputFunction,
-            Class<?> stateClass,
-            boolean approximate,
+            Class<T> accumulatorInterface,
+            AggregationMetadata metadata,
             DynamicClassLoader classLoader)
     {
+        boolean grouped = accumulatorInterface == GroupedAccumulator.class;
+
         ClassDefinition definition = new ClassDefinition(new CompilerContext(null),
                 a(PUBLIC, FINAL),
-                typeFromPathName(name + accumulatorClass.getSimpleName() + "_" + CLASS_ID.incrementAndGet()),
-                type(accumulatorClass));
+                typeFromPathName(metadata.getName() + accumulatorInterface.getSimpleName() + "_" + CLASS_ID.incrementAndGet()),
+                type(Object.class),
+                type(accumulatorInterface));
+
+        AccumulatorStateSerializer<?> stateSerializer = metadata.getStateSerializer();
+        AccumulatorStateFactory<?> stateFactory = metadata.getStateFactory();
+
+        FieldDefinition stateSerializerField = definition.declareField(a(PRIVATE, FINAL), "stateSerializer", stateSerializer.getClass());
+        FieldDefinition stateFactoryField = definition.declareField(a(PRIVATE, FINAL), "stateFactory", stateFactory.getClass());
+        FieldDefinition inputChannelsField = definition.declareField(a(PRIVATE, FINAL), "inputChannels", type(List.class, Integer.class));
+        FieldDefinition maskChannelField = definition.declareField(a(PRIVATE, FINAL), "maskChannel", type(Optional.class, Integer.class));
+        FieldDefinition sampleWeightChannelField = definition.declareField(a(PRIVATE, FINAL), "sampleWeightChannel", type(Optional.class, Integer.class));
+        FieldDefinition confidenceField = definition.declareField(a(PRIVATE, FINAL), "confidence", double.class);
+        FieldDefinition stateField = definition.declareField(a(PRIVATE, FINAL), "state", grouped ? stateFactory.getGroupedStateClass() : stateFactory.getSingleStateClass());
 
         // Generate constructor
-        generateMatchingConstructors(definition, accumulatorClass);
+        generateConstructor(
+                definition,
+                stateSerializerField,
+                stateFactoryField,
+                inputChannelsField,
+                maskChannelField,
+                sampleWeightChannelField,
+                confidenceField,
+                stateField,
+                grouped);
 
         // Generate methods
-        generateProcessInput(definition, inputFunction, stateClass);
-        generateProcessIntermediate(definition, accumulatorClass, intermediateInputFunction, combineFunction, stateClass);
-        generateEvaluateFinal(definition, accumulatorClass, outputFunction, stateClass, approximate);
+        generateAddInput(definition, stateField, inputChannelsField, maskChannelField, sampleWeightChannelField, metadata.getInputMetadata(), metadata.getInputFunction(), grouped);
+        generateGetEstimatedSize(definition, stateField);
+        MethodDefinition getIntermediateType = generateGetIntermediateType(definition, stateSerializer.getSerializedType());
+        MethodDefinition getFinalType = generateGetFinalType(definition, metadata.getOutputType());
 
-        return defineClass(definition, accumulatorClass, classLoader);
+        if (metadata.getIntermediateInputFunction() == null) {
+            generateAddIntermediateAsCombine(definition, stateField, stateSerializerField, stateFactoryField, metadata.getCombineFunction(), stateFactory.getSingleStateClass(), grouped);
+        }
+        else {
+            generateAddIntermediateAsIntermediateInput(definition, stateField, metadata.getIntermediateInputMetadata(), metadata.getIntermediateInputFunction(), grouped);
+        }
+
+        if (grouped) {
+            generateGroupedEvaluateIntermediate(definition, stateSerializerField, stateField);
+        }
+        else {
+            generateEvaluateIntermediate(definition, getIntermediateType, stateSerializerField, stateField);
+        }
+
+        if (grouped) {
+            generateGroupedEvaluateFinal(definition, confidenceField, stateSerializerField, stateField, metadata.getOutputFunction(), metadata.isApproximate());
+        }
+        else {
+            generateEvaluateFinal(definition, getFinalType, confidenceField, stateSerializerField, stateField, metadata.getOutputFunction(), metadata.isApproximate());
+        }
+
+        return defineClass(definition, accumulatorInterface, classLoader);
     }
 
-    private static void generateProcessInput(ClassDefinition definition, Method inputFunction, Class<?> stateClass)
+    private static MethodDefinition generateGetIntermediateType(ClassDefinition definition, Type type)
     {
-        CompilerContext compilerContext = new CompilerContext(null);
-        Block body = definition.declareMethod(compilerContext, a(PUBLIC), "processInput", type(void.class), arg("state", AccumulatorState.class), arg("blocks", List.class), arg("position", int.class), arg("sampleWeight", long.class))
+        MethodDefinition methodDefinition = definition.declareMethod(new CompilerContext(null), a(PUBLIC), "getIntermediateType", type(Type.class));
+
+        methodDefinition.getBody()
+                .push(type.getClass())
+                .invokeStatic(type.getClass(), "getInstance", type.getClass())
+                .retObject();
+
+        return methodDefinition;
+    }
+
+    private static MethodDefinition generateGetFinalType(ClassDefinition definition, Type type)
+    {
+        MethodDefinition methodDefinition = definition.declareMethod(new CompilerContext(null), a(PUBLIC), "getFinalType", type(Type.class));
+
+        methodDefinition.getBody()
+                .push(type.getClass())
+                .invokeStatic(type.getClass(), "getInstance", type.getClass())
+                .retObject();
+
+        return methodDefinition;
+    }
+
+    private static void generateGetEstimatedSize(ClassDefinition definition, FieldDefinition stateField)
+    {
+        definition.declareMethod(new CompilerContext(null), a(PUBLIC), "getEstimatedSize", type(long.class))
+                .getBody()
+                .pushThis()
+                .getField(stateField)
+                .invokeVirtual(stateField.getType(), "getEstimatedSize", type(long.class))
+                .retLong();
+    }
+
+    private static void generateAddInput(
+            ClassDefinition definition,
+            FieldDefinition stateField,
+            FieldDefinition inputChannelsField,
+            FieldDefinition maskChannelField,
+            FieldDefinition sampleWeightChannelField,
+            List<ParameterMetadata> parameterMetadatas,
+            Method inputFunction,
+            boolean grouped)
+    {
+        CompilerContext context = new CompilerContext(null);
+
+        ImmutableList.Builder<NamedParameterDefinition> parameters = ImmutableList.builder();
+        if (grouped) {
+            parameters.add(arg("groupIdsBlock", GroupByIdBlock.class));
+        }
+        parameters.add(arg("page", Page.class));
+
+        Block body = definition.declareMethod(context, a(PUBLIC), "addInput", type(void.class), parameters.build())
                 .getBody();
 
-        body.comment("Call input function with unpacked Block arguments")
-                .getVariable("state")
-                .checkCast(stateClass);
+        if (grouped) {
+            generateEnsureCapacity(stateField, body);
+        }
+
+        List<LocalVariableDefinition> parameterVariables = new ArrayList<>();
+        for (int i = 0; i < countInputChannels(parameterMetadatas); i++) {
+            parameterVariables.add(context.declareVariable(com.facebook.presto.spi.block.Block.class, "block" + i));
+        }
+        LocalVariableDefinition masksBlock = context.declareVariable(com.facebook.presto.spi.block.Block.class, "masksBlock");
+        LocalVariableDefinition sampleWeightsBlock = context.declareVariable(com.facebook.presto.spi.block.Block.class, "sampleWeightsBlock");
+
+        body.comment("masksBlock = maskChannel.transform(page.blockGetter()).orNull();")
+                .pushThis()
+                .getField(maskChannelField)
+                .getVariable("page")
+                .invokeVirtual(type(Page.class), "blockGetter", type(Function.class, Integer.class, com.facebook.presto.spi.block.Block.class))
+                .invokeVirtual(Optional.class, "transform", Optional.class, Function.class)
+                .invokeVirtual(Optional.class, "orNull", Object.class)
+                .checkCast(com.facebook.presto.spi.block.Block.class)
+                .putVariable(masksBlock);
+
+        body.comment("sampleWeightsBlock = sampleWeightChannel.transform(page.blockGetter()).orNull();")
+                .pushThis()
+                .getField(sampleWeightChannelField)
+                .getVariable("page")
+                .invokeVirtual(type(Page.class), "blockGetter", type(Function.class, Integer.class, com.facebook.presto.spi.block.Block.class))
+                .invokeVirtual(Optional.class, "transform", Optional.class, Function.class)
+                .invokeVirtual(Optional.class, "orNull", Object.class)
+                .checkCast(com.facebook.presto.spi.block.Block.class)
+                .putVariable(sampleWeightsBlock);
+
+        // Get all parameter blocks
+        for (int i = 0; i < countInputChannels(parameterMetadatas); i++) {
+            body.comment("%s = page.getBlock(inputChannels.get(%d));", parameterVariables.get(i).getName(), i)
+                    .getVariable("page")
+                    .pushThis()
+                    .getField(inputChannelsField)
+                    .push(i)
+                    .invokeInterface(List.class, "get", Object.class, int.class)
+                    .checkCast(Integer.class)
+                    .invokeVirtual(Integer.class, "intValue", int.class)
+                    .invokeVirtual(Page.class, "getBlock", com.facebook.presto.spi.block.Block.class, int.class)
+                    .putVariable(parameterVariables.get(i));
+        }
+        Block block = generateInputForLoop(stateField, parameterMetadatas, inputFunction, context, parameterVariables, masksBlock, sampleWeightsBlock, grouped);
+
+        body.append(block)
+                .ret();
+    }
+
+    private static Block generateInputForLoop(
+            FieldDefinition stateField,
+            List<ParameterMetadata> parameterMetadatas,
+            Method inputFunction,
+            CompilerContext context,
+            List<LocalVariableDefinition> parameterVariables,
+            LocalVariableDefinition masksBlock,
+            LocalVariableDefinition sampleWeightsBlock,
+            boolean grouped)
+    {
+        // For-loop over rows
+        LocalVariableDefinition positionVariable = context.declareVariable(int.class, "position");
+        LocalVariableDefinition sampleWeightVariable = context.declareVariable(long.class, "sampleWeight");
+        LocalVariableDefinition rowsVariable = context.declareVariable(int.class, "rows");
+
+        Block block = new Block(context)
+                .getVariable("page")
+                .invokeVirtual(Page.class, "getPositionCount", int.class)
+                .putVariable(rowsVariable)
+                .initializeVariable(positionVariable)
+                .initializeVariable(sampleWeightVariable);
+
+        Block loopBody = generateInvokeInputFunction(context, stateField, positionVariable, sampleWeightVariable, parameterVariables, parameterMetadatas, inputFunction, grouped);
+
+        //  Wrap with null checks
+        for (LocalVariableDefinition variable : parameterVariables) {
+            IfStatementBuilder builder = ifStatementBuilder(context);
+            builder.comment("if(!%s.isNull(position))", variable.getName())
+                    .condition(new Block(context)
+                            .getVariable(variable)
+                            .getVariable(positionVariable)
+                            .invokeInterface(com.facebook.presto.spi.block.Block.class, "isNull", boolean.class, int.class))
+                    .ifTrue(NOP)
+                    .ifFalse(loopBody);
+            loopBody = new Block(context).append(builder.build());
+        }
+
+        // Check that sample weight is > 0 (also checks the mask)
+        loopBody = generateComputeSampleWeightAndCheckGreaterThanZero(context, loopBody, sampleWeightVariable, masksBlock, sampleWeightsBlock, positionVariable);
+
+        block.append(new ForLoop.ForLoopBuilder(context)
+                .initialize(new Block(context).putVariable(positionVariable, 0))
+                .condition(new Block(context)
+                        .getVariable(positionVariable)
+                        .getVariable(rowsVariable)
+                        .invokeStatic(CompilerOperations.class, "lessThan", boolean.class, int.class, int.class))
+                .update(new Block(context).incrementVariable(positionVariable, (byte) 1))
+                .body(loopBody)
+                .build());
+
+        return block;
+    }
+
+    private static Block generateComputeSampleWeightAndCheckGreaterThanZero(CompilerContext context, Block body, LocalVariableDefinition sampleWeight, LocalVariableDefinition masks, LocalVariableDefinition sampleWeights, LocalVariableDefinition position)
+    {
+        Block block = new Block(context)
+                .comment("sampleWeight = computeSampleWeight(masks, sampleWeights, position);")
+                .getVariable(masks)
+                .getVariable(sampleWeights)
+                .getVariable(position)
+                .invokeStatic(ApproximateUtils.class, "computeSampleWeight", long.class, com.facebook.presto.spi.block.Block.class, com.facebook.presto.spi.block.Block.class, int.class)
+                .putVariable(sampleWeight);
+
+        IfStatementBuilder builder = ifStatementBuilder(context);
+        builder.comment("if(sampleWeight > 0)")
+                .condition(new Block(context)
+                        .getVariable(sampleWeight)
+                        .invokeStatic(CompilerOperations.class, "longGreaterThanZero", boolean.class, long.class))
+                .ifTrue(body)
+                .ifFalse(NOP);
+
+        return block.append(builder.build());
+    }
+
+    private static Block generateInvokeInputFunction(
+            CompilerContext context,
+            FieldDefinition stateField,
+            LocalVariableDefinition position,
+            LocalVariableDefinition sampleWeight,
+            List<LocalVariableDefinition> parameterVariables,
+            List<ParameterMetadata> parameterMetadatas,
+            Method inputFunction,
+            boolean grouped)
+    {
+        Block block = new Block(context);
+
+        if (grouped) {
+            generateSetGroupIdFromGroupIdsBlock(stateField, position, block);
+        }
+
+        block.comment("Call input function with unpacked Block arguments");
 
         Class<?>[] parameters = inputFunction.getParameterTypes();
-        Annotation[][] annotations = inputFunction.getParameterAnnotations();
-        for (int i = 1, blockNum = 0; i < parameters.length; i++) {
-            if (annotations[i][0] instanceof BlockIndex) {
-                body.getVariable("position");
-            }
-            else if (annotations[i][0] instanceof SampleWeight) {
-                body.getVariable("sampleWeight");
-            }
-            else if (annotations[i][0] instanceof SqlType) {
-                Block getBlockByteCode = new Block(compilerContext)
-                        .getVariable("blocks")
-                        .push(blockNum)
-                        .invokeInterface(List.class, "get", Object.class, int.class)
-                        .checkCast(com.facebook.presto.spi.block.Block.class);
-
-                Class<? extends Type> sqlType = ((SqlType) annotations[i][0]).value();
-                pushStackType(body, sqlType, getBlockByteCode, parameters[i]);
-
-                blockNum++;
-            }
-            else {
-                throw new IllegalArgumentException("Parameter " + i + " must be annotated with @BlockIndex, @SampleWeight, or @SqlType");
+        int inputChannel = 0;
+        for (int i = 0; i < parameters.length; i++) {
+            ParameterMetadata parameterMetadata = parameterMetadatas.get(i);
+            switch (parameterMetadata.getParameterType()) {
+                case STATE:
+                    block.pushThis().getField(stateField);
+                    break;
+                case BLOCK_INDEX:
+                    block.getVariable(position);
+                    break;
+                case SAMPLE_WEIGHT:
+                    block.getVariable(sampleWeight);
+                    break;
+                case INPUT_CHANNEL:
+                    Block getBlockByteCode = new Block(context)
+                            .getVariable(parameterVariables.get(inputChannel));
+                    pushStackType(block, parameterMetadata.getSqlType(), getBlockByteCode, parameters[i]);
+                    inputChannel++;
+                    break;
+                default:
+                    throw new IllegalArgumentException("Unsupported parameter type: " + parameterMetadata.getParameterType());
             }
         }
 
-        body.invokeStatic(inputFunction) .ret();
+        block.invokeStatic(inputFunction);
+        return block;
     }
 
     // Assumes that there is a variable named 'position' in the block, which is the current index
@@ -215,170 +421,397 @@ public class AccumulatorCompiler
         }
     }
 
-    private static void verifyInputFunctionSignature(Method method, Class<?> stateClass)
+    private static void generateAddIntermediateAsCombine(
+            ClassDefinition definition,
+            FieldDefinition stateField,
+            FieldDefinition stateSerializerField,
+            FieldDefinition stateFactoryField,
+            Method combineFunction,
+            Class<?> singleStateClass,
+            boolean grouped)
     {
-        if (method == null) {
-            return;
-        }
-        verifyStaticAndPublic(method);
-        Class<?>[] parameters = method.getParameterTypes();
-        Annotation[][] annotations = method.getParameterAnnotations();
-        checkArgument(stateClass == parameters[0], "First argument of aggregation input function must be %s", stateClass.getSimpleName());
-        checkArgument(parameters.length > 1, "Aggregation input function must have at least one parameter");
-        for (int i = 1; i < parameters.length; i++) {
-            checkArgument(annotations[i].length == 1, "Each parameter (besides state) must have exactly one annotation (either @SqlType or @BlockIndex)");
+        CompilerContext context = new CompilerContext(null);
 
-            Annotation annotation = annotations[i][0];
-            if (annotation instanceof SqlType) {
-                checkArgument(SUPPORTED_PARAMETER_TYPES.contains(parameters[i]), "Unsupported type: %s", parameters[i].getSimpleName());
-            }
-            else if (annotation instanceof BlockIndex) {
-                checkArgument(parameters[i] == int.class, "Block index parameter must be an int");
-            }
-            else if (annotation instanceof SampleWeight) {
-                checkArgument(parameters[i] == long.class, "Sample weight parameter must be a long");
-            }
-            else {
-                throw new IllegalArgumentException("Unsupported annotation: " + annotation);
-            }
+        Block body = declareAddIntermediate(definition, grouped, context);
+
+        LocalVariableDefinition scratchStateVariable = context.declareVariable(singleStateClass, "scratchState");
+        LocalVariableDefinition positionVariable = context.declareVariable(int.class, "position");
+
+        body.comment("scratchState = stateFactory.createSingleState();")
+                .pushThis()
+                .getField(stateFactoryField)
+                .invokeInterface(AccumulatorStateFactory.class, "createSingleState", Object.class)
+                .checkCast(scratchStateVariable.getType())
+                .putVariable(scratchStateVariable);
+
+        if (grouped) {
+            generateEnsureCapacity(stateField, body);
         }
+
+        Block loopBody = new Block(context);
+
+        if (grouped) {
+            generateSetGroupIdFromGroupIdsBlock(stateField, positionVariable, loopBody);
+        }
+
+        loopBody.comment("stateSerializer.deserialize(block, position, scratchState)")
+                .pushThis()
+                .getField(stateSerializerField)
+                .getVariable("block")
+                .getVariable(positionVariable)
+                .getVariable(scratchStateVariable)
+                .invokeInterface(AccumulatorStateSerializer.class, "deserialize", void.class, com.facebook.presto.spi.block.Block.class, int.class, Object.class);
+
+        loopBody.comment("combine(state, scratchState)")
+                .pushThis()
+                .getField(stateField)
+                .getVariable("scratchState")
+                .invokeStatic(combineFunction);
+
+        body.append(generateBlockNonNullPositionForLoop(context, positionVariable, loopBody))
+                .ret();
     }
 
-    private static void generateProcessIntermediate(ClassDefinition definition, Class<?> accumulatorClass, Method intermediateInputFunction, Method combineFunction, Class<?> stateClass)
+    private static void generateSetGroupIdFromGroupIdsBlock(FieldDefinition stateField, LocalVariableDefinition positionVariable, Block block)
     {
-        CompilerContext compilerContext = new CompilerContext(null);
-        Block body = definition.declareMethod(
-                compilerContext,
+        block.comment("state.setGroupId(groupIdsBlock.getGroupId(position))")
+                .pushThis()
+                .getField(stateField)
+                .getVariable("groupIdsBlock")
+                .getVariable(positionVariable)
+                .invokeVirtual(GroupByIdBlock.class, "getGroupId", long.class, int.class)
+                .invokeVirtual(stateField.getType(), "setGroupId", type(void.class), type(long.class));
+    }
+
+    private static void generateEnsureCapacity(FieldDefinition stateField, Block block)
+    {
+        block.comment("state.ensureCapacity(groupIdsBlock.getGroupCount())")
+                .pushThis()
+                .getField(stateField)
+                .getVariable("groupIdsBlock")
+                .invokeVirtual(GroupByIdBlock.class, "getGroupCount", long.class)
+                .invokeVirtual(stateField.getType(), "ensureCapacity", type(void.class), type(long.class));
+    }
+
+    private static Block declareAddIntermediate(ClassDefinition definition, boolean grouped, CompilerContext context)
+    {
+        ImmutableList.Builder<NamedParameterDefinition> parameters = ImmutableList.builder();
+        if (grouped) {
+            parameters.add(arg("groupIdsBlock", GroupByIdBlock.class));
+        }
+        parameters.add(arg("block", com.facebook.presto.spi.block.Block.class));
+
+        return definition.declareMethod(
+                context,
                 a(PUBLIC),
-                "processIntermediate",
+                "addIntermediate",
                 type(void.class),
-                arg("state", AccumulatorState.class),
-                arg("scratchState", AccumulatorState.class),
-                arg("block", com.facebook.presto.spi.block.Block.class),
-                arg("position", int.class))
+                parameters.build())
+                .getBody();
+    }
+
+    private static void generateAddIntermediateAsIntermediateInput(
+            ClassDefinition definition,
+            FieldDefinition stateField,
+            List<ParameterMetadata> parameterMetadatas,
+            Method intermediateInputFunction,
+            boolean grouped)
+    {
+        CompilerContext context = new CompilerContext(null);
+
+        Block body = declareAddIntermediate(definition, grouped, context);
+
+        if (grouped) {
+            generateEnsureCapacity(stateField, body);
+        }
+
+        LocalVariableDefinition positionVariable = context.declareVariable(int.class, "position");
+
+        Block loopBody = new Block(context)
+                .comment("<intermediate>(state, ...)")
+                .pushThis()
+                .getField(stateField);
+
+        if (grouped) {
+            generateSetGroupIdFromGroupIdsBlock(stateField, positionVariable, loopBody);
+        }
+
+        Class<?>[] parameters = intermediateInputFunction.getParameterTypes();
+        // Parameter 0 is the state
+        for (int i = 1; i < parameters.length; i++) {
+            ParameterMetadata parameterMetadata = parameterMetadatas.get(i);
+            if (parameterMetadata.getParameterType() == BLOCK_INDEX) {
+                loopBody.getVariable("position");
+            }
+            else  {
+                Block getBlockByteCode = new Block(context)
+                        .getVariable("block");
+                pushStackType(loopBody, parameterMetadata.getSqlType(), getBlockByteCode, parameters[i]);
+            }
+        }
+        loopBody.invokeStatic(intermediateInputFunction);
+
+        body.append(generateBlockNonNullPositionForLoop(context, positionVariable, loopBody))
+                .ret();
+    }
+
+    // Generates a for-loop with a local variable named "position" defined, with the current position in the block,
+    // loopBody will only be executed for non-null positions in the Block
+    private static Block generateBlockNonNullPositionForLoop(CompilerContext context, LocalVariableDefinition positionVariable, Block loopBody)
+    {
+        LocalVariableDefinition rowsVariable = context.declareVariable(int.class, "rows");
+
+        Block block = new Block(context)
+                .getVariable("block")
+                .invokeInterface(com.facebook.presto.spi.block.Block.class, "getPositionCount", int.class)
+                .putVariable(rowsVariable);
+
+        IfStatementBuilder builder = ifStatementBuilder(context);
+        builder.comment("if(!block.isNull(position))")
+                .condition(new Block(context)
+                        .getVariable("block")
+                        .getVariable(positionVariable)
+                        .invokeInterface(com.facebook.presto.spi.block.Block.class, "isNull", boolean.class, int.class))
+                .ifTrue(NOP)
+                .ifFalse(loopBody);
+
+        block.append(new ForLoop.ForLoopBuilder(context)
+                .initialize(new Block(context).putVariable(positionVariable, 0))
+                .condition(new Block(context)
+                        .getVariable(positionVariable)
+                        .getVariable(rowsVariable)
+                        .invokeStatic(CompilerOperations.class, "lessThan", boolean.class, int.class, int.class))
+                .update(new Block(context).incrementVariable(positionVariable, (byte) 1))
+                .body(builder.build())
+                .build());
+
+        return block;
+    }
+
+    private static void generateGroupedEvaluateIntermediate(ClassDefinition definition, FieldDefinition stateSerializerField, FieldDefinition stateField)
+    {
+        definition.declareMethod(
+                new CompilerContext(null),
+                a(PUBLIC),
+                "evaluateIntermediate",
+                type(void.class),
+                arg("groupId", int.class),
+                arg("out", BlockBuilder.class))
+                .getBody()
+                .comment("state.setGroupId(groupId)")
+                .pushThis()
+                .getField(stateField)
+                .getVariable("groupId")
+                .intToLong()
+                .invokeVirtual(stateField.getType(), "setGroupId", type(void.class), type(long.class))
+
+                .comment("stateSerializer.serialize(state, out)")
+                .pushThis()
+                .getField(stateSerializerField)
+                .pushThis()
+                .getField(stateField)
+                .getVariable("out")
+                .invokeInterface(AccumulatorStateSerializer.class, "serialize", void.class, Object.class, BlockBuilder.class)
+                .ret();
+    }
+
+    private static void generateEvaluateIntermediate(ClassDefinition definition, MethodDefinition getIntermediateType, FieldDefinition stateSerializerField, FieldDefinition stateField)
+    {
+        CompilerContext context = new CompilerContext(null);
+        Block body = definition.declareMethod(
+                context,
+                a(PUBLIC),
+                "evaluateIntermediate",
+                type(com.facebook.presto.spi.block.Block.class))
                 .getBody();
 
-        if (combineFunction != null) {
-            body.pushThis()
-                    .comment("stateSerializer.deserialize(block, position, scratchState)")
-                    .getField(accumulatorClass, "stateSerializer", AccumulatorStateSerializer.class)
-                    .getVariable("block")
-                    .getVariable("position")
-                    .getVariable("scratchState")
-                    .invokeInterface(AccumulatorStateSerializer.class, "deserialize", void.class, com.facebook.presto.spi.block.Block.class, int.class, Object.class)
-                    .comment("combine(state, scratchState)")
-                    .getVariable("state")
-                    .checkCast(stateClass)
-                    .getVariable("scratchState")
-                    .checkCast(stateClass)
-                    .invokeStatic(combineFunction)
-                    .ret();
-        }
-        else {
-            body.getVariable("state");
-            Class<?>[] parameters = intermediateInputFunction.getParameterTypes();
-            Annotation[][] annotations = intermediateInputFunction.getParameterAnnotations();
-            boolean parameterFound = false;
-            for (int i = 1; i < parameters.length; i++) {
-                if (annotations[i][0] instanceof BlockIndex) {
-                    body.getVariable("position");
-                }
-                else if (annotations[i][0] instanceof SqlType) {
-                    checkArgument(!parameterFound, "Intermediate input functions may only have one parameter");
+        context.declareVariable(BlockBuilder.class, "out");
 
-                    Class<? extends Type> sqlType = ((SqlType) annotations[i][0]).value();
-                    pushStackType(body, sqlType, new Block(compilerContext).getVariable("block"), parameters[i]);
+        body.comment("out = getIntermediateType().createBlockBuilder(new BlockBuilderStatus());")
+                .pushThis()
+                .invokeVirtual(getIntermediateType)
+                .newObject(BlockBuilderStatus.class)
+                .dup()
+                .invokeConstructor(BlockBuilderStatus.class)
+                .invokeInterface(Type.class, "createBlockBuilder", BlockBuilder.class, BlockBuilderStatus.class)
+                .putVariable("out");
 
-                    parameterFound = true;
-                }
-                else {
-                    throw new IllegalArgumentException("Parameter " + i + " must be annotated with @BlockIndex or @SqlType");
-                }
-            }
-            body.invokeStatic(intermediateInputFunction)
-                    .ret();
-        }
+        body.comment("stateSerializer.serialize(state, out)")
+                .pushThis()
+                .getField(stateSerializerField)
+                .pushThis()
+                .getField(stateField)
+                .getVariable("out")
+                .invokeInterface(AccumulatorStateSerializer.class, "serialize", void.class, Object.class, BlockBuilder.class);
+
+        body.comment("return out.build();")
+                .getVariable("out")
+                .invokeInterface(BlockBuilder.class, "build", com.facebook.presto.spi.block.Block.class)
+                .retObject();
     }
 
-    private static void verifyCombineFunction(Method method, Class<?> stateClass)
-    {
-        if (method == null) {
-            return;
-        }
-        verifyStaticAndPublic(method);
-        Class<?>[] parameterTypes = method.getParameterTypes();
-        checkArgument(parameterTypes.length == 2 && parameterTypes[0] == stateClass && parameterTypes[1] == stateClass, "Combine function must have the signature (%s, %s)", stateClass.getSimpleName(), stateClass.getSimpleName());
-    }
-
-    private static void generateEvaluateFinal(ClassDefinition definition, Class<?> accumulatorClass, Method outputFunction, Class<?> stateClass, boolean approximate)
+    private static void generateGroupedEvaluateFinal(
+            ClassDefinition definition,
+            FieldDefinition confidenceField,
+            FieldDefinition stateSerializerField,
+            FieldDefinition stateField,
+            @Nullable Method outputFunction,
+            boolean approximate)
     {
         Block body = definition.declareMethod(
                 new CompilerContext(null),
                 a(PUBLIC),
                 "evaluateFinal",
                 type(void.class),
-                arg("state", AccumulatorState.class),
-                arg("confidence", double.class),
+                arg("groupId", int.class),
                 arg("out", BlockBuilder.class))
-                .getBody();
+                .getBody()
+                .comment("state.setGroupId(groupId)")
+                .pushThis()
+                .getField(stateField)
+                .getVariable("groupId")
+                .intToLong()
+                .invokeVirtual(stateField.getType(), "setGroupId", type(void.class), type(long.class));
 
         if (outputFunction != null) {
             body.comment("output(state, out)")
-                    .getVariable("state")
-                    .checkCast(stateClass);
+                    .pushThis()
+                    .getField(stateField);
             if (approximate) {
-                body.getVariable("confidence");
+                body.pushThis().getField(confidenceField);
             }
             body.getVariable("out")
-                    .invokeStatic(outputFunction)
-                    .ret();
+                    .invokeStatic(outputFunction);
         }
         else {
             checkArgument(!approximate, "Approximate aggregations must specify an output function");
-            body.pushThis()
-                    .comment("stateSerializer.serialize(state, out)")
-                    .getField(accumulatorClass, "stateSerializer", AccumulatorStateSerializer.class)
-                    .getVariable("state")
+            body.comment("stateSerializer.serialize(state, out)")
+                    .pushThis()
+                    .getField(stateSerializerField)
+                    .pushThis()
+                    .getField(stateField)
                     .getVariable("out")
-                    .invokeInterface(AccumulatorStateSerializer.class, "serialize", void.class, Object.class, BlockBuilder.class)
-                    .ret();
+                    .invokeInterface(AccumulatorStateSerializer.class, "serialize", void.class, Object.class, BlockBuilder.class);
         }
+        body.ret();
     }
 
-    private static void verifyApproximateOutputFunction(Method method, Class<?> stateClass)
+    private static void generateEvaluateFinal(
+            ClassDefinition definition,
+            MethodDefinition getFinalType,
+            FieldDefinition confidenceField,
+            FieldDefinition stateSerializerField,
+            FieldDefinition stateField,
+            @Nullable
+            Method outputFunction,
+            boolean approximate)
     {
-        checkNotNull(method, "Approximate aggregations must specify an output function");
-        Class<?>[] parameterTypes = method.getParameterTypes();
-        checkArgument(parameterTypes.length == 3 && parameterTypes[0] == stateClass && parameterTypes[1] == double.class && parameterTypes[2] == BlockBuilder.class, "Output function must have the signature (%s, double, BlockBuilder)", stateClass.getSimpleName());
-    }
+        CompilerContext context = new CompilerContext(null);
+        Block body = definition.declareMethod(
+                context,
+                a(PUBLIC),
+                "evaluateFinal",
+                type(com.facebook.presto.spi.block.Block.class))
+                .getBody();
 
-    private static void verifyExactOutputFunction(Method method, Class<?> stateClass)
-    {
-        if (method == null) {
-            return;
-        }
-        verifyStaticAndPublic(method);
-        Class<?>[] parameterTypes = method.getParameterTypes();
-        checkArgument(parameterTypes.length == 2 && parameterTypes[0] == stateClass && parameterTypes[1] == BlockBuilder.class, "Output function must have the signature (%s, BlockBuilder)", stateClass.getSimpleName());
-    }
+        context.declareVariable(BlockBuilder.class, "out");
 
-    private static void generateMatchingConstructors(ClassDefinition definition, Class<?> superClass)
-    {
-        for (Constructor<?> constructor : superClass.getDeclaredConstructors()) {
-            List<NamedParameterDefinition> parameters = new ArrayList<>();
-            for (int i = 0; i < constructor.getParameterTypes().length; i++) {
-                parameters.add(arg("parameter_" + i, constructor.getParameterTypes()[i]));
+        body.pushThis()
+                .invokeVirtual(getFinalType)
+                .newObject(BlockBuilderStatus.class)
+                .dup()
+                .invokeConstructor(BlockBuilderStatus.class)
+                .invokeInterface(Type.class, "createBlockBuilder", BlockBuilder.class, BlockBuilderStatus.class)
+                .putVariable("out");
+
+        if (outputFunction != null) {
+            body.comment("output(state, out)")
+                    .pushThis()
+                    .getField(stateField);
+            if (approximate) {
+                body.pushThis().getField(confidenceField);
             }
-            Block body = definition.declareConstructor(new CompilerContext(null), a(PUBLIC), parameters)
-                    .getBody()
-                    .comment("super(...)")
-                    .pushThis();
-            for (NamedParameterDefinition parameter : parameters) {
-                body.getVariable(parameter.getName());
-            }
-            body.invokeConstructor(constructor);
-            body.ret();
+            body.getVariable("out")
+                    .invokeStatic(outputFunction);
         }
+        else {
+            checkArgument(!approximate, "Approximate aggregations must specify an output function");
+            body.comment("stateSerializer.serialize(state, out)")
+                    .pushThis()
+                    .getField(stateSerializerField)
+                    .pushThis()
+                    .getField(stateField)
+                    .getVariable("out")
+                    .invokeInterface(AccumulatorStateSerializer.class, "serialize", void.class, Object.class, BlockBuilder.class);
+        }
+
+        body.getVariable("out")
+                .invokeInterface(BlockBuilder.class, "build", com.facebook.presto.spi.block.Block.class)
+                .retObject();
+    }
+
+    private static void generateConstructor(
+            ClassDefinition definition,
+            FieldDefinition stateSerializerField,
+            FieldDefinition stateFactoryField,
+            FieldDefinition inputChannelsField,
+            FieldDefinition maskChannelField,
+            FieldDefinition sampleWeightChannelField,
+            FieldDefinition confidenceField,
+            FieldDefinition stateField,
+            boolean grouped)
+    {
+        Block body = definition.declareConstructor(
+                new CompilerContext(null),
+                a(PUBLIC),
+                arg("stateSerializer", AccumulatorStateSerializer.class),
+                arg("stateFactory", AccumulatorStateFactory.class),
+                arg("inputChannels", type(List.class, Integer.class)),
+                arg("maskChannel", type(Optional.class, Integer.class)),
+                arg("sampleWeightChannel", type(Optional.class, Integer.class)),
+                arg("confidence", double.class))
+                .getBody()
+                .comment("super();")
+                .pushThis()
+                .invokeConstructor(Object.class);
+
+        generateCastCheckNotNullAndAssign(body, stateSerializerField, "stateSerializer");
+        generateCastCheckNotNullAndAssign(body, stateFactoryField, "stateFactory");
+        generateCastCheckNotNullAndAssign(body, inputChannelsField, "inputChannels");
+        generateCastCheckNotNullAndAssign(body, maskChannelField, "maskChannel");
+        generateCastCheckNotNullAndAssign(body, sampleWeightChannelField, "sampleWeightChannel");
+
+        String createState;
+        if (grouped) {
+            createState = "createGroupedState";
+        }
+        else {
+            createState = "createSingleState";
+        }
+
+        body.comment("this.confidence = confidence")
+                .pushThis()
+                .getVariable("confidence")
+                .putField(confidenceField)
+                .comment("this.state = stateFactory.%s()", createState)
+                .pushThis()
+                .getVariable("stateFactory")
+                .invokeInterface(AccumulatorStateFactory.class, createState, Object.class)
+                .checkCast(stateField.getType())
+                .putField(stateField)
+                .ret();
+    }
+
+    private static void generateCastCheckNotNullAndAssign(Block block, FieldDefinition field, String variableName)
+    {
+        block.comment("this.%s = checkNotNull(%s, \"%s is null\"", field.getName(), variableName, variableName)
+                .pushThis()
+                .getVariable(variableName)
+                .checkCast(field.getType())
+                .push(variableName + " is null")
+                .invokeStatic(Preconditions.class, "checkNotNull", Object.class, Object.class, Object.class)
+                .checkCast(field.getType())
+                .putField(field);
     }
 
     private static Map<String, Class<?>> defineClasses(List<ClassDefinition> classDefinitions, DynamicClassLoader classLoader)

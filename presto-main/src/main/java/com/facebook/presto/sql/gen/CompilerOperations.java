@@ -23,6 +23,11 @@ public final class CompilerOperations
     {
     }
 
+    public static boolean longGreaterThanZero(long value)
+    {
+        return value > 0;
+    }
+
     public static boolean and(boolean left, boolean right)
     {
         return left && right;
