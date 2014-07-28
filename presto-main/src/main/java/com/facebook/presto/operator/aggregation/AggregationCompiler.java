@@ -33,6 +33,7 @@ import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Set;
 
@@ -77,9 +78,7 @@ public class AggregationCompiler
     public List<InternalAggregationFunction> generateAggregationFunctions(Class<?> clazz)
     {
         AggregationFunction aggregationAnnotation = clazz.getAnnotation(AggregationFunction.class);
-        ApproximateAggregationFunction approximateAnnotation = clazz.getAnnotation(ApproximateAggregationFunction.class);
-        checkArgument(aggregationAnnotation != null || approximateAnnotation != null, "Aggregation function annotation is missing");
-        checkArgument(aggregationAnnotation == null || approximateAnnotation == null, "Aggregation function cannot be exact and approximate");
+        checkNotNull(aggregationAnnotation, "aggregationAnnotation is null");
 
         ImmutableList.Builder<InternalAggregationFunction> builder = ImmutableList.builder();
         for (Class<?> stateClass : getStateClasses(clazz)) {
@@ -91,31 +90,32 @@ public class AggregationCompiler
 
             for (Method outputFunction : getOutputFunctions(clazz, stateClass)) {
                 for (Method inputFunction : getInputFunctions(clazz, stateClass)) {
-                    List<Type> inputTypes = getInputTypes(inputFunction);
-                    Type outputType = getOutputType(outputFunction, stateSerializer);
-                    String name = getName(outputFunction, aggregationAnnotation, approximateAnnotation);
+                    for (String name : getNames(outputFunction, aggregationAnnotation)) {
+                        List<Type> inputTypes = getInputTypes(inputFunction);
+                        Type outputType = getOutputType(outputFunction, stateSerializer);
 
-                    StringBuilder sb = new StringBuilder();
-                    sb.append(outputType.getName());
-                    for (Type inputType : inputTypes) {
-                        sb.append(inputType.getName());
+                        StringBuilder sb = new StringBuilder();
+                        sb.append(outputType.getName());
+                        for (Type inputType : inputTypes) {
+                            sb.append(inputType.getName());
+                        }
+                        sb.append(CaseFormat.LOWER_UNDERSCORE.to(CaseFormat.UPPER_CAMEL, name.toLowerCase()));
+
+                        AccumulatorFactory factory = new AccumulatorCompiler().generateAccumulatorFactory(
+                                sb.toString(),
+                                inputFunction,
+                                intermediateInputFunction,
+                                combineFunction,
+                                outputFunction,
+                                stateClass,
+                                intermediateType,
+                                outputType,
+                                stateSerializer,
+                                stateFactory,
+                                aggregationAnnotation.approximate());
+                        // TODO: support un-decomposable aggregations
+                        builder.add(new GenericAggregationFunction(name, inputTypes, intermediateType, outputType, false, aggregationAnnotation.approximate(), factory));
                     }
-                    sb.append(CaseFormat.LOWER_UNDERSCORE.to(CaseFormat.UPPER_CAMEL, name.toLowerCase()));
-
-                    AccumulatorFactory factory = new AccumulatorCompiler().generateAccumulatorFactory(
-                            sb.toString(),
-                            inputFunction,
-                            intermediateInputFunction,
-                            combineFunction,
-                            outputFunction,
-                            stateClass,
-                            intermediateType,
-                            outputType,
-                            stateSerializer,
-                            stateFactory,
-                            approximateAnnotation != null);
-                    // TODO: support un-decomposable aggregations
-                    builder.add(new GenericAggregationFunction(name, inputTypes, intermediateType, outputType, false, approximateAnnotation != null, factory));
                 }
             }
         }
@@ -123,26 +123,20 @@ public class AggregationCompiler
         return builder.build();
     }
 
-    private static String getName(@Nullable Method outputFunction, AggregationFunction aggregationAnnotation, ApproximateAggregationFunction approximateAnnotation)
+    private static List<String> getNames(@Nullable Method outputFunction, AggregationFunction aggregationAnnotation)
     {
-        String defaultName;
-        if (aggregationAnnotation != null) {
-            defaultName = aggregationAnnotation.value();
-        }
-        else {
-            defaultName = approximateAnnotation.value();
-        }
+        List<String> defaultNames = ImmutableList.<String>builder().add(aggregationAnnotation.value()).addAll(Arrays.asList(aggregationAnnotation.alias())).build();
 
         if (outputFunction == null) {
-            return defaultName;
+            return defaultNames;
         }
 
         AggregationFunction annotation = outputFunction.getAnnotation(AggregationFunction.class);
         if (annotation == null) {
-            return defaultName;
+            return defaultNames;
         }
         else {
-            return annotation.value();
+            return ImmutableList.<String>builder().add(annotation.value()).addAll(Arrays.asList(annotation.alias())).build();
         }
     }
 

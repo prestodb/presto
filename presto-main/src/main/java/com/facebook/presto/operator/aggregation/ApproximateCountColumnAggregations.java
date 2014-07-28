@@ -32,7 +32,7 @@ import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 
-@ApproximateAggregationFunction("count")
+@AggregationFunction(value = "count", approximate = true)
 public final class ApproximateCountColumnAggregations
 {
     public static final InternalAggregationFunction BOOLEAN_APPROXIMATE_COUNT_AGGREGATION = new AggregationCompiler().generateAggregationFunction(ApproximateCountColumnAggregations.class, VARCHAR, ImmutableList.<Type>of(BOOLEAN));
