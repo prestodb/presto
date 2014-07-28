@@ -30,16 +30,20 @@ public class RaptorSplit
 {
     private final UUID shardUuid;
     private final List<HostAddress> addresses;
+    private final RaptorColumnHandle countColumnHandle;
 
     @JsonCreator
     public RaptorSplit(
             @JsonProperty("shardUuid") UUID shardUuid,
-            @JsonProperty("addresses") List<HostAddress> addresses)
+            @JsonProperty("addresses") List<HostAddress> addresses,
+            @JsonProperty("countColumnHandle") RaptorColumnHandle countColumnHandle)
     {
         this.shardUuid = checkNotNull(shardUuid, "shardUuid is null");
 
         checkNotNull(addresses, "addresses is null");
         this.addresses = ImmutableList.copyOf(addresses);
+
+        this.countColumnHandle = checkNotNull(countColumnHandle, "countColumnHandle is null");
     }
 
     @Override
@@ -60,6 +64,12 @@ public class RaptorSplit
     public UUID getShardUuid()
     {
         return shardUuid;
+    }
+
+    @JsonProperty
+    public RaptorColumnHandle getCountColumnHandle()
+    {
+        return countColumnHandle;
     }
 
     @Override

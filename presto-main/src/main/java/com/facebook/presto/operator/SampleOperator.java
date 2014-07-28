@@ -154,7 +154,9 @@ public class SampleOperator
                 }
 
                 if (repeats > 0) {
-                    for (int channel = 0; channel < page.getChannelCount(); channel++) {
+                    // copy input values to output page
+                    // NOTE: last output type is sample weight so we skip it
+                    for (int channel = 0; channel < types.size() - 1; channel++) {
                         Type type = types.get(channel);
                         type.appendTo(page.getBlock(channel), position, pageBuilder.getBlockBuilder(channel));
                     }

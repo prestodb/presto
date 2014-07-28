@@ -105,7 +105,6 @@ class GenericHiveRecordCursor<K, V extends Writable>
         checkNotNull(splitSchema, "splitSchema is null");
         checkNotNull(partitionKeys, "partitionKeys is null");
         checkNotNull(columns, "columns is null");
-        checkArgument(!columns.isEmpty(), "columns is empty");
         checkNotNull(hiveStorageTimeZone, "hiveStorageTimeZone is null");
         checkNotNull(sessionTimeZone, "sessionTimeZone is null");
 

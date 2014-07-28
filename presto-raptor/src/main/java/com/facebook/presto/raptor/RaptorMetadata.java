@@ -109,16 +109,32 @@ public class RaptorMetadata
         if (table == null) {
             return null;
         }
-        Long columnId = dao.getColumnId(table.getTableId(), SAMPLE_WEIGHT_COLUMN_NAME);
+        List<TableColumn> tableColumns = dao.getTableColumns(table.getTableId());
+        checkArgument(!tableColumns.isEmpty(), "Table %s does not have any columns", tableName);
+
+        RaptorColumnHandle countColumnHandle = null;
         RaptorColumnHandle sampleWeightColumnHandle = null;
-        if (columnId != null) {
-            sampleWeightColumnHandle = new RaptorColumnHandle(connectorId, SAMPLE_WEIGHT_COLUMN_NAME, columnId, BIGINT);
+        for (TableColumn tableColumn : tableColumns) {
+            if (SAMPLE_WEIGHT_COLUMN_NAME.equals(tableColumn.getColumnName())) {
+                sampleWeightColumnHandle = getRaptorColumnHandle(tableColumn);
+            }
+            if (countColumnHandle == null && tableColumn.getDataType().getJavaType().isPrimitive()) {
+                countColumnHandle = getRaptorColumnHandle(tableColumn);
+            }
+        }
+        if (countColumnHandle == null) {
+            countColumnHandle = getRaptorColumnHandle(tableColumns.get(0));
+        }
+
+        if (sampleWeightColumnHandle != null) {
+            sampleWeightColumnHandle = new RaptorColumnHandle(connectorId, SAMPLE_WEIGHT_COLUMN_NAME, sampleWeightColumnHandle.getColumnId(), BIGINT);
         }
         return new RaptorTableHandle(
                 connectorId,
                 tableName.getSchemaName(),
                 tableName.getTableName(),
                 table.getTableId(),
+                countColumnHandle,
                 sampleWeightColumnHandle);
     }
 
@@ -151,8 +167,7 @@ public class RaptorMetadata
             if (tableColumn.getColumnName().equals(SAMPLE_WEIGHT_COLUMN_NAME)) {
                 continue;
             }
-            RaptorColumnHandle columnHandle = new RaptorColumnHandle(connectorId, tableColumn.getColumnName(), tableColumn.getColumnId(), tableColumn.getDataType());
-            builder.put(tableColumn.getColumnName(), columnHandle);
+            builder.put(tableColumn.getColumnName(), getRaptorColumnHandle(tableColumn));
         }
         return builder.build();
     }
@@ -245,11 +260,17 @@ public class RaptorMetadata
         if (tableMetadata.isSampled()) {
             sampleWeightColumnHandle = new RaptorColumnHandle(connectorId, SAMPLE_WEIGHT_COLUMN_NAME, tableMetadata.getColumns().size() + 1, BIGINT);
         }
+
+        // this won't be used in a create table, but it is required by the API
+        ColumnMetadata columnMetadata = tableMetadata.getColumns().get(0);
+        RaptorColumnHandle countColumnHandle = new RaptorColumnHandle(connectorId, columnMetadata.getName(), columnMetadata.getOrdinalPosition() + 1, columnMetadata.getType());
+
         return new RaptorTableHandle(
                 connectorId,
                 tableMetadata.getTable().getSchemaName(),
                 tableMetadata.getTable().getTableName(),
                 tableId,
+                countColumnHandle,
                 sampleWeightColumnHandle);
     }
 
@@ -393,6 +414,11 @@ public class RaptorMetadata
     private boolean viewExists(ConnectorSession session, SchemaTableName viewName)
     {
         return !getViews(session, viewName.toSchemaTablePrefix()).isEmpty();
+    }
+
+    public RaptorColumnHandle getRaptorColumnHandle(TableColumn tableColumn)
+    {
+        return new RaptorColumnHandle(connectorId, tableColumn.getColumnName(), tableColumn.getColumnId(), tableColumn.getDataType());
     }
 
     private static Predicate<ColumnMetadata> isSampleWeightColumn()

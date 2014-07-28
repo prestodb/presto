@@ -90,7 +90,6 @@ public class TableScanNode
         checkNotNull(outputSymbols, "outputSymbols is null");
         checkNotNull(assignments, "assignments is null");
         checkArgument(assignments.keySet().containsAll(outputSymbols), "assignments does not cover all of outputSymbols");
-        checkArgument(!assignments.isEmpty(), "assignments is empty");
         checkNotNull(summarizedPartition, "summarizedPartition is null");
 
         this.table = table;

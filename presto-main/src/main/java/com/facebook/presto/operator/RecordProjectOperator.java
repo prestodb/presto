@@ -128,6 +128,7 @@ public class RecordProjectOperator
                     break;
                 }
 
+                pageBuilder.declarePosition();
                 for (int column = 0; column < types.size(); column++) {
                     BlockBuilder output = pageBuilder.getBlockBuilder(column);
                     if (cursor.isNull(column)) {
