@@ -124,6 +124,11 @@ public class StateCompiler
 
     public <T> AccumulatorStateSerializer<T> generateStateSerializer(Class<T> clazz)
     {
+        return generateStateSerializer(clazz, new DynamicClassLoader(clazz.getClassLoader()));
+    }
+
+    public <T> AccumulatorStateSerializer<T> generateStateSerializer(Class<T> clazz, DynamicClassLoader classLoader)
+    {
         AccumulatorStateMetadata metadata = getMetadataAnnotation(clazz);
         if (metadata != null && metadata.stateSerializerClass() != void.class) {
             try {
@@ -133,8 +138,6 @@ public class StateCompiler
                 throw Throwables.propagate(e);
             }
         }
-
-        DynamicClassLoader classLoader = new DynamicClassLoader(clazz.getClassLoader());
 
         ClassDefinition definition = new ClassDefinition(new CompilerContext(null),
                 a(PUBLIC, FINAL),
@@ -364,6 +367,11 @@ public class StateCompiler
 
     public <T> AccumulatorStateFactory<T> generateStateFactory(Class<T> clazz)
     {
+        return generateStateFactory(clazz, new DynamicClassLoader(clazz.getClassLoader()));
+    }
+
+    public <T> AccumulatorStateFactory<T> generateStateFactory(Class<T> clazz, DynamicClassLoader classLoader)
+    {
         AccumulatorStateMetadata metadata = getMetadataAnnotation(clazz);
         if (metadata != null && metadata.stateFactoryClass() != void.class) {
             try {
@@ -373,8 +381,6 @@ public class StateCompiler
                 throw Throwables.propagate(e);
             }
         }
-
-        DynamicClassLoader classLoader = new DynamicClassLoader(clazz.getClassLoader());
 
         Class<? extends T> singleStateClass = generateSingleStateClass(clazz, classLoader);
         Class<? extends T> groupedStateClass = generateGroupedStateClass(clazz, classLoader);
@@ -402,6 +408,17 @@ public class StateCompiler
                 .newObject(groupedStateClass)
                 .dup()
                 .invokeConstructor(groupedStateClass)
+                .retObject();
+
+        // Generate getters for state class
+        definition.declareMethod(new CompilerContext(null), a(PUBLIC), "getSingleStateClass", type(Class.class, singleStateClass))
+                .getBody()
+                .push(singleStateClass)
+                .retObject();
+
+        definition.declareMethod(new CompilerContext(null), a(PUBLIC), "getGroupedStateClass", type(Class.class, groupedStateClass))
+                .getBody()
+                .push(groupedStateClass)
                 .retObject();
 
         Class<? extends AccumulatorStateFactory> factoryClass = defineClass(definition, AccumulatorStateFactory.class, classLoader);

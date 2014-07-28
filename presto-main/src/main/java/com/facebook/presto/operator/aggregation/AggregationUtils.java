@@ -13,7 +13,15 @@
  */
 package com.facebook.presto.operator.aggregation;
 
+import com.facebook.presto.operator.aggregation.state.AccumulatorStateSerializer;
 import com.facebook.presto.operator.aggregation.state.VarianceState;
+import com.facebook.presto.spi.type.Type;
+import com.google.common.base.Throwables;
+
+import javax.annotation.Nullable;
+
+import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Method;
 
 import static com.google.common.base.Preconditions.checkArgument;
 
@@ -48,5 +56,25 @@ public final class AggregationUtils
         state.setM2(state.getM2() + m2Delta);
         state.setCount(newCount);
         state.setMean(newMean);
+    }
+
+    public static Type getTypeInstance(Class<?> clazz)
+    {
+        try {
+            return (Type) clazz.getMethod("getInstance").invoke(null);
+        }
+        catch (IllegalAccessException | InvocationTargetException | NoSuchMethodException e) {
+            throw Throwables.propagate(e);
+        }
+    }
+
+    public static Type getOutputType(@Nullable Method outputFunction, AccumulatorStateSerializer<?> serializer)
+    {
+        if (outputFunction == null) {
+            return serializer.getSerializedType();
+        }
+        else {
+            return getTypeInstance(outputFunction.getAnnotation(OutputFunction.class).value());
+        }
     }
 }

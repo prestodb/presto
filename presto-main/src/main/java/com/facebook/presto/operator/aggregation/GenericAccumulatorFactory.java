@@ -15,7 +15,6 @@ package com.facebook.presto.operator.aggregation;
 
 import com.facebook.presto.operator.aggregation.state.AccumulatorStateFactory;
 import com.facebook.presto.operator.aggregation.state.AccumulatorStateSerializer;
-import com.facebook.presto.spi.type.Type;
 import com.google.common.base.Optional;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
@@ -32,32 +31,24 @@ public class GenericAccumulatorFactory
         implements AccumulatorFactory
 {
     private final boolean approximationSupported;
-    private final Type finalType;
-    private final Type intermediateType;
     private final AccumulatorStateSerializer<?> stateSerializer;
     private final AccumulatorStateFactory<?> stateFactory;
     private final Constructor<? extends Accumulator> accumulatorConstructor;
     private final Constructor<? extends GroupedAccumulator> groupedAccumulatorConstructor;
 
     public GenericAccumulatorFactory(
-            Type finalType,
-            Type intermediateType,
             AccumulatorStateSerializer<?> stateSerializer,
             AccumulatorStateFactory<?> stateFactory,
             Class<? extends Accumulator> accumulatorClass,
             Class<? extends GroupedAccumulator> groupedAccumulatorClass,
             boolean approximationSupported)
     {
-        this.finalType = checkNotNull(finalType, "finalType is null");
-        this.intermediateType = checkNotNull(intermediateType, "intermediateType is null");
         this.stateSerializer = checkNotNull(stateSerializer, "stateSerializer is null");
         this.stateFactory = checkNotNull(stateFactory, "stateFactory is null");
         this.approximationSupported = approximationSupported;
 
         try {
             accumulatorConstructor = accumulatorClass.getConstructor(
-                    Type.class,
-                    Type.class,
                     AccumulatorStateSerializer.class,
                     AccumulatorStateFactory.class,
                     List.class,
@@ -66,8 +57,6 @@ public class GenericAccumulatorFactory
                     double.class);
 
             groupedAccumulatorConstructor = groupedAccumulatorClass.getConstructor(
-                    Type.class,
-                    Type.class,
                     AccumulatorStateSerializer.class,
                     AccumulatorStateFactory.class,
                     List.class,
@@ -88,7 +77,7 @@ public class GenericAccumulatorFactory
             checkArgument(!sampleWeightChannel.isPresent(), "Sampled data not supported");
         }
         try {
-            return accumulatorConstructor.newInstance(finalType, intermediateType, stateSerializer, stateFactory, Ints.asList(argumentChannels), maskChannel, sampleWeightChannel, confidence);
+            return accumulatorConstructor.newInstance(stateSerializer, stateFactory, Ints.asList(argumentChannels), maskChannel, sampleWeightChannel, confidence);
         }
         catch (InstantiationException | IllegalAccessException | InvocationTargetException e) {
             throw Throwables.propagate(e);
@@ -99,7 +88,7 @@ public class GenericAccumulatorFactory
     public Accumulator createIntermediateAggregation(double confidence)
     {
         try {
-            return accumulatorConstructor.newInstance(finalType, intermediateType, stateSerializer, stateFactory, ImmutableList.of(), Optional.<Integer>absent(), Optional.<Integer>absent(), confidence);
+            return accumulatorConstructor.newInstance(stateSerializer, stateFactory, ImmutableList.of(), Optional.<Integer>absent(), Optional.<Integer>absent(), confidence);
         }
         catch (InstantiationException | IllegalAccessException | InvocationTargetException e) {
             throw Throwables.propagate(e);
@@ -114,7 +103,7 @@ public class GenericAccumulatorFactory
             checkArgument(!sampleWeightChannel.isPresent(), "Sampled data not supported");
         }
         try {
-            return groupedAccumulatorConstructor.newInstance(finalType, intermediateType, stateSerializer, stateFactory, Ints.asList(argumentChannels), maskChannel, sampleWeightChannel, confidence);
+            return groupedAccumulatorConstructor.newInstance(stateSerializer, stateFactory, Ints.asList(argumentChannels), maskChannel, sampleWeightChannel, confidence);
         }
         catch (InstantiationException | IllegalAccessException | InvocationTargetException e) {
             throw Throwables.propagate(e);
@@ -125,7 +114,7 @@ public class GenericAccumulatorFactory
     public GroupedAccumulator createGroupedIntermediateAggregation(double confidence)
     {
         try {
-            return groupedAccumulatorConstructor.newInstance(finalType, intermediateType, stateSerializer, stateFactory, ImmutableList.of(), Optional.<Integer>absent(), Optional.<Integer>absent(), confidence);
+            return groupedAccumulatorConstructor.newInstance(stateSerializer, stateFactory, ImmutableList.of(), Optional.<Integer>absent(), Optional.<Integer>absent(), confidence);
         }
         catch (InstantiationException | IllegalAccessException | InvocationTargetException e) {
             throw Throwables.propagate(e);

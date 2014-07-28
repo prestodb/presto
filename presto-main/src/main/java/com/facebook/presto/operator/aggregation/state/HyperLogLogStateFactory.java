@@ -28,9 +28,21 @@ public class HyperLogLogStateFactory
     }
 
     @Override
+    public Class<? extends HyperLogLogState> getSingleStateClass()
+    {
+        return SingleHyperLogLogState.class;
+    }
+
+    @Override
     public HyperLogLogState createGroupedState()
     {
         return new GroupedHyperLogLogState();
+    }
+
+    @Override
+    public Class<? extends HyperLogLogState> getGroupedStateClass()
+    {
+        return GroupedHyperLogLogState.class;
     }
 
     public static class GroupedHyperLogLogState

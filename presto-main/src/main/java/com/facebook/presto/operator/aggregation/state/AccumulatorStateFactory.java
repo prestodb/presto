@@ -17,8 +17,12 @@ public interface AccumulatorStateFactory<T>
 {
     T createSingleState();
 
+    Class<? extends T> getSingleStateClass();
+
     /**
      * Return value is also guaranteed to implement GroupedAccumulatorState
      */
     T createGroupedState();
+
+    Class<? extends T> getGroupedStateClass();
 }

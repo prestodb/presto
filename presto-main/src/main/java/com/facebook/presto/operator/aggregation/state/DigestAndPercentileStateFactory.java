@@ -30,9 +30,21 @@ public class DigestAndPercentileStateFactory
     }
 
     @Override
+    public Class<? extends DigestAndPercentileState> getSingleStateClass()
+    {
+        return SingleDigestAndPercentileState.class;
+    }
+
+    @Override
     public DigestAndPercentileState createGroupedState()
     {
         return new GroupedDigestAndPercentileState();
+    }
+
+    @Override
+    public Class<? extends DigestAndPercentileState> getGroupedStateClass()
+    {
+        return GroupedDigestAndPercentileState.class;
     }
 
     public static class GroupedDigestAndPercentileState
