@@ -515,6 +515,9 @@ public abstract class AbstractTestQueries
             throws Exception
     {
         assertQuery("SELECT COUNT(*) FROM ORDERS");
+        assertQuery("SELECT COUNT(42) FROM ORDERS", "SELECT COUNT(*) FROM ORDERS");
+        assertQuery("SELECT COUNT(42 + 42) FROM ORDERS", "SELECT COUNT(*) FROM ORDERS");
+        assertQuery("SELECT COUNT(null) FROM ORDERS", "SELECT 0");
     }
 
     @Test
