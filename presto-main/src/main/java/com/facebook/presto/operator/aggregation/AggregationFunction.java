@@ -23,4 +23,8 @@ import java.lang.annotation.Target;
 public @interface AggregationFunction
 {
     String value();
+
+    boolean approximate() default false;
+
+    String[] alias() default {};
 }

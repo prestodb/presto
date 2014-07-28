@@ -31,7 +31,7 @@ import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 
-@ApproximateAggregationFunction("sum")
+@AggregationFunction(value = "sum", approximate = true)
 public final class ApproximateSumAggregations
 {
     public static final InternalAggregationFunction DOUBLE_APPROXIMATE_SUM_AGGREGATION = new AggregationCompiler().generateAggregationFunction(ApproximateSumAggregations.class, VARCHAR, ImmutableList.<Type>of(DOUBLE));

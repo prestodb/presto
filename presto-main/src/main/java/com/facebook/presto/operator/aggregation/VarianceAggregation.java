@@ -45,14 +45,7 @@ public final class VarianceAggregation
         mergeVarianceState(state, otherState);
     }
 
-    @AggregationFunction("var_samp")
-    @OutputFunction(DoubleType.class)
-    public static void varianceSamp(VarianceState state, BlockBuilder out)
-    {
-        variance(state, out);
-    }
-
-    @AggregationFunction("variance")
+    @AggregationFunction(value = "variance", alias = "var_samp")
     @OutputFunction(DoubleType.class)
     public static void variance(VarianceState state, BlockBuilder out)
     {
@@ -82,14 +75,7 @@ public final class VarianceAggregation
         }
     }
 
-    @AggregationFunction("stddev")
-    @OutputFunction(DoubleType.class)
-    public static void stddevSamp(VarianceState state, BlockBuilder out)
-    {
-        stddev(state, out);
-    }
-
-    @AggregationFunction("stddev_samp")
+    @AggregationFunction(value = "stddev", alias = "stddev_samp")
     @OutputFunction(DoubleType.class)
     public static void stddev(VarianceState state, BlockBuilder out)
     {

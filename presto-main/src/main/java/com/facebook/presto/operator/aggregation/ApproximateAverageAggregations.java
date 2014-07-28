@@ -27,7 +27,7 @@ import static com.facebook.presto.operator.aggregation.ApproximateUtils.formatAp
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 
-@ApproximateAggregationFunction("avg")
+@AggregationFunction(value = "avg", approximate = true)
 public final class ApproximateAverageAggregations
 {
     public static final InternalAggregationFunction LONG_APPROXIMATE_AVERAGE_AGGREGATION = new AggregationCompiler().generateAggregationFunction(ApproximateAverageAggregations.class, VarcharType.VARCHAR, ImmutableList.<Type>of(BIGINT));
