@@ -24,7 +24,13 @@ import com.facebook.presto.sql.relational.CallExpression;
 import com.facebook.presto.sql.relational.ConstantExpression;
 import com.facebook.presto.sql.relational.InputReferenceExpression;
 import com.facebook.presto.sql.relational.RowExpressionVisitor;
+import com.google.common.base.Throwables;
+import com.google.common.primitives.Primitives;
 import io.airlift.slice.Slice;
+
+import java.lang.invoke.MethodHandle;
+import java.lang.invoke.MethodHandles;
+import java.lang.invoke.MethodType;
 
 import static com.facebook.presto.byteCode.instruction.Constant.loadBoolean;
 import static com.facebook.presto.byteCode.instruction.Constant.loadDouble;
@@ -32,6 +38,7 @@ import static com.facebook.presto.byteCode.instruction.Constant.loadFloat;
 import static com.facebook.presto.byteCode.instruction.Constant.loadInt;
 import static com.facebook.presto.byteCode.instruction.Constant.loadLong;
 import static com.facebook.presto.byteCode.instruction.Constant.loadString;
+import static com.facebook.presto.sql.gen.ByteCodeUtils.invoke;
 import static com.facebook.presto.sql.gen.ByteCodeUtils.loadConstant;
 import static com.facebook.presto.sql.relational.Signatures.CAST;
 import static com.facebook.presto.sql.relational.Signatures.COALESCE;
@@ -215,40 +222,20 @@ public class ByteCodeExpressionVisitor
             Block isNull = new Block(context)
                     .putVariable("wasNull", true)
                     .pushJavaDefault(javaType);
-            if (javaType == boolean.class) {
+
+            try {
+                String methodName = "get" + Primitives.wrap(javaType).getSimpleName();
+                MethodHandle target = MethodHandles.lookup().findVirtual(type.getClass(), methodName, MethodType.methodType(javaType, com.facebook.presto.spi.block.Block.class, int.class));
+
                 Block isNotNull = new Block(context)
-                        .invokeStatic(type.getClass(), "getInstance", type.getClass())
                         .getVariable("block_" + field)
                         .getVariable("position")
-                        .invokeVirtual(type.getClass(), "getBoolean", boolean.class, com.facebook.presto.spi.block.Block.class, int.class);
+                        .append(invoke(context, callSiteBinder.bind(target.bindTo(type))));
+
                 return new IfStatement(context, isNullCheck, isNull, isNotNull);
             }
-            else if (javaType == long.class) {
-                Block isNotNull = new Block(context)
-                        .invokeStatic(type.getClass(), "getInstance", type.getClass())
-                        .getVariable("block_" + field)
-                        .getVariable("position")
-                        .invokeVirtual(type.getClass(), "getLong", long.class, com.facebook.presto.spi.block.Block.class, int.class);
-                return new IfStatement(context, isNullCheck, isNull, isNotNull);
-            }
-            else if (javaType == double.class) {
-                Block isNotNull = new Block(context)
-                        .invokeStatic(type.getClass(), "getInstance", type.getClass())
-                        .getVariable("block_" + field)
-                        .getVariable("position")
-                        .invokeVirtual(type.getClass(), "getDouble", double.class, com.facebook.presto.spi.block.Block.class, int.class);
-                return new IfStatement(context, isNullCheck, isNull, isNotNull);
-            }
-            else if (javaType == Slice.class) {
-                Block isNotNull = new Block(context)
-                        .invokeStatic(type.getClass(), "getInstance", type.getClass())
-                        .getVariable("block_" + field)
-                        .getVariable("position")
-                        .invokeVirtual(type.getClass(), "getSlice", Slice.class, com.facebook.presto.spi.block.Block.class, int.class);
-                return new IfStatement(context, isNullCheck, isNull, isNotNull);
-            }
-            else {
-                throw new UnsupportedOperationException("not yet implemented: " + type);
+            catch (NoSuchMethodException | IllegalAccessException e) {
+                throw Throwables.propagate(e);
             }
         }
     }
