@@ -48,6 +48,7 @@ public class HiveClientConfig
     private int maxInitialSplits = 200;
     private DataSize maxInitialSplitSize;
     private boolean allowDropTable;
+    private boolean allowAlterTableRename;
 
     private Duration metastoreCacheTtl = new Duration(1, TimeUnit.HOURS);
     private Duration metastoreRefreshInterval = new Duration(2, TimeUnit.MINUTES);
@@ -170,6 +171,19 @@ public class HiveClientConfig
     public HiveClientConfig setMaxGlobalSplitIteratorThreads(int maxGlobalSplitIteratorThreads)
     {
         this.maxGlobalSplitIteratorThreads = maxGlobalSplitIteratorThreads;
+        return this;
+    }
+
+    public boolean getAllowAlterTableRename()
+    {
+        return this.allowAlterTableRename;
+    }
+
+    @Config("hive.allow-alter-table-rename")
+    @ConfigDescription("Allow hive connector to rename table")
+    public HiveClientConfig setAllowAlterTableRename(boolean allowAlterTableRename)
+    {
+        this.allowAlterTableRename = allowAlterTableRename;
         return this;
     }
 

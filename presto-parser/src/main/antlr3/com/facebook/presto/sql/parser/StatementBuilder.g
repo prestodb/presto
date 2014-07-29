@@ -69,6 +69,7 @@ statement returns [Statement value]
     | dropTable                 { $value = $dropTable.value; }
     | createView                { $value = $createView.value; }
     | dropView                  { $value = $dropView.value; }
+    | alterTable                { $value = $alterTable.value; }
     ;
 
 query returns [Query value]
@@ -548,6 +549,10 @@ showFunctions returns [Statement value]
 useCollection returns [Statement value]
     : ^(USE_CATALOG ident) { $value = new UseCollection($ident.value, UseCollection.CollectionType.CATALOG); }
     | ^(USE_SCHEMA ident) { $value = new UseCollection($ident.value, UseCollection.CollectionType.SCHEMA); }
+    ;
+
+alterTable returns [Statement value]
+    : ^(ALTER_TABLE_RENAME s=qname t=qname) { $value = new AlterTable(AlterTable.FunctionType.RENAME, $s.value, $t.value); }
     ;
 
 createTable returns [Statement value]

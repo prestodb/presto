@@ -25,6 +25,10 @@ import java.util.List;
 
 public interface MetadataDao
 {
+    @SqlUpdate("ALTER TABLE tables RENAME to alterTables\n" +
+            ")")
+    void alterTablesTableRename();
+
     @SqlUpdate("CREATE TABLE IF NOT EXISTS tables (\n" +
             "  table_id BIGINT PRIMARY KEY AUTO_INCREMENT,\n" +
             "  catalog_name VARCHAR(255) NOT NULL,\n" +

@@ -343,6 +343,17 @@ public class MetadataManager
     }
 
     @Override
+    public void alterTableRename(TableHandle tableHandle, String databaseName, String tableName,
+                                    String targetDbName, String targetTableName)
+    {
+        lookupConnectorFor(tableHandle).alterTableRename(tableHandle.getConnectorHandle(),
+                                                            databaseName,
+                                                            tableName,
+                                                            targetDbName,
+                                                            targetTableName);
+    }
+
+    @Override
     public void dropTable(TableHandle tableHandle)
     {
         lookupConnectorFor(tableHandle).dropTable(tableHandle.getConnectorHandle());

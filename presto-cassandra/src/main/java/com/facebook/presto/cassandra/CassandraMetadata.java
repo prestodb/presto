@@ -242,6 +242,13 @@ public class CassandraMetadata
     }
 
     @Override
+    public void alterTableRename(ConnectorTableHandle tableHandle, String databaseName, String tableName,
+                                    String targetDbName, String targetTableName)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
     public ConnectorOutputTableHandle beginCreateTable(ConnectorSession session, ConnectorTableMetadata tableMetadata)
     {
         checkArgument(!isNullOrEmpty(tableMetadata.getOwner()), "Table owner is null or empty");

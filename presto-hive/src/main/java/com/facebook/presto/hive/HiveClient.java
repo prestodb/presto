@@ -151,6 +151,7 @@ public class HiveClient
     private final int minPartitionBatchSize;
     private final int maxPartitionBatchSize;
     private final boolean allowDropTable;
+    private final boolean allowAlterTableRename;
     private final HiveMetastore metastore;
     private final NamenodeStats namenodeStats;
     private final HdfsEnvironment hdfsEnvironment;
@@ -188,7 +189,8 @@ public class HiveClient
                 hiveClientConfig.getMaxInitialSplits(),
                 hiveClientConfig.getAllowDropTable(),
                 hiveClientConfig.getHiveStorageFormat(),
-                false);
+                false,
+                hiveClientConfig.getAllowAlterTableRename());
     }
 
     public HiveClient(HiveConnectorId connectorId,
@@ -207,7 +209,8 @@ public class HiveClient
             int maxInitialSplits,
             boolean allowDropTable,
             HiveStorageFormat hiveStorageFormat,
-            boolean recursiveDfsWalkerEnabled)
+            boolean recursiveDfsWalkerEnabled,
+            boolean allowAlterTableRename)
     {
         this.connectorId = checkNotNull(connectorId, "connectorId is null").toString();
 
@@ -231,6 +234,7 @@ public class HiveClient
 
         this.recursiveDfsWalkerEnabled = recursiveDfsWalkerEnabled;
         this.hiveStorageFormat = hiveStorageFormat;
+        this.allowAlterTableRename = allowAlterTableRename;
     }
 
     public HiveMetastore getMetastore()
@@ -428,6 +432,18 @@ public class HiveClient
     public ConnectorTableHandle createTable(ConnectorSession session, ConnectorTableMetadata tableMetadata)
     {
         throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public void alterTableRename(ConnectorTableHandle tableHandle, String databaseName, String tableName,
+                                    String targetDbName, String targetTableName)
+    {
+        if (!allowAlterTableRename) {
+            throw new RuntimeException(format("Alter Table Rename is disabled in this Hive catalog"));
+        }
+
+        HiveTableHandle hiveTableHandle = checkType(tableHandle, HiveTableHandle.class, "tableHandle");
+        metastore.alterTableRename(databaseName, tableName, targetDbName, targetTableName);
     }
 
     @Override

@@ -124,6 +124,13 @@ public interface Metadata
     TableHandle createTable(ConnectorSession session, String catalogName, TableMetadata tableMetadata);
 
     /**
+     * Rename the specified table.
+     */
+    @NotNull
+    void alterTableRename(TableHandle tableHandle, String databaseName, String tableName,
+                                    String targetDbName, String targetTableName);
+
+    /**
      * Drops the specified table
      *
      * @throws RuntimeException if the table can not be dropped or table handle is no longer valid

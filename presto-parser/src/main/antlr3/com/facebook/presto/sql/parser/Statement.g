@@ -85,6 +85,7 @@ tokens {
     SAMPLED_RELATION;
     QUERY_SPEC;
     STRATIFY_ON;
+    ALTER_TABLE_RENAME;
 }
 
 @header {
@@ -169,6 +170,7 @@ statement
     | dropTableStmt
     | createViewStmt
     | dropViewStmt
+    | alterTableStmt
     ;
 
 query
@@ -629,6 +631,10 @@ dropTableStmt
     : DROP TABLE qname -> ^(DROP_TABLE qname)
     ;
 
+alterTableStmt
+    : ALTER TABLE s=qname RENAME TO t=qname -> ^(ALTER_TABLE_RENAME $s $t)
+    ;
+
 createTableStmt
     : CREATE TABLE qname s=tableContentsSource -> ^(CREATE_TABLE qname $s)
     ;
@@ -864,6 +870,8 @@ POISSONIZED: 'POISSONIZED';
 TABLESAMPLE: 'TABLESAMPLE';
 RESCALED: 'RESCALED';
 STRATIFY: 'STRATIFY';
+ALTER: 'ALTER';
+RENAME: 'RENAME';
 
 EQ  : '=';
 NEQ : '<>' | '!=';

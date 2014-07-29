@@ -30,6 +30,13 @@ public abstract class ReadOnlyConnectorMetadata
     }
 
     @Override
+    public final void  alterTableRename(ConnectorTableHandle tableHandle, String databaseName, String tableName,
+                                    String targetDbName, String targetTableName)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
     public final void dropTable(ConnectorTableHandle tableHandle)
     {
         throw new UnsupportedOperationException();

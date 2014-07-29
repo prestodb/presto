@@ -151,6 +151,13 @@ public class TestingMetadata
     }
 
     @Override
+    public void alterTableRename(ConnectorTableHandle tableHandle, String databaseName, String tableName,
+                                    String targetDbName, String targetTableName)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
     public ConnectorTableHandle createTable(ConnectorSession session, ConnectorTableMetadata tableMetadata)
     {
         ConnectorTableMetadata existingTable = tables.putIfAbsent(tableMetadata.getTable(), tableMetadata);
