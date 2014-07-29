@@ -268,6 +268,12 @@ public class Block
         return this;
     }
 
+    public Block intToLong()
+    {
+        nodes.add(OpCodes.I2L);
+        return this;
+    }
+
     public Block longNegate()
     {
         nodes.add(OpCodes.LNEG);
