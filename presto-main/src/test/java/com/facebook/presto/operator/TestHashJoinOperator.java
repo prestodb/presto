@@ -68,7 +68,7 @@ public class TestHashJoinOperator
 
         // build
         OperatorContext operatorContext = driverContext.addOperatorContext(0, ValuesOperator.class.getSimpleName());
-        List<Type> buildTypes = ImmutableList.of(VARCHAR, BIGINT, BIGINT);
+        List<Type> buildTypes = ImmutableList.<Type>of(VARCHAR, BIGINT, BIGINT);
         Operator buildOperator = new ValuesOperator(operatorContext, buildTypes, rowPagesBuilder(buildTypes)
                 .addSequencePage(10, 20, 30, 40)
                 .build());
@@ -81,7 +81,7 @@ public class TestHashJoinOperator
         }
 
         // probe
-        List<Type> probeTypes = ImmutableList.of(VARCHAR, BIGINT, BIGINT);
+        List<Type> probeTypes = ImmutableList.<Type>of(VARCHAR, BIGINT, BIGINT);
         List<Page> probeInput = rowPagesBuilder(probeTypes)
                 .addSequencePage(1000, 0, 1000, 2000)
                 .build();
@@ -263,7 +263,7 @@ public class TestHashJoinOperator
 
         // build
         OperatorContext operatorContext = driverContext.addOperatorContext(0, ValuesOperator.class.getSimpleName());
-        List<Type> buildTypes = ImmutableList.of(VARCHAR, BIGINT, BIGINT);
+        List<Type> buildTypes = ImmutableList.<Type>of(VARCHAR, BIGINT, BIGINT);
         Operator buildOperator = new ValuesOperator(operatorContext, buildTypes, rowPagesBuilder(buildTypes)
                 .addSequencePage(10, 20, 30, 40)
                 .build());
@@ -277,7 +277,7 @@ public class TestHashJoinOperator
         }
 
         // probe
-        List<Type> probeTypes = ImmutableList.of(VARCHAR, BIGINT, BIGINT);
+        List<Type> probeTypes = ImmutableList.<Type>of(VARCHAR, BIGINT, BIGINT);
         List<Page> probeInput = rowPagesBuilder(probeTypes)
                 .addSequencePage(15, 20, 1020, 2020)
                 .build();
@@ -471,7 +471,7 @@ public class TestHashJoinOperator
                 .addDriverContext();
 
         OperatorContext operatorContext = driverContext.addOperatorContext(0, ValuesOperator.class.getSimpleName());
-        List<Type> buildTypes = ImmutableList.of(VARCHAR, BIGINT, BIGINT);
+        List<Type> buildTypes = ImmutableList.<Type>of(VARCHAR, BIGINT, BIGINT);
         Operator buildOperator = new ValuesOperator(operatorContext, buildTypes, rowPagesBuilder(buildTypes)
                 .addSequencePage(10, 20, 30, 40)
                 .build());

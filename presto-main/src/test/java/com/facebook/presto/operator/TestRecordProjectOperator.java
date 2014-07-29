@@ -16,6 +16,7 @@ package com.facebook.presto.operator;
 import com.facebook.presto.execution.TaskId;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.InMemoryRecordSet;
+import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.util.InfiniteRecordSet;
 import com.facebook.presto.testing.MaterializedResult;
 import com.google.common.collect.ImmutableList;
@@ -103,7 +104,7 @@ public class TestRecordProjectOperator
     public void testFinish()
             throws Exception
     {
-        InfiniteRecordSet records = new InfiniteRecordSet(ImmutableList.of(VARCHAR, BIGINT), ImmutableList.of("abc", 1L));
+        InfiniteRecordSet records = new InfiniteRecordSet(ImmutableList.<Type>of(VARCHAR, BIGINT), ImmutableList.of("abc", 1L));
 
         OperatorContext operatorContext = driverContext.addOperatorContext(0, RecordProjectOperator.class.getSimpleName());
         Operator operator = new RecordProjectOperator(operatorContext, records);

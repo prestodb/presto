@@ -25,7 +25,7 @@ import io.airlift.slice.Slice;
 //   size: is a short describing the length of the hll bytes
 //   hll: is the serialized hll
 public class HyperLogLogType
-        implements VariableWidthType
+        extends AbstractVariableWidthType
 {
     public static final HyperLogLogType HYPER_LOG_LOG = new HyperLogLogType();
 
@@ -37,48 +37,7 @@ public class HyperLogLogType
     @JsonCreator
     public HyperLogLogType()
     {
-    }
-
-    @Override
-    public String getName()
-    {
-        return "HyperLogLog";
-    }
-
-    @Override
-    public boolean isComparable()
-    {
-        return false;
-    }
-
-    @Override
-    public boolean isOrderable()
-    {
-        return false;
-    }
-
-    @Override
-    public Class<?> getJavaType()
-    {
-        return Slice.class;
-    }
-
-    @Override
-    public boolean equalTo(Block leftBlock, int leftPosition, Block rightBlock, int rightPosition)
-    {
-        throw new UnsupportedOperationException("HyperLogLog type is not comparable");
-    }
-
-    @Override
-    public int hash(Block block, int position)
-    {
-        throw new UnsupportedOperationException("HyperLogLog type is not comparable");
-    }
-
-    @Override
-    public int compareTo(Block leftBlock, int leftPosition, Block rightBlock, int rightPosition)
-    {
-        throw new UnsupportedOperationException("HyperLogLog type is not ordered");
+        super("HyperLogLog", Slice.class);
     }
 
     @Override
@@ -91,42 +50,6 @@ public class HyperLogLogType
             block.writeBytesTo(position, 0, block.getLength(position), blockBuilder);
             blockBuilder.closeEntry();
         }
-    }
-
-    @Override
-    public boolean getBoolean(Block block, int position)
-    {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public void writeBoolean(BlockBuilder sliceOutput, boolean value)
-    {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public long getLong(Block block, int position)
-    {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public void writeLong(BlockBuilder sliceOutput, long value)
-    {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public double getDouble(Block block, int position)
-    {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public void writeDouble(BlockBuilder sliceOutput, double value)
-    {
-        throw new UnsupportedOperationException();
     }
 
     @Override
@@ -161,30 +84,5 @@ public class HyperLogLogType
     public BlockBuilder createBlockBuilder(BlockBuilderStatus blockBuilderStatus)
     {
         return new VariableWidthBlockBuilder(blockBuilderStatus);
-    }
-
-    @Override
-    public boolean equals(Object o)
-    {
-        if (this == o) {
-            return true;
-        }
-        if (o == null || getClass() != o.getClass()) {
-            return false;
-        }
-
-        return true;
-    }
-
-    @Override
-    public int hashCode()
-    {
-        return getClass().hashCode();
-    }
-
-    @Override
-    public String toString()
-    {
-        return getName();
     }
 }

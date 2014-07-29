@@ -22,24 +22,19 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import io.airlift.slice.Slice;
 
 public class VarbinaryType
-        implements VariableWidthType
+        extends AbstractVariableWidthType
 {
     public static final VarbinaryType VARBINARY = new VarbinaryType();
 
     @JsonCreator
     public VarbinaryType()
     {
+        super("varbinary", Slice.class);
     }
 
     public static VarbinaryType getInstance()
     {
         return VARBINARY;
-    }
-
-    @Override
-    public String getName()
-    {
-        return "varbinary";
     }
 
     @Override
@@ -52,12 +47,6 @@ public class VarbinaryType
     public boolean isOrderable()
     {
         return true;
-    }
-
-    @Override
-    public Class<?> getJavaType()
-    {
-        return Slice.class;
     }
 
     @Override
@@ -108,42 +97,6 @@ public class VarbinaryType
     }
 
     @Override
-    public boolean getBoolean(Block block, int position)
-    {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public void writeBoolean(BlockBuilder sliceOutput, boolean value)
-    {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public long getLong(Block block, int position)
-    {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public void writeLong(BlockBuilder sliceOutput, long value)
-    {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public double getDouble(Block block, int position)
-    {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public void writeDouble(BlockBuilder sliceOutput, double value)
-    {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
     public Slice getSlice(Block block, int position)
     {
         return block.getSlice(position, 0, block.getLength(position));
@@ -165,30 +118,5 @@ public class VarbinaryType
     public BlockBuilder createBlockBuilder(BlockBuilderStatus blockBuilderStatus)
     {
         return new VariableWidthBlockBuilder(blockBuilderStatus);
-    }
-
-    @Override
-    public boolean equals(Object o)
-    {
-        if (this == o) {
-            return true;
-        }
-        if (o == null || getClass() != o.getClass()) {
-            return false;
-        }
-
-        return true;
-    }
-
-    @Override
-    public int hashCode()
-    {
-        return getClass().hashCode();
-    }
-
-    @Override
-    public String toString()
-    {
-        return getName();
     }
 }

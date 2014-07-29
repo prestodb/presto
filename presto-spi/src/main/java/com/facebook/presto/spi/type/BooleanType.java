@@ -16,14 +16,11 @@ package com.facebook.presto.spi.type;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.block.BlockBuilderStatus;
-import com.facebook.presto.spi.block.FixedWidthBlockBuilder;
-import io.airlift.slice.Slice;
 
 import static io.airlift.slice.SizeOf.SIZE_OF_BYTE;
 
 public final class BooleanType
-        implements FixedWidthType
+        extends AbstractFixedWidthType
 {
     public static final BooleanType BOOLEAN = new BooleanType();
 
@@ -34,12 +31,7 @@ public final class BooleanType
 
     private BooleanType()
     {
-    }
-
-    @Override
-    public String getName()
-    {
-        return "boolean";
+        super("boolean", boolean.class, SIZE_OF_BYTE);
     }
 
     @Override
@@ -55,18 +47,6 @@ public final class BooleanType
     }
 
     @Override
-    public Class<?> getJavaType()
-    {
-        return boolean.class;
-    }
-
-    @Override
-    public int getFixedSize()
-    {
-        return (int) SIZE_OF_BYTE;
-    }
-
-    @Override
     public Object getObjectValue(ConnectorSession session, Block block, int position)
     {
         if (block.isNull(position)) {
@@ -74,18 +54,6 @@ public final class BooleanType
         }
 
         return block.getByte(position, 0) != 0;
-    }
-
-    @Override
-    public BlockBuilder createBlockBuilder(BlockBuilderStatus blockBuilderStatus)
-    {
-        return new FixedWidthBlockBuilder(getFixedSize(), blockBuilderStatus);
-    }
-
-    @Override
-    public BlockBuilder createFixedSizeBlockBuilder(int positionCount)
-    {
-        return new FixedWidthBlockBuilder(getFixedSize(), positionCount);
     }
 
     @Override
@@ -132,53 +100,5 @@ public final class BooleanType
     public void writeBoolean(BlockBuilder blockBuilder, boolean value)
     {
         blockBuilder.writeByte(value ? 1 : 0).closeEntry();
-    }
-
-    @Override
-    public long getLong(Block block, int position)
-    {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public void writeLong(BlockBuilder blockBuilder, long value)
-    {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public double getDouble(Block block, int position)
-    {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public void writeDouble(BlockBuilder blockBuilder, double value)
-    {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public Slice getSlice(Block block, int position)
-    {
-        return block.getSlice(position, 0, getFixedSize());
-    }
-
-    @Override
-    public void writeSlice(BlockBuilder blockBuilder, Slice value)
-    {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public void writeSlice(BlockBuilder blockBuilder, Slice value, int offset, int length)
-    {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public String toString()
-    {
-        return getName();
     }
 }

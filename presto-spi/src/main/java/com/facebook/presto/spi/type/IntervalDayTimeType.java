@@ -16,14 +16,11 @@ package com.facebook.presto.spi.type;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.block.BlockBuilderStatus;
-import com.facebook.presto.spi.block.FixedWidthBlockBuilder;
-import io.airlift.slice.Slice;
 
 import static io.airlift.slice.SizeOf.SIZE_OF_LONG;
 
 public final class IntervalDayTimeType
-        implements FixedWidthType
+        extends AbstractFixedWidthType
 {
     public static final IntervalDayTimeType INTERVAL_DAY_TIME = new IntervalDayTimeType();
 
@@ -34,12 +31,7 @@ public final class IntervalDayTimeType
 
     private IntervalDayTimeType()
     {
-    }
-
-    @Override
-    public String getName()
-    {
-        return "interval day to second";
+        super("interval day to second", long.class, SIZE_OF_LONG);
     }
 
     @Override
@@ -55,36 +47,12 @@ public final class IntervalDayTimeType
     }
 
     @Override
-    public Class<?> getJavaType()
-    {
-        return long.class;
-    }
-
-    @Override
-    public int getFixedSize()
-    {
-        return (int) SIZE_OF_LONG;
-    }
-
-    @Override
     public Object getObjectValue(ConnectorSession session, Block block, int position)
     {
         if (block.isNull(position)) {
             return null;
         }
         return new SqlIntervalDayTime((int) block.getLong(position, 0));
-    }
-
-    @Override
-    public BlockBuilder createBlockBuilder(BlockBuilderStatus blockBuilderStatus)
-    {
-        return new FixedWidthBlockBuilder(getFixedSize(), blockBuilderStatus);
-    }
-
-    @Override
-    public BlockBuilder createFixedSizeBlockBuilder(int positionCount)
-    {
-        return new FixedWidthBlockBuilder(getFixedSize(), positionCount);
     }
 
     @Override
@@ -122,18 +90,6 @@ public final class IntervalDayTimeType
     }
 
     @Override
-    public boolean getBoolean(Block block, int position)
-    {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public void writeBoolean(BlockBuilder blockBuilder, boolean value)
-    {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
     public long getLong(Block block, int position)
     {
         return block.getLong(position, 0);
@@ -143,41 +99,5 @@ public final class IntervalDayTimeType
     public void writeLong(BlockBuilder blockBuilder, long value)
     {
         blockBuilder.writeLong(value).closeEntry();
-    }
-
-    @Override
-    public double getDouble(Block block, int position)
-    {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public void writeDouble(BlockBuilder blockBuilder, double value)
-    {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public Slice getSlice(Block block, int position)
-    {
-        return block.getSlice(position, 0, getFixedSize());
-    }
-
-    @Override
-    public void writeSlice(BlockBuilder blockBuilder, Slice value)
-    {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public void writeSlice(BlockBuilder blockBuilder, Slice value, int offset, int length)
-    {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public String toString()
-    {
-        return getName();
     }
 }

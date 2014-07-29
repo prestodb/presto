@@ -103,7 +103,7 @@ public class TestJoinCompiler
     {
         // compile a single channel hash strategy
         JoinCompiler joinCompiler = new JoinCompiler();
-        List<Type> types = ImmutableList.of(VARCHAR, VARCHAR, BIGINT, DOUBLE, BOOLEAN);
+        List<Type> types = ImmutableList.<Type>of(VARCHAR, VARCHAR, BIGINT, DOUBLE, BOOLEAN);
         PagesHashStrategyFactory pagesHashStrategyFactory = joinCompiler.compilePagesHashStrategy(types, Ints.asList(1, 2, 3, 4));
 
         // crate hash strategy with a single channel blocks -- make sure there is some overlap in values

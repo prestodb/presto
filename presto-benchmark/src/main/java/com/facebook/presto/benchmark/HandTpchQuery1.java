@@ -115,7 +115,7 @@ public class HandTpchQuery1
     public static class TpchQuery1Operator
             implements com.facebook.presto.operator.Operator // TODO: use import when Java 7 compiler bug is fixed
     {
-        private static final ImmutableList<Type> TYPES = ImmutableList.of(
+        private static final ImmutableList<Type> TYPES = ImmutableList.<Type>of(
                 VARCHAR,
                 VARCHAR,
                 BIGINT,

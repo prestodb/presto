@@ -17,15 +17,12 @@ import com.facebook.presto.operator.scalar.ColorFunctions;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.block.BlockBuilderStatus;
-import com.facebook.presto.spi.block.FixedWidthBlockBuilder;
-import com.facebook.presto.spi.type.FixedWidthType;
-import io.airlift.slice.Slice;
+import com.facebook.presto.spi.type.AbstractFixedWidthType;
 
 import static io.airlift.slice.SizeOf.SIZE_OF_INT;
 
 public class ColorType
-        implements FixedWidthType
+        extends AbstractFixedWidthType
 {
     public static final ColorType COLOR = new ColorType();
 
@@ -36,36 +33,13 @@ public class ColorType
 
     private ColorType()
     {
-    }
-
-    @Override
-    public String getName()
-    {
-        return "color";
+        super("color", long.class, SIZE_OF_INT);
     }
 
     @Override
     public boolean isComparable()
     {
         return true;
-    }
-
-    @Override
-    public boolean isOrderable()
-    {
-        return false;
-    }
-
-    @Override
-    public Class<?> getJavaType()
-    {
-        return long.class;
-    }
-
-    @Override
-    public int getFixedSize()
-    {
-        return (int) SIZE_OF_INT;
     }
 
     @Override
@@ -87,18 +61,6 @@ public class ColorType
     }
 
     @Override
-    public BlockBuilder createBlockBuilder(BlockBuilderStatus blockBuilderStatus)
-    {
-        return new FixedWidthBlockBuilder(getFixedSize(), blockBuilderStatus);
-    }
-
-    @Override
-    public BlockBuilder createFixedSizeBlockBuilder(int positionCount)
-    {
-        return new FixedWidthBlockBuilder(getFixedSize(), positionCount);
-    }
-
-    @Override
     public boolean equalTo(Block leftBlock, int leftPosition, Block rightBlock, int rightPosition)
     {
         int leftValue = leftBlock.getInt(leftPosition, 0);
@@ -113,12 +75,6 @@ public class ColorType
     }
 
     @Override
-    public int compareTo(Block leftBlock, int leftPosition, Block rightBlock, int rightPosition)
-    {
-        throw new UnsupportedOperationException("Color is not ordered");
-    }
-
-    @Override
     public void appendTo(Block block, int position, BlockBuilder blockBuilder)
     {
         if (block.isNull(position)) {
@@ -127,18 +83,6 @@ public class ColorType
         else {
             blockBuilder.writeInt(block.getInt(position, 0)).closeEntry();
         }
-    }
-
-    @Override
-    public boolean getBoolean(Block block, int position)
-    {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public void writeBoolean(BlockBuilder blockBuilder, boolean value)
-    {
-        throw new UnsupportedOperationException();
     }
 
     @Override
@@ -151,41 +95,5 @@ public class ColorType
     public void writeLong(BlockBuilder blockBuilder, long value)
     {
         blockBuilder.writeInt((int) value).closeEntry();
-    }
-
-    @Override
-    public double getDouble(Block block, int position)
-    {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public void writeDouble(BlockBuilder blockBuilder, double value)
-    {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public Slice getSlice(Block block, int position)
-    {
-        return block.getSlice(position, 0, getFixedSize());
-    }
-
-    @Override
-    public void writeSlice(BlockBuilder blockBuilder, Slice value)
-    {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public void writeSlice(BlockBuilder blockBuilder, Slice value, int offset, int length)
-    {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public String toString()
-    {
-        return getName();
     }
 }

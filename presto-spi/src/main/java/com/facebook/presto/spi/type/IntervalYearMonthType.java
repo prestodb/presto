@@ -16,14 +16,11 @@ package com.facebook.presto.spi.type;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.block.BlockBuilderStatus;
-import com.facebook.presto.spi.block.FixedWidthBlockBuilder;
-import io.airlift.slice.Slice;
 
 import static io.airlift.slice.SizeOf.SIZE_OF_LONG;
 
 public final class IntervalYearMonthType
-        implements FixedWidthType
+        extends AbstractFixedWidthType
 {
     public static final IntervalYearMonthType INTERVAL_YEAR_MONTH = new IntervalYearMonthType();
 
@@ -34,12 +31,7 @@ public final class IntervalYearMonthType
 
     private IntervalYearMonthType()
     {
-    }
-
-    @Override
-    public String getName()
-    {
-        return "interval year to month";
+        super("interval year to month", long.class, SIZE_OF_LONG);
     }
 
     @Override
@@ -55,36 +47,12 @@ public final class IntervalYearMonthType
     }
 
     @Override
-    public Class<?> getJavaType()
-    {
-        return long.class;
-    }
-
-    @Override
-    public int getFixedSize()
-    {
-        return (int) SIZE_OF_LONG;
-    }
-
-    @Override
     public Object getObjectValue(ConnectorSession session, Block block, int position)
     {
         if (block.isNull(position)) {
             return null;
         }
         return new SqlIntervalYearMonth((int) block.getLong(position, 0));
-    }
-
-    @Override
-    public BlockBuilder createBlockBuilder(BlockBuilderStatus blockBuilderStatus)
-    {
-        return new FixedWidthBlockBuilder(getFixedSize(), blockBuilderStatus);
-    }
-
-    @Override
-    public BlockBuilder createFixedSizeBlockBuilder(int positionCount)
-    {
-        return new FixedWidthBlockBuilder(getFixedSize(), positionCount);
     }
 
     @Override
@@ -122,18 +90,6 @@ public final class IntervalYearMonthType
     }
 
     @Override
-    public boolean getBoolean(Block block, int position)
-    {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public void writeBoolean(BlockBuilder blockBuilder, boolean value)
-    {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
     public long getLong(Block block, int position)
     {
         return block.getLong(position, 0);
@@ -143,41 +99,5 @@ public final class IntervalYearMonthType
     public void writeLong(BlockBuilder blockBuilder, long value)
     {
         blockBuilder.writeLong(value).closeEntry();
-    }
-
-    @Override
-    public double getDouble(Block block, int position)
-    {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public void writeDouble(BlockBuilder blockBuilder, double value)
-    {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public Slice getSlice(Block block, int position)
-    {
-        return block.getSlice(position, 0, getFixedSize());
-    }
-
-    @Override
-    public void writeSlice(BlockBuilder blockBuilder, Slice value)
-    {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public void writeSlice(BlockBuilder blockBuilder, Slice value, int offset, int length)
-    {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public String toString()
-    {
-        return getName();
     }
 }

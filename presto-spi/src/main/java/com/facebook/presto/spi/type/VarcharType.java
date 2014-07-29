@@ -23,7 +23,7 @@ import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 
 public class VarcharType
-        implements VariableWidthType
+        extends AbstractVariableWidthType
 {
     public static final VarcharType VARCHAR = new VarcharType();
 
@@ -35,12 +35,7 @@ public class VarcharType
     @JsonCreator
     public VarcharType()
     {
-    }
-
-    @Override
-    public String getName()
-    {
-        return "varchar";
+        super("varchar", Slice.class);
     }
 
     @Override
@@ -53,12 +48,6 @@ public class VarcharType
     public boolean isOrderable()
     {
         return true;
-    }
-
-    @Override
-    public Class<?> getJavaType()
-    {
-        return Slice.class;
     }
 
     @Override
@@ -109,42 +98,6 @@ public class VarcharType
     }
 
     @Override
-    public boolean getBoolean(Block block, int position)
-    {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public void writeBoolean(BlockBuilder sliceOutput, boolean value)
-    {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public long getLong(Block block, int position)
-    {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public void writeLong(BlockBuilder sliceOutput, long value)
-    {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public double getDouble(Block block, int position)
-    {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public void writeDouble(BlockBuilder sliceOutput, double value)
-    {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
     public Slice getSlice(Block block, int position)
     {
         return block.getSlice(position, 0, block.getLength(position));
@@ -171,30 +124,5 @@ public class VarcharType
     public BlockBuilder createBlockBuilder(BlockBuilderStatus blockBuilderStatus)
     {
         return new VariableWidthBlockBuilder(blockBuilderStatus);
-    }
-
-    @Override
-    public boolean equals(Object o)
-    {
-        if (this == o) {
-            return true;
-        }
-        if (o == null || getClass() != o.getClass()) {
-            return false;
-        }
-
-        return true;
-    }
-
-    @Override
-    public int hashCode()
-    {
-        return getClass().hashCode();
-    }
-
-    @Override
-    public String toString()
-    {
-        return getName();
     }
 }
