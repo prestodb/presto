@@ -42,7 +42,7 @@ import static com.facebook.presto.cassandra.CassandraColumnHandle.columnMetadata
 import static com.facebook.presto.cassandra.CassandraType.BIGINT;
 import static com.facebook.presto.cassandra.CassandraType.toCassandraType;
 import static com.facebook.presto.cassandra.util.Types.checkType;
-import static com.facebook.presto.spi.StandardErrorCode.CANNOT_DROP_TABLE;
+import static com.facebook.presto.spi.StandardErrorCode.PERMISSION_DENIED;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Strings.isNullOrEmpty;
@@ -229,7 +229,7 @@ public class CassandraMetadata
         checkArgument(tableHandle instanceof CassandraTableHandle, "tableHandle is not an instance of CassandraTableHandle");
 
         if (!allowDropTable) {
-            throw new PrestoException(CANNOT_DROP_TABLE.toErrorCode(), "DROP TABLE is disabled in this Hive catalog");
+            throw new PrestoException(PERMISSION_DENIED.toErrorCode(), "DROP TABLE is disabled in this Hive catalog");
         }
 
         CassandraTableHandle cassandraTableHandle = (CassandraTableHandle) tableHandle;
