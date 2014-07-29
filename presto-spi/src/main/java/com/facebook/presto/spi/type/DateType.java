@@ -16,9 +16,6 @@ package com.facebook.presto.spi.type;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.block.BlockBuilderStatus;
-import com.facebook.presto.spi.block.FixedWidthBlockBuilder;
-import io.airlift.slice.Slice;
 
 import static com.facebook.presto.spi.type.TimeZoneIndex.getTimeZoneForKey;
 import static io.airlift.slice.SizeOf.SIZE_OF_LONG;
@@ -32,7 +29,7 @@ import static io.airlift.slice.SizeOf.SIZE_OF_LONG;
 // type, the time zone offset must be added or removed to keep the time at midnight.
 //
 public final class DateType
-        implements FixedWidthType
+        extends AbstractFixedWidthType
 {
     public static final DateType DATE = new DateType();
 
@@ -43,12 +40,7 @@ public final class DateType
 
     private DateType()
     {
-    }
-
-    @Override
-    public String getName()
-    {
-        return "date";
+        super("date", long.class, SIZE_OF_LONG);
     }
 
     @Override
@@ -64,18 +56,6 @@ public final class DateType
     }
 
     @Override
-    public Class<?> getJavaType()
-    {
-        return long.class;
-    }
-
-    @Override
-    public int getFixedSize()
-    {
-        return (int) SIZE_OF_LONG;
-    }
-
-    @Override
     public Object getObjectValue(ConnectorSession session, Block block, int position)
     {
         if (block.isNull(position)) {
@@ -85,18 +65,6 @@ public final class DateType
         // convert date to timestamp at midnight in local time zone
         long date = block.getLong(position, 0);
         return new SqlDate(date - getTimeZoneForKey(session.getTimeZoneKey()).getOffset(date), session.getTimeZoneKey());
-    }
-
-    @Override
-    public BlockBuilder createBlockBuilder(BlockBuilderStatus blockBuilderStatus)
-    {
-        return new FixedWidthBlockBuilder(getFixedSize(), blockBuilderStatus);
-    }
-
-    @Override
-    public BlockBuilder createFixedSizeBlockBuilder(int positionCount)
-    {
-        return new FixedWidthBlockBuilder(getFixedSize(), positionCount);
     }
 
     @Override
@@ -134,18 +102,6 @@ public final class DateType
     }
 
     @Override
-    public boolean getBoolean(Block block, int position)
-    {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public void writeBoolean(BlockBuilder blockBuilder, boolean value)
-    {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
     public long getLong(Block block, int position)
     {
         return block.getLong(position, 0);
@@ -155,41 +111,5 @@ public final class DateType
     public void writeLong(BlockBuilder blockBuilder, long value)
     {
         blockBuilder.writeLong(value).closeEntry();
-    }
-
-    @Override
-    public double getDouble(Block block, int position)
-    {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public void writeDouble(BlockBuilder blockBuilder, double value)
-    {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public Slice getSlice(Block block, int position)
-    {
-        return block.getSlice(position, 0, getFixedSize());
-    }
-
-    @Override
-    public void writeSlice(BlockBuilder blockBuilder, Slice value)
-    {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public void writeSlice(BlockBuilder blockBuilder, Slice value, int offset, int length)
-    {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public String toString()
-    {
-        return getName();
     }
 }

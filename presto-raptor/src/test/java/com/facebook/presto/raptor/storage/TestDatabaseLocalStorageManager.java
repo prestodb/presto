@@ -23,6 +23,7 @@ import com.facebook.presto.operator.Page;
 import com.facebook.presto.operator.TaskContext;
 import com.facebook.presto.raptor.RaptorColumnHandle;
 import com.facebook.presto.spi.ConnectorSession;
+import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.testing.MaterializedResult;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
@@ -127,7 +128,7 @@ public class TestDatabaseLocalStorageManager
         OperatorContext operatorContext = driverContext.addOperatorContext(0, AlignmentOperator.class.getSimpleName());
         Operator operator = new AlignmentOperator(
                 operatorContext,
-                ImmutableList.of(VARCHAR, BIGINT),
+                ImmutableList.<Type>of(VARCHAR, BIGINT),
                 ImmutableList.of(
                         storageManager.getBlocks(shardUuid, columnHandles.get(0)),
                         storageManager.getBlocks(shardUuid, columnHandles.get(1)))

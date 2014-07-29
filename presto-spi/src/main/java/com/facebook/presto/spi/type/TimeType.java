@@ -16,9 +16,6 @@ package com.facebook.presto.spi.type;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.block.BlockBuilderStatus;
-import com.facebook.presto.spi.block.FixedWidthBlockBuilder;
-import io.airlift.slice.Slice;
 
 import static io.airlift.slice.SizeOf.SIZE_OF_LONG;
 
@@ -27,7 +24,7 @@ import static io.airlift.slice.SizeOf.SIZE_OF_LONG;
 // When performing calculations on a time the client's time zone must be taken into account.
 //
 public final class TimeType
-        implements FixedWidthType
+        extends AbstractFixedWidthType
 {
     public static final TimeType TIME = new TimeType();
 
@@ -38,12 +35,7 @@ public final class TimeType
 
     private TimeType()
     {
-    }
-
-    @Override
-    public String getName()
-    {
-        return "time";
+        super("time", long.class, SIZE_OF_LONG);
     }
 
     @Override
@@ -59,18 +51,6 @@ public final class TimeType
     }
 
     @Override
-    public Class<?> getJavaType()
-    {
-        return long.class;
-    }
-
-    @Override
-    public int getFixedSize()
-    {
-        return (int) SIZE_OF_LONG;
-    }
-
-    @Override
     public Object getObjectValue(ConnectorSession session, Block block, int position)
     {
         if (block.isNull(position)) {
@@ -78,18 +58,6 @@ public final class TimeType
         }
 
         return new SqlTime(block.getLong(position, 0), session.getTimeZoneKey());
-    }
-
-    @Override
-    public BlockBuilder createBlockBuilder(BlockBuilderStatus blockBuilderStatus)
-    {
-        return new FixedWidthBlockBuilder(getFixedSize(), blockBuilderStatus);
-    }
-
-    @Override
-    public BlockBuilder createFixedSizeBlockBuilder(int positionCount)
-    {
-        return new FixedWidthBlockBuilder(getFixedSize(), positionCount);
     }
 
     @Override
@@ -127,18 +95,6 @@ public final class TimeType
     }
 
     @Override
-    public boolean getBoolean(Block block, int position)
-    {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public void writeBoolean(BlockBuilder blockBuilder, boolean value)
-    {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
     public long getLong(Block block, int position)
     {
         return block.getLong(position, 0);
@@ -148,41 +104,5 @@ public final class TimeType
     public void writeLong(BlockBuilder blockBuilder, long value)
     {
         blockBuilder.writeLong(value).closeEntry();
-    }
-
-    @Override
-    public double getDouble(Block block, int position)
-    {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public void writeDouble(BlockBuilder blockBuilder, double value)
-    {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public Slice getSlice(Block block, int position)
-    {
-        return block.getSlice(position, 0, getFixedSize());
-    }
-
-    @Override
-    public void writeSlice(BlockBuilder blockBuilder, Slice value)
-    {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public void writeSlice(BlockBuilder blockBuilder, Slice value, int offset, int length)
-    {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public String toString()
-    {
-        return getName();
     }
 }

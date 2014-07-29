@@ -19,13 +19,12 @@ import com.facebook.presto.spi.StandardErrorCode;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
-import com.facebook.presto.spi.type.Type;
-import io.airlift.slice.Slice;
+import com.facebook.presto.spi.type.AbstractType;
 
 import java.util.regex.Pattern;
 
 public class RegexpType
-    implements Type
+        extends AbstractType
 {
     public static final RegexpType REGEXP = new RegexpType();
 
@@ -34,28 +33,9 @@ public class RegexpType
         return REGEXP;
     }
 
-    @Override
-    public String getName()
+    public RegexpType()
     {
-        return "RegExp";
-    }
-
-    @Override
-    public boolean isComparable()
-    {
-        return false;
-    }
-
-    @Override
-    public boolean isOrderable()
-    {
-        return false;
-    }
-
-    @Override
-    public Class<?> getJavaType()
-    {
-        return Pattern.class;
+        super("RegExp", Pattern.class);
     }
 
     @Override
@@ -65,79 +45,7 @@ public class RegexpType
     }
 
     @Override
-    public boolean getBoolean(Block block, int position)
-    {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public long getLong(Block block, int position)
-    {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public double getDouble(Block block, int position)
-    {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public Slice getSlice(Block block, int position)
-    {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public boolean equalTo(Block leftBlock, int leftPosition, Block rightBlock, int rightPosition)
-    {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public int hash(Block block, int position)
-    {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public int compareTo(Block leftBlock, int leftPosition, Block rightBlock, int rightPosition)
-    {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
     public void appendTo(Block block, int position, BlockBuilder blockBuilder)
-    {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public void writeBoolean(BlockBuilder blockBuilder, boolean value)
-    {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public void writeLong(BlockBuilder blockBuilder, long value)
-    {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public void writeDouble(BlockBuilder blockBuilder, double value)
-    {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public void writeSlice(BlockBuilder blockBuilder, Slice value)
-    {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public void writeSlice(BlockBuilder blockBuilder, Slice value, int offset, int length)
     {
         throw new UnsupportedOperationException();
     }

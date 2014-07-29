@@ -53,7 +53,7 @@ public final class MetadataUtil
     public static final class TestingTypeDeserializer
             extends FromStringDeserializer<Type>
     {
-        private final Map<String, Type> types = ImmutableMap.of(
+        private final Map<String, Type> types = ImmutableMap.<String, Type>of(
                 BOOLEAN.getName(), BOOLEAN,
                 BIGINT.getName(), BIGINT,
                 DOUBLE.getName(), DOUBLE,

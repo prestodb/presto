@@ -84,7 +84,7 @@ public class TestDriver
     @Test
     public void testNormalFinish()
     {
-        List<Type> types = ImmutableList.of(VARCHAR, BIGINT, BIGINT);
+        List<Type> types = ImmutableList.<Type>of(VARCHAR, BIGINT, BIGINT);
         ValuesOperator source = new ValuesOperator(driverContext.addOperatorContext(0, "values"), types, rowPagesBuilder(types)
                 .addSequencePage(10, 20, 30, 40)
                 .build());
@@ -106,7 +106,7 @@ public class TestDriver
     @Test
     public void testAbruptFinish()
     {
-        List<Type> types = ImmutableList.of(VARCHAR, BIGINT, BIGINT);
+        List<Type> types = ImmutableList.<Type>of(VARCHAR, BIGINT, BIGINT);
         ValuesOperator source = new ValuesOperator(driverContext.addOperatorContext(0, "values"), types, rowPagesBuilder(types)
                 .addSequencePage(10, 20, 30, 40)
                 .build());
@@ -128,7 +128,7 @@ public class TestDriver
     public void testAddSourceFinish()
     {
         PlanNodeId sourceId = new PlanNodeId("source");
-        final List<Type> types = ImmutableList.of(VARCHAR, BIGINT, BIGINT);
+        final List<Type> types = ImmutableList.<Type>of(VARCHAR, BIGINT, BIGINT);
         TableScanOperator source = new TableScanOperator(driverContext.addOperatorContext(99, "values"),
                 sourceId,
                 new DataStreamProvider()
@@ -232,7 +232,7 @@ public class TestDriver
             throws Exception
     {
         PlanNodeId sourceId = new PlanNodeId("source");
-        final List<Type> types = ImmutableList.of(VARCHAR, BIGINT, BIGINT);
+        final List<Type> types = ImmutableList.<Type>of(VARCHAR, BIGINT, BIGINT);
         TableScanOperator source = new TableScanOperator(driverContext.addOperatorContext(99, "values"),
                 sourceId,
                 new DataStreamProvider()

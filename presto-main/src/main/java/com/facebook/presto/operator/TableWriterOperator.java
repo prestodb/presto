@@ -34,7 +34,7 @@ import static com.google.common.base.Preconditions.checkState;
 public class TableWriterOperator
         implements Operator
 {
-    public static final List<Type> TYPES = ImmutableList.of(BIGINT, VARCHAR);
+    public static final List<Type> TYPES = ImmutableList.<Type>of(BIGINT, VARCHAR);
 
     public static class TableWriterOperatorFactory
             implements OperatorFactory

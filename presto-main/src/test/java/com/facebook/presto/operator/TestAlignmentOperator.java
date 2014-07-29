@@ -16,6 +16,7 @@ package com.facebook.presto.operator;
 import com.facebook.presto.execution.TaskId;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.block.Block;
+import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableList;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
@@ -139,6 +140,6 @@ public class TestAlignmentOperator
         Iterable<Block> channel1 = ImmutableList.of(createLongSequenceBlock(0, 12));
 
         OperatorContext operatorContext = driverContext.addOperatorContext(0, AlignmentOperator.class.getSimpleName());
-        return new AlignmentOperator(operatorContext, ImmutableList.of(VARCHAR, BIGINT), ImmutableList.of(channel0, channel1));
+        return new AlignmentOperator(operatorContext, ImmutableList.<Type>of(VARCHAR, BIGINT), ImmutableList.of(channel0, channel1));
     }
 }
