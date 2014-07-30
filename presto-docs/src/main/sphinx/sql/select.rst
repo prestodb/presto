@@ -27,6 +27,16 @@ where ``from_item`` is one of
 
     from_item join_type from_item [ ON join_condition | USING ( join_column [, ...] ) ]
 
+and ``join_type`` is one of
+
+.. code-block:: none
+
+    [ INNER ] JOIN
+    LEFT [ OUTER ] JOIN
+    RIGHT [ OUTER ] JOIN
+    FULL [ OUTER ] JOIN
+    CROSS JOIN
+
 Description
 -----------
 
@@ -315,3 +325,72 @@ Using multiple columns::
      [7, 8, 9] | 8 | 2
      [7, 8, 9] | 9 | 3
     (5 rows)
+
+Joins
+-----
+
+Joins allow you to combine data from multiple relations.
+
+CROSS JOIN
+^^^^^^^^^^
+
+A cross join returns the Cartesian product (all combinations) of two
+relations. Cross joins can either be specified using the explit
+``CROSS JOIN`` syntax or by specifying multiple relations in the
+``FROM`` clause.
+
+Both of the following queries are equivalent::
+
+    SELECT *
+    FROM nation
+    CROSS JOIN region;
+
+    SELECT *
+    FROM nation, region;
+
+The ``nation`` table contains 25 rows and the ``region`` table contains 5 rows,
+so a cross join between the two tables produces 125 rows::
+
+    SELECT n.name AS nation, r.name AS region
+    FROM nation AS n
+    CROSS JOIN region AS r
+    ORDER BY 1, 2;
+
+.. code-block:: none
+
+         nation     |   region
+    ----------------+-------------
+     ALGERIA        | AFRICA
+     ALGERIA        | AMERICA
+     ALGERIA        | ASIA
+     ALGERIA        | EUROPE
+     ALGERIA        | MIDDLE EAST
+     ARGENTINA      | AFRICA
+     ARGENTINA      | AMERICA
+    ...
+    (125 rows)
+
+Qualifying Column Names
+^^^^^^^^^^^^^^^^^^^^^^^
+
+When two relations in a join have columns with the same name, the column
+references must be qualified using the relation alias (if the relation
+has an alias), or with the relation name::
+
+    SELECT nation.name, region.name
+    FROM nation
+    CROSS JOIN region;
+
+    SELECT n.name, r.name
+    FROM nation AS n
+    CROSS JOIN region AS r;
+
+    SELECT n.name, r.name
+    FROM nation n
+    CROSS JOIN region r;
+
+The following query will fail with the error ``Column 'name' is ambiguous``::
+
+    SELECT name
+    FROM nation
+    CROSS JOIN region;
