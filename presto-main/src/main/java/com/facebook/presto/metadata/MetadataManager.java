@@ -500,19 +500,19 @@ public class MetadataManager
 
     private ConnectorMetadata lookupConnectorFor(TableHandle tableHandle)
     {
-        checkNotNull(tableHandle, "tableHandle is null");
-
-        ConnectorMetadata result = connectorsById.get(tableHandle.getConnectorId());
-        checkArgument(result != null, "No connector for table handle: %s", tableHandle.getConnectorId());
-
-        return result;
+        return getConnectorMetadata(tableHandle.getConnectorId());
     }
 
     private ConnectorMetadata lookupConnectorFor(OutputTableHandle tableHandle)
     {
-        ConnectorMetadata metadata = connectorsById.get(tableHandle.getConnectorId());
-        checkArgument(metadata != null, "No connector for output table handle: %s", tableHandle.getConnectorId());
-        return metadata;
+        return getConnectorMetadata(tableHandle.getConnectorId());
+    }
+
+    private ConnectorMetadata getConnectorMetadata(String connectorId)
+    {
+        ConnectorMetadata result = connectorsById.get(connectorId);
+        checkArgument(result != null, "No connector for connector ID: %s", connectorId);
+        return result;
     }
 
     private static class ConnectorMetadataEntry
