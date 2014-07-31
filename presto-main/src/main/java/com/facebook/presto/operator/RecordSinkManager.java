@@ -36,10 +36,13 @@ public class RecordSinkManager
     @Override
     public RecordSink getRecordSink(OutputTableHandle tableHandle)
     {
-        ConnectorRecordSinkProvider provider = recordSinkProviders.get(tableHandle.getConnectorId());
+        return providerFor(tableHandle.getConnectorId()).getRecordSink(tableHandle.getConnectorHandle());
+    }
 
-        checkArgument(provider != null, "No record sink for '%s'", tableHandle.getConnectorId());
-
-        return provider.getRecordSink(tableHandle.getConnectorHandle());
+    private ConnectorRecordSinkProvider providerFor(String connectorId)
+    {
+        ConnectorRecordSinkProvider provider = recordSinkProviders.get(connectorId);
+        checkArgument(provider != null, "No record sink provider for connector '%s'", connectorId);
+        return provider;
     }
 }
