@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.operator.aggregation;
 
+import com.facebook.presto.byteCode.DynamicClassLoader;
 import com.facebook.presto.operator.aggregation.state.AccumulatorState;
 import com.facebook.presto.operator.aggregation.state.AccumulatorStateFactory;
 import com.facebook.presto.operator.aggregation.state.AccumulatorStateSerializer;
@@ -80,6 +81,8 @@ public class AggregationCompiler
         AggregationFunction aggregationAnnotation = clazz.getAnnotation(AggregationFunction.class);
         checkNotNull(aggregationAnnotation, "aggregationAnnotation is null");
 
+        DynamicClassLoader classLoader = new DynamicClassLoader(clazz.getClassLoader());
+
         ImmutableList.Builder<InternalAggregationFunction> builder = ImmutableList.builder();
         for (Class<?> stateClass : getStateClasses(clazz)) {
             AccumulatorStateSerializer<?> stateSerializer = new StateCompiler().generateStateSerializer(stateClass);
@@ -112,7 +115,8 @@ public class AggregationCompiler
                                 outputType,
                                 stateSerializer,
                                 stateFactory,
-                                aggregationAnnotation.approximate());
+                                aggregationAnnotation.approximate(),
+                                classLoader);
                         // TODO: support un-decomposable aggregations
                         builder.add(new GenericAggregationFunction(name, inputTypes, intermediateType, outputType, false, aggregationAnnotation.approximate(), factory));
                     }

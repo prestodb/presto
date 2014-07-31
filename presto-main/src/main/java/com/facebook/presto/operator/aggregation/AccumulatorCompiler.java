@@ -73,10 +73,9 @@ public class AccumulatorCompiler
             Type finalType,
             AccumulatorStateSerializer<?> stateSerializer,
             AccumulatorStateFactory<?> stateFactory,
-            boolean approximateSupported)
+            boolean approximateSupported,
+            DynamicClassLoader classLoader)
     {
-        DynamicClassLoader classLoader = createClassLoader();
-
         checkNotNull(inputFunction, "inputFunction is null");
         checkArgument(combineFunction == null || intermediateInputFunction == null, "Aggregation cannot have both a combine and a intermediate input method");
         checkArgument(combineFunction != null || intermediateInputFunction != null, "Aggregation must have either a combine or a intermediate input method");
@@ -380,11 +379,6 @@ public class AccumulatorCompiler
             body.invokeConstructor(constructor);
             body.ret();
         }
-    }
-
-    private DynamicClassLoader createClassLoader()
-    {
-        return new DynamicClassLoader(getClass().getClassLoader());
     }
 
     private static Map<String, Class<?>> defineClasses(List<ClassDefinition> classDefinitions, DynamicClassLoader classLoader)
