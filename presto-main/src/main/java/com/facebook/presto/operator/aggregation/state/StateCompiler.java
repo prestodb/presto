@@ -73,11 +73,6 @@ public class StateCompiler
 
     private static final AtomicLong CLASS_ID = new AtomicLong();
 
-    private DynamicClassLoader createClassLoader()
-    {
-        return new DynamicClassLoader(getClass().getClassLoader());
-    }
-
     private static Map<String, Class<?>> defineClasses(List<ClassDefinition> classDefinitions, DynamicClassLoader classLoader)
     {
         ClassInfoLoader classInfoLoader = ClassInfoLoader.createClassInfoLoader(classDefinitions, classLoader);
@@ -139,7 +134,7 @@ public class StateCompiler
             }
         }
 
-        DynamicClassLoader classLoader = createClassLoader();
+        DynamicClassLoader classLoader = new DynamicClassLoader(clazz.getClassLoader());
 
         ClassDefinition definition = new ClassDefinition(new CompilerContext(null),
                 a(PUBLIC, FINAL),
@@ -379,7 +374,8 @@ public class StateCompiler
             }
         }
 
-        DynamicClassLoader classLoader = createClassLoader();
+        DynamicClassLoader classLoader = new DynamicClassLoader(clazz.getClassLoader());
+
         Class<? extends T> singleStateClass = generateSingleStateClass(clazz, classLoader);
         Class<? extends T> groupedStateClass = generateGroupedStateClass(clazz, classLoader);
 
