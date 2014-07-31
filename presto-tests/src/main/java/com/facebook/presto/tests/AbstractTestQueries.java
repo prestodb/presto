@@ -1569,6 +1569,13 @@ public abstract class AbstractTestQueries
     }
 
     @Test
+    public void testMaxBy()
+            throws Exception
+    {
+        assertQuery("SELECT MAX_BY(orderkey, totalprice) FROM orders", "SELECT orderkey FROM orders ORDER BY totalprice DESC LIMIT 1");
+    }
+
+    @Test
     public void testGroupByBetween()
             throws Exception
     {
