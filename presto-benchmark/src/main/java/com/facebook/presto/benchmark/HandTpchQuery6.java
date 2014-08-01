@@ -13,16 +13,15 @@
  */
 package com.facebook.presto.benchmark;
 
-import com.facebook.presto.benchmark.HandTpchQuery6.TpchQuery6Operator.TpchQuery6OperatorFactory;
 import com.facebook.presto.operator.AggregationOperator.AggregationOperatorFactory;
-import com.facebook.presto.operator.DriverContext;
-import com.facebook.presto.operator.Operator;
-import com.facebook.presto.operator.OperatorContext;
+import com.facebook.presto.operator.FilterAndProjectOperator;
 import com.facebook.presto.operator.OperatorFactory;
 import com.facebook.presto.operator.Page;
 import com.facebook.presto.operator.PageBuilder;
+import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.operator.PageProcessor;
 import com.facebook.presto.sql.planner.plan.AggregationNode.Step;
 import com.facebook.presto.testing.LocalQueryRunner;
 import com.google.common.base.Optional;
@@ -60,7 +59,7 @@ public class HandTpchQuery6
         //    and quantity < 24;
         OperatorFactory tableScanOperator = createTableScanOperator(0, "lineitem", "extendedprice", "discount", "shipdate", "quantity");
 
-        TpchQuery6OperatorFactory tpchQuery6Operator = new TpchQuery6OperatorFactory(1);
+        FilterAndProjectOperator.FilterAndProjectOperatorFactory tpchQuery6Operator = new FilterAndProjectOperator.FilterAndProjectOperatorFactory(1, new TpchQuery6Processor(), ImmutableList.<Type>of(DOUBLE));
 
         AggregationOperatorFactory aggregationOperator = new AggregationOperatorFactory(
                 2,
@@ -72,64 +71,24 @@ public class HandTpchQuery6
         return ImmutableList.of(tableScanOperator, tpchQuery6Operator, aggregationOperator);
     }
 
-    public static class TpchQuery6Operator
-            extends com.facebook.presto.operator.AbstractFilterAndProjectOperator // TODO: use import when Java 7 compiler bug is fixed
+    public static class TpchQuery6Processor
+            implements PageProcessor
     {
-        public static class TpchQuery6OperatorFactory
-                implements OperatorFactory
-        {
-            private final int operatorId;
-
-            public TpchQuery6OperatorFactory(int operatorId)
-            {
-                this.operatorId = operatorId;
-            }
-
-            @Override
-            public List<Type> getTypes()
-            {
-                return ImmutableList.<Type>of(DOUBLE);
-            }
-
-            @Override
-            public Operator createOperator(DriverContext driverContext)
-            {
-                OperatorContext operatorContext = driverContext.addOperatorContext(operatorId, TpchQuery6Operator.class.getSimpleName());
-                return new TpchQuery6Operator(operatorContext);
-            }
-
-            @Override
-            public void close()
-            {
-            }
-        }
-
         private static final Slice MIN_SHIP_DATE = Slices.copiedBuffer("1994-01-01", UTF_8);
         private static final Slice MAX_SHIP_DATE = Slices.copiedBuffer("1995-01-01", UTF_8);
 
-        public TpchQuery6Operator(OperatorContext operatorContext)
-        {
-            super(operatorContext, ImmutableList.of(DOUBLE));
-        }
-
         @Override
-        protected void filterAndProjectRowOriented(Page page, PageBuilder pageBuilder)
+        public void process(ConnectorSession session, Page page, PageBuilder pageBuilder)
         {
-            filterAndProjectRowOriented(pageBuilder, page.getBlock(0), page.getBlock(1), page.getBlock(2), page.getBlock(3));
-        }
-
-        private static void filterAndProjectRowOriented(PageBuilder pageBuilder, Block extendedPriceBlock, Block discountBlock, Block shipDateBlock, Block quantityBlock)
-        {
-            int rows = extendedPriceBlock.getPositionCount();
-
-            for (int position = 0; position < rows; position++) {
+            Block discountBlock = page.getBlock(1);
+            for (int position = 0; position < page.getPositionCount(); position++) {
                 // where shipdate >= '1994-01-01'
                 //    and shipdate < '1995-01-01'
                 //    and discount >= 0.05
                 //    and discount <= 0.07
                 //    and quantity < 24;
-                if (filter(position, discountBlock, shipDateBlock, quantityBlock)) {
-                    project(position, pageBuilder, extendedPriceBlock, discountBlock);
+                if (filter(position, discountBlock, page.getBlock(2), page.getBlock(3))) {
+                    project(position, pageBuilder, page.getBlock(0), discountBlock);
                 }
             }
         }

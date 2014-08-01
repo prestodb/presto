@@ -35,7 +35,9 @@ public class CastCodeGenerator
 
         CompilerContext context = generatorContext.getContext();
         if (argument.getType().equals(UnknownType.UNKNOWN)) {
-            return new Block(context).putVariable("wasNull", true).pushJavaDefault(returnType.getJavaType());
+            return new Block(context)
+                    .putVariable("wasNull", true)
+                    .pushJavaDefault(returnType.getJavaType());
         }
 
         FunctionInfo function = generatorContext
