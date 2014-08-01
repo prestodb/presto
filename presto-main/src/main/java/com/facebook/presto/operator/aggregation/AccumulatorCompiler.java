@@ -15,14 +15,11 @@ package com.facebook.presto.operator.aggregation;
 
 import com.facebook.presto.byteCode.Block;
 import com.facebook.presto.byteCode.ClassDefinition;
-import com.facebook.presto.byteCode.ClassInfoLoader;
 import com.facebook.presto.byteCode.CompilerContext;
-import com.facebook.presto.byteCode.DumpByteCodeVisitor;
 import com.facebook.presto.byteCode.DynamicClassLoader;
 import com.facebook.presto.byteCode.FieldDefinition;
 import com.facebook.presto.byteCode.MethodDefinition;
 import com.facebook.presto.byteCode.NamedParameterDefinition;
-import com.facebook.presto.byteCode.SmartClassWriter;
 import com.facebook.presto.byteCode.Variable;
 import com.facebook.presto.byteCode.control.ForLoop;
 import com.facebook.presto.operator.GroupByIdBlock;
@@ -38,15 +35,12 @@ import com.google.common.base.Optional;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
-import org.objectweb.asm.ClassWriter;
 
 import javax.annotation.Nullable;
 
 import java.lang.reflect.Method;
 import java.util.ArrayList;
-import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.concurrent.atomic.AtomicLong;
 
 import static com.facebook.presto.byteCode.Access.FINAL;
@@ -62,12 +56,11 @@ import static com.facebook.presto.byteCode.control.IfStatement.ifStatementBuilde
 import static com.facebook.presto.operator.aggregation.AggregationMetadata.ParameterMetadata;
 import static com.facebook.presto.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.BLOCK_INDEX;
 import static com.facebook.presto.operator.aggregation.AggregationMetadata.countInputChannels;
+import static com.facebook.presto.sql.gen.CompilerUtils.defineClass;
 import static com.google.common.base.Preconditions.checkArgument;
 
 public class AccumulatorCompiler
 {
-    private static final boolean DUMP_BYTE_CODE_TREE = false;
-
     private static final AtomicLong CLASS_ID = new AtomicLong();
 
     public AccumulatorFactory generateAccumulatorFactory(AggregationMetadata metadata, DynamicClassLoader classLoader)
@@ -816,33 +809,5 @@ public class AccumulatorCompiler
                 .invokeStatic(Preconditions.class, "checkNotNull", Object.class, Object.class, Object.class)
                 .checkCast(field.getType())
                 .putField(field);
-    }
-
-    private static Map<String, Class<?>> defineClasses(List<ClassDefinition> classDefinitions, DynamicClassLoader classLoader)
-    {
-        ClassInfoLoader classInfoLoader = ClassInfoLoader.createClassInfoLoader(classDefinitions, classLoader);
-
-        if (DUMP_BYTE_CODE_TREE) {
-            DumpByteCodeVisitor dumpByteCode = new DumpByteCodeVisitor(System.out);
-            for (ClassDefinition classDefinition : classDefinitions) {
-                dumpByteCode.visitClass(classDefinition);
-            }
-        }
-
-        Map<String, byte[]> byteCodes = new LinkedHashMap<>();
-        for (ClassDefinition classDefinition : classDefinitions) {
-            ClassWriter cw = new SmartClassWriter(classInfoLoader);
-            classDefinition.visit(cw);
-            byte[] byteCode = cw.toByteArray();
-            byteCodes.put(classDefinition.getType().getJavaClassName(), byteCode);
-        }
-
-        return classLoader.defineClasses(byteCodes);
-    }
-
-    private static <T> Class<? extends T> defineClass(ClassDefinition classDefinition, Class<T> superType, DynamicClassLoader classLoader)
-    {
-        Class<?> clazz = defineClasses(ImmutableList.of(classDefinition), classLoader).values().iterator().next();
-        return clazz.asSubclass(superType);
     }
 }
