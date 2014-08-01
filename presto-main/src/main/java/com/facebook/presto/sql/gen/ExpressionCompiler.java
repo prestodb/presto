@@ -64,6 +64,7 @@ import static com.facebook.presto.byteCode.ParameterizedType.typeFromPathName;
 import static com.facebook.presto.sql.gen.Bootstrap.BOOTSTRAP_METHOD;
 import static com.facebook.presto.sql.gen.Bootstrap.CALL_SITES_FIELD_NAME;
 import static com.facebook.presto.sql.gen.ByteCodeUtils.setCallSitesField;
+import static com.facebook.presto.sql.gen.ByteCodeUtils.invoke;
 import static com.google.common.base.Objects.toStringHelper;
 
 public class ExpressionCompiler
@@ -175,6 +176,7 @@ public class ExpressionCompiler
         //
         generateToString(
                 classDefinition,
+                callSiteBinder,
                 toStringHelper(classDefinition.getType().getJavaClassName())
                         .add("filter", filter)
                         .add("projections", projections)
@@ -185,16 +187,13 @@ public class ExpressionCompiler
         return clazz;
     }
 
-    private void generateToString(ClassDefinition classDefinition, String string)
+    private void generateToString(ClassDefinition classDefinition, CallSiteBinder callSiteBinder, String string)
     {
-        // Constant strings can't be too large or the bytecode becomes invalid
-        if (string.length() > 100) {
-            string = string.substring(0, 100) + "...";
-        }
-
-        classDefinition.declareMethod(new CompilerContext(BOOTSTRAP_METHOD), a(PUBLIC), "toString", type(String.class))
+        // bind constant via invokedynamic to avoid constant pool issues due to large strings
+        CompilerContext context = new CompilerContext(BOOTSTRAP_METHOD);
+        classDefinition.declareMethod(context, a(PUBLIC), "toString", type(String.class))
                 .getBody()
-                .push(string)
+                .append(invoke(context, callSiteBinder.bind(string, String.class)))
                 .retObject();
     }
 
