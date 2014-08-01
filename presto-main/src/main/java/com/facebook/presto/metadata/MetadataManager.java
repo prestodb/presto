@@ -443,6 +443,12 @@ public class MetadataManager
         return functions;
     }
 
+    @Override
+    public TypeManager getTypeManager()
+    {
+        return typeManager;
+    }
+
     private ViewDefinition deserializeView(String data)
     {
         try {

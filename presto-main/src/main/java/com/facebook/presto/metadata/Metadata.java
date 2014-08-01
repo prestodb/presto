@@ -16,6 +16,7 @@ package com.facebook.presto.metadata;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.sql.tree.QualifiedName;
 import com.google.common.base.Optional;
 import com.google.common.collect.Multimap;
@@ -177,4 +178,6 @@ public interface Metadata
     void dropView(ConnectorSession session, QualifiedTableName viewName);
 
     FunctionRegistry getFunctionRegistry();
+
+    TypeManager getTypeManager();
 }
