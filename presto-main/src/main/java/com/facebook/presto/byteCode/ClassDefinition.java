@@ -26,6 +26,7 @@ import java.util.EnumSet;
 import java.util.List;
 import java.util.Set;
 
+import static com.facebook.presto.byteCode.Access.PUBLIC;
 import static com.facebook.presto.byteCode.Access.STATIC;
 import static com.facebook.presto.byteCode.Access.a;
 import static com.facebook.presto.byteCode.Access.toAccessModifier;
@@ -213,6 +214,18 @@ public class ClassDefinition
     public MethodDefinition getClassInitializer()
     {
         return classInitializer;
+    }
+
+    public ClassDefinition addDefaultConstructor()
+    {
+        declareConstructor(new CompilerContext(null), a(PUBLIC))
+                .getBody()
+                .comment("super();")
+                .pushThis()
+                .invokeConstructor(superClass)
+                .ret();
+
+        return this;
     }
 
     public MethodDefinition declareConstructor(

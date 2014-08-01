@@ -15,6 +15,7 @@ package com.facebook.presto.operator;
 
 import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableList;
+import com.google.common.util.concurrent.ListenableFuture;
 
 import java.util.List;
 
@@ -22,78 +23,89 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 
 public class FilterAndProjectOperator
-        extends AbstractFilterAndProjectOperator
+        implements Operator
 {
-    public static class FilterAndProjectOperatorFactory
-            implements OperatorFactory
+    private final OperatorContext operatorContext;
+    private final List<Type> types;
+
+    private final PageBuilder pageBuilder;
+    private final PageProcessor processor;
+    private Page currentPage;
+    private int currentPosition;
+    private boolean finishing;
+
+    public FilterAndProjectOperator(OperatorContext operatorContext, Iterable<? extends Type> types, PageProcessor processor)
     {
-        private final int operatorId;
-        private final FilterFunction filterFunction;
-        private final List<ProjectionFunction> projections;
-        private final List<Type> types;
-        private boolean closed;
-
-        public FilterAndProjectOperatorFactory(int operatorId, FilterFunction filterFunction, Iterable<? extends ProjectionFunction> projections)
-        {
-            this.operatorId = operatorId;
-            this.filterFunction = checkNotNull(filterFunction, "filterFunction is null");
-            this.projections = ImmutableList.copyOf(projections);
-            this.types = toTypes(checkNotNull(projections, "projections is null"));
-        }
-
-        @Override
-        public List<Type> getTypes()
-        {
-            return types;
-        }
-
-        @Override
-        public Operator createOperator(DriverContext driverContext)
-        {
-            checkState(!closed, "Factory is already closed");
-            OperatorContext operatorContext = driverContext.addOperatorContext(operatorId, FilterAndProjectOperator.class.getSimpleName());
-            return new FilterAndProjectOperator(operatorContext, filterFunction, projections);
-        }
-
-        @Override
-        public void close()
-        {
-            closed = true;
-        }
-    }
-
-    private final FilterFunction filterFunction;
-    private final List<ProjectionFunction> projections;
-
-    public FilterAndProjectOperator(OperatorContext operatorContext, FilterFunction filterFunction, Iterable<? extends ProjectionFunction> projections)
-    {
-        super(operatorContext, toTypes(checkNotNull(projections, "projections is null")));
-        this.filterFunction = checkNotNull(filterFunction, "filterFunction is null");
-        this.projections = ImmutableList.copyOf(projections);
+        this.processor = checkNotNull(processor, "processor is null");
+        this.operatorContext = checkNotNull(operatorContext, "operatorContext is null");
+        this.types = ImmutableList.copyOf(checkNotNull(types, "types is null"));
+        this.pageBuilder = new PageBuilder(getTypes());
     }
 
     @Override
-    protected void filterAndProjectRowOriented(Page page, PageBuilder pageBuilder)
+    public OperatorContext getOperatorContext()
     {
-        int rows = page.getPositionCount();
-
-        for (int position = 0; position < rows; position++) {
-            if (filterFunction.filter(position, page.getBlocks())) {
-                pageBuilder.declarePosition();
-                for (int i = 0; i < projections.size(); i++) {
-                    // todo: if the projection function increases the size of the data significantly, this could cause the servers to OOM
-                    projections.get(i).project(position, page.getBlocks(), pageBuilder.getBlockBuilder(i));
-                }
-            }
-        }
+        return operatorContext;
     }
 
-    private static List<Type> toTypes(Iterable<? extends ProjectionFunction> projections)
+    @Override
+    public final List<Type> getTypes()
     {
-        ImmutableList.Builder<Type> types = ImmutableList.builder();
-        for (ProjectionFunction projection : projections) {
-            types.add(projection.getType());
+        return types;
+    }
+
+    @Override
+    public final void finish()
+    {
+        finishing = true;
+    }
+
+    @Override
+    public final boolean isFinished()
+    {
+        return finishing && pageBuilder.isEmpty() && currentPage == null;
+    }
+
+    @Override
+    public ListenableFuture<?> isBlocked()
+    {
+        return NOT_BLOCKED;
+    }
+
+    @Override
+    public final boolean needsInput()
+    {
+        return !finishing && !pageBuilder.isFull() && currentPage == null;
+    }
+
+    @Override
+    public final void addInput(Page page)
+    {
+        checkState(!finishing, "Operator is already finishing");
+        checkNotNull(page, "page is null");
+        checkState(!pageBuilder.isFull(), "Page buffer is full");
+
+        currentPage = page;
+        currentPosition = 0;
+    }
+
+    @Override
+    public final Page getOutput()
+    {
+        if (!pageBuilder.isFull() && currentPage != null) {
+            currentPosition = processor.process(operatorContext.getSession(), currentPage, currentPosition, currentPage.getPositionCount(), pageBuilder);
+            if (currentPosition == currentPage.getPositionCount()) {
+                currentPage = null;
+                currentPosition = 0;
+            }
         }
-        return types.build();
+
+        if (!finishing && !pageBuilder.isFull() || pageBuilder.isEmpty()) {
+            return null;
+        }
+
+        Page page = pageBuilder.build();
+        pageBuilder.reset();
+        return page;
     }
 }

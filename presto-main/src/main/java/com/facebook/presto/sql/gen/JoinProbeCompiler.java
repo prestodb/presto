@@ -15,13 +15,9 @@ package com.facebook.presto.sql.gen;
 
 import com.facebook.presto.byteCode.Block;
 import com.facebook.presto.byteCode.ClassDefinition;
-import com.facebook.presto.byteCode.ClassInfoLoader;
 import com.facebook.presto.byteCode.CompilerContext;
-import com.facebook.presto.byteCode.DumpByteCodeVisitor;
 import com.facebook.presto.byteCode.DynamicClassLoader;
 import com.facebook.presto.byteCode.FieldDefinition;
-import com.facebook.presto.byteCode.ParameterizedType;
-import com.facebook.presto.byteCode.SmartClassWriter;
 import com.facebook.presto.byteCode.control.IfStatement;
 import com.facebook.presto.byteCode.instruction.JumpInstruction;
 import com.facebook.presto.byteCode.instruction.LabelNode;
@@ -43,28 +39,14 @@ import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
 import com.google.common.collect.ImmutableList;
-import com.google.common.io.Files;
 import com.google.common.util.concurrent.ExecutionError;
 import com.google.common.util.concurrent.UncheckedExecutionException;
-import io.airlift.log.Logger;
-import org.objectweb.asm.ClassReader;
-import org.objectweb.asm.ClassWriter;
-import org.objectweb.asm.util.CheckClassAdapter;
-import org.objectweb.asm.util.TraceClassVisitor;
 
-import java.io.File;
-import java.io.IOException;
-import java.io.PrintWriter;
 import java.lang.reflect.Constructor;
-import java.lang.reflect.Method;
 import java.util.ArrayList;
-import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Map;
-import java.util.Map.Entry;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.atomic.AtomicLong;
-import java.util.concurrent.atomic.AtomicReference;
 
 import static com.facebook.presto.byteCode.Access.FINAL;
 import static com.facebook.presto.byteCode.Access.PRIVATE;
@@ -73,19 +55,11 @@ import static com.facebook.presto.byteCode.Access.a;
 import static com.facebook.presto.byteCode.NamedParameterDefinition.arg;
 import static com.facebook.presto.byteCode.ParameterizedType.type;
 import static com.facebook.presto.byteCode.ParameterizedType.typeFromPathName;
+import static com.facebook.presto.sql.gen.CompilerUtils.defineClass;
 
 public class JoinProbeCompiler
 {
-    private static final Logger log = Logger.get(ExpressionCompiler.class);
-
     private static final AtomicLong CLASS_ID = new AtomicLong();
-
-    private static final boolean DUMP_BYTE_CODE_TREE = false;
-    private static final boolean DUMP_BYTE_CODE_RAW = false;
-    private static final boolean RUN_ASM_VERIFIER = false; // verifier doesn't work right now
-    private static final AtomicReference<String> DUMP_CLASS_FILES_TO = new AtomicReference<>();
-
-    private final Method bootstrapMethod = null;
 
     private final LoadingCache<JoinOperatorCacheKey, HashJoinOperatorFactoryFactory> joinProbeFactories = CacheBuilder.newBuilder().maximumSize(1000).build(
             new CacheLoader<JoinOperatorCacheKey, HashJoinOperatorFactoryFactory>()
@@ -118,21 +92,15 @@ public class JoinProbeCompiler
         DynamicClassLoader classLoader = new DynamicClassLoader(getClass().getClassLoader());
         Class<? extends JoinProbe> joinProbeClass = compileJoinProbe(types, probeJoinChannel, classLoader);
 
-        ClassDefinition classDefinition = new ClassDefinition(new CompilerContext(bootstrapMethod),
+        ClassDefinition classDefinition = new ClassDefinition(new CompilerContext(),
                 a(PUBLIC, FINAL),
                 typeFromPathName("JoinProbeFactory_" + CLASS_ID.incrementAndGet()),
                 type(Object.class),
                 type(JoinProbeFactory.class));
 
-        classDefinition.declareConstructor(new CompilerContext(bootstrapMethod),
-                a(PUBLIC))
-                .getBody()
-                .comment("super();")
-                .pushThis()
-                .invokeConstructor(Object.class)
-                .ret();
+        classDefinition.addDefaultConstructor();
 
-        classDefinition.declareMethod(new CompilerContext(bootstrapMethod),
+        classDefinition.declareMethod(new CompilerContext(),
                 a(PUBLIC),
                 "createJoinProbe",
                 type(JoinProbe.class),
@@ -176,7 +144,7 @@ public class JoinProbeCompiler
 
     private Class<? extends JoinProbe> compileJoinProbe(List<Type> types, List<Integer> probeChannels, DynamicClassLoader classLoader)
     {
-        ClassDefinition classDefinition = new ClassDefinition(new CompilerContext(bootstrapMethod),
+        ClassDefinition classDefinition = new ClassDefinition(new CompilerContext(),
                 a(PUBLIC, FINAL),
                 typeFromPathName("JoinProbe_" + CLASS_ID.incrementAndGet()),
                 type(Object.class),
@@ -218,7 +186,7 @@ public class JoinProbeCompiler
             FieldDefinition positionField,
             FieldDefinition positionCountField)
     {
-        Block constructor = classDefinition.declareConstructor(new CompilerContext(bootstrapMethod),
+        Block constructor = classDefinition.declareConstructor(new CompilerContext(),
                 a(PUBLIC),
                 arg("lookupSource", LookupSource.class),
                 arg("page", Page.class))
@@ -287,7 +255,7 @@ public class JoinProbeCompiler
 
     private void generateGetChannelCountMethod(ClassDefinition classDefinition, int channelCount)
     {
-        classDefinition.declareMethod(new CompilerContext(bootstrapMethod),
+        classDefinition.declareMethod(new CompilerContext(),
                 a(PUBLIC),
                 "getChannelCount",
                 type(int.class))
@@ -298,7 +266,7 @@ public class JoinProbeCompiler
 
     private void generateAppendToMethod(ClassDefinition classDefinition, List<Type> types, List<FieldDefinition> blockFields, FieldDefinition positionField)
     {
-        Block appendToBody = classDefinition.declareMethod(new CompilerContext(bootstrapMethod),
+        Block appendToBody = classDefinition.declareMethod(new CompilerContext(),
                 a(PUBLIC),
                 "appendTo",
                 type(void.class),
@@ -324,7 +292,7 @@ public class JoinProbeCompiler
 
     private void generateAdvanceNextPosition(ClassDefinition classDefinition, FieldDefinition positionField, FieldDefinition positionCountField)
     {
-        CompilerContext compilerContext = new CompilerContext(bootstrapMethod);
+        CompilerContext compilerContext = new CompilerContext();
         Block advanceNextPositionBody = classDefinition.declareMethod(compilerContext,
                 a(PUBLIC),
                 "advanceNextPosition",
@@ -362,7 +330,7 @@ public class JoinProbeCompiler
             FieldDefinition probeBlockArrayField,
             FieldDefinition positionField)
     {
-        CompilerContext compilerContext = new CompilerContext(bootstrapMethod);
+        CompilerContext compilerContext = new CompilerContext();
         classDefinition.declareMethod(compilerContext,
                 a(PUBLIC),
                 "getCurrentJoinPosition",
@@ -386,7 +354,7 @@ public class JoinProbeCompiler
 
     private void generateCurrentRowContainsNull(ClassDefinition classDefinition, List<FieldDefinition> probeBlockFields, FieldDefinition positionField)
     {
-        Block body = classDefinition.declareMethod(new CompilerContext(bootstrapMethod),
+        Block body = classDefinition.declareMethod(new CompilerContext(),
                 a(PRIVATE),
                 "currentRowContainsNull",
                 type(boolean.class))
@@ -434,58 +402,6 @@ public class JoinProbeCompiler
                 throw Throwables.propagate(e);
             }
         }
-    }
-
-    private static <T> Class<? extends T> defineClass(ClassDefinition classDefinition, Class<T> superType, DynamicClassLoader classLoader)
-    {
-        Class<?> clazz = defineClasses(ImmutableList.of(classDefinition), classLoader).values().iterator().next();
-        return clazz.asSubclass(superType);
-    }
-
-    private static Map<String, Class<?>> defineClasses(List<ClassDefinition> classDefinitions, DynamicClassLoader classLoader)
-    {
-        ClassInfoLoader classInfoLoader = ClassInfoLoader.createClassInfoLoader(classDefinitions, classLoader);
-
-        if (DUMP_BYTE_CODE_TREE) {
-            DumpByteCodeVisitor dumpByteCode = new DumpByteCodeVisitor(System.out);
-            for (ClassDefinition classDefinition : classDefinitions) {
-                dumpByteCode.visitClass(classDefinition);
-            }
-        }
-
-        Map<String, byte[]> byteCodes = new LinkedHashMap<>();
-        for (ClassDefinition classDefinition : classDefinitions) {
-            ClassWriter cw = new SmartClassWriter(classInfoLoader);
-            classDefinition.visit(cw);
-            byte[] byteCode = cw.toByteArray();
-            if (RUN_ASM_VERIFIER) {
-                ClassReader reader = new ClassReader(byteCode);
-                CheckClassAdapter.verify(reader, classLoader, true, new PrintWriter(System.out));
-            }
-            byteCodes.put(classDefinition.getType().getJavaClassName(), byteCode);
-        }
-
-        String dumpClassPath = DUMP_CLASS_FILES_TO.get();
-        if (dumpClassPath != null) {
-            for (Entry<String, byte[]> entry : byteCodes.entrySet()) {
-                File file = new File(dumpClassPath, ParameterizedType.typeFromJavaClassName(entry.getKey()).getClassName() + ".class");
-                try {
-                    log.debug("ClassFile: " + file.getAbsolutePath());
-                    Files.createParentDirs(file);
-                    Files.write(entry.getValue(), file);
-                }
-                catch (IOException e) {
-                    log.error(e, "Failed to write generated class file to: %s" + file.getAbsolutePath());
-                }
-            }
-        }
-        if (DUMP_BYTE_CODE_RAW) {
-            for (byte[] byteCode : byteCodes.values()) {
-                ClassReader classReader = new ClassReader(byteCode);
-                classReader.accept(new TraceClassVisitor(new PrintWriter(System.err)), ClassReader.SKIP_FRAMES);
-            }
-        }
-        return classLoader.defineClasses(byteCodes);
     }
 
     private static final class JoinOperatorCacheKey

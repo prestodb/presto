@@ -40,8 +40,7 @@ public class TryCastCodeGenerator
                 .comment("wasNull = true;")
                 .putVariable("wasNull", true)
                 .comment("restore stack after exception")
-                .invokeStatic(returnType.getClass(), "getInstance", returnType.getClass())
-                .getVariable("output")
+                .getVariable("output") // TODO: this is quite a strong assumption to make. This code should not be sensitive to whether "output" was on the stack before the call
                 .comment("return dummy value for null")
                 .pushJavaDefault(returnType.getJavaType());
 
