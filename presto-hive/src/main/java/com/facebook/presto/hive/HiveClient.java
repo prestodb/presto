@@ -22,7 +22,6 @@ import com.facebook.presto.spi.ConnectorColumnHandle;
 import com.facebook.presto.spi.ConnectorHandleResolver;
 import com.facebook.presto.spi.ConnectorIndexHandle;
 import com.facebook.presto.spi.ConnectorMetadata;
-import com.facebook.presto.spi.ConnectorOutputHandleResolver;
 import com.facebook.presto.spi.ConnectorOutputTableHandle;
 import com.facebook.presto.spi.ConnectorPartition;
 import com.facebook.presto.spi.ConnectorPartitionResult;
@@ -134,7 +133,7 @@ import static org.apache.hadoop.hive.serde.serdeConstants.STRING_TYPE_NAME;
 
 @SuppressWarnings("deprecation")
 public class HiveClient
-        implements ConnectorMetadata, ConnectorSplitManager, ConnectorRecordSetProvider, ConnectorRecordSinkProvider, ConnectorHandleResolver, ConnectorOutputHandleResolver
+        implements ConnectorMetadata, ConnectorSplitManager, ConnectorRecordSetProvider, ConnectorRecordSinkProvider, ConnectorHandleResolver
 {
     static {
         HadoopNative.requireHadoopNative();

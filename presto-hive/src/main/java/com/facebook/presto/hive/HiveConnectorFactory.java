@@ -18,7 +18,6 @@ import com.facebook.presto.spi.Connector;
 import com.facebook.presto.spi.ConnectorFactory;
 import com.facebook.presto.spi.classloader.ClassLoaderSafeConnectorHandleResolver;
 import com.facebook.presto.spi.classloader.ClassLoaderSafeConnectorMetadata;
-import com.facebook.presto.spi.classloader.ClassLoaderSafeConnectorOutputHandleResolver;
 import com.facebook.presto.spi.classloader.ClassLoaderSafeConnectorRecordSetProvider;
 import com.facebook.presto.spi.classloader.ClassLoaderSafeConnectorRecordSinkProvider;
 import com.facebook.presto.spi.classloader.ClassLoaderSafeConnectorSplitManager;
@@ -107,8 +106,7 @@ public class HiveConnectorFactory
                     new ClassLoaderSafeConnectorSplitManager(hiveClient, classLoader),
                     new ClassLoaderSafeConnectorRecordSetProvider(hiveClient, classLoader),
                     new ClassLoaderSafeConnectorRecordSinkProvider(hiveClient, classLoader),
-                    new ClassLoaderSafeConnectorHandleResolver(hiveClient, classLoader),
-                    new ClassLoaderSafeConnectorOutputHandleResolver(hiveClient, classLoader));
+                    new ClassLoaderSafeConnectorHandleResolver(hiveClient, classLoader));
         }
         catch (Exception e) {
             throw Throwables.propagate(e);

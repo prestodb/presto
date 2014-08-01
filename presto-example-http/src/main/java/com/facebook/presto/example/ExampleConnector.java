@@ -17,7 +17,6 @@ import com.facebook.presto.spi.Connector;
 import com.facebook.presto.spi.ConnectorHandleResolver;
 import com.facebook.presto.spi.ConnectorIndexResolver;
 import com.facebook.presto.spi.ConnectorMetadata;
-import com.facebook.presto.spi.ConnectorOutputHandleResolver;
 import com.facebook.presto.spi.ConnectorRecordSetProvider;
 import com.facebook.presto.spi.ConnectorRecordSinkProvider;
 import com.facebook.presto.spi.ConnectorSplitManager;
@@ -73,12 +72,6 @@ public class ExampleConnector
 
     @Override
     public ConnectorRecordSinkProvider getRecordSinkProvider()
-    {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public ConnectorOutputHandleResolver getOutputHandleResolver()
     {
         throw new UnsupportedOperationException();
     }
