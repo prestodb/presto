@@ -16,16 +16,22 @@ package com.facebook.presto.sql.gen;
 import com.facebook.presto.byteCode.Block;
 import com.facebook.presto.byteCode.ByteCodeNode;
 import com.facebook.presto.byteCode.CompilerContext;
+import com.facebook.presto.byteCode.LocalVariableDefinition;
 import com.facebook.presto.byteCode.control.IfStatement;
 import com.facebook.presto.byteCode.instruction.LabelNode;
 import com.facebook.presto.metadata.FunctionInfo;
 import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.spi.ConnectorSession;
+import com.facebook.presto.spi.block.BlockBuilder;
+import com.facebook.presto.spi.type.Type;
 import com.google.common.base.Joiner;
+import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
 import com.google.common.primitives.Primitives;
 
+import java.lang.invoke.MethodHandle;
+import java.lang.invoke.MethodHandles;
 import java.lang.invoke.MethodType;
 import java.util.ArrayList;
 import java.util.List;
@@ -135,7 +141,7 @@ public class ByteCodeUtils
                         binding.getBindingId());
     }
 
-    public static ByteCodeNode generateInvocation(CompilerContext context, FunctionInfo function, ByteCodeNode getSessionByteCode, List<ByteCodeNode> arguments, Binding binding)
+    public static ByteCodeNode generateInvocation(CompilerContext context, FunctionInfo function, List<ByteCodeNode> arguments, Binding binding)
     {
         MethodType methodType = binding.getType();
 
@@ -152,7 +158,7 @@ public class ByteCodeUtils
         for (Class<?> type : methodType.parameterArray()) {
             stackTypes.add(type);
             if (type == ConnectorSession.class) {
-                block.append(getSessionByteCode);
+                block.getVariable("session");
             }
             else {
                 block.append(arguments.get(index));
@@ -190,5 +196,32 @@ public class ByteCodeUtils
     {
         return new Block(context)
                 .invokeDynamic("call_" + binding.getBindingId(), binding.getType(), binding.getBindingId());
+    }
+
+    public static ByteCodeNode generateWrite(CallSiteBinder callSiteBinder, CompilerContext context, LocalVariableDefinition wasNullVariable, Type type)
+    {
+        String name = "write" + Primitives.wrap(type.getJavaType()).getSimpleName();
+        MethodHandle target;
+        try {
+            target = MethodHandles.lookup().findVirtual(type.getClass(), name, MethodType.methodType(void.class, BlockBuilder.class, type.getJavaType()));
+        }
+        catch (ReflectiveOperationException e) {
+            throw Throwables.propagate(e);
+        }
+
+        return new Block(context)
+                .comment("if (wasNull)")
+                .append(new IfStatement.IfStatementBuilder(context)
+                        .condition(new Block(context).getVariable(wasNullVariable))
+                        .ifTrue(new Block(context)
+                                .comment("output.appendNull();")
+                                .pop(type.getJavaType())
+                                .invokeInterface(BlockBuilder.class, "appendNull", BlockBuilder.class)
+                                .pop())
+                                //.pop())
+                        .ifFalse(new Block(context)
+                                .comment(type.getName() + "." + name + "(output, " + type.getJavaType().getSimpleName() + ")")
+                                .append(invoke(context, callSiteBinder.bind(target.bindTo(type)))))
+                        .build());
     }
 }

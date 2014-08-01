@@ -20,12 +20,14 @@ import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.operator.AggregationFunctionDefinition;
 import com.facebook.presto.operator.AggregationOperator.AggregationOperatorFactory;
+import com.facebook.presto.operator.GenericCursorProcessor;
 import com.facebook.presto.operator.DriverFactory;
 import com.facebook.presto.operator.ExchangeClient;
 import com.facebook.presto.operator.ExchangeOperator.ExchangeOperatorFactory;
-import com.facebook.presto.operator.FilterAndProjectOperator.FilterAndProjectOperatorFactory;
+import com.facebook.presto.operator.FilterAndProjectOperatorFactory;
 import com.facebook.presto.operator.FilterFunction;
 import com.facebook.presto.operator.FilterFunctions;
+import com.facebook.presto.operator.GenericPageProcessor;
 import com.facebook.presto.operator.HashAggregationOperator.HashAggregationOperatorFactory;
 import com.facebook.presto.operator.HashBuilderOperator.HashBuilderOperatorFactory;
 import com.facebook.presto.operator.HashSemiJoinOperator.HashSemiJoinOperatorFactory;
@@ -43,7 +45,7 @@ import com.facebook.presto.operator.ProjectionFunction;
 import com.facebook.presto.operator.ProjectionFunctions;
 import com.facebook.presto.operator.RecordSinkManager;
 import com.facebook.presto.operator.SampleOperator.SampleOperatorFactory;
-import com.facebook.presto.operator.ScanFilterAndProjectOperator.ScanFilterAndProjectOperatorFactory;
+import com.facebook.presto.operator.ScanFilterAndProjectOperatorFactory;
 import com.facebook.presto.operator.SetBuilderOperator.SetBuilderOperatorFactory;
 import com.facebook.presto.operator.SetBuilderOperator.SetSupplier;
 import com.facebook.presto.operator.SourceOperatorFactory;
@@ -63,7 +65,9 @@ import com.facebook.presto.spi.block.SortOrder;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.split.DataStreamProvider;
 import com.facebook.presto.split.MappedRecordSet;
+import com.facebook.presto.operator.CursorProcessor;
 import com.facebook.presto.sql.gen.ExpressionCompiler;
+import com.facebook.presto.operator.PageProcessor;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.optimizations.IndexJoinOptimizer;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
@@ -99,7 +103,6 @@ import com.facebook.presto.sql.tree.QualifiedNameReference;
 import com.facebook.presto.util.IterableTransformer;
 import com.facebook.presto.util.MoreFunctions;
 import com.google.common.base.Function;
-import com.google.common.base.Functions;
 import com.google.common.base.Optional;
 import com.google.common.base.Supplier;
 import com.google.common.collect.FluentIterable;
@@ -140,6 +143,7 @@ import static com.facebook.presto.sql.planner.plan.IndexJoinNode.EquiJoinClause.
 import static com.facebook.presto.sql.planner.plan.IndexJoinNode.EquiJoinClause.probeGetter;
 import static com.facebook.presto.sql.planner.plan.JoinNode.EquiJoinClause.leftGetter;
 import static com.facebook.presto.sql.planner.plan.JoinNode.EquiJoinClause.rightGetter;
+import static com.google.common.base.Functions.forMap;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
@@ -359,7 +363,11 @@ public class LocalExecutionPlanner
             // otherwise, introduce a projection to match the expected output
             IdentityProjectionInfo mappings = computeIdentityMapping(resultSymbols, source.getLayout(), context.getTypes());
 
-            OperatorFactory operatorFactory = new FilterAndProjectOperatorFactory(context.getNextOperatorId(), FilterFunctions.TRUE_FUNCTION, mappings.getProjections());
+            OperatorFactory operatorFactory = new FilterAndProjectOperatorFactory(
+                    context.getNextOperatorId(),
+                    new GenericPageProcessor(FilterFunctions.TRUE_FUNCTION, mappings.getProjections()),
+                    toTypes(mappings.getProjections()));
+
             return new PhysicalOperation(operatorFactory, mappings.getOutputLayout(), source);
         }
 
@@ -657,21 +665,36 @@ public class LocalExecutionPlanner
                         concat(singleton(rewrittenFilter), rewrittenProjections));
 
                 if (columns != null) {
-                    SourceOperatorFactory operatorFactory = compiler.compileScanFilterAndProjectOperator(
+                    CursorProcessor cursorProcessor = compiler.compileCursorProcessor(
+                            SqlToRowExpressionTranslator.translate(rewrittenFilter, expressionTypes, metadata, session, true),
+                            SqlToRowExpressionTranslator.translate(rewrittenProjections, expressionTypes, metadata, session, true),
+                            sourceNode.getId());
+
+                    PageProcessor pageProcessor = compiler.compilePageProcessor(
+                            SqlToRowExpressionTranslator.translate(rewrittenFilter, expressionTypes, metadata, session, true),
+                            SqlToRowExpressionTranslator.translate(rewrittenProjections, expressionTypes, metadata, session, true));
+
+                    SourceOperatorFactory operatorFactory = new ScanFilterAndProjectOperatorFactory(
                             context.getNextOperatorId(),
                             sourceNode.getId(),
                             dataStreamProvider,
+                            cursorProcessor,
+                            pageProcessor,
                             columns,
-                            SqlToRowExpressionTranslator.translate(rewrittenFilter, expressionTypes, metadata, session, true),
-                            SqlToRowExpressionTranslator.translate(rewrittenProjections, expressionTypes, metadata, session, true));
+                            Lists.transform(rewrittenProjections, forMap(expressionTypes)));
 
                     return new PhysicalOperation(operatorFactory, outputMappings);
                 }
                 else {
-                    OperatorFactory operatorFactory = compiler.compileFilterAndProjectOperator(
-                            context.getNextOperatorId(),
+                    PageProcessor processor = compiler.compilePageProcessor(
                             SqlToRowExpressionTranslator.translate(rewrittenFilter, expressionTypes, metadata, session, true),
                             SqlToRowExpressionTranslator.translate(rewrittenProjections, expressionTypes, metadata, session, true));
+
+                    OperatorFactory operatorFactory = new FilterAndProjectOperatorFactory(
+                            context.getNextOperatorId(),
+                            processor,
+                            Lists.transform(rewrittenProjections, forMap(expressionTypes)));
+
                     return new PhysicalOperation(operatorFactory, outputMappings, source);
                 }
             }
@@ -718,14 +741,18 @@ public class LocalExecutionPlanner
                         context.getNextOperatorId(),
                         sourceNode.getId(),
                         dataStreamProvider,
+                        new GenericCursorProcessor(filterFunction, projectionFunctions),
+                        new GenericPageProcessor(filterFunction, projectionFunctions),
                         columns,
-                        filterFunction,
-                        projectionFunctions);
+                        toTypes(projectionFunctions));
 
                 return new PhysicalOperation(operatorFactory, outputMappings);
             }
             else {
-                OperatorFactory operatorFactory = new FilterAndProjectOperatorFactory(context.getNextOperatorId(), filterFunction, projectionFunctions);
+                OperatorFactory operatorFactory = new FilterAndProjectOperatorFactory(
+                        context.getNextOperatorId(),
+                        new GenericPageProcessor(filterFunction, projectionFunctions),
+                        toTypes(projectionFunctions));
                 return new PhysicalOperation(operatorFactory, outputMappings, source);
             }
         }
@@ -844,8 +871,8 @@ public class LocalExecutionPlanner
             };
 
             // Declare the input and output schemas for the index and acquire the actual Index
-            List<ColumnHandle> lookupSchema = Lists.transform(lookupSymbolSchema, Functions.forMap(node.getAssignments()));
-            List<ColumnHandle> outputSchema = Lists.transform(node.getOutputSymbols(), Functions.forMap(node.getAssignments()));
+            List<ColumnHandle> lookupSchema = Lists.transform(lookupSymbolSchema, forMap(node.getAssignments()));
+            List<ColumnHandle> outputSchema = Lists.transform(node.getOutputSymbols(), forMap(node.getAssignments()));
             Index index = indexManager.getIndex(node.getIndexHandle(), lookupSchema, outputSchema);
 
             List<Type> types = getSourceOperatorTypes(node, context.getTypes());
@@ -1084,7 +1111,10 @@ public class LocalExecutionPlanner
 
             if (!projectionMatchesOutput) {
                 IdentityProjectionInfo mappings = computeIdentityMapping(node.getOutputSymbols(), source.getLayout(), context.getTypes());
-                OperatorFactory operatorFactory = new FilterAndProjectOperatorFactory(context.getNextOperatorId(), FilterFunctions.TRUE_FUNCTION, mappings.getProjections());
+                OperatorFactory operatorFactory = new FilterAndProjectOperatorFactory(
+                        context.getNextOperatorId(),
+                        new GenericPageProcessor(FilterFunctions.TRUE_FUNCTION, mappings.getProjections()),
+                        toTypes(mappings.getProjections()));
                 // NOTE: the generated output layout may not be completely accurate if the same field was projected as multiple inputs.
                 // However, this should not affect the operation of the sink.
                 return new PhysicalOperation(operatorFactory, mappings.getOutputLayout(), source);
@@ -1105,7 +1135,7 @@ public class LocalExecutionPlanner
             RecordSink recordSink = recordSinkManager.getRecordSink(node.getTarget());
 
             List<Type> types = IterableTransformer.on(node.getColumns())
-                    .transform(Functions.forMap(context.getTypes()))
+                    .transform(forMap(context.getTypes()))
                     .list();
 
             List<Integer> inputChannels = IterableTransformer.on(node.getColumns())
@@ -1187,7 +1217,10 @@ public class LocalExecutionPlanner
 
                 if (!projectionMatchesOutput) {
                     IdentityProjectionInfo mappings = computeIdentityMapping(expectedLayout, source.getLayout(), context.getTypes());
-                    operatorFactories.add(new FilterAndProjectOperatorFactory(subContext.getNextOperatorId(), FilterFunctions.TRUE_FUNCTION, mappings.getProjections()));
+                    operatorFactories.add(new FilterAndProjectOperatorFactory(
+                            subContext.getNextOperatorId(),
+                            new GenericPageProcessor(FilterFunctions.TRUE_FUNCTION, mappings.getProjections()),
+                            toTypes(mappings.getProjections())));
                 }
 
                 operatorFactories.add(inMemoryExchange.createSinkFactory(subContext.getNextOperatorId()));
@@ -1224,7 +1257,7 @@ public class LocalExecutionPlanner
         private List<Type> getSymbolTypes(List<Symbol> symbols, Map<Symbol, Type> types)
         {
             return ImmutableList.copyOf(IterableTransformer.on(symbols)
-                    .transform(Functions.forMap(types))
+                    .transform(forMap(types))
                     .list());
         }
 
@@ -1314,6 +1347,15 @@ public class LocalExecutionPlanner
 
             return new PhysicalOperation(operatorFactory, outputMappings.build(), source);
         }
+    }
+
+    public static List<Type> toTypes(List<ProjectionFunction> projections)
+    {
+        ImmutableList.Builder<Type> builder = ImmutableList.builder();
+        for (ProjectionFunction projection : projections) {
+            builder.add(projection.getType());
+        }
+        return builder.build();
     }
 
     private static TableCommitter createTableCommitter(final TableCommitNode node, final Metadata metadata)
