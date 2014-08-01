@@ -20,7 +20,6 @@ import com.facebook.presto.operator.aggregation.state.AccumulatorStateSerializer
 import com.facebook.presto.operator.aggregation.state.StateCompiler;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.type.SqlType;
-import com.google.common.base.CaseFormat;
 import com.google.common.base.Predicate;
 import com.google.common.collect.FluentIterable;
 import com.google.common.collect.ImmutableList;
@@ -40,6 +39,7 @@ import static com.facebook.presto.operator.aggregation.AggregationMetadata.Param
 import static com.facebook.presto.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.STATE;
 import static com.facebook.presto.operator.aggregation.AggregationMetadata.ParameterMetadata.fromAnnotation;
 import static com.facebook.presto.operator.aggregation.AggregationUtils.getTypeInstance;
+import static com.facebook.presto.operator.aggregation.AggregationUtils.generateAggregationName;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
@@ -100,15 +100,8 @@ public class AggregationCompiler
                         List<Type> inputTypes = getInputTypes(inputFunction);
                         Type outputType = AggregationUtils.getOutputType(outputFunction, stateSerializer);
 
-                        StringBuilder sb = new StringBuilder();
-                        sb.append(CaseFormat.LOWER_CAMEL.to(CaseFormat.UPPER_CAMEL, outputType.getName()));
-                        for (Type inputType : inputTypes) {
-                            sb.append(CaseFormat.LOWER_CAMEL.to(CaseFormat.UPPER_CAMEL, inputType.getName()));
-                        }
-                        sb.append(CaseFormat.LOWER_UNDERSCORE.to(CaseFormat.UPPER_CAMEL, name.toLowerCase()));
-
                         AggregationMetadata metadata = new AggregationMetadata(
-                                sb.toString(),
+                                generateAggregationName(name, outputType, inputTypes),
                                 getParameterMetadata(inputFunction, aggregationAnnotation.approximate()),
                                 inputFunction,
                                 getParameterMetadata(intermediateInputFunction, false),
@@ -119,7 +112,8 @@ public class AggregationCompiler
                                 stateSerializer,
                                 stateFactory,
                                 outputType,
-                                aggregationAnnotation.approximate());
+                                aggregationAnnotation.approximate(),
+                                false);
 
                         AccumulatorFactory factory = new AccumulatorCompiler().generateAccumulatorFactory(metadata, classLoader);
                         // TODO: support un-decomposable aggregations

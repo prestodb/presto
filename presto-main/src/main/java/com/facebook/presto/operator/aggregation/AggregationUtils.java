@@ -16,12 +16,14 @@ package com.facebook.presto.operator.aggregation;
 import com.facebook.presto.operator.aggregation.state.AccumulatorStateSerializer;
 import com.facebook.presto.operator.aggregation.state.VarianceState;
 import com.facebook.presto.spi.type.Type;
+import com.google.common.base.CaseFormat;
 import com.google.common.base.Throwables;
 
 import javax.annotation.Nullable;
 
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
+import java.util.List;
 
 import static com.google.common.base.Preconditions.checkArgument;
 
@@ -76,5 +78,17 @@ public final class AggregationUtils
         else {
             return getTypeInstance(outputFunction.getAnnotation(OutputFunction.class).value());
         }
+    }
+
+    public static String generateAggregationName(String baseName, Type outputType, List<Type> inputTypes)
+    {
+        StringBuilder sb = new StringBuilder();
+        sb.append(CaseFormat.LOWER_CAMEL.to(CaseFormat.UPPER_CAMEL, outputType.getName()));
+        for (Type inputType : inputTypes) {
+            sb.append(CaseFormat.LOWER_CAMEL.to(CaseFormat.UPPER_CAMEL, inputType.getName()));
+        }
+        sb.append(CaseFormat.LOWER_UNDERSCORE.to(CaseFormat.UPPER_CAMEL, baseName.toLowerCase()));
+
+        return sb.toString();
     }
 }

@@ -127,7 +127,7 @@ public class AccumulatorCompiler
                 grouped);
 
         // Generate methods
-        generateAddInput(definition, stateField, inputChannelsField, maskChannelField, sampleWeightChannelField, metadata.getInputMetadata(), metadata.getInputFunction(), grouped);
+        generateAddInput(definition, stateField, inputChannelsField, maskChannelField, sampleWeightChannelField, metadata.getInputMetadata(), metadata.getInputFunction(), grouped, metadata.isAcceptNulls());
         generateGetEstimatedSize(definition, stateField);
         MethodDefinition getIntermediateType = generateGetIntermediateType(definition, stateSerializer.getSerializedType());
         MethodDefinition getFinalType = generateGetFinalType(definition, metadata.getOutputType());
@@ -198,7 +198,8 @@ public class AccumulatorCompiler
             FieldDefinition sampleWeightChannelField,
             List<ParameterMetadata> parameterMetadatas,
             Method inputFunction,
-            boolean grouped)
+            boolean grouped,
+            boolean acceptNulls)
     {
         CompilerContext context = new CompilerContext(null);
 
@@ -255,7 +256,7 @@ public class AccumulatorCompiler
                     .invokeVirtual(Page.class, "getBlock", com.facebook.presto.spi.block.Block.class, int.class)
                     .putVariable(parameterVariables.get(i));
         }
-        Block block = generateInputForLoop(stateField, parameterMetadatas, inputFunction, context, parameterVariables, masksBlock, sampleWeightsBlock, grouped);
+        Block block = generateInputForLoop(stateField, parameterMetadatas, inputFunction, context, parameterVariables, masksBlock, sampleWeightsBlock, grouped, acceptNulls);
 
         body.append(block)
                 .ret();
@@ -269,7 +270,8 @@ public class AccumulatorCompiler
             List<LocalVariableDefinition> parameterVariables,
             LocalVariableDefinition masksBlock,
             LocalVariableDefinition sampleWeightsBlock,
-            boolean grouped)
+            boolean grouped,
+            boolean acceptNulls)
     {
         // For-loop over rows
         LocalVariableDefinition positionVariable = context.declareVariable(int.class, "position");
@@ -285,17 +287,19 @@ public class AccumulatorCompiler
 
         Block loopBody = generateInvokeInputFunction(context, stateField, positionVariable, sampleWeightVariable, parameterVariables, parameterMetadatas, inputFunction, grouped);
 
-        //  Wrap with null checks
-        for (LocalVariableDefinition variable : parameterVariables) {
-            IfStatementBuilder builder = ifStatementBuilder(context);
-            builder.comment("if(!%s.isNull(position))", variable.getName())
-                    .condition(new Block(context)
-                            .getVariable(variable)
-                            .getVariable(positionVariable)
-                            .invokeInterface(com.facebook.presto.spi.block.Block.class, "isNull", boolean.class, int.class))
-                    .ifTrue(NOP)
-                    .ifFalse(loopBody);
-            loopBody = new Block(context).append(builder.build());
+        if (!acceptNulls) {
+            //  Wrap with null checks
+            for (LocalVariableDefinition variable : parameterVariables) {
+                IfStatementBuilder builder = ifStatementBuilder(context);
+                builder.comment("if(!%s.isNull(position))", variable.getName())
+                        .condition(new Block(context)
+                                .getVariable(variable)
+                                .getVariable(positionVariable)
+                                .invokeInterface(com.facebook.presto.spi.block.Block.class, "isNull", boolean.class, int.class))
+                        .ifTrue(NOP)
+                        .ifFalse(loopBody);
+                loopBody = new Block(context).append(builder.build());
+            }
         }
 
         // Check that sample weight is > 0 (also checks the mask)
