@@ -122,22 +122,11 @@ public class OrderingCompiler
                 type(Object.class),
                 type(PagesIndexComparator.class));
 
-        generateConstructor(classDefinition);
+        classDefinition.addDefaultConstructor();
         generateCompareTo(classDefinition, sortTypes, sortChannels, sortOrders);
 
         Class<? extends PagesIndexComparator> joinHashClass = defineClass(classDefinition, PagesIndexComparator.class, classLoader);
         return joinHashClass;
-    }
-
-    private void generateConstructor(ClassDefinition classDefinition)
-    {
-        classDefinition.declareConstructor(new CompilerContext(bootstrapMethod),
-                a(PUBLIC))
-                .getBody()
-                .comment("super();")
-                .pushThis()
-                .invokeConstructor(Object.class)
-                .ret();
     }
 
     private void generateCompareTo(ClassDefinition classDefinition, List<Type> sortTypes, List<Integer> sortChannels, List<SortOrder> sortOrders)
