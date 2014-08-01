@@ -13,20 +13,18 @@
  */
 package com.facebook.presto.connector;
 
-import com.facebook.presto.index.IndexManager;
 import com.facebook.presto.connector.informationSchema.InformationSchemaDataStreamProvider;
 import com.facebook.presto.connector.informationSchema.InformationSchemaMetadata;
 import com.facebook.presto.connector.informationSchema.InformationSchemaSplitManager;
+import com.facebook.presto.index.IndexManager;
 import com.facebook.presto.metadata.HandleResolver;
 import com.facebook.presto.metadata.MetadataManager;
-import com.facebook.presto.metadata.OutputTableHandleResolver;
 import com.facebook.presto.operator.RecordSinkManager;
 import com.facebook.presto.spi.Connector;
 import com.facebook.presto.spi.ConnectorFactory;
 import com.facebook.presto.spi.ConnectorHandleResolver;
 import com.facebook.presto.spi.ConnectorIndexResolver;
 import com.facebook.presto.spi.ConnectorMetadata;
-import com.facebook.presto.spi.ConnectorOutputHandleResolver;
 import com.facebook.presto.spi.ConnectorRecordSetProvider;
 import com.facebook.presto.spi.ConnectorRecordSinkProvider;
 import com.facebook.presto.spi.ConnectorSplitManager;
@@ -59,7 +57,6 @@ public class ConnectorManager
 
     private final RecordSinkManager recordSinkManager;
     private final HandleResolver handleResolver;
-    private final OutputTableHandleResolver outputTableHandleResolver;
     private final NodeManager nodeManager;
 
     private final ConcurrentMap<String, ConnectorFactory> connectorFactories = new ConcurrentHashMap<>();
@@ -73,7 +70,6 @@ public class ConnectorManager
             IndexManager indexManager,
             RecordSinkManager recordSinkManager,
             HandleResolver handleResolver,
-            OutputTableHandleResolver outputTableHandleResolver,
             Map<String, ConnectorFactory> connectorFactories,
             Map<String, Connector> globalConnectors,
             NodeManager nodeManager)
@@ -84,7 +80,6 @@ public class ConnectorManager
         this.indexManager = indexManager;
         this.recordSinkManager = recordSinkManager;
         this.handleResolver = handleResolver;
-        this.outputTableHandleResolver = outputTableHandleResolver;
         this.nodeManager = nodeManager;
         this.connectorFactories.putAll(connectorFactories);
 
@@ -171,14 +166,6 @@ public class ConnectorManager
         catch (UnsupportedOperationException ignored) {
         }
 
-        ConnectorOutputHandleResolver connectorOutputHandleResolver = null;
-        try {
-            connectorOutputHandleResolver = connector.getOutputHandleResolver();
-            checkNotNull(connectorOutputHandleResolver, "Connector %s returned a null output handle resolver", connectorId);
-        }
-        catch (UnsupportedOperationException ignored) {
-        }
-
         ConnectorIndexResolver indexResolver = null;
         try {
             indexResolver = connector.getIndexResolver();
@@ -207,10 +194,6 @@ public class ConnectorManager
 
         if (connectorRecordSinkProvider != null) {
             recordSinkManager.addConnectorRecordSinkProvider(connectorId, connectorRecordSinkProvider);
-        }
-
-        if (connectorOutputHandleResolver != null) {
-            outputTableHandleResolver.addHandleResolver(connectorId, connectorOutputHandleResolver);
         }
 
         if (indexResolver != null) {

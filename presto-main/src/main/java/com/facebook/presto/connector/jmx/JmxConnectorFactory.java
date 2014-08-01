@@ -18,7 +18,6 @@ import com.facebook.presto.spi.ConnectorFactory;
 import com.facebook.presto.spi.ConnectorHandleResolver;
 import com.facebook.presto.spi.ConnectorIndexResolver;
 import com.facebook.presto.spi.ConnectorMetadata;
-import com.facebook.presto.spi.ConnectorOutputHandleResolver;
 import com.facebook.presto.spi.ConnectorRecordSetProvider;
 import com.facebook.presto.spi.ConnectorRecordSinkProvider;
 import com.facebook.presto.spi.ConnectorSplitManager;
@@ -87,12 +86,6 @@ public class JmxConnectorFactory
 
             @Override
             public ConnectorIndexResolver getIndexResolver()
-            {
-                throw new UnsupportedOperationException();
-            }
-
-            @Override
-            public ConnectorOutputHandleResolver getOutputHandleResolver()
             {
                 throw new UnsupportedOperationException();
             }

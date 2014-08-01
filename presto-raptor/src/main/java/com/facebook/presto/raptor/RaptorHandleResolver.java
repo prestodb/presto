@@ -16,7 +16,6 @@ package com.facebook.presto.raptor;
 import com.facebook.presto.spi.ConnectorColumnHandle;
 import com.facebook.presto.spi.ConnectorHandleResolver;
 import com.facebook.presto.spi.ConnectorIndexHandle;
-import com.facebook.presto.spi.ConnectorOutputHandleResolver;
 import com.facebook.presto.spi.ConnectorOutputTableHandle;
 import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.ConnectorTableHandle;
@@ -26,7 +25,7 @@ import javax.inject.Inject;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 public class RaptorHandleResolver
-        implements ConnectorHandleResolver, ConnectorOutputHandleResolver
+        implements ConnectorHandleResolver
 {
     private final String connectorId;
 

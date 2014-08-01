@@ -31,7 +31,6 @@ import com.facebook.presto.metadata.HandleResolver;
 import com.facebook.presto.metadata.InMemoryNodeManager;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.MetadataManager;
-import com.facebook.presto.metadata.OutputTableHandleResolver;
 import com.facebook.presto.metadata.Partition;
 import com.facebook.presto.metadata.PartitionResult;
 import com.facebook.presto.metadata.QualifiedTableName;
@@ -155,7 +154,6 @@ public class LocalQueryRunner
                 indexManager,
                 recordSinkManager,
                 new HandleResolver(),
-                new OutputTableHandleResolver(),
                 ImmutableMap.<String, ConnectorFactory>of(),
                 ImmutableMap.<String, Connector>of(
                         SystemConnector.CONNECTOR_ID, new SystemConnector(systemTablesMetadata, systemSplitManager, systemRecordSetProvider)),

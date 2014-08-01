@@ -17,12 +17,8 @@ public interface Connector
 {
     ConnectorHandleResolver getHandleResolver();
 
-    /**
-     * @throws UnsupportedOperationException if this connector doesn't support writing tables
-     */
-    ConnectorOutputHandleResolver getOutputHandleResolver();
-
     ConnectorMetadata getMetadata();
+
     ConnectorSplitManager getSplitManager();
 
     /**
@@ -34,5 +30,6 @@ public interface Connector
      * @throws UnsupportedOperationException if this connector doesn't support writing tables
      */
     ConnectorRecordSinkProvider getRecordSinkProvider();
+
     ConnectorIndexResolver getIndexResolver();
 }
