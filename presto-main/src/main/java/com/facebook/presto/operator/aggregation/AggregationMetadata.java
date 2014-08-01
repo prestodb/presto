@@ -53,6 +53,8 @@ public class AggregationMetadata
     private final AccumulatorStateFactory<?> stateFactory;
     private final Type outputType;
     private final boolean approximate;
+    // TODO: It would be better to make this a new ParameterType, and have it specified per input
+    private final boolean acceptNulls;
 
     public AggregationMetadata(
             String name,
@@ -66,8 +68,10 @@ public class AggregationMetadata
             AccumulatorStateSerializer<?> stateSerializer,
             AccumulatorStateFactory<?> stateFactory,
             Type outputType,
-            boolean approximate)
+            boolean approximate,
+            boolean acceptNulls)
     {
+        this.acceptNulls = acceptNulls;
         this.outputType = checkNotNull(outputType);
         this.inputMetadata = ImmutableList.copyOf(checkNotNull(inputMetadata, "inputMetadata is null"));
         checkArgument((intermediateInputFunction == null) == (intermediateInputMetadata == null), "intermediate input parameters must be specified iff an intermediate function is provided");
@@ -89,10 +93,10 @@ public class AggregationMetadata
         this.stateFactory = checkNotNull(stateFactory, "stateFactory is null");
         this.approximate = approximate;
 
-        verifyInputFunctionSignature(inputFunction, inputMetadata, stateInterface);
+        verifyInputFunctionSignature(inputFunction, inputMetadata, stateInterface, acceptNulls);
         if (intermediateInputFunction != null) {
             checkArgument(countInputChannels(intermediateInputMetadata) == 1, "Intermediate input function may only have one input channel");
-            verifyInputFunctionSignature(intermediateInputFunction, intermediateInputMetadata, stateInterface);
+            verifyInputFunctionSignature(intermediateInputFunction, intermediateInputMetadata, stateInterface, false);
         }
         if (combineFunction != null) {
             verifyCombineFunction(combineFunction, stateInterface);
@@ -103,7 +107,11 @@ public class AggregationMetadata
         else {
             verifyExactOutputFunction(outputFunction, stateInterface);
         }
+    }
 
+    public boolean isAcceptNulls()
+    {
+        return acceptNulls;
     }
 
     public Type getOutputType()
@@ -169,7 +177,7 @@ public class AggregationMetadata
         return approximate;
     }
 
-    private static void verifyInputFunctionSignature(Method method, List<ParameterMetadata> parameterMetadatas, Class<?> stateInterface)
+    private static void verifyInputFunctionSignature(Method method, List<ParameterMetadata> parameterMetadatas, Class<?> stateInterface, boolean acceptNulls)
     {
         verifyStaticAndPublic(method);
         Class<?>[] parameters = method.getParameterTypes();
@@ -180,7 +188,12 @@ public class AggregationMetadata
             ParameterMetadata metadata = parameterMetadatas.get(i);
             switch (metadata.getParameterType()) {
                 case INPUT_CHANNEL:
-                    checkArgument(SUPPORTED_PARAMETER_TYPES.contains(parameters[i]), "Unsupported type: %s", parameters[i].getSimpleName());
+                    if (acceptNulls) {
+                        checkArgument(parameters[i] == Block.class, "Input function may only accept Blocks if acceptNulls is set");
+                    }
+                    else {
+                        checkArgument(SUPPORTED_PARAMETER_TYPES.contains(parameters[i]), "Unsupported type: %s", parameters[i].getSimpleName());
+                    }
                     break;
                 case BLOCK_INDEX:
                     checkArgument(parameters[i] == int.class, "Block index parameter must be an int");
