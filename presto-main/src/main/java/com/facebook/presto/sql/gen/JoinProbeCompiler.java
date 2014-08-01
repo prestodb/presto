@@ -43,7 +43,6 @@ import com.google.common.util.concurrent.ExecutionError;
 import com.google.common.util.concurrent.UncheckedExecutionException;
 
 import java.lang.reflect.Constructor;
-import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.ExecutionException;
@@ -61,8 +60,6 @@ import static com.facebook.presto.sql.gen.CompilerUtils.defineClass;
 public class JoinProbeCompiler
 {
     private static final AtomicLong CLASS_ID = new AtomicLong();
-
-    private final Method bootstrapMethod = null;
 
     private final LoadingCache<JoinOperatorCacheKey, HashJoinOperatorFactoryFactory> joinProbeFactories = CacheBuilder.newBuilder().maximumSize(1000).build(
             new CacheLoader<JoinOperatorCacheKey, HashJoinOperatorFactoryFactory>()
@@ -95,7 +92,7 @@ public class JoinProbeCompiler
         DynamicClassLoader classLoader = new DynamicClassLoader(getClass().getClassLoader());
         Class<? extends JoinProbe> joinProbeClass = compileJoinProbe(types, probeJoinChannel, classLoader);
 
-        ClassDefinition classDefinition = new ClassDefinition(new CompilerContext(bootstrapMethod),
+        ClassDefinition classDefinition = new ClassDefinition(new CompilerContext(),
                 a(PUBLIC, FINAL),
                 typeFromPathName("JoinProbeFactory_" + CLASS_ID.incrementAndGet()),
                 type(Object.class),
@@ -103,7 +100,7 @@ public class JoinProbeCompiler
 
         classDefinition.addDefaultConstructor();
 
-        classDefinition.declareMethod(new CompilerContext(bootstrapMethod),
+        classDefinition.declareMethod(new CompilerContext(),
                 a(PUBLIC),
                 "createJoinProbe",
                 type(JoinProbe.class),
@@ -147,7 +144,7 @@ public class JoinProbeCompiler
 
     private Class<? extends JoinProbe> compileJoinProbe(List<Type> types, List<Integer> probeChannels, DynamicClassLoader classLoader)
     {
-        ClassDefinition classDefinition = new ClassDefinition(new CompilerContext(bootstrapMethod),
+        ClassDefinition classDefinition = new ClassDefinition(new CompilerContext(),
                 a(PUBLIC, FINAL),
                 typeFromPathName("JoinProbe_" + CLASS_ID.incrementAndGet()),
                 type(Object.class),
@@ -189,7 +186,7 @@ public class JoinProbeCompiler
             FieldDefinition positionField,
             FieldDefinition positionCountField)
     {
-        Block constructor = classDefinition.declareConstructor(new CompilerContext(bootstrapMethod),
+        Block constructor = classDefinition.declareConstructor(new CompilerContext(),
                 a(PUBLIC),
                 arg("lookupSource", LookupSource.class),
                 arg("page", Page.class))
@@ -258,7 +255,7 @@ public class JoinProbeCompiler
 
     private void generateGetChannelCountMethod(ClassDefinition classDefinition, int channelCount)
     {
-        classDefinition.declareMethod(new CompilerContext(bootstrapMethod),
+        classDefinition.declareMethod(new CompilerContext(),
                 a(PUBLIC),
                 "getChannelCount",
                 type(int.class))
@@ -269,7 +266,7 @@ public class JoinProbeCompiler
 
     private void generateAppendToMethod(ClassDefinition classDefinition, List<Type> types, List<FieldDefinition> blockFields, FieldDefinition positionField)
     {
-        Block appendToBody = classDefinition.declareMethod(new CompilerContext(bootstrapMethod),
+        Block appendToBody = classDefinition.declareMethod(new CompilerContext(),
                 a(PUBLIC),
                 "appendTo",
                 type(void.class),
@@ -295,7 +292,7 @@ public class JoinProbeCompiler
 
     private void generateAdvanceNextPosition(ClassDefinition classDefinition, FieldDefinition positionField, FieldDefinition positionCountField)
     {
-        CompilerContext compilerContext = new CompilerContext(bootstrapMethod);
+        CompilerContext compilerContext = new CompilerContext();
         Block advanceNextPositionBody = classDefinition.declareMethod(compilerContext,
                 a(PUBLIC),
                 "advanceNextPosition",
@@ -333,7 +330,7 @@ public class JoinProbeCompiler
             FieldDefinition probeBlockArrayField,
             FieldDefinition positionField)
     {
-        CompilerContext compilerContext = new CompilerContext(bootstrapMethod);
+        CompilerContext compilerContext = new CompilerContext();
         classDefinition.declareMethod(compilerContext,
                 a(PUBLIC),
                 "getCurrentJoinPosition",
@@ -357,7 +354,7 @@ public class JoinProbeCompiler
 
     private void generateCurrentRowContainsNull(ClassDefinition classDefinition, List<FieldDefinition> probeBlockFields, FieldDefinition positionField)
     {
-        Block body = classDefinition.declareMethod(new CompilerContext(bootstrapMethod),
+        Block body = classDefinition.declareMethod(new CompilerContext(),
                 a(PRIVATE),
                 "currentRowContainsNull",
                 type(boolean.class))

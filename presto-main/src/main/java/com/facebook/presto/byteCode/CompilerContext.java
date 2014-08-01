@@ -48,6 +48,11 @@ public class CompilerContext
 
     private Integer currentLine;
 
+    public CompilerContext()
+    {
+        this(null);
+    }
+
     public CompilerContext(Method defaultBootstrapMethod)
     {
         this(defaultBootstrapMethod, new Object[0], new LocalVariableFactory(), new LocalVariableFactory());

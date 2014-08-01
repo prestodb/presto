@@ -40,7 +40,6 @@ import io.airlift.log.Logger;
 import it.unimi.dsi.fastutil.longs.LongArrayList;
 import it.unimi.dsi.fastutil.objects.ObjectArrayList;
 
-import java.lang.reflect.Method;
 import java.util.List;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.atomic.AtomicLong;
@@ -59,8 +58,6 @@ public class OrderingCompiler
     private static final Logger log = Logger.get(ExpressionCompiler.class);
 
     private static final AtomicLong CLASS_ID = new AtomicLong();
-
-    private final Method bootstrapMethod = null;
 
     private final LoadingCache<PagesIndexComparatorCacheKey, PagesIndexOrdering> pagesIndexOrderings = CacheBuilder.newBuilder().maximumSize(1000).build(
             new CacheLoader<PagesIndexComparatorCacheKey, PagesIndexOrdering>()
@@ -116,7 +113,7 @@ public class OrderingCompiler
             List<SortOrder> sortOrders,
             DynamicClassLoader classLoader)
     {
-        ClassDefinition classDefinition = new ClassDefinition(new CompilerContext(bootstrapMethod),
+        ClassDefinition classDefinition = new ClassDefinition(new CompilerContext(),
                 a(PUBLIC, FINAL),
                 typeFromPathName("PagesIndexComparator" + CLASS_ID.incrementAndGet()),
                 type(Object.class),
@@ -131,7 +128,7 @@ public class OrderingCompiler
 
     private void generateCompareTo(ClassDefinition classDefinition, List<Type> sortTypes, List<Integer> sortChannels, List<SortOrder> sortOrders)
     {
-        CompilerContext compilerContext = new CompilerContext(bootstrapMethod);
+        CompilerContext compilerContext = new CompilerContext();
         MethodDefinition compareToMethod = classDefinition.declareMethod(compilerContext,
                 a(PUBLIC),
                 "compareTo",

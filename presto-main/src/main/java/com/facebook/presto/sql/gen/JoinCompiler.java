@@ -41,7 +41,6 @@ import com.google.common.util.concurrent.UncheckedExecutionException;
 import it.unimi.dsi.fastutil.longs.LongArrayList;
 
 import java.lang.reflect.Constructor;
-import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.ExecutionException;
@@ -60,8 +59,6 @@ import static com.google.common.base.Preconditions.checkNotNull;
 public class JoinCompiler
 {
     private static final AtomicLong CLASS_ID = new AtomicLong();
-
-    private final Method bootstrapMethod = null;
 
     private final LoadingCache<LookupSourceCacheKey, LookupSourceFactory> lookupSourceFactories = CacheBuilder.newBuilder().maximumSize(1000).build(
             new CacheLoader<LookupSourceCacheKey, LookupSourceFactory>()
@@ -111,7 +108,7 @@ public class JoinCompiler
 
     private Class<? extends PagesHashStrategy> compilePagesHashStrategy(List<Type> types, List<Integer> joinChannels, DynamicClassLoader classLoader)
     {
-        ClassDefinition classDefinition = new ClassDefinition(new CompilerContext(bootstrapMethod),
+        ClassDefinition classDefinition = new ClassDefinition(new CompilerContext(),
                 a(PUBLIC, FINAL),
                 typeFromPathName("PagesHashStrategy_" + CLASS_ID.incrementAndGet()),
                 type(Object.class),
@@ -147,7 +144,7 @@ public class JoinCompiler
             List<FieldDefinition> channelFields,
             List<FieldDefinition> joinChannelFields)
     {
-        Block constructor = classDefinition.declareConstructor(new CompilerContext(bootstrapMethod),
+        Block constructor = classDefinition.declareConstructor(new CompilerContext(),
                 a(PUBLIC),
                 arg("channels", type(List.class, type(List.class, com.facebook.presto.spi.block.Block.class))))
                 .getBody()
@@ -182,7 +179,7 @@ public class JoinCompiler
 
     private void generateGetChannelCountMethod(ClassDefinition classDefinition, List<FieldDefinition> channelFields)
     {
-        classDefinition.declareMethod(new CompilerContext(bootstrapMethod),
+        classDefinition.declareMethod(new CompilerContext(),
                 a(PUBLIC),
                 "getChannelCount",
                 type(int.class))
@@ -193,7 +190,7 @@ public class JoinCompiler
 
     private void generateAppendToMethod(ClassDefinition classDefinition, List<Type> types, List<FieldDefinition> channelFields)
     {
-        Block appendToBody = classDefinition.declareMethod(new CompilerContext(bootstrapMethod),
+        Block appendToBody = classDefinition.declareMethod(new CompilerContext(),
                 a(PUBLIC),
                 "appendTo",
                 type(void.class),
@@ -226,7 +223,7 @@ public class JoinCompiler
 
     private void generateHashPositionMethod(ClassDefinition classDefinition, List<Type> joinChannelTypes, List<FieldDefinition> joinChannelFields)
     {
-        MethodDefinition hashPositionMethod = classDefinition.declareMethod(new CompilerContext(bootstrapMethod),
+        MethodDefinition hashPositionMethod = classDefinition.declareMethod(new CompilerContext(),
                 a(PUBLIC),
                 "hashPosition",
                 type(int.class),
@@ -269,7 +266,7 @@ public class JoinCompiler
 
     private void generatePositionEqualsRowMethod(ClassDefinition classDefinition, List<Type> joinChannelTypes, List<FieldDefinition> joinChannelFields)
     {
-        MethodDefinition hashPositionMethod = classDefinition.declareMethod(new CompilerContext(bootstrapMethod),
+        MethodDefinition hashPositionMethod = classDefinition.declareMethod(new CompilerContext(),
                 a(PUBLIC),
                 "positionEqualsRow",
                 type(boolean.class),
@@ -315,7 +312,7 @@ public class JoinCompiler
 
     private void generatePositionEqualsPositionMethod(ClassDefinition classDefinition, List<Type> joinChannelTypes, List<FieldDefinition> joinChannelFields)
     {
-        MethodDefinition hashPositionMethod = classDefinition.declareMethod(new CompilerContext(bootstrapMethod),
+        MethodDefinition hashPositionMethod = classDefinition.declareMethod(new CompilerContext(),
                 a(PUBLIC),
                 "positionEqualsPosition",
                 type(boolean.class),
