@@ -14,7 +14,6 @@
 package com.facebook.presto.operator;
 
 import com.facebook.presto.execution.TaskId;
-import com.facebook.presto.operator.FilterAndProjectOperator.FilterAndProjectOperatorFactory;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.RecordCursor;
 import com.facebook.presto.spi.block.Block;
@@ -69,25 +68,26 @@ public class TestFilterAndProjectOperator
                 .addSequencePage(100, 0, 0)
                 .build();
 
-        OperatorFactory operatorFactory = new FilterAndProjectOperatorFactory(
-                0,
-                new FilterFunction()
-                {
-                    @Override
-                    public boolean filter(int position, Block... blocks)
-                    {
-                        long value = BIGINT.getLong(blocks[1], position);
-                        return 10 <= value && value < 20;
-                    }
+        FilterFunction filter = new FilterFunction()
+        {
+            @Override
+            public boolean filter(int position, Block... blocks)
+            {
+                long value = BIGINT.getLong(blocks[1], position);
+                return 10 <= value && value < 20;
+            }
 
-                    @Override
-                    public boolean filter(RecordCursor cursor)
-                    {
-                        long value = cursor.getLong(0);
-                        return 10 <= value && value < 20;
-                    }
-                },
-                ImmutableList.of(singleColumn(VARCHAR, 0), new Add5Projection(1)));
+            @Override
+            public boolean filter(RecordCursor cursor)
+            {
+                long value = cursor.getLong(0);
+                return 10 <= value && value < 20;
+            }
+        };
+        OperatorFactory operatorFactory = new FilterAndProjectOperator.FilterAndProjectOperatorFactory(
+                0,
+                new GenericPageProcessor(filter, ImmutableList.of(singleColumn(VARCHAR, 0), new Add5Projection(1))),
+                ImmutableList.<Type>of(VARCHAR, BIGINT));
 
         Operator operator = operatorFactory.createOperator(driverContext);
 
