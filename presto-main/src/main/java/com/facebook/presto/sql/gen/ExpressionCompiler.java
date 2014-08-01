@@ -40,9 +40,12 @@ import org.weakref.jmx.Managed;
 
 import javax.inject.Inject;
 
+import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.IOException;
+import java.io.PrintStream;
 import java.io.PrintWriter;
+import java.nio.charset.StandardCharsets;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -206,10 +209,12 @@ public class ExpressionCompiler
         ClassInfoLoader classInfoLoader = ClassInfoLoader.createClassInfoLoader(classDefinitions, classLoader);
 
         if (DUMP_BYTE_CODE_TREE) {
-            DumpByteCodeVisitor dumpByteCode = new DumpByteCodeVisitor(System.out);
+            ByteArrayOutputStream out = new ByteArrayOutputStream();
+            DumpByteCodeVisitor dumpByteCode = new DumpByteCodeVisitor(new PrintStream(out));
             for (ClassDefinition classDefinition : classDefinitions) {
                 dumpByteCode.visitClass(classDefinition);
             }
+            System.out.println(new String(out.toByteArray(), StandardCharsets.UTF_8));
         }
 
         Map<String, byte[]> byteCodes = new LinkedHashMap<>();
