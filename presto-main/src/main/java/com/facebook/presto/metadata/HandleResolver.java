@@ -91,29 +91,28 @@ public class HandleResolver
 
     public Class<? extends ConnectorTableHandle> getTableHandleClass(String id)
     {
-        ConnectorHandleResolver connectorHandleResolver = handleIdResolvers.get(id);
-        checkArgument(connectorHandleResolver != null, "No handle resolver for %s", id);
-        return connectorHandleResolver.getTableHandleClass();
+        return resolverFor(id).getTableHandleClass();
     }
 
     public Class<? extends ConnectorColumnHandle> getColumnHandleClass(String id)
     {
-        ConnectorHandleResolver connectorHandleResolver = handleIdResolvers.get(id);
-        checkArgument(connectorHandleResolver != null, "No handle resolver for %s", id);
-        return connectorHandleResolver.getColumnHandleClass();
+        return resolverFor(id).getColumnHandleClass();
     }
 
     public Class<? extends ConnectorSplit> getSplitClass(String id)
     {
-        ConnectorHandleResolver connectorHandleResolver = handleIdResolvers.get(id);
-        checkArgument(connectorHandleResolver != null, "No handle resolver for %s", id);
-        return connectorHandleResolver.getSplitClass();
+        return resolverFor(id).getSplitClass();
     }
 
     public Class<? extends ConnectorIndexHandle> getIndexHandleClass(String id)
     {
-        ConnectorHandleResolver connectorHandleResolver = handleIdResolvers.get(id);
-        checkArgument(connectorHandleResolver != null, "No handle resolver for %s", id);
-        return connectorHandleResolver.getIndexHandleClass();
+        return resolverFor(id).getIndexHandleClass();
+    }
+
+    public ConnectorHandleResolver resolverFor(String id)
+    {
+        ConnectorHandleResolver resolver = handleIdResolvers.get(id);
+        checkArgument(resolver != null, "No handle resolver for %s", id);
+        return resolver;
     }
 }
