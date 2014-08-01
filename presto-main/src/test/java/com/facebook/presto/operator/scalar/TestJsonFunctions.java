@@ -13,8 +13,12 @@
  */
 package com.facebook.presto.operator.scalar;
 
+import com.google.common.base.Charsets;
+import io.airlift.slice.Slice;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
+import static org.testng.Assert.assertEquals;
+import static io.airlift.slice.Slices.wrappedBuffer;
 
 import static io.airlift.slice.Slices.utf8Slice;
 import static java.lang.String.format;
@@ -156,7 +160,45 @@ public class TestJsonFunctions
         assertFunction(format("JSON_SIZE('%s', '%s')", "INVALID_JSON", "$"), null);
         assertFunction(format("JSON_SIZE('%s', null)", "[1,2,3]"), null);
     }
+    @Test
+    public void testJsonExtractMultiple()
+    {
+        Slice testJson = wrappedBuffer("{\"x\":\"x_val\", \"y\":\"y_val\", \"z\":\"z_val\"}".getBytes());
+        assertEquals(JsonFunctions.jsonExtractMultiple(testJson, wrappedBuffer("[\"x\", \"z\"]".getBytes())).toString(Charsets.UTF_8), "{\"x\":\"x_val\",\"z\":\"z_val\"}");
+        assertEquals(JsonFunctions.jsonExtractMultiple(testJson, wrappedBuffer("[\"x\", \"y\"]".getBytes())).toString(Charsets.UTF_8), "{\"x\":\"x_val\",\"y\":\"y_val\"}");
+        assertEquals(JsonFunctions.jsonExtractMultiple(testJson, wrappedBuffer("[\"y\"]".getBytes())).toString(Charsets.UTF_8), "{\"y\":\"y_val\"}");
+        assertEquals(JsonFunctions.jsonExtractMultiple(testJson, wrappedBuffer("[\"DOESNTEXIST\"]".getBytes())), null);
+        testJson = wrappedBuffer("{\"a\":1, \"b\": {\"a\" : 2}}".getBytes());
+        assertEquals(JsonFunctions.jsonExtractMultiple(testJson, wrappedBuffer("[\"a\"]".getBytes())).toString(Charsets.UTF_8), "{\"a\":1}");
+    }
 
+    @Test
+    public void testJsonArrayStringHelper()
+    {
+        String[] res = JsonFunctions.ArrayStringHelper.toStringArray("[\"a\", \"b\", \"c\"]");
+        assertEquals(res.length, 3);
+        assertEquals(res[0], "a");
+        assertEquals(res[1], "b");
+        assertEquals(res[2], "c");
+
+        res = JsonFunctions.ArrayStringHelper.toStringArray("[\"a\", \"b.c\", \"d\"]");
+        assertEquals(res.length, 3);
+        assertEquals(res[0], "a");
+        assertEquals(res[1], "b.c");
+        assertEquals(res[2], "d");
+
+        res = JsonFunctions.ArrayStringHelper.toStringArray("[\"a\", \"b,c\", \"d\"]");
+        assertEquals(res.length, 3);
+        assertEquals(res[0], "a");
+        assertEquals(res[1], "b,c");
+        assertEquals(res[2], "d");
+
+        res = JsonFunctions.ArrayStringHelper.toStringArray("[\"a\", \"b,c,d,e\", \"f;g;h\"]");
+        assertEquals(res.length, 3);
+        assertEquals(res[0], "a");
+        assertEquals(res[1], "b,c,d,e");
+        assertEquals(res[2], "f;g;h");
+    }
     private void assertFunction(String projection, Object expected)
     {
         functionAssertions.assertFunction(projection, expected);
