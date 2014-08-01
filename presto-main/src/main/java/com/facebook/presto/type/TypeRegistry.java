@@ -15,6 +15,7 @@ package com.facebook.presto.type;
 
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 
 import javax.annotation.concurrent.ThreadSafe;
@@ -22,6 +23,7 @@ import javax.inject.Inject;
 
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
+import java.util.List;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
@@ -95,6 +97,12 @@ public final class TypeRegistry
     public Type getType(String typeName)
     {
         return types.get(typeName.toLowerCase());
+    }
+
+    @Override
+    public List<Type> getTypes()
+    {
+        return ImmutableList.copyOf(types.values());
     }
 
     public void addType(Type type)
