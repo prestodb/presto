@@ -15,13 +15,9 @@ package com.facebook.presto.sql.gen;
 
 import com.facebook.presto.byteCode.Block;
 import com.facebook.presto.byteCode.ClassDefinition;
-import com.facebook.presto.byteCode.ClassInfoLoader;
 import com.facebook.presto.byteCode.CompilerContext;
-import com.facebook.presto.byteCode.DumpByteCodeVisitor;
 import com.facebook.presto.byteCode.DynamicClassLoader;
 import com.facebook.presto.byteCode.MethodDefinition;
-import com.facebook.presto.byteCode.ParameterizedType;
-import com.facebook.presto.byteCode.SmartClassWriter;
 import com.facebook.presto.byteCode.Variable;
 import com.facebook.presto.byteCode.expression.ByteCodeExpression;
 import com.facebook.presto.byteCode.instruction.LabelNode;
@@ -39,27 +35,16 @@ import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
 import com.google.common.collect.ImmutableList;
-import com.google.common.io.Files;
 import com.google.common.util.concurrent.ExecutionError;
 import com.google.common.util.concurrent.UncheckedExecutionException;
 import io.airlift.log.Logger;
 import it.unimi.dsi.fastutil.longs.LongArrayList;
 import it.unimi.dsi.fastutil.objects.ObjectArrayList;
-import org.objectweb.asm.ClassReader;
-import org.objectweb.asm.ClassWriter;
-import org.objectweb.asm.util.CheckClassAdapter;
-import org.objectweb.asm.util.TraceClassVisitor;
 
-import java.io.File;
-import java.io.IOException;
-import java.io.PrintWriter;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Map.Entry;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.atomic.AtomicLong;
-import java.util.concurrent.atomic.AtomicReference;
 
 import static com.facebook.presto.byteCode.Access.FINAL;
 import static com.facebook.presto.byteCode.Access.PRIVATE;
@@ -76,6 +61,7 @@ import static com.facebook.presto.byteCode.expression.ByteCodeExpression.invokeS
 import static com.facebook.presto.sql.gen.Bootstrap.BOOTSTRAP_METHOD;
 import static com.facebook.presto.sql.gen.Bootstrap.CALL_SITES_FIELD_NAME;
 import static com.facebook.presto.sql.gen.ByteCodeUtils.setCallSitesField;
+import static com.facebook.presto.sql.gen.CompilerUtils.defineClass;
 import static com.facebook.presto.sql.gen.SqlTypeByteCodeExpression.constantType;
 import static com.google.common.base.Preconditions.checkNotNull;
 
@@ -84,11 +70,6 @@ public class OrderingCompiler
     private static final Logger log = Logger.get(ExpressionCompiler.class);
 
     private static final AtomicLong CLASS_ID = new AtomicLong();
-
-    private static final boolean DUMP_BYTE_CODE_TREE = false;
-    private static final boolean DUMP_BYTE_CODE_RAW = false;
-    private static final boolean RUN_ASM_VERIFIER = false; // verifier doesn't work right now
-    private static final AtomicReference<String> DUMP_CLASS_FILES_TO = new AtomicReference<>();
 
     private final LoadingCache<PagesIndexComparatorCacheKey, PagesIndexOrdering> pagesIndexOrderings = CacheBuilder.newBuilder().maximumSize(1000).build(
             new CacheLoader<PagesIndexComparatorCacheKey, PagesIndexOrdering>()
@@ -270,58 +251,6 @@ public class OrderingCompiler
         compareToMethod.getBody()
                 .push(0)
                 .retInt();
-    }
-
-    private static <T> Class<? extends T> defineClass(ClassDefinition classDefinition, Class<T> superType, DynamicClassLoader classLoader)
-    {
-        Class<?> clazz = defineClasses(ImmutableList.of(classDefinition), classLoader).values().iterator().next();
-        return clazz.asSubclass(superType);
-    }
-
-    private static Map<String, Class<?>> defineClasses(List<ClassDefinition> classDefinitions, DynamicClassLoader classLoader)
-    {
-        ClassInfoLoader classInfoLoader = ClassInfoLoader.createClassInfoLoader(classDefinitions, classLoader);
-
-        if (DUMP_BYTE_CODE_TREE) {
-            DumpByteCodeVisitor dumpByteCode = new DumpByteCodeVisitor(System.out);
-            for (ClassDefinition classDefinition : classDefinitions) {
-                dumpByteCode.visitClass(classDefinition);
-            }
-        }
-
-        Map<String, byte[]> byteCodes = new LinkedHashMap<>();
-        for (ClassDefinition classDefinition : classDefinitions) {
-            ClassWriter cw = new SmartClassWriter(classInfoLoader);
-            classDefinition.visit(cw);
-            byte[] byteCode = cw.toByteArray();
-            if (RUN_ASM_VERIFIER) {
-                ClassReader reader = new ClassReader(byteCode);
-                CheckClassAdapter.verify(reader, classLoader, true, new PrintWriter(System.out));
-            }
-            byteCodes.put(classDefinition.getType().getJavaClassName(), byteCode);
-        }
-
-        String dumpClassPath = DUMP_CLASS_FILES_TO.get();
-        if (dumpClassPath != null) {
-            for (Entry<String, byte[]> entry : byteCodes.entrySet()) {
-                File file = new File(dumpClassPath, ParameterizedType.typeFromJavaClassName(entry.getKey()).getClassName() + ".class");
-                try {
-                    log.debug("ClassFile: " + file.getAbsolutePath());
-                    Files.createParentDirs(file);
-                    Files.write(entry.getValue(), file);
-                }
-                catch (IOException e) {
-                    log.error(e, "Failed to write generated class file to: %s" + file.getAbsolutePath());
-                }
-            }
-        }
-        if (DUMP_BYTE_CODE_RAW) {
-            for (byte[] byteCode : byteCodes.values()) {
-                ClassReader classReader = new ClassReader(byteCode);
-                classReader.accept(new TraceClassVisitor(new PrintWriter(System.err)), ClassReader.SKIP_FRAMES);
-            }
-        }
-        return classLoader.defineClasses(byteCodes);
     }
 
     private static final class PagesIndexComparatorCacheKey
