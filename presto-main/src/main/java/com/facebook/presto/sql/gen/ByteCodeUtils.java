@@ -16,12 +16,15 @@ package com.facebook.presto.sql.gen;
 import com.facebook.presto.byteCode.Block;
 import com.facebook.presto.byteCode.ByteCodeNode;
 import com.facebook.presto.byteCode.CompilerContext;
+import com.facebook.presto.byteCode.Variable;
 import com.facebook.presto.byteCode.control.IfStatement;
 import com.facebook.presto.byteCode.expression.ByteCodeExpression;
 import com.facebook.presto.byteCode.instruction.LabelNode;
 import com.facebook.presto.metadata.FunctionInfo;
 import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.spi.ConnectorSession;
+import com.facebook.presto.spi.block.BlockBuilder;
+import com.facebook.presto.spi.type.Type;
 import com.google.common.base.Joiner;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
@@ -151,7 +154,7 @@ public class ByteCodeUtils
         return invokeDynamic("constant_" + binding.getBindingId(), binding.getType(), context.getDefaultBootstrapMethod(), binding.getBindingId());
     }
 
-    public static ByteCodeNode generateInvocation(CompilerContext context, FunctionInfo function, ByteCodeNode getSessionByteCode, List<ByteCodeNode> arguments, Binding binding)
+    public static ByteCodeNode generateInvocation(CompilerContext context, FunctionInfo function, List<ByteCodeNode> arguments, Binding binding)
     {
         MethodType methodType = binding.getType();
 
@@ -168,7 +171,7 @@ public class ByteCodeUtils
         for (Class<?> type : methodType.parameterArray()) {
             stackTypes.add(type);
             if (type == ConnectorSession.class) {
-                block.append(getSessionByteCode);
+                block.getVariable("session");
             }
             else {
                 block.append(arguments.get(index));
@@ -218,5 +221,31 @@ public class ByteCodeUtils
         catch (ReflectiveOperationException e) {
             throw Throwables.propagate(e);
         }
+    }
+
+    public static ByteCodeNode generateWrite(CallSiteBinder callSiteBinder, CompilerContext context, Variable wasNullVariable, Type type)
+    {
+        String name = "write" + Primitives.wrap(type.getJavaType()).getSimpleName();
+        MethodHandle target;
+        try {
+            target = MethodHandles.lookup().findVirtual(type.getClass(), name, MethodType.methodType(void.class, BlockBuilder.class, type.getJavaType()));
+        }
+        catch (ReflectiveOperationException e) {
+            throw Throwables.propagate(e);
+        }
+
+        return new Block(context)
+                .comment("if (wasNull)")
+                .append(new IfStatement.IfStatementBuilder(context)
+                        .condition(new Block(context).getVariable(wasNullVariable))
+                        .ifTrue(new Block(context)
+                                .comment("output.appendNull();")
+                                .pop(type.getJavaType())
+                                .invokeInterface(BlockBuilder.class, "appendNull", BlockBuilder.class)
+                                .pop())
+                        .ifFalse(new Block(context)
+                                .comment(type.getName() + "." + name + "(output, " + type.getJavaType().getSimpleName() + ")")
+                                .append(invoke(context, callSiteBinder.bind(target.bindTo(type)))))
+                        .build());
     }
 }

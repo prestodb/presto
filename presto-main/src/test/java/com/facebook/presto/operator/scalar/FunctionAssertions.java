@@ -20,14 +20,16 @@ import com.facebook.presto.metadata.FunctionRegistry.FunctionListBuilder;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.Split;
 import com.facebook.presto.operator.DriverContext;
-import com.facebook.presto.operator.FilterAndProjectOperator.FilterAndProjectOperatorFactory;
+import com.facebook.presto.operator.FilterAndProjectOperator;
 import com.facebook.presto.operator.FilterFunction;
+import com.facebook.presto.operator.GenericPageProcessor;
 import com.facebook.presto.operator.Operator;
 import com.facebook.presto.operator.OperatorContext;
 import com.facebook.presto.operator.OperatorFactory;
 import com.facebook.presto.operator.Page;
 import com.facebook.presto.operator.ProjectionFunction;
 import com.facebook.presto.operator.RecordProjectOperator;
+import com.facebook.presto.operator.ScanFilterAndProjectOperator;
 import com.facebook.presto.operator.SourceOperator;
 import com.facebook.presto.operator.SourceOperatorFactory;
 import com.facebook.presto.operator.TaskContext;
@@ -41,7 +43,9 @@ import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.split.DataStreamProvider;
 import com.facebook.presto.sql.analyzer.ExpressionAnalysis;
+import com.facebook.presto.operator.CursorProcessor;
 import com.facebook.presto.sql.gen.ExpressionCompiler;
+import com.facebook.presto.operator.PageProcessor;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.InterpretedFilterFunction;
 import com.facebook.presto.sql.planner.InterpretedProjectionFunction;
@@ -89,6 +93,7 @@ import static com.facebook.presto.spi.type.TimeZoneKey.UTC_KEY;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.sql.analyzer.ExpressionAnalyzer.analyzeExpressionsWithSymbols;
 import static com.facebook.presto.sql.analyzer.ExpressionAnalyzer.getExpressionTypesFromInput;
+import static com.facebook.presto.sql.planner.LocalExecutionPlanner.toTypes;
 import static com.facebook.presto.sql.planner.optimizations.CanonicalizeExpressions.canonicalizeExpression;
 import static com.facebook.presto.sql.tree.BooleanLiteral.TRUE_LITERAL;
 import static com.google.common.base.Preconditions.checkNotNull;
@@ -487,7 +492,7 @@ public final class FunctionAssertions
                 session
         );
 
-        OperatorFactory operatorFactory = new FilterAndProjectOperatorFactory(0, filterFunction, ImmutableList.of(projectionFunction));
+        OperatorFactory operatorFactory = new FilterAndProjectOperator.FilterAndProjectOperatorFactory(0, new GenericPageProcessor(filterFunction, ImmutableList.of(projectionFunction)), toTypes(ImmutableList.of(projectionFunction)));
         return operatorFactory.createOperator(createDriverContext(session));
     }
 
@@ -498,9 +503,11 @@ public final class FunctionAssertions
         IdentityHashMap<Expression, Type> expressionTypes = getExpressionTypesFromInput(SESSION, metadata, SQL_PARSER, INPUT_TYPES, ImmutableList.of(filter));
 
         try {
-            return compiler.compileFilterAndProjectOperator(0,
+            PageProcessor processor = compiler.compilePageProcessor(
                     SqlToRowExpressionTranslator.translate(filter, expressionTypes, metadata, session, false),
                     ImmutableList.<RowExpression>of());
+
+            return new FilterAndProjectOperator.FilterAndProjectOperatorFactory(0, processor, ImmutableList.<Type>of());
         }
         catch (Throwable e) {
             if (e instanceof UncheckedExecutionException) {
@@ -518,9 +525,12 @@ public final class FunctionAssertions
         IdentityHashMap<Expression, Type> expressionTypes = getExpressionTypesFromInput(SESSION, metadata, SQL_PARSER, INPUT_TYPES, ImmutableList.of(filter, projection));
 
         try {
-            return compiler.compileFilterAndProjectOperator(0,
+            List<RowExpression> projections = ImmutableList.of(SqlToRowExpressionTranslator.translate(projection, expressionTypes, metadata, session, false));
+            PageProcessor processor = compiler.compilePageProcessor(
                     SqlToRowExpressionTranslator.translate(filter, expressionTypes, metadata, session, false),
-                    ImmutableList.of(SqlToRowExpressionTranslator.translate(projection, expressionTypes, metadata, session, false)));
+                    projections);
+
+            return new FilterAndProjectOperator.FilterAndProjectOperatorFactory(0, processor, ImmutableList.of(expressionTypes.get(projection)));
         }
         catch (Throwable e) {
             if (e instanceof UncheckedExecutionException) {
@@ -538,13 +548,23 @@ public final class FunctionAssertions
         IdentityHashMap<Expression, Type> expressionTypes = getExpressionTypesFromInput(SESSION, metadata, SQL_PARSER, INPUT_TYPES, ImmutableList.of(filter, projection));
 
         try {
-            return compiler.compileScanFilterAndProjectOperator(
+            CursorProcessor cursorProcessor = compiler.compileCursorProcessor(
+                    SqlToRowExpressionTranslator.translate(filter, expressionTypes, metadata, session, false),
+                    ImmutableList.of(SqlToRowExpressionTranslator.translate(projection, expressionTypes, metadata, session, false)),
+                    SOURCE_ID);
+
+            PageProcessor pageProcessor = compiler.compilePageProcessor(
+                    SqlToRowExpressionTranslator.translate(filter, expressionTypes, metadata, session, false),
+                    ImmutableList.of(SqlToRowExpressionTranslator.translate(projection, expressionTypes, metadata, session, false)));
+
+            return new ScanFilterAndProjectOperator.ScanFilterAndProjectOperatorFactory(
                     0,
                     SOURCE_ID,
                     DATA_STREAM_PROVIDER,
+                    cursorProcessor,
+                    pageProcessor,
                     ImmutableList.<ColumnHandle>of(),
-                    SqlToRowExpressionTranslator.translate(filter, expressionTypes, metadata, session, false),
-                    ImmutableList.of(SqlToRowExpressionTranslator.translate(projection, expressionTypes, metadata, session, false)));
+                    ImmutableList.of(expressionTypes.get(projection)));
         }
         catch (Throwable e) {
             if (e instanceof UncheckedExecutionException) {

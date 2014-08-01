@@ -29,26 +29,22 @@ public class ByteCodeGeneratorContext
     private final ByteCodeExpressionVisitor byteCodeGenerator;
     private final CompilerContext context;
     private final CallSiteBinder callSiteBinder;
-    private final ByteCodeNode getSessionByteCode;
     private final FunctionRegistry registry;
 
     public ByteCodeGeneratorContext(
             ByteCodeExpressionVisitor byteCodeGenerator,
             CompilerContext context,
             CallSiteBinder callSiteBinder,
-            ByteCodeNode getSessionByteCode,
             FunctionRegistry registry)
     {
         checkNotNull(byteCodeGenerator, "byteCodeGenerator is null");
         checkNotNull(context, "context is null");
         checkNotNull(callSiteBinder, "callSiteBinder is null");
-        checkNotNull(getSessionByteCode, "getSessionByteCode is null");
         checkNotNull(registry, "registry is null");
 
         this.byteCodeGenerator = byteCodeGenerator;
         this.context = context;
         this.callSiteBinder = callSiteBinder;
-        this.getSessionByteCode = getSessionByteCode;
         this.registry = registry;
     }
 
@@ -67,11 +63,6 @@ public class ByteCodeGeneratorContext
         return expression.accept(byteCodeGenerator, context);
     }
 
-    public ByteCodeNode generateGetSession()
-    {
-        return getSessionByteCode;
-    }
-
     public FunctionRegistry getRegistry()
     {
         return registry;
@@ -83,6 +74,6 @@ public class ByteCodeGeneratorContext
     public ByteCodeNode generateCall(FunctionInfo function, List<ByteCodeNode> arguments)
     {
         Binding binding = callSiteBinder.bind(function.getMethodHandle());
-        return generateInvocation(context, function, getSessionByteCode, arguments, binding);
+        return generateInvocation(context, function, arguments, binding);
     }
 }
