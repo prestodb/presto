@@ -15,12 +15,9 @@ package com.facebook.presto.operator.aggregation.state;
 
 import com.facebook.presto.byteCode.Block;
 import com.facebook.presto.byteCode.ClassDefinition;
-import com.facebook.presto.byteCode.ClassInfoLoader;
 import com.facebook.presto.byteCode.CompilerContext;
-import com.facebook.presto.byteCode.DumpByteCodeVisitor;
 import com.facebook.presto.byteCode.DynamicClassLoader;
 import com.facebook.presto.byteCode.FieldDefinition;
-import com.facebook.presto.byteCode.SmartClassWriter;
 import com.facebook.presto.byteCode.Variable;
 import com.facebook.presto.operator.aggregation.GroupedAccumulator;
 import com.facebook.presto.spi.block.BlockBuilder;
@@ -41,7 +38,6 @@ import com.google.common.collect.Ordering;
 import io.airlift.slice.SizeOf;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
-import org.objectweb.asm.ClassWriter;
 import org.openjdk.jol.info.ClassLayout;
 
 import java.lang.annotation.Annotation;
@@ -50,7 +46,6 @@ import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -64,6 +59,7 @@ import static com.facebook.presto.byteCode.Access.a;
 import static com.facebook.presto.byteCode.NamedParameterDefinition.arg;
 import static com.facebook.presto.byteCode.ParameterizedType.type;
 import static com.facebook.presto.byteCode.ParameterizedType.typeFromPathName;
+import static com.facebook.presto.sql.gen.CompilerUtils.defineClass;
 import static com.google.common.base.CaseFormat.LOWER_CAMEL;
 import static com.google.common.base.CaseFormat.UPPER_CAMEL;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -71,37 +67,7 @@ import static com.google.common.base.Preconditions.checkNotNull;
 
 public class StateCompiler
 {
-    private static final boolean DUMP_BYTE_CODE_TREE = false;
-
     private static final AtomicLong CLASS_ID = new AtomicLong();
-
-    private static Map<String, Class<?>> defineClasses(List<ClassDefinition> classDefinitions, DynamicClassLoader classLoader)
-    {
-        ClassInfoLoader classInfoLoader = ClassInfoLoader.createClassInfoLoader(classDefinitions, classLoader);
-
-        if (DUMP_BYTE_CODE_TREE) {
-            DumpByteCodeVisitor dumpByteCode = new DumpByteCodeVisitor(System.out);
-            for (ClassDefinition classDefinition : classDefinitions) {
-                dumpByteCode.visitClass(classDefinition);
-            }
-        }
-
-        Map<String, byte[]> byteCodes = new LinkedHashMap<>();
-        for (ClassDefinition classDefinition : classDefinitions) {
-            ClassWriter cw = new SmartClassWriter(classInfoLoader);
-            classDefinition.visit(cw);
-            byte[] byteCode = cw.toByteArray();
-            byteCodes.put(classDefinition.getType().getJavaClassName(), byteCode);
-        }
-
-        return classLoader.defineClasses(byteCodes);
-    }
-
-    private static <T> Class<? extends T> defineClass(ClassDefinition classDefinition, Class<T> superType, DynamicClassLoader classLoader)
-    {
-        Class<?> clazz = defineClasses(ImmutableList.of(classDefinition), classLoader).values().iterator().next();
-        return clazz.asSubclass(superType);
-    }
 
     private static Class<?> getBigArrayType(Class<?> type)
     {
