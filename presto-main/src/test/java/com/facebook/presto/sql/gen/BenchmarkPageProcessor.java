@@ -54,6 +54,7 @@ import static com.facebook.presto.sql.relational.Expressions.call;
 import static com.facebook.presto.sql.relational.Expressions.constant;
 import static com.facebook.presto.sql.relational.Expressions.field;
 import static com.google.common.base.Charsets.UTF_8;
+import static com.google.common.base.Preconditions.checkState;
 
 @State(Scope.Thread)
 @OutputTimeUnit(TimeUnit.SECONDS)
@@ -111,7 +112,8 @@ public class BenchmarkPageProcessor
     public static Page execute(Page inputPage, PageProcessor processor)
     {
         PageBuilder pageBuilder = new PageBuilder(ImmutableList.of(DOUBLE));
-        processor.process(null, inputPage, pageBuilder);
+        int count = processor.process(null, inputPage, 0, inputPage.getPositionCount(), pageBuilder);
+        checkState(count == inputPage.getPositionCount());
         return pageBuilder.build();
     }
 
@@ -134,10 +136,11 @@ public class BenchmarkPageProcessor
             implements PageProcessor
     {
         @Override
-        public void process(ConnectorSession session, Page page, PageBuilder pageBuilder)
+        public int process(ConnectorSession session, Page page, int start, int end, PageBuilder pageBuilder)
         {
             Block discountBlock = page.getBlock(DISCOUNT);
-            for (int position = 0; position < page.getPositionCount(); position++) {
+            int position = start;
+            for (; position < end; position++) {
                 // where shipdate >= '1994-01-01'
                 //    and shipdate < '1995-01-01'
                 //    and discount >= 0.05
@@ -147,6 +150,8 @@ public class BenchmarkPageProcessor
                     project(position, pageBuilder, page.getBlock(EXTENDED_PRICE), discountBlock);
                 }
             }
+
+            return position;
         }
 
         private static void project(int position, PageBuilder pageBuilder, Block extendedPriceBlock, Block discountBlock)

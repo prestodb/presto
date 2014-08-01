@@ -30,6 +30,8 @@ public class FilterAndProjectOperator
 
     private final PageBuilder pageBuilder;
     private final PageProcessor processor;
+    private Page currentPage;
+    private int currentPosition;
     private boolean finishing;
 
     public FilterAndProjectOperator(OperatorContext operatorContext, Iterable<? extends Type> types, PageProcessor processor)
@@ -61,7 +63,7 @@ public class FilterAndProjectOperator
     @Override
     public final boolean isFinished()
     {
-        return finishing && pageBuilder.isEmpty();
+        return finishing && pageBuilder.isEmpty() && currentPage == null;
     }
 
     @Override
@@ -73,7 +75,7 @@ public class FilterAndProjectOperator
     @Override
     public final boolean needsInput()
     {
-        return !finishing && !pageBuilder.isFull();
+        return !finishing && !pageBuilder.isFull() && currentPage == null;
     }
 
     @Override
@@ -83,13 +85,22 @@ public class FilterAndProjectOperator
         checkNotNull(page, "page is null");
         checkState(!pageBuilder.isFull(), "Page buffer is full");
 
-        processor.process(operatorContext.getSession(), page, pageBuilder);
+        currentPage = page;
+        currentPosition = 0;
     }
 
     @Override
     public final Page getOutput()
     {
-        if (needsInput() || pageBuilder.isEmpty()) {
+        if (!pageBuilder.isFull() && currentPage != null) {
+            currentPosition = processor.process(operatorContext.getSession(), currentPage, currentPosition, currentPage.getPositionCount(), pageBuilder);
+            if (currentPosition == currentPage.getPositionCount()) {
+                currentPage = null;
+                currentPosition = 0;
+            }
+        }
+
+        if (!finishing && !pageBuilder.isFull() || pageBuilder.isEmpty()) {
             return null;
         }
 

@@ -78,10 +78,11 @@ public class HandTpchQuery6
         private static final Slice MAX_SHIP_DATE = Slices.copiedBuffer("1995-01-01", UTF_8);
 
         @Override
-        public void process(ConnectorSession session, Page page, PageBuilder pageBuilder)
+        public int process(ConnectorSession session, Page page, int start, int end, PageBuilder pageBuilder)
         {
             Block discountBlock = page.getBlock(1);
-            for (int position = 0; position < page.getPositionCount(); position++) {
+            int position = start;
+            for (; position < end; position++) {
                 // where shipdate >= '1994-01-01'
                 //    and shipdate < '1995-01-01'
                 //    and discount >= 0.05
@@ -91,6 +92,7 @@ public class HandTpchQuery6
                     project(position, pageBuilder, page.getBlock(0), discountBlock);
                 }
             }
+            return position;
         }
 
         private static void project(int position, PageBuilder pageBuilder, Block extendedPriceBlock, Block discountBlock)

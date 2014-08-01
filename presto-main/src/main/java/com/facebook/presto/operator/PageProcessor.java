@@ -17,5 +17,5 @@ import com.facebook.presto.spi.ConnectorSession;
 
 public interface PageProcessor
 {
-    void process(ConnectorSession session, Page page, PageBuilder pageBuilder);
+    int process(ConnectorSession session, Page page, int start, int end, PageBuilder pageBuilder);
 }

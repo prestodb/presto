@@ -53,6 +53,9 @@ public class ScanFilterAndProjectOperator
     @GuardedBy("this")
     private Operator operator;
 
+    private Page currentPage;
+    private int currentPosition;
+
     private boolean finishing;
 
     private long completedBytes;
@@ -190,9 +193,17 @@ public class ScanFilterAndProjectOperator
                 }
             }
             else {
-                Page output = operator.getOutput();
-                if (output != null) {
-                    pageProcessor.process(operatorContext.getSession(), output, pageBuilder);
+                if (currentPage == null) {
+                    currentPage = operator.getOutput();
+                    currentPosition = 0;
+                }
+
+                if (currentPage != null) {
+                    currentPosition = pageProcessor.process(operatorContext.getSession(), currentPage, currentPosition, currentPage.getPositionCount(), pageBuilder);
+                    if (currentPosition == currentPage.getPositionCount()) {
+                        currentPage = null;
+                        currentPosition = 0;
+                    }
                 }
             }
         }
