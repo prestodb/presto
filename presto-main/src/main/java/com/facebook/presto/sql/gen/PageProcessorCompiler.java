@@ -88,26 +88,25 @@ public class PageProcessorCompiler
         MethodDefinition method = classDefinition.declareMethod(context,
                 a(PUBLIC),
                 "process",
-                type(void.class),
+                type(int.class),
                 arg("session", ConnectorSession.class),
                 arg("page", Page.class),
+                arg("start", int.class),
+                arg("end", int.class),
                 arg("pageBuilder", PageBuilder.class));
 
         LocalVariableDefinition sessionVariable = context.getVariable("session").getLocalVariableDefinition();
         LocalVariableDefinition pageVariable = context.getVariable("page").getLocalVariableDefinition();
+        LocalVariableDefinition startVariable = context.getVariable("start").getLocalVariableDefinition();
+        LocalVariableDefinition endVariable = context.getVariable("end").getLocalVariableDefinition();
         LocalVariableDefinition pageBuilderVariable = context.getVariable("pageBuilder").getLocalVariableDefinition();
 
         LocalVariableDefinition positionVariable = context.declareVariable(int.class, "position");
-        LocalVariableDefinition endVariable = context.declareVariable(int.class, "end");
 
         method.getBody()
-                .comment("int position = 0;")
-                .push(0)
-                .putVariable(positionVariable)
-                .comment("int end = page.getPositionCount()")
-                .getVariable(pageVariable)
-                .invokeVirtual(Page.class, "getPositionCount", int.class)
-                .putVariable(endVariable);
+                .comment("int position = start;")
+                .getVariable(startVariable)
+                .putVariable(positionVariable);
 
         List<Integer> allInputChannels = getInputChannels(Iterables.concat(projections, ImmutableList.of(filter)));
         for (int channel : allInputChannels) {
@@ -139,6 +138,11 @@ public class PageProcessorCompiler
                         .comment("position++")
                         .incrementVariable(positionVariable, (byte) 1))
                 .body(loopBody);
+
+        loopBody.comment("if (pageBuilder.isFull()) break;")
+                .getVariable(pageBuilderVariable)
+                .invokeVirtual(PageBuilder.class, "isFull", boolean.class)
+                .ifTrueGoto(done);
 
         // if (filter(cursor))
         IfStatementBuilder filterBlock = new IfStatementBuilder(context);
@@ -193,7 +197,9 @@ public class PageProcessorCompiler
         method.getBody()
                 .append(loop.build())
                 .visitLabel(done)
-                .ret();
+                .comment("return position;")
+                .getVariable(positionVariable)
+                .retInt();
     }
 
     private void generateFilterMethod(ClassDefinition classDefinition, CallSiteBinder callSiteBinder, RowExpression filter)
