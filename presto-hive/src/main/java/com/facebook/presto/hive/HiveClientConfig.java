@@ -72,6 +72,8 @@ public class HiveClientConfig
     private Duration s3ConnectTimeout = new Duration(5, TimeUnit.SECONDS);
     private int s3MaxConnections = 500;
     private File s3StagingDirectory = new File(StandardSystemProperty.JAVA_IO_TMPDIR.value());
+    private DataSize s3MultipartMinFileSize = new DataSize(16, MEGABYTE);
+    private DataSize s3MultipartMinPartSize = new DataSize(5, MEGABYTE);
 
     private HiveStorageFormat hiveStorageFormat = HiveStorageFormat.RCBINARY;
 
@@ -500,6 +502,36 @@ public class HiveClientConfig
     public HiveClientConfig setS3StagingDirectory(File s3StagingDirectory)
     {
         this.s3StagingDirectory = s3StagingDirectory;
+        return this;
+    }
+
+    // TODO: add @MinDataSize(5MB) when supported in Airlift
+    @NotNull
+    public DataSize getS3MultipartMinFileSize()
+    {
+        return s3MultipartMinFileSize;
+    }
+
+    @Config("hive.s3.multipart.min-file-size")
+    @ConfigDescription("Minimum file size for an S3 multipart upload")
+    public HiveClientConfig setS3MultipartMinFileSize(DataSize size)
+    {
+        this.s3MultipartMinFileSize = size;
+        return this;
+    }
+
+    // TODO: add @MinDataSize(5MB) when supported in Airlift
+    @NotNull
+    public DataSize getS3MultipartMinPartSize()
+    {
+        return s3MultipartMinPartSize;
+    }
+
+    @Config("hive.s3.multipart.min-part-size")
+    @ConfigDescription("Minimum part size for an S3 multipart upload")
+    public HiveClientConfig setS3MultipartMinPartSize(DataSize size)
+    {
+        this.s3MultipartMinPartSize = size;
         return this;
     }
 }

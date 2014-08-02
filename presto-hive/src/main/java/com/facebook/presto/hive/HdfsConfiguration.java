@@ -16,6 +16,7 @@ package com.facebook.presto.hive;
 import com.google.common.collect.ImmutableList;
 import com.google.common.net.HostAndPort;
 import com.google.common.primitives.Ints;
+import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
@@ -50,6 +51,8 @@ public class HdfsConfiguration
     private final File s3StagingDirectory;
     private final List<String> resourcePaths;
     private final boolean verifyChecksum;
+    private final DataSize s3MultipartMinFileSize;
+    private final DataSize s3MultipartMinPartSize;
 
     @SuppressWarnings("ThreadLocalNotStaticFinal")
     private final ThreadLocal<Configuration> hadoopConfiguration = new ThreadLocal<Configuration>()
@@ -83,6 +86,8 @@ public class HdfsConfiguration
         this.s3StagingDirectory = hiveClientConfig.getS3StagingDirectory();
         this.resourcePaths = hiveClientConfig.getResourceConfigFiles();
         this.verifyChecksum = hiveClientConfig.isVerifyChecksum();
+        this.s3MultipartMinFileSize = hiveClientConfig.getS3MultipartMinFileSize();
+        this.s3MultipartMinPartSize = hiveClientConfig.getS3MultipartMinPartSize();
     }
 
     public boolean verifyChecksum()
@@ -152,6 +157,8 @@ public class HdfsConfiguration
         config.set(PrestoS3FileSystem.S3_CONNECT_TIMEOUT, s3ConnectTimeout.toString());
         config.set(PrestoS3FileSystem.S3_STAGING_DIRECTORY, s3StagingDirectory.toString());
         config.setInt(PrestoS3FileSystem.S3_MAX_CONNECTIONS, s3MaxConnections);
+        config.setLong(PrestoS3FileSystem.S3_MULTIPART_MIN_FILE_SIZE, s3MultipartMinFileSize.toBytes());
+        config.setLong(PrestoS3FileSystem.S3_MULTIPART_MIN_PART_SIZE, s3MultipartMinPartSize.toBytes());
 
         updateConfiguration(config);
 
