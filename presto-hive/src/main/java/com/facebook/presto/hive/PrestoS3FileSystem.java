@@ -18,6 +18,9 @@ import com.amazonaws.ClientConfiguration;
 import com.amazonaws.Protocol;
 import com.amazonaws.auth.AWSCredentials;
 import com.amazonaws.auth.BasicAWSCredentials;
+import com.amazonaws.event.ProgressEvent;
+import com.amazonaws.event.ProgressEventType;
+import com.amazonaws.event.ProgressListener;
 import com.amazonaws.services.s3.AmazonS3;
 import com.amazonaws.services.s3.AmazonS3Client;
 import com.amazonaws.services.s3.model.AmazonS3Exception;
@@ -28,6 +31,10 @@ import com.amazonaws.services.s3.model.ObjectMetadata;
 import com.amazonaws.services.s3.model.S3Object;
 import com.amazonaws.services.s3.model.S3ObjectInputStream;
 import com.amazonaws.services.s3.model.S3ObjectSummary;
+import com.amazonaws.services.s3.transfer.Transfer;
+import com.amazonaws.services.s3.transfer.TransferManager;
+import com.amazonaws.services.s3.transfer.TransferManagerConfiguration;
+import com.amazonaws.services.s3.transfer.Upload;
 import com.google.common.base.Function;
 import com.google.common.base.Throwables;
 import com.google.common.collect.AbstractSequentialIterator;
@@ -57,13 +64,14 @@ import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.FilterOutputStream;
 import java.io.IOException;
+import java.io.InterruptedIOException;
 import java.net.URI;
 import java.util.ArrayList;
-import java.util.concurrent.Callable;
-import java.util.concurrent.TimeUnit;
 import java.util.Date;
 import java.util.Iterator;
 import java.util.List;
+import java.util.concurrent.Callable;
+import java.util.concurrent.TimeUnit;
 
 import static com.facebook.presto.hive.RetryDriver.retry;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -87,12 +95,15 @@ public class PrestoS3FileSystem
     public static final String S3_CONNECT_TIMEOUT = "presto.s3.connect-timeout";
     public static final String S3_MAX_CONNECTIONS = "presto.s3.max-connections";
     public static final String S3_STAGING_DIRECTORY = "presto.s3.staging-directory";
+    public static final String S3_MULTIPART_MIN_FILE_SIZE = "presto.s3.multipart.min-file-size";
+    public static final String S3_MULTIPART_MIN_PART_SIZE = "presto.s3.multipart.min-part-size";
 
     private static final Logger log = Logger.get(PrestoS3FileSystem.class);
 
     private static final DataSize BLOCK_SIZE = new DataSize(32, MEGABYTE);
     private static final DataSize MAX_SKIP_SIZE = new DataSize(1, MEGABYTE);
 
+    private final TransferManagerConfiguration transferConfig = new TransferManagerConfiguration();
     private URI uri;
     private Path workingDirectory;
     private AmazonS3 s3;
@@ -118,6 +129,8 @@ public class PrestoS3FileSystem
         boolean sslEnabled = conf.getBoolean(S3_SSL_ENABLED, defaults.isS3SslEnabled());
         Duration connectTimeout = Duration.valueOf(conf.get(S3_CONNECT_TIMEOUT, defaults.getS3ConnectTimeout().toString()));
         int maxConnections = conf.getInt(S3_MAX_CONNECTIONS, defaults.getS3MaxConnections());
+        long minFileSize = conf.getLong(S3_MULTIPART_MIN_FILE_SIZE, defaults.getS3MultipartMinFileSize().toBytes());
+        long minPartSize = conf.getLong(S3_MULTIPART_MIN_PART_SIZE, defaults.getS3MultipartMinPartSize().toBytes());
 
         ClientConfiguration configuration = new ClientConfiguration();
         configuration.setMaxErrorRetry(maxErrorRetries);
@@ -126,6 +139,9 @@ public class PrestoS3FileSystem
         configuration.setMaxConnections(maxConnections);
 
         this.s3 = new AmazonS3Client(getAwsCredentials(uri, conf), configuration);
+
+        transferConfig.setMultipartUploadThreshold(minFileSize);
+        transferConfig.setMinimumUploadPartSize(minPartSize);
     }
 
     @Override
@@ -247,7 +263,7 @@ public class PrestoS3FileSystem
 
         String key = keyFromPath(qualifiedPath(path));
         return new FSDataOutputStream(
-                new PrestoS3OutputStream(s3, uri.getHost(), key, tempFile),
+                new PrestoS3OutputStream(s3, transferConfig, uri.getHost(), key, tempFile),
                 statistics);
     }
 
@@ -593,11 +609,7 @@ public class PrestoS3FileSystem
                 throws IOException
         {
             if (in != null) {
-                try {
-                    in.abort();
-                }
-                catch (IOException ignored) {
-                }
+                in.abort();
                 in = null;
             }
         }
@@ -606,19 +618,21 @@ public class PrestoS3FileSystem
     private static class PrestoS3OutputStream
             extends FilterOutputStream
     {
-        private final AmazonS3 s3;
+        private final TransferManager transferManager;
         private final String host;
         private final String key;
         private final File tempFile;
 
         private boolean closed;
 
-        public PrestoS3OutputStream(AmazonS3 s3, String host, String key, File tempFile)
+        public PrestoS3OutputStream(AmazonS3 s3, TransferManagerConfiguration config, String host, String key, File tempFile)
                 throws IOException
         {
             super(new BufferedOutputStream(new FileOutputStream(checkNotNull(tempFile, "tempFile is null"))));
 
-            this.s3 = checkNotNull(s3, "s3 is null");
+            transferManager = new TransferManager(checkNotNull(s3, "s3 is null"));
+            transferManager.setConfiguration(checkNotNull(config, "config is null"));
+
             this.host = checkNotNull(host, "host is null");
             this.key = checkNotNull(key, "key is null");
             this.tempFile = tempFile;
@@ -643,6 +657,8 @@ public class PrestoS3FileSystem
                 if (!tempFile.delete()) {
                     log.warn("Could not delete temporary file: %s", tempFile);
                 }
+                // close transfer manager but keep underlying S3 client open
+                transferManager.shutdownNow(false);
             }
         }
 
@@ -650,13 +666,48 @@ public class PrestoS3FileSystem
                 throws IOException
         {
             try {
-                log.debug("Starting upload for key: %s", key);
-                s3.putObject(host, key, tempFile);
-                log.debug("Completed upload for key: %s", key);
+                log.debug("Starting upload for host: %s, key: %s, file: %s, size: %s", host, key, tempFile, tempFile.length());
+                Upload upload = transferManager.upload(host, key, tempFile);
+
+                if (log.isDebugEnabled()) {
+                    upload.addProgressListener(createProgressListener(upload));
+                }
+
+                upload.waitForCompletion();
+                log.debug("Completed upload for host: %s, key: %s", host, key);
             }
             catch (AmazonClientException e) {
                 throw new IOException(e);
             }
+            catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                throw new InterruptedIOException();
+            }
+        }
+
+        private ProgressListener createProgressListener(final Transfer transfer)
+        {
+            return new ProgressListener()
+            {
+                private ProgressEventType previousType;
+                private double previousTransferred;
+
+                @Override
+                public synchronized void progressChanged(ProgressEvent progressEvent)
+                {
+                    ProgressEventType eventType = progressEvent.getEventType();
+                    if (previousType != eventType) {
+                        log.debug("Upload progress event (%s/%s): %s", host, key, eventType);
+                        previousType = eventType;
+                    }
+
+                    double transferred = transfer.getProgress().getPercentTransferred();
+                    if (transferred >= (previousTransferred + 10.0)) {
+                        log.debug("Upload percentage (%s/%s): %.0f%%", host, key, transferred);
+                        previousTransferred = transferred;
+                    }
+                }
+            };
         }
     }
 }

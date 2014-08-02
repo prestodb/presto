@@ -68,6 +68,8 @@ public class TestHiveClientConfig
                 .setS3MaxErrorRetries(10)
                 .setS3MaxBackoffTime(new Duration(10, TimeUnit.MINUTES))
                 .setS3ConnectTimeout(new Duration(5, TimeUnit.SECONDS))
+                .setS3MultipartMinFileSize(new DataSize(16, Unit.MEGABYTE))
+                .setS3MultipartMinPartSize(new DataSize(5, Unit.MEGABYTE))
                 .setS3MaxConnections(500)
                 .setS3StagingDirectory(new File(StandardSystemProperty.JAVA_IO_TMPDIR.value())));
     }
@@ -106,6 +108,8 @@ public class TestHiveClientConfig
                 .put("hive.s3.max-error-retries", "8")
                 .put("hive.s3.max-backoff-time", "4m")
                 .put("hive.s3.connect-timeout", "8s")
+                .put("hive.s3.multipart.min-file-size", "32MB")
+                .put("hive.s3.multipart.min-part-size", "15MB")
                 .put("hive.s3.max-connections", "77")
                 .put("hive.s3.staging-directory", "/s3-staging")
                 .build();
@@ -141,6 +145,8 @@ public class TestHiveClientConfig
                 .setS3MaxErrorRetries(8)
                 .setS3MaxBackoffTime(new Duration(4, TimeUnit.MINUTES))
                 .setS3ConnectTimeout(new Duration(8, TimeUnit.SECONDS))
+                .setS3MultipartMinFileSize(new DataSize(32, Unit.MEGABYTE))
+                .setS3MultipartMinPartSize(new DataSize(15, Unit.MEGABYTE))
                 .setS3MaxConnections(77)
                 .setS3StagingDirectory(new File("/s3-staging"));
 
