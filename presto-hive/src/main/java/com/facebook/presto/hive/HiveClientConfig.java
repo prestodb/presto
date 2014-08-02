@@ -30,6 +30,7 @@ import java.io.File;
 import java.util.List;
 import java.util.TimeZone;
 import java.util.concurrent.TimeUnit;
+import io.airlift.units.DataSize.Unit;
 
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 
@@ -70,10 +71,17 @@ public class HiveClientConfig
     private Duration s3MaxBackoffTime = new Duration(10, TimeUnit.MINUTES);
     private Duration s3ConnectTimeout = new Duration(5, TimeUnit.SECONDS);
     private File s3StagingDirectory = new File(StandardSystemProperty.JAVA_IO_TMPDIR.value());
+    private int s3MaxConnections = 50;
 
     private HiveStorageFormat hiveStorageFormat = HiveStorageFormat.RCBINARY;
 
     private List<String> resourceConfigFiles;
+
+    /**
+    * Config for S3 multipart upload support
+     */
+     private DataSize s3MultipartUploadMinSize = new DataSize(5, Unit.MEGABYTE);
+     private DataSize s3MultipartUploadThreshold = new DataSize(16, Unit.MEGABYTE);
 
     public int getMaxInitialSplits()
     {
@@ -473,5 +481,44 @@ public class HiveClientConfig
     {
         this.s3StagingDirectory = s3StagingDirectory;
         return this;
+    }
+
+    public DataSize getS3MultipartUploadMinPartSize()
+    {
+        return s3MultipartUploadMinSize;
+    }
+
+    @Config("hive.s3.min-part-size")
+    @ConfigDescription("Size of the minimum part for S3 multipart uploads")
+    public HiveClientConfig setS3MultipartUploadMinPartSize(DataSize minimumUploadPartSize)
+    {
+        this.s3MultipartUploadMinSize = minimumUploadPartSize;
+        return this;
+    }
+
+    public DataSize getS3MultipartUploadThreshold()
+    {
+        return s3MultipartUploadThreshold;
+    }
+
+    @Config("hive.s3.multipart-upload-threshold")
+    @ConfigDescription("Threshold in bytes that determine when to use multipart uploads")
+    public HiveClientConfig setS3MultipartUploadThreshold(DataSize multipartUploadThreshold)
+    {
+        this.s3MultipartUploadThreshold = multipartUploadThreshold;
+        return this;
+    }
+
+    @Config("hive.s3.max-connections")
+    @ConfigDescription("The maximum number of open HTTP connections to be used by the S3 client")
+    public HiveClientConfig setS3MaxConnections(int maxConnections)
+    {
+        this.s3MaxConnections = maxConnections;
+        return this;
+    }
+
+    public int getS3MaxConnections()
+    {
+        return s3MaxConnections;
     }
 }
