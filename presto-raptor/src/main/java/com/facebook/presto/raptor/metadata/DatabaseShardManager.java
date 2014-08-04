@@ -13,10 +13,8 @@
  */
 package com.facebook.presto.raptor.metadata;
 
-import com.facebook.presto.raptor.RaptorPartitionKey;
 import com.facebook.presto.raptor.RaptorTableHandle;
 import com.facebook.presto.spi.ConnectorTableHandle;
-import com.facebook.presto.spi.PartitionKey;
 import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMultimap;
@@ -60,7 +58,7 @@ public class DatabaseShardManager
     }
 
     @Override
-    public void commitPartition(ConnectorTableHandle tableHandle, final String partition, final List<? extends PartitionKey> partitionKeys, final Map<UUID, String> shards)
+    public void commitPartition(ConnectorTableHandle tableHandle, final String partition, final List<PartitionKey> partitionKeys, final Map<UUID, String> shards)
     {
         checkNotNull(partition, "partition is null");
         checkNotNull(partitionKeys, "partitionKeys is null");
@@ -126,13 +124,13 @@ public class DatabaseShardManager
     }
 
     @Override
-    public Multimap<String, ? extends PartitionKey> getAllPartitionKeys(ConnectorTableHandle tableHandle)
+    public Multimap<String, PartitionKey> getAllPartitionKeys(ConnectorTableHandle tableHandle)
     {
         long tableId = checkType(tableHandle, RaptorTableHandle.class, "tableHandle").getTableId();
 
-        Set<RaptorPartitionKey> partitionKeys = dao.getPartitionKeys(tableId);
+        Set<PartitionKey> partitionKeys = dao.getPartitionKeys(tableId);
         ImmutableMultimap.Builder<String, PartitionKey> builder = ImmutableMultimap.builder();
-        for (RaptorPartitionKey partitionKey : partitionKeys) {
+        for (PartitionKey partitionKey : partitionKeys) {
             builder.put(partitionKey.getPartitionName(), partitionKey);
         }
 

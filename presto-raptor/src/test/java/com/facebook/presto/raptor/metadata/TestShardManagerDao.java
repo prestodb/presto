@@ -13,8 +13,6 @@
  */
 package com.facebook.presto.raptor.metadata;
 
-import com.facebook.presto.raptor.RaptorPartitionKey;
-import com.facebook.presto.spi.PartitionKey;
 import com.facebook.presto.type.TypeRegistry;
 import com.google.common.collect.Collections2;
 import com.google.common.collect.ImmutableSet;
@@ -53,7 +51,7 @@ public class TestShardManagerDao
         H2EmbeddedDataSourceConfig dataSourceConfig = new H2EmbeddedDataSourceConfig().setFilename("mem:");
         DataSource dataSource = new H2EmbeddedDataSource(dataSourceConfig);
         DBI h2Dbi = new DBI(dataSource);
-        h2Dbi.registerMapper(new RaptorPartitionKey.Mapper(new TypeRegistry()));
+        h2Dbi.registerMapper(new PartitionKey.Mapper(new TypeRegistry()));
         handle = h2Dbi.open();
         dao = handle.attach(ShardManagerDao.class);
 
@@ -154,8 +152,8 @@ public class TestShardManagerDao
         dao.insertPartition(tableId0, partitionName0);
         dao.insertPartition(tableId1, partitionName1);
 
-        PartitionKey testKey0 = new RaptorPartitionKey(partitionName0, "ds", VARCHAR, "2013-06-01");
-        PartitionKey testKey1 = new RaptorPartitionKey(partitionName1, "foo", VARCHAR, "bar");
+        PartitionKey testKey0 = new PartitionKey(partitionName0, "ds", VARCHAR, "2013-06-01");
+        PartitionKey testKey1 = new PartitionKey(partitionName1, "foo", VARCHAR, "bar");
 
         long keyId0 = dao.insertPartitionKey(tableId0, partitionName0, testKey0.getName(), testKey0.getType().toString(), testKey0.getValue());
 
@@ -165,10 +163,10 @@ public class TestShardManagerDao
         long keyId2 = dao.insertPartitionKey(tableId1, partitionName1, testKey1.getName(), testKey1.getType().toString(), testKey1.getValue());
         assertNotEquals(keyId2, keyId0);
 
-        Set<RaptorPartitionKey> filteredKeys = ImmutableSet.copyOf(Collections2.filter(dao.getPartitionKeys(tableId1), RaptorPartitionKey.partitionNamePredicate(partitionName1)));
+        Set<PartitionKey> filteredKeys = ImmutableSet.copyOf(Collections2.filter(dao.getPartitionKeys(tableId1), PartitionKey.partitionNamePredicate(partitionName1)));
         assertEquals(filteredKeys.size(), 1);
 
-        Set<RaptorPartitionKey> retrievedKeys = dao.getPartitionKeys(tableId1);
+        Set<PartitionKey> retrievedKeys = dao.getPartitionKeys(tableId1);
         assertNotNull(retrievedKeys);
         assertEquals(retrievedKeys.size(), 1);
         assertEquals(Iterables.getOnlyElement(retrievedKeys), testKey1);

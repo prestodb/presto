@@ -14,7 +14,6 @@
 package com.facebook.presto.raptor.metadata;
 
 import com.facebook.presto.guice.AbstractConfigurationAwareModule;
-import com.facebook.presto.raptor.RaptorPartitionKey;
 import com.google.inject.Binder;
 import com.google.inject.Scopes;
 import io.airlift.dbpool.H2EmbeddedDataSourceModule;
@@ -38,7 +37,7 @@ public class MetadataModule
 
         bindDataSource(binder, "metadata", ForMetadata.class, ForShardManager.class);
         bindResultSetMapper(binder, TableColumn.Mapper.class, ForMetadata.class);
-        bindResultSetMapper(binder, RaptorPartitionKey.Mapper.class, ForShardManager.class);
+        bindResultSetMapper(binder, PartitionKey.Mapper.class, ForShardManager.class);
 
         bindConfig(binder).to(ShardCleanerConfig.class);
         binder.bind(ShardCleaner.class).in(Scopes.SINGLETON);

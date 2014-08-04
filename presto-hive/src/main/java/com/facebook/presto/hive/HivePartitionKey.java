@@ -13,8 +13,6 @@
  */
 package com.facebook.presto.hive;
 
-import com.facebook.presto.spi.PartitionKey;
-import com.facebook.presto.spi.type.Type;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.base.Function;
@@ -22,8 +20,7 @@ import com.google.common.base.Objects;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 
-public class HivePartitionKey
-        implements PartitionKey
+public final class HivePartitionKey
 {
     private final String name;
     private final HiveType hiveType;
@@ -45,7 +42,6 @@ public class HivePartitionKey
     }
 
     @JsonProperty
-    @Override
     public String getName()
     {
         return name;
@@ -57,14 +53,7 @@ public class HivePartitionKey
         return hiveType;
     }
 
-    @Override
-    public Type getType()
-    {
-        return hiveType.getNativeType();
-    }
-
     @JsonProperty
-    @Override
     public String getValue()
     {
         return value;

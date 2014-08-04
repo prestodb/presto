@@ -14,7 +14,6 @@
 package com.facebook.presto.raptor.metadata;
 
 import com.facebook.presto.spi.ConnectorTableHandle;
-import com.facebook.presto.spi.PartitionKey;
 import com.google.common.base.Optional;
 import com.google.common.collect.Multimap;
 
@@ -42,7 +41,7 @@ public interface ShardManager
     /**
      * Commit a partition for a table.
      */
-    void commitPartition(ConnectorTableHandle tableHandle, String partition, List<? extends PartitionKey> partitionKeys, Map<UUID, String> shards);
+    void commitPartition(ConnectorTableHandle tableHandle, String partition, List<PartitionKey> partitionKeys, Map<UUID, String> shards);
 
     /**
      * Commit an unpartitioned table.
@@ -59,7 +58,7 @@ public interface ShardManager
     /**
      * Get all partition keys by Partition for a given table handle.
      */
-    Multimap<String, ? extends PartitionKey> getAllPartitionKeys(ConnectorTableHandle tableHandle);
+    Multimap<String, PartitionKey> getAllPartitionKeys(ConnectorTableHandle tableHandle);
 
     /**
      * Return a map of shard nodes by partition for a given table.
