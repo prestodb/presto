@@ -17,6 +17,7 @@ import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.google.common.base.Function;
 import com.google.common.base.Objects;
 import com.google.common.base.Predicate;
 import org.skife.jdbi.v2.StatementContext;
@@ -28,6 +29,8 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 
 import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Predicates.compose;
+import static com.google.common.base.Predicates.equalTo;
 
 public final class PartitionKey
 {
@@ -133,16 +136,19 @@ public final class PartitionKey
         }
     }
 
-    public static Predicate<PartitionKey> partitionNamePredicate(final String partitionName)
+    public static Predicate<PartitionKey> partitionNamePredicate(String partitionName)
     {
-        checkNotNull(partitionName, "partitionName is null");
+        return compose(equalTo(partitionName), partitionNameGetter());
+    }
 
-        return new Predicate<PartitionKey>()
+    public static Function<PartitionKey, String> partitionNameGetter()
+    {
+        return new Function<PartitionKey, String>()
         {
             @Override
-            public boolean apply(PartitionKey input)
+            public String apply(PartitionKey key)
             {
-                return partitionName.equals(input.getPartitionName());
+                return key.getPartitionName();
             }
         };
     }
