@@ -16,6 +16,7 @@ package com.facebook.presto.verifier;
 import com.facebook.presto.util.IterableTransformer;
 import com.google.common.base.Function;
 import com.google.common.base.Optional;
+import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.inject.Injector;
@@ -27,6 +28,14 @@ import io.airlift.bootstrap.LifeCycleManager;
 import io.airlift.event.client.EventClient;
 import org.skife.jdbi.v2.DBI;
 
+import java.io.File;
+import java.io.FilenameFilter;
+import java.net.MalformedURLException;
+import java.net.URL;
+import java.net.URLClassLoader;
+import java.nio.file.Paths;
+import java.sql.Driver;
+import java.sql.DriverManager;
 import java.util.List;
 import java.util.Set;
 
@@ -66,11 +75,70 @@ public class PrestoVerifier
         queries = applyOverrides(config, queries);
         queries = filterQueries(queries);
 
+        // Load jdbc drivers if needed
+        if (config.getAdditionalJdbcDriverPath() != null) {
+            List<URL> urlList = getUrls(config.getAdditionalJdbcDriverPath());
+            URL[] urls = new URL[urlList.size()];
+            urlList.toArray(urls);
+            if (config.getTestJdbcDriverName() != null) {
+                loadJdbcDriver(urls, config.getTestJdbcDriverName());
+            }
+            if (config.getControlJdbcDriverName() != null) {
+                loadJdbcDriver(urls, config.getControlJdbcDriverName());
+            }
+        }
+
         // TODO: construct this with Guice
         Verifier verifier = new Verifier(System.out, config, eventClient);
         verifier.run(queries);
 
         injector.getInstance(LifeCycleManager.class).stop();
+    }
+
+    private static void loadJdbcDriver(URL[] urls, String jdbcClassName)
+    {
+        try {
+            try (URLClassLoader classLoader = new URLClassLoader(urls)) {
+                Driver driver = (Driver) Class.forName(jdbcClassName, true, classLoader).getConstructor().newInstance();
+                // The code calling the DriverManager to load the driver needs to be in the same class loader as the driver
+                // In order to bypass this we create a shim that wraps the specified jdbc driver class.
+                // TODO: Change the implementation to be DataSource based instead of DriverManager based.
+                DriverManager.registerDriver(new ForwardingDriver(driver));
+            }
+        }
+        catch (Exception e) {
+            throw Throwables.propagate(e);
+        }
+    }
+
+    private static List<URL> getUrls(String path)
+            throws MalformedURLException
+    {
+        ImmutableList.Builder<URL> urlList = ImmutableList.builder();
+        File driverPath = new File(path);
+        if (!driverPath.isDirectory()) {
+            urlList.add(Paths.get(path).toUri().toURL());
+            return urlList.build();
+        }
+        File[] files = driverPath.listFiles(new FilenameFilter()
+        {
+            @Override
+            public boolean accept(File dir, String name)
+            {
+                return name.endsWith(".jar");
+            }
+        });
+        if (files == null) {
+            return urlList.build();
+        }
+        for (File file : files) {
+            // Does not handle nested directories
+            if (file.isDirectory()) {
+                continue;
+            }
+            urlList.add(Paths.get(file.getAbsolutePath()).toUri().toURL());
+        }
+        return urlList.build();
     }
 
     /**
