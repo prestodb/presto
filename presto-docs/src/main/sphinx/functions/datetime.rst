@@ -22,6 +22,16 @@ Operator Example                                               Result
 ``-``    ``interval '3' year - interval '5' month``            ``2-7``
 ======== ===================================================== ===========================
 
+Time Zone Conversion
+--------------------
+``timestamp AT TIME ZONE varchar`` changes the timestamp to a timestamp with the given time zone, for example::
+
+    SELECT from_unixtime(1, 0, 0);
+    1970-01-01 00:00:01.000 UTC
+
+    SELECT from_unixtime(1, 0, 0) AT TIME ZONE 'America/Los_Angeles';
+    1969-12-31 16:00:01.000 America/Los_Angeles
+
 Date and Time Functions
 -----------------------
 
