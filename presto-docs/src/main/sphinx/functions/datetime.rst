@@ -22,6 +22,17 @@ Operator Example                                               Result
 ``-``    ``interval '3' year - interval '5' month``            ``2-7``
 ======== ===================================================== ===========================
 
+Time Zone Conversion
+--------------------
+
+The ``AT TIME ZONE`` operator sets the time zone of a timestamp::
+
+    SELECT timestamp '2012-10-31 01:00 UTC';
+    2012-10-31 01:00:00.000 UTC
+
+    SELECT timestamp '2012-10-31 01:00 UTC' AT TIME ZONE 'America/Los_Angeles';
+    2012-10-30 18:00:00.000 America/Los_Angeles
+
 Date and Time Functions
 -----------------------
 
