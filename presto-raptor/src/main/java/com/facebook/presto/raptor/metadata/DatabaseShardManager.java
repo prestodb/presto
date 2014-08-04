@@ -77,7 +77,7 @@ public class DatabaseShardManager
                 long partitionId = dao.insertPartition(tableId, partition);
 
                 for (PartitionKey partitionKey : partitionKeys) {
-                    dao.insertPartitionKey(tableId, partition, partitionKey.getName(), partitionKey.getType().toString(), partitionKey.getValue());
+                    dao.insertPartitionKey(tableId, partition, partitionKey.getName(), partitionKey.getType().getName(), partitionKey.getValue());
                 }
 
                 for (Map.Entry<UUID, String> entry : shards.entrySet()) {
