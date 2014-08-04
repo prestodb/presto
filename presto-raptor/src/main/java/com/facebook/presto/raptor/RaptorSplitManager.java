@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.raptor;
 
+import com.facebook.presto.raptor.metadata.PartitionKey;
 import com.facebook.presto.raptor.metadata.ShardManager;
 import com.facebook.presto.raptor.metadata.TablePartition;
 import com.facebook.presto.spi.ConnectorColumnHandle;
@@ -28,7 +29,6 @@ import com.facebook.presto.spi.FixedSplitSource;
 import com.facebook.presto.spi.HostAddress;
 import com.facebook.presto.spi.Node;
 import com.facebook.presto.spi.NodeManager;
-import com.facebook.presto.spi.PartitionKey;
 import com.facebook.presto.spi.TupleDomain;
 import com.google.common.base.Function;
 import com.google.common.base.Objects;
@@ -95,7 +95,7 @@ public class RaptorSplitManager
 
         log.debug("Partition retrieval, raptor table %s (%d partitions): %dms", tableHandle, tablePartitions.size(), partitionTimer.elapsed(TimeUnit.MILLISECONDS));
 
-        Multimap<String, ? extends PartitionKey> allPartitionKeys = shardManager.getAllPartitionKeys(tableHandle);
+        Multimap<String, PartitionKey> allPartitionKeys = shardManager.getAllPartitionKeys(tableHandle);
         Map<String, ConnectorColumnHandle> columnHandles = metadata.getColumnHandles(tableHandle);
 
         log.debug("Partition key retrieval, raptor table %s (%d keys): %dms", tableHandle, allPartitionKeys.size(), partitionTimer.elapsed(TimeUnit.MILLISECONDS));
@@ -223,7 +223,7 @@ public class RaptorSplitManager
     }
 
     private static Function<TablePartition, ConnectorPartition> partitionMapper(
-            final Multimap<String, ? extends PartitionKey> allPartitionKeys,
+            final Multimap<String, PartitionKey> allPartitionKeys,
             final Map<String, ConnectorColumnHandle> columnHandles)
     {
         return new Function<TablePartition, ConnectorPartition>()

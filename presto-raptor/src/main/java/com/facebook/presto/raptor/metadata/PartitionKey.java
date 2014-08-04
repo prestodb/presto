@@ -11,9 +11,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.raptor;
+package com.facebook.presto.raptor.metadata;
 
-import com.facebook.presto.spi.PartitionKey;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
 import com.fasterxml.jackson.annotation.JsonCreator;
@@ -30,8 +29,7 @@ import java.sql.SQLException;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 
-public class RaptorPartitionKey
-        implements PartitionKey
+public final class PartitionKey
 {
     private final String partitionName;
     private final String name;
@@ -39,7 +37,7 @@ public class RaptorPartitionKey
     private final String value;
 
     @JsonCreator
-    public RaptorPartitionKey(
+    public PartitionKey(
             @JsonProperty("partitionName") String partitionName,
             @JsonProperty("name") String name,
             @JsonProperty("type") Type type,
@@ -62,21 +60,18 @@ public class RaptorPartitionKey
         return partitionName;
     }
 
-    @Override
     @JsonProperty
     public String getName()
     {
         return name;
     }
 
-    @Override
     @JsonProperty
     public Type getType()
     {
         return type;
     }
 
-    @Override
     @JsonProperty
     public String getValue()
     {
@@ -109,7 +104,7 @@ public class RaptorPartitionKey
         if (obj == null || getClass() != obj.getClass()) {
             return false;
         }
-        final RaptorPartitionKey other = (RaptorPartitionKey) obj;
+        PartitionKey other = (PartitionKey) obj;
         return Objects.equal(this.partitionName, other.partitionName) &&
                 Objects.equal(this.name, other.name) &&
                 Objects.equal(this.type, other.type) &&
@@ -117,7 +112,7 @@ public class RaptorPartitionKey
     }
 
     public static class Mapper
-            implements ResultSetMapper<RaptorPartitionKey>
+            implements ResultSetMapper<PartitionKey>
     {
         private final TypeManager typeManager;
 
@@ -128,24 +123,24 @@ public class RaptorPartitionKey
         }
 
         @Override
-        public RaptorPartitionKey map(int index, ResultSet r, StatementContext ctx)
+        public PartitionKey map(int index, ResultSet r, StatementContext ctx)
                 throws SQLException
         {
-            return new RaptorPartitionKey(r.getString("partition_name"),
+            return new PartitionKey(r.getString("partition_name"),
                     r.getString("key_name"),
                     typeManager.getType(r.getString("key_type")),
                     r.getString("key_value"));
         }
     }
 
-    public static Predicate<RaptorPartitionKey> partitionNamePredicate(final String partitionName)
+    public static Predicate<PartitionKey> partitionNamePredicate(final String partitionName)
     {
         checkNotNull(partitionName, "partitionName is null");
 
-        return new Predicate<RaptorPartitionKey>()
+        return new Predicate<PartitionKey>()
         {
             @Override
-            public boolean apply(RaptorPartitionKey input)
+            public boolean apply(PartitionKey input)
             {
                 return partitionName.equals(input.getPartitionName());
             }

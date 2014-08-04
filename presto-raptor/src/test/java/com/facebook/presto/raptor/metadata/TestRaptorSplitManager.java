@@ -19,7 +19,6 @@ import com.facebook.presto.metadata.NodeVersion;
 import com.facebook.presto.metadata.PrestoNode;
 import com.facebook.presto.raptor.RaptorConnectorId;
 import com.facebook.presto.raptor.RaptorMetadata;
-import com.facebook.presto.raptor.RaptorPartitionKey;
 import com.facebook.presto.raptor.RaptorSplitManager;
 import com.facebook.presto.spi.ConnectorColumnHandle;
 import com.facebook.presto.spi.ConnectorPartition;
@@ -29,7 +28,6 @@ import com.facebook.presto.spi.ConnectorSplitSource;
 import com.facebook.presto.spi.ConnectorTableHandle;
 import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.Domain;
-import com.facebook.presto.spi.PartitionKey;
 import com.facebook.presto.spi.Range;
 import com.facebook.presto.spi.SortedRangeSet;
 import com.facebook.presto.spi.TupleDomain;
@@ -80,7 +78,7 @@ public class TestRaptorSplitManager
         TypeRegistry typeRegistry = new TypeRegistry();
         DBI dbi = new DBI("jdbc:h2:mem:test" + System.nanoTime());
         dbi.registerMapper(new TableColumn.Mapper(typeRegistry));
-        dbi.registerMapper(new RaptorPartitionKey.Mapper(typeRegistry));
+        dbi.registerMapper(new PartitionKey.Mapper(typeRegistry));
         dummyHandle = dbi.open();
         dataDir = Files.createTempDir();
         ShardManager shardManager = new DatabaseShardManager(dbi);
@@ -103,7 +101,7 @@ public class TestRaptorSplitManager
         shardManager.commitPartition(
                 tableHandle,
                 "ds=1",
-                ImmutableList.<PartitionKey>of(new RaptorPartitionKey("ds=1", "ds", VARCHAR, "1")),
+                ImmutableList.of(new PartitionKey("ds=1", "ds", VARCHAR, "1")),
                 ImmutableMap.<UUID, String>builder()
                         .put(shardUuid1, nodeName)
                         .put(shardUuid2, nodeName)
@@ -113,7 +111,7 @@ public class TestRaptorSplitManager
         shardManager.commitPartition(
                 tableHandle,
                 "ds=2",
-                ImmutableList.<PartitionKey>of(new RaptorPartitionKey("ds=2", "ds", VARCHAR, "2")),
+                ImmutableList.of(new PartitionKey("ds=2", "ds", VARCHAR, "2")),
                 ImmutableMap.<UUID, String>builder()
                         .put(shardUuid4, nodeName)
                         .build());
