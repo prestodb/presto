@@ -62,6 +62,9 @@ public class VerifierConfig
     private String controlCatalogOverride;
     private String controlSchemaOverride;
     private boolean quiet;
+    private String additionalJdbcDriverPath;
+    private String testJdbcDriverName;
+    private String controlJdbcDriverName;
 
     @NotNull
     public String getSkipCorrectnessRegex()
@@ -475,6 +478,48 @@ public class VerifierConfig
     public VerifierConfig setControlGateway(String controlGateway)
     {
         this.controlGateway = controlGateway;
+        return this;
+    }
+
+    @Nullable
+    public String getAdditionalJdbcDriverPath()
+    {
+        return additionalJdbcDriverPath;
+    }
+
+    @ConfigDescription("Path for test jdbc driver")
+    @Config("additional-jdbc-driver-path")
+    public VerifierConfig setAdditionalJdbcDriverPath(String path)
+    {
+        this.additionalJdbcDriverPath = path;
+        return this;
+    }
+
+    @Nullable
+    public String getTestJdbcDriverName()
+    {
+        return testJdbcDriverName;
+    }
+
+    @ConfigDescription("Fully qualified test JDBC driver name")
+    @Config("test.jdbc-driver-class")
+    public VerifierConfig setTestJdbcDriverName(String testJdbcDriverName)
+    {
+        this.testJdbcDriverName = testJdbcDriverName;
+        return this;
+    }
+
+    @Nullable
+    public String getControlJdbcDriverName()
+    {
+        return controlJdbcDriverName;
+    }
+
+    @ConfigDescription("Fully qualified control JDBC driver name")
+    @Config("control.jdbc-driver-class")
+    public VerifierConfig setControlJdbcDriverName(String controlJdbcDriverName)
+    {
+        this.controlJdbcDriverName = controlJdbcDriverName;
         return this;
     }
 }

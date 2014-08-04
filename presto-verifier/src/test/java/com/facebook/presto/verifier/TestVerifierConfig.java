@@ -57,7 +57,10 @@ public class TestVerifierConfig
                 .setControlSchemaOverride(null)
                 .setQuiet(false)
                 .setVerboseResultsComparison(false)
-                .setEventLogFile(null));
+                .setEventLogFile(null)
+                .setAdditionalJdbcDriverPath(null)
+                .setTestJdbcDriverName(null)
+                .setControlJdbcDriverName(null));
     }
 
     @Test
@@ -94,6 +97,9 @@ public class TestVerifierConfig
                 .put("control.timeout", "1s")
                 .put("control.catalog-override", "my_catalog")
                 .put("control.schema-override", "my_schema")
+                .put("additional-jdbc-driver-path", "/test/path")
+                .put("test.jdbc-driver-class", "com.facebook.exampleclass")
+                .put("control.jdbc-driver-class", "com.facebook.exampleclass")
                 .build();
 
         VerifierConfig expected = new VerifierConfig().setTestUsername("verifier-test")
@@ -126,7 +132,10 @@ public class TestVerifierConfig
                 .setControlGateway("jdbc:presto://localhost:8081")
                 .setControlTimeout(new Duration(1, TimeUnit.SECONDS))
                 .setControlCatalogOverride("my_catalog")
-                .setControlSchemaOverride("my_schema");
+                .setControlSchemaOverride("my_schema")
+                .setAdditionalJdbcDriverPath("/test/path")
+                .setTestJdbcDriverName("com.facebook.exampleclass")
+                .setControlJdbcDriverName("com.facebook.exampleclass");
 
         ConfigAssertions.assertFullMapping(properties, expected);
     }
