@@ -20,6 +20,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Multimap;
+import com.google.common.collect.Multimaps;
 import org.skife.jdbi.v2.Handle;
 import org.skife.jdbi.v2.IDBI;
 import org.skife.jdbi.v2.TransactionStatus;
@@ -34,6 +35,7 @@ import java.util.Map.Entry;
 import java.util.Set;
 import java.util.UUID;
 
+import static com.facebook.presto.raptor.metadata.PartitionKey.partitionNameGetter;
 import static com.facebook.presto.raptor.metadata.ShardManagerDaoUtils.createShardTablesWithRetry;
 import static com.facebook.presto.raptor.metadata.SqlUtils.runIgnoringConstraintViolation;
 import static com.facebook.presto.util.Types.checkType;
@@ -127,14 +129,7 @@ public class DatabaseShardManager
     public Multimap<String, PartitionKey> getAllPartitionKeys(ConnectorTableHandle tableHandle)
     {
         long tableId = checkType(tableHandle, RaptorTableHandle.class, "tableHandle").getTableId();
-
-        Set<PartitionKey> partitionKeys = dao.getPartitionKeys(tableId);
-        ImmutableMultimap.Builder<String, PartitionKey> builder = ImmutableMultimap.builder();
-        for (PartitionKey partitionKey : partitionKeys) {
-            builder.put(partitionKey.getPartitionName(), partitionKey);
-        }
-
-        return builder.build();
+        return Multimaps.index(dao.getPartitionKeys(tableId), partitionNameGetter());
     }
 
     @Override
