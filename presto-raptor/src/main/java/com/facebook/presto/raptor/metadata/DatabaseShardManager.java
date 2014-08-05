@@ -39,7 +39,6 @@ import static com.facebook.presto.raptor.metadata.PartitionKey.partitionNameGett
 import static com.facebook.presto.raptor.metadata.ShardManagerDaoUtils.createShardTablesWithRetry;
 import static com.facebook.presto.raptor.metadata.SqlUtils.runIgnoringConstraintViolation;
 import static com.facebook.presto.util.Types.checkType;
-import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.collect.Maps.immutableEntry;
 
 public class DatabaseShardManager
@@ -60,14 +59,8 @@ public class DatabaseShardManager
     }
 
     @Override
-    public void commitPartition(ConnectorTableHandle tableHandle, final String partition, final List<PartitionKey> partitionKeys, final Map<UUID, String> shards)
+    public void commitPartition(final long tableId, final String partition, final List<PartitionKey> partitionKeys, final Map<UUID, String> shards)
     {
-        checkNotNull(partition, "partition is null");
-        checkNotNull(partitionKeys, "partitionKeys is null");
-        checkNotNull(shards, "shards is null");
-
-        final long tableId = checkType(tableHandle, RaptorTableHandle.class, "tableHandle").getTableId();
-
         dbi.inTransaction(new VoidTransactionCallback()
         {
             @Override
@@ -92,9 +85,9 @@ public class DatabaseShardManager
     }
 
     @Override
-    public void commitUnpartitionedTable(ConnectorTableHandle tableHandle, Map<UUID, String> shards)
+    public void commitUnpartitionedTable(long tableId, Map<UUID, String> shards)
     {
-        commitPartition(tableHandle, "<UNPARTITIONED>", ImmutableList.<PartitionKey>of(), shards);
+        commitPartition(tableId, "<UNPARTITIONED>", ImmutableList.<PartitionKey>of(), shards);
     }
 
     @Override

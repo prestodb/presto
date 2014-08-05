@@ -79,8 +79,8 @@ public class TestDatabaseShardManager
         Set<String> nodes = shardManager.getTableNodes(tableHandle);
         assertTrue(nodes.isEmpty());
 
-        shardManager.commitPartition(tableHandle, "some-partition", ImmutableList.<PartitionKey>of(), ImmutableMap.of(shardId1, "some-node"));
-        shardManager.commitPartition(tableHandle, "some-other-partition", ImmutableList.<PartitionKey>of(), ImmutableMap.of(shardId2, "some-node"));
+        shardManager.commitPartition(tableId, "some-partition", ImmutableList.<PartitionKey>of(), ImmutableMap.of(shardId1, "some-node"));
+        shardManager.commitPartition(tableId, "some-other-partition", ImmutableList.<PartitionKey>of(), ImmutableMap.of(shardId2, "some-node"));
 
         nodes = shardManager.getTableNodes(tableHandle);
         assertEquals(nodes, ImmutableSet.of("some-node"));

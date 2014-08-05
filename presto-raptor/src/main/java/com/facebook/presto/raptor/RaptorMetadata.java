@@ -103,7 +103,7 @@ public class RaptorMetadata
         return getTableHandle(tableName);
     }
 
-    public ConnectorTableHandle getTableHandle(SchemaTableName tableName)
+    private ConnectorTableHandle getTableHandle(SchemaTableName tableName)
     {
         checkNotNull(tableName, "tableName is null");
         Table table = dao.getTableInformation(connectorId, tableName.getSchemaName(), tableName.getTableName());
@@ -343,10 +343,10 @@ public class RaptorMetadata
     {
         final RaptorOutputTableHandle table = checkType(outputTableHandle, RaptorOutputTableHandle.class, "outputTableHandle");
 
-        dbi.inTransaction(new VoidTransactionCallback()
+        long tableId = dbi.inTransaction(new TransactionCallback<Long>()
         {
             @Override
-            protected void execute(Handle dbiHandle, TransactionStatus status)
+            public Long inTransaction(Handle dbiHandle, TransactionStatus status)
             {
                 MetadataDao dao = dbiHandle.attach(MetadataDao.class);
                 long tableId = dao.insertTable(connectorId, table.getSchemaName(), table.getTableName());
@@ -355,6 +355,7 @@ public class RaptorMetadata
                     Type columnType = table.getColumnTypes().get(i);
                     dao.insertColumn(tableId, i + 1, column.getColumnName(), i, columnType.getName());
                 }
+                return tableId;
             }
         });
 
@@ -366,9 +367,7 @@ public class RaptorMetadata
             shards.put(shardUuid, nodeId);
         }
 
-        ConnectorTableHandle tableHandle = getTableHandle(new SchemaTableName(table.getSchemaName(), table.getTableName()));
-
-        shardManager.commitUnpartitionedTable(tableHandle, shards.build());
+        shardManager.commitUnpartitionedTable(tableId, shards.build());
     }
 
     @Override
@@ -445,7 +444,7 @@ public class RaptorMetadata
         return !getViews(session, viewName.toSchemaTablePrefix()).isEmpty();
     }
 
-    public RaptorColumnHandle getRaptorColumnHandle(TableColumn tableColumn)
+    private RaptorColumnHandle getRaptorColumnHandle(TableColumn tableColumn)
     {
         return new RaptorColumnHandle(connectorId, tableColumn.getColumnName(), tableColumn.getColumnId(), tableColumn.getDataType());
     }
