@@ -23,6 +23,8 @@ import com.facebook.presto.spi.type.Type;
 import io.airlift.slice.Slice;
 import org.joni.Regex;
 
+import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
+
 public class LikePatternType
         implements Type
 {
@@ -52,9 +54,25 @@ public class LikePatternType
     }
 
     @Override
+    public boolean canCoerceFrom(Type type)
+    {
+        if (type.equals(VARCHAR)) {
+            return true;
+        }
+
+        return false;
+    }
+
+    @Override
     public Class<?> getJavaType()
     {
         return Regex.class;
+    }
+
+    @Override
+    public Type getCommonSuperType(Type type)
+    {
+        return null;
     }
 
     @Override

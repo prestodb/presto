@@ -58,9 +58,21 @@ public class HyperLogLogType
     }
 
     @Override
+    public boolean canCoerceFrom(Type type)
+    {
+        return false;
+    }
+
+    @Override
     public Class<?> getJavaType()
     {
         return Slice.class;
+    }
+
+    @Override
+    public Type getCommonSuperType(Type type)
+    {
+        return null;
     }
 
     @Override

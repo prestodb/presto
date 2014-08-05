@@ -143,16 +143,8 @@ import static com.facebook.presto.operator.aggregation.ApproximateCountAggregati
 import static com.facebook.presto.operator.aggregation.CountAggregation.COUNT;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
-import static com.facebook.presto.spi.type.DateType.DATE;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
-import static com.facebook.presto.spi.type.TimeType.TIME;
-import static com.facebook.presto.spi.type.TimeWithTimeZoneType.TIME_WITH_TIME_ZONE;
-import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
-import static com.facebook.presto.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
-import static com.facebook.presto.type.JsonPathType.JSON_PATH;
-import static com.facebook.presto.type.LikePatternType.LIKE_PATTERN;
-import static com.facebook.presto.type.RegexpType.REGEXP;
 import static com.facebook.presto.type.UnknownType.UNKNOWN;
 import static com.google.common.base.CaseFormat.LOWER_CAMEL;
 import static com.google.common.base.CaseFormat.LOWER_UNDERSCORE;
@@ -440,40 +432,8 @@ public class FunctionRegistry
         if (actualType.equals(UNKNOWN)) {
             return true;
         }
-        // widen bigint to double
-        if (actualType.equals(BIGINT) && expectedType.equals(DOUBLE)) {
-            return true;
-        }
-        // widen date to timestamp
-        if (actualType.equals(DATE) && expectedType.equals(TIMESTAMP)) {
-            return true;
-        }
-        // widen date to timestamp with time zone
-        if (actualType.equals(DATE) && expectedType.equals(TIMESTAMP_WITH_TIME_ZONE)) {
-            return true;
-        }
-        // widen time to time with time zone
-        if (actualType.equals(TIME) && expectedType.equals(TIME_WITH_TIME_ZONE)) {
-            return true;
-        }
-        // widen timestamp to timestamp with time zone
-        if (actualType.equals(TIMESTAMP) && expectedType.equals(TIMESTAMP_WITH_TIME_ZONE)) {
-            return true;
-        }
 
-        if (actualType.equals(VARCHAR) && expectedType.equals(REGEXP)) {
-            return true;
-        }
-
-        if (actualType.equals(VARCHAR) && expectedType.equals(LIKE_PATTERN)) {
-            return true;
-        }
-
-        if (actualType.equals(VARCHAR) && expectedType.equals(JSON_PATH)) {
-            return true;
-        }
-
-        return false;
+        return expectedType.canCoerceFrom(actualType);
     }
 
     public static Optional<Type> getCommonSuperType(Type firstType, Type secondType)
@@ -490,19 +450,7 @@ public class FunctionRegistry
             return Optional.of(firstType);
         }
 
-        if ((firstType.equals(BIGINT) || firstType.equals(DOUBLE)) && (secondType.equals(BIGINT) || secondType.equals(DOUBLE))) {
-            return Optional.<Type>of(DOUBLE);
-        }
-
-        if ((firstType.equals(TIME) || firstType.equals(TIME_WITH_TIME_ZONE)) && (secondType.equals(TIME) || secondType.equals(TIME_WITH_TIME_ZONE))) {
-            return Optional.<Type>of(TIME_WITH_TIME_ZONE);
-        }
-
-        if ((firstType.equals(TIMESTAMP) || firstType.equals(TIMESTAMP_WITH_TIME_ZONE)) && (secondType.equals(TIMESTAMP) || secondType.equals(TIMESTAMP_WITH_TIME_ZONE))) {
-            return Optional.<Type>of(TIMESTAMP_WITH_TIME_ZONE);
-        }
-
-        return Optional.absent();
+        return Optional.fromNullable(firstType.getCommonSuperType(secondType));
     }
 
     private static List<Type> parameterTypes(Method method)
