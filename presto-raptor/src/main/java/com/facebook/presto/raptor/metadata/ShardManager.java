@@ -41,12 +41,12 @@ public interface ShardManager
     /**
      * Commit a partition for a table.
      */
-    void commitPartition(ConnectorTableHandle tableHandle, String partition, List<PartitionKey> partitionKeys, Map<UUID, String> shards);
+    void commitPartition(long tableId, String partition, List<PartitionKey> partitionKeys, Map<UUID, String> shards);
 
     /**
      * Commit an unpartitioned table.
      */
-    void commitUnpartitionedTable(ConnectorTableHandle tableHandle, Map<UUID, String> shards);
+    void commitUnpartitionedTable(long tableId, Map<UUID, String> shards);
 
     /**
      * Get the names of all partitions that have been successfully imported.
