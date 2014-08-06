@@ -71,8 +71,7 @@ public class LogicalPlanner
             plan = createTableWriterPlan(analysis);
         }
         else {
-            RelationPlanner planner = new RelationPlanner(analysis, symbolAllocator, idAllocator, metadata, session);
-            plan = planner.process(analysis.getQuery(), null);
+            plan = createRelationPlan(analysis);
         }
 
         PlanNode root = createOutputPlan(plan, analysis);
@@ -94,8 +93,7 @@ public class LogicalPlanner
     {
         QualifiedTableName destination = analysis.getCreateTableDestination().get();
 
-        RelationPlanner planner = new RelationPlanner(analysis, symbolAllocator, idAllocator, metadata, session);
-        RelationPlan plan = planner.process(analysis.getQuery(), null);
+        RelationPlan plan = createRelationPlan(analysis);
 
         TableMetadata tableMetadata = createTableMetadata(destination, getOutputTableColumns(plan), plan.getSampleWeight().isPresent());
         checkState(!plan.getSampleWeight().isPresent() || metadata.canCreateSampledTables(session, destination.getCatalogName()), "Cannot write sampled data to a store that doesn't support sampling");
@@ -145,6 +143,12 @@ public class LogicalPlanner
         }
 
         return new OutputNode(idAllocator.getNextId(), plan.getRoot(), names.build(), outputs.build());
+    }
+
+    private RelationPlan createRelationPlan(Analysis analysis)
+    {
+        return new RelationPlanner(analysis, symbolAllocator, idAllocator, metadata, session)
+                .process(analysis.getQuery(), null);
     }
 
     private TableMetadata createTableMetadata(QualifiedTableName table, List<ColumnMetadata> columns, boolean sampled)
