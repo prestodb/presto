@@ -20,6 +20,7 @@ import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.block.FixedWidthBlockBuilder;
 import io.airlift.slice.Slice;
 
+import static com.facebook.presto.spi.type.TimeWithTimeZoneType.TIME_WITH_TIME_ZONE;
 import static io.airlift.slice.SizeOf.SIZE_OF_LONG;
 
 //
@@ -59,9 +60,25 @@ public final class TimeType
     }
 
     @Override
+    public boolean canCoerceFrom(Type type)
+    {
+        return false;
+    }
+
+    @Override
     public Class<?> getJavaType()
     {
         return long.class;
+    }
+
+    @Override
+    public Type getCommonSuperType(Type type)
+    {
+        if (type.equals(TIME_WITH_TIME_ZONE)) {
+            return TIME_WITH_TIME_ZONE;
+        }
+
+        return null;
     }
 
     @Override

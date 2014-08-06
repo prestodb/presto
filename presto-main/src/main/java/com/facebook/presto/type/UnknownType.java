@@ -19,6 +19,7 @@ import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.block.FixedWidthBlockBuilder;
 import com.facebook.presto.spi.type.FixedWidthType;
+import com.facebook.presto.spi.type.Type;
 import io.airlift.slice.Slice;
 
 public final class UnknownType
@@ -49,9 +50,21 @@ public final class UnknownType
     }
 
     @Override
+    public boolean canCoerceFrom(Type type)
+    {
+        return false;
+    }
+
+    @Override
     public Class<?> getJavaType()
     {
         return void.class;
+    }
+
+    @Override
+    public Type getCommonSuperType(Type type)
+    {
+        return null;
     }
 
     @Override

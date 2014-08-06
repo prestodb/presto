@@ -20,6 +20,7 @@ import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.block.FixedWidthBlockBuilder;
 import com.facebook.presto.spi.type.FixedWidthType;
+import com.facebook.presto.spi.type.Type;
 import io.airlift.slice.Slice;
 
 import static io.airlift.slice.SizeOf.SIZE_OF_INT;
@@ -57,9 +58,21 @@ public class ColorType
     }
 
     @Override
+    public boolean canCoerceFrom(Type type)
+    {
+        return false;
+    }
+
+    @Override
     public Class<?> getJavaType()
     {
         return long.class;
+    }
+
+    @Override
+    public Type getCommonSuperType(Type type)
+    {
+        return null;
     }
 
     @Override

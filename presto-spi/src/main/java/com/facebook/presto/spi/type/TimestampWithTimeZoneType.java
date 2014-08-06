@@ -21,6 +21,8 @@ import com.facebook.presto.spi.block.FixedWidthBlockBuilder;
 import io.airlift.slice.Slice;
 
 import static com.facebook.presto.spi.type.DateTimeEncoding.unpackMillisUtc;
+import static com.facebook.presto.spi.type.DateType.DATE;
+import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
 import static io.airlift.slice.SizeOf.SIZE_OF_LONG;
 
 public final class TimestampWithTimeZoneType
@@ -56,9 +58,29 @@ public final class TimestampWithTimeZoneType
     }
 
     @Override
+    public boolean canCoerceFrom(Type type)
+    {
+        if (type.equals(DATE) || type.equals(TIMESTAMP)) {
+            return true;
+        }
+
+        return false;
+    }
+
+    @Override
     public Class<?> getJavaType()
     {
         return long.class;
+    }
+
+    @Override
+    public Type getCommonSuperType(Type type)
+    {
+        if (type.equals(TIMESTAMP)) {
+            return TIMESTAMP_WITH_TIME_ZONE;
+        }
+
+        return null;
     }
 
     @Override

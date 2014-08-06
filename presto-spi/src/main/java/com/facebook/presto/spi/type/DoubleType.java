@@ -20,6 +20,7 @@ import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.block.FixedWidthBlockBuilder;
 import io.airlift.slice.Slice;
 
+import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static io.airlift.slice.SizeOf.SIZE_OF_DOUBLE;
 
 public final class DoubleType
@@ -52,6 +53,26 @@ public final class DoubleType
     public boolean isOrderable()
     {
         return true;
+    }
+
+    @Override
+    public boolean canCoerceFrom(Type type)
+    {
+        if (type.equals(BIGINT)) {
+            return true;
+        }
+
+        return false;
+    }
+
+    @Override
+    public Type getCommonSuperType(Type type)
+    {
+        if (type.equals(BIGINT)) {
+            return DOUBLE;
+        }
+
+        return null;
     }
 
     @Override

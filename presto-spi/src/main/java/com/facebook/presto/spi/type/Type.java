@@ -40,6 +40,11 @@ public interface Type
     boolean isOrderable();
 
     /**
+     * True if the type is coerce-able from the given type.
+     */
+    boolean canCoerceFrom(Type type);
+
+    /**
      * Gets the Java class type used to represent this value on the stack during
      * expression execution. This value is used to determine which method should
      * be called on Cursor, RecordSet or RandomAccessBlock to fetch a value of
@@ -48,6 +53,13 @@ public interface Type
      * Currently, this must be boolean, long, double, or Slice.
      */
     Class<?> getJavaType();
+
+    /**
+     * Gets the common super type between the type and the given type.
+     *
+     * Returns null, if there's no common
+     */
+    Type getCommonSuperType(Type type);
 
     /**
      * Creates a block builder for this type. This is the builder used to

@@ -23,6 +23,8 @@ import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.type.Type;
 import io.airlift.slice.Slice;
 
+import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
+
 public class JsonPathType
         implements Type
 {
@@ -52,9 +54,25 @@ public class JsonPathType
     }
 
     @Override
+    public boolean canCoerceFrom(Type type)
+    {
+        if (type.equals(VARCHAR)) {
+            return true;
+        }
+
+        return false;
+    }
+
+    @Override
     public Class<?> getJavaType()
     {
         return JsonPath.class;
+    }
+
+    @Override
+    public Type getCommonSuperType(Type type)
+    {
+        return null;
     }
 
     @Override

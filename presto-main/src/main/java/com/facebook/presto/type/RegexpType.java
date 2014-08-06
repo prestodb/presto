@@ -24,6 +24,8 @@ import io.airlift.slice.Slice;
 
 import java.util.regex.Pattern;
 
+import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
+
 public class RegexpType
     implements Type
 {
@@ -53,9 +55,25 @@ public class RegexpType
     }
 
     @Override
+    public boolean canCoerceFrom(Type type)
+    {
+        if (type.equals(VARCHAR)) {
+            return true;
+        }
+
+        return false;
+    }
+
+    @Override
     public Class<?> getJavaType()
     {
         return Pattern.class;
+    }
+
+    @Override
+    public Type getCommonSuperType(Type type)
+    {
+        return null;
     }
 
     @Override
