@@ -68,7 +68,7 @@ public class LogicalPlanner
     {
         RelationPlan plan;
         if (analysis.getCreateTableDestination().isPresent()) {
-            plan = createTableWriterPlan(analysis);
+            plan = createTableCreationPlan(analysis);
         }
         else {
             plan = createRelationPlan(analysis);
@@ -89,7 +89,7 @@ public class LogicalPlanner
         return new Plan(root, symbolAllocator);
     }
 
-    private RelationPlan createTableWriterPlan(Analysis analysis)
+    private RelationPlan createTableCreationPlan(Analysis analysis)
     {
         QualifiedTableName destination = analysis.getCreateTableDestination().get();
 
@@ -98,11 +98,18 @@ public class LogicalPlanner
         TableMetadata tableMetadata = createTableMetadata(destination, getOutputTableColumns(plan), plan.getSampleWeight().isPresent());
         checkState(!plan.getSampleWeight().isPresent() || metadata.canCreateSampledTables(session, destination.getCatalogName()), "Cannot write sampled data to a store that doesn't support sampling");
 
-        ImmutableList<Symbol> writerOutputs = ImmutableList.of(
+        return createTableWriterPlan(
+                analysis,
+                plan,
+                tableMetadata,
+                new CreateName(destination.getCatalogName(), tableMetadata));
+    }
+
+    private RelationPlan createTableWriterPlan(Analysis analysis, RelationPlan plan, TableMetadata tableMetadata, WriterTarget target)
+    {
+        List<Symbol> writerOutputs = ImmutableList.of(
                 symbolAllocator.newSymbol("partialrows", BIGINT),
                 symbolAllocator.newSymbol("fragment", VARCHAR));
-
-        WriterTarget target = new CreateName(destination.getCatalogName(), tableMetadata);
 
         TableWriterNode writerNode = new TableWriterNode(
                 idAllocator.getNextId(),
