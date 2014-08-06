@@ -21,6 +21,7 @@ import com.facebook.presto.operator.index.PagesIndexBuilderOperator.PagesIndexBu
 import com.facebook.presto.spi.type.Type;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
+import io.airlift.units.DataSize;
 
 import java.util.List;
 
@@ -34,9 +35,10 @@ public class IndexLookupSourceSupplier
             List<Type> types,
             int snapshotOperatorId,
             DriverFactory indexBuildDriverFactory,
-            PagesIndexBuilderOperatorFactory pagesIndexOutput)
+            PagesIndexBuilderOperatorFactory pagesIndexOutput,
+            DataSize maxIndexMemorySize)
     {
-        this.indexLoader = new IndexLoader(indexChannels, types, snapshotOperatorId, indexBuildDriverFactory, pagesIndexOutput, 100_000);
+        this.indexLoader = new IndexLoader(indexChannels, types, snapshotOperatorId, indexBuildDriverFactory, pagesIndexOutput, 100_000, maxIndexMemorySize);
     }
 
     @Override

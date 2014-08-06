@@ -25,6 +25,7 @@ import com.facebook.presto.connector.system.SystemTablesManager;
 import com.facebook.presto.connector.system.SystemTablesMetadata;
 import com.facebook.presto.execution.SplitSource;
 import com.facebook.presto.execution.TaskId;
+import com.facebook.presto.execution.TaskManagerConfig;
 import com.facebook.presto.index.IndexManager;
 import com.facebook.presto.metadata.ColumnHandle;
 import com.facebook.presto.metadata.HandleResolver;
@@ -337,7 +338,8 @@ public class LocalQueryRunner
                 recordSinkManager,
                 null,
                 compiler,
-                new CompilerConfig().setInterpreterEnabled(false) // make sure tests fail if compiler breaks
+                new CompilerConfig().setInterpreterEnabled(false), // make sure tests fail if compiler breaks
+                new TaskManagerConfig()
         );
 
         // plan query

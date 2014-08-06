@@ -103,7 +103,8 @@ public class TestSqlTaskManager
                 new RecordSinkManager(),
                 new MockExchangeClientSupplier(),
                 new ExpressionCompiler(metadata),
-                new CompilerConfig());
+                new CompilerConfig(),
+                new TaskManagerConfig());
 
         taskExecutor = new TaskExecutor(8);
         taskExecutor.start();

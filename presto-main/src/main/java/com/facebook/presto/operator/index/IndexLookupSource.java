@@ -45,6 +45,8 @@ public class IndexLookupSource
     @Override
     public long getJoinPosition(int position, Block... blocks)
     {
+        indexSnapshot = indexLoader.getIndexSnapshot();
+
         long joinPosition = indexSnapshot.getJoinPosition(position, blocks);
         if (joinPosition == UNLOADED_INDEX_KEY) {
             indexSnapshot = indexLoader.getIndexSnapshotForKeys(position, blocks);
