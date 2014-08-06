@@ -65,7 +65,8 @@ public class RaptorHandleResolver
     @Override
     public boolean canHandle(ConnectorInsertTableHandle tableHandle)
     {
-        return false;
+        return (tableHandle instanceof RaptorInsertTableHandle) &&
+                ((RaptorInsertTableHandle) tableHandle).getConnectorId().equals(connectorId);
     }
 
     @Override
@@ -107,6 +108,6 @@ public class RaptorHandleResolver
     @Override
     public Class<? extends ConnectorInsertTableHandle> getInsertTableHandleClass()
     {
-        throw new UnsupportedOperationException();
+        return RaptorInsertTableHandle.class;
     }
 }

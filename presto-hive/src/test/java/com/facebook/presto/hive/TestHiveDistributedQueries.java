@@ -112,4 +112,11 @@ public class TestHiveDistributedQueries
     {
         return new ConnectorSession("user", "test", "hive", schema, UTC_KEY, ENGLISH, null, null);
     }
+
+    @Override
+    public void testInsert()
+            throws Exception
+    {
+        // Hive connector currently does not support insert
+    }
 }

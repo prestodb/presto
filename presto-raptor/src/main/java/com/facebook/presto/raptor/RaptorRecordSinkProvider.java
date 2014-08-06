@@ -62,7 +62,11 @@ public class RaptorRecordSinkProvider
     @Override
     public RecordSink getRecordSink(ConnectorInsertTableHandle tableHandle)
     {
-        throw new UnsupportedOperationException();
+        RaptorInsertTableHandle handle = checkType(tableHandle, RaptorInsertTableHandle.class, "tableHandle");
+
+        ColumnFileHandle fileHandle = createStagingFileHandle(handle.getColumnHandles());
+
+        return new RaptorRecordSink(nodeId, fileHandle, storageManager, handle.getColumnTypes(), null);
     }
 
     private ColumnFileHandle createStagingFileHandle(List<RaptorColumnHandle> columnHandles)
