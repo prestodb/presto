@@ -124,6 +124,22 @@ public abstract class AbstractTestDistributedQueries
     }
 
     @Test
+    public void testInsert()
+            throws Exception
+    {
+        @Language("SQL") String query = "SELECT orderdate, orderkey FROM orders";
+
+        assertQuery("CREATE TABLE test_insert AS " + query, "SELECT count(*) FROM orders");
+        assertQuery("SELECT * FROM test_insert", query);
+
+        assertQuery("INSERT INTO test_insert " + query, "SELECT count(*) FROM orders");
+
+        assertQuery("SELECT * FROM test_insert", query + " UNION ALL " + query);
+
+        assertQueryTrue("DROP TABLE test_insert");
+    }
+
+    @Test
     public void testView()
             throws Exception
     {

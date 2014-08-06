@@ -106,4 +106,11 @@ public class TestCassandraDistributed
     {
         // Cassandra connector currently does not support views
     }
+
+    @Override
+    public void testInsert()
+            throws Exception
+    {
+        // Cassandra connector currently does not support insert
+    }
 }

@@ -63,6 +63,7 @@ import static com.facebook.presto.raptor.RaptorColumnHandle.SAMPLE_WEIGHT_COLUMN
 import static com.facebook.presto.raptor.metadata.MetadataDaoUtils.createMetadataTablesWithRetry;
 import static com.facebook.presto.raptor.metadata.SqlUtils.runIgnoringConstraintViolation;
 import static com.facebook.presto.spi.StandardErrorCode.ALREADY_EXISTS;
+import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.util.Types.checkType;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -359,27 +360,33 @@ public class RaptorMetadata
             }
         });
 
-        ImmutableMap.Builder<UUID, String> shards = ImmutableMap.builder();
-        for (String fragment : fragments) {
-            Iterator<String> split = Splitter.on(':').split(fragment).iterator();
-            String nodeId = split.next();
-            UUID shardUuid = UUID.fromString(split.next());
-            shards.put(shardUuid, nodeId);
-        }
-
-        shardManager.commitUnpartitionedTable(tableId, shards.build());
+        shardManager.commitUnpartitionedTable(tableId, parseFragments(fragments));
     }
 
     @Override
     public ConnectorInsertTableHandle beginInsert(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
-        throw new UnsupportedOperationException();
+        if (!shardManager.getAllPartitionKeys(tableHandle).isEmpty()) {
+            throw new PrestoException(NOT_SUPPORTED.toErrorCode(), "Inserting into partitioned tables is yet not supported");
+        }
+
+        long tableId = checkType(tableHandle, RaptorTableHandle.class, "tableHandle").getTableId();
+
+        ImmutableList.Builder<RaptorColumnHandle> columnHandles = ImmutableList.builder();
+        ImmutableList.Builder<Type> columnTypes = ImmutableList.builder();
+        for (TableColumn column : dao.getTableColumns(tableId)) {
+            columnHandles.add(new RaptorColumnHandle(connectorId, column.getColumnName(), column.getColumnId(), column.getDataType()));
+            columnTypes.add(column.getDataType());
+        }
+
+        return new RaptorInsertTableHandle(connectorId, tableId, columnHandles.build(), columnTypes.build());
     }
 
     @Override
     public void commitInsert(ConnectorInsertTableHandle insertHandle, Collection<String> fragments)
     {
-        throw new UnsupportedOperationException();
+        long tableId = checkType(insertHandle, RaptorInsertTableHandle.class, "insertHandle").getTableId();
+        shardManager.commitUnpartitionedTable(tableId, parseFragments(fragments));
     }
 
     @Override
@@ -447,6 +454,18 @@ public class RaptorMetadata
     private RaptorColumnHandle getRaptorColumnHandle(TableColumn tableColumn)
     {
         return new RaptorColumnHandle(connectorId, tableColumn.getColumnName(), tableColumn.getColumnId(), tableColumn.getDataType());
+    }
+
+    private static Map<UUID, String> parseFragments(Collection<String> fragments)
+    {
+        ImmutableMap.Builder<UUID, String> shards = ImmutableMap.builder();
+        for (String fragment : fragments) {
+            Iterator<String> split = Splitter.on(':').split(fragment).iterator();
+            String nodeId = split.next();
+            UUID shardUuid = UUID.fromString(split.next());
+            shards.put(shardUuid, nodeId);
+        }
+        return shards.build();
     }
 
     private static Predicate<ColumnMetadata> isSampleWeightColumn()
