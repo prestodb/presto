@@ -150,8 +150,7 @@ public class TestDriver
         assertSame(driver.getDriverContext(), driverContext);
 
         assertFalse(driver.isFinished());
-        // todo TableScanOperator should be blocked until split is set
-        assertTrue(driver.processFor(new Duration(1, TimeUnit.MILLISECONDS)).isDone());
+        assertFalse(driver.processFor(new Duration(1, TimeUnit.MILLISECONDS)).isDone());
         assertFalse(driver.isFinished());
 
         driver.updateSource(new TaskSource(sourceId, ImmutableSet.of(new ScheduledSplit(0, newMockSplit())), true));
@@ -233,7 +232,7 @@ public class TestDriver
     {
         PlanNodeId sourceId = new PlanNodeId("source");
         final List<Type> types = ImmutableList.of(VARCHAR, BIGINT, BIGINT);
-        TableScanOperator source = new TableScanOperator(driverContext.addOperatorContext(99, "values"),
+        TableScanOperator source = new NonblockTableScanOperator(driverContext.addOperatorContext(99, "values"),
                 sourceId,
                 new DataStreamProvider()
                 {
@@ -266,13 +265,14 @@ public class TestDriver
         assertSame(driver.getDriverContext(), driverContext);
 
         assertFalse(driver.isFinished());
-        // todo TableScanOperator should be blocked until split is set
+        // processFor always returns NOT_BLOCKED, because DriveLockResult was not acquired
         assertTrue(driver.processFor(new Duration(1, TimeUnit.MILLISECONDS)).isDone());
         assertFalse(driver.isFinished());
 
         driver.updateSource(new TaskSource(sourceId, ImmutableSet.of(new ScheduledSplit(0, newMockSplit())), true));
 
         assertFalse(driver.isFinished());
+        // processFor always returns NOT_BLOCKED, because DriveLockResult was not acquired
         assertTrue(driver.processFor(new Duration(1, TimeUnit.SECONDS)).isDone());
         assertFalse(driver.isFinished());
 
@@ -411,6 +411,26 @@ public class TestDriver
             if (lockForClose) {
                 waitForUnlock();
             }
+        }
+    }
+
+    private static class NonblockTableScanOperator
+            extends TableScanOperator
+    {
+        public NonblockTableScanOperator(
+                OperatorContext operatorContext,
+                PlanNodeId planNodeId,
+                DataStreamProvider dataStreamProvider,
+                List<Type> types,
+                Iterable<ColumnHandle> columns)
+        {
+            super(operatorContext, planNodeId, dataStreamProvider, types, columns);
+        }
+
+        @Override
+        public ListenableFuture<?> isBlocked()
+        {
+            return NOT_BLOCKED;
         }
     }
 
