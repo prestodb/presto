@@ -24,6 +24,7 @@ import com.facebook.presto.metadata.Split;
 import com.facebook.presto.metadata.TableHandle;
 import com.facebook.presto.operator.ExchangeClient;
 import com.facebook.presto.operator.RecordSinkManager;
+import com.facebook.presto.operator.index.IndexJoinLookupStats;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.Node;
 import com.facebook.presto.spi.type.Type;
@@ -103,7 +104,9 @@ public class TestSqlTaskManager
                 new RecordSinkManager(),
                 new MockExchangeClientSupplier(),
                 new ExpressionCompiler(metadata),
-                new CompilerConfig());
+                new IndexJoinLookupStats(),
+                new CompilerConfig(),
+                new TaskManagerConfig());
 
         taskExecutor = new TaskExecutor(8);
         taskExecutor.start();
