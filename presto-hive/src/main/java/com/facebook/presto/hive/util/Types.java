@@ -13,6 +13,9 @@
  */
 package com.facebook.presto.hive.util;
 
+import com.facebook.presto.spi.ErrorCode;
+import com.facebook.presto.spi.PrestoException;
+
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 
@@ -28,6 +31,19 @@ public final class Types
                 name,
                 target.getName(),
                 value.getClass().getName());
+        return target.cast(value);
+    }
+
+    public static <A, B extends A> B checkType(A value, Class<B> target, ErrorCode errorCode, String name)
+    {
+        checkNotNull(value, "%s is null", name);
+        if (!target.isInstance(value)) {
+            throw new PrestoException(errorCode, String.format(
+                    "%s must be of type %s, not %s",
+                    name,
+                    target.getName(),
+                    value.getClass().getName()));
+        }
         return target.cast(value);
     }
 }
