@@ -14,6 +14,7 @@
 package com.facebook.presto.sql.planner;
 
 import com.facebook.presto.block.BlockUtils;
+import com.facebook.presto.execution.TaskManagerConfig;
 import com.facebook.presto.index.IndexManager;
 import com.facebook.presto.metadata.ColumnHandle;
 import com.facebook.presto.metadata.Metadata;
@@ -54,6 +55,7 @@ import com.facebook.presto.operator.TopNRowNumberOperator;
 import com.facebook.presto.operator.ValuesOperator.ValuesOperatorFactory;
 import com.facebook.presto.operator.WindowFunctionDefinition;
 import com.facebook.presto.operator.index.FieldSetFilteringRecordSet;
+import com.facebook.presto.operator.index.IndexJoinLookupStats;
 import com.facebook.presto.operator.index.IndexLookupSourceSupplier;
 import com.facebook.presto.operator.index.IndexSourceOperator;
 import com.facebook.presto.spi.ConnectorSession;
@@ -118,6 +120,7 @@ import com.google.common.collect.Multimap;
 import com.google.common.collect.Ordering;
 import com.google.common.collect.SetMultimap;
 import io.airlift.log.Logger;
+import io.airlift.units.DataSize;
 
 import javax.annotation.Nullable;
 import javax.inject.Inject;
@@ -166,6 +169,8 @@ public class LocalExecutionPlanner
     private final Supplier<ExchangeClient> exchangeClientSupplier;
     private final ExpressionCompiler compiler;
     private final boolean interpreterEnabled;
+    private final DataSize maxIndexMemorySize;
+    private final IndexJoinLookupStats indexJoinLookupStats;
 
     @Inject
     public LocalExecutionPlanner(
@@ -176,9 +181,11 @@ public class LocalExecutionPlanner
             RecordSinkManager recordSinkManager,
             Supplier<ExchangeClient> exchangeClientSupplier,
             ExpressionCompiler compiler,
-            CompilerConfig config)
+            IndexJoinLookupStats indexJoinLookupStats,
+            CompilerConfig compilerConfig,
+            TaskManagerConfig taskManagerConfig)
     {
-        checkNotNull(config, "config is null");
+        checkNotNull(compilerConfig, "compilerConfig is null");
         this.dataStreamProvider = dataStreamProvider;
         this.indexManager = checkNotNull(indexManager, "indexManager is null");
         this.exchangeClientSupplier = exchangeClientSupplier;
@@ -186,8 +193,10 @@ public class LocalExecutionPlanner
         this.sqlParser = checkNotNull(sqlParser, "sqlParser is null");
         this.recordSinkManager = checkNotNull(recordSinkManager, "recordSinkManager is null");
         this.compiler = checkNotNull(compiler, "compiler is null");
+        this.indexJoinLookupStats = checkNotNull(indexJoinLookupStats, "indexJoinLookupStats is null");
+        this.maxIndexMemorySize = checkNotNull(taskManagerConfig, "taskManagerConfig is null").getMaxTaskIndexMemoryUsage();
 
-        interpreterEnabled = config.isInterpreterEnabled();
+        interpreterEnabled = compilerConfig.isInterpreterEnabled();
     }
 
     public LocalExecutionPlan plan(ConnectorSession session,
@@ -1024,9 +1033,10 @@ public class LocalExecutionPlanner
             IndexLookupSourceSupplier indexLookupSourceSupplier = new IndexLookupSourceSupplier(
                     indexChannels,
                     indexSource.getTypes(),
-                    indexContext.getNextOperatorId(),
                     indexBuildDriverFactory,
-                    pagesIndexOutput);
+                    pagesIndexOutput,
+                    maxIndexMemorySize,
+                    indexJoinLookupStats);
 
             ImmutableMap.Builder<Symbol, Integer> outputMappings = ImmutableMap.builder();
             outputMappings.putAll(probeSource.getLayout());

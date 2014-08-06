@@ -51,6 +51,7 @@ import com.facebook.presto.operator.ForExchange;
 import com.facebook.presto.operator.ForScheduler;
 import com.facebook.presto.operator.RecordSinkManager;
 import com.facebook.presto.operator.RecordSinkProvider;
+import com.facebook.presto.operator.index.IndexJoinLookupStats;
 import com.facebook.presto.spi.ConnectorFactory;
 import com.facebook.presto.spi.ConnectorRecordSinkProvider;
 import com.facebook.presto.spi.ConnectorSplit;
@@ -148,6 +149,8 @@ public class ServerMainModule
         binder.bind(ExpressionCompiler.class).in(Scopes.SINGLETON);
         newExporter(binder).export(ExpressionCompiler.class).withGeneratedName();
         bindConfig(binder).to(TaskManagerConfig.class);
+        binder.bind(IndexJoinLookupStats.class).in(Scopes.SINGLETON);
+        newExporter(binder).export(IndexJoinLookupStats.class).withGeneratedName();
 
         jsonCodecBinder(binder).bindJsonCodec(TaskInfo.class);
         jaxrsBinder(binder).bind(PagesResponseWriter.class);

@@ -17,26 +17,20 @@ import com.facebook.presto.spi.block.Block;
 
 import javax.annotation.concurrent.ThreadSafe;
 
-import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicReference;
 
 import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Preconditions.checkState;
 
 @ThreadSafe
 class UpdateRequest
 {
-    private final int startPosition;
     private final Block[] blocks;
-    private final AtomicBoolean finished = new AtomicBoolean();
+    private final AtomicReference<IndexSnapshot> indexSnapshotReference = new AtomicReference<>();
 
-    public UpdateRequest(int startPosition, Block... blocks)
+    public UpdateRequest(Block... blocks)
     {
-        this.startPosition = startPosition;
         this.blocks = checkNotNull(blocks, "blocks is null");
-    }
-
-    public int getStartPosition()
-    {
-        return startPosition;
     }
 
     public Block[] getBlocks()
@@ -44,13 +38,21 @@ class UpdateRequest
         return blocks;
     }
 
-    public void finished()
+    public void finished(IndexSnapshot indexSnapshot)
     {
-        finished.set(true);
+        checkNotNull(indexSnapshot, "indexSnapshot is null");
+        checkState(indexSnapshotReference.compareAndSet(null, indexSnapshot), "Already finished!");
     }
 
     public boolean isFinished()
     {
-        return finished.get();
+        return indexSnapshotReference.get() != null;
+    }
+
+    public IndexSnapshot getFinishedIndexSnapshot()
+    {
+        IndexSnapshot indexSnapshot = indexSnapshotReference.get();
+        checkState(indexSnapshot != null, "Update request is not finished");
+        return indexSnapshot;
     }
 }

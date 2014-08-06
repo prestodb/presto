@@ -29,6 +29,7 @@ public class TaskManagerConfig
     private boolean taskCpuTimerEnabled = true;
     private DataSize maxTaskMemoryUsage = new DataSize(256, Unit.MEGABYTE);
     private DataSize operatorPreAllocatedMemory = new DataSize(16, Unit.MEGABYTE);
+    private DataSize maxTaskIndexMemoryUsage = new DataSize(64, Unit.MEGABYTE);
     private int maxShardProcessorThreads = Runtime.getRuntime().availableProcessors() * 4;
 
     private DataSize sinkMaxBufferSize = new DataSize(32, Unit.MEGABYTE);
@@ -71,6 +72,19 @@ public class TaskManagerConfig
     public TaskManagerConfig setOperatorPreAllocatedMemory(DataSize operatorPreAllocatedMemory)
     {
         this.operatorPreAllocatedMemory = operatorPreAllocatedMemory;
+        return this;
+    }
+
+    @NotNull
+    public DataSize getMaxTaskIndexMemoryUsage()
+    {
+        return maxTaskIndexMemoryUsage;
+    }
+
+    @Config("task.max-index-memory")
+    public TaskManagerConfig setMaxTaskIndexMemoryUsage(DataSize maxTaskIndexMemoryUsage)
+    {
+        this.maxTaskIndexMemoryUsage = maxTaskIndexMemoryUsage;
         return this;
     }
 

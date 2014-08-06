@@ -318,4 +318,11 @@ public class DriverContext
     {
         return partitioned;
     }
+
+    // hack for index joins
+    @Deprecated
+    public Executor getExecutor()
+    {
+        return executor;
+    }
 }

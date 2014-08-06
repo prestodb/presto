@@ -13,19 +13,17 @@
  */
 package com.facebook.presto.operator.index;
 
+import com.facebook.presto.ExceededMemoryLimitException;
 import com.facebook.presto.ScheduledSplit;
 import com.facebook.presto.TaskSource;
 import com.facebook.presto.metadata.Split;
 import com.facebook.presto.operator.Driver;
 import com.facebook.presto.operator.DriverFactory;
 import com.facebook.presto.operator.LookupSource;
-import com.facebook.presto.operator.OperatorContext;
 import com.facebook.presto.operator.PageBuilder;
-import com.facebook.presto.operator.PagesIndex;
 import com.facebook.presto.operator.PipelineContext;
 import com.facebook.presto.operator.TaskContext;
 import com.facebook.presto.operator.index.PagesIndexBuilderOperator.PagesIndexBuilderOperatorFactory;
-import com.facebook.presto.operator.index.UnloadedIndexKeyRecordSet.UnloadedIndexKeyRecordCursor;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
@@ -33,6 +31,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.util.concurrent.ListenableFuture;
+import io.airlift.units.DataSize;
 
 import javax.annotation.concurrent.GuardedBy;
 import javax.annotation.concurrent.NotThreadSafe;
@@ -47,51 +46,52 @@ import java.util.concurrent.atomic.AtomicReference;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.base.Predicates.equalTo;
+import static com.google.common.base.Predicates.not;
+import static com.google.common.collect.Iterables.filter;
 
 @ThreadSafe
 public class IndexLoader
 {
     private final BlockingQueue<UpdateRequest> updateRequests = new LinkedBlockingQueue<>();
 
-    private final List<Type> indexTypes;
     private final List<Type> outputTypes;
-    private final int snapshotOperatorId;
     private final DriverFactory driverFactory;
     private final PlanNodeId sourcePlanNodeId;
     private final PagesIndexBuilderOperatorFactory pagesIndexOutput;
     private final int expectedPositions;
+    private final DataSize maxIndexMemorySize;
+    private final IndexJoinLookupStats stats;
 
     private final AtomicReference<TaskContext> taskContextReference = new AtomicReference<>();
     private final List<Integer> indexChannels;
 
     @GuardedBy("this")
-    private IndexSnapshotBuilder indexSnapshotBuilder;
+    private IndexSnapshotLoader indexSnapshotLoader; // Lazily initialized
 
-    private volatile IndexSnapshot indexSnapshot;
+    @GuardedBy("this")
+    private final AtomicReference<IndexSnapshot> indexSnapshotReference;
 
     public IndexLoader(List<Integer> indexChannels,
             List<Type> types,
-            int snapshotOperatorId,
             DriverFactory driverFactory,
             PagesIndexBuilderOperatorFactory pagesIndexOutput,
-            int expectedPositions)
+            int expectedPositions,
+            DataSize maxIndexMemorySize,
+            IndexJoinLookupStats stats)
     {
         checkArgument(!indexChannels.isEmpty(), "indexChannels must not be empty");
         this.indexChannels = ImmutableList.copyOf(checkNotNull(indexChannels, "indexChannels is null"));
         this.outputTypes = ImmutableList.copyOf(checkNotNull(types, "types is null"));
-        this.snapshotOperatorId = snapshotOperatorId;
         this.driverFactory = checkNotNull(driverFactory, "driverFactory is null");
         this.sourcePlanNodeId = Iterables.getOnlyElement(driverFactory.getSourceIds());
         this.pagesIndexOutput = checkNotNull(pagesIndexOutput, "pagesIndexOutput is null");
         this.expectedPositions = checkNotNull(expectedPositions, "expectedPositions is null");
+        this.maxIndexMemorySize = checkNotNull(maxIndexMemorySize, "maxIndexMemorySize is null");
+        this.stats = checkNotNull(stats, "stats is null");
 
-        ImmutableList.Builder<Type> typeBuilder = ImmutableList.builder();
-        for (Integer outputIndexChannel : indexChannels) {
-            typeBuilder.add(types.get(outputIndexChannel));
-        }
-        indexTypes = typeBuilder.build();
-
-        indexSnapshot = new IndexSnapshot(new EmptyLookupSource(types.size()), new EmptyLookupSource(indexChannels.size()));
+        // start with an empty source
+        indexSnapshotReference = new AtomicReference<>(new IndexSnapshot(new EmptyLookupSource(types.size()), new EmptyLookupSource(indexChannels.size())));
     }
 
     // This is a ghetto way to acquire a TaskContext at runtime (unavailable at planning)
@@ -112,97 +112,167 @@ public class IndexLoader
 
     public IndexSnapshot getIndexSnapshot()
     {
-        return indexSnapshot;
+        return indexSnapshotReference.get();
+    }
+
+    private static Block[] sliceBlocks(Block[] indexBlocks, int startPosition, int length)
+    {
+        Block[] slicedIndexBlocks = new Block[indexBlocks.length];
+        for (int i = 0; i < indexBlocks.length; i++) {
+            slicedIndexBlocks[i] = indexBlocks[i].getRegion(startPosition, length);
+        }
+        return slicedIndexBlocks;
     }
 
     public IndexSnapshot getIndexSnapshotForKeys(int position, Block[] indexBlocks)
     {
-        UpdateRequest updateRequest = new UpdateRequest(position, indexBlocks);
-        updateRequests.add(updateRequest);
+        // Normalize the indexBlocks so that they only encompass the unloaded positions
+        int totalPositions = indexBlocks[0].getPositionCount();
+        int remainingPositions = totalPositions - position;
+        return getIndexSnapshotForKeys(sliceBlocks(indexBlocks, position, remainingPositions));
+    }
+
+    private IndexSnapshot getIndexSnapshotForKeys(Block[] indexBlocks)
+    {
+        UpdateRequest myUpdateRequest = new UpdateRequest(indexBlocks);
+        updateRequests.add(myUpdateRequest);
 
         synchronized (this) {
-            if (!updateRequest.isFinished()) {
+            if (!myUpdateRequest.isFinished()) {
+                stats.recordIndexJoinLookup();
+                initializeIndexSnapshotLoaderIfNecessary();
+
                 List<UpdateRequest> requests = new ArrayList<>();
                 updateRequests.drainTo(requests);
 
-                batchLoadRequests(requests);
+                long initialCacheSizeInBytes = indexSnapshotLoader.getCacheSizeInBytes();
 
-                for (UpdateRequest request : requests) {
-                    request.finished();
+                // TODO: add heuristic to jump to load strategy that is most likely to succeed
+
+                // Try to load all the requests
+                if (indexSnapshotLoader.load(requests)) {
+                    return myUpdateRequest.getFinishedIndexSnapshot();
                 }
+
+                // Retry again if there was initial data (load failures will clear the cache automatically)
+                if (initialCacheSizeInBytes > 0 && indexSnapshotLoader.load(requests)) {
+                    stats.recordSuccessfulIndexJoinLookupByCacheReset();
+                    return myUpdateRequest.getFinishedIndexSnapshot();
+                }
+
+                // Try loading just my request
+                if (requests.size() > 1) {
+                    // Add all other requests back into the queue
+                    Iterables.addAll(updateRequests, filter(requests, not(equalTo(myUpdateRequest))));
+
+                    if (indexSnapshotLoader.load(ImmutableList.of(myUpdateRequest))) {
+                        stats.recordSuccessfulIndexJoinLookupBySingleRequest();
+                        return myUpdateRequest.getFinishedIndexSnapshot();
+                    }
+                }
+
+                // Repeatedly decrease the number of rows to load by a factor of 10
+                int totalPositions = indexBlocks[0].getPositionCount();
+                int attemptedPositions = totalPositions / 10;
+                while (attemptedPositions > 1) {
+                    myUpdateRequest = new UpdateRequest(sliceBlocks(indexBlocks, 0, attemptedPositions));
+                    if (indexSnapshotLoader.load(ImmutableList.of(myUpdateRequest))) {
+                        stats.recordSuccessfulIndexJoinLookupByLimitedRequest();
+                        return myUpdateRequest.getFinishedIndexSnapshot();
+                    }
+                    attemptedPositions /= 10;
+                }
+
+                // Try just loading a single row
+                if (totalPositions > 1) { // If positionCount == 1, then we've already tried with just one row
+                    myUpdateRequest = new UpdateRequest(sliceBlocks(indexBlocks, 0, 1));
+                    if (indexSnapshotLoader.load(ImmutableList.of(myUpdateRequest))) {
+                        stats.recordSuccessfulIndexJoinLookupByLimitedRequest();
+                        return myUpdateRequest.getFinishedIndexSnapshot();
+                    }
+                }
+
+                stats.recordFailedIndexJoinLookup();
+                throw new ExceededMemoryLimitException(maxIndexMemorySize, "Index");
             }
         }
 
-        return indexSnapshot;
+        // return the snapshot from the update request as another thread may have already flushed the request
+        return myUpdateRequest.getFinishedIndexSnapshot();
     }
 
-    private synchronized void batchLoadRequests(List<UpdateRequest> requests)
+    private synchronized void initializeIndexSnapshotLoaderIfNecessary()
     {
-        if (indexSnapshotBuilder == null) {
+        if (indexSnapshotLoader == null) {
             TaskContext taskContext = taskContextReference.get();
             checkState(taskContext != null, "Task context must be set before index can be built");
             PipelineContext pipelineContext = taskContext.addPipelineContext(false, false);
-            indexSnapshotBuilder = new IndexSnapshotBuilder(
+            indexSnapshotLoader = new IndexSnapshotLoader(
                     driverFactory,
                     pipelineContext,
                     sourcePlanNodeId,
                     pagesIndexOutput,
+                    indexSnapshotReference,
                     indexChannels,
-                    snapshotOperatorId,
-                    expectedPositions);
+                    expectedPositions,
+                    maxIndexMemorySize);
         }
-
-        indexSnapshot = indexSnapshotBuilder.batchLoadRequests(new UnloadedIndexKeyRecordSet(indexSnapshot, indexTypes, requests));
     }
 
     @NotThreadSafe
-    private static class IndexSnapshotBuilder
+    private static class IndexSnapshotLoader
     {
         private final DriverFactory driverFactory;
         private final PipelineContext pipelineContext;
         private final PlanNodeId sourcePlanNodeId;
         private final List<Integer> indexChannels;
+        private final List<Type> types;
+        private final List<Type> indexTypes;
+        private final AtomicReference<IndexSnapshot> indexSnapshotReference;
 
-        private final PagesIndex pagesIndex;
+        private final IndexSnapshotBuilder indexSnapshotBuilder;
 
-        private final PagesIndex missingKeysIndex;
-        private final List<Integer> missingKeysChannels;
-
-        private LookupSource missingKeys;
-
-        private IndexSnapshotBuilder(DriverFactory driverFactory,
+        private IndexSnapshotLoader(DriverFactory driverFactory,
                 PipelineContext pipelineContext,
                 PlanNodeId sourcePlanNodeId,
                 PagesIndexBuilderOperatorFactory pagesIndexOutput,
+                AtomicReference<IndexSnapshot> indexSnapshotReference,
                 List<Integer> indexChannels,
-                int snapshotOperatorId,
-                int expectedPositions)
+                int expectedPositions,
+                DataSize maxIndexMemorySize)
         {
             this.driverFactory = driverFactory;
             this.pipelineContext = pipelineContext;
             this.sourcePlanNodeId = sourcePlanNodeId;
+            this.indexSnapshotReference = indexSnapshotReference;
             this.indexChannels = indexChannels;
+            this.types = pagesIndexOutput.getTypes();
 
-            // create operator context to track this the memory of the index
-            OperatorContext snapshotOperatorContext = pipelineContext.addDriverContext().addOperatorContext(snapshotOperatorId, IndexLoader.class.getSimpleName());
-
-            this.pagesIndex = new PagesIndex(pagesIndexOutput.getTypes(), expectedPositions, snapshotOperatorContext);
-            pagesIndexOutput.setPagesIndex(pagesIndex);
-
-            ImmutableList.Builder<Type> missingKeysTypes = ImmutableList.builder();
-            ImmutableList.Builder<Integer> missingKeysChannels = ImmutableList.builder();
-            for (int i = 0; i < indexChannels.size(); i++) {
-                Integer outputIndexChannel = indexChannels.get(i);
-                missingKeysTypes.add(pagesIndexOutput.getTypes().get(outputIndexChannel));
-                missingKeysChannels.add(i);
+            ImmutableList.Builder<Type> typeBuilder = ImmutableList.builder();
+            for (Integer outputIndexChannel : indexChannels) {
+                typeBuilder.add(pagesIndexOutput.getTypes().get(outputIndexChannel));
             }
-            this.missingKeysIndex = new PagesIndex(missingKeysTypes.build(), expectedPositions, snapshotOperatorContext);
-            this.missingKeysChannels = missingKeysChannels.build();
-            this.missingKeys = new EmptyLookupSource(indexChannels.size());
+            this.indexTypes = typeBuilder.build();
+
+            this.indexSnapshotBuilder = new IndexSnapshotBuilder(
+                    pagesIndexOutput.getTypes(),
+                    indexChannels,
+                    pipelineContext.addDriverContext(),
+                    maxIndexMemorySize,
+                    expectedPositions);
+
+            pagesIndexOutput.setPagesIndexBuilder(indexSnapshotBuilder);
         }
 
-        private IndexSnapshot batchLoadRequests(UnloadedIndexKeyRecordSet unloadedKeysRecordSet)
+        public long getCacheSizeInBytes()
         {
+            return indexSnapshotBuilder.getMemoryInBytes();
+        }
+
+        public boolean load(List<UpdateRequest> requests)
+        {
+            UnloadedIndexKeyRecordSet unloadedKeysRecordSet = new UnloadedIndexKeyRecordSet(indexSnapshotReference.get(), indexTypes, requests);
+
             // Drive index lookup to produce the output (landing in pagesIndexOutput)
             Driver driver = driverFactory.createDriver(pipelineContext.addDriverContext());
             driver.updateSource(new TaskSource(sourcePlanNodeId, ImmutableSet.of(new ScheduledSplit(0, new Split("index", new IndexSplit(unloadedKeysRecordSet)))), true));
@@ -211,32 +281,31 @@ public class IndexLoader
                 checkState(process.isDone(), "Driver should never block");
             }
 
+            if (indexSnapshotBuilder.isMemoryExceeded()) {
+                clearCachedData();
+                return false;
+            }
+
             // Create lookup source with new data
-            LookupSource lookupSource = pagesIndex.createLookupSource(indexChannels);
-
-            // Build a page containing the keys that produced no output rows, so in future requests can skip these keys
-            PageBuilder missingKeysPageBuilder = new PageBuilder(missingKeysIndex.getTypes());
-            UnloadedIndexKeyRecordCursor unloadedKeyRecordCursor = unloadedKeysRecordSet.cursor();
-            while (unloadedKeyRecordCursor.advanceNextPosition()) {
-                Block[] blocks = unloadedKeyRecordCursor.getBlocks();
-                int position = unloadedKeyRecordCursor.getPosition();
-                if (lookupSource.getJoinPosition(position, blocks) < 0) {
-                    for (int i = 0; i < blocks.length; i++) {
-                        Block block = blocks[i];
-                        Type type = unloadedKeyRecordCursor.getType(i);
-                        type.appendTo(block, position, missingKeysPageBuilder.getBlockBuilder(i));
-                    }
-                }
+            IndexSnapshot newValue = indexSnapshotBuilder.createIndexSnapshot(unloadedKeysRecordSet);
+            if (newValue == null) {
+                clearCachedData();
+                return false;
             }
 
-            // only update missing keys if we have new missing keys
-            if (!missingKeysPageBuilder.isEmpty()) {
-                missingKeysIndex.addPage(missingKeysPageBuilder.build());
-                missingKeys = missingKeysIndex.createLookupSource(missingKeysChannels);
+            indexSnapshotReference.set(newValue);
+            for (UpdateRequest request : requests) {
+                request.finished(newValue);
             }
-
-            return new IndexSnapshot(lookupSource, missingKeys);
+            return true;
         }
+
+        private void clearCachedData()
+        {
+            indexSnapshotReference.set(new IndexSnapshot(new EmptyLookupSource(types.size()), new EmptyLookupSource(indexChannels.size())));
+            indexSnapshotBuilder.reset();
+        }
+
     }
 
     private static class EmptyLookupSource
@@ -244,7 +313,7 @@ public class IndexLoader
     {
         private final int channelCount;
 
-        private EmptyLookupSource(int channelCount)
+        public EmptyLookupSource(int channelCount)
         {
             this.channelCount = channelCount;
         }
