@@ -9,6 +9,8 @@ This chapter describes the SQL syntax used in Presto.
 
     sql/select
 
+    sql/joins
+
     sql/show-catalogs
     sql/show-columns
     sql/show-functions    
