@@ -18,20 +18,22 @@ import com.facebook.presto.operator.scalar.ScalarFunction;
 import com.facebook.presto.operator.scalar.ScalarOperator;
 import com.facebook.presto.spi.type.BooleanType;
 import com.facebook.presto.spi.type.VarcharType;
-import com.google.common.base.Charsets;
 import io.airlift.slice.Slice;
 import org.jcodings.specific.UTF8Encoding;
 import org.joni.Option;
 import org.joni.Regex;
 import org.joni.Syntax;
 
-import static com.google.common.base.Charsets.UTF_8;
+import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.joni.constants.MetaChar.INEFFECTIVE_META_CHAR;
+import static org.joni.constants.SyntaxProperties.OP_ASTERISK_ZERO_INF;
+import static org.joni.constants.SyntaxProperties.OP_DOT_ANYCHAR;
+import static org.joni.constants.SyntaxProperties.OP_LINE_ANCHOR;
 
 public final class LikeFunctions
 {
     private static final Syntax SYNTAX = new Syntax(
-            Syntax.OP_DOT_ANYCHAR | Syntax.OP_ASTERISK_ZERO_INF | Syntax.OP_LINE_ANCHOR,
+            OP_DOT_ANYCHAR | OP_ASTERISK_ZERO_INF | OP_LINE_ANCHOR,
             0,
             0,
             Option.NONE,
@@ -45,9 +47,7 @@ public final class LikeFunctions
             )
     );
 
-    private LikeFunctions()
-    {
-    }
+    private LikeFunctions() {}
 
     // TODO: this should not be callable from SQL
     @ScalarFunction(value = "like", hidden = true)
@@ -82,6 +82,7 @@ public final class LikeFunctions
         return regex.matcher(bytes).match(0, bytes.length, Option.NONE) != -1;
     }
 
+    @SuppressWarnings("NestedSwitchStatement")
     private static Regex likeToPattern(String patternString, char escapeChar, boolean shouldEscape)
     {
         StringBuilder regex = new StringBuilder(patternString.length() * 2);
@@ -89,27 +90,17 @@ public final class LikeFunctions
         regex.append('^');
         boolean escaped = false;
         for (char currentChar : patternString.toCharArray()) {
-            if (shouldEscape && !escaped && currentChar == escapeChar) {
+            if (shouldEscape && !escaped && (currentChar == escapeChar)) {
                 escaped = true;
             }
             else {
                 switch (currentChar) {
                     case '%':
-                        if (escaped) {
-                            regex.append("%");
-                        }
-                        else {
-                            regex.append(".*");
-                        }
+                        regex.append(escaped ? "%" : ".*");
                         escaped = false;
                         break;
                     case '_':
-                        if (escaped) {
-                            regex.append("_");
-                        }
-                        else {
-                            regex.append('.');
-                        }
+                        regex.append(escaped ? "_" : ".");
                         escaped = false;
                         break;
                     default:
@@ -130,25 +121,22 @@ public final class LikeFunctions
         }
         regex.append('$');
 
-        byte[] bytes = regex.toString().getBytes(Charsets.UTF_8);
+        byte[] bytes = regex.toString().getBytes(UTF_8);
         return new Regex(bytes, 0, bytes.length, 0, UTF8Encoding.INSTANCE, SYNTAX);
     }
 
+    @SuppressWarnings("NumericCastThatLosesPrecision")
     private static char getEscapeChar(Slice escape)
     {
-        char escapeChar;
         String escapeString = escape.toString(UTF_8);
-        if (escapeString.length() == 0) {
+        if (escapeString.isEmpty()) {
             // escaping disabled
-            escapeChar = (char) -1; // invalid character
+            return (char) -1; // invalid character
         }
-        else if (escapeString.length() == 1) {
-            escapeChar = escapeString.charAt(0);
+        if (escapeString.length() == 1) {
+            return escapeString.charAt(0);
         }
-        else {
-            throw new IllegalArgumentException("escape must be empty or a single character: " + escapeString);
-        }
-        return escapeChar;
+        throw new IllegalArgumentException("escape must be empty or a single character: " + escapeString);
     }
 
     private static boolean isAscii(byte[] bytes)
