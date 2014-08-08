@@ -59,7 +59,6 @@ import com.google.common.collect.FluentIterable;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
-import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Ordering;
 import com.google.inject.Inject;
@@ -86,7 +85,6 @@ import org.joda.time.DateTimeZone;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
@@ -110,6 +108,7 @@ import static com.facebook.presto.hive.HiveUtil.decodeViewData;
 import static com.facebook.presto.hive.HiveUtil.encodeViewData;
 import static com.facebook.presto.hive.HiveUtil.getTableStructFields;
 import static com.facebook.presto.hive.HiveUtil.parseHiveTimestamp;
+import static com.facebook.presto.hive.HiveUtil.partitionIdGetter;
 import static com.facebook.presto.hive.UnpartitionedPartition.UNPARTITIONED_PARTITION;
 import static com.facebook.presto.hive.util.Types.checkType;
 import static com.facebook.presto.spi.StandardErrorCode.PERMISSION_DENIED;
@@ -995,8 +994,8 @@ public class HiveClient
         SchemaTableName tableName = hivePartition.getTableName();
         Optional<HiveBucket> bucket = hivePartition.getBucket();
 
-        List<String> partitionNames = new ArrayList<>(Lists.transform(partitions, HiveUtil.partitionIdGetter()));
-        Collections.sort(partitionNames, Ordering.natural().reverse());
+        // sort partitions by name
+        List<String> partitionNames = Ordering.natural().reverse().sortedCopy(transform(partitions, partitionIdGetter()));
 
         Table table;
         Iterable<Partition> hivePartitions;
