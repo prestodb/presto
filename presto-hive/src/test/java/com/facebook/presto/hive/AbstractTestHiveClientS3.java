@@ -31,7 +31,6 @@ import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.net.HostAndPort;
-import io.airlift.log.Logger;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hive.metastore.api.Database;
@@ -226,7 +225,7 @@ public abstract class AbstractTestHiveClientS3
             metastoreClient.dropTable(table.getSchemaName(), table.getTableName());
         }
         catch (RuntimeException e) {
-            Logger.get(getClass()).warn(e, "Failed to drop table: %s", table);
+            // this usually occurs because the table was not created
         }
     }
 

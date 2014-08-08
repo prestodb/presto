@@ -46,7 +46,6 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.net.HostAndPort;
-import io.airlift.log.Logger;
 import io.airlift.units.Duration;
 import org.joda.time.DateTime;
 import org.joda.time.DateTimeZone;
@@ -867,7 +866,7 @@ public abstract class AbstractTestHiveClient
                 metadata.dropView(SESSION, temporaryCreateView);
             }
             catch (RuntimeException e) {
-                Logger.get(getClass()).warn(e, "Failed to drop view: %s", temporaryCreateView);
+                // this usually occurs because the view was not created
             }
         }
     }
@@ -1096,7 +1095,7 @@ public abstract class AbstractTestHiveClient
             metastoreClient.dropTable(table.getSchemaName(), table.getTableName());
         }
         catch (RuntimeException e) {
-            Logger.get(getClass()).warn(e, "Failed to drop table: %s", table);
+            // this usually occurs because the table was not created
         }
     }
 
