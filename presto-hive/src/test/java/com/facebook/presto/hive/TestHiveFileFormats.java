@@ -169,26 +169,6 @@ public class TestHiveFileFormats
     }
 
     @Test
-    public void testOrc()
-            throws Exception
-    {
-        HiveOutputFormat<?, ?> outputFormat = new org.apache.hadoop.hive.ql.io.orc.OrcOutputFormat();
-        InputFormat<?, ?> inputFormat = new org.apache.hadoop.hive.ql.io.orc.OrcInputFormat();
-        @SuppressWarnings("deprecation")
-        SerDe serde = new org.apache.hadoop.hive.ql.io.orc.OrcSerde();
-        File file = File.createTempFile("presto_test", "orc");
-        file.delete();
-        try {
-            FileSplit split = createTestFile(file.getAbsolutePath(), outputFormat, serde, null, TEST_COLUMNS);
-            testCursorProvider(new OrcRecordCursorProvider(), split, inputFormat, serde, TEST_COLUMNS);
-        }
-        finally {
-            //noinspection ResultOfMethodCallIgnored
-            file.delete();
-        }
-    }
-
-    @Test
     public void testOrcDataStream()
             throws Exception
     {
@@ -201,26 +181,6 @@ public class TestHiveFileFormats
         try {
             FileSplit split = createTestFile(file.getAbsolutePath(), outputFormat, serde, null, TEST_COLUMNS);
             testDataStreamFactory(new OrcDataStreamFactory(), split, inputFormat, serde, TEST_COLUMNS);
-        }
-        finally {
-            //noinspection ResultOfMethodCallIgnored
-            file.delete();
-        }
-    }
-
-    @Test
-    public void testOrcVector()
-            throws Exception
-    {
-        HiveOutputFormat<?, ?> outputFormat = new org.apache.hadoop.hive.ql.io.orc.OrcOutputFormat();
-        InputFormat<?, ?> inputFormat = new org.apache.hadoop.hive.ql.io.orc.OrcInputFormat();
-        @SuppressWarnings("deprecation")
-        SerDe serde = new org.apache.hadoop.hive.ql.io.orc.OrcSerde();
-        File file = File.createTempFile("presto_test", "orc-vector");
-        file.delete();
-        try {
-            FileSplit split = createTestFile(file.getAbsolutePath(), outputFormat, serde, null, TEST_COLUMNS);
-            testCursorProvider(new OrcVectorRecordCursorProvider(), split, inputFormat, serde, TEST_COLUMNS);
         }
         finally {
             //noinspection ResultOfMethodCallIgnored

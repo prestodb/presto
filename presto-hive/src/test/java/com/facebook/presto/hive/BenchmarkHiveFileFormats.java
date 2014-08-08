@@ -135,17 +135,6 @@ public final class BenchmarkHiveFileFormats
 
         List<BenchmarkFile> benchmarkFiles = ImmutableList.of(
                 new BenchmarkFile(
-                        "orc",
-                        "orc",
-                        new org.apache.hadoop.hive.ql.io.orc.OrcInputFormat(),
-                        new org.apache.hadoop.hive.ql.io.orc.OrcOutputFormat(),
-                        new org.apache.hadoop.hive.ql.io.orc.OrcSerde(),
-                        null,
-//                        new GenericHiveRecordCursorProvider()),  // orc needs special splits
-                        new OrcRecordCursorProvider(),
-                        new OrcVectorRecordCursorProvider()),
-
-                new BenchmarkFile(
                         "rc binary gzip",
                         "rc-binary.gz",
                         new RCFileInputFormat<>(),
@@ -875,9 +864,6 @@ public final class BenchmarkHiveFileFormats
     {
         if (recordCursorProvider instanceof GenericHiveRecordCursorProvider) {
             return "generic";
-        }
-        if (recordCursorProvider instanceof OrcVectorRecordCursorProvider) {
-            return "vector";
         }
         return "custom";
     }
