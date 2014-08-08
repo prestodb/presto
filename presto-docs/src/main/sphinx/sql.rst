@@ -14,6 +14,7 @@ This chapter describes the SQL syntax used in Presto.
     sql/drop-table
     sql/drop-view
     sql/explain
+    sql/insert
     sql/select
     sql/show-catalogs
     sql/show-columns
