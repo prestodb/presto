@@ -83,7 +83,6 @@ import org.joda.time.DateTimeZone;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
@@ -916,7 +915,7 @@ public class HiveClient
         Optional<HiveBucket> bucket = partition.getBucket();
 
         // sort partitions by name
-        Collections.sort(partitions, Ordering.natural().onResultOf(partitionIdGetter()).reverse());
+        partitions = Ordering.natural().onResultOf(partitionIdGetter()).reverse().sortedCopy(partitions);
 
         Table table;
         Iterable<HivePartitionMetadata> hivePartitions;
