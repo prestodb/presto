@@ -1,0 +1,47 @@
+orc vector            gen   cust  vcust    new
+        orderKey    0.37s  0.41s  0.14s  0.13s
+         partKey    0.39s  0.40s  0.14s  0.16s
+     supplierKey    0.42s  0.46s  0.17s  0.19s
+      lineNumber    0.33s  0.38s  0.10s  0.09s
+        quantity    0.36s  0.39s  0.12s  0.12s
+   extendedPrice    0.59s  0.62s  0.34s  0.19s
+        discount    0.45s  0.50s  0.22s  0.08s
+             tax    0.45s  0.46s  0.22s  0.07s
+      returnFlag    0.95s  0.52s  0.23s  0.10s
+          status    0.93s  0.55s  0.20s  0.08s
+        shipDate    1.06s  0.59s  0.28s  0.16s
+      commitDate    1.06s  0.60s  0.28s  0.17s
+     receiptDate    1.07s  0.66s  0.28s  0.16s
+shipInstructions    1.03s  0.57s  0.26s  0.10s
+        shipMode    0.97s  0.53s  0.24s  0.10s
+         comment    1.81s  1.36s  0.77s  0.61s
+      tpchQuery6    1.94s  1.47s  0.95s  0.54s
+      tpchQuery1    3.99s  2.97s  1.59s  0.79s
+             all   10.56s  7.11s  4.37s  2.52s
+  all (read one)    5.71s  5.86s  3.02s  0.35s
+      allNoMatch                  0.01s  0.00s
+   allSmallMatch                  0.15s  0.17s
+
+orc w/ nulls vector
+        orderKey    0.51s  0.49s  0.19s  0.15s
+         partKey    0.47s  0.46s  0.19s  0.17s
+     supplierKey    0.50s  0.53s  0.22s  0.20s
+      lineNumber    0.44s  0.39s  0.14s  0.11s
+        quantity    0.46s  0.47s  0.17s  0.14s
+   extendedPrice    0.76s  0.67s  0.39s  0.23s
+        discount    0.53s  0.52s  0.26s  0.12s
+             tax    0.60s  0.60s  0.26s  0.11s
+      returnFlag    1.10s  0.63s  0.28s  0.15s
+          status    1.16s  0.70s  0.25s  0.12s
+        shipDate    1.34s  0.69s  0.34s  0.19s
+      commitDate    1.35s  0.69s  0.33s  0.20s
+     receiptDate    1.24s  0.69s  0.33s  0.20s
+shipInstructions    1.25s  0.70s  0.32s  0.14s
+        shipMode    1.19s  0.74s  0.29s  0.14s
+         comment    2.19s  1.50s  0.86s  0.64s
+      tpchQuery6    2.38s  1.69s  1.11s  0.67s
+      tpchQuery1    4.81s  3.10s  1.90s  1.05s
+             all   12.45s  8.18s  5.00s  3.14s
+  all (read one)    6.93s  7.18s  3.59s  0.42s
+      allNoMatch                  0.02s  0.00s
+   allSmallMatch                  0.15s  0.17s
