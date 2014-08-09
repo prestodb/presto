@@ -97,6 +97,11 @@ public interface ConnectorMetadata
     void renameTable(ConnectorTableHandle tableHandle, SchemaTableName newTableName);
 
     /**
+     * Add partition to the specified table
+     */
+    void addPartition(ConnectorTableHandle tableHandle, List<String> partitionValues);
+
+    /**
      * Begin the atomic creation of a table with data.
      */
     ConnectorOutputTableHandle beginCreateTable(ConnectorSession session, ConnectorTableMetadata tableMetadata);

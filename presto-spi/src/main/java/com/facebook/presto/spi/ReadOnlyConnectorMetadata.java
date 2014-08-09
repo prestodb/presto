@@ -30,6 +30,13 @@ public abstract class ReadOnlyConnectorMetadata
     }
 
     @Override
+    public void addPartition(ConnectorTableHandle tableHandle,
+                                        List<String> partitionValues)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
     public final void renameTable(ConnectorTableHandle tableHandle, SchemaTableName newTableName)
     {
         throw new UnsupportedOperationException();

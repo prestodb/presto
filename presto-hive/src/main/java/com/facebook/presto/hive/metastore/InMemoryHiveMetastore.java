@@ -139,6 +139,13 @@ public class InMemoryHiveMetastore
     }
 
     @Override
+    public void addPartition(Partition partition)
+            throws NoSuchObjectException
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
     public List<String> getPartitionNames(String databaseName, String tableName)
             throws NoSuchObjectException
     {

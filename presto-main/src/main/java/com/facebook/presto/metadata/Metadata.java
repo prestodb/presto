@@ -192,6 +192,12 @@ public interface Metadata
      */
     void dropView(ConnectorSession session, QualifiedTableName viewName);
 
+    /**
+     * Add partition to the specified table.
+     */
+    @NotNull
+    void addPartition(TableHandle tableHandle, List<String> partitionValues);
+
     FunctionRegistry getFunctionRegistry();
 
     TypeManager getTypeManager();

@@ -201,6 +201,12 @@ public class TestingMetadata
     }
 
     @Override
+    public void addPartition(ConnectorTableHandle tableHandle, List<String> partitionValues)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
     public void createView(ConnectorSession session, SchemaTableName viewName, String viewData, boolean replace)
     {
         if (replace) {

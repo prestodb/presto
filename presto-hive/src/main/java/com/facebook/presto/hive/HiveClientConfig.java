@@ -49,6 +49,7 @@ public class HiveClientConfig
     private DataSize maxInitialSplitSize;
     private boolean allowDropTable;
     private boolean allowRenameTable;
+    private boolean allowAddPartition;
 
     private Duration metastoreCacheTtl = new Duration(1, TimeUnit.HOURS);
     private Duration metastoreRefreshInterval = new Duration(2, TimeUnit.MINUTES);
@@ -184,6 +185,19 @@ public class HiveClientConfig
     public HiveClientConfig setAllowRenameTable(boolean allowRenameTable)
     {
         this.allowRenameTable = allowRenameTable;
+        return this;
+    }
+
+    public boolean getAllowAddPartition()
+    {
+        return this.allowAddPartition;
+    }
+
+    @Config("hive.allow-add-partition")
+    @ConfigDescription("Allow hive connector to add partition")
+    public HiveClientConfig setAllowAddPartition(boolean allowAddPartition)
+    {
+        this.allowAddPartition = allowAddPartition;
         return this;
     }
 

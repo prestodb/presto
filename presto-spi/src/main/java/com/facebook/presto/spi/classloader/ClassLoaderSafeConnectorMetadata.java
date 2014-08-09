@@ -147,6 +147,15 @@ public class ClassLoaderSafeConnectorMetadata
     }
 
     @Override
+    public void addPartition(ConnectorTableHandle tableHandle,
+                                        List<String> partitionValues)
+    {
+        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
+            delegate.addPartition(tableHandle, partitionValues);
+        }
+    }
+
+    @Override
     public ConnectorOutputTableHandle beginCreateTable(ConnectorSession session, ConnectorTableMetadata tableMetadata)
     {
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {

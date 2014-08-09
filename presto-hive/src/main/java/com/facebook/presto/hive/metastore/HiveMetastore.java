@@ -29,6 +29,9 @@ public interface HiveMetastore
 
     void renameTable(String databaseName, String tableName, String newDatabaseName, String newTableName);
 
+    void addPartition(Partition partition)
+            throws NoSuchObjectException;
+
     @Managed
     void flushCache();
 

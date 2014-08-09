@@ -56,6 +56,14 @@ public interface MetadataDao
             ")")
     void createViewsTable();
 
+    @SqlUpdate("CREATE TABLE IF NOT EXISTS table_partitions (\n" +
+            "  partition_id BIGINT PRIMARY KEY AUTO_INCREMENT,\n" +
+            "  partition_name VARCHAR(255) NOT NULL,\n" +
+            "  table_id BIGINT NOT NULL,\n" +
+            "  UNIQUE (table_id, partition_name)\n" +
+            ")")
+    void createTablePartitions();
+
     @SqlQuery("SELECT table_id FROM tables\n" +
             "WHERE catalog_name = :catalogName\n" +
             "  AND schema_name = :schemaName\n" +
@@ -170,6 +178,13 @@ public interface MetadataDao
             @Bind("tableId") long tableId,
             @Bind("newSchemaName") String newSchemaName,
             @Bind("newTableName") String newTableName);
+
+    @SqlUpdate("INSERT INTO table_partitions (partition_name, table_id)\n" +
+            "VALUES (:partitionName, :tableId)\n")
+    @GetGeneratedKeys
+    long addPartition(
+            @Bind("tableId") long tableId,
+            @Bind("partitionName") String partitionName);
 
     @SqlUpdate("INSERT INTO views (catalog_name, schema_name, table_name, data)\n" +
             "VALUES (:catalogName, :schemaName, :tableName, :data)")
