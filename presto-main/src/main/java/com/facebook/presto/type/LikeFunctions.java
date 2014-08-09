@@ -122,7 +122,7 @@ public final class LikeFunctions
         regex.append('$');
 
         byte[] bytes = regex.toString().getBytes(UTF_8);
-        return new Regex(bytes, 0, bytes.length, 0, UTF8Encoding.INSTANCE, SYNTAX);
+        return new Regex(bytes, 0, bytes.length, Option.MULTILINE, UTF8Encoding.INSTANCE, SYNTAX);
     }
 
     @SuppressWarnings("NumericCastThatLosesPrecision")
