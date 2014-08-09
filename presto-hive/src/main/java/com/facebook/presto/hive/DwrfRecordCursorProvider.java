@@ -91,6 +91,7 @@ public class DwrfRecordCursorProvider
                 schema,
                 partitionKeys,
                 columns,
+                hiveStorageTimeZone,
                 DateTimeZone.forID(session.getTimeZoneKey().getId())));
     }
 

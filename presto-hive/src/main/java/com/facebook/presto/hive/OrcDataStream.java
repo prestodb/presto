@@ -51,6 +51,7 @@ import java.util.concurrent.TimeUnit;
 import static com.facebook.presto.hive.HiveBooleanParser.isFalse;
 import static com.facebook.presto.hive.HiveBooleanParser.isTrue;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_CURSOR_ERROR;
+import static com.facebook.presto.hive.HiveUtil.parseHiveTimestamp;
 import static com.facebook.presto.hive.NumberParser.parseDouble;
 import static com.facebook.presto.hive.NumberParser.parseLong;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
@@ -89,7 +90,8 @@ class OrcDataStream
             OperatorContext operatorContext,
             OrcRecordReader recordReader,
             List<HivePartitionKey> partitionKeys,
-            List<HiveColumnHandle> columns)
+            List<HiveColumnHandle> columns,
+            DateTimeZone hiveStorageTimeZone)
     {
         this.operatorContext = checkNotNull(operatorContext, "operatorContext is null");
         this.recordReader = checkNotNull(recordReader, "recordReader is null");
@@ -169,6 +171,12 @@ class OrcDataStream
                 }
                 else if (type.equals(DATE)) {
                     long value = ISODateTimeFormat.date().withZone(DateTimeZone.UTC).parseMillis(partitionKey.getValue());
+                    for (int i = 0; i < Vector.MAX_VECTOR_LENGTH; i++) {
+                        DATE.writeLong(blockBuilder, value);
+                    }
+                }
+                else if (TIMESTAMP.equals(type)) {
+                    long value = parseHiveTimestamp(partitionKey.getValue(), hiveStorageTimeZone);
                     for (int i = 0; i < Vector.MAX_VECTOR_LENGTH; i++) {
                         DATE.writeLong(blockBuilder, value);
                     }

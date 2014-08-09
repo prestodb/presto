@@ -198,6 +198,9 @@ class ColumnarTextHiveRecordCursor<K>
                 else if (DATE.equals(type)) {
                     longs[columnIndex] = ISODateTimeFormat.date().withZone(DateTimeZone.UTC).parseMillis(partitionKey.getValue());
                 }
+                else if (TIMESTAMP.equals(type)) {
+                    longs[columnIndex] = parseHiveTimestamp(partitionKey.getValue(), hiveStorageTimeZone);
+                }
                 else {
                     throw new UnsupportedOperationException("Unsupported column type: " + type);
                 }

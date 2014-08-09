@@ -46,6 +46,8 @@ import org.joda.time.DateTimeZone;
 import org.joda.time.format.DateTimeFormat;
 import org.joda.time.format.DateTimeFormatter;
 import org.joda.time.format.DateTimeFormatterBuilder;
+import org.joda.time.format.DateTimeParser;
+import org.joda.time.format.DateTimePrinter;
 
 import java.io.IOException;
 import java.lang.reflect.InvocationTargetException;
@@ -76,10 +78,20 @@ public final class HiveUtil
     private static final String VIEW_PREFIX = "/* Presto View: ";
     private static final String VIEW_SUFFIX = " */";
 
-    private static final DateTimeFormatter HIVE_TIMESTAMP_PARSER = new DateTimeFormatterBuilder()
-            .append(DateTimeFormat.forPattern("yyyy-MM-dd HH:mm:ss"))
-            .appendOptional(DateTimeFormat.forPattern(".SSSSSSSSS").getParser())
-            .toFormatter();
+    private static final DateTimeFormatter HIVE_TIMESTAMP_PARSER;
+
+    static {
+        DateTimeParser[] timestampWithoutTimeZoneParser = {
+                DateTimeFormat.forPattern("yyyy-M-d").getParser(),
+                DateTimeFormat.forPattern("yyyy-M-d H:m").getParser(),
+                DateTimeFormat.forPattern("yyyy-M-d H:m:s").getParser(),
+                DateTimeFormat.forPattern("yyyy-M-d H:m:s.SSS").getParser(),
+                DateTimeFormat.forPattern("yyyy-M-d H:m:s.SSSSSSS").getParser(),
+                DateTimeFormat.forPattern("yyyy-M-d H:m:s.SSSSSSSSS").getParser(),
+        };
+        DateTimePrinter timestampWithoutTimeZonePrinter = DateTimeFormat.forPattern("yyyy-MM-dd HH:mm:ss.SSSSSSSSS").getPrinter();
+        HIVE_TIMESTAMP_PARSER = new DateTimeFormatterBuilder().append(timestampWithoutTimeZonePrinter, timestampWithoutTimeZoneParser).toFormatter().withZoneUTC();
+    }
 
     private HiveUtil()
     {
