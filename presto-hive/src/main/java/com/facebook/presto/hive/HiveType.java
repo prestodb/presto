@@ -15,8 +15,11 @@ package com.facebook.presto.hive;
 
 import com.facebook.presto.spi.type.BigintType;
 import com.facebook.presto.spi.type.BooleanType;
+import com.facebook.presto.spi.type.DateType;
 import com.facebook.presto.spi.type.DoubleType;
+import com.facebook.presto.spi.type.TimestampType;
 import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.spi.type.VarbinaryType;
 import com.facebook.presto.spi.type.VarcharType;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonValue;
@@ -134,6 +137,15 @@ public final class HiveType
         }
         if (VarcharType.VARCHAR.equals(type)) {
             return HIVE_STRING;
+        }
+        if (VarbinaryType.VARBINARY.equals(type)) {
+            return HIVE_BINARY;
+        }
+        if (DateType.DATE.equals(type)) {
+            return HIVE_DATE;
+        }
+        if (TimestampType.TIMESTAMP.equals(type)) {
+            return HIVE_TIMESTAMP;
         }
         throw new IllegalArgumentException("unsupported type: " + type);
     }
