@@ -14,6 +14,10 @@
 package com.facebook.presto.sql.tree;
 
 import com.google.common.base.Objects;
+import com.google.common.base.Optional;
+import com.google.common.collect.ImmutableList;
+
+import java.util.List;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 
@@ -21,12 +25,29 @@ public class CreateTable
         extends Statement
 {
     private final QualifiedName name;
-    private final Query query;
+    private final List<TableElement> tableElementList;
+    private final List<TableElement> partitionElementList;
+    private final Optional<Statement> ifNotExists;
 
-    public CreateTable(QualifiedName name, Query query)
+    public CreateTable(QualifiedName name,
+                        Optional<Statement> ifNotExists,
+                        List<TableElement> tableElementList,
+                        List<TableElement> partitionElementList)
     {
         this.name = checkNotNull(name, "name is null");
-        this.query = checkNotNull(query, "query is null");
+        if (tableElementList == null) {
+            this.tableElementList = ImmutableList.of();
+        }
+        else {
+            this.tableElementList = ImmutableList.copyOf(tableElementList);
+        }
+        if (partitionElementList == null) {
+            this.partitionElementList = ImmutableList.of();
+        }
+        else {
+            this.partitionElementList = ImmutableList.copyOf(partitionElementList);
+        }
+        this.ifNotExists = ifNotExists;
     }
 
     public QualifiedName getName()
@@ -34,9 +55,19 @@ public class CreateTable
         return name;
     }
 
-    public Query getQuery()
+    public List<TableElement> getTableElementList()
     {
-        return query;
+        return tableElementList;
+    }
+
+    public List<TableElement> getPartitionElementList()
+    {
+        return partitionElementList;
+    }
+
+    public Optional<Statement> getIfNotExists()
+    {
+        return ifNotExists;
     }
 
     @Override
@@ -48,7 +79,7 @@ public class CreateTable
     @Override
     public int hashCode()
     {
-        return Objects.hashCode(name, query);
+        return Objects.hashCode(name, ifNotExists, tableElementList, partitionElementList);
     }
 
     @Override
@@ -62,7 +93,9 @@ public class CreateTable
         }
         CreateTable o = (CreateTable) obj;
         return Objects.equal(name, o.name)
-                && Objects.equal(query, o.query);
+                && Objects.equal(tableElementList, o.tableElementList)
+                && Objects.equal(partitionElementList, o.partitionElementList)
+                && Objects.equal(ifNotExists, o.ifNotExists);
     }
 
     @Override
@@ -70,7 +103,10 @@ public class CreateTable
     {
         return Objects.toStringHelper(this)
                 .add("name", name)
-                .add("query", query)
+                .add("tableElementList", tableElementList)
+                .add("partitionElementList", partitionElementList)
+                .add("ifNotExists", ifNotExists)
+                .omitNullValues()
                 .toString();
     }
 }

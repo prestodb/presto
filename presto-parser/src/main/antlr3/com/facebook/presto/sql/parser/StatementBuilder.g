@@ -553,7 +553,58 @@ useCollection returns [Statement value]
     ;
 
 createTable returns [Statement value]
-    : ^(CREATE_TABLE qname query) { $value = new CreateTable($qname.value, $query.value); }
+    : ^(CREATE_TABLE_AS_SELECT qname query) { $value = new CreateTableAsSelect($qname.value, $query.value); }
+    | ^(CREATE_TABLE qname tableElementList existClause? partitionElement?)
+        { $value = new CreateTable(
+            $qname.value,
+            Optional.fromNullable($existClause.value),
+            Objects.firstNonNull($tableElementList.value, ImmutableList.<TableElement>of()),
+            Objects.firstNonNull($partitionElement.value, ImmutableList.<TableElement>of())); }
+    ;
+
+existClause returns [Statement value]
+    : IF_NOT_EXISTS { $value = new IfNotExists(); }
+    ;
+
+tableElementList returns [List<TableElement> value = new ArrayList<>()]
+    : ^(TABLE_ELEMENT_LIST ( tableElement { $value.add($tableElement.value); } )+ )
+    ;
+
+tableElement returns [TableElement value]
+    : ^(COLUMN_DEF ident dataType columnConstDef?)
+        { $value = new TableElement(
+            $ident.value,
+            $dataType.value,
+            Optional.fromNullable($columnConstDef.value)); }
+    ;
+
+partitionElement returns [List<TableElement> value = new ArrayList<>()]
+    : ^(PARTITION_BY tableElementList) { $value = $tableElementList.value; }
+    ;
+
+dataType returns [DataType value]
+    : BOOLEAN { $value = new DataType(DataType.TypeName.BOOLEAN); }
+    | ^(CHAR charlen?) { $value = new CharType(DataType.TypeName.CHAR, Optional.fromNullable($charlen.value)); }
+    | ^(VARCHAR charlen?) { $value = new CharType(DataType.TypeName.VARCHAR, Optional.fromNullable($charlen.value)); }
+    | ^(NUMERIC numlen?) { $value = new NumType(DataType.TypeName.NUMERIC, Optional.fromNullable($numlen.value)); }
+    | INTEGER { $value = new DataType(DataType.TypeName.INTEGER); }
+    | DATE { $value = new DataType(DataType.TypeName.DATE); }
+    ;
+
+charlen returns [String value]
+    : integer { $value = $integer.value; }
+    ;
+
+numlen returns [NumLen value]
+    : ^(p=integer s=integer?) { $value = new NumLen($p.value, Optional.fromNullable($s.value)); }
+    ;
+
+columnConstDef returns [ColumnConstDef value]
+    : ^(CONSTRAINT columnConst) { $value = new ColumnConstDef($columnConst.value); }
+    ;
+
+columnConst returns [ColumnConst value]
+    : NOT_NULL { $value = new ColumnConst(ColumnConst.ConstType.NOT_NULL); }
     ;
 
 dropTable returns [Statement value]

@@ -86,6 +86,8 @@ tokens {
     SAMPLED_RELATION;
     QUERY_SPEC;
     STRATIFY_ON;
+    CREATE_TABLE_AS_SELECT;
+    IF_NOT_EXISTS;
 }
 
 @header {
@@ -637,7 +639,12 @@ insertStmt
     ;
 
 createTableStmt
-    : CREATE TABLE qname s=tableContentsSource -> ^(CREATE_TABLE qname $s)
+    : CREATE TABLE qname s=tableContentsSource -> ^(CREATE_TABLE_AS_SELECT qname $s)
+    | CREATE TABLE e=existClause? qname c=tableElementList p=partitionElement? -> ^(CREATE_TABLE qname $c $e? $p?)
+    ;
+
+existClause
+    : IF NOT EXISTS -> IF_NOT_EXISTS
     ;
 
 alterTableStmt
@@ -668,6 +675,10 @@ tableElement
     : ident dataType columnConstDef* -> ^(COLUMN_DEF ident dataType columnConstDef*)
     ;
 
+partitionElement
+    : PARTITIONED BY tableElementList -> ^(PARTITION_BY tableElementList)
+    ;
+
 dataType
     : charType
     | exactNumType
@@ -689,7 +700,9 @@ charlen
 exactNumType
     : NUMERIC numlen? -> ^(NUMERIC numlen?)
     | DECIMAL numlen? -> ^(NUMERIC numlen?)
-    | DEC numlen?     -> ^(NUMERIC numlen?)
+    | BOOLEAN         -> ^(BOOLEAN)
+    | DOUBLE          -> ^(NUMERIC)
+    | BIGINT          -> ^(INTEGER)
     | INTEGER         -> ^(INTEGER)
     | INT             -> ^(INTEGER)
     ;
@@ -879,6 +892,7 @@ RESCALED: 'RESCALED';
 STRATIFY: 'STRATIFY';
 ALTER: 'ALTER';
 RENAME: 'RENAME';
+PARTITIONED: 'PARTITIONED';
 
 EQ  : '=';
 NEQ : '<>' | '!=';
