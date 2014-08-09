@@ -182,6 +182,15 @@ public enum HiveType
         if (VarcharType.VARCHAR.equals(type)) {
             return STRING;
         }
+        if (VarbinaryType.VARBINARY.equals(type)) {
+            return BINARY;
+        }
+        if (DateType.DATE.equals(type)) {
+            return DATE;
+        }
+        if (TimestampType.TIMESTAMP.equals(type)) {
+            return TIMESTAMP;
+        }
         throw new IllegalArgumentException("unsupported type: " + type);
     }
 

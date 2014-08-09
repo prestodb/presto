@@ -28,6 +28,10 @@
 package com.facebook.presto.hive;
 
 import com.facebook.presto.spi.RecordSink;
+import com.facebook.presto.spi.type.DateType;
+import com.facebook.presto.spi.type.TimestampType;
+import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.spi.type.VarbinaryType;
 import com.google.common.base.Joiner;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
@@ -47,12 +51,14 @@ import org.apache.hadoop.mapred.JobConf;
 import org.apache.hadoop.mapred.Reporter;
 
 import java.io.IOException;
+import java.sql.Date;
+import java.sql.Timestamp;
 import java.util.List;
 import java.util.Properties;
 
+import static com.facebook.presto.hive.HiveColumnHandle.SAMPLE_WEIGHT_COLUMN_NAME;
 import static com.facebook.presto.hive.HiveType.columnTypeToHiveType;
 import static com.facebook.presto.hive.HiveType.hiveTypeNameGetter;
-import static com.facebook.presto.hive.HiveColumnHandle.SAMPLE_WEIGHT_COLUMN_NAME;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.Iterables.transform;
 import static java.nio.charset.StandardCharsets.UTF_8;
@@ -61,9 +67,12 @@ import static org.apache.hadoop.hive.metastore.api.hive_metastoreConstants.META_
 import static org.apache.hadoop.hive.ql.exec.FileSinkOperator.RecordWriter;
 import static org.apache.hadoop.hive.serde2.objectinspector.ObjectInspectorFactory.getStandardStructObjectInspector;
 import static org.apache.hadoop.hive.serde2.objectinspector.primitive.PrimitiveObjectInspectorFactory.javaBooleanObjectInspector;
+import static org.apache.hadoop.hive.serde2.objectinspector.primitive.PrimitiveObjectInspectorFactory.javaByteArrayObjectInspector;
+import static org.apache.hadoop.hive.serde2.objectinspector.primitive.PrimitiveObjectInspectorFactory.javaDateObjectInspector;
 import static org.apache.hadoop.hive.serde2.objectinspector.primitive.PrimitiveObjectInspectorFactory.javaDoubleObjectInspector;
 import static org.apache.hadoop.hive.serde2.objectinspector.primitive.PrimitiveObjectInspectorFactory.javaLongObjectInspector;
 import static org.apache.hadoop.hive.serde2.objectinspector.primitive.PrimitiveObjectInspectorFactory.javaStringObjectInspector;
+import static org.apache.hadoop.hive.serde2.objectinspector.primitive.PrimitiveObjectInspectorFactory.javaTimestampObjectInspector;
 
 public class HiveRecordSink
         implements RecordSink
@@ -76,6 +85,8 @@ public class HiveRecordSink
     private final List<StructField> structFields;
     private final Object row;
     private final int sampleWeightField;
+
+    private final List<Type> columnTypes;
 
     private int field = -1;
 
@@ -100,6 +111,8 @@ public class HiveRecordSink
         tableInspector = getStandardStructObjectInspector(handle.getColumnNames(), getJavaObjectInspectors(hiveTypes));
         structFields = ImmutableList.copyOf(tableInspector.getAllStructFieldRefs());
         row = tableInspector.create();
+
+        columnTypes = ImmutableList.copyOf(handle.getColumnTypes());
     }
 
     @Override
@@ -145,7 +158,16 @@ public class HiveRecordSink
     @Override
     public void appendLong(long value)
     {
-        append(value);
+        Type type = columnTypes.get(field);
+        if (type == DateType.DATE) {
+            append(new Date(value));
+        }
+        else if (type == TimestampType.TIMESTAMP) {
+            append(new Timestamp(value));
+        }
+        else {
+            append(value);
+        }
     }
 
     @Override
@@ -157,7 +179,13 @@ public class HiveRecordSink
     @Override
     public void appendString(byte[] value)
     {
-        append(new String(value, UTF_8));
+        Type type = columnTypes.get(field);
+        if (type == VarbinaryType.VARBINARY) {
+            append(value);
+        }
+        else {
+            append(new String(value, UTF_8));
+        }
     }
 
     @Override
@@ -229,6 +257,12 @@ public class HiveRecordSink
                 return javaDoubleObjectInspector;
             case STRING:
                 return javaStringObjectInspector;
+            case BINARY:
+                return javaByteArrayObjectInspector;
+            case DATE:
+                return javaDateObjectInspector;
+            case TIMESTAMP:
+                return javaTimestampObjectInspector;
         }
         throw new IllegalArgumentException("unsupported type: " + type);
     }
