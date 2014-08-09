@@ -137,6 +137,7 @@ public class OrcPageSourceFactory
                     orcDataSource,
                     partitionKeys,
                     columns,
+                    hiveStorageTimeZone,
                     typeManager);
         }
         catch (Exception e) {

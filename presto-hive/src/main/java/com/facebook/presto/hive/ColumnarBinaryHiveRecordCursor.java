@@ -56,6 +56,7 @@ import static com.facebook.presto.hive.HiveType.HIVE_LONG;
 import static com.facebook.presto.hive.HiveType.HIVE_SHORT;
 import static com.facebook.presto.hive.HiveType.HIVE_TIMESTAMP;
 import static com.facebook.presto.hive.HiveUtil.getTableObjectInspector;
+import static com.facebook.presto.hive.HiveUtil.parseHiveTimestamp;
 import static com.facebook.presto.hive.NumberParser.parseDouble;
 import static com.facebook.presto.hive.NumberParser.parseLong;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
@@ -119,6 +120,7 @@ class ColumnarBinaryHiveRecordCursor<K>
             Properties splitSchema,
             List<HivePartitionKey> partitionKeys,
             List<HiveColumnHandle> columns,
+            DateTimeZone hiveStorageTimeZone,
             DateTimeZone sessionTimeZone,
             TypeManager typeManager)
     {
@@ -215,6 +217,9 @@ class ColumnarBinaryHiveRecordCursor<K>
                 }
                 else if (DATE.equals(type)) {
                     longs[columnIndex] = ISODateTimeFormat.date().withZoneUTC().parseMillis(partitionKey.getValue());
+                }
+                else if (TIMESTAMP.equals(type)) {
+                    longs[columnIndex] = parseHiveTimestamp(partitionKey.getValue(), hiveStorageTimeZone);
                 }
                 else {
                     throw new UnsupportedOperationException("Unsupported column type: " + type);
