@@ -33,6 +33,7 @@ import com.facebook.presto.spi.ConnectorColumnHandle;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.SchemaTableName;
+import com.facebook.presto.spi.SerializableNativeValue;
 import com.facebook.presto.spi.TupleDomain;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.type.Type;
@@ -105,12 +106,12 @@ public class InformationSchemaDataStreamProvider
         checkArgument(!columns.isEmpty(), "must provide at least one column");
 
         InformationSchemaTableHandle handle = split.getTableHandle();
-        Map<String, Object> filters = split.getFilters();
+        Map<String, SerializableNativeValue> filters = split.getFilters();
 
         return getInformationSchemaTable(handle.getSession(), handle.getCatalogName(), handle.getSchemaTableName(), filters);
     }
 
-    public InternalTable getInformationSchemaTable(ConnectorSession session, String catalog, SchemaTableName table, Map<String, Object> filters)
+    public InternalTable getInformationSchemaTable(ConnectorSession session, String catalog, SchemaTableName table, Map<String, SerializableNativeValue> filters)
     {
         if (table.equals(TABLE_COLUMNS)) {
             return buildColumns(session, catalog, filters);
@@ -134,7 +135,7 @@ public class InformationSchemaDataStreamProvider
         throw new IllegalArgumentException(format("table does not exist: %s", table));
     }
 
-    private InternalTable buildColumns(ConnectorSession session, String catalogName, Map<String, Object> filters)
+    private InternalTable buildColumns(ConnectorSession session, String catalogName, Map<String, SerializableNativeValue> filters)
     {
         InternalTable.Builder table = InternalTable.builder(informationSchemaTableColumns(TABLE_COLUMNS));
         for (Entry<QualifiedTableName, List<ColumnMetadata>> entry : getColumnsList(session, catalogName, filters).entrySet()) {
@@ -159,12 +160,12 @@ public class InformationSchemaDataStreamProvider
         return table.build();
     }
 
-    private Map<QualifiedTableName, List<ColumnMetadata>> getColumnsList(ConnectorSession session, String catalogName, Map<String, Object> filters)
+    private Map<QualifiedTableName, List<ColumnMetadata>> getColumnsList(ConnectorSession session, String catalogName, Map<String, SerializableNativeValue> filters)
     {
         return metadata.listTableColumns(session, extractQualifiedTablePrefix(catalogName, filters));
     }
 
-    private InternalTable buildTables(ConnectorSession session, String catalogName, Map<String, Object> filters)
+    private InternalTable buildTables(ConnectorSession session, String catalogName, Map<String, SerializableNativeValue> filters)
     {
         Set<QualifiedTableName> tables = ImmutableSet.copyOf(getTablesList(session, catalogName, filters));
         Set<QualifiedTableName> views = ImmutableSet.copyOf(getViewsList(session, catalogName, filters));
@@ -182,17 +183,17 @@ public class InformationSchemaDataStreamProvider
         return table.build();
     }
 
-    private List<QualifiedTableName> getTablesList(ConnectorSession session, String catalogName, Map<String, Object> filters)
+    private List<QualifiedTableName> getTablesList(ConnectorSession session, String catalogName, Map<String, SerializableNativeValue> filters)
     {
         return metadata.listTables(session, extractQualifiedTablePrefix(catalogName, filters));
     }
 
-    private List<QualifiedTableName> getViewsList(ConnectorSession session, String catalogName, Map<String, Object> filters)
+    private List<QualifiedTableName> getViewsList(ConnectorSession session, String catalogName, Map<String, SerializableNativeValue> filters)
     {
         return metadata.listViews(session, extractQualifiedTablePrefix(catalogName, filters));
     }
 
-    private InternalTable buildViews(ConnectorSession session, String catalogName, Map<String, Object> filters)
+    private InternalTable buildViews(ConnectorSession session, String catalogName, Map<String, SerializableNativeValue> filters)
     {
         InternalTable.Builder table = InternalTable.builder(informationSchemaTableColumns(TABLE_VIEWS));
         for (Entry<QualifiedTableName, ViewDefinition> entry : getViews(session, catalogName, filters).entrySet()) {
@@ -205,7 +206,7 @@ public class InformationSchemaDataStreamProvider
         return table.build();
     }
 
-    private Map<QualifiedTableName, ViewDefinition> getViews(ConnectorSession session, String catalogName, Map<String, Object> filters)
+    private Map<QualifiedTableName, ViewDefinition> getViews(ConnectorSession session, String catalogName, Map<String, SerializableNativeValue> filters)
     {
         return metadata.getViews(session, extractQualifiedTablePrefix(catalogName, filters));
     }
@@ -260,7 +261,7 @@ public class InformationSchemaDataStreamProvider
         return table.build();
     }
 
-    private InternalTable buildPartitions(ConnectorSession session, String catalogName, Map<String, Object> filters)
+    private InternalTable buildPartitions(ConnectorSession session, String catalogName, Map<String, SerializableNativeValue> filters)
     {
         QualifiedTableName tableName = extractQualifiedTableName(catalogName, filters);
 
@@ -273,15 +274,15 @@ public class InformationSchemaDataStreamProvider
         PartitionResult partitionResult = splitManager.getPartitions(tableHandle.get(), Optional.<TupleDomain<ColumnHandle>>absent());
 
         for (Partition partition : partitionResult.getPartitions()) {
-            for (Entry<ColumnHandle, Comparable<?>> entry : partition.getTupleDomain().extractFixedValues().entrySet()) {
+            for (Entry<ColumnHandle, SerializableNativeValue> entry : partition.getTupleDomain().extractNullableFixedValues().entrySet()) {
                 ColumnHandle columnHandle = entry.getKey();
                 String columnName = columnHandles.get(columnHandle);
                 String value = null;
-                if (entry.getValue() != null) {
+                if (entry.getValue().getValue() != null) {
                     ColumnMetadata columnMetadata  = metadata.getColumnMetadata(tableHandle.get(), columnHandle);
                     try {
                         FunctionInfo operator = metadata.getExactOperator(OperatorType.CAST, VarcharType.VARCHAR, ImmutableList.of(columnMetadata.getType()));
-                        value = ((Slice) operator.getMethodHandle().invokeWithArguments(entry.getValue())).toStringUtf8();
+                        value = ((Slice) operator.getMethodHandle().invokeWithArguments(entry.getValue().getValue())).toStringUtf8();
                     }
                     catch (OperatorNotFoundException e) {
                         value = "<UNREPRESENTABLE VALUE>";
@@ -303,7 +304,7 @@ public class InformationSchemaDataStreamProvider
         return table.build();
     }
 
-    private static QualifiedTableName extractQualifiedTableName(String catalogName, Map<String, Object> filters)
+    private static QualifiedTableName extractQualifiedTableName(String catalogName, Map<String, SerializableNativeValue> filters)
     {
         Optional<String> schemaName = getFilterColumn(filters, "table_schema");
         checkArgument(schemaName.isPresent(), "filter is required for column: %s.%s", TABLE_INTERNAL_PARTITIONS, "table_schema");
@@ -312,7 +313,7 @@ public class InformationSchemaDataStreamProvider
         return new QualifiedTableName(catalogName, schemaName.get(), tableName.get());
     }
 
-    private static QualifiedTablePrefix extractQualifiedTablePrefix(String catalogName, Map<String, Object> filters)
+    private static QualifiedTablePrefix extractQualifiedTablePrefix(String catalogName, Map<String, SerializableNativeValue> filters)
     {
         Optional<String> schemaName = getFilterColumn(filters, "table_schema");
         Optional<String> tableName = getFilterColumn(filters, "table_name");
@@ -322,18 +323,17 @@ public class InformationSchemaDataStreamProvider
         return new QualifiedTablePrefix(catalogName, schemaName, tableName);
     }
 
-    private static Optional<String> getFilterColumn(Map<String, Object> filters, String columnName)
+    private static Optional<String> getFilterColumn(Map<String, SerializableNativeValue> filters, String columnName)
     {
-        for (Map.Entry<String, Object> entry : filters.entrySet()) {
-            if (entry.getKey().equals(columnName)) {
-                if (entry.getValue() instanceof String) {
-                    return Optional.of((String) entry.getValue());
-                }
-                if (entry.getValue() instanceof Slice) {
-                    return Optional.of(((Slice) entry.getValue()).toStringUtf8());
-                }
-                break;
-            }
+        SerializableNativeValue value = filters.get(columnName);
+        if (value == null || value.getValue() == null) {
+            return Optional.absent();
+        }
+        if (Slice.class.isAssignableFrom(value.getType())) {
+            return Optional.fromNullable(((Slice) value.getValue()).toStringUtf8());
+        }
+        if (String.class.isAssignableFrom(value.getType())) {
+            return Optional.fromNullable((String) value.getValue());
         }
         return Optional.absent();
     }

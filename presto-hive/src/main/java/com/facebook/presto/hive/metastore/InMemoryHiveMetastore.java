@@ -27,6 +27,7 @@ import org.apache.hadoop.hive.metastore.api.Table;
 import java.io.File;
 import java.net.URI;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
 import static com.google.common.base.Preconditions.checkNotNull;
@@ -153,7 +154,7 @@ public class InMemoryHiveMetastore
     }
 
     @Override
-    public List<Partition> getPartitionsByNames(String databaseName, String tableName, List<String> partitionNames)
+    public Map<String, Partition> getPartitionsByNames(String databaseName, String tableName, List<String> partitionNames)
             throws NoSuchObjectException
     {
         throw new UnsupportedOperationException();

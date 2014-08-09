@@ -11,21 +11,26 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.hive;
+package com.facebook.presto.hive.orc.stream;
 
-import com.google.common.collect.ImmutableList;
+import com.google.common.io.ByteSource;
 
-import java.util.List;
+import java.io.IOException;
 
-public final class HiveRecordCursorProviders
+public class ByteArrayStreamSource
+        implements StreamSource<ByteArrayStream>
 {
-    private HiveRecordCursorProviders() {}
+    private final ByteSource byteSource;
 
-    public static List<HiveRecordCursorProvider> getDefaultProviders()
+    public ByteArrayStreamSource(ByteSource byteSource)
     {
-        return ImmutableList.of(
-                new ColumnarTextHiveRecordCursorProvider(),
-                new ColumnarBinaryHiveRecordCursorProvider(),
-                new GenericHiveRecordCursorProvider());
+        this.byteSource = byteSource;
+    }
+
+    @Override
+    public ByteArrayStream openStream()
+            throws IOException
+    {
+        return new ByteArrayStream(byteSource.openStream());
     }
 }

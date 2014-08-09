@@ -166,6 +166,11 @@ public class GroupByIdBlock
     }
 
     @Override
+    public void assureLoaded()
+    {
+    }
+
+    @Override
     public String toString()
     {
         return Objects.toStringHelper(this)

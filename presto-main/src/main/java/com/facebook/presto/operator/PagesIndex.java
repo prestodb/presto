@@ -103,6 +103,8 @@ public class PagesIndex
 
     public void addPage(Page page)
     {
+        page.assureLoaded();
+
         positionCount += page.getPositionCount();
 
         int pageIndex = channels[0].size();

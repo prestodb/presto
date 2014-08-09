@@ -13,11 +13,11 @@
  */
 package com.facebook.presto.hive;
 
-import com.facebook.presto.spi.Connector;
+import com.facebook.presto.connector.InternalConnector;
 import com.facebook.presto.spi.classloader.ClassLoaderSafeConnectorHandleResolver;
 import com.facebook.presto.spi.classloader.ClassLoaderSafeConnectorMetadata;
-import com.facebook.presto.spi.classloader.ClassLoaderSafeConnectorRecordSetProvider;
 import com.facebook.presto.spi.classloader.ClassLoaderSafeConnectorSplitManager;
+import com.facebook.presto.split.ConnectorDataStreamProvider;
 import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;
 
@@ -42,10 +42,10 @@ public class TestHiveConnectorFactory
                         .build(),
                 HiveConnector.class.getClassLoader());
 
-        Connector connector = connectorFactory.create("hive-test", ImmutableMap.<String, String>of());
+        InternalConnector connector = (InternalConnector) connectorFactory.create("hive-test", ImmutableMap.<String, String>of());
         assertInstanceOf(connector.getMetadata(), ClassLoaderSafeConnectorMetadata.class);
         assertInstanceOf(connector.getSplitManager(), ClassLoaderSafeConnectorSplitManager.class);
-        assertInstanceOf(connector.getRecordSetProvider(), ClassLoaderSafeConnectorRecordSetProvider.class);
+        assertInstanceOf(connector.getDataStreamProvider(), ConnectorDataStreamProvider.class);
         assertInstanceOf(connector.getHandleResolver(), ClassLoaderSafeConnectorHandleResolver.class);
     }
 }
