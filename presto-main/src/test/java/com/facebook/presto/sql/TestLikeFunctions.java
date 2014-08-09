@@ -26,6 +26,34 @@ import static org.testng.Assert.assertTrue;
 
 public class TestLikeFunctions
 {
+    @Test
+    public void testLikeBasic()
+    {
+        Regex regex = likePattern(utf8Slice("f%b__"));
+        assertTrue(like(utf8Slice("foobar"), regex));
+    }
+
+    @Test
+    public void testLikeNewlineInPattern()
+    {
+        Regex regex = likePattern(utf8Slice("%o\nbar"));
+        assertTrue(like(utf8Slice("foo\nbar"), regex));
+    }
+
+    @Test
+    public void testLikeNewlineBeforeMatch()
+    {
+        Regex regex = likePattern(utf8Slice("%b%"));
+        assertTrue(like(utf8Slice("foo\nbar"), regex));
+    }
+
+    @Test
+    public void testLikeNewlineInMatch()
+    {
+        Regex regex = likePattern(utf8Slice("f%b%"));
+        assertTrue(like(utf8Slice("foo\nbar"), regex));
+    }
+
     @Test(timeOut = 1000)
     public void testLikeUtf8Pattern()
     {
@@ -33,6 +61,7 @@ public class TestLikeFunctions
         assertFalse(like(utf8Slice("foo"), regex));
     }
 
+    @SuppressWarnings("NumericCastThatLosesPrecision")
     @Test(timeOut = 1000)
     public void testLikeInvalidUtf8Value()
     {
