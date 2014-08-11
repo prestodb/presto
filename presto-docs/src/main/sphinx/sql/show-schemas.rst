@@ -20,9 +20,9 @@ Examples
 .. code-block:: none
 
     presto:default> show schemas;
-           Schema       
+           Schema
     --------------------
-     information_schema 
-     jmx                
-     sys                
+     information_schema
+     jmx
+     sys
     (3 rows)

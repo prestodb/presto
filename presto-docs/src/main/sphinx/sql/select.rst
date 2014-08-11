@@ -92,13 +92,13 @@ the input column mktsegment.
 .. code-block:: none
 
     presto:sf1> select count(*) from customer group by mktsegment;
-     _col0  
+     _col0
     -------
-     29968 
-     30142 
-     30189 
-     29949 
-     29752 
+     29968
+     30142
+     30189
+     29949
+     29752
     (5 rows)
 
 When a GROUP BY clause is used in a SELECT statement all output
@@ -128,15 +128,15 @@ in the tpch catalog selecting groups with an acctbal greater than
                 having sum(acctbal) > 5700000 \
                 order by totalbal desc;
 
-     _col0 | mktsegment | nationkey | totalbal 
+     _col0 | mktsegment | nationkey | totalbal
     -------+------------+-----------+----------
-      1272 | AUTOMOBILE |        19 |  5856939 
-      1253 | FURNITURE  |        14 |  5794887 
-      1248 | FURNITURE  |         9 |  5784628 
-      1243 | FURNITURE  |        12 |  5757371 
-      1231 | HOUSEHOLD  |         3 |  5753216 
-      1251 | MACHINERY  |         2 |  5719140 
-      1247 | FURNITURE  |         8 |  5701952 
+      1272 | AUTOMOBILE |        19 |  5856939
+      1253 | FURNITURE  |        14 |  5794887
+      1248 | FURNITURE  |         9 |  5784628
+      1243 | FURNITURE  |        12 |  5757371
+      1231 | HOUSEHOLD  |         3 |  5753216
+      1251 | MACHINERY  |         2 |  5719140
+      1247 | FURNITURE  |         8 |  5701952
     (7 rows)
 
 UNION Clause
@@ -165,10 +165,10 @@ bigint value 2.
 .. code-block:: none
 
     presto:default> select 1 union select 2;
-     _col0 
+     _col0
     -------
-         2 
-         1 
+         2
+         1
     (2 rows)
 
 To illustrate the behavior of ALL of DISTINCT, consider the following
@@ -177,9 +177,9 @@ query example:
 .. code-block:: none
 
     presto:default> select 1 union select 1;
-     _col0 
+     _col0
     -------
-         1 
+         1
     (1 row)
 
 The query shown above doesn't specific ALL or DISTINCT, so the UNION
@@ -192,10 +192,10 @@ specifies ALL behavior:
 .. code-block:: none
 
     presto:default> select 1 union all select 1;
-     _col0 
+     _col0
     -------
-         1 
-         1 
+         1
+         1
     (2 rows)
 
 Note that Presto will make no attempt to make result sets with
@@ -206,7 +206,7 @@ different column types.
 .. code-block:: none
 
     presto:default> select CAST(1 as varchar) union select 2;
-    
+
     Query 20140209_174939_00046_qhay4 failed: Union query terms have
     mismatched columns
 
@@ -222,9 +222,9 @@ set:
     presto:default> select 1 union \
                     select 1 union \
                     select 1;
-     _col0 
+     _col0
     -------
-         1 
+         1
     (1 row)
 
 If an ALL is specified on the first UNION clause, the result set will
@@ -235,11 +235,11 @@ include all results from three select statments:
     presto:default> select 1 union all \
                     select 1 union \
                     select 1;
-     _col0 
+     _col0
     -------
-         1 
-         1 
-         1 
+         1
+         1
+         1
     (3 rows)
 
 To clarify the behavior of ALL or DISTINCT when using multiple UNION
@@ -253,11 +253,11 @@ the behavior specified by the first UNION clause which is ALL.
     presto:default> select 1 union all \
                     select 1 union distinct \
                     select 1;
-     _col0 
+     _col0
     -------
-         1 
-         1 
-         1 
+         1
+         1
+         1
     (3 rows)
 
 ORDER BY Clause
@@ -284,11 +284,11 @@ statements.
                     select 1 as value union \
                     select 4 as value \
                           order by value asc;
-     value 
+     value
     -------
-         1 
-         2 
-         4 
+         1
+         2
+         4
     (3 rows)
 
 An ORDER BY clause can also contain an expression that evaluates a
@@ -301,11 +301,11 @@ statement which sorts numeric values by absolute value.
                     select 2 as value union \
                     select -1 as value \
                         order by abs(value) asc;
-     value 
+     value
     -------
-        -1 
-         2 
-       -12 
+        -1
+         2
+       -12
     (3 rows)
 
 LIMIT Clause
@@ -325,11 +325,11 @@ rows:
 .. code-block:: none
 
     presto:default> select o_orderdate from orders limit 5;
-     o_orderdate 
+     o_orderdate
     -------------
-     1996-04-14  
-     1992-01-15  
-     1995-02-01  
-     1995-11-12  
-     1992-04-26  
+     1996-04-14
+     1992-01-15
+     1995-02-01
+     1995-11-12
+     1992-04-26
     (5 rows)
