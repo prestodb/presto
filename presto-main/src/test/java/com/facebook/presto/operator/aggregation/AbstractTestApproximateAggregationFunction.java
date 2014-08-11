@@ -169,7 +169,7 @@ public abstract class AbstractTestApproximateAggregationFunction
             }
             Page page = new Page(builder.build());
             page = OperatorAssertion.appendSampleWeight(ImmutableList.of(page), WEIGHT).get(0);
-            Accumulator accumulator = getFunction().createAggregation(Optional.<Integer>absent(), Optional.of(page.getChannelCount() - 1), getConfidence(), 0);
+            Accumulator accumulator = getFunction().bind(ImmutableList.of(0), Optional.<Integer>absent(), Optional.of(page.getChannelCount() - 1), getConfidence()).createAccumulator();
 
             accumulator.addInput(page);
             Block result = accumulator.evaluateFinal();

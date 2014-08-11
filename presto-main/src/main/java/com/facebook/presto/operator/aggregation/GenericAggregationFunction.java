@@ -31,9 +31,9 @@ public final class GenericAggregationFunction
     private final Type finalType;
     private final boolean decomposable;
     private final boolean approximate;
-    private final AccumulatorFactory accumulatorFactory;
+    private final GenericAccumulatorFactoryBinder factory;
 
-    public GenericAggregationFunction(String name, List<Type> parameterTypes, Type intermediateType, Type finalType, boolean decomposable, boolean approximate, AccumulatorFactory accumulatorFactory)
+    public GenericAggregationFunction(String name, List<Type> parameterTypes, Type intermediateType, Type finalType, boolean decomposable, boolean approximate, GenericAccumulatorFactoryBinder factory)
     {
         this.name = checkNotNull(name, "name is null");
         checkArgument(!name.isEmpty(), "name is empty");
@@ -42,7 +42,7 @@ public final class GenericAggregationFunction
         this.finalType = checkNotNull(finalType, "finalType is null");
         this.decomposable = decomposable;
         this.approximate = approximate;
-        this.accumulatorFactory = checkNotNull(accumulatorFactory, "accumulatorFactory is null");
+        this.factory = checkNotNull(factory, "factory is null");
     }
 
     @Override
@@ -82,28 +82,8 @@ public final class GenericAggregationFunction
     }
 
     @Override
-    public Accumulator createAggregation(Optional<Integer> maskChannel, Optional<Integer> sampleWeight, double confidence, int... argumentChannels)
+    public AccumulatorFactory bind(List<Integer> inputChannels, Optional<Integer> maskChannel, Optional<Integer> sampleWeightChannel, double confidence)
     {
-        checkArgument(argumentChannels.length == parameterTypes.size(), "Expected %d input channels, but got %d", parameterTypes.size(), argumentChannels.length);
-        return accumulatorFactory.createAggregation(maskChannel, sampleWeight, confidence, argumentChannels);
-    }
-
-    @Override
-    public Accumulator createIntermediateAggregation(double confidence)
-    {
-        return accumulatorFactory.createIntermediateAggregation(confidence);
-    }
-
-    @Override
-    public GroupedAccumulator createGroupedAggregation(Optional<Integer> maskChannel, Optional<Integer> sampleWeight, double confidence, int... argumentChannels)
-    {
-        checkArgument(argumentChannels.length == parameterTypes.size(), "Expected %d input channels, but got %d", parameterTypes.size(), argumentChannels.length);
-        return accumulatorFactory.createGroupedAggregation(maskChannel, sampleWeight, confidence, argumentChannels);
-    }
-
-    @Override
-    public GroupedAccumulator createGroupedIntermediateAggregation(double confidence)
-    {
-        return accumulatorFactory.createGroupedIntermediateAggregation(confidence);
+        return factory.bind(inputChannels, maskChannel, sampleWeightChannel, confidence);
     }
 }
