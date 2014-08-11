@@ -3,7 +3,7 @@ Node Resource
 =============
 
 .. function:: GET /v1/node
-   
+
    Returns a list of nodes known to a Presto Server. This call
    doesn't require a query parameter of headers, it simply returns an
    array with each known node in a Presto installation.
@@ -43,7 +43,7 @@ Node Resource
 	     "recentFailureRatio":0.0,
 	     "recentFailuresByType":{}
 	   }
-	 ]  
+	 ]
 
 
    If a node is experiencing errors, you'll see a response that looks

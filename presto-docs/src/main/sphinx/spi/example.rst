@@ -11,7 +11,7 @@ against this data as if it were a table in a data source.
 GitHub Code
 -----------
 
-The example HTTP SPI can be found here: 
+The example HTTP SPI can be found here:
 
     https://github.com/facebook/presto/tree/master/presto-example-http
 
@@ -61,11 +61,11 @@ comprise the plugin.
 
 .. code-block:: bash
 
-    $ unzip presto-example-http-0.60-SNAPSHOT.zip 
+    $ unzip presto-example-http-0.60-SNAPSHOT.zip
     Archive:  presto-example-http-0.60-SNAPSHOT.zip
-     extracting: slf4j-api-1.7.5.jar     
-     extracting: slf4j-jdk14-1.7.5.jar   
-     extracting: presto-example-http-0.60-SNAPSHOT.jar 
+     extracting: slf4j-api-1.7.5.jar
+     extracting: slf4j-jdk14-1.7.5.jar
+     extracting: presto-example-http-0.60-SNAPSHOT.jar
 
 Plugin Implementation
 ---------------------
@@ -124,7 +124,7 @@ exception handling:
 
 .. code-block:: java
 
-    // A plugin is not required to use Guice; it is just 
+    // A plugin is not required to use Guice; it is just
     // very convenient
     Bootstrap app = new Bootstrap(
       new JsonModule(),
