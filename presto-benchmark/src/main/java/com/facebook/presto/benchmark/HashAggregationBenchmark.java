@@ -24,7 +24,6 @@ import com.google.common.primitives.Ints;
 import java.util.List;
 
 import static com.facebook.presto.benchmark.BenchmarkQueryRunner.createLocalQueryRunner;
-import static com.facebook.presto.operator.AggregationFunctionDefinition.aggregation;
 import static com.facebook.presto.operator.aggregation.DoubleSumAggregation.DOUBLE_SUM;
 
 public class HashAggregationBenchmark
@@ -43,7 +42,7 @@ public class HashAggregationBenchmark
                 ImmutableList.of(tableScanOperator.getTypes().get(0)),
                 Ints.asList(0),
                 Step.SINGLE,
-                ImmutableList.of(aggregation(DOUBLE_SUM, ImmutableList.of(1), Optional.<Integer>absent(), Optional.<Integer>absent(), 1.0)),
+                ImmutableList.of(DOUBLE_SUM.bind(ImmutableList.of(1), Optional.<Integer>absent(), Optional.<Integer>absent(), 1.0)),
                 100_000);
         return ImmutableList.of(tableScanOperator, aggregationOperator);
     }

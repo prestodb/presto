@@ -23,7 +23,6 @@ import com.google.common.collect.ImmutableList;
 import java.util.List;
 
 import static com.facebook.presto.benchmark.BenchmarkQueryRunner.createLocalQueryRunner;
-import static com.facebook.presto.operator.AggregationFunctionDefinition.aggregation;
 import static com.facebook.presto.operator.aggregation.CountAggregation.COUNT;
 
 public class CountAggregationBenchmark
@@ -38,7 +37,7 @@ public class CountAggregationBenchmark
     protected List<? extends OperatorFactory> createOperatorFactories()
     {
         OperatorFactory tableScanOperator = createTableScanOperator(0, "orders", "orderkey");
-        AggregationOperatorFactory aggregationOperator = new AggregationOperatorFactory(1, Step.SINGLE, ImmutableList.of(aggregation(COUNT, ImmutableList.of(0), Optional.<Integer>absent(), Optional.<Integer>absent(), 1.0)));
+        AggregationOperatorFactory aggregationOperator = new AggregationOperatorFactory(1, Step.SINGLE, ImmutableList.of(COUNT.bind(ImmutableList.of(0), Optional.<Integer>absent(), Optional.<Integer>absent(), 1.0)));
         return ImmutableList.of(tableScanOperator, aggregationOperator);
     }
 

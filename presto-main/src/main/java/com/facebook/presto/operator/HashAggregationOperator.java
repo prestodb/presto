@@ -14,7 +14,7 @@
 package com.facebook.presto.operator;
 
 import com.facebook.presto.ExceededMemoryLimitException;
-import com.facebook.presto.operator.aggregation.InternalAggregationFunction;
+import com.facebook.presto.operator.aggregation.AccumulatorFactory;
 import com.facebook.presto.operator.aggregation.GroupedAccumulator;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.type.Type;
@@ -42,7 +42,7 @@ public class HashAggregationOperator
         private final List<Type> groupByTypes;
         private final List<Integer> groupByChannels;
         private final Step step;
-        private final List<AggregationFunctionDefinition> functionDefinitions;
+        private final List<AccumulatorFactory> accumulatorFactories;
         private final int expectedGroups;
         private final List<Type> types;
         private boolean closed;
@@ -52,17 +52,17 @@ public class HashAggregationOperator
                 List<? extends Type> groupByTypes,
                 List<Integer> groupByChannels,
                 Step step,
-                List<AggregationFunctionDefinition> functionDefinitions,
+                List<AccumulatorFactory> accumulatorFactories,
                 int expectedGroups)
         {
             this.operatorId = operatorId;
             this.groupByTypes = ImmutableList.copyOf(groupByTypes);
-            this.groupByChannels = groupByChannels;
+            this.groupByChannels = ImmutableList.copyOf(groupByChannels);
             this.step = step;
-            this.functionDefinitions = functionDefinitions;
+            this.accumulatorFactories = ImmutableList.copyOf(accumulatorFactories);
             this.expectedGroups = expectedGroups;
 
-            this.types = toTypes(groupByTypes, step, functionDefinitions);
+            this.types = toTypes(groupByTypes, step, accumulatorFactories);
         }
 
         @Override
@@ -82,7 +82,7 @@ public class HashAggregationOperator
                     groupByTypes,
                     groupByChannels,
                     step,
-                    functionDefinitions,
+                    accumulatorFactories,
                     expectedGroups
             );
         }
@@ -98,7 +98,7 @@ public class HashAggregationOperator
     private final List<Type> groupByTypes;
     private final List<Integer> groupByChannels;
     private final Step step;
-    private final List<AggregationFunctionDefinition> functionDefinitions;
+    private final List<AccumulatorFactory> accumulatorFactories;
     private final int expectedGroups;
 
     private final List<Type> types;
@@ -113,22 +113,22 @@ public class HashAggregationOperator
             List<Type> groupByTypes,
             List<Integer> groupByChannels,
             Step step,
-            List<AggregationFunctionDefinition> functionDefinitions,
+            List<AccumulatorFactory> accumulatorFactories,
             int expectedGroups)
     {
         this.operatorContext = checkNotNull(operatorContext, "operatorContext is null");
         checkNotNull(step, "step is null");
-        checkNotNull(functionDefinitions, "functionDefinitions is null");
+        checkNotNull(accumulatorFactories, "accumulatorFactories is null");
         checkNotNull(operatorContext, "operatorContext is null");
 
-        this.groupByTypes = groupByTypes;
-        this.groupByChannels = groupByChannels;
-        this.functionDefinitions = ImmutableList.copyOf(functionDefinitions);
+        this.groupByTypes = ImmutableList.copyOf(groupByTypes);
+        this.groupByChannels = ImmutableList.copyOf(groupByChannels);
+        this.accumulatorFactories = ImmutableList.copyOf(accumulatorFactories);
         this.step = step;
         this.expectedGroups = expectedGroups;
         this.memoryManager = new MemoryManager(operatorContext);
 
-        this.types = toTypes(groupByTypes, step, functionDefinitions);
+        this.types = toTypes(groupByTypes, step, accumulatorFactories);
     }
 
     @Override
@@ -174,7 +174,7 @@ public class HashAggregationOperator
         checkNotNull(page, "page is null");
         if (aggregationBuilder == null) {
             aggregationBuilder = new GroupByHashAggregationBuilder(
-                    functionDefinitions,
+                    accumulatorFactories,
                     step,
                     expectedGroups,
                     groupByTypes,
@@ -219,17 +219,12 @@ public class HashAggregationOperator
         return outputIterator.next();
     }
 
-    private static List<Type> toTypes(List<? extends Type> groupByType, Step step, List<AggregationFunctionDefinition> functionDefinitions)
+    private static List<Type> toTypes(List<? extends Type> groupByType, Step step, List<AccumulatorFactory> factories)
     {
         ImmutableList.Builder<Type> types = ImmutableList.builder();
         types.addAll(groupByType);
-        for (AggregationFunctionDefinition functionDefinition : functionDefinitions) {
-            if (step != Step.PARTIAL) {
-                types.add(functionDefinition.getFunction().getFinalType());
-            }
-            else {
-                types.add(functionDefinition.getFunction().getIntermediateType());
-            }
+        for (AccumulatorFactory factory : factories) {
+            types.add(new Aggregator(factory, step).getType());
         }
         return types.build();
     }
@@ -241,7 +236,7 @@ public class HashAggregationOperator
         private final MemoryManager memoryManager;
 
         private GroupByHashAggregationBuilder(
-                List<AggregationFunctionDefinition> functionDefinitions,
+                List<AccumulatorFactory> accumulatorFactories,
                 Step step,
                 int expectedGroups,
                 List<Type> groupByTypes,
@@ -253,8 +248,10 @@ public class HashAggregationOperator
 
             // wrapper each function with an aggregator
             ImmutableList.Builder<Aggregator> builder = ImmutableList.builder();
-            for (AggregationFunctionDefinition functionDefinition : checkNotNull(functionDefinitions, "functionDefinitions is null")) {
-                builder.add(new Aggregator(functionDefinition, step));
+            checkNotNull(accumulatorFactories, "accumulatorFactories is null");
+            for (int i = 0; i < accumulatorFactories.size(); i++) {
+                AccumulatorFactory accumulatorFactory = accumulatorFactories.get(i);
+                builder.add(new Aggregator(accumulatorFactory, step));
             }
             aggregators = builder.build();
         }
@@ -312,8 +309,7 @@ public class HashAggregationOperator
                         groupId++;
                     }
 
-                    Page page = pageBuilder.build();
-                    return page;
+                    return pageBuilder.build();
                 }
             };
         }
@@ -323,29 +319,18 @@ public class HashAggregationOperator
     {
         private final GroupedAccumulator aggregation;
         private final Step step;
-
         private final int intermediateChannel;
 
-        private Aggregator(AggregationFunctionDefinition functionDefinition, Step step)
+        private Aggregator(AccumulatorFactory accumulatorFactory, Step step)
         {
-            InternalAggregationFunction function = functionDefinition.getFunction();
-
             if (step == Step.FINAL) {
-                checkArgument(functionDefinition.getInputs().size() == 1, "Expected a single input for an intermediate aggregation");
-                intermediateChannel = functionDefinition.getInputs().get(0);
-                aggregation = function.createGroupedIntermediateAggregation(functionDefinition.getConfidence());
+                checkArgument(accumulatorFactory.getInputChannels().size() == 1, "expected 1 input channel for intermediate aggregation");
+                intermediateChannel = accumulatorFactory.getInputChannels().get(0);
+                aggregation = accumulatorFactory.createGroupedIntermediateAccumulator();
             }
             else {
-                int[] argumentChannels = new int[functionDefinition.getInputs().size()];
-                for (int i = 0; i < argumentChannels.length; i++) {
-                    argumentChannels[i] = functionDefinition.getInputs().get(i);
-                }
                 intermediateChannel = -1;
-                aggregation = function.createGroupedAggregation(
-                        functionDefinition.getMask(),
-                        functionDefinition.getSampleWeight(),
-                        functionDefinition.getConfidence(),
-                        argumentChannels);
+                aggregation = accumulatorFactory.createGroupedAccumulator();
             }
             this.step = step;
         }

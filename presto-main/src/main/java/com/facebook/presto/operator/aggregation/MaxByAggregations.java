@@ -101,7 +101,7 @@ public final class MaxByAggregations
                 valueType,
                 false);
 
-        AccumulatorFactory factory = new AccumulatorCompiler().generateAccumulatorFactory(metadata, classLoader);
+        GenericAccumulatorFactoryBinder factory = new AccumulatorCompiler().generateAccumulatorFactoryBinder(metadata, classLoader);
         return new GenericAggregationFunction(NAME, inputTypes, intermediateType, valueType, false, false, factory);
     }
 

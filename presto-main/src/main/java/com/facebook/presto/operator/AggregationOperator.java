@@ -15,7 +15,7 @@ package com.facebook.presto.operator;
 
 import com.facebook.presto.ExceededMemoryLimitException;
 import com.facebook.presto.operator.aggregation.Accumulator;
-import com.facebook.presto.operator.aggregation.InternalAggregationFunction;
+import com.facebook.presto.operator.aggregation.AccumulatorFactory;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.planner.plan.AggregationNode.Step;
@@ -39,16 +39,16 @@ public class AggregationOperator
     {
         private final int operatorId;
         private final Step step;
-        private final List<AggregationFunctionDefinition> functionDefinitions;
+        private final List<AccumulatorFactory> accumulatorFactories;
         private final List<Type> types;
         private boolean closed;
 
-        public AggregationOperatorFactory(int operatorId, Step step, List<AggregationFunctionDefinition> functionDefinitions)
+        public AggregationOperatorFactory(int operatorId, Step step, List<AccumulatorFactory> accumulatorFactories)
         {
             this.operatorId = operatorId;
             this.step = step;
-            this.functionDefinitions = functionDefinitions;
-            this.types = toTypes(step, functionDefinitions);
+            this.accumulatorFactories = ImmutableList.copyOf(accumulatorFactories);
+            this.types = toTypes(step, accumulatorFactories);
         }
 
         @Override
@@ -62,7 +62,7 @@ public class AggregationOperator
         {
             checkState(!closed, "Factory is already closed");
             OperatorContext operatorContext = driverContext.addOperatorContext(operatorId, AggregationOperator.class.getSimpleName());
-            return new AggregationOperator(operatorContext, step, functionDefinitions);
+            return new AggregationOperator(operatorContext, step, accumulatorFactories);
         }
 
         @Override
@@ -85,20 +85,20 @@ public class AggregationOperator
 
     private State state = State.NEEDS_INPUT;
 
-    public AggregationOperator(OperatorContext operatorContext, Step step, List<AggregationFunctionDefinition> functionDefinitions)
+    public AggregationOperator(OperatorContext operatorContext, Step step, List<AccumulatorFactory> accumulatorFactories)
     {
         this.operatorContext = checkNotNull(operatorContext, "operatorContext is null");
 
         checkNotNull(step, "step is null");
-        checkNotNull(functionDefinitions, "functionDefinitions is null");
+        checkNotNull(accumulatorFactories, "accumulatorFactories is null");
 
-        this.types = toTypes(step, functionDefinitions);
+        this.types = toTypes(step, accumulatorFactories);
         MemoryManager memoryManager = new MemoryManager(operatorContext);
 
         // wrapper each function with an aggregator
         ImmutableList.Builder<Aggregator> builder = ImmutableList.builder();
-        for (AggregationFunctionDefinition functionDefinition : functionDefinitions) {
-            builder.add(new Aggregator(functionDefinition, step, memoryManager));
+        for (AccumulatorFactory accumulatorFactory : accumulatorFactories) {
+            builder.add(new Aggregator(accumulatorFactory, step, memoryManager));
         }
         aggregates = builder.build();
     }
@@ -168,16 +168,11 @@ public class AggregationOperator
         return new Page(blocks);
     }
 
-    private static List<Type> toTypes(Step step, List<AggregationFunctionDefinition> functionDefinitions)
+    private static List<Type> toTypes(Step step, List<AccumulatorFactory> accumulatorFactories)
     {
         ImmutableList.Builder<Type> types = ImmutableList.builder();
-        for (AggregationFunctionDefinition functionDefinition : functionDefinitions) {
-            if (step != Step.PARTIAL) {
-                types.add(functionDefinition.getFunction().getFinalType());
-            }
-            else {
-                types.add(functionDefinition.getFunction().getIntermediateType());
-            }
+        for (AccumulatorFactory accumulatorFactory : accumulatorFactories) {
+            types.add(new Aggregator(accumulatorFactory, step, null).getType());
         }
         return types.build();
     }
@@ -187,29 +182,18 @@ public class AggregationOperator
         private final Accumulator aggregation;
         private final Step step;
         private final MemoryManager memoryManager;
-
         private final int intermediateChannel;
 
-        private Aggregator(AggregationFunctionDefinition functionDefinition, Step step, MemoryManager memoryManager)
+        private Aggregator(AccumulatorFactory accumulatorFactory, Step step, MemoryManager memoryManager)
         {
-            InternalAggregationFunction function = functionDefinition.getFunction();
-
-            if (step != Step.FINAL) {
-                int[] argumentChannels = new int[functionDefinition.getInputs().size()];
-                for (int i = 0; i < argumentChannels.length; i++) {
-                    argumentChannels[i] = functionDefinition.getInputs().get(i);
-                }
-                intermediateChannel = -1;
-                aggregation = function.createAggregation(
-                        functionDefinition.getMask(),
-                        functionDefinition.getSampleWeight(),
-                        functionDefinition.getConfidence(),
-                        argumentChannels);
+            if (step == Step.FINAL) {
+                checkArgument(accumulatorFactory.getInputChannels().size() == 1, "expected 1 input channel for intermediate aggregation");
+                intermediateChannel = accumulatorFactory.getInputChannels().get(0);
+                aggregation = accumulatorFactory.createIntermediateAccumulator();
             }
             else {
-                checkArgument(functionDefinition.getInputs().size() == 1, "Expected a single input for an intermediate aggregation");
-                intermediateChannel = functionDefinition.getInputs().get(0);
-                aggregation = function.createIntermediateAggregation(functionDefinition.getConfidence());
+                intermediateChannel = -1;
+                aggregation = accumulatorFactory.createAccumulator();
             }
             this.step = step;
             this.memoryManager = memoryManager;

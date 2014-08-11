@@ -41,7 +41,7 @@ public class TestEvaluateClassifierPredictions
         MetadataManager metadata = new MetadataManager();
         metadata.addFunctions(new MLFunctionFactory().listFunctions());
         InternalAggregationFunction aggregation = metadata.getExactFunction(new Signature("evaluate_classifier_predictions", VARCHAR, BIGINT, BIGINT)).getAggregationFunction();
-        Accumulator accumulator = aggregation.createAggregation(Optional.<Integer>absent(), Optional.<Integer>absent(), 1.0, 0, 1);
+        Accumulator accumulator = aggregation.bind(ImmutableList.of(0, 1), Optional.<Integer>absent(), Optional.<Integer>absent(), 1.0).createAccumulator();
         accumulator.addInput(getPage());
         Block block = accumulator.evaluateFinal();
 

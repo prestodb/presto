@@ -113,7 +113,7 @@ public class AggregationCompiler
                                 outputType,
                                 aggregationAnnotation.approximate());
 
-                        AccumulatorFactory factory = new AccumulatorCompiler().generateAccumulatorFactory(metadata, classLoader);
+                        GenericAccumulatorFactoryBinder factory = new AccumulatorCompiler().generateAccumulatorFactoryBinder(metadata, classLoader);
                         // TODO: support un-decomposable aggregations
                         builder.add(new GenericAggregationFunction(name, inputTypes, intermediateType, outputType, true, aggregationAnnotation.approximate(), factory));
                     }

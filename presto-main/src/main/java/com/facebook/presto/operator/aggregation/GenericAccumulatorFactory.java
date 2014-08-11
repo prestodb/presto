@@ -18,66 +18,56 @@ import com.facebook.presto.operator.aggregation.state.AccumulatorStateSerializer
 import com.google.common.base.Optional;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
-import com.google.common.primitives.Ints;
 
 import java.lang.reflect.Constructor;
 import java.lang.reflect.InvocationTargetException;
 import java.util.List;
 
-import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 public class GenericAccumulatorFactory
         implements AccumulatorFactory
 {
-    private final boolean approximationSupported;
     private final AccumulatorStateSerializer<?> stateSerializer;
     private final AccumulatorStateFactory<?> stateFactory;
     private final Constructor<? extends Accumulator> accumulatorConstructor;
     private final Constructor<? extends GroupedAccumulator> groupedAccumulatorConstructor;
+    private final Optional<Integer> maskChannel;
+    private final Optional<Integer> sampleWeightChannel;
+    private final double confidence;
+    private final List<Integer> inputChannels;
 
     public GenericAccumulatorFactory(
             AccumulatorStateSerializer<?> stateSerializer,
             AccumulatorStateFactory<?> stateFactory,
-            Class<? extends Accumulator> accumulatorClass,
-            Class<? extends GroupedAccumulator> groupedAccumulatorClass,
-            boolean approximationSupported)
+            Constructor<? extends Accumulator> accumulatorConstructor,
+            Constructor<? extends GroupedAccumulator> groupedAccumulatorConstructor,
+            List<Integer> inputChannels,
+            Optional<Integer> maskChannel,
+            Optional<Integer> sampleWeightChannel,
+            double confidence)
     {
         this.stateSerializer = checkNotNull(stateSerializer, "stateSerializer is null");
         this.stateFactory = checkNotNull(stateFactory, "stateFactory is null");
-        this.approximationSupported = approximationSupported;
-
-        try {
-            accumulatorConstructor = accumulatorClass.getConstructor(
-                    AccumulatorStateSerializer.class,
-                    AccumulatorStateFactory.class,
-                    List.class,
-                    Optional.class,
-                    Optional.class,
-                    double.class);
-
-            groupedAccumulatorConstructor = groupedAccumulatorClass.getConstructor(
-                    AccumulatorStateSerializer.class,
-                    AccumulatorStateFactory.class,
-                    List.class,
-                    Optional.class,
-                    Optional.class,
-                    double.class);
-        }
-        catch (NoSuchMethodException e) {
-            throw Throwables.propagate(e);
-        }
+        this.accumulatorConstructor = checkNotNull(accumulatorConstructor, "accumulatorConstructor is null");
+        this.groupedAccumulatorConstructor = checkNotNull(groupedAccumulatorConstructor, "groupedAccumulatorConstructor is null");
+        this.maskChannel = checkNotNull(maskChannel, "maskChannel is null");
+        this.sampleWeightChannel = checkNotNull(sampleWeightChannel, "sampleWeightChannel is null");
+        this.confidence = confidence;
+        this.inputChannels = ImmutableList.copyOf(checkNotNull(inputChannels, "inputChannels is null"));
     }
 
     @Override
-    public Accumulator createAggregation(Optional<Integer> maskChannel, Optional<Integer> sampleWeightChannel, double confidence, int... argumentChannels)
+    public List<Integer> getInputChannels()
     {
-        if (!approximationSupported) {
-            checkArgument(confidence == 1.0, "Approximate queries not supported");
-            checkArgument(!sampleWeightChannel.isPresent(), "Sampled data not supported");
-        }
+        return inputChannels;
+    }
+
+    @Override
+    public Accumulator createAccumulator()
+    {
         try {
-            return accumulatorConstructor.newInstance(stateSerializer, stateFactory, Ints.asList(argumentChannels), maskChannel, sampleWeightChannel, confidence);
+            return accumulatorConstructor.newInstance(stateSerializer, stateFactory, inputChannels, maskChannel, sampleWeightChannel, confidence);
         }
         catch (InstantiationException | IllegalAccessException | InvocationTargetException e) {
             throw Throwables.propagate(e);
@@ -85,7 +75,7 @@ public class GenericAccumulatorFactory
     }
 
     @Override
-    public Accumulator createIntermediateAggregation(double confidence)
+    public Accumulator createIntermediateAccumulator()
     {
         try {
             return accumulatorConstructor.newInstance(stateSerializer, stateFactory, ImmutableList.of(), Optional.<Integer>absent(), Optional.<Integer>absent(), confidence);
@@ -96,14 +86,10 @@ public class GenericAccumulatorFactory
     }
 
     @Override
-    public GroupedAccumulator createGroupedAggregation(Optional<Integer> maskChannel, Optional<Integer> sampleWeightChannel, double confidence, int... argumentChannels)
+    public GroupedAccumulator createGroupedAccumulator()
     {
-        if (!approximationSupported) {
-            checkArgument(confidence == 1.0, "Approximate queries not supported");
-            checkArgument(!sampleWeightChannel.isPresent(), "Sampled data not supported");
-        }
         try {
-            return groupedAccumulatorConstructor.newInstance(stateSerializer, stateFactory, Ints.asList(argumentChannels), maskChannel, sampleWeightChannel, confidence);
+            return groupedAccumulatorConstructor.newInstance(stateSerializer, stateFactory, inputChannels, maskChannel, sampleWeightChannel, confidence);
         }
         catch (InstantiationException | IllegalAccessException | InvocationTargetException e) {
             throw Throwables.propagate(e);
@@ -111,7 +97,7 @@ public class GenericAccumulatorFactory
     }
 
     @Override
-    public GroupedAccumulator createGroupedIntermediateAggregation(double confidence)
+    public GroupedAccumulator createGroupedIntermediateAccumulator()
     {
         try {
             return groupedAccumulatorConstructor.newInstance(stateSerializer, stateFactory, ImmutableList.of(), Optional.<Integer>absent(), Optional.<Integer>absent(), confidence);

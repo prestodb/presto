@@ -35,11 +35,5 @@ public interface InternalAggregationFunction
 
     boolean isApproximate();
 
-    Accumulator createAggregation(Optional<Integer> maskChannel, Optional<Integer> sampleWeight, double confidence, int... argumentChannels);
-
-    Accumulator createIntermediateAggregation(double confidence);
-
-    GroupedAccumulator createGroupedAggregation(Optional<Integer> maskChannel, Optional<Integer> sampleWeight, double confidence, int... argumentChannels);
-
-    GroupedAccumulator createGroupedIntermediateAggregation(double confidence);
+    AccumulatorFactory bind(List<Integer> inputChannels, Optional<Integer> maskChannel, Optional<Integer> sampleWeightChannel, double confidence);
 }

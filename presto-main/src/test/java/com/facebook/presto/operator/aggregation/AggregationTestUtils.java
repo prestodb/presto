@@ -22,6 +22,7 @@ import com.facebook.presto.operator.GroupByIdBlock;
 import com.facebook.presto.operator.Page;
 import com.google.common.base.Optional;
 import com.google.common.base.Splitter;
+import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Ints;
 
 import java.util.Arrays;
@@ -58,7 +59,7 @@ public final class AggregationTestUtils
 
     public static boolean approximateAggregationWithinErrorBound(InternalAggregationFunction function, int sampleWeightChannel, double confidence, Double expectedValue, Page... pages)
     {
-        Accumulator accumulator = function.createAggregation(Optional.<Integer>absent(), Optional.of(sampleWeightChannel), confidence, 0);
+        Accumulator accumulator = function.bind(ImmutableList.of(0), Optional.<Integer>absent(), Optional.of(sampleWeightChannel), confidence).createAccumulator();
         for (Page page : pages) {
             accumulator.addInput(page);
         }
@@ -73,7 +74,8 @@ public final class AggregationTestUtils
 
     public static boolean partialApproximateAggregationWithinErrorBound(InternalAggregationFunction function, int sampleWeightChannel, double confidence, Double expectedValue, Page... pages)
     {
-        Accumulator partialAccumulator = function.createAggregation(Optional.<Integer>absent(), Optional.of(sampleWeightChannel), confidence, 0);
+        AccumulatorFactory factory = function.bind(ImmutableList.of(0), Optional.<Integer>absent(), Optional.of(sampleWeightChannel), confidence);
+        Accumulator partialAccumulator = factory.createAccumulator();
         for (Page page : pages) {
             if (page.getPositionCount() > 0) {
                 partialAccumulator.addInput(page);
@@ -82,7 +84,7 @@ public final class AggregationTestUtils
 
         Block partialBlock = partialAccumulator.evaluateIntermediate();
 
-        Accumulator finalAggregation = function.createIntermediateAggregation(confidence);
+        Accumulator finalAggregation = factory.createIntermediateAccumulator();
         finalAggregation.addIntermediate(partialBlock);
 
         Block finalBlock = finalAggregation.evaluateFinal();
@@ -96,7 +98,7 @@ public final class AggregationTestUtils
 
     public static boolean groupedApproximateAggregationWithinErrorBound(InternalAggregationFunction function, int sampleWeightChannel, double confidence, Double expectedValue, Page... pages)
     {
-        GroupedAccumulator groupedAggregation = function.createGroupedAggregation(Optional.<Integer>absent(), Optional.of(sampleWeightChannel), confidence, 0);
+        GroupedAccumulator groupedAggregation = function.bind(ImmutableList.of(0), Optional.<Integer>absent(), Optional.of(sampleWeightChannel), confidence).createGroupedAccumulator();
         for (Page page : pages) {
             groupedAggregation.addInput(createGroupByIdBlock(0, page.getPositionCount()), page);
         }
@@ -188,7 +190,7 @@ public final class AggregationTestUtils
 
     private static Object aggregation(InternalAggregationFunction function, int[] args, Optional<Integer> maskChannel, double confidence, Page... pages)
     {
-        Accumulator aggregation = function.createAggregation(maskChannel, Optional.<Integer>absent(), confidence, args);
+        Accumulator aggregation = function.bind(Ints.asList(args), maskChannel, Optional.<Integer>absent(), confidence).createAccumulator();
         for (Page page : pages) {
             if (page.getPositionCount() > 0) {
                 aggregation.addInput(page);
@@ -219,7 +221,8 @@ public final class AggregationTestUtils
 
     public static Object partialAggregation(InternalAggregationFunction function, double confidence, int[] args, Page... pages)
     {
-        Accumulator partialAggregation = function.createAggregation(Optional.<Integer>absent(), Optional.<Integer>absent(), confidence, args);
+        AccumulatorFactory factory = function.bind(Ints.asList(args), Optional.<Integer>absent(), Optional.<Integer>absent(), confidence);
+        Accumulator partialAggregation = factory.createAccumulator();
         for (Page page : pages) {
             if (page.getPositionCount() > 0) {
                 partialAggregation.addInput(page);
@@ -228,9 +231,9 @@ public final class AggregationTestUtils
 
         Block partialBlock = partialAggregation.evaluateIntermediate();
 
-        Accumulator finalAggregation = function.createIntermediateAggregation(confidence);
+        Accumulator finalAggregation = factory.createIntermediateAccumulator();
         // Test handling of empty intermediate blocks
-        Block emptyBlock = function.createAggregation(Optional.<Integer>absent(), Optional.<Integer>absent(), confidence, args).evaluateIntermediate();
+        Block emptyBlock = factory.createAccumulator().evaluateIntermediate();
         finalAggregation.addIntermediate(emptyBlock);
         finalAggregation.addIntermediate(partialBlock);
 
@@ -258,7 +261,7 @@ public final class AggregationTestUtils
 
     public static Object groupedAggregation(InternalAggregationFunction function, double confidence, int[] args, Page... pages)
     {
-        GroupedAccumulator groupedAggregation = function.createGroupedAggregation(Optional.<Integer>absent(), Optional.<Integer>absent(), confidence, args);
+        GroupedAccumulator groupedAggregation = function.bind(Ints.asList(args), Optional.<Integer>absent(), Optional.<Integer>absent(), confidence).createGroupedAccumulator();
         for (Page page : pages) {
             groupedAggregation.addInput(createGroupByIdBlock(0, page.getPositionCount()), page);
         }
@@ -293,7 +296,8 @@ public final class AggregationTestUtils
 
     public static Object groupedPartialAggregation(InternalAggregationFunction function, double confidence, int[] args, Page... pages)
     {
-        GroupedAccumulator partialAggregation = function.createGroupedAggregation(Optional.<Integer>absent(), Optional.<Integer>absent(), confidence, args);
+        AccumulatorFactory factory = function.bind(Ints.asList(args), Optional.<Integer>absent(), Optional.<Integer>absent(), confidence);
+        GroupedAccumulator partialAggregation = factory.createGroupedAccumulator();
         for (Page page : pages) {
             partialAggregation.addInput(createGroupByIdBlock(0, page.getPositionCount()), page);
         }
@@ -302,9 +306,9 @@ public final class AggregationTestUtils
         partialAggregation.evaluateIntermediate(0, partialOut);
         Block partialBlock = partialOut.build();
 
-        GroupedAccumulator finalAggregation = function.createGroupedIntermediateAggregation(confidence);
+        GroupedAccumulator finalAggregation = factory.createGroupedIntermediateAccumulator();
         // Add an empty block to test the handling of empty intermediates
-        GroupedAccumulator emptyAggregation = function.createGroupedAggregation(Optional.<Integer>absent(), Optional.<Integer>absent(), confidence, args);
+        GroupedAccumulator emptyAggregation = factory.createGroupedAccumulator();
         BlockBuilder emptyOut = emptyAggregation.getIntermediateType().createBlockBuilder(new BlockBuilderStatus());
         emptyAggregation.evaluateIntermediate(0, emptyOut);
         Block emptyBlock = emptyOut.build();

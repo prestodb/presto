@@ -32,7 +32,6 @@ import io.airlift.slice.Slices;
 import java.util.List;
 
 import static com.facebook.presto.benchmark.BenchmarkQueryRunner.createLocalQueryRunner;
-import static com.facebook.presto.operator.AggregationFunctionDefinition.aggregation;
 import static com.facebook.presto.operator.aggregation.DoubleSumAggregation.DOUBLE_SUM;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
@@ -65,7 +64,7 @@ public class HandTpchQuery6
                 2,
                 Step.SINGLE,
                 ImmutableList.of(
-                        aggregation(DOUBLE_SUM, ImmutableList.of(0), Optional.<Integer>absent(), Optional.<Integer>absent(), 1.0)
+                        DOUBLE_SUM.bind(ImmutableList.of(0), Optional.<Integer>absent(), Optional.<Integer>absent(), 1.0)
                 ));
 
         return ImmutableList.of(tableScanOperator, tpchQuery6Operator, aggregationOperator);

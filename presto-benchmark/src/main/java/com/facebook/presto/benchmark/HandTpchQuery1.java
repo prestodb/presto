@@ -35,7 +35,6 @@ import io.airlift.slice.Slices;
 import java.util.List;
 
 import static com.facebook.presto.benchmark.BenchmarkQueryRunner.createLocalQueryRunner;
-import static com.facebook.presto.operator.AggregationFunctionDefinition.aggregation;
 import static com.facebook.presto.operator.aggregation.AverageAggregations.DOUBLE_AVERAGE;
 import static com.facebook.presto.operator.aggregation.AverageAggregations.LONG_AVERAGE;
 import static com.facebook.presto.operator.aggregation.CountAggregation.COUNT;
@@ -99,13 +98,13 @@ public class HandTpchQuery1
                 Ints.asList(0, 1),
                 Step.SINGLE,
                 ImmutableList.of(
-                        aggregation(LONG_SUM, ImmutableList.of(2), Optional.<Integer>absent(), Optional.<Integer>absent(), 1.0),
-                        aggregation(DOUBLE_SUM, ImmutableList.of(3), Optional.<Integer>absent(), Optional.<Integer>absent(), 1.0),
-                        aggregation(DOUBLE_SUM, ImmutableList.of(4), Optional.<Integer>absent(), Optional.<Integer>absent(), 1.0),
-                        aggregation(LONG_AVERAGE, ImmutableList.of(2), Optional.<Integer>absent(), Optional.<Integer>absent(), 1.0),
-                        aggregation(DOUBLE_AVERAGE, ImmutableList.of(5), Optional.<Integer>absent(), Optional.<Integer>absent(), 1.0),
-                        aggregation(DOUBLE_AVERAGE, ImmutableList.of(6), Optional.<Integer>absent(), Optional.<Integer>absent(), 1.0),
-                        aggregation(COUNT, ImmutableList.of(2), Optional.<Integer>absent(), Optional.<Integer>absent(), 1.0)
+                        LONG_SUM.bind(ImmutableList.of(2), Optional.<Integer>absent(), Optional.<Integer>absent(), 1.0),
+                        DOUBLE_SUM.bind(ImmutableList.of(3), Optional.<Integer>absent(), Optional.<Integer>absent(), 1.0),
+                        DOUBLE_SUM.bind(ImmutableList.of(4), Optional.<Integer>absent(), Optional.<Integer>absent(), 1.0),
+                        LONG_AVERAGE.bind(ImmutableList.of(2), Optional.<Integer>absent(), Optional.<Integer>absent(), 1.0),
+                        DOUBLE_AVERAGE.bind(ImmutableList.of(5), Optional.<Integer>absent(), Optional.<Integer>absent(), 1.0),
+                        DOUBLE_AVERAGE.bind(ImmutableList.of(6), Optional.<Integer>absent(), Optional.<Integer>absent(), 1.0),
+                        COUNT.bind(ImmutableList.of(2), Optional.<Integer>absent(), Optional.<Integer>absent(), 1.0)
                         ),
                 10_000);
 

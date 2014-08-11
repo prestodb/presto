@@ -16,6 +16,7 @@ package com.facebook.presto.ml;
 import com.facebook.presto.ml.type.RegressorType;
 import com.facebook.presto.operator.Page;
 import com.facebook.presto.operator.aggregation.Accumulator;
+import com.facebook.presto.operator.aggregation.AccumulatorFactory;
 import com.facebook.presto.operator.aggregation.GroupedAccumulator;
 import com.facebook.presto.operator.aggregation.InternalAggregationFunction;
 import com.facebook.presto.spi.block.Block;
@@ -35,6 +36,7 @@ import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.type.UnknownType.UNKNOWN;
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkNotNull;
 import static io.airlift.slice.SizeOf.SIZE_OF_DOUBLE;
 
 public class LearnLibSvmAggregation
@@ -86,130 +88,157 @@ public class LearnLibSvmAggregation
     }
 
     @Override
-    public Accumulator createAggregation(Optional<Integer> maskChannel, Optional<Integer> sampleWeight, double confidence, int... argumentChannels)
+    public AccumulatorFactory bind(List<Integer> inputChannels, Optional<Integer> maskChannel, Optional<Integer> sampleWeightChannel, double confidence)
     {
         checkArgument(!maskChannel.isPresent(), "masking is not supported");
         checkArgument(confidence == 1, "approximation is not supported");
-        checkArgument(!sampleWeight.isPresent(), "sample weight is not supported");
-        return new LearnAccumulator(argumentChannels[0], argumentChannels[1], argumentChannels[2], labelType == BIGINT, modelType == RegressorType.REGRESSOR);
+        checkArgument(!sampleWeightChannel.isPresent(), "sample weight is not supported");
+        return new LearnLibSvmAccumulatorFactory(inputChannels, labelType == BIGINT, modelType == RegressorType.REGRESSOR);
     }
 
-    @Override
-    public Accumulator createIntermediateAggregation(double confidence)
+    public static class LearnLibSvmAccumulatorFactory
+            implements AccumulatorFactory
     {
-        throw new UnsupportedOperationException("LEARN must run on a single machine");
-    }
-
-    @Override
-    public GroupedAccumulator createGroupedAggregation(Optional<Integer> maskChannel, Optional<Integer> sampleWeight, double confidence, int... argumentChannels)
-    {
-        throw new UnsupportedOperationException("LEARN doesn't support GROUP BY");
-    }
-
-    @Override
-    public GroupedAccumulator createGroupedIntermediateAggregation(double confidence)
-    {
-        throw new UnsupportedOperationException("LEARN doesn't support GROUP BY");
-    }
-
-    public static class LearnAccumulator
-            implements Accumulator
-    {
-        private final int labelChannel;
-        private final int featuresChannel;
-        private final int paramsChannel;
+        private final List<Integer> inputChannels;
         private final boolean labelIsLong;
         private final boolean regression;
-        private final List<Double> labels = new ArrayList<>();
-        private final List<FeatureVector> rows = new ArrayList<>();
-        private long rowsSize;
-        private svm_parameter params;
 
-        public LearnAccumulator(int labelChannel, int featuresChannel, int paramsChannel, boolean labelIsLong, boolean regression)
+        public LearnLibSvmAccumulatorFactory(List<Integer> inputChannels, boolean labelIsLong, boolean regression)
         {
-            this.labelChannel = labelChannel;
-            this.featuresChannel = featuresChannel;
-            this.paramsChannel = paramsChannel;
+            this.inputChannels = ImmutableList.copyOf(checkNotNull(inputChannels, "inputChannels is null"));
             this.labelIsLong = labelIsLong;
             this.regression = regression;
         }
 
         @Override
-        public long getEstimatedSize()
+        public List<Integer> getInputChannels()
         {
-            return SIZE_OF_DOUBLE * (long) labels.size() + rowsSize;
+            return inputChannels;
         }
 
         @Override
-        public Type getFinalType()
+        public Accumulator createAccumulator()
         {
-            return VARCHAR;
+            return new LearnAccumulator(inputChannels.get(0), inputChannels.get(1), inputChannels.get(2), labelIsLong, regression);
         }
 
         @Override
-        public Type getIntermediateType()
+        public Accumulator createIntermediateAccumulator()
         {
             throw new UnsupportedOperationException("LEARN must run on a single machine");
         }
 
         @Override
-        public void addInput(Page page)
+        public GroupedAccumulator createGroupedAccumulator()
         {
-            Block block = page.getBlock(labelChannel);
-            for (int position = 0; position < block.getPositionCount(); position++) {
-                if (labelIsLong) {
-                    labels.add((double) BIGINT.getLong(block, position));
+            throw new UnsupportedOperationException("LEARN doesn't support GROUP BY");
+        }
+
+        @Override
+        public GroupedAccumulator createGroupedIntermediateAccumulator()
+        {
+            throw new UnsupportedOperationException("LEARN doesn't support GROUP BY");
+        }
+
+        public static class LearnAccumulator
+                implements Accumulator
+        {
+            private final int labelChannel;
+            private final int featuresChannel;
+            private final int paramsChannel;
+            private final boolean labelIsLong;
+            private final boolean regression;
+            private final List<Double> labels = new ArrayList<>();
+            private final List<FeatureVector> rows = new ArrayList<>();
+            private long rowsSize;
+            private svm_parameter params;
+
+            public LearnAccumulator(int labelChannel, int featuresChannel, int paramsChannel, boolean labelIsLong, boolean regression)
+            {
+                this.labelChannel = labelChannel;
+                this.featuresChannel = featuresChannel;
+                this.paramsChannel = paramsChannel;
+                this.labelIsLong = labelIsLong;
+                this.regression = regression;
+            }
+
+            @Override
+            public long getEstimatedSize()
+            {
+                return SIZE_OF_DOUBLE * (long) labels.size() + rowsSize;
+            }
+
+            @Override
+            public Type getFinalType()
+            {
+                return VARCHAR;
+            }
+
+            @Override
+            public Type getIntermediateType()
+            {
+                throw new UnsupportedOperationException("LEARN must run on a single machine");
+            }
+
+            @Override
+            public void addInput(Page page)
+            {
+                Block block = page.getBlock(labelChannel);
+                for (int position = 0; position < block.getPositionCount(); position++) {
+                    if (labelIsLong) {
+                        labels.add((double) BIGINT.getLong(block, position));
+                    }
+                    else {
+                        labels.add(DOUBLE.getDouble(block, position));
+                    }
+                }
+
+                block = page.getBlock(featuresChannel);
+                for (int position = 0; position < block.getPositionCount(); position++) {
+                    FeatureVector featureVector = ModelUtils.jsonToFeatures(VARCHAR.getSlice(block, position));
+                    rowsSize += featureVector.getEstimatedSize();
+                    rows.add(featureVector);
+                }
+
+                if (params == null) {
+                    block = page.getBlock(paramsChannel);
+                    params = LibSvmUtils.parseParameters(VARCHAR.getSlice(block, 0).toStringUtf8());
+                }
+            }
+
+            @Override
+            public void addIntermediate(Block block)
+            {
+                throw new UnsupportedOperationException("LEARN must run on a single machine");
+            }
+
+            @Override
+            public Block evaluateIntermediate()
+            {
+                throw new UnsupportedOperationException("LEARN must run on a single machine");
+            }
+
+            @Override
+            public Block evaluateFinal()
+            {
+                Dataset dataset = new Dataset(labels, rows);
+
+                Model model;
+
+                if (regression) {
+                    model = new RegressorFeatureTransformer(new SvmRegressor(params), new FeatureUnitNormalizer());
                 }
                 else {
-                    labels.add(DOUBLE.getDouble(block, position));
+                    model = new ClassifierFeatureTransformer(new SvmClassifier(params), new FeatureUnitNormalizer());
                 }
+
+                model.train(dataset);
+
+                BlockBuilder builder = getFinalType().createBlockBuilder(new BlockBuilderStatus());
+                getFinalType().writeSlice(builder, ModelUtils.serialize(model));
+
+                return builder.build();
             }
-
-            block = page.getBlock(featuresChannel);
-            for (int position = 0; position < block.getPositionCount(); position++) {
-                FeatureVector featureVector = ModelUtils.jsonToFeatures(VARCHAR.getSlice(block, position));
-                rowsSize += featureVector.getEstimatedSize();
-                rows.add(featureVector);
-            }
-
-            if (params == null) {
-                block = page.getBlock(paramsChannel);
-                params = LibSvmUtils.parseParameters(VARCHAR.getSlice(block, 0).toStringUtf8());
-            }
-        }
-
-        @Override
-        public void addIntermediate(Block block)
-        {
-            throw new UnsupportedOperationException("LEARN must run on a single machine");
-        }
-
-        @Override
-        public Block evaluateIntermediate()
-        {
-            throw new UnsupportedOperationException("LEARN must run on a single machine");
-        }
-
-        @Override
-        public Block evaluateFinal()
-        {
-            Dataset dataset = new Dataset(labels, rows);
-
-            Model model;
-
-            if (regression) {
-                model = new RegressorFeatureTransformer(new SvmRegressor(params), new FeatureUnitNormalizer());
-            }
-            else {
-                model = new ClassifierFeatureTransformer(new SvmClassifier(params), new FeatureUnitNormalizer());
-            }
-
-            model.train(dataset);
-
-            BlockBuilder builder = getFinalType().createBlockBuilder(new BlockBuilderStatus());
-            getFinalType().writeSlice(builder, ModelUtils.serialize(model));
-
-            return builder.build();
         }
     }
 }
