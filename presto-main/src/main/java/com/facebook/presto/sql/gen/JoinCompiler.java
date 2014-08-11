@@ -544,7 +544,7 @@ public class JoinCompiler
             if (!(obj instanceof LookupSourceCacheKey)) {
                 return false;
             }
-            final LookupSourceCacheKey other = (LookupSourceCacheKey) obj;
+            LookupSourceCacheKey other = (LookupSourceCacheKey) obj;
             return Objects.equal(this.types, other.types) &&
                     Objects.equal(this.joinChannels, other.joinChannels);
         }

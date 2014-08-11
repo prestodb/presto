@@ -433,7 +433,7 @@ public class JoinProbeCompiler
             if (!(obj instanceof JoinOperatorCacheKey)) {
                 return false;
             }
-            final JoinOperatorCacheKey other = (JoinOperatorCacheKey) obj;
+            JoinOperatorCacheKey other = (JoinOperatorCacheKey) obj;
             return Objects.equal(this.types, other.types) &&
                     Objects.equal(this.probeChannels, other.probeChannels) &&
                     Objects.equal(this.enableOuterJoin, other.enableOuterJoin);
