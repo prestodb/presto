@@ -194,4 +194,24 @@ public class TestKafkaDistributed
             throws Exception
     {
     }
+
+    //
+    // Kafka connector does not insert.
+    //
+
+    @Override
+    public void testInsert()
+            throws Exception
+    {
+    }
+
+    //
+    // Kafka connector does not table rename.
+    //
+
+    @Override
+    public void testRenameTable()
+            throws Exception
+    {
+    }
 }

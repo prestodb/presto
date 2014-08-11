@@ -20,6 +20,7 @@ import com.facebook.presto.spi.Node;
 import com.facebook.presto.spi.NodeManager;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import org.testng.annotations.Test;
@@ -42,7 +43,14 @@ public class TestKafkaPlugin
         {
             return null;
         }
+
+        @Override
+        public List<Type> getTypes()
+        {
+            return ImmutableList.of();
+        }
     };
+
     private static final NodeManager DUMMY_NODE_MANAGER = new NodeManager()
     {
         @Override
