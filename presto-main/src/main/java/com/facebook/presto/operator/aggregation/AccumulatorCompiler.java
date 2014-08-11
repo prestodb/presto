@@ -66,7 +66,7 @@ public class AccumulatorCompiler
 {
     private static final AtomicLong CLASS_ID = new AtomicLong();
 
-    public AccumulatorFactory generateAccumulatorFactory(AggregationMetadata metadata, DynamicClassLoader classLoader)
+    public GenericAccumulatorFactoryBinder generateAccumulatorFactoryBinder(AggregationMetadata metadata, DynamicClassLoader classLoader)
     {
         Class<? extends Accumulator> accumulatorClass = generateAccumulatorClass(
                 Accumulator.class,
@@ -78,7 +78,7 @@ public class AccumulatorCompiler
                 metadata,
                 classLoader);
 
-        return new GenericAccumulatorFactory(
+        return new GenericAccumulatorFactoryBinder(
                 metadata.getStateSerializer(),
                 metadata.getStateFactory(),
                 accumulatorClass,

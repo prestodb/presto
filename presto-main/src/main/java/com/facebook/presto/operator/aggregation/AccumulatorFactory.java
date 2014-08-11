@@ -13,15 +13,17 @@
  */
 package com.facebook.presto.operator.aggregation;
 
-import com.google.common.base.Optional;
+import java.util.List;
 
 public interface AccumulatorFactory
 {
-    Accumulator createAggregation(Optional<Integer> maskChannel, Optional<Integer> sampleWeight, double confidence, int... argumentChannels);
+    List<Integer> getInputChannels();
 
-    Accumulator createIntermediateAggregation(double confidence);
+    Accumulator createAccumulator();
 
-    GroupedAccumulator createGroupedAggregation(Optional<Integer> maskChannel, Optional<Integer> sampleWeight, double confidence, int... argumentChannels);
+    Accumulator createIntermediateAccumulator();
 
-    GroupedAccumulator createGroupedIntermediateAggregation(double confidence);
+    GroupedAccumulator createGroupedAccumulator();
+
+    GroupedAccumulator createGroupedIntermediateAccumulator();
 }

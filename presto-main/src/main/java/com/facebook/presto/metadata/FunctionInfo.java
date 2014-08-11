@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.metadata;
 
-import com.facebook.presto.operator.AggregationFunctionDefinition;
 import com.facebook.presto.operator.WindowFunctionDefinition;
 import com.facebook.presto.operator.aggregation.InternalAggregationFunction;
 import com.facebook.presto.operator.window.WindowFunctionSupplier;
@@ -21,13 +20,11 @@ import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.tree.QualifiedName;
 import com.google.common.base.Function;
 import com.google.common.base.Objects;
-import com.google.common.base.Optional;
 import com.google.common.base.Predicate;
 
 import java.lang.invoke.MethodHandle;
 import java.util.List;
 
-import static com.facebook.presto.operator.AggregationFunctionDefinition.aggregation;
 import static com.facebook.presto.operator.WindowFunctionDefinition.window;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
@@ -161,12 +158,6 @@ public final class FunctionInfo
     {
         checkState(isWindow, "not a window function");
         return window(windowFunctionSupplier, inputs);
-    }
-
-    public AggregationFunctionDefinition bind(List<Integer> inputs, Optional<Integer> mask, Optional<Integer> sampleWeight, double confidence)
-    {
-        checkState(isAggregate, "function is not an aggregate");
-        return aggregation(aggregationFunction, inputs, mask, sampleWeight, confidence);
     }
 
     public InternalAggregationFunction getAggregationFunction()

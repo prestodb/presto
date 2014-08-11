@@ -23,6 +23,7 @@ import com.facebook.presto.spi.type.VarcharType;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.base.Optional;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.Slice;
 import org.testng.annotations.Test;
@@ -39,7 +40,7 @@ public class TestLearnAggregations
             throws Exception
     {
         LearnAggregation aggregation = new LearnAggregation(ClassifierType.CLASSIFIER, BigintType.BIGINT);
-        assertLearnClassifer(aggregation.createAggregation(Optional.<Integer>absent(), Optional.<Integer>absent(), 1.0, 0, 1));
+        assertLearnClassifer(aggregation.bind(ImmutableList.of(0, 1), Optional.<Integer>absent(), Optional.<Integer>absent(), 1.0).createAccumulator());
     }
 
     @Test
@@ -47,7 +48,7 @@ public class TestLearnAggregations
             throws Exception
     {
         LearnLibSvmAggregation aggregation = new LearnLibSvmAggregation(ClassifierType.CLASSIFIER, BigintType.BIGINT);
-        assertLearnClassifer(aggregation.createAggregation(Optional.<Integer>absent(), Optional.<Integer>absent(), 1.0, 0, 1, 2));
+        assertLearnClassifer(aggregation.bind(ImmutableList.of(0, 1, 2), Optional.<Integer>absent(), Optional.<Integer>absent(), 1.0).createAccumulator());
     }
 
     private static void assertLearnClassifer(Accumulator accumulator)
