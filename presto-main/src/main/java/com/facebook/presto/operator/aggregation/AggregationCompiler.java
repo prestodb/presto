@@ -37,12 +37,11 @@ import java.util.Set;
 
 import static com.facebook.presto.operator.aggregation.AggregationMetadata.ParameterMetadata;
 import static com.facebook.presto.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.STATE;
-import static com.facebook.presto.operator.aggregation.AggregationMetadata.ParameterMetadata.fromAnnotation;
-import static com.facebook.presto.operator.aggregation.AggregationUtils.getTypeInstance;
+import static com.facebook.presto.operator.aggregation.AggregationMetadata.ParameterMetadata.fromAnnotations;
 import static com.facebook.presto.operator.aggregation.AggregationUtils.generateAggregationName;
+import static com.facebook.presto.operator.aggregation.AggregationUtils.getTypeInstance;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
-import static com.google.common.base.Preconditions.checkState;
 
 public class AggregationCompiler
 {
@@ -112,8 +111,7 @@ public class AggregationCompiler
                                 stateSerializer,
                                 stateFactory,
                                 outputType,
-                                aggregationAnnotation.approximate(),
-                                false);
+                                aggregationAnnotation.approximate());
 
                         AccumulatorFactory factory = new AccumulatorCompiler().generateAccumulatorFactory(metadata, classLoader);
                         // TODO: support un-decomposable aggregations
@@ -138,15 +136,7 @@ public class AggregationCompiler
         Annotation[][] annotations = method.getParameterAnnotations();
         // Start at 1 because 0 is the STATE
         for (int i = 1; i < annotations.length; i++) {
-            Annotation foundAnnotation = null;
-            for (Annotation annotation : annotations[i]) {
-                if (annotation instanceof SqlType || annotation instanceof BlockIndex || (sampleWeightAllowed && annotation instanceof SampleWeight)) {
-                    checkState(foundAnnotation == null, "%s may only have one of @SqlType, @BlockIndex, @SampleWeight per parameter", method.getName());
-                    foundAnnotation = annotation;
-                }
-            }
-            checkNotNull(foundAnnotation, "Parameter %d of %s must have @SqlType, @BlockIndex, or @SampleWeight", i, method.getName());
-            builder.add(fromAnnotation(foundAnnotation));
+            builder.add(fromAnnotations(annotations[i], method.getDeclaringClass() + "." + method.getName()));
         }
         return builder.build();
     }

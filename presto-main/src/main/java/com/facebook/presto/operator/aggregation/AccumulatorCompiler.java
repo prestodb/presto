@@ -54,10 +54,13 @@ import static com.facebook.presto.byteCode.ParameterizedType.typeFromPathName;
 import static com.facebook.presto.byteCode.control.IfStatement.IfStatementBuilder;
 import static com.facebook.presto.byteCode.control.IfStatement.ifStatementBuilder;
 import static com.facebook.presto.operator.aggregation.AggregationMetadata.ParameterMetadata;
+import static com.facebook.presto.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.INPUT_CHANNEL;
+import static com.facebook.presto.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.NULLABLE_INPUT_CHANNEL;
 import static com.facebook.presto.operator.aggregation.AggregationMetadata.countInputChannels;
 import static com.facebook.presto.sql.gen.CompilerUtils.defineClass;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Preconditions.checkState;
 
 public class AccumulatorCompiler
 {
@@ -125,7 +128,7 @@ public class AccumulatorCompiler
                 grouped);
 
         // Generate methods
-        generateAddInput(definition, stateField, inputChannelsField, maskChannelField, sampleWeightChannelField, metadata.getInputMetadata(), metadata.getInputFunction(), grouped, metadata.isAcceptNulls());
+        generateAddInput(definition, stateField, inputChannelsField, maskChannelField, sampleWeightChannelField, metadata.getInputMetadata(), metadata.getInputFunction(), grouped);
         generateGetEstimatedSize(definition, stateField);
         MethodDefinition getIntermediateType = generateGetIntermediateType(definition, stateSerializer.getSerializedType());
         MethodDefinition getFinalType = generateGetFinalType(definition, metadata.getOutputType());
@@ -196,8 +199,7 @@ public class AccumulatorCompiler
             @Nullable FieldDefinition sampleWeightChannelField,
             List<ParameterMetadata> parameterMetadatas,
             Method inputFunction,
-            boolean grouped,
-            boolean acceptNulls)
+            boolean grouped)
     {
         CompilerContext context = new CompilerContext();
 
@@ -259,7 +261,7 @@ public class AccumulatorCompiler
                     .invokeVirtual(Page.class, "getBlock", com.facebook.presto.spi.block.Block.class, int.class)
                     .putVariable(parameterVariables.get(i));
         }
-        Block block = generateInputForLoop(stateField, parameterMetadatas, inputFunction, context, parameterVariables, masksBlock, sampleWeightsBlock, grouped, acceptNulls);
+        Block block = generateInputForLoop(stateField, parameterMetadatas, inputFunction, context, parameterVariables, masksBlock, sampleWeightsBlock, grouped);
 
         body.append(block)
                 .ret();
@@ -273,8 +275,7 @@ public class AccumulatorCompiler
             List<Variable> parameterVariables,
             Variable masksBlock,
             @Nullable Variable sampleWeightsBlock,
-            boolean grouped,
-            boolean acceptNulls)
+            boolean grouped)
     {
         // For-loop over rows
         Variable positionVariable = context.declareVariable(int.class, "position");
@@ -295,13 +296,24 @@ public class AccumulatorCompiler
 
         Block loopBody = generateInvokeInputFunction(context, stateField, positionVariable, sampleWeightVariable, parameterVariables, parameterMetadatas, inputFunction, grouped);
 
-        if (!acceptNulls) {
-            //  Wrap with null checks
-            for (Variable variable : parameterVariables) {
+        //  Wrap with null checks
+        List<Boolean> nullable = new ArrayList<>();
+        for (ParameterMetadata metadata : parameterMetadatas) {
+            if (metadata.getParameterType() == INPUT_CHANNEL) {
+                nullable.add(false);
+            }
+            else if (metadata.getParameterType() == NULLABLE_INPUT_CHANNEL) {
+                nullable.add(true);
+            }
+        }
+        checkState(nullable.size() == parameterVariables.size(), "Number of parameters does not match");
+        for (int i = 0; i < parameterVariables.size(); i++) {
+            if (!nullable.get(i)) {
                 IfStatementBuilder builder = ifStatementBuilder(context);
-                builder.comment("if(!%s.isNull(position))", variable.getName())
+                Variable variableDefinition = parameterVariables.get(i);
+                builder.comment("if(!%s.isNull(position))", variableDefinition.getName())
                         .condition(new Block(context)
-                                .getVariable(variable)
+                                .getVariable(variableDefinition)
                                 .getVariable(positionVariable)
                                 .invokeInterface(com.facebook.presto.spi.block.Block.class, "isNull", boolean.class, int.class))
                         .ifTrue(NOP)
@@ -393,6 +405,10 @@ public class AccumulatorCompiler
                 case SAMPLE_WEIGHT:
                     checkNotNull(sampleWeight, "sampleWeight is null");
                     block.getVariable(sampleWeight);
+                    break;
+                case NULLABLE_INPUT_CHANNEL:
+                    block.getVariable(parameterVariables.get(inputChannel));
+                    inputChannel++;
                     break;
                 case INPUT_CHANNEL:
                     Block getBlockByteCode = new Block(context)
