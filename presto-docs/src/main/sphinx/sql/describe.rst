@@ -14,13 +14,6 @@ Description
 
 ``DESCRIBE`` is an alias for :doc:`show-columns`.
 
-Parameters
-----------
-
-table_name
-
-    The name of a table
-
 Examples
 --------
 
