@@ -67,7 +67,7 @@ import static com.google.common.base.Preconditions.checkNotNull;
 
 public class OrderingCompiler
 {
-    private static final Logger log = Logger.get(ExpressionCompiler.class);
+    private static final Logger log = Logger.get(OrderingCompiler.class);
 
     private static final AtomicLong CLASS_ID = new AtomicLong();
 
@@ -244,9 +244,9 @@ public class OrderingCompiler
 
     private static final class PagesIndexComparatorCacheKey
     {
-        private List<Type> sortTypes;
-        private List<Integer> sortChannels;
-        private List<SortOrder> sortOrders;
+        private final List<Type> sortTypes;
+        private final List<Integer> sortChannels;
+        private final List<SortOrder> sortOrders;
 
         private PagesIndexComparatorCacheKey(List<Type> sortTypes, List<Integer> sortChannels, List<SortOrder> sortOrders)
         {
