@@ -149,7 +149,7 @@ public class ExpressionCompiler
         return clazz;
     }
 
-    private void generateToString(ClassDefinition classDefinition, CallSiteBinder callSiteBinder, String string)
+    private static void generateToString(ClassDefinition classDefinition, CallSiteBinder callSiteBinder, String string)
     {
         // bind constant via invokedynamic to avoid constant pool issues due to large strings
         CompilerContext context = new CompilerContext(BOOTSTRAP_METHOD);
