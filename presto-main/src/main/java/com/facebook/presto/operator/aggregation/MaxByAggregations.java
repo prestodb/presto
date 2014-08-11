@@ -32,7 +32,7 @@ import java.util.Set;
 
 import static com.facebook.presto.operator.aggregation.AggregationMetadata.ParameterMetadata;
 import static com.facebook.presto.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.BLOCK_INDEX;
-import static com.facebook.presto.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.INPUT_CHANNEL;
+import static com.facebook.presto.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.NULLABLE_INPUT_CHANNEL;
 import static com.facebook.presto.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.STATE;
 import static com.facebook.presto.operator.aggregation.AggregationUtils.generateAggregationName;
 
@@ -40,10 +40,14 @@ public final class MaxByAggregations
 {
     private static final String NAME = "max_by";
     private static final Method OUTPUT_FUNCTION;
+    private static final Method INPUT_FUNCTION;
+    private static final Method COMBINE_FUNCTION;
 
     static {
         try {
             OUTPUT_FUNCTION = MaxByAggregations.class.getMethod("output", MaxByState.class, BlockBuilder.class);
+            INPUT_FUNCTION = MaxByAggregations.class.getMethod("input", MaxByState.class, Block.class, Block.class, int.class);
+            COMBINE_FUNCTION = MaxByAggregations.class.getMethod("combine", MaxByState.class, MaxByState.class);
         }
         catch (NoSuchMethodException e) {
             throw Throwables.propagate(e);
@@ -86,45 +90,24 @@ public final class MaxByAggregations
         AggregationMetadata metadata = new AggregationMetadata(
                 generateAggregationName(NAME, valueType, inputTypes),
                 createInputParameterMetadata(valueType, keyType),
-                lookupInputFunction(),
+                INPUT_FUNCTION,
                 null,
                 null,
-                lookupCombineFunction(),
+                COMBINE_FUNCTION,
                 OUTPUT_FUNCTION,
                 MaxByState.class,
                 stateSerializer,
                 stateFactory,
                 valueType,
-                false,
-                true);
+                false);
 
         AccumulatorFactory factory = new AccumulatorCompiler().generateAccumulatorFactory(metadata, classLoader);
         return new GenericAggregationFunction(NAME, inputTypes, intermediateType, valueType, false, false, factory);
     }
 
-    private static Method lookupInputFunction()
-    {
-        try {
-            return MaxByAggregations.class.getMethod("input", MaxByState.class, Block.class, Block.class, int.class);
-        }
-        catch (NoSuchMethodException e) {
-            throw Throwables.propagate(e);
-        }
-    }
-
-    private static Method lookupCombineFunction()
-    {
-        try {
-            return MaxByAggregations.class.getMethod("combine", MaxByState.class, MaxByState.class);
-        }
-        catch (NoSuchMethodException e) {
-            throw Throwables.propagate(e);
-        }
-    }
-
     private static List<ParameterMetadata> createInputParameterMetadata(Type value, Type key)
     {
-        return ImmutableList.of(new ParameterMetadata(STATE), new ParameterMetadata(INPUT_CHANNEL, value.getClass()), new ParameterMetadata(INPUT_CHANNEL, key.getClass()), new ParameterMetadata(BLOCK_INDEX));
+        return ImmutableList.of(new ParameterMetadata(STATE), new ParameterMetadata(NULLABLE_INPUT_CHANNEL, value.getClass()), new ParameterMetadata(NULLABLE_INPUT_CHANNEL, key.getClass()), new ParameterMetadata(BLOCK_INDEX));
     }
 
     public static void input(MaxByState state, Block value, Block key, int position)
