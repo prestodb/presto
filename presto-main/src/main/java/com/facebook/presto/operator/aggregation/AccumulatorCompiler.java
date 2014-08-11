@@ -90,7 +90,7 @@ public class AccumulatorCompiler
     {
         boolean grouped = accumulatorInterface == GroupedAccumulator.class;
 
-        ClassDefinition definition = new ClassDefinition(new CompilerContext(null),
+        ClassDefinition definition = new ClassDefinition(
                 a(PUBLIC, FINAL),
                 typeFromPathName(metadata.getName() + accumulatorInterface.getSimpleName() + "_" + CLASS_ID.incrementAndGet()),
                 type(Object.class),
@@ -151,7 +151,7 @@ public class AccumulatorCompiler
 
     private static MethodDefinition generateGetIntermediateType(ClassDefinition definition, Type type)
     {
-        MethodDefinition methodDefinition = definition.declareMethod(new CompilerContext(null), a(PUBLIC), "getIntermediateType", type(Type.class));
+        MethodDefinition methodDefinition = definition.declareMethod(a(PUBLIC), "getIntermediateType", type(Type.class));
 
         methodDefinition.getBody()
                 .push(type.getClass())
@@ -163,7 +163,7 @@ public class AccumulatorCompiler
 
     private static MethodDefinition generateGetFinalType(ClassDefinition definition, Type type)
     {
-        MethodDefinition methodDefinition = definition.declareMethod(new CompilerContext(null), a(PUBLIC), "getFinalType", type(Type.class));
+        MethodDefinition methodDefinition = definition.declareMethod(a(PUBLIC), "getFinalType", type(Type.class));
 
         methodDefinition.getBody()
                 .push(type.getClass())
@@ -175,7 +175,7 @@ public class AccumulatorCompiler
 
     private static void generateGetEstimatedSize(ClassDefinition definition, FieldDefinition stateField)
     {
-        definition.declareMethod(new CompilerContext(null), a(PUBLIC), "getEstimatedSize", type(long.class))
+        definition.declareMethod(a(PUBLIC), "getEstimatedSize", type(long.class))
                 .getBody()
                 .pushThis()
                 .getField(stateField)
@@ -194,7 +194,7 @@ public class AccumulatorCompiler
             boolean grouped,
             boolean acceptNulls)
     {
-        CompilerContext context = new CompilerContext(null);
+        CompilerContext context = new CompilerContext();
 
         ImmutableList.Builder<NamedParameterDefinition> parameters = ImmutableList.builder();
         if (grouped) {
@@ -427,7 +427,7 @@ public class AccumulatorCompiler
             Class<?> singleStateClass,
             boolean grouped)
     {
-        CompilerContext context = new CompilerContext(null);
+        CompilerContext context = new CompilerContext();
 
         Block body = declareAddIntermediate(definition, grouped, context);
 
@@ -514,7 +514,7 @@ public class AccumulatorCompiler
             Method intermediateInputFunction,
             boolean grouped)
     {
-        CompilerContext context = new CompilerContext(null);
+        CompilerContext context = new CompilerContext();
 
         Block body = declareAddIntermediate(definition, grouped, context);
 
@@ -588,7 +588,6 @@ public class AccumulatorCompiler
     private static void generateGroupedEvaluateIntermediate(ClassDefinition definition, FieldDefinition stateSerializerField, FieldDefinition stateField)
     {
         definition.declareMethod(
-                new CompilerContext(null),
                 a(PUBLIC),
                 "evaluateIntermediate",
                 type(void.class),
@@ -614,7 +613,7 @@ public class AccumulatorCompiler
 
     private static void generateEvaluateIntermediate(ClassDefinition definition, MethodDefinition getIntermediateType, FieldDefinition stateSerializerField, FieldDefinition stateField)
     {
-        CompilerContext context = new CompilerContext(null);
+        CompilerContext context = new CompilerContext();
         Block body = definition.declareMethod(
                 context,
                 a(PUBLIC),
@@ -656,7 +655,6 @@ public class AccumulatorCompiler
             boolean approximate)
     {
         Block body = definition.declareMethod(
-                new CompilerContext(null),
                 a(PUBLIC),
                 "evaluateFinal",
                 type(void.class),
@@ -703,7 +701,7 @@ public class AccumulatorCompiler
             Method outputFunction,
             boolean approximate)
     {
-        CompilerContext context = new CompilerContext(null);
+        CompilerContext context = new CompilerContext();
         Block body = definition.declareMethod(
                 context,
                 a(PUBLIC),
@@ -759,7 +757,6 @@ public class AccumulatorCompiler
             boolean grouped)
     {
         Block body = definition.declareConstructor(
-                new CompilerContext(null),
                 a(PUBLIC),
                 arg("stateSerializer", AccumulatorStateSerializer.class),
                 arg("stateFactory", AccumulatorStateFactory.class),
