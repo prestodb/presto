@@ -277,6 +277,11 @@ public class OperatorStats
 
         long memoryReservation = this.memoryReservation.toBytes();
 
+        Object base = null;
+        if (info instanceof Reducer) {
+            base = ((Reducer) info).reduce(null);
+        }
+
         for (OperatorStats operator : operators) {
             checkArgument(operator.getOperatorId() == operatorId, "Expected operatorId to be %s but was %s", operatorId, operator.getOperatorId());
 
@@ -302,6 +307,10 @@ public class OperatorStats
             blockedWall += operator.getBlockedWall().roundTo(NANOSECONDS);
 
             memoryReservation += operator.getMemoryReservation().toBytes();
+
+            if (operator.getInfo() instanceof Reducer) {
+                base = ((Reducer) operator.getInfo()).reduce(base);
+            }
         }
 
         return new OperatorStats(
@@ -331,7 +340,6 @@ public class OperatorStats
 
                 new DataSize(memoryReservation, BYTE).convertToMostSuccinctDataSize(),
 
-                // todo merge operator info?
-                null);
+                base);
     }
 }
