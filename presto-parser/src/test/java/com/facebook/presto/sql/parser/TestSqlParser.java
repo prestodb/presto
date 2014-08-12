@@ -61,7 +61,7 @@ public class TestSqlParser
     @Test
     public void testYulin()
     {
-        String sql = "SELECT SUM(@{AA + BB}, virt) ccc, aaa c2 FROM dual group by abc, abb";
+        String sql = "SELECT SUM(@{# BB}, virt) ccc, aaa c2 FROM dual group by abc, abb";
 
         CommonTree tree = SqlParser.parseStatement(sql);
         Statement statement = SqlParser.createStatement(sql);
