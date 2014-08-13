@@ -54,6 +54,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
+import com.google.common.collect.Lists;
 
 import java.util.HashMap;
 import java.util.List;
@@ -62,6 +63,7 @@ import java.util.Map;
 import static com.facebook.presto.sql.planner.plan.AggregationNode.Step.FINAL;
 import static com.facebook.presto.sql.planner.plan.AggregationNode.Step.PARTIAL;
 import static com.facebook.presto.sql.planner.plan.AggregationNode.Step.SINGLE;
+import static com.facebook.presto.sql.planner.plan.IndexJoinNode.EquiJoinClause.probeGetter;
 import static com.facebook.presto.sql.planner.plan.TableWriterNode.CreateHandle;
 import static com.facebook.presto.sql.planner.plan.TableWriterNode.CreateName;
 import static com.facebook.presto.sql.planner.plan.TableWriterNode.InsertHandle;
@@ -86,9 +88,9 @@ public class DistributedLogicalPlanner
         this.idAllocator = checkNotNull(idAllocator, "idAllocator is null");
     }
 
-    public SubPlan createSubPlans(Plan plan, boolean createSingleNodePlan)
+    public SubPlan createSubPlans(Plan plan, boolean createSingleNodePlan, boolean distributedIndexJoins)
     {
-        Visitor visitor = new Visitor(plan.getSymbolAllocator(), createSingleNodePlan);
+        Visitor visitor = new Visitor(plan.getSymbolAllocator(), createSingleNodePlan, distributedIndexJoins);
         SubPlanBuilder builder = plan.getRoot().accept(visitor, null);
 
         SubPlan subplan = builder.build();
@@ -104,11 +106,13 @@ public class DistributedLogicalPlanner
 
         private final SymbolAllocator allocator;
         private final boolean createSingleNodePlan;
+        private final boolean distributedIndexJoins;
 
-        public Visitor(SymbolAllocator allocator, boolean createSingleNodePlan)
+        public Visitor(SymbolAllocator allocator, boolean createSingleNodePlan, boolean distributedIndexJoins)
         {
             this.allocator = allocator;
             this.createSingleNodePlan = createSingleNodePlan;
+            this.distributedIndexJoins = distributedIndexJoins;
         }
 
         @Override
@@ -539,8 +543,20 @@ public class DistributedLogicalPlanner
         public SubPlanBuilder visitIndexJoin(IndexJoinNode node, Void context)
         {
             SubPlanBuilder current = node.getProbeSource().accept(this, context);
-            current.setRoot(new IndexJoinNode(node.getId(), node.getType(), current.getRoot(), node.getIndexSource(), node.getCriteria()));
-            return current;
+
+            if (distributedIndexJoins && current.isDistributed()) {
+                PlanNode sink = new SinkNode(idAllocator.getNextId(), current.getRoot(), current.getRoot().getOutputSymbols());
+                current.setRoot(sink)
+                        .setHashOutputPartitioning(Lists.transform(node.getCriteria(), probeGetter()));
+
+                PlanNode exchange = new ExchangeNode(idAllocator.getNextId(), current.getId(), sink.getOutputSymbols());
+                return createFixedDistributionPlan(new IndexJoinNode(node.getId(), node.getType(), exchange, node.getIndexSource(), node.getCriteria()))
+                        .addChild(current.build());
+            }
+            else {
+                current.setRoot(new IndexJoinNode(node.getId(), node.getType(), current.getRoot(), node.getIndexSource(), node.getCriteria()));
+                return current;
+            }
         }
 
         @Override

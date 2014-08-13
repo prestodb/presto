@@ -29,7 +29,8 @@ public class TestFeaturesConfig
     public void testDefaults()
     {
         assertRecordedDefaults(ConfigAssertions.recordDefaults(FeaturesConfig.class)
-                .setExperimentalSyntaxEnabled(false));
+                .setExperimentalSyntaxEnabled(false)
+                .setDistributedIndexJoinsEnabled(false));
     }
 
     @Test
@@ -37,13 +38,16 @@ public class TestFeaturesConfig
     {
         Map<String, String> propertiesLegacy = new ImmutableMap.Builder<String, String>()
                 .put("analyzer.experimental-syntax-enabled", "true")
+                .put("distributed-index-joins-enabled", "true")
                 .build();
         Map<String, String> properties = new ImmutableMap.Builder<String, String>()
                 .put("experimental-syntax-enabled", "true")
+                .put("distributed-index-joins-enabled", "true")
                 .build();
 
         FeaturesConfig expected = new FeaturesConfig()
-                .setExperimentalSyntaxEnabled(true);
+                .setExperimentalSyntaxEnabled(true)
+                .setDistributedIndexJoinsEnabled(true);
 
         assertFullMapping(properties, expected);
         assertDeprecatedEquivalence(FeaturesConfig.class, properties, propertiesLegacy);

@@ -19,6 +19,7 @@ import io.airlift.configuration.LegacyConfig;
 public class FeaturesConfig
 {
     private boolean experimentalSyntaxEnabled;
+    private boolean distributedIndexJoinsEnabled;
 
     @LegacyConfig("analyzer.experimental-syntax-enabled")
     @Config("experimental-syntax-enabled")
@@ -31,5 +32,17 @@ public class FeaturesConfig
     public boolean isExperimentalSyntaxEnabled()
     {
         return experimentalSyntaxEnabled;
+    }
+
+    @Config("distributed-index-joins-enabled")
+    public FeaturesConfig setDistributedIndexJoinsEnabled(boolean distributedIndexJoinsEnabled)
+    {
+        this.distributedIndexJoinsEnabled = distributedIndexJoinsEnabled;
+        return this;
+    }
+
+    public boolean isDistributedIndexJoinsEnabled()
+    {
+        return distributedIndexJoinsEnabled;
     }
 }

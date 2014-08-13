@@ -74,6 +74,7 @@ public class SqlQueryExecution
     private final int scheduleSplitBatchSize;
     private final int initialHashPartitions;
     private final boolean experimentalSyntaxEnabled;
+    private final boolean distributedIndexJoinsEnabled;
     private final ExecutorService queryExecutor;
 
     private final QueryExplainer queryExplainer;
@@ -96,6 +97,7 @@ public class SqlQueryExecution
             int maxPendingSplitsPerNode,
             int initialHashPartitions,
             boolean experimentalSyntaxEnabled,
+            boolean distributedIndexJoinsEnabled,
             ExecutorService queryExecutor,
             NodeTaskMap nodeTaskMap)
     {
@@ -111,6 +113,7 @@ public class SqlQueryExecution
             this.locationFactory = checkNotNull(locationFactory, "locationFactory is null");
             this.queryExecutor = checkNotNull(queryExecutor, "queryExecutor is null");
             this.experimentalSyntaxEnabled = experimentalSyntaxEnabled;
+            this.distributedIndexJoinsEnabled = distributedIndexJoinsEnabled;
             this.nodeTaskMap = checkNotNull(nodeTaskMap, "nodeTaskMap is null");
 
             checkArgument(maxPendingSplitsPerNode > 0, "scheduleSplitBatchSize must be greater than 0");
@@ -125,7 +128,7 @@ public class SqlQueryExecution
             checkNotNull(self, "self is null");
             this.stateMachine = new QueryStateMachine(queryId, query, session, self, queryExecutor);
 
-            this.queryExplainer = new QueryExplainer(session, planOptimizers, metadata, sqlParser, experimentalSyntaxEnabled);
+            this.queryExplainer = new QueryExplainer(session, planOptimizers, metadata, sqlParser, experimentalSyntaxEnabled, distributedIndexJoinsEnabled);
         }
     }
 
@@ -205,7 +208,7 @@ public class SqlQueryExecution
         stateMachine.setInputs(inputs);
 
         // fragment the plan
-        SubPlan subplan = new DistributedLogicalPlanner(session, metadata, idAllocator).createSubPlans(plan, false);
+        SubPlan subplan = new DistributedLogicalPlanner(session, metadata, idAllocator).createSubPlans(plan, false, distributedIndexJoinsEnabled);
 
         stateMachine.recordAnalysisTime(analysisStart);
         return subplan;
@@ -384,6 +387,7 @@ public class SqlQueryExecution
         private final int maxPendingSplitsPerNode;
         private final int initialHashPartitions;
         private final boolean experimentalSyntaxEnabled;
+        private final boolean distributedIndexJoinsEnabled;
         private final Metadata metadata;
         private final SqlParser sqlParser;
         private final SplitManager splitManager;
@@ -418,7 +422,9 @@ public class SqlQueryExecution
             this.nodeScheduler = checkNotNull(nodeScheduler, "nodeScheduler is null");
             this.planOptimizers = checkNotNull(planOptimizers, "planOptimizers is null");
             this.remoteTaskFactory = checkNotNull(remoteTaskFactory, "remoteTaskFactory is null");
-            this.experimentalSyntaxEnabled = checkNotNull(featuresConfig, "featuresConfig is null").isExperimentalSyntaxEnabled();
+            checkNotNull(featuresConfig, "featuresConfig is null");
+            this.experimentalSyntaxEnabled = featuresConfig.isExperimentalSyntaxEnabled();
+            this.distributedIndexJoinsEnabled = featuresConfig.isDistributedIndexJoinsEnabled();
             this.executor = checkNotNull(executor, "executor is null");
             this.nodeTaskMap = checkNotNull(nodeTaskMap, "nodeTaskMap is null");
         }
@@ -442,6 +448,7 @@ public class SqlQueryExecution
                     maxPendingSplitsPerNode,
                     initialHashPartitions,
                     experimentalSyntaxEnabled,
+                    distributedIndexJoinsEnabled,
                     executor,
                     nodeTaskMap);
 
