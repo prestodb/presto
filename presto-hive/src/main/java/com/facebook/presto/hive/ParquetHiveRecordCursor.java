@@ -80,6 +80,7 @@ class ParquetHiveRecordCursor
     private static final Logger log = Logger.get(ParquetHiveRecordCursor.class);
 
     public static final String PARQUET_COLUMN_INDEX_ACCESS = "presto.parquet.column.index.access";
+    public static final String PARQUET_STRICT_TYPE_CHECKING = "presto.parquet.strict.typing";
 
     private final ParquetRecordReader<Void> recordReader;
     private final DateTimeZone sessionTimeZone;
@@ -100,6 +101,8 @@ class ParquetHiveRecordCursor
     private final long totalBytes;
     private long completedBytes;
     private boolean closed;
+
+    private final boolean strictTypeChecking;
 
     public ParquetHiveRecordCursor(
             Configuration configuration,
@@ -138,6 +141,9 @@ class ParquetHiveRecordCursor
         this.slices = new Slice[size];
         this.nulls = new boolean[size];
         this.nullsRowDefault = new boolean[size];
+
+        HiveClientConfig defaults = new HiveClientConfig();
+        this.strictTypeChecking = configuration.getBoolean(PARQUET_STRICT_TYPE_CHECKING, defaults.isParquetStrictTypeChecking());
 
         for (int i = 0; i < columns.size(); i++) {
             HiveColumnHandle column = columns.get(i);
@@ -406,7 +412,7 @@ class ParquetHiveRecordCursor
                         case LONG:
                         case FLOAT:
                         case DOUBLE:
-                            converters.add(new ParquetPrimitiveConverter(i));
+                            converters.add(new ParquetPrimitiveConverter(i, hiveType));
                             break;
                         case MAP:
                             converters.add(new ParquetMapConverter(i, type));
@@ -1213,10 +1219,12 @@ class ParquetHiveRecordCursor
             extends PrimitiveConverter
     {
         private final int fieldIndex;
+        private final HiveType requestType;
 
-        private ParquetPrimitiveConverter(int fieldIndex)
+        private ParquetPrimitiveConverter(int fieldIndex, HiveType requestType)
         {
             this.fieldIndex = fieldIndex;
+            this.requestType = requestType;
         }
 
         @Override
@@ -1250,43 +1258,197 @@ class ParquetHiveRecordCursor
         @Override
         public void addBoolean(boolean value)
         {
+            if (strictTypeChecking
+                && requestType != HiveType.BOOLEAN) {
+                throw new UnsupportedOperationException("Strict Type Checking for Parquet, Could not convert Boolean to " + requestType);
+            }
+
             nulls[fieldIndex] = false;
-            booleans[fieldIndex] = value;
+            switch (requestType) {
+                case BOOLEAN:
+                    booleans[fieldIndex] = value;
+                    break;
+                case DOUBLE:
+                case FLOAT:
+                    doubles[fieldIndex] = (value ? 1.0d : 0.0d);
+                    break;
+                case INT:
+                case LONG:
+                    longs[fieldIndex] = (value ? 1L : 0L);
+                    break;
+                case STRING:
+                    slices[fieldIndex] = Slices.utf8Slice(Boolean.toString(value));
+                    break;
+                case MAP:
+                case LIST:
+                case STRUCT:
+                default:
+                    throw new UnsupportedOperationException("Could not convert Boolean to " + requestType);
+            }
         }
 
         @Override
         public void addDouble(double value)
         {
+            if (strictTypeChecking
+                && requestType != HiveType.DOUBLE
+                && requestType != HiveType.FLOAT) {
+                throw new UnsupportedOperationException("Strict Type Checking for Parquet, Could not convert Double to " + requestType);
+            }
+
             nulls[fieldIndex] = false;
-            doubles[fieldIndex] = value;
+            switch (requestType) {
+                case BOOLEAN:
+                    booleans[fieldIndex] = (value != 0);
+                    break;
+                case DOUBLE:
+                case FLOAT:
+                    doubles[fieldIndex] = value;
+                    break;
+                case INT:
+                case LONG:
+                    longs[fieldIndex] = (long) value;
+                    break;
+                case STRING:
+                    slices[fieldIndex] = Slices.utf8Slice(Double.toString(value));
+                    break;
+                case MAP:
+                case LIST:
+                case STRUCT:
+                default:
+                    throw new UnsupportedOperationException("Could not convert Double to " + requestType);
+            }
         }
 
         @Override
         public void addLong(long value)
         {
+            if (strictTypeChecking
+                && requestType != HiveType.LONG
+                && requestType != HiveType.INT) {
+                throw new UnsupportedOperationException("Strict Type Checking for Parquet, Could not convert Long to " + requestType);
+            }
+
             nulls[fieldIndex] = false;
-            longs[fieldIndex] = value;
+            switch (requestType) {
+                case BOOLEAN:
+                    booleans[fieldIndex] = (value != 0);
+                    break;
+                case DOUBLE:
+                case FLOAT:
+                    doubles[fieldIndex] = (double) value;
+                    break;
+                case INT:
+                case LONG:
+                    longs[fieldIndex] = value;
+                    break;
+                case STRING:
+                    slices[fieldIndex] = Slices.utf8Slice(Long.toString(value));
+                    break;
+                case MAP:
+                case LIST:
+                case STRUCT:
+                default:
+                    throw new UnsupportedOperationException("Could not convert Long to " + requestType);
+            }
         }
 
         @Override
         public void addBinary(Binary value)
         {
+            if (strictTypeChecking
+                && requestType != HiveType.STRING) {
+                throw new UnsupportedOperationException("Strict Type Checking for Parquet, Could not convert String to " + requestType);
+            }
+
             nulls[fieldIndex] = false;
-            slices[fieldIndex] = Slices.wrappedBuffer(value.getBytes());
+            switch (requestType) {
+                case BOOLEAN:
+                    booleans[fieldIndex] = Boolean.parseBoolean(value.toStringUsingUTF8());
+                    break;
+                case DOUBLE:
+                case FLOAT:
+                    doubles[fieldIndex] = Double.parseDouble(value.toStringUsingUTF8());
+                    break;
+                case INT:
+                case LONG:
+                    longs[fieldIndex] = Long.parseLong(value.toStringUsingUTF8());
+                    break;
+                case STRING:
+                    slices[fieldIndex] = Slices.wrappedBuffer(value.getBytes());
+                    break;
+                case MAP:
+                case LIST:
+                case STRUCT:
+                default:
+                    throw new UnsupportedOperationException("Could not convert Binary to " + requestType);
+            }
         }
 
         @Override
         public void addFloat(float value)
         {
+            if (strictTypeChecking
+                && requestType != HiveType.DOUBLE
+                && requestType != HiveType.FLOAT) {
+                throw new UnsupportedOperationException("Strict Type Checking for Parquet, Could not convert Float to " + requestType);
+            }
+
             nulls[fieldIndex] = false;
-            doubles[fieldIndex] = value;
+            switch (requestType) {
+                case BOOLEAN:
+                    booleans[fieldIndex] = (value != 0);
+                    break;
+                case DOUBLE:
+                case FLOAT:
+                    doubles[fieldIndex] = value;
+                    break;
+                case INT:
+                case LONG:
+                    longs[fieldIndex] = (long) value;
+                    break;
+                case STRING:
+                    slices[fieldIndex] = Slices.utf8Slice(Double.toString(value));
+                    break;
+                case MAP:
+                case LIST:
+                case STRUCT:
+                default:
+                    throw new UnsupportedOperationException("Could not convert Float to " + requestType);
+            }
         }
 
         @Override
         public void addInt(int value)
         {
+            if (strictTypeChecking
+                && requestType != HiveType.LONG
+                && requestType != HiveType.INT) {
+                throw new UnsupportedOperationException("Strict Type Checking for Parquet, Could not convert Int to " + requestType);
+            }
+
             nulls[fieldIndex] = false;
-            longs[fieldIndex] = value;
+            switch (requestType) {
+                case BOOLEAN:
+                    booleans[fieldIndex] = (value != 0);
+                    break;
+                case DOUBLE:
+                case FLOAT:
+                    doubles[fieldIndex] = (double) value;
+                    break;
+                case INT:
+                case LONG:
+                    longs[fieldIndex] = value;
+                    break;
+                case STRING:
+                    slices[fieldIndex] = Slices.utf8Slice(Long.toString(value));
+                    break;
+                case MAP:
+                case LIST:
+                case STRUCT:
+                default:
+                    throw new UnsupportedOperationException("Could not convert Int to " + requestType);
+            }
         }
     }
 }

@@ -72,6 +72,7 @@ public class HiveClientConfig
     private Duration s3ConnectTimeout = new Duration(5, TimeUnit.SECONDS);
     private File s3StagingDirectory = new File(StandardSystemProperty.JAVA_IO_TMPDIR.value());
     private boolean parquetColumnIndexAccess = false;
+    private boolean parquetStrictTypeChecking = true;
 
     private HiveStorageFormat hiveStorageFormat = HiveStorageFormat.ORC;
 
@@ -499,6 +500,18 @@ public class HiveClientConfig
     public HiveClientConfig setParquetColumnIndexAccess(boolean parquetColumnIndexAccess)
     {
         this.parquetColumnIndexAccess = parquetColumnIndexAccess;
+        return this;
+    }
+
+    public boolean isParquetStrictTypeChecking()
+    {
+        return parquetStrictTypeChecking;
+    }
+
+    @Config("hive.parquet.strict.typing")
+    public HiveClientConfig setParquetStrictTypeChecking(boolean parquetStrictTypeChecking)
+    {
+        this.parquetStrictTypeChecking = parquetStrictTypeChecking;
         return this;
     }
 }
