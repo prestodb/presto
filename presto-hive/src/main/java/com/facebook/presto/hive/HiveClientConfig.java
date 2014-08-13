@@ -71,6 +71,7 @@ public class HiveClientConfig
     private Duration s3MaxBackoffTime = new Duration(10, TimeUnit.MINUTES);
     private Duration s3ConnectTimeout = new Duration(5, TimeUnit.SECONDS);
     private File s3StagingDirectory = new File(StandardSystemProperty.JAVA_IO_TMPDIR.value());
+    private boolean parquetColumnIndexAccess = false;
 
     private HiveStorageFormat hiveStorageFormat = HiveStorageFormat.ORC;
 
@@ -486,6 +487,18 @@ public class HiveClientConfig
     public HiveClientConfig setS3StagingDirectory(File s3StagingDirectory)
     {
         this.s3StagingDirectory = s3StagingDirectory;
+        return this;
+    }
+
+    public boolean isParquetColumnIndexAccess()
+    {
+        return parquetColumnIndexAccess;
+    }
+
+    @Config("hive.parquet.column.index.access")
+    public HiveClientConfig setParquetColumnIndexAccess(boolean parquetColumnIndexAccess)
+    {
+        this.parquetColumnIndexAccess = parquetColumnIndexAccess;
         return this;
     }
 }

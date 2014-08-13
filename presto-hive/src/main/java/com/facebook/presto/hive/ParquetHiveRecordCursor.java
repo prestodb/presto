@@ -79,6 +79,8 @@ class ParquetHiveRecordCursor
 {
     private static final Logger log = Logger.get(ParquetHiveRecordCursor.class);
 
+    public static final String PARQUET_COLUMN_INDEX_ACCESS = "presto.parquet.column.index.access";
+
     private final ParquetRecordReader<Void> recordReader;
     private final DateTimeZone sessionTimeZone;
 
@@ -383,12 +385,16 @@ class ParquetHiveRecordCursor
                 Map<String, String> keyValueMetaData,
                 MessageType fileSchema)
         {
+            HiveClientConfig defaults = new HiveClientConfig();
+
             ImmutableList.Builder<Converter> converters = ImmutableList.builder();
             ImmutableList.Builder<parquet.schema.Type> fields = ImmutableList.builder();
             for (int i = 0; i < columns.size(); i++) {
                 HiveColumnHandle column = columns.get(i);
                 if (!column.isPartitionKey()) {
-                    parquet.schema.Type type = fileSchema.getType(column.getName());
+                    parquet.schema.Type type =
+                        configuration.getBoolean(PARQUET_COLUMN_INDEX_ACCESS, defaults.isParquetColumnIndexAccess()) ?
+                            fileSchema.getType(column.getOrdinalPosition()) : fileSchema.getType(column.getName());
                     fields.add(type);
                     HiveType hiveType = column.getHiveType();
                     switch (hiveType) {
