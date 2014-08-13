@@ -1,6 +1,6 @@
-================
+===============
 Color Functions
-================
+===============
 
 .. function:: bar(x, width) -> varchar
 
@@ -23,10 +23,9 @@ Color Functions
     (0xFF0000) and yellow (0xFFFF00) and the remainder of the 80
     character bar will be padded with spaces.
 
-.. figure:: 	  ../images/functions_color_bar.png
-   :align: 	  center
+    .. figure:: ../images/functions_color_bar.png
+       :align: center
 
-   Example Output of the ``bar`` function
 .. function:: color(string) -> color
 
     Returns a color capturing a decoded RGB value from a 4-character
