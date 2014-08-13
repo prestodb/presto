@@ -279,7 +279,7 @@ public class PredicatePushDown
             PlanNode rightSource = planRewriter.rewrite(node.getRight(), rightPredicate);
 
             PlanNode output = node;
-            if (leftSource != node.getLeft() || rightSource != node.getRight() || !newJoinPredicate.equals(joinPredicate)) {
+            if (leftSource != node.getLeft() || rightSource != node.getRight() || !newJoinPredicate.equals(joinPredicate) || isCrossJoin) {
                 List<JoinNode.EquiJoinClause> criteria = node.getCriteria();
 
                 // Rewrite criteria and add projections if there is a new join predicate

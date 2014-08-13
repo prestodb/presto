@@ -101,58 +101,60 @@ public class IndexJoinOptimizer
             PlanNode leftRewritten = planRewriter.rewrite(node.getLeft(), context);
             PlanNode rightRewritten = planRewriter.rewrite(node.getRight(), context);
 
-            List<Symbol> leftJoinSymbols = Lists.transform(node.getCriteria(), leftGetter());
-            List<Symbol> rightJoinSymbols = Lists.transform(node.getCriteria(), rightGetter());
+            if (!node.getCriteria().isEmpty()) { // Index join only possible with JOIN criteria
+                List<Symbol> leftJoinSymbols = Lists.transform(node.getCriteria(), leftGetter());
+                List<Symbol> rightJoinSymbols = Lists.transform(node.getCriteria(), rightGetter());
 
-            Optional<PlanNode> leftIndexCandidate = IndexSourceRewriter.rewriteWithIndex(
-                    leftRewritten,
-                    ImmutableSet.copyOf(leftJoinSymbols),
-                    indexManager,
-                    symbolAllocator,
-                    idAllocator
-            );
-            if (leftIndexCandidate.isPresent()) {
-                // Sanity check that we can trace the path for the index lookup key
-                checkState(IndexKeyTracer.trace(leftIndexCandidate.get(), ImmutableSet.copyOf(leftJoinSymbols)).keySet().containsAll(leftJoinSymbols));
-            }
+                Optional<PlanNode> leftIndexCandidate = IndexSourceRewriter.rewriteWithIndex(
+                        leftRewritten,
+                        ImmutableSet.copyOf(leftJoinSymbols),
+                        indexManager,
+                        symbolAllocator,
+                        idAllocator
+                );
+                if (leftIndexCandidate.isPresent()) {
+                    // Sanity check that we can trace the path for the index lookup key
+                    checkState(IndexKeyTracer.trace(leftIndexCandidate.get(), ImmutableSet.copyOf(leftJoinSymbols)).keySet().containsAll(leftJoinSymbols));
+                }
 
-            Optional<PlanNode> rightIndexCandidate = IndexSourceRewriter.rewriteWithIndex(
-                    rightRewritten,
-                    ImmutableSet.copyOf(rightJoinSymbols),
-                    indexManager,
-                    symbolAllocator,
-                    idAllocator
-            );
-            if (rightIndexCandidate.isPresent()) {
-                // Sanity check that we can trace the path for the index lookup key
-                checkState(IndexKeyTracer.trace(rightIndexCandidate.get(), ImmutableSet.copyOf(rightJoinSymbols)).keySet().containsAll(rightJoinSymbols));
-            }
+                Optional<PlanNode> rightIndexCandidate = IndexSourceRewriter.rewriteWithIndex(
+                        rightRewritten,
+                        ImmutableSet.copyOf(rightJoinSymbols),
+                        indexManager,
+                        symbolAllocator,
+                        idAllocator
+                );
+                if (rightIndexCandidate.isPresent()) {
+                    // Sanity check that we can trace the path for the index lookup key
+                    checkState(IndexKeyTracer.trace(rightIndexCandidate.get(), ImmutableSet.copyOf(rightJoinSymbols)).keySet().containsAll(rightJoinSymbols));
+                }
 
-            switch (node.getType()) {
-                case INNER:
-                    // Prefer the right candidate over the left candidate
-                    if (rightIndexCandidate.isPresent()) {
-                        return new IndexJoinNode(idAllocator.getNextId(), IndexJoinNode.Type.INNER, leftRewritten, rightIndexCandidate.get(), createEquiJoinClause(leftJoinSymbols, rightJoinSymbols));
-                    }
-                    else if (leftIndexCandidate.isPresent()) {
-                        return new IndexJoinNode(idAllocator.getNextId(), IndexJoinNode.Type.INNER, rightRewritten, leftIndexCandidate.get(), createEquiJoinClause(rightJoinSymbols, leftJoinSymbols));
-                    }
-                    break;
+                switch (node.getType()) {
+                    case INNER:
+                        // Prefer the right candidate over the left candidate
+                        if (rightIndexCandidate.isPresent()) {
+                            return new IndexJoinNode(idAllocator.getNextId(), IndexJoinNode.Type.INNER, leftRewritten, rightIndexCandidate.get(), createEquiJoinClause(leftJoinSymbols, rightJoinSymbols));
+                        }
+                        else if (leftIndexCandidate.isPresent()) {
+                            return new IndexJoinNode(idAllocator.getNextId(), IndexJoinNode.Type.INNER, rightRewritten, leftIndexCandidate.get(), createEquiJoinClause(rightJoinSymbols, leftJoinSymbols));
+                        }
+                        break;
 
-                case LEFT:
-                    if (rightIndexCandidate.isPresent()) {
-                        return new IndexJoinNode(idAllocator.getNextId(), IndexJoinNode.Type.SOURCE_OUTER, leftRewritten, rightIndexCandidate.get(), createEquiJoinClause(leftJoinSymbols, rightJoinSymbols));
-                    }
-                    break;
+                    case LEFT:
+                        if (rightIndexCandidate.isPresent()) {
+                            return new IndexJoinNode(idAllocator.getNextId(), IndexJoinNode.Type.SOURCE_OUTER, leftRewritten, rightIndexCandidate.get(), createEquiJoinClause(leftJoinSymbols, rightJoinSymbols));
+                        }
+                        break;
 
-                case RIGHT:
-                    if (leftIndexCandidate.isPresent()) {
-                        return new IndexJoinNode(idAllocator.getNextId(), IndexJoinNode.Type.SOURCE_OUTER, rightRewritten, leftIndexCandidate.get(), createEquiJoinClause(rightJoinSymbols, leftJoinSymbols));
-                    }
-                    break;
+                    case RIGHT:
+                        if (leftIndexCandidate.isPresent()) {
+                            return new IndexJoinNode(idAllocator.getNextId(), IndexJoinNode.Type.SOURCE_OUTER, rightRewritten, leftIndexCandidate.get(), createEquiJoinClause(rightJoinSymbols, leftJoinSymbols));
+                        }
+                        break;
 
-                default:
-                    throw new IllegalArgumentException("Unknown type: " + node.getType());
+                    default:
+                        throw new IllegalArgumentException("Unknown type: " + node.getType());
+                }
             }
 
             if (leftRewritten != node.getLeft() || rightRewritten != node.getRight()) {
