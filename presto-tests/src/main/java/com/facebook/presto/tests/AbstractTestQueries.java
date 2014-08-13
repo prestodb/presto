@@ -2720,6 +2720,13 @@ public abstract class AbstractTestQueries
                 "CROSS JOIN (SELECT * FROM lineitem ORDER BY orderkey LIMIT 5) b");
     }
 
+    @Test
+    public void testSimpleCrossJoins()
+            throws Exception
+    {
+        assertQuery("SELECT * FROM (SELECT 1 a) x CROSS JOIN (SELECT 2 b) y");
+    }
+
     @Test(expectedExceptions = RuntimeException.class, expectedExceptionsMessageRegExp = "Implicit cross joins are not yet supported; use CROSS JOIN")
     public void testImplicitCrossJoin()
             throws Exception
