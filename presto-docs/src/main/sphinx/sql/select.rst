@@ -35,30 +35,28 @@ Retrieve rows from zero or more tables.
 GROUP BY Clause
 ---------------
 
-The GROUP BY clause divides the output of a select statement into
-groups of rows containing matching values. A GROUP BY clause may
-contain any expression matching an input column, an output column, or
-an ordinal number selecting an output column by position.
+The ``GROUP BY`` clause divides the output of a ``SELECT`` statement into
+groups of rows containing matching values. A ``GROUP BY`` clause may
+contain any expression composed of input columns or it may be an ordinal
+number selecting an output column by position (starting at one).
 
 The following queries are equivalent. They both group the output by
-the nationkey output column with the first query using the ordinal
-position of the output column and the second query using the output
-column name
+the ``nationkey`` input column with the first query using the ordinal
+position of the output column and the second query using the input
+column name::
+
+    SELECT count(*), nationkey FROM customer GROUP BY 2;
+
+    SELECT count(*), nationkey FROM customer GROUP BY nationkey;
+
+``GROUP BY`` clauses can group output by input column names not appearing in
+the output of a select statement. For example, the following query generates
+row counts for the ``customer`` table using the input column ``mktsegment``::
+
+    SELECT count(*) FROM customer GROUP BY mktsegment;
 
 .. code-block:: none
 
-    select count(*), nationkey from customer group by 2;
-
-    select count(*), nationkey from customer group by nationkey;
-
-GROUP BY clauses can group output by input column names not appearing
-in the output of a select statement. For example, the following query
-generates row counts for the customer table in the tpch catalog using
-the input column mktsegment.
-
-.. code-block:: none
-
-    presto:sf1> select count(*) from customer group by mktsegment;
      _col0
     -------
      29968
@@ -68,32 +66,30 @@ the input column mktsegment.
      29752
     (5 rows)
 
-When a GROUP BY clause is used in a SELECT statement all output
+When a ``GROUP BY`` clause is used in a ``SELECT`` statement all output
 expression must be either aggregate functions or columns present in
-the GROUP BY clause.
+the ``GROUP BY`` clause.
 
 HAVING Clause
 -------------
 
-The HAVING clause is used in conjunction with aggregate functions and
-the GROUP BY clause to control which groups are selected. A HAVING
-clause eliminates groups that do not satisfy the given
-conditions. HAVING selects groups, after groups and aggregates are
-computed.
+The ``HAVING`` clause is used in conjunction with aggregate functions and
+the ``GROUP BY`` clause to control which groups are selected. A ``HAVING``
+clause eliminates groups that do not satisfy the given conditions.
+``HAVING`` filters groups after groups and aggregates are computed.
 
-The following example queries the customer table from the sf1 schema
-in the tpch catalog selecting groups with an acctbal greater than
-5700000.
+The following example queries the ``customer`` table and selects groups
+with an account balance greater than the specified value::
+
+
+    SELECT count(*), mktsegment, nationkey,
+           CAST(sum(acctbal) AS bigint) AS totalbal
+    FROM customer
+    GROUP BY mktsegment, nationkey
+    HAVING sum(acctbal) > 5700000
+    ORDER BY totalbal DESC;
 
 .. code-block:: none
-
-    presto:sf1> select count(*), mktsegment, \
-                       nationkey, \
-                       cast(sum(acctbal) as bigint) as totalbal \
-                from customer \
-                group by mktsegment, nationkey \
-                having sum(acctbal) > 5700000 \
-                order by totalbal desc;
 
      _col0 | mktsegment | nationkey | totalbal
     -------+------------+-----------+----------
@@ -109,189 +105,65 @@ in the tpch catalog selecting groups with an acctbal greater than
 UNION Clause
 ------------
 
-The UNION clause is used to combine the results of more than one
-select statement into a single result set.  The argument to a UNION
-clause is another select statement.
+The ``UNION`` clause is used to combine the results of more than one
+select statement into a single result set:
 
 .. code-block:: none
 
-    select_statement UNION [ALL | DISTINCT] select_statement
+    query UNION [ALL | DISTINCT] query
 
-The argument ALL or DISTINCT controls which results are included in
-the final result set. If the argument ALL is specified all results are
-included even if the results are identical.  If the argument DISTINCT
-is specified only distinct results are included in the combined result
-set. If neither ALL nor DISTINCT is specified the behavior of the
-UNION clause defaults to the behavior specified by DISTINCT.
+The argument ``ALL`` or ``DISTINCT`` controls which rows are included in
+the final result set. If the argument ``ALL`` is specified all rows are
+included even if the rows are identical.  If the argument ``DISTINCT``
+is specified only unique rows are included in the combined result set.
+If neither is specified, the behavior defaults to ``DISTINCT``.
 
-The following is an example of one of the simplest possible UNION
-clauses. The following query selects the bigint value 1 and combines
-this result set with a second select statement which selects the
-bigint value 2.
+The following is an example of one of the simplest possible ``UNION``
+clauses. The following query selects the value ``13`` and combines
+this result set with a second query which selects the value ``42``::
+
+    SELECT 13
+    UNION
+    SELECT 42;
 
 .. code-block:: none
 
-    presto:default> select 1 union select 2;
      _col0
     -------
-         2
-         1
+        13
+        42
     (2 rows)
 
-To illustrate the behavior of ALL of DISTINCT, consider the following
-query example:
-
-.. code-block:: none
-
-    presto:default> select 1 union select 1;
-     _col0
-    -------
-         1
-    (1 row)
-
-The query shown above doesn't specific ALL or DISTINCT, so the UNION
-clause defaults to DISTINCT behavior. The query shown above is
-equivalent to ``select 1 union distinct select 1;``.
-
-Next consider the output of the same query with a UNION clause that
-specifies ALL behavior:
-
-.. code-block:: none
-
-    presto:default> select 1 union all select 1;
-     _col0
-    -------
-         1
-         1
-    (2 rows)
-
-Note that Presto will make no attempt to make result sets with
-incompatible types compatible.  The following query will produce an
-error as the query is attempting to union two select statements with
-different column types.
-
-.. code-block:: none
-
-    presto:default> select CAST(1 as varchar) union select 2;
-
-    Query 20140209_174939_00046_qhay4 failed: Union query terms have
-    mismatched columns
-
-More than two select statements can be combined with multiple union
-statments. The type of union, either ALL or DISTINCT, of the first
-union influences the type of union for subsequent union
-statements. For example, the following statement produces a union of
-three select statements with distinct elements in the final result
-set:
-
-.. code-block:: none
-
-    presto:default> select 1 union \
-                    select 1 union \
-                    select 1;
-     _col0
-    -------
-         1
-    (1 row)
-
-If an ALL is specified on the first UNION clause, the result set will
-include all results from three select statments:
-
-.. code-block:: none
-
-    presto:default> select 1 union all \
-                    select 1 union \
-                    select 1;
-     _col0
-    -------
-         1
-         1
-         1
-    (3 rows)
-
-To clarify the behavior of ALL or DISTINCT when using multiple UNION
-clauses, note the behavior of the following statement with two UNION
-clauses. The first clause specifies ALL and the second UNION clause
-specifies DISTINCT. In this case the result of two UNION clauses uses
-the behavior specified by the first UNION clause which is ALL.
-
-.. code-block:: none
-
-    presto:default> select 1 union all \
-                    select 1 union distinct \
-                    select 1;
-     _col0
-    -------
-         1
-         1
-         1
-    (3 rows)
+Multiple unions are processed left to right, unless the order is explicitly
+specified via parentheses.
 
 ORDER BY Clause
 ---------------
 
-The ORDER BY clause is used to sort a result set of a select statement
-by one or more columns. This clause has the following structure:
+The ``ORDER BY`` clause is used to sort a result set by one or more
+output expressions:
 
 .. code-block:: none
 
-    ORDER BY expression [ ASC | DESC ] [, ...]
+    ORDER BY expression [ ASC | DESC ] [ NULLS { FIRST | LAST } ] [, ...]
 
-Expression can be a column name or a function call which produces a
-numeric, character, or boolean value to be sorted.  ORDER BY clauses
-can contain one or more expressions to be evaluated for each row of a
-result set.
-
-Consider the following example which sorts the union of three select
-statements.
-
-.. code-block:: none
-
-    presto:default> select 2 as value union \
-                    select 1 as value union \
-                    select 4 as value \
-                          order by value asc;
-     value
-    -------
-         1
-         2
-         4
-    (3 rows)
-
-An ORDER BY clause can also contain an expression that evaluates a
-function against a column value.  Consider the output of the following
-statement which sorts numeric values by absolute value.
-
-.. code-block:: none
-
-    presto:default> select -12 as value union \
-                    select 2 as value union \
-                    select -1 as value \
-                        order by abs(value) asc;
-     value
-    -------
-        -1
-         2
-       -12
-    (3 rows)
+Each expression may be composed of output columns or it may be an ordinal
+number selecting an output column by position (starting at one). The
+``ORDER BY`` clause is evaluated as the last step of a query after any
+``GROUP BY`` or ``HAVING`` clause.
 
 LIMIT Clause
 ------------
 
-The LIMIT clause has the following syntax:
+The ``LIMIT`` clause restricts the number of rows in the result set.
+The following example queries a large table, but the limit clause restricts
+the output to only have five rows (because the query lacks an ``ORDER BY``,
+exactly which rows are returned is arbitrary)::
+
+    SELECT orderdate FROM orders LIMIT 5;
 
 .. code-block:: none
 
-    LIMIT count
-
-Specifying a LIMIT count value restricts the query output to a limited
-number of records. The following example queries a table with 7.5
-million rows, but the limit clause limits the output to only five
-rows:
-
-.. code-block:: none
-
-    presto:default> select o_orderdate from orders limit 5;
      o_orderdate
     -------------
      1996-04-14
