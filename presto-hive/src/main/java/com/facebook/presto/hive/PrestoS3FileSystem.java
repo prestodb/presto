@@ -77,17 +77,39 @@ import static java.lang.Math.max;
 import static java.nio.file.Files.createDirectories;
 import static java.nio.file.Files.createTempFile;
 
+import com.amazonaws.event.ProgressEvent;
+import com.amazonaws.event.ProgressListener;
+import com.amazonaws.services.s3.transfer.TransferManager;
+import com.amazonaws.services.s3.transfer.TransferManagerConfiguration;
+import com.amazonaws.services.s3.transfer.Upload;
+import java.text.DecimalFormat;
+import static com.amazonaws.event.ProgressEvent.PART_STARTED_EVENT_CODE;
+import static com.amazonaws.event.ProgressEvent.PART_COMPLETED_EVENT_CODE;
+import static com.amazonaws.event.ProgressEvent.PART_FAILED_EVENT_CODE;
+import static com.amazonaws.event.ProgressEvent.CANCELED_EVENT_CODE;
+import static com.amazonaws.event.ProgressEvent.COMPLETED_EVENT_CODE;
+import static com.amazonaws.event.ProgressEvent.FAILED_EVENT_CODE;
+import static com.amazonaws.event.ProgressEvent.PREPARING_EVENT_CODE;
+import static com.amazonaws.event.ProgressEvent.RESET_EVENT_CODE;
+import static com.amazonaws.event.ProgressEvent.STARTED_EVENT_CODE;
+
 public class PrestoS3FileSystem
         extends FileSystem
 {
+    private static final Logger log = Logger.get(PrestoS3FileSystem.class);
+
+    private HiveClientConfig defaults = new HiveClientConfig();
+    TransferManagerConfiguration transferManagerConfiguration = new TransferManagerConfiguration();
+
     public static final String S3_SSL_ENABLED = "presto.s3.ssl.enabled";
     public static final String S3_MAX_ERROR_RETRIES = "presto.s3.max-error-retries";
     public static final String S3_MAX_CLIENT_RETRIES = "presto.s3.max-client-retries";
     public static final String S3_MAX_BACKOFF_TIME = "presto.s3.max-backoff-time";
     public static final String S3_CONNECT_TIMEOUT = "presto.s3.connect-timeout";
     public static final String S3_STAGING_DIRECTORY = "presto.s3.staging-directory";
-
-    private static final Logger log = Logger.get(PrestoS3FileSystem.class);
+    public static final String S3_MAX_CONNECTIONS = "presto.s3.max-connections";
+    public static final String S3_MULTIPART_UPLOAD_MIN_SIZE = "presto.s3.min-part-size";
+    public static final String S3_MULTIPART_UPLOAD_THRESHOLD = "presto.s3.multipart-upload-threshold";
 
     private static final DataSize BLOCK_SIZE = new DataSize(32, MEGABYTE);
     private static final DataSize MAX_SKIP_SIZE = new DataSize(1, MEGABYTE);
@@ -98,6 +120,7 @@ public class PrestoS3FileSystem
     private File stagingDirectory;
     private int maxClientRetries;
     private Duration maxBackoffTime;
+    private TransferManager multipartUploadTm;
 
     @Override
     public void initialize(URI uri, Configuration conf)
@@ -109,20 +132,33 @@ public class PrestoS3FileSystem
         this.uri = URI.create(uri.getScheme() + "://" + uri.getAuthority());
         this.workingDirectory = new Path("/").makeQualified(this.uri, new Path("/"));
 
-        HiveClientConfig defaults = new HiveClientConfig();
         this.stagingDirectory = new File(conf.get(S3_STAGING_DIRECTORY, defaults.getS3StagingDirectory().toString()));
         this.maxClientRetries = conf.getInt(S3_MAX_CLIENT_RETRIES, defaults.getS3MaxClientRetries());
         this.maxBackoffTime = Duration.valueOf(conf.get(S3_MAX_BACKOFF_TIME, defaults.getS3MaxBackoffTime().toString()));
         int maxErrorRetries = conf.getInt(S3_MAX_ERROR_RETRIES, defaults.getS3MaxErrorRetries());
         boolean sslEnabled = conf.getBoolean(S3_SSL_ENABLED, defaults.isS3SslEnabled());
         Duration connectTimeout = Duration.valueOf(conf.get(S3_CONNECT_TIMEOUT, defaults.getS3ConnectTimeout().toString()));
+        int maxConnections = conf.getInt(S3_MAX_CONNECTIONS, defaults.getS3MaxConnections());
 
         ClientConfiguration configuration = new ClientConfiguration();
         configuration.setMaxErrorRetry(maxErrorRetries);
         configuration.setProtocol(sslEnabled ? Protocol.HTTPS : Protocol.HTTP);
         configuration.setConnectionTimeout(Ints.checkedCast(connectTimeout.toMillis()));
+        configuration.setMaxConnections(maxConnections);
 
         this.s3 = new AmazonS3Client(getAwsCredentials(uri, conf), configuration);
+        long minPartSize = conf.getLong(S3_MULTIPART_UPLOAD_MIN_SIZE, defaults.getS3MultipartUploadMinPartSize().toBytes());
+        long multipartUploadThreshold = conf.getLong(S3_MULTIPART_UPLOAD_THRESHOLD, defaults.getS3MultipartUploadThreshold().toBytes());
+        transferManagerConfiguration.setMinimumUploadPartSize(minPartSize);
+        transferManagerConfiguration.setMultipartUploadThreshold((int) multipartUploadThreshold);
+
+        if (log.isDebugEnabled()) {
+            log.debug("Set maxErrorRetries to %d", maxErrorRetries);
+            log.debug("Set connectTimeout to %s", connectTimeout);
+            log.debug("Set maxConnections to %d", maxConnections);
+            log.debug("Set multipartUploadThreshold to %d", multipartUploadThreshold);
+            log.debug("Set minimumUploadPartSize to %d", minPartSize);
+        }
     }
 
     @Override
@@ -244,7 +280,7 @@ public class PrestoS3FileSystem
 
         String key = keyFromPath(qualifiedPath(path));
         return new FSDataOutputStream(
-                new PrestoS3OutputStream(s3, uri.getHost(), key, tempFile),
+                new PrestoS3OutputStream(s3, uri.getHost(), key, tempFile, transferManagerConfiguration),
                 statistics);
     }
 
@@ -607,10 +643,11 @@ public class PrestoS3FileSystem
         private final String host;
         private final String key;
         private final File tempFile;
+        private final TransferManager multipartUploadTm;
 
         private boolean closed;
 
-        public PrestoS3OutputStream(AmazonS3 s3, String host, String key, File tempFile)
+        public PrestoS3OutputStream(AmazonS3 s3, String host, String key, File tempFile, TransferManagerConfiguration transferManagerConfiguration)
                 throws IOException
         {
             super(new BufferedOutputStream(new FileOutputStream(checkNotNull(tempFile, "tempFile is null"))));
@@ -619,6 +656,8 @@ public class PrestoS3FileSystem
             this.host = checkNotNull(host, "host is null");
             this.key = checkNotNull(key, "key is null");
             this.tempFile = tempFile;
+            multipartUploadTm = new TransferManager(s3);
+            multipartUploadTm.setConfiguration(transferManagerConfiguration);
 
             log.debug("OutputStream for key '%s' using file: %s", key, tempFile);
         }
@@ -640,6 +679,7 @@ public class PrestoS3FileSystem
                 if (!tempFile.delete()) {
                     log.warn("Could not delete temporary file: %s", tempFile);
                 }
+                multipartUploadTm.shutdownNow(false); //do not close underlying S3 client
             }
         }
 
@@ -647,12 +687,60 @@ public class PrestoS3FileSystem
                 throws IOException
         {
             try {
-                log.debug("Starting upload for key: %s", key);
-                s3.putObject(host, key, tempFile);
-                log.debug("Completed upload for key: %s", key);
+                log.debug("Starting upload for bucket %s, key: %s, file %s", host, key, tempFile);
+                final Upload upload = multipartUploadTm.upload(host, key, tempFile);
+                upload.addProgressListener(new ProgressListener() {
+                    private double prevProgress = 0.0;
+
+                    @Override
+                    public void progressChanged(ProgressEvent progressEvent)
+                    {
+                        double percentTransferred = upload.getProgress().getPercentTransferred();
+                        if (percentTransferred > (prevProgress + 10.0)) {
+                            log.debug("Multipart upload total completed %s [%%]", new DecimalFormat("#.00").format(percentTransferred));
+                            prevProgress = percentTransferred;
+                        }
+
+                        switch (progressEvent.getEventCode()) {
+                            case PART_STARTED_EVENT_CODE:
+                                log.debug("Part upload started");
+                                break;
+                            case PART_COMPLETED_EVENT_CODE:
+                                log.debug("Part upload completed");
+                                break;
+                            case PART_FAILED_EVENT_CODE:
+                                log.debug("Part upload failed");
+                                break;
+                            case CANCELED_EVENT_CODE:
+                                log.debug("Part upload canceled");
+                                break;
+                            case COMPLETED_EVENT_CODE:
+                                log.debug("Multipart upload completed");
+                                break;
+                            case FAILED_EVENT_CODE:
+                                log.debug("Multipart upload failed");
+                                break;
+                            case PREPARING_EVENT_CODE:
+                                log.debug("Preparing multipart upload");
+                                break;
+                            case RESET_EVENT_CODE:
+                                log.debug("Multipart upload reset");
+                                break;
+                            case STARTED_EVENT_CODE:
+                                log.debug("Multipart upload started");
+                                break;
+                            default:
+                                break;
+                        }
+                    }
+                });
+                upload.waitForCompletion();
             }
             catch (AmazonClientException e) {
                 throw new IOException(e);
+            }
+            catch (InterruptedException e) {
+                Thread.interrupted();
             }
         }
     }

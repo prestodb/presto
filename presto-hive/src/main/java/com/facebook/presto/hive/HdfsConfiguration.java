@@ -21,7 +21,7 @@ import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.net.DNSToSwitchMapping;
 import org.apache.hadoop.net.SocksSocketFactory;
-
+import io.airlift.units.DataSize;
 import javax.inject.Inject;
 import javax.net.SocketFactory;
 
@@ -49,6 +49,9 @@ public class HdfsConfiguration
     private final File s3StagingDirectory;
     private final List<String> resourcePaths;
     private final boolean verifyChecksum;
+    private final int s3MaxConnections;
+    private DataSize s3MultipartUploadMinSize;
+    private DataSize s3MultipartUploadThreshold;
 
     @SuppressWarnings("ThreadLocalNotStaticFinal")
     private final ThreadLocal<Configuration> hadoopConfiguration = new ThreadLocal<Configuration>()
@@ -81,6 +84,9 @@ public class HdfsConfiguration
         this.s3StagingDirectory = hiveClientConfig.getS3StagingDirectory();
         this.resourcePaths = hiveClientConfig.getResourceConfigFiles();
         this.verifyChecksum = hiveClientConfig.isVerifyChecksum();
+        this.s3MaxConnections = hiveClientConfig.getS3MaxConnections();
+        this.s3MultipartUploadMinSize = hiveClientConfig.getS3MultipartUploadMinPartSize();
+        this.s3MultipartUploadThreshold = hiveClientConfig.getS3MultipartUploadThreshold();
     }
 
     public boolean verifyChecksum()
@@ -149,6 +155,9 @@ public class HdfsConfiguration
         config.set(PrestoS3FileSystem.S3_MAX_BACKOFF_TIME, s3MaxBackoffTime.toString());
         config.set(PrestoS3FileSystem.S3_CONNECT_TIMEOUT, s3ConnectTimeout.toString());
         config.set(PrestoS3FileSystem.S3_STAGING_DIRECTORY, s3StagingDirectory.toString());
+        config.setLong(PrestoS3FileSystem.S3_MULTIPART_UPLOAD_MIN_SIZE, s3MultipartUploadMinSize.toBytes());
+        config.setInt(PrestoS3FileSystem.S3_MULTIPART_UPLOAD_THRESHOLD, (int) s3MultipartUploadThreshold.toBytes());
+        config.setInt(PrestoS3FileSystem.S3_MAX_CONNECTIONS, s3MaxConnections);
 
         updateConfiguration(config);
 
