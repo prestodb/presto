@@ -171,6 +171,7 @@ public class FunctionRegistry
 
     // hack: java classes for types that can be used with magic literals
     private static final Set<Class<?>> SUPPORTED_LITERAL_TYPES = ImmutableSet.<Class<?>>of(long.class, double.class, Slice.class, boolean.class);
+    public static final Set<Class<?>> NULLABLE_ARGUMENT_TYPES = ImmutableSet.<Class<?>>of(Boolean.class, Long.class, Double.class, Slice.class);
 
     private final TypeManager typeManager;
     private volatile FunctionMap functions = new FunctionMap();
@@ -358,7 +359,8 @@ public class FunctionRegistry
                     true,
                     identity,
                     true,
-                    false);
+                    false,
+                    ImmutableList.of(false));
         }
 
         throw new PrestoException(StandardErrorCode.FUNCTION_NOT_FOUND.toErrorCode(), message);
@@ -411,7 +413,7 @@ public class FunctionRegistry
         // if identity cast, return a custom operator info
         if ((operatorType == OperatorType.CAST) && (argumentTypes.size() == 1) && argumentTypes.get(0).equals(returnType)) {
             MethodHandle identity = MethodHandles.identity(returnType.getJavaType());
-            return operatorInfo(OperatorType.CAST, returnType, argumentTypes, identity, false);
+            return operatorInfo(OperatorType.CAST, returnType, argumentTypes, identity, false, ImmutableList.of(false));
         }
 
         throw new OperatorNotFoundException(operatorType, argumentTypes, returnType);
@@ -621,15 +623,15 @@ public class FunctionRegistry
             return this;
         }
 
-        public FunctionListBuilder scalar(Signature signature, MethodHandle function, boolean deterministic, String description, boolean hidden, boolean nullable)
+        public FunctionListBuilder scalar(Signature signature, MethodHandle function, boolean deterministic, String description, boolean hidden, boolean nullable, List<Boolean> nullableArguments)
         {
-            functions.add(new FunctionInfo(signature, description, hidden, function, deterministic, nullable));
+            functions.add(new FunctionInfo(signature, description, hidden, function, deterministic, nullable, nullableArguments));
             return this;
         }
 
-        private FunctionListBuilder operator(OperatorType operatorType, Type returnType, List<Type> parameterTypes, MethodHandle function, boolean nullable)
+        private FunctionListBuilder operator(OperatorType operatorType, Type returnType, List<Type> parameterTypes, MethodHandle function, boolean nullable, List<Boolean> nullableArguments)
         {
-            FunctionInfo operatorInfo = operatorInfo(operatorType, returnType, parameterTypes, function, nullable);
+            FunctionInfo operatorInfo = operatorInfo(operatorType, returnType, parameterTypes, function, nullable, nullableArguments);
             operators.put(operatorType, operatorInfo);
             functions.add(operatorInfo);
             return this;
@@ -671,11 +673,35 @@ public class FunctionRegistry
 
             verifyMethodSignature(method, signature.getReturnType(), signature.getArgumentTypes());
 
-            scalar(signature, methodHandle, scalarFunction.deterministic(), getDescription(method), scalarFunction.hidden(), method.isAnnotationPresent(Nullable.class));
+            List<Boolean> nullableArguments = getNullableArguments(method);
+
+            scalar(signature, methodHandle, scalarFunction.deterministic(), getDescription(method), scalarFunction.hidden(), method.isAnnotationPresent(Nullable.class), nullableArguments);
             for (String alias : scalarFunction.alias()) {
-                scalar(signature.withAlias(alias.toLowerCase()), methodHandle, scalarFunction.deterministic(), getDescription(method), scalarFunction.hidden(), method.isAnnotationPresent(Nullable.class));
+                scalar(signature.withAlias(alias.toLowerCase()), methodHandle, scalarFunction.deterministic(), getDescription(method), scalarFunction.hidden(), method.isAnnotationPresent(Nullable.class), nullableArguments);
             }
             return true;
+        }
+
+        private static List<Boolean> getNullableArguments(Method method)
+        {
+            List<Boolean> nullableArguments = new ArrayList<>();
+            for (Annotation[] annotations : method.getParameterAnnotations()) {
+                boolean nullable = false;
+                boolean foundSqlType = false;
+                for (Annotation annotation : annotations) {
+                    if (annotation instanceof Nullable) {
+                        nullable = true;
+                    }
+                    if (annotation instanceof SqlType) {
+                        foundSqlType = true;
+                    }
+                }
+                // Check that this is a real argument. For example, some functions take ConnectorSession which isn't a SqlType
+                if (foundSqlType) {
+                    nullableArguments.add(nullable);
+                }
+            }
+            return nullableArguments;
         }
 
         private boolean processScalarOperator(Method method)
@@ -704,7 +730,9 @@ public class FunctionRegistry
                 verifyMethodSignature(method, returnType, parameterTypes);
             }
 
-            operator(operatorType, returnType, parameterTypes, methodHandle, method.isAnnotationPresent(Nullable.class));
+            List<Boolean> nullableArguments = getNullableArguments(method);
+
+            operator(operatorType, returnType, parameterTypes, methodHandle, method.isAnnotationPresent(Nullable.class), nullableArguments);
             return true;
         }
 
@@ -721,9 +749,12 @@ public class FunctionRegistry
 
         private static final Set<Class<?>> SUPPORTED_TYPES = ImmutableSet.of(
                 long.class,
+                Long.class,
                 double.class,
+                Double.class,
                 Slice.class,
                 boolean.class,
+                Boolean.class,
                 Pattern.class,
                 Regex.class,
                 JsonPath.class);
@@ -768,12 +799,12 @@ public class FunctionRegistry
         }
     }
 
-    private static FunctionInfo operatorInfo(OperatorType operatorType, Type returnType, List<? extends Type> argumentTypes, MethodHandle method, boolean nullable)
+    private static FunctionInfo operatorInfo(OperatorType operatorType, Type returnType, List<? extends Type> argumentTypes, MethodHandle method, boolean nullable, List<Boolean> nullableArguments)
     {
         operatorType.validateSignature(returnType, ImmutableList.copyOf(argumentTypes));
 
         Signature signature = new Signature(operatorType.name(), returnType, argumentTypes, true);
-        return new FunctionInfo(signature, operatorType.getOperator(), true, method, true, nullable);
+        return new FunctionInfo(signature, operatorType.getOperator(), true, method, true, nullable, nullableArguments);
     }
 
     private static void verifyMethodSignature(Method method, Type returnType, List<Type> argumentTypes)
@@ -786,13 +817,23 @@ public class FunctionRegistry
 
         // skip Session argument
         Class<?>[] parameterTypes = method.getParameterTypes();
+        Annotation[][] annotations = method.getParameterAnnotations();
         if (parameterTypes.length > 0 && parameterTypes[0] == ConnectorSession.class) {
             parameterTypes = Arrays.copyOfRange(parameterTypes, 1, parameterTypes.length);
+            annotations = Arrays.copyOfRange(annotations, 1, annotations.length);
         }
 
         for (int i = 0; i < parameterTypes.length; i++) {
             Class<?> actualType = parameterTypes[i];
             Type expectedType = argumentTypes.get(i);
+            boolean nullable = !FluentIterable.from(Arrays.asList(annotations[i])).filter(Nullable.class).isEmpty();
+            // Only allow boxing for functions that need to see nulls
+            if (Primitives.isWrapperType(actualType)) {
+                checkArgument(nullable, "Method %s has parameter with type %s that is missing @Nullable", method, actualType);
+            }
+            if (nullable) {
+                checkArgument(NULLABLE_ARGUMENT_TYPES.contains(actualType), "Method %s has parameter type %s, but @Nullable is not supported on this type", method, actualType);
+            }
             checkArgument(Primitives.unwrap(actualType) == expectedType.getJavaType(),
                     "Expected method %s parameter %s type to be %s (%s)",
                     method,
