@@ -13,23 +13,31 @@
  */
 package com.facebook.presto.byteCode;
 
-public interface Variable
+import com.facebook.presto.byteCode.instruction.VariableInstruction;
+
+import static com.google.common.base.Preconditions.checkNotNull;
+
+public class Variable
 {
-    LocalVariableDefinition getLocalVariableDefinition();
+    private final LocalVariableDefinition variableDefinition;
 
-    ByteCodeNode getValue();
+    public Variable(LocalVariableDefinition variableDefinition)
+    {
+        this.variableDefinition = checkNotNull(variableDefinition, "variableDefinition is null");
+    }
 
-    ByteCodeNode setValue();
+    public LocalVariableDefinition getLocalVariableDefinition()
+    {
+        return variableDefinition;
+    }
 
-    ByteCodeNode getReference();
+    public ByteCodeNode getValue()
+    {
+        return VariableInstruction.loadVariable(variableDefinition);
+    }
 
-    ByteCodeNode setReference();
-
-    ByteCodeNode isSet();
-
-    ByteCodeNode unset();
-
-    ByteCodeNode getInitialization();
-
-    ByteCodeNode getCleanup();
+    public ByteCodeNode setValue()
+    {
+        return VariableInstruction.storeVariable(variableDefinition);
+    }
 }
