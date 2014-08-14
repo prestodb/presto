@@ -44,7 +44,7 @@ import static com.facebook.presto.byteCode.expression.ByteCodeExpression.invokeD
 import static com.facebook.presto.sql.gen.Bootstrap.CALL_SITES_FIELD_NAME;
 import static java.lang.String.format;
 
-public class ByteCodeUtils
+public final class ByteCodeUtils
 {
     private ByteCodeUtils()
     {
@@ -68,7 +68,7 @@ public class ByteCodeUtils
     public static ByteCodeNode handleNullValue(CompilerContext context,
             LabelNode label,
             Class<?> returnType,
-            List<? extends Class<?>> stackArgsToPop,
+            List<Class<?>> stackArgsToPop,
             boolean clearNullFlag)
     {
         Block nullCheck = new Block(context)
@@ -165,7 +165,7 @@ public class ByteCodeUtils
         Block block = new Block(context)
                 .setDescription("invoke " + signature);
 
-        ArrayList<Class<?>> stackTypes = new ArrayList<>();
+        List<Class<?>> stackTypes = new ArrayList<>();
 
         int index = 0;
         for (Class<?> type : methodType.parameterArray()) {
@@ -176,7 +176,7 @@ public class ByteCodeUtils
             else {
                 block.append(arguments.get(index));
                 index++;
-                block.append(ByteCodeUtils.ifWasNullPopAndGoto(context, end, unboxedReturnType, Lists.reverse(stackTypes)));
+                block.append(ifWasNullPopAndGoto(context, end, unboxedReturnType, Lists.reverse(stackTypes)));
             }
         }
         block.append(invoke(context, binding));
@@ -192,7 +192,7 @@ public class ByteCodeUtils
                         .pushJavaDefault(unboxedReturnType)
                         .gotoLabel(end)
                         .visitLabel(notNull)
-                        .append(ByteCodeUtils.unboxPrimitive(context, unboxedReturnType));
+                        .append(unboxPrimitive(context, unboxedReturnType));
             }
             else {
                 block.dup(methodType.returnType())
