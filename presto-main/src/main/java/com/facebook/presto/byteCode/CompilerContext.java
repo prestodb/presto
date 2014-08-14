@@ -33,9 +33,6 @@ public class CompilerContext
     private final Method defaultBootstrapMethod;
     private final Object[] defaultBootstrapArguments;
 
-    private final VariableFactory variableFactory;
-    private final VariableFactory parameterFactory;
-
     private final Map<String, Variable> variables = new TreeMap<>();
     private final List<Variable> allVariables = new ArrayList<>();
 
@@ -50,16 +47,13 @@ public class CompilerContext
 
     public CompilerContext(Method defaultBootstrapMethod)
     {
-        this(defaultBootstrapMethod, new Object[0], new LocalVariableFactory(), new LocalVariableFactory());
+        this(defaultBootstrapMethod, new Object[0]);
     }
 
-    public CompilerContext(Method defaultBootstrapMethod, Object[] defaultBootstrapArguments, VariableFactory variableFactory, VariableFactory parameterFactory)
+    public CompilerContext(Method defaultBootstrapMethod, Object[] defaultBootstrapArguments)
     {
         this.defaultBootstrapMethod = defaultBootstrapMethod;
         this.defaultBootstrapArguments = defaultBootstrapArguments;
-        this.parameterFactory = parameterFactory;
-        Preconditions.checkNotNull(variableFactory, "localVariableType is null");
-        this.variableFactory = variableFactory;
     }
 
     public Variable createTempVariable(Class<?> type)
@@ -70,7 +64,7 @@ public class CompilerContext
         LocalVariableDefinition variableDefinition = new LocalVariableDefinition("temp_" + nextSlot, nextSlot, type(type));
         nextSlot += Type.getType(type(type).getType()).getSize();
 
-        variable = variableFactory.createVariable(this, variableDefinition.getName(), variableDefinition);
+        variable = new Variable(variableDefinition);
 
         return variable;
     }
@@ -102,7 +96,7 @@ public class CompilerContext
         LocalVariableDefinition variableDefinition = new LocalVariableDefinition("this", 0, type);
         nextSlot = 1;
 
-        Variable variable = variableFactory.createVariable(this, "this", variableDefinition);
+        Variable variable = new Variable(variableDefinition);
         variables.put("this", variable);
     }
 
@@ -113,7 +107,7 @@ public class CompilerContext
         LocalVariableDefinition variableDefinition = new LocalVariableDefinition(parameterName, nextSlot, type);
         nextSlot += Type.getType(type.getType()).getSize();
 
-        Variable variable = parameterFactory.createVariable(this, parameterName, variableDefinition);
+        Variable variable = new Variable(variableDefinition);
 
         allVariables.add(variable);
         variables.put(parameterName, variable);
@@ -133,7 +127,7 @@ public class CompilerContext
         LocalVariableDefinition variableDefinition = new LocalVariableDefinition(variableName, nextSlot, type);
         nextSlot += Type.getType(type.getType()).getSize();
 
-        Variable variable = parameterFactory.createVariable(this, variableName, variableDefinition);
+        Variable variable = new Variable(variableDefinition);
 
         allVariables.add(variable);
         variables.put(variableName, variable);
