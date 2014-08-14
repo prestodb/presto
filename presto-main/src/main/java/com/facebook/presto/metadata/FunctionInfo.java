@@ -21,11 +21,14 @@ import com.facebook.presto.sql.tree.QualifiedName;
 import com.google.common.base.Function;
 import com.google.common.base.Objects;
 import com.google.common.base.Predicate;
+import com.google.common.collect.ImmutableList;
 
 import java.lang.invoke.MethodHandle;
+import java.util.Collections;
 import java.util.List;
 
 import static com.facebook.presto.operator.WindowFunctionDefinition.window;
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 
@@ -35,6 +38,7 @@ public final class FunctionInfo
     private final String description;
     private final boolean hidden;
     private final boolean nullable;
+    private final List<Boolean> nullableArguments;
 
     private final boolean isAggregate;
     private final Type intermediateType;
@@ -54,6 +58,7 @@ public final class FunctionInfo
         this.hidden = false;
         this.deterministic = true;
         this.nullable = false;
+        this.nullableArguments = ImmutableList.copyOf(Collections.nCopies(signature.getArgumentTypes().size(), false));
 
         this.isAggregate = false;
         this.intermediateType = null;
@@ -77,17 +82,20 @@ public final class FunctionInfo
         this.methodHandle = null;
         this.deterministic = true;
         this.nullable = false;
+        this.nullableArguments = ImmutableList.copyOf(Collections.nCopies(signature.getArgumentTypes().size(), false));
         this.isWindow = false;
         this.windowFunctionSupplier = null;
     }
 
-    public FunctionInfo(Signature signature, String description, boolean hidden, MethodHandle function, boolean deterministic, boolean nullable)
+    public FunctionInfo(Signature signature, String description, boolean hidden, MethodHandle function, boolean deterministic, boolean nullableResult, List<Boolean> nullableArguments)
     {
         this.signature = signature;
         this.description = description;
         this.hidden = hidden;
         this.deterministic = deterministic;
-        this.nullable = nullable;
+        this.nullable = nullableResult;
+        this.nullableArguments = ImmutableList.copyOf(checkNotNull(nullableArguments, "nullableArguments is null"));
+        checkArgument(nullableArguments.size() == signature.getArgumentTypes().size(), String.format("nullableArguments size (%d) does not match signature %s", nullableArguments.size(), signature));
 
         this.isAggregate = false;
         this.intermediateType = null;
@@ -180,6 +188,11 @@ public final class FunctionInfo
     public boolean isNullable()
     {
         return nullable;
+    }
+
+    public List<Boolean> getNullableArguments()
+    {
+        return nullableArguments;
     }
 
     @Override

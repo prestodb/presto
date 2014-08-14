@@ -23,12 +23,26 @@ public class TestCustomFunctions
     @BeforeClass
     public void setupClass()
     {
-        functionAssertions = new FunctionAssertions().addScalarFunctions(CustomAdd.class);
+        functionAssertions = new FunctionAssertions().addScalarFunctions(CustomFunctions.class);
     }
 
     @Test
     public void testCustomAdd()
     {
         functionAssertions.assertFunction("custom_add(123, 456)", 579L);
+    }
+
+    @Test
+    public void testSliceIsNull()
+    {
+        functionAssertions.assertFunction("custom_is_null(CAST(NULL AS VARCHAR))", true);
+        functionAssertions.assertFunction("custom_is_null('not null')", false);
+    }
+
+    @Test
+    public void testLongIsNull()
+    {
+        functionAssertions.assertFunction("custom_is_null(CAST(NULL AS BIGINT))", true);
+        functionAssertions.assertFunction("custom_is_null(0)", false);
     }
 }

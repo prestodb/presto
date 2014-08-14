@@ -14,16 +14,35 @@
 package com.facebook.presto.operator.scalar;
 
 import com.facebook.presto.spi.type.BigintType;
+import com.facebook.presto.spi.type.BooleanType;
+import com.facebook.presto.spi.type.VarcharType;
 import com.facebook.presto.type.SqlType;
+import io.airlift.slice.Slice;
 
-public final class CustomAdd
+import javax.annotation.Nullable;
+
+public final class CustomFunctions
 {
-    private CustomAdd() {}
+    private CustomFunctions() {}
 
     @ScalarFunction
     @SqlType(BigintType.class)
     public static long customAdd(@SqlType(BigintType.class) long x, @SqlType(BigintType.class) long y)
     {
         return x + y;
+    }
+
+    @ScalarFunction("custom_is_null")
+    @SqlType(BooleanType.class)
+    public static boolean customIsNullVarchar(@Nullable @SqlType(VarcharType.class) Slice slice)
+    {
+        return slice == null;
+    }
+
+    @ScalarFunction("custom_is_null")
+    @SqlType(BooleanType.class)
+    public static boolean customIsNullBigint(@Nullable @SqlType(BigintType.class) Long value)
+    {
+        return value == null;
     }
 }

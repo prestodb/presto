@@ -612,14 +612,17 @@ public class ExpressionInterpreter
             List<Object> argumentValues = new ArrayList<>();
             for (Expression expression : node.getArguments()) {
                 Object value = process(expression, context);
-                if (value == null) {
-                    return null;
-                }
                 Type type = expressionTypes.get(expression);
                 argumentValues.add(value);
                 argumentTypes.add(type);
             }
             FunctionInfo function = metadata.resolveFunction(node.getName(), argumentTypes, false);
+            for (int i = 0; i < argumentValues.size(); i++) {
+                Object value = argumentValues.get(i);
+                if (value == null && !function.getNullableArguments().get(i)) {
+                    return null;
+                }
+            }
 
             // do not optimize non-deterministic functions
             if (optimize && (!function.isDeterministic() || hasUnresolvedValue(argumentValues))) {

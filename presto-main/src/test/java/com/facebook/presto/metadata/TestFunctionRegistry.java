@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.metadata;
 
-import com.facebook.presto.operator.scalar.CustomAdd;
+import com.facebook.presto.operator.scalar.CustomFunctions;
 import com.facebook.presto.operator.scalar.ScalarFunction;
 import com.facebook.presto.spi.type.BigintType;
 import com.facebook.presto.sql.tree.QualifiedName;
@@ -66,7 +66,7 @@ public class TestFunctionRegistry
     public void testDuplicateFunctions()
     {
         List<FunctionInfo> functions = new FunctionRegistry.FunctionListBuilder()
-                .scalar(CustomAdd.class)
+                .scalar(CustomFunctions.class)
                 .getFunctions();
 
         FunctionRegistry registry = new FunctionRegistry(new TypeRegistry(), true);
