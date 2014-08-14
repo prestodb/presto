@@ -117,7 +117,7 @@ public class AggregationCompiler
 
                         AccumulatorFactory factory = new AccumulatorCompiler().generateAccumulatorFactory(metadata, classLoader);
                         // TODO: support un-decomposable aggregations
-                        builder.add(new GenericAggregationFunction(name, inputTypes, intermediateType, outputType, false, aggregationAnnotation.approximate(), factory));
+                        builder.add(new GenericAggregationFunction(name, inputTypes, intermediateType, outputType, true, aggregationAnnotation.approximate(), factory));
                     }
                 }
             }
