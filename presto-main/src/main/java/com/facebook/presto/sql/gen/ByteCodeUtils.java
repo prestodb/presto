@@ -175,8 +175,14 @@ public final class ByteCodeUtils
             }
             else {
                 block.append(arguments.get(index));
+                if (!function.getNullableArguments().get(index)) {
+                    block.append(ifWasNullPopAndGoto(context, end, unboxedReturnType, Lists.reverse(stackTypes)));
+                }
+                else {
+                    block.append(boxPrimitiveIfNecessary(context, type));
+                    block.putVariable("wasNull", false);
+                }
                 index++;
-                block.append(ifWasNullPopAndGoto(context, end, unboxedReturnType, Lists.reverse(stackTypes)));
             }
         }
         block.append(invoke(context, binding));
@@ -203,6 +209,39 @@ public final class ByteCodeUtils
         block.visitLabel(end);
 
         return block;
+    }
+
+    private static ByteCodeNode boxPrimitiveIfNecessary(CompilerContext context, Class<?> type)
+    {
+        if (!Primitives.isWrapperType(type)) {
+            return NOP;
+        }
+        Block notNull = new Block(context).comment("box primitive");
+        Class<?> expectedCurrentStackType;
+        if (type == Long.class) {
+            notNull.invokeStatic(Long.class, "valueOf", Long.class, long.class);
+            expectedCurrentStackType = long.class;
+        }
+        else if (type == Double.class) {
+            notNull.invokeStatic(Double.class, "valueOf", Double.class, double.class);
+            expectedCurrentStackType = double.class;
+        }
+        else if (type == Boolean.class) {
+            notNull.invokeStatic(Boolean.class, "valueOf", Boolean.class, boolean.class);
+            expectedCurrentStackType = boolean.class;
+        }
+        else {
+            throw new UnsupportedOperationException("not yet implemented: " + type);
+        }
+
+        Block condition = new Block(context).getVariable("wasNull");
+
+        Block wasNull = new Block(context)
+                .pop(expectedCurrentStackType)
+                .pushNull()
+                .checkCast(type);
+
+        return IfStatement.ifStatementBuilder(context).condition(condition).ifTrue(wasNull).ifFalse(notNull).build();
     }
 
     public static ByteCodeNode invoke(CompilerContext context, Binding binding)
