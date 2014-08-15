@@ -47,6 +47,7 @@ public class HdfsConfiguration
     private final int s3MaxErrorRetries;
     private final Duration s3MaxBackoffTime;
     private final Duration s3ConnectTimeout;
+    private final Duration s3SocketTimeout;
     private final int s3MaxConnections;
     private final File s3StagingDirectory;
     private final List<String> resourcePaths;
@@ -82,6 +83,7 @@ public class HdfsConfiguration
         this.s3MaxErrorRetries = hiveClientConfig.getS3MaxErrorRetries();
         this.s3MaxBackoffTime = hiveClientConfig.getS3MaxBackoffTime();
         this.s3ConnectTimeout = hiveClientConfig.getS3ConnectTimeout();
+        this.s3SocketTimeout = hiveClientConfig.getS3SocketTimeout();
         this.s3MaxConnections = hiveClientConfig.getS3MaxConnections();
         this.s3StagingDirectory = hiveClientConfig.getS3StagingDirectory();
         this.resourcePaths = hiveClientConfig.getResourceConfigFiles();
@@ -155,6 +157,7 @@ public class HdfsConfiguration
         config.setInt(PrestoS3FileSystem.S3_MAX_ERROR_RETRIES, s3MaxErrorRetries);
         config.set(PrestoS3FileSystem.S3_MAX_BACKOFF_TIME, s3MaxBackoffTime.toString());
         config.set(PrestoS3FileSystem.S3_CONNECT_TIMEOUT, s3ConnectTimeout.toString());
+        config.set(PrestoS3FileSystem.S3_SOCKET_TIMEOUT, s3SocketTimeout.toString());
         config.set(PrestoS3FileSystem.S3_STAGING_DIRECTORY, s3StagingDirectory.toString());
         config.setInt(PrestoS3FileSystem.S3_MAX_CONNECTIONS, s3MaxConnections);
         config.setLong(PrestoS3FileSystem.S3_MULTIPART_MIN_FILE_SIZE, s3MultipartMinFileSize.toBytes());
