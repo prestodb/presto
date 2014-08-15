@@ -2597,6 +2597,7 @@ public abstract class AbstractTestQueries
             throws Exception
     {
         assertQuery("SELECT orderkey FROM orders UNION SELECT custkey FROM orders");
+        assertQuery("SELECT 123 UNION DISTINCT SELECT 123 UNION ALL SELECT 123");
     }
 
     @Test
