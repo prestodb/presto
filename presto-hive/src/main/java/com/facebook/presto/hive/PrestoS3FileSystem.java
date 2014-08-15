@@ -93,6 +93,7 @@ public class PrestoS3FileSystem
     public static final String S3_MAX_CLIENT_RETRIES = "presto.s3.max-client-retries";
     public static final String S3_MAX_BACKOFF_TIME = "presto.s3.max-backoff-time";
     public static final String S3_CONNECT_TIMEOUT = "presto.s3.connect-timeout";
+    public static final String S3_SOCKET_TIMEOUT = "presto.s3.socket-timeout";
     public static final String S3_MAX_CONNECTIONS = "presto.s3.max-connections";
     public static final String S3_STAGING_DIRECTORY = "presto.s3.staging-directory";
     public static final String S3_MULTIPART_MIN_FILE_SIZE = "presto.s3.multipart.min-file-size";
@@ -128,6 +129,7 @@ public class PrestoS3FileSystem
         int maxErrorRetries = conf.getInt(S3_MAX_ERROR_RETRIES, defaults.getS3MaxErrorRetries());
         boolean sslEnabled = conf.getBoolean(S3_SSL_ENABLED, defaults.isS3SslEnabled());
         Duration connectTimeout = Duration.valueOf(conf.get(S3_CONNECT_TIMEOUT, defaults.getS3ConnectTimeout().toString()));
+        Duration socketTimeout = Duration.valueOf(conf.get(S3_SOCKET_TIMEOUT, defaults.getS3SocketTimeout().toString()));
         int maxConnections = conf.getInt(S3_MAX_CONNECTIONS, defaults.getS3MaxConnections());
         long minFileSize = conf.getLong(S3_MULTIPART_MIN_FILE_SIZE, defaults.getS3MultipartMinFileSize().toBytes());
         long minPartSize = conf.getLong(S3_MULTIPART_MIN_PART_SIZE, defaults.getS3MultipartMinPartSize().toBytes());
@@ -136,6 +138,7 @@ public class PrestoS3FileSystem
         configuration.setMaxErrorRetry(maxErrorRetries);
         configuration.setProtocol(sslEnabled ? Protocol.HTTPS : Protocol.HTTP);
         configuration.setConnectionTimeout(Ints.checkedCast(connectTimeout.toMillis()));
+        configuration.setSocketTimeout(Ints.checkedCast(socketTimeout.toMillis()));
         configuration.setMaxConnections(maxConnections);
 
         this.s3 = new AmazonS3Client(getAwsCredentials(uri, conf), configuration);
