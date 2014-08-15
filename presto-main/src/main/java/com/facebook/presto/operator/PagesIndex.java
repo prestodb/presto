@@ -222,47 +222,6 @@ public class PagesIndex
         return types.get(channel).getSlice(block, blockPosition);
     }
 
-    public boolean equals(int[] channels, int leftPosition, int rightPosition)
-    {
-        if (leftPosition == rightPosition) {
-            return true;
-        }
-
-        long leftPageAddress = valueAddresses.getLong(leftPosition);
-        int leftBlockIndex = decodeSliceIndex(leftPageAddress);
-        int leftBlockPosition = decodePosition(leftPageAddress);
-
-        long rightPageAddress = valueAddresses.getLong(rightPosition);
-        int rightBlockIndex = decodeSliceIndex(rightPageAddress);
-        int rightBlockPosition = decodePosition(rightPageAddress);
-
-        for (int channel : channels) {
-            Type type = types.get(channel);
-            Block leftBlock = this.channels[channel].get(leftBlockIndex);
-            Block rightBlock = this.channels[channel].get(rightBlockIndex);
-
-            if (!type.equalTo(leftBlock, leftBlockPosition, rightBlock, rightBlockPosition)) {
-                return false;
-            }
-        }
-        return true;
-    }
-
-    public int hashCode(int[] channels, int position)
-    {
-        long pageAddress = valueAddresses.getLong(position);
-        int blockIndex = decodeSliceIndex(pageAddress);
-        int blockPosition = decodePosition(pageAddress);
-
-        int result = 0;
-        for (int channel : channels) {
-            Type type = types.get(channel);
-            Block block = this.channels[channel].get(blockIndex);
-            result = 31 * result + type.hash(block, blockPosition);
-        }
-        return result;
-    }
-
     public void sort(List<Type> sortTypes, List<Integer> sortChannels, List<SortOrder> sortOrders)
     {
         orderingCompiler.compilePagesIndexOrdering(sortTypes, sortChannels, sortOrders).sort(this);
