@@ -150,6 +150,24 @@ public class GroupByHash
         return new GroupByIdBlock(nextGroupId, block);
     }
 
+    public boolean contains(int position, Block... blocks)
+    {
+        int hashPosition = ((int) Murmur3.hash64(hashStrategy.hashRow(position, blocks))) & mask;
+
+        // look for a slot containing this key
+        while (key[hashPosition] != -1) {
+            long address = key[hashPosition];
+            if (positionEqualsCurrentRow(decodeSliceIndex(address), decodePosition(address), position, blocks)) {
+                // found an existing slot for this key
+                return true;
+            }
+            // increment position and mask to handle wrap around
+            hashPosition = (hashPosition + 1) & mask;
+        }
+
+        return false;
+    }
+
     public int putIfAbsent(int position, Block... blocks)
     {
         int hashPosition = ((int) Murmur3.hash64(hashStrategy.hashRow(position, blocks))) & mask;
