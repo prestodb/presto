@@ -48,62 +48,62 @@ import static com.facebook.presto.byteCode.instruction.InvokeInstruction.invokeS
 public abstract class Constant
         implements InstructionNode
 {
-    public static InstructionNode loadNull()
+    public static Constant loadNull()
     {
-        return ACONST_NULL;
+        return new NullConstant();
     }
 
-    public static InstructionNode loadBoolean(boolean value)
+    public static Constant loadBoolean(boolean value)
     {
         return new IntConstant(value ? 1 : 0);
     }
 
-    public static InstructionNode loadBoxedBoolean(boolean value)
+    public static Constant loadBoxedBoolean(boolean value)
     {
         return new BoxedBooleanConstant(value);
     }
 
-    public static InstructionNode loadInt(int value)
+    public static Constant loadInt(int value)
     {
         return new IntConstant(value);
     }
 
-    public static InstructionNode loadBoxedInt(int value)
+    public static Constant loadBoxedInt(int value)
     {
         return new BoxedIntegerConstant(value);
     }
 
-    public static InstructionNode loadFloat(float value)
+    public static Constant loadFloat(float value)
     {
         return new FloatConstant(value);
     }
 
-    public static InstructionNode loadBoxedFloat(float value)
+    public static Constant loadBoxedFloat(float value)
     {
         return new BoxedFloatConstant(value);
     }
 
-    public static InstructionNode loadLong(long value)
+    public static Constant loadLong(long value)
     {
         return new LongConstant(value);
     }
 
-    public static InstructionNode loadBoxedLong(long value)
+    public static Constant loadBoxedLong(long value)
     {
         return new BoxedLongConstant(value);
     }
 
-    public static InstructionNode loadDouble(double value)
+    public static Constant loadDouble(double value)
     {
         return new DoubleConstant(value);
     }
 
-    public static InstructionNode loadBoxedDouble(double value)
+    public static Constant loadBoxedDouble(double value)
     {
         return new BoxedDoubleConstant(value);
     }
 
-    public static InstructionNode loadNumber(Number value)
+    public static Constant loadNumber(Number value)
     {
         Preconditions.checkNotNull(value, "value is null");
         if (value instanceof Byte) {
@@ -127,19 +127,19 @@ public abstract class Constant
         throw new IllegalStateException("Unsupported number type " + value.getClass().getSimpleName());
     }
 
-    public static InstructionNode loadString(String value)
+    public static Constant loadString(String value)
     {
         Preconditions.checkNotNull(value, "value is null");
         return new StringConstant(value);
     }
 
-    public static InstructionNode loadClass(Class<?> value)
+    public static Constant loadClass(Class<?> value)
     {
         Preconditions.checkNotNull(value, "value is null");
         return new ClassConstant(type(value));
     }
 
-    public static InstructionNode loadClass(ParameterizedType value)
+    public static Constant loadClass(ParameterizedType value)
     {
         Preconditions.checkNotNull(value, "value is null");
         return new ClassConstant(value);
@@ -165,6 +165,28 @@ public abstract class Constant
         return Objects.toStringHelper(this)
                 .add("value", getValue())
                 .toString();
+    }
+
+    public static class NullConstant
+            extends Constant
+    {
+        @Override
+        public Object getValue()
+        {
+            return null;
+        }
+
+        @Override
+        public void accept(MethodVisitor visitor)
+        {
+            visitor.visitInsn(ACONST_NULL.getOpCode());
+        }
+
+        @Override
+        public <T> T accept(ByteCodeNode parent, ByteCodeVisitor<T> visitor)
+        {
+            return visitor.visitConstant(parent, this);
+        }
     }
 
     public static class BoxedBooleanConstant
