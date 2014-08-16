@@ -76,6 +76,12 @@ public class ParameterizedType
     private final String simpleName;
     private final List<String> parameters;
 
+    private final boolean isInterface;
+    @Nullable
+    private final Class<?> primitiveType;
+    @Nullable
+    private final ParameterizedType arrayComponentType;
+
     public ParameterizedType(String className)
     {
         checkNotNull(className, "className is null");
@@ -86,6 +92,10 @@ public class ParameterizedType
         this.simpleName = className.substring(className.lastIndexOf("/") + 1);
         this.type = "L" + className + ";";
         this.parameters = ImmutableList.of();
+
+        this.isInterface = false;
+        this.primitiveType = null;
+        this.arrayComponentType = null;
     }
 
     private ParameterizedType(Class<?> type)
@@ -95,6 +105,10 @@ public class ParameterizedType
         this.className = getPathName(type);
         this.simpleName = type.getSimpleName();
         this.parameters = ImmutableList.of();
+
+        this.isInterface = type.isInterface();
+        this.primitiveType = type.isPrimitive() ? type : null;
+        this.arrayComponentType = type.isArray() ? type(type.getComponentType()) : null;
     }
 
     private ParameterizedType(Class<?> type, Class<?>... parameters)
@@ -109,6 +123,10 @@ public class ParameterizedType
             builder.add(toInternalIdentifier(parameter));
         }
         this.parameters = builder.build();
+
+        this.isInterface = type.isInterface();
+        this.primitiveType = type.isPrimitive() ? type : null;
+        this.arrayComponentType = type.isArray() ? type(type.getComponentType()) : null;
     }
 
     private ParameterizedType(Class<?> type, ParameterizedType... parameters)
@@ -123,6 +141,10 @@ public class ParameterizedType
             builder.add(parameter.toString());
         }
         this.parameters = builder.build();
+
+        this.isInterface = type.isInterface();
+        this.primitiveType = type.isPrimitive() ? type : null;
+        this.arrayComponentType = type.isArray() ? type(type.getComponentType()) : null;
     }
 
     public String getClassName()
@@ -168,6 +190,23 @@ public class ParameterizedType
     public boolean isGeneric()
     {
         return !parameters.isEmpty();
+    }
+
+    public boolean isInterface()
+    {
+        return isInterface;
+    }
+
+    @Nullable
+    public Class<?> getPrimitiveType()
+    {
+        return primitiveType;
+    }
+
+    @Nullable
+    public ParameterizedType getArrayComponentType()
+    {
+        return arrayComponentType;
     }
 
     @Override

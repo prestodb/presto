@@ -23,6 +23,7 @@ import com.facebook.presto.byteCode.control.WhileLoop;
 import com.facebook.presto.byteCode.debug.DebugNode;
 import com.facebook.presto.byteCode.debug.LineNumberNode;
 import com.facebook.presto.byteCode.debug.LocalVariableNode;
+import com.facebook.presto.byteCode.expression.ByteCodeExpression;
 import com.facebook.presto.byteCode.instruction.Constant;
 import com.facebook.presto.byteCode.instruction.Constant.BoxedBooleanConstant;
 import com.facebook.presto.byteCode.instruction.Constant.BoxedDoubleConstant;
@@ -110,6 +111,14 @@ public class ByteCodeVisitor<T>
     public T visitBlock(ByteCodeNode parent, Block block)
     {
         return visitNode(parent, block);
+    }
+
+    //
+    // Byte Code Expression
+    //
+    public T visitByteCodeExpression(ByteCodeNode parent, ByteCodeExpression byteCodeExpression)
+    {
+        return visitNode(parent, byteCodeExpression);
     }
 
     //

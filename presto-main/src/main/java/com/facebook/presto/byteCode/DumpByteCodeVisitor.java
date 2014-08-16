@@ -21,6 +21,7 @@ import com.facebook.presto.byteCode.control.LookupSwitch;
 import com.facebook.presto.byteCode.control.TryCatch;
 import com.facebook.presto.byteCode.control.WhileLoop;
 import com.facebook.presto.byteCode.debug.LineNumberNode;
+import com.facebook.presto.byteCode.expression.ByteCodeExpression;
 import com.facebook.presto.byteCode.instruction.Constant.BoxedBooleanConstant;
 import com.facebook.presto.byteCode.instruction.Constant.BoxedDoubleConstant;
 import com.facebook.presto.byteCode.instruction.Constant.BoxedFloatConstant;
@@ -184,6 +185,13 @@ public class DumpByteCodeVisitor
                 node.accept(node, this);
             }
         }
+    }
+
+    @Override
+    public Void visitByteCodeExpression(ByteCodeNode parent, ByteCodeExpression byteCodeExpression)
+    {
+        printLine(byteCodeExpression.toString());
+        return null;
     }
 
     @Override

@@ -13,26 +13,26 @@
  */
 package com.facebook.presto.byteCode;
 
+import com.facebook.presto.byteCode.expression.ByteCodeExpression;
 import com.facebook.presto.byteCode.instruction.VariableInstruction;
+import com.google.common.collect.ImmutableList;
 
+import java.util.List;
+
+import static com.facebook.presto.byteCode.ParameterizedType.type;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 public class Variable
+        extends ByteCodeExpression
 {
     private final String name;
     private final int slot;
-    private final ParameterizedType type;
 
     public Variable(String name, int slot, ParameterizedType type)
     {
+        super(type);
         this.name = checkNotNull(name, "name is null");
         this.slot = slot;
-        this.type = checkNotNull(type, "type is null");
-    }
-
-    public ByteCodeNode getValue()
-    {
-        return VariableInstruction.loadVariable(this);
     }
 
     public String getName()
@@ -45,14 +45,60 @@ public class Variable
         return slot;
     }
 
-    public ParameterizedType getType()
+    public ByteCodeExpression set(ByteCodeExpression value)
     {
-        return type;
+        return new SetVariableByteCodeExpression(this, value);
+    }
+
+    @Override
+    public ByteCodeNode getByteCode()
+    {
+        return VariableInstruction.loadVariable(this);
     }
 
     @Override
     public String toString()
     {
         return name;
+    }
+
+    @Override
+    public List<ByteCodeNode> getChildNodes()
+    {
+        return ImmutableList.of();
+    }
+
+    private static final class SetVariableByteCodeExpression
+            extends ByteCodeExpression
+    {
+        private final Variable variable;
+        private final ByteCodeExpression value;
+
+        public SetVariableByteCodeExpression(Variable variable, ByteCodeExpression value)
+        {
+            super(type(void.class));
+            this.variable = checkNotNull(variable, "variable is null");
+            this.value = checkNotNull(value, "value is null");
+        }
+
+        @Override
+        public ByteCodeNode getByteCode()
+        {
+            return new Block(null)
+                    .append(value)
+                    .putVariable(variable);
+        }
+
+        @Override
+        public List<ByteCodeNode> getChildNodes()
+        {
+            return ImmutableList.<ByteCodeNode>of(value);
+        }
+
+        @Override
+        public String toString()
+        {
+            return variable.getName() + " = " + value;
+        }
     }
 }

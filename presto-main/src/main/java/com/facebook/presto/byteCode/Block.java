@@ -826,7 +826,7 @@ public class Block
 
     public Block getVariable(String name)
     {
-        append(context.getVariable(name).getValue());
+        append(context.getVariable(name).getByteCode());
         return this;
     }
 
