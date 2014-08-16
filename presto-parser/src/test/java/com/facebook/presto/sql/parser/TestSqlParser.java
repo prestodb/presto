@@ -20,6 +20,7 @@ import com.facebook.presto.sql.tree.CurrentTime;
 import com.facebook.presto.sql.tree.DoubleLiteral;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.GenericLiteral;
+import com.facebook.presto.sql.tree.Intersect;
 import com.facebook.presto.sql.tree.IntervalLiteral;
 import com.facebook.presto.sql.tree.IntervalLiteral.IntervalField;
 import com.facebook.presto.sql.tree.IntervalLiteral.Sign;
@@ -201,6 +202,21 @@ public class TestSqlParser
                                 Optional.<Expression>absent(),
                                 ImmutableList.<SortItem>of(),
                                 Optional.<String>absent()),
+                        ImmutableList.<SortItem>of(),
+                        Optional.<String>absent(),
+                        Optional.<Approximate>absent()));
+    }
+
+    @Test
+    public void testIntersect()
+    {
+        assertStatement("SELECT 123 INTERSECT DISTINCT SELECT 123 INTERSECT ALL SELECT 123",
+                new Query(
+                        Optional.<With>absent(),
+                        new Intersect(ImmutableList.<Relation>of(
+                                new Intersect(ImmutableList.<Relation>of(createSelect123(), createSelect123()), true),
+                                createSelect123()
+                        ), false),
                         ImmutableList.<SortItem>of(),
                         Optional.<String>absent(),
                         Optional.<Approximate>absent()));
