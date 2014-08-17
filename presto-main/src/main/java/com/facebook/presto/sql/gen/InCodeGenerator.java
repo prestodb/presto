@@ -194,7 +194,7 @@ public class InCodeGenerator
                 .visitLabel(caseLabel);
 
         if (checkForNulls) {
-            caseBlock.putVariable(caseWasNull.getLocalVariableDefinition(), false);
+            caseBlock.putVariable(caseWasNull, false);
         }
 
         LabelNode elseLabel = new LabelNode("else");
@@ -202,7 +202,7 @@ public class InCodeGenerator
                 .visitLabel(elseLabel);
 
         if (checkForNulls) {
-            elseBlock.getVariable(caseWasNull.getLocalVariableDefinition())
+            elseBlock.getVariable(caseWasNull)
                     .putVariable("wasNull");
         }
 
@@ -226,7 +226,7 @@ public class InCodeGenerator
 
             if (checkForNulls) {
                 condition.getVariable("wasNull")
-                        .putVariable(caseWasNull.getLocalVariableDefinition())
+                        .putVariable(caseWasNull)
                         .append(ifWasNullPopAndGoto(context, elseLabel, void.class, type.getJavaType(), type.getJavaType()));
             }
             condition.append(invoke(generatorContext.getContext(), equalsFunction));

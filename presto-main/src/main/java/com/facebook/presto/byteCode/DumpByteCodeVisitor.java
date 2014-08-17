@@ -215,7 +215,7 @@ public class DumpByteCodeVisitor
     @Override
     public Void visitLoadVariable(ByteCodeNode parent, LoadVariableInstruction loadVariableInstruction)
     {
-        LocalVariableDefinition variable = loadVariableInstruction.getVariable();
+        Variable variable = loadVariableInstruction.getVariable();
         printLine("load %s(#%d)", variable.getName(), variable.getSlot());
         return null;
     }
@@ -223,7 +223,7 @@ public class DumpByteCodeVisitor
     @Override
     public Void visitStoreVariable(ByteCodeNode parent, StoreVariableInstruction storeVariableInstruction)
     {
-        LocalVariableDefinition variable = storeVariableInstruction.getVariable();
+        Variable variable = storeVariableInstruction.getVariable();
         printLine("store %s(#%d)", variable.getName(), variable.getSlot());
         return null;
     }
@@ -231,7 +231,7 @@ public class DumpByteCodeVisitor
     @Override
     public Void visitIncrementVariable(ByteCodeNode parent, IncrementVariableInstruction incrementVariableInstruction)
     {
-        LocalVariableDefinition variable = incrementVariableInstruction.getVariable();
+        Variable variable = incrementVariableInstruction.getVariable();
         byte increment = incrementVariableInstruction.getIncrement();
         printLine("increment %s(#%d) %s", variable.getName(), variable.getSlot(), increment);
         return null;

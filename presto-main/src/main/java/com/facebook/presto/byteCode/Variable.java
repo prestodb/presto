@@ -19,25 +19,40 @@ import static com.google.common.base.Preconditions.checkNotNull;
 
 public class Variable
 {
-    private final LocalVariableDefinition variableDefinition;
+    private final String name;
+    private final int slot;
+    private final ParameterizedType type;
 
-    public Variable(LocalVariableDefinition variableDefinition)
+    public Variable(String name, int slot, ParameterizedType type)
     {
-        this.variableDefinition = checkNotNull(variableDefinition, "variableDefinition is null");
-    }
-
-    public LocalVariableDefinition getLocalVariableDefinition()
-    {
-        return variableDefinition;
+        this.name = checkNotNull(name, "name is null");
+        this.slot = slot;
+        this.type = checkNotNull(type, "type is null");
     }
 
     public ByteCodeNode getValue()
     {
-        return VariableInstruction.loadVariable(variableDefinition);
+        return VariableInstruction.loadVariable(this);
     }
 
-    public ByteCodeNode setValue()
+    public String getName()
     {
-        return VariableInstruction.storeVariable(variableDefinition);
+        return name;
+    }
+
+    public int getSlot()
+    {
+        return slot;
+    }
+
+    public ParameterizedType getType()
+    {
+        return type;
+    }
+
+    @Override
+    public String toString()
+    {
+        return name;
     }
 }

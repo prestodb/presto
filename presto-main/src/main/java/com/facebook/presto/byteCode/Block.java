@@ -837,7 +837,7 @@ public class Block
         return this;
     }
 
-    public Block initializeVariable(LocalVariableDefinition variable)
+    public Block initializeVariable(Variable variable)
     {
         ParameterizedType type = variable.getType();
         if (type.getType().length() == 1) {
@@ -871,7 +871,7 @@ public class Block
         return this;
     }
 
-    public Block getVariable(LocalVariableDefinition variable)
+    public Block getVariable(Variable variable)
     {
         nodes.add(VariableInstruction.loadVariable(variable));
         return this;
@@ -879,7 +879,7 @@ public class Block
 
     public Block putVariable(String name)
     {
-        append(context.getVariable(name).setValue());
+        putVariable(context.getVariable(name));
         return this;
     }
 
@@ -925,55 +925,55 @@ public class Block
         return this;
     }
 
-    public Block putVariable(LocalVariableDefinition variable)
+    public Block putVariable(Variable variable)
     {
         nodes.add(VariableInstruction.storeVariable(variable));
         return this;
     }
 
-    public Block putVariable(LocalVariableDefinition variable, Class<?> type)
+    public Block putVariable(Variable variable, Class<?> type)
     {
         nodes.add(loadClass(type));
         putVariable(variable);
         return this;
     }
 
-    public Block putVariable(LocalVariableDefinition variable, ParameterizedType type)
+    public Block putVariable(Variable variable, ParameterizedType type)
     {
         nodes.add(loadClass(type));
         putVariable(variable);
         return this;
     }
 
-    public Block putVariable(LocalVariableDefinition variable, String value)
+    public Block putVariable(Variable variable, String value)
     {
         nodes.add(Constant.loadString(value));
         putVariable(variable);
         return this;
     }
 
-    public Block putVariable(LocalVariableDefinition variable, Number value)
+    public Block putVariable(Variable variable, Number value)
     {
         nodes.add(loadNumber(value));
         putVariable(variable);
         return this;
     }
 
-    public Block putVariable(LocalVariableDefinition variable, int value)
+    public Block putVariable(Variable variable, int value)
     {
         nodes.add(loadInt(value));
         putVariable(variable);
         return this;
     }
 
-    public Block putVariable(LocalVariableDefinition variable, boolean value)
+    public Block putVariable(Variable variable, boolean value)
     {
         nodes.add(loadBoolean(value));
         putVariable(variable);
         return this;
     }
 
-    public Block incrementVariable(LocalVariableDefinition variable, byte increment)
+    public Block incrementVariable(Variable variable, byte increment)
     {
         String type = variable.getType().getClassName();
         Preconditions.checkArgument(ImmutableList.of("byte", "short", "int").contains(type), "variable must be an byte, short or int, but is %s", type);
