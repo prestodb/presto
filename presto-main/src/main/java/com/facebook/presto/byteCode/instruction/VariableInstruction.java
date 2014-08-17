@@ -15,8 +15,8 @@ package com.facebook.presto.byteCode.instruction;
 
 import com.facebook.presto.byteCode.ByteCodeNode;
 import com.facebook.presto.byteCode.ByteCodeVisitor;
-import com.facebook.presto.byteCode.LocalVariableDefinition;
 import com.facebook.presto.byteCode.ParameterizedType;
+import com.facebook.presto.byteCode.Variable;
 import com.google.common.base.Objects;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
@@ -33,32 +33,32 @@ public abstract class VariableInstruction
 {
     public static InstructionNode loadVariable(int slot)
     {
-        return new LoadVariableInstruction(new LocalVariableDefinition("unknown", slot, ParameterizedType.type(Object.class)));
+        return new LoadVariableInstruction(new Variable("unknown", slot, ParameterizedType.type(Object.class)));
     }
 
-    public static InstructionNode loadVariable(LocalVariableDefinition variable)
+    public static InstructionNode loadVariable(Variable variable)
     {
         return new LoadVariableInstruction(variable);
     }
 
-    public static InstructionNode storeVariable(LocalVariableDefinition variable)
+    public static InstructionNode storeVariable(Variable variable)
     {
         return new StoreVariableInstruction(variable);
     }
 
-    public static InstructionNode incrementVariable(LocalVariableDefinition variable, byte increment)
+    public static InstructionNode incrementVariable(Variable variable, byte increment)
     {
         return new IncrementVariableInstruction(variable, increment);
     }
 
-    private final LocalVariableDefinition variable;
+    private final Variable variable;
 
-    private VariableInstruction(LocalVariableDefinition variable)
+    private VariableInstruction(Variable variable)
     {
         this.variable = variable;
     }
 
-    public LocalVariableDefinition getVariable()
+    public Variable getVariable()
     {
         return variable;
     }
@@ -86,7 +86,7 @@ public abstract class VariableInstruction
     public static class LoadVariableInstruction
             extends VariableInstruction
     {
-        public LoadVariableInstruction(LocalVariableDefinition variable)
+        public LoadVariableInstruction(Variable variable)
         {
             super(variable);
         }
@@ -107,7 +107,7 @@ public abstract class VariableInstruction
     public static class StoreVariableInstruction
             extends VariableInstruction
     {
-        public StoreVariableInstruction(LocalVariableDefinition variable)
+        public StoreVariableInstruction(Variable variable)
         {
             super(variable);
         }
@@ -130,7 +130,7 @@ public abstract class VariableInstruction
     {
         private final byte increment;
 
-        public IncrementVariableInstruction(LocalVariableDefinition variable, byte increment)
+        public IncrementVariableInstruction(Variable variable, byte increment)
         {
             super(variable);
             String type = variable.getType().getClassName();

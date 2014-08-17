@@ -97,9 +97,9 @@ public class SwitchCodeGenerator
         Block block = new Block(context)
                 .append(valueBytecode)
                 .append(ByteCodeUtils.ifWasNullClearPopAndGoto(context, nullValue, void.class, valueType))
-                .putVariable(tempVariable.getLocalVariableDefinition());
+                .putVariable(tempVariable);
 
-        ByteCodeNode getTempVariableNode = VariableInstruction.loadVariable(tempVariable.getLocalVariableDefinition());
+        ByteCodeNode getTempVariableNode = VariableInstruction.loadVariable(tempVariable);
 
         // build the statements
         elseValue = new Block(context).visitLabel(nullValue).append(elseValue);

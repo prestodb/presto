@@ -21,11 +21,11 @@ import com.facebook.presto.byteCode.CompilerContext;
 import com.facebook.presto.byteCode.DumpByteCodeVisitor;
 import com.facebook.presto.byteCode.DynamicClassLoader;
 import com.facebook.presto.byteCode.FieldDefinition;
-import com.facebook.presto.byteCode.LocalVariableDefinition;
 import com.facebook.presto.byteCode.MethodDefinition;
 import com.facebook.presto.byteCode.NamedParameterDefinition;
 import com.facebook.presto.byteCode.ParameterizedType;
 import com.facebook.presto.byteCode.SmartClassWriter;
+import com.facebook.presto.byteCode.Variable;
 import com.facebook.presto.byteCode.control.ForLoop;
 import com.facebook.presto.byteCode.control.ForLoop.ForLoopBuilder;
 import com.facebook.presto.byteCode.control.IfStatement;
@@ -416,9 +416,9 @@ public class ExpressionCompiler
 
         CompilerContext compilerContext = filterAndProjectMethod.getCompilerContext();
 
-        LocalVariableDefinition positionVariable = compilerContext.declareVariable(int.class, "position");
+        Variable positionVariable = compilerContext.declareVariable(int.class, "position");
 
-        LocalVariableDefinition rowsVariable = compilerContext.declareVariable(int.class, "rows");
+        Variable rowsVariable = compilerContext.declareVariable(int.class, "rows");
         filterAndProjectMethod.getBody()
                 .comment("int rows = page.getPositionCount();")
                 .getVariable("page")
@@ -427,7 +427,7 @@ public class ExpressionCompiler
 
         List<Integer> allInputChannels = getInputChannels(Iterables.concat(projections, ImmutableList.of(filter)));
         for (int channel : allInputChannels) {
-            LocalVariableDefinition blockVariable = compilerContext.declareVariable(com.facebook.presto.spi.block.Block.class, "block_" + channel);
+            Variable blockVariable = compilerContext.declareVariable(com.facebook.presto.spi.block.Block.class, "block_" + channel);
             filterAndProjectMethod.getBody()
                     .comment("Block %s = page.getBlock(%s);", blockVariable.getName(), channel)
                     .getVariable("page")
@@ -523,7 +523,7 @@ public class ExpressionCompiler
 
         CompilerContext compilerContext = filterAndProjectMethod.getCompilerContext();
 
-        LocalVariableDefinition completedPositionsVariable = compilerContext.declareVariable(int.class, "completedPositions");
+        Variable completedPositionsVariable = compilerContext.declareVariable(int.class, "completedPositions");
         filterAndProjectMethod.getBody()
                 .comment("int completedPositions = 0;")
                 .putVariable(completedPositionsVariable, 0);
