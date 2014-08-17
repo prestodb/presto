@@ -345,7 +345,7 @@ public class MethodDefinition
         return sb.toString();
     }
 
-    public void addLocalVariable(LocalVariableDefinition localVariable, LabelNode start, LabelNode end)
+    public void addLocalVariable(Variable localVariable, LabelNode start, LabelNode end)
     {
         localVariableNodes.add(new LocalVariableNode(localVariable, start, end));
     }

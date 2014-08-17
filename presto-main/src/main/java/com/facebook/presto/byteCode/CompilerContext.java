@@ -58,13 +58,9 @@ public class CompilerContext
 
     public Variable createTempVariable(Class<?> type)
     {
-        Variable variable;
-
         // reserve a slot for this variable
-        LocalVariableDefinition variableDefinition = new LocalVariableDefinition("temp_" + nextSlot, nextSlot, type(type));
+        Variable variable = new Variable("temp_" + nextSlot, nextSlot, type(type));
         nextSlot += Type.getType(type(type).getType()).getSize();
-
-        variable = new Variable(variableDefinition);
 
         return variable;
     }
@@ -93,46 +89,41 @@ public class CompilerContext
         }
 
         Preconditions.checkState(nextSlot == 0, "The 'this' variable must be declared before all other parameters and local variables");
-        LocalVariableDefinition variableDefinition = new LocalVariableDefinition("this", 0, type);
+        Variable variable = new Variable("this", 0, type);
         nextSlot = 1;
 
-        Variable variable = new Variable(variableDefinition);
         variables.put("this", variable);
     }
 
-    public LocalVariableDefinition declareParameter(ParameterizedType type, String parameterName)
+    public Variable declareParameter(ParameterizedType type, String parameterName)
     {
         Preconditions.checkArgument(!variables.containsKey(parameterName), "There is already a parameter named %s", parameterName);
 
-        LocalVariableDefinition variableDefinition = new LocalVariableDefinition(parameterName, nextSlot, type);
+        Variable variable = new Variable(parameterName, nextSlot, type);
         nextSlot += Type.getType(type.getType()).getSize();
-
-        Variable variable = new Variable(variableDefinition);
 
         allVariables.add(variable);
         variables.put(parameterName, variable);
 
-        return variableDefinition;
+        return variable;
     }
 
-    public LocalVariableDefinition declareVariable(Class<?> type, String variableName)
+    public Variable declareVariable(Class<?> type, String variableName)
     {
         return declareVariable(type(type), variableName);
     }
 
-    public LocalVariableDefinition declareVariable(ParameterizedType type, String variableName)
+    public Variable declareVariable(ParameterizedType type, String variableName)
     {
         Preconditions.checkArgument(!variables.containsKey(variableName), "There is already a parameter named %s", variableName);
 
-        LocalVariableDefinition variableDefinition = new LocalVariableDefinition(variableName, nextSlot, type);
+        Variable variable = new Variable(variableName, nextSlot, type);
         nextSlot += Type.getType(type.getType()).getSize();
-
-        Variable variable = new Variable(variableDefinition);
 
         allVariables.add(variable);
         variables.put(variableName, variable);
 
-        return variableDefinition;
+        return variable;
     }
 
     public void pushIterationScope(LabelNode begin, LabelNode end)
@@ -189,8 +180,7 @@ public class CompilerContext
     public void addLocalVariables(MethodDefinition methodDefinition)
     {
         for (Variable variable : allVariables) {
-            LocalVariableDefinition localVariableDefinition = variable.getLocalVariableDefinition();
-            methodDefinition.addLocalVariable(localVariableDefinition, variableStartLabel, variableEndLabel);
+            methodDefinition.addLocalVariable(variable, variableStartLabel, variableEndLabel);
         }
     }
 }

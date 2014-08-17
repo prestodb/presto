@@ -20,8 +20,8 @@ import com.facebook.presto.byteCode.CompilerContext;
 import com.facebook.presto.byteCode.DumpByteCodeVisitor;
 import com.facebook.presto.byteCode.DynamicClassLoader;
 import com.facebook.presto.byteCode.FieldDefinition;
-import com.facebook.presto.byteCode.LocalVariableDefinition;
 import com.facebook.presto.byteCode.SmartClassWriter;
+import com.facebook.presto.byteCode.Variable;
 import com.facebook.presto.operator.aggregation.GroupedAccumulator;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.type.BigintType;
@@ -226,7 +226,7 @@ public class StateCompiler
             generatePrimitiveDeserializer(deserializerBody, getSetter(clazz, fields.get(0)));
         }
         else {
-            LocalVariableDefinition slice = compilerContext.declareVariable(Slice.class, "slice");
+            Variable slice = compilerContext.declareVariable(Slice.class, "slice");
             deserializerBody.comment("Slice slice = block.getSlice(index, 0, block.getLength(index));")
                     .getVariable("block")
                     .getVariable("index")
@@ -253,7 +253,7 @@ public class StateCompiler
             generatePrimitiveSerializer(serializerBody, getGetter(clazz, fields.get(0)));
         }
         else {
-            LocalVariableDefinition slice = compilerContext.declareVariable(Slice.class, "slice");
+            Variable slice = compilerContext.declareVariable(Slice.class, "slice");
             int size = serializedSizeOf(clazz);
             serializerBody.comment("Slice slice = Slices.allocate(%d);", size)
                     .push(size)
@@ -275,7 +275,7 @@ public class StateCompiler
         serializerBody.ret();
     }
 
-    private static void generateSerializeFieldToSlice(Block body, LocalVariableDefinition slice, Method getter, int offset)
+    private static void generateSerializeFieldToSlice(Block body, Variable slice, Method getter, int offset)
     {
         Method sliceSetterMethod = StateCompilerUtils.getSliceSetter(getter.getReturnType());
         body.comment("slice.%s(offset, state.%s())", sliceSetterMethod.getName(), getter.getName())
@@ -356,7 +356,7 @@ public class StateCompiler
                 .invokeInterface(setter);
     }
 
-    private static void generateDeserializeFromSlice(Block body, LocalVariableDefinition slice, Method setter, int offset)
+    private static void generateDeserializeFromSlice(Block body, Variable slice, Method setter, int offset)
     {
         Method sliceGetterMethod = StateCompilerUtils.getSliceGetter(setter.getParameterTypes()[0]);
         body.comment("state.%s(slice.%s(%d))", setter.getName(), sliceGetterMethod.getName(), offset)

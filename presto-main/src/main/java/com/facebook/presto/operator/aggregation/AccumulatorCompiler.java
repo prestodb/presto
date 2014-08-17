@@ -20,10 +20,10 @@ import com.facebook.presto.byteCode.CompilerContext;
 import com.facebook.presto.byteCode.DumpByteCodeVisitor;
 import com.facebook.presto.byteCode.DynamicClassLoader;
 import com.facebook.presto.byteCode.FieldDefinition;
-import com.facebook.presto.byteCode.LocalVariableDefinition;
 import com.facebook.presto.byteCode.MethodDefinition;
 import com.facebook.presto.byteCode.NamedParameterDefinition;
 import com.facebook.presto.byteCode.SmartClassWriter;
+import com.facebook.presto.byteCode.Variable;
 import com.facebook.presto.byteCode.control.ForLoop;
 import com.facebook.presto.operator.GroupByIdBlock;
 import com.facebook.presto.operator.Page;
@@ -216,12 +216,12 @@ public class AccumulatorCompiler
             generateEnsureCapacity(stateField, body);
         }
 
-        List<LocalVariableDefinition> parameterVariables = new ArrayList<>();
+        List<Variable> parameterVariables = new ArrayList<>();
         for (int i = 0; i < countInputChannels(parameterMetadatas); i++) {
             parameterVariables.add(context.declareVariable(com.facebook.presto.spi.block.Block.class, "block" + i));
         }
-        LocalVariableDefinition masksBlock = context.declareVariable(com.facebook.presto.spi.block.Block.class, "masksBlock");
-        LocalVariableDefinition sampleWeightsBlock = context.declareVariable(com.facebook.presto.spi.block.Block.class, "sampleWeightsBlock");
+        Variable masksBlock = context.declareVariable(com.facebook.presto.spi.block.Block.class, "masksBlock");
+        Variable sampleWeightsBlock = context.declareVariable(com.facebook.presto.spi.block.Block.class, "sampleWeightsBlock");
 
         body.comment("masksBlock = maskChannel.transform(page.blockGetter()).orNull();")
                 .pushThis()
@@ -267,16 +267,16 @@ public class AccumulatorCompiler
             List<ParameterMetadata> parameterMetadatas,
             Method inputFunction,
             CompilerContext context,
-            List<LocalVariableDefinition> parameterVariables,
-            LocalVariableDefinition masksBlock,
-            LocalVariableDefinition sampleWeightsBlock,
+            List<Variable> parameterVariables,
+            Variable masksBlock,
+            Variable sampleWeightsBlock,
             boolean grouped,
             boolean acceptNulls)
     {
         // For-loop over rows
-        LocalVariableDefinition positionVariable = context.declareVariable(int.class, "position");
-        LocalVariableDefinition sampleWeightVariable = context.declareVariable(long.class, "sampleWeight");
-        LocalVariableDefinition rowsVariable = context.declareVariable(int.class, "rows");
+        Variable positionVariable = context.declareVariable(int.class, "position");
+        Variable sampleWeightVariable = context.declareVariable(long.class, "sampleWeight");
+        Variable rowsVariable = context.declareVariable(int.class, "rows");
 
         Block block = new Block(context)
                 .getVariable("page")
@@ -289,7 +289,7 @@ public class AccumulatorCompiler
 
         if (!acceptNulls) {
             //  Wrap with null checks
-            for (LocalVariableDefinition variable : parameterVariables) {
+            for (Variable variable : parameterVariables) {
                 IfStatementBuilder builder = ifStatementBuilder(context);
                 builder.comment("if(!%s.isNull(position))", variable.getName())
                         .condition(new Block(context)
@@ -318,7 +318,7 @@ public class AccumulatorCompiler
         return block;
     }
 
-    private static Block generateComputeSampleWeightAndCheckGreaterThanZero(CompilerContext context, Block body, LocalVariableDefinition sampleWeight, LocalVariableDefinition masks, LocalVariableDefinition sampleWeights, LocalVariableDefinition position)
+    private static Block generateComputeSampleWeightAndCheckGreaterThanZero(CompilerContext context, Block body, Variable sampleWeight, Variable masks, Variable sampleWeights, Variable position)
     {
         Block block = new Block(context)
                 .comment("sampleWeight = computeSampleWeight(masks, sampleWeights, position);")
@@ -342,9 +342,9 @@ public class AccumulatorCompiler
     private static Block generateInvokeInputFunction(
             CompilerContext context,
             FieldDefinition stateField,
-            LocalVariableDefinition position,
-            LocalVariableDefinition sampleWeight,
-            List<LocalVariableDefinition> parameterVariables,
+            Variable position,
+            Variable sampleWeight,
+            List<Variable> parameterVariables,
             List<ParameterMetadata> parameterMetadatas,
             Method inputFunction,
             boolean grouped)
@@ -438,8 +438,8 @@ public class AccumulatorCompiler
 
         Block body = declareAddIntermediate(definition, grouped, context);
 
-        LocalVariableDefinition scratchStateVariable = context.declareVariable(singleStateClass, "scratchState");
-        LocalVariableDefinition positionVariable = context.declareVariable(int.class, "position");
+        Variable scratchStateVariable = context.declareVariable(singleStateClass, "scratchState");
+        Variable positionVariable = context.declareVariable(int.class, "position");
 
         body.comment("scratchState = stateFactory.createSingleState();")
                 .pushThis()
@@ -476,7 +476,7 @@ public class AccumulatorCompiler
                 .ret();
     }
 
-    private static void generateSetGroupIdFromGroupIdsBlock(FieldDefinition stateField, LocalVariableDefinition positionVariable, Block block)
+    private static void generateSetGroupIdFromGroupIdsBlock(FieldDefinition stateField, Variable positionVariable, Block block)
     {
         block.comment("state.setGroupId(groupIdsBlock.getGroupId(position))")
                 .pushThis()
@@ -529,7 +529,7 @@ public class AccumulatorCompiler
             generateEnsureCapacity(stateField, body);
         }
 
-        LocalVariableDefinition positionVariable = context.declareVariable(int.class, "position");
+        Variable positionVariable = context.declareVariable(int.class, "position");
 
         Block loopBody = new Block(context)
                 .comment("<intermediate>(state, ...)")
@@ -561,9 +561,9 @@ public class AccumulatorCompiler
 
     // Generates a for-loop with a local variable named "position" defined, with the current position in the block,
     // loopBody will only be executed for non-null positions in the Block
-    private static Block generateBlockNonNullPositionForLoop(CompilerContext context, LocalVariableDefinition positionVariable, Block loopBody)
+    private static Block generateBlockNonNullPositionForLoop(CompilerContext context, Variable positionVariable, Block loopBody)
     {
-        LocalVariableDefinition rowsVariable = context.declareVariable(int.class, "rows");
+        Variable rowsVariable = context.declareVariable(int.class, "rows");
 
         Block block = new Block(context)
                 .getVariable("block")

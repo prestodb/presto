@@ -19,10 +19,10 @@ import com.facebook.presto.byteCode.ClassInfoLoader;
 import com.facebook.presto.byteCode.CompilerContext;
 import com.facebook.presto.byteCode.DumpByteCodeVisitor;
 import com.facebook.presto.byteCode.DynamicClassLoader;
-import com.facebook.presto.byteCode.LocalVariableDefinition;
 import com.facebook.presto.byteCode.MethodDefinition;
 import com.facebook.presto.byteCode.ParameterizedType;
 import com.facebook.presto.byteCode.SmartClassWriter;
+import com.facebook.presto.byteCode.Variable;
 import com.facebook.presto.byteCode.instruction.LabelNode;
 import com.facebook.presto.operator.PagesIndex;
 import com.facebook.presto.operator.PagesIndexComparator;
@@ -171,7 +171,7 @@ public class OrderingCompiler
                 arg("leftPosition", int.class),
                 arg("rightPosition", int.class));
 
-        LocalVariableDefinition valueAddresses = compilerContext.declareVariable(LongArrayList.class, "valueAddresses");
+        Variable valueAddresses = compilerContext.declareVariable(LongArrayList.class, "valueAddresses");
         compareToMethod
                 .getBody()
                 .comment("LongArrayList valueAddresses = pagesIndex.valueAddresses")
@@ -179,7 +179,7 @@ public class OrderingCompiler
                 .invokeVirtual(PagesIndex.class, "getValueAddresses", LongArrayList.class)
                 .putVariable(valueAddresses);
 
-        LocalVariableDefinition leftPageAddress = compilerContext.declareVariable(long.class, "leftPageAddress");
+        Variable leftPageAddress = compilerContext.declareVariable(long.class, "leftPageAddress");
         compareToMethod
                 .getBody()
                 .comment("long leftPageAddress = valueAddresses.getLong(leftPosition)")
@@ -188,7 +188,7 @@ public class OrderingCompiler
                 .invokeVirtual(LongArrayList.class, "getLong", long.class, int.class)
                 .putVariable(leftPageAddress);
 
-        LocalVariableDefinition leftBlockIndex = compilerContext.declareVariable(int.class, "leftBlockIndex");
+        Variable leftBlockIndex = compilerContext.declareVariable(int.class, "leftBlockIndex");
         compareToMethod
                 .getBody()
                 .comment("int leftBlockIndex = decodeSliceIndex(leftPageAddress)")
@@ -196,7 +196,7 @@ public class OrderingCompiler
                 .invokeStatic(SyntheticAddress.class, "decodeSliceIndex", int.class, long.class)
                 .putVariable(leftBlockIndex);
 
-        LocalVariableDefinition leftBlockPosition = compilerContext.declareVariable(int.class, "leftBlockPosition");
+        Variable leftBlockPosition = compilerContext.declareVariable(int.class, "leftBlockPosition");
         compareToMethod
                 .getBody()
                 .comment("int leftBlockPosition = decodePosition(leftPageAddress)")
@@ -204,7 +204,7 @@ public class OrderingCompiler
                 .invokeStatic(SyntheticAddress.class, "decodePosition", int.class, long.class)
                 .putVariable(leftBlockPosition);
 
-        LocalVariableDefinition rightPageAddress = compilerContext.declareVariable(long.class, "rightPageAddress");
+        Variable rightPageAddress = compilerContext.declareVariable(long.class, "rightPageAddress");
         compareToMethod
                 .getBody()
                 .comment("long rightPageAddress = valueAddresses.getLong(rightPosition);")
@@ -213,7 +213,7 @@ public class OrderingCompiler
                 .invokeVirtual(LongArrayList.class, "getLong", long.class, int.class)
                 .putVariable(rightPageAddress);
 
-        LocalVariableDefinition rightBlockIndex = compilerContext.declareVariable(int.class, "rightBlockIndex");
+        Variable rightBlockIndex = compilerContext.declareVariable(int.class, "rightBlockIndex");
         compareToMethod
                 .getBody()
                 .comment("int rightBlockIndex = decodeSliceIndex(rightPageAddress)")
@@ -221,7 +221,7 @@ public class OrderingCompiler
                 .invokeStatic(SyntheticAddress.class, "decodeSliceIndex", int.class, long.class)
                 .putVariable(rightBlockIndex);
 
-        LocalVariableDefinition rightBlockPosition = compilerContext.declareVariable(int.class, "rightBlockPosition");
+        Variable rightBlockPosition = compilerContext.declareVariable(int.class, "rightBlockPosition");
         compareToMethod
                 .getBody()
                 .comment("int rightBlockPosition = decodePosition(rightPageAddress)")
