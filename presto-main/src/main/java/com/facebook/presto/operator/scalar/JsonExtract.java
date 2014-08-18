@@ -19,7 +19,6 @@ import com.fasterxml.jackson.core.JsonParseException;
 import com.fasterxml.jackson.core.JsonParser;
 import com.fasterxml.jackson.core.JsonToken;
 import com.fasterxml.jackson.core.io.SerializedString;
-import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Charsets;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
@@ -28,11 +27,8 @@ import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 
 import java.io.IOException;
-import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
-import static com.facebook.presto.util.Failures.checkCondition;
 import static com.fasterxml.jackson.core.JsonFactory.Feature.CANONICALIZE_FIELD_NAMES;
 import static com.fasterxml.jackson.core.JsonToken.END_ARRAY;
 import static com.fasterxml.jackson.core.JsonToken.END_OBJECT;
@@ -40,9 +36,7 @@ import static com.fasterxml.jackson.core.JsonToken.FIELD_NAME;
 import static com.fasterxml.jackson.core.JsonToken.START_ARRAY;
 import static com.fasterxml.jackson.core.JsonToken.START_OBJECT;
 import static com.fasterxml.jackson.core.JsonToken.VALUE_NULL;
-import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
-import static com.google.common.base.Strings.isNullOrEmpty;
 
 /**
  * Extracts values from JSON
@@ -149,64 +143,13 @@ public final class JsonExtract
         }
     }
 
-    @VisibleForTesting
-    public static ImmutableList<Object> tokenizePath(String path)
-    {
-        checkCondition(!isNullOrEmpty(path), INVALID_FUNCTION_ARGUMENT, "Invalid JSON path: '%s'", path);
-        checkCondition(path.charAt(0) == '$', INVALID_FUNCTION_ARGUMENT, "JSON path must start with '$': '%s'", path);
-
-        if (path.length() == 1) {
-            return ImmutableList.of();
-        }
-
-        ImmutableList.Builder<Object> tokens = ImmutableList.builder();
-        Matcher matcher = PATH_TOKEN.matcher(path).region(1, path.length());
-        int lastMatchEnd = 1;
-        while (matcher.find()) {
-            checkCondition(lastMatchEnd == matcher.start(), INVALID_FUNCTION_ARGUMENT, "Invalid JSON path: '%s'", path);
-            lastMatchEnd = matcher.end();
-
-            // token is in either the first, second, or third group
-            String token = matcher.group(1);
-            if (token == null) {
-                token = matcher.group(2);
-            }
-            if (token == null) {
-                token = matcher.group(3);
-            }
-
-            if (Character.isDigit(token.charAt(0))) {
-                tokens.add(Integer.parseInt(token));
-            }
-            else {
-                // strip quotes
-                if (token.charAt(0) == '"') {
-                    token = token.substring(1, token.length() - 1);
-                }
-                checkCondition(token.indexOf('"') < 0, INVALID_FUNCTION_ARGUMENT, "JSON path token contains a quote: '%s'", path);
-                tokens.add(token);
-            }
-        }
-        // part of the stream did not match
-        checkCondition(lastMatchEnd == path.length(), INVALID_FUNCTION_ARGUMENT, "Invalid JSON path: '%s'", path);
-        return tokens.build();
-    }
-
     public static <T> JsonExtractor<T> generateExtractor(String path, JsonExtractor<T> rootExtractor)
     {
-        ImmutableList<Object> tokens = tokenizePath(path);
+        ImmutableList<String> tokens = ImmutableList.copyOf(new JsonPathTokenizer(path));
 
         JsonExtractor<T> jsonExtractor = rootExtractor;
-        for (Object token : tokens.reverse()) {
-            if (token instanceof String) {
-                jsonExtractor = new ObjectFieldJsonExtractor<>((String) token, jsonExtractor);
-            }
-            else if (token instanceof Integer) {
-                jsonExtractor = new ArrayElementJsonExtractor<>((Integer) token, jsonExtractor);
-            }
-            else {
-                throw new IllegalStateException("Unsupported JSON path token type " + token.getClass().getName());
-            }
+        for (String token : tokens.reverse()) {
+            jsonExtractor = new ObjectFieldJsonExtractor<>(token, jsonExtractor);
         }
         return jsonExtractor;
     }
@@ -214,7 +157,7 @@ public final class JsonExtract
     public interface JsonExtractor<T>
     {
         /**
-         * Executes the extraction on the existing content of the JasonParser and outputs the match.
+         * Executes the extraction on the existing content of the JsonParser and outputs the match.
          * <p/>
          * Notes:
          * <ul>
@@ -233,21 +176,34 @@ public final class JsonExtract
     {
         private final SerializedString fieldName;
         private final JsonExtractor<? extends T> delegate;
+        private final int index;
 
         public ObjectFieldJsonExtractor(String fieldName, JsonExtractor<? extends T> delegate)
         {
             this.fieldName = new SerializedString(checkNotNull(fieldName, "fieldName is null"));
             this.delegate = checkNotNull(delegate, "delegate is null");
+
+            this.index = tryParseInt(fieldName, -1);
         }
 
         @Override
         public T extract(JsonParser jsonParser)
                 throws IOException
         {
-            if (jsonParser.getCurrentToken() != START_OBJECT) {
-                throw new JsonParseException("Expected a Json object", jsonParser.getCurrentLocation());
+            if (jsonParser.getCurrentToken() == START_OBJECT) {
+                return processJsonObject(jsonParser);
             }
 
+            if (jsonParser.getCurrentToken() == START_ARRAY) {
+                return processJsonArray(jsonParser);
+            }
+
+            throw new JsonParseException("Expected a JSON object or array", jsonParser.getCurrentLocation());
+        }
+
+        public T processJsonObject(JsonParser jsonParser)
+                throws IOException
+        {
             while (!jsonParser.nextFieldName(fieldName)) {
                 if (!jsonParser.hasCurrentToken()) {
                     throw new JsonParseException("Unexpected end of object", jsonParser.getCurrentLocation());
@@ -263,30 +219,10 @@ public final class JsonExtract
 
             return delegate.extract(jsonParser);
         }
-    }
 
-    public static class ArrayElementJsonExtractor<T>
-            implements JsonExtractor<T>
-    {
-        private final int index;
-        private final JsonExtractor<? extends T> delegate;
-
-        public ArrayElementJsonExtractor(int index, JsonExtractor<? extends T> delegate)
-        {
-            checkArgument(index >= 0, "index must be greater than or equal to zero: %s", index);
-            checkNotNull(delegate, "delegate is null");
-            this.index = index;
-            this.delegate = delegate;
-        }
-
-        @Override
-        public T extract(JsonParser jsonParser)
+        public T processJsonArray(JsonParser jsonParser)
                 throws IOException
         {
-            if (jsonParser.getCurrentToken() != START_ARRAY) {
-                throw new JsonParseException("Expected a Json array", jsonParser.getCurrentLocation());
-            }
-
             int currentIndex = 0;
             while (true) {
                 JsonToken token = jsonParser.nextToken();
@@ -394,5 +330,16 @@ public final class JsonExtract
                 return 0L;
             }
         }
+    }
+
+    private static int tryParseInt(String fieldName, int defaultValue)
+    {
+        int index = defaultValue;
+        try {
+            index = Integer.parseInt(fieldName);
+        }
+        catch (NumberFormatException ignored) {
+        }
+        return index;
     }
 }
