@@ -24,6 +24,7 @@ import com.google.common.collect.ImmutableList;
 
 import java.util.List;
 
+import static com.facebook.presto.type.TypeUtils.hashPosition;
 import static com.google.common.base.Preconditions.checkState;
 
 public final class HashPagePartitionFunction
@@ -115,7 +116,7 @@ public final class HashPagePartitionFunction
             hashCode *= 31;
             Type type = types.get(channel);
             Block block = page.getBlock(channel);
-            hashCode += type.hash(block, position);
+            hashCode += hashPosition(type, block, position);
         }
         // clear the sign bit
         hashCode &= 0x7fff_ffff_ffff_ffffL;

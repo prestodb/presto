@@ -27,6 +27,7 @@ import java.io.Closeable;
 import java.io.IOException;
 import java.io.OutputStream;
 
+import static com.facebook.presto.type.TypeUtils.positionEqualsPosition;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 
@@ -158,7 +159,7 @@ public class BlocksFileWriter
                 if (lastValue == null) {
                     lastValue = value;
                 }
-                else if (!type.equalTo(value, 0, lastValue, 0)) {
+                else if (!positionEqualsPosition(type, value, 0, lastValue, 0)) {
                     runsCount++;
                     lastValue = value;
                 }

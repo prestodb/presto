@@ -26,6 +26,7 @@ import io.airlift.slice.SliceInput;
 import org.testng.annotations.Test;
 
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
+import static com.facebook.presto.type.TypeUtils.positionEqualsPosition;
 import static io.airlift.testing.Assertions.assertInstanceOf;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
@@ -46,7 +47,7 @@ public class TestRunLengthEncodedBlockSerde
         RunLengthBlockEncoding blockEncoding = new RunLengthBlockEncoding(new VariableWidthBlockEncoding());
         blockEncoding.writeBlock(sliceOutput, expectedBlock);
         RunLengthEncodedBlock actualBlock = blockEncoding.readBlock(sliceOutput.slice().getInput());
-        assertTrue(VARCHAR.equalTo(actualBlock, 0, expectedBlock, 0));
+        assertTrue(positionEqualsPosition(VARCHAR, actualBlock, 0, expectedBlock, 0));
         BlockAssertions.assertBlockEquals(VARCHAR, actualBlock, expectedBlock);
     }
 
@@ -75,21 +76,21 @@ public class TestRunLengthEncodedBlockSerde
         Block block = blockEncoding.readBlock(sliceInput);
         assertInstanceOf(block, RunLengthEncodedBlock.class);
         RunLengthEncodedBlock rleBlock = (RunLengthEncodedBlock) block;
-        assertTrue(VARCHAR.equalTo(rleBlock, 0, expectedBlock, 0));
+        assertTrue(positionEqualsPosition(VARCHAR, rleBlock, 0, expectedBlock, 0));
         assertEquals(rleBlock.getPositionCount(), 2);
         assertEquals(VARCHAR.getSlice(rleBlock, 0).toStringUtf8(), "alice");
 
         block = blockEncoding.readBlock(sliceInput);
         assertInstanceOf(block, RunLengthEncodedBlock.class);
         rleBlock = (RunLengthEncodedBlock) block;
-        assertTrue(VARCHAR.equalTo(rleBlock, 0, expectedBlock, 2));
+        assertTrue(positionEqualsPosition(VARCHAR, rleBlock, 0, expectedBlock, 2));
         assertEquals(rleBlock.getPositionCount(), 4);
         assertEquals(VARCHAR.getSlice(rleBlock, 0).toStringUtf8(), "bob");
 
         block = blockEncoding.readBlock(sliceInput);
         assertInstanceOf(block, RunLengthEncodedBlock.class);
         rleBlock = (RunLengthEncodedBlock) block;
-        assertTrue(VARCHAR.equalTo(rleBlock, 0, expectedBlock, 6));
+        assertTrue(positionEqualsPosition(VARCHAR, rleBlock, 0, expectedBlock, 6));
         assertEquals(rleBlock.getPositionCount(), 6);
         assertEquals(VARCHAR.getSlice(rleBlock, 0).toStringUtf8(), "charlie");
 
