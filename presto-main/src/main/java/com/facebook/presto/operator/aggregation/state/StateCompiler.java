@@ -42,6 +42,7 @@ import io.airlift.slice.SizeOf;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import org.objectweb.asm.ClassWriter;
+import org.openjdk.jol.info.ClassLayout;
 
 import java.lang.annotation.Annotation;
 import java.lang.reflect.InvocationTargetException;
@@ -58,6 +59,7 @@ import java.util.concurrent.atomic.AtomicLong;
 import static com.facebook.presto.byteCode.Access.FINAL;
 import static com.facebook.presto.byteCode.Access.PRIVATE;
 import static com.facebook.presto.byteCode.Access.PUBLIC;
+import static com.facebook.presto.byteCode.Access.STATIC;
 import static com.facebook.presto.byteCode.Access.a;
 import static com.facebook.presto.byteCode.NamedParameterDefinition.arg;
 import static com.facebook.presto.byteCode.ParameterizedType.type;
@@ -435,14 +437,31 @@ public class StateCompiler
         ClassDefinition definition = new ClassDefinition(new CompilerContext(null),
                 a(PUBLIC, FINAL),
                 typeFromPathName("Single" + clazz.getSimpleName() + "_" + CLASS_ID.incrementAndGet()),
-                type(AbstractAccumulatorState.class),
+                type(Object.class),
                 type(clazz));
+
+        // Store class size in static field
+        FieldDefinition classSize = definition.declareField(a(PRIVATE, STATIC, FINAL), "CLASS_SIZE", long.class);
+        definition.getClassInitializer()
+                .getBody()
+                .comment("CLASS_SIZE = ClassLayout.parseClass(%s.class).instanceSize()", definition.getName())
+                .push(definition.getType())
+                .invokeStatic(ClassLayout.class, "parseClass", ClassLayout.class, Class.class)
+                .invokeVirtual(ClassLayout.class, "instanceSize", int.class)
+                .intToLong()
+                .putStaticField(classSize);
+
+        // Add getter for class size
+        definition.declareMethod(new CompilerContext(null), a(PUBLIC), "getEstimatedSize", type(long.class))
+                .getBody()
+                .getStaticField(classSize)
+                .retLong();
 
         // Generate constructor
         Block constructor = definition.declareConstructor(new CompilerContext(null), a(PUBLIC))
                 .getBody()
                 .pushThis()
-                .invokeConstructor(AbstractAccumulatorState.class);
+                .invokeConstructor(Object.class);
 
         // Generate fields
         List<StateField> fields = enumerateFields(clazz);
