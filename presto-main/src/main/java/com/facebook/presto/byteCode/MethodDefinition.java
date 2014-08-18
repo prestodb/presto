@@ -102,7 +102,7 @@ public class MethodDefinition
         }));
 
         if (!access.contains(STATIC)) {
-            getCompilerContext().declareThisVariable(type(Object.class));
+            getCompilerContext().declareThisVariable(declaringClass.getType());
         }
         int argId = 0;
         for (NamedParameterDefinition parameter : parameters) {
