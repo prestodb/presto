@@ -17,6 +17,7 @@ import com.facebook.presto.byteCode.Block;
 import com.facebook.presto.byteCode.ByteCodeNode;
 import com.facebook.presto.byteCode.CompilerContext;
 import com.facebook.presto.byteCode.control.IfStatement;
+import com.facebook.presto.byteCode.expression.ByteCodeExpression;
 import com.facebook.presto.byteCode.instruction.LabelNode;
 import com.facebook.presto.metadata.FunctionInfo;
 import com.facebook.presto.metadata.Signature;
@@ -26,11 +27,14 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
 import com.google.common.primitives.Primitives;
 
+import java.lang.invoke.MethodHandle;
+import java.lang.invoke.MethodHandles;
 import java.lang.invoke.MethodType;
 import java.util.ArrayList;
 import java.util.List;
 
 import static com.facebook.presto.byteCode.OpCodes.NOP;
+import static com.facebook.presto.byteCode.expression.ByteCodeExpression.invokeDynamic;
 import static java.lang.String.format;
 
 public class ByteCodeUtils
@@ -126,13 +130,21 @@ public class ByteCodeUtils
         throw new UnsupportedOperationException("not yet implemented: " + unboxedType);
     }
 
-    public static ByteCodeNode loadConstant(CompilerContext context, Binding binding)
+    public static ByteCodeExpression invokeMethod(CompilerContext context, CallSiteBinder callSiteBinder, MethodHandle method)
     {
-        return new Block(context)
-                .invokeDynamic(
-                        "constant_" + binding.getBindingId(),
-                        binding.getType(),
-                        binding.getBindingId());
+        Binding binding = callSiteBinder.bind(method);
+        return invokeDynamic("call_" + binding.getBindingId(), binding.getType(), context.getDefaultBootstrapMethod(), binding.getBindingId());
+    }
+
+    public static ByteCodeExpression loadConstant(CompilerContext context, CallSiteBinder callSiteBinder, Object constant, Class<?> type)
+    {
+        Binding binding = callSiteBinder.bind(MethodHandles.constant(type, constant));
+        return loadConstant(context, binding);
+    }
+
+    public static ByteCodeExpression loadConstant(CompilerContext context, Binding binding)
+    {
+        return invokeDynamic("constant_" + binding.getBindingId(), binding.getType(), context.getDefaultBootstrapMethod(), binding.getBindingId());
     }
 
     public static ByteCodeNode generateInvocation(CompilerContext context, FunctionInfo function, ByteCodeNode getSessionByteCode, List<ByteCodeNode> arguments, Binding binding)
