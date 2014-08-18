@@ -20,6 +20,7 @@ import com.facebook.presto.spi.block.BlockEncoding;
 import com.facebook.presto.spi.type.Type;
 import io.airlift.slice.SliceOutput;
 
+import static com.facebook.presto.type.TypeUtils.positionEqualsPosition;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 
@@ -54,7 +55,7 @@ public class RunLengthEncoder
             if (lastValue == null) {
                 lastValue = block.getSingleValueBlock(position);
             }
-            else if (!type.equalTo(lastValue, 0, block, position)) {
+            else if (!positionEqualsPosition(type, lastValue, 0, block, position)) {
                 writeBlock();
                 lastValue = block.getSingleValueBlock(position);
             }

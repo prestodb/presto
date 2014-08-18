@@ -33,6 +33,8 @@ import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
+import static com.facebook.presto.type.TypeUtils.hashPosition;
+import static com.facebook.presto.type.TypeUtils.positionEqualsPosition;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
 
@@ -64,7 +66,7 @@ public class TestJoinCompiler
 
             for (int leftBlockPosition = 0; leftBlockPosition < leftBlock.getPositionCount(); leftBlockPosition++) {
                 // hash code of position must match block hash
-                assertEquals(hashStrategy.hashPosition(leftBlockIndex, leftBlockPosition), VARCHAR.hash(leftBlock, leftBlockPosition));
+                assertEquals(hashStrategy.hashPosition(leftBlockIndex, leftBlockPosition), hashPosition(VARCHAR, leftBlock, leftBlockPosition));
 
                 // position must be equal to itself
                 assertTrue(hashStrategy.positionEqualsPosition(leftBlockIndex, leftBlockPosition, leftBlockIndex, leftBlockPosition));
@@ -75,7 +77,7 @@ public class TestJoinCompiler
                     for (int rightBlockPosition = 0; rightBlockPosition < rightBlock.getPositionCount(); rightBlockPosition++) {
                         assertEquals(
                                 hashStrategy.positionEqualsPosition(leftBlockIndex, leftBlockPosition, rightBlockIndex, rightBlockPosition),
-                                VARCHAR.equalTo(leftBlock, leftBlockPosition, rightBlock, rightBlockPosition));
+                                positionEqualsPosition(VARCHAR, leftBlock, leftBlockPosition, rightBlock, rightBlockPosition));
                     }
                 }
 
@@ -84,7 +86,7 @@ public class TestJoinCompiler
                     for (int position = 0; position < rightBlock.getPositionCount(); position++) {
                         assertEquals(
                                 hashStrategy.positionEqualsRow(leftBlockIndex, leftBlockPosition, position, rightBlock),
-                                VARCHAR.equalTo(leftBlock, leftBlockPosition, rightBlock, position));
+                                positionEqualsPosition(VARCHAR, leftBlock, leftBlockPosition, rightBlock, position));
                     }
                 }
 

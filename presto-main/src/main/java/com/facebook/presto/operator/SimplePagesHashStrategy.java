@@ -15,6 +15,7 @@ package com.facebook.presto.operator;
 
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.type.TypeUtils;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
@@ -62,7 +63,7 @@ public class SimplePagesHashStrategy
         for (int hashChannel : hashChannels) {
             Type type = types.get(hashChannel);
             Block block = channels.get(hashChannel).get(blockIndex);
-            result = result * 31 + hash(type, block, position);
+            result = result * 31 + TypeUtils.hashPosition(type, block, position);
         }
         return result;
     }
@@ -75,17 +76,9 @@ public class SimplePagesHashStrategy
             int hashChannel = hashChannels.get(i);
             Type type = types.get(hashChannel);
             Block block = blocks[i];
-            result = result * 31 + hash(type, block, position);
+            result = result * 31 + TypeUtils.hashPosition(type, block, position);
         }
         return result;
-    }
-
-    private static int hash(Type type, Block block, int position)
-    {
-        if (block.isNull(position)) {
-            return 0;
-        }
-        return type.hash(block, position);
     }
 
     @Override
@@ -96,7 +89,7 @@ public class SimplePagesHashStrategy
             Type type = types.get(hashChannel);
             Block leftBlock = channels.get(hashChannel).get(leftBlockIndex);
             Block rightBlock = rightBlocks[i];
-            if (!equalsTo(type, leftPosition, leftBlock, rightPosition, rightBlock)) {
+            if (!TypeUtils.positionEqualsPosition(type, leftBlock, leftPosition, rightBlock, rightPosition)) {
                 return false;
             }
         }
@@ -111,21 +104,11 @@ public class SimplePagesHashStrategy
             List<Block> channel = channels.get(hashChannel);
             Block leftBlock = channel.get(leftBlockIndex);
             Block rightBlock = channel.get(rightBlockIndex);
-            if (!equalsTo(type, leftPosition, leftBlock, rightPosition, rightBlock)) {
+            if (!TypeUtils.positionEqualsPosition(type, leftBlock, leftPosition, rightBlock, rightPosition)) {
                 return false;
             }
         }
 
         return true;
-    }
-
-    public static boolean equalsTo(Type type, int leftPosition, Block leftBlock, int rightPosition, Block rightBlock)
-    {
-        boolean leftIsNull = leftBlock.isNull(leftPosition);
-        boolean rightIsNull = rightBlock.isNull(rightPosition);
-        if (leftIsNull || rightIsNull) {
-            return leftIsNull && rightIsNull;
-        }
-        return type.equalTo(leftBlock, leftPosition, rightBlock, rightPosition);
     }
 }
