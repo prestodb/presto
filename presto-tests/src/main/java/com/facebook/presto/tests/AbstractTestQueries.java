@@ -837,6 +837,20 @@ public abstract class AbstractTestQueries
     }
 
     @Test
+    public void testGroupByWithNulls()
+            throws Exception
+    {
+        assertQuery("SELECT key, COUNT(*) FROM (" +
+                "SELECT CASE " +
+                "  WHEN orderkey % 3 = 0 THEN NULL " +
+                "  WHEN orderkey % 5 = 0 THEN 0 " +
+                "  ELSE orderkey " +
+                "  END as key " +
+                "FROM lineitem) " +
+                "GROUP BY key");
+    }
+
+    @Test
     public void testHistogram()
             throws Exception
     {
