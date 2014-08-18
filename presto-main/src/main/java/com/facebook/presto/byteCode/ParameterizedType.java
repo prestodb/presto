@@ -14,7 +14,6 @@
 package com.facebook.presto.byteCode;
 
 import com.google.common.base.Function;
-import com.google.common.base.Preconditions;
 import com.google.common.base.Predicate;
 import com.google.common.collect.ImmutableList;
 import org.objectweb.asm.Type;
@@ -24,84 +23,86 @@ import javax.annotation.concurrent.Immutable;
 
 import java.util.List;
 
+import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkNotNull;
+
 @Immutable
 public class ParameterizedType
 {
     public static ParameterizedType typeFromJavaClassName(String className)
     {
-        Preconditions.checkNotNull(className, "type is null");
+        checkNotNull(className, "type is null");
         if (className.endsWith("/")) {
-            Preconditions.checkArgument(!className.endsWith(";"), "Invalid class name %s", className);
+            checkArgument(!className.endsWith(";"), "Invalid class name %s", className);
         }
         return new ParameterizedType(className.replace('.', '/'));
     }
 
     public static ParameterizedType typeFromPathName(String className)
     {
-        Preconditions.checkNotNull(className, "type is null");
+        checkNotNull(className, "type is null");
         if (className.indexOf(".") > 0) {
-            Preconditions.checkArgument(!className.endsWith(";"), "Invalid class name %s", className);
+            checkArgument(!className.endsWith(";"), "Invalid class name %s", className);
         }
         return new ParameterizedType(className);
     }
 
     public static ParameterizedType type(Type type)
     {
-        Preconditions.checkNotNull(type, "type is null");
+        checkNotNull(type, "type is null");
         return new ParameterizedType(type.getInternalName());
     }
 
     public static ParameterizedType type(Class<?> type)
     {
-        Preconditions.checkNotNull(type, "type is null");
+        checkNotNull(type, "type is null");
         return new ParameterizedType(type);
     }
 
     public static ParameterizedType type(Class<?> type, Class<?>... parameters)
     {
-        Preconditions.checkNotNull(type, "type is null");
+        checkNotNull(type, "type is null");
         return new ParameterizedType(type, parameters);
     }
 
     public static ParameterizedType type(Class<?> type, ParameterizedType... parameters)
     {
-        Preconditions.checkNotNull(type, "type is null");
+        checkNotNull(type, "type is null");
         return new ParameterizedType(type, parameters);
     }
 
     private final String type;
     private final String className;
+    private final String simpleName;
     private final List<String> parameters;
 
     public ParameterizedType(String className)
     {
-        Preconditions.checkNotNull(className, "className is null");
-        if (className.indexOf(".") > 0) {
-            Preconditions.checkArgument(!className.endsWith(";"), "Invalid class name %s", className);
-        }
-
-        if (className.endsWith(";")) {
-            Preconditions.checkArgument(!className.endsWith(";"), "Invalid class name %s", className);
-        }
+        checkNotNull(className, "className is null");
+        checkArgument(!className.contains("."), "Invalid class name %s", className);
+        checkArgument(!className.endsWith(";"), "Invalid class name %s", className);
 
         this.className = className;
+        this.simpleName = className.substring(className.lastIndexOf("/") + 1);
         this.type = "L" + className + ";";
         this.parameters = ImmutableList.of();
     }
 
     private ParameterizedType(Class<?> type)
     {
-        Preconditions.checkNotNull(type, "type is null");
+        checkNotNull(type, "type is null");
         this.type = toInternalIdentifier(type);
         this.className = getPathName(type);
+        this.simpleName = type.getSimpleName();
         this.parameters = ImmutableList.of();
     }
 
     private ParameterizedType(Class<?> type, Class<?>... parameters)
     {
-        Preconditions.checkNotNull(type, "type is null");
+        checkNotNull(type, "type is null");
         this.type = toInternalIdentifier(type);
         this.className = getPathName(type);
+        this.simpleName = type.getSimpleName();
 
         ImmutableList.Builder<String> builder = ImmutableList.builder();
         for (Class<?> parameter : parameters) {
@@ -112,9 +113,10 @@ public class ParameterizedType
 
     private ParameterizedType(Class<?> type, ParameterizedType... parameters)
     {
-        Preconditions.checkNotNull(type, "type is null");
+        checkNotNull(type, "type is null");
         this.type = toInternalIdentifier(type);
         this.className = getPathName(type);
+        this.simpleName = type.getSimpleName();
 
         ImmutableList.Builder<String> builder = ImmutableList.builder();
         for (ParameterizedType parameter : parameters) {
@@ -133,6 +135,11 @@ public class ParameterizedType
         return className.replace('/', '.');
     }
 
+    public String getSimpleName()
+    {
+        return simpleName;
+    }
+
     public String getType()
     {
         return type;
@@ -145,7 +152,7 @@ public class ParameterizedType
 
     public String getGenericSignature()
     {
-        final StringBuilder sb = new StringBuilder();
+        StringBuilder sb = new StringBuilder();
         sb.append('L').append(className);
         if (!parameters.isEmpty()) {
             sb.append("<");
