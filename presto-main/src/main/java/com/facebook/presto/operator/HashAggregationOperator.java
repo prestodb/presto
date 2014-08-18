@@ -300,13 +300,8 @@ public class HashAggregationOperator
                     pageBuilder.reset();
 
                     List<Type> types = groupByHash.getTypes();
-                    BlockBuilder[] groupByBlockBuilders = new BlockBuilder[types.size()];
-                    for (int i = 0; i < types.size(); i++) {
-                        groupByBlockBuilders[i] = pageBuilder.getBlockBuilder(i);
-                    }
-
                     while (!pageBuilder.isFull() && groupId < groupCount) {
-                        groupByHash.appendValuesTo(groupId, groupByBlockBuilders);
+                        groupByHash.appendValuesTo(groupId, pageBuilder, 0);
 
                         for (int i = 0; i < aggregators.size(); i++) {
                             Aggregator aggregator = aggregators.get(i);

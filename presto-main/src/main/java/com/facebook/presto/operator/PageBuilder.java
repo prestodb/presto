@@ -87,13 +87,14 @@ public class PageBuilder
         return blockBuilders.length == 0 ? declaredPositions == 0 : blockBuilderStatus.isEmpty();
     }
 
-    public long getSize()
+    public int getPositionCount()
     {
-        long sizeInBytes = 0;
-        for (BlockBuilder blockBuilder : blockBuilders) {
-            sizeInBytes += blockBuilder.getSizeInBytes();
-        }
-        return sizeInBytes;
+        return declaredPositions;
+    }
+
+    public long getSizeInBytes()
+    {
+        return blockBuilderStatus.getSizeInBytes();
     }
 
     public Page build()

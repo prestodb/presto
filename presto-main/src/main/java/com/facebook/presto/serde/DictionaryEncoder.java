@@ -15,6 +15,7 @@ package com.facebook.presto.serde;
 
 import com.facebook.presto.block.dictionary.DictionaryBlockEncoding;
 import com.facebook.presto.operator.GroupByHash;
+import com.facebook.presto.operator.PageBuilder;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
@@ -63,10 +64,10 @@ public class DictionaryEncoder
         checkState(!finished, "already finished");
         finished = true;
 
-        BlockBuilder blockBuilder = type.createBlockBuilder(new BlockBuilderStatus());
+        PageBuilder pageBuilder = new PageBuilder(ImmutableList.of(type));
         for (int groupId = 0; groupId < dictionaryBuilder.getGroupCount(); groupId++) {
-            dictionaryBuilder.appendValuesTo(groupId, blockBuilder);
+            dictionaryBuilder.appendValuesTo(groupId, pageBuilder, 0);
         }
-        return new DictionaryBlockEncoding(blockBuilder.build(), idWriter.finish());
+        return new DictionaryBlockEncoding(pageBuilder.build().getBlock(0), idWriter.finish());
     }
 }

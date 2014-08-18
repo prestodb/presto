@@ -71,6 +71,11 @@ public class BlockBuilderStatus
         currentSize += bytes;
     }
 
+    public int getSizeInBytes()
+    {
+        return currentSize;
+    }
+
     @Override
     public String toString()
     {
